@@ -332,8 +332,8 @@ def _build_pick_ownership(
     sleeper_league_id: str,
     roster_ids: list[int],
     num_rounds: int = 6,
-    num_years: int = 3,
     getter=None,
+    league_season: Any = None,
 ) -> dict[int, list[dict[str, Any]]]:
     """Return ``{rosterId: [pickDetail, ...]}`` — which future picks
     each roster currently owns based on the league's
@@ -352,18 +352,27 @@ def _build_pick_ownership(
 
     if not roster_ids:
         return {}
-    current_year = _dt.datetime.now(_dt.timezone.utc).year
-    years = [current_year + y for y in range(num_years)]
-    # #1414: a class THIS league has drafted and rostered is no longer an
-    # owned pick.  League-scoped verdict from the league's persisted
-    # draft-class snapshot (written off the request path by the warm pass);
-    # no snapshot → unknown → every year kept.
+    # #1414 + Wave A: which seasons a league owns picks in is the
+    # league-scoped canonical answer (``pick_lifecycle.league_draft_years``)
+    # — the SAME horizon the scraper publishes.  This builder used to seed
+    # three calendar years where the scraper seeded four, so the overlay
+    # never carried the third future class.  League-scoped verdict from the
+    # league's persisted draft-class snapshot (written off the request path
+    # by the warm pass); no snapshot → unknown → nothing retired.
     try:
-        from src.api.draft_class_evidence import active_seasons_for_league
+        from src.api.draft_class_evidence import league_draft_years_for
 
-        years = active_seasons_for_league(sleeper_league_id, years)
+        years = list(
+            league_draft_years_for(
+                sleeper_league_id, league_season=league_season
+            ).owned_pick_seasons
+        )
     except Exception as exc:  # noqa: BLE001 — unknown never retires
         log.warning("sleeper_overlay: draft-class lifecycle unavailable: %s", exc)
+        from src.identity.pick_lifecycle import OWNED_PICK_HORIZON_CLASSES
+
+        current_year = _dt.datetime.now(_dt.timezone.utc).year
+        years = [current_year + y for y in range(OWNED_PICK_HORIZON_CLASSES)]
 
     traded = (getter or _http_get_json)(
         f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
@@ -482,7 +491,21 @@ def _build_teams_block(
                 roster_ids.append(int(r["roster_id"]))
             except (TypeError, ValueError):
                 continue
-    pick_ownership = _build_pick_ownership(sleeper_league_id, roster_ids, getter=getter)
+    # Same league facts the scraper reads: Sleeper's own season (a floor on
+    # the draft-year anchor) and its configured rookie-draft round count —
+    # seeding 6 rounds for a 4-round league published picks that do not exist.
+    _pick_kwargs: dict[str, Any] = {
+        "league_season": league_info.get("season") if isinstance(league_info, dict) else None
+    }
+    try:
+        _rounds = int((league_settings or {}).get("draft_rounds"))
+        if 1 <= _rounds <= 6:
+            _pick_kwargs["num_rounds"] = _rounds
+    except (TypeError, ValueError):
+        pass
+    pick_ownership = _build_pick_ownership(
+        sleeper_league_id, roster_ids, getter=getter, **_pick_kwargs
+    )
 
     teams: list[dict[str, Any]] = []
     for r in rosters:

@@ -31,11 +31,14 @@ import {
   computeStackAdjustments,
 } from "@/lib/trade-logic";
 import {
-  parsePickAsset,
   pickAuctionDollars,
   buildSlotDollarGrid,
   buildLeagueStacks,
+  ownedPickStackInventory,
+  pickOwnerKeyByAssetId,
   pickStackAnchorYear,
+  stackPickMoves,
+  teamStackKey,
   poolBoardPerDollar,
 } from "@/lib/pick-stack";
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
@@ -359,8 +362,9 @@ export default function TradePage() {
     };
   }, [selectedLeagueKey]);
 
-  // The stack anchors on the UPCOMING draft (lifecycle-owned
-  // ``pickClassLifecycle.firstActiveClass``), not the horizon anchor.
+  // The stack anchors on THIS LEAGUE's upcoming draft — the league-scoped
+  // ``upcomingDraftYear`` the draft-capital payload carries (Wave A) — not
+  // the board's year (``pickClassLifecycle`` / ``currentDraftYear``).
   const pickStackAnchor = useMemo(
     () => pickStackAnchorYear(rawData, draftCapital),
     [rawData, draftCapital],
@@ -659,55 +663,38 @@ export default function TradePage() {
       currentDraftYear: pickStackAnchor,
       boardValueByName,
     };
-    // Future-year picks per team from Sleeper ownership.  Exclude every
-    // year the payload already accounts for in teamTotals so nothing is
-    // double-counted: the workbook path covers only the upcoming draft,
-    // but the Sleeper-derived (non-default-league) path covers BOTH the
-    // current and next season.  ``coveredPickYears`` states this
-    // explicitly; fall back to [the upcoming draft] if it's absent.
-    const coveredYears = new Set(
-      (Array.isArray(draftCapital.coveredPickYears) &&
-      draftCapital.coveredPickYears.length
-        ? draftCapital.coveredPickYears
-        : [pickStackAnchor]
-      )
-        .map(Number)
-        .filter((y) => Number.isFinite(y)),
+    // Every real pick the draft-capital totals do not already count, per
+    // STABLE team key, each exactly once (Wave A): a season in
+    // ``coveredPickYears`` or an assetId already on a draft-capital row is in
+    // teamTotals; a duplicate assetId is not counted twice.  Name-keyed joins
+    // split a team in two (Sleeper team name vs owner first name), and a
+    // missing ``coveredPickYears`` used to re-add the upcoming class.
+    const inventory = ownedPickStackInventory(sleeperTeams, draftCapital, (label) =>
+      resolvePickRow(label, rowByLowerName, pickAliases),
     );
-    const pickRowsByTeam = {};
-    for (const team of sleeperTeams) {
-      const out = [];
-      for (const label of team.picks || []) {
-        const row = resolvePickRow(label, rowByLowerName, pickAliases);
-        if (!row) continue;
-        const parsed = parsePickAsset(row.name);
-        if (!parsed) continue;
-        if (coveredYears.has(parsed.year)) continue;
-        out.push(row.name);
-      }
-      if (out.length) pickRowsByTeam[team.name] = out;
-    }
-    const leagueStacks = buildLeagueStacks(draftCapital, pickRowsByTeam, ctx);
+    const leagueStacks = buildLeagueStacks(draftCapital, inventory.byTeam, ctx);
 
+    // Side -> stable team key, and assetId -> the team that actually holds it.
+    const keyByName = new Map(sleeperTeams.map((t) => [t?.name, teamStackKey(t)]));
+    const sideTeamKeys = sideTeamNames.map((nm) => (nm == null ? null : (keyByName.get(nm) ?? null)));
     const n = sidesWithOverrides.length;
-    const moves = [];
-    sidesWithOverrides.forEach((s, i) => {
-      for (const a of s.assets || []) {
-        if (a.assetClass !== "pick") continue;
-        let to;
-        if (n === 2) {
-          to = 1 - i;
-        } else {
-          const dest = s.destinations?.[tradeEntryKey(a)];
-          to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
-        }
-        if (to == null || to === i || to < 0 || to >= n) continue;
-        moves.push({ from: i, to, dollars: pickAuctionDollars(a.name, ctx) });
-      }
+    // Team-attributed: only an owned pick (assetId) its sending team holds
+    // moves a stack; a generic pick never debits real inventory, and a pick
+    // the side's team does not hold is reported, not moved.
+    const { moves, notOwned } = stackPickMoves(sidesWithOverrides, {
+      sideTeamKeys,
+      ownerKeyByAssetId: pickOwnerKeyByAssetId(sleeperTeams),
+      destinationOf: (i, a) => {
+        if (n === 2) return 1 - i;
+        const dest = sidesWithOverrides[i].destinations?.[tradeEntryKey(a)];
+        const to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
+        return to == null || to < 0 || to >= n ? null : to;
+      },
+      dollarsOf: (a) => pickAuctionDollars(a.name, ctx),
     });
-    if (moves.length === 0) return null;
+    if (moves.length === 0) return notOwned.length ? { notOwned } : null;
     const boardPerDollar = poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound);
-    return { sideTeams: sideTeamNames, leagueStacks, moves, boardPerDollar };
+    return { sideTeams: sideTeamKeys, leagueStacks, moves, boardPerDollar, notOwned };
   }, [
     draftCapital,
     sleeperTeams,
@@ -723,9 +710,12 @@ export default function TradePage() {
 
   // The withdrawn stack effect, per side, for the labelled note only.
   const stackNote = useMemo(
-    () => (stackContext ? computeStackAdjustments(sidesWithOverrides.length, stackContext) : null),
+    () =>
+      stackContext?.moves ? computeStackAdjustments(sidesWithOverrides.length, stackContext) : null,
     [stackContext, sidesWithOverrides.length],
   );
+  // Owned picks a side's team does not hold: named, never moved (Wave A).
+  const stackNotOwned = stackContext?.notOwned?.length ? stackContext.notOwned : null;
   // STACK-NOTE-ONLY:END
 
   // ── Computed totals for all sides ────────────────────────────────────
@@ -1455,13 +1445,16 @@ export default function TradePage() {
     // the side holding more of this team's players is the side it GIVES.
     const request = tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam?.name);
     if (!request) return;
-    const { playersIn, playersOut, picksIn, picksOut } = request;
+    const { playersIn, playersOut, picksIn, picksOut, pickAssetIdsIn, pickAssetIdsOut } =
+      request;
     simulateTrade({
       teamName: selectedTeam?.name,
       playersIn,
       playersOut,
       picksIn,
       picksOut,
+      pickAssetIdsIn,
+      pickAssetIdsOut,
     });
   }, [sides, selectedTeam, teamRosterNames, simulateTrade]);
 
@@ -2129,6 +2122,12 @@ export default function TradePage() {
                 })
                 .join(" · ")}
               . Not included in the totals or verdict.
+            </p>
+          ) : null}
+          {stackNotOwned ? (
+            <p className={styles.controlsNote}>
+              Draft-capital note skips{" "}
+              {stackNotOwned.map((x) => x.label).join(", ")}: not held by the team on that side.
             </p>
           ) : null}
           {/* STACK-NOTE-ONLY:END */}

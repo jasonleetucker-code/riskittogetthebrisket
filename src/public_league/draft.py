@@ -121,7 +121,7 @@ def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[s
     if draft_rounds <= 0:
         draft_rounds = 4
 
-    future_years = _future_seasons(current, count=2)
+    future_years = _owned_pick_seasons(snapshot)
     original_by_rid: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for r in current.rosters:
         try:
@@ -186,13 +186,49 @@ def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[s
     return dict(by_owner)
 
 
-def _future_seasons(current: SeasonSnapshot, count: int = 2) -> list[str]:
-    try:
-        yr = int(current.season)
-    except (TypeError, ValueError):
+def _owned_pick_seasons(snapshot: PublicLeagueSnapshot) -> list[str]:
+    """The seasons this league's picks are inventoried for — the league-scoped
+    canonical answer (``pick_lifecycle.league_draft_years``, Wave A).
+
+    This used to be ``league season + 1, + 2``: it dropped the current class
+    even before its draft had happened and the third future class always, so
+    the public stockpile disagreed with every other surface's inventory.  The
+    evidence comes from the snapshot itself (drafts, their picks, current
+    rosters) — no file read and no fetch.
+    """
+    current = snapshot.current_season
+    if current is None:
         return []
-    # Future picks start the year AFTER the current league season.
-    return [str(yr + i + 1) for i in range(count)]
+    from src.api.draft_class_evidence import league_draft_years_for
+    from src.identity.pick_lifecycle import evidence_from_sleeper
+
+    drafts: list[dict[str, Any]] = []
+    picks_by_draft: dict[str, Any] = {}
+    for season in snapshot.seasons:
+        for d in season.drafts or []:
+            if isinstance(d, dict):
+                drafts.append(d)
+        for did, plist in (season.draft_picks_by_draft or {}).items():
+            picks_by_draft[str(did)] = plist
+    rostered = [
+        str(pid)
+        for r in current.rosters or []
+        if isinstance(r, dict)
+        for pid in (r.get("players") or [])
+        if pid
+    ]
+    evidence = evidence_from_sleeper(
+        league_key=None,
+        sleeper_league_id=current.league_id,
+        drafts=drafts,
+        picks_by_draft_id=picks_by_draft,
+        rostered_player_ids=rostered if current.rosters else None,
+        observed_at=None,
+    )
+    years = league_draft_years_for(
+        current.league_id, league_season=current.season, evidence=evidence
+    )
+    return [str(y) for y in years.owned_pick_seasons]
 
 
 def weighted_stockpile_for_owner(snapshot: PublicLeagueSnapshot, owner_id: str) -> dict[str, Any]:

@@ -123,6 +123,10 @@ __all__ = [
     "first_active_class",
     "is_retired",
     "league_class_lifecycles",
+    "league_draft_anchor_year",
+    "league_draft_years",
+    "LeagueDraftYears",
+    "OWNED_PICK_HORIZON_CLASSES",
     "retired_seasons",
 ]
 
@@ -512,3 +516,107 @@ def first_active_class(anchor_year: int, retired: Iterable[int]) -> int:
     while year in retired_set:
         year += 1
     return year
+
+
+# ── League scope: the ONE answer for a league's draft years (Wave A) ──
+#
+# Two different questions carry the word "draft year", and they are kept
+# separately NAMED rather than merged (owner directive 2026-10-03, Wave A):
+#
+# * BOARD scope (scoring profile) — which pick classes the shared canonical
+#   board still prices: ``current_rookie_draft_year()`` / the contract's
+#   ``currentDraftYear`` horizon anchor / ``pickClassLifecycle`` (retired only
+#   when EVERY served league proves it).  Untouched here.
+# * LEAGUE scope (leagueKey) — THIS league's upcoming rookie draft and the
+#   seasons of picks it owns.  Every league-scoped surface (draft-capital
+#   payloads, the Sleeper overlay's and the scraper's pick ownership, the
+#   public league pick inventory, the /trade stack anchor) reads
+#   :func:`league_draft_years` and nothing else.
+#
+# Before this, five league-scoped surfaces used five rules (Sleeper
+# ``league.season`` + 1 on any complete draft; calendar year stepped past
+# retired classes; calendar-year horizons of 3 and of 4 classes;
+# ``season + 1, + 2``) and the /trade stack anchored on the BOARD's year —
+# measured 2027 on draft capital against 2026 on the stack.
+
+#: How many classes, counted from the anchor year, a league's owned-pick
+#: inventory spans: the anchor year and the three after it.  The same span as
+#: the board's far-future pick horizon (``current + 3``, C1-U6) and as
+#: Sleeper's own tradable window (the current class plus three future
+#: classes); retired classes inside it drop out.  Previously the scraper used
+#: this span and the overlay used one class fewer, so the overlay never
+#: published the third future class the scraper did.
+OWNED_PICK_HORIZON_CLASSES = 4
+
+
+def league_draft_anchor_year(league_season: Any = None, *, calendar_year: int) -> int:
+    """Where a league's draft-year search starts: ``max(calendar, league season)``.
+
+    Both are FLOORS, not retirement verdicts.  A class is drafted inside its
+    own calendar year and inside its own league season, so no class before
+    either can still be upcoming; :func:`first_active_class` then steps past
+    whatever this league has PROVEN retired.  An unknown league season (``None``
+    / unparseable) is simply absent from the max — never 0.
+    """
+    years = [int(calendar_year)]
+    season = _coerce_int(league_season)
+    if season is not None and season > 0:
+        years.append(season)
+    return max(years)
+
+
+@dataclass(frozen=True)
+class LeagueDraftYears:
+    """One league's draft-year facts, all derived from one anchor + one verdict."""
+
+    anchor_year: int
+    upcoming_draft_year: int
+    owned_pick_seasons: tuple[int, ...]
+    retired_seasons: tuple[int, ...]
+    reasons: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "scope": "league",
+            "rule": "src/identity/pick_lifecycle.py::league_draft_years",
+            "anchorYear": self.anchor_year,
+            "upcomingDraftYear": self.upcoming_draft_year,
+            "ownedPickSeasons": list(self.owned_pick_seasons),
+            "retiredSeasons": list(self.retired_seasons),
+            "reasons": list(self.reasons),
+        }
+
+
+def league_draft_years(
+    anchor_year: int,
+    lifecycles: Mapping[int, ClassLifecycle] | None,
+) -> LeagueDraftYears:
+    """THE league-scoped resolver.  Pure.
+
+    ``lifecycles`` is THIS league's verdicts (:func:`league_class_lifecycles`)
+    for at least ``anchor_year .. anchor_year + OWNED_PICK_HORIZON_CLASSES - 1``;
+    ``None`` / empty means no evidence, and no evidence retires nothing.
+
+    * ``upcoming_draft_year`` — the first class at or after the anchor that
+      this league has not retired (:func:`first_active_class`).
+    * ``owned_pick_seasons`` — the horizon window minus retired classes, in
+      order.  Every value lies at or after ``upcoming_draft_year``.
+    """
+    anchor = int(anchor_year)
+    lcs = dict(lifecycles or {})
+    retired = sorted(retired_seasons(lcs))
+    upcoming = first_active_class(anchor, retired)
+    window = range(anchor, anchor + OWNED_PICK_HORIZON_CLASSES)
+    owned = tuple(y for y in window if y not in set(retired) and y >= upcoming)
+    reasons = tuple(
+        f"{s}:{lcs[s].status}"
+        for s in sorted(lcs)
+        if anchor <= s < anchor + OWNED_PICK_HORIZON_CLASSES
+    )
+    return LeagueDraftYears(
+        anchor_year=anchor,
+        upcoming_draft_year=upcoming,
+        owned_pick_seasons=owned,
+        retired_seasons=tuple(y for y in retired if y >= anchor),
+        reasons=reasons,
+    )

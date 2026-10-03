@@ -39,7 +39,11 @@ const PICK_NAME = /\d{4}/;
  * The simulate/analyze body for the selected team.  The side holding more of
  * the team's rostered assets is the side it GIVES; with no match at all it
  * defaults to side A (Swap Sides flips it).  Owned picks send their ownership
- * label so the simulator removes that specific pick.
+ * label AND their canonical owned id (``pickAssetIdsIn`` / ``pickAssetIdsOut``,
+ * parallel to the pick lists, ``null`` for a generic pick): the backend checks
+ * the id against the canonical ownership record, debits the team only for a
+ * pick it actually holds, and reports one it does not (Wave A).  A generic
+ * pick carries no id and never debits a real pick.
  */
 export function tradeRequestForTeam(sides, rosterNames, teamName) {
   if (!Array.isArray(sides) || sides.length !== 2 || !teamName) return null;
@@ -52,17 +56,32 @@ export function tradeRequestForTeam(sides, rosterNames, teamName) {
   const label = (a) => (a.assetId && a.assetLabel ? a.assetLabel : a.name);
   const playersOut = [];
   const picksOut = [];
+  const pickAssetIdsOut = [];
   for (const a of sides[mySide].assets || []) {
-    if (PICK_NAME.test(String(a.name || ""))) picksOut.push(label(a));
-    else playersOut.push(a.name);
+    if (PICK_NAME.test(String(a.name || ""))) {
+      picksOut.push(label(a));
+      pickAssetIdsOut.push(a.assetId ? String(a.assetId) : null);
+    } else playersOut.push(a.name);
   }
   const playersIn = [];
   const picksIn = [];
+  const pickAssetIdsIn = [];
   for (const a of sides[otherSide].assets || []) {
-    if (PICK_NAME.test(String(a.name || ""))) picksIn.push(label(a));
-    else playersIn.push(a.name);
+    if (PICK_NAME.test(String(a.name || ""))) {
+      picksIn.push(label(a));
+      pickAssetIdsIn.push(a.assetId ? String(a.assetId) : null);
+    } else playersIn.push(a.name);
   }
-  return { teamName, playersIn, playersOut, picksIn, picksOut, mySide };
+  return {
+    teamName,
+    playersIn,
+    playersOut,
+    picksIn,
+    picksOut,
+    pickAssetIdsIn,
+    pickAssetIdsOut,
+    mySide,
+  };
 }
 
 /** Identity of one analysis question: trade, team, league and mode. */
@@ -76,6 +95,10 @@ export function analyzeRequestKey(request, leagueKey, useTeamContext) {
     [...request.playersOut].sort(),
     [...request.picksIn].sort(),
     [...request.picksOut].sort(),
+    // The owned-pick ids are part of the question: two picks that share a
+    // label are different trades.
+    (request.pickAssetIdsIn || []).map((x) => x || "").sort(),
+    (request.pickAssetIdsOut || []).map((x) => x || "").sort(),
   ]);
 }
 

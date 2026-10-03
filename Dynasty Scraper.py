@@ -905,7 +905,20 @@ def fetch_sleeper_rosters(league_id):
     draft_rounds = _safe_int((league_settings or {}).get("draft_rounds")) or 4
     draft_rounds = max(1, min(6, draft_rounds))
     current_year = datetime.date.today().year
-    pick_years = [current_year, current_year + 1, current_year + 2, current_year + 3]
+    # The candidate window for draft-slot lookup.  Which of these seasons the
+    # league actually OWNS picks in is decided below by the league-scoped
+    # canonical resolver (``pick_lifecycle.league_draft_years``, Wave A) —
+    # the same answer the Sleeper overlay and draft capital read.
+    from src.identity.pick_lifecycle import (
+        OWNED_PICK_HORIZON_CLASSES,
+        league_draft_anchor_year,
+    )
+
+    _pick_anchor_year = league_draft_anchor_year(
+        (league_info or {}).get("season") if isinstance(league_info, dict) else None,
+        calendar_year=current_year,
+    )
+    pick_years = [_pick_anchor_year + i for i in range(OWNED_PICK_HORIZON_CLASSES)]
 
     # Resolve exact rookie-draft slot (when available) so picks can be
     # represented as 2026 1.03 instead of only Early/Mid/Late style labels.
@@ -990,8 +1003,10 @@ def fetch_sleeper_rosters(league_id):
     draft_class_evidence = None
     owned_pick_years = list(pick_years)
     try:
-        from src.api.draft_class_evidence import collect_league_draft_evidence
-        from src.identity.pick_lifecycle import league_class_lifecycles, retired_seasons
+        from src.api.draft_class_evidence import (
+            collect_league_draft_evidence,
+            league_draft_years_for,
+        )
 
         def _sleeper_get_json(url):
             try:
@@ -1007,14 +1022,19 @@ def fetch_sleeper_rosters(league_id):
             rosters=rosters,
             league_info=league_info if isinstance(league_info, dict) else None,
         )
-        _retired_pick_years = retired_seasons(
-            league_class_lifecycles(pick_years, draft_class_evidence)
+        _league_years = league_draft_years_for(
+            league_id,
+            league_season=(league_info or {}).get("season")
+            if isinstance(league_info, dict)
+            else None,
+            evidence=draft_class_evidence,
+            calendar_year=current_year,
         )
-        owned_pick_years = [y for y in pick_years if y not in _retired_pick_years]
-        if _retired_pick_years:
+        owned_pick_years = list(_league_years.owned_pick_seasons)
+        if _league_years.retired_seasons:
             print(
                 f"  [Sleeper] Retired draft classes (drafted + rostered): "
-                f"{sorted(_retired_pick_years)}"
+                f"{list(_league_years.retired_seasons)}"
             )
     except Exception as exc:
         print(f"  [Sleeper] Draft-class lifecycle unavailable ({exc}); no class retired")

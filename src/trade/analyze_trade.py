@@ -188,6 +188,17 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)",
             "unresolvedIn": list(simulation.get("unresolvedIn") or []),
             "unresolvedOut": list(simulation.get("unresolvedOut") or []),
+            # Wave A: owned picks this team does not hold are reported by
+            # the simulator and left out of ``sending`` -- named here so the
+            # explanation can say why they are not counted.
+            "notOwnedBySender": [
+                {
+                    "label": str(c.get("label") or ""),
+                    "actualOwnerName": c.get("actualOwnerName"),
+                }
+                for c in ((simulation.get("ownedPickChecks") or {}).get("notOwnedBySender") or [])
+                if isinstance(c, dict)
+            ],
         },
     )
 
@@ -633,6 +644,17 @@ def _uncertainty(
     ]
     if unresolved:
         out.append("Not on the board, so not priced: " + ", ".join(unresolved))
+    not_owned = (market.detail or {}).get("notOwnedBySender") or []
+    if not_owned:
+        out.append(
+            "Not held by this team, so not counted as sent: "
+            + ", ".join(
+                f"{c['label']} (held by {c['actualOwnerName']})"
+                if c.get("actualOwnerName")
+                else c["label"]
+                for c in not_owned
+            )
+        )
     return out
 
 
