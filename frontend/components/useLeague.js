@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserState } from "@/components/useUserState";
 import { invalidateTerminalCache } from "@/components/useTerminal";
 import { parseLeaguesResponse } from "@/lib/generated/leagues-contract";
+import { newTraceparent } from "@/lib/trace-context";
 import {
   _resetBaseContractCache,
   _resetValuationOverlayCache,
@@ -54,9 +55,10 @@ async function fetchLeagues() {
   const now = Date.now();
   if (_leaguesCache && _leaguesCache.expires > now) return _leaguesCache.result;
   if (_leaguesInflight) return _leaguesInflight;
+  const traceparent = newTraceparent();
   _leaguesInflight = fetch("/api/leagues", {
     credentials: "same-origin",
-    headers: { "Cache-Control": "no-store" },
+    headers: { "Cache-Control": "no-store", ...(traceparent ? { traceparent } : {}) },
   })
     .then(async (res) => {
       if (!res.ok) throw new Error(`leagues ${res.status}`);

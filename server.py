@@ -4134,17 +4134,41 @@ async def _request_context_middleware(request: Request, call_next):
     from src.utils import request_context as _rc
 
     incoming = str(request.headers.get("x-request-id") or "").strip()
-    rid = incoming if (1 <= len(incoming) <= 64) else _rc.new_request_id()
+    rid = incoming if _rc.valid_request_id(incoming) else _rc.new_request_id()
+    incoming_trace = _rc.parse_traceparent(request.headers.get("traceparent"))
+    trace_id, parent_span_id, flags = incoming_trace or (_rc.new_trace_id(), None, "01")
     token = _rc.set_request_id(rid)
+    trace_tokens = _rc.set_trace_context(trace_id, _rc.new_span_id(), parent_span_id, flags)
+    start_ns = time.perf_counter_ns()
+    status_code = 500
+    failure_class = "exception"
     try:
         response = await call_next(request)
+        status_code = response.status_code
+        failure_class = (
+            "http_5xx" if status_code >= 500 else "http_4xx" if status_code >= 400 else None
+        )
+        try:
+            response.headers["X-Request-Id"] = rid
+            response.headers["X-Trace-Id"] = trace_id
+            response.headers["traceparent"] = _rc.current_traceparent()
+        except Exception:  # noqa: BLE001 — some response types reject mutations
+            pass
+        return response
     finally:
+        if request.url.path == "/api/leagues":
+            try:
+                _rc.emit_http_span(
+                    method=request.method,
+                    route="/api/leagues",
+                    status_code=status_code,
+                    duration_ms=(time.perf_counter_ns() - start_ns) / 1_000_000,
+                    failure_class=failure_class,
+                )
+            except Exception:  # noqa: BLE001 — telemetry is fail-open
+                pass
+        _rc.reset_trace_context(trace_tokens)
         _rc.reset_request_id(token)
-    try:
-        response.headers["X-Request-Id"] = rid
-    except Exception:  # noqa: BLE001 — some response types reject mutations
-        pass
-    return response
 
 
 def _client_ip_from_request(request: Request) -> str:
