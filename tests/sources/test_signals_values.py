@@ -157,6 +157,13 @@ def _csv_rows(path: Path) -> list[dict]:
     return list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8"))))
 
 
+@pytest.fixture(autouse=True)
+def _small_board_floors(monkeypatch):
+    """Synthetic boards are tens of rows; the real floors (400 / 330) are
+    pinned against the contract in test_source_floor_invariant.py."""
+    monkeypatch.setattr(S, "MIN_BOARD_ROWS", {"signalsSf": 5, "signalsIdp": 5})
+
+
 @pytest.fixture
 def world(tmp_path):
     uni = _universe(60)
@@ -519,6 +526,14 @@ class TestCollection:
         out = _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp[:10]]), force=True)
         assert out["datasets"]["idp"]["outcome"] == "quarantined"
         assert "row-count collapse" in out["datasets"]["idp"]["errors"][0]
+
+    def test_a_board_below_its_floor_is_quarantined(self, world, monkeypatch):
+        tmp, uni, snaps, idp = world
+        monkeypatch.setattr(S, "MIN_BOARD_ROWS", {"signalsSf": 5, "signalsIdp": 500})
+        out = _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp]), datasets=("idp",))
+        assert out["datasets"]["idp"]["outcome"] == "quarantined"
+        assert "below board floor" in out["datasets"]["idp"]["errors"][0]
+        assert not S.board_csv_path(tmp / "store", "signalsIdp").exists()
 
     def test_runaway_pagination_is_withheld_not_truncated(self, world):
         tmp, uni, snaps, idp = world

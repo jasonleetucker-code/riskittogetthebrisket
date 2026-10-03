@@ -123,7 +123,13 @@ class TestRowCountFloors(unittest.TestCase):
                 v = vals.get(key)
                 if isinstance(v, (int, float)) and v > 0:
                     counts[key] += 1
+        # A private box-local source (Signals, 2026-10-03) that the building
+        # host does not carry is absent BY DESIGN — only on the contract's
+        # own explicit stamp; a provisioned host is held to its floor.
+        private = contract.get("privateSourceAvailability") or {}
         for src, floor in _DEFAULT_SOURCE_ROW_FLOORS.items():
+            if (private.get(src) or {}).get("state") == "not_provisioned":
+                continue
             self.assertGreaterEqual(
                 counts[src],
                 floor,

@@ -1362,6 +1362,13 @@ OFFENSE_LOOKBACK_DAYS = 7
 #: Rows dated before the publication are not current and are excluded.
 PUBLICATION_MAJORITY = ROW_COLLAPSE_FRACTION
 
+#: Fail-loud, preserve-last-good board floors, aligned with (>=) the
+#: contract's ``_DEFAULT_SOURCE_ROW_FLOORS`` (pinned by
+#: ``tests/api/test_source_floor_invariant.py``).  A release with fewer
+#: voting rows is quarantined and the last good board keeps voting with its
+#: true age.  Measured 2026-10-03: 509 offense / 1,064 IDP board rows.
+MIN_BOARD_ROWS: dict[str, int] = {"signalsSf": 400, "signalsIdp": 330}
+
 BOARD_CSV_COLUMNS: tuple[str, ...] = (
     "name",
     "rank",
@@ -2224,8 +2231,11 @@ def collect_value_dataset(
         for k, v in more.items():
             excluded[k] = excluded.get(k, 0) + v
         last_count = (latest or {}).get("rowCount")
+        floor = MIN_BOARD_ROWS.get(spec.source_key, 1)
         if not rows:
             errors.append("no voting rows after the selection hierarchy")
+        elif len(rows) < floor:
+            errors.append(f"below board floor: {len(rows)} voting rows < {floor}")
         elif last_count and len(rows) < last_count * ROW_COLLAPSE_FRACTION:
             errors.append(f"row-count collapse: {len(rows)} vs last good {last_count}")
 

@@ -126,7 +126,16 @@ class TestCorrelationGroups(unittest.TestCase):
         # measured 52 players that DLF was voting on more than once.
         # The property under test is unchanged — an independent source
         # expands to itself — so it needs a source that is still one.
-        self.assertEqual(dc.expand_correlation_groups(["fantasyCalc"]), {"fantasyCalc"})
+        #
+        # ``fantasyCalc`` stopped being one on 2026-10-03: the two Signals
+        # voters joined its family (owner addendum, no independence bonus),
+        # so the singleton is now ``otcffbSf`` and FantasyCalc's family is
+        # pinned explicitly below.
+        self.assertEqual(dc.expand_correlation_groups(["otcffbSf"]), {"otcffbSf"})
+        self.assertEqual(
+            dc.expand_correlation_groups(["fantasyCalc"]),
+            {"fantasyCalc", "signalsSf", "signalsIdp"},
+        )
 
     def test_a_declared_family_member_expands_to_the_whole_family(self):
         """The companion the suite lacked.
