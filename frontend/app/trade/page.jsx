@@ -30,17 +30,6 @@ import {
   MIN_SIDES,
   computeStackAdjustments,
 } from "@/lib/trade-logic";
-import {
-  pickAuctionDollars,
-  buildSlotDollarGrid,
-  buildLeagueStacks,
-  ownedPickStackInventory,
-  pickOwnerKeyByAssetId,
-  pickStackAnchorYear,
-  stackPickMoves,
-  teamStackKey,
-  poolBoardPerDollar,
-} from "@/lib/pick-stack";
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
@@ -362,14 +351,6 @@ export default function TradePage() {
     };
   }, [selectedLeagueKey]);
 
-  // The stack anchors on THIS LEAGUE's upcoming draft — the league-scoped
-  // ``upcomingDraftYear`` the draft-capital payload carries (Wave A) — not
-  // the board's year (``pickClassLifecycle`` / ``currentDraftYear``).
-  const pickStackAnchor = useMemo(
-    () => pickStackAnchorYear(rawData, draftCapital),
-    [rawData, draftCapital],
-  );
-
   const boardValueByName = useCallback(
     (name) => Number(rowByName.get(name)?.values?.full) || 0,
     [rowByName],
@@ -649,10 +630,38 @@ export default function TradePage() {
   // null whenever the lens can't / shouldn't apply (no draft data, no
   // picks, or the team gate is unmet) → no note is shown.  The verdict
   // never reads this in any case.
+  // The stack model is loaded ON DEMAND -- only once a pick trade meets a
+  // loaded draft-capital board -- so this informational note costs the
+  // /trade first load nothing (Wave A grew the model past the page budget).
+  const [stackLib, setStackLib] = useState(null);
+  const stackLibWanted = Boolean(draftCapital && tradeHasPicks);
+  useEffect(() => {
+    if (!stackLibWanted || stackLib) return undefined;
+    let alive = true;
+    import("@/lib/pick-stack")
+      .then((m) => {
+        if (alive) setStackLib(m);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [stackLibWanted, stackLib]);
   const stackContext = useMemo(() => {
-    if (!draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
+    if (!stackLib || !draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
       return null;
     }
+    const {
+      buildLeagueStacks,
+      buildSlotDollarGrid,
+      ownedPickStackInventory,
+      pickAuctionDollars,
+      pickOwnerKeyByAssetId,
+      pickStackAnchorYear,
+      poolBoardPerDollar,
+      stackPickMoves,
+      teamStackKey,
+    } = stackLib;
     // Year-keyed slot-$ grid (handles the Sleeper-derived payload's two
     // seasons with colliding round/slot pairs — see buildSlotDollarGrid).
     const slotGrid = buildSlotDollarGrid(draftCapital);
@@ -660,7 +669,9 @@ export default function TradePage() {
     const ctx = {
       slotGrid,
       teamsPerRound,
-      currentDraftYear: pickStackAnchor,
+      // THIS LEAGUE's upcoming draft -- the league-scoped ``upcomingDraftYear``
+      // on the draft-capital payload (Wave A) -- never the board's year.
+      currentDraftYear: pickStackAnchorYear(rawData, draftCapital),
       boardValueByName,
     };
     // Every real pick the draft-capital totals do not already count, per
@@ -696,11 +707,12 @@ export default function TradePage() {
     const boardPerDollar = poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound);
     return { sideTeams: sideTeamKeys, leagueStacks, moves, boardPerDollar, notOwned };
   }, [
+    stackLib,
+    rawData,
     draftCapital,
     sleeperTeams,
     tradeHasPicks,
     stackGateUnmet,
-    pickStackAnchor,
     boardValueByName,
     rowByLowerName,
     pickAliases,

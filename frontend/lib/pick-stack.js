@@ -399,7 +399,7 @@ export function buildLeagueStacks(draftCapital, pickRowsByTeam, ctx) {
   for (const t of draftCapital?.teamTotals || []) {
     const team = teamStackKey(t);
     if (team == null) continue;
-    stacks[team] = (stacks[team] || 0) + (Number(t.auctionDollars) || 0); // covered $
+    stacks[team] = Number(t.auctionDollars) || 0; // upcoming draft $
   }
   for (const [team, names] of Object.entries(pickRowsByTeam || {})) {
     if (!(team in stacks)) stacks[team] = 0;
