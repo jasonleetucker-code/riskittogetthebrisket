@@ -17,7 +17,7 @@ import {
   isTradeableBoardRow,
   parsePickToken,
   resolvePickRow,
-  searchTradeAssets,
+  searchCalculatorAssets,
   createSide,
   serializeWorkspaceMulti,
   tradeWorkspaceToCSV,
@@ -41,18 +41,21 @@ import {
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
-import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
+import {
+  buildShareUrl,
+  describeShareTruncation,
+  parseShareParam,
+  shareLinkLimits,
+} from "@/lib/trade-share";
 import { tradeRequestForTeam } from "@/lib/trade-war-room";
 import {
-  availableTeamPickEntries,
   canAddEntry,
   countEntries,
-  dedupeUniqueAcrossSides,
+  heldAssetKeysInTrade,
   removeOneEntry,
-  searchPickEntries,
   teamPickEntries,
   tradeEntryKey,
-  uniqueKeysInTrade,
+  unusedTeamPickEntries,
 } from "@/lib/trade-assets";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
@@ -177,7 +180,10 @@ export default function TradePage() {
   const [exportStatus, setExportStatus] = useState("");
 
   // Share + simulator state.
-  const [shareStatus, setShareStatus] = useState("");
+  // ``{ text, tone }`` or null.  ``tone: "warning"`` whenever a share link
+  // lost anything — on load (decoder bounds) or on copy (encoder/decoder
+  // bounds) — so a truncated trade never reads as a clean success.
+  const [shareStatus, setShareStatus] = useState(null);
   const [shareHydrated, setShareHydrated] = useState(false);
   // Use Team Context (#842): default ON.  A share link can carry Asset-Only.
   const [useTeamContext, setUseTeamContext] = useState(true);
@@ -293,7 +299,9 @@ export default function TradePage() {
   // Every team's picks as trade entries (lib/trade-assets): an owned pick
   // carries the canonical ``assetId`` the backend stamps on
   // ``pickDetails`` so two picks that both read "2027 Mid 1st" stay two
-  // assets, and the same one can never be counted twice (T-NEW-02).
+  // separate lines.  Ownership is displayed, not enforced: the calculator
+  // may carry any number of copies (owner decision 2026-10-03); only the
+  // equalizer reads these as real inventory (``unusedTeamPickEntries``).
   const pickEntriesByTeam = useMemo(() => {
     const m = new Map();
     const resolve = (label) => resolvePickRow(label, rowByLowerName, pickAliases);
@@ -567,8 +575,8 @@ export default function TradePage() {
             }
             if (!row) return;
             // An owned pick keeps its canonical id; everything else is
-            // the board row.  Repeated names are copies and all load —
-            // uniqueness is enforced below by IDENTITY, never by label.
+            // the board row.  Repeated names are copies and ALL load, for
+            // every kind of asset (owner decision 2026-10-03).
             const assetId = ids[j];
             resolved.push(
               assetId
@@ -582,10 +590,9 @@ export default function TradePage() {
           });
           return resolved;
         });
-        const deduped = dedupeUniqueAcrossSides(resolvedBySide);
         return base.map((side, i) => {
           if (!state.sides[i]) return { ...side, assets: [], destinations: {} };
-          const resolved = deduped[i];
+          const resolved = resolvedBySide[i];
           const nextDestinations = {};
           if (base.length > 2) {
             for (const row of resolved) {
@@ -597,9 +604,18 @@ export default function TradePage() {
       });
       setValueOverrides({});
       if (state.teamContext === false) setUseTeamContext(false);
-      setShareStatus("Loaded shared trade from link.");
+      setShareStatus(
+        state.truncated
+          ? {
+              tone: "warning",
+              text: `Loaded only part of the shared trade: the link had ${describeShareTruncation(
+                state.truncationReasons,
+              )}, beyond what a share link may carry.`,
+            }
+          : { tone: "positive", text: "Loaded shared trade from link." },
+      );
     } catch {
-      setShareStatus("Share link was malformed — ignored.");
+      setShareStatus({ tone: "warning", text: "Share link was malformed — ignored." });
     } finally {
       setShareHydrated(true);
     }
@@ -806,15 +822,18 @@ export default function TradePage() {
   // match is found (manual-entry workflows, mixed assets, no Sleeper
   // data).  Also emits the inferred team name so the UI can label
   // "Add from [team]:" instead of a generic "consider adding".
-  // Equalizer candidate pool for one side (T-NEW-02).  Uniqueness is by
-  // IDENTITY: a player or owned pick already in the trade is out, but a
-  // team's SECOND "2027 Mid 1st" stays a candidate after its first is in
-  // — and a copy the team does not hold is never offered
-  // (``availableTeamPickEntries``).  Without a team, board pick rows are
-  // repeatable market references and stay eligible.
+  // Equalizer candidate pool for one side.  This is a ROSTER-AWARE
+  // RECOMMENDATION, so it uses real ownership (``heldAssetKeysInTrade`` /
+  // ``unusedTeamPickEntries``): a player or owned pick already in the
+  // trade is not suggested again, a team's SECOND "2027 Mid 1st" stays a
+  // candidate after its first is in, and a copy the team does not hold is
+  // never offered — the equalizer must not claim a team owns four
+  // Jeffersons.  Manual construction is NOT gated by this (owner decision
+  // 2026-10-03: calculator quantities are unlimited).  Without a team,
+  // board pick rows are market references and stay eligible.
   const balancerPool = useCallback(
     (sideIdx, team) => {
-      const inTradeUnique = uniqueKeysInTrade(sides);
+      const inTradeUnique = heldAssetKeysInTrade(sides);
       const excluded = (r) => !isTradeableBoardRow(r);
       if (team) {
         const roster = teamRosterNames(team);
@@ -825,7 +844,7 @@ export default function TradePage() {
             !inTradeUnique.has(tradeEntryKey(r)) &&
             !excluded(r),
         );
-        const picks = availableTeamPickEntries(
+        const picks = unusedTeamPickEntries(
           pickEntriesByTeam.get(team.name) || [],
           sides,
           sideIdx,
@@ -912,49 +931,37 @@ export default function TradePage() {
     balancerPool,
   ]);
 
-  // UNIQUE identities already in the trade (players, owned picks) — the
-  // only things search hides.  A repeatable market pick stays searchable
-  // after its first copy so a side can carry it more than once (T-NEW-02).
-  const uniqueTradeKeys = useMemo(() => uniqueKeysInTrade(sides), [sides]);
-
-  // Inline search helper: returns up to 5 best matches for the given
-  // query, excluding anything already in the trade.  Sorted by
-  // consensus rank ascending so the top hits are the most relevant
-  // dynasty assets first — matches the KTC trade-calculator UX.
+  // Inline search helper.  Nothing already in the trade is hidden: every
+  // asset is repeatable in the calculator (owner decision 2026-10-03), so
+  // a search result is still offered after its first add.  Market
+  // references come FIRST and owned picks second, each group with its own
+  // limit (``searchCalculatorAssets``), so a team's own picks can never
+  // crowd the Early/Mid/Late references out of the visible rows; the
+  // dropdown renders the two groups with headings
+  // (``groupTradeSearchResults``).  Ownership is DISPLAYED, never a limit —
+  // an owned pick already in the trade stays addable.
   const searchAssets = useCallback(
     (query, sideIdx = null) => {
-      // The eligibility rule lives in ``lib/trade-logic`` so the four
-      // call sites on this page cannot drift apart again.  What it
-      // excludes is the suppressed generic-tier pick ALIASES (rows the
-      // backend cleared because a slot-specific sibling exists), not a
-      // hardcoded year: the old ``/^2026\b/`` also removed the 72 slot
-      // rows the current-year board is priced on, so searching "2026"
-      // returned nothing at all (W08-F004).
-      const board = searchTradeAssets(rows, query, uniqueTradeKeys, 5);
-      // The side's own team's picks lead, as OWNED entries: each carries
-      // its canonical id and ownership label, so two picks that both read
-      // "2027 Mid 1st" are both offered and each can be added once.
+      // The eligibility rule lives in ``lib/trade-logic`` so the call
+      // sites on this page cannot drift apart again.  What it excludes is
+      // the suppressed generic-tier pick ALIASES (rows the backend cleared
+      // because a slot-specific sibling exists), not a hardcoded year: the
+      // old ``/^2026/`` also removed the 72 slot rows the current-year
+      // board is priced on, so searching "2026" returned nothing at all
+      // (W08-F004).
       const team = Number.isInteger(sideIdx) ? sideTeamNames[sideIdx] : null;
-      if (!team) return board;
-      const owned = searchPickEntries(
-        availableTeamPickEntries(pickEntriesByTeam.get(team) || [], sides, sideIdx).filter(
-          (e) => e.assetId,
-        ),
-        query,
-        5,
-      );
-      return [...owned, ...board];
+      const owned = team ? pickEntriesByTeam.get(team) || [] : [];
+      return searchCalculatorAssets(rows, query, owned);
     },
-    [rows, uniqueTradeKeys, sideTeamNames, pickEntriesByTeam, sides],
+    [rows, sideTeamNames, pickEntriesByTeam],
   );
 
   // ── Side management ─────────────────────────────────────────────────
   function addToSide(row, sideIdx) {
     if (!row) return;
-    // Uniqueness is by IDENTITY (lib/trade-assets): a player or owned pick
-    // already on any side is refused; a repeatable market pick adds
-    // another copy.  Checked against ``prev`` so two quick taps cannot
-    // both pass a stale closure.
+    // Every asset is repeatable (lib/trade-assets, owner decision
+    // 2026-10-03): a second tap adds a second copy, on either side.
+    // ``canAddEntry`` only rejects an invalid row.
     setSides((prev) => {
       if (!canAddEntry(prev, row)) return prev;
       return prev.map((s, i) => {
@@ -1034,7 +1041,7 @@ export default function TradePage() {
   }
 
   // Removes ONE copy of the line ``entryKey`` (lib/trade-assets): with
-  // two generic "2027 Mid 1st" on a side, one remains.  The line's routing
+  // two copies of any asset on a side, one remains.  The line's routing
   // and value override go only when its last copy does.
   function removeFromSide(entryKey, sideIdx) {
     setSides((prev) =>
@@ -1252,10 +1259,11 @@ export default function TradePage() {
       const one = resolveBatch(sideOneEntries);
       const two = resolveBatch(sideTwoEntries);
 
-      // Replace sides A and B in place, applying the same identity rule
-      // ``addToSide`` does (lib/trade-assets): a player cannot land twice,
-      // but a pick KTC lists twice is two copies and both load.
-      const [cleanedOne, cleanedTwo] = dedupeUniqueAcrossSides([one.found, two.found]);
+      // Replace sides A and B in place.  Nothing is deduped: an asset KTC
+      // lists twice is two copies and both load, on either side (owner
+      // decision 2026-10-03 — calculator quantities are hypothetical).
+      const cleanedOne = one.found;
+      const cleanedTwo = two.found;
 
       setSides((prev) =>
         prev.map((s, i) => {
@@ -1391,7 +1399,8 @@ export default function TradePage() {
     try {
       const payload = {
         // One name per COPY plus each owned pick's canonical id, so the
-        // link restores quantity and distinct identity (T-NEW-02).
+        // link restores quantity and distinct identity exactly
+        // (``encodeTrade`` run-length-groups the copies per line).
         sides: sides.map((s) => ({
           name: s.label ? `Side ${s.label}` : "",
           players: (s.assets || []).map((a) => a.name),
@@ -1401,16 +1410,25 @@ export default function TradePage() {
         teamContext: useTeamContext,
       };
       const url = buildShareUrl(payload);
+      // A link that cannot carry the whole trade is still offered, but the
+      // user is told what it drops instead of "copied".
+      const limits = shareLinkLimits(payload);
+      const lossNote = limits.complete
+        ? ""
+        : ` It will NOT reproduce this trade exactly: it has ${describeShareTruncation(
+            limits.reasons,
+          )}, beyond what a share link may carry.`;
+      const tone = limits.complete ? "positive" : "warning";
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        setShareStatus("Share link copied to clipboard.");
+        setShareStatus({ tone, text: `Share link copied to clipboard.${lossNote}` });
       } else if (typeof window !== "undefined") {
         // Surface the URL so the user can copy it manually.
         window.prompt("Copy this share link:", url);
-        setShareStatus("Share link ready.");
+        setShareStatus({ tone, text: `Share link ready.${lossNote}` });
       }
     } catch (err) {
-      setShareStatus(err?.message || "Could not copy share link.");
+      setShareStatus({ tone: "warning", text: err?.message || "Could not copy share link." });
     }
   }, [sides, useTeamContext]);
 
@@ -1937,8 +1955,8 @@ export default function TradePage() {
           </Panel>
 
           {shareStatus ? (
-            <Banner tone="positive" onDismiss={() => setShareStatus("")}>
-              {shareStatus}
+            <Banner tone={shareStatus.tone} onDismiss={() => setShareStatus(null)}>
+              {shareStatus.text}
             </Banner>
           ) : null}
 

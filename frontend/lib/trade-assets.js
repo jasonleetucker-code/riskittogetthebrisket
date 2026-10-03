@@ -1,32 +1,42 @@
 /**
  * trade-assets — identity and quantity of the assets on a trade side.
  *
- * Owner requirement T-NEW-02 / #1415 (scope row C3-CALC-01).  The trade
- * calculator must distinguish three things the display label cannot:
+ * OWNER DECISION 2026-10-03 (supersedes T-NEW-02 / #1415's uniqueness
+ * rule for the calculator): **Trade Calculator assets are hypothetical
+ * quantities, not inventory-enforced unique objects; real uniqueness
+ * remains in ownership records, transaction history, pick identity and
+ * roster-aware recommendations.**  Every selectable asset — a player, a
+ * generic Early/Mid/Late pick, an exact slot pick, an owned league pick,
+ * a future generic pick — may be added any number of times, to either or
+ * both sides.  There is no quantity cap of any kind.
  *
- *   1. a REPEATABLE market-reference asset — a board pick row such as
- *      "2027 Mid 1st" chosen generically.  It is a price reference
- *      (C1-ID-02's ``mpick:*`` concept), not an owned asset, so a side may
- *      carry it any number of times and every copy counts;
- *   2. a UNIQUE owned league pick — a pick carrying the canonical owned
- *      identity ``pick:<leagueKey>:<season>:r<N>:o<rid>`` minted by
- *      ``src/identity/picks.py`` and stamped on
- *      ``sleeper.teams[].pickDetails[].assetId``.  Two of them may render
- *      the same label ("2027 Mid 1st") and both stay addable; the SAME id
- *      can never be counted twice;
- *   3. a UNIQUE player — one board row is one real player (the board
- *      quarantines duplicate canonical identities), so the board row key
- *      is the player's identity inside the calculator.
+ * Identity still matters, for DISPLAY and for routing, never to refuse:
+ *
+ *   1. a market-reference asset — a board row such as "2027 Mid 1st" or a
+ *      player — is keyed by its board row name;
+ *   2. an owned league pick carries the canonical owned identity
+ *      ``pick:<leagueKey>:<season>:r<N>:o<rid>`` minted by
+ *      ``src/identity/picks.py`` (``sleeper.teams[].pickDetails[].assetId``).
+ *      Two of them may render the same label and stay separate lines; the
+ *      ownership label stays visible on every copy.
  *
  * STATE MODEL — one side entry per COPY.  ``side.assets`` stays an array
- * of board-row-shaped entries; a generic pick with quantity 3 is three
- * entries.  Chosen over a ``quantity`` field because every existing
- * consumer (Value Adjustment, flows, stack moves, source breakdown, ROS
- * fit, BDVM check, simulator payloads, CSV) already iterates
- * ``side.assets`` and so counts each copy with no change; a quantity
- * field would have to be expanded at every one of those call sites and
- * any site that forgot would silently undercount.  The UI GROUPS entries
- * by ``tradeEntryKey`` to render one line with a ``− N +`` control.
+ * of board-row-shaped entries; Jefferson x4 is four entries.  Chosen over
+ * a ``quantity`` field because every existing consumer (Value Adjustment,
+ * flows, source breakdown, ROS fit, BDVM check, simulator payloads, CSV,
+ * persistence) already iterates ``side.assets`` and so counts each copy
+ * with no change; a quantity field would have to be expanded at every one
+ * of those call sites and any site that forgot would silently undercount.
+ * The UI GROUPS entries by ``tradeEntryKey`` to render one line with a
+ * ``− N +`` control.
+ *
+ * TWO QUESTIONS, TWO FUNCTIONS.  "May the user add this to the
+ * calculator?" is ``canAddEntry`` and is always yes for a valid row.
+ * "Which real assets could THIS team still offer?" belongs to the
+ * roster-aware recommendation engines (equalizer / balancers) and lives in
+ * ``heldAssetKeysInTrade`` + ``unusedTeamPickEntries`` — which must never
+ * be used to gate manual construction.  A recommendation must not claim a
+ * team owns four Jeffersons; a user may still type four in.
  *
  * Nothing here parses, mints or compares pick labels: identity comes from
  * the backend-stamped ``assetId`` or from the board row itself.  Nothing
@@ -39,16 +49,13 @@ export function isOwnedPickEntry(entry) {
 }
 
 /**
- * True when the same entry may appear more than once in a trade.
- *
- * Only board PICK rows without an owned identity repeat.  Players never
- * do, and an owned pick never does — its whole point is that it is one
- * specific asset.  Asset type alone does not decide it: a pick WITH an
- * ``assetId`` is unique.
+ * True when the entry may appear more than once in a calculator trade —
+ * which is every valid entry (owner decision 2026-10-03).  Kept as a
+ * named predicate so callers read as a statement of that rule rather
+ * than an unexplained ``true``.
  */
 export function isRepeatableEntry(entry) {
-  if (!entry) return false;
-  return entry.assetClass === "pick" && !entry.assetId;
+  return Boolean(entry && tradeEntryKey(entry));
 }
 
 /**
@@ -74,27 +81,34 @@ function assetsOf(side) {
   return Array.isArray(side?.assets) ? side.assets : [];
 }
 
-/** Keys of every UNIQUE (non-repeatable) entry anywhere in the trade. */
-export function uniqueKeysInTrade(sides) {
-  const out = new Set();
-  for (const side of sides || []) {
-    for (const entry of assetsOf(side)) {
-      if (!isRepeatableEntry(entry)) out.add(tradeEntryKey(entry));
-    }
-  }
-  return out;
+/**
+ * May ``entry`` be added to the calculator?  Always, for a valid row:
+ * quantity is unlimited and the same asset may sit on both sides.  The
+ * ``sides`` argument is accepted for call-site stability and deliberately
+ * ignored — nothing already in the trade can refuse an add.
+ */
+export function canAddEntry(_sides, entry) {
+  return Boolean(entry && tradeEntryKey(entry));
 }
 
 /**
- * May ``entry`` be added to the trade?  A repeatable entry always may; a
- * unique one only while its identity is not already on ANY side (a player
- * cannot be both given and received, and an owned pick cannot be counted
- * twice).
+ * RECOMMENDATION-ONLY.  Keys of the entries in the trade that stand for
+ * one specific real asset a team holds — players and owned picks — so a
+ * roster-aware suggestion engine does not propose a piece that is already
+ * committed (a team holds one Jefferson, not four).  Never use this to
+ * gate manual construction; that is ``canAddEntry``.
  */
-export function canAddEntry(sides, entry) {
-  if (!entry || !tradeEntryKey(entry)) return false;
-  if (isRepeatableEntry(entry)) return true;
-  return !uniqueKeysInTrade(sides).has(tradeEntryKey(entry));
+export function heldAssetKeysInTrade(sides) {
+  const out = new Set();
+  for (const side of sides || []) {
+    for (const entry of assetsOf(side)) {
+      if (!entry) continue;
+      if (isOwnedPickEntry(entry) || entry.assetClass !== "pick") {
+        out.add(tradeEntryKey(entry));
+      }
+    }
+  }
+  return out;
 }
 
 /** Number of copies of ``key`` on one side (or across sides when given an array of sides). */
@@ -127,8 +141,7 @@ export function removeOneEntry(assets, key) {
 
 /**
  * Group a side's entries into display lines, first-occurrence order.
- * ``count`` is the quantity; a unique entry always has count 1 unless the
- * state is corrupt, in which case the count shows it rather than hiding it.
+ * ``count`` is the quantity — any positive integer, for any kind of asset.
  */
 export function groupSideEntries(assets) {
   const groups = [];
@@ -140,7 +153,7 @@ export function groupSideEntries(assets) {
       existing.count += 1;
       continue;
     }
-    const group = { key, entry, count: 1, repeatable: isRepeatableEntry(entry) };
+    const group = { key, entry, count: 1 };
     byKey.set(key, group);
     groups.push(group);
   }
@@ -148,34 +161,12 @@ export function groupSideEntries(assets) {
 }
 
 /**
- * Enforce the uniqueness rule over whole-trade entry lists, first
- * occurrence wins.  Used wherever a trade arrives in bulk (share link,
- * saved workspace, KTC import) rather than through ``canAddEntry``.
- * Repeatable entries all survive.
- *
- * @param {object[][]} sideEntryLists — one entry array per side
- * @returns {object[][]}
- */
-export function dedupeUniqueAcrossSides(sideEntryLists) {
-  const seen = new Set();
-  return (sideEntryLists || []).map((list) =>
-    (Array.isArray(list) ? list : []).filter((entry) => {
-      if (!entry) return false;
-      if (isRepeatableEntry(entry)) return true;
-      const key = tradeEntryKey(entry);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }),
-  );
-}
-
-/**
  * An owned league pick as a side entry: the board row that prices it plus
  * the canonical owned identity and the ownership label.  A pickDetail
  * WITHOUT an ``assetId`` (unregistered league, older contract) cannot
- * prove which pick it is, so it becomes a plain repeatable market entry —
- * an unproven identity is not upgraded to a unique one.
+ * prove which pick it is, so it keeps the board row's identity and only
+ * carries the ownership label — an unproven identity is not upgraded to a
+ * canonical one.
  */
 export function ownedPickEntry(row, detail) {
   if (!row) return null;
@@ -205,7 +196,7 @@ export function teamPickEntries(team, resolveRow) {
     return out;
   }
   // No pickDetails: the plain label list still says how MANY picks share a
-  // board row, just not which is which — so they stay repeatable entries.
+  // board row, just not which is which — so they keep the board row's key.
   for (const label of Array.isArray(team.picks) ? team.picks : []) {
     const row = resolveRow(label);
     if (row) out.push({ ...row, assetLabel: String(label) });
@@ -213,17 +204,6 @@ export function teamPickEntries(team, resolveRow) {
   return out;
 }
 
-/**
- * The subset of a team's picks still available to ADD to ``sideIdx``.
- *
- * Multiplicity-aware, so the equalizer can offer a team's second
- * "2027 Mid 1st" after its first is in the trade — but never a copy the
- * team does not hold:
- *   * an owned pick already anywhere in the trade is unavailable;
- *   * each GENERIC copy of a row already on this side stands for one of
- *     the team's picks of that row (which one is unknown), so it consumes
- *     one of them.
- */
 // A copy COUNTER, not a value: a name never counted has been seen zero
 // times.  Spelled out so it cannot be mistaken for (or become) a missing
 // value coerced to a number.
@@ -231,7 +211,20 @@ function copiesCounted(counts, name) {
   return counts.has(name) ? counts.get(name) : 0;
 }
 
-export function availableTeamPickEntries(teamEntries, sides, sideIdx) {
+/**
+ * RECOMMENDATION-ONLY.  The subset of a team's REAL picks the equalizer
+ * may still suggest for ``sideIdx`` — never a copy the team does not hold:
+ *   * an owned pick already anywhere in the trade is not suggested again;
+ *   * each GENERIC copy of a row already on this side stands for one of
+ *     the team's picks of that row (which one is unknown), so it consumes
+ *     one of them.
+ *
+ * This answers "what could this team actually add?", which is an
+ * inventory question.  The calculator's search and add paths do NOT use
+ * it: a user may add any pick any number of times (owner decision
+ * 2026-10-03).
+ */
+export function unusedTeamPickEntries(teamEntries, sides, sideIdx) {
   const inTradeIds = new Set();
   for (const side of sides || []) {
     for (const entry of assetsOf(side)) {
@@ -240,7 +233,7 @@ export function availableTeamPickEntries(teamEntries, sides, sideIdx) {
   }
   const genericOnSide = new Map();
   for (const entry of assetsOf((sides || [])[sideIdx])) {
-    if (isRepeatableEntry(entry)) {
+    if (entry && !isOwnedPickEntry(entry) && entry.assetClass === "pick") {
       genericOnSide.set(entry.name, copiesCounted(genericOnSide, entry.name) + 1);
     }
   }
@@ -260,26 +253,92 @@ export function availableTeamPickEntries(teamEntries, sides, sideIdx) {
   return out;
 }
 
-/** Owned/team pick entries whose label or board name matches ``query``. */
-export function searchPickEntries(entries, query, limit = 5) {
-  const q = String(query || "")
+// ── Search relevance ──────────────────────────────────────────────────
+//
+// One ranking rule for every calculator search source (board rows and
+// owned picks), so an exact query always wins: "2027 Mid 1st" returns that
+// row first, never a crowd of looser matches.  Tiers, best first:
+//   0 exact · 1 prefix · 2 contiguous substring · 3 every word present.
+// Returns -1 for no match.  Tier 3 lets "2027 1st" find the Early/Mid/Late
+// 1st rows without ever outranking a contiguous match.
+
+function normalizeSearchText(text) {
+  return String(text || "")
     .trim()
-    .toLowerCase();
-  if (!q) return [];
-  const out = [];
-  for (const entry of entries || []) {
-    if (!entry) continue;
-    const hay = `${entry.assetLabel || ""} ${entry.name || ""}`.toLowerCase();
-    if (hay.includes(q)) out.push(entry);
-    if (out.length >= limit) break;
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+export function searchMatchTier(text, query) {
+  const q = normalizeSearchText(query);
+  if (!q) return -1;
+  const hay = normalizeSearchText(text);
+  if (!hay) return -1;
+  if (hay === q) return 0;
+  if (hay.startsWith(q)) return 1;
+  if (hay.includes(q)) return 2;
+  const words = q.split(" ");
+  if (words.length > 1 && words.every((w) => hay.includes(w))) return 3;
+  return -1;
+}
+
+/** Best tier across several texts describing one entry (-1 when none match). */
+function bestTier(texts, query) {
+  let best = -1;
+  for (const t of texts) {
+    const tier = searchMatchTier(t, query);
+    if (tier >= 0 && (best < 0 || tier < best)) best = tier;
   }
-  return out;
+  return best;
+}
+
+/**
+ * Owned/team pick entries matching ``query``, most relevant first (by
+ * ``searchMatchTier`` over the ownership label and the board name; ties
+ * keep the team's own order).  Already-added picks stay searchable.
+ */
+export function searchPickEntries(entries, query, limit = 5) {
+  if (!normalizeSearchText(query)) return [];
+  const scored = [];
+  (entries || []).forEach((entry, i) => {
+    if (!entry) return;
+    const tier = bestTier([entry.assetLabel, entry.name], query);
+    if (tier >= 0) scored.push({ entry, tier, i });
+  });
+  scored.sort((a, b) => a.tier - b.tier || a.i - b.i);
+  return scored.slice(0, limit).map((x) => x.entry);
+}
+
+/**
+ * Split a calculator search result list into display groups.  Market
+ * references (board rows) always come FIRST and owned picks second, each
+ * group already limited by its producer, so a team's owned picks can never
+ * crowd the Early/Mid/Late market references out of the first rows.
+ * Headings appear only when both groups are present.
+ *
+ * @returns {{key: string, label: string|null, entries: object[]}[]}
+ */
+export function groupTradeSearchResults(results) {
+  const market = [];
+  const owned = [];
+  for (const r of results || []) {
+    if (!r) continue;
+    (isOwnedPickEntry(r) ? owned : market).push(r);
+  }
+  if (!owned.length) return market.length ? [{ key: "market", label: null, entries: market }] : [];
+  const groups = [];
+  if (market.length) {
+    const allPicks = market.every((r) => r.assetClass === "pick");
+    groups.push({ key: "market", label: allPicks ? "Market picks" : "Board", entries: market });
+  }
+  groups.push({ key: "owned", label: "Owned picks", entries: owned });
+  return groups;
 }
 
 // ── Serialization ─────────────────────────────────────────────────────
 //
 // A persisted side entry is the board row NAME (string) for players and
-// repeatable picks — identical to every payload written before this
+// market picks — identical to every payload written before this
 // module existed, so old saved workspaces and old share links load
 // unchanged — or ``{ name, assetId, label }`` for an owned pick.  Copies
 // are persisted as repeated items.

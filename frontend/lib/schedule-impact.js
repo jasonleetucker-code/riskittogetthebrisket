@@ -159,3 +159,62 @@ export function stateNotice(contract) {
       return { tone: "info", text: "No game in this season could be evaluated, so no schedule impact is shown." };
   }
 }
+
+// ── Milestone B: timing_only_v1 (same opponents, different weeks) ─────────
+
+/** Integer percent for a probability; "<1%" / ">99%" instead of a false 0/100. */
+export function fmtShare(p) {
+  if (!isNum(p)) return "—";
+  if (p > 0 && p < 0.005) return "<1%";
+  if (p < 1 && p > 0.995) return ">99%";
+  return `${Math.round(p * 100)}%`;
+}
+
+/** Win credits exactly: whole numbers bare, half credits (ties) as "5.5". */
+export function fmtExactCredits(v) {
+  if (!isNum(v)) return "—";
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+/** Big exact counts, e.g. 6,227,020,800. */
+export function fmtCount(n) {
+  return isNum(n) ? Math.round(n).toLocaleString("en-US") : "—";
+}
+
+/** Honest copy for the season-level timing block's non-complete states. */
+export function timingNotice(timing) {
+  if (!timing) return { tone: "info", text: "The week-order view is not available for this season." };
+  if (timing.state === "complete") return null;
+  if (timing.state === "failed") {
+    return { tone: "warning", text: "The week-order view could not be calculated right now." };
+  }
+  if (timing.reason === "no_finalized_weeks") {
+    return { tone: "info", text: "No finished weeks yet — the week-order view appears once a week is final." };
+  }
+  if (timing.reason === "too_many_weeks_for_exact") {
+    return {
+      tone: "info",
+      text: "This season has more finished weeks than the exact week-order count supports, so it is not shown.",
+    };
+  }
+  if (timing.reason === "structural_issues" || timing.reason === "missing_score") {
+    return {
+      tone: "warning",
+      text: "Some weeks have a missing score or matchup row, so week orders cannot be compared this season.",
+    };
+  }
+  return { tone: "info", text: "This season's format is not supported by the week-order view." };
+}
+
+/** One reading for a team's timing-only row, from backend numbers only. */
+export function timingReading(row) {
+  const t = row?.timingOnly;
+  if (!t || t.state !== "complete" || !isNum(row.actualH2HCredits)) return null;
+  const actual = fmtCredits(row.actualH2HCredits, row.h2hTies ? 1 : 0);
+  return (
+    `Same opponents, weeks reordered: these scores average ${fmtCredits(t.expectedCredits)} ` +
+    `head-to-head wins (at least 80% of orderings: ${fmtCredits(t.central80?.low, 1)}–${fmtCredits(t.central80?.high, 1)}). ` +
+    `Against the actual ${actual}, ${fmtShare(t.probAboveActual)} of orderings give more wins and ` +
+    `${fmtShare(t.probBelowActual)} give fewer.`
+  );
+}
