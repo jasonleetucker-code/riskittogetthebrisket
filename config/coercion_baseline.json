@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 651,
+ "count": 650,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -421,7 +421,6 @@
   "src/public_league/awards.py::trade_gain = {r[\"ownerId\"]: float(r.get(\"pointsGained\") or 0.0) for r in trader_rows}",
   "src/public_league/awards.py::waiver_gain = {r[\"ownerId\"]: float(r.get(\"pointsGained\") or 0.0) for r in waiver_rows}",
   "src/public_league/draft.py::\"rounds\": int((draft.get(\"settings\") or {}).get(\"rounds\") or 0)",
-  "src/public_league/draft.py::draft_rounds = int(settings.get(\"draft_rounds\") or 0)",
   "src/public_league/draft.py::drafts.sort(key=lambda d: (d[\"season\"], d.get(\"startTime\") or 0), reverse=True)",
   "src/public_league/draft.py::pick_no = int(pick.get(\"pick_no\") or 0)",
   "src/public_league/draft.py::round_ = int(pick.get(\"round\") or 0)",
