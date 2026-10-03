@@ -292,7 +292,7 @@ export default function SharpTrackerPage() {
   );
 
   return (
-    <main className="page">
+    <div className="page">
       <PageHeader
         title="Sharp Tracker"
         description="One normalized market view combining qualified-manager activity from Sleeper and configured FFPC public sources."
@@ -442,6 +442,6 @@ export default function SharpTrackerPage() {
           identities cannot satisfy automated multi-league qualification.
         </p>
       </Panel>
-    </main>
+    </div>
   );
 }

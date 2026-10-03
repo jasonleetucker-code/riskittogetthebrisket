@@ -482,7 +482,7 @@ export default function TradesPage() {
   const hasTrades = analysis.analyzed.length > 0;
 
   return (
-    <main className={`main-shell ${styles.page} trades-page`}>
+    <div className={`main-shell ${styles.page} trades-page`}>
       <PageHeader
         eyebrow="Trades"
         title="Trade History"
@@ -621,6 +621,6 @@ export default function TradesPage() {
           )}
         </>
       )}
-    </main>
+    </div>
   );
 }
