@@ -403,6 +403,16 @@ class TestSourceFreshnessStampCoverage(unittest.TestCase):
                 for token in match.split():
                     if token and not token.startswith("$"):
                         out.add(token)
+
+        # Pattern 4: Python collectors on box timers that stamp their own
+        # keys.  The Signals authenticated-value collector (an ACTIVE source
+        # since 2026-10-03) writes ``<sourceKey>_last_success`` on every
+        # successful run (``signals._write_last_success``; pinned by
+        # ``tests/sources/test_signals_values.py``) for exactly the keys its
+        # value datasets declare.
+        from src.sources import signals as _signals  # noqa: PLC0415
+
+        out.update(spec.source_key for spec in _signals.VALUE_DATASETS.values())
         return out
 
     def test_every_csv_source_has_stamp_writer_or_is_mtime_reliable(self) -> None:
