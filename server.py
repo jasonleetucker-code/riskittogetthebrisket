@@ -11434,7 +11434,9 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_section_payload,
 )
 from src.public_league.public_contract import (  # noqa: E402 — grouped with public-league block
+    activity_serving_payload,
     assert_public_payload_safe,
+    build_activity_serving_payload,
     is_private_intelligence_section,
 )
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
@@ -11623,12 +11625,14 @@ def _memoized_overview(key):
 
 
 def _seed_public_generation(snapshot, contract, key, started_at: float):
-    """File one built contract under both memos; returns
+    """File one built contract under every generation memo; returns
     ``(overview_payload, encoded_bytes_or_None)``.  The overview comes
     first and does not depend on the full-contract encode: a value in some
-    OTHER section that cannot be encoded fails only the full contract."""
+    OTHER section that cannot be encoded fails only the full contract.
+    The activity memo is seeded independently for the same reason."""
     overview = _overview_payload_from_contract(contract)
     _remember_overview(key, overview, started_at)
+    _seed_public_activity(contract, key, started_at)
     try:
         raw = _store_public_contract_bytes(snapshot, contract, key=key, started_at=started_at)
     except Exception as exc:  # noqa: BLE001
@@ -11664,6 +11668,94 @@ async def _get_public_overview_payload(snapshot, *, bypass_cache: bool = False):
             )
             overview, _ = _seed_public_generation(snapshot, contract, key, started_at)
             return overview
+
+        return await run_in_threadpool(_build)
+
+
+# ``GET /api/public/league/activity`` rebuilt the section on EVERY request:
+# the as-of trade grading (one ledger fetch per traded asset), two private-
+# field safety walks and a fresh ~421 KB encode.  Measured 2026-10-03:
+# p50 1.95 s / p95 3.60 s / max 5.79 s -- the only desktop V1 failure in
+# that run -- while every snapshot rebuild already built the identical
+# section into the full contract and threw it away.
+#
+# It now serves PREPARED bytes: seeded from that contract by
+# ``_seed_public_generation`` (rebuild thread, before publish), keyed by the
+# full contract's generation key -- which carries ``latest_data_etag``
+# because the grades derive from the private board's generation -- with the
+# overview memo's age bound and newer-build-wins rule.  A miss (e.g. a
+# private-board publish between snapshot rebuilds) builds ONLY the activity
+# section, once, single-flighted on the event loop.  The body is the HTTP
+# serving view (``activity.serving_view``): only the fields its two page
+# readers use, safety-walked once over exactly what is served, encoded and
+# gzipped once.  It is NOT in ``_HEAVY_SECTION_KEYS``: that cache is keyed
+# by snapshot identity alone, which is incomplete for a section graded off
+# the private board.
+# Value: (key, raw bytes, gzip bytes, build start on the monotonic clock).
+_PUBLIC_ACTIVITY_CACHE: dict = {}
+_PUBLIC_ACTIVITY_LOCK = threading.Lock()  # stores come from pool + rebuild threads
+_public_activity_async_lock: asyncio.Lock | None = None
+
+
+def _remember_activity(key, payload, started_at: float) -> tuple[bytes, bytes]:
+    """Encode ``payload`` (``JSONResponse.render``-compatible) and gzip it
+    once; memoize unless a newer build already landed.  Returns the
+    encoded pair either way, so the caller that built it can serve it."""
+    raw = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    gz = gzip.compress(raw, compresslevel=5)
+    with _PUBLIC_ACTIVITY_LOCK:
+        current = _PUBLIC_ACTIVITY_CACHE.get("activity")
+        if current is None or current[3] <= started_at:
+            _PUBLIC_ACTIVITY_CACHE["activity"] = (key, raw, gz, started_at)
+    return raw, gz
+
+
+def _memoized_activity(key) -> tuple[bytes, bytes] | None:
+    hit = _PUBLIC_ACTIVITY_CACHE.get("activity")
+    if hit is not None and hit[0] == key and _public_memo_entry_fresh(hit[3]):
+        return hit[1], hit[2]
+    return None
+
+
+def _seed_public_activity(contract, key, started_at: float) -> None:
+    """Seed the activity memo from an already-built full contract.  Never
+    raises: a failure here leaves the memo to its miss path and must not
+    cost the overview or the full contract their seeds."""
+    try:
+        payload = activity_serving_payload(
+            contract["contractVersion"], contract["league"], contract["sections"]["activity"]
+        )
+        _remember_activity(key, payload, started_at)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("public activity payload not memoized: %s", exc)
+
+
+async def _get_public_activity_bytes(snapshot, *, bypass_cache: bool = False):
+    """Per-generation prepared activity response (see above); returns
+    ``(raw, gzip)``.  ``bypass_cache`` must come from
+    ``_authorized_force_refresh`` (B8), exactly as for the overview."""
+    global _public_activity_async_lock
+    key = _public_contract_cache_key(snapshot)
+    if not bypass_cache:
+        hit = _memoized_activity(key)
+        if hit is not None:
+            return hit
+    if _public_activity_async_lock is None:
+        _public_activity_async_lock = asyncio.Lock()
+    async with _public_activity_async_lock:
+        if not bypass_cache:
+            hit = _memoized_activity(key)
+            if hit is not None:
+                return hit
+        started_at = time.monotonic()
+
+        def _build():
+            payload = build_activity_serving_payload(
+                snapshot, activity_valuation=_build_public_activity_valuation()
+            )
+            return _remember_activity(key, payload, started_at)
 
         return await run_in_threadpool(_build)
 
@@ -12506,6 +12598,7 @@ async def get_public_league(request: Request, refresh: str = ""):
         # over a multi-MB tree.
         raw = _store_public_contract_bytes(snapshot, payload, key=key, started_at=started_at)
         _remember_overview(key, _overview_payload_from_contract(payload), started_at)
+        _seed_public_activity(payload, key, started_at)
         return raw
 
     try:
@@ -12919,6 +13012,17 @@ async def get_public_league_section(
             payload = await _get_public_overview_payload(
                 snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
             )
+        elif section == "activity":
+            # Prepared, pre-encoded bytes (see ``_get_public_activity_bytes``),
+            # gzip negotiated here so GZipMiddleware never re-compresses.
+            raw, gz = await _get_public_activity_bytes(
+                snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
+            headers = {"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL, "Vary": "Accept-Encoding"}
+            if "gzip" in (request.headers.get("accept-encoding") or "").lower():
+                headers["Content-Encoding"] = "gzip"
+                return Response(content=gz, media_type="application/json", headers=headers)
+            return Response(content=raw, media_type="application/json", headers=headers)
         else:
             # Every other section still runs its build in the worker so a
             # heavier-than-expected builder can't block the event loop.
