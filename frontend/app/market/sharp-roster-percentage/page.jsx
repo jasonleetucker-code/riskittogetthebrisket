@@ -339,7 +339,7 @@ export default function SharpRosterPercentagePage() {
   const empty = classifyEmptyState(payload);
 
   return (
-    <main className="page">
+    <div className="page">
       <PageHeader
         title={PAGE_TITLE}
         description="Which players our verified sharp managers actually roster, across every league we can observe."
@@ -446,6 +446,6 @@ export default function SharpRosterPercentagePage() {
           </ul>
         </Panel>
       ) : null}
-    </main>
+    </div>
   );
 }
