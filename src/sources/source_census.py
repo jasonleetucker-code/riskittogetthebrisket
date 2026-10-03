@@ -1424,11 +1424,18 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
                     "meanAppliedWeight": mean_applied,
                     "meanVoteShare": round(p["shareSum"] / vrows, 4) if (p and vrows) else None,
                     "pipelineMeanAppliedWeight": pipe_mean,
-                    "matchesPipelineSummary": bool(pipe)
-                    and pipe_rows == vrows
-                    and pipe_mean is not None
-                    and mean_applied is not None
-                    and abs(pipe_mean - mean_applied) <= 1.5e-4,  # both rounded to 4 dp
+                    # A source that votes on no row (e.g. seasonally inactive,
+                    # #1620) agrees with a pipeline summary that likewise
+                    # records no votes for it -- absent or votingRows 0.
+                    # Otherwise the counts and the mean weight must match.
+                    "matchesPipelineSummary": (vrows == 0 and (not pipe or pipe_rows in (0, None)))
+                    or (
+                        bool(pipe)
+                        and pipe_rows == vrows
+                        and pipe_mean is not None
+                        and mean_applied is not None
+                        and abs(pipe_mean - mean_applied) <= 1.5e-4  # both rounded to 4 dp
+                    ),
                     "byUniverse": by_u,
                     "basis": "mean of the appliedWeight the canonical pipeline stamped on each voted row",
                 },
