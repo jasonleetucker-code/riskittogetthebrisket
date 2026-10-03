@@ -36,11 +36,6 @@ from src.identity import picks as _pick_identity
 
 _LOGGER = logging.getLogger(__name__)
 
-# Board-level refusal when /traded_picks was not observed (see
-# build_sleeper_derived).  Same {error, message} contract as
-# ``sleeper_unreachable``.
-_PICK_OWNERSHIP_UNAVAILABLE_ERROR = "pick_ownership_unavailable"
-
 # Matches the workbook's total so the bar chart stays comparable.
 _TARGET_TOTAL_BUDGET = 1200
 _DEFAULT_TIMEOUT = 15.0
@@ -276,7 +271,7 @@ def build_sleeper_derived(
         # is no partial board worth serving — refuse with the same
         # {error, message} shape the consumers already render.
         return {
-            "error": _PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+            "error": _pick_identity.PICK_OWNERSHIP_UNAVAILABLE_ERROR,
             "message": "Could not fetch traded picks from Sleeper; pick ownership is unknown.",
             _pick_identity.PICK_OWNERSHIP_STATE_FIELD: _pick_identity.PICK_OWNERSHIP_UNAVAILABLE,
             _pick_identity.PICK_OWNERSHIP_REASON_FIELD: (

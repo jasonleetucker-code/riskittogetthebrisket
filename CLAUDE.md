@@ -434,6 +434,13 @@ Contract annotations:
   builder raises).  No empty-but-present value counts as complete.  The
   one merge that can produce this state is
   `sleeper_overlay.merge_cross_league_sleeper_block`; do not re-inline it.
+  **One explicit exception: pick ownership.**  `sleeper.teams[].picks` /
+  `pickDetails` may be explicitly UNAVAILABLE (`null` +
+  `pickOwnershipState: "unavailable"`) while `sleeperDataReady` is
+  `true` — a failed `/traded_picks` fetch degrades only those two fields,
+  never the rosters.  Consumers must read the per-team state, not
+  readiness, before trusting picks.  See "League pick OWNERSHIP is
+  observed or unknown" under Pick identity.
 - `meta.sleeperLoadedLeagueKey` — which league the `sleeper` block
   *would* be for, when `sleeperDataReady: false` (diagnostic only).
   Deleting it would hide a chimera, not prevent one.
@@ -514,7 +521,10 @@ Error behavior on endpoints:
     every `picks` / `teamTotals` number on this board is a function of
     ownership and there is no partial board worth serving.  Success is
     byte-identical.  Known caveat: the route caches error results for its
-    300 s TTL like any other result.
+    300 s TTL like any other result.  The DEFAULT-league workbook path
+    (`server.py::_fetch_draft_capital`, `apply_sleeper_trades`) is NOT
+    fixed: a failed fetch there still becomes `traded = []` and the
+    workbook's ownership is kept silently — named follow-up.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring
@@ -2322,11 +2332,17 @@ WHAT the asset is — valuation stays in the pipeline.  Full record:
 
 **League pick OWNERSHIP is observed or unknown, never assumed** (2026-10-02).
 The fold seeds default ownership and applies `/traded_picks` as a diff, so a
-failed fetch and "no trades" used to produce the same published answer.  Both
-producers (`sleeper_overlay._build_pick_ownership` and the scraper's
-`fetch_sleeper_rosters`) now read the response through
-`picks.traded_picks_observation` — a list, even empty, is an observation;
-anything else is `None` — and on `None` they do not fold: every team publishes
+failed fetch and "no trades" used to produce the same published answer.  Three
+producers now read the response through `picks.traded_picks_observation` — a
+list, even empty, is an observation; anything else is `None`:
+`sleeper_overlay._build_pick_ownership`, the scraper's `fetch_sleeper_rosters`,
+and `draft_capital_fallback.build_sleeper_derived` (which refuses the whole
+board with `picks.PICK_OWNERSHIP_UNAVAILABLE_ERROR`).  **A fourth producer is
+NOT fixed** and is a named follow-up: `server.py::_fetch_draft_capital`, the
+default-league workbook path (`apply_sleeper_trades`, ~line 10637), still turns
+a failed fetch into `traded = []` and silently keeps the workbook's own
+ownership columns.  On `None` the two `sleeper.teams` producers do not fold:
+every team publishes
 `picks: null` / `pickDetails: null` (never `[]`, which says "owns no picks")
 with `pickOwnershipState: "unavailable"` + `pickOwnershipReason:
 "traded_picks_fetch_failed"`, and `"observed"` / `null` on success
@@ -2334,8 +2350,14 @@ with `pickOwnershipState: "unavailable"` + `pickOwnershipReason:
 `picks.team_pick_ownership_unavailable_reason`: the Pick Projector refuses
 (`picks: null`, reason in `meta`; route `error: "pick_ownership_unavailable"`),
 BDVM `pickCount` is `None` + `pickCountUnavailableReason`, the trade simulator
-attaches a `pickOwnership` note, and the Pick Forecast capture keys on the
-stated `observed`.  **`sleeperDataReady` is deliberately NOT flipped** by it:
+attaches a `pickOwnership` note (outgoing picks still count on both sides, so
+`delta` stays right), and the Pick Forecast capture keys on the stated
+`observed`.  The frontend's one reader is `frontend/lib/pick-ownership.js`
+(constants pinned to the Python owner by test); `/bdvm`, `/rosters`, the
+TeamSwitcher, the Terminal portfolio and the Pick Projector render the unknown
+state.  **`/trade` does not yet** (`app/trade/page.jsx`, `lib/trade-assets.js`
+still read `team.picks || []`) — named follow-up, held off while the
+trade-calculator quantity rework owns those files.  **`sleeperDataReady` is deliberately NOT flipped** by it:
 readiness is about whether the block belongs to the requested league and its
 league CONFIG is complete; the rosters are still real, and the pick fields
 carry their own explicit unknown — degrading the one field rather than

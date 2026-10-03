@@ -296,6 +296,34 @@ def test_both_producers_use_the_one_vocabulary():
 # ── The one vocabulary ───────────────────────────────────────────────
 
 
+def test_frontend_reader_constants_match_the_python_owner():
+    """``frontend/lib/pick-ownership.js`` is the frontend's single reader of
+    the stamp; its string constants must equal the owner's."""
+    js = (_SCRAPER.parent / "frontend" / "lib" / "pick-ownership.js").read_text(encoding="utf-8")
+    expected = {
+        "PICK_OWNERSHIP_STATE_FIELD": pick_identity.PICK_OWNERSHIP_STATE_FIELD,
+        "PICK_OWNERSHIP_REASON_FIELD": pick_identity.PICK_OWNERSHIP_REASON_FIELD,
+        "PICK_OWNERSHIP_UNAVAILABLE": pick_identity.PICK_OWNERSHIP_UNAVAILABLE,
+        "PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED": (
+            pick_identity.PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED
+        ),
+        "PICK_OWNERSHIP_UNAVAILABLE_ERROR": pick_identity.PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+    }
+    for name, value in expected.items():
+        assert f'export const {name} = "{value}";' in js, name
+
+
+def test_error_code_has_one_owner():
+    """The refusal error code is imported, not re-typed, by both surfaces."""
+    from src.api import draft_capital_fallback
+    from src.ros import api as ros_api
+
+    for module in (draft_capital_fallback, ros_api):
+        module_src = Path(module.__file__).read_text(encoding="utf-8")
+        assert '"pick_ownership_unavailable"' not in module_src, module.__name__
+        assert "PICK_OWNERSHIP_UNAVAILABLE_ERROR" in module_src, module.__name__
+
+
 def test_traded_picks_observation_distinguishes_empty_from_missing():
     assert pick_identity.traded_picks_observation([]) == []
     assert pick_identity.traded_picks_observation([{"a": 1}]) == [{"a": 1}]
@@ -415,6 +443,86 @@ def test_trade_simulator_flags_unknown_pick_ownership():
     observed = {**team, "picks": [], "pickDetails": [], **pick_identity.pick_ownership_fields(True)}
     result = trade_simulator.simulate_trade(contract, resolved_team=observed)
     assert "pickOwnership" not in result
+
+
+def _pick_row(name: str, value: int) -> dict[str, Any]:
+    return {
+        "displayName": name,
+        "canonicalName": name,
+        "assetClass": "pick",
+        "position": "PICK",
+        "pos": "PICK",
+        "canonicalConsensusRank": None,
+        "rankDerivedValue": value,
+        "values": {"full": value},
+    }
+
+
+def test_trade_simulator_subtracts_an_outgoing_pick_under_unknown_ownership():
+    """Review #1618 (MEDIUM): with ownership unknown the team's picks were
+    absent from ``before``, so an outgoing pick was never subtracted and
+    ``delta`` overstated the gain by its whole value.  Sending a pick proves
+    the team holds it, so it is counted on both sides."""
+    from src.api import trade_simulator
+
+    team = _unknown_team(1)
+    contract = {
+        "playersArray": [_pick_row("2027 Round 1", 3000), _pick_row("2027 Round 2", 1200)],
+        "sleeper": {"teams": [team]},
+    }
+    result = trade_simulator.simulate_trade(
+        contract,
+        resolved_team=team,
+        picks_out=["2027 Round 1"],
+        picks_in=["2027 Round 2"],
+    )
+    assert result["equity"] == 1200 - 3000
+    assert result["delta"]["totalValue"] == result["equity"]
+    assert result["before"]["totalValue"] == 3000
+    assert result["after"]["totalValue"] == 1200
+    assert "Picks in this trade are counted" in result["pickOwnership"]["note"]
+
+    # Sending only: the delta is the full loss, never 0.
+    result = trade_simulator.simulate_trade(
+        contract, resolved_team=team, picks_out=["2027 Round 1"]
+    )
+    assert result["delta"]["totalValue"] == -3000
+
+
+def _gather_with_teams(monkeypatch, teams):
+    from src.ros import pick_forecast_snapshot as snap
+
+    def _no_snapshot(*_a, **_k):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(
+        sleeper_overlay, "_build_teams_block", lambda lid, id_map, getter=None: teams
+    )
+    monkeypatch.setattr(
+        "src.ros.team_strength.load_or_compute_team_strength",
+        lambda *_a, **_k: _strength_rows(),
+    )
+    monkeypatch.setattr("src.ros.team_strength.persisted_fast_path_rows", lambda _key: None)
+    monkeypatch.setattr("src.public_league.snapshot.build_public_snapshot", _no_snapshot)
+    return snap.gather_inputs(
+        types.SimpleNamespace(key="lk", sleeper_league_id=LEAGUE_ID),
+        {"season": "2026", "season_type": "regular", "week": 5, "display_week": 5},
+        contract=None,
+        contract_reason="contract_build_skipped",
+        http_get=lambda url: None,
+    )
+
+
+def test_forecast_capture_names_an_empty_roster_read_as_a_roster_failure(monkeypatch):
+    """Review #1618 (LOW): no teams at all is a roster problem, not a
+    traded-picks one.  The existing (transient) roster reason is reused."""
+    from src.ros import pick_forecast_snapshot as snap
+
+    inputs = _gather_with_teams(monkeypatch, [])
+    assert inputs.overlay_teams is None
+    assert inputs.overlay_reason == "sleeper_rosters_or_users_fetch_failed"
+    # Still transient, so the capture refuses the write exactly as before.
+    assert snap.is_transient_reason(inputs.overlay_reason)
 
 
 def test_forecast_capture_reads_the_stated_ownership(monkeypatch):

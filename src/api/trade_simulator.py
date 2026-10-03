@@ -312,6 +312,16 @@ def simulate_trade(
         hit = _resolve_asset(pick, row_index=row_index)
         if hit is not None:
             before_assets.append(hit)
+    if picks_unknown_reason is not None:
+        # The team is SENDING these picks, which proves it holds them whatever
+        # the inventory fetch said.  Seed them into ``before`` so the removal
+        # below subtracts them; otherwise an outgoing pick would never leave
+        # the after-state and ``delta`` would overstate the gain by its value.
+        # Only the UNTRADED picks stay out of both sides.
+        for pick in picks_out:
+            hit = _resolve_asset(pick, row_index=row_index)
+            if hit is not None:
+                before_assets.append(hit)
 
     # Receiving / sending sides of the trade.
     receiving, unresolved_in = _resolve_many([*players_in, *picks_in])
@@ -390,8 +400,9 @@ def simulate_trade(
             "state": PICK_OWNERSHIP_UNAVAILABLE,
             "reason": picks_unknown_reason,
             "note": (
-                "This team's draft-pick ownership is unknown, so before/after "
-                "totals exclude its untraded picks; traded picks are still counted."
+                "This team's draft-pick ownership is unknown, so its untraded "
+                "picks are excluded from both before and after. Picks in this "
+                "trade are counted on both sides, so delta still reflects them."
             ),
         }
 

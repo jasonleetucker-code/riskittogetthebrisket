@@ -255,7 +255,9 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
         # Pick ownership unknown (failed /traded_picks): refused, not zero
         # picks.  Same 200 + ``error`` convention as the states above; the
         # reason travels in ``meta.pickOwnershipReason``.
-        payload["error"] = "pick_ownership_unavailable"
+        from src.identity.picks import PICK_OWNERSHIP_UNAVAILABLE_ERROR  # noqa: PLC0415
+
+        payload["error"] = PICK_OWNERSHIP_UNAVAILABLE_ERROR
     return JSONResponse(payload)
 
 

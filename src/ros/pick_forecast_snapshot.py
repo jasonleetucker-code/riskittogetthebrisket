@@ -1126,9 +1126,10 @@ def gather_inputs(
 
     # Pick ownership: the overlay's fold, read through the certainty the
     # overlay now states per team (``pickOwnershipState``). Only an explicit
-    # ``observed`` on EVERY team counts; a failed /traded_picks fetch, a
-    # missing state, or no teams at all leaves ownership unproven, and a
-    # capture must not record unproven ownership as fact.
+    # ``observed`` on EVERY team counts; a failed /traded_picks fetch or a
+    # missing state leaves ownership unproven (no teams at all is reported as
+    # the roster failure it is), and a capture must not record unproven
+    # ownership as fact.
     # SEAM: ``_build_teams_block`` / ``_http_get_json`` are private to the
     # overlay, which is the only owner of the ownership fold (a second fold
     # would be a second owner).
@@ -1139,9 +1140,13 @@ def gather_inputs(
         teams = sleeper_overlay._build_teams_block(
             cfg.sleeper_league_id, None, getter=http_get or sleeper_overlay._http_get_json
         )
-        if teams is None:
+        if not teams:
+            # None (fetch failed) and [] (no rosters came back) are both a
+            # ROSTER problem, not a traded-picks one -- name that cause. The
+            # string is the existing transient marker, so an empty roster
+            # read is still refused rather than written as degraded.
             inputs.overlay_reason = "sleeper_rosters_or_users_fetch_failed"
-        elif not teams or any(
+        elif any(
             not isinstance(t, dict)
             or t.get(_picks.PICK_OWNERSHIP_STATE_FIELD) != _picks.PICK_OWNERSHIP_OBSERVED
             for t in teams

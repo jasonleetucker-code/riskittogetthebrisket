@@ -52,6 +52,7 @@ __all__ = [
     "OwnedLeaguePick",
     "MarketPickRef",
     "PICK_OWNERSHIP_OBSERVED",
+    "PICK_OWNERSHIP_UNAVAILABLE_ERROR",
     "PICK_OWNERSHIP_REASON_FIELD",
     "PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED",
     "PICK_OWNERSHIP_STATE_FIELD",
@@ -326,6 +327,9 @@ PICK_OWNERSHIP_REASON_FIELD = "pickOwnershipReason"
 PICK_OWNERSHIP_OBSERVED = "observed"
 PICK_OWNERSHIP_UNAVAILABLE = "unavailable"
 PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED = "traded_picks_fetch_failed"
+# The board/endpoint-level error code when a whole surface is refused because
+# ownership is unknown (``/api/draft-capital`` fallback, ``/api/ros/pick-projections``).
+PICK_OWNERSHIP_UNAVAILABLE_ERROR = "pick_ownership_unavailable"
 
 
 def traded_picks_observation(body: Any) -> list[Any] | None:
