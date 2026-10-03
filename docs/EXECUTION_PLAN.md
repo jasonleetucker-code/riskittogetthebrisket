@@ -76,6 +76,15 @@ substantial batch with Foundation/Backend + Lane 6 Premium UI + independent veri
 reusable UI, League Hub table) and, as their dependencies clear, B–D. Milestone E is authorized
 behind `C5-WAR-01` (WAR/WAB are absent on main).
 
+**Status (2026-10-03):** A (#1531), C1 team pages + Power Rankings context (#1540) and B core —
+`timing_only_v1` exact week-order distributions + read-only Schedule Multiverse (#1541) — are merged,
+deployed and verified on production data. **Next in dependency order:** C (recap/report statements
+from the contract, schedule share card, league-wide history view, Hard Luck distinction —
+coordinate with the open awards claim), then the league-valid alternative-calendar model and
+qualification/finish distributions (B remainder, separate model id; the finish sampler exists as
+library code and is not published), then D (valid slot swaps, retrospective playoff sensitivity);
+E stays behind `C5-WAR-01`.
+
 **Not authorized by this directive:** changing the official Power Rankings formula or the official
 League MVP formula (both stay behind the existing owner/methodology gates — candidates ship in
 shadow); any schedule generator, optimizer, adoptable schedule or write to Sleeper (X-01 stands;
