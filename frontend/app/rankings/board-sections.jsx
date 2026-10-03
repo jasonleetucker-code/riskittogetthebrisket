@@ -13,6 +13,7 @@ import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { formatHours, rowAuthority } from "@/lib/value-explainers";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
+import { sourceObservation } from "./board-utils";
 import styles from "./board.module.css";
 
 const srcLabel = (key) =>
@@ -230,6 +231,15 @@ export function MobileSourceStrip({ row, formatSourceCell }) {
                 "—"
               )}
             </span>
+            {cell.observation && (
+              <span className={styles.mobileSourceRank} data-testid={`source-observation-${src.key}`}>
+                {cell.observation.basis === "VALUE"
+                  ? `native ${cell.observation.nativeValue.toLocaleString()}`
+                  : "rank fallback"}
+                {cell.observation.rankLabel ? ` · ${cell.observation.rankLabel}` : ""}
+                {cell.observation.asOf ? ` · ${String(cell.observation.asOf).slice(0, 10)}` : ""}
+              </span>
+            )}
           </span>
         );
       })}
@@ -267,7 +277,7 @@ function AuditField({ label, children }) {
   );
 }
 
-export function SourceAuditPanel({ row, val, edge, confidence }) {
+export function SourceAuditPanel({ row, rawData, val, edge, confidence }) {
   const audit = row.sourceAudit || row.raw?.sourceAudit || {};
   const authority = rowAuthority(row);
   return (
@@ -296,6 +306,10 @@ export function SourceAuditPanel({ row, val, edge, confidence }) {
           const isUnmatched = (audit.unmatchedSources || []).includes(src.key);
           const status = isMatched ? "matched" : isUnmatched ? "missing" : isExpected ? "expected" : "n/a";
           const freshness = Number(meta?.freshness);
+          // Signals (owner addendum 2026-10-03): native value vs rank
+          // fallback, the DERIVED value-ordered rank, dataset, format and
+          // as-of — all backend stamps (board-utils.sourceObservation).
+          const observation = sourceObservation(row, src, rawData);
 
           return (
             <div
@@ -310,11 +324,38 @@ export function SourceAuditPanel({ row, val, edge, confidence }) {
               </div>
               {hasVal ? (
                 <div className={styles.auditCardBody}>
-                  <AuditField label={src.isRankSignal ? "Rank" : "Value"}>
-                    {src.isRankSignal
-                      ? `#${origRk != null ? origRk : "—"}`
-                      : Math.round(Number(siteVal)).toLocaleString()}
-                  </AuditField>
+                  {observation ? (
+                    <>
+                      <AuditField label="Basis">
+                        {observation.basis === "VALUE" ? "VALUE (native value)" : "RANK fallback"}
+                      </AuditField>
+                      {observation.nativeValue != null && (
+                        <AuditField label="Native value">
+                          {observation.nativeValue.toLocaleString()}
+                        </AuditField>
+                      )}
+                      {observation.rankLabel && (
+                        <AuditField label="Signals rank">{observation.rankLabel}</AuditField>
+                      )}
+                      <AuditField label="Dataset">{observation.dataset}</AuditField>
+                      {observation.format && (
+                        <AuditField label="Format">{observation.format}</AuditField>
+                      )}
+                      <AuditField label="As of">
+                        {observation.asOf
+                          ? `${String(observation.asOf).slice(0, 10)}${
+                              observation.state ? ` · ${observation.state}` : ""
+                            }`
+                          : "unknown"}
+                      </AuditField>
+                    </>
+                  ) : (
+                    <AuditField label={src.isRankSignal ? "Rank" : "Value"}>
+                      {src.isRankSignal
+                        ? `#${origRk != null ? origRk : "—"}`
+                        : Math.round(Number(siteVal)).toLocaleString()}
+                    </AuditField>
+                  )}
                   {eRank != null && <AuditField label="Eff. rank">#{eRank}</AuditField>}
                   {meta?.valueContribution != null && (
                     <AuditField label="Hill value">{meta.valueContribution.toLocaleString()}</AuditField>

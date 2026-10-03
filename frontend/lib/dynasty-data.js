@@ -469,6 +469,65 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
+    // Head of the `fantasyCalc` B10 family since 2026-10-03: the two
+    // Signals entries below vote inside it (no independence bonus).
+    correlationGroup: "fantasyCalc",
+  },
+  {
+    // Signals Fantasy AUTHENTICATED native dynasty values, OFFENSE — an
+    // ACTIVE source since the owner addendum of 2026-10-03.  Mirrors the
+    // backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // Collected privately on the production box (never committed); absent,
+    // never zero, wherever that collector has not run.
+    // Votes like FantasyCalc: Signals' own cross-position VALUE ordering is
+    // the rank (DERIVED — Signals published the value, not the rank), so
+    // the cell's original rank is labelled "value-ordered rank (derived)"
+    // and the native value is shown beside it.  Superflex, NOT TE-premium
+    // (TE rows get the board's base -> TE++ conversion once).
+    key: "signalsSf",
+    displayName: "Signals Fantasy Dynasty SF",
+    columnLabel: "Signals",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 500,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    // Display-only provenance for the Rankings source column (not parity-
+    // checked; never used for ranking).
+    privateSource: true,
+    observationDataset: "Offense",
+    observationFormat: "Dynasty · Superflex · non-TEP (TE++ converted)",
+  },
+  {
+    // Signals Fantasy AUTHENTICATED native dynasty values, IDP — same
+    // activation, store and family as `signalsSf`.  IDP-only board: its
+    // cross-position IDP value ordering is the rank, translated onto the
+    // shared-market IDP ladder like DLF IDP / FantasyPros IDP.
+    key: "signalsIdp",
+    displayName: "Signals Fantasy Dynasty IDP",
+    columnLabel: "Signals IDP",
+    scope: "overall_idp",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 415,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: true,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP",
+    observationFormat: "Dynasty · IDP (CB/S → DB, DT/DE → DL)",
   },
   {
     // OTC Fantasy Football Superflex trade-derived values — fetched
