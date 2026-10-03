@@ -1,0 +1,10 @@
+{
+  "generator": "uv==0.9.26",
+  "python": "3.12",
+  "sha256": {
+    "requirements-dev.lock.txt": "130abfefb91c65679b44ae6f4c10f65d190e3631750e772e3826a69fb7a3e1e4",
+    "requirements-dev.txt": "005f247b627609f256dcf782c587351a18f1f6059c613b2d5b95dc5e1bdd695b",
+    "requirements.lock.txt": "50fb4b412685e47707c676297d22ac7446beabf64cb5f3058eb3ae4df4c46ab3",
+    "requirements.txt": "0ec07f7b9b2bbe646dfd5e1789505d57e5d2dc7450096949c94b6f55269f9d59"
+  }
+}
