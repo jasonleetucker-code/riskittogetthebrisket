@@ -489,6 +489,37 @@ def test_trade_simulator_subtracts_an_outgoing_pick_under_unknown_ownership():
     assert result["delta"]["totalValue"] == -3000
 
 
+def test_trade_simulator_observed_ownership_does_not_double_count_a_held_pick():
+    """Control for the unknown-ownership seeding above: when ownership is
+    OBSERVED the held pick is already in ``before`` from the roster, so the
+    outgoing-pick seeding must not run.  Pins the pre-PR arithmetic exactly
+    (re-review #1618: forcing that guard to ``True`` double-counted the pick
+    and no other test noticed)."""
+    from src.api import trade_simulator
+
+    team = {
+        **_unknown_team(1),
+        "picks": ["2027 Round 1"],
+        "pickDetails": [],
+        **pick_identity.pick_ownership_fields(True),
+    }
+    contract = {
+        "playersArray": [_pick_row("2027 Round 1", 3000), _pick_row("2027 Round 2", 1200)],
+        "sleeper": {"teams": [team]},
+    }
+    result = trade_simulator.simulate_trade(
+        contract,
+        resolved_team=team,
+        picks_out=["2027 Round 1"],
+        picks_in=["2027 Round 2"],
+    )
+    assert result["before"]["totalValue"] == 3000
+    assert result["after"]["totalValue"] == 1200
+    assert result["delta"]["totalValue"] == -1800
+    assert result["equity"] == -1800
+    assert "pickOwnership" not in result
+
+
 def _gather_with_teams(monkeypatch, teams):
     from src.ros import pick_forecast_snapshot as snap
 
