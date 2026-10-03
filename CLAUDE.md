@@ -2326,6 +2326,45 @@ never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
+### Draft years and owned-pick ownership — two named scopes, one resolver each (Wave A, 2026-10-03)
+
+"Draft year" is two concepts, deliberately kept separate and separately named:
+
+| scope | question | owner | read via |
+|---|---|---|---|
+| **BOARD** (scoring profile) | which pick classes the shared canonical board still prices | `current_rookie_draft_year()` + `pick_lifecycle.board_class_lifecycle` (retired only when EVERY served league proves it) | contract `currentDraftYear`, `pickClassLifecycle` |
+| **LEAGUE** (leagueKey) | this league's upcoming rookie draft and the seasons it owns picks in | `src/identity/pick_lifecycle.py::league_draft_years`, fed by `src/api/draft_class_evidence.py::league_draft_years_for` | draft-capital `upcomingDraftYear` / `leagueDraftYears` |
+
+The league resolver anchors at `max(calendar year, Sleeper league.season)` (both floors, never
+retirement verdicts), steps past classes THIS league has proven retired (completion AND roster
+consumption — the #1414 rule), and spans `OWNED_PICK_HORIZON_CLASSES = 4` classes from the anchor.
+Every league-scoped surface reads it: both `/api/draft-capital` paths (workbook `season` used to be
+"Sleeper season + 1 on any complete draft"), the Sleeper overlay's and the scraper's pick ownership
+(which used 3 vs 4 calendar years — the overlay never published the third future class), the
+public-league pick inventory (`season + 1, + 2`), and the `/trade` stack anchor (which read the
+BOARD's `firstActiveClass` — 2026 — while the league's draft capital was 2027's).  Board pricing
+is unchanged.  Rule for new code: a league-scoped surface never derives a draft year itself.
+
+**Draft-capital payloads say what they cover.**  Both builders stamp `coveredPickYears` (the
+workbook is one season), `upcomingDraftYear`, `leagueDraftYears`, a stable `rosterId` / `ownerId`
+on each `teamTotals` row (only when the display name maps to exactly one roster), and per pick row
+`originRosterId` / `currentOwnerRosterId` / the canonical `assetId`.  The workbook used to stamp no
+coverage, so `/trade` re-added the upcoming class from roster ownership (top stack $1,677 vs about
+$854), and joined teams by display name across two name spaces.  The stack now joins by roster key
+and counts each `assetId` once (`frontend/lib/pick-stack.js::ownedPickStackInventory`).
+
+**Who holds an owned pick is one lookup.**  `src/identity/picks.py::lookup_league_pick_owner`
+indexes `sleeper.teams[].pickDetails[].assetId` (the canonical fold, not re-folded) and answers
+`owned` / `unknown` (an unpublished inventory — e.g. a failed `/traded_picks`, #1618 — or two teams
+claiming one id) / `absent`.  Every TEAM-ATTRIBUTED path consumes it: `/api/trade/simulate` and
+`/api/trade/analyze` accept `pickAssetIdsIn` / `pickAssetIdsOut` (parallel to the pick lists) and
+debit a team only for a pick it holds, reporting the rest in `ownedPickChecks.notOwnedBySender`
+with the actual owner; a generic pick (no id) is priced as sent but never removes a real pick (the
+board-row fallback that removed "some pick on that row" now applies to players only); one real pick
+counts at most once.  The `/trade` stack note applies the same rule client-side
+(`stackPickMoves`).  The hypothetical calculator itself still never refuses a copy (#1619).  The
+stack effect stays informational only — this is a prerequisite for #1529, not its authorization.
+
 ### Per-source pick boards — one owner (C1-U6-D1, 2026-08-17)
 
 `src/picks/site_pick_map.py` turns ONE vendor's published pick rows into

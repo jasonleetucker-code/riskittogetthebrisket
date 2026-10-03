@@ -37,7 +37,192 @@ from src.api.terminal import (
 )
 
 
+from src.identity.picks import (
+    PICK_OWNER_ABSENT,
+    PICK_OWNER_OWNED,
+    league_pick_owner_index,
+    lookup_league_pick_owner,
+)
+
+
 _IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
+
+
+def _paired_picks(
+    labels: list[Any] | None, ids: list[Any] | None
+) -> tuple[list[str], list[str | None]]:
+    """Drop empty labels, keeping each label's parallel asset id (or ``None``)."""
+    ids = list(ids or [])
+    out_labels: list[str] = []
+    out_ids: list[str | None] = []
+    for i, label in enumerate(labels or []):
+        if not label:
+            continue
+        aid = ids[i] if i < len(ids) else None
+        aid = str(aid).strip() if isinstance(aid, (str, int)) and str(aid).strip() else None
+        out_labels.append(str(label))
+        out_ids.append(aid)
+    return out_labels, out_ids
+
+
+def _coerce_rid(team: Any) -> int | None:
+    if not isinstance(team, dict):
+        return None
+    for key in ("roster_id", "rosterId"):
+        try:
+            return int(team.get(key))
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _roster_pick_entries(team: Any) -> list[tuple[str, str | None]]:
+    """``[(label, assetId|None)]`` for the picks ``team`` holds.
+
+    ``pickDetails`` (with ids) when published as a list, else the plain
+    ``picks`` labels.  The two are the same multiset of labels.
+    """
+    if not isinstance(team, dict):
+        return []
+    details = team.get("pickDetails")
+    if isinstance(details, list) and details:
+        out: list[tuple[str, str | None]] = []
+        for d in details:
+            if not isinstance(d, dict) or not d.get("label"):
+                continue
+            aid = str(d.get("assetId") or "").strip() or None
+            out.append((str(d["label"]), aid))
+        return out
+    return [(str(p), None) for p in (team.get("picks") or []) if p]
+
+
+def _attach_ids(assets: list[dict[str, Any]], pairs: list[tuple[str, str | None]]) -> None:
+    """Stamp each proven id onto the resolved asset of the same label (in order)."""
+    pending: dict[str, list[str]] = {}
+    for label, aid in pairs:
+        if aid:
+            pending.setdefault(str(label), []).append(aid)
+    for asset in assets:
+        queue = pending.get(str(asset.get("sourceLabel")))
+        if queue:
+            asset["assetId"] = queue.pop(0)
+
+
+def _classify_owned_picks(
+    *,
+    picks_out: list[str],
+    ids_out: list[str | None],
+    picks_in: list[str],
+    ids_in: list[str | None],
+    teams: list[Any],
+    owner_index: tuple[dict[str, list[int]], bool],
+    team_rid: int | None,
+) -> dict[str, Any]:
+    """Split the trade's picks by what the canonical ownership lookup proves.
+
+    ``sendOut`` / ``receiveIn`` are ``(label, assetId|None)`` pairs that take
+    part in the trade; an id is kept only when ownership was PROVEN (so the
+    after-state removes exactly that pick).  Everything refused is reported,
+    never silently dropped.
+    """
+    names = {
+        _coerce_rid(t): str(t.get("name") or "")
+        for t in teams
+        if isinstance(t, dict) and _coerce_rid(t) is not None
+    }
+
+    def _owner_fields(own) -> dict[str, Any]:
+        rid = own.owner_roster_id
+        return {"actualOwnerRosterId": rid, "actualOwnerName": names.get(rid) if rid else None}
+
+    send_out: list[tuple[str, str | None]] = []
+    receive_in: list[tuple[str, str | None]] = []
+    not_owned: list[dict[str, Any]] = []
+    already_owned: list[dict[str, Any]] = []
+    repeated: list[dict[str, Any]] = []
+    unverified: list[dict[str, Any]] = []
+
+    seen_out: set[str] = set()
+    for label, aid in zip(picks_out, ids_out):
+        if not aid:
+            send_out.append((label, None))
+            continue
+        if aid in seen_out:
+            repeated.append({"assetId": aid, "label": label, "direction": "out"})
+            continue
+        seen_out.add(aid)
+        own = lookup_league_pick_owner(teams, aid, index=owner_index)
+        if own.state == PICK_OWNER_OWNED and team_rid is not None:
+            if own.owner_roster_id == team_rid:
+                send_out.append((label, aid))
+            else:
+                not_owned.append(
+                    {"assetId": aid, "label": label, "reason": "held_by_another_team"}
+                    | _owner_fields(own)
+                )
+        elif own.state == PICK_OWNER_ABSENT:
+            not_owned.append(
+                {"assetId": aid, "label": label, "reason": own.reason} | _owner_fields(own)
+            )
+        else:
+            # Unprovable (inventory unpublished, conflicting records, or no
+            # team to attribute to): never "owned by the sender".  It stays
+            # in the trade as typed and can debit only an exact roster label.
+            unverified.append(
+                {"assetId": aid, "label": label, "direction": "out", "reason": own.reason}
+            )
+            send_out.append((label, None))
+
+    proven_sent = {aid for _label, aid in send_out if aid}
+    seen_in: set[str] = set()
+    incoming_holders: list[dict[str, Any]] = []
+    for label, aid in zip(picks_in, ids_in):
+        if not aid:
+            receive_in.append((label, None))
+            continue
+        if aid in seen_in:
+            repeated.append({"assetId": aid, "label": label, "direction": "in"})
+            continue
+        seen_in.add(aid)
+        own = lookup_league_pick_owner(teams, aid, index=owner_index)
+        # The request names no counterparty, so who SENDS this pick cannot be
+        # checked.  Its current holder is still reported when known, marked
+        # unverified, so a received pick nobody on the other side holds is
+        # visible rather than silent.  Semantics are unchanged.
+        incoming_holders.append(
+            {
+                "assetId": aid,
+                "label": label,
+                "ownershipState": own.state,
+                "holderRosterId": own.owner_roster_id,
+                "holderName": names.get(own.owner_roster_id) if own.owner_roster_id else None,
+                "counterpartyVerified": False,
+                "note": "the request names no counterparty; this is the pick's current holder",
+            }
+        )
+        if (
+            own.state == PICK_OWNER_OWNED
+            and team_rid is not None
+            and own.owner_roster_id == team_rid
+            and aid not in proven_sent
+        ):
+            already_owned.append({"assetId": aid, "label": label} | _owner_fields(own))
+            continue
+        if own.state != PICK_OWNER_OWNED:
+            unverified.append(
+                {"assetId": aid, "label": label, "direction": "in", "reason": own.reason}
+            )
+        receive_in.append((label, aid if own.state == PICK_OWNER_OWNED else None))
+
+    return {
+        "sendOut": send_out,
+        "receiveIn": receive_in,
+        "notOwnedBySender": not_owned,
+        "alreadyOwnedByReceiver": already_owned,
+        "repeatedOwnedPick": repeated,
+        "unverified": unverified,
+        "incomingPickHolders": incoming_holders,
+    }
 
 
 def _resolve_asset(
@@ -220,6 +405,8 @@ def simulate_trade(
     roster_settings: dict[str, Any] | None = None,
     league_key: str | None = None,
     include_roster_utility: bool = False,
+    pick_asset_ids_in: list[Any] | None = None,
+    pick_asset_ids_out: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -247,15 +434,31 @@ def simulate_trade(
     Never mutates the contract or persists.  Pure function over the
     passed inputs; call repeatedly for different what-ifs.
 
-    ``picks_in`` / ``picks_out`` are treated identically to players —
-    the contract's ``players`` dict carries pick rows by their
-    canonical display name ("2026 early 1st", etc.) and they resolve
-    the same way through ``row_index``.
+    ``picks_in`` / ``picks_out`` resolve to board rows exactly like
+    players.  What differs is which of them may touch the team's REAL
+    inventory (Wave A, owner directive 2026-10-03):
+
+    * ``pick_asset_ids_in`` / ``pick_asset_ids_out`` run parallel to the
+      pick lists (``None`` for an entry without one).  An owned league pick
+      id is resolved by the canonical ownership lookup
+      (``src.identity.picks.lookup_league_pick_owner``): the team is debited
+      for exactly that pick only when it holds it; a pick another team holds
+      (or no team holds) is reported in ``ownedPickChecks.notOwnedBySender``
+      with the actual owner and is neither debited nor counted as sent.
+    * A pick with no id debits the roster only by its EXACT ownership label
+      on this team's roster.  Anything else — a generic market pick such as
+      ``"2027 Mid 1st"`` — is hypothetical: it is priced in ``sending``
+      but never removes one of the team's real picks.  The board-row
+      fallback that used to remove "some pick on that row" could remove a
+      DIFFERENT owned pick, and is now applied to players only.
+    * One real pick counts at most once: a repeated id is reported, not
+      debited or credited twice, and a pick the team already holds is not
+      credited again.
     """
     players_in = [p for p in (players_in or []) if p]
     players_out = [p for p in (players_out or []) if p]
-    picks_in = [p for p in (picks_in or []) if p]
-    picks_out = [p for p in (picks_out or []) if p]
+    picks_in, pick_ids_in = _paired_picks(picks_in, pick_asset_ids_in)
+    picks_out, pick_ids_out = _paired_picks(picks_out, pick_asset_ids_out)
 
     rows = _players_array(contract)
     row_index = _build_row_index(rows)
@@ -291,19 +494,43 @@ def simulate_trade(
         hit = _resolve_asset(name, row_index=row_index)
         if hit is not None:
             before_assets.append(hit)
-    current_picks = (
-        [str(p) for p in (resolved_team.get("picks") or [])]
-        if resolved_team and isinstance(resolved_team, dict)
-        else []
-    )
-    for pick in current_picks:
-        hit = _resolve_asset(pick, row_index=row_index)
+    # Roster picks carry their canonical owned id when the producer stamped
+    # one (``pickDetails[].assetId``), so a sent id removes exactly that pick.
+    # ``pickDetails`` and ``picks`` are the same multiset of labels; without
+    # details the plain labels are used, unidentified.
+    for label, asset_id in _roster_pick_entries(resolved_team):
+        hit = _resolve_asset(label, row_index=row_index)
         if hit is not None:
+            if asset_id:
+                hit["assetId"] = asset_id
             before_assets.append(hit)
 
+    # Which picks may touch REAL inventory — see the docstring.
+    teams = ((contract.get("sleeper") or {}).get("teams")) if isinstance(contract, dict) else None
+    owner_index = league_pick_owner_index(teams if isinstance(teams, list) else [])
+    team_rid = _coerce_rid(resolved_team)
+    checks = _classify_owned_picks(
+        picks_out=picks_out,
+        ids_out=pick_ids_out,
+        picks_in=picks_in,
+        ids_in=pick_ids_in,
+        teams=teams if isinstance(teams, list) else [],
+        owner_index=owner_index,
+        team_rid=team_rid,
+    )
+    sent_pick_labels = [label for label, _aid in checks["sendOut"]]
+    received_pick_labels = [label for label, _aid in checks["receiveIn"]]
+
     # Receiving / sending sides of the trade.
-    receiving, unresolved_in = _resolve_many([*players_in, *picks_in])
-    sending, unresolved_out = _resolve_many([*players_out, *picks_out])
+    receiving, unresolved_in = _resolve_many([*players_in, *received_pick_labels])
+    sending, unresolved_out = _resolve_many([*players_out, *sent_pick_labels])
+    # Re-attach the ids the classification proved this team holds, so the
+    # after-state removal below takes exactly that pick.
+    _attach_ids(sending, checks["sendOut"])
+    _attach_ids(receiving, checks["receiveIn"])
+    for entry in checks["notOwnedBySender"]:
+        hit = _resolve_asset(entry["label"], row_index=row_index)
+        entry["value"] = hit["value"] if hit is not None else None
 
     # AFTER state: drop the sent, add the received.
     #
@@ -321,16 +548,32 @@ def simulate_trade(
     # Exact caller labels first (they distinguish "(own)" from
     # "(from X)"), then board identity for anything unmatched — each
     # consuming one occurrence, never all of them.
+    #
+    # Wave A: an owned pick id the team holds removes exactly that pick
+    # first.  Picks are then matched by exact ownership label only; the
+    # board-identity fallback below is for PLAYERS — on a pick it removed
+    # "some pick of that row", which could be a different owned pick
+    # while equity subtracted the sent one.
     def _label_key(asset: dict[str, Any]) -> str:
         return str(asset.get("sourceLabel") or asset.get("name") or "").strip().lower()
 
     def _board_key(asset: dict[str, Any]) -> str:
         return str(asset.get("name") or "").strip().lower()
 
-    sent_by_label = Counter(_label_key(a) for a in sending)
+    sent_ids = Counter(str(a["assetId"]) for a in sending if a.get("assetId"))
+    by_id: list[dict[str, Any]] = []
+    for asset in before_assets:
+        aid = str(asset.get("assetId") or "")
+        if aid and sent_ids.get(aid, 0) > 0:
+            sent_ids[aid] -= 1
+            continue
+        by_id.append(asset)
+
+    by_label_sending = [a for a in sending if not a.get("assetId")]
+    sent_by_label = Counter(_label_key(a) for a in by_label_sending)
     consumed_label: Counter[str] = Counter()
     kept: list[dict[str, Any]] = []
-    for asset in before_assets:
+    for asset in by_id:
         key = _label_key(asset)
         if consumed_label[key] < sent_by_label.get(key, 0):
             consumed_label[key] += 1
@@ -338,10 +581,15 @@ def simulate_trade(
         kept.append(asset)
 
     unmatched = []
-    for asset in sending:
+    hypothetical_out: list[str] = []
+    for asset in by_label_sending:
         key = _label_key(asset)
         if consumed_label[key] > 0:
             consumed_label[key] -= 1
+        elif asset.get("assetClass") == "pick":
+            # Generic / unheld pick label: priced as sent, never debits a
+            # real pick of this team.
+            hypothetical_out.append(str(asset.get("sourceLabel") or asset.get("name")))
         else:
             unmatched.append(asset)
 
@@ -372,6 +620,15 @@ def simulate_trade(
         "unresolvedIn": unresolved_in,
         "unresolvedOut": unresolved_out,
         "equity": int(equity),
+        "ownedPickChecks": {
+            "rule": "src/identity/picks.py::lookup_league_pick_owner",
+            "notOwnedBySender": checks["notOwnedBySender"],
+            "alreadyOwnedByReceiver": checks["alreadyOwnedByReceiver"],
+            "repeatedOwnedPick": checks["repeatedOwnedPick"],
+            "unverified": checks["unverified"],
+            "incomingPickHolders": checks["incomingPickHolders"],
+            "hypotheticalPicksOut": hypothetical_out,
+        },
     }
 
     # Roster-shape-aware fit verdict.  Only computed when we have both

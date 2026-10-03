@@ -142,20 +142,170 @@ export function poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound
   return dollars > 0 && board > 0 ? board / dollars : null;
 }
 
-// The draft year the stack anchors on: the UPCOMING draft.  That is the
-// backend's ``pickClassLifecycle.firstActiveClass`` (#1414 / #1442) — the
-// board's active draft year stepped past any retired class, derived by
-// the lifecycle owner and never re-derived here.  ``currentDraftYear`` is
-// the future-pick HORIZON anchor, which retirement deliberately does not
-// move, so it is only the fallback for payloads that predate the stamp;
-// the draft-capital payload's own season is the last resort.
+// The draft year the stack anchors on: THIS LEAGUE's upcoming draft.
+//
+// Wave A (owner directive 2026-10-03): the stack is a league-scoped, team-
+// attributed view, so it anchors on the LEAGUE-scoped canonical answer the
+// draft-capital payload carries (``upcomingDraftYear``, from
+// ``src/identity/pick_lifecycle.py::league_draft_years``) -- never on the
+// BOARD's ``pickClassLifecycle.firstActiveClass``, which stays on a class
+// until EVERY league sharing the board retires it.  Reading the board's year
+// here is what anchored the stack on 2026 while this league's draft capital
+// was 2027's.  The contract fields remain fallbacks for payloads that predate
+// the stamp.
 export function pickStackAnchorYear(contract, draftCapital) {
-  const upcoming = Number(contract?.pickClassLifecycle?.firstActiveClass);
+  const upcoming = Number(draftCapital?.upcomingDraftYear);
   if (Number.isFinite(upcoming) && upcoming > 2000) return upcoming;
-  const fromContract = Number(contract?.currentDraftYear);
-  if (Number.isFinite(fromContract) && fromContract > 2000) return fromContract;
   const fromDC = parseInt(String(draftCapital?.season || ""), 10);
-  return Number.isFinite(fromDC) ? fromDC : null;
+  if (Number.isFinite(fromDC) && fromDC > 2000) return fromDC;
+  const board = Number(contract?.pickClassLifecycle?.firstActiveClass);
+  if (Number.isFinite(board) && board > 2000) return board;
+  const fromContract = Number(contract?.currentDraftYear);
+  return Number.isFinite(fromContract) && fromContract > 2000 ? fromContract : null;
+}
+
+// One stable key per league team, shared by the draft-capital payload's
+// ``teamTotals`` rows (``rosterId``) and ``sleeper.teams`` (``roster_id``).
+// The two name their teams differently (Sleeper team name vs owner first
+// name), so a name join silently split one team into two stacks.  A row
+// without a roster id falls back to its name.
+export function teamStackKey(team) {
+  if (!team) return null;
+  const rid = team.rosterId ?? team.roster_id;
+  if (rid != null && rid !== "" && Number.isFinite(Number(rid))) return `roster:${Number(rid)}`;
+  const name = team.team ?? team.name;
+  return name == null ? null : String(name);
+}
+
+// assetId -> owning team key, from the canonical ownership fold as published
+// on ``sleeper.teams[].pickDetails[].assetId``.  An id two teams both claim is
+// ``null`` (unknown) -- never "whichever team was read last".
+export function pickOwnerKeyByAssetId(sleeperTeams) {
+  const owners = new Map();
+  for (const team of sleeperTeams || []) {
+    const key = teamStackKey(team);
+    for (const d of Array.isArray(team?.pickDetails) ? team.pickDetails : []) {
+      const id = d?.assetId ? String(d.assetId) : "";
+      if (!id || key == null) continue;
+      owners.set(id, owners.has(id) && owners.get(id) !== key ? null : key);
+    }
+  }
+  return owners;
+}
+
+// Every REAL pick the draft-capital ``teamTotals`` do not already count, per
+// team key, each exactly once.
+//   * a pick whose canonical ``assetId`` is on a PRICED draft-capital row is
+//     already in teamTotals, whatever the year bookkeeping says;
+//   * a pick whose ``assetId`` is on an UNPRICED row (``isUnpriced`` / no
+//     dollars) is NOT in teamTotals, so it is counted here even in a covered
+//     season -- skipping it would drop a real pick from every stack;
+//   * otherwise a season in ``coveredPickYears`` is already in teamTotals;
+//   * an ``assetId`` two teams both claim is UNKNOWN: counted for neither
+//     (``conflictingIds``), the same answer ``pickOwnerKeyByAssetId`` gives.
+// ``resolveRow(label)`` maps a Sleeper pick label to its board row.
+// Returns ``{ byTeam: {key: [boardRowName, ...]}, conflictingIds: [...] }``.
+export function ownedPickStackInventory(sleeperTeams, draftCapital, resolveRow) {
+  const covered = new Set(
+    (Array.isArray(draftCapital?.coveredPickYears) ? draftCapital.coveredPickYears : [])
+      .map(Number)
+      .filter((y) => Number.isFinite(y)),
+  );
+  const pricedIds = new Set();
+  const unpricedIds = new Set();
+  for (const p of Array.isArray(draftCapital?.picks) ? draftCapital.picks : []) {
+    if (!p?.assetId) continue;
+    const dollars = p.dollarValue;
+    const priced =
+      p.isUnpriced !== true && typeof dollars === "number" && Number.isFinite(dollars);
+    (priced ? pricedIds : unpricedIds).add(String(p.assetId));
+  }
+  const entriesOf = (team) => {
+    const details = Array.isArray(team?.pickDetails) ? team.pickDetails : null;
+    return details
+      ? details.map((d) => ({
+          label: d?.label || d?.baseLabel || "",
+          season: Number(d?.season),
+          id: d?.assetId ? String(d.assetId) : "",
+        }))
+      : (Array.isArray(team?.picks) ? team.picks : []).map((label) => ({
+          label,
+          season: NaN,
+          id: "",
+        }));
+  };
+  // Which teams claim each id -- a claim by two different teams is unknown.
+  const claimants = new Map();
+  for (const team of sleeperTeams || []) {
+    const key = teamStackKey(team);
+    for (const e of entriesOf(team)) {
+      if (!e.id || key == null) continue;
+      if (!claimants.has(e.id)) claimants.set(e.id, new Set());
+      claimants.get(e.id).add(key);
+    }
+  }
+  const conflictingIds = [...claimants].filter(([, keys]) => keys.size > 1).map(([id]) => id);
+  const conflicting = new Set(conflictingIds);
+  const seen = new Set();
+  const byTeam = {};
+  for (const team of sleeperTeams || []) {
+    const key = teamStackKey(team);
+    if (key == null) continue;
+    const out = [];
+    for (const e of entriesOf(team)) {
+      if (e.id) {
+        if (conflicting.has(e.id) || pricedIds.has(e.id) || seen.has(e.id)) continue;
+        seen.add(e.id);
+      }
+      const row = typeof resolveRow === "function" ? resolveRow(e.label) : null;
+      if (!row) continue;
+      const year = Number.isFinite(e.season) ? e.season : parsePickAsset(row.name)?.year;
+      if (year == null) continue;
+      if (covered.has(year) && !(e.id && unpricedIds.has(e.id))) continue;
+      out.push(row.name);
+    }
+    if (out.length) byTeam[key] = out;
+  }
+  return { byTeam, conflictingIds };
+}
+
+// The trade's pick moves between TEAM stacks.  Team-attributed, so only a
+// real owned pick (canonical ``assetId``) held by the sending side's team
+// moves a stack (Wave A):
+//   * a generic pick (no ``assetId``) is hypothetical -- it never debits a
+//     team's real inventory;
+//   * an owned pick the sending team does not hold is reported in
+//     ``notOwned`` (with the actual owner key) and moves nothing;
+//   * a repeated copy of the same owned pick counts once.
+// ``destinationOf(sideIdx, asset)`` returns the receiving side index (or
+// null); ``dollarsOf(asset)`` its auction dollars.
+export function stackPickMoves(sides, { sideTeamKeys, ownerKeyByAssetId, destinationOf, dollarsOf }) {
+  const moves = [];
+  const notOwned = [];
+  const hypothetical = [];
+  const seen = new Set();
+  (sides || []).forEach((s, i) => {
+    for (const a of s?.assets || []) {
+      if (a?.assetClass !== "pick") continue;
+      const id = a.assetId ? String(a.assetId) : "";
+      if (!id) {
+        hypothetical.push(a.name);
+        continue;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const owner = ownerKeyByAssetId?.get(id) ?? null;
+      const sender = sideTeamKeys?.[i] ?? null;
+      if (owner == null || sender == null || owner !== sender) {
+        notOwned.push({ assetId: id, label: a.assetLabel || a.name, side: i, ownerKey: owner });
+        continue;
+      }
+      const to = destinationOf(i, a);
+      if (to == null || to === i) continue;
+      moves.push({ from: i, to, dollars: dollarsOf(a) });
+    }
+  });
+  return { moves, notOwned, hypothetical };
 }
 
 function avg(nums) {
@@ -256,16 +406,16 @@ export function pickAuctionDollars(name, ctx) {
   );
 }
 
-// Per-team total owned-pick auction stack across ALL league teams.
-// Upcoming-draft slots: summed from the owner-attributed draft-capital
-// payload (the authority).  Future-year picks: from Sleeper roster
-// ownership, valued via the tier/slot-average rule.  `pickRowsByTeam`
-// maps team name → array of future-year pick asset names that team owns
-// (already excludes the upcoming-draft year to avoid double counting).
+// Per-team total owned-pick auction stack across ALL league teams, keyed by
+// ``teamStackKey``.  Covered seasons: the draft-capital payload's
+// ``teamTotals`` (the authority).  Every other real pick: from
+// ``ownedPickStackInventory`` (which already excludes covered seasons and
+// ids, and duplicates), valued via the tier/slot-average rule.
+// `pickRowsByTeam` maps team key -> array of pick board-row names.
 export function buildLeagueStacks(draftCapital, pickRowsByTeam, ctx) {
   const stacks = {};
   for (const t of draftCapital?.teamTotals || []) {
-    const team = t?.team;
+    const team = teamStackKey(t);
     if (team == null) continue;
     stacks[team] = Number(t.auctionDollars) || 0; // upcoming draft $
   }

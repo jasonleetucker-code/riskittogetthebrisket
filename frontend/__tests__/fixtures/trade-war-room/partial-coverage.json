@@ -66,7 +66,9 @@
    {
     "available": true,
     "detail": {
+     "hypotheticalPicksOut": [],
      "magnitude": "stretch",
+     "notOwnedBySender": [],
      "rawGap": 7000,
      "receivingAdjusted": 7000.0,
      "receivingValue": 7000,
@@ -377,7 +379,9 @@
    "market": {
     "available": true,
     "detail": {
+     "hypotheticalPicksOut": [],
      "magnitude": "stretch",
+     "notOwnedBySender": [],
      "rawGap": 7000,
      "receivingAdjusted": 7000.0,
      "receivingValue": 7000,
@@ -1129,6 +1133,15 @@
   "weaknessBefore": null
  },
  "leagueKey": "main",
+ "ownedPickChecks": {
+  "alreadyOwnedByReceiver": [],
+  "hypotheticalPicksOut": [],
+  "incomingPickHolders": [],
+  "notOwnedBySender": [],
+  "repeatedOwnedPick": [],
+  "rule": "src/identity/picks.py::lookup_league_pick_owner",
+  "unverified": []
+ },
  "receiving": [
   {
    "age": null,
