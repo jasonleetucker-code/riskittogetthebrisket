@@ -30,7 +30,7 @@ production permissions.
 | Unit | Canonical owner to extend | State | Required proof |
 |---|---|---|---|
 | Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IN PROGRESS | Hash-checked lock, Windows/Linux install, CI/deploy parity, drift sabotage |
-| Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | NOT STARTED | CI digest, exact deploy, served fingerprint, rollback |
+| Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | IN PROGRESS — CI packaging only | CI digest, exact deploy, served fingerprint, rollback |
 | Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | NOT STARTED | Public/private schema tests, OpenAPI, deterministic type parity |
 | Application trace and SLOs | Existing API/log/performance owners | NOT STARTED | Correlated route and source evidence, privacy, failure isolation |
 | Steward spans, eval bridge, routing scorecards | `src/steward/`, `agent-evals/` | NOT STARTED | Real run artifact, exact-revision grading, challenger only |

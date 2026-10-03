@@ -18,6 +18,10 @@ frontend/node_modules/
 frontend/.next/
 frontend/.next.new/
 frontend/.next.old/
+# CI-produced release bundle is uploaded, never committed.
+release-manifest.json
+calculator-release.tar
+calculator-release.tar.sha256
 # Verification builds (NEXT_DIST_DIR=...) — hundreds of MB, never committed.
 .next.*/
 frontend/.next.*/
