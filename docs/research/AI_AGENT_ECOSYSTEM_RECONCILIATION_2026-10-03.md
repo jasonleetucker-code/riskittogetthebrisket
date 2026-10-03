@@ -81,7 +81,9 @@ It is intentionally **not** one universal pipeline:
 
 Recoverable indexed text:
 
-> I FOUND 300+ AI AGENTS SO YOU DON'T HAVE TO. The free GitHub list that maps the entire AI agent ecosystem — 300+ tools, one page, zero cost.
+> I FOUND 300+ AI AGENTS SO YOU DON'T HAVE TO.
+
+The remainder describes a free GitHub list that maps 300+ AI-agent tools in one place.
 
 Account: thegreatest_sv.  
 Status ID: 2080634616860320073.
