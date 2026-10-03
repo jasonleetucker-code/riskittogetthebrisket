@@ -29,6 +29,7 @@ from typing import Any, Mapping
 
 from src.bdvm.params import ParamSet
 from src.bdvm.trade_math import package_value
+from src.identity.picks import team_pick_ownership_unavailable_reason
 from src.ros.lineup import RosterPlayer, assign_lineup
 
 _IDP_GROUPS = frozenset({"DL", "LB", "DB"})
@@ -46,10 +47,16 @@ _REBUILD_RATIO = 1.0 / 1.15
 
 
 def rosters_from_contract(contract: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Normalize the contract's sleeper.teams block."""
+    """Normalize the contract's sleeper.teams block.
+
+    ``picks`` is ``None`` — never ``[]`` — when the team's pick ownership
+    is UNKNOWN (a failed ``/traded_picks`` fetch; vocabulary in
+    ``src/identity/picks.py``), with the reason in ``pickOwnershipReason``.
+    """
     teams = (contract.get("sleeper") or {}).get("teams") or []
     out = []
     for t in teams:
+        unknown_reason = team_pick_ownership_unavailable_reason(t)
         out.append(
             {
                 "name": t.get("name") or t.get("sleeperTeamName") or f"roster_{t.get('roster_id')}",
@@ -57,7 +64,12 @@ def rosters_from_contract(contract: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "rosterId": t.get("roster_id"),
                 "playerIds": [str(x) for x in (t.get("playerIds") or [])],
                 "playerNames": list(t.get("players") or []),
-                "picks": list(t.get("pickDetails") or t.get("picks") or []),
+                "picks": (
+                    None
+                    if unknown_reason is not None
+                    else list(t.get("pickDetails") or t.get("picks") or [])
+                ),
+                "pickOwnershipReason": unknown_reason,
             }
         )
     return out
@@ -207,7 +219,9 @@ def analyze_rosters(
                 "valueWeightedAge": round(weighted_age, 2),
                 "starterFpg": round(_starter_fpg(assets, starters, flex), 1),
                 "positionalSurplus": surplus,
-                "pickCount": len(roster["picks"]),
+                # Unknown ownership is not 0 picks: None + the reason.
+                "pickCount": None if roster["picks"] is None else len(roster["picks"]),
+                "pickCountUnavailableReason": roster["pickOwnershipReason"],
                 "assets": sorted(assets, key=lambda a: -a["tradeValue"].get("balanced", 0.0)),
             }
         )

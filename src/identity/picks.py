@@ -51,6 +51,11 @@ __all__ = [
     "LeaguePickState",
     "OwnedLeaguePick",
     "MarketPickRef",
+    "PICK_OWNERSHIP_OBSERVED",
+    "PICK_OWNERSHIP_REASON_FIELD",
+    "PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED",
+    "PICK_OWNERSHIP_STATE_FIELD",
+    "PICK_OWNERSHIP_UNAVAILABLE",
     "PickMarketResolution",
     "ParsedPickLabel",
     "PICK_TIERS",
@@ -71,9 +76,12 @@ __all__ = [
     "parse_league_pick_id",
     "parse_market_pick_id",
     "parse_pick_label",
+    "pick_ownership_fields",
     "pick_year_from_name",
     "round_suffix",
     "slot_tier",
+    "team_pick_ownership_unavailable_reason",
+    "traded_picks_observation",
 ]
 
 # ── Grammar constants ─────────────────────────────────────────────────
@@ -295,6 +303,72 @@ def build_pick_ownership(
         if entry is not None:
             entry.state.owner_roster_id = owner
     return list(out.values())
+
+
+# ── Pick-ownership observation state ──────────────────────────────────
+#
+# ONE vocabulary for both producers of league pick ownership
+# (``src/api/sleeper_overlay.py::_build_pick_ownership`` and
+# ``Dynasty Scraper.py::fetch_sleeper_rosters``) and every consumer of
+# ``sleeper.teams[].picks`` / ``pickDetails``.
+#
+# The fold above seeds DEFAULT ownership and applies ``/traded_picks`` as a
+# diff, so an empty diff and a missing diff produce the same answer.  They
+# are not the same statement: a 200 list (possibly empty) is an OBSERVATION
+# that no further trades exist; a failed fetch observed nothing.  Folding
+# defaults over a failed fetch publishes "nobody ever traded a pick" as
+# fact — MISSING IS NEVER ZERO.  So on failure the fold does not run, each
+# team's ``picks`` / ``pickDetails`` are ``None`` (``[]`` would claim the
+# team owns no picks) and the team carries the explicit state below.
+
+PICK_OWNERSHIP_STATE_FIELD = "pickOwnershipState"
+PICK_OWNERSHIP_REASON_FIELD = "pickOwnershipReason"
+PICK_OWNERSHIP_OBSERVED = "observed"
+PICK_OWNERSHIP_UNAVAILABLE = "unavailable"
+PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED = "traded_picks_fetch_failed"
+
+
+def traded_picks_observation(body: Any) -> list[Any] | None:
+    """The ``/traded_picks`` diff a response PROVES, or ``None``.
+
+    A list — including an empty one — is an observation.  Anything else
+    (``None`` from a failed fetch, an error object, a scalar) proves nothing
+    and must not be read as "no trades".  Callers pass ``None`` for a
+    non-200 response or an exception.
+    """
+    return body if isinstance(body, list) else None
+
+
+def pick_ownership_fields(observed: bool) -> dict[str, Any]:
+    """The per-team state fields both producers stamp beside ``picks``."""
+    if observed:
+        return {
+            PICK_OWNERSHIP_STATE_FIELD: PICK_OWNERSHIP_OBSERVED,
+            PICK_OWNERSHIP_REASON_FIELD: None,
+        }
+    return {
+        PICK_OWNERSHIP_STATE_FIELD: PICK_OWNERSHIP_UNAVAILABLE,
+        PICK_OWNERSHIP_REASON_FIELD: PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED,
+    }
+
+
+def team_pick_ownership_unavailable_reason(team: Mapping[str, Any]) -> str | None:
+    """Consumer-side reading: ``None`` when ``team``'s picks are usable, else why not.
+
+    * explicit ``unavailable`` state → its reason;
+    * no state but ``pickDetails`` AND ``picks`` both absent/``None`` →
+      ``pick_ownership_unstated`` (nothing says what the team owns);
+    * otherwise (``observed``, or a legacy payload predating the state
+      field that carries lists) → ``None``.
+    """
+    if not isinstance(team, Mapping):
+        return "pick_ownership_unstated"
+    state = team.get(PICK_OWNERSHIP_STATE_FIELD)
+    if state == PICK_OWNERSHIP_UNAVAILABLE:
+        return str(team.get(PICK_OWNERSHIP_REASON_FIELD) or PICK_OWNERSHIP_UNAVAILABLE)
+    if state is None and team.get("pickDetails") is None and team.get("picks") is None:
+        return "pick_ownership_unstated"
+    return None
 
 
 # ── Market pick reference ─────────────────────────────────────────────

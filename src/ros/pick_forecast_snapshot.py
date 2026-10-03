@@ -78,11 +78,11 @@ rosterQuality      ``api.roster_intelligence.build_league_roster_intelligence``
 age                same owner, ``agePortfolio`` — contract league only
 ownedPicks         ``api.sleeper_overlay._build_teams_block`` pick fold, which
                    delegates to ``identity.picks.build_pick_ownership`` -- a
-                   TEMPORARY private seam: the overlay is the only code that
-                   folds ``/traded_picks`` today, and it cannot say how certain
-                   its ownership is (a failed fetch reads as "no trades").
-                   Until the ownership-certainty fix lands in the overlay, this
-                   module observes the fetch itself and fails closed.
+                   private seam: the overlay is the only code that folds
+                   ``/traded_picks`` today.  It now STATES its certainty per
+                   team (``pickOwnershipState``, vocabulary in
+                   ``identity.picks``); this module reads that statement and
+                   fails closed on anything but ``observed``.
 =================  ======================================================
 
 plus league-level ``rules`` (``public_league.playoff_structure``, the league's
@@ -1124,32 +1124,28 @@ def gather_inputs(
             except Exception as exc:  # noqa: BLE001
                 inputs.roster_intel_reason = f"roster_intelligence_failed:{_reason(exc)}"
 
-    # Pick ownership: the overlay's fold, with the /traded_picks outcome
-    # observed. The fold itself treats a failed fetch as "no trades" and
-    # returns DEFAULT ownership; a capture must not record that as fact.
-    # TEMPORARY SEAM: ``_build_teams_block`` / ``_http_get_json`` are private to
-    # the overlay, which is the only owner of the ownership fold today. This
-    # use stays (a second fold would be a second owner) until the overlay can
-    # state its own ownership certainty; then the observation below goes and
-    # this reads that statement instead.
-    traded_ok: dict[str, bool] = {}
+    # Pick ownership: the overlay's fold, read through the certainty the
+    # overlay now states per team (``pickOwnershipState``). Only an explicit
+    # ``observed`` on EVERY team counts; a failed /traded_picks fetch, a
+    # missing state, or no teams at all leaves ownership unproven, and a
+    # capture must not record unproven ownership as fact.
+    # SEAM: ``_build_teams_block`` / ``_http_get_json`` are private to the
+    # overlay, which is the only owner of the ownership fold (a second fold
+    # would be a second owner).
     try:
         from src.api import sleeper_overlay  # noqa: PLC0415
-
-        base_get = http_get or sleeper_overlay._http_get_json
-
-        def _observing_get(url: str) -> Any:
-            result = base_get(url)
-            if url.rstrip("/").endswith("/traded_picks"):
-                traded_ok["ok"] = isinstance(result, list)
-            return result
+        from src.identity import picks as _picks  # noqa: PLC0415
 
         teams = sleeper_overlay._build_teams_block(
-            cfg.sleeper_league_id, None, getter=_observing_get
+            cfg.sleeper_league_id, None, getter=http_get or sleeper_overlay._http_get_json
         )
         if teams is None:
             inputs.overlay_reason = "sleeper_rosters_or_users_fetch_failed"
-        elif traded_ok.get("ok") is not True:
+        elif not teams or any(
+            not isinstance(t, dict)
+            or t.get(_picks.PICK_OWNERSHIP_STATE_FIELD) != _picks.PICK_OWNERSHIP_OBSERVED
+            for t in teams
+        ):
             inputs.overlay_reason = "traded_picks_fetch_failed_ownership_unproven"
         else:
             inputs.overlay_teams = teams

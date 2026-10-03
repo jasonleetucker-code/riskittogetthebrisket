@@ -35,6 +35,10 @@ from src.api.terminal import (
     _tier_bucket,
     POS_GROUPS,
 )
+from src.identity.picks import (
+    PICK_OWNERSHIP_UNAVAILABLE,
+    team_pick_ownership_unavailable_reason,
+)
 
 
 _IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
@@ -291,9 +295,17 @@ def simulate_trade(
         hit = _resolve_asset(name, row_index=row_index)
         if hit is not None:
             before_assets.append(hit)
+    # Pick ownership UNKNOWN (failed /traded_picks): the team's untraded picks
+    # cannot enter before/after, and the response SAYS so rather than letting
+    # an absent pick list read as "this team owns no picks".
+    picks_unknown_reason = (
+        team_pick_ownership_unavailable_reason(resolved_team)
+        if resolved_team and isinstance(resolved_team, dict)
+        else None
+    )
     current_picks = (
         [str(p) for p in (resolved_team.get("picks") or [])]
-        if resolved_team and isinstance(resolved_team, dict)
+        if resolved_team and isinstance(resolved_team, dict) and picks_unknown_reason is None
         else []
     )
     for pick in current_picks:
@@ -373,6 +385,15 @@ def simulate_trade(
         "unresolvedOut": unresolved_out,
         "equity": int(equity),
     }
+    if picks_unknown_reason is not None:
+        response["pickOwnership"] = {
+            "state": PICK_OWNERSHIP_UNAVAILABLE,
+            "reason": picks_unknown_reason,
+            "note": (
+                "This team's draft-pick ownership is unknown, so before/after "
+                "totals exclude its untraded picks; traded picks are still counted."
+            ),
+        }
 
     # Roster-shape-aware fit verdict.  Only computed when we have both
     # a resolved team and league roster settings — free-analysis mode

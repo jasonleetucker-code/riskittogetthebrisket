@@ -2309,6 +2309,27 @@ never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
+**League pick OWNERSHIP is observed or unknown, never assumed** (2026-10-02).
+The fold seeds default ownership and applies `/traded_picks` as a diff, so a
+failed fetch and "no trades" used to produce the same published answer.  Both
+producers (`sleeper_overlay._build_pick_ownership` and the scraper's
+`fetch_sleeper_rosters`) now read the response through
+`picks.traded_picks_observation` — a list, even empty, is an observation;
+anything else is `None` — and on `None` they do not fold: every team publishes
+`picks: null` / `pickDetails: null` (never `[]`, which says "owns no picks")
+with `pickOwnershipState: "unavailable"` + `pickOwnershipReason:
+"traded_picks_fetch_failed"`, and `"observed"` / `null` on success
+(`picks.pick_ownership_fields`, one vocabulary).  Consumers read it through
+`picks.team_pick_ownership_unavailable_reason`: the Pick Projector refuses
+(`picks: null`, reason in `meta`; route `error: "pick_ownership_unavailable"`),
+BDVM `pickCount` is `None` + `pickCountUnavailableReason`, the trade simulator
+attaches a `pickOwnership` note, and the Pick Forecast capture keys on the
+stated `observed`.  **`sleeperDataReady` is deliberately NOT flipped** by it:
+readiness is about whether the block belongs to the requested league and its
+league CONFIG is complete; the rosters are still real, and the pick fields
+carry their own explicit unknown — degrading the one field rather than
+dropping the whole block.
+
 ### Per-source pick boards — one owner (C1-U6-D1, 2026-08-17)
 
 `src/picks/site_pick_map.py` turns ONE vendor's published pick rows into

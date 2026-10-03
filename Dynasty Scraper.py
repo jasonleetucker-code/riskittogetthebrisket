@@ -955,17 +955,25 @@ def fetch_sleeper_rosters(league_id):
     except Exception:
         draft_slot_by_origin = {}
 
-    traded_picks = []
+    # A 200 list (possibly empty) is an OBSERVATION of the trade diff; a
+    # non-200, an exception, or a non-list body observed nothing.  ``None``
+    # = ownership UNKNOWN: the default fold below does not run and every
+    # team's picks publish as None with an explicit state — never the
+    # defaults ("nobody traded a pick") and never [] ("owns no picks").
+    # Vocabulary owned by src/identity/picks.py.
+    traded_picks = None
     try:
         tp_resp = _req.get(
             f"https://api.sleeper.app/v1/league/{league_id}/traded_picks", timeout=15
         )
         if tp_resp.status_code == 200:
-            tp_json = tp_resp.json()
-            if isinstance(tp_json, list):
-                traded_picks = tp_json
+            traded_picks = _pick_identity.traded_picks_observation(tp_resp.json())
     except Exception:
-        traded_picks = []
+        traded_picks = None
+    pick_ownership_observed = traded_picks is not None
+    pick_ownership_state = _pick_identity.pick_ownership_fields(pick_ownership_observed)
+    if not pick_ownership_observed:
+        print("  [Sleeper] /traded_picks not observed; pick ownership published as unknown")
 
     # C1-ID-02: the seed + traded-diff fold and both label grammars are
     # owned by src/identity/picks — this block is an adapter.  Canonical
@@ -1021,13 +1029,17 @@ def fetch_sleeper_rosters(league_id):
         draft_class_evidence = None
         owned_pick_years = list(pick_years)
 
-    owned_picks = _pick_identity.build_pick_ownership(
-        _pick_league_key or "unregistered-league",
-        roster_ids,
-        traded_picks,
-        seasons=owned_pick_years,
-        rounds=draft_rounds,
-        slot_by_origin=draft_slot_by_origin,
+    owned_picks = (
+        _pick_identity.build_pick_ownership(
+            _pick_league_key or "unregistered-league",
+            roster_ids,
+            traded_picks,
+            seasons=owned_pick_years,
+            rounds=draft_rounds,
+            slot_by_origin=draft_slot_by_origin,
+        )
+        if pick_ownership_observed
+        else []
     )
 
     for o in owned_picks:
@@ -1189,16 +1201,27 @@ def fetch_sleeper_rosters(league_id):
                 "ownerId": str(owner_id) if owner_id else "",
                 "players": sorted(team_players),
                 "playerIds": sorted(team_player_ids),
-                "picks": sorted(team_pick_assets.get(roster_id_int, []), key=_pick_sort_key),
-                "pickDetails": sorted(
-                    team_pick_details.get(roster_id_int, []),
-                    key=lambda d: (
-                        int(d.get("season", 9999)),
-                        int(d.get("round", 9)),
-                        int(d.get("slot", 99)) if d.get("slot") is not None else 99,
-                        str(d.get("fromTeam", "")),
-                    ),
+                # Unknown ownership publishes None for BOTH the legacy
+                # labels and the details — [] would claim "owns no picks".
+                "picks": (
+                    sorted(team_pick_assets.get(roster_id_int, []), key=_pick_sort_key)
+                    if pick_ownership_observed
+                    else None
                 ),
+                "pickDetails": (
+                    sorted(
+                        team_pick_details.get(roster_id_int, []),
+                        key=lambda d: (
+                            int(d.get("season", 9999)),
+                            int(d.get("round", 9)),
+                            int(d.get("slot", 99)) if d.get("slot") is not None else 99,
+                            str(d.get("fromTeam", "")),
+                        ),
+                    )
+                    if pick_ownership_observed
+                    else None
+                ),
+                **pick_ownership_state,
             }
         )
 
