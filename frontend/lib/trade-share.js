@@ -10,10 +10,18 @@
  *     s: [                           // sides (typically 2, but N is allowed)
  *       { n: "Team A", p: ["Ja'Marr Chase", "2026 1.03"] },
  *       { n: "Team B", p: ["Josh Allen", "2027 Mid 1st", "2027 Mid 1st"],
- *         a: [null, null, "pick:dynasty_main:2027:r1:o4"] },  // optional
+ *         a: [null, null, "pick:dynasty_main:2027:r1:o4"],    // optional
+ *         q: [4, 6, 8] },                                     // optional
  *     ],
  *
- *   ``p`` repeats a name once per COPY (a generic pick x2 is two items).
+ *   ``p`` lists one name per LINE (a distinct name + owned-id pair, in
+ *   first-occurrence order).  ``q`` (optional, aligned with ``p``) is that
+ *   line's copy count; it is omitted when every line is a single copy, so
+ *   a trade without repeats encodes exactly as it always did.  Links
+ *   written before ``q`` existed repeat a name once per COPY instead, and
+ *   still decode to the same copies.  Every calculator asset is repeatable
+ *   (owner decision 2026-10-03), so Jefferson x4 + 2027 Mid 1st x6 + an
+ *   owned pick x8 round-trips exactly.
  *   ``a`` (optional, aligned with ``p``) carries an owned league pick's
  *   canonical id from ``src/identity/picks.py``; it is absent on every
  *   link written before T-NEW-02 and on any side without an owned pick.
@@ -43,6 +51,56 @@
 
 export const SHARE_PARAM = "share";
 export const SHARE_SCHEMA_VERSION = 1;
+
+// ── Untrusted-link bounds ──────────────────────────────────────────────
+//
+// A share link is attacker-controllable text, and the calculator keeps one
+// side entry per COPY, so without bounds a ~100 KB link (5,000 lines x
+// q 999) decoded to ~5 million entries and hung whoever opened it.  These
+// bounds guard untrusted URL INPUT only.  They are not calculator quantity
+// caps: manual entry, localStorage and saved workspaces stay unlimited
+// (owner decision 2026-10-03).  When a bound trips, ``decodeTrade`` says so
+// (``truncated`` + ``truncationReasons``) — a clamp is never silent.
+
+/** Distinct lines per side — the same cap the encoder applies (URL length). */
+export const SHARE_MAX_LINES_PER_SIDE = 32;
+/** Sides per link — the calculator's own ``MAX_SIDES`` (lib/trade-logic). */
+export const SHARE_MAX_SIDES = 5;
+/** Total copies across ALL sides of one decoded link.  Far above any real trade. */
+export const SHARE_MAX_TOTAL_COPIES = 10000;
+
+export const SHARE_TRUNCATION = Object.freeze({
+  TOO_MANY_SIDES: "too_many_sides",
+  TOO_MANY_LINES: "too_many_lines",
+  COPY_BUDGET: "copy_budget_exceeded",
+});
+
+/**
+ * Group one side's names (+ aligned owned-pick ids) into LINES — a distinct
+ * name + id pair with its copy count, first-occurrence order.  Shared by the
+ * encoder and ``shareLinkLimits`` so the two cannot disagree.
+ */
+function groupShareLines(side) {
+  const ids = Array.isArray(side?.assetIds) ? side.assetIds : [];
+  const lines = [];
+  const byKey = new Map();
+  (Array.isArray(side?.players) ? side.players : []).forEach((x, i) => {
+    if (typeof x !== "string" || !x.trim()) return;
+    const name = x.slice(0, 64);
+    const rawId = ids[i];
+    const id = typeof rawId === "string" && rawId.trim() ? rawId.trim().slice(0, 96) : null;
+    const key = `${name}\u0000${id || ""}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count += 1;
+      return;
+    }
+    const line = { name, id, count: 1 };
+    byKey.set(key, line);
+    lines.push(line);
+  });
+  return lines;
+}
 
 function toBase64Url(bytes) {
   // ``btoa`` only accepts Latin-1; we need UTF-8 safe encoding.
@@ -91,22 +149,18 @@ export function encodeTrade(trade) {
     s: trade.sides.map((side) => {
       // Names and owned-pick ids travel as PAIRS until the final shape so
       // filtering an unusable name can never shift an id onto the wrong
-      // asset.  Repeated names are copies and are all kept (T-NEW-02).
-      const ids = Array.isArray(side.assetIds) ? side.assetIds : [];
-      const pairs = (Array.isArray(side.players) ? side.players : [])
-        .map((x, i) => [x, ids[i]])
-        .filter(([x]) => typeof x === "string" && x.trim())
-        .slice(0, 32) // hard cap to avoid pathologically long URLs
-        .map(([x, id]) => [
-          x.slice(0, 64),
-          typeof id === "string" && id.trim() ? id.trim().slice(0, 96) : null,
-        ]);
-      const out = { n: String(side.name || "").slice(0, 40), p: pairs.map(([x]) => x) };
+      // asset.  Repeated pairs are copies and are all kept: they collapse
+      // into one LINE with a count, so the line cap bounds distinct assets,
+      // never quantity.  ``shareLinkLimits`` reports anything this drops.
+      const kept = groupShareLines(side).slice(0, SHARE_MAX_LINES_PER_SIDE);
+      const out = { n: String(side.name || "").slice(0, 40), p: kept.map((l) => l.name) };
       // ``a`` is ADDITIVE and aligned with ``p``: an owned pick's canonical
       // id, or null.  Omitted entirely when a side has no owned pick, so a
       // trade without one encodes exactly as it always did, and a decoder
       // that predates ``a`` ignores it and loads the names as before.
-      if (pairs.some(([, id]) => id)) out.a = pairs.map(([, id]) => id);
+      if (kept.some((l) => l.id)) out.a = kept.map((l) => l.id);
+      // ``q`` is ADDITIVE the same way: omitted unless some line repeats.
+      if (kept.some((l) => l.count > 1)) out.q = kept.map((l) => l.count);
       return out;
     }),
   };
@@ -127,6 +181,13 @@ export function encodeTrade(trade) {
  * Decode a previously-encoded trade state.  Returns null on any
  * parsing error rather than throwing — the URL came from a user-
  * controlled link, so be defensive.
+ *
+ * Bounded (see "Untrusted-link bounds" above): at most
+ * ``SHARE_MAX_SIDES`` sides, ``SHARE_MAX_LINES_PER_SIDE`` lines per side
+ * and ``SHARE_MAX_TOTAL_COPIES`` copies across the whole link.  Anything
+ * beyond is dropped AND reported: ``truncated`` is true and
+ * ``truncationReasons`` names each bound that tripped.  Every link the
+ * encoder can produce within those bounds decodes exactly as before.
  */
 export function decodeTrade(encoded) {
   if (!encoded) return null;
@@ -141,13 +202,29 @@ export function decodeTrade(encoded) {
   if (!parsed || typeof parsed !== "object") return null;
   const version = Number(parsed.v) || 1;
   if (version !== SHARE_SCHEMA_VERSION) return null;
-  const sides = Array.isArray(parsed.s) ? parsed.s : [];
+  const allSides = Array.isArray(parsed.s) ? parsed.s : [];
+  const reasons = new Set();
+  if (allSides.length > SHARE_MAX_SIDES) reasons.add(SHARE_TRUNCATION.TOO_MANY_SIDES);
+  let budget = SHARE_MAX_TOTAL_COPIES;
+  const sides = allSides.slice(0, SHARE_MAX_SIDES);
   return {
     sides: sides.map((s) => {
       const rawIds = Array.isArray(s?.a) ? s.a : [];
-      const pairs = (Array.isArray(s?.p) ? s.p : [])
-        .map((x, i) => [x, rawIds[i]])
-        .filter(([x]) => typeof x === "string");
+      const rawCounts = Array.isArray(s?.q) ? s.q : [];
+      const rawNames = Array.isArray(s?.p) ? s.p : [];
+      if (rawNames.length > SHARE_MAX_LINES_PER_SIDE) reasons.add(SHARE_TRUNCATION.TOO_MANY_LINES);
+      const pairs = [];
+      rawNames.slice(0, SHARE_MAX_LINES_PER_SIDE).forEach((x, i) => {
+        if (typeof x !== "string") return;
+        // A line's copies expand back to one item per copy.  Absent or
+        // invalid counts are one copy (every link written before ``q``).
+        const c = Number(rawCounts[i]);
+        const wanted = Number.isInteger(c) && c >= 1 ? c : 1;
+        const copies = Math.min(wanted, budget);
+        if (copies < wanted) reasons.add(SHARE_TRUNCATION.COPY_BUDGET);
+        budget -= copies;
+        for (let k = 0; k < copies; k += 1) pairs.push([x, rawIds[i]]);
+      });
       return {
         name: String(s?.n || ""),
         players: pairs.map(([x]) => x),
@@ -156,11 +233,49 @@ export function decodeTrade(encoded) {
         assetIds: pairs.map(([, id]) => (typeof id === "string" && id.trim() ? id.trim() : null)),
       };
     }),
+    truncated: reasons.size > 0,
+    truncationReasons: [...reasons],
     note: String(parsed.c || "") || null,
     // Absent (every link before #842, and every Team-context link) is ON.
     teamContext: parsed.m !== "asset",
     createdAt: parsed.t ? String(parsed.t) : null,
   };
+}
+
+/**
+ * Would sharing ``trade`` lose anything?  The SENDER-side check: the
+ * encoder drops distinct lines past ``SHARE_MAX_LINES_PER_SIDE``, and the
+ * decoder drops sides past ``SHARE_MAX_SIDES`` and copies past
+ * ``SHARE_MAX_TOTAL_COPIES``.  Callers must warn instead of reporting a
+ * clean copy when ``complete`` is false.
+ *
+ * @returns {{complete: boolean, reasons: string[]}}
+ */
+export function shareLinkLimits(trade) {
+  const reasons = new Set();
+  const sides = Array.isArray(trade?.sides) ? trade.sides : [];
+  if (sides.length > SHARE_MAX_SIDES) reasons.add(SHARE_TRUNCATION.TOO_MANY_SIDES);
+  let total = 0;
+  for (const side of sides.slice(0, SHARE_MAX_SIDES)) {
+    const lines = groupShareLines(side);
+    if (lines.length > SHARE_MAX_LINES_PER_SIDE) reasons.add(SHARE_TRUNCATION.TOO_MANY_LINES);
+    for (const line of lines.slice(0, SHARE_MAX_LINES_PER_SIDE)) total += line.count;
+  }
+  if (total > SHARE_MAX_TOTAL_COPIES) reasons.add(SHARE_TRUNCATION.COPY_BUDGET);
+  return { complete: reasons.size === 0, reasons: [...reasons] };
+}
+
+/** Plain-language sentence for a set of truncation reasons. */
+export function describeShareTruncation(reasons) {
+  const parts = [];
+  for (const r of reasons || []) {
+    if (r === SHARE_TRUNCATION.TOO_MANY_SIDES) parts.push(`more than ${SHARE_MAX_SIDES} sides`);
+    else if (r === SHARE_TRUNCATION.TOO_MANY_LINES)
+      parts.push(`more than ${SHARE_MAX_LINES_PER_SIDE} different assets on a side`);
+    else if (r === SHARE_TRUNCATION.COPY_BUDGET)
+      parts.push(`more than ${SHARE_MAX_TOTAL_COPIES.toLocaleString("en-US")} copies in total`);
+  }
+  return parts.join(", ");
 }
 
 /**

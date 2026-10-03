@@ -578,9 +578,11 @@ describe("addAssetToSide", () => {
     expect(result[0].name).toBe("Josh Allen");
   });
 
-  it("does not duplicate an existing asset", () => {
+  it("adds another copy of an asset already on the side (owner decision 2026-10-03)", () => {
+    // Calculator quantities are hypothetical, not inventory: a second add
+    // is a second copy, never refused.
     const result = addAssetToSide([ALLEN], ALLEN);
-    expect(result.length).toBe(1);
+    expect(result.length).toBe(2);
   });
 
   it("returns same array for null row", () => {
@@ -729,11 +731,11 @@ describe("addRecent", () => {
 describe("filterPickerRows", () => {
   const allRows = [ALLEN, MAHOMES, CHASE, PARSONS, PICK_2026];
 
-  it("excludes assets already in trade", () => {
+  it("keeps assets already in the trade pickable (owner decision 2026-10-03)", () => {
     const result = filterPickerRows(allRows, [ALLEN], [CHASE], "", "all");
-    expect(result.map((r) => r.name)).not.toContain("Josh Allen");
-    expect(result.map((r) => r.name)).not.toContain("Ja'Marr Chase");
-    expect(result.length).toBe(3);
+    expect(result.map((r) => r.name)).toContain("Josh Allen");
+    expect(result.map((r) => r.name)).toContain("Ja'Marr Chase");
+    expect(result.length).toBe(5);
   });
 
   it("filters by asset class", () => {

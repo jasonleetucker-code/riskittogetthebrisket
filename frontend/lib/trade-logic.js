@@ -15,11 +15,11 @@ import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
 import {
   canAddEntry,
   deserializeEntry,
-  dedupeUniqueAcrossSides,
   removeOneEntry,
+  searchMatchTier,
+  searchPickEntries,
   serializeEntry,
   tradeEntryKey,
-  uniqueKeysInTrade,
 } from "./trade-assets.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
@@ -1092,33 +1092,72 @@ export function isUnpricedBoardRow(row) {
 }
 
 /**
- * Board rows matching a search query, excluding anything already in the
- * trade. Sorted by blended source rank so the most relevant dynasty
- * assets come first — the KTC trade-calculator UX.
+ * Board rows matching a search query, most relevant first.
+ *
+ * Relevance is ``searchMatchTier`` (exact > prefix > substring > every
+ * word present), so "2027 Late 1st" returns exactly that row first; within
+ * a tier, rows sort by blended source rank — the most relevant dynasty
+ * assets first, the KTC trade-calculator UX.
+ *
+ * Nothing is excluded for being in the trade: every asset is repeatable
+ * (owner decision 2026-10-03), so a row already in the trade stays
+ * searchable.  There is deliberately no exclusion parameter.
  *
  * Extracted from `/trade`'s `searchAssets` so the asset-eligibility
  * rule is one testable function rather than an inline predicate
  * repeated beside three other copies of itself.
  */
-export function searchTradeAssets(rows, query, excludedNames, limit = 5) {
-  const q = String(query || "")
-    .trim()
-    .toLowerCase();
-  if (!q) return [];
-  const excluded =
-    excludedNames instanceof Set ? excludedNames : new Set(excludedNames || []);
-  const list = (rows || []).filter(
-    (r) =>
-      r &&
-      !excluded.has(r.name) &&
-      isTradeableBoardRow(r) &&
-      String(r.name).toLowerCase().includes(q),
-  );
-  list.sort(
+export function searchTradeAssets(rows, query, limit = 5) {
+  if (!String(query || "").trim()) return [];
+  const scored = [];
+  for (const r of rows || []) {
+    if (!r || !isTradeableBoardRow(r)) continue;
+    const tier = searchMatchTier(r.name, query);
+    if (tier >= 0) scored.push({ r, tier });
+  }
+  scored.sort(
     (a, b) =>
-      (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity),
+      a.tier - b.tier ||
+      (a.r.blendedSourceRank ?? Infinity) - (b.r.blendedSourceRank ?? Infinity),
   );
-  return list.slice(0, limit);
+  return scored.slice(0, limit).map((x) => x.r);
+}
+
+// Per-group limits for the calculator search (see ``searchCalculatorAssets``).
+export const SEARCH_BOARD_LIMIT = 8;
+export const SEARCH_OWNED_LIMIT = 5;
+
+/**
+ * The calculator's search: board rows FIRST, then the side's owned picks,
+ * each group with its OWN limit — the single composition both search
+ * boxes on /trade use.
+ *
+ *   1. board rows (players, Early/Mid/Late tier picks for every active
+ *      future year, current-year slot picks) via ``searchTradeAssets`` —
+ *      exact-query relevance first, nothing hidden for being in the trade;
+ *   2. ``ownedEntries`` (the side's team's owned picks, each carrying its
+ *      canonical ``assetId``) via ``searchPickEntries``.
+ *
+ * Owned picks used to come first and share one short list, so on a phone
+ * with the keyboard up a team's own "2027 1st / 2nd" rows were all that was
+ * visible and the 2027 Early/Mid/Late market references — present, priced
+ * and unsuppressed on the board — read as missing.  Market references and
+ * owned picks are different assets and both stay addable.  Values are the
+ * board rows' own canonical values; nothing here prices anything.
+ */
+export function searchCalculatorAssets(
+  rows,
+  query,
+  ownedEntries = [],
+  { boardLimit = SEARCH_BOARD_LIMIT, ownedLimit = SEARCH_OWNED_LIMIT } = {},
+) {
+  const board = searchTradeAssets(rows, query, boardLimit);
+  const owned = searchPickEntries(
+    (ownedEntries || []).filter((e) => e && e.assetId),
+    query,
+    ownedLimit,
+  );
+  return [...board, ...owned];
 }
 
 /**
@@ -1191,9 +1230,10 @@ export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
 }
 
 // ── Trade Side Helpers ───────────────────────────────────────────────────
-// Identity and quantity rules live in ./trade-assets.js (T-NEW-02): only
-// UNIQUE entries (players, owned picks) refuse a second copy; repeatable
-// market-reference picks may repeat, and removal takes ONE copy.
+// Identity and quantity rules live in ./trade-assets.js.  Every asset is
+// repeatable in the calculator (owner decision 2026-10-03, superseding
+// T-NEW-02's uniqueness rule): an add is never refused, and removal takes
+// ONE copy.
 export function addAssetToSide(side, row) {
   if (!row) return side;
   if (!canAddEntry([side], row)) return side;
@@ -1294,7 +1334,7 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
   const scored = [];
   // Candidates are scored per IDENTITY, not per label: two distinct owned
   // picks that both read "2027 Mid 1st" are two candidates, while the same
-  // repeatable market row offered twice is one (T-NEW-02).
+  // market row offered twice in the pool is one suggestion.
   const scoredKeys = new Set();
   for (const row of rosterRows || []) {
     const key = tradeEntryKey(row);
@@ -1630,9 +1670,9 @@ export function serializeWorkspaceMulti(sides, valueMode, activeSide) {
     valueMode,
     activeSide,
     sides: sides.map((s) => {
-      // One item per COPY (a generic pick x3 is three items), and an owned
-      // pick keeps its canonical id — see ./trade-assets.js.  Players and
-      // repeatable picks stay bare names, so this is byte-identical to the
+      // One item per COPY (Jefferson x4 is four items), and an owned pick
+      // keeps its canonical id — see ./trade-assets.js.  Players and market
+      // picks stay bare names, so this is byte-identical to the
       // pre-T-NEW-02 format for any trade that has no owned pick.
       const assets = (s.assets || []).map(serializeEntry).filter((x) => x != null);
       const destSource = s.destinations || {};
@@ -1675,7 +1715,7 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") 
     return v == null ? "" : Math.round(Number(v));
   };
   const basis = valueBasis || "unspecified";
-  // One line per COPY, so a generic pick x2 exports as two lines and the
+  // One line per COPY, so any asset x2 exports as two lines and the
   // column sums agree with the calculator.  ``Asset ID`` carries an owned
   // pick's canonical identity, which the label alone cannot: two distinct
   // owned picks may both read "2027 Mid 1st" (T-NEW-02).
@@ -1716,16 +1756,14 @@ export function deserializeWorkspaceMulti(parsed, rowByName) {
     const activeSide = typeof parsed.activeSide === "number" ? parsed.activeSide : 0;
     const sideCount = parsed.sides.length;
     // Items are bare names (every payload ever written, and players /
-    // repeatable picks now) or ``{name, assetId, label}`` for an owned
-    // pick.  Repeated items are copies and all survive; a UNIQUE identity
-    // appearing twice (a corrupted or hand-edited payload) keeps its
-    // first occurrence only, so it cannot count twice.
-    const entryLists = dedupeUniqueAcrossSides(
-      parsed.sides.map((s) =>
-        Array.isArray(s?.assets)
-          ? s.assets.map((item) => deserializeEntry(item, rowByName)).filter(Boolean)
-          : [],
-      ),
+    // market picks now) or ``{name, assetId, label}`` for an owned pick.
+    // Repeated items are copies and ALL survive, for every kind of asset
+    // and on both sides at once — calculator quantities are hypothetical,
+    // not inventory (owner decision 2026-10-03).
+    const entryLists = parsed.sides.map((s) =>
+      Array.isArray(s?.assets)
+        ? s.assets.map((item) => deserializeEntry(item, rowByName)).filter(Boolean)
+        : [],
     );
     const sides = parsed.sides.map((s, i) => {
       const assets = entryLists[i];
@@ -1775,12 +1813,12 @@ export function addRecent(recentNames, name) {
   return [name, ...recentNames.filter((x) => x !== name)].slice(0, 20);
 }
 
-export function filterPickerRows(rows, sideA, sideB, query, filter) {
-  // Only UNIQUE identities already in the trade are hidden; a repeatable
-  // market pick stays pickable after its first copy (T-NEW-02).
-  const inTrade = uniqueKeysInTrade([sideA, sideB]);
+// ``sideA`` / ``sideB`` are kept for call-site stability.  Nothing already
+// in the trade is hidden: every asset stays pickable after its first copy
+// (owner decision 2026-10-03).
+export function filterPickerRows(rows, _sideA, _sideB, query, filter) {
   const q = query.trim().toLowerCase();
-  let list = rows.filter((r) => !inTrade.has(tradeEntryKey(r)));
+  let list = rows.filter(Boolean);
   if (filter !== "all") list = list.filter((r) => r.assetClass === filter);
   if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
   return list.slice(0, 80);

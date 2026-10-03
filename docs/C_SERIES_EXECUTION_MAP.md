@@ -377,6 +377,7 @@ recomputed anywhere here — this is roster-impact math.
   gap at the elite tier is not a 500-point gap deep on the board. Relative gap,
   package size, tier/curve slope, uncertainty, topology. Symmetry preserved.
 - **2026-09-24 quantity clarification (#1415 / T-NEW-02):** maturity includes repeatable/generic asset quantities and identity-safe duplicate labels. Two generic “Mid 2027 1st” assets must survive add→math→remove-one→share/persist→restore and count twice; two distinct owned picks with the same displayed tier must coexist; the exact same unique owned pick must not double-count. This remains inside the existing C3-U5/C3-CALC-01 owner rather than creating a second quantity subsystem.
+- **2026-10-03 supersession (owner decision):** the "exact same unique owned pick must not double-count" clause above no longer applies inside the calculator — every asset is repeatable, players and owned picks included, and Early/Mid/Late future-pick market references must stay discoverable in search. Trade Calculator assets are hypothetical quantities, not inventory-enforced unique objects; real uniqueness remains in ownership records, transaction history, pick identity and roster-aware recommendations. Pointer: `docs/OWNER_REQUESTED_TODO.md` → "Added 2026-10-03 — Trade Calculator: unlimited asset quantity + Early/Mid/Late market picks".
 
 ### C3-U6 — Whole-package market coverage + equalizers
 - **rows** `C3-XMKT-01` `C3-EQ-01` · **owner** `src/league_intel/cross_market.py`
