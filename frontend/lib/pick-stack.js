@@ -195,31 +195,34 @@ export function pickOwnerKeyByAssetId(sleeperTeams) {
 
 // Every REAL pick the draft-capital ``teamTotals`` do not already count, per
 // team key, each exactly once.
-//   * a season in ``coveredPickYears`` is already in teamTotals;
-//   * a pick whose canonical ``assetId`` appears on a draft-capital pick row
-//     is already in teamTotals, whatever the year bookkeeping says;
-//   * an ``assetId`` seen on a second team is not counted again.
+//   * a pick whose canonical ``assetId`` is on a PRICED draft-capital row is
+//     already in teamTotals, whatever the year bookkeeping says;
+//   * a pick whose ``assetId`` is on an UNPRICED row (``isUnpriced`` / no
+//     dollars) is NOT in teamTotals, so it is counted here even in a covered
+//     season -- skipping it would drop a real pick from every stack;
+//   * otherwise a season in ``coveredPickYears`` is already in teamTotals;
+//   * an ``assetId`` two teams both claim is UNKNOWN: counted for neither
+//     (``conflictingIds``), the same answer ``pickOwnerKeyByAssetId`` gives.
 // ``resolveRow(label)`` maps a Sleeper pick label to its board row.
-// Returns ``{ byTeam: {key: [boardRowName, ...]}, duplicateIds: [...] }``.
+// Returns ``{ byTeam: {key: [boardRowName, ...]}, conflictingIds: [...] }``.
 export function ownedPickStackInventory(sleeperTeams, draftCapital, resolveRow) {
   const covered = new Set(
     (Array.isArray(draftCapital?.coveredPickYears) ? draftCapital.coveredPickYears : [])
       .map(Number)
       .filter((y) => Number.isFinite(y)),
   );
-  const coveredIds = new Set(
-    (Array.isArray(draftCapital?.picks) ? draftCapital.picks : [])
-      .map((p) => (p?.assetId ? String(p.assetId) : ""))
-      .filter(Boolean),
-  );
-  const seen = new Set();
-  const duplicateIds = [];
-  const byTeam = {};
-  for (const team of sleeperTeams || []) {
-    const key = teamStackKey(team);
-    if (key == null) continue;
+  const pricedIds = new Set();
+  const unpricedIds = new Set();
+  for (const p of Array.isArray(draftCapital?.picks) ? draftCapital.picks : []) {
+    if (!p?.assetId) continue;
+    const dollars = p.dollarValue;
+    const priced =
+      p.isUnpriced !== true && typeof dollars === "number" && Number.isFinite(dollars);
+    (priced ? pricedIds : unpricedIds).add(String(p.assetId));
+  }
+  const entriesOf = (team) => {
     const details = Array.isArray(team?.pickDetails) ? team.pickDetails : null;
-    const entries = details
+    return details
       ? details.map((d) => ({
           label: d?.label || d?.baseLabel || "",
           season: Number(d?.season),
@@ -230,25 +233,40 @@ export function ownedPickStackInventory(sleeperTeams, draftCapital, resolveRow) 
           season: NaN,
           id: "",
         }));
+  };
+  // Which teams claim each id -- a claim by two different teams is unknown.
+  const claimants = new Map();
+  for (const team of sleeperTeams || []) {
+    const key = teamStackKey(team);
+    for (const e of entriesOf(team)) {
+      if (!e.id || key == null) continue;
+      if (!claimants.has(e.id)) claimants.set(e.id, new Set());
+      claimants.get(e.id).add(key);
+    }
+  }
+  const conflictingIds = [...claimants].filter(([, keys]) => keys.size > 1).map(([id]) => id);
+  const conflicting = new Set(conflictingIds);
+  const seen = new Set();
+  const byTeam = {};
+  for (const team of sleeperTeams || []) {
+    const key = teamStackKey(team);
+    if (key == null) continue;
     const out = [];
-    for (const e of entries) {
+    for (const e of entriesOf(team)) {
       if (e.id) {
-        if (coveredIds.has(e.id)) continue;
-        if (seen.has(e.id)) {
-          duplicateIds.push(e.id);
-          continue;
-        }
+        if (conflicting.has(e.id) || pricedIds.has(e.id) || seen.has(e.id)) continue;
         seen.add(e.id);
       }
       const row = typeof resolveRow === "function" ? resolveRow(e.label) : null;
       if (!row) continue;
       const year = Number.isFinite(e.season) ? e.season : parsePickAsset(row.name)?.year;
-      if (year == null || covered.has(year)) continue;
+      if (year == null) continue;
+      if (covered.has(year) && !(e.id && unpricedIds.has(e.id))) continue;
       out.push(row.name);
     }
     if (out.length) byTeam[key] = out;
   }
-  return { byTeam, duplicateIds };
+  return { byTeam, conflictingIds };
 }
 
 // The trade's pick moves between TEAM stacks.  Team-attributed, so only a

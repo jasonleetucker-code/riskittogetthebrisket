@@ -109,14 +109,31 @@ describe("Defect 2 — no owned pick is counted twice in a stack", () => {
     expect(Object.values(inv.byTeam).flat()).not.toContain("2027 Early 1st");
   });
 
-  it("a pick id published on two teams counts once", () => {
+  it("a pick id two teams both claim is unknown: counted for neither, as the owner index says", () => {
     const doubled = [
       TEAMS[0],
       { ...TEAMS[1], pickDetails: [...TEAMS[1].pickDetails, TEAMS[0].pickDetails[1]] },
     ];
     const inv = PS.ownedPickStackInventory(doubled, workbook2027(), resolveRow);
-    expect(inv.duplicateIds).toEqual(["pick:lk:2028:r1:o1"]);
-    expect(Object.values(inv.byTeam).flat().filter((n) => n === "2028 Early 1st")).toHaveLength(1);
+    expect(inv.conflictingIds).toEqual(["pick:lk:2028:r1:o1"]);
+    // RED before review fix N7: the first team seen kept it.
+    expect(Object.values(inv.byTeam).flat()).not.toContain("2028 Early 1st");
+    expect(PS.pickOwnerKeyByAssetId(doubled).get("pick:lk:2028:r1:o1")).toBe(null);
+  });
+
+  it("a pick on an UNPRICED draft-capital row is not in teamTotals, so it is counted", () => {
+    // The Sleeper-derived fallback emits unpriced rows (dollarValue null,
+    // isUnpriced true) that contribute nothing to teamTotals, inside a
+    // covered season.  RED before review fix N1: the row's assetId still
+    // excluded the pick, so the real pick vanished from every stack.
+    const dc = workbook2027();
+    dc.picks = dc.picks.map((p) =>
+      p.assetId === "pick:lk:2027:r1:o2" ? { ...p, dollarValue: null, isUnpriced: true } : p,
+    );
+    const inv = PS.ownedPickStackInventory(TEAMS, dc, resolveRow);
+    expect(inv.byTeam["roster:2"]).toContain("2027 Early 1st");
+    // ...while a priced covered pick stays excluded.
+    expect(inv.byTeam["roster:1"]).not.toContain("2027 Early 1st");
   });
 
   it("one stack per team: covered dollars plus each uncovered real pick once", () => {

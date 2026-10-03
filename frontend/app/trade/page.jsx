@@ -634,19 +634,24 @@ export default function TradePage() {
   // loaded draft-capital board -- so this informational note costs the
   // /trade first load nothing (Wave A grew the model past the page budget).
   const [stackLib, setStackLib] = useState(null);
+  // A failed chunk load is a stated "unavailable", never a silently missing note.
+  const [stackLibFailed, setStackLibFailed] = useState(false);
   const stackLibWanted = Boolean(draftCapital && tradeHasPicks);
   useEffect(() => {
-    if (!stackLibWanted || stackLib) return undefined;
+    if (!stackLibWanted || stackLib || stackLibFailed) return undefined;
     let alive = true;
     import("@/lib/pick-stack")
       .then((m) => {
         if (alive) setStackLib(m);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("[trade] draft-capital note model failed to load", err);
+        if (alive) setStackLibFailed(true);
+      });
     return () => {
       alive = false;
     };
-  }, [stackLibWanted, stackLib]);
+  }, [stackLibWanted, stackLib, stackLibFailed]);
   const stackContext = useMemo(() => {
     if (!stackLib || !draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
       return null;
@@ -2134,6 +2139,11 @@ export default function TradePage() {
                 })
                 .join(" · ")}
               . Not included in the totals or verdict.
+            </p>
+          ) : null}
+          {stackLibFailed && stackLibWanted ? (
+            <p className={styles.controlsNote}>
+              Draft-capital note unavailable: its model could not be loaded.
             </p>
           ) : null}
           {stackNotOwned ? (
