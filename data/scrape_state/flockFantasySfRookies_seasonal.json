@@ -1,0 +1,24 @@
+{
+ "classYear": 2026,
+ "lastInactiveVerifiedAt": "2026-10-03T05:48:40Z",
+ "lastObservation": {
+  "at": "2026-10-03T05:48:40Z",
+  "outcome": "expected_empty",
+  "rawRowCount": 0,
+  "reason": "expected_empty:class=2026:since=2026-10-01T00:00:00Z",
+  "vendorLastUpdated": {}
+ },
+ "policyId": "flock_prospects_sf_class_graduation_v1",
+ "schemaVersion": 1,
+ "since": "2026-10-03T05:48:40Z",
+ "sourceKey": "flockFantasySfRookies",
+ "state": "seasonally_inactive",
+ "transitions": [
+  {
+   "at": "2026-10-03T05:48:40Z",
+   "classYear": 2026,
+   "reason": "expected_empty:class=2026:since=2026-10-01T00:00:00Z",
+   "state": "seasonally_inactive"
+  }
+ ]
+}
