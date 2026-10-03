@@ -1991,12 +1991,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   .picker-row td { padding: 10px 8px; }
 
   /* Trade card buttons: prevent truncation */
-  .trade-remove-btn {
-    white-space: nowrap;
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    padding: 6px 8px;
-  }
   .trade-add-btn {
     white-space: nowrap;
     flex-shrink: 0;
@@ -2254,13 +2248,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   .picker-header h3 { font-size: 0.92rem; }
   .picker-search-row { gap: 6px; }
   .picker-recent { max-height: 120px; }
-
-  /* Trade cards: compact side header */
-  .trade-remove-btn {
-    font-size: 0.66rem;
-    padding: 4px 6px;
-    min-height: unset;
-  }
 
   /* Tighten the mobile source strip so chips fit on 320w viewports
      (iPhone SE / older devices).  Narrower strip + smaller chip

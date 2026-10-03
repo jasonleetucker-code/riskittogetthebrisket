@@ -109,7 +109,7 @@ const BUDGETS_KB = {
   // purpose until it can be measured truthfully.
   "/page": 90, // landing
   "/rankings/page": 75, // dense table + filter bar + popups; 65→75 (R6 reattribution)
-  "/trade/page": 93, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution); 92→93 for the owner-directed quantity control on every line + grouped market/owned search (2026-10-03; main measured 91.9 KB, this change ~92.0 KB)
+  "/trade/page": 93, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution); 92→93 for the owner-directed quantity control on every line + grouped market/owned search + bounded share-link decode (2026-10-03; main measured 91.9 KB, this change 92.5 KB)
   "/draft/page": 150, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432); 128→150 (R6 reattribution)
   "/edge/page": 30,
   "/finder/page": 20,

@@ -41,7 +41,12 @@ import {
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
-import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
+import {
+  buildShareUrl,
+  describeShareTruncation,
+  parseShareParam,
+  shareLinkLimits,
+} from "@/lib/trade-share";
 import { tradeRequestForTeam } from "@/lib/trade-war-room";
 import {
   canAddEntry,
@@ -175,7 +180,10 @@ export default function TradePage() {
   const [exportStatus, setExportStatus] = useState("");
 
   // Share + simulator state.
-  const [shareStatus, setShareStatus] = useState("");
+  // ``{ text, tone }`` or null.  ``tone: "warning"`` whenever a share link
+  // lost anything — on load (decoder bounds) or on copy (encoder/decoder
+  // bounds) — so a truncated trade never reads as a clean success.
+  const [shareStatus, setShareStatus] = useState(null);
   const [shareHydrated, setShareHydrated] = useState(false);
   // Use Team Context (#842): default ON.  A share link can carry Asset-Only.
   const [useTeamContext, setUseTeamContext] = useState(true);
@@ -596,9 +604,18 @@ export default function TradePage() {
       });
       setValueOverrides({});
       if (state.teamContext === false) setUseTeamContext(false);
-      setShareStatus("Loaded shared trade from link.");
+      setShareStatus(
+        state.truncated
+          ? {
+              tone: "warning",
+              text: `Loaded only part of the shared trade: the link had ${describeShareTruncation(
+                state.truncationReasons,
+              )}, beyond what a share link may carry.`,
+            }
+          : { tone: "positive", text: "Loaded shared trade from link." },
+      );
     } catch {
-      setShareStatus("Share link was malformed — ignored.");
+      setShareStatus({ tone: "warning", text: "Share link was malformed — ignored." });
     } finally {
       setShareHydrated(true);
     }
@@ -1393,16 +1410,25 @@ export default function TradePage() {
         teamContext: useTeamContext,
       };
       const url = buildShareUrl(payload);
+      // A link that cannot carry the whole trade is still offered, but the
+      // user is told what it drops instead of "copied".
+      const limits = shareLinkLimits(payload);
+      const lossNote = limits.complete
+        ? ""
+        : ` It will NOT reproduce this trade exactly: it has ${describeShareTruncation(
+            limits.reasons,
+          )}, beyond what a share link may carry.`;
+      const tone = limits.complete ? "positive" : "warning";
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        setShareStatus("Share link copied to clipboard.");
+        setShareStatus({ tone, text: `Share link copied to clipboard.${lossNote}` });
       } else if (typeof window !== "undefined") {
         // Surface the URL so the user can copy it manually.
         window.prompt("Copy this share link:", url);
-        setShareStatus("Share link ready.");
+        setShareStatus({ tone, text: `Share link ready.${lossNote}` });
       }
     } catch (err) {
-      setShareStatus(err?.message || "Could not copy share link.");
+      setShareStatus({ tone: "warning", text: err?.message || "Could not copy share link." });
     }
   }, [sides, useTeamContext]);
 
@@ -1929,8 +1955,8 @@ export default function TradePage() {
           </Panel>
 
           {shareStatus ? (
-            <Banner tone="positive" onDismiss={() => setShareStatus("")}>
-              {shareStatus}
+            <Banner tone={shareStatus.tone} onDismiss={() => setShareStatus(null)}>
+              {shareStatus.text}
             </Banner>
           ) : null}
 

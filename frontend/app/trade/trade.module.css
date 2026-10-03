@@ -405,9 +405,11 @@
   color: var(--text-secondary);
 }
 /* Finger-sized − / + on phones: the repo's 44px touch-target minimum
-   (WCAG 2.5.5, the same value globals.css applies to .button/.input). */
+   (WCAG 2.5.5, the same value globals.css applies to .button/.input).
+   Two classes, so it outranks the single-class `.ds-btn--sm` min-height
+   by specificity rather than by stylesheet load order. */
 @media (width < 768px) {
-  .assetQuantityButton {
+  .assetQuantity .assetQuantityButton {
     min-width: 44px;
     min-height: 44px;
   }

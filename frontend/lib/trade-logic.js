@@ -1099,21 +1099,19 @@ export function isUnpricedBoardRow(row) {
  * a tier, rows sort by blended source rank — the most relevant dynasty
  * assets first, the KTC trade-calculator UX.
  *
- * ``excludedNames`` is an optional caller filter.  The calculator passes
- * NONE: every asset is repeatable (owner decision 2026-10-03), so a row
- * already in the trade stays searchable.
+ * Nothing is excluded for being in the trade: every asset is repeatable
+ * (owner decision 2026-10-03), so a row already in the trade stays
+ * searchable.  There is deliberately no exclusion parameter.
  *
  * Extracted from `/trade`'s `searchAssets` so the asset-eligibility
  * rule is one testable function rather than an inline predicate
  * repeated beside three other copies of itself.
  */
-export function searchTradeAssets(rows, query, excludedNames = null, limit = 5) {
+export function searchTradeAssets(rows, query, limit = 5) {
   if (!String(query || "").trim()) return [];
-  const excluded =
-    excludedNames instanceof Set ? excludedNames : new Set(excludedNames || []);
   const scored = [];
   for (const r of rows || []) {
-    if (!r || excluded.has(r.name) || !isTradeableBoardRow(r)) continue;
+    if (!r || !isTradeableBoardRow(r)) continue;
     const tier = searchMatchTier(r.name, query);
     if (tier >= 0) scored.push({ r, tier });
   }
@@ -1153,7 +1151,7 @@ export function searchCalculatorAssets(
   ownedEntries = [],
   { boardLimit = SEARCH_BOARD_LIMIT, ownedLimit = SEARCH_OWNED_LIMIT } = {},
 ) {
-  const board = searchTradeAssets(rows, query, null, boardLimit);
+  const board = searchTradeAssets(rows, query, boardLimit);
   const owned = searchPickEntries(
     (ownedEntries || []).filter((e) => e && e.assetId),
     query,

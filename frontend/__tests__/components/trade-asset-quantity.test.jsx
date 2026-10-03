@@ -44,6 +44,20 @@ const ROWS = [
   },
 ];
 
+// Filler players (no search here matches them) so a saved workspace can
+// carry more distinct lines than a share link may (33 > 32).
+const FILLERS = Array.from({ length: 33 }, (_, i) => ({
+  name: `Filler Player ${i + 1}`,
+  pos: "WR",
+  position: "WR",
+  assetClass: "offense",
+  rankDerivedValue: 1000 + i,
+  values: { full: 1000 + i },
+  rank: 100 + i,
+  blendedSourceRank: 100 + i,
+}));
+ROWS.push(...FILLERS);
+
 const TEAMS = [
   {
     name: "Team Alpha",
@@ -332,5 +346,67 @@ describe("/trade share-link hydration", () => {
     await waitFor(() =>
       expect(savedSides()?.map((s) => s.assets)).toEqual([["Bijan Robinson"], ["2027 Mid 1st"]]),
     );
+    expect(screen.getByText("Loaded shared trade from link.")).toBeTruthy();
+  });
+
+  it("a link past the untrusted-input bounds loads partially and warns instead of claiming success", async () => {
+    const json = JSON.stringify({
+      v: 1,
+      s: [
+        { n: "Side A", p: ["Bijan Robinson", ...Array.from({ length: 40 }, (_, i) => `Nobody ${i}`)] },
+        { n: "Side B", p: ["2027 Mid 1st"], q: [20000] },
+      ],
+    });
+    const enc = btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    window.history.replaceState({}, "", `/trade?share=${enc}`);
+    render(<TradePage />);
+    const alert = await screen.findByText(/Loaded only part of the shared trade/);
+    expect(alert.closest('[role="alert"]')).toBeTruthy();
+    expect(alert.textContent).toMatch(/more than 32 different assets on a side/);
+    expect(alert.textContent).toMatch(/more than 10,000 copies in total/);
+    expect(screen.queryByText("Loaded shared trade from link.")).toBeNull();
+    // Side A keeps its first 32 lines (1 copy each, whether or not the board
+    // knows the name), so Side B gets exactly the remaining 10,000 - 32.
+    await waitFor(() => expect(savedSides()[1].assets).toHaveLength(10000 - 32));
+    expect(savedSides()[0].assets).toEqual(["Bijan Robinson"]);
+  });
+});
+
+describe("/trade copy share link", () => {
+  it("warns instead of 'copied' when the link cannot carry every distinct asset", async () => {
+    window.localStorage.setItem(
+      "next_trade_workspace_v1",
+      JSON.stringify({
+        version: 2,
+        valueMode: "full",
+        activeSide: 0,
+        sides: [
+          { label: "A", assets: FILLERS.map((r) => r.name), destinations: {} },
+          { label: "B", assets: ["Bijan Robinson"], destinations: {} },
+        ],
+      }),
+    );
+    const prompt = vi.fn();
+    vi.stubGlobal("prompt", prompt);
+    render(<TradePage />);
+    await waitFor(() => expect(savedSides()?.[0]?.assets).toHaveLength(33));
+    await userEvent.click(screen.getByRole("button", { name: /Copy share link/ }));
+    const alert = await screen.findByText(/will NOT reproduce this trade exactly/);
+    expect(alert.closest('[role="alert"]')).toBeTruthy();
+    expect(alert.textContent).toMatch(/more than 32 different assets on a side/);
+    expect(prompt).toHaveBeenCalled();
+  });
+
+  it("reports a clean copy when the link carries the whole trade", async () => {
+    const prompt = vi.fn();
+    vi.stubGlobal("prompt", prompt);
+    render(<TradePage />);
+    await screen.findByLabelText("Search to add a player to Side A");
+    await searchAndPick("A", "Bijan", "Bijan Robinson");
+    fireEvent.click(screen.getByLabelText("Add another Bijan Robinson to Side A"));
+    await userEvent.click(screen.getByRole("button", { name: /Copy share link/ }));
+    const ok = await screen.findByText("Share link ready.");
+    expect(ok.closest('[role="status"]')).toBeTruthy();
+    expect(screen.queryByText(/will NOT reproduce/)).toBeNull();
   });
 });

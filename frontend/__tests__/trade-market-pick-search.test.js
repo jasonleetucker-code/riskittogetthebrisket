@@ -180,21 +180,21 @@ describe.each(futureYears.map((y) => [y]))("market tier references for %i", (yea
 
 describe("relevance and eligibility", () => {
   it("exact query beats looser matches", () => {
-    const hits = searchTradeAssets(ROWS, "2027 Late 1st", null, 8);
+    const hits = searchTradeAssets(ROWS, "2027 Late 1st", 8);
     expect(hits.map((r) => r.name)).toEqual(["2027 Late 1st"]);
   });
 
   it("word matching finds every tier for '2027 1st' without outranking contiguous matches", () => {
-    const names = searchTradeAssets(ROWS, "2027 1st", null, 8).map((r) => r.name);
+    const names = searchTradeAssets(ROWS, "2027 1st", 8).map((r) => r.name);
     expect(names).toEqual(TIERS.map((t) => `${2027} ${t} 1st`));
   });
 
   it("a suppressed generic tier stays excluded while unsuppressed tiers appear", () => {
-    const names = searchTradeAssets(ROWS, "Mid 1st", null, 8).map((r) => r.name);
+    const names = searchTradeAssets(ROWS, "Mid 1st", 8).map((r) => r.name);
     expect(names).toContain("2027 Mid 1st");
     expect(names).toContain("2028 Mid 1st");
     expect(names).not.toContain("2026 Mid 1st");
-    expect(searchTradeAssets(ROWS, "2026", null, 8).map((r) => r.name)).toEqual(["2026 Pick 1.06"]);
+    expect(searchTradeAssets(ROWS, "2026", 8).map((r) => r.name)).toEqual(["2026 Pick 1.06"]);
   });
 
   it("[5] a search result is still offered after its first add", () => {

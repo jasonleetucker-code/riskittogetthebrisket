@@ -47,6 +47,7 @@ import {
   filterPickerRows,
   findBalancers,
   ktcAdjustPackage,
+  MAX_SIDES,
   removeAssetFromSide,
   serializeWorkspaceMulti,
   sideTotal,
@@ -55,7 +56,15 @@ import {
   tradeWorkspaceToCSV,
   tradeWorkspaceToJSON,
 } from "../lib/trade-logic.js";
-import { SHARE_MAX_COPIES_PER_LINE, decodeTrade, encodeTrade } from "../lib/trade-share.js";
+import {
+  SHARE_MAX_LINES_PER_SIDE,
+  SHARE_MAX_SIDES,
+  SHARE_MAX_TOTAL_COPIES,
+  SHARE_TRUNCATION,
+  decodeTrade,
+  encodeTrade,
+  shareLinkLimits,
+} from "../lib/trade-share.js";
 import { tradeRequestForTeam } from "../lib/trade-war-room.js";
 
 const MID_1ST = {
@@ -96,6 +105,9 @@ const FROM = ownedPickEntry(MID_1ST, {
 const rowByName = new Map([MID_1ST, CHASE, ALLEN, JEFFERSON].map((r) => [r.name, r]));
 const side = (assets, extra = {}) => ({ label: "A", assets, destinations: {}, ...extra });
 const copies = (row, n) => Array.from({ length: n }, () => row);
+/** base64url of a hand-written (possibly hostile) share payload. */
+const rawLink = (json) =>
+  btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 /** Add ``row`` ``n`` times through the real calculator add path. */
 function addTimes(assets, row, n) {
@@ -425,12 +437,92 @@ describe("serialization round trips preserve exact counts", () => {
     const decoded = decodeTrade(legacy);
     expect(decoded.sides[0].players).toEqual(["2027 Mid 1st", "2027 Mid 1st"]);
     expect(decoded.sides[0].assetIds).toEqual([null, null]);
+    expect(decoded.truncated).toBe(false);
+    expect(decoded.truncationReasons).toEqual([]);
   });
 
-  it("an untrusted link's per-line count is bounded on decode (input validation only)", () => {
-    const json = JSON.stringify({ v: 1, s: [{ n: "A", p: ["Josh Allen"], q: [1e9] }] });
-    const enc = btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    expect(decodeTrade(enc).sides[0].players).toHaveLength(SHARE_MAX_COPIES_PER_LINE);
+  it("a full-size legacy link (32 items per side, the old encoder's cap) decodes identically", () => {
+    const names = Array.from({ length: 32 }, (_, i) => (i % 2 ? "Josh Allen" : "2027 Mid 1st"));
+    const legacyJson = JSON.stringify({ v: 1, s: [{ n: "A", p: names }, { n: "B", p: names }] });
+    const decoded = decodeTrade(rawLink(legacyJson));
+    expect(decoded.sides.map((x) => x.players)).toEqual([names, names]);
+    expect(decoded.truncated).toBe(false);
+  });
+
+  describe("untrusted-link bounds (decode side; manual entry stays uncapped)", () => {
+    it("pins the bounds to the encoder cap and the calculator's MAX_SIDES", () => {
+      expect(SHARE_MAX_SIDES).toBe(MAX_SIDES);
+      const many = Array.from({ length: 40 }, (_, i) => `Player ${i}`);
+      const enc = decodeTrade(encodeTrade({ sides: [{ name: "A", players: many }] }));
+      expect(enc.sides[0].players).toHaveLength(SHARE_MAX_LINES_PER_SIDE);
+      expect(SHARE_MAX_TOTAL_COPIES).toBe(10000);
+    });
+
+    it("many lines: 5,000 lines x q 999 is cut to 32 lines and the 10,000-copy budget, and says so", () => {
+      const p = Array.from({ length: 5000 }, (_, i) => `Player ${i}`);
+      const q = p.map(() => 999);
+      const decoded = decodeTrade(rawLink(JSON.stringify({ v: 1, s: [{ n: "A", p, q }] })));
+      expect(decoded.sides[0].players).toHaveLength(SHARE_MAX_TOTAL_COPIES);
+      expect(new Set(decoded.sides[0].players).size).toBeLessThanOrEqual(SHARE_MAX_LINES_PER_SIDE);
+      expect(decoded.truncated).toBe(true);
+      expect(decoded.truncationReasons).toEqual(
+        expect.arrayContaining([SHARE_TRUNCATION.TOO_MANY_LINES, SHARE_TRUNCATION.COPY_BUDGET]),
+      );
+    });
+
+    it("many lines alone (no counts): 33+ lines keep the first 32 and report too_many_lines", () => {
+      const p = Array.from({ length: 100 }, (_, i) => `Player ${i}`);
+      const decoded = decodeTrade(rawLink(JSON.stringify({ v: 1, s: [{ n: "A", p }] })));
+      expect(decoded.sides[0].players).toEqual(p.slice(0, 32));
+      expect(decoded.truncationReasons).toEqual([SHARE_TRUNCATION.TOO_MANY_LINES]);
+    });
+
+    it("the total-copies budget spans ALL sides", () => {
+      const sideOf = (n) => ({ n, p: ["Josh Allen", "Ja'Marr Chase"], q: [3000, 3000] });
+      const decoded = decodeTrade(
+        rawLink(JSON.stringify({ v: 1, s: [sideOf("A"), sideOf("B")] })),
+      );
+      const total = decoded.sides.reduce((n, x) => n + x.players.length, 0);
+      expect(total).toBe(SHARE_MAX_TOTAL_COPIES);
+      expect(decoded.sides[0].players).toHaveLength(6000);
+      expect(decoded.sides[1].players).toHaveLength(4000);
+      expect(decoded.truncationReasons).toEqual([SHARE_TRUNCATION.COPY_BUDGET]);
+    });
+
+    it("exactly the budget is not truncated", () => {
+      const decoded = decodeTrade(
+        rawLink(JSON.stringify({ v: 1, s: [{ n: "A", p: ["Josh Allen"], q: [SHARE_MAX_TOTAL_COPIES] }] })),
+      );
+      expect(decoded.sides[0].players).toHaveLength(SHARE_MAX_TOTAL_COPIES);
+      expect(decoded.truncated).toBe(false);
+    });
+
+    it("sides past MAX_SIDES are dropped and reported", () => {
+      const s = Array.from({ length: 9 }, (_, i) => ({ n: `S${i}`, p: ["Josh Allen"] }));
+      const decoded = decodeTrade(rawLink(JSON.stringify({ v: 1, s })));
+      expect(decoded.sides).toHaveLength(SHARE_MAX_SIDES);
+      expect(decoded.truncationReasons).toEqual([SHARE_TRUNCATION.TOO_MANY_SIDES]);
+    });
+
+    it("shareLinkLimits warns the SENDER before a link drops anything", () => {
+      expect(shareLinkLimits(shareOf(BIG))).toEqual({ complete: true, reasons: [] });
+      const distinct = Array.from({ length: 33 }, (_, i) => `Player ${i}`);
+      expect(shareLinkLimits({ sides: [{ players: distinct }] }).reasons).toEqual([
+        SHARE_TRUNCATION.TOO_MANY_LINES,
+      ]);
+      const heavy = { sides: [{ players: Array(SHARE_MAX_TOTAL_COPIES + 1).fill("Josh Allen") }] };
+      expect(shareLinkLimits(heavy).reasons).toEqual([SHARE_TRUNCATION.COPY_BUDGET]);
+      const wide = { sides: Array.from({ length: 6 }, () => ({ players: ["Josh Allen"] })) };
+      expect(shareLinkLimits(wide).reasons).toEqual([SHARE_TRUNCATION.TOO_MANY_SIDES]);
+    });
+
+    it("manual construction and localStorage stay uncapped (the bounds are link-only)", () => {
+      const huge = addTimes([], CHASE, SHARE_MAX_TOTAL_COPIES + 5);
+      expect(huge).toHaveLength(SHARE_MAX_TOTAL_COPIES + 5);
+      const payload = JSON.parse(JSON.stringify(serializeWorkspaceMulti([side(huge), side([], { label: "B" })], "full", 0)));
+      const restored = deserializeWorkspaceMulti(payload, rowByName);
+      expect(restored.sides[0].assets).toHaveLength(SHARE_MAX_TOTAL_COPIES + 5);
+    });
   });
 
   it("a side without owned picks or repeats encodes without either additive field", () => {
