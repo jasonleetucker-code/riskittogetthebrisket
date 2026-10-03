@@ -50,9 +50,9 @@ import {
   unusedTeamPickEntries,
 } from "@/lib/trade-assets";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
+import { useTeamContextPreference, withTeamContext } from "@/lib/team-context";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
-import TradeWarRoom from "@/components/trade/TradeWarRoom";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 import { TradeVerdictHelp } from "@/components/help/TradeHelp";
 import {
@@ -110,6 +110,24 @@ const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
 const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHistogram"));
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
+// The War Room renders on every two-side trade but is not needed for the
+// builder itself to work, so it ships in its own chunk (requested on mount)
+// rather than inside /trade's initial bundle.  The placeholder holds its
+// place so nothing shifts when it lands.
+const TradeWarRoom = dynamic(() => import("@/components/trade/TradeWarRoom"), {
+  ssr: false,
+  loading: () => (
+    <section
+      aria-busy="true"
+      aria-label="Trade War Room"
+      style={{ minHeight: "var(--space-8, 4rem)", padding: "var(--space-4) var(--space-5)" }}
+    >
+      <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-secondary)" }}>
+        Loading Trade War Room…
+      </span>
+    </section>
+  ),
+});
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
@@ -177,8 +195,11 @@ export default function TradePage() {
   // bounds) — so a truncated trade never reads as a clean success.
   const [shareStatus, setShareStatus] = useState(null);
   const [shareHydrated, setShareHydrated] = useState(false);
-  // Use Team Context (#842): default ON.  A share link can carry Asset-Only.
-  const [useTeamContext, setUseTeamContext] = useState(true);
+  // Use Team Context (#842): ONE shared preference (`lib/team-context.js`),
+  // default ON.  A share link's mode applies to the page it opens without
+  // overwriting the viewer's own preference.
+  const [useTeamContext, setUseTeamContext, adoptTeamContextForPage] =
+    useTeamContextPreference();
   const {
     simulate: simulateTrade,
     result: simResult,
@@ -588,7 +609,7 @@ export default function TradePage() {
         });
       });
       setValueOverrides({});
-      if (state.teamContext === false) setUseTeamContext(false);
+      adoptTeamContextForPage(state.teamContext !== false);
       setShareStatus(
         state.truncated
           ? {
@@ -604,7 +625,7 @@ export default function TradePage() {
     } finally {
       setShareHydrated(true);
     }
-  }, [hydrated, shareHydrated, rows, rowByName, ownedPickLabelById]);
+  }, [hydrated, shareHydrated, rows, rowByName, ownedPickLabelById, adoptTeamContextForPage]);
 
   // Apply per-player value overrides to the sides for all value calculations.
   // Only modifies the asset rows that have an override; everything else passes through.
@@ -1464,16 +1485,21 @@ export default function TradePage() {
     if (!request) return;
     const { playersIn, playersOut, picksIn, picksOut, pickAssetIdsIn, pickAssetIdsOut } =
       request;
-    simulateTrade({
-      teamName: selectedTeam?.name,
-      playersIn,
-      playersOut,
-      picksIn,
-      picksOut,
-      pickAssetIdsIn,
-      pickAssetIdsOut,
-    });
-  }, [sides, selectedTeam, teamRosterNames, simulateTrade]);
+    simulateTrade(
+      withTeamContext(
+        {
+          teamName: selectedTeam?.name,
+          playersIn,
+          playersOut,
+          picksIn,
+          picksOut,
+          pickAssetIdsIn,
+          pickAssetIdsOut,
+        },
+        useTeamContext,
+      ),
+    );
+  }, [sides, selectedTeam, teamRosterNames, simulateTrade, useTeamContext]);
 
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
@@ -1687,7 +1713,7 @@ export default function TradePage() {
       const res = await fetch("/api/trade/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withValuationMode(body)),
+        body: JSON.stringify(withValuationMode(withTeamContext(body, useTeamContext))),
       });
       const data = await res.json();
       if (!res.ok) {

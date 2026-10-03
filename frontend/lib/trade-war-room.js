@@ -205,3 +205,77 @@ export function rosterImpactRows(rosterDetail) {
     (a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || String(a.name).localeCompare(String(b.name)),
   );
 }
+
+// ── Team context layer (#842 / #840 / #843) ──────────────────────────────
+
+export const POSTURE_WORDS = {
+  PUSH: "Push",
+  HOLD: "Hold",
+  RETOOL: "Retool",
+  REBUILD: "Rebuild",
+};
+
+/** What each context step that can move a verdict is called on screen. */
+export const CONTEXT_STEP_WORDS = {
+  rosterUtility: "Lineup impact on your final legal roster",
+  feasibility: "Roster capacity / forced cut",
+  posture: "Team direction",
+};
+
+/** `contextEffect` as display rows; null when the packet has none. */
+export function contextEffectRows(effect) {
+  if (!effect || typeof effect !== "object") return null;
+  const label = (r) => RECOMMENDATION_LABELS[r] || r || "—";
+  return {
+    assetOnly: label(effect.assetOnlyRecommendation),
+    withContext: effect.teamContextRecommendation ? label(effect.teamContextRecommendation) : null,
+    changed: effect.changed === true,
+    steps: (effect.changedBy || []).map((c) => ({
+      key: c.dimension,
+      text: `${CONTEXT_STEP_WORDS[c.dimension] || c.dimension}: ${label(c.from)} → ${label(c.to)}`,
+    })),
+  };
+}
+
+/** One team's posture line, or null when posture is unavailable. */
+export function postureLine(side) {
+  if (!side || !side.posture) return null;
+  const word = POSTURE_WORDS[side.posture] || side.posture;
+  const conf = String(side.confidence || "").toLowerCase();
+  return conf ? `${word} · ${conf} confidence` : word;
+}
+
+/** "Hold → Push" when the trade moves this team's direction, else null. */
+export function postureShift(marginal) {
+  if (!marginal || marginal.available !== true) return null;
+  const b = marginal.postureBefore;
+  const a = marginal.postureAfter;
+  if (!b || !a || a === b) return null;
+  return `${POSTURE_WORDS[b] || b} → ${POSTURE_WORDS[a] || a}`;
+}
+
+/** A capacity lens detail as one plain sentence; null when not computable. */
+export function capacitySentence(detail, who = "You") {
+  if (!detail || !detail.state) return null;
+  const drops = (detail.forcedDrops || []).map((d) => d.name).filter(Boolean);
+  const verb = who === "You" ? "fit" : "fits";
+  switch (detail.state) {
+    case "fits_cleanly":
+      return `${who} ${verb} it with no cut`;
+    case "uses_final_spot":
+      return `${who} ${verb} it using the last open spot`;
+    case "cut_required":
+    case "worsens_overage":
+      return `${who} must cut ${drops.length || "a player"}${drops.length ? ` (likely ${drops.join(", ")})` : ""}${
+        detail.candidatesTied ? " — close call between cut candidates" : ""
+      }`;
+    case "resolves_overage":
+      return `${who} get${who === "You" ? "" : "s"} back under the roster limit`;
+    case "reduces_overage":
+      return `${who} reduce${who === "You" ? "" : "s"} the overage (${detail.overLimitBefore} → ${detail.overLimitAfter})`;
+    case "overage_unchanged":
+      return `${who} stay${who === "You" ? "" : "s"} over the roster limit`;
+    default:
+      return null;
+  }
+}

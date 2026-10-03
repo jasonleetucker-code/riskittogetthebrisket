@@ -12,8 +12,8 @@
  *   the backend stamp. The populated fixture carries a deliberately
  *   self-inconsistent row (after − before ≠ delta) so only a reader passes.
  * - CONTEXT, NOT VERDICT. The section is labelled as context, folded by
- *   default, and renders after the equity line — outside the Roster fit
- *   block that carries the verdict badge.
+ *   default, and renders after the equity line — outside the positional-fit
+ *   block (itself context, never a verdict, since Wave B).
  * - MISSING IS NEVER ZERO. `unavailable`, unpriced / unknown-team players,
  *   an unmeasured (null) concentration and `outgoingNotOnRoster` each have
  *   an explicit state; none renders as 0%.
@@ -33,12 +33,10 @@ const BASE_SIM = {
   after: { totalValue: 1200 },
   delta: { totalValue: 200, byPosition: {} },
   teamImpact: {
-    verdict: "lean accept",
-    compositeScore: 1.5,
+    // Positional fit only (Wave B): the retired verdict / composite / posture
+    // fields are no longer emitted by src/trade/team_impact.py.
     fitScore: 1,
-    equityScore: 2,
-    windowFit: 0.1,
-    posture: "Contender",
+    countedAsVote: false,
     starterValueDelta: {},
     rationale: [],
     redundancy: [],
@@ -122,15 +120,16 @@ describe("SimulationPanel — NFL team exposure", () => {
     expect(within(region).getByText("Show 2 teams that moved")).toBeTruthy();
   });
 
-  it("renders after the equity line, outside the verdict-bearing Roster fit block", () => {
+  it("renders after the equity line, outside the positional-fit block", () => {
     renderSim(exposure());
     const region = exposureRegion();
     const equity = screen.getByText(/Equity \(receiving − sending\)/);
     // eslint-disable-next-line no-bitwise
     expect(equity.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const verdictBadge = screen.getByText("lean accept");
-    expect(region.contains(verdictBadge)).toBe(false);
-    expect(within(region).queryByText("lean accept")).toBeNull();
+    const fitBadge = screen.getByText("context · not a vote");
+    expect(region.contains(fitBadge)).toBe(false);
+    // The retired composite verdict never renders.
+    expect(screen.queryByText("lean accept")).toBeNull();
   });
 
   it("is reachable by Tab and opens via the native summary control", async () => {
@@ -214,7 +213,7 @@ describe("SimulationPanel — NFL team exposure", () => {
     expect(region.querySelector("table")).toBeNull();
     expect(region.querySelector("details")).toBeNull();
     // The rest of the simulation still renders.
-    expect(screen.getByText("lean accept")).toBeTruthy();
+    expect(screen.getByText("context · not a vote")).toBeTruthy();
   });
 
   it("names unpriced and unknown-team players and never shows an unmeasured share as 0%", async () => {

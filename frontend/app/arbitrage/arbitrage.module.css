@@ -188,3 +188,29 @@
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
+/* Team context per package (#842 / #843): ruled definition list, no card. */
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.context div {
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.context dt {
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.context dd {
+  margin: 0;
+  color: var(--text-primary);
+}

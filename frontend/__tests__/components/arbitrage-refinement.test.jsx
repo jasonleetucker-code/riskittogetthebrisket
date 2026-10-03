@@ -107,7 +107,7 @@ describe("/arbitrage package refinement", () => {
     vi.restoreAllMocks();
   });
 
-  it("requests equal-count packages and X reruns without the player on either side", async () => {
+  it("requests topology packages in Team Context and X reruns without the player on either side", async () => {
     const user = userEvent.setup();
     let resolveExcludedSearch;
 
@@ -131,8 +131,10 @@ describe("/arbitrage package refinement", () => {
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
+    // C3-TOPO-01 / #842: the withdrawn exact-equal-count rule is no longer
+    // requested, and the shared mode travels with the request (default ON).
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).useTeamContext).toBe(true);
     expect(arbitrageControl(global.fetch.mock.calls[0])).toEqual({
-      equalCountOnly: true,
       excludePlayers: [],
     });
 
@@ -140,7 +142,6 @@ describe("/arbitrage package refinement", () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(arbitrageControl(global.fetch.mock.calls[1])).toEqual({
-      equalCountOnly: true,
       excludePlayers: ["Target Bob"],
     });
 
@@ -168,7 +169,6 @@ describe("/arbitrage package refinement", () => {
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     expect(arbitrageControl(global.fetch.mock.calls[2])).toEqual({
-      equalCountOnly: true,
       excludePlayers: [],
     });
     await screen.findByRole("button", {

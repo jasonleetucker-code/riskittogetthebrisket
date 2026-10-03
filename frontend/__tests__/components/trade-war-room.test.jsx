@@ -116,7 +116,12 @@ describe("TradeWarRoom — the packet, verbatim", () => {
   it("Asset-Only excludes roster and feasibility by mode, and says so", async () => {
     await renderWith(ASSET_ONLY);
     expect(screen.getByRole("radio", { name: "Asset only" })).toBeChecked();
-    expect(screen.getByText(/roster fit, lineup impact and roster capacity are not included/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Roster fit, lineup impact, roster capacity and team\s+direction are not included in this verdict/),
+    ).toBeInTheDocument();
+    // The team-context layer says Asset-Only in the supersession's words.
+    const layer = screen.getByRole("region", { name: "Asset-Only Analysis" });
+    expect(within(layer).getByText(/not included in this verdict/)).toBeInTheDocument();
     expect(within(lens("roster")).getAllByText("Not included in Asset-Only analysis").length).toBeGreaterThan(0);
     expect(within(lens("feasibility")).getAllByText("Not included in Asset-Only analysis").length).toBeGreaterThan(0);
     expect(screen.queryByRole("table", { name: /Lineup entry/ })).toBeNull();
@@ -138,8 +143,37 @@ describe("TradeWarRoom — the packet, verbatim", () => {
     fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
     expect(screen.getByText(/KTC VA is a separate market lens/)).toBeInTheDocument();
     expect(screen.getByText(/SYNTHETIC_FIXTURE_PROJECTIONS/)).toBeInTheDocument();
-    expect(screen.getByText("strategicPosture")).toBeInTheDocument();
+    // Posture has a canonical owner now (#840); what is still not included
+    // is named — never a silent neutral.
     expect(screen.getByText("currentSeasonEquity")).toBeInTheDocument();
+    expect(screen.getByText("ownPickSlotCounterfactual")).toBeInTheDocument();
+  });
+
+  it("the team-context layer sits beside the raw answer and names what changed", async () => {
+    await renderWith(CONSOLIDATION);
+    const layer = screen.getByRole("region", { name: "Team context" });
+    expect(within(layer).getByText("Raw value alone")).toBeInTheDocument();
+    expect(within(layer).getByText("With team context")).toBeInTheDocument();
+    // Both teams' final legal roster, in words, from the packet's lenses.
+    expect(within(layer).getByText("Your final roster")).toBeInTheDocument();
+    expect(within(layer).getByText("Their final roster")).toBeInTheDocument();
+    expect(within(layer).getByText(/You fit it with no cut/)).toBeInTheDocument();
+    // Direction is labelled as weighting, not a vote, and uncalibrated.
+    expect(within(layer).getByText(/never\s+a separate vote/)).toBeInTheDocument();
+    expect(within(layer).getByText(/Uncalibrated affinities/)).toBeInTheDocument();
+    // The raw totals block is a different element: the layer never edits it.
+    expect(lens("market").contains(layer)).toBe(false);
+  });
+
+  it("a forced cut on their side is shown inline, not buried in help", async () => {
+    await renderWith(CONSOLIDATION);
+    const layer = screen.getByRole("region", { name: "Team context" });
+    const cp = CONSOLIDATION.analysis.lenses.counterpartyFeasibility;
+    if (cp?.available && cp.detail?.state === "cut_required") {
+      expect(within(layer).getByText(/must cut/)).toBeInTheDocument();
+    } else {
+      expect(within(layer).getByText(/Their final roster/)).toBeInTheDocument();
+    }
   });
 });
 

@@ -12,10 +12,18 @@ import {
   Field,
   PageHeader,
   Panel,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
 } from "@/components/ds";
+import {
+  ASSET_ONLY_LABEL,
+  EXCLUDED_NOTE,
+  TEAM_CONTEXT_OPTIONS,
+  useTeamContextPreference,
+  withTeamContext,
+} from "@/lib/team-context";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
 import { buildArbitrageRows } from "@/lib/market-arbitrage";
@@ -141,14 +149,15 @@ function AssetList({ assets, onExclude }) {
   return (
     <ul className={styles.assetList}>
       {assets.map((a, i) => (
-        <li key={`${a.name}-${i}`} className={styles.asset}>
-          <span className={styles.assetName}>{a.name}</span>
+        <li key={`${a.assetId || a.name}-${i}`} className={styles.asset}>
+          <span className={styles.assetName}>{a.ownedLabel || a.name}</span>
           <Badge tone="neutral">{a.position}</Badge>
           <span className={styles.assetValues}>
             board {fmt(a.modelValue)}
             {a.ktcValue != null ? ` · market ${fmt(a.ktcValue)}` : " · unpriced"}
+            {a.marketBasis === "vendorTierMean" ? " (tier average — no native price)" : ""}
           </span>
-          {onExclude && a.name ? (
+          {onExclude && a.name && a.assetClass !== "pick" ? (
             <button
               type="button"
               className={styles.excludeButton}
@@ -165,25 +174,85 @@ function AssetList({ assets, onExclude }) {
   );
 }
 
-function TradeCard({ trade, myTeam, opponent, onExclude }) {
+const POSTURE_WORD = { PUSH: "Push", HOLD: "Hold", RETOOL: "Retool", REBUILD: "Rebuild" };
+
+/** One side's final legal roster in words; null when not computed. */
+function capacityText(cap, who) {
+  if (!cap || cap.unavailable) return null;
+  if (cap.requiresDrops === true) {
+    const names = (cap.forcedDrops || []).map((d) => d.name).filter(Boolean);
+    return `${who} must cut ${names.length || "a player"}${names.length ? ` (${names.join(", ")})` : ""}`;
+  }
+  if (cap.requiresDrops === false) return `${who}: fits, no cut`;
+  return `${who}: cut count uncertain`;
+}
+
+function TradeContext({ trade }) {
+  const mine = capacityText(trade.rosterCapacity, "You");
+  const theirs = capacityText(trade.counterpartyCapacity, trade.opponent || "They");
+  const excluded =
+    trade.rosterCapacity?.includedInVerdict === false ||
+    trade.counterpartyCapacity?.includedInVerdict === false;
+  const you = trade.posture?.you;
+  const them = trade.posture?.them;
+  const flags = new Set(trade.flags || []);
+  if (!mine && !theirs && !you) return null;
+  return (
+    <dl className={styles.context} data-team-context={excluded ? "asset_only" : "team"}>
+      {mine || theirs ? (
+        <div>
+          <dt>Final roster</dt>
+          <dd>
+            {[mine, theirs].filter(Boolean).join(" · ")}
+            {excluded ? ` — ${EXCLUDED_NOTE.toLowerCase()}` : ""}
+            {flags.has("capacity_erases_your_edge") ? " · the cut erases your edge" : ""}
+            {flags.has("capacity_erases_their_appeal") ? " · their cut erases their gain" : ""}
+            {flags.has("capacity_not_examined") ? " · cut cost not measured (ranked after measured trades)" : ""}
+          </dd>
+        </div>
+      ) : null}
+      {you || them ? (
+        <div>
+          <dt>Direction</dt>
+          <dd>
+            You {POSTURE_WORD[you?.posture] || "—"} · them {POSTURE_WORD[them?.posture] || "—"}
+            {flags.has("posture_pick_send") ? " · your pick is the currency they want" : ""}
+            {flags.has("posture_pick_receive") ? " · their pick is the currency you want" : ""}
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+function TradeCard({ trade, myTeam, opponent, onExclude, useTeamContext = true }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
 
   const openInCalculator = useMemo(() => {
-    const give = (trade.give || []).map((a) => a.name).filter(Boolean);
-    const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
-    if (!give.length && !receive.length) return null;
+    const side = (assets) => ({
+      players: (assets || []).map((a) => a.name).filter(Boolean),
+      // Owned picks travel with their canonical id so the calculator debits
+      // exactly that pick (Wave A ownership), never "some pick of that row".
+      assetIds: (assets || []).filter((a) => a.name).map((a) => a.assetId || null),
+    });
+    const give = side(trade.give);
+    const receive = side(trade.receive);
+    if (!give.players.length && !receive.players.length) return null;
+    const them = trade.opponent || (opponent && opponent !== "all" ? opponent : "Them");
     try {
       return buildShareUrl({
         sides: [
-          { name: myTeam || "You", players: give },
-          { name: opponent && opponent !== "all" ? opponent : "Them", players: receive },
+          { name: myTeam || "You", ...give },
+          { name: them, ...receive },
         ],
+        // #842: the calculator opens in the mode this package was found in.
+        teamContext: useTeamContext !== false,
       });
     } catch {
       return null;
     }
-  }, [trade, myTeam, opponent]);
+  }, [trade, myTeam, opponent, useTeamContext]);
 
   return (
     <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
@@ -191,7 +260,15 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
         <span className={styles.score}>
           arbitrage {Number(trade.arbitrageScore || 0).toFixed(2)}
         </span>
-        {trade.packageSize ? <Badge tone="neutral">{trade.packageSize}</Badge> : null}
+        {trade.playerCounts ? (
+          <Badge tone="neutral">
+            {`${trade.playerCounts.give}-for-${trade.playerCounts.receive} players`}
+            {trade.picksIncluded ? ` + ${trade.picksIncluded} pick` : ""}
+          </Badge>
+        ) : trade.packageSize ? (
+          <Badge tone="neutral">{trade.packageSize}</Badge>
+        ) : null}
+        {trade.opponent ? <span className={styles.muted}>with {trade.opponent}</span> : null}
         <span className={styles.deltas}>
           <span className={boardDelta >= 0 ? styles.good : styles.bad}>
             our board {fmtSigned(boardDelta)}
@@ -217,6 +294,7 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
           <AssetList assets={trade.receive} onExclude={onExclude} />
         </div>
       </div>
+      <TradeContext trade={trade} />
       {openInCalculator ? (
         <div className={styles.tradeFoot}>
           <Button as={Link} href={openInCalculator} size="sm" variant="secondary">
@@ -258,6 +336,8 @@ export default function ArbitragePage() {
   const [edgeClass, setEdgeClass] = useState("all");
   const [edgeFloor, setEdgeFloor] = useState(0.05);
   const [excludedPlayers, setExcludedPlayers] = useState([]);
+  // Use Team Context (#842) — the same shared preference /trade uses.
+  const [useTeamContext, setUseTeamContext] = useTeamContextPreference();
 
   const effectiveTeam = myTeam || defaultTeam;
 
@@ -284,7 +364,7 @@ export default function ArbitragePage() {
     [rows, edgeFloor],
   );
 
-  async function run(nextExcluded = excludedPlayers) {
+  async function run(nextExcluded = excludedPlayers, context = useTeamContext) {
     if (!effectiveTeam) return;
     const normalizedExcluded = Array.from(
       new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
@@ -306,14 +386,18 @@ export default function ArbitragePage() {
         opponentTeams: [
           ...selectedOpponents,
           {
+            // Session exclusions only.  The exact-equal-player-count rule
+            // this page used to request is the one the #841/#842 topology
+            // supersession withdrew: the finder now proposes any package with
+            // player counts within one (1-for-1 … 3-for-2), picks excluded.
             [ARBITRAGE_CONTROL_KEY]: {
-              equalCountOnly: true,
               excludePlayers: normalizedExcluded,
             },
           },
         ],
       };
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
+      Object.assign(body, withTeamContext({}, context));
       const res = await fetch("/api/trade/finder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -425,8 +509,28 @@ export default function ArbitragePage() {
       <Panel>
         <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
         <p className={styles.muted}>
-          This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. Use the × beside any player to remove them from this scan and search again without them.
+          This second layer scans actual rosters for packages whose player counts differ by at most one
+          (1-for-1, 2-for-1, 2-for-2, 3-for-2 …; picks do not count as players) that gain on our board while
+          remaining plausible on the counterparty market. With Team Context on, each package is ranked on both
+          teams&apos; final legal roster after any required cut, and owned picks move only when the two teams&apos;
+          directions call for it. Use the × beside any player to remove them from this scan.
         </p>
+        <SegmentedControl
+          label="Analysis mode"
+          options={TEAM_CONTEXT_OPTIONS}
+          value={useTeamContext ? "team" : "asset"}
+          onChange={(v) => {
+            const next = v === "team";
+            setUseTeamContext(next);
+            if (result) void run(excludedPlayers, next);
+          }}
+        />
+        {!useTeamContext ? (
+          <p className={styles.muted}>
+            <strong>{ASSET_ONLY_LABEL}.</strong> Ranking uses asset values and the public market only;
+            roster capacity (both teams), team direction and picks are not included.
+          </p>
+        ) : null}
         <div className={styles.controls}>
           <Field label="Your team">
             <Select
@@ -535,9 +639,34 @@ export default function ArbitragePage() {
               myTeam={effectiveTeam}
               opponent={opponent}
               onExclude={excludePlayer}
+              useTeamContext={result?.metadata?.teamContext?.applied !== false}
             />
           ))}
         </div>
+      ) : null}
+
+      {!running && result?.postureDirectedPickPackages?.length ? (
+        <Panel>
+          <h3 style={{ marginTop: 0 }}>Draft-pick options by team direction</h3>
+          <p className={styles.muted}>
+            Only owned picks, only where one team is pushing and the other retooling or rebuilding. A
+            future pick&apos;s slot is unknown, so it is valued at its generic round and priced on the public
+            market at the vendor&apos;s tier average — market coverage is incomplete, which is why these are
+            listed separately rather than ranked above fully-priced trades.
+          </p>
+          <div className={styles.trades}>
+            {result.postureDirectedPickPackages.map((t, i) => (
+              <TradeCard
+                key={`pick-${i}`}
+                trade={t}
+                myTeam={effectiveTeam}
+                opponent={opponent}
+                onExclude={excludePlayer}
+                useTeamContext
+              />
+            ))}
+          </div>
+        </Panel>
       ) : null}
 
       {!result && !running ? (

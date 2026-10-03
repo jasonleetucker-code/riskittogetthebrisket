@@ -32,6 +32,10 @@ import { Badge, Banner, CollapsiblePanel, SegmentedControl, SkeletonText } from 
 import {
   DIRECTION_WORDS,
   FEASIBILITY_WORDS,
+  capacitySentence,
+  contextEffectRows,
+  postureLine,
+  postureShift,
   RECOMMENDATION_LABELS,
   RECOMMENDATION_TONES,
   ROLE_WORDS,
@@ -46,14 +50,12 @@ import {
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
+import { ASSET_ONLY_LABEL, EXCLUDED_NOTE, TEAM_CONTEXT_OPTIONS } from "@/lib/team-context";
 import styles from "./war-room.module.css";
 
 const DEBOUNCE_MS = 700;
 
-const CONTEXT_OPTIONS = [
-  { value: "team", label: "Team context" },
-  { value: "asset", label: "Asset only" },
-];
+const CONTEXT_OPTIONS = TEAM_CONTEXT_OPTIONS;
 
 function directionTone(direction) {
   if (direction === "favors") return "positive";
@@ -270,6 +272,97 @@ function RosterImpact({ lens }) {
   );
 }
 
+/**
+ * The Team Context LAYER — beside the raw-value answer, never inside it.
+ * What changed because of team context versus raw value, both teams' final
+ * legal roster, and each team's direction.  Every word is the packet's.
+ */
+function TeamContextLayer({ analysis }) {
+  const effect = contextEffectRows(analysis.contextEffect);
+  const applied = analysis.teamContext?.applied !== false;
+  const posture = analysis.lenses?.posture;
+  const sel = posture?.available ? posture.detail?.selected : null;
+  const them = posture?.available ? posture.detail?.counterparty : null;
+  const mine = capacitySentence(analysis.lenses?.feasibility?.detail, "You");
+  const cpLens = analysis.lenses?.counterpartyFeasibility;
+  const theirs = capacitySentence(cpLens?.detail, cpLens?.detail?.team?.name || "They");
+  const timing = posture?.detail?.timing;
+
+  if (!applied) {
+    return (
+      <section className={styles.context} aria-labelledby="war-room-context" data-team-context="asset_only">
+        <h3 id="war-room-context" className={styles.sectionTitle}>
+          {ASSET_ONLY_LABEL}
+        </h3>
+        <p className={styles.note}>
+          Canonical values, package Value Adjustment and pick values only. Roster capacity and forced
+          cuts (both teams), lineup impact and team direction: {EXCLUDED_NOTE.toLowerCase()}.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className={styles.context} aria-labelledby="war-room-context" data-team-context="team">
+      <h3 id="war-room-context" className={styles.sectionTitle}>
+        Team context
+      </h3>
+      {effect ? (
+        <p className={styles.contextEffect} data-changed={effect.changed ? "true" : "false"}>
+          <span className={styles.answerLabel}>Raw value alone</span> {effect.assetOnly}
+          {" · "}
+          <span className={styles.answerLabel}>With team context</span>{" "}
+          {effect.withContext || effect.assetOnly}
+          {effect.changed ? "" : " (team context did not change the call)"}
+        </p>
+      ) : null}
+      {effect?.steps?.length ? (
+        <ul className={styles.contextSteps} aria-label="What team context changed">
+          {effect.steps.map((st) => (
+            <li key={st.key}>{st.text}</li>
+          ))}
+        </ul>
+      ) : null}
+      <dl className={styles.facts}>
+        <div>
+          <dt>Your final roster</dt>
+          <dd>{mine || "Not computed"}</dd>
+        </div>
+        <div>
+          <dt>Their final roster</dt>
+          <dd>
+            {theirs ||
+              (cpLens?.unavailableReason === "incoming_assets_span_multiple_teams"
+                ? "Incoming assets come from more than one team"
+                : "Not computed")}
+          </dd>
+        </div>
+        <div>
+          <dt>Your direction</dt>
+          <dd>
+            {postureLine(sel) || "Unavailable"}
+            {postureShift(sel?.marginal) ? ` · this trade: ${postureShift(sel.marginal)}` : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Their direction</dt>
+          <dd>{postureLine(them) || "Unavailable"}</dd>
+        </div>
+      </dl>
+      {sel ? (
+        <p className={styles.note}>
+          Direction weighs which answer leads only when the market and your roster disagree; it is never
+          a separate vote. Uncalibrated affinities
+          {timing?.phase ? ` · ${String(timing.phase).replace(/_/g, " ")}` : ""}
+          {timing?.week ? `, week ${timing.week}` : ""}
+          {timing?.tradeDeadlineWeek ? ` (deadline week ${timing.tradeDeadlineWeek})` : ""}. Draft-order
+          effects are not modelled.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function Details({ analysis, raw }) {
   const market = analysis.lenses?.market?.detail || {};
   const roster = analysis.lenses?.roster?.detail || {};
@@ -471,7 +564,8 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
       </header>
       {useTeamContext === false ? (
         <p className={styles.modeNote}>
-          Asset-Only: roster fit, lineup impact and roster capacity are not included in this analysis.
+          <strong>{ASSET_ONLY_LABEL}.</strong> Roster fit, lineup impact, roster capacity and team
+          direction are not included in this verdict.
         </p>
       ) : null}
       <p role="status" className={styles.status}>
@@ -512,6 +606,8 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
             <RosterAnswer lens={analysis.lenses?.roster} />
             <FeasibilityAnswer lens={analysis.lenses?.feasibility} />
           </div>
+
+          <TeamContextLayer analysis={analysis} />
 
           <div className={styles.reasonGrid}>
             <ReasonList title="Why" items={analysis.reasonsFor} tone="positive" />

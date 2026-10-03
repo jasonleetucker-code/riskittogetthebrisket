@@ -335,14 +335,6 @@ export function ProactiveSuggestionsRail({ suggestions, onApply }) {
 
 // ── Simulation impact ─────────────────────────────────────────────────
 
-const VERDICT_TONE = {
-  accept: "positive",
-  "lean accept": "positive",
-  neutral: "neutral",
-  "lean decline": "negative",
-  decline: "negative",
-};
-
 /**
  * `finalRosterSimulation` refusal copy, keyed by the backend's own
  * `unavailableReason`.  The backend refuses for reasons that mean
@@ -390,6 +382,11 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
     ...(simResult?.unresolvedOut || []),
   ];
   const rc = simResult?.rosterCapacity;
+  // #842: Asset-Only still shows the roster blocks for convenience, each one
+  // stamped `includedInVerdict: false` by the server — said once, up front.
+  const assetOnly = simResult?.teamContext?.applied === false;
+  // #843: the OTHER team's final legal roster (forced drops are theirs).
+  const cp = simResult?.counterparty;
   // V1-45 / V1-42. `rosterCapacity` says WHO must go; this says what the
   // roster IS once they have — the lineup re-solved over the post-trade,
   // post-cleanup roster. Absent (not null) whenever there is no resolved
@@ -460,32 +457,27 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
             })}
           </div>
 
+          {assetOnly ? (
+            <p className={styles.suggestMeta} data-team-context="asset_only">
+              <strong>Asset-Only Analysis.</strong> Roster fit, roster capacity and the
+              final roster below are shown for reference — not included in this verdict.
+            </p>
+          ) : null}
+
           {ti ? (
             <div className={styles.simSection} style={{ marginTop: "var(--space-3)" }}>
               <div className={styles.simSectionHead}>
-                <span className={styles.simSectionTitle}>Roster fit</span>
+                <span className={styles.simSectionTitle}>Positional fit</span>
                 <span className={styles.simVerdict}>
-                  <Badge tone={VERDICT_TONE[ti.verdict] || "neutral"}>{ti.verdict}</Badge>
+                  {/* Explanation, never a verdict: the trade verdict is the
+                      War Room's (src/trade/analyze_trade.py). */}
+                  <Badge tone="neutral">context · not a vote</Badge>
                   <span className={styles.simScore}>
-                    {ti.compositeScore >= 0 ? "+" : ""}
-                    {ti.compositeScore.toFixed(1)}
+                    {Number.isFinite(Number(ti.fitScore))
+                      ? `${ti.fitScore >= 0 ? "+" : ""}${Number(ti.fitScore).toFixed(1)}`
+                      : "—"}
                   </span>
                 </span>
-              </div>
-              <div className={styles.simGrid}>
-                <StatTile
-                  label="Fit"
-                  value={`${ti.fitScore >= 0 ? "+" : ""}${ti.fitScore.toFixed(1)}`}
-                />
-                <StatTile
-                  label="Equity"
-                  value={`${ti.equityScore >= 0 ? "+" : ""}${ti.equityScore.toFixed(1)}`}
-                />
-                <StatTile
-                  label={ti.posture || "Window"}
-                  value={`${ti.windowFit >= 0 ? "+" : ""}${ti.windowFit.toFixed(2)}`}
-                  meta="window fit"
-                />
               </div>
               {starterEntries.length > 0 ? (
                 <div className={styles.simStarterGrid}>
@@ -537,6 +529,26 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
                 </ul>
               ) : null}
             </Banner>
+          ) : null}
+
+          {/* #843: the other team's roster consequence — their cut, their
+              cost; it bears on whether they would accept. */}
+          {cp?.available && cp.rosterCapacity?.requiresDrops === true ? (
+            <Banner tone="neutral" title={`${cp.team?.name || "Their"} roster`}>
+              {`${cp.team?.name || "They"} would have to cut ${
+                cp.rosterCapacity.forcedDrops?.length || 0
+              }`}
+              {cp.rosterCapacity.forcedDrops?.length
+                ? ` (likely ${cp.rosterCapacity.forcedDrops.map((d) => d.name).join(", ")})`
+                : ""}
+              {" to fit this trade."}
+              {cp.rosterCapacity.forcedDropsAreUpperBound ? " Worst case; taxi occupancy unknown." : ""}
+            </Banner>
+          ) : null}
+          {cp?.available && cp.rosterCapacity?.requiresDrops === false ? (
+            <p className={styles.suggestMeta}>
+              {cp.team?.name || "Their"} roster absorbs this trade without a cut.
+            </p>
           ) : null}
 
           {/* The simulator publishes {unavailable, notes} when capacity
@@ -1703,6 +1715,15 @@ export function SuggestionsDesk({
               ) : null}
             </div>
           </>
+        ) : null}
+
+        {/* Use Team Context OFF (#842): suggestions are built from this
+            roster's needs, so the server answers Asset-Only explicitly
+            instead of returning an empty list that reads as "none found". */}
+        {suggestions?.unavailableReason ? (
+          <Banner tone="info" title="Asset-Only Analysis">
+            {suggestions.message || "Trade suggestions need Team Context."}
+          </Banner>
         ) : null}
 
         {suggestions && suggestions.totalSuggestions === 0 ? (
