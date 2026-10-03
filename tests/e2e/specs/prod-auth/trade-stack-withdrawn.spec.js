@@ -193,7 +193,9 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
     expect.soft(switchedNote, "the team switch changed the stack context the note reports").not.toBe(firstNote);
 
     // 4. No stack arithmetic anywhere on the page.
-    const body = await page.locator("main").innerText();
+    // "#main" is the shell landmark; /trade nests a second <main>, so a bare
+    // locator("main") is ambiguous under Playwright's strict mode.
+    const body = await page.locator("#main").innerText();
     expect(body).not.toMatch(/VA\s*[−-]\s*stack/i);
 
     annotate(
