@@ -1,11 +1,16 @@
 """Release identity is bound to exact source, locks and built frontend bytes."""
 
 import copy
+import json
 from pathlib import Path
 
 import pytest
 
-from src.api.build_identity import create_release_manifest, verify_release_manifest
+from src.api.build_identity import (
+    create_release_manifest,
+    resolve_runtime_release_identity,
+    verify_release_manifest,
+)
 
 SHA = "a" * 40
 
@@ -104,6 +109,28 @@ def test_manifest_identity_cannot_be_relabelled(release_tree):
     forged["identity"]["backend_artifact_sha256"] = "0" * 64
     with pytest.raises(ValueError, match="backend identity is unsupported"):
         verify_release_manifest(forged, root, build, expected_commit=SHA)
+
+
+def test_running_identity_reports_verified_bytes_and_unknown_backend(release_tree):
+    root, build = release_tree
+    absent = resolve_runtime_release_identity(root, commit=SHA)
+    assert absent["frontend_artifact_id"] is None
+    assert absent["frontend_artifact_unavailable_reason"] == "manifest_missing"
+    assert absent["dependency_lock_sha256"]
+
+    built = manifest(root, build)
+    (root / ".release-manifest.json").write_text(json.dumps(built), encoding="utf-8")
+    running = resolve_runtime_release_identity(root, commit=SHA)
+    assert running["frontend_artifact_id"] == built["artifact_id"]
+    assert running["frontend_build_id"] == "build-123"
+    assert running["frontend_artifact_unavailable_reason"] is None
+    assert running["backend_artifact_sha256"] is None
+    assert running["backend_artifact_unavailable_reason"]
+
+    (build / "static/chunk.js").write_bytes(b"corrupted after deployment")
+    corrupt = resolve_runtime_release_identity(root, commit=SHA)
+    assert corrupt["frontend_artifact_id"] is None
+    assert corrupt["frontend_artifact_unavailable_reason"] == "manifest_invalid_or_mismatch"
 
 
 def test_workflow_packages_only_after_build_and_checks():

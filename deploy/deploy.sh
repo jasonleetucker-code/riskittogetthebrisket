@@ -1343,6 +1343,10 @@ main() {
       --root "${APP_DIR}" \
       --manifest "${STATE_DIR}/staged_release_manifest.json" \
       --commit "${TARGET_REV}"
+    cp "${STATE_DIR}/staged_release_manifest.json" "${APP_DIR}/.release-manifest.json.tmp"
+    mv -f "${APP_DIR}/.release-manifest.json.tmp" "${APP_DIR}/.release-manifest.json"
+  else
+    rm -f "${APP_DIR}/.release-manifest.json"
   fi
   restart_service
   verify_runtime_state

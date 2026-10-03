@@ -671,6 +671,13 @@ main() {
     rollback_frontend_ok="false"
   fi
 
+  if [[ "${rollback_frontend_ok}" == "true" && -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    cp "${state_dir}/staged_release_manifest.json" "${APP_DIR}/.release-manifest.json.tmp"
+    mv -f "${APP_DIR}/.release-manifest.json.tmp" "${APP_DIR}/.release-manifest.json"
+  else
+    rm -f "${APP_DIR}/.release-manifest.json"
+  fi
+
   reconcile_runtime_state_for_rollback
 
   log "Restarting service ${SERVICE_NAME} after rollback."

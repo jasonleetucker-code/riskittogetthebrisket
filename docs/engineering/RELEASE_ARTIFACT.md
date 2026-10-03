@@ -48,10 +48,15 @@ no saved archive use the established rebuild path.
 The deploy script rechecks the live `.next` bytes before recording success,
 and the workflow independently compares their artifact ID with CI's output
 after its public smoke and live-contract checks.
+Before restarting the backend, deploy writes the verified manifest to the
+ignored `.release-manifest.json` in the checkout. `src/api/build_identity.py`
+checks it against the process commit, locks and live frontend once at import;
+`/api/status` exposes the resulting `build.release` block. Missing or invalid
+evidence reports a null artifact ID and a reason. The public smoke compares
+both `build.commit` and `build.release.frontend_artifact_id` with CI outputs.
 
 This cutover remains **unverified in production** until its PR passes Linux
 CI, integrates and the deployed Next build ID and artifact ID are observed
 from the live service. The backend still installs the pinned lock on the VPS;
-its manifest digest is explicitly unknown. Public `/api/status` does not yet
-report the served artifact ID. These are open parts of the larger build-once
-and served-identity contract.
+its built artifact digest is explicitly unknown. That backend build-once piece
+remains open.

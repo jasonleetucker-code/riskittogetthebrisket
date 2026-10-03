@@ -796,6 +796,8 @@ jobs:
 
       - name: Post-deploy smoke test
         if: ${{ vars.PROD_PUBLIC_URL != '' }}
+        env:
+          EXPECTED_ARTIFACT_ID: ${{ needs.validate.outputs.artifact_id }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -1009,6 +1011,15 @@ jobs:
               # after its own fetch, so it can ship a newer commit than the
               # guard resolved: the message names what the guard resolved.
               echo "::error title=Served build mismatch::/api/status reports build.commit '${_served:-<none>}'${_note}; the deploy guard resolved ${DEPLOY_TARGET_SHA}."
+              FAIL=$((FAIL + 1))
+            fi
+            _artifact="$(jq -r '.release.frontend_artifact_id // empty' <<<"${_build}" 2>/dev/null || true)"
+            _artifact_why="$(jq -r '.release.frontend_artifact_unavailable_reason // empty' <<<"${_build}" 2>/dev/null || true)"
+            if [[ -n "${EXPECTED_ARTIFACT_ID:-}" && "${_artifact}" == "${EXPECTED_ARTIFACT_ID}" ]]; then
+              echo "PASS build.release.frontend_artifact_id == ${EXPECTED_ARTIFACT_ID}"
+              PASS=$((PASS + 1))
+            else
+              echo "::error title=Served artifact mismatch::/api/status reports artifact '${_artifact:-<none>}' (${_artifact_why:-no reason}); validated artifact is '${EXPECTED_ARTIFACT_ID:-<none>}'."
               FAIL=$((FAIL + 1))
             fi
           fi
