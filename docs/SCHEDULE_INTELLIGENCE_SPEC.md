@@ -157,6 +157,51 @@ the already-public expected wins. Season summaries only: measured about 24 KB pe
 league for three seasons. A failure computing it yields `{state: "failed"}` and
 never takes the Luck section down.
 
+## 5b. Model `timing_only_v1` (Milestone B core — concept D)
+
+`src/public_league/schedule_timing.py`. Published on the Luck tab (Schedule Multiverse).
+
+- **Fixed:** every team-week score, points for, median results, and the set of
+  weekly pairings actually played — so each team's opponent multiset, divisions,
+  repeat opponents and byes are exactly the real ones.
+- **Varies:** which finalized week each weekly pairing set is played in.
+- **Distribution:** uniform over all W! orderings of the W finalized weeks.
+  Season-to-date only; unplayed weeks are not modelled and no score is invented.
+- **Assumption, declared:** no week is pinned. Sleeper exposes no fixed-week
+  constraint, so none is invented; if one becomes known it narrows the set.
+- **Exact:** per-team head-to-head credit distributions over all W! orderings
+  (subset dynamic programme, integer counts; 14 weeks × 12 teams ≈ 0.6 s), with
+  the mean cross-checked against the closed form
+  `E[X_i] = (1/W) Σ_w Σ_k c(s_iw, s_opp_k(i),w)`. Tail probabilities are
+  published with explicit direction (`probBelowActual` / `probEqualActual` /
+  `probAboveActual`).
+- **Sampled (library only — not published on any surface yet):** league-wide finishing positions need joint calendars, so they are
+  drawn from the declared distribution itself (uniform permutations), seeded,
+  with per-probability standard errors. Tie order: credits, points for, points
+  against (lower first); remaining ties share positions and are reported, never
+  broken by an invented host rule.
+- **Fails closed:** a bye that changes a team's game count under reordering makes
+  that team `unavailable` (and the finish sampler refuses the season outright); multiple games per team-week, self-pairings and
+  missing scores make the season `unsupported`.
+- **Bounded:** exact counts up to 15 finished weeks (measured first build for 12 teams:
+  14 weeks ~1.2 s, 15 ~2.3 s, 16 ~4.5 s, 17 ~10.8 s); beyond that the season is
+  `unsupported`, never approximated. Probabilities publish at six significant
+  digits so a tiny non-zero share is never shown as 0.
+- **Contract:** each season row carries `timingOnly` (expected credits, impact,
+  explicit-direction tail probabilities, central 80%, exact min/max and the compact
+  distribution as `[credits, probability]` pairs); the season carries the model,
+  permuted weeks and `totalCalendars`. The generation id includes the timing
+  algorithm version. A failure yields `{state: "failed"}` for the timing block only.
+  Cost on the real `dynasty_main` snapshot: 1.16 s on the first build per process
+  (three seasons), 0.01 s cached (keyed by the season's score hash); the public
+  block grows from ~24 KB to ~42 KB uncompressed.
+- **Evidence:** brute force over every ordering (6 teams × 6 weeks, with and
+  without ties) matches the exact distributions to 1e-12; the sampler matches
+  exhaustive enumeration within 5 SE; league credit totals are conserved.
+  Real data (`dynasty_main` 2025): the team at 11-2 head-to-head averages 7.0
+  under reordering (80% range 5–9); the 2-11 team averages 5.3 and would do no
+  better than 2 in 1.5% of orderings.
+
 ## 6. Surfaces
 
 | Surface | Milestone | State |
@@ -168,7 +213,7 @@ never takes the Luck section down.
 | Schedule share card (separate from the full-league rankings card) | C | not started |
 | Historical season views (bySeason already in the contract) | C1 / C | team page season-results "Schedule" column per past season (C1); league-wide historical view not started |
 | Hard Luck statistical distinction | C | not started (coordinate with the awards claim) |
-| Schedule Multiverse (read-only) | B | not started |
+| Schedule Multiverse (read-only) | B | implemented: Luck tab "Same opponents, different weeks" table beside the equal-opponent table (H2H, order effect, average across all week orders, exact spread with the actual total marked, more/fewer shares) + method disclosure; honest notices for unsupported / unavailable seasons |
 | Valid schedule-slot swaps, retrospective playoff sensitivity | D | not started |
 | `scheduleNeutralRealizedWAR` → MVP candidate (shadow) | E | blocked on C5-WAR-01 |
 

@@ -541,3 +541,49 @@ class ReviewRoundTwoTests(unittest.TestCase):
         )
         self.assertIsNone(o3)  # a bye team has no head-to-head row
         self.assertIn("o4", c["teamsWithoutEvaluableGames"])
+
+
+class TimingOnlyContractTests(unittest.TestCase):
+    """Milestone B inside the season contract (not only the library)."""
+
+    WEEKS = AdapterTests.WEEKS
+
+    def test_timing_failure_never_costs_the_equal_opponent_contract(self) -> None:
+        from unittest import mock
+
+        from src.public_league import schedule_timing
+
+        snap = _snap(median=0, records={i: (1, 1, 0) for i in range(1, 5)}, weeks=self.WEEKS)
+        with mock.patch.object(
+            schedule_timing, "timing_summary", side_effect=RuntimeError("sabotage")
+        ):
+            c = si.season_contract(snap, snap.seasons[0])
+        self.assertEqual(c["state"], "complete")
+        self.assertEqual(c["timingOnly"]["state"], "failed")
+        self.assertTrue(all(t["timingOnly"] is None for t in c["teams"]))
+        self.assertTrue(all(isinstance(t["scheduleImpact"], float) for t in c["teams"]))
+
+    def test_same_scores_with_a_structural_issue_are_not_served_from_cache(self) -> None:
+        # Identical scores and pairs; only a structural issue differs.  The
+        # contract's timing cache key must tell them apart (a key on the score
+        # hash alone would serve the first answer to the second season).
+        from unittest import mock
+
+        snap = _snap(median=0, records={i: (1, 1, 0) for i in range(1, 5)}, weeks=self.WEEKS)
+        clean = si.season_week_inputs(snap.seasons[0], snap.managers)
+        flagged = [
+            si.WeekInput(
+                week=w.week,
+                scores=w.scores,
+                pairs=w.pairs,
+                byes=w.byes,
+                structural_issues=("unscored:roster:9",) if w.week == 2 else (),
+            )
+            for w in clean
+        ]
+        a = si.season_contract(snap, snap.seasons[0])
+        with mock.patch.object(si, "season_week_inputs", return_value=flagged):
+            b = si.season_contract(snap, snap.seasons[0])
+        self.assertEqual(a["scoreHash"], b["scoreHash"])
+        self.assertEqual(a["timingOnly"]["state"], "complete")
+        self.assertEqual(b["timingOnly"]["state"], "unsupported")
