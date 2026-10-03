@@ -353,6 +353,8 @@ const IDP_CONSENSUS_KEYS = new Set([
   "idpShowCombined",
   "fantasyProsIdp",
   "draftSharksIdp",
+  // Signals Fantasy IDP (authenticated native values; active 2026-10-03).
+  "signalsIdp",
 ]);
 
 /**
