@@ -95,7 +95,12 @@ resolve_git_ref() {
 }
 
 canonical_requirements_file() {
-  printf '%s\n' "requirements.txt"
+  if [[ -f "requirements.lock.txt" ]]; then
+    printf '%s\n' "requirements.lock.txt"
+  else
+    # Revisions predating the lock must remain recoverable.
+    printf '%s\n' "requirements.txt"
+  fi
 }
 
 ensure_venv_site_packages_writable() {
@@ -571,13 +576,22 @@ prepare_python_runtime() {
   fi
   log "Python dependency manifest detected: ${req_file}"
   require_command python3
+  if [[ "${req_file}" == "requirements.lock.txt" ]]; then
+    python3 scripts/python_lock.py check
+  else
+    warn "Rollback target predates the Python lock; restoring its legacy dependency manifest."
+  fi
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
   fi
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
   "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  if [[ "${req_file}" == "requirements.lock.txt" ]]; then
+    "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+  else
+    "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  fi
 }
 
 main() {
