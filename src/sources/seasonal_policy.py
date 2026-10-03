@@ -57,6 +57,7 @@ __all__ = [
     "SEASONALLY_INACTIVE",
     "SeasonalPolicy",
     "classify_empty_response",
+    "contract_inactive_sources",
     "inactive_sources_as_of",
     "load_policies",
     "load_state",
@@ -434,6 +435,30 @@ def inactive_sources_as_of(
             "lastInactiveVerifiedAt": (state or {}).get("lastInactiveVerifiedAt"),
         }
     return out
+
+
+def contract_inactive_sources(contract: Any) -> frozenset[str]:
+    """Sources a BUILT contract recorded as seasonally inactive.
+
+    Reads the contract's own ``sourceSeasonalState.inactive`` stamp — the
+    state in force at THAT board's scrape time — never the state directory.
+    A coverage check asks "should this source be on THIS board?", and only
+    the board can answer it: the refresh workflow builds the board before
+    the seasonal fetcher runs, so on a reactivation (or inactivation) run
+    the current state and the board's state legitimately differ, and
+    comparing a board with today's state reports a regression that is not
+    there.
+
+    Any missing or malformed stamp answers the empty set: nothing is
+    excused, the source is judged normally (fail closed).
+    """
+    if not isinstance(contract, Mapping):
+        return frozenset()
+    block = contract.get("sourceSeasonalState")
+    inactive = block.get("inactive") if isinstance(block, Mapping) else None
+    if not isinstance(inactive, Mapping):
+        return frozenset()
+    return frozenset(str(k) for k in inactive if isinstance(k, str) and k)
 
 
 def watchdog_seasonal_split(

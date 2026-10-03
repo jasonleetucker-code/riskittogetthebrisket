@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 # Allow ``python scripts/watchdog_contract_coverage.py`` from repo root.
@@ -67,6 +68,7 @@ from src.api.source_health_alerts import (  # noqa: E402
     load_thresholds,
     resolve_threshold,
 )
+from src.sources.seasonal_policy import contract_inactive_sources  # noqa: E402
 
 # Reuse the freshness watchdog's stamp-or-mtime reader verbatim so the
 # two watchdogs agree byte-for-byte on which sources are "fresh".
@@ -166,31 +168,29 @@ def evaluate_coverage(
       * ok         — [(source_key, coverage)] healthy registered
         sources.
       * skipped    — source keys not evaluated because they are stale
-        (owned by the freshness watchdog) or have an empty/missing CSV.
+        (owned by the freshness watchdog), have an empty/missing CSV, or
+        were seasonally inactive ON THIS BOARD.
+
+    The seasonal skip set comes from the contract's own
+    ``sourceSeasonalState`` stamp (the state at the board's scrape time),
+    never from the current state directory: ``scheduled-refresh.yml`` builds
+    the board BEFORE the seasonal fetcher runs, so on a reactivation run
+    the current state is already ``active`` while this board (correctly)
+    carries no vote from the source.
     """
-    return evaluate_coverage_map(_source_coverage(contract), freshness, thresholds)
-
-
-def _current_seasonally_inactive() -> set[str]:
-    """Declared-seasonal sources currently inactive (owner decision 2026-10-03,
-    ``src/sources/seasonal_policy.py``).  Such a source casts no vote by
-    design, so its absence from the board is not a coverage regression — even
-    in the hours after its last successful fetch, while its stamp is still
-    fresh.  An unreadable policy answers the empty set: the source is then
-    judged normally (fail closed)."""
-    try:
-        from src.sources.seasonal_policy import inactive_sources_as_of
-
-        return set(inactive_sources_as_of(None, None))
-    except Exception:  # noqa: BLE001 — never let this mute the check
-        return set()
+    return evaluate_coverage_map(
+        _source_coverage(contract),
+        freshness,
+        thresholds,
+        seasonally_inactive=contract_inactive_sources(contract),
+    )
 
 
 def evaluate_coverage_map(
     cov: dict[str, int],
     freshness: dict[str, dict],
     thresholds: dict,
-    seasonally_inactive: "set[str] | None" = None,
+    seasonally_inactive: "Iterable[str] | None" = None,
 ) -> tuple[list[tuple[str, int]], list[tuple[str, int]], list[str]]:
     """Same decision core as :func:`evaluate_coverage` but driven by a
     pre-computed ``{sourceKey: playerCount}`` map instead of a contract.
@@ -199,11 +199,19 @@ def evaluate_coverage_map(
     ``served_source_coverage`` (from ``/api/status``) through the
     identical fresh-but-absent logic the CI watchdog uses — one
     decision core, so the pre-merge and runtime gates can never drift.
+
+    ``seasonally_inactive`` names the sources that were seasonally inactive
+    ON THE BOARD WHOSE COVERAGE THIS IS (owner decision 2026-10-03,
+    ``src/sources/seasonal_policy.py``) — for a built contract
+    :func:`contract_inactive_sources`, for the live board the served
+    generation's ``served_seasonal_inactive`` from ``/api/status``.  Such a
+    source casts no vote on that board by design, so its absence is not a
+    coverage regression.  ``None`` excuses nothing (fail closed): the
+    decision is never taken from the current state directory, which can
+    disagree with the board being checked.
     """
     registered = [str(s.get("key") or "") for s in _RANKING_SOURCES]
-    inactive = (
-        _current_seasonally_inactive() if seasonally_inactive is None else set(seasonally_inactive)
-    )
+    inactive = {str(k) for k in (seasonally_inactive or ())}
 
     violations: list[tuple[str, int]] = []
     ok: list[tuple[str, int]] = []
@@ -253,7 +261,11 @@ def _write_summary(
     ]
     lines += [f"| `{k}` | {c} |" for k, c in ok]
     if skipped:
-        lines += ["", f"_Skipped (stale or empty CSV): {', '.join(skipped)}_"]
+        lines += [
+            "",
+            f"_Skipped (stale, empty CSV, or seasonally inactive on this board): "
+            f"{', '.join(skipped)}_",
+        ]
     try:
         with open(summary_path, "a", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")

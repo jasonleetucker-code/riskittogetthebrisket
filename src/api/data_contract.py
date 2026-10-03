@@ -11,7 +11,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Collection, Iterable, Mapping
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -4585,7 +4585,16 @@ def _seasonally_inactive_sources(
 
     A malformed policy file is logged and treated as "no declarations" —
     every source then behaves as it did before the policy existed.
+
+    A board with no observation time (``as_of`` None — a payload without
+    ``scrapeTimestamp``) gets NO seasonal exclusions, mirroring
+    :func:`_load_source_weighting`: without a time there is no "state in
+    force at T" to read, and falling back to the newest state file would
+    make the board depend on whatever state the checkout happens to carry.
+    The production path always stamps ``scrapeTimestamp``.
     """
+    if as_of is None:
+        return {}
     from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
 
     try:
@@ -5382,6 +5391,7 @@ def _expected_sources_for_position(
     *,
     is_rookie: bool = False,
     player_effective_rank: int | None = None,
+    seasonally_inactive: Collection[str] = (),
 ) -> tuple[set[str], set[str]]:
     """Return (offense_keys, idp_keys) that *should* cover this player.
 
@@ -5399,6 +5409,13 @@ def _expected_sources_for_position(
       a 25% guardrail.  A player ranked #350 by IDPTC isn't expected
       to also appear in a top-150 DLF list.
 
+    * Sources named in ``seasonally_inactive`` (a DECLARED seasonal
+      window in force at the board's time — owner decision 2026-10-03,
+      ``src/sources/seasonal_policy.py``) are not expected at all: their
+      board legitimately does not exist this phase, so their absence is
+      not a matching failure.  Only that set — a user-disabled source
+      keeps its existing audit behaviour.
+
     These rules let ``isSingleSource`` only fire when there is a
     *real* matching failure — not when the second source structurally
     doesn't carry players of this profile.
@@ -5407,6 +5424,8 @@ def _expected_sources_for_position(
     off: set[str] = set()
     idp: set[str] = set()
     for src in _RANKING_SOURCES:
+        if src["key"] in seasonally_inactive:
+            continue
         # Only the primary scope determines expected coverage.
         # Extra scopes (e.g. IDPTradeCalc's overall_offense) provide bonus
         # signal when present but are NOT structurally expected — IDPTC's
@@ -11638,7 +11657,10 @@ def _compute_unified_rankings(
         # match is the most informative reach signal.
         rank_probe = min(source_ranks.values()) if source_ranks else None
         off_keys, idp_keys = _expected_sources_for_position(
-            pos, is_rookie=is_rookie, player_effective_rank=rank_probe
+            pos,
+            is_rookie=is_rookie,
+            player_effective_rank=rank_probe,
+            seasonally_inactive=_seasonal_off,
         )
         expected_keys = sorted(off_keys | idp_keys)
         actual_keys = sorted(source_ranks.keys())

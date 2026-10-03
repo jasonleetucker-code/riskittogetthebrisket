@@ -211,3 +211,167 @@ def test_undeclared_sources_cannot_be_switched_off_by_state(tmp_path, key):
     assert (
         dc._seasonally_inactive_sources(datetime(2026, 10, 3, tzinfo=timezone.utc), tmp_path) == {}
     )
+
+
+# ── Review fixes (PR #1620) ────────────────────────────────────────────
+# M1: the coverage gates judge a board against THAT board's own seasonal
+# state, never the checkout's current state.  ``scheduled-refresh.yml``
+# builds the board (scraper step) BEFORE the Flock fetcher runs, so on the
+# reactivation run the current state is already ``active`` while the board
+# was built inactive, and on the inactivation run the reverse.
+def _contract(cov_flock: int, stamped_inactive: set[str]) -> dict:
+    rows = [{"sourceRankMeta": {KEY: {}}} for _ in range(cov_flock)]
+    rows += [{"sourceRankMeta": {"fantasyCalc": {}}} for _ in range(40)]
+    return {
+        "playersArray": rows,
+        "sourceSeasonalState": {
+            "asOf": "2026-10-03T00:00:00+00:00",
+            "inactive": {k: {"state": sp.SEASONALLY_INACTIVE} for k in stamped_inactive},
+        },
+    }
+
+
+_FRESH_FLOCK = {KEY: {"lastFetched": "2026-10-03T01:00:00+00:00", "ageHours": 1.0}}
+
+
+class TestCoverageGatesJudgeTheBoardTheyCheck:
+    @pytest.fixture(autouse=True)
+    def _wcc(self, monkeypatch):
+        import scripts.watchdog_contract_coverage as wcc
+
+        monkeypatch.setattr(wcc, "_csv_nonempty", lambda key: key == KEY)
+        self.wcc = wcc
+
+    def _current_state_says(self, monkeypatch, inactive: set[str]) -> None:
+        """Make the checkout's CURRENT seasonal state disagree with the board.
+
+        The gates must not consult it; patching it proves they do not."""
+        monkeypatch.setattr(
+            sp, "inactive_sources_as_of", lambda *_a, **_k: {k: {} for k in inactive}
+        )
+
+    def test_reactivation_run_is_green(self, monkeypatch):
+        """Board built while inactive (0 Flock rows, stamp says inactive);
+        the fetcher then reactivated the source (current state active, a
+        fresh success stamp).  Not a coverage regression."""
+        self._current_state_says(monkeypatch, set())
+        violations, _ok, skipped = self.wcc.evaluate_coverage(
+            _contract(0, {KEY}), _FRESH_FLOCK, {"flockFantasy": 24}
+        )
+        assert violations == [] and KEY in skipped
+
+    def test_inactivation_run_still_judges_the_source(self, monkeypatch):
+        """Board built while active (Flock voted); the fetcher then went
+        inactive.  The board is checked as an active-source board: covered
+        is ok, and an absent source is still a violation — today's state
+        cannot excuse a board that should carry the source."""
+        self._current_state_says(monkeypatch, {KEY})
+        violations, ok, _skipped = self.wcc.evaluate_coverage(
+            _contract(40, set()), _FRESH_FLOCK, {"flockFantasy": 24}
+        )
+        assert violations == [] and (KEY, 40) in ok
+        violations, _ok, _skipped = self.wcc.evaluate_coverage(
+            _contract(0, set()), _FRESH_FLOCK, {"flockFantasy": 24}
+        )
+        assert [v[0] for v in violations] == [KEY]
+
+    def test_map_core_excuses_nothing_by_default(self, monkeypatch):
+        self._current_state_says(monkeypatch, {KEY})
+        violations, _ok, _skipped = self.wcc.evaluate_coverage_map(
+            {}, _FRESH_FLOCK, {"flockFantasy": 24}
+        )
+        assert [v[0] for v in violations] == [KEY]
+
+    @pytest.mark.parametrize(
+        "block", [None, {}, {"inactive": None}, {"inactive": [KEY]}, {"inactive": {"": {}}}]
+    )
+    def test_malformed_stamp_excuses_nothing(self, block):
+        assert sp.contract_inactive_sources({"sourceSeasonalState": block}) == frozenset()
+        assert sp.contract_inactive_sources(None) == frozenset()
+
+    # ── live deploy gate (verify-deploy.sh → verify_live_source_coverage) ──
+    def _live(self, monkeypatch):
+        import scripts.verify_live_source_coverage as live
+
+        monkeypatch.setattr(live, "_read_freshness", lambda: _FRESH_FLOCK)
+        monkeypatch.setattr(live, "load_thresholds", lambda: {"flockFantasy": 24})
+        return live
+
+    def test_live_gate_reads_the_served_boards_state(self, monkeypatch):
+        live = self._live(monkeypatch)
+        self._current_state_says(monkeypatch, set())
+        violations, _ok, skipped = live._coverage_result(
+            {"served_source_coverage": {"fantasyCalc": 40}, "served_seasonal_inactive": [KEY]}
+        )
+        assert violations == [] and KEY in skipped
+
+    def test_live_gate_fails_closed_without_the_served_state(self, monkeypatch):
+        live = self._live(monkeypatch)
+        self._current_state_says(monkeypatch, {KEY})
+        for extra in ({}, {"served_seasonal_inactive": KEY}):
+            violations, _ok, _skipped = live._coverage_result(
+                {"served_source_coverage": {"fantasyCalc": 40}, **extra}
+            )
+            assert [v[0] for v in violations] == [KEY]
+
+
+def test_server_publishes_the_served_boards_seasonal_state():
+    import server
+
+    assert server._compute_served_seasonal_inactive(_contract(0, {KEY})) == [KEY]
+    assert server._compute_served_seasonal_inactive(_contract(5, set())) == []
+    assert server._compute_served_seasonal_inactive(None) == []
+    src = Path(server.__file__).read_text(encoding="utf-8")
+    assert '"served_seasonal_inactive": served_seasonal_inactive' in src
+    # Swapped with the coverage map, so the two always describe one board.
+    assert "served_seasonal_inactive = new_seasonal_inactive" in src
+
+
+# L1: a seasonally inactive source is not an "expected" source.
+class TestSourceAuditExpectation:
+    def test_helper_drops_only_the_named_inactive_source(self):
+        on, _ = dc._expected_sources_for_position("WR", is_rookie=True, player_effective_rank=5)
+        off, _ = dc._expected_sources_for_position(
+            "WR", is_rookie=True, player_effective_rank=5, seasonally_inactive={KEY}
+        )
+        assert KEY in on and KEY not in off
+        assert off == on - {KEY}
+
+    def test_rookies_do_not_list_the_inactive_source_as_unmatched(self):
+        board = _board({KEY})
+        for name in ("Rook A", "Rook B", "Rook C"):
+            audit = board[name]["sourceAudit"]
+            assert KEY not in audit["expectedSources"]
+            assert KEY not in audit["unmatchedSources"]
+        assert KEY in _board(set())["Rook A"]["sourceAudit"]["expectedSources"]
+
+
+# L2(a): the alert engine resolves the verified set itself.
+class TestAlertEngineEndToEnd:
+    def _run(self, tmp_path, monkeypatch, *, record: bool) -> dict:
+        state_dir = tmp_path / "scrape_state"
+        state_dir.mkdir()
+        if record:
+            _record_inactive(state_dir, datetime.now(timezone.utc))
+        monkeypatch.setattr(sp, "DEFAULT_STATE_DIR", state_dir)
+        health = {"sources": {KEY: {"lastFetched": "2026-09-01T00:00:00+00:00"}}}
+        return sha.check_and_alert(
+            health, thresholds={"flockFantasy": 24}, kv_path=tmp_path / "kv.sqlite"
+        )
+
+    def test_reverified_inactive_source_does_not_page(self, tmp_path, monkeypatch):
+        assert self._run(tmp_path, monkeypatch, record=True)["stale"] == 0
+
+    def test_without_state_it_pages_as_before(self, tmp_path, monkeypatch):
+        assert self._run(tmp_path, monkeypatch, record=False)["stale"] == 1
+
+
+# L3: no observation time → no seasonal exclusions (mirrors freshness).
+def test_payload_without_a_time_gets_no_seasonal_exclusions(tmp_path):
+    state_dir = tmp_path / "data" / "scrape_state"
+    state_dir.mkdir(parents=True)
+    _record_inactive(state_dir, datetime(2026, 10, 2, tzinfo=timezone.utc))
+    assert dc._seasonally_inactive_sources(None, tmp_path) == {}
+    assert dc._load_source_weighting(None, tmp_path) == {}
+    got = dc._seasonally_inactive_sources(datetime(2026, 10, 3, tzinfo=timezone.utc), tmp_path)
+    assert set(got) == {KEY}

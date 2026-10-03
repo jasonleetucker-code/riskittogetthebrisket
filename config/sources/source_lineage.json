@@ -533,10 +533,11 @@
     {
       "id": "flock-prospects-board-empty",
       "sources": ["flockFantasySfRookies"],
-      "status": "open",
-      "summary": "2026-10-01: api.flockfantasy.com PROSPECTS_SF returned data: [] with subscribed: false and an empty lastUpdated. The fetcher's 24-row floor refuses it, so the 2026-09-05 board keeps voting at decaying freshness. Cannot distinguish a vendor withdrawal from a new subscriber gate; never bypassed.",
-      "evidence": ["scripts/fetch_flock_fantasy_rookies.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
-      "recordedAt": "2026-10-01"
+      "status": "superseded",
+      "summary": "2026-10-01: api.flockfantasy.com PROSPECTS_SF returned data: [] with subscribed: false and an empty lastUpdated, and the fetcher's 24-row floor refused it. SUPERSEDED 2026-10-03 by the owner's declared seasonal window (issue #1552; src/sources/seasonal_policy.py + config/sources/seasonal_policy_v1.json): an empty PROSPECTS_SF board for the graduated class, from Oct 1 of that class year, is an explicit seasonally_inactive state (fetcher exit 4, data/scrape_state/flockFantasySfRookies_seasonal.json, no success stamp). The graduated board does NOT keep voting at decaying freshness: an inactive source casts no current vote (dropped at the active-source gate; a row only it covered is unpriced, never 0), its historical CSV is kept for replay, and the first valid non-empty board reactivates it. Any empty response outside the declared signature or window still fails closed exactly as before; the row floor is unchanged and never bypassed.",
+      "evidence": ["scripts/fetch_flock_fantasy_rookies.py", "src/sources/seasonal_policy.py", "config/sources/seasonal_policy_v1.json", "docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01",
+      "supersededAt": "2026-10-03"
     },
     {
       "id": "fitzmaurice-datawrapper-version-pinned",

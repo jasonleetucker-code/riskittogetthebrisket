@@ -158,3 +158,67 @@ def test_valid_board_without_a_window_writes_no_state(env):
     run, _dest, state_dir, _state = env
     assert run(_board(40)) == 0
     assert not any(state_dir.iterdir())
+
+
+# ── Workflow half: scheduled-refresh.yml::run_fetcher (review L2c) ─────
+_WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "scheduled-refresh.yml"
+
+
+def _run_fetcher_body() -> list[str]:
+    """The ``run_fetcher() { ... }`` function, one stripped line per entry."""
+    lines = _WORKFLOW.read_text(encoding="utf-8").splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "run_fetcher() {")
+    indent = len(lines[start]) - len(lines[start].lstrip())
+    end = next(
+        i
+        for i in range(start + 1, len(lines))
+        if lines[i].strip() == "}" and len(lines[i]) - len(lines[i].lstrip()) == indent
+    )
+    return [ln.strip() for ln in lines[start + 1 : end] if ln.strip()]
+
+
+def _branches(body: list[str]) -> dict[str, list[str]]:
+    """Split the function's if/elif/else chain into ``{condition: lines}``."""
+    out: dict[str, list[str]] = {}
+    current: str | None = None
+    for ln in body:
+        if ln.startswith(("if ", "elif ")) and ln.endswith("; then"):
+            current = ln.split(" ", 1)[1][: -len("; then")].strip()
+            out[current] = []
+        elif ln == "else":
+            current = "else"
+            out[current] = []
+        elif ln == "fi":
+            current = None
+        elif current is not None:
+            out[current].append(ln)
+    return out
+
+
+def test_workflow_exit_code_matches_the_constant():
+    body = _run_fetcher_body()
+    assert f"elif (( rc == {SEASONALLY_INACTIVE_EXIT_CODE} )); then" in body
+
+
+def test_workflow_nonzero_exit_never_fails_the_step():
+    """The fetcher is invoked so that ANY non-zero exit (4 included) is
+    captured, not raised: the step runs under ``set -e``, so a bare
+    ``"$@"`` would abort the whole refresh on a seasonal exit."""
+    body = _run_fetcher_body()
+    assert '"$@" 2>&1 || rc=$?' in body
+    assert not any(ln.startswith(('"$@"', 'if "$@"')) and "|| rc=$?" not in ln for ln in body)
+
+
+def test_workflow_exit_4_never_stamps_and_never_fails():
+    branches = _branches(_run_fetcher_body())
+    stamping = [
+        cond for cond, lines in branches.items() if any("_last_success" in ln for ln in lines)
+    ]
+    # Exactly one branch stamps, and its condition is exactly rc == 0.
+    assert stamping == ["(( rc == 0 ))"]
+    inactive = branches[f"(( rc == {SEASONALLY_INACTIVE_EXIT_CODE} ))"]
+    joined = "\n".join(inactive)
+    assert "_last_success" not in joined
+    for failing in ("exit", "return", "false", "::error"):
+        assert failing not in joined, failing
+    assert "::notice" in joined

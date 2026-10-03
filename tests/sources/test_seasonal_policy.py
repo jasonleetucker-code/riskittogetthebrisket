@@ -22,6 +22,7 @@ from src.sources import seasonal_policy as sp
 from src.sources.acquisition_state import (
     SEASONALLY_INACTIVE,
     SEASONALLY_INACTIVE_EXIT_CODE,
+    UNAVAILABLE,
     USABLE_ACQUISITION_STATES,
     AcquisitionOutcome,
     state_from_exit_code,
@@ -220,8 +221,26 @@ class TestReaders:
 
 # ── Acquisition vocabulary (reused, not a second one) ──────────────────
 class TestAcquisitionVocabulary:
-    def test_exit_code_maps_to_seasonally_inactive(self):
-        assert state_from_exit_code(SEASONALLY_INACTIVE_EXIT_CODE) == SEASONALLY_INACTIVE
+    def test_exit_code_maps_to_seasonally_inactive_only_for_a_declared_source(self):
+        assert (
+            state_from_exit_code(SEASONALLY_INACTIVE_EXIT_CODE, source_key=KEY)
+            == SEASONALLY_INACTIVE
+        )
+
+    @pytest.mark.parametrize("source_key", [None, "", "dlfSf", "fantasyCalc", "unknownKey"])
+    def test_exit_4_is_a_plain_failure_without_a_declared_policy(self, source_key):
+        """An integer alone can never declare a source seasonal (review L4):
+        the owner module decides which sources have a window."""
+        assert state_from_exit_code(SEASONALLY_INACTIVE_EXIT_CODE, source_key=source_key) == (
+            UNAVAILABLE
+        )
+
+    def test_unreadable_policy_fails_closed(self, monkeypatch):
+        def _boom(*_a, **_k):
+            raise sp.SeasonalPolicyError("bad policy")
+
+        monkeypatch.setattr(sp, "load_policies", _boom)
+        assert state_from_exit_code(SEASONALLY_INACTIVE_EXIT_CODE, source_key=KEY) == UNAVAILABLE
 
     def test_does_not_collide_with_yahoo_partial_scrape_exit_3(self):
         assert SEASONALLY_INACTIVE_EXIT_CODE != 3
