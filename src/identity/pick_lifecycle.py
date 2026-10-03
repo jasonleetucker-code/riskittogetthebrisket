@@ -521,7 +521,7 @@ def first_active_class(anchor_year: int, retired: Iterable[int]) -> int:
 # ── League scope: the ONE answer for a league's draft years (Wave A) ──
 #
 # Two different questions carry the word "draft year", and they are kept
-# separately NAMED rather than merged (owner directive 2026-10-03, Wave A):
+# separately NAMED rather than merged (owner directive, Wave A):
 #
 # * BOARD scope (scoring profile) — which pick classes the shared canonical
 #   board still prices: ``current_rookie_draft_year()`` / the contract's
@@ -537,7 +537,8 @@ def first_active_class(anchor_year: int, retired: Iterable[int]) -> int:
 # ``league.season`` + 1 on any complete draft; calendar year stepped past
 # retired classes; calendar-year horizons of 3 and of 4 classes;
 # ``season + 1, + 2``) and the /trade stack anchored on the BOARD's year —
-# measured 2027 on draft capital against 2026 on the stack.
+# measured one class apart: draft capital on the next class, the stack on
+# the class the league had already drafted.
 
 #: How many classes, counted from the anchor year, a league's owned-pick
 #: inventory spans: the anchor year and the three after it.  The same span as

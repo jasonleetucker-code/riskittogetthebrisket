@@ -68,6 +68,7 @@
     "available": true,
     "detail": {
      "magnitude": "stretch",
+     "notOwnedBySender": [],
      "rawGap": 3800,
      "receivingAdjusted": 9304.0,
      "receivingValue": 7300,
@@ -419,6 +420,7 @@
     "available": true,
     "detail": {
      "magnitude": "stretch",
+     "notOwnedBySender": [],
      "rawGap": 3800,
      "receivingAdjusted": 9304.0,
      "receivingValue": 7300,
@@ -1236,6 +1238,14 @@
   "weaknessBefore": null
  },
  "leagueKey": "main",
+ "ownedPickChecks": {
+  "alreadyOwnedByReceiver": [],
+  "hypotheticalPicksOut": [],
+  "notOwnedBySender": [],
+  "repeatedOwnedPick": [],
+  "rule": "src/identity/picks.py::lookup_league_pick_owner",
+  "unverified": []
+ },
  "receiving": [
   {
    "age": null,
