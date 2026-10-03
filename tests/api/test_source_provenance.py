@@ -130,16 +130,17 @@ class TestEveryMultiBoardProviderIsDeclared:
     def test_independent_family_count_is_lower_than_source_count(self):
         """The number this exists to make available to B10-T3.
 
-        24 source keys, 14 independent provider families (KTC Crowd and KTC
+        26 source keys, 14 independent provider families (KTC Crowd and KTC
         Trades are two families by owner ruling, 2026-09-23). Any aggregation
         step whose mathematical meaning is "how much independent evidence
         is there" must use the second number.
 
-        Signals (``signalsSf`` / ``signalsIdp``, owner addendum 2026-10-03)
-        added two keys and NO family: both vote inside FantasyCalc's, so the
-        family count is unchanged — the "no independence bonus" directive.
+        Signals (``signalsSf`` + the per-family IDP boards ``signalsIdpDl`` /
+        ``signalsIdpLb`` / ``signalsIdpDb``, owner addendum 2026-10-03) added
+        four keys and NO family: all are declared inside FantasyCalc's group.
+        (FantasyCalc has no IDP, so on IDP rows that group is Signals alone.)
         """
-        assert len(_RANKING_SOURCES) == 24
+        assert len(_RANKING_SOURCES) == 26
         assert len(_groups()) == 14
 
 

@@ -52,11 +52,20 @@ export function sourceObservation(row, src, rawData) {
   const hasRank = origRank != null && Number.isFinite(Number(origRank));
   if (!hasNative && !hasRank) return null;
   const subset = rawData?.sourceWeighting?.sources?.[src.key]?.subsets?.players || null;
+  // A collected-but-held board (backend ``privateSourceAvailability``:
+  // ``votes: false`` with ``heldFromVote`` / ``rolledBack``) is shown, never
+  // presented as a vote.
+  const avail = rawData?.privateSourceAvailability?.[src.key] || null;
+  const voting = avail ? avail.votes !== false : null;
   return {
+    voting,
+    heldReason: avail?.heldFromVote || (avail?.rolledBack ? "rolled back" : null),
     basis: hasNative ? "VALUE" : "RANK",
     basisLabel: hasNative ? "native value" : "rank fallback",
     rankLabel: hasRank
-      ? `#${Number(origRank)} ${hasNative ? "value-ordered rank (derived)" : "published rank"}`
+      ? `#${Number(origRank)} ${
+          hasNative ? src.observationRankLabel || "value-ordered rank (derived)" : "published rank"
+        }`
       : null,
     nativeValue: hasNative ? Number(nativeVal) : null,
     dataset: src.observationDataset,
@@ -70,6 +79,7 @@ export function sourceObservation(row, src, rawData) {
 export function sourceObservationText(obs) {
   if (!obs) return "";
   const parts = [
+    obs.voting === false ? "collected, NOT voting" : null,
     obs.basis === "VALUE"
       ? `native value ${obs.nativeValue.toLocaleString()} (VALUE)`
       : "RANK fallback",

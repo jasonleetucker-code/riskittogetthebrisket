@@ -586,12 +586,12 @@ def test_only_the_authenticated_value_keys_vote_never_the_public_boards():
 
     keys = {str(s.get("key", "")) for s in _RANKING_SOURCES}
     signals_keys = {k for k in keys if "signals" in k.lower()}
-    assert signals_keys == {"signalsSf", "signalsIdp"}
+    assert signals_keys == {"signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"}
     for board in S.BOARDS.values():
         assert board.source_key not in keys
         assert S.dataset_metadata(board)["votes"] is False
     for spec in S.VALUE_DATASETS.values():
-        assert spec.source_key in keys
+        assert set(spec.output_keys()) <= keys
         assert S.value_dataset_metadata(spec)["votes"] is True
     # One provider family, no independence bonus: both inside FantasyCalc's.
     assert {correlation_group_for(k) for k in signals_keys} == {"fantasyCalc"}

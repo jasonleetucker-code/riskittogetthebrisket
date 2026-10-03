@@ -233,6 +233,7 @@ export function MobileSourceStrip({ row, formatSourceCell }) {
             </span>
             {cell.observation && (
               <span className={styles.mobileSourceRank} data-testid={`source-observation-${src.key}`}>
+                {cell.observation.voting === false ? "not voting · " : ""}
                 {cell.observation.basis === "VALUE"
                   ? `native ${cell.observation.nativeValue.toLocaleString()}`
                   : "rank fallback"}
@@ -326,6 +327,9 @@ export function SourceAuditPanel({ row, rawData, val, edge, confidence }) {
                 <div className={styles.auditCardBody}>
                   {observation ? (
                     <>
+                      {observation.voting === false && (
+                        <AuditField label="Vote">Collected, not voting (held)</AuditField>
+                      )}
                       <AuditField label="Basis">
                         {observation.basis === "VALUE" ? "VALUE (native value)" : "RANK fallback"}
                       </AuditField>

@@ -1543,7 +1543,7 @@ boards still never vote. Full record: `docs/sources/SIGNALS_FANTASY_INTEGRATION.
 
 | Item | Disposition |
 |---|---|
-| Signals contributes to canonical values for offense (QB/RB/WR/TE) and IDP, through the existing owners (no parallel blend) | IMPLEMENTED — `claude/signals-active-source` (registry `signalsSf` / `signalsIdp`, rank signal); not yet merged or deployed |
+| Signals contributes to canonical values for offense (QB/RB/WR/TE) and IDP, through the existing owners (no parallel blend) | OFFENSE IMPLEMENTED (`signalsSf`, rank signal); IDP COLLECTED + DISPLAYED but HELD from voting — Signals' IDP value is normalised per family, so only a within-family rank is legitimate, and the existing positional path prices it in IDP-local coordinates (independent review of #1627, B1; `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` §9.2). Lifting the hold needs a coordinate decision. Not yet merged or deployed |
 | Selection hierarchy: exact-league value > SF/TEP preset value > authenticated rank > public rank; values first, ranks only as fallback; one active Signals observation per player | IMPLEMENTED — exact-league values are client-side (not collected); stored Dynasty SF value votes; cross-position-rank fallback inert (none published); public positional ranks never vote |
 | SF / TEP / exact league recorded per observation; no double scoring adjustment | IMPLEMENTED — measured Superflex, not TEP; base → TE++ conversion applied once |
 | IDP raw position preserved; DL/LB/DB only via the canonical owner | IMPLEMENTED |

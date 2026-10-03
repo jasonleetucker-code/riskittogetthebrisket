@@ -25,13 +25,21 @@ import {
 import { MobileSourceStrip, SourceAuditPanel } from "@/app/rankings/board-sections";
 
 const SIGNALS_SF = RANKING_SOURCES.find((s) => s.key === "signalsSf");
-const SIGNALS_IDP = RANKING_SOURCES.find((s) => s.key === "signalsIdp");
+const SIGNALS_IDP = RANKING_SOURCES.find((s) => s.key === "signalsIdpDl");
 
 const RAW = {
+  privateSourceAvailability: {
+    signalsSf: { state: "present", votes: true },
+    signalsIdpDl: {
+      state: "present",
+      votes: false,
+      heldFromVote: "positional_idp_path_prices_in_idp_local_coordinates",
+    },
+  },
   sourceWeighting: {
     sources: {
       signalsSf: { subsets: { players: { sourceDataAsOf: "2026-10-03T11:30:00Z", state: "ON_SCHEDULE" } } },
-      signalsIdp: { subsets: { players: { sourceDataAsOf: "2026-09-30T20:00:00Z", state: "OVERDUE" } } },
+      signalsIdpDl: { subsets: { players: { sourceDataAsOf: "2026-09-30T20:00:00Z", state: "OVERDUE" } } },
     },
   },
 };
@@ -54,12 +62,12 @@ function idpRow() {
   return {
     name: "Synthetic Edge",
     pos: "DL",
-    canonicalSites: { signalsIdp: 998700 },
-    sourceRanks: { signalsIdp: 61 },
-    sourceOriginalRanks: { signalsIdp: 13 },
-    sourceNativeValues: { signalsIdp: 4310 },
-    sourceRankMeta: { signalsIdp: { valueContribution: 3420, appliedWeight: 1 } },
-    sourceAudit: { matchedSources: ["signalsIdp"], expectedSources: ["signalsIdp"] },
+    canonicalSites: { signalsIdpDl: 998700 },
+    sourceRanks: { signalsIdpDl: 61 },
+    sourceOriginalRanks: { signalsIdpDl: 13 },
+    sourceNativeValues: { signalsIdpDl: 4310 },
+    sourceRankMeta: { signalsIdpDl: { valueContribution: 3420, appliedWeight: 1 } },
+    sourceAudit: { matchedSources: ["signalsIdpDl"], expectedSources: ["signalsIdpDl"] },
   };
 }
 
@@ -73,12 +81,20 @@ describe("registry mirror", () => {
     });
     expect(SIGNALS_SF.observationFormat).toMatch(/Superflex/);
     expect(SIGNALS_SF.observationFormat).toMatch(/non-TEP/);
-    expect(SIGNALS_IDP).toMatchObject({
-      scope: "overall_idp",
-      needsSharedMarketTranslation: true,
-      correlationGroup: "fantasyCalc",
-      observationDataset: "IDP",
-    });
+    // One board per family through the positional IDP path; never a
+    // cross-family order (independent review of #1627).
+    for (const fam of ["DL", "LB", "DB"]) {
+      const src = RANKING_SOURCES.find((s) => s.key === `signalsIdp${fam[0]}${fam[1].toLowerCase()}`);
+      expect(src).toMatchObject({
+        scope: "position_idp",
+        positionGroup: fam,
+        needsSharedMarketTranslation: false,
+        correlationGroup: "fantasyCalc",
+        observationDataset: `IDP — ${fam}`,
+      });
+      expect(src.observationFormat).toMatch(new RegExp(`ranked within ${fam} only`));
+    }
+    expect(RANKING_SOURCES.find((s) => s.key === "signalsIdp")).toBeUndefined();
   });
 });
 
@@ -165,10 +181,25 @@ describe("Rankings source column", () => {
     );
     expect(screen.getByText("VALUE (native value)")).toBeTruthy();
     expect(screen.getByText("Native value")).toBeTruthy();
+    // IDP is collected and shown but HELD from voting (review B1).
+    expect(screen.getByText("Collected, not voting (held)")).toBeTruthy();
     expect(screen.getByText("4,310")).toBeTruthy();
-    expect(screen.getByText("#13 value-ordered rank (derived)")).toBeTruthy();
-    expect(screen.getByText("IDP")).toBeTruthy();
-    expect(screen.getByText(/CB\/S → DB/)).toBeTruthy();
+    expect(screen.getByText("#13 value-ordered DL rank (derived)")).toBeTruthy();
+    expect(screen.getByText("IDP — DL")).toBeTruthy();
+    expect(screen.getByText(/ranked within DL only/)).toBeTruthy();
     expect(screen.getByText("2026-09-30 · OVERDUE")).toBeTruthy();
+  });
+});
+
+describe("held IDP boards", () => {
+  it("say NOT voting in the cell title; offense says nothing of the kind", () => {
+    const idp = formatSourceCell(
+      { ...idpRow(), sourceRankMeta: {} },
+      SIGNALS_IDP,
+      RAW,
+    );
+    expect(idp.title).toContain("collected, NOT voting");
+    const off = formatSourceCell(offenseRow(), SIGNALS_SF, RAW);
+    expect(off.title).not.toContain("NOT voting");
   });
 });

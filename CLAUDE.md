@@ -643,10 +643,14 @@ Steps:
    Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
    conversions — votes via rank → percentile → Hill.  (The refit
    workflow trains the scope masters on value-based observations.)
-   **Signals Fantasy** (``signalsSf`` offense, ``signalsIdp`` IDP; ACTIVE
-   since the owner addendum of 2026-10-03) votes the same way: its
-   authenticated native VALUE order is the rank (labelled derived), inside
-   the ``fantasyCalc`` B10 family (no independence bonus).  It is the first
+   **Signals Fantasy** offense (``signalsSf``; ACTIVE since the owner
+   addendum of 2026-10-03) votes the same way: its authenticated native
+   VALUE order is the rank (labelled derived), inside the ``fantasyCalc``
+   B10 family (no independence bonus).  Its IDP value is normalised per
+   family, so IDP is one ``position_idp`` board per family
+   (``signalsIdp{Dl,Lb,Db}``), collected and displayed but HELD from voting
+   (``PRIVATE_SOURCE_VOTE_HOLDS``: the positional path prices in IDP-local
+   coordinates — never derive a cross-family order).  It is the first
    **private, box-local** voter: its CSVs live in the gitignored
    ``data/sources/signals/board/`` store written by the box timer
    ``dynasty-signals-values``, never in ``CSVs/site_raw``.  Where that

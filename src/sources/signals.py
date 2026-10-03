@@ -1366,8 +1366,30 @@ PUBLICATION_MAJORITY = ROW_COLLAPSE_FRACTION
 #: contract's ``_DEFAULT_SOURCE_ROW_FLOORS`` (pinned by
 #: ``tests/api/test_source_floor_invariant.py``).  A release with fewer
 #: voting rows is quarantined and the last good board keeps voting with its
-#: true age.  Measured 2026-10-03: 509 offense / 1,064 IDP board rows.
-MIN_BOARD_ROWS: dict[str, int] = {"signalsSf": 400, "signalsIdp": 330}
+#: true age.  Measured 2026-10-03: 509 offense board rows; IDP per family
+#: (DL / LB / DB) — see ``IDP_FAMILY_BOARDS``.
+MIN_BOARD_ROWS: dict[str, int] = {
+    "signalsSf": 400,
+    "signalsIdpDl": 330,
+    "signalsIdpLb": 150,
+    "signalsIdpDb": 300,
+}
+
+#: Signals' IDP ``value`` is a strictly monotone function of its per-FAMILY
+#: composite (Spearman 1.000; independent review of #1627, 2026-10-03): each
+#: family is normalised on its own scale (tops DL / LB / DB within 4% of each
+#: other, near-identical curves at #12 and #24).  It is therefore NOT a
+#: cross-family price, and its top-100 is half DBs.  Ordering it across
+#: families would manufacture exactly the shared DL/LB/DB order the owner
+#: addendum forbids ("DE4 and LB4 must NOT be manufactured into a shared
+#: overall rank").  So each family is ranked ONLY within itself and written
+#: to its own board, which votes through the positional IDP path
+#: (``SOURCE_SCOPE_POSITION_IDP`` + the backbone's per-family ladder).
+IDP_FAMILY_BOARDS: dict[str, str] = {
+    "DL": "signalsIdpDl",
+    "LB": "signalsIdpLb",
+    "DB": "signalsIdpDb",
+}
 
 BOARD_CSV_COLUMNS: tuple[str, ...] = (
     "name",
@@ -1400,6 +1422,19 @@ class ValueDatasetSpec:
     #: Payload field carrying an authenticated CROSS-POSITION rank, if any.
     #: ``None`` for both datasets today: positional ranks never qualify.
     cross_position_rank_field: str | None = None
+    #: ``{family: source_key}`` when the dataset is ranked WITHIN families
+    #: and written as one board per family (IDP); empty = one board,
+    #: ``source_key``, ranked across the whole dataset (offense).
+    family_boards: dict[str, str] = field(default_factory=dict)
+
+    def output_keys(self) -> tuple[str, ...]:
+        """The registry keys this dataset's boards vote under."""
+        return tuple(self.family_boards.values()) or (self.source_key,)
+
+    def board_key_for(self, row: Mapping[str, Any]) -> str | None:
+        if not self.family_boards:
+            return self.source_key
+        return self.family_boards.get(str(row.get("position") or ""))
 
 
 _OFFENSE_FORMAT = {
@@ -1430,6 +1465,7 @@ _IDP_FORMAT = {
     "leagueAdjusted": False,
     "basis": BASIS_NATIVE_VALUE,
     "preset": "Signals IDP dynasty season board (IdpDynastyValueEntry.value, sk '<season>#dynasty')",
+    "scale": "per family (DL / LB / DB); not comparable across families",
     "superflexEvidence": "not applicable: an IDP-only board",
     "tePremiumEvidence": "not applicable: an IDP-only board",
     "exactLeagueSettings": "not exposed",
@@ -1450,15 +1486,21 @@ VALUE_DATASETS: dict[str, ValueDatasetSpec] = {
     ),
     "idp": ValueDatasetSpec(
         key="idp",
+        # The dataset id (store ``values/idp``); NOT a registry key — the
+        # boards vote under ``IDP_FAMILY_BOARDS``.
         source_key="signalsIdp",
         dataset="idp",
         positions=("CB", "S", "DT", "DE", "LB"),
-        population="IDP: true positions CB/S/DT/DE/LB on one cross-position IDP value scale",
+        population=(
+            "IDP: true positions CB/S/DT/DE/LB; values normalised WITHIN Signals' family "
+            "(DL / LB / DB), so ranked within family only"
+        ),
         game_type_evidence=(
             "listIdpDynastyValuesBySeason rows keyed sk '<season>#dynasty', re-verified on "
             "every row of every release; a release failing it is quarantined"
         ),
         format=_IDP_FORMAT,
+        family_boards=IDP_FAMILY_BOARDS,
     ),
 }
 
@@ -1469,23 +1511,30 @@ def value_dataset_metadata(spec: ValueDatasetSpec) -> dict[str, Any]:
         "provider": PROVIDER,
         "family": PROVIDER,
         "sourceKey": spec.source_key,
+        "registryKeys": list(spec.output_keys()),
         "dataset": spec.dataset,
         "gameType": "DYNASTY",
         "gameTypeEvidence": spec.game_type_evidence,
         "format": dict(spec.format),
         "population": spec.population,
-        "crossPositionOrdering": True,
+        "crossPositionOrdering": not spec.family_boards,
         "horizon": "dynasty",
         "unit": "native_value",
         "basis": BASIS_NATIVE_VALUE,
-        "voteBasis": "value-ordered rank (derived) -> percentile -> Hill",
+        "voteBasis": (
+            "value-ordered rank WITHIN family (derived) -> backbone family ladder -> IDP Hill"
+            if spec.family_boards
+            else "value-ordered rank (derived) -> percentile -> Hill"
+        ),
         "intendedConsumer": "canonical_rank_signal",
         "votes": True,
         "visibility": "authenticated_only",
         "lineage": (
-            "Signals' app falls back to FantasyCalc values for its dynasty baseline and "
-            "composes league values over a FantasyCalc fetch; votes inside the FantasyCalc "
-            "B10 family (no independence bonus) until ancestry is measured"
+            "one Signals provider family, declared inside FantasyCalc's B10 group: Signals' "
+            "app falls back to FantasyCalc values for its offense dynasty baseline (no "
+            "independence bonus on offense).  FantasyCalc publishes no IDP, so on IDP rows the "
+            "group is Signals alone — its IDP value is model-derived from per-snap features "
+            "with no market input"
         ),
     }
 
@@ -1612,6 +1661,15 @@ def normalize_idp_items(
         if raw_pos not in spec.positions:
             errors.append(f"row {idx}: unexpected position {raw_pos!r}")
             continue
+        family = normalize_position(raw_pos)
+        if spec.family_boards and str(item.get("family") or "") != family:
+            # Signals' own family must be the canonical owner's mapping of
+            # its raw position — the per-family boards depend on it.
+            errors.append(
+                f"row {idx}: vendor family {item.get('family')!r} disagrees with "
+                f"{raw_pos!r} -> {family!r}"
+            )
+            continue
         if not name:
             errors.append(f"row {idx}: missing name")
             continue
@@ -1626,7 +1684,7 @@ def normalize_idp_items(
                 "sleeperId": sid,
                 "name": name,
                 "rawPosition": raw_pos,
-                "position": normalize_position(raw_pos),
+                "position": family,
                 "signalsFamily": item.get("family"),
                 "team": item.get("team"),
                 "nativeValue": value,
@@ -1741,6 +1799,10 @@ def build_board_rows(
     * otherwise (a positional rank at most) -> MISSING: never zero, and
       never a manufactured cross-position order.
 
+    A dataset with ``family_boards`` (IDP) is ranked WITHIN each family only:
+    every family's board starts at rank 1 and no row is ever ordered
+    against another family's.  A row whose family has no board is excluded.
+
     Players whose canonical name collides inside the dataset are withheld
     (both): the CSV join falls back to the name, and would otherwise attach
     one player's value to the other.
@@ -1761,6 +1823,8 @@ def build_board_rows(
             excluded["unkeyable_name"] = excluded.get("unkeyable_name", 0) + 1
         elif name_counts.get(k, 0) > 1:
             excluded["homonym_within_dataset"] = excluded.get("homonym_within_dataset", 0) + 1
+        elif spec.board_key_for(o) is None:
+            excluded["no_family_board"] = excluded.get("no_family_board", 0) + 1
         elif _positive_number(o.get("nativeValue")) is not None:
             valued.append(o)
         elif _positive_int(o.get("crossPositionRank")) is not None:
@@ -1769,23 +1833,30 @@ def build_board_rows(
             excluded["no_value_no_cross_position_rank"] = (
                 excluded.get("no_value_no_cross_position_rank", 0) + 1
             )
-    valued.sort(
-        key=lambda o: (
-            -float(o["nativeValue"]),
-            str(o.get("name") or "").casefold(),
-            str(o.get("sleeperId") or ""),
-        )
-    )
     rows: list[dict[str, Any]] = []
-    prev_value: float | None = None
-    prev_rank = 0
-    for idx, o in enumerate(valued, start=1):
-        value = float(o["nativeValue"])
-        rank = prev_rank if value == prev_value else idx
-        prev_value, prev_rank = value, rank
-        rows.append(_board_row(o, spec, rank=rank, value=value, basis=BASIS_NATIVE_VALUE))
+    for board in spec.output_keys():
+        group = [o for o in valued if spec.board_key_for(o) == board]
+        group.sort(
+            key=lambda o: (
+                -float(o["nativeValue"]),
+                str(o.get("name") or "").casefold(),
+                str(o.get("sleeperId") or ""),
+            )
+        )
+        prev_value: float | None = None
+        prev_rank = 0
+        for idx, o in enumerate(group, start=1):
+            value = float(o["nativeValue"])
+            rank = prev_rank if value == prev_value else idx
+            prev_value, prev_rank = value, rank
+            rows.append(_board_row(o, spec, rank=rank, value=value, basis=BASIS_NATIVE_VALUE))
     for o in sorted(
-        ranked, key=lambda o: (int(o["crossPositionRank"]), str(o.get("sleeperId") or ""))
+        ranked,
+        key=lambda o: (
+            str(spec.board_key_for(o)),
+            int(o["crossPositionRank"]),
+            str(o.get("sleeperId") or ""),
+        ),
     ):
         rows.append(
             _board_row(
@@ -2104,7 +2175,7 @@ def _value_board_key(spec: ValueDatasetSpec) -> str:
 
 
 def _record_value_dataset_state(
-    spec: ValueDatasetSpec,
+    source_key: str,
     *,
     state_dir: Path,
     csv_path: Path,
@@ -2123,7 +2194,7 @@ def _record_value_dataset_state(
 
     if health == "HEALTHY":
         DS.record_source_file(
-            source_key=spec.source_key,
+            source_key=source_key,
             csv_path=csv_path,
             signal="rank",
             state_dir=state_dir,
@@ -2133,12 +2204,12 @@ def _record_value_dataset_state(
         )
         return
     board = ParsedBoard(health=health, errors=list(errors)[:10])
-    path = DS.state_path(state_dir, spec.source_key)
+    path = DS.state_path(state_dir, source_key)
     DS.save_state(
         path,
         DS.observe(
             DS.load_state(path),
-            source_key=spec.source_key,
+            source_key=source_key,
             board=board,
             observed_at=at,
             track_rows=False,
@@ -2187,7 +2258,7 @@ def collect_value_dataset(
     latest = store.latest(board_key)
     started = now()
     outcome: dict[str, Any] = {"dataset": spec.key, "sourceKey": spec.source_key}
-    csv_path = board_csv_path(Path(store_root), spec.source_key)
+    csv_paths = {k: board_csv_path(Path(store_root), k) for k in spec.output_keys()}
     raw_pages: list[Any] = []
     stop: ValuesStop | None = None
     obs: list[dict[str, Any]] = []
@@ -2226,18 +2297,27 @@ def collect_value_dataset(
     raw_blob = json.dumps(raw_pages, sort_keys=True, ensure_ascii=False).encode("utf-8")
     raw_sha = hashlib.sha256(raw_blob).hexdigest()
     rows: list[dict[str, Any]] = []
+    boards: dict[str, list[dict[str, Any]]] = {k: [] for k in csv_paths}
     if not errors and stop is None:
         rows, more = build_board_rows(obs, spec)
         for k, v in more.items():
             excluded[k] = excluded.get(k, 0) + v
-        last_count = (latest or {}).get("rowCount")
-        floor = MIN_BOARD_ROWS.get(spec.source_key, 1)
-        if not rows:
-            errors.append("no voting rows after the selection hierarchy")
-        elif len(rows) < floor:
-            errors.append(f"below board floor: {len(rows)} voting rows < {floor}")
-        elif last_count and len(rows) < last_count * ROW_COLLAPSE_FRACTION:
-            errors.append(f"row-count collapse: {len(rows)} vs last good {last_count}")
+        for r in rows:
+            boards[str(spec.board_key_for(r))].append(r)
+        last_counts = (latest or {}).get("boardRowCounts") or {}
+        # Every board must stand on its own: one family collapsing withholds
+        # the whole release (all boards keep their last good copy).
+        for key, board_rows in boards.items():
+            floor = MIN_BOARD_ROWS.get(key, 1)
+            last_count = last_counts.get(key)
+            if not board_rows:
+                errors.append(f"{key}: no voting rows after the selection hierarchy")
+            elif len(board_rows) < floor:
+                errors.append(f"{key}: below board floor: {len(board_rows)} voting rows < {floor}")
+            elif last_count and len(board_rows) < last_count * ROW_COLLAPSE_FRACTION:
+                errors.append(
+                    f"{key}: row-count collapse: {len(board_rows)} vs last good {last_count}"
+                )
 
     if errors:
         if raw_pages:
@@ -2255,15 +2335,16 @@ def collect_value_dataset(
                 "warnings": warnings[:25],
             },
         )
-        _record_value_dataset_state(
-            spec,
-            state_dir=state_dir,
-            csv_path=csv_path,
-            health="DEGRADED",
-            at=at,
-            upstream_published_at=None,
-            errors=errors,
-        )
+        for key, path in csv_paths.items():
+            _record_value_dataset_state(
+                key,
+                state_dir=state_dir,
+                csv_path=path,
+                health="DEGRADED",
+                at=at,
+                upstream_published_at=None,
+                errors=errors,
+            )
         outcome.update(outcome="quarantined", errors=errors[:10])
     elif stop is not None:
         outcome.update(outcome=stop.outcome, reason=stop.reason)
@@ -2272,7 +2353,11 @@ def collect_value_dataset(
         counts: dict[str, int] = {}
         for r in rows:
             counts[str(r["basis"])] = counts.get(str(r["basis"]), 0) + 1
-        if latest is not None and latest.get("contentSha256") == csha and csv_path.is_file():
+        if (
+            latest is not None
+            and latest.get("contentSha256") == csha
+            and all(p.is_file() for p in csv_paths.values())
+        ):
             fstate["lastVerifiedUnchangedAt"] = iso(at)
             outcome.update(outcome="unchanged_content", contentSha256=csha, rowCount=len(rows))
         else:
@@ -2292,6 +2377,7 @@ def collect_value_dataset(
                 "contentSha256": csha,
                 "previousContentSha256": (latest or {}).get("contentSha256"),
                 "rowCount": len(rows),
+                "boardRowCounts": {k: len(v) for k, v in boards.items()},
                 "basisCounts": counts,
                 "excluded": excluded,
                 "warnings": warnings[:25],
@@ -2301,7 +2387,8 @@ def collect_value_dataset(
             # The CSV is written before latest.json: a crash between the two
             # leaves latest.json at the previous release, so the next run
             # republishes instead of trusting a CSV latest.json does not match.
-            atomic_write_bytes(csv_path, render_board_csv(rows).encode("utf-8"))
+            for key, path in csv_paths.items():
+                atomic_write_bytes(path, render_board_csv(boards[key]).encode("utf-8"))
             store.publish_release(board_key, release)
             fstate["lastGoodContentSha256"] = csha
             fstate["lastPublishedAt"] = iso(at)
@@ -2309,19 +2396,21 @@ def collect_value_dataset(
                 outcome="published",
                 contentSha256=csha,
                 rowCount=len(rows),
+                boardRowCounts={k: len(v) for k, v in boards.items()},
                 basisCounts=counts,
                 excluded=excluded,
             )
         outcome["asOf"] = as_of
-        _record_value_dataset_state(
-            spec,
-            state_dir=state_dir,
-            csv_path=csv_path,
-            health="HEALTHY",
-            at=at,
-            upstream_published_at=as_of,
-        )
-        _write_last_success(state_dir, spec.source_key, at)
+        for key, path in csv_paths.items():
+            _record_value_dataset_state(
+                key,
+                state_dir=state_dir,
+                csv_path=path,
+                health="HEALTHY",
+                at=at,
+                upstream_published_at=as_of,
+            )
+            _write_last_success(state_dir, key, at)
 
     fstate["lastOutcome"] = outcome.get("outcome")
     if outcome.get("outcome") in ("published", "unchanged_content"):

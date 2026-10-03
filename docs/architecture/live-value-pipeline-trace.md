@@ -83,7 +83,9 @@ policy.  Pinned against the registry by
 | `fantasyProsIdp` | overall_idp | 1.0 | 100 | `rank_signal`, `shared_market_translation`, `excludes_rookies` |
 | `idpShowCombined` | overall_idp (+ overall_offense) | 1.0 | 450 | `rank_signal` |
 | `idpTradeCalc` | overall_idp (+ overall_offense) | 1.0 | — | `backbone`, `tep_premium` |
-| `signalsIdp` | overall_idp | 1.0 | 415 | `rank_signal`, `shared_market_translation`, `private_box_local` (Signals IDP, fantasyCalc family) |
+| `signalsIdpDl` | position_idp (DL) | 1.0 | 165 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP DL board) |
+| `signalsIdpLb` | position_idp (LB) | 1.0 | 105 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP LB board) |
+| `signalsIdpDb` | position_idp (DB) | 1.0 | 150 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP DB board) |
 | `dlfRookieSf` | overall_offense | 1.0 | 50 | `rank_signal` |
 | `dlfSf` | overall_offense | 1.0 | 280 | `rank_signal` |
 | `draftSharks` | overall_offense | 1.0 | 500 | `tep_premium` |
@@ -106,7 +108,8 @@ policy.  Pinned against the registry by
 
 1. Per-source scripts (`scripts/fetch_*.py`, `Dynasty Scraper.py`) write
    per-source CSVs to `CSVs/site_raw/<key>.csv` — except the PRIVATE,
-   box-local Signals boards (`signalsSf` / `signalsIdp`, since 2026-10-03),
+   box-local Signals boards (`signalsSf`, and the HELD per-family IDP boards
+   `signalsIdp{Dl,Lb,Db}`, since 2026-10-03),
    which `scripts/fetch_signals_values.py` writes to the gitignored
    `data/sources/signals/board/` on the production box only; where that
    collector never ran they are `not_provisioned` (absent, never zero).

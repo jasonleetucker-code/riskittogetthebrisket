@@ -356,6 +356,9 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "sourceOriginalRanks",
         "signalsSf",
         "signalsIdp",
+        "signalsIdpDl",
+        "signalsIdpLb",
+        "signalsIdpDb",
     )
 )
 

@@ -134,7 +134,7 @@ class TestCorrelationGroups(unittest.TestCase):
         self.assertEqual(dc.expand_correlation_groups(["otcffbSf"]), {"otcffbSf"})
         self.assertEqual(
             dc.expand_correlation_groups(["fantasyCalc"]),
-            {"fantasyCalc", "signalsSf", "signalsIdp"},
+            {"fantasyCalc", "signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"},
         )
 
     def test_a_declared_family_member_expands_to_the_whole_family(self):

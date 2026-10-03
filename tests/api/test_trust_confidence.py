@@ -449,8 +449,8 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # added 2026-05-13; ``otcffbSf`` added 2026-05-15;
         # ``fantasyNavigatorSf`` + ``pfkDynasty`` added 2026-07-25
         # (Phase 2 of the competitor-parity roadmap).
-        # ``signalsSf`` + ``signalsIdp`` added 2026-10-03 (Signals active).
-        self.assertEqual(len(meth["sources"]), 24)
+        # ``signalsSf`` + ``signalsIdp{Dl,Lb,Db}`` added 2026-10-03 (Signals).
+        self.assertEqual(len(meth["sources"]), 26)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -469,7 +469,9 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "fantasyNavigatorSf",
                 "pfkDynasty",
                 "signalsSf",
-                "signalsIdp",
+                "signalsIdpDl",
+                "signalsIdpLb",
+                "signalsIdpDb",
                 "fantasyProsSf",
                 "dynastyDaddySf",
                 "fantasyProsIdp",

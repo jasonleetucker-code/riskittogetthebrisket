@@ -60,7 +60,9 @@ PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
         "dlfValuesSfTep",
         "idpShowCombined",
         "signalsSf",
-        "signalsIdp",
+        "signalsIdpDl",
+        "signalsIdpLb",
+        "signalsIdpDb",
     }
 )
 

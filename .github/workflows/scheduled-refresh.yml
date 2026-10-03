@@ -570,7 +570,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python scripts/record_source_datasets.py \
-            --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined signalsSf signalsIdp \
+            --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined signalsSf signalsIdpDl signalsIdpLb signalsIdpDb \
             || echo "::warning title=Source dataset state::recording failed; state left at its last observation"
 
       - name: Commit updated data

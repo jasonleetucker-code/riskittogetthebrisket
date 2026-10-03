@@ -675,10 +675,13 @@ NOT_HILL_BOARDS: dict[str, str] = {
         "lineage vs FantasyCalc is unmeasured (pair-signals-market-families), so it is "
         "neither a Hill trainer nor a holdout"
     ),
-    "signalsIdp": (
-        "private box-local IDP rank-signal voter (value-ordered rank), active 2026-10-03; "
-        "lineage unmeasured, so neither a Hill trainer nor a holdout"
-    ),
+    **{
+        k: (
+            "private box-local IDP positional rank board (within-family value rank), "
+            "registered 2026-10-03 but HELD from voting; neither a Hill trainer nor a holdout"
+        )
+        for k in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
+    },
 }
 
 

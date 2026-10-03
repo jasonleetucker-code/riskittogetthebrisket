@@ -24,6 +24,7 @@ import pytest
 from src.sources import signals as S
 
 T0 = datetime(2026, 10, 3, 14, 0, tzinfo=timezone.utc)
+IDP_KEYS = ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
 TOKEN = "SYNTHETIC-ACCESS-TOKEN-never-real"
 OFF = S.VALUE_DATASETS["offense"]
 IDP = S.VALUE_DATASETS["idp"]
@@ -161,7 +162,7 @@ def _csv_rows(path: Path) -> list[dict]:
 def _small_board_floors(monkeypatch):
     """Synthetic boards are tens of rows; the real floors (400 / 330) are
     pinned against the contract in test_source_floor_invariant.py."""
-    monkeypatch.setattr(S, "MIN_BOARD_ROWS", {"signalsSf": 5, "signalsIdp": 5})
+    monkeypatch.setattr(S, "MIN_BOARD_ROWS", dict.fromkeys(("signalsSf", *IDP_KEYS), 5))
 
 
 @pytest.fixture
@@ -262,6 +263,27 @@ class TestSelectionHierarchy:
         assert [r["sleeper_id"] for r in rows] == ["3"]
         assert excluded == {"homonym_within_dataset": 2}
 
+    def test_idp_is_ranked_within_family_never_across(self):
+        """Review B1: Signals' IDP value is normalised per family.  A DB at
+        4,754 and a DL at 4,880 are each their family's #1 — never #1 and #2
+        of one shared order."""
+        obs = [
+            {**self._obs("1", "Synthetic Edge", value=4880.0), "position": "DL"},
+            {**self._obs("2", "Synthetic Corner", value=4754.0), "position": "DB"},
+            {**self._obs("3", "Synthetic Tackle", value=4100.0), "position": "DL"},
+            {**self._obs("4", "Synthetic Backer", value=4913.0), "position": "LB"},
+            {**self._obs("5", "Synthetic Rusher", value=4000.0), "position": "XX"},
+        ]
+        rows, excluded = S.build_board_rows(obs, IDP)
+        got = {(r["sleeper_id"], IDP.board_key_for(r), r["rank"]) for r in rows}
+        assert got == {
+            ("1", "signalsIdpDl", 1),
+            ("3", "signalsIdpDl", 2),
+            ("2", "signalsIdpDb", 1),
+            ("4", "signalsIdpLb", 1),
+        }
+        assert excluded == {"no_family_board": 1}
+
     def test_render_parses_through_the_contracts_rank_signal_reader(self, tmp_path):
         """The board CSV is read by the SAME parser every rank source uses:
         rank -> synthetic ordering value, native value preserved, Sleeper id
@@ -317,6 +339,12 @@ class TestIdpNormalization:
         )
         assert errors == [] and [o["sleeperId"] for o in obs] == ["2"]
         assert excluded == {"no_sleeper_id": 1}
+
+    def test_a_vendor_family_that_disagrees_with_the_position_is_schema_drift(self):
+        bad = _idp_item("1", "A", "CB", 3000)
+        bad["family"] = "LB"
+        _obs, errors, _w, _x = S.normalize_idp_items([bad], IDP, season=2026)
+        assert any("vendor family" in e for e in errors)
 
     def test_duplicate_ids_and_unknown_positions_are_schema_drift(self):
         items = [_idp_item("1", "A", "CB", 3000), _idp_item("1", "B", "CB", 2000)]
@@ -380,17 +408,31 @@ class TestCollection:
         store = tmp / "store"
         assert S.private_store_provisioned(store)
         off_rows = _csv_rows(S.board_csv_path(store, "signalsSf"))
-        idp_rows = _csv_rows(S.board_csv_path(store, "signalsIdp"))
+        idp_boards = {k: _csv_rows(S.board_csv_path(store, k)) for k in IDP_KEYS}
+        idp_rows = [r for rows in idp_boards.values() for r in rows]
         assert len(off_rows) == 60 and len(idp_rows) == 70
         assert list(off_rows[0]) == list(S.BOARD_CSV_COLUMNS)
         assert off_rows[0]["rank"] == "1" and off_rows[0]["basis"] == "NATIVE_VALUE"
         assert {r["dataset"] for r in idp_rows} == {"idp"}
         assert {r["raw_position"] for r in idp_rows} == {"CB", "S", "DT", "DE", "LB"}
+        # one board per family, each ranked within itself from 1
+        for key, fam, raws in (
+            ("signalsIdpDl", "DL", {"DT", "DE"}),
+            ("signalsIdpLb", "LB", {"LB"}),
+            ("signalsIdpDb", "DB", {"CB", "S"}),
+        ):
+            rows = idp_boards[key]
+            assert {r["position"] for r in rows} == {fam}
+            assert {r["raw_position"] for r in rows} == raws
+            assert [int(r["rank"]) for r in rows] == list(range(1, len(rows) + 1))
         # freshness clocks: success stamp + dataset state with the VENDOR clock
         state = tmp / "state"
         assert (state / "signalsSf_last_success").read_text().strip() == str(int(T0.timestamp()))
-        ds = json.loads((state / "signalsIdp_dataset.json").read_text(encoding="utf-8"))
-        assert ds["health"]["state"] == "HEALTHY"
+        for key in IDP_KEYS:
+            ds = json.loads((state / f"{key}_dataset.json").read_text(encoding="utf-8"))
+            assert ds["health"]["state"] == "HEALTHY"
+            assert (state / f"{key}_last_success").is_file()
+        assert not (state / "signalsIdp_dataset.json").exists()
         latest = json.loads((store / "values" / "idp" / "latest.json").read_text(encoding="utf-8"))
         assert latest["metadata"]["votes"] is True
         assert latest["observations"][0]["format"]["gameType"] == "DYNASTY"
@@ -494,7 +536,7 @@ class TestCollection:
     def test_schema_drift_quarantines_and_keeps_the_last_good_board(self, world):
         tmp, uni, snaps, idp = world
         _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp]))
-        good = S.board_csv_path(tmp / "store", "signalsIdp").read_bytes()
+        good = S.board_csv_path(tmp / "store", "signalsIdpDb").read_bytes()
         drift = (
             200,
             {},
@@ -515,32 +557,37 @@ class TestCollection:
             datasets=("idp",),
         )
         assert out["datasets"]["idp"]["outcome"] == "quarantined"
-        assert S.board_csv_path(tmp / "store", "signalsIdp").read_bytes() == good
-        ds = json.loads((tmp / "state" / "signalsIdp_dataset.json").read_text(encoding="utf-8"))
+        assert S.board_csv_path(tmp / "store", "signalsIdpDb").read_bytes() == good
+        ds = json.loads((tmp / "state" / "signalsIdpDb_dataset.json").read_text(encoding="utf-8"))
         assert ds["health"]["state"] == "DEGRADED"
         assert list((tmp / "store" / "values" / "idp" / "quarantine").glob("*.json"))
 
-    def test_a_row_collapse_is_quarantined(self, world):
+    def test_a_row_collapse_is_quarantined(self, world, monkeypatch):
         tmp, uni, snaps, idp = world
+        monkeypatch.setattr(S, "MIN_BOARD_ROWS", dict.fromkeys(("signalsSf", *IDP_KEYS), 1))
         _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp]))
         out = _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp[:10]]), force=True)
         assert out["datasets"]["idp"]["outcome"] == "quarantined"
-        assert "row-count collapse" in out["datasets"]["idp"]["errors"][0]
+        assert any("row-count collapse" in e for e in out["datasets"]["idp"]["errors"])
 
     def test_a_board_below_its_floor_is_quarantined(self, world, monkeypatch):
         tmp, uni, snaps, idp = world
-        monkeypatch.setattr(S, "MIN_BOARD_ROWS", {"signalsSf": 5, "signalsIdp": 500})
+        monkeypatch.setattr(
+            S,
+            "MIN_BOARD_ROWS",
+            {"signalsSf": 5, "signalsIdpDl": 5, "signalsIdpLb": 5, "signalsIdpDb": 500},
+        )
         out = _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp]), datasets=("idp",))
         assert out["datasets"]["idp"]["outcome"] == "quarantined"
         assert "below board floor" in out["datasets"]["idp"]["errors"][0]
-        assert not S.board_csv_path(tmp / "store", "signalsIdp").exists()
+        assert not any(S.board_csv_path(tmp / "store", k).exists() for k in IDP_KEYS)
 
     def test_runaway_pagination_is_withheld_not_truncated(self, world):
         tmp, uni, snaps, idp = world
         pages = [idp[i : i + 5] for i in range(0, 35, 5)]  # 7 pages > IDP_MAX_PAGES
         out = _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=pages), datasets=("idp",))
         assert out["datasets"]["idp"]["outcome"] == "quarantined"
-        assert not S.board_csv_path(tmp / "store", "signalsIdp").exists()
+        assert not any(S.board_csv_path(tmp / "store", k).exists() for k in IDP_KEYS)
 
     def test_the_request_budget_is_a_hard_cap(self, world):
         tmp, uni, snaps, idp = world
@@ -587,4 +634,4 @@ class TestPrivacy:
     def test_ci_never_writes_signals_dataset_state(self):
         from scripts.record_source_datasets import PROD_TIMER_OWNED_KEYS
 
-        assert {"signalsSf", "signalsIdp"} <= set(PROD_TIMER_OWNED_KEYS)
+        assert {"signalsSf", *IDP_KEYS} <= set(PROD_TIMER_OWNED_KEYS)

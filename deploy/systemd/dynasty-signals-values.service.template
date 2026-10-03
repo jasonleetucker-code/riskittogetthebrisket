@@ -6,7 +6,8 @@ Wants=network-online.target
 # Collects Signals Fantasy's AUTHENTICATED native dynasty values (offense
 # Superflex snapshots + the IDP season board) into the box-local private store
 # data/sources/signals/ and writes the board CSVs the canonical contract build
-# reads (data/sources/signals/board/signalsSf.csv, signalsIdp.csv).  Since the
+# reads (data/sources/signals/board/signalsSf.csv and one IDP board per family,
+# signalsIdp{Dl,Lb,Db}.csv).  Since the
 # owner addendum of 2026-10-03 these are an ACTIVE canonical source
 # (docs/sources/SIGNALS_FANTASY_INTEGRATION.md section 9).  Owner:
 # src/sources/signals.py.

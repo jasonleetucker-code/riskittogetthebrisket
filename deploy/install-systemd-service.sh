@@ -946,7 +946,7 @@ main() {
   # Public pages, no creds; a 401/403 persists a stop the script obeys.
   install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
   # Signals Fantasy AUTHENTICATED native values -> box-local private store +
-  # the board CSVs the canonical contract reads (signalsSf / signalsIdp; an
+  # the board CSVs the canonical contract reads (signalsSf + signalsIdp{Dl,Lb,Db}; an
   # ACTIVE source since the owner addendum of 2026-10-03).  Uses the owner
   # session at /var/lib/signals-auth; until that exists every run records
   # auth_unavailable and the source stays absent (never zero).

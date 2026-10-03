@@ -412,7 +412,8 @@ class TestSourceFreshnessStampCoverage(unittest.TestCase):
         # value datasets declare.
         from src.sources import signals as _signals  # noqa: PLC0415
 
-        out.update(spec.source_key for spec in _signals.VALUE_DATASETS.values())
+        for spec in _signals.VALUE_DATASETS.values():
+            out.update(spec.output_keys())
         return out
 
     def test_every_csv_source_has_stamp_writer_or_is_mtime_reliable(self) -> None:

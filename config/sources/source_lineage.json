@@ -70,7 +70,9 @@
     "signalsDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]},
     "signalsIdpDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]},
     "signalsSf": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native Superflex dynasty values (PlayerValueSnapshot.signalsDynastyValue), collected privately on the box. ACTIVE voter since the owner addendum of 2026-10-03, as a value-ordered rank signal inside the fantasyCalc B10 family (relation signals-fantasycalc-app-composition)."},
-    "signalsIdp": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native IDP dynasty values (listIdpDynastyValuesBySeason), collected privately on the box. ACTIVE voter since 2026-10-03, translated through the shared-market IDP ladder, inside the fantasyCalc B10 family. Measured 2026-10-03: IDP rank Spearman vs IDP Trade Calculator 0.56 (bounded probe)."}
+    "signalsIdpDl": {"provider": "signalsFantasy", "basis": "model_projection", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native IDP dynasty values (listIdpDynastyValuesBySeason), collected privately on the box. Registered 2026-10-03 as one POSITIONAL board per family but HELD from voting (positional path prices in IDP-local coordinates; data_contract.PRIVATE_SOURCE_VOTE_HOLDS). Signals' IDP value is normalised WITHIN its family (strictly monotone in a per-family composite, Spearman 1.000; independent review of #1627), so the only legitimate vote is each family's own within-family order; no cross-family order is ever derived. Declared in the fantasyCalc B10 group (one Signals provider family), but FantasyCalc publishes no IDP, so on IDP rows Signals WOULD be its own family to the confidence gate when it votes; defensible because its IDP value is model-derived from per-snap features (projectedFp, prior-season fantasy points, pressure/playmaking per snap) with no market input. Measured 2026-10-03 (bounded probe): IDP order Spearman vs IDP Trade Calculator 0.56."},
+    "signalsIdpLb": {"provider": "signalsFantasy", "basis": "model_projection", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native IDP dynasty values (listIdpDynastyValuesBySeason), collected privately on the box. Registered 2026-10-03 as one POSITIONAL board per family but HELD from voting (positional path prices in IDP-local coordinates; data_contract.PRIVATE_SOURCE_VOTE_HOLDS). Signals' IDP value is normalised WITHIN its family (strictly monotone in a per-family composite, Spearman 1.000; independent review of #1627), so the only legitimate vote is each family's own within-family order; no cross-family order is ever derived. Declared in the fantasyCalc B10 group (one Signals provider family), but FantasyCalc publishes no IDP, so on IDP rows Signals WOULD be its own family to the confidence gate when it votes; defensible because its IDP value is model-derived from per-snap features (projectedFp, prior-season fantasy points, pressure/playmaking per snap) with no market input. Measured 2026-10-03 (bounded probe): IDP order Spearman vs IDP Trade Calculator 0.56."},
+    "signalsIdpDb": {"provider": "signalsFantasy", "basis": "model_projection", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native IDP dynasty values (listIdpDynastyValuesBySeason), collected privately on the box. Registered 2026-10-03 as one POSITIONAL board per family but HELD from voting (positional path prices in IDP-local coordinates; data_contract.PRIVATE_SOURCE_VOTE_HOLDS). Signals' IDP value is normalised WITHIN its family (strictly monotone in a per-family composite, Spearman 1.000; independent review of #1627), so the only legitimate vote is each family's own within-family order; no cross-family order is ever derived. Declared in the fantasyCalc B10 group (one Signals provider family), but FantasyCalc publishes no IDP, so on IDP rows Signals WOULD be its own family to the confidence gate when it votes; defensible because its IDP value is model-derived from per-snap features (projectedFp, prior-season fantasy points, pressure/playmaking per snap) with no market input. Measured 2026-10-03 (bounded probe): IDP order Spearman vs IDP Trade Calculator 0.56."}
   },
   "relations": [
     {
@@ -371,7 +373,7 @@
     },
     {
       "id": "signals-suspected-market-ancestry",
-      "sources": ["signalsDynasty", "signalsIdpDynasty", "signalsSf", "signalsIdp"],
+      "sources": ["signalsDynasty", "signalsIdpDynasty", "signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"],
       "relation": "suspected_common_ancestry",
       "classification": "suspected",
       "summary": "Signals says it aggregates unnamed community dynasty value markets and trade-implied values; treat as correlated with the KTC / FantasyCalc / Dynasty Daddy families until ancestry is disclosed.",
@@ -380,10 +382,10 @@
     },
     {
       "id": "signals-fantasycalc-app-composition",
-      "sources": ["signalsSf", "signalsIdp", "fantasyCalc"],
+      "sources": ["signalsSf", "fantasyCalc"],
       "relation": "app_composes_over_provider",
       "classification": "suspected",
-      "summary": "Signals' web app bundle (read-only, 2026-10-03) falls back to FantasyCalc's value for its dynasty baseline (dynastyValueMap ?? dynastyValue ?? fcValue) and computes league-exact values client-side over a FantasyCalc fetch. That composition is observed in code; whether the STORED signalsDynastyValue the collector reads is itself derived from FantasyCalc is not vendor-stated, so the ancestry stays suspected. Owner directive 2026-10-03: no independence bonus, so both Signals keys vote inside the fantasyCalc B10 family (one family vote, cap_family_weights).",
+      "summary": "Signals' web app bundle (read-only, 2026-10-03) falls back to FantasyCalc's value for its dynasty baseline (dynastyValueMap ?? dynastyValue ?? fcValue) and computes league-exact values client-side over a FantasyCalc fetch. That composition is observed in code; whether the STORED signalsDynastyValue the collector reads is itself derived from FantasyCalc is not vendor-stated, so the ancestry stays suspected. Owner directive 2026-10-03: no independence bonus on offense, so signalsSf votes inside the fantasyCalc B10 family (one family vote, cap_family_weights). The IDP boards share the group, but FantasyCalc has no IDP, so on IDP rows Signals counts as its own family (see the signalsIdp* notes).",
       "evidence": ["docs/sources/SIGNALS_FANTASY_INTEGRATION.md", "src/sources/signals.py", "src/api/data_contract.py"],
       "asOf": "2026-10-03"
     },
@@ -686,11 +688,11 @@
     },
     {
       "id": "pair-signals-market-families",
-      "sources": ["signalsDynasty", "signalsIdpDynasty", "signalsSf", "signalsIdp", "ktcCrowdSfTep", "ktcTradesSfTep", "fantasyCalc", "dynastyDaddySf"],
+      "sources": ["signalsDynasty", "signalsIdpDynasty", "signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb", "ktcCrowdSfTep", "ktcTradesSfTep", "fantasyCalc", "dynastyDaddySf"],
       "category": null,
       "unknownReason": "authenticated Signals values exist since 2026-10-03 but no point-in-time history yet: one release is not a dependence measurement. The app-composition evidence (signals-fantasycalc-app-composition) is suspected ancestry, not a measurement. Not guessed.",
       "relations": ["signals-suspected-market-ancestry", "signals-fantasycalc-app-composition"],
-      "implications": {"familyCap": "ACTIVE since 2026-10-03 inside the fantasyCalc B10 family (owner directive: no independence bonus): FantasyCalc + Signals carry at most one provider's authority per row, and count as one family to the confidence gate.", "hillHoldout": "must not be a holdout until its dependence is measured.", "sourceQualityEvaluation": "excluded from targets and from evaluation until a point-in-time Signals history exists.", "hillTraining": "never a trainer (NOT_HILL_BOARDS).", "completedTradeEvaluation": "excluded."},
+      "implications": {"familyCap": "ACTIVE since 2026-10-03 inside the fantasyCalc B10 group: on OFFENSE rows FantasyCalc + Signals carry at most one provider's authority and count as one family (no independence bonus). On IDP rows FantasyCalc is absent, so Signals IDP is its own family; defensible because its IDP value is model-derived from per-snap features with no market input.", "hillHoldout": "must not be a holdout until its dependence is measured.", "sourceQualityEvaluation": "excluded from targets and from evaluation until a point-in-time Signals history exists.", "hillTraining": "never a trainer (NOT_HILL_BOARDS).", "completedTradeEvaluation": "excluded."},
       "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"],
       "asOf": "2026-10-03"
     },

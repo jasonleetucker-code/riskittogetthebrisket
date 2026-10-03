@@ -313,9 +313,13 @@ export default function RankingsPage() {
   // freshness state); memoised so the column set does not rebuild on every
   // unrelated contract field.
   const sourceWeightingStamp = rawData?.sourceWeighting;
+  const privateSourceStamp = rawData?.privateSourceAvailability;
   const sourceClockData = useMemo(
-    () => ({ sourceWeighting: sourceWeightingStamp }),
-    [sourceWeightingStamp],
+    () => ({
+      sourceWeighting: sourceWeightingStamp,
+      privateSourceAvailability: privateSourceStamp,
+    }),
+    [sourceWeightingStamp, privateSourceStamp],
   );
   const hiddenSiteCols = settings.hiddenSiteCols || {};
   const visibleSources = useMemo(

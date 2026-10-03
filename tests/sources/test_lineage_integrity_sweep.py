@@ -199,7 +199,7 @@ def test_committed_sweep_covers_every_voting_source():
     # reason (``pair-signals-market-families``) and it votes inside the
     # FantasyCalc family; it is exempt here by that declaration, nothing else.
     private = private_source_keys()
-    assert private == {"signalsSf", "signalsIdp"}
+    assert private == {"signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"}
     voting = {s["key"] for s in _RANKING_SOURCES} - private
     swept = {k for k, v in data["sources"].items() if v.get("voting")}
     assert voting <= swept, sorted(voting - swept)

@@ -44,6 +44,7 @@ from src.api.data_contract import (
 )
 from src.sources import signals as S
 
+SIGNALS_KEYS = ("signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
 N_OFF = 140
 N_IDP = 140
 OFF_POS = ("QB", "RB", "WR", "TE")
@@ -156,9 +157,11 @@ def _write_store(root: Path, *, marker: bool = True, boards: bool = True) -> Non
         off, idp = _signals_observations()
         for spec, obs in ((S.VALUE_DATASETS["offense"], off), (S.VALUE_DATASETS["idp"], idp)):
             rows, _ = S.build_board_rows(obs, spec)
-            path = S.board_csv_path(store, spec.source_key)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(S.render_board_csv(rows), encoding="utf-8")
+            for key in spec.output_keys():
+                board = [r for r in rows if spec.board_key_for(r) == key]
+                path = S.board_csv_path(store, key)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(S.render_board_csv(board), encoding="utf-8")
 
 
 def _build(root: Path) -> dict:
@@ -172,12 +175,28 @@ def _rows(contract: dict) -> dict[str, dict]:
 
 @pytest.fixture(scope="module")
 def boards(tmp_path_factory):
+    """Built with the IDP vote hold LIFTED, so the positional IDP mechanics
+    (which the hold exists to keep out of production until their coordinate
+    question is decided) stay pinned for the day the hold is lifted."""
+    import src.api.data_contract as dc
+
     on = tmp_path_factory.mktemp("signals_on")
     _write_store(on)
     off = tmp_path_factory.mktemp("signals_off")
-    with_signals = _build(on)
-    without = _build(off)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(dc, "PRIVATE_SOURCE_VOTE_HOLDS", {})
+        with_signals = _build(on)
+        without = _build(off)
     return with_signals, without
+
+
+@pytest.fixture(scope="module")
+def held(tmp_path_factory):
+    """The shipped configuration: offense votes, IDP is collected but HELD."""
+    on = tmp_path_factory.mktemp("signals_held")
+    _write_store(on)
+    off = tmp_path_factory.mktemp("signals_held_off")
+    return _build(on), _build(off)
 
 
 def _voted(meta: dict | None) -> bool:
@@ -212,13 +231,15 @@ class TestNativeValueContributes:
         meta = _rows(boards[0])[_off(0)]["sourceRankMeta"]["signalsSf"]
         assert meta["effectiveRank"] == 10
 
-    def test_idp_through_the_shared_market_ladder(self, boards):
+    def test_idp_through_the_positional_family_ladder(self, boards):
         rows = _rows(boards[0])
-        row = rows[_idp(0)]
-        meta = row["sourceRankMeta"]["signalsIdp"]
+        row = rows[_idp(0)]  # a DL
+        meta = row["sourceRankMeta"]["signalsIdpDl"]
         assert _voted(meta)
-        assert meta.get("sharedMarketTranslated") is True
-        assert row["sourceNativeValues"]["signalsIdp"] == 4900.0
+        assert meta["scope"] == "position_idp" and meta["positionGroup"] == "DL"
+        assert meta["method"] != "fallback"
+        assert not meta.get("sharedMarketTranslated")
+        assert row["sourceNativeValues"]["signalsIdpDl"] == 4900.0
 
     def test_signals_moves_the_board(self, boards):
         """It is a vote, not a decoration: the canonical values change."""
@@ -237,7 +258,7 @@ class TestNativeValueContributes:
 
 class TestRankFallback:
     @pytest.mark.parametrize(
-        "name,key", [(_off(OFF_FALLBACK), "signalsSf"), (_idp(IDP_FALLBACK), "signalsIdp")]
+        "name,key", [(_off(OFF_FALLBACK), "signalsSf"), (_idp(IDP_FALLBACK), "signalsIdpDl")]
     )
     def test_a_cross_position_rank_without_a_value_votes_as_rank(self, boards, name, key):
         row = _rows(boards[0])[name]
@@ -282,15 +303,15 @@ class TestOneFamily:
         assert reg["signalsSf"]["scope"] == "overall_offense" and not reg["signalsSf"].get(
             "extra_scopes"
         )
-        assert reg["signalsIdp"]["scope"] == "overall_idp" and not reg["signalsIdp"].get(
-            "extra_scopes"
-        )
-        assert (
-            reg["signalsSf"]["correlation_group"]
-            == reg["signalsIdp"]["correlation_group"]
-            == "fantasyCalc"
-        )
-        for key in ("signalsSf", "signalsIdp"):
+        for fam in ("Dl", "Lb", "Db"):
+            k = f"signalsIdp{fam}"
+            assert reg[k]["scope"] == "position_idp" and reg[k]["position_group"] == fam.upper()
+            assert not reg[k].get("extra_scopes") and not reg[k].get(
+                "needs_shared_market_translation"
+            )
+        assert "signalsIdp" not in reg
+        assert {reg[k]["correlation_group"] for k in SIGNALS_KEYS} == {"fantasyCalc"}
+        for key in SIGNALS_KEYS:
             assert _SOURCE_CSV_PATHS[key]["signal"] == "rank"
             assert reg[key]["game_type"] == "DYNASTY"
 
@@ -311,10 +332,108 @@ class TestOneFamily:
                 capped += 1
         assert capped > 50
 
-    def test_no_independence_bonus_for_the_confidence_gate(self, boards):
+    def test_no_independence_bonus_on_offense(self, boards):
         with_s, without = (_rows(b) for b in boards)
         row_on, row_off = with_s[_off(0)], without[_off(0)]
         assert row_on["independentSourceCount"] == row_off["independentSourceCount"]
+
+    def test_on_idp_rows_signals_is_its_own_family(self, boards):
+        """FantasyCalc publishes no IDP, so the shared group adds ONE family
+        on an IDP row Signals covers — stated, not hidden (review N1)."""
+        with_s, without = (_rows(b) for b in boards)
+        row_on, row_off = with_s[_idp(30)], without[_idp(30)]
+        assert row_on["independentSourceCount"] == row_off["independentSourceCount"] + 1
+
+
+# ── the positional IDP path (UNEXERCISED before Signals; review B1) ──────
+
+
+def _idp_backbone_ladder(group: str) -> list[int]:
+    """IDP-overall ranks of each ``group`` member in the backbone's order —
+    recomputed independently from the fixture's IDPTC values."""
+    idp = [
+        (p["idpTradeCalc"], n, p["position"])
+        for n, p in _raw_payload()["players"].items()
+        if p["position"] in IDP_POS
+    ]
+    idp.sort(key=lambda t: (-t[0], t[1].lower()))
+    return [i for i, (_v, _n, pos) in enumerate(idp, start=1) if pos == group]
+
+
+class TestPositionalIdpPath:
+    @pytest.mark.parametrize("group", ["DL", "LB", "DB"])
+    def test_a_within_family_rank_lands_on_that_familys_ladder(self, boards, group):
+        ladder = _idp_backbone_ladder(group)
+        key = f"signalsIdp{group.title()}"
+        seen = 0
+        for row in boards[0]["playersArray"]:
+            meta = (row.get("sourceRankMeta") or {}).get(key)
+            if not meta:
+                continue
+            assert row["position"] == group
+            assert meta["effectiveRank"] == ladder[int(meta["rawRank"]) - 1], row["displayName"]
+            seen += 1
+        assert seen > 20
+
+    def test_every_family_board_starts_at_one(self, boards):
+        """No cross-family order: each family's best Signals row carries
+        within-family rank 1, whatever the other families' values are."""
+        firsts = {}
+        for row in boards[0]["playersArray"]:
+            for key in SIGNALS_KEYS[1:]:
+                if (row.get("sourceOriginalRanks") or {}).get(key) == 1.0:
+                    firsts[key] = row["displayName"]
+        assert set(firsts) == set(SIGNALS_KEYS[1:])
+
+    def test_a_db_number_one_never_inherits_the_idp_number_one_price(self, boards):
+        rows = _rows(boards[0])
+        db1 = next(
+            r
+            for r in rows.values()
+            if (r.get("sourceOriginalRanks") or {}).get("signalsIdpDb") == 1.0
+        )
+        meta = db1["sourceRankMeta"]["signalsIdpDb"]
+        assert meta["rawRank"] == 1
+        assert meta["effectiveRank"] == _idp_backbone_ladder("DB")[0] > 1
+        idp1 = next(
+            r
+            for r in rows.values()
+            if (r.get("sourceRankMeta") or {}).get("signalsIdpDl", {}).get("effectiveRank") == 1
+        )
+        assert (
+            meta["valueContribution"] < idp1["sourceRankMeta"]["signalsIdpDl"]["valueContribution"]
+        )
+
+    def test_no_family_ladder_means_the_vote_is_withheld_not_passed_through(
+        self, tmp_path, monkeypatch
+    ):
+        """Without the backbone (no IDPTC IDP values) there is no family
+        ladder; the raw within-family rank must NOT be voted as an IDP rank."""
+        import src.api.data_contract as dc
+
+        monkeypatch.setattr(dc, "PRIVATE_SOURCE_VOTE_HOLDS", {})
+        _write_store(tmp_path)
+        raw = _raw_payload()
+        for name, p in raw["players"].items():
+            if p["position"] in IDP_POS:
+                p.pop("idpTradeCalc", None)
+                p["_canonicalSiteValues"].pop("idpTradeCalc", None)
+        with contextlib.redirect_stdout(io.StringIO()):
+            contract = build_api_data_contract(raw, csv_root=tmp_path)
+        for row in contract["playersArray"]:
+            for key in SIGNALS_KEYS[1:]:
+                meta = (row.get("sourceRankMeta") or {}).get(key)
+                assert not meta, (row["displayName"], key, meta)
+        withheld = (contract.get("crossPositionBridges") or {}).get("withheldNoBridge") or {}
+        assert sum(withheld.get(k, 0) for k in SIGNALS_KEYS[1:]) > 0
+
+    def test_a_family_mismatch_with_our_position_casts_no_vote(self, boards):
+        """A Signals DB board row joined to a row WE hold as DL is not
+        scope-eligible: the DB board never prices a DL row."""
+        for row in boards[0]["playersArray"]:
+            for key, grp in zip(SIGNALS_KEYS[1:], ("DL", "LB", "DB")):
+                if (row.get("sourceRankMeta") or {}).get(key):
+                    assert row["position"] == grp
 
 
 # ── 12: missing is never zero; not provisioned is not an error ──────────
@@ -326,7 +445,8 @@ class TestMissingAndProvisioning:
         for i in OFF_UNCOVERED:
             assert "signalsSf" not in (rows[_off(i)].get("canonicalSiteValues") or {})
         for i in IDP_UNCOVERED:
-            assert "signalsIdp" not in (rows[_idp(i)].get("canonicalSiteValues") or {})
+            sites = rows[_idp(i)].get("canonicalSiteValues") or {}
+            assert not any(k in sites for k in SIGNALS_KEYS[1:])
 
     def test_an_unprovisioned_host_carries_nothing_and_raises_nothing(self, boards):
         contract = boards[1]
@@ -334,7 +454,7 @@ class TestMissingAndProvisioning:
         assert state["signalsSf"]["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
         assert state["signalsSf"]["votes"] is False
         for row in contract["playersArray"]:
-            for key in ("signalsSf", "signalsIdp"):
+            for key in SIGNALS_KEYS:
                 assert key not in (row.get("canonicalSiteValues") or {})
                 assert key not in ((row.get("sourceAudit") or {}).get("expectedSources") or [])
         report = validate_api_data_contract(contract)
@@ -351,6 +471,19 @@ class TestMissingAndProvisioning:
         assert "source_missing:signalsSf" in report["sourceHealthErrors"]
         assert "source_missing:signalsSf" not in report["structuralErrors"]
 
+    @pytest.mark.parametrize("trace", ["signalsSf_last_success", "signalsIdpDb_dataset.json"])
+    def test_a_deleted_store_on_a_box_that_collected_is_missing_not_unprovisioned(
+        self, tmp_path, trace
+    ):
+        """Review N2: the collector's freshness traces in the scrape state are
+        provisioning evidence too, so wiping data/sources/signals/ on a box
+        that collected surfaces source_missing rather than going quiet."""
+        state = tmp_path / "data" / "scrape_state"
+        state.mkdir(parents=True)
+        (state / trace).write_text("1\n", encoding="utf-8")
+        key = trace.split("_", 1)[0]
+        assert private_source_availability(tmp_path)[key]["state"] == PRIVATE_SOURCE_MISSING
+
     def test_a_payload_without_the_stamp_fails_closed(self, boards):
         contract = dict(boards[1])
         contract.pop("privateSourceAvailability")
@@ -359,9 +492,8 @@ class TestMissingAndProvisioning:
 
     def test_present_state_on_a_provisioned_host(self, tmp_path):
         _write_store(tmp_path)
-        assert (
-            private_source_availability(tmp_path)["signalsIdp"]["state"] == PRIVATE_SOURCE_PRESENT
-        )
+        avail = private_source_availability(tmp_path)
+        assert {avail[k]["state"] for k in SIGNALS_KEYS} == {PRIVATE_SOURCE_PRESENT}
 
 
 # ── 13: rollback ─────────────────────────────────────────────────────────
@@ -391,8 +523,9 @@ def test_the_rollback_flag_removes_the_vote_and_keeps_the_evidence(tmp_path, mon
     "carrier",
     [
         {"sourceNativeValues": {"signalsSf": 1.0}},
-        {"sourceOriginalRanks": {"signalsIdp": 1.0}},
+        {"sourceOriginalRanks": {"signalsIdpDb": 1.0}},
         {"x": {"signalsSf": 1}},
+        {"x": {"signalsIdpDl": 1}},
         {"canonicalSiteValues": {"signalsSf": 1}},
         {"sourceRankMeta": {"signalsSf": {}}},
     ],
@@ -412,11 +545,61 @@ def test_no_public_api_path_serves_the_contract():
 
 
 def test_the_csv_paths_never_point_into_the_committed_tree():
-    for key in ("signalsSf", "signalsIdp"):
+    for key in SIGNALS_KEYS:
         cfg = _SOURCE_CSV_PATHS[key]
         assert cfg["path"].startswith("data/sources/signals/")
         assert cfg["private_marker"].startswith("data/sources/signals/")
     assert json.loads(json.dumps(private_source_availability(Path("/nonexistent-root")))) == {
-        "signalsSf": {"state": "not_provisioned", "provisioned": False, "csvPresent": False},
-        "signalsIdp": {"state": "not_provisioned", "provisioned": False, "csvPresent": False},
+        k: {"state": "not_provisioned", "provisioned": False, "csvPresent": False}
+        for k in SIGNALS_KEYS
     }
+
+
+# ── the IDP vote HOLD (review B1; the shipped state) ─────────────────────
+
+
+class TestIdpVoteHold:
+    def test_idp_boards_are_collected_and_shown_but_cast_no_vote(self, held):
+        contract, _ = held
+        for key in SIGNALS_KEYS[1:]:
+            info = contract["privateSourceAvailability"][key]
+            assert info["state"] == PRIVATE_SOURCE_PRESENT
+            assert info["votes"] is False
+            assert info["heldFromVote"] == "positional_idp_path_prices_in_idp_local_coordinates"
+        shown = 0
+        for row in contract["playersArray"]:
+            meta = row.get("sourceRankMeta") or {}
+            assert not any(k in meta for k in SIGNALS_KEYS[1:]), row["displayName"]
+            if any(k in (row.get("sourceNativeValues") or {}) for k in SIGNALS_KEYS[1:]):
+                shown += 1
+        assert shown > 50  # displayed: native value + within-family rank
+
+    def test_offense_still_votes(self, held):
+        row = _rows(held[0])[_off(40)]
+        assert _voted(row["sourceRankMeta"]["signalsSf"])
+
+    def test_held_idp_moves_no_idp_value_and_raises_nothing(self, held):
+        on, off = (_rows(b) for b in held)
+        idp = [n for n in on if n.startswith("Synthetic Idp")]
+        assert all(on[n]["rankDerivedValue"] == off[n]["rankDerivedValue"] for n in idp)
+        assert all(on[n]["independentSourceCount"] == off[n]["independentSourceCount"] for n in idp)
+        report = validate_api_data_contract(held[0])
+        assert not [e for e in report["errors"] if "signals" in e]
+
+    def test_why_it_is_held_positional_ranks_are_idp_local(self, boards):
+        """With the hold lifted, the positional path stamps its rank in the
+        IDP-LOCAL coordinate pool while every other IDP specialist on the
+        same row is in the SHARED-MARKET pool — two scales averaged as one.
+        On the production board that priced an IDP #4 at 9,484 against
+        5,238-5,668 from the row's other sources.  If this ever changes (the
+        coordinate question is decided and the path repaired), revisit the
+        hold."""
+        pools = {}
+        for row in boards[0]["playersArray"]:
+            for key, meta in (row.get("sourceRankMeta") or {}).items():
+                if key.startswith("signalsIdp") or key in ("dlfIdp", "fantasyProsIdp"):
+                    pools.setdefault(key[:10] if key.startswith("signalsIdp") else key, set()).add(
+                        meta.get("rankCoordinatePool")
+                    )
+        assert pools["signalsIdp"] == {"idp"}
+        assert pools["dlfIdp"] == {"shared_market"}

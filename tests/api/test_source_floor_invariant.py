@@ -159,7 +159,9 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # Signals authenticated values (2026-10-03): the collector quarantines a
     # release below ``MIN_BOARD_ROWS`` and keeps the last good board.
     "signalsSf": lambda: _signals_min_rows("signalsSf"),
-    "signalsIdp": lambda: _signals_min_rows("signalsIdp"),
+    "signalsIdpDl": lambda: _signals_min_rows("signalsIdpDl"),
+    "signalsIdpLb": lambda: _signals_min_rows("signalsIdpLb"),
+    "signalsIdpDb": lambda: _signals_min_rows("signalsIdpDb"),
 }
 
 

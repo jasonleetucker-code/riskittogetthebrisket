@@ -12,7 +12,8 @@ dataset was quarantined for schema drift / collapse (and none hard-failed).
 
 All logic lives in ``src/sources/signals.py`` (the one Signals owner); this is
 a thin CLI.  Since the owner addendum of 2026-10-03 these values are an ACTIVE
-canonical source (registry keys ``signalsSf`` / ``signalsIdp``): the board CSV
+canonical source (registry keys ``signalsSf`` and the per-family IDP boards
+``signalsIdpDl`` / ``signalsIdpLb`` / ``signalsIdpDb``): the board CSV
 this writes under ``data/sources/signals/board/`` is what the contract build
 on the box reads.  Bounded: at most ``MAX_VALUE_REQUESTS_PER_RUN`` GraphQL
 requests (~23 measured), paced, 429-aware, one fresh renewal on 401/403 and
