@@ -748,6 +748,23 @@ def _independence_contradictions(
     return out
 
 
+def _absent_by_design_keys(contract: Mapping[str, Any]) -> set[str]:
+    """Registered sources the pipeline deliberately left out of this board's
+    active set: declared seasonally inactive, or a private box-local source
+    that did not vote on the building host.  Both are stamped on the contract
+    by ``build_api_data_contract``; nothing here infers them."""
+    out: set[str] = set()
+    seasonal = contract.get("sourceSeasonalState")
+    if isinstance(seasonal, Mapping) and isinstance(seasonal.get("inactive"), Mapping):
+        out.update(str(k) for k in seasonal["inactive"])
+    private = contract.get("privateSourceAvailability")
+    if isinstance(private, Mapping):
+        out.update(
+            str(k) for k, v in private.items() if isinstance(v, Mapping) and v.get("votes") is False
+        )
+    return out
+
+
 def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: Any) -> list[str]:
     """Structural rules for the four-category pair reconciliation."""
     errors: list[str] = []
@@ -1417,6 +1434,15 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
             )
             pipe_mean = _num(pipe.get("meanAppliedWeight"))
             pipe_rows = pipe.get("votingRows")
+            # A source absent from the pipeline's summary BY DESIGN — a
+            # private box-local source the building host did not carry
+            # (``privateSourceAvailability``: not provisioned / rolled back)
+            # or a declared seasonally inactive source
+            # (``sourceSeasonalState.inactive``) — matches when it voted on
+            # nothing; never by assuming a weight.
+            absent_by_design = (
+                key in _absent_by_design_keys(inp.contract) and not pipe and not vrows
+            )
             e.set(
                 "weighting.effectiveAuthority",
                 {
@@ -1424,11 +1450,14 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
                     "meanAppliedWeight": mean_applied,
                     "meanVoteShare": round(p["shareSum"] / vrows, 4) if (p and vrows) else None,
                     "pipelineMeanAppliedWeight": pipe_mean,
-                    "matchesPipelineSummary": bool(pipe)
-                    and pipe_rows == vrows
-                    and pipe_mean is not None
-                    and mean_applied is not None
-                    and abs(pipe_mean - mean_applied) <= 1.5e-4,  # both rounded to 4 dp
+                    "matchesPipelineSummary": absent_by_design
+                    or (
+                        bool(pipe)
+                        and pipe_rows == vrows
+                        and pipe_mean is not None
+                        and mean_applied is not None
+                        and abs(pipe_mean - mean_applied) <= 1.5e-4  # both rounded to 4 dp
+                    ),
                     "byUniverse": by_u,
                     "basis": "mean of the appliedWeight the canonical pipeline stamped on each voted row",
                 },

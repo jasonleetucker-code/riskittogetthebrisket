@@ -1,0 +1,59 @@
+[Unit]
+Description=Dynasty Trade Calculator Signals authenticated value collection (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Collects Signals Fantasy's AUTHENTICATED native dynasty values (offense
+# Superflex snapshots + the IDP season board) into the box-local private store
+# data/sources/signals/ and writes the board CSVs the canonical contract build
+# reads (data/sources/signals/board/signalsSf.csv, signalsIdp.csv).  Since the
+# owner addendum of 2026-10-03 these are an ACTIVE canonical source
+# (docs/sources/SIGNALS_FANTASY_INTEGRATION.md section 9).  Owner:
+# src/sources/signals.py.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: the values are paid, private data.  GitHub
+# Actions output is public, data/ is gitignored, and no workflow or push
+# script force-adds data/sources/ or a Signals state file
+# (scripts/record_source_datasets.py::PROD_TIMER_OWNED_KEYS).  Where this
+# timer has never run (CI, a fresh box) the source is NOT PROVISIONED and is
+# simply absent from the board - never zero, never an error.
+#
+# Politeness is enforced by the script: at most 60 GraphQL requests per run
+# (about 23 measured: 21 aliased offense batches + 2 IDP pages), 1 s apart,
+# Retry-After honoured on 429, bounded backoff on 5xx, and ONE fresh session
+# renewal on 401/403 - a refusal that survives it is recorded as access_denied
+# (one owner notice per episode, src/sources/signals_auth.py) and the run
+# stops.  It never starts a login and never retries in a loop.
+#
+# Exit codes (scripts/fetch_signals_values.py):
+#   0 - every dataset published / unchanged, or skipped by --min-interval-hours
+#   1 - a dataset failed, or the session refused
+#   2 - a dataset was quarantined (schema drift / row collapse)
+# On 1/2 the last good board CSV stays in place with its TRUE age: the
+# contract's freshness weighting decays it; nothing refreshes its clock.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+# No EnvironmentFile: this job needs no app secret, only where the owner
+# session lives.  Renewal (when due) writes the session store under its lock.
+Environment=RISKIT_SIGNALS_AUTH_DIR=/var/lib/signals-auth
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# data/ always exists (the store itself may not yet: systemd cannot bind-mount
+# a path the collector has not created).  "-" = fine while the session store
+# does not exist yet: the run then records auth_unavailable and exits 1.
+ReadWritePaths=__APP_DIR__/data -/var/lib/signals-auth
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_signals_values.py --min-interval-hours 5
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

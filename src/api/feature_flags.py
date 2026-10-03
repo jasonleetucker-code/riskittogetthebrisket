@@ -114,6 +114,16 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # make evidence OLDER, never fresher.  OFF (RISKIT_FEATURE_SOURCE_UNIVERSE_
     # FRESHNESS=0 + restart): one clock per subset, the prior behaviour.
     "source_universe_freshness": True,
+    # Signals Fantasy as an ACTIVE canonical source (owner addendum
+    # 2026-10-03; docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9).  ON: the
+    # authenticated native-value boards (``signalsSf`` / ``signalsIdp``) vote
+    # as value-ordered rank signals inside the FantasyCalc B10 family
+    # wherever the box-local private store is present.  OFF
+    # (RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0 + restart): both keys leave the
+    # active source set exactly as a disabled source does — no vote, not
+    # expected — while their native values stay visible; the contract stamps
+    # ``privateSourceAvailability[*].rolledBack``.
+    "signals_active_source": True,
     # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
     # owner decision B 2026-10-01) -- two separately promotable halves, both
     # OFF until the owner approves that specific candidate (valuation
@@ -724,6 +734,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # source_universe_freshness caps each row's freshness clock at its own asset
     # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
     "source_universe_freshness": LIVE,
+    # signals_active_source gates the Signals voters in
+    # ``data_contract._private_source_vote_state``, reached through
+    # ``build_api_data_contract`` on every /api/data build.
+    "signals_active_source": LIVE,
     # joint_outlier_sparse_challenger swaps the per-player outlier filter and
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).

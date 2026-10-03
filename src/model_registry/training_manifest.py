@@ -670,6 +670,15 @@ NOT_HILL_BOARDS: dict[str, str] = {
     "fantasyProsIdp": "rank-only consensus board: contributes order, never spacing",
     "flockFantasySf": "rank-only expert board: contributes order, never spacing",
     "flockFantasySfRookies": "rank-only rookie board: contributes order, never spacing",
+    "signalsSf": (
+        "private box-local rank-signal voter (value-ordered rank), active 2026-10-03; its "
+        "lineage vs FantasyCalc is unmeasured (pair-signals-market-families), so it is "
+        "neither a Hill trainer nor a holdout"
+    ),
+    "signalsIdp": (
+        "private box-local IDP rank-signal voter (value-ordered rank), active 2026-10-03; "
+        "lineage unmeasured, so neither a Hill trainer nor a holdout"
+    ),
 }
 
 

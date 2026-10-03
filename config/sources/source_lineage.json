@@ -68,7 +68,9 @@
     "draftSharksRosSf": {"provider": "draftSharks", "basis": "model_projection", "gameType": "REDRAFT_ROS", "gameTypeEvidence": "relation draftsharks-ros-same-provider (proven)", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
     "draftSharksRosIdp": {"provider": "draftSharks", "basis": "model_projection", "gameType": "REDRAFT_ROS", "gameTypeEvidence": "relation draftsharks-ros-same-provider (proven)", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
     "signalsDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]},
-    "signalsIdpDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]}
+    "signalsIdpDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]},
+    "signalsSf": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native Superflex dynasty values (PlayerValueSnapshot.signalsDynastyValue), collected privately on the box. ACTIVE voter since the owner addendum of 2026-10-03, as a value-ordered rank signal inside the fantasyCalc B10 family (relation signals-fantasycalc-app-composition)."},
+    "signalsIdp": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"], "notes": "Authenticated native IDP dynasty values (listIdpDynastyValuesBySeason), collected privately on the box. ACTIVE voter since 2026-10-03, translated through the shared-market IDP ladder, inside the fantasyCalc B10 family. Measured 2026-10-03: IDP rank Spearman vs IDP Trade Calculator 0.56 (bounded probe)."}
   },
   "relations": [
     {
@@ -369,12 +371,21 @@
     },
     {
       "id": "signals-suspected-market-ancestry",
-      "sources": ["signalsDynasty", "signalsIdpDynasty"],
+      "sources": ["signalsDynasty", "signalsIdpDynasty", "signalsSf", "signalsIdp"],
       "relation": "suspected_common_ancestry",
       "classification": "suspected",
       "summary": "Signals says it aggregates unnamed community dynasty value markets and trade-implied values; treat as correlated with the KTC / FantasyCalc / Dynasty Daddy families until ancestry is disclosed.",
       "evidence": ["src/sources/signals.py"],
       "asOf": "2026-10-01"
+    },
+    {
+      "id": "signals-fantasycalc-app-composition",
+      "sources": ["signalsSf", "signalsIdp", "fantasyCalc"],
+      "relation": "app_composes_over_provider",
+      "classification": "suspected",
+      "summary": "Signals' web app bundle (read-only, 2026-10-03) falls back to FantasyCalc's value for its dynasty baseline (dynastyValueMap ?? dynastyValue ?? fcValue) and computes league-exact values client-side over a FantasyCalc fetch. That composition is observed in code; whether the STORED signalsDynastyValue the collector reads is itself derived from FantasyCalc is not vendor-stated, so the ancestry stays suspected. Owner directive 2026-10-03: no independence bonus, so both Signals keys vote inside the fantasyCalc B10 family (one family vote, cap_family_weights).",
+      "evidence": ["docs/sources/SIGNALS_FANTASY_INTEGRATION.md", "src/sources/signals.py", "src/api/data_contract.py"],
+      "asOf": "2026-10-03"
     },
     {
       "id": "ktc-crowd-trades-dependence",
@@ -675,13 +686,13 @@
     },
     {
       "id": "pair-signals-market-families",
-      "sources": ["signalsDynasty", "signalsIdpDynasty", "ktcCrowdSfTep", "ktcTradesSfTep", "fantasyCalc", "dynastyDaddySf"],
+      "sources": ["signalsDynasty", "signalsIdpDynasty", "signalsSf", "signalsIdp", "ktcCrowdSfTep", "ktcTradesSfTep", "fantasyCalc", "dynastyDaddySf"],
       "category": null,
-      "unknownReason": "pending authenticated Signals data (Batch 3 Unit H); the public boards are rank-only and too recent for a measurement. Not guessed.",
-      "relations": ["signals-suspected-market-ancestry"],
-      "implications": {"familyCap": "non-voting second opinion; no family until measured.", "hillHoldout": "must not be a holdout until its dependence is measured.", "sourceQualityEvaluation": "excluded from targets and from evaluation until authenticated point-in-time values exist.", "hillTraining": "never a trainer.", "completedTradeEvaluation": "excluded."},
-      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "src/sources/signals.py"],
-      "asOf": "2026-10-01"
+      "unknownReason": "authenticated Signals values exist since 2026-10-03 but no point-in-time history yet: one release is not a dependence measurement. The app-composition evidence (signals-fantasycalc-app-composition) is suspected ancestry, not a measurement. Not guessed.",
+      "relations": ["signals-suspected-market-ancestry", "signals-fantasycalc-app-composition"],
+      "implications": {"familyCap": "ACTIVE since 2026-10-03 inside the fantasyCalc B10 family (owner directive: no independence bonus): FantasyCalc + Signals carry at most one provider's authority per row, and count as one family to the confidence gate.", "hillHoldout": "must not be a holdout until its dependence is measured.", "sourceQualityEvaluation": "excluded from targets and from evaluation until a point-in-time Signals history exists.", "hillTraining": "never a trainer (NOT_HILL_BOARDS).", "completedTradeEvaluation": "excluded."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "src/sources/signals.py", "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"],
+      "asOf": "2026-10-03"
     },
     {
       "id": "pair-otc-ktc",

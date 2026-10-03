@@ -168,6 +168,11 @@ def test_effective_authority_equals_the_pipelines_stamped_weights(built):
         key = src["key"]
         auth = _entry(census, key)["weighting"]["effectiveAuthority"]
         assert auth["matchesPipelineSummary"] is True, key
+        if key not in summary:
+            # Absent by design (seasonal / private not carried): voted nowhere.
+            assert key in sc._absent_by_design_keys(contract), key
+            assert auth["votingRows"] == len(applied[key]) == 0, key
+            continue
         assert auth["votingRows"] == summary[key]["votingRows"] == len(applied[key])
         if applied[key]:
             mean = round(sum(applied[key]) / len(applied[key]), 4)
@@ -178,8 +183,15 @@ def test_effective_authority_equals_the_pipelines_stamped_weights(built):
 def test_source_level_factors_are_the_published_ones(built):
     inputs, census = built
     summary = inputs.contract["sourceWeighting"]["sources"]
+    absent = sc._absent_by_design_keys(inputs.contract)
     for src in dc._RANKING_SOURCES:
         key = src["key"]
+        if key not in summary:
+            # Absent BY DESIGN on this board — a declared seasonally inactive
+            # source, or a private box-local source this host does not carry
+            # (Signals, owner addendum 2026-10-03) — and only that.
+            assert key in absent, key
+            continue
         sw = summary[key]
         w = _entry(census, key)["weighting"]
         if sw.get("measured"):

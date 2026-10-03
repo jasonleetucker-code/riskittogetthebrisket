@@ -46,8 +46,22 @@ DEFAULT_STATE_DIR = REPO_ROOT / "data" / "scrape_state"
 # Boards fetched by their own production timers (deploy/dlf_fetch_and_push.sh,
 # deploy/idpshow_fetch_and_push.sh), which record their own state.  Every
 # other writer skips them: one writer per state file.
+#
+# The Signals keys are PRIVATE as well as prod-owned (owner addendum
+# 2026-10-03): their CSV exists only in the box's gitignored store, so the
+# GitHub refresh must never write their state — a CI-written FAILED state
+# file would be force-added, committed, and then overwrite the box's own.
 PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
-    {"dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "dlfValuesSfTep", "idpShowCombined"}
+    {
+        "dlfSf",
+        "dlfIdp",
+        "dlfRookieSf",
+        "dlfRookieIdp",
+        "dlfValuesSfTep",
+        "idpShowCombined",
+        "signalsSf",
+        "signalsIdp",
+    }
 )
 
 #: Sources whose dataset state is recorded BEFORE they are loaded or vote,

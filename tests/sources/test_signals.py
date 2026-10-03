@@ -577,11 +577,25 @@ def test_payload_is_rank_only_and_non_voting(store):
     assert age == pytest.approx(0.5, abs=0.01)  # from Published, not fetch
 
 
-def test_signals_is_not_a_registered_ranking_source():
-    from src.api.data_contract import _RANKING_SOURCES
+def test_only_the_authenticated_value_keys_vote_never_the_public_boards():
+    """Owner addendum 2026-10-03 supersedes the old "no signals* key is
+    registered" pin: the AUTHENTICATED native-value datasets vote
+    (``signalsSf`` / ``signalsIdp``); the PUBLIC positional boards
+    (``signalsDynasty`` / ``signalsIdpDynasty``) never do."""
+    from src.api.data_contract import _RANKING_SOURCES, correlation_group_for
 
-    keys = {str(s.get("key", "")).lower() for s in _RANKING_SOURCES}
-    assert not any("signals" in k for k in keys)
+    keys = {str(s.get("key", "")) for s in _RANKING_SOURCES}
+    signals_keys = {k for k in keys if "signals" in k.lower()}
+    assert signals_keys == {"signalsSf", "signalsIdp"}
+    for board in S.BOARDS.values():
+        assert board.source_key not in keys
+        assert S.dataset_metadata(board)["votes"] is False
+    for spec in S.VALUE_DATASETS.values():
+        assert spec.source_key in keys
+        assert S.value_dataset_metadata(spec)["votes"] is True
+    # One provider family, no independence bonus: both inside FantasyCalc's.
+    assert {correlation_group_for(k) for k in signals_keys} == {"fantasyCalc"}
+    assert correlation_group_for("fantasyCalc") == "fantasyCalc"
 
 
 def test_public_payload_guard_blocks_signals_field():
