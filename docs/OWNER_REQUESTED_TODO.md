@@ -1532,3 +1532,22 @@ keeps its existing label and valuation method.
 | Equalizer keeps roster-aware ownership via `heldAssetKeysInTrade` / `unusedTeamPickEntries` (recommendation-only) | IMPLEMENTED |
 | Early/Mid/Late disappearance: data was present (priced, unsuppressed tier rows); `/trade` search put up to 5 owned picks BEFORE the board rows and the dropdown did not scroll, so on an iPhone with the keyboard open only owned "2027 1st / 2nd" rows were visible | FIXED — market group first, owned picks second, separate limits (`searchCalculatorAssets`), exact-query relevance first, scrollable dropdown |
 | Suppressed generic aliases (`pickGenericSuppressed`) stay excluded | UNCHANGED — pinned by test |
+
+## Added 2026-10-03 — Signals must become an ACTIVE offense + IDP source (owner addendum)
+
+Owner addendum of 2026-10-03, confirmed in chat ("Yes, execute both"); the same day the owner chose the
+voting path **"Value-ordered rank"** (Signals votes like FantasyCalc / Dynasty Daddy: its own native-value
+order is the rank, labelled derived; native values retained and shown). Supersedes the non-voting
+second-opinion stage of the 2026-10-01 rows above for the AUTHENTICATED values only — the public positional
+boards still never vote. Full record: `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` §9.
+
+| Item | Disposition |
+|---|---|
+| Signals contributes to canonical values for offense (QB/RB/WR/TE) and IDP, through the existing owners (no parallel blend) | IMPLEMENTED — `claude/signals-active-source` (registry `signalsSf` / `signalsIdp`, rank signal); not yet merged or deployed |
+| Selection hierarchy: exact-league value > SF/TEP preset value > authenticated rank > public rank; values first, ranks only as fallback; one active Signals observation per player | IMPLEMENTED — exact-league values are client-side (not collected); stored Dynasty SF value votes; cross-position-rank fallback inert (none published); public positional ranks never vote |
+| SF / TEP / exact league recorded per observation; no double scoring adjustment | IMPLEMENTED — measured Superflex, not TEP; base → TE++ conversion applied once |
+| IDP raw position preserved; DL/LB/DB only via the canonical owner | IMPLEMENTED |
+| One Signals family, no independence bonus; keep lineage treatment vs KTC/FantasyCalc/Dynasty Daddy | IMPLEMENTED — `fantasyCalc` B10 family; lineage relation `signals-fantasycalc-app-composition` (suspected) |
+| Signals visible in the Rankings source/ranks column (name, rank, native value, VALUE vs RANK, dataset, format, as-of) | IMPLEMENTED — desktop, mobile chip, audit card |
+| No private Signals data in public APIs, logs, caches or the repository | IMPLEMENTED — box-local private store; public `/league` guard extended |
+| Acceptance 1–17 | 1–16 evidenced in the PR; 15 measured on the production box; 17 is post-deploy |

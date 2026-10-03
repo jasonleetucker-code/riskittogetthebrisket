@@ -15,8 +15,8 @@ Four separate questions, answered separately:
 | **Permission** | **Resolved — owner-attested.** The owner stated on 2026-10-01: *"I have explicit permission to use signals how I see fit."* It is recorded as owner-attested authorization for the requested Calculator integration (#1555, 2026-10-01 comment). No permission document or provider correspondence is invented, and no independent legal verification is claimed. |
 | **Technical access** | Public boards: accessible without login. Paid / native-value / league-adjusted / projection surfaces: need an **owner-controlled authenticated session**, which does not exist in this environment. That is an access dependency, not missing permission. No subscription is assumed, purchased or trialled. |
 | **Data availability** | Public dynasty and IDP-dynasty boards publish **positional ordinal rank + tier** only, with no value scale and no cross-position order. Native values and projections exist only behind the account. |
-| **Activation stage** | Advancing under Batch 2 Unit A (§8). Stage 1 (discovered) was reached on 2026-09-30; stages 2–3 for the public boards are recorded in §8 with their evidence. Stages 4–5 (shadow, then active canonical participation) require comparable native dynasty values, which the public boards do not publish. |
-| **Affects canonical values?** | **No.** Public positional ranks are not eligible to vote, and nothing Signals-derived enters `_RANKING_SOURCES`. |
+| **Activation stage** | **Stage 5 — ACTIVE for offense and IDP (owner addendum 2026-10-03, §9).** The authenticated native values (`signalsSf`, `signalsIdp`) vote in the canonical board. The public boards stay at stage 3 (non-voting second opinion, §8). |
+| **Affects canonical values?** | **Yes, since 2026-10-03**, through the authenticated native values only, as a value-ordered rank signal inside the FantasyCalc B10 family (§9). Public positional ranks still never vote. |
 | **KTC permission applies?** | No. KTC authorization is separate. Signals now has its own owner-attested authorization. |
 
 **Evidence standard.** Everything in §3–§5 comes from the public pages listed in §2,
@@ -210,6 +210,10 @@ The owner must send it himself, after confirming the audience description in poi
 means blended values reach every logged-in user, not only the owner. No commercial terms
 are accepted on his behalf.
 
+> **Superseded in part (2026-10-03).** §1–§8 record the public-board stage
+> and the pre-access posture. Where they say Signals does not vote or that
+> native values are unreachable, §9 is the current state.
+
 ## 8. Collection and stage evidence (Unit A, 2026-10-01)
 
 Scope of this section: the two **public** dynasty boards only, collected read-only under
@@ -308,3 +312,168 @@ will accumulate Published / Last-Modified / content-change history in each board
 - `rankOnlyOpinionFor` does not distinguish identity-quarantined rows from unranked
   rows; both read "not ranked / unresolved". The server's `identity` block lists the
   reasons.
+
+## 9. Active canonical source — authenticated native values (2026-10-03)
+
+**Authority.** Owner addendum of 2026-10-03 ("Signals must become an active
+offense + IDP source"), confirmed in chat. Voting path chosen by the owner the
+same day: **value-ordered rank** — Signals votes exactly as FantasyCalc and
+Dynasty Daddy do (its own cross-position native-value ORDER becomes a rank;
+rank → percentile → Hill). Value-direct was declined on measurement: Signals
+values run ~1.0× market at the top but 1.4–3.1× too high deeper (vs IDP Trade
+Calculator for IDP, vs FantasyCalc for offense) — a much flatter curve, so the
+value-direct path would be new methodology.
+
+### 9.1 What votes, and what never does
+
+| Dataset | Registry key | Vote | Notes |
+|---|---|---|---|
+| Offense native values (`PlayerValueSnapshot.signalsDynastyValue`, daily) | `signalsSf` | **yes** — value-ordered rank, OFFENSE Hill | Dynasty · **Superflex** · **not TE-premium** |
+| IDP native values (`listIdpDynastyValuesBySeason`, sk `<season>#dynasty`) | `signalsIdp` | **yes** — value-ordered IDP rank through the shared-market IDP ladder | raw CB/S/DT/DE/LB kept as provenance; DL/LB/DB via `name_clean.normalize_position` |
+| Public positional boards | `signalsDynasty`, `signalsIdpDynasty` | **never** | positional ordinal only (§8) |
+| Exact-league values | — | not collected | computed client-side by Signals' app over a FantasyCalc fetch — not a server observation, not reimplemented |
+| Snapshot KTC / redraft fields | — | never selected | KTC is its own source; redraft is the seasonal lane |
+
+**Selection hierarchy, one observation per player** (`signals.build_board_rows`):
+native value → VALUE (rank DERIVED from the value order, competition ranks);
+no value but an authenticated CROSS-POSITION rank → RANK fallback; otherwise
+MISSING. Neither payload publishes a cross-position rank today, so the
+fallback is implemented and pinned by synthetic tests but structurally inert;
+positional ranks are retained as provenance and never become an overall order.
+Homonyms inside a dataset (6 IDP rows on 2026-10-03) and rows keyed by a vendor
+slug instead of a Sleeper id (2 IDP draft-prospect rows) are withheld, never
+guessed.
+
+**Format, established by measurement (2026-10-03).** Superflex: Josh Allen
+above Jaxon Smith-Njigba, and Caleb Williams / Lamar Jackson / Joe Burrow
+priced as top-12 assets (a 1QB board puts those QBs near half of WR1). Not
+TE-premium: the TE1 sits below WRs FantasyCalc prices equally, and no TEP
+control exists on the stored value. So `is_tep_premium=False` and the board's
+measured base → TE++ conversion (ADR-015) applies **exactly once** (pinned:
+`tepBoostApplied`, `tepBasisFrom == "base"`, no native correction). Signals'
+stored value carries no league adjustment, so none is double-applied.
+
+### 9.2 Lineage and family
+
+Signals' web app bundle (read-only, 2026-10-03) falls back to FantasyCalc's
+value for its dynasty baseline (`dynastyValueMap ?? dynastyValue ?? fcValue`)
+and computes league-exact values over a FantasyCalc fetch. The stored value's
+own ancestry is not vendor-stated, so the relation is **suspected**
+(`signals-fantasycalc-app-composition`, `config/sources/source_lineage.json`).
+Owner direction: no independence bonus. Both Signals keys therefore carry
+`correlation_group: "fantasyCalc"`: FantasyCalc + Signals share one provider's
+authority per row through `cap_family_weights`, and count as ONE B10 family to
+the confidence gate. Not a Hill trainer or holdout (`NOT_HILL_BOARDS`).
+
+### 9.3 Data path, privacy, and CI vs box
+
+* **Where production builds the served contract** (verified in `server.py`):
+  in-process on the box, from the raw scrape payload plus every registered
+  CSV, at startup and after each promoted scrape (`_prime_latest_payload` →
+  `build_api_data_contract`). CI builds its own contract (refresh workflow,
+  PR validation, the deploy FULL lane) from committed inputs only.
+* **Collection** (box only): `scripts/fetch_signals_values.py` on the
+  `dynasty-signals-values` timer (6-hourly at :17, `--min-interval-hours 5`)
+  with the owner session at `/var/lib/signals-auth`. Measured run: 23 GraphQL
+  requests (21 aliased offense batches of 25 + 2 IDP pages), hard cap 60.
+  One renewal on 401/403 (and on AppSync's HTTP-200 `Unauthorized`), then a
+  recorded `access_denied` stop; 429 honours Retry-After; schema drift, runaway
+  pagination or a row collapse quarantines the release and keeps the last good
+  board with its true age.
+* **Private store** (gitignored, never force-added — pinned by a test):
+  `data/sources/signals/values/` (raw, releases, latest, quarantine, fetch
+  state, `collector_state.json`) and the board CSVs
+  `data/sources/signals/board/signalsSf.csv` / `signalsIdp.csv` that the
+  contract reads. Dataset state and success stamps go to the box's
+  `data/scrape_state/` and are in `PROD_TIMER_OWNED_KEYS`, so the GitHub
+  refresh never writes (or commits) a Signals state file.
+* **Absent by design.** `data_contract.private_source_availability` decides,
+  from files on the host: CSV present → votes; collector has run but CSV gone
+  → `missing` → `source_missing` (a real failure, source-health lane);
+  collector never ran (CI, local dev, a fresh box) → `not_provisioned` → no
+  vote, expected on no row, a warning (`private_source_absent_by_design`) and
+  never an error in either CI lane. The contract stamps
+  `privateSourceAvailability`; a payload without the stamp fails closed. The
+  freshness watchdog reports such a source as not provisioned instead of
+  unmeasurable.
+* **Stale never masquerades as current.** The vendor's own stamp is the
+  freshness clock (`EXPLICIT_UPSTREAM_TIMESTAMP`; offense = the newest
+  `updatedAt` of the run's publication date, IDP = `sourceUpdatedAt`), an
+  auth failure moves no clock and refreshes no success stamp, a quarantine
+  records DEGRADED health, and the offense collector keeps only the run's
+  majority publication date — a player whose newest snapshot is older is
+  excluded, not carried forward. Budgets: `_SOURCE_MAX_AGE_HOURS` 24 =
+  `config/source_staleness.json` `signals` 24.
+* **Who can see it.** Per-source numbers reach only authenticated endpoints
+  (`/api/data`, `/api/rankings/overrides`); the public `/league` guard now
+  refuses `sourceNativeValues`, `sourceOriginalRanks`, `signalsSf` and
+  `signalsIdp`. CI never holds the data, so committed exports and archives
+  cannot carry it. On the box, Signals values also reach the private `data/`
+  histories (rank/source-value history, temporal ledger) and the operator's
+  own state backup — never the repository.
+
+### 9.4 Rankings source column
+
+Two columns, **Signals** (offense) and **Signals IDP**, rendered by the
+existing source-column contract: the cell shows the source's 1–9,999 Hill
+contribution and effective board rank; its title, the mobile chip and the
+expanded audit card add the native value, "value-ordered rank (derived)" (or
+"published rank" for a RANK fallback), VALUE vs RANK fallback, the dataset,
+the format ("Dynasty · Superflex · non-TEP (TE++ converted)" / "Dynasty · IDP")
+and the content as-of + freshness state from `sourceWeighting`. Every number
+is a backend stamp (`frontend/app/rankings/board-utils.js::sourceObservation`).
+
+### 9.5 Whole-board impact (measured on the production box, 2026-10-03)
+
+Branch code run read-only against the box's own inputs (raw payload
+`dynasty_data_2026-10-03.json`, scrape 14:39 UTC; the box's CSVs and scrape
+state), building the contract with and without the Signals store under
+`/tmp`. Both builds validate `ok` with zero structural and zero source-health
+errors.
+
+| | Offense (`signalsSf`) | IDP (`signalsIdp`) |
+|---|---|---|
+| Collected | 509 valued (517 queried; 8 without a snapshot in window) | 1,064 board rows (1,072 published; 6 homonyms + 2 slug ids withheld) |
+| Joined to board rows | 501 of 507 | 416 of 423 |
+| Voted / Hampel-dropped | 480 / 21 | 388 / 28 |
+| Rows whose value moved | 454 of 507 | 360 of 423 |
+| Median / p90 abs change | 17 / 86 (0.79% / 4.74%) | 17 / 573 (1.02% / 213.8%) |
+| Max abs change | 1,403 | 1,833 |
+| Top-50 membership | unchanged | +1 / −1 |
+| Top-200 membership | +1 / −1 | +6 / −6 |
+| Confidence buckets changed | 9 (all `none` → `low`) | 26 (all `none` → `low`) |
+
+* The IDP p90 is driven by deep, previously single-source rows: a second
+  source lifts them out of the existing 30% single-source haircut, so a
+  floor-region value roughly triples. That is the existing methodology
+  responding to new evidence, not a Signals-specific rule.
+* Largest moves where Signals disagrees with the consensus: an elite veteran
+  edge rusher (5,236 → 3,403, rank 61 → 144), the two-way WR/CB (3,982 →
+  3,274), and deep offense rows previously priced on one or two sources.
+* Family cap: 362 offense rows carry both FantasyCalc and Signals votes;
+  their combined authority never exceeds one provider's (max 1.0000, median
+  family adjustment 0.5). 69 current-year pick rows move through the existing
+  rookie tether.
+* The top of each position barely moves (Josh Allen 9,972 → 9,972; Jaxon
+  Smith-Njigba 9,623 → 9,623; Bijan Robinson and Brock Bowers unchanged, where
+  Signals' vote was Hampel-dropped). Representative top / middle / deep rows
+  per position and rookies are in the PR record.
+
+### 9.6 Rollback
+
+`RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0` + restart: both keys leave the active
+source set exactly as a disabled source does (no vote, not expected), their
+native values stay visible, and the contract stamps
+`privateSourceAvailability[*].rolledBack`. Stopping the
+`dynasty-signals-values` timer instead leaves the last board to age out
+through freshness weighting.
+
+### 9.7 Not done / unresolved
+
+* No point-in-time Signals history exists yet, so FantasyCalc/Signals
+  dependence is unmeasured (`pair-signals-market-families` stays UNKNOWN).
+* The authenticated offense board is read for the players the raw payload
+  carries (517 with Sleeper ids on 2026-10-03); a Signals-valued player the
+  board cannot hold is not queried.
+* The RANK fallback is inert until a dataset publishes a cross-position rank.
+* Production verification (acceptance 17) happens after merge and deploy.
