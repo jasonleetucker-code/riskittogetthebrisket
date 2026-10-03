@@ -20,6 +20,8 @@ FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"
+RELEASE_ARCHIVE="${RELEASE_ARCHIVE:-}"
+RELEASE_ARCHIVE_SHA256="${RELEASE_ARCHIVE_SHA256:-}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ALLOW_DIRTY_DEPLOY="${ALLOW_DIRTY_DEPLOY:-false}"
 # Where next build stages its output before the atomic swap.  Relative
@@ -247,6 +249,31 @@ prepare_python_runtime() {
 }
 
 maybe_build_frontend() {
+  if [[ -n "${RELEASE_ARCHIVE}" || -n "${RELEASE_ARCHIVE_SHA256}" ]]; then
+    [[ -n "${RELEASE_ARCHIVE}" && -n "${RELEASE_ARCHIVE_SHA256}" ]] || {
+      error "Both RELEASE_ARCHIVE and RELEASE_ARCHIVE_SHA256 are required."
+      exit 1
+    }
+    [[ -f "${APP_DIR}/frontend/package-lock.json" ]] || {
+      error "Frontend lock is required for artifact deployment."
+      exit 1
+    }
+    resolve_node_toolchain || { error "Node and npm are required for artifact deployment."; exit 1; }
+    log "Installing exact frontend dependencies for tested release artifact."
+    npm ci --prefix "${APP_DIR}/frontend"
+    log "Verifying and staging CI release artifact: ${RELEASE_ARCHIVE}"
+    python3 -m scripts.stage_release_artifact \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${TARGET_REV}" \
+      --staging "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}" \
+      --node-version "$(node --version)" \
+      --receipt "${STATE_DIR}/staged_release_manifest.json"
+    verify_frontend_build_manifest "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}"
+    return 0
+  fi
+
   # RUN_FRONTEND_BUILD used to be an opt-out via env var, but the
   # production server had it set to a non-true value in its login
   # environment, which silently short-circuited every frontend rebuild
@@ -1077,6 +1104,14 @@ verify_deploy() {
 
 record_success_state() {
   mkdir -p "${STATE_DIR}"
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    local release_dir="${STATE_DIR}/releases"
+    mkdir -p "${release_dir}"
+    cp "${RELEASE_ARCHIVE}" "${release_dir}/${TARGET_REV}.tar"
+    printf '%s\n' "${RELEASE_ARCHIVE_SHA256}" > "${release_dir}/${TARGET_REV}.sha256"
+    cp "${STATE_DIR}/staged_release_manifest.json" "${release_dir}/${TARGET_REV}.json"
+    cp "${STATE_DIR}/staged_release_manifest.json" "${STATE_DIR}/last_successful_release_manifest.json"
+  fi
   printf '%s\n' "${TARGET_REV}" > "${STATE_DIR}/last_successful_rev"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATE_DIR}/last_successful_at_utc"
   if [[ -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]]; then
@@ -1303,6 +1338,12 @@ main() {
   ensure_systemd_service
   reconcile_runtime_state
   deploy_frontend_atomic
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    python3 -m scripts.release_artifact verify \
+      --root "${APP_DIR}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --commit "${TARGET_REV}"
+  fi
   restart_service
   verify_runtime_state
   reconcile_source_history

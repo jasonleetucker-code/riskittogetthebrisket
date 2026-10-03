@@ -166,6 +166,9 @@
     "deploy.yml::deploy::Checkout (full history for the deploy-skip guard)": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Download tested release artifact": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Guard against skipping or reversing a deploy": {
       "category": "blocking"
     },
@@ -184,7 +187,16 @@
     "deploy.yml::deploy::SSH preflight (connectivity + remote paths)": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Transfer tested release archive to production": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Validate known_hosts entry for target host": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify downloaded archive is the validated archive": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify live frontend matches the tested artifact": {
       "category": "blocking"
     },
     "deploy.yml::deploy::Validate live data contract": {

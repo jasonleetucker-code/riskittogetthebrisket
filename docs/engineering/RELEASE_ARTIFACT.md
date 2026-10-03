@@ -35,8 +35,23 @@ not a release candidate. The CI workflow asserts the exact resolved SHA before
 creating the manifest. The tar's SHA-256 sidecar detects transport corruption;
 manifest verification detects substituted locks, build IDs or built bytes.
 
-The artifact is retained for three days by the current workflow. The next
-unit must download this exact run artifact, verify it before touching the VPS,
-deploy its bytes without rebuilding, expose the served identity in
-`/api/status`, and retain at least the previous known-good artifact for rollback.
-No production artifact identity is claimed before that proof.
+The artifact is retained for three days by the current workflow. The stacked
+deployment cutover downloads that exact run artifact and compares its digest
+with the validation job's output before transfer. On the VPS,
+`scripts/stage_release_artifact.py` checks its digest, full commit, both locks,
+Node major version, build ID and all frontend bytes before staging `.next.new`.
+`deploy/deploy.sh` installs frontend dependencies from `package-lock.json`
+with `npm ci`, then uses its existing atomic swap and probes. It archives a
+successful release under the deploy state directory. A rollback with a saved
+archive stages the exact previous frontend bytes; historical revisions with
+no saved archive use the established rebuild path.
+The deploy script rechecks the live `.next` bytes before recording success,
+and the workflow independently compares their artifact ID with CI's output
+after its public smoke and live-contract checks.
+
+This cutover remains **unverified in production** until its PR passes Linux
+CI, integrates and the deployed Next build ID and artifact ID are observed
+from the live service. The backend still installs the pinned lock on the VPS;
+its manifest digest is explicitly unknown. Public `/api/status` does not yet
+report the served artifact ID. These are open parts of the larger build-once
+and served-identity contract.
