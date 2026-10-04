@@ -35,13 +35,13 @@ from src.api.terminal import (
     _tier_bucket,
     POS_GROUPS,
 )
-
-
 from src.identity.picks import (
     PICK_OWNER_ABSENT,
     PICK_OWNER_OWNED,
+    PICK_OWNERSHIP_UNAVAILABLE,
     league_pick_owner_index,
     lookup_league_pick_owner,
+    team_pick_ownership_unavailable_reason,
 )
 
 
@@ -494,11 +494,23 @@ def simulate_trade(
         hit = _resolve_asset(name, row_index=row_index)
         if hit is not None:
             before_assets.append(hit)
+    # Pick ownership UNKNOWN (failed /traded_picks, #1618): the team's
+    # untraded picks cannot enter before/after, and the response SAYS so
+    # rather than letting an absent pick list read as "this team owns no
+    # picks".
+    picks_unknown_reason = (
+        team_pick_ownership_unavailable_reason(resolved_team)
+        if resolved_team and isinstance(resolved_team, dict)
+        else None
+    )
     # Roster picks carry their canonical owned id when the producer stamped
     # one (``pickDetails[].assetId``), so a sent id removes exactly that pick.
     # ``pickDetails`` and ``picks`` are the same multiset of labels; without
     # details the plain labels are used, unidentified.
-    for label, asset_id in _roster_pick_entries(resolved_team):
+    roster_pick_entries = (
+        [] if picks_unknown_reason is not None else _roster_pick_entries(resolved_team)
+    )
+    for label, asset_id in roster_pick_entries:
         hit = _resolve_asset(label, row_index=row_index)
         if hit is not None:
             if asset_id:
@@ -520,6 +532,18 @@ def simulate_trade(
     )
     sent_pick_labels = [label for label, _aid in checks["sendOut"]]
     received_pick_labels = [label for label, _aid in checks["receiveIn"]]
+    if picks_unknown_reason is not None:
+        # The inventory is unknown, so nothing here is "owned by the sender"
+        # (the classification above already marked these ``unverified``).
+        # The picks this trade sends are still counted on BOTH sides: seeded
+        # into ``before`` under their exact label so the label removal below
+        # takes them out of ``after``.  Without this a sent pick never leaves
+        # the after-state and ``delta`` overstates the gain by its value.
+        # Only the UNTRADED picks stay out of both sides.
+        for label in sent_pick_labels:
+            hit = _resolve_asset(label, row_index=row_index)
+            if hit is not None:
+                before_assets.append(hit)
 
     # Receiving / sending sides of the trade.
     receiving, unresolved_in = _resolve_many([*players_in, *received_pick_labels])
@@ -630,6 +654,16 @@ def simulate_trade(
             "hypotheticalPicksOut": hypothetical_out,
         },
     }
+    if picks_unknown_reason is not None:
+        response["pickOwnership"] = {
+            "state": PICK_OWNERSHIP_UNAVAILABLE,
+            "reason": picks_unknown_reason,
+            "note": (
+                "This team's draft-pick ownership is unknown, so its untraded "
+                "picks are excluded from both before and after. Picks in this "
+                "trade are counted on both sides, so delta still reflects them."
+            ),
+        }
 
     # Roster-shape-aware fit verdict.  Only computed when we have both
     # a resolved team and league roster settings — free-analysis mode

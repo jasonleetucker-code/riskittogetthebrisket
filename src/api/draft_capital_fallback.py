@@ -32,6 +32,7 @@ import json as _json
 from dataclasses import dataclass
 from typing import Any
 
+from src.identity import picks as _pick_identity
 from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
 
 _LOGGER = logging.getLogger(__name__)
@@ -254,8 +255,13 @@ def build_sleeper_derived(
 
     rosters = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
     users = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
-    traded = (
-        _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks") or []
+    # A 200 list (possibly empty) is an OBSERVATION of the trade diff;
+    # anything else (failed fetch → None, error object, scalar) observed
+    # nothing.  Folding default ownership over a missing diff would publish
+    # "no pick was ever traded" as fact and price every team's capital off
+    # it, so the board is refused instead (one rule, src/identity/picks.py).
+    traded = _pick_identity.traded_picks_observation(
+        _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks")
     )
 
     if not rosters or not users:
@@ -267,6 +273,19 @@ def build_sleeper_derived(
         return {
             "error": "sleeper_unreachable",
             "message": "Unexpected Sleeper response shape.",
+        }
+    if traded is None:
+        # Every number on this board (picks, teamTotals[].auctionDollars) is
+        # a function of who owns which pick, so with ownership unknown there
+        # is no partial board worth serving — refuse with the same
+        # {error, message} shape the consumers already render.
+        return {
+            "error": _pick_identity.PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+            "message": "Could not fetch traded picks from Sleeper; pick ownership is unknown.",
+            _pick_identity.PICK_OWNERSHIP_STATE_FIELD: _pick_identity.PICK_OWNERSHIP_UNAVAILABLE,
+            _pick_identity.PICK_OWNERSHIP_REASON_FIELD: (
+                _pick_identity.PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED
+            ),
         }
 
     # Canonical owned-pick ids (C1-ID-02) for each generated row, minted only
