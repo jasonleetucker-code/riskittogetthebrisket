@@ -5,8 +5,8 @@ runtime, or autonomous fan-out is enabled by this unit.
 
 The `Class B Isolation Probe` GitHub workflow runs a fixed Python probe in a
 digest-pinned container on a public GitHub-hosted Ubuntu runner. The container
-has no network namespace route, a read-only root and source fixture, one small
-writable output tmpfs, no Docker socket or inherited host canary, no Linux
+has no network namespace route, a read-only root and source fixture, bounded
+writable `/tmp` and `/output` tmpfs mounts, no Docker socket or inherited host canary, no Linux
 capabilities, no-new-privileges, a non-root UID, and CPU/memory/process limits.
 The probe performs real reads/writes and attempts denied actions. A failed
 assertion fails the workflow; its JSON output records only check names and
@@ -21,6 +21,12 @@ commands, bound disk consumption outside the tmpfs, issue branch-only Git
 credentials, or produce a safe general worker API. Those are prerequisites for
 the Class-B executor unit. The existing Steward controller remains Class-A
 report-only.
+
+The Linux probe passed on PR #1643 at head `d05ad1c40fda49450c23b6167bde8d4112a607ab`
+([workflow run 37168180381](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/37168180381)):
+all 15 enforced checks were true and each of the three sabotage runs failed
+its matching check. Docker's default `/dev/shm` and other writable container
+surfaces were not bounded or tested by this probe.
 
 The next unit must run a worker through this boundary with deterministic
 command/path policy, auditable refusal events, bounded execution and retries,
