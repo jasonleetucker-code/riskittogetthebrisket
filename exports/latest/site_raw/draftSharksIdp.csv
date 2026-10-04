@@ -21,7 +21,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 20,,Nakobe Dean,LB,11.04,13,25.8,158,410,650,1107,,19
 21,,Zack Baun,LB,10.06,10,29.8,188,415,620,919,,18
 22,,Devin Bush,LB,15.10,10,28.2,167,404,624,996,,18
-23,,Kevin Winston Jr.,DB,21.03,9,22.8,141,441,714,1289,,17
+23,,Kevin Winston Jr.,DB,21.03,9,22.8,143,441,714,1289,,17
 24,,Dallas Turner,DL,15.02,6,23.7,161,368,613,1093,,17
 25,,David Bailey,LB,15.05,13,23.1,104,382,634,1192,,17
 26,,Caleb Downs,DB,10.07,14,21.8,126,432,704,1312,,17
@@ -107,9 +107,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 106,,Derrick Brown,DL,26.04,5,28.4,115,240,366,530,,5
 107,,Jalon Walker,LB,170.04,11,22.6,0,247,413,779,,5
 108,,Azeez Al-Shaair,LB,19.10,8,29.2,127,257,390,593,,5
-109,,Trevon Moehrig,DB,15.07,5,27.3,146,294,454,736,,4
-110,,Christian Gonzalez,DB,20.08,11,24.3,130,291,454,806,,4
-111,,Quinnen Williams,DL,21.12,14,28.8,115,239,355,494,,4
+109,,Christian Gonzalez,DB,20.08,11,24.3,130,291,454,806,,4
+110,,Quinnen Williams,DL,21.12,14,28.8,115,239,355,494,,4
+111,,Trevon Moehrig,DB,15.07,5,27.3,146,294,454,736,,4
 112,,Alex Highsmith,DL,18.10,9,29.1,126,272,367,513,,4
 113,,Jessie Bates,DB,18.04,11,29.6,161,279,435,729,,4
 114,,Evan Williams,DB,25.09,11,25.2,141,282,446,760,,4
@@ -182,9 +182,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 181,,Justin Strnad,LB,55.12,10,30.1,111,210,315,466,,1
 182,,Tyler Nubin,DB,24.04,8,25.3,105,248,393,670,,1
 183,,Jonah Elliss,DL,87.04,10,23.5,89,150,255,481,,1
-184,,Joey Porter Jr.,DB,93.09,14,26.2,128,241,379,639,,0
-185,,Devonte Wyatt,DL,49.02,11,28.5,82,173,264,382,,0
-186,,Julian Love,DB,19.08,11,28.5,152,227,358,615,,0
+184,,Devonte Wyatt,DL,49.02,11,28.5,82,173,264,382,,0
+185,,Julian Love,DB,19.08,11,28.5,152,227,358,615,,0
+186,,Joey Porter Jr.,DB,93.09,14,26.2,126,241,379,639,,0
 187,,Tommy Togiai,DL,52.01,8,27,77,171,265,402,,0
 188,,Patrick Surtain II,DB,20.07,10,26.4,121,241,379,639,,0
 189,,Josiah Trotter,LB,20.05,10,21.4,109,172,297,599,,0
@@ -236,8 +236,8 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 235,,John Franklin-Myers,DL,63.01,9,30,84,157,204,295,,-1
 236,,Alex Wright,DL,45.07,11,26,67,141,230,354,,-1
 237,,Cashius Howell,DL,23.05,6,23.4,50,139,231,435,,-1
-238,,Montaric Brown,DB,47.06,7,27.1,129,218,340,568,,-1
-239,,Christian Benford,DB,43.09,7,26,108,223,351,591,,-1
+238,,Montaric Brown,DB,47.06,7,27.1,127,218,340,568,,-1
+239,,Christian Benford,DB,43.09,7,26,110,223,351,591,,-1
 240,,Harold Landry,DL,23.11,11,30.3,106,205,267,386,,-2
 241,,Logan Hall,DL,46.03,8,26.4,51,146,229,366,,-2
 242,,Amani Hooker,DB,33.05,9,28.3,128,224,339,532,,-2
@@ -275,7 +275,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 274,,Cor'Dale Flott,DB,47.03,9,25.1,99,206,321,555,,-3
 275,,Jonathan Allen,DL,70.01,6,31.7,76,129,167,247,,-3
 276,,DJ Turner II,DB,94.07,6,25.8,125,201,307,524,,-3
-277,,Bryan Cook,DB,47.12,6,27,113,204,314,509,,-3
+277,,Bryan Cook,DB,47.12,6,27,112,204,314,509,,-3
 278,,Dani Dennis-Sutton,DL,75.05,11,22.8,37,114,190,357,,-3
 279,,Oluwafemi Oladejo,LB,81.06,9,23,30,115,195,367,,-3
 280,,Ja'Quan McMillian,DB,42.02,10,26.3,89,209,319,545,,-3
@@ -314,9 +314,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 313,,A.J. Terrell,DB,57.08,11,28,118,174,275,437,,-5
 314,,Trey Amos,DB,37.10,7,24.6,75,188,287,496,,-5
 315,,Poona Ford,DL,64.01,11,30.8,0,117,155,218,,-5
-316,,Grady Jarrett,DL,40.05,10,33.4,65,90,112,170,,-5
-317,,Geno Stone,DB,22.02,18,27.4,0,217,335,542,,-5
-318,,Jaylon Johnson,DB,57.07,10,27.4,96,179,283,465,,-5
+316,,Jaylon Johnson,DB,57.07,10,27.4,96,179,283,465,,-5
+317,,Grady Jarrett,DL,40.05,10,33.4,65,90,112,170,,-5
+318,,Geno Stone,DB,22.02,18,27.4,0,217,335,542,,-5
 319,,Alfred Collins,DL,81.04,8,24.9,0,96,155,259,,-5
 320,,Kevin Byard,DB,15.12,11,33.1,135,187,251,343,,-5
 321,,Jarvis Brownlee Jr.,DB,85.06,13,25.2,80,181,277,478,,-5
@@ -343,8 +343,8 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 342,,Jaquan Brisker,DB,23.02,9,27.4,105,156,241,390,,-7
 343,,Zaven Collins,DL,33.09,14,27.3,50,133,207,296,,-7
 344,,Garrett Williams,DB,39.01,14,25.3,108,150,229,395,,-7
-345,,Trey Moore,LB,36.08,6,23.3,32,120,198,371,,-7
-346,,Taron Johnson,DB,25.06,13,30.2,110,157,234,339,,-7
+345,,Taron Johnson,DB,25.06,13,30.2,110,157,234,339,,-7
+346,,Trey Moore,LB,36.08,6,23.3,32,120,198,371,,-7
 347,,Jarran Reed,DL,36.09,11,33.8,60,45,57,87,,-8
 348,,Julian Blackmon,DB,55.06,8,28.1,119,143,216,339,,-8
 349,,DeWayne Carter,DL,87.07,7,25.8,28,51,80,128,,-8
@@ -358,17 +358,17 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 357,,Cameron Heyward,DL,24.10,9,37.3,91,0,0,0,,-9
 358,,Jourdan Lewis,DB,68.04,7,31.1,84,142,203,280,,-9
 359,,David Walker,LB,79.04,10,26.3,28,103,168,258,,-10
-360,,Sheldon Rankins,DL,72.06,8,32.5,62,0,0,0,,-10
-361,,Malik Harrison,LB,57.04,18,28.5,0,115,176,267,,-10
-362,,Theo Jackson,DB,34.05,6,28,74,131,199,312,,-10
-363,,Cam Hart,DB,86.05,7,25.8,65,129,199,339,,-10
+360,,Theo Jackson,DB,34.05,6,28,74,131,199,312,,-10
+361,,Cam Hart,DB,86.05,7,25.8,65,129,199,339,,-10
+362,,Sheldon Rankins,DL,72.06,8,32.5,62,0,0,0,,-10
+363,,Malik Harrison,LB,57.04,18,28.5,0,115,176,267,,-10
 364,,Felix Anudike-Uzomah,DL,95.03,5,24.7,57,0,0,0,,-10
 365,,Eric Stokes,DB,54.06,13,27.6,78,123,195,310,,-10
 366,,Justin Eboigbe,DL,86.08,7,25.4,53,0,0,0,,-10
 367,,Romello Height,DL,32.04,8,25.4,29,95,155,257,,-10
 368,,Anthony Nelson,DL,60.07,10,29.6,49,98,128,185,,-10
 369,,Eric Murray,DB,71.05,7,32.7,110,121,162,222,,-10
-370,,Alohi Gilman,DB,30.07,5,29,142,98,148,224,,-11
+370,,Alohi Gilman,DB,30.07,5,29,142,98,148,224,,-10
 371,,Justin Jefferson,LB,74.10,11,23.5,26,87,140,255,,-11
 372,,Denzel Perryman,LB,73.01,7,33.8,78,84,105,151,,-11
 373,,Malik Hooker,DB,69.07,14,30.5,66,119,179,261,,-11
@@ -381,7 +381,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 380,,Da'Shawn Hand,DL,63.09,11,30.8,0,0,0,0,,-11
 381,,Shemar Turner,DL,80.04,10,23.7,0,0,0,0,,-11
 382,,Jonah Laulu,DL,84.02,13,26.3,0,0,0,0,,-11
-383,,Donte Jackson,DB,35.03,7,30.8,61,122,175,242,,-12
+383,,Donte Jackson,DB,35.03,7,30.8,61,122,175,242,,-11
 384,,Chidobe Awuzie,DB,34.02,13,31.3,39,107,153,211,,-13
 385,,Jaden Dugger,LB,74.12,8,22.6,15,52,87,162,,-14
 386,,Demario Davis,LB,22.04,13,37.7,154,0,0,0,,-14
