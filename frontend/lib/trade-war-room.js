@@ -194,10 +194,14 @@ export function postureSummary(lens) {
   const d = lens.detail || {};
   const probs = d.probabilities || {};
   const timing = d.components?.timing || {};
+  const noEvidence = d.evidence === "none";
   return {
     available: true,
     label: d.label || null,
-    headline: POSTURE_WORDS[d.label] || d.label || "—",
+    noEvidence,
+    headline: noEvidence
+      ? "Hold — no competitiveness evidence yet"
+      : POSTURE_WORDS[d.label] || d.label || "—",
     confidence: formatShare(d.confidence),
     split: POSTURE_ORDER.filter((k) => typeof probs[k] === "number").map((k) => ({
       label: k,

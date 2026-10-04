@@ -701,6 +701,8 @@ def _own_first_round_pick_held(contract: Mapping[str, Any] | None, owner_id: str
         return None
     upcoming = min(seasons)
     rid = mine.get("roster_id", mine.get("rosterId"))
+    if rid is None:
+        return None
     for d in mine.get("pickDetails") or []:
         try:
             if (
@@ -722,8 +724,11 @@ def league_competitive_postures(
     week: int | None = None,
     in_season: bool | None = None,
     build_if_missing: bool = True,
-) -> tuple[dict[str, Any], list[str]]:
-    """``({ownerId: CompetitivePosture}, notes)`` for every roster in the league.
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``({ownerId: CompetitivePosture}, meta)`` for every roster in the league.
+
+    ``meta.bundleFreshness`` is ``"current"`` when the bundle was checked
+    against this call's inputs, ``"last_computed"`` on the warm-only path.
 
     Consumes the cached league bundle's competitive windows (the same windows
     ``/api/gameplan`` publishes — playoff odds, ages and ROS values already
@@ -740,20 +745,22 @@ def league_competitive_postures(
         week, in_season = current_nfl_week()
     if build_if_missing:
         bundle, _hit = get_league_bundle(league_key, scoring_profile, contract)
+        freshness = "current"
     else:
-        # A latency-sensitive caller (every /trade simulate) reads a WARM
-        # bundle only; it never pays the ~1.4 s cold solve.
-        inputs = load_league_inputs(league_key, scoring_profile, contract)
+        # A latency-sensitive caller (every /trade simulate) reads the LAST
+        # built bundle from memory — no input load, no disk, no network, never
+        # the live-compute fallback.  It may predate the latest scrape, and
+        # says so: stale is never presented as current.
         with _CACHE_LOCK:
             cached = _BUNDLE_CACHE.get(league_key)
-        if cached is None or cached[0] != inputs.source_stamp:
+        if cached is None:
             raise GameplanUnavailable(
                 "league_bundle_not_warm",
-                "The league's roster-intelligence bundle is not built for the "
-                "current inputs; posture is computed by Analyze Trade and "
-                "/api/gameplan.",
+                "The league's roster-intelligence bundle has not been built yet; "
+                "posture is computed by Analyze Trade and /api/gameplan.",
             )
         bundle = cached[1]
+        freshness = "last_computed"
     settings = _league_settings_for(contract, league_key)
     timing = season_timing(week, in_season, settings.get("trade_deadline"))
     postures = {
@@ -764,7 +771,7 @@ def league_competitive_postures(
         )
         for owner_id, intel in bundle.intel.items()
     }
-    return postures, list(bundle.notes)
+    return postures, {"bundleFreshness": freshness, "notes": list(bundle.notes)}
 
 
 # ── Candidate assembly ───────────────────────────────────────────────

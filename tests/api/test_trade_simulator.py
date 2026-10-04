@@ -489,7 +489,11 @@ def _impact(posture_label, receiving, sending):
         sending=sending,
         equity=0,
         roster_settings={"starters": {"QB": 1}},
-        canonical_posture={"label": posture_label} if posture_label else None,
+        canonical_posture=(
+            {"label": posture_label, "probabilities": {posture_label: 1.0}}
+            if posture_label
+            else None
+        ),
     )
 
 
@@ -670,3 +674,37 @@ def test_final_roster_simulation_unavailable_when_starter_slots_unresolved():
     sim = result["finalRosterSimulation"]
     assert sim["available"] is False
     assert sim["unavailableReason"] == "starter_slots_unresolved"
+
+
+def test_window_fit_is_weighted_by_posture_probabilities_not_the_label():
+    from src.trade import team_impact
+
+    def fit(probs):
+        return team_impact.compute(
+            before_assets=[{"name": "QB1", "pos": "QB", "value": 5000, "age": 27}],
+            after_assets=[{"name": "QB1", "pos": "QB", "value": 5000, "age": 27}],
+            receiving=[_PRIME],
+            sending=[_PICK],
+            equity=0,
+            roster_settings={"starters": {"QB": 1}},
+            canonical_posture={"label": "PUSH", "probabilities": probs},
+        )["windowFit"]
+
+    sure = fit({"PUSH": 1.0})
+    split = fit({"PUSH": 0.55, "RETOOL": 0.45})
+    assert sure > split > 0  # mostly-but-not-entirely aligned
+
+
+def test_a_no_evidence_posture_computes_no_window_fit():
+    from src.trade import team_impact
+
+    impact = team_impact.compute(
+        before_assets=[{"name": "QB1", "pos": "QB", "value": 5000, "age": 27}],
+        after_assets=[{"name": "QB1", "pos": "QB", "value": 5000, "age": 27}],
+        receiving=[_PRIME],
+        sending=[_PICK],
+        equity=0,
+        roster_settings={"starters": {"QB": 1}},
+        canonical_posture={"label": "HOLD", "probabilities": None, "evidence": "none"},
+    )
+    assert impact["windowFit"] is None

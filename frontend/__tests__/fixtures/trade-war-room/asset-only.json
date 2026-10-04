@@ -316,6 +316,7 @@
    "windowOverridden": false
   },
   "confidence": 0.9076,
+  "evidence": "measured",
   "isVerdict": false,
   "label": "PUSH",
   "notes": [

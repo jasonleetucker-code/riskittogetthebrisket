@@ -1051,6 +1051,7 @@ def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
     if factor < 0:
         tc.arbitrage_score += factor
         tc.flags.append("forced_drop_cost")
+        tc.summary += " Score is net of the release this trade forces."
     return factor
 
 

@@ -1309,9 +1309,11 @@ current ``suggestions.py`` shape (1-for-1, 2-for-1) can exceed a cap, so the
 forced-drop path is reachable there only on an already-over-limit roster.  A
 test fails if a 1-for-2 suggestion generator is added, which is when that
 changes.  The shapes that DO go over are the finder's ``PackageShape(1, 2)``
-and Angle's N+1 counter-package — the latter on ANY roster at the cap, with no
-over-limit precondition, which makes ``/api/angle/packages`` the surface where
-the forced-drop path is genuinely exercised.
+and ``PackageShape(2, 3)`` (Wave B) and Angle's N+1 counter-package — the
+latter on ANY roster at the cap, with no over-limit precondition, which makes
+``/api/angle/packages`` the surface where the forced-drop path is genuinely
+exercised.  With Team Context ON the finder's forced releases also REORDER its
+results (``forcedDropCost``, below); they still filter nothing.
 
 **The finder's Value Adjustment is no longer a monkeypatch.**
 ``src/trade/__init__.py`` used to rebind ``finder._score_trade`` and

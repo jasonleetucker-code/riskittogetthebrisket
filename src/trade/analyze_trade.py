@@ -736,13 +736,14 @@ def _posture_lens(simulation: dict[str, Any]) -> DimensionResult:
     impact = simulation.get("teamImpact") or {}
     detail = {
         "label": block.get("label"),
+        "evidence": block.get("evidence"),
         "probabilities": block.get("probabilities"),
         "confidence": block.get("confidence"),
         "components": block.get("components"),
         "paramsVersion": block.get("paramsVersion"),
         "parameterStatus": block.get("parameterStatus"),
         # How the moving assets line up with the posture (team_impact's window
-        # fit, scored on the canonical label).  Reported, not voted.
+        # fit, weighted by the posture probabilities).  Reported, not voted.
         "windowFit": impact.get("windowFit"),
         "role": "context_not_vote",
         "notes": block.get("notes") or [],

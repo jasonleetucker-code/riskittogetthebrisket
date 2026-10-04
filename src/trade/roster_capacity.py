@@ -658,7 +658,11 @@ def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, 
     if requires is False:
         return 0.0, {"state": "none"}
     growth = max(0, capacity.size_after - capacity.size_before)
-    drops = sorted(capacity.forced_drops, key=lambda d: d.rung)
+    # Ordered by what each release COSTS (name breaks ties), never by ladder
+    # rung: rungs carry the ladder's ECC order, which is not release-cost order
+    # across positions, and on a full roster every ECC ties at 0.0 so the rung
+    # order is merely alphabetical (independent review, Wave B).
+    drops = sorted(capacity.forced_drops, key=lambda d: (d.release_cost, d.name))
     lower_bound_reasons: list[str] = []
     over = (
         capacity.over_limit_after_min
@@ -668,14 +672,18 @@ def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, 
     if over is None:  # requires_drops proved it known; stay explicit anyway
         return None, {"state": "unknown", "reason": "overage_undetermined"}
     added = min(over, growth)
-    if capacity.certainty != "exact":
-        # Lower bound: the cheapest that-many of the drops.
-        charged = sorted(drops, key=lambda d: d.release_cost)[:added]
-        lower_bound_reasons.append("taxi_occupancy_unknown_guaranteed_drops_only")
-    else:
-        charged = drops[len(drops) - added :] if added else []
     if added == 0:
         return 0.0, {"state": "none", "reason": "trade_adds_no_release"}
+    if capacity.certainty != "exact":
+        # Lower bound: the cheapest that-many of the drops.
+        charged = drops[:added]
+        lower_bound_reasons.append("taxi_occupancy_unknown_guaranteed_drops_only")
+    else:
+        # The overage owed before the trade takes the cheapest releases; the
+        # releases the trade ADDS are the most expensive of the selected set.
+        charged = drops[max(0, len(drops) - added) :]
+    if len(charged) < added:
+        lower_bound_reasons.append("fewer_drops_modelled_than_added")
     priced = [d for d in charged if d.value is not None]
     if len(priced) < len(charged):
         lower_bound_reasons.append("unpriced_forced_drops_excluded")
@@ -685,7 +693,7 @@ def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, 
     basis: dict[str, Any] = {
         "state": "lower_bound" if lower_bound_reasons else "exact",
         "addedReleases": added,
-        "valueScale": "rankDerivedValue",
+        "valueScale": "releaseCost (rankDerivedValue x scarcity)",
     }
     if lower_bound_reasons:
         basis["lowerBoundReasons"] = lower_bound_reasons

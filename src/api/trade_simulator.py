@@ -413,7 +413,7 @@ def competitive_posture_for(
         from src.api.gameplan import GameplanUnavailable, league_competitive_postures
         from src.api.league_registry import get_scoring_profile
 
-        postures, _notes = league_competitive_postures(
+        postures, meta = league_competitive_postures(
             league_key,
             get_scoring_profile(league_key),
             contract,
@@ -426,7 +426,11 @@ def competitive_posture_for(
     posture = postures.get(owner_id)
     if posture is None:
         return {"available": False, "unavailableReason": "team_not_in_league_bundle"}
-    return {"available": True, **posture.to_dict()}
+    return {
+        "available": True,
+        **posture.to_dict(),
+        "bundleFreshness": meta.get("bundleFreshness"),
+    }
 
 
 def simulate_trade(

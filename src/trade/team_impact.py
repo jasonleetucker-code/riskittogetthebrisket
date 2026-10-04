@@ -661,17 +661,24 @@ def compute(
     cw_eq = float(weights.get("compositeEquityWeight", 0.45))
     composite = cw_fit * fit_score + cw_eq * equity_score
 
-    label = (canonical_posture or {}).get("label")
-    posture = _WINDOW_FOR_POSTURE.get(label) if isinstance(label, str) else None
+    # Window fit is weighted by the posture's PROBABILITIES, never collapsed
+    # to its label: a 55/45 PUSH/RETOOL roster scores a prime-age addition as
+    # mostly-but-not-entirely aligned.  No measured probabilities (no posture,
+    # or a no-evidence HOLD) = not computed.
+    block = canonical_posture or {}
+    label = block.get("label") if isinstance(block.get("label"), str) else None
+    probs = block.get("probabilities") if isinstance(block.get("probabilities"), dict) else None
+    posture = _WINDOW_FOR_POSTURE.get(label) if (label and probs) else None
     window_score = 0.0
-    moving = []
-    if posture is not None:
-        for a in receiving:
-            moving.append(_window_fit_for_asset(a, posture, cfg, sign=+1))
-        for a in sending:
-            moving.append(_window_fit_for_asset(a, posture, cfg, sign=-1))
-    if moving:
-        window_score = sum(moving) / len(moving)
+    if posture is not None and (receiving or sending):
+        for lab, p in probs.items():
+            vocab = _WINDOW_FOR_POSTURE.get(lab)
+            if vocab is None or not isinstance(p, (int, float)) or p <= 0:
+                continue
+            moving = [_window_fit_for_asset(a, vocab, cfg, sign=+1) for a in receiving] + [
+                _window_fit_for_asset(a, vocab, cfg, sign=-1) for a in sending
+            ]
+            window_score += float(p) * (sum(moving) / len(moving))
 
     def _avg_age(assets: list[dict[str, Any]]) -> float | None:
         ages = [a["age"] for a in assets if isinstance(a.get("age"), int)]

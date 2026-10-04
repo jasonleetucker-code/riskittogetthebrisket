@@ -354,6 +354,7 @@
       "windowOverridden": false
      },
      "confidence": 0.9076,
+     "evidence": "measured",
      "label": "PUSH",
      "notes": [
       "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
@@ -485,6 +486,7 @@
       "windowOverridden": false
      },
      "confidence": 0.9076,
+     "evidence": "measured",
      "label": "PUSH",
      "notes": [
       "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
@@ -796,6 +798,7 @@
    "windowOverridden": false
   },
   "confidence": 0.9076,
+  "evidence": "measured",
   "isVerdict": false,
   "label": "PUSH",
   "notes": [

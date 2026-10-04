@@ -320,7 +320,8 @@ function Details({ analysis, raw }) {
           <section>
             <h4 className={styles.detailsTitle}>Team direction (context, not a vote)</h4>
             <p>
-              <strong>{posture.headline}</strong> — {posture.confidence ?? "—"} of the classification.{" "}
+              <strong>{posture.headline}</strong>
+              {posture.confidence ? ` — ${posture.confidence} of the classification` : ""}.{" "}
               {posture.timing}. {posture.ownFirst}.
             </p>
             <ul className={styles.detailsList} aria-label="Posture split">

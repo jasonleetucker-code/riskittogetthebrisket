@@ -386,6 +386,7 @@
       "windowOverridden": false
      },
      "confidence": 0.9076,
+     "evidence": "measured",
      "label": "PUSH",
      "notes": [
       "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
@@ -399,7 +400,7 @@
       "RETOOL": 0.0877
      },
      "role": "context_not_vote",
-     "windowFit": 0.33
+     "windowFit": 0.27
     },
     "dimension": "strategicPosture",
     "direction": "context",
@@ -526,6 +527,7 @@
       "windowOverridden": false
      },
      "confidence": 0.9076,
+     "evidence": "measured",
      "label": "PUSH",
      "notes": [
       "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
@@ -539,7 +541,7 @@
       "RETOOL": 0.0877
      },
      "role": "context_not_vote",
-     "windowFit": 0.33
+     "windowFit": 0.27
     },
     "dimension": "strategicPosture",
     "direction": "context",
@@ -861,6 +863,7 @@
    "windowOverridden": false
   },
   "confidence": 0.9076,
+  "evidence": "measured",
   "isVerdict": false,
   "label": "PUSH",
   "notes": [
@@ -1774,7 +1777,7 @@
    "TE"
   ],
   "verdict": "accept",
-  "windowFit": 0.33
+  "windowFit": 0.27
  },
  "unresolvedIn": [],
  "unresolvedOut": []

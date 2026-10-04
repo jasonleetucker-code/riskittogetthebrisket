@@ -238,14 +238,16 @@ def league_competitiveness(
         # level with an eliminated one (measured 2026-10-03: 9 of 12
         # ``dynasty_main`` rosters tied at 0.0).  The tuple is a strict
         # refinement — identical whenever title odds differ.
-        champ = {
-            str(r["ownerId"]): (
-                _odds(r, "championshipOdds"),
-                _odds(r, "playoffOdds"),
-                _odds(r, "byeOdds"),
+        # A tie-break key is used only when EVERY row carries it: a row
+        # missing playoff odds is unknown there, not 0%.
+        keys = ["championshipOdds"] + [
+            k
+            for k in ("playoffOdds", "byeOdds")
+            if all(
+                isinstance(r.get(k), (int, float)) and not isinstance(r.get(k), bool) for r in rows
             )
-            for r in rows
-        }
+        ]
+        champ = {str(r["ownerId"]): tuple(_odds(r, k) for k in keys) for r in rows}
         if champ and any(v[0] > 0 for v in champ.values()):
             mine = champ.get(str(owner_id))
             if mine is not None:
@@ -453,6 +455,9 @@ _POSTURE_DEADLINE_SHARPEN = 2.0
 _POSTURE_COMPETITIVENESS_DELTA = {"championshipOdds": 0.08, "lineupScoreRank": 0.15}
 _POSTURE_TRAJECTORY_DELTA = 0.10
 _POSTURE_TRAJECTORY_DELTA_NO_AGES = 0.25
+#: The last NFL regular-season week; a configured deadline beyond it is a
+#: "no deadline" sentinel, not a week.
+_LAST_REGULAR_SEASON_WEEK = 18
 
 
 @dataclass(frozen=True)
@@ -494,11 +499,13 @@ def season_timing(
         deadline = int(trade_deadline_week) if trade_deadline_week is not None else None
     except (TypeError, ValueError):
         deadline = None
-    if deadline is not None and deadline <= 0:
+    if deadline is not None and (deadline <= 0 or deadline > _LAST_REGULAR_SEASON_WEEK):
+        # Non-positive, or a sentinel past the regular season (Sleeper's
+        # "no deadline" is a large week number): no deadline on record.
         deadline = None
-    if in_season is None:
+    if in_season is None or (in_season and week is None):
         return SeasonTiming("unknown", None, deadline, None)
-    if not in_season or week is None:
+    if not in_season:
         return SeasonTiming("offseason", None, deadline, 0.0)
     if deadline is None:
         return SeasonTiming("regular", int(week), None, None)
@@ -520,16 +527,25 @@ class CompetitivePosture:
     window: CompetitiveWindow
     own_first_round_pick_held: bool | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
+    #: ``"measured"`` or ``"none"``.  With no competitiveness evidence the
+    #: label is HOLD by definition, and that is NOT a confident HOLD: the
+    #: confidence is published as ``None`` rather than a fake 100%.
+    evidence: str = "measured"
 
     @property
-    def confidence(self) -> float:
+    def confidence(self) -> float | None:
+        if self.evidence != "measured":
+            return None
         return self.probabilities.get(self.label, 0.0)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "label": self.label,
-            "probabilities": _round_preserving_sum(self.probabilities),
-            "confidence": round(self.confidence, 4),
+            "evidence": self.evidence,
+            "probabilities": (
+                _round_preserving_sum(self.probabilities) if self.evidence == "measured" else None
+            ),
+            "confidence": None if self.confidence is None else round(self.confidence, 4),
             "components": {
                 "directional": _round_preserving_sum(self.directional),
                 "labelStability": round(self.stability, 4),
@@ -561,9 +577,12 @@ def _directional(affinities: Mapping[str, float], trajectory: float, k: float) -
     return {lab: v / total for lab, v in powered.items()}
 
 
+#: Tie preference: an exact tie is ambiguity, and ambiguity is HOLD.
+_TIE_ORDER = ("HOLD", "PUSH", "RETOOL", "REBUILD")
+
+
 def _argmax(d: Mapping[str, float]) -> str:
-    # Deterministic tie-break on the declared label order.
-    order = {lab: i for i, lab in enumerate(POSTURE_LABELS)}
+    order = {lab: i for i, lab in enumerate(_TIE_ORDER)}
     return max(d, key=lambda lab: (d[lab], -order[lab]))
 
 
@@ -620,6 +639,7 @@ def competitive_posture(
             window=window,
             own_first_round_pick_held=own_first_round_pick_held,
             notes=tuple(notes),
+            evidence="none",
         )
 
     dc = _POSTURE_COMPETITIVENESS_DELTA[inputs.competitiveness_source]

@@ -201,3 +201,36 @@ def test_lazy_rerank_equals_brute_force():
         assert [round(t.arbitrage_score, 9) for t in lazy] == [
             round(t.arbitrage_score, 9) for t in brute
         ]
+
+
+def test_added_releases_are_chosen_by_release_cost_not_rung():
+    # Independent-review repro: on a full roster every ECC ties, so rungs are
+    # alphabetical.  The trade adds one release onto a 2-release overage; the
+    # added one is the most EXPENSIVE of the three (Amy, 900), not rung 3.
+    drops = [
+        ForcedDrop(**{**_drop("Amy", 900).__dict__, "rung": 1}),
+        ForcedDrop(**{**_drop("Bob", 500).__dict__, "rung": 2}),
+        ForcedDrop(**{**_drop("Zed", 100).__dict__, "rung": 3}),
+    ]
+    cap = _capacity(
+        size_before=60,
+        size_after=61,
+        over_limit_before=2,
+        over_limit_after=3,
+        forced_drops=drops,
+    )
+    cost, basis = forced_drop_cost(cap)
+    assert cost == 900.0 and basis["state"] == "exact"
+
+
+def test_an_exhausted_ladder_keeps_every_modelled_release():
+    cap = _capacity(
+        size_after=61,
+        over_limit_after=3,
+        ladder_exhausted=True,
+        forced_drops=[_drop("a", 400), _drop("b", 600)],
+    )
+    cost, basis = forced_drop_cost(cap)
+    assert cost == 1000.0
+    assert basis["state"] == "lower_bound"
+    assert "fewer_drops_modelled_than_added" in basis["lowerBoundReasons"]
