@@ -413,7 +413,26 @@ value's own ancestry is not vendor-stated, so the relation is **suspected**
   defensible because its IDP value is model-derived from per-snap features
   (projected points, prior-season points, pressure and playmaking per snap)
   with no market input. Recorded in `source_lineage.json`. Not a Hill
-  trainer or holdout (`NOT_HILL_BOARDS`).
+  trainer or holdout (`NOT_HILL_BOARDS`). The shared `fantasyCalc` label on
+  the IDP boards is **deliberate**: family leave-one-out
+  (`expand_correlation_groups(["fantasyCalc"])`) drops them together with
+  FantasyCalc, which is the conservative direction, and the two never meet
+  on a row today. If FantasyCalc ever registers an IDP key, revisit the
+  group before it ships.
+- **What the cap does not cover (pre-existing design, stated here because
+  this is the first family whose extra member is a different provider's
+  composition).** The outlier filter and the count-aware blend rung count
+  OBSERVATIONS, not families: Hampel runs before the family cap, so
+  FantasyCalc + Signals act as two agreeing points when judging the other
+  sources, and the n ≥ 5 trim rung can be reached with four families
+  present. This is the same posture DLF and KTC Crowd + Navigator already
+  have, and the owner directive of 2026-09-24 accepted it ("runs AFTER
+  Hampel deliberately"). The cap bounds the family's WEIGHT in the blend;
+  it does not make the filter family-aware.
+- **Two-way players.** A private source that does not vote on a build
+  (absent, held, in shadow, or rolled back) is also excluded from the
+  two-way player alt-family value, so it cannot reach the board through that
+  side door.
 
 ### 9.4 Data path, privacy, and CI vs box
 

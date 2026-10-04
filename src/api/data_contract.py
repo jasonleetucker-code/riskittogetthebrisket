@@ -2142,7 +2142,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
-        # Head of the ``fantasyCalc`` B10 family since 2026-10-03: the two
+        # Head of the ``fantasyCalc`` B10 family since 2026-10-03: the four
         # Signals keys below join it (registry-earlier member = head).
         "correlation_group": "fantasyCalc",
     },
@@ -2208,17 +2208,22 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # cross-family price.  Ordering it across families and crosswalking
         # that order (the first design) manufactured exactly the shared
         # DL/LB/DB rank the owner addendum forbids.  So each family is
-        # ranked by Signals' value WITHIN the family only and travels the
-        # existing positional path: ``SOURCE_SCOPE_POSITION_IDP`` + the
-        # backbone's per-family ladder (``IdpBackbone.ladder_for``) puts
-        # Signals' DB #k where the backbone's k-th DB sits in IDP space, and
-        # the IDP master prices it.  No cross-family order is derived
-        # anywhere; with no usable family ladder the vote is WITHHELD.
+        # ranked by Signals' value WITHIN the family only, on a
+        # ``SOURCE_SCOPE_POSITION_IDP`` board.  (The first positional route
+        # put DB #k at the backbone's k-th DB in IDP-LOCAL space and priced
+        # it on the IDP master — the coordinate error TRANSLATION below
+        # replaces.)  No cross-family order is derived anywhere; with no
+        # usable family ladder the vote is WITHHELD.
         #
-        # Family: one Signals family inside FantasyCalc's group.  FantasyCalc
-        # publishes no IDP, so on IDP rows Signals is its own family to the
-        # confidence gate — defensible because its IDP value is model-derived
-        # from per-snap features with no market input (source_lineage.json).
+        # Family: one Signals family inside FantasyCalc's group — a
+        # DELIBERATE shared label.  FantasyCalc publishes no IDP, so on IDP
+        # rows Signals is its own family to the confidence gate (defensible:
+        # its IDP value is model-derived from per-snap features with no
+        # market input, source_lineage.json), and family leave-one-out
+        # (``expand_correlation_groups(["fantasyCalc"])``) drops the IDP
+        # boards with FantasyCalc — the conservative direction.  If
+        # FantasyCalc ever registers an IDP key it would be capped together
+        # with Signals IDP; revisit the group then.
         # Signals' raw position (CB/S/DT/DE/LB) is provenance only.
         #
         # TRANSLATION (2026-10-04): ``family_shared_market_translation``
@@ -7296,6 +7301,7 @@ def _restate_confidence_after_override(
 def _apply_two_way_player_boost(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
+    excluded_keys: frozenset[str] = frozenset(),
 ) -> None:
     """For players in ``_TWO_WAY_PLAYERS``, compute what their value
     would be under the alt-position family and use max(offense, alt)
@@ -7372,17 +7378,20 @@ def _apply_two_way_player_boost(
 
     # Collect IDP signal sources (the ones that could contribute to
     # an alt-family value for an offense-classed player).
+    # ``excluded_keys`` are private sources that do not vote on this build
+    # (absent, held, in shadow, or rolled back): a source that may not vote
+    # must not reach the board through the alt-family side door either.
     idp_source_keys = {
         str(s.get("key") or "")
         for s in _RANKING_SOURCES
         if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
-    }
+    } - excluded_keys
     # Same for offense sources — used when the alt-family is offense.
     offense_source_keys = {
         str(s.get("key") or "")
         for s in _RANKING_SOURCES
         if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
-    }
+    } - excluded_keys
 
     alt_asset_class_for_family = {True: "idp", False: "offense"}
 
@@ -12654,7 +12663,11 @@ def _compute_unified_rankings(
     pre_override_values = {
         row_idx: players_array[row_idx].get("rankDerivedValue") for row_idx in row_confidence_inputs
     }
-    _apply_two_way_player_boost(players_array, players_by_name)
+    _apply_two_way_player_boost(
+        players_array,
+        players_by_name,
+        excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())),
+    )
     # ── Confidence describes the value that SHIPPED (B11) ──
     #
     # The gate's agreement axis asks how many families price within a

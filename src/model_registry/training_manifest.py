@@ -678,7 +678,7 @@ NOT_HILL_BOARDS: dict[str, str] = {
     **{
         k: (
             "private box-local IDP positional rank board (within-family value rank), "
-            "registered 2026-10-03 but HELD from voting; neither a Hill trainer nor a holdout"
+            "registered 2026-10-03; IDP in SHADOW (not voting); neither a Hill trainer nor a holdout"
         )
         for k in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
     },

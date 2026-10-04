@@ -118,8 +118,8 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Signals Fantasy as an ACTIVE canonical source (owner addendum
     # 2026-10-03; docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9).  ON: the
     # authenticated native-value boards vote (``signalsSf``; the IDP family
-    # boards ``signalsIdp{Dl,Lb,Db}`` are collected but HELD —
-    # ``data_contract.PRIVATE_SOURCE_VOTE_HOLDS``)
+    # boards ``signalsIdp{Dl,Lb,Db}`` are collected and run in SHADOW until
+    # ``signals_idp_shared_market`` — ``data_contract.PRIVATE_SOURCE_VOTE_HOLDS``)
     # as value-ordered rank signals inside the FantasyCalc B10 family
     # wherever the box-local private store is present.  OFF
     # (RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0 + restart): both keys leave the
