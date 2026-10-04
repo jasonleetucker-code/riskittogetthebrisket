@@ -10,9 +10,11 @@ Two distinct halves, one provider family:
 * **Authenticated native values** (the "Authenticated native values" section
   at the bottom) — ``scripts/fetch_signals_values.py`` is a thin CLI over
   :func:`collect_values`.  Since 2026-10-03 these are an ACTIVE canonical
-  source: registry keys ``signalsSf`` (offense) and ``signalsIdp`` (IDP) in
-  ``src/api/data_contract.py``, voting as a value-ordered rank signal inside
-  the FantasyCalc B10 family.  Read that section before touching either half.
+  source: registry keys ``signalsSf`` (offense, voting) and
+  ``signalsIdpDl`` / ``signalsIdpLb`` / ``signalsIdpDb`` (IDP, one board per
+  family; SHADOW until the shared-market crosswalk is promoted) in
+  ``src/api/data_contract.py``, as value-ordered rank signals inside the
+  FantasyCalc B10 family.  Read that section before touching either half.
 
 WHAT THE PUBLIC BOARDS ARE
 --------------------------
@@ -32,7 +34,7 @@ WHAT THE PUBLIC BOARDS ARE NOT — load-bearing
   blend, confidence or any canonical field.  Their only consumer is the
   Second Opinions surface, as a rank-only, non-voting row (``votes: False``).
   The VOTING Signals observation is the authenticated native value
-  (``signalsSf`` / ``signalsIdp``), never these positional ranks.
+  (``signalsSf`` / ``signalsIdpDl|Lb|Db``), never these positional ranks.
 * NOT a price.  A positional ordinal is never converted to a value, and
   QB3 and RB3 are never placed on one ladder — that would manufacture a
   cross-position ranking Signals did not publish.
@@ -174,10 +176,10 @@ def dataset_metadata(spec: BoardSpec) -> dict[str, Any]:
         "basis": BASIS_POSITIONAL_RANK_ONLY,
         # The PUBLIC positional board never votes.  Signals' voting
         # observation is the authenticated native value (``signalsSf`` /
-        # ``signalsIdp``, :func:`value_dataset_metadata`), owner 2026-10-03.
+        # ``signalsIdpDl|Lb|Db``, :func:`value_dataset_metadata`), owner 2026-10-03.
         "intendedConsumer": "second_opinion_only",
         "votes": False,
-        "votingObservation": "authenticated native value (signalsSf / signalsIdp)",
+        "votingObservation": "authenticated native value (signalsSf / signalsIdpDl|Lb|Db)",
         "visibility": "authenticated_only",
         "lineage": (
             "Signals says it aggregates unnamed community dynasty value markets and "

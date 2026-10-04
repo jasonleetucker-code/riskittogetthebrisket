@@ -617,6 +617,7 @@ def test_the_rollback_flag_removes_the_vote_and_keeps_the_evidence(tmp_path, mon
         {"x": {"signalsIdpDl": 1}},
         {"canonicalSiteValues": {"signalsSf": 1}},
         {"sourceRankMeta": {"signalsSf": {}}},
+        {"sourceShadowMeta": {"x": {}}},
     ],
 )
 def test_the_public_league_guard_refuses_every_signals_carrier(carrier):
@@ -696,6 +697,15 @@ class TestIdpShadow:
                 assert abs(shadow["wouldContribute"] - float(voted["valueContribution"])) <= 1
                 compared += 1
         assert compared > 50
+
+    def test_shadow_meta_reaches_the_runtime_view_legacy_dict(self, held):
+        """``view=app`` strips playersArray; the Rankings page reads the
+        legacy ``players`` dict, so the shadow diagnostic is mirrored there."""
+        contract, _ = held
+        mirrored = sum(
+            1 for p in (contract.get("players") or {}).values() if p.get("sourceShadowMeta")
+        )
+        assert mirrored > 50
 
     def test_offense_still_votes(self, held):
         row = _rows(held[0])[_off(40)]

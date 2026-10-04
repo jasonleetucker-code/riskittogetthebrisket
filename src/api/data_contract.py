@@ -4705,6 +4705,9 @@ _TRUST_MIRROR_FIELDS = (
     # sourceOriginalRanks).  Without mirroring, the default view=app
     # payload (which strips playersArray) would never carry them.
     "sourceNativeValues",
+    # SHADOW sources' would-be contribution (Signals IDP) — a named
+    # diagnostic the Rankings page shows on the default view=app payload.
+    "sourceShadowMeta",
     "canonicalTierId",
     # ``rankChange`` is stamped by ``_stamp_rank_changes`` at the end
     # of ``_compute_unified_rankings`` but only onto the playersArray.
@@ -4866,6 +4869,9 @@ _LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 # bridges actually contributed to the shared-market ladder, and the withheld
 # vote count per source.  ``None`` before any board is built.
 _LAST_CROSS_POSITION_BRIDGE_SUMMARY: dict | None = None
+# The last built ``BridgeLadder`` (in-process diagnostics only; see the
+# on-box Signals crosswalk evaluation).  ``None`` before any board is built.
+_LAST_BRIDGE_LADDER: Any = None
 # Board-level KTC Market benchmark summary (``_stamp_ktc_market_benchmark``).
 _LAST_KTC_MARKET_SUMMARY: dict | None = None
 # Board-level source weighting summary (``_source_weighting_summary``).
@@ -12876,7 +12882,11 @@ def _compute_unified_rankings(
         if row.get("pickRookieAnchor"):
             pdata["pickRookieAnchor"] = row["pickRookieAnchor"]
 
-    global _LAST_CROSS_POSITION_BRIDGE_SUMMARY
+    global _LAST_CROSS_POSITION_BRIDGE_SUMMARY, _LAST_BRIDGE_LADDER
+    # The ladder object itself, in-process only (never on the payload): the
+    # on-box crosswalk evaluation (``scripts/verify_signals_onbox.py``) reads
+    # the family slices to compute its diagnostic Candidate B.
+    _LAST_BRIDGE_LADDER = bridge_ladder
     # SHADOW sources (``shadow_private_sources``): publish what each would
     # contribute on EVERY row it covers — ranked, off-cap or unranked — as a
     # named diagnostic.  It feeds no value, rank, tier or confidence.

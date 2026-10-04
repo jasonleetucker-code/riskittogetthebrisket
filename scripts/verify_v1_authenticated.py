@@ -360,6 +360,81 @@ def check_v11_item3_fresh(contract: dict | None) -> None:
     )
 
 
+_SIGNALS_IDP_KEYS = ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
+
+
+def _contract_rows(contract: dict) -> list[dict]:
+    """Rows from whichever encoding the view carried (view=app strips
+    playersArray and serves the legacy ``players`` dict)."""
+    rows = contract.get("playersArray")
+    if isinstance(rows, list) and rows:
+        return rows
+    players = contract.get("players")
+    return list(players.values()) if isinstance(players, dict) else []
+
+
+def check_signals(contract: dict | None) -> None:
+    """Signals Fantasy on the DEPLOYED, authenticated response.
+
+    Offense: available, voting, and actually contributing on rows.  IDP:
+    collected and visible, in its declared vote state (shadow until the
+    shared-market crosswalk is promoted) — docs/sources/
+    SIGNALS_FANTASY_INTEGRATION.md §9-§10."""
+    off = _check("SIG-OFF", "Signals", "Signals offense votes and contributes on the live board")
+    idp = _check("SIG-IDP", "Signals", "Signals IDP collected, visible, in its declared state")
+    if contract is None:
+        off.record("unmeasurable", "no authenticated contract")
+        idp.record("unmeasurable", "no authenticated contract")
+        return
+    avail = contract.get("privateSourceAvailability") or {}
+    rows = _contract_rows(contract)
+    sf = avail.get("signalsSf") or {}
+    contributing = sum(
+        1
+        for r in rows
+        for m in [(r.get("sourceRankMeta") or {}).get("signalsSf")]
+        if isinstance(m, dict)
+        and not m.get("hampelDropped")
+        and float(m.get("appliedWeight") or 0) > 0
+        and isinstance(m.get("valueContribution"), (int, float))
+    )
+    shown = sum(1 for r in rows if "signalsSf" in (r.get("sourceNativeValues") or {}))
+    ok = sf.get("state") == "present" and sf.get("votes") is True and contributing >= 100
+    off.record(
+        "pass" if ok else "fail",
+        f"signalsSf state={sf.get('state')} votes={sf.get('votes')} "
+        f"voteState={sf.get('voteState')}; {contributing} rows contribute, {shown} show a native value",
+        availability=sf,
+        rowsContributing=contributing,
+        rowsWithNativeValue=shown,
+    )
+    states = {k: (avail.get(k) or {}).get("voteState") for k in _SIGNALS_IDP_KEYS}
+    visible = {
+        k: sum(1 for r in rows if k in (r.get("sourceNativeValues") or {}))
+        for k in _SIGNALS_IDP_KEYS
+    }
+    shadowed = {
+        k: sum(1 for r in rows if k in (r.get("sourceShadowMeta") or {})) for k in _SIGNALS_IDP_KEYS
+    }
+    voting = {
+        k: sum(1 for r in rows if k in (r.get("sourceRankMeta") or {})) for k in _SIGNALS_IDP_KEYS
+    }
+    consistent = all(
+        (states[k] == "shadow" and voting[k] == 0 and shadowed[k] > 0)
+        or (states[k] == "active" and voting[k] > 0)
+        for k in _SIGNALS_IDP_KEYS
+    )
+    ok = consistent and all(visible[k] > 0 for k in _SIGNALS_IDP_KEYS)
+    idp.record(
+        "pass" if ok else "fail",
+        f"voteState={states}; visible={visible}; shadow={shadowed}; voting={voting}",
+        voteStates=states,
+        rowsVisible=visible,
+        rowsShadowed=shadowed,
+        rowsVoting=voting,
+    )
+
+
 def _bench_tail(team: dict) -> str | None:
     lineup = team.get("optimalLineup") or {}
     bench = lineup.get("bench") or []
@@ -580,6 +655,7 @@ def main() -> int:
         _isolated("V49-3", check_v49_item3, client)
         _isolated("V11-8", check_v11_item8, client, contract)
         _isolated("V11-3", check_v11_item3_fresh, contract)
+        _isolated("SIGNALS", check_signals, contract)
         _isolated("V27-3", check_v27_item3, client, contract, args.league)
         _isolated("V45A", check_v45, client, contract, args.league)
         _isolated("FA-PICK", emit_free_agent, contract, args.free_agent_out)

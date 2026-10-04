@@ -580,7 +580,7 @@ def test_payload_is_rank_only_and_non_voting(store):
 def test_only_the_authenticated_value_keys_vote_never_the_public_boards():
     """Owner addendum 2026-10-03 supersedes the old "no signals* key is
     registered" pin: the AUTHENTICATED native-value datasets vote
-    (``signalsSf`` / ``signalsIdp``); the PUBLIC positional boards
+    (``signalsSf`` / ``signalsIdpDl|Lb|Db``); the PUBLIC positional boards
     (``signalsDynasty`` / ``signalsIdpDynasty``) never do."""
     from src.api.data_contract import _RANKING_SOURCES, correlation_group_for
 

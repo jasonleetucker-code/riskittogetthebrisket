@@ -349,11 +349,13 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "signalsPositionalRank",
         # Per-source vendor numbers.  Since 2026-10-03 these carry Signals'
         # PAID authenticated native values and derived ranks (registry keys
-        # signalsSf / signalsIdp), which may never reach a public payload
-        # (docs/sources/SIGNALS_FANTASY_INTEGRATION.md §2) — nor may any
-        # other vendor's per-source number.
+        # signalsSf / signalsIdpDl / signalsIdpLb / signalsIdpDb), which may
+        # never reach a public payload (docs/sources/SIGNALS_FANTASY_
+        # INTEGRATION.md §2) — nor may any other vendor's per-source number,
+        # nor a shadow source's would-be contribution.
         "sourceNativeValues",
         "sourceOriginalRanks",
+        "sourceShadowMeta",
         "signalsSf",
         "signalsIdp",
         "signalsIdpDl",

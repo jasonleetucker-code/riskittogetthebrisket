@@ -1,0 +1,100 @@
+name: Signals On-Box Verification
+
+# Production evidence for the Signals Fantasy source
+# (docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9-§10).
+#
+# Signals data is private and box-local: CI never holds it, so the only place
+# its effect on the board can be measured is the production host.  This
+# reuses the deploy path's SSH capability to run
+# ``scripts/verify_signals_onbox.py`` from the DEPLOYED checkout against the
+# box's own inputs.  It reports:
+#
+#   * the ``dynasty-signals-values`` timer/service and the owner session's
+#     HEALTH (never a token or session field beyond its state);
+#   * optionally one real collection (``collect: true`` starts the existing
+#     service once, exactly as its timer does);
+#   * the in-process contract: Signals offense voting, its whole-board
+#     impact and the FantasyCalc family-cap proof;
+#   * the IDP shared-market crosswalk evaluation (§10): champion vs
+#     Candidate A per family, the diagnostic Candidate B, the watch list and
+#     the completed-trade check — the promotion gate's inputs.
+#
+# Output is aggregates and the preregistered watch list only; no raw Signals
+# payload is printed.  The runner's copy of the script is uploaded into a
+# mktemp dir and removed on exit; the app tree is not modified.
+
+on:
+  workflow_dispatch:
+    inputs:
+      collect:
+        description: Start one real Signals collection before measuring
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap a deploy (or the other on-box diagnostics).
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Signals on-box verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run Signals verification on the host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          COLLECT: ${{ inputs.collect && '--collect' || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH=(ssh -i "$HOME/.ssh/id_ed25519"
+            -o BatchMode=yes -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts"
+            -o ConnectTimeout=15 -o ServerAliveInterval=15
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          DIAG_DIR="$("${SSH[@]}" 'mktemp -d /tmp/signals-verify.XXXXXX')"
+          "${SSH[@]}" "cat > $(printf %q "$DIAG_DIR")/verify_signals_onbox.py" < scripts/verify_signals_onbox.py
+          # The interpreter is the app's own venv, so imports resolve to the
+          # DEPLOYED src/ (the script is run with --app-dir as its root).
+          "${SSH[@]}" "set -Eeuo pipefail; trap 'rm -rf -- $(printf %q "$DIAG_DIR")' EXIT; \
+            PY=/home/dynasty/.venvs/trade-calculator/bin/python; \
+            [[ -x \$PY ]] || PY=$(printf %q "$APP_DIR")/.venv/bin/python; \
+            cd $(printf %q "$APP_DIR") && \
+            \$PY $(printf %q "$DIAG_DIR")/verify_signals_onbox.py \
+              --app-dir $(printf %q "$APP_DIR") $COLLECT" | tee signals-onbox.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signals-onbox-report
+          path: signals-onbox.json
+          retention-days: 30
