@@ -148,6 +148,14 @@ evidence. Live inventory coverage is not a claim that the entire site was audite
 
 ## Routing and Learning
 
+The live `python -m src.steward context <paths>` command reports its own
+selection budget: requested, selected and complete document counts, UTF-8
+bytes actually returned, and omissions due to the character cap. Input token
+and exposed-tool-definition counts stay null because this CLI does not observe
+them. These are per-command observations; `brief --save` inventories document
+revisions but does not select context through this command, so its receipt must
+not be credited with these measurements.
+
 `config/steward/routing.json` is configurable capability metadata, observed
 from the current interactive harness. ROUTINE, STANDARD, COMPLEX and CRITICAL
 select sufficient available configurations, with reasoning chosen separately.

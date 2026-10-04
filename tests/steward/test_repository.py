@@ -33,12 +33,39 @@ def test_context_budget_and_path_boundary():
     selected = context(ROOT, ["AI_INSTRUCTIONS.md"], max_chars=100)
     assert selected["characters"] == 100
     assert not selected["sources"][0]["complete"]
+    assert selected["budget"] == {
+        "requested_docs": 1,
+        "selected_docs": 1,
+        "complete_docs": 0,
+        "utf8_bytes": len(selected["sources"][0]["content"].encode("utf-8")),
+        "budget_omissions": 0,
+        "input_tokens": None,
+        "tool_definitions_exposed": None,
+    }
     with pytest.raises(ValueError):
         context(ROOT, ["../private.txt"])
     assert (
         github_disposition({"state": "closed", "merged_at": None})
         == "PARTIALLY_REUSABLE_REQUIRES_INSPECTION"
     )
+
+
+def test_context_reports_observed_bytes_and_budget_omissions(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.steward.repository.git", lambda *_: "a" * 40)
+    (tmp_path / "one.txt").write_text("é🙂x", encoding="utf-8")
+    (tmp_path / "two.txt").write_text("b", encoding="utf-8")
+    selected = context(tmp_path, ["one.txt", "two.txt", "missing.txt"], max_chars=2)
+    assert selected["characters"] == 2
+    assert selected["sources"][0]["content"] == "é🙂"
+    assert selected["budget"] == {
+        "requested_docs": 3,
+        "selected_docs": 1,
+        "complete_docs": 0,
+        "utf8_bytes": 6,
+        "budget_omissions": 1,
+        "input_tokens": None,
+        "tool_definitions_exposed": None,
+    }
 
 
 def test_all_manifest_work_is_accounted_for_and_real_dependencies_survive():
