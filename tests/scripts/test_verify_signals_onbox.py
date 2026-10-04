@@ -88,6 +88,11 @@ def test_what_leaves_the_box_is_aggregates_only(box, capsys, monkeypatch):
         lambda: {"state": "connected", "capturedAt": "2026-10-04T00:00:00Z"},
     )
     monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box)])
+    # main() chdirs into the app dir and prepends it to sys.path, as a
+    # script on the box should; pin both so they are restored afterwards
+    # (a leaked cwd broke a later subprocess test: `No module named 'src'`).
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(sys, "path", list(sys.path))
     assert mod.main() == 0
     text = capsys.readouterr().out
     public = json.loads(text)
