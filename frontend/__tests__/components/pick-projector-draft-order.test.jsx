@@ -1,0 +1,94 @@
+/**
+ * Pick Projector v2 — slots come from the season simulation under the
+ * league's draft-order rule, and only the next class is forecast.  A pick
+ * with no slot forecast is shown as such, never as a guessed slot or as a
+ * "low" confidence reading.
+ */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import PickProjectorPanel, {
+  slotForecastReasonText,
+} from "@/app/league/sections/_pick-projector.jsx";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+const PICK = (over = {}) => ({
+  season: 2027,
+  round: 1,
+  seasonsOut: 1,
+  projectedSlot: 1,
+  projectedPickNumber: 1,
+  label: "2027 1.01",
+  confidence: "high",
+  slotConfidence: "high",
+  expectedSlot: 1.2,
+  slotDistribution: [0.8, 0.2],
+  slotForecastUnavailableReason: null,
+  ownerRosterId: 1,
+  ownerTeam: "Rebuilders",
+  originalRosterId: 1,
+  originalTeam: "Rebuilders",
+  ...over,
+});
+
+describe("slotForecastReasonText", () => {
+  it("names every backend reason in plain language", () => {
+    for (const reason of [
+      "class_beyond_simulated_season",
+      "no_draft_order_rule_for_league",
+      "no_fresh_season_simulation",
+      "simulation_published_no_slot_distribution",
+      "simulated_season_unknown",
+      "originating_team_not_in_simulation",
+    ]) {
+      const text = slotForecastReasonText(reason);
+      expect(text).toBeTruthy();
+      expect(text).not.toMatch(/_/);
+    }
+  });
+
+  it("is null when a slot exists and generic for an unknown reason", () => {
+    expect(slotForecastReasonText(null)).toBeNull();
+    expect(slotForecastReasonText("new_reason")).toBe(
+      "No slot forecast is available.",
+    );
+  });
+});
+
+describe("PickProjectorPanel (draft-order rule)", () => {
+  it("renders a forecast class with its slot and a later class without one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          projectedOrder: [],
+          picks: [
+            PICK(),
+            PICK({
+              season: 2028,
+              seasonsOut: 2,
+              projectedSlot: null,
+              projectedPickNumber: null,
+              label: "2028 Round 1",
+              confidence: null,
+              slotConfidence: null,
+              slotForecastUnavailableReason: "class_beyond_simulated_season",
+            }),
+          ],
+          meta: { pickOwnershipState: "observed", unprojectablePicks: 0 },
+        }),
+      })),
+    );
+    render(<PickProjectorPanel leagueKey="dynasty_main" />);
+    await waitFor(() => expect(screen.getByText("2027 1.01")).toBeTruthy());
+    expect(screen.getByText("2028 Round 1")).toBeTruthy();
+    const noSlot = screen.getByTestId("pick-projector-no-slot");
+    expect(noSlot.textContent).toBe("No slot forecast");
+    expect(noSlot.getAttribute("title")).toMatch(/Only next season/);
+    expect(screen.getByText(/draft-order rule/)).toBeTruthy();
+    expect(screen.queryByText(/roster strength/)).toBeNull();
+  });
+});

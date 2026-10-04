@@ -2,10 +2,13 @@
 
 // PickProjectorPanel — where future picks are projected to land.
 //
-// Backs onto /api/ros/pick-projections, which projects the rookie-draft
-// order (reverse standings) from the ROS team-strength composite and
-// joins it against live pick ownership. This component is the first
-// caller that endpoint has ever had.
+// Backs onto /api/ros/pick-projections, which reads the league's season
+// simulation under the canonical draft-order rule (worst final record picks
+// first, ties broken by lower Points For) and joins it against live pick
+// ownership. Team Strength does not decide the order. Only the class drafted
+// after the simulated season gets a slot; later classes, and leagues with no
+// recorded rule or no fresh simulation, come back with projectedSlot null and
+// a named reason — rendered as such, never as a guessed slot.
 //
 // Projection/context ONLY. Blended pick values come from the canonical
 // pipeline (rookie-pool tethering + the multiplicative future-year
@@ -36,6 +39,27 @@ const QUIET_ERRORS = new Set(["no_snapshot", "no_teams"]);
 
 export function confidenceStyle(confidence) {
   return CONFIDENCE_STYLE[confidence] || CONFIDENCE_STYLE.low;
+}
+
+// Why a pick has no projected slot (backend slotForecastUnavailableReason).
+const SLOT_FORECAST_REASON_TEXT = {
+  class_beyond_simulated_season:
+    "Only next season's draft is forecast; this class is further out.",
+  no_draft_order_rule_for_league:
+    "This league has no recorded draft-order rule, so no slot is forecast.",
+  no_fresh_season_simulation:
+    "No current season simulation is available yet.",
+  simulation_published_no_slot_distribution:
+    "The season simulation has no games to forecast from yet.",
+  simulated_season_unknown: "The simulated season is unknown.",
+  originating_team_not_in_simulation:
+    "The original team is not in the season simulation.",
+};
+
+/** Plain-language reason a pick carries no projected slot, or null. */
+export function slotForecastReasonText(reason) {
+  if (!reason) return null;
+  return SLOT_FORECAST_REASON_TEXT[reason] || "No slot forecast is available.";
 }
 
 /**
@@ -132,16 +156,17 @@ export default function PickProjectorPanel({ leagueKey }) {
           marginBottom: 4,
         }}
       >
-        Where future picks are projected to land, from current roster strength.
-        Draft order is reverse standings, so the weakest projected team picks
-        1.01.
+        Where next season&apos;s picks are projected to land, from the season
+        simulation under this league&apos;s draft-order rule: the worst final
+        record picks first, and a tied record goes to the lower Points For.
       </div>
       <div
         style={{ fontSize: "0.66rem", color: "var(--muted)", marginBottom: 10 }}
       >
         Projected slots only — pick <em>values</em> come from the rankings
-        pipeline and are not affected by this panel. Confidence is capped by how
-        far out the draft is: nothing three seasons away is better than low.
+        pipeline and are not affected by this panel. Confidence is how likely
+        the team is to land within one slot of the projection. Later drafts are
+        listed without a slot rather than guessed.
       </div>
 
       {groups.map(([season, picks]) => (
@@ -187,7 +212,11 @@ export default function PickProjectorPanel({ leagueKey }) {
               </thead>
               <tbody>
                 {picks.map((p, i) => {
+                  const noSlot = p.projectedSlot == null;
                   const style = confidenceStyle(p.confidence);
+                  const noSlotText = slotForecastReasonText(
+                    p.slotForecastUnavailableReason,
+                  );
                   // A pick still with its original team is the boring
                   // case; an acquired one is the reason to read this
                   // table at all, so it is called out rather than left
@@ -211,9 +240,24 @@ export default function PickProjectorPanel({ leagueKey }) {
                           ? p.originalTeam || `Team ${p.originalRosterId}`
                           : "—"}
                       </td>
-                      <td style={{ textAlign: "center", color: style.color }}>
-                        {style.label}
-                      </td>
+                      {noSlot ? (
+                        <td
+                          style={{
+                            textAlign: "center",
+                            color: "var(--muted)",
+                          }}
+                          title={noSlotText || undefined}
+                          data-testid="pick-projector-no-slot"
+                        >
+                          No slot forecast
+                        </td>
+                      ) : (
+                        <td
+                          style={{ textAlign: "center", color: style.color }}
+                        >
+                          {style.label}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -226,8 +270,8 @@ export default function PickProjectorPanel({ leagueKey }) {
       {unprojectable > 0 ? (
         <div style={{ fontSize: "0.66rem", color: "var(--amber)" }}>
           {unprojectable} pick{unprojectable === 1 ? "" : "s"} could not be
-          projected — the originating team has no strength score. Counted rather
-          than dropped silently.
+          projected — the original team is not in the season simulation.
+          Counted rather than dropped silently.
         </div>
       ) : null}
     </div>

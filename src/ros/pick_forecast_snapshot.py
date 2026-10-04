@@ -158,14 +158,13 @@ LEAGUE_FIELDS: tuple[str, ...] = (
     "scoringConfigFingerprint",
 )
 
-#: The rookie-draft order rule has no canonical owner in this repository.
-#: ``pick_projection`` ASSUMES reverse final standings; whether this league
-#: uses that, a lottery, or a max-PF order is recorded nowhere, so the record
-#: says so instead of copying the assumption in as a fact.
-DRAFT_ORDER_RULE_UNOWNED = (
-    "no_canonical_owner: no repository record states this league's rookie-draft "
-    "order rule (reverse standings / lottery / max-PF); pick_projection ASSUMES "
-    "reverse final standings"
+#: The rookie-draft order rule's canonical owner is
+#: ``src/public_league/draft_order.py`` (``config/leagues/draft_order_rules.json``).
+#: A league with no recorded rule is UNKNOWN — recorded as missing with this
+#: reason, never assumed to be reverse standings.
+DRAFT_ORDER_RULE_NOT_RECORDED = (
+    "no_draft_order_rule_recorded: config/leagues/draft_order_rules.json states no "
+    "rookie-draft order rule for this league; no slot forecast is made"
 )
 
 _PROJECTOR_MODULE = REPO_ROOT / "src" / "ros" / "pick_projection.py"
@@ -349,17 +348,17 @@ def projector_identity() -> dict[str, Any]:
     return {
         "module": "src.ros.pick_projection",
         "function": "build_pick_projections",
-        "modelVersion": None,
-        "modelVersionMissingReason": "pick_projection_carries_no_version_constant",
+        "modelVersion": pick_projection.PROJECTOR_VERSION,
         "codeSha256": _file_sha256(_PROJECTOR_MODULE),
         "codeRevision": _git_revision(),
-        "orderRuleAssumed": "reverse_final_standings",
-        "strengthInput": "teamRosStrength",
+        "orderRuleOwner": "src.public_league.draft_order",
+        "slotInput": pick_projection.SLOT_SOURCE,
         "confidenceCeilingByHorizon": dict(pick_projection.CONFIDENCE_CEILING_BY_HORIZON),
         "confidenceCeilingBeyond": pick_projection.CONFIDENCE_CEILING_BEYOND,
-        "confidenceRatios": {
-            "high": pick_projection.CONFIDENCE_HIGH_RATIO,
-            "medium": pick_projection.CONFIDENCE_MEDIUM_RATIO,
+        "confidenceWindow": pick_projection.CONFIDENCE_WINDOW,
+        "confidenceMass": {
+            "high": pick_projection.CONFIDENCE_HIGH_MASS,
+            "medium": pick_projection.CONFIDENCE_MEDIUM_MASS,
         },
     }
 
@@ -693,7 +692,11 @@ def assemble_snapshot(inputs: SnapshotInputs, *, recorded_at: str | None = None)
         league_missing["scoringConfigFingerprint"] = (
             inputs.scoring_fingerprint_reason or "scoring_fingerprint_unavailable"
         )
-    league_missing["draftOrderRule"] = DRAFT_ORDER_RULE_UNOWNED
+    from src.public_league.draft_order import league_draft_order_rule  # noqa: PLC0415
+
+    draft_order_rule = league_draft_order_rule(inputs.league_key)
+    if draft_order_rule is None:
+        league_missing["draftOrderRule"] = DRAFT_ORDER_RULE_NOT_RECORDED
 
     strength_by_rid: dict[int, Mapping[str, Any]] = {}
     for row in inputs.strength_rows or []:
@@ -776,7 +779,7 @@ def assemble_snapshot(inputs: SnapshotInputs, *, recorded_at: str | None = None)
             else None,
             "leagueSettings": league_settings,
             "drafts": [dict(d) for d in inputs.drafts] if inputs.drafts is not None else None,
-            "draftOrderRule": None,
+            "draftOrderRule": draft_order_rule,
             "scoringConfigFingerprint": inputs.scoring_fingerprint,
         },
         "pickOwnership": picks,
@@ -1159,15 +1162,16 @@ def gather_inputs(
 
     if inputs.overlay_teams is None:
         inputs.forecast_reason = f"pick_ownership_unproven:{inputs.overlay_reason}"
-    elif not inputs.strength_rows:
-        inputs.forecast_reason = f"team_strength_unavailable:{inputs.strength_reason}"
     else:
         try:
             from src.ros.pick_projection import build_pick_projections  # noqa: PLC0415
+            from src.ros.playoff_sim import _load_cached_payload  # noqa: PLC0415
 
-            # The exact call /api/ros/pick-projections serves.
+            # The exact call /api/ros/pick-projections serves: the league's
+            # fresh cached season simulation (no slot forecast without one —
+            # the reason travels in the forecast's meta).
             inputs.forecast = build_pick_projections(
-                list(inputs.overlay_teams), list(inputs.strength_rows)
+                list(inputs.overlay_teams), _load_cached_payload(league_key)
             )
         except Exception as exc:  # noqa: BLE001
             inputs.forecast_reason = f"pick_projection_failed:{_reason(exc)}"
