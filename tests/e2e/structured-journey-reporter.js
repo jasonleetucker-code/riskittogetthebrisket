@@ -106,7 +106,14 @@ class StructuredJourneyReporter {
       source_commit: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || "")
         ? process.env.GITHUB_SHA
         : null,
-      target_origin: targetOrigin(process.env.E2E_BASE_URL),
+      api_origin: targetOrigin(
+        process.env.E2E_BASE_URL || "http://127.0.0.1:8000",
+      ),
+      page_origin: targetOrigin(
+        process.env.E2E_PAGE_ORIGIN ||
+          process.env.E2E_BASE_URL ||
+          "http://127.0.0.1:3000",
+      ),
       run_status: result.status,
       counts,
       total_tests: all.length,

@@ -47,7 +47,7 @@ set `E2E_JOURNEY_EVIDENCE=1` before the run. The configured reporters still
 include the stack-death and flaky-test guards. The extra reporter writes
 `tests/e2e/playwright-report/journey-evidence.json` with per-test spec, project,
 outcome, retry count, duration and artifact-presence flags. It stores only the
-target origin, never URL paths, credentials, raw errors, DOM content or
+API and page origins, never URL paths, credentials, raw errors, DOM content or
 attachment paths. The report is ignored by Git. The existing E2E workflow
 enables it and includes it in the 14-day Playwright report artifact. A green
 outcome proves the selected assertions against that run's target, not an

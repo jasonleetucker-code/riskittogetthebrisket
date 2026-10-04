@@ -12,9 +12,12 @@ test("writes bounded structured findings without raw failure or attachment data"
   const outputFile = path.join(directory, "report.json");
   const reporter = new Reporter({ outputFile });
   const originalBase = process.env.E2E_BASE_URL;
+  const originalPage = process.env.E2E_PAGE_ORIGIN;
   const originalSha = process.env.GITHUB_SHA;
   process.env.E2E_BASE_URL =
-    "https://user:secret@chaseupside.com/league?token=secret";
+    "http://user:secret@127.0.0.1:8000/api?token=secret";
+  process.env.E2E_PAGE_ORIGIN =
+    "http://user:secret@127.0.0.1:3000/private?token=secret";
   process.env.GITHUB_SHA = "a".repeat(40);
   try {
     const browserTest = {
@@ -44,7 +47,8 @@ test("writes bounded structured findings without raw failure or attachment data"
     await reporter.onEnd({ status: "passed" });
     const report = JSON.parse(fs.readFileSync(outputFile, "utf8"));
     assert.equal(report.source_commit, "a".repeat(40));
-    assert.equal(report.target_origin, "https://chaseupside.com");
+    assert.equal(report.api_origin, "http://127.0.0.1:8000");
+    assert.equal(report.page_origin, "http://127.0.0.1:3000");
     assert.deepEqual(report.counts, {
       passed: 0,
       failed: 0,
@@ -73,6 +77,8 @@ test("writes bounded structured findings without raw failure or attachment data"
   } finally {
     if (originalBase === undefined) delete process.env.E2E_BASE_URL;
     else process.env.E2E_BASE_URL = originalBase;
+    if (originalPage === undefined) delete process.env.E2E_PAGE_ORIGIN;
+    else process.env.E2E_PAGE_ORIGIN = originalPage;
     if (originalSha === undefined) delete process.env.GITHUB_SHA;
     else process.env.GITHUB_SHA = originalSha;
     fs.unlinkSync(outputFile);
