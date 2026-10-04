@@ -115,6 +115,8 @@ __all__ = [
     "RosterCapacity",
     "assess_roster_capacity",
     "build_capacity_context",
+    "capacity_context_for_team",
+    "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
 ]
@@ -419,6 +421,10 @@ class CapacityContext:
     #: use.  ``None`` means nothing configured, NOT nothing eligible.
     slot_eligibility: Mapping[str, Any] | None = None
     notes: tuple[str, ...] = ()
+    #: The roster settings this context was built under, kept so a context for
+    #: ANOTHER team in the same league (the counterparty) resolves the same cap
+    #: and slots instead of falling back to a different source.
+    roster_settings: Mapping[str, Any] | None = None
 
 
 def _asset_key(asset: RosterAsset) -> str:
@@ -541,7 +547,84 @@ def build_capacity_context(
         by_name=by_name,
         by_id=by_id,
         notes=tuple(notes),
+        roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
     )
+
+
+def capacity_context_for_team(
+    base: CapacityContext,
+    contract: Mapping[str, Any] | None,
+    team: Mapping[str, Any] | None,
+) -> CapacityContext:
+    """A context for another team in ``base``'s league — the counterparty.
+
+    Same league key and roster settings as ``base``, so both sides of a trade
+    are measured against one cap and one set of starter slots.  Nothing is
+    re-derived here: it is :func:`build_capacity_context` for the other team.
+    """
+    return build_capacity_context(
+        contract, base.league_key, team, roster_settings=base.roster_settings
+    )
+
+
+def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, Any]]:
+    """What the releases a trade ADDS are known to cost, on the board scale.
+
+    Wave B (C3-CAP-01): the opportunity cost of the cleanup a trade forces,
+    for a consumer that ranks on it.  Built from ``ForcedDrop.release_cost``
+    (``base x scarcity`` — the same "what does releasing him cost" rule
+    Perfect Draft and Analyze Trade read), never a constant.
+
+    MARGINAL to the trade.  A roster already over the cap owes its existing
+    overage whether or not it trades, so only the drops the trade adds are
+    charged: ``min(over_after, net roster growth)``.  The cleanup releases the
+    ladder's cheapest rungs first, so the drops the trade adds are the
+    most expensive of the selected set.
+
+    Returns ``(cost, basis)``:
+
+    * ``None`` when it cannot be known — cap unknown, or taxi occupancy makes
+      "any drop at all" undetermined.  MISSING IS NEVER ZERO: the caller must
+      not read ``None`` as free.
+    * ``0.0`` when the trade adds no release (legal after, or not growing).
+    * otherwise the cost of the added releases.  With unknown taxi membership
+      only ``over_limit_after_min`` drops are certain, so the cheapest
+      guaranteed added releases are charged and the answer is a lower bound.
+      Unpriced drops and an exhausted ladder likewise make it a lower bound;
+      ``basis`` says so.
+    """
+    requires = capacity.requires_drops
+    if requires is None:
+        return None, {"state": "unknown", "reason": "drop_requirement_undetermined"}
+    if requires is False:
+        return 0.0, {"state": "none"}
+    growth = max(0, capacity.size_after - capacity.size_before)
+    drops = sorted(capacity.forced_drops, key=lambda d: d.rung)
+    lower_bound_reasons: list[str] = []
+    if capacity.certainty != "exact":
+        added = min(capacity.over_limit_after_min or 0, growth)
+        # Lower bound: the cheapest that-many of the drops.
+        charged = sorted(drops, key=lambda d: d.release_cost)[:added]
+        lower_bound_reasons.append("taxi_occupancy_unknown_guaranteed_drops_only")
+    else:
+        added = min(capacity.over_limit_after or 0, growth)
+        charged = drops[len(drops) - added :] if added else []
+    if added == 0:
+        return 0.0, {"state": "none", "reason": "trade_adds_no_release"}
+    priced = [d for d in charged if d.value is not None]
+    if len(priced) < len(charged):
+        lower_bound_reasons.append("unpriced_forced_drops_excluded")
+    if capacity.ladder_exhausted:
+        lower_bound_reasons.append("cut_ladder_exhausted")
+    cost = float(sum(d.release_cost for d in priced))
+    basis: dict[str, Any] = {
+        "state": "lower_bound" if lower_bound_reasons else "exact",
+        "addedReleases": added,
+        "valueScale": "rankDerivedValue",
+    }
+    if lower_bound_reasons:
+        basis["lowerBoundReasons"] = lower_bound_reasons
+    return cost, basis
 
 
 def _resolve_incoming(

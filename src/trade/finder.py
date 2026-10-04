@@ -14,7 +14,7 @@ _rawComposite / _canonicalSiteValues fields).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from src import packages as substrate
 from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
@@ -230,6 +230,9 @@ class TradeCandidate:
     summary: str = ""  # Human-readable one-liner
     ranking_factors: dict = field(default_factory=dict)  # Score component breakdown
     flags: list[str] = field(default_factory=list)  # Active guards/bonuses
+    #: The opponent team this package was generated against (Wave B): the
+    #: counterparty whose roster capacity is reported beside the requester's.
+    counterparty: str | None = None
 
     def markets_used(self) -> list[str]:
         """Which retail markets priced the assets in this trade.
@@ -294,6 +297,7 @@ class TradeCandidate:
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
             "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            "counterparty": self.counterparty,
             # KTC package Value Adjustment.  These used to be spliced in by a
             # wrapper installed over this method at import time; they are part
             # of the payload now, so the shape is readable here.
@@ -771,7 +775,7 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     ktc_delta = give_ktc - recv_ktc  # positive = opponent gets more KTC than they give
 
     # Core arbitrage: we win on model, opponent wins on KTC
-    f_board_edge = board_gain_norm * 50
+    f_board_edge = board_gain_norm * _BOARD_EDGE_WEIGHT
     f_ktc_appeal = opp_appeal * 30
     f_positive_bonus = (1.0 if board_delta > 0 else 0.0) * 10
     arbitrage = f_board_edge + f_ktc_appeal + f_positive_bonus
@@ -854,6 +858,15 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     )
     return tc
 
+
+#: Weight on board gain normalised by the outgoing total.  Shared by the
+#: forced-drop cost (Wave B): a forced release is board value the requester
+#: loses, so it is priced on exactly the scale the board edge is — no second
+#: coefficient.
+_BOARD_EDGE_WEIGHT = 50
+#: Bound on how many ranked candidates the forced-drop rerank evaluates, as a
+#: multiple of ``max_results``.
+_FORCED_DROP_RERANK_WINDOW_MULT = 5
 
 #: Pool bound for asymmetric 2-for-1 / 1-for-2 search in legacy/default mode.
 _ASYMMETRIC_POOL_LIMIT = 30
@@ -1010,6 +1023,69 @@ def _parse_arbitrage_controls(
             excluded_display.append(name)
 
     return opponents, equal_count_only, excluded_keys, excluded_display
+
+
+def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
+    """Apply the requester's forced-drop cost to ``tc`` and return the factor.
+
+    ``-(cost / give_model) * _BOARD_EDGE_WEIGHT`` — the board-edge formula
+    applied to board value the requester loses.  Unknown cost is ``None`` in
+    ``rankingFactors`` with its reason, and moves nothing.
+    """
+    from src.trade.roster_capacity import forced_drop_cost  # noqa: PLC0415
+
+    if capacity is None:
+        tc.ranking_factors["forcedDropCost"] = None
+        tc.ranking_factors["forcedDropCostBasis"] = {
+            "state": "unknown",
+            "reason": "capacity_unavailable",
+        }
+        return 0.0
+    cost, basis = forced_drop_cost(capacity)
+    tc.ranking_factors["forcedDropCostBasis"] = basis
+    if cost is None:
+        tc.ranking_factors["forcedDropCost"] = None
+        return 0.0
+    factor = -(cost / max(tc.give_model_total, 1)) * _BOARD_EDGE_WEIGHT
+    tc.ranking_factors["forcedDropCost"] = round(factor, 2)
+    if factor < 0:
+        tc.arbitrage_score += factor
+        tc.flags.append("forced_drop_cost")
+    return factor
+
+
+def _rerank_with_forced_drop_cost(
+    ranked: list[TradeCandidate],
+    max_results: int,
+    capacity_for: Callable[[TradeCandidate], Any],
+) -> list[TradeCandidate]:
+    """Top-``max_results`` after the forced-drop cost, lazily and bounded.
+
+    ``ranked`` is ordered by (full coverage first, score).  The cost can only
+    LOWER a score, so a candidate's pre-cost key bounds its post-cost key:
+    evaluate in order and stop once ``max_results`` evaluated candidates sit at
+    or above the next unevaluated candidate's bound — exact up to that point.
+    Each evaluation is a cut-ladder solve, so at most
+    ``_FORCED_DROP_RERANK_WINDOW_MULT x max_results`` candidates are evaluated
+    (measured: an over-cap roster otherwise evaluated thousands, 73 s).  A
+    candidate below the window is never surfaced — exactly as it was not
+    before this cost existed.
+    """
+
+    def _key(tc: TradeCandidate) -> tuple[int, float]:
+        return (1 if tc.ktc_coverage == "full" else 0, tc.arbitrage_score)
+
+    evaluated: list[TradeCandidate] = []
+    window = ranked[: max(1, max_results) * _FORCED_DROP_RERANK_WINDOW_MULT]
+    for i, tc in enumerate(window):
+        _forced_drop_factor(tc, capacity_for(tc))
+        evaluated.append(tc)
+        evaluated.sort(key=_key, reverse=True)
+        if len(evaluated) >= max_results:
+            nxt = window[i + 1] if i + 1 < len(window) else None
+            if nxt is None or _key(evaluated[max_results - 1]) >= _key(nxt):
+                break
+    return evaluated[:max_results]
 
 
 def find_trades(
@@ -1313,6 +1389,8 @@ def find_trades(
             outgoing_policy,
             equal_count_only=equal_count_only,
         )
+        for tc in shaped:
+            tc.counterparty = opp_name
         all_trades.extend(shaped)
         enumeration_reports[opp_name] = enum_report
 
@@ -1371,31 +1449,100 @@ def find_trades(
     partial_cov = [t for t in ranked if t.ktc_coverage != "full"]
     ranked = full_cov + partial_cov
 
-    capped = ranked[:max_results]
+    # ── Roster capacity (C3-CAP-01, Wave B) ──────────────────────────
+    # The requester's capacity is assessed per candidate.  With Team Context
+    # ON, the cost of the releases a trade FORCES (``forced_drop_cost``) is a
+    # named ranking component on the board-edge scale: it can only LOWER a
+    # trade, so it reorders and never filters — every candidate that passed
+    # the gates above is still returned in the same count.  OFF (Asset-only)
+    # keeps capacity a report and the ranking untouched.
+    capacity_by_trade: dict[int, Any] = {}
 
-    # Roster capacity, attached to the RETURNED set only.  Scoring every
-    # candidate would pay for a lineup re-solve on thousands of trades nobody
-    # will see; the answer is identical either way because capacity does not
-    # feed the ranking — deliberately, per the "report, never filter" rule
-    # above.
+    def _capacity_for(tc: TradeCandidate) -> Any:
+        key = id(tc)
+        if key not in capacity_by_trade:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                player_names_only,
+            )
+
+            try:
+                capacity_by_trade[key] = assess_roster_capacity(
+                    capacity_context,
+                    incoming_players=player_names_only(tc.receive),
+                    outgoing_players=player_names_only(tc.give),
+                )
+            except Exception:  # noqa: BLE001 — an annotation never drops a trade
+                capacity_by_trade[key] = None
+        return capacity_by_trade[key]
+
+    if use_team_context and capacity_context is not None:
+        capped = _rerank_with_forced_drop_cost(ranked, max_results, _capacity_for)
+    else:
+        capped = ranked[:max_results]
+
     trade_dicts = [t.to_dict() for t in capped]
     if capacity_context is not None:
         from src.trade.roster_capacity import (  # noqa: PLC0415
             assess_roster_capacity,
+            capacity_context_for_team,
             player_names_only,
         )
 
+        counterparty_contexts: dict[str, Any] = {}
+
+        def _counterparty_context(name: str | None) -> Any:
+            if not name:
+                return None
+            if name not in counterparty_contexts:
+                team = next(
+                    (
+                        t
+                        for t in sleeper_teams
+                        if isinstance(t, dict) and str(t.get("name") or "") == name
+                    ),
+                    None,
+                )
+                try:
+                    counterparty_contexts[name] = (
+                        capacity_context_for_team(capacity_context, contract, team)
+                        if team is not None
+                        else None
+                    )
+                except Exception:  # noqa: BLE001 — a report never drops a trade
+                    counterparty_contexts[name] = None
+            return counterparty_contexts[name]
+
         for payload, tc in zip(trade_dicts, capped):
-            try:
-                payload["rosterCapacity"] = assess_roster_capacity(
-                    capacity_context,
-                    incoming_players=player_names_only(tc.receive),
-                    outgoing_players=player_names_only(tc.give),
-                ).to_dict()
-            except Exception:  # noqa: BLE001 — an annotation never drops a trade
-                payload["rosterCapacity"] = {
+            cap = _capacity_for(tc)
+            payload["rosterCapacity"] = (
+                cap.to_dict()
+                if cap is not None
+                else {
                     "unavailable": "assessment_failed",
                     "notes": ["roster capacity could not be computed for this trade"],
+                }
+            )
+            # The counterparty receives what we give and sends what we receive.
+            # Reported, never ranked: their acceptance is scored on the market
+            # board, and pricing their releases on OUR board would mix scales.
+            ctx = _counterparty_context(tc.counterparty)
+            if ctx is None:
+                payload["counterpartyRosterCapacity"] = {
+                    "unavailable": "counterparty_unresolved",
+                    "notes": ["the counterparty's roster did not resolve"],
+                }
+                continue
+            try:
+                payload["counterpartyRosterCapacity"] = assess_roster_capacity(
+                    ctx,
+                    incoming_players=player_names_only(tc.give),
+                    outgoing_players=player_names_only(tc.receive),
+                ).to_dict()
+            except Exception:  # noqa: BLE001
+                payload["counterpartyRosterCapacity"] = {
+                    "unavailable": "assessment_failed",
+                    "notes": ["counterparty roster capacity could not be computed"],
                 }
 
     return {

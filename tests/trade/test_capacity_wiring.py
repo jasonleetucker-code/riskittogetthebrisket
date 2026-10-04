@@ -345,10 +345,31 @@ def test_finder_results_are_not_filtered_by_capacity():
     with_capacity = find_trades(
         players, "Us", ["Them"], teams, contract=contract, capacity_context=context
     )
+    # Wave B (C3-CAP-01): with Team Context ON the forced-drop cost is a
+    # ranking component, so ORDER may change — but it only lowers scores, so
+    # it never filters: the count is identical.
     assert len(without["trades"]) == len(with_capacity["trades"])
-    assert [t["give"] for t in without["trades"]] == [t["give"] for t in with_capacity["trades"]]
+
+    # Asset-only (Team Context OFF) keeps capacity a pure report: identical order.
+    without_ctx = find_trades(
+        players, "Us", ["Them"], teams, contract=contract, use_team_context=False
+    )
+    with_capacity_off = find_trades(
+        players,
+        "Us",
+        ["Them"],
+        teams,
+        contract=contract,
+        capacity_context=context,
+        use_team_context=False,
+    )
+    assert [t["give"] for t in without_ctx["trades"]] == [
+        t["give"] for t in with_capacity_off["trades"]
+    ]
 
     assert with_capacity["trades"], "fixture produced no arbitrage trades — it proves nothing"
+    for trade in with_capacity["trades"]:
+        assert "forcedDropCost" in trade["rankingFactors"]
     for trade, plain in zip(with_capacity["trades"], without["trades"]):
         assert "rosterCapacity" not in plain
         capacity = trade["rosterCapacity"]
@@ -607,3 +628,32 @@ def test_angle_picks_do_not_consume_a_roster_spot(angle_setup):
     assert block["incoming"] == 0
     assert block["sizeAfter"] == ROSTER_SIZE
     assert block["overLimitAfter"] == 0
+
+
+def test_finder_reports_the_counterparty_capacity_too():
+    """Wave B (C3-CAP-01): both teams' roster consequences are reported.
+
+    The counterparty receives what we give and sends what we receive; its
+    block is a report (never ranked — its acceptance is scored on the market).
+    """
+    from src.trade.finder import find_trades
+
+    pool = _pool()
+    roster = _roster_names(pool, ROSTER_SIZE)
+    contract = _contract_for(pool, roster)
+    context = build_capacity_context(
+        contract, None, contract["sleeper"]["teams"][0], roster_settings=SETTINGS
+    )
+    players, teams = _finder_inputs(pool, roster, contract)
+    result = find_trades(
+        players, "Us", ["Them"], teams, contract=contract, capacity_context=context
+    )
+    assert result["trades"]
+    them = next(t for t in teams if t["name"] == "Them")
+    for trade in result["trades"]:
+        assert trade["counterparty"] == "Them"
+        other = trade["counterpartyRosterCapacity"]
+        assert other["sizeBefore"] == len(them["players"])
+        assert other["incoming"] == len(trade["give"])
+        assert other["outgoing"] == len(trade["receive"])
+        assert other["rosterLimit"] == ROSTER_SIZE
