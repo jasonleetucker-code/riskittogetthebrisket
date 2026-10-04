@@ -1325,6 +1325,55 @@ tests the PROPERTY (the premium is applied and published) plus AST guards that
 no generator bypasses the adjusting scorer and the ``__init__`` has no
 executable statements.
 
+**Forced-drop opportunity cost and both teams (Wave B, C3-CAP-01).**
+``roster_capacity.forced_drop_cost`` prices the releases a trade ADDS —
+``min(overLimitAfter, net roster growth)``, from ``ForcedDrop.release_cost`` —
+so a roster already over the cap is not charged its existing overage.  ``None``
+when undeterminable (never free); taxi-unknown / unpriced / exhausted-ladder
+answers are labelled lower bounds.  With Team Context ON the finder charges it
+as ``rankingFactors.forcedDropCost = -(cost / give_model) x _BOARD_EDGE_WEIGHT``
+— the board-edge scale, no second coefficient — via a lazy top-K bounded to
+``5 x max_results``.  It only lowers a score, so the rule above still holds:
+it reorders, it filters nothing.  Asset-only keeps capacity a pure report.
+Every finder / angle candidate also carries ``counterpartyRosterCapacity``
+(``counterparty_context_resolver`` + ``counterparty_capacity_block``, same
+owner); it is reported, never ranked — the counterparty's acceptance is scored
+on the market board, and pricing its releases on ours would mix scales.
+
+**Generated-trade topology (C3-TOPO-01).**  Every generator applies
+``src/packages/construction.py::topology_is_allowed`` (``abs(players_A -
+players_B) <= 1``, picks are not players): the finder through
+``enumerate_packages`` (default mode adds top-6 2v2 / 3v2 / 2v3), angle per
+generated side (``thresholds.topologyRejected``), and the suggestions
+equalizer per addition.  A balancer is never a draft pick (C7-PICKGEN-01
+rule 5: picks enter generated trades only through a posture-aware
+generator).
+
+### Competitive Posture — one owner (#840 / C7-POST-01, Wave B)
+
+``src/roster_intel/window.py::competitive_posture`` publishes PUSH / HOLD /
+RETOOL / REBUILD as an explained probabilistic classification over the
+continuous competitive window (owner decision 2026-09-24; map owner-chosen
+2026-10-03, every constant a declared PRIOR, ``paramsVersion
+posture_v1_prior``): PUSH = both contender states; RETOOL / REBUILD split
+``productive_struggle`` by trajectory; ``season_timing`` (week + the LEAGUE's
+own ``trade_deadline``) sharpens the split toward the deadline; HOLD is the
+share of a 3x3 perturbation grid over the window's measured inputs on which
+the directional label flips — no probability cut, and labels change direction
+only through HOLD (pinned by a sweep).  No competitiveness evidence is HOLD.
+
+Consumers read it, never re-derive it: ``gameplan.league_competitive_postures``
+(the cached league bundle's windows; warm-only mode for latency-sensitive
+callers), ``trade_simulator.competitive_posture_for`` (resolved by the ROUTE so
+``simulate_trade`` stays pure), ``team_impact`` window fit (the hard-threshold
+``_classify_window`` is retired; no posture = ``windowFit: null``), and Analyze
+Trade's ``strategicPosture`` lens, which has ``votes=False`` — posture
+interprets evidence the other lenses already carry, so voting would count it
+twice, and it is never a veto.  ``ros/direction.py`` (public deadline
+buyer/seller) and BDVM's direction remain separately named concepts.
+
+Use Team Context is read in ONE place: ``src/trade/team_context.py``.
+
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
 derived.  Full reference: ``docs/faab-model.md``.
