@@ -91,6 +91,11 @@ from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
+from src.api.schemas.leagues import (
+    AuthenticatedLeaguesResponse,
+    LeaguesResponse,
+    PublicLeaguesResponse,
+)
 from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
@@ -5582,8 +5587,8 @@ def _fetch_sleeper_user_team(
     return value
 
 
-@app.get("/api/leagues")
-async def get_leagues(request: Request):
+@app.get("/api/leagues", response_model=LeaguesResponse, response_model_exclude_unset=True)
+async def get_leagues(request: Request, response: Response):
     """List every configured league.
 
     Public endpoint — the response contains no secrets (no Sleeper
@@ -5666,7 +5671,10 @@ async def get_leagues(request: Request):
     if session:
         user_default = _league_registry.get_user_default_league(session.get("username") or "")
         body["userDefaultKey"] = user_default.key if user_default else None
-    return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
+    response.headers["Cache-Control"] = "no-store"
+    if session:
+        return AuthenticatedLeaguesResponse.model_validate(body)
+    return PublicLeaguesResponse.model_validate(body)
 
 
 # ── League Comparison ─────────────────────────────────────────────────
