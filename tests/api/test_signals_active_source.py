@@ -27,6 +27,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -583,6 +584,63 @@ class TestMissingAndProvisioning:
         _write_store(tmp_path)
         avail = private_source_availability(tmp_path)
         assert {avail[k]["state"] for k in SIGNALS_KEYS} == {PRIVATE_SOURCE_PRESENT}
+
+
+def _stale_board(root: Path, *, age: timedelta) -> dict[str, bytes]:
+    from src.sources import dataset_state as DS
+
+    _write_store(root)
+    state_dir = root / "data" / "scrape_state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    old = datetime.now(timezone.utc) - age
+    DS.record_source_file(
+        source_key="signalsSf",
+        csv_path=S.board_csv_path(root / "data" / "sources" / "signals", "signalsSf"),
+        signal="rank",
+        state_dir=state_dir,
+        observed_at=old,
+        upstream_published_at=old.isoformat(),
+        track_rows=False,
+    )
+    return {p.name: p.read_bytes() for p in state_dir.iterdir()}
+
+
+class TestExpiredSession:
+    """Auth expiry end to end.  The collector stops making requests (pinned in
+    tests/sources/test_signals_values.py), so the board on disk is the last
+    good one and the scrape state keeps its old clocks.  The contract still
+    builds and Signals' weight follows that TRUE age — building the board
+    refreshes no clock, and a board past its cadence budget stops voting
+    rather than passing as current."""
+
+    def test_a_few_days_stale_still_votes_at_a_decayed_weight(self, tmp_path):
+        before = _stale_board(tmp_path, age=timedelta(hours=60))
+        contract = _build(tmp_path)
+        assert contract["privateSourceAvailability"]["signalsSf"]["votes"] is True
+        metas = [
+            r["sourceRankMeta"]["signalsSf"]
+            for r in contract["playersArray"]
+            if (r.get("sourceRankMeta") or {}).get("signalsSf")
+        ]
+        assert metas and any(_voted(m) for m in metas)
+        # The age is measured against the build's own as-of clock, so it is
+        # the stamped age that is asserted, not wall-clock arithmetic.
+        assert all(0.0 < m["freshness"] < 1.0 for m in metas)
+        assert all(m["freshnessAgeHours"] > 24 for m in metas)
+        state_dir = tmp_path / "data" / "scrape_state"
+        assert {p.name: p.read_bytes() for p in state_dir.iterdir()} == before
+
+    def test_weeks_stale_stops_voting_but_keeps_its_evidence(self, tmp_path):
+        before = _stale_board(tmp_path, age=timedelta(days=20))
+        contract = _build(tmp_path)
+        row = _rows(contract)[_off(0)]
+        meta = row["sourceRankMeta"]["signalsSf"]
+        assert not _voted(meta)
+        assert meta["freshness"] == 0.0 and meta["freshnessAgeHours"] > 14 * 24
+        assert meta["excludedReason"] == "freshness_or_health_zero_weight"
+        assert row["sourceNativeValues"]["signalsSf"] == 8550.0  # still visible
+        state_dir = tmp_path / "data" / "scrape_state"
+        assert {p.name: p.read_bytes() for p in state_dir.iterdir()} == before
 
 
 # ── 13: rollback ─────────────────────────────────────────────────────────

@@ -628,8 +628,21 @@ class TestPrivacy:
         for wf in (repo / ".github" / "workflows").glob("*.yml"):
             text = wf.read_text(encoding="utf-8")
             assert "data/sources" not in text, wf.name
+        # Deploy scripts may BACK UP the box-local store (the nightly state
+        # backup + its restore proof copy it off the app tree), but nothing
+        # may stage it into git, and no script may touch the owner session.
         for sh in (repo / "deploy").rglob("*.sh"):
-            assert "data/sources/signals" not in sh.read_text(encoding="utf-8"), sh.name
+            text = sh.read_text(encoding="utf-8")
+            for line in text.splitlines():
+                code = line.split("#", 1)[0]
+                if "sources/signals" in code:
+                    assert "git " not in code, (sh.name, line)
+        # The backup writer and its proof never name the session store.
+        for sh in (repo / "deploy" / "backup").rglob("*.sh"):
+            for line in sh.read_text(encoding="utf-8").splitlines():
+                code = line.split("#", 1)[0]
+                assert "signals-auth" not in code, (sh.name, line)
+                assert "signals_auth" not in code, (sh.name, line)
 
     def test_ci_never_writes_signals_dataset_state(self):
         from scripts.record_source_datasets import PROD_TIMER_OWNED_KEYS

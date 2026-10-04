@@ -652,3 +652,41 @@ def test_the_proof_skips_the_nightly_check_when_the_unit_is_not_installed(tmp_pa
     out = result.stdout + result.stderr
     assert result.returncode == 0, out
     assert "last exit status is not checked" in out, out
+
+
+# ── Signals private store: backed up, restorable, credentials excluded ──
+
+
+def test_the_signals_store_is_backed_up_and_restores_without_the_session(tmp_path):
+    """The box-local Signals releases are durable state (the vendor serves
+    current values only), so the nightly copies them — and only them: the
+    owner session lives under its own owner and must never ride along."""
+    data = _data(tmp_path)
+    store = data / "sources" / "signals"
+    release = store / "values" / "sf" / "releases" / "2026-10-04T00-00-00Z.json"
+    release.parent.mkdir(parents=True)
+    release.write_text('{"rowCount": 1}', encoding="utf-8")
+    (store / "values" / "sf" / "fetch_state.json").write_text("{}", encoding="utf-8")
+    (store / "board").mkdir(parents=True)
+    (store / "board" / "signalsSf.csv").write_text("name,rank\nA,1\n", encoding="utf-8")
+    # A session file beside the data tree, as if mis-configured: never copied.
+    auth = tmp_path / "var" / "lib" / "signals-auth"
+    auth.mkdir(parents=True)
+    (auth / "session.json").write_text('{"refreshToken": "secret"}', encoding="utf-8")
+
+    res = _run(tmp_path, data)
+    assert res.returncode in (0, 3), res.stdout + res.stderr
+    tgz = _gen(tmp_path) / "dirs" / "signals_sources.tar.gz"
+    assert tgz.is_file(), res.stdout + res.stderr
+
+    restore = tmp_path / "restore"
+    with tarfile.open(tgz) as tf:
+        names = tf.getnames()
+        tf.extractall(restore, filter="data")
+    assert "signals/values/sf/releases/2026-10-04T00-00-00Z.json" in names
+    assert (restore / "signals" / "board" / "signalsSf.csv").read_text(
+        encoding="utf-8"
+    ) == "name,rank\nA,1\n"
+    assert not any("session" in n or "signals-auth" in n for n in names), names
+    for member in (_gen(tmp_path)).rglob("*"):
+        assert "signals-auth" not in member.name
