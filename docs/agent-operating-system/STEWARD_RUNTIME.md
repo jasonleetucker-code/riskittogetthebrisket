@@ -166,6 +166,14 @@ it cannot claim automatic switching of its own active model.
 Route receipts preserve task, profile, reason, model, effort, context references,
 acceptance and measurements. Unexposed token/cache/time/cost/allowance fields
 stay null, never zero. Report generation is not model execution.
+Saved `brief` receipts also carry a trace ID and bounded execution spans for
+GitHub observation (when requested) and brief construction. Each span records
+the actual duration, exact repository head, authority class and evidence refs.
+Provider/model are recorded only when explicitly attributed by the caller;
+token and cost measurements stay null because these operations do not expose
+them. Spans live in the existing private receipt evidence, not a new store.
+They establish report execution timing, not agent-turn or tool-executor
+coverage. No eval grade or model routing decision is inferred from them.
 `retrospective` groups comparable task classes, exposes measurement coverage
 and proposes challengers without promoting them. `diagnose_failures` records
 specific rule references when repeated independent failures suggest an
