@@ -58,7 +58,7 @@ it does not imply that every proposed measurement is implemented.
 | Steward routing scorecards | Group only like task class/profile/model/reasoning, count evaluated acceptance only with artifact evidence, expose metric coverage and nulls; report challengers without promotion. | Unit tests for missing evidence/cost, mixed profiles, no auto-promotion; real saved receipt still reports unavailable model tokens/cost as null. |
 | Steward execution diagnostics | Add optional harness/loop/graph attribution beside existing diagnosis; retain UNKNOWN when cause is not evidenced. Count context/tool data only when observable. | A claimed layer without cause evidence remains UNKNOWN; negative guard test. |
 | Agent evals | Add behavioral trace cases and actual prior-failure fixtures; keep exact-head and source-receipt verification. | Sabotage of completion/current-head/authority assertions fails the relevant case. |
-| Decision advisor research | Compare typed port/shadow against current deterministic route on held-out Calculator decisions. | Per-family calibration, risk/coverage, latency, memory and cost; no active provider or authority change until evidence and normal review. |
+| Decision advisor research | An offline typed task-profile shadow port compares file-supplied answers to current deterministic `classify`; no provider is connected. | Held-out labeled decisions, per-family calibration, risk/coverage, latency, memory and cost remain missing; no active provider or authority change until evidence and normal review. |
 | Class-B then fan-out | Prove workspace/path/network/credential caps before any write-capable worker. | Denied-action tests and independent fan-in on exact artifacts. |
 
 ## Open evidence gaps

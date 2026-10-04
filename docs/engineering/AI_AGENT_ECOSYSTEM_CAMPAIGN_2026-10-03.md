@@ -34,6 +34,7 @@ production permissions.
 | Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | IN PROGRESS — `/api/leagues` pilot plus generated parity; CI/production pending | Public/private schema tests, OpenAPI, deterministic type parity |
 | Application trace and SLOs | Existing API/log/performance owners | IN PROGRESS — `/api/leagues` trace pilot; source spans and SLOs pending | Correlated route and source evidence, privacy, failure isolation |
 | Steward spans, eval bridge, routing scorecards | `src/steward/`, `agent-evals/` | IN PROGRESS — draft span, receipt bridge, scorecard and trace-behavior PRs; context command budget counts in next unit; no integration proof | Real run artifact, exact-revision grading, challenger only |
+| Optional typed decision advisor | Existing Steward router/evals | SHADOW PORT IN PROGRESS — offline task-profile comparison only; no provider, labeled corpus, calibration or active routing | Simple baseline, held-out task labels, per-family calibration and risk/coverage before any advisory use |
 | Class-B executor and isolation | Existing Steward controller/contracts | NOT STARTED | Denied path/command/network/credential tests; branch-only PR |
 | Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | NOT STARTED | Structured findings plus deterministic assertions |
 | Final reconciliation | Canonical docs, CI, deploy and production evidence | NOT STARTED | Exact merged and served identity; unresolved debt |
