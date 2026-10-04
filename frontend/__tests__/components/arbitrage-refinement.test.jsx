@@ -219,4 +219,20 @@ describe("/arbitrage package refinement", () => {
       "Other Team's roster: may need a release (taxi occupancy unknown)",
     );
   });
+
+  it("labels a derived pick market value as derived, never a native price", async () => {
+    const user = userEvent.setup();
+    const body = payload("Target Bob");
+    body.trades[0].give.push({
+      name: "2027 1st (My Team)",
+      position: "PICK",
+      modelValue: 5800,
+      ktcValue: 5967,
+      marketDerivation: { basis: "plain_ktc_tier_average", isNativeMarketPrice: false },
+    });
+    global.fetch = vi.fn().mockResolvedValue(response(body));
+    render(<ArbitragePage />);
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    expect(await screen.findByText(/KTC tier average — slot unknown/)).toBeInTheDocument();
+  });
 });

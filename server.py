@@ -8588,6 +8588,34 @@ async def post_trade_suggestions(request: Request):
     return JSONResponse(content=result)
 
 
+def _finder_postures(contract: Any, league_cfg: Any, sleeper_teams: Any) -> dict[str, str] | None:
+    """``{team name: posture label}`` from the canonical owner, or ``None``.
+
+    Measured labels only: a no-evidence HOLD carries no direction, so it is
+    left out rather than treated as a posture.
+    """
+    try:
+        from src.api.gameplan import league_competitive_postures
+        from src.api.league_registry import get_scoring_profile
+
+        postures, _meta = league_competitive_postures(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+    except Exception as exc:  # noqa: BLE001 — context never fails the finder
+        log.info("finder postures unavailable: %s", exc)
+        return None
+    names = {
+        str(t.get("ownerId") or ""): str(t.get("name") or "")
+        for t in (sleeper_teams or [])
+        if isinstance(t, dict)
+    }
+    return {
+        names[oid]: p.label
+        for oid, p in postures.items()
+        if names.get(oid) and p.evidence == "measured"
+    }
+
+
 @app.post("/api/trade/finder")
 async def post_trade_finder(request: Request):
     """Find board-arbitrage trades: good for me on our model, plausible for them on KTC.
@@ -8693,6 +8721,14 @@ async def post_trade_finder(request: Request):
     from src.trade.team_context import team_context_requested
 
     use_team_context = team_context_requested(body)
+    # C7-PICKGEN-01: the canonical Competitive Posture per team (by name), so
+    # the finder can consider posture-aware picks.  Context only; absent on
+    # any failure, which keeps generation player-only.
+    finder_postures = (
+        await run_in_threadpool(_finder_postures, contract, league_cfg, sleeper_teams)
+        if use_team_context
+        else None
+    )
 
     try:
         result = await run_in_threadpool(
@@ -8710,6 +8746,7 @@ async def post_trade_finder(request: Request):
             # composite, which no other engine and no UI surface reads.
             contract=contract,
             use_team_context=use_team_context,
+            postures=finder_postures,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")

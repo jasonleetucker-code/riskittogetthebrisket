@@ -180,6 +180,12 @@ class Asset:
     source_count: int = 0  # Number of valuation sources
     market_rank: int | None = None  # 1-based rank WITHIN this asset's market
     market_source: str | None = None  # "ktcSfTep" | "ktc" | "idpTradeCalc"
+    #: Canonical owned-pick id (``pick:<league>:<season>:r<N>:o<rid>``) for a
+    #: league pick; empty for board assets.  Identity for dedup.
+    asset_id: str = ""
+    #: How ``market_value`` was obtained when it is NOT a native market price
+    #: (C7-PICKGEN-01: ``src/trade/pick_market`` derivation), with provenance.
+    market_derivation: dict | None = None
 
     @property
     def has_market(self) -> bool:
@@ -257,6 +263,12 @@ class TradeCandidate:
                 "ktcValue": a.ktc_value,
                 "ktcRank": a.ktc_rank,
             }
+            if a.asset_id:
+                d["assetId"] = a.asset_id
+            if a.market_derivation is not None:
+                # The market number is DERIVED (generic unknown-slot pick), not
+                # a native vendor price for this asset — the name travels.
+                d["marketDerivation"] = a.market_derivation
             return d
 
         return {
@@ -1089,6 +1101,188 @@ def _rerank_with_forced_drop_cost(
     return evaluated[:max_results]
 
 
+#: C7-PICKGEN-01: pool bound for the player cores a posture-aware pick is
+#: added to, and how many of a team's owned picks (most valuable first) are
+#: tried.  Bounded because each combination is a full package score.
+_PICK_CORE_POOL_LIMIT = 8
+_PICKS_TRIED_PER_TEAM = 4
+_FUTURE_TILTING = ("RETOOL", "REBUILD")
+
+
+def _owned_pick_assets(
+    team: dict[str, Any] | None,
+    contract: dict[str, Any] | None,
+    players: dict[str, Any],
+    pool_by_name: dict[str, Asset],
+) -> tuple[list[Asset], dict[str, int]]:
+    """The league picks ``team`` owns, as finder assets.
+
+    Identity is the canonical fold (``sleeper.teams[].pickDetails`` /
+    ``assetId``) and the market reference is ``identity.picks.
+    market_resolution`` — nothing here parses a pick label.  Model value is the
+    canonical board's (``pick_value_resolution``).  Market value is the native
+    board row's when the slot or tier is known; for an UNKNOWN slot it is the
+    ``pick_market`` derivation (KTC tier average, PRIOR), labelled.  An
+    unpublished inventory (#1618) yields no picks; an unpriced pick is counted,
+    never zeroed.
+    """
+    from src.api.pick_value_resolution import resolve_pick_value  # noqa: PLC0415
+    from src.identity.picks import market_resolution, round_suffix  # noqa: PLC0415
+    from src.trade.pick_market import unknown_slot_market_value  # noqa: PLC0415
+
+    stats = {"owned": 0, "priced": 0, "unpriced": 0}
+    details = (team or {}).get("pickDetails")
+    if not isinstance(details, list) or not isinstance(contract, dict):
+        return [], stats
+    try:
+        current_draft_year = int(contract.get("currentDraftYear"))
+    except (TypeError, ValueError):
+        return [], stats
+    unfiltered: dict[str, Asset] | None = None
+    out: list[Asset] = []
+    for d in details:
+        if not isinstance(d, dict):
+            continue
+        try:
+            year, rnd = int(d.get("season")), int(d.get("round"))
+        except (TypeError, ValueError):
+            continue
+        stats["owned"] += 1
+        slot = d.get("slot") if isinstance(d.get("slot"), int) else None
+        res = market_resolution(
+            year=year, round_num=rnd, slot=slot, current_draft_year=current_draft_year
+        )
+        model = resolve_pick_value(contract, res.ref).value
+        market: int | None = None
+        derivation: dict | None = None
+        source: str | None = None
+        if res.basis == "unknown_slot":
+            if unfiltered is None:
+                # KTC's own tier values, before this engine's top-N quality
+                # gate: a tier below the cut is still a published price.
+                unfiltered = {a.name: a for a in build_asset_pool(players, market_top_n=0)}
+            sfx = round_suffix(rnd)
+            tiers = {
+                t: (unfiltered.get(f"{year} {t.capitalize()} {sfx}") or Asset("", "", "", 0, None))
+                for t in ("early", "mid", "late")
+            }
+            est = unknown_slot_market_value(
+                year, rnd, {t: a.market_value for t, a in tiers.items()}
+            )
+            market = est.value
+            derivation = est.to_dict()
+            source = "ktc_tier_average"
+        else:
+            row = pool_by_name.get(res.ref.board_row_name() or "")
+            if row is not None and row.has_market:
+                market, source = row.market_value, row.market_source
+        if model is None or market is None or model < MIN_ASSET_VALUE:
+            stats["unpriced"] += 1
+            continue
+        stats["priced"] += 1
+        # Named by the ORIGINATING franchise ("2027 1st (Blaine)"): unambiguous
+        # from either side of the trade, unlike "(own)".
+        origin = str(d.get("fromTeam") or f"roster {d.get('fromRosterId')}")
+        out.append(
+            Asset(
+                name=f"{year} {round_suffix(rnd)} ({origin})",
+                position="PICK",
+                team="",
+                model_value=int(model),
+                market_value=int(market),
+                is_pick=True,
+                source_count=2,
+                market_source=source,
+                asset_id=str(d.get("assetId") or ""),
+                market_derivation=derivation,
+            )
+        )
+    out.sort(key=lambda a: -a.model_value)
+    return out, stats
+
+
+def _posture_pick_packages(
+    my_roster: list[Asset],
+    opp_roster: list[Asset],
+    my_picks: list[Asset],
+    opp_picks: list[Asset],
+    my_posture: str | None,
+    opp_posture: str | None,
+    outgoing_policy: Any,
+    *,
+    equal_count_only: bool,
+) -> tuple[list[TradeCandidate], str | None]:
+    """Pick-inclusive packages for a COMPLEMENTARY posture pair only.
+
+    C7-PICKGEN-01: picks enter a generated trade because the two teams value
+    present production and future capital differently — never as filler.
+
+    * PUSH requester vs RETOOL/REBUILD opponent: the requester may ADD one of
+      its own picks to what it sends.
+    * RETOOL/REBUILD requester vs PUSH opponent: the requester may ASK for one
+      of the opponent's picks.
+    * HOLD or same-direction pairs: none (player-only).
+
+    A pick-inclusive package is kept only when it beats its own player-only
+    core on the finder's objective, or rescues a core that failed a gate
+    (the "two-team objective mismatch" a pick legitimately solves).  Picks are
+    not players, so the core's C3-TOPO-01 topology is the package's.
+    """
+    if my_posture == "PUSH" and opp_posture in _FUTURE_TILTING:
+        side, picks, pair = "give", my_picks, f"PUSH->{opp_posture}"
+    elif my_posture in _FUTURE_TILTING and opp_posture == "PUSH":
+        side, picks, pair = "receive", opp_picks, f"{my_posture}->PUSH"
+    else:
+        return [], None
+    if not picks:
+        return [], pair
+    shapes = (
+        [substrate.PackageShape(1, 1), substrate.PackageShape(2, 2)]
+        if equal_count_only
+        else [
+            substrate.PackageShape(1, 1),
+            substrate.PackageShape(2, 1),
+            substrate.PackageShape(1, 2),
+        ]
+    )
+    cores, _report = substrate.enumerate_packages(
+        my_roster,
+        opp_roster,
+        outgoing_policy=outgoing_policy,
+        policy=substrate.EligibilityPolicy(
+            min_value=MIN_ASSET_VALUE, allow_unknown_value=False, require_position=False
+        ),
+        shapes=shapes,
+        pool_limit=_PICK_CORE_POOL_LIMIT,
+        rank_key=substrate.by_value_desc,
+    )
+    out: list[TradeCandidate] = []
+    for pair_ in cores:
+        give, receive = pair_.sources()
+        core = _score_trade(give, receive)
+        best: TradeCandidate | None = None
+        for pick in picks[:_PICKS_TRIED_PER_TEAM]:
+            g, r = (give + [pick], receive) if side == "give" else (give, receive + [pick])
+            tc = _score_trade(g, r)
+            if tc is None:
+                continue
+            if core is not None and tc.arbitrage_score <= core.arbitrage_score:
+                continue
+            if best is None or tc.arbitrage_score > best.arbitrage_score:
+                best = tc
+        if best is not None:
+            best.flags.append("posture_aware_pick")
+            best.ranking_factors["pickPosturePair"] = pair
+            if any(a.market_derivation is not None for a in best.give + best.receive):
+                best.flags.append("pick_market_derived")
+                best.summary += (
+                    " The pick's market value is a KTC tier average (unknown slot), "
+                    "not a native KTC price."
+                )
+            out.append(best)
+    return out, pair
+
+
 def find_trades(
     players: dict[str, Any],
     my_team: str,
@@ -1102,6 +1296,7 @@ def find_trades(
     capacity_context: Any | None = None,
     constraints: Any | None = None,
     use_team_context: bool = True,
+    postures: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1110,6 +1305,12 @@ def find_trades(
     ----------
     players : dict
         Raw players dict from the live data payload.
+    postures : dict | None
+        C7-PICKGEN-01.  ``team name -> canonical Competitive Posture label``
+        (``src.roster_intel.window.competitive_posture``), resolved by the
+        route.  With Team Context ON, a complementary pair (PUSH vs
+        RETOOL/REBUILD) may receive pick-inclusive packages; absent or OFF,
+        generation is player-only.
     use_team_context : bool
         V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
         "fills a need" arm consult the canonical Team Weakness owner
@@ -1315,6 +1516,27 @@ def find_trades(
     opponents_analyzed = 0
     warnings: list[str] = []
 
+    # C7-PICKGEN-01 — posture-aware picks.  Team context, so OFF (or no
+    # posture from the canonical owner) keeps generation player-only.
+    pick_generation_on = bool(use_team_context and postures and postures.get(my_team))
+    pick_generation: dict[str, Any] = {
+        "applied": pick_generation_on,
+        "reason": (
+            None
+            if pick_generation_on
+            else ("context_off" if not use_team_context else "no_canonical_posture")
+        ),
+        "myPosture": (postures or {}).get(my_team),
+        "marketBasis": "native board row; unknown slot = plain KTC tier average (PRIOR)",
+        "pairs": {},
+    }
+    my_picks: list[Asset] = []
+    if pick_generation_on:
+        me_team = next((t for t in sleeper_teams if t.get("name") == my_team), None)
+        my_picks, my_pick_stats = _owned_pick_assets(me_team, contract, players, pool_by_name)
+        my_picks = [a for a in my_picks if a.name.strip().casefold() not in excluded_player_keys]
+        pick_generation["myOwnedPicks"] = my_pick_stats
+
     if unpriced_by_board:
         warnings.append(
             f"{unpriced_by_board} assets carry a scraper value above "
@@ -1390,6 +1612,29 @@ def find_trades(
             outgoing_policy,
             equal_count_only=equal_count_only,
         )
+        if pick_generation_on:
+            opp_team = next((t for t in sleeper_teams if t.get("name") == opp_name), None)
+            opp_picks, opp_stats = _owned_pick_assets(opp_team, contract, players, pool_by_name)
+            opp_picks = [
+                a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
+            ]
+            with_picks, pair = _posture_pick_packages(
+                my_roster,
+                opp_filtered,
+                my_picks,
+                opp_picks,
+                postures.get(my_team),
+                postures.get(opp_name),
+                outgoing_policy,
+                equal_count_only=equal_count_only,
+            )
+            shaped.extend(with_picks)
+            pick_generation["pairs"][opp_name] = {
+                "posture": postures.get(opp_name),
+                "pair": pair,
+                "pickInclusiveCandidates": len(with_picks),
+                "ownedPicks": opp_stats,
+            }
         for tc in shaped:
             tc.counterparty = opp_name
         all_trades.extend(shaped)
@@ -1527,6 +1772,12 @@ def find_trades(
             # actually influenced this run's roster-fit bonus, and why not
             # when it did not.
             "teamContext": team_context,
+            "pickGeneration": {
+                **pick_generation,
+                "pickInclusiveReturned": sum(
+                    1 for t in capped if any(a.is_pick for a in t.give + t.receive)
+                ),
+            },
             # Why the outgoing pool may be smaller than the roster.  Published
             # unconditionally: "you protect 22 players" and "no trade exists"
             # must not render identically.

@@ -155,7 +155,11 @@ function AssetList({ assets, onExclude }) {
           <Badge tone="neutral">{a.position}</Badge>
           <span className={styles.assetValues}>
             board {fmt(a.modelValue)}
-            {a.ktcValue != null ? ` · market ${fmt(a.ktcValue)}` : " · unpriced"}
+            {a.ktcValue == null
+              ? " · unpriced"
+              : a.marketDerivation
+                ? ` · market ≈${fmt(a.ktcValue)} (KTC tier average — slot unknown)`
+                : ` · market ${fmt(a.ktcValue)}`}
           </span>
           {onExclude && a.name ? (
             <button
