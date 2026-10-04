@@ -1376,6 +1376,20 @@ buyer/seller) and BDVM's direction remain separately named concepts.
 
 Use Team Context is read in ONE place: ``src/trade/team_context.py``.
 
+### Rookie-draft order — one owner (owner decision 2026-10-04)
+
+``src/public_league/draft_order.py`` owns "which team picks where": reverse
+final REGULAR-SEASON record, teams tied on record ordered by LOWER total Points
+For, recursively (``config/leagues/draft_order_rules.json`` records it for
+``dynasty_main``; any other league is UNKNOWN and gets no slot forecast).  Not
+Max PF, all-play or Team Strength rank — predictive evidence forecasts record
+and PF, it never decides order.  ``playoff_sim`` applies the rule per simulation
+and publishes ``draftSlotDistribution`` / ``finalWins`` / ``finalPointsFor``;
+``src/trade/pick_market.py`` turns that into the generated-trade market side
+(``P_used = c x P + (1-c)/3`` over KTC's native tiers; provisional ``c`` until
+calibrated against realized drafts).  Never the canonical pick value.  Full
+record: ``docs/picks/DRAFT_ORDER_RULE.md``.
+
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
 derived.  Full reference: ``docs/faab-model.md``.
