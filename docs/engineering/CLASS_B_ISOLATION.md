@@ -32,3 +32,34 @@ The next unit must run a worker through this boundary with deterministic
 command/path policy, auditable refusal events, bounded execution and retries,
 isolated branch/worktree handling, and independent verification. A green probe
 alone must not promote `B_REVERSIBLE_BRANCH` to active use.
+
+## Activation gate found after the probe
+
+Read-only GitHub API inspection on 2026-10-04 found active ruleset
+`main-protection` (`19976839`) on the default branch. Its enforced rules are
+deletion and non-fast-forward only. It does not require a pull request or CI
+checks for a fast-forward push. Repository Actions default permissions are
+`write`, though this probe workflow explicitly requests `contents: read` and
+checkout does not persist credentials. A future worker container must not
+receive a repository write token: the token would have more authority than a
+Class-B branch writer may exercise.
+
+The current Windows development host has no Docker or Podman command; `wsl.exe`
+exists, but WSL is not installed. The GitHub-hosted runner proved the container
+boundary, but this probe installs and proves no authorized model runtime inside
+it. The present Codex agent tools run on the host, not inside this container, so a
+claim that they are isolated by this workflow would be false.
+
+An activation design must keep any Git credential outside the untrusted worker
+and use a reviewed coordinator to validate the worker's output, path and
+command policy, exact branch target, and PR-only handoff. The coordinator must
+be unable to let worker content choose a privileged Git ref or executable
+command. `main` governance and scheduled direct-push refreshes must be
+reconciled before granting that coordinator repository write permission. The
+runtime/model choice and that repository authority boundary require an owner
+decision. Until then, `B_REVERSIBLE_BRANCH` stays inactive and the controller
+continues to reject it.
+
+This is an observed repository configuration, not an assertion about all
+GitHub repositories. Recheck the ruleset and Actions permissions at activation
+time; neither API response is immutable.
