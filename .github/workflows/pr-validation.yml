@@ -436,3 +436,26 @@ jobs:
           npm run build:nocheck
           npm run check:bundles
 
+      # Exercise the real Next output through the same manifest, tar layout,
+      # checksum and extracted-byte verifier used by the deploy cutover.
+      - name: Package and verify frontend release candidate
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          commit="$(git rev-parse HEAD)"
+          python -m scripts.release_artifact create \
+            --commit "${commit}" --node-version "$(node --version)" \
+            --run-id "${GITHUB_RUN_ID}"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
+            --exclude='frontend/.next/cache' \
+            -cf calculator-release.tar \
+            release-manifest.json requirements.lock.txt \
+            frontend/package-lock.json frontend/.next
+          sha256sum calculator-release.tar > calculator-release.tar.sha256
+          sha256sum -c calculator-release.tar.sha256
+          verify_dir="$(mktemp -d)"
+          tar -xf calculator-release.tar -C "${verify_dir}"
+          python -m scripts.release_artifact verify \
+            --root "${verify_dir}" --commit "${commit}"
+
