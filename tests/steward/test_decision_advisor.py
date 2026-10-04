@@ -82,6 +82,13 @@ def test_distribution_and_extra_authority_field_fail_closed():
         shadow_profile({}, candidate)
 
 
+def test_selected_label_must_agree_with_distribution():
+    candidate = answer("ROUTINE")
+    candidate["distribution"] = answer("CRITICAL")["distribution"]
+    with pytest.raises(ValueError, match="maximal distribution mass"):
+        shadow_profile({"production_risk": "high"}, candidate)
+
+
 def test_cli_is_offline_and_does_not_echo_task_context(tmp_path, capsys):
     task = tmp_path / "task.json"
     candidate = tmp_path / "answer.json"

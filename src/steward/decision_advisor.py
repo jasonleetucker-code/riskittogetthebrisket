@@ -76,6 +76,10 @@ def validate_profile_answer(answer: dict) -> None:
         raise ValueError("distribution has an invalid probability")
     if not math.isclose(sum(distribution.values()), 1.0, rel_tol=0, abs_tol=1e-6):
         raise ValueError("distribution probabilities must sum to one")
+    if not answer["abstained"] and distribution[answer["selected_label"]] < max(
+        distribution.values()
+    ):
+        raise ValueError("selected label must have maximal distribution mass")
     if answer["calibrated_probability"] is not None:
         raise ValueError("uncalibrated shadow answers cannot claim calibrated probability")
     for key, maximum in (("raw_confidence", 1), ("latency_ms", None), ("cost_usd", None)):
