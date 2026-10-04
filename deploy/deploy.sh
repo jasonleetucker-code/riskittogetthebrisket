@@ -1118,6 +1118,17 @@ record_success_state() {
     mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
     printf '%s\n' "${TARGET_REV}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
   fi
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    # Keep a bounded rollback window. This is after success is recorded;
+    # retention failure cannot roll back a healthy running deployment.
+    if ! python3 scripts/release_retention.py \
+      --release-dir "${STATE_DIR}/releases" \
+      --current "${TARGET_REV}" \
+      --previous "${PRE_DEPLOY_REV}" \
+      --keep 8; then
+      warn "Saved release archive retention failed; inspect ${STATE_DIR}/releases"
+    fi
+  fi
 }
 
 attempt_auto_rollback() {

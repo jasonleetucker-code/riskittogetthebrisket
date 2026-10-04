@@ -115,7 +115,8 @@ def test_deploy_consumes_validation_archive_and_rollback_keeps_it():
         < workflow.index("Transfer tested release archive to production")
         < workflow.index("Run remote deploy script")
     )
-    assert 'export RELEASE_ARCHIVE="${RELEASE_ARCHIVE_REMOTE}"' in workflow
+    assert 'export RELEASE_ARCHIVE="${RELEASE_ARCHIVE_REMOTE:-}"' in workflow
+    assert "if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}" in workflow
     assert "Verify live frontend matches the tested artifact" in workflow
     assert "python3 -m scripts.stage_release_artifact" in deploy
     assert 'cp "${RELEASE_ARCHIVE}" "${release_dir}/${TARGET_REV}.tar"' in deploy

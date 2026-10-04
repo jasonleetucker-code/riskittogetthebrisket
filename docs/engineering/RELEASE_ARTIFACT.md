@@ -44,7 +44,10 @@ Node major version, build ID and all frontend bytes before staging `.next.new`.
 with `npm ci`, then uses its existing atomic swap and probes. It archives a
 successful release under the deploy state directory. A rollback with a saved
 archive stages the exact previous frontend bytes; historical revisions with
-no saved archive use the established rebuild path.
+no saved archive use the established rebuild path. Successful deploys retain
+the eight newest complete archives plus the current and immediately previous
+revisions, leaving unknown/incomplete files for operator inspection.
+
 The deploy script rechecks the live `.next` bytes before recording success,
 and the workflow independently compares their artifact ID with CI's output
 after its public smoke and live-contract checks.
@@ -54,6 +57,13 @@ checks it against the process commit, locks and live frontend once at import;
 `/api/status` exposes the resulting `build.release` block. Missing or invalid
 evidence reports a null artifact ID and a reason. The public smoke compares
 both `build.commit` and `build.release.frontend_artifact_id` with CI outputs.
+
+The deploy workflow classifies the exact target before checkout. Normal push
+deploys require the full artifact contract. A manual `workflow_dispatch` for a
+historical target lacking that contract can use the legacy rebuild path only
+with `allow_non_fast_forward=true`. That path still validates the target and
+checks the served commit and frontend assets, but it cannot claim exact Python
+locks or a tested frontend artifact for a commit that predates them.
 
 This cutover remains **unverified in production** until its PR passes Linux
 CI, integrates and the deployed Next build ID and artifact ID are observed
