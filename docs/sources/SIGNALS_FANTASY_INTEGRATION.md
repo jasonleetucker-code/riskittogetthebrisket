@@ -593,10 +593,25 @@ them.
 
 The incumbent ("champion") is the board with no Signals IDP vote.
 
+#### 10.3.1 Future candidates — declared, NOT run (amendment 2026-10-04)
+
+**Prospective only.**  This amendment was merged before any production
+evaluation result was inspected.  It changes nothing about Candidates A and B,
+the §10.4 metrics or the §10.6 gate; those stay exactly as preregistered and
+are what the first on-box run evaluates.  C, D and E are named now so that no
+method can be chosen after the numbers are seen.  Each runs only in a FUTURE
+round, once its entry condition holds, under its own preregistration.
+
+| | Rule | Role | Entry condition |
+|---|---|---|---|
+| **C** | Monotone (isotonic) family map from Signals' within-family rank to the shared-market coordinate, fitted on players that carry independent shared-market evidence. | Promotable in a future round. | A **second, genuinely independent** shared-market reference must exist **for validation**: C is fitted against one reference and judged against another.  Fitting and judging against the same reference is circular.  Today the only bridge is IDP Trade Calculator (`multi_bridge_ladder` OFF), so C cannot run. |
+| **D** | Completed-trade-informed family crosswalk. | Promotable in a future round. | **Absolute floor: at least 30 unique, deduplicated, format-comparable underlying IDP trades per position family** (DL, LB, DB separately), one per `underlyingTradeId`, dispositions `NATIVE_COMPARABLE` / `VALIDATED_TRANSFORMABLE` only (§10.7).  Thirty is a floor, NOT a finding of adequacy.  Every D report also states, per family: distinct-league count, effective sample size (Kish, with each league's trades weighted so one league cannot stand in for many), time span, format similarity to `dynasty_main`, and concentration (largest single-league and single-manager share).  Repeated trades from one league or one manager, and duplicated observations of one trade (a Sleeper trade seen twice, a KTC/Sleeper echo), may not be what satisfies the floor.  Fit and validation are time-split; a trade used to fit D never validates it. |
+| **E** | BDVM structural position scarcity (DL / LB / DB). | **Diagnostic / structural reasonableness check only — never a promotable market-price candidate.** | None needed to report it.  BDVM may say whether a learned DL / LB / DB relationship is structurally plausible for this league's lineup and scoring.  It is fundamental value, not the market-value target, so it never prices a Signals vote and can never by itself pass or fail a candidate. |
+
 ### 10.4 Metrics, per family (DL, LB, DB) and combined
 
 Rows collected, identity-matched, translated, withheld (by reason),
-extrapolated (must be 0 for A); family-position mismatches (must be 0);
+extrapolated (must be 0 for A); family-position mismatches — a Signals family entry joined to a row we hold at another position — are **hard-withheld**: counted, reported, and zero of them may vote (made explicit 2026-10-04, prospectively);
 Hampel outlier drops among Signals votes; value movement median / p90 / max;
 rank movement median; top-50 / top-100 / top-200 membership changes; DL/LB/DB
 share of the IDP top-100 and of the overall top-200; confidence-bucket
