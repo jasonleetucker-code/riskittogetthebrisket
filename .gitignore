@@ -6,8 +6,8 @@ __pycache__/
 # Local virtualenv created by scripts/setup.sh / make setup.
 .venv/
 venv/
-# Optional reproducible lockfile written by ``make freeze``.
-requirements.lock.txt
+# Exact runtime and development lockfiles are committed. Local freeze output
+# belongs outside these canonical files.
 
 # Node / Next
 node_modules/
@@ -18,6 +18,12 @@ frontend/node_modules/
 frontend/.next/
 frontend/.next.new/
 frontend/.next.old/
+# CI-produced release bundle is uploaded, never committed.
+release-manifest.json
+.release-manifest.json
+.release-manifest.json.tmp
+calculator-release.tar
+calculator-release.tar.sha256
 # Verification builds (NEXT_DIST_DIR=...) — hundreds of MB, never committed.
 .next.*/
 frontend/.next.*/

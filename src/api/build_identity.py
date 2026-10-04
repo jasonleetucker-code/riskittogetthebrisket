@@ -25,6 +25,9 @@ commit produced an artifact, this records which commit a running server loaded.
 from __future__ import annotations
 
 import re
+import hashlib
+import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -94,8 +97,189 @@ def resolve_build_identity(repo_root: Path) -> dict:
     return {"commit": None, "commit_source": None, "unavailable_reason": "head_unrecognized"}
 
 
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sha256_text(path: Path) -> str:
+    """Hash Git-normalized text, independent of Windows checkout line endings."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _frontend_tree_digest(build_dir: Path) -> str:
+    """Content-address the served Next output, excluding its build cache."""
+    if not build_dir.is_dir():
+        raise ValueError(f"frontend build directory is missing: {build_dir}")
+    files: list[tuple[str, str]] = []
+    for path in sorted(build_dir.rglob("*")):
+        relative = path.relative_to(build_dir)
+        if relative.parts[0] == "cache":
+            continue
+        if path.is_symlink():
+            raise ValueError(f"frontend artifact contains a symlink: {path}")
+        if not path.is_file():
+            continue
+        files.append((relative.as_posix(), _sha256_file(path)))
+    if not files:
+        raise ValueError("frontend artifact is empty")
+    payload = json.dumps(files, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _artifact_id(identity: dict) -> str:
+    content = {
+        key: identity[key]
+        for key in (
+            "commit",
+            "python_lock_sha256",
+            "frontend_lock_sha256",
+            "python_abi",
+            "node_version",
+            "next_build_id",
+            "frontend_tree_sha256",
+            "backend_artifact_sha256",
+        )
+    }
+    encoded = json.dumps(content, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def create_release_manifest(
+    repo_root: Path,
+    build_dir: Path,
+    *,
+    commit: str,
+    node_version: str,
+    run_id: str | None = None,
+    built_at_utc: str | None = None,
+) -> dict:
+    """Describe exact CI build bytes; unbuilt backend artifacts stay unknown."""
+    if not _FULL_SHA.fullmatch(commit):
+        raise ValueError("release manifest requires a full lowercase Git SHA")
+    observed_commit = resolve_build_identity(repo_root)["commit"]
+    if observed_commit != commit:
+        raise ValueError("release manifest Git SHA differs from the checkout")
+    build_id_path = build_dir / "BUILD_ID"
+    try:
+        build_id = build_id_path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise ValueError("Next BUILD_ID is missing") from exc
+    if not build_id or len(build_id) > 256:
+        raise ValueError("Next BUILD_ID is invalid")
+    if not node_version.strip():
+        raise ValueError("Node version is missing")
+    identity = {
+        "commit": commit,
+        "python_lock_sha256": _sha256_text(repo_root / "requirements.lock.txt"),
+        "frontend_lock_sha256": _sha256_text(repo_root / "frontend/package-lock.json"),
+        "python_abi": f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}",
+        "node_version": node_version.strip(),
+        "next_build_id": build_id,
+        "frontend_tree_sha256": _frontend_tree_digest(build_dir),
+        "backend_artifact_sha256": None,
+    }
+    return {
+        "schema_version": "calculator-release/v1",
+        "artifact_id": _artifact_id(identity),
+        "identity": identity,
+        "backend_artifact_unavailable_reason": "backend_artifact_not_built_in_this_phase",
+        "built_at_utc": built_at_utc or datetime.now(timezone.utc).isoformat(),
+        "workflow_run_id": run_id,
+    }
+
+
+def verify_release_manifest(
+    manifest: dict, repo_root: Path, build_dir: Path, *, expected_commit: str
+) -> None:
+    """Refuse a stale, substituted or corrupted build before deployment."""
+    if manifest.get("schema_version") != "calculator-release/v1":
+        raise ValueError("unsupported release manifest schema")
+    identity = manifest.get("identity")
+    if not isinstance(identity, dict) or identity.get("commit") != expected_commit:
+        raise ValueError("release artifact Git SHA mismatch")
+    if (
+        identity.get("backend_artifact_sha256") is not None
+        or manifest.get("backend_artifact_unavailable_reason")
+        != "backend_artifact_not_built_in_this_phase"
+    ):
+        raise ValueError("release artifact backend identity is unsupported in v1")
+    if identity.get("python_lock_sha256") != _sha256_text(repo_root / "requirements.lock.txt"):
+        raise ValueError("release artifact Python lock mismatch")
+    if identity.get("frontend_lock_sha256") != _sha256_text(
+        repo_root / "frontend/package-lock.json"
+    ):
+        raise ValueError("release artifact frontend lock mismatch")
+    if (
+        identity.get("next_build_id")
+        != (build_dir / "BUILD_ID").read_text(encoding="utf-8").strip()
+    ):
+        raise ValueError("release artifact Next BUILD_ID mismatch")
+    if identity.get("frontend_tree_sha256") != _frontend_tree_digest(build_dir):
+        raise ValueError("release artifact frontend bytes mismatch")
+    if manifest.get("artifact_id") != _artifact_id(identity):
+        raise ValueError("release artifact identity mismatch")
+
+
+def resolve_runtime_release_identity(repo_root: Path, *, commit: str | None) -> dict:
+    """Snapshot the verified release when the backend process starts."""
+    repo_root = Path(repo_root)
+    lock = repo_root / "requirements.lock.txt"
+    frontend_lock = repo_root / "frontend/package-lock.json"
+
+    def optional_digest(path: Path) -> str | None:
+        try:
+            return _sha256_text(path)
+        except OSError:
+            return None
+
+    lock_digest = optional_digest(lock)
+    frontend_lock_digest = optional_digest(frontend_lock)
+    result = {
+        "dependency_lock_sha256": lock_digest,
+        "dependency_lock_unavailable_reason": None if lock_digest else "lock_missing_or_unreadable",
+        "frontend_lock_sha256": frontend_lock_digest,
+        "frontend_lock_unavailable_reason": (
+            None if frontend_lock_digest else "frontend_lock_missing_or_unreadable"
+        ),
+        "python_abi": f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}",
+        "ci_python_abi": None,
+        "frontend_artifact_id": None,
+        "frontend_build_id": None,
+        "frontend_tree_sha256": None,
+        "frontend_artifact_unavailable_reason": "manifest_missing",
+        "backend_artifact_sha256": None,
+        "backend_artifact_unavailable_reason": "backend_artifact_not_built_in_this_phase",
+    }
+    manifest_path = repo_root / ".release-manifest.json"
+    if not manifest_path.is_file():
+        return result
+    if not commit:
+        result["frontend_artifact_unavailable_reason"] = "commit_unknown"
+        return result
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        verify_release_manifest(
+            manifest, repo_root, repo_root / "frontend/.next", expected_commit=commit
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        result["frontend_artifact_unavailable_reason"] = "manifest_invalid_or_mismatch"
+        return result
+    identity = manifest["identity"]
+    result.update(
+        ci_python_abi=identity["python_abi"],
+        frontend_artifact_id=manifest["artifact_id"],
+        frontend_build_id=identity["next_build_id"],
+        frontend_tree_sha256=identity["frontend_tree_sha256"],
+        frontend_artifact_unavailable_reason=None,
+    )
+    return result
+
+
 # Captured once per process, at import -- see the module docstring.
 PROCESS_BUILD = {
     **resolve_build_identity(Path(__file__).resolve().parents[2]),
     "process_started_at": datetime.now(timezone.utc).isoformat(),
 }
+PROCESS_RELEASE = resolve_runtime_release_identity(
+    Path(__file__).resolve().parents[2], commit=PROCESS_BUILD["commit"]
+)

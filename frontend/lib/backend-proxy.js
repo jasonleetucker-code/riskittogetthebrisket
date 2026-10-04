@@ -23,7 +23,7 @@ const BACKEND_BASE = (() => {
  * @param {string} path — backend path (e.g. "/api/draft-capital")
  * @param {object} opts — { timeoutMs, searchParams, cookie }
  */
-export async function proxyGet(path, { timeoutMs = 5000, searchParams, cookie } = {}) {
+export async function proxyGet(path, { timeoutMs = 5000, searchParams, cookie, traceparent } = {}) {
   const url = new URL(path, BACKEND_BASE);
   if (searchParams) {
     for (const [k, v] of Object.entries(searchParams)) {
@@ -36,10 +36,19 @@ export async function proxyGet(path, { timeoutMs = 5000, searchParams, cookie } 
     const res = await fetch(url.toString(), {
       cache: "no-store",
       signal: ctl.signal,
-      ...(cookie ? { headers: { Cookie: cookie } } : {}),
+      headers: {
+        ...(cookie ? { Cookie: cookie } : {}),
+        ...(traceparent && /^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/.test(traceparent)
+          ? { traceparent } : {}),
+      },
     });
     const data = await res.json();
-    return { data, status: res.status };
+    return {
+      data,
+      status: res.status,
+      requestId: res.headers.get("x-request-id"),
+      traceId: res.headers.get("x-trace-id"),
+    };
   } finally {
     clearTimeout(timer);
   }

@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import subprocess
+import time
 
 from .planner import plan, satisfy
-from .receipts import run_receipt
+from .receipts import execution_span, run_receipt
 from .repository import inventory, phase_tasks, github_disposition, context, reconcile, work_units
 from .routing import recommend
 from .store import StewardStore
@@ -270,8 +271,36 @@ def main(argv=None):
     try:
         if args.command == "brief":
             started = datetime.now(timezone.utc).isoformat()
-            remote = github_snapshot() if args.github else None
+            observations = []
+            if args.github:
+                step_started = datetime.now(timezone.utc).isoformat()
+                step_ns = time.perf_counter_ns()
+                remote = github_snapshot()
+                observations.append(
+                    (
+                        "tool",
+                        "github_snapshot",
+                        step_started,
+                        datetime.now(timezone.utc).isoformat(),
+                        (time.perf_counter_ns() - step_ns) / 1_000_000,
+                        ["github:main", "github:open-work"],
+                    )
+                )
+            else:
+                remote = None
+            step_started = datetime.now(timezone.utc).isoformat()
+            step_ns = time.perf_counter_ns()
             result = build_brief(repo, store, args.available_model, remote)
+            observations.append(
+                (
+                    "plan",
+                    "build_brief",
+                    step_started,
+                    datetime.now(timezone.utc).isoformat(),
+                    (time.perf_counter_ns() - step_ns) / 1_000_000,
+                    ["repository:HEAD", "steward:campaign-state"],
+                )
+            )
             if args.save:
                 knowledge_revision, _ = store.read("knowledge_revision")
                 knowledge = store.retrieve("campaign")
@@ -289,13 +318,6 @@ def main(argv=None):
                     routes=result["routing"],
                     started_at=started,
                 )
-                raw = {
-                    "source": "steward brief",
-                    "at": started,
-                    "repo_head": result["head"],
-                    "content": {"receipt": receipt, "report": result, "github": remote},
-                    "complete": True,
-                }
                 producer = {
                     key: value
                     for key, value in (
@@ -304,6 +326,27 @@ def main(argv=None):
                         ("model", args.producer_model),
                     )
                     if value is not None
+                }
+                receipt["execution_spans"] = [
+                    execution_span(
+                        receipt,
+                        phase=phase,
+                        action=action,
+                        started_at=step_started,
+                        ended_at=step_ended,
+                        duration_ms=duration_ms,
+                        status="DONE",
+                        evidence_refs=refs,
+                        producer=producer,
+                    )
+                    for phase, action, step_started, step_ended, duration_ms, refs in observations
+                ]
+                raw = {
+                    "source": "steward brief",
+                    "at": started,
+                    "repo_head": result["head"],
+                    "content": {"receipt": receipt, "report": result, "github": remote},
+                    "complete": True,
                 }
                 if producer:
                     raw["producer"] = producer

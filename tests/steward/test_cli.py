@@ -32,6 +32,24 @@ def test_brief_save_compiles_retrievable_knowledge_and_retains_partial(tmp_path,
     raw = state.raw_evidence(records[0]["evidence_ids"][0])
     assert raw["content"]["report"]["head"]
     assert raw["content"]["github"] is None
+    receipt = raw["content"]["receipt"]
+    assert len(receipt["trace_id"]) == 32
+    assert len(receipt["execution_spans"]) == 1
+    span = receipt["execution_spans"][0]
+    schema = json.loads((ROOT / "config/steward/contracts.schema.json").read_text(encoding="utf-8"))
+    definition = schema["$defs"]["executionSpan"]
+    assert set(span) == set(definition["properties"]) == set(definition["required"])
+    assert receipt.keys() <= schema["$defs"]["runReceipt"]["properties"].keys()
+    assert span["run_id"] == receipt["run_id"]
+    assert span["trace_id"] == receipt["trace_id"]
+    assert span["phase"] == "plan"
+    assert span["action"] == "build_brief"
+    assert span["status"] == "DONE"
+    assert span["duration_ms"] >= 0
+    assert span["repo_head_start"] == span["repo_head_end"] == receipt["repo_head_end"]
+    assert span["authority_decision"] == "A_REPORT_ONLY"
+    assert span["cost_usd"] is None
+    assert span["input_tokens"] is None
     assert state.read("campaign")[1]["partial"] == ["P9"]
     state.close()
 
@@ -52,6 +70,9 @@ def test_brief_save_records_only_supplied_producer_fields(tmp_path, capsys):
     ]
     attributed = next(r for r in rows if "producer" in r)
     assert attributed["producer"] == {"session_id": "s-2", "provider": "anthropic"}
+    attributed_span = attributed["content"]["receipt"]["execution_spans"][0]
+    assert attributed_span["provider"] == "anthropic"
+    assert attributed_span["model"] is None
     before = state.read("campaign")
     state.close()
     with pytest.raises(ValueError, match="producer"):

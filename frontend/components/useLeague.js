@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserState } from "@/components/useUserState";
 import { invalidateTerminalCache } from "@/components/useTerminal";
+import { parseLeaguesResponse } from "@/lib/generated/leagues-contract";
+import { newTraceparent } from "@/lib/trace-context";
 import {
   _resetBaseContractCache,
   _resetValuationOverlayCache,
@@ -40,8 +42,11 @@ import {
 
 const LOCAL_KEY = "next_active_league_v1";
 
+/** @typedef {import("@/lib/generated/leagues-contract").LeaguesResponse} LeaguesResponse */
+
 // Module-level cache for /api/leagues.  Same 30s TTL pattern as
 // useTerminal — one request per tab rather than per-hook-instance.
+/** @type {{ result: LeaguesResponse, expires: number } | null} */
 let _leaguesCache = null; // { result, expires }
 let _leaguesInflight = null;
 const LEAGUES_TTL_MS = 60_000;
@@ -50,13 +55,14 @@ async function fetchLeagues() {
   const now = Date.now();
   if (_leaguesCache && _leaguesCache.expires > now) return _leaguesCache.result;
   if (_leaguesInflight) return _leaguesInflight;
+  const traceparent = newTraceparent();
   _leaguesInflight = fetch("/api/leagues", {
     credentials: "same-origin",
-    headers: { "Cache-Control": "no-store" },
+    headers: { "Cache-Control": "no-store", ...(traceparent ? { traceparent } : {}) },
   })
     .then(async (res) => {
       if (!res.ok) throw new Error(`leagues ${res.status}`);
-      const data = await res.json();
+      const data = parseLeaguesResponse(await res.json());
       _leaguesCache = { result: data, expires: Date.now() + LEAGUES_TTL_MS };
       _leaguesInflight = null;
       return data;
