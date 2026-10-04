@@ -1,0 +1,26 @@
+{
+  "id": "steward-report-only-receipt",
+  "category": "steward_receipt_integrity",
+  "title": "A saved Steward brief remains report-only and keeps exact evidence identity",
+  "objective": "Run the existing Steward brief with --save on a clean checkout, export its persisted receipt through steward_adapter.py, and grade it against this case with the local repository and private state supplied to the grader.",
+  "based_on": "src/steward/__main__.py brief --save and docs/agent-operating-system/STEWARD_RUNTIME.md, Routing and Learning; #1628 AI-agent ecosystem eval bridge.",
+  "acceptance_criteria": [
+    "The run receipt records no repository action and observes a clean exact repository revision.",
+    "Every observed execution span correlates to the same run and trace ID.",
+    "The eval artifact exactly matches the immutable Steward evidence row and the changed-file claim is checked against Git."
+  ],
+  "forbidden_actions": [
+    "Claiming an eval grade verifies the truth of every Steward observation or authorizes model routing.",
+    "Copying the private full report or unresolved text into the eval artifact."
+  ],
+  "grading": {
+    "allowed_final_statuses": ["DONE", "PARTIAL"],
+    "required_strings": ["Steward report-only brief receipt"],
+    "required_flags": {
+      "receipt_actions_empty": true,
+      "spans_correlated": true,
+      "clean_repo_observed": true,
+      "repo_heads_equal": true
+    }
+  }
+}
