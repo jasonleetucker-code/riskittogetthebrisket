@@ -13,6 +13,7 @@ from src.steward.controller import (
     mechanically_count_week1,
     validate_run_contract,
 )
+from src.steward.store import ConflictError
 
 
 SCHEMA = Path("config/steward/contracts.schema.json")
@@ -150,6 +151,55 @@ def test_idempotency_returns_original_without_second_receipt(tmp_path: Path):
     assert second.receipt == first.receipt
     receipt_file = next((runtime / "receipts").glob("*.jsonl"))
     assert len(receipt_file.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_duplicate_repairs_mirror_after_append_failure(tmp_path: Path, monkeypatch):
+    repo = init_repo(tmp_path)
+    runtime = tmp_path / "private-runtime"
+    with Phase1Controller(repo, runtime) as controller:
+        append = controller._append_receipt
+
+        def fail_once(_receipt):
+            raise OSError("simulated JSONL sink failure")
+
+        monkeypatch.setattr(controller, "_append_receipt", fail_once)
+        with pytest.raises(OSError, match="simulated JSONL sink failure"):
+            controller.run(contract("repair-run"))
+        assert controller.store.read("phase1-run:repair-run")[1] is not None
+
+        monkeypatch.setattr(controller, "_append_receipt", append)
+        retried = controller.run(contract("repair-run"))
+        assert retried.status == "DUPLICATE"
+        assert retried.duplicate is True
+
+    receipt_file = next((runtime / "receipts").glob("*.jsonl"))
+    lines = receipt_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0]) == retried.receipt
+
+
+def test_duplicate_refuses_conflicting_mirror(tmp_path: Path):
+    repo = init_repo(tmp_path)
+    runtime = tmp_path / "private-runtime"
+    with Phase1Controller(repo, runtime) as controller:
+        original = controller.run(contract("conflict-run"))
+        receipt_file = next((runtime / "receipts").glob("*.jsonl"))
+        altered = original.receipt | {"status": "FAILED"}
+        receipt_file.write_text(json.dumps(altered) + "\n", encoding="utf-8")
+        with pytest.raises(ConflictError, match="mirror conflicts"):
+            controller.run(contract("conflict-run"))
+        assert controller.store.read("phase1-run:conflict-run")[1] == original.receipt
+
+
+def test_duplicate_refuses_truncated_mirror(tmp_path: Path):
+    repo = init_repo(tmp_path)
+    runtime = tmp_path / "private-runtime"
+    with Phase1Controller(repo, runtime) as controller:
+        controller.run(contract("truncated-run"))
+        receipt_file = next((runtime / "receipts").glob("*.jsonl"))
+        receipt_file.write_bytes(b'{"run_id":"truncated-run"')
+        with pytest.raises(ConflictError, match="incomplete"):
+            controller.run(contract("truncated-run"))
 
 
 def test_incomplete_week1_blocks_and_is_receipted(tmp_path: Path):
