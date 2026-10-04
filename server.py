@@ -14461,6 +14461,16 @@ async def _build_trade_simulation(
         roster_settings=dict(league_cfg.roster_settings or {}),
         league_key=league_cfg.key,
         include_roster_utility=for_analysis and use_team_context,
+        # Wave B (C7-POST-01): the canonical posture, resolved here so the
+        # simulator stays pure.  Analyze Trade may build the league bundle;
+        # a plain simulate reads a warm one only.
+        competitive_posture=await run_in_threadpool(
+            _trade_simulator.competitive_posture_for,
+            contract,
+            league_cfg.key,
+            resolved_team,
+            build_if_missing=for_analysis and use_team_context,
+        ),
     )
     if for_analysis:
         result["teamContext"] = {

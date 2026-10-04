@@ -165,7 +165,61 @@ const UNAVAILABLE_WORDS = {
   unknown_limit: "This league's roster limit is unknown",
   no_priced_assets_either_side: "Neither side has a priced asset",
   not_computed: "Not computed",
+  league_bundle_not_warm: "League roster intelligence is still loading",
+  team_not_in_league_bundle: "This team is not in the league's roster intelligence",
+  roster_snapshot_missing: "No roster snapshot for this league yet",
+  starter_slots_missing: "This league's starting slots are not configured",
 };
+
+// ── Competitive Posture (#840 / C7-POST-01) — labels only ────────────────
+
+const POSTURE_WORDS = {
+  PUSH: "Push — prioritise this season's title equity",
+  HOLD: "Hold — keep options open; the read is close",
+  RETOOL: "Retool — tilt toward younger / future value, keep the core",
+  REBUILD: "Rebuild — prioritise future value and draft capital",
+};
+const POSTURE_ORDER = ["PUSH", "HOLD", "RETOOL", "REBUILD"];
+
+function formatShare(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return `${Math.round(value * 100)}%`;
+}
+
+/** The posture lens as display text.  Every number is the packet's. */
+export function postureSummary(lens) {
+  if (!lens || !lens.available) {
+    return { available: false, reasonText: unavailableText(lens?.unavailableReason) };
+  }
+  const d = lens.detail || {};
+  const probs = d.probabilities || {};
+  const timing = d.components?.timing || {};
+  return {
+    available: true,
+    label: d.label || null,
+    headline: POSTURE_WORDS[d.label] || d.label || "—",
+    confidence: formatShare(d.confidence),
+    split: POSTURE_ORDER.filter((k) => typeof probs[k] === "number").map((k) => ({
+      label: k,
+      pct: formatShare(probs[k]),
+    })),
+    timing: timing.phase === "offseason"
+      ? "Offseason"
+      : timing.phase === "post_deadline"
+        ? "After the trade deadline"
+        : typeof timing.week === "number"
+          ? `Week ${timing.week}${timing.tradeDeadlineWeek ? ` of a week-${timing.tradeDeadlineWeek} deadline` : ""}`
+          : "Season timing unknown",
+    ownFirst:
+      d.components?.ownFirstRoundPickHeld === true
+        ? "Holds its own next first-round pick"
+        : d.components?.ownFirstRoundPickHeld === false
+          ? "Does not hold its own next first-round pick"
+          : "Own first-round pick: unknown",
+    parameterStatus: d.parameterStatus || null,
+    notes: Array.isArray(d.notes) ? d.notes : [],
+  };
+}
 
 export function unavailableText(reason) {
   if (!reason) return "Unavailable";

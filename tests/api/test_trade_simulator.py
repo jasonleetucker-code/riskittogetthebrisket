@@ -473,74 +473,57 @@ def test_team_impact_rationale_bullets_max_five():
     assert len(result["teamImpact"]["rationale"]) <= 5
 
 
-# ── Window classification (src/trade/team_impact.py::_classify_window) ──
+# ── Window fit follows the canonical posture (C7-POST-01) ────────────
 #
-# Regression pins for the math audit's H5(c).  ``contendIndex`` used to
-# read ``top10_share − (pick_share + young_share)`` with the top-10
-# slice taken over EVERY asset, so pick and young value landed on both
-# sides of the subtraction and cancelled: the most extreme rebuilder in
-# the league came out "balanced".  The positive term is now the top 10
-# WIN-NOW assets only.
-#
-# Shares below are hand-computed; the threshold is ±0.15.
-
-_WINDOW_CFG = {"windowFit": {"contendIndexThreshold": 0.15, "youngStarterMaxAge": 23}}
+# ``team_impact._classify_window`` (contendIndex vs a fixed 0.15) was a second,
+# hard-threshold posture owner and is retired.  The window fit now scores the
+# moving assets against the canonical Competitive Posture, and without one it
+# is NOT computed — no posture is guessed.
 
 
-def _pick(value: int) -> dict:
-    return {"name": f"pick-{value}", "assetClass": "pick", "value": value}
+def _impact(posture_label, receiving, sending):
+    return team_impact.compute(
+        before_assets=[{"name": "QB1", "pos": "QB", "value": 5000, "age": 27}],
+        after_assets=[{"name": "QB1", "pos": "QB", "value": 5000, "age": 27}],
+        receiving=receiving,
+        sending=sending,
+        equity=0,
+        roster_settings={"starters": {"QB": 1}},
+        canonical_posture={"label": posture_label} if posture_label else None,
+    )
 
 
-def _player_asset(name: str, value: int, age: int) -> dict:
-    return {"name": name, "assetClass": "offense", "pos": "WR", "value": value, "age": age}
+_PRIME = {"name": "Prime", "pos": "WR", "value": 4000, "age": 26}
+_PICK = {"name": "2027 Round 1", "pos": "PICK", "value": 4000, "assetClass": "pick"}
 
 
-def test_classify_window_pick_stuffed_roster_is_a_rebuilder():
-    """Ten firsts + five spare parts is the archetypal rebuild.
-
-    total = 10 × 1000 (picks) + 5 × 200 (vets) = 11,000.
-    win-now top 10 = the five vets = 1,000 → 0.0909
-    pick share      = 10,000 / 11,000        → 0.9091
-    index = 0.0909 − 0.9091 = −0.818 → rebuilder.
-
-    Counting the picks in the top-10 slice too gave 0.909 − 0.909 = 0.0,
-    i.e. "balanced", and the whole window-fit leg of the trade verdict
-    then graded this roster as if it should be buying veterans.
-    """
-    assets = [_pick(1000) for _ in range(10)]
-    assets += [_player_asset(f"Vet{i}", 200, 28) for i in range(5)]
-    assert team_impact._classify_window(assets, _WINDOW_CFG) == "rebuilder"
+def test_push_team_window_fit_rewards_receiving_prime_production():
+    impact = _impact("PUSH", [_PRIME], [_PICK])
+    assert impact["posture"] == "contender" and impact["competitivePosture"] == "PUSH"
+    assert impact["windowFit"] > 0
 
 
-def test_classify_window_young_core_is_a_rebuilder():
-    """Same double-count, other half of the negative term.
-
-    total = 10 × 1000 (age 22) + 2 × 500 (age 28) = 11,000.
-    win-now top 10 = the two vets = 1,000 → 0.0909
-    young share    = 10,000 / 11,000       → 0.9091
-    index = −0.818 → rebuilder (it read 0.0 → "balanced").
-    """
-    assets = [_player_asset(f"Kid{i}", 1000, 22) for i in range(10)]
-    assets += [_player_asset(f"Vet{i}", 500, 28) for i in range(2)]
-    assert team_impact._classify_window(assets, _WINDOW_CFG) == "rebuilder"
+def test_rebuild_and_retool_score_the_future_side():
+    for label in ("REBUILD", "RETOOL"):
+        impact = _impact(label, [_PICK], [_PRIME])
+        assert impact["posture"] == "rebuilder"
+        assert impact["windowFit"] > 0
 
 
-def test_classify_window_veteran_roster_is_still_a_contender():
-    """No picks, no kids: index = 1.0 − 0.0.  Unchanged by the fix."""
-    assets = [_player_asset(f"Vet{i}", 1000, 27) for i in range(10)]
-    assert team_impact._classify_window(assets, _WINDOW_CFG) == "contender"
+def test_hold_is_balanced():
+    impact = _impact("HOLD", [_PRIME], [_PICK])
+    assert impact["posture"] == "balanced" and impact["windowFit"] == 0.0
 
 
-def test_classify_window_mixed_roster_is_balanced():
-    """An even split between win-now and future sits in the band.
+def test_without_a_canonical_posture_window_fit_is_not_computed():
+    impact = _impact(None, [_PRIME], [_PICK])
+    assert impact["posture"] is None
+    assert impact["windowFit"] is None
+    assert impact["postureSource"] == "unavailable"
 
-    total = 5 × 1000 (age 27) + 5 × 1000 (picks) = 10,000.
-    win-now top 10 = 5,000 → 0.5; pick share = 0.5.
-    index = 0.0, inside ±0.15 → balanced.
-    """
-    assets = [_player_asset(f"Vet{i}", 1000, 27) for i in range(5)]
-    assets += [_pick(1000) for _ in range(5)]
-    assert team_impact._classify_window(assets, _WINDOW_CFG) == "balanced"
+
+def test_the_retired_hard_threshold_owner_is_gone():
+    assert not hasattr(team_impact, "_classify_window")
 
 
 # ── Final roster simulation: C2-SIM-01 (roster_intel.simulation) composed  ──

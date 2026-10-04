@@ -601,13 +601,19 @@ def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, 
     growth = max(0, capacity.size_after - capacity.size_before)
     drops = sorted(capacity.forced_drops, key=lambda d: d.rung)
     lower_bound_reasons: list[str] = []
+    over = (
+        capacity.over_limit_after_min
+        if capacity.certainty != "exact"
+        else capacity.over_limit_after
+    )
+    if over is None:  # requires_drops proved it known; stay explicit anyway
+        return None, {"state": "unknown", "reason": "overage_undetermined"}
+    added = min(over, growth)
     if capacity.certainty != "exact":
-        added = min(capacity.over_limit_after_min or 0, growth)
         # Lower bound: the cheapest that-many of the drops.
         charged = sorted(drops, key=lambda d: d.release_cost)[:added]
         lower_bound_reasons.append("taxi_occupancy_unknown_guaranteed_drops_only")
     else:
-        added = min(capacity.over_limit_after or 0, growth)
         charged = drops[len(drops) - added :] if added else []
     if added == 0:
         return 0.0, {"state": "none", "reason": "trade_adds_no_release"}

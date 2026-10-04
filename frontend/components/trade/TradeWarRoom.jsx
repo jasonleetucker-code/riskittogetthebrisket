@@ -41,6 +41,7 @@ import {
   formatSignedPpg,
   formatSignedValue,
   formatValue,
+  postureSummary,
   rosterImpactRows,
   unavailableText,
   validAnalyzePayload,
@@ -275,6 +276,7 @@ function Details({ analysis, raw }) {
   const roster = analysis.lenses?.roster?.detail || {};
   const basis = roster.basis || {};
   const ts = roster.teamStrength;
+  const posture = postureSummary(analysis.lenses?.posture);
   return (
     <CollapsiblePanel title="How this was decided" defaultCollapsed className={styles.details}>
       <div className={styles.detailsBody}>
@@ -314,9 +316,34 @@ function Details({ analysis, raw }) {
             </p>
           </section>
         ) : null}
+        {posture.available ? (
+          <section>
+            <h4 className={styles.detailsTitle}>Team direction (context, not a vote)</h4>
+            <p>
+              <strong>{posture.headline}</strong> — {posture.confidence ?? "—"} of the classification.{" "}
+              {posture.timing}. {posture.ownFirst}.
+            </p>
+            <ul className={styles.detailsList} aria-label="Posture split">
+              {posture.split.map((p) => (
+                <li key={p.label}>
+                  {p.label}: {p.pct ?? "—"}
+                </li>
+              ))}
+            </ul>
+            <p>
+              Read from the same playoff odds, roster strength and age evidence the other lenses use, so it explains the
+              recommendation but is never counted in it. Parameters are declared priors, not fitted.
+            </p>
+          </section>
+        ) : null}
         <section>
           <h4 className={styles.detailsTitle}>Not included yet</h4>
           <ul className={styles.detailsList}>
+            {posture.available || analysis.teamContext?.mode === "asset_only" ? null : (
+              <li key="strategicPosture">
+                <strong>strategicPosture</strong> — {posture.reasonText}
+              </li>
+            )}
             {(analysis.unavailableDimensions || []).map((d) => (
               <li key={d.dimension}>
                 <strong>{d.dimension}</strong> — {d.notes}
