@@ -37,12 +37,29 @@ production permissions.
 | Optional typed decision advisor | Existing Steward router/evals | SHADOW PORT IN PROGRESS — offline task-profile comparison only; no provider, labeled corpus, calibration or active routing | Simple baseline, held-out task labels, per-family calibration and risk/coverage before any advisory use |
 | Class-B executor and isolation | Existing Steward controller/contracts | PROBE IN PROGRESS — fixed-container boundary only; no worker or command policy | Denied path/command/network/credential tests; branch-only PR |
 | Action receipt integrity | Existing Steward store/controller | RECOVERY IN PROGRESS — SQLite/JSONL mirror repair on retry; no independent cryptographic anchor | Append-failure recovery, conflict/truncation refusal, exact source mapping |
-| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | NOT STARTED | Structured findings plus deterministic assertions |
+| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public CLI exploration, 44 deterministic production E2E checks and two adversarial cases; no standardized exploratory findings artifact | Structured findings plus deterministic assertions |
 | Final reconciliation | Canonical docs, CI, deploy and production evidence | NOT STARTED | Exact merged and served identity; unresolved debt |
 
 No new generic orchestration framework, vector memory, generic feature store,
 MCP conversion, paid collector/sandbox, or self-promoting routing is planned.
 Domain methodology and production permissions remain with their current owners.
+
+An agent-declared 2026-10-04 read-only Playwright CLI spot check opened production `/league`
+at desktop and 390×844 mobile widths. The Home data rendered, and selecting
+Trades on mobile reached `/league?tab=activity` with a populated Trade activity
+panel. The browser logged a `favicon.ico` 404 and a CSS preload warning. This
+single visit has no retained CI artifact and is not a regression suite or proof for the unmerged campaign; the
+existing production E2E workflow and deterministic journey assertions remain
+the browser acceptance path. The full Trades accessibility snapshot was large,
+reinforcing the need for targeted browser queries and bounded evidence summaries.
+The existing `public-league.spec.js` was then run read-only against
+`https://chaseupside.com` in desktop Chromium and 390×844 mobile Chromium:
+44 passed, zero skipped (local runner, 2026-10-04). The retained local HTML
+report is in the ignored `tests/e2e/playwright-report/` directory; the result
+is agent-declared rather than CI-attested. The scheduled production E2E run
+[37160601511](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/37160601511)
+also succeeded on main commit `0aaff7cdb2842dd4a40f4278523dbdd20f32cfc2`
+before this check. Neither run exercises unmerged campaign code.
 
 ## Engineering applicability
 
