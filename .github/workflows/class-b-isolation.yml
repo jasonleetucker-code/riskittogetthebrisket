@@ -1,0 +1,76 @@
+name: Class B Isolation Probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/class-b-isolation.yml'
+      - 'scripts/class_b_isolation_probe.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Exercise denied and allowed container actions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          fixture_dir="$(mktemp -d)"
+          chmod 777 "${fixture_dir}"
+          printf 'class-b-fixture\n' > "${fixture_dir}/fixture.txt"
+          ln -s /host-canary "${fixture_dir}/host-escape"
+          export CLASS_B_HOST_CANARY=host-only
+
+          run_probe() {
+            local variant="$1"
+            local network=none
+            local source_suffix=,readonly
+            local -a root_mode=(--read-only)
+            case "${variant}" in
+              enforced) ;;
+              network_sabotage) network=bridge ;;
+              path_sabotage) source_suffix= ;;
+              rootfs_sabotage) root_mode=() ;;
+              *) return 2 ;;
+            esac
+            timeout 90s docker run --rm --pull=always \
+              --network="${network}" "${root_mode[@]}" --cap-drop=ALL \
+              --security-opt=no-new-privileges --user=65534:65534 \
+              --pids-limit=32 --memory=256m --cpus=1 \
+              --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=8m,mode=1777 \
+              --tmpfs=/output:rw,noexec,nosuid,nodev,size=8m,mode=1777 \
+              --mount "type=bind,source=${fixture_dir},target=/worktree${source_suffix}" \
+              --mount "type=bind,source=${PWD}/scripts/class_b_isolation_probe.py,target=/probe.py,readonly" \
+              python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 \
+              python -I -B /probe.py
+          }
+
+          run_probe enforced
+          for variant in network_sabotage path_sabotage rootfs_sabotage; do
+            result="$(mktemp)"
+            if run_probe "${variant}" > "${result}"; then
+              echo "::error::${variant} was accepted by the isolation probe"
+              exit 1
+            fi
+            python3 - "${variant}" "${result}" <<'PY'
+          import json
+          import sys
+
+          key = {
+              "network_sabotage": "network_route_denied",
+              "path_sabotage": "source_write_denied",
+              "rootfs_sabotage": "rootfs_write_denied",
+          }[sys.argv[1]]
+          result = json.load(open(sys.argv[2], encoding="utf-8"))
+          assert result["schema"] == "class-b-isolation-probe/v1"
+          assert result["checks"][key] is False, (key, result)
+          print(f"Expected sabotage refusal: {key}=false")
+          PY
+          done
