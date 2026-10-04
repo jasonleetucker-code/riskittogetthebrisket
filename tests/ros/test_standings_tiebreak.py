@@ -68,16 +68,18 @@ _RENAMED = {"alice": "zeta", "bob": "yank", "carol": "xray", "dave": "west"}
 
 
 def _snapshot(playoff_teams: int):
+    season = SimpleNamespace(
+        season="2026",
+        league_id="L1",
+        league={"settings": {"playoff_teams": playoff_teams, "playoff_week_start": 15}},
+        rosters=[],
+        matchups_by_week={},
+        regular_season_weeks=[],
+    )
     return SimpleNamespace(
         managers=SimpleNamespace(by_owner_id={}),
-        current_season=SimpleNamespace(
-            season="2026",
-            league_id="L1",
-            league={"settings": {"playoff_teams": playoff_teams, "playoff_week_start": 15}},
-            rosters=[],
-            matchups_by_week={},
-            regular_season_weeks=[],
-        ),
+        current_season=season,
+        seasons=[season],
     )
 
 

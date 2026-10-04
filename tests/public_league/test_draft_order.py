@@ -79,3 +79,16 @@ def test_the_rule_is_recorded_for_dynasty_main_and_unknown_elsewhere(tmp_path):
     bad = tmp_path / "rules.json"
     bad.write_text(json.dumps({"rules": {"x": {"rule": "max_pf"}}}), encoding="utf-8")
     assert league_draft_order_rule("x", path=bad) is None  # an unknown rule id is not adopted
+
+
+def test_a_standings_row_without_an_owner_refuses_the_order():
+    # Dropping it would shift every later slot by one.
+    rows = [
+        {"ownerId": "a", "wins": 3, "ties": 0, "pointsFor": 900.0},
+        {"wins": 5, "ties": 0, "pointsFor": 950.0},
+    ]
+    with pytest.raises(ValueError, match="ownerId"):
+        draft_order_from_standings(rows)
+    dup = [rows[0], dict(rows[0])]
+    with pytest.raises(ValueError, match="twice"):
+        draft_order_from_standings(dup)

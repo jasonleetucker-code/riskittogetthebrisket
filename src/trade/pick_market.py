@@ -43,6 +43,7 @@ __all__ = [
     "TierForecast",
     "calibrated_confidence",
     "owned_pick_forecasts",
+    "progress_bucket",
     "provisional_confidence",
     "tier_probabilities_from_slots",
     "unknown_slot_market_value",
@@ -107,8 +108,15 @@ def unknown_slot_market_value(
     ktc_tier_values: Mapping[str, float | None],
     *,
     forecast: TierForecast | None = None,
+    forecast_unavailable_reason: str | None = None,
+    ktc_tier_sources: Mapping[str, str | None] | None = None,
 ) -> PickMarketEstimate:
     """Derived market value for an owned pick of unknown slot.
+
+    ``forecast_unavailable_reason`` says why no forecast applies when
+    ``forecast`` is ``None`` (no recorded draft-order rule, no simulation, a
+    later class, an unmapped franchise); ``ktc_tier_sources`` names which KTC
+    key priced each tier, so a mixed average is visible rather than silent.
 
     ``ktc_tier_values`` are KTC's NATIVE ``{"early", "mid", "late"}`` values
     for exactly this year and round.  All three are required: averaging a
@@ -128,7 +136,10 @@ def unknown_slot_market_value(
             year=int(year),
             round_num=int(round_num),
             reason="ktc_tier_values_missing:" + ",".join(missing),
-            provenance={"ktcTierValues": dict(native)},
+            provenance={
+                "ktcTierValues": dict(native),
+                "ktcTierSources": None if ktc_tier_sources is None else dict(ktc_tier_sources),
+            },
         )
     generic_average = sum(float(native[t]) for t in TIERS) / len(TIERS)
     confidence = 0.0
@@ -146,7 +157,13 @@ def unknown_slot_market_value(
         round_num=int(round_num),
         provenance={
             "ktcTierValues": {t: float(native[t]) for t in TIERS},
+            "ktcTierSources": None if ktc_tier_sources is None else dict(ktc_tier_sources),
             "genericAverage": round(generic_average, 1),
+            "forecastUnavailableReason": (
+                (forecast_unavailable_reason or "no_forecast_supplied")
+                if forecast is None
+                else None
+            ),
             "forecastProbabilities": (
                 None if forecast is None else {t: forecast.probabilities.get(t) for t in TIERS}
             ),
@@ -174,14 +191,24 @@ def unknown_slot_market_value(
 
 #: PRIOR, PROVISIONAL: the most a not-yet-calibrated forecast may move the
 #: market side mid-season.  Confidence rises with the share of the regular
-#: season already played (an early-season record says little), and reaches
-#: 1.0 only when the regular season is complete — then the final standings
-#: are OBSERVED, not forecast.  Replaced by :func:`calibrated_confidence`
-#: once enough realized drafts exist.
+#: season already FINISHED, in the league's own weeks (an early-season record
+#: says little), and reaches 1.0 only when every regular-season week is final
+#: — then the final standings are OBSERVED, not forecast.  Replaced by
+#: :func:`calibrated_confidence` once enough realized drafts exist.
 PROVISIONAL_CONFIDENCE_CAP = 0.5
-#: Minimum realized (forecast, slot) outcomes before calibration is trusted:
-#: two full 12-team classes.
+#: Minimum realized (forecast, slot) outcomes, PER season-progress bucket,
+#: before calibration is trusted: two full 12-team classes.
 CALIBRATION_MIN_OUTCOMES = 24
+#: Season-progress buckets calibration is fitted within: quarters of the
+#: regular season, plus "complete".  A week-2 forecast and a week-13 forecast
+#: are different instruments and must not share one weight.
+PROGRESS_BUCKETS = 4
+#: Grid resolution for fitting the shrinkage weight ``c``.
+_CALIBRATION_GRID = 100
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def tier_probabilities_from_slots(
@@ -190,66 +217,93 @@ def tier_probabilities_from_slots(
     """``P(slot = i)`` (index 0 = slot 1) → Early/Mid/Late via ``slot_tier``."""
     from src.identity.picks import slot_tier  # noqa: PLC0415
 
-    total = sum(p for p in slot_distribution if isinstance(p, (int, float)))
+    total = sum(p for p in slot_distribution if _is_number(p))
     if not slot_distribution or total <= 0:
         return None
     probs = {t: 0.0 for t in TIERS}
     for i, p in enumerate(slot_distribution):
         tier = slot_tier(i + 1, league_size=league_size)
-        if tier is None or not isinstance(p, (int, float)):
+        if tier is None or not _is_number(p):
             continue
         probs[tier] += float(p) / total
     return probs
 
 
-def provisional_confidence(games_played: int, games_remaining: int) -> tuple[float, str]:
-    """``(confidence, basis)`` before calibration exists — labelled provisional."""
-    played, remaining = max(0, int(games_played)), max(0, int(games_remaining))
-    if played > 0 and remaining == 0:
+def progress_bucket(weeks_final: Any, weeks_total: Any) -> int | None:
+    """``0 .. PROGRESS_BUCKETS - 1`` by quarter of the season, ``PROGRESS_BUCKETS``
+    once complete, ``None`` when progress is unknown."""
+    if not (_is_number(weeks_final) and _is_number(weeks_total)) or weeks_total <= 0:
+        return None
+    frac = max(0.0, float(weeks_final)) / float(weeks_total)
+    if frac >= 1.0:
+        return PROGRESS_BUCKETS
+    return min(PROGRESS_BUCKETS - 1, int(frac * PROGRESS_BUCKETS))
+
+
+def provisional_confidence(weeks_final: Any, weeks_total: Any) -> tuple[float, str]:
+    """``(confidence, basis)`` before calibration exists — labelled provisional.
+
+    Inputs are the league's own regular-season weeks (finished / total), as
+    ``playoff_sim`` publishes them in ``regularSeasonProgress``.  Unknown
+    progress gives the forecast no weight — it is not read as "early".
+    """
+    if not (_is_number(weeks_final) and _is_number(weeks_total)) or weeks_total <= 0:
+        return 0.0, "season_progress_unknown"
+    done, total = max(0.0, float(weeks_final)), float(weeks_total)
+    if done >= total:
         return 1.0, "final_standings_observed"
-    total = played + remaining
-    if total <= 0:
-        return 0.0, "no_regular_season_evidence"
-    return PROVISIONAL_CONFIDENCE_CAP * played / total, "provisional_season_progress"
+    return PROVISIONAL_CONFIDENCE_CAP * done / total, "provisional_season_progress"
+
+
+def _brier(p: Mapping[str, float], actual: str) -> float:
+    return sum((float(p.get(t, 0.0)) - (1.0 if t == actual else 0.0)) ** 2 for t in TIERS)
 
 
 def calibrated_confidence(
-    history: list[tuple[Mapping[str, float], str]],
+    history: list[tuple[Mapping[str, float], str, int]],
+    bucket: int | None,
 ) -> float | None:
-    """Confidence from realized outcomes, or ``None`` until there are enough.
+    """The fitted shrinkage weight ``c`` for this season-progress bucket.
 
-    ``history`` is ``[(forecast tier probabilities, realized tier), ...]`` where
-    the realized tier comes from the league's actual draft order.  The score is
-    the forecast's Brier skill against the equal-thirds prior, clamped to
-    [0, 1]: a forecast no better than thirds earns no weight.
+    ``history`` is ``[(forecast tier probabilities, realized tier, bucket),
+    ...]`` — each a forecast that was MADE at that point of a past season,
+    with the tier the league's actual draft order then gave the pick.  Only
+    the same bucket's outcomes are used, and ``c`` is fitted directly: the
+    value in [0, 1] minimising the mean Brier score of the SHRUNK forecast
+    ``c x P + (1 - c)/3`` that :func:`unknown_slot_market_value` actually
+    uses.  ``None`` until the bucket holds ``CALIBRATION_MIN_OUTCOMES``.
     """
-    if len(history) < CALIBRATION_MIN_OUTCOMES:
+    if bucket is None:
         return None
-    uniform = {t: 1.0 / 3.0 for t in TIERS}
-
-    def brier(p: Mapping[str, float], actual: str) -> float:
-        return sum((float(p.get(t, 0.0)) - (1.0 if t == actual else 0.0)) ** 2 for t in TIERS)
-
-    model = sum(brier(p, a) for p, a in history) / len(history)
-    base = sum(brier(uniform, a) for _p, a in history) / len(history)
-    if base <= 0:
+    rows = [(p, a) for p, a, b in history if b == bucket and a in TIERS]
+    if len(rows) < CALIBRATION_MIN_OUTCOMES:
         return None
-    return max(0.0, min(1.0, 1.0 - model / base))
+
+    def loss(c: float) -> float:
+        return sum(
+            _brier({t: c * float(p.get(t, 0.0)) + (1.0 - c) / 3.0 for t in TIERS}, a)
+            for p, a in rows
+        ) / len(rows)
+
+    grid = [i / _CALIBRATION_GRID for i in range(_CALIBRATION_GRID + 1)]
+    # Ties resolve to the SMALLER weight: equal evidence never buys trust.
+    return min(grid, key=lambda c: (loss(c), c))
 
 
 def owned_pick_forecasts(
     sim_payload: Mapping[str, Any] | None,
     contract: Mapping[str, Any] | None,
     *,
-    calibration: float | None = None,
+    calibration_history: list[tuple[Mapping[str, float], str, int]] | None = None,
 ) -> dict[int, tuple[int, TierForecast]]:
     """``{originRosterId: (draftYear, TierForecast)}`` for the upcoming class.
 
     Only the class drafted after the SIMULATED season (``season + 1``) has a
     forecast; later classes have none and stay at the plain average.  A sim
     without ``draftSlotDistribution`` (no recorded draft-order rule) yields
-    nothing.  ``calibration`` (from :func:`calibrated_confidence`) replaces the
-    provisional confidence when supplied.
+    nothing.  ``calibration_history`` (see :func:`calibrated_confidence`)
+    replaces the provisional confidence once the CURRENT season-progress bucket
+    holds enough realized outcomes.
     """
     if not isinstance(sim_payload, Mapping) or not sim_payload.get("draftOrderRule"):
         return {}
@@ -266,17 +320,16 @@ def owned_pick_forecasts(
         except (TypeError, ValueError):
             continue
     league_size = len(rows)
-    if calibration is not None:
-        confidence, basis, calibrated = float(calibration), "calibrated_brier_skill", True
+    progress = sim_payload.get("regularSeasonProgress")
+    progress = progress if isinstance(progress, Mapping) else {}
+    weeks_final, weeks_total = progress.get("weeksFinal"), progress.get("weeksTotal")
+    bucket = progress_bucket(weeks_final, weeks_total)
+    fitted = calibrated_confidence(calibration_history or [], bucket)
+    if fitted is not None:
+        confidence, basis, calibrated = fitted, "calibrated_shrinkage_fit", True
     else:
-        played = sim_payload.get("regularSeasonGamesPlayed")
-        remaining = sim_payload.get("regularSeasonGamesRemaining")
-        if isinstance(played, int) and isinstance(remaining, int):
-            confidence, basis = provisional_confidence(played, remaining)
-        else:
-            # Season progress unknown: no evidence to lean on, so the forecast
-            # gets no weight and the value stays the plain tier average.
-            confidence, basis = 0.0, "season_progress_unknown"
+        # Unknown progress gives no weight: the value stays the plain average.
+        confidence, basis = provisional_confidence(weeks_final, weeks_total)
         calibrated = False
     out: dict[int, tuple[int, TierForecast]] = {}
     for r in rows:
@@ -302,6 +355,11 @@ def owned_pick_forecasts(
                     "finalPointsForDistribution": r.get("finalPointsFor"),
                     "slotDistribution": [round(float(p), 4) for p in dist],
                     "confidenceBasis": basis,
+                    "seasonProgress": {
+                        "weeksFinal": weeks_final,
+                        "weeksTotal": weeks_total,
+                        "bucket": bucket,
+                    },
                 },
             ),
         )

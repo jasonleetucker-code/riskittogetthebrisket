@@ -1151,7 +1151,7 @@ def _owned_pick_assets(
     from src.identity.picks import market_resolution, round_suffix  # noqa: PLC0415
     from src.trade.pick_market import unknown_slot_market_value  # noqa: PLC0415
 
-    stats = {"owned": 0, "priced": 0, "unpriced": 0}
+    stats = {"owned": 0, "priced": 0, "unpriced": 0, "belowMinValue": 0}
     details = (team or {}).get("pickDetails")
     if not isinstance(details, list) or not isinstance(contract, dict):
         return [], stats
@@ -1193,8 +1193,23 @@ def _owned_pick_assets(
             # exists only for the class drafted after the simulated season.
             fc = (forecasts or {}).get(origin_rid) if origin_rid is not None else None
             forecast = fc[1] if fc and fc[0] == year else None
+            if forecast is not None:
+                no_forecast = None
+            elif not forecasts:
+                no_forecast = "no_slot_forecast_available"
+            elif origin_rid is None:
+                no_forecast = "origin_franchise_unknown"
+            elif fc is None:
+                no_forecast = "no_forecast_for_origin_franchise"
+            else:
+                no_forecast = "class_beyond_forecast_horizon"
             est = unknown_slot_market_value(
-                year, rnd, {t: a.market_value for t, a in tiers.items()}, forecast=forecast
+                year,
+                rnd,
+                {t: a.market_value for t, a in tiers.items()},
+                forecast=forecast,
+                forecast_unavailable_reason=no_forecast,
+                ktc_tier_sources={t: a.market_source for t, a in tiers.items()},
             )
             market = est.value
             derivation = est.to_dict()
@@ -1203,8 +1218,12 @@ def _owned_pick_assets(
             row = unfiltered.get(res.ref.board_row_name() or "")
             if row is not None and row.has_market:
                 market, source = row.market_value, row.market_source
-        if model is None or market is None or model < MIN_ASSET_VALUE:
+        if model is None or market is None:
             stats["unpriced"] += 1
+            continue
+        if model < MIN_ASSET_VALUE:
+            # Priced, just below the engine's tradeable floor — not "unpriced".
+            stats["belowMinValue"] += 1
             continue
         stats["priced"] += 1
         # Named by the ORIGINATING franchise ("2027 1st (Blaine)"): unambiguous
@@ -1577,8 +1596,12 @@ def find_trades(
             me_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
         )
         my_picks = [a for a in my_picks if a.name.strip().casefold() not in excluded_player_keys]
-        # C3-CON-01: a pick the user protects, LOCKs or excludes is never sent.
-        # Applied here because picks are added after player enumeration.
+        # C3-CON-01: a pick the user protects or excludes is never sent
+        # (``block_reason``; a LOCK means "must include", which this generator
+        # does not enforce for picks, so it does not block either).  Pick
+        # constraints key on the canonical ``assetId`` or this generator's
+        # display name.  Applied here because picks are added after player
+        # enumeration.
         blocked_picks = (
             [(a, constraints.block_reason(a)) for a in my_picks] if constraints is not None else []
         )

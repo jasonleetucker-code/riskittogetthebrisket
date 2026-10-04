@@ -37,9 +37,15 @@ Points For in each simulation.  It applies the rule above to each draw and
 publishes, per team:
 
 * `draftSlotDistribution`: `P(slot = i)`;
-* `finalWins` / `finalPointsFor`: mean, p10, p50, p90;
-* at the payload level: `draftOrderRule`, `season`, and regular-season games
-  played and remaining.
+* `finalWins` / `finalPointsFor`: mean, p10, p50, p90.  `finalWins` is the
+  RECORD the order ranks on: wins plus half a win per tied game, including
+  ties already on the books;
+* at the payload level: `draftOrderRule`, `season`, and
+  `regularSeasonProgress` — `weeksFinal` / `weeksTotal` / `complete`, in the
+  league's own regular-season WEEKS (`1 .. playoff_week_start - 1`, counted
+  final by the canonical finished-week gate).  Unknown length is `null`
+  throughout.  Completion is never inferred from an empty remaining schedule:
+  future matchups that failed to post also leave it empty.
 
 The draft-order draws use a cloned random stream, so playoff and championship odds
 are byte-identical with or without the rule.  This is pinned in
@@ -64,18 +70,25 @@ V_market     = sum over Early/Mid/Late of P_used(tier) x KTC_tier_value
 * No forecast (`c = 0`) gives exactly the plain average of KTC's native
   Early/Mid/Late values for that year and round, labelled PRIOR.
 * `c` is **provisional** until calibrated:
-  * `0.5 x (share of the regular season played)`;
-  * `1.0` only when the regular season is complete, because the final standings
-    are then observed rather than forecast.
-* Calibration (`calibrated_confidence`) is the forecast's Brier skill against
-  equal thirds over realized drafts.  It takes over once at least 24
-  forecast/realized pairs exist (two 12-team classes), and a forecast no better
-  than thirds earns no weight.
+  * `0.5 x (regular-season weeks final / total)`;
+  * `1.0` only when every regular-season week is final, because the final
+    standings are then observed rather than forecast;
+  * `0` when progress is unknown — never read as "early".
+* Calibration (`calibrated_confidence`) FITS `c` directly: the value in [0, 1]
+  minimising the mean Brier score of the shrunk forecast `P_used` against the
+  realized tier.  It is fitted separately per season-progress bucket (quarters
+  of the regular season, plus complete), because a week-2 and a week-13
+  forecast are different instruments.  A bucket takes over once it holds at
+  least 24 forecast/realized pairs (two 12-team classes); ties in the fit go to
+  the smaller weight, so a forecast no better than thirds earns none.
 * The forecast never hard-switches a pick to its most likely tier.
 
 Every value keeps its explanation (`marketDerivation`):
 
-* KTC Early, Mid and Late values, and their generic average;
+* KTC Early, Mid and Late values, which KTC key priced each, and their
+  generic average;
+* when no forecast applies, why (`forecastUnavailableReason`: no slot
+  forecast available, a later class, an unmapped originating franchise);
 * record, Points For and slot distributions, and tier probabilities;
 * confidence and its basis;
 * tier weights used, the forecast-weighted value and the final value;
@@ -87,6 +100,18 @@ Every value keeps its explanation (`marketDerivation`):
   slot* directly by Team Strength rank.  That is a display-only point estimate,
   but this rule says Team Strength must not determine order.  It should read the
   simulation's slot distribution instead.
-* **Forecast capture.** Calibration needs the forecasts recorded at the time.
-  The weekly pick-forecast snapshot (AL-P4) should capture `draftSlotDistribution`
-  and the tier probabilities alongside its existing fields.
+* **Forecast capture.** Calibration needs the forecasts recorded at the time,
+  with their season-progress bucket.  The weekly pick-forecast snapshot (AL-P4)
+  should capture `draftSlotDistribution`, the tier probabilities and
+  `regularSeasonProgress` alongside its existing fields.  Until it does, no
+  calibration history exists and every forecast runs on the provisional `c`.
+* **Between rollover and the draft.** Once Sleeper rolls the league to the next
+  season, the snapshot holds no games, so the simulation publishes no slot
+  forecast, and the upcoming class stays at the plain average.  The previous
+  season's FINAL standings fix that order exactly
+  (`draft_order_from_standings`), but nothing feeds them in yet.  This fails
+  safe toward the prior.
+* **Seeding ties.** Playoff seeding in the simulation still starts from wins
+  alone (ties on the books are not credited), unlike the standings convention.
+  The draft order credits them; seeding is left unchanged here so published
+  odds do not move, and is the playoff-simulation owner's to fix.

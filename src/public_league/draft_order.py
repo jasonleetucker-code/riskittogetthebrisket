@@ -118,9 +118,13 @@ def draft_order_from_standings(rows: Iterable[Mapping[str, Any]]) -> DraftOrder:
     wins: dict[str, float] = {}
     pf: dict[str, float] = {}
     for r in rows:
-        oid = str(r.get("ownerId") or "")
-        if not oid:
-            continue
+        oid = r.get("ownerId")
+        if not isinstance(oid, str) or not oid:
+            # Dropping the row would shift every later slot by one: a team we
+            # cannot identify makes the whole order unknown.
+            raise ValueError("a standings row has no ownerId — order is unknown")
+        if oid in wins:
+            raise ValueError(f"owner {oid} appears twice in the standings")
         values = {k: r.get(k) for k in ("wins", "ties", "pointsFor")}
         bad = [
             k for k, v in values.items() if not isinstance(v, (int, float)) or isinstance(v, bool)

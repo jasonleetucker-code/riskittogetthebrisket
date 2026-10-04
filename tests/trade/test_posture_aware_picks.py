@@ -158,12 +158,13 @@ def test_unknown_slot_pick_takes_canonical_model_value_and_derived_market_value(
     c = _contract([_DETAIL])
     team = c["sleeper"]["teams"][0]
     assets, stats = finder._owned_pick_assets(team, c, _players(), {})
-    assert stats == {"owned": 1, "priced": 1, "unpriced": 0}
+    assert stats == {"owned": 1, "priced": 1, "unpriced": 0, "belowMinValue": 0}
     (a,) = assets
     assert a.name == "2027 1st (Us)" and a.asset_id == _DETAIL["assetId"]
     assert a.model_value == 5800  # the canonical generic row, untouched
     assert a.market_value == round((7000 + 5900 + 5000) / 3)
     assert a.market_derivation["isNativeMarketPrice"] is False
+    assert a.market_derivation["forecastUnavailableReason"] == "no_slot_forecast_available"
 
 
 def test_missing_tier_leaves_the_pick_out_never_zero():
