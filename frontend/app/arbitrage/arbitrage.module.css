@@ -188,3 +188,14 @@
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
+/* Wave B (C3-CAP-01): both teams' roster consequence, plain text on the
+   existing tokens — no new colour, the counts carry the meaning. */
+.capacityList {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}

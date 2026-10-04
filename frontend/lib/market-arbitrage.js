@@ -120,3 +120,24 @@ export function buildArbitrageRows(rows, {
       return (a.row.rank ?? Infinity) - (b.row.rank ?? Infinity);
     });
 }
+
+
+// ── Roster capacity, as words (Wave B / C3-CAP-01) ───────────────────────
+// Labels only: every count and cost is the backend's (src/trade/roster_capacity).
+
+/** One line describing what a trade does to a roster's legality. */
+export function rosterCapacityLine(capacity) {
+  if (!capacity || typeof capacity !== "object") return null;
+  if (capacity.unavailable) return "roster capacity unavailable";
+  const drops = Array.isArray(capacity.forcedDrops) ? capacity.forcedDrops : [];
+  if (capacity.requiresDrops === null || capacity.requiresDrops === undefined) {
+    return capacity.rosterLimit == null
+      ? "roster limit unknown"
+      : "may need a release (taxi occupancy unknown)";
+  }
+  if (!capacity.requiresDrops) return "fits — no release needed";
+  const names = drops.map((d) => d.name).filter(Boolean);
+  const upper = capacity.forcedDropsAreUpperBound ? " at most" : "";
+  const who = names.length ? `: ${names.join(", ")}` : "";
+  return `must release${upper} ${drops.length}${who}`;
+}

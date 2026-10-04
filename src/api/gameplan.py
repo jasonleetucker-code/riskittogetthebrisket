@@ -649,6 +649,131 @@ def get_league_bundle(
     return bundle, cached or shared
 
 
+# ── Competitive Posture (C7-POST-01) ────────────────────────────────
+
+
+def _league_settings_for(contract: Mapping[str, Any] | None, league_key: str) -> Mapping[str, Any]:
+    """This league's Sleeper ``leagueSettings``, only when the contract is ITS.
+
+    ``leagueSettings`` is a leagueKey field; reading another league's
+    deadline would time this league's posture by someone else's calendar.
+    """
+    if not isinstance(contract, Mapping):
+        return {}
+    meta = contract.get("meta") or {}
+    if meta.get("leagueKey") not in (None, league_key):
+        return {}
+    sleeper = contract.get("sleeper") or {}
+    settings = sleeper.get("leagueSettings") if isinstance(sleeper, Mapping) else None
+    return settings if isinstance(settings, Mapping) else {}
+
+
+def _own_first_round_pick_held(contract: Mapping[str, Any] | None, owner_id: str) -> bool | None:
+    """Whether this team holds its OWN first in the league's upcoming class.
+
+    Read off the overlay's canonical pick fold (``sleeper.teams[].pickDetails``,
+    whose seasons already come from ``pick_lifecycle.league_draft_years``) —
+    nothing here derives a draft year.  The upcoming class is the earliest
+    season any team's published inventory carries.  ``None`` when any
+    inventory is unpublished (#1618) or the team is absent: unknown, never
+    "does not own it".
+    """
+    sleeper = (contract or {}).get("sleeper") if isinstance(contract, Mapping) else None
+    teams = (sleeper or {}).get("teams") if isinstance(sleeper, Mapping) else None
+    if not isinstance(teams, list):
+        return None
+    seasons: list[int] = []
+    mine: Mapping[str, Any] | None = None
+    for t in teams:
+        if not isinstance(t, Mapping):
+            continue
+        details = t.get("pickDetails")
+        if not isinstance(details, list):
+            return None
+        for d in details:
+            try:
+                seasons.append(int(d.get("season")))
+            except (TypeError, ValueError, AttributeError):
+                continue
+        if str(t.get("ownerId") or "") == str(owner_id):
+            mine = t
+    if mine is None or not seasons:
+        return None
+    upcoming = min(seasons)
+    rid = mine.get("roster_id", mine.get("rosterId"))
+    if rid is None:
+        return None
+    for d in mine.get("pickDetails") or []:
+        try:
+            if (
+                int(d.get("season")) == upcoming
+                and int(d.get("round")) == 1
+                and int(d.get("fromRosterId")) == int(rid)
+            ):
+                return True
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return False
+
+
+def league_competitive_postures(
+    league_key: str,
+    scoring_profile: str,
+    contract: Mapping[str, Any] | None,
+    *,
+    week: int | None = None,
+    in_season: bool | None = None,
+    build_if_missing: bool = True,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``({ownerId: CompetitivePosture}, meta)`` for every roster in the league.
+
+    ``meta.bundleFreshness`` is ``"current"`` when the bundle was checked
+    against this call's inputs, ``"last_computed"`` on the warm-only path.
+
+    Consumes the cached league bundle's competitive windows (the same windows
+    ``/api/gameplan`` publishes — playoff odds, ages and ROS values already
+    supplied) and the canonical posture owner in ``src.roster_intel.window``.
+    ``week`` / ``in_season`` default to the shared season clock
+    (``faab_engine.current_nfl_week``).  Raises :class:`GameplanUnavailable`
+    when the bundle cannot be built; callers degrade to a named unavailable.
+    """
+    from src.roster_intel.window import competitive_posture, season_timing  # noqa: PLC0415
+
+    if in_season is None and week is None:
+        from src.trade.faab_engine import current_nfl_week  # noqa: PLC0415
+
+        week, in_season = current_nfl_week()
+    if build_if_missing:
+        bundle, _hit = get_league_bundle(league_key, scoring_profile, contract)
+        freshness = "current"
+    else:
+        # A latency-sensitive caller (every /trade simulate) reads the LAST
+        # built bundle from memory — no input load, no disk, no network, never
+        # the live-compute fallback.  It may predate the latest scrape, and
+        # says so: stale is never presented as current.
+        with _CACHE_LOCK:
+            cached = _BUNDLE_CACHE.get(league_key)
+        if cached is None:
+            raise GameplanUnavailable(
+                "league_bundle_not_warm",
+                "The league's roster-intelligence bundle has not been built yet; "
+                "posture is computed by Analyze Trade and /api/gameplan.",
+            )
+        bundle = cached[1]
+        freshness = "last_computed"
+    settings = _league_settings_for(contract, league_key)
+    timing = season_timing(week, in_season, settings.get("trade_deadline"))
+    postures = {
+        owner_id: competitive_posture(
+            intel.window,
+            timing,
+            own_first_round_pick_held=_own_first_round_pick_held(contract, owner_id),
+        )
+        for owner_id, intel in bundle.intel.items()
+    }
+    return postures, {"bundleFreshness": freshness, "notes": list(bundle.notes)}
+
+
 # ── Candidate assembly ───────────────────────────────────────────────
 
 

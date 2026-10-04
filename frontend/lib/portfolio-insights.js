@@ -8,6 +8,7 @@ import {
 } from "@/lib/value-history";
 import { buildPickLookupCandidates } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition } from "@/lib/starter-slots";
+import { pickOwnershipUnavailableReason } from "@/lib/pick-ownership";
 
 /** First contract row matching any candidate key, or null. */
 function resolveByCandidates(byName, candidates) {
@@ -164,8 +165,12 @@ function splitStartersBench({ rosterValues, optimalLineup }) {
  */
 export function computePortfolio({ rows, selectedTeam, rawData, history, rosterSettings }) {
   const hasPlayers = !!selectedTeam?.players?.length;
-  const hasPicks = !!selectedTeam?.picks?.length;
-  if ((!hasPlayers && !hasPicks) || !Array.isArray(rows)) {
+  // Pick ownership UNKNOWN (failed /traded_picks — see lib/pick-ownership.js)
+  // makes ``hasPicks`` unknown (null), never false: the team may well hold
+  // picks we cannot see.
+  const pickOwnershipUnavailable = pickOwnershipUnavailableReason(selectedTeam);
+  const hasPicks = pickOwnershipUnavailable ? null : !!selectedTeam?.picks?.length;
+  if ((!hasPlayers && hasPicks !== true) || !Array.isArray(rows)) {
     return null;
   }
 
@@ -374,8 +379,13 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     totalValue,
     ...starterSplit,
     picks,
-    pickCount: picks.length,
-    pickValue,
+    // null = ownership unknown, never "0 picks / $0 of picks".
+    pickCount: pickOwnershipUnavailable ? null : picks.length,
+    pickValue: pickOwnershipUnavailable ? null : pickValue,
+    hasPicks,
+    pickOwnershipUnavailable,
+    // totalValue excludes the team's picks when their ownership is unknown.
+    totalIsPartial: !!pickOwnershipUnavailable,
     byPosition,
     byAge,
     medianAge,

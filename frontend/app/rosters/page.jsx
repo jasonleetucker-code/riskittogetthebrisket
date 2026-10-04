@@ -20,6 +20,10 @@ import {
   ordinal,
 } from "@/lib/league-analysis";
 import { readableTextOn, textSafe } from "@/lib/contrast";
+import {
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  describePickOwnershipReason,
+} from "@/lib/pick-ownership";
 
 // The surface these labels sit on.  `--card` / `--bg-soft` (#131519),
 // NOT the page `--bg` (#0b0d10): the labels live inside panels, and
@@ -109,6 +113,10 @@ export default function RostersPage() {
   // would indicate the order came from a guess.
   const starterSlotsUnavailable =
     assetScope === "starters" && teams.some((t) => t.starterSlotsUnavailable);
+
+  // Same posture for picks: unknown ownership (failed /traded_picks) is
+  // said out loud, not rendered as teams holding no draft capital.
+  const pickOwnershipUnavailable = teams.some((t) => t.totalIsPartial);
 
   // Sort by active group totals
   const sortedTeams = useMemo(() => {
@@ -267,6 +275,13 @@ export default function RostersPage() {
             Picks&rdquo; for a complete comparison.
           </p>
         )}
+        {pickOwnershipUnavailable && (
+          <p className="ds-value-basis-note pick-ownership-unavailable" role="note">
+            <strong>{PICK_OWNERSHIP_UNAVAILABLE_LABEL}.</strong>{" "}
+            {describePickOwnershipReason(teams.find((t) => t.totalIsPartial)?.pickOwnershipUnavailable)}{" "}
+            Portfolio values below exclude draft picks until it can be read again.
+          </p>
+        )}
 
         {/* Position filter — toggle chips.  The previous 13x13 native
             checkbox + 11px label was impossible to tap on mobile.
@@ -374,7 +389,12 @@ export default function RostersPage() {
                     <td style={{ fontWeight: 700, ...(isMe ? { color: "var(--cyan)" } : {}) }}>
                       {team.name}
                       <div style={{ fontSize: FONT_2XS, color: "var(--subtext)", fontWeight: 400 }}>
-                        {team.playerCount} players{team.pickCount ? `, ${team.pickCount} picks` : ""}
+                        {team.playerCount} players
+                        {team.pickCount == null && team.pickOwnershipUnavailable
+                          ? ", picks unavailable"
+                          : team.pickCount
+                            ? `, ${team.pickCount} picks`
+                            : ""}
                       </div>
                     </td>
                     <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontWeight: 600 }}>

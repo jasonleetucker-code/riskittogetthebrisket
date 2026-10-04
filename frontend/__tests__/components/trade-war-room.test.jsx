@@ -138,8 +138,16 @@ describe("TradeWarRoom — the packet, verbatim", () => {
     fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
     expect(screen.getByText(/KTC VA is a separate market lens/)).toBeInTheDocument();
     expect(screen.getByText(/SYNTHETIC_FIXTURE_PROJECTIONS/)).toBeInTheDocument();
-    expect(screen.getByText("strategicPosture")).toBeInTheDocument();
     expect(screen.getByText("currentSeasonEquity")).toBeInTheDocument();
+  });
+
+  it("shows the canonical team direction as context, never as a vote", async () => {
+    await renderWith(CONSOLIDATION);
+    fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
+    expect(screen.getByText("Team direction (context, not a vote)")).toBeInTheDocument();
+    expect(screen.getByText(/^Push — prioritise/)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Posture split" })).toHaveTextContent("PUSH: 91%");
+    expect(screen.getByText(/never counted in it/)).toBeInTheDocument();
   });
 });
 
