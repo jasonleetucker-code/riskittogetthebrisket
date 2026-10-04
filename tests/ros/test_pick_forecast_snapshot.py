@@ -569,6 +569,20 @@ def _patch_owners(monkeypatch, strength_calls: list) -> None:
         "src.api.draft_class_evidence.active_seasons_for_league",
         lambda _lid, seasons: list(seasons),
     )
+    # The season simulation under the league's rule, pinned (never the
+    # checkout's cache file, whose freshness is its mtime).
+    monkeypatch.setattr(
+        "src.ros.playoff_sim._load_cached_payload",
+        lambda key=None: {
+            "season": datetime.now(timezone.utc).year,
+            "draftOrderRule": "reverse_record_lower_pf",
+            "regularSeasonProgress": {"weeksFinal": 4, "weeksTotal": 14},
+            "playoffOdds": [
+                {"ownerId": "u1", "draftSlotDistribution": [0.9, 0.1]},
+                {"ownerId": "u2", "draftSlotDistribution": [0.1, 0.9]},
+            ],
+        },
+    )
 
 
 def _fake_sleeper(traded_picks):
@@ -920,6 +934,18 @@ def realistic(monkeypatch, tmp_path):
         lambda _lid, seasons: list(seasons),
     )
     state["strength_dir"] = tmp_path / "ros" / "team_strength"
+    # The league's season simulation is pinned, never read from whatever
+    # cache file the checkout happens to carry (its freshness is file mtime).
+    state["sim"] = {
+        "season": datetime.now(timezone.utc).year,
+        "draftOrderRule": "reverse_record_lower_pf",
+        "regularSeasonProgress": {"weeksFinal": 4, "weeksTotal": 14},
+        "playoffOdds": [
+            {"ownerId": o, "draftSlotDistribution": [1.0 if i == j else 0.0 for j in range(4)]}
+            for i, o in enumerate(_OWNERS)
+        ],
+    }
+    monkeypatch.setattr("src.ros.playoff_sim._load_cached_payload", lambda key=None: state["sim"])
     return state
 
 
@@ -1018,3 +1044,26 @@ def test_persist_false_writes_no_served_team_strength_file(realistic) -> None:
         LEAGUE, snapshot=realistic["snapshot"], persist=True
     )
     assert list(strength_dir.iterdir())
+
+
+def test_a_missing_or_stale_simulation_refuses_the_write_not_a_slotless_forecast(
+    realistic,
+) -> None:
+    """dynasty_main has a recorded rule, so a missing/stale season simulation
+    is TRANSIENT: writing a slot-less forecast now would occupy the week's
+    top tier and the real capture (the calibration input) would be lost."""
+    realistic["sim"] = None
+    inputs = _gather_realistic()
+    assert inputs.forecast is None
+    assert inputs.forecast_reason == "season_simulation_unavailable"
+    record = snap.assemble_snapshot(inputs, recorded_at="2026-10-06T12:20:00+00:00")
+    assert "forecast" in record["transientMissing"]
+    assert record["tier"] != snap.TOP_TIER
+
+
+def test_the_capture_records_the_rule_slots_it_was_forecast_from(realistic) -> None:
+    record = snap.assemble_snapshot(_gather_realistic(), recorded_at="2026-10-06T12:20:00+00:00")
+    forecast = record["forecast"]
+    assert forecast["meta"]["draftOrderRule"] == "reverse_record_lower_pf"
+    slotted = [p for p in forecast["picks"] if p["projectedSlot"] is not None]
+    assert slotted and all(p["slotDistribution"] for p in slotted)

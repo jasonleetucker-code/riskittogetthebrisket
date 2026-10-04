@@ -76,49 +76,98 @@ def teams3(extra: dict[int, list[dict]] | None = None) -> list[dict]:
 
 class TestRuleSlotForecasts:
     def test_order_follows_expected_rule_slot(self):
-        order, year, reason = rule_slot_forecasts(sim(THREE), teams3())
+        order, year, reason, _ = rule_slot_forecasts(sim(THREE), teams3())
         assert reason is None and year == 2027
         assert [r["rosterId"] for r in order] == [3, 1, 2]
         # Every slot used exactly once — a permutation, never a shared slot.
         assert [r["projectedSlot"] for r in order] == [1, 2, 3]
 
     def test_distribution_and_expected_slot_are_published(self):
-        order, _, _ = rule_slot_forecasts(sim(THREE), teams3())
+        order, _, _, _ = rule_slot_forecasts(sim(THREE), teams3())
         t1 = next(r for r in order if r["rosterId"] == 1)
         assert t1["slotDistribution"] == [0.0, 0.6, 0.4]
         assert t1["expectedSlot"] == 2.4
         assert t1["mostLikelySlot"] == 2
 
-    def test_confidence_is_the_mass_within_one_slot(self):
-        order, _, _ = rule_slot_forecasts(sim(THREE), teams3())
+    def test_confidence_is_the_weighted_mass_within_one_slot(self):
+        """Label = P(within one slot) of the forecast shrunk by the same weight
+        the pick market uses: a week-5 forecast is not "high", a final one is."""
+        final = sim(THREE)
+        final["regularSeasonProgress"] = {"weeksFinal": 14, "weeksTotal": 14}
+        order, _, _, weight = rule_slot_forecasts(final, teams3())
         by = {r["rosterId"]: r for r in order}
+        assert weight["forecastWeight"] == 1.0
         assert by[3]["slotWindowProbability"] == 1.0 and by[3]["confidence"] == "high"
-        wide = {1: [0.1] * 10, 2: [0.1] * 10, 3: [0.1] * 10}
-        flat, _, _ = rule_slot_forecasts(sim(wide), teams3())
-        assert all(r["confidence"] == "low" for r in flat)
+        early, _, _, weight = rule_slot_forecasts(sim(THREE), teams3())
+        assert 0 < weight["forecastWeight"] < 0.5
+        assert {r["confidence"] for r in early} != {"high"}
+        unknown = sim(THREE)
+        unknown["regularSeasonProgress"] = None
+        order, _, _, weight = rule_slot_forecasts(unknown, teams3())
+        assert weight == {"forecastWeight": 0.0, "forecastWeightBasis": "season_progress_unknown"}
+        # Zero weight is uniform: no slot reads better than the window share.
+        assert all(r["confidence"] != "high" for r in order)
 
     def test_ties_on_expected_slot_break_on_roster_id(self):
         same = {1: [0.5, 0.5], 2: [0.5, 0.5]}
-        order, _, _ = rule_slot_forecasts(sim(same), teams3())
+        order, _, _, _ = rule_slot_forecasts(sim(same), teams3())
         assert [r["rosterId"] for r in order] == [1, 2]
 
     def test_unknowns_are_reasons_never_an_order(self):
-        assert rule_slot_forecasts(None, teams3()) == ([], None, pp.NO_SEASON_SIMULATION)
+        def reason(payload, **kw):
+            return rule_slot_forecasts(payload, teams3(), **kw)[2]
+
+        assert reason(None) == pp.NO_SEASON_SIMULATION
         no_rule = sim(THREE)
         no_rule["draftOrderRule"] = None
-        assert rule_slot_forecasts(no_rule, teams3())[2] == pp.NO_DRAFT_ORDER_RULE
+        assert reason(no_rule) == pp.NO_DRAFT_ORDER_RULE
         no_season = sim(THREE)
         no_season["season"] = None
-        assert rule_slot_forecasts(no_season, teams3())[2] == pp.SIMULATED_SEASON_UNKNOWN
-        rollover = sim(THREE)
-        for r in rollover["playoffOdds"]:
-            r.pop("draftSlotDistribution")
-        assert rule_slot_forecasts(rollover, teams3()) == ([], 2027, pp.NO_SLOT_DISTRIBUTION)
+        assert reason(no_season) == pp.SIMULATED_SEASON_UNKNOWN
 
-    def test_a_malformed_distribution_row_is_skipped_not_zeroed(self):
-        bad = {1: [0.0, "x", 1.0], 2: [-0.1, 1.1], 3: [1.0, 0.0, 0.0]}
-        order, _, _ = rule_slot_forecasts(sim(bad), teams3())
-        assert [r["rosterId"] for r in order] == [3]
+    def test_an_unsimulable_simulation_is_named_never_read_as_no_rule(self):
+        """The refusal shape ``simulate_playoff_odds`` returns (preseason, the
+        rollover-to-draft window): no draftOrderRule / season keys at all."""
+        refusal = {
+            "playoffOdds": [],
+            "unsimulable": {"reason": "no_games_played_and_none_scheduled"},
+        }
+        for kw in ({}, {"league_rule": "reverse_record_lower_pf", "rule_known": True}):
+            got = rule_slot_forecasts(refusal, teams3(), **kw)[2]
+            assert got == "season_simulation_unsimulable:no_games_played_and_none_scheduled"
+
+    def test_the_owner_decides_whether_a_rule_exists(self):
+        # A league with no recorded rule gets no forecast whatever the sim says.
+        got = rule_slot_forecasts(sim(THREE), teams3(), league_rule=None, rule_known=True)
+        assert got[2] == pp.NO_DRAFT_ORDER_RULE
+        # A league WITH a rule whose sim published no rule output: a sim gap.
+        bare = sim(THREE)
+        bare["draftOrderRule"] = None
+        got = rule_slot_forecasts(
+            bare, teams3(), league_rule="reverse_record_lower_pf", rule_known=True
+        )
+        assert got[2] == pp.NO_SLOT_DISTRIBUTION
+        # A sim produced under a different rule is refused.
+        other = sim(THREE, rule="some_other_rule")
+        got = rule_slot_forecasts(
+            other, teams3(), league_rule="reverse_record_lower_pf", rule_known=True
+        )
+        assert got[2] == pp.SIMULATION_RULE_MISMATCH
+
+    def test_a_partial_order_is_refused_never_compressed(self):
+        """One simulated team that cannot be joined (owner changed inside the
+        cache window, orphan roster) or carries a malformed distribution
+        refuses the whole order: dropping it would shift every later slot."""
+        unjoined = {1: [0.0, 1.0, 0.0], 2: [0.0, 0.0, 1.0], 9: [1.0, 0.0, 0.0]}
+        order, _, reason, _ = rule_slot_forecasts(sim(unjoined), teams3())
+        assert (order, reason) == ([], pp.SIMULATION_JOIN_INCOMPLETE)
+        for bad in (
+            {1: [0.0, "x", 1.0], 2: [0.0, 0.0, 1.0], 3: [1.0, 0.0, 0.0]},
+            {1: [-0.1, 1.1, 0.0], 2: [0.0, 0.0, 1.0], 3: [1.0, 0.0, 0.0]},
+            {1: [0.5, 0.5], 2: [0.0, 0.0, 1.0], 3: [1.0, 0.0, 0.0]},
+        ):
+            order, _, reason, _ = rule_slot_forecasts(sim(bad), teams3())
+            assert (order, reason) == ([], pp.NO_SLOT_DISTRIBUTION)
 
 
 class TestBuildPickProjections:
@@ -147,6 +196,10 @@ class TestBuildPickProjections:
     def test_no_rule_or_no_simulation_lists_picks_without_slots(self):
         teams = teams3({1: [pick(2027, 1, 1, 1)]})
         cases = ((None, pp.NO_SEASON_SIMULATION), (sim(THREE, rule=""), pp.NO_DRAFT_ORDER_RULE))
+        # dynasty_new has no recorded rule: refused even with a full simulation.
+        out = build_pick_projections(teams, sim(THREE), league_key="dynasty_new")
+        assert out["picks"][0]["slotForecastUnavailableReason"] == pp.NO_DRAFT_ORDER_RULE
+        assert out["meta"]["draftOrderRule"] is None
         for payload, reason in cases:
             out = build_pick_projections(teams, payload, current_season=2026)
             (p,) = out["picks"]
@@ -154,6 +207,26 @@ class TestBuildPickProjections:
             assert p["slotForecastUnavailableReason"] == reason
             assert out["projectedOrder"] == []
             assert out["meta"]["slotForecastUnavailableReason"] == reason
+
+    def test_a_known_rule_survives_an_unsimulable_window(self):
+        """Preseason / rollover: dynasty_main HAS a rule; meta says so."""
+        refusal = {
+            "playoffOdds": [],
+            "unsimulable": {"reason": "no_games_played_and_none_scheduled"},
+        }
+        teams = teams3({1: [pick(2027, 1, 1, 1)]})
+        out = build_pick_projections(teams, refusal, league_key="dynasty_main", current_season=2026)
+        assert out["meta"]["draftOrderRule"] == "reverse_record_lower_pf"
+        assert out["picks"][0]["slotForecastUnavailableReason"].startswith(
+            pp.SIMULATION_UNSIMULABLE + ":"
+        )
+
+    def test_a_class_before_the_simulated_draft_is_not_called_beyond_it(self):
+        teams = teams3({1: [pick(2026, 1, 1, 1), pick(2027, 1, 1, 1)]})
+        picks = build_pick_projections(teams, sim(THREE), current_season=2025)["picks"]
+        by = {p["season"]: p for p in picks}
+        assert by[2026]["slotForecastUnavailableReason"] == pp.BEFORE_SIMULATED_SEASON
+        assert by[2027]["projectedSlot"] == 2
 
     def test_current_and_past_classes_are_excluded(self):
         teams = teams3({1: [pick(2026, 1, 1, 1), pick(2025, 1, 1, 1)]})
@@ -175,13 +248,10 @@ class TestBuildPickProjections:
         assert meta["simulatedSeason"] == 2026 and meta["forecastDraftYear"] == 2027
         assert meta["regularSeasonProgress"] == {"weeksFinal": 5, "weeksTotal": 14}
 
-    def test_team_strength_cannot_decide_the_order(self):
-        """The retired route ordered by ``teamRosStrength``; nothing reads it now."""
-        import inspect
-
-        code = inspect.getsource(pp).split('"""', 2)[2]  # past the module docstring
-        assert "teamRosStrength" not in code
-        assert not hasattr(pp, "project_draft_order")
+    def test_meta_reports_the_forecast_weight_it_used(self):
+        meta = build_pick_projections(teams3(), sim(THREE))["meta"]
+        assert meta["forecastWeightBasis"] == "provisional_season_progress"
+        assert 0 < meta["forecastWeight"] < 1
 
 
 class TestPickProjectionsEndpoint:
@@ -195,9 +265,10 @@ class TestPickProjectionsEndpoint:
 
         import src.api.league_registry as registry
 
-        fake_cfg = SimpleNamespace(key="test_league", sleeper_league_id="123456")
+        # dynasty_main: the league with a recorded draft-order rule.
+        fake_cfg = SimpleNamespace(key="dynasty_main", sleeper_league_id="123456")
         monkeypatch.setattr(registry, "get_league_by_key", lambda *a, **k: fake_cfg)
-        monkeypatch.setattr(registry, "default_league_key", lambda: "test_league")
+        monkeypatch.setattr(registry, "default_league_key", lambda: "dynasty_main")
 
     def test_overlay_failure_degrades_explicitly(self, monkeypatch):
         self._pin_league(monkeypatch)
@@ -220,8 +291,26 @@ class TestPickProjectionsEndpoint:
             playoff_sim, "_load_cached_payload", lambda key=None: seen.append(key) or sim(THREE)
         )
         body = self._client().get("/api/ros/pick-projections").json()
-        assert "error" not in body and body["leagueKey"] == "test_league"
-        assert seen == ["test_league"]
+        assert "error" not in body and body["leagueKey"] == "dynasty_main"
+        assert seen == ["dynasty_main"]
+        assert {p["originalRosterId"]: p["projectedSlot"] for p in body["picks"]} == {3: 1, 1: 2}
+
+    def test_team_strength_cannot_decide_the_order(self, monkeypatch):
+        """Behavioural: Team Strength says team 1 is weakest, the rule's
+        simulation says team 3 is.  The simulation wins, and the endpoint
+        never even reads Team Strength."""
+        self._pin_league(monkeypatch)
+        teams = teams3({1: [pick(2027, 1, 1, 1)], 3: [pick(2027, 1, 3, 3)]})
+        import src.api.sleeper_overlay as overlay
+        import src.ros.playoff_sim as playoff_sim
+
+        def _strength(*_a, **_k):
+            raise AssertionError("Team Strength must not be read for draft order")
+
+        monkeypatch.setattr(ros_api, "load_or_compute_team_strength", _strength)
+        monkeypatch.setattr(overlay, "fetch_sleeper_teams_overlay", lambda **k: {"teams": teams})
+        monkeypatch.setattr(playoff_sim, "_load_cached_payload", lambda key=None: sim(THREE))
+        body = self._client().get("/api/ros/pick-projections").json()
         assert {p["originalRosterId"]: p["projectedSlot"] for p in body["picks"]} == {3: 1, 1: 2}
 
     def test_no_simulation_is_not_an_error(self, monkeypatch):

@@ -30,12 +30,12 @@ const CONFIDENCE_STYLE = {
   low: { color: "var(--muted)", label: "low" },
 };
 
-// The backend's degraded states are 200-with-error by that router's
-// convention, and both are ordinary rather than exceptional: a league
-// whose team strength has not been built yet, and an unreachable
-// Sleeper. Rendering an alarming failure card for either would train
-// the reader to ignore the panel.
-const QUIET_ERRORS = new Set(["no_snapshot", "no_teams"]);
+// The backend's degraded state is 200-with-error by that router's
+// convention, and it is ordinary rather than exceptional: an unreachable
+// Sleeper. Rendering an alarming failure card for it would train the reader
+// to ignore the panel.  (No slot forecast is NOT an error: the picks still
+// come back, each with its reason.)
+const QUIET_ERRORS = new Set(["no_teams"]);
 
 export function confidenceStyle(confidence) {
   return CONFIDENCE_STYLE[confidence] || CONFIDENCE_STYLE.low;
@@ -49,9 +49,17 @@ const SLOT_FORECAST_REASON_TEXT = {
     "This league has no recorded draft-order rule, so no slot is forecast.",
   no_fresh_season_simulation:
     "No current season simulation is available yet.",
+  season_simulation_unsimulable:
+    "The season can't be simulated right now (for example before games start, or between seasons).",
   simulation_published_no_slot_distribution:
-    "The season simulation has no games to forecast from yet.",
+    "The season simulation did not publish draft-slot odds.",
+  simulation_rule_differs_from_league_rule:
+    "The season simulation used a different draft-order rule than this league's.",
+  simulation_owner_join_incomplete:
+    "The season simulation and the league's current teams don't match up yet.",
   simulated_season_unknown: "The simulated season is unknown.",
+  class_before_simulated_season:
+    "This draft comes before the simulated season, so it is not forecast.",
   originating_team_not_in_simulation:
     "The original team is not in the season simulation.",
 };
@@ -59,7 +67,9 @@ const SLOT_FORECAST_REASON_TEXT = {
 /** Plain-language reason a pick carries no projected slot, or null. */
 export function slotForecastReasonText(reason) {
   if (!reason) return null;
-  return SLOT_FORECAST_REASON_TEXT[reason] || "No slot forecast is available.";
+  // "season_simulation_unsimulable:<why>" carries the simulation's own reason.
+  const base = String(reason).split(":")[0];
+  return SLOT_FORECAST_REASON_TEXT[base] || "No slot forecast is available.";
 }
 
 /**
@@ -145,6 +155,11 @@ export default function PickProjectorPanel({ leagueKey }) {
   if (!groups.length) return null;
 
   const unprojectable = data?.meta?.unprojectablePicks || 0;
+  // Why NO pick has a slot (no rule, no simulation, unsimulable season):
+  // stated once, visibly — a tooltip alone is invisible on touch.
+  const leagueNoSlotText = slotForecastReasonText(
+    data?.meta?.slotForecastUnavailableReason,
+  );
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
@@ -168,6 +183,20 @@ export default function PickProjectorPanel({ leagueKey }) {
         the team is to land within one slot of the projection. Later drafts are
         listed without a slot rather than guessed.
       </div>
+
+      {leagueNoSlotText ? (
+        <div
+          role="status"
+          data-testid="pick-projector-no-forecast-note"
+          style={{
+            fontSize: "0.72rem",
+            color: "var(--subtext)",
+            marginBottom: 10,
+          }}
+        >
+          <strong>No slot forecast.</strong> {leagueNoSlotText}
+        </div>
+      ) : null}
 
       {groups.map(([season, picks]) => (
         <div key={season} style={{ marginBottom: "var(--space-md)" }}>

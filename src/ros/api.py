@@ -252,7 +252,7 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
         sim_payload = _load_cached_payload(resolved_key)
     except Exception:  # noqa: BLE001 — no simulation is "no slot forecast", not a 500
         sim_payload = None
-    payload = build_pick_projections(teams, sim_payload)
+    payload = build_pick_projections(teams, sim_payload, league_key=resolved_key)
     payload["leagueKey"] = resolved_key
     if payload.get("picks") is None:
         # Pick ownership unknown (failed /traded_picks): refused, not zero

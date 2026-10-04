@@ -32,6 +32,9 @@ def _sim(season: int = 2026) -> dict:
     return {
         "season": season,
         "draftOrderRule": "reverse_record_lower_pf",
+        # Final standings: the forecast carries full weight, so the cap is
+        # what is being observed.
+        "regularSeasonProgress": {"weeksFinal": 14, "weeksTotal": 14},
         "playoffOdds": [
             {"ownerId": f"o{rid}", "draftSlotDistribution": d} for rid, d in DISTS.items()
         ],

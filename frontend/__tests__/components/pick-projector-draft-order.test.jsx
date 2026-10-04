@@ -42,11 +42,23 @@ describe("slotForecastReasonText", () => {
       "simulation_published_no_slot_distribution",
       "simulated_season_unknown",
       "originating_team_not_in_simulation",
+      "season_simulation_unsimulable",
+      "simulation_rule_differs_from_league_rule",
+      "simulation_owner_join_incomplete",
+      "class_before_simulated_season",
     ]) {
       const text = slotForecastReasonText(reason);
       expect(text).toBeTruthy();
       expect(text).not.toMatch(/_/);
     }
+  });
+
+  it("reads the simulation's own refusal behind the unsimulable prefix", () => {
+    expect(
+      slotForecastReasonText(
+        "season_simulation_unsimulable:no_games_played_and_none_scheduled",
+      ),
+    ).toMatch(/can't be simulated/);
   });
 
   it("is null when a slot exists and generic for an unknown reason", () => {
@@ -90,5 +102,37 @@ describe("PickProjectorPanel (draft-order rule)", () => {
     expect(noSlot.getAttribute("title")).toMatch(/Only next season/);
     expect(screen.getByText(/draft-order rule/)).toBeTruthy();
     expect(screen.queryByText(/roster strength/)).toBeNull();
+  });
+});
+
+describe("PickProjectorPanel — league with no slot forecast", () => {
+  it("states the reason once, visibly, not only in a tooltip", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          projectedOrder: [],
+          picks: [
+            PICK({
+              projectedSlot: null,
+              projectedPickNumber: null,
+              label: "2027 Round 1",
+              confidence: null,
+              slotConfidence: null,
+              slotForecastUnavailableReason: "no_draft_order_rule_for_league",
+            }),
+          ],
+          meta: {
+            pickOwnershipState: "observed",
+            unprojectablePicks: 0,
+            slotForecastUnavailableReason: "no_draft_order_rule_for_league",
+          },
+        }),
+      })),
+    );
+    render(<PickProjectorPanel leagueKey="dynasty_new" />);
+    const note = await screen.findByTestId("pick-projector-no-forecast-note");
+    expect(note.textContent).toMatch(/no recorded draft-order rule/);
   });
 });

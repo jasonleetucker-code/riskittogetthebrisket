@@ -206,6 +206,9 @@ TRANSIENT_REASON_MARKERS: tuple[str, ...] = (
     "no_served_payload_on_disk",
     "playoff_structure_failed",
     "settlement_unknown",
+    # The league's season simulation was missing or stale at capture time:
+    # a slot-less forecast written now would block the week's real capture.
+    "season_simulation_unavailable",
 )
 
 COMPLETENESS_ORDER: tuple[str, ...] = ("degraded", "partial", "complete")
@@ -1164,15 +1167,22 @@ def gather_inputs(
         inputs.forecast_reason = f"pick_ownership_unproven:{inputs.overlay_reason}"
     else:
         try:
+            from src.public_league.draft_order import league_draft_order_rule  # noqa: PLC0415
             from src.ros.pick_projection import build_pick_projections  # noqa: PLC0415
             from src.ros.playoff_sim import _load_cached_payload  # noqa: PLC0415
 
-            # The exact call /api/ros/pick-projections serves: the league's
-            # fresh cached season simulation (no slot forecast without one —
-            # the reason travels in the forecast's meta).
-            inputs.forecast = build_pick_projections(
-                list(inputs.overlay_teams), _load_cached_payload(league_key)
-            )
+            sim_payload = _load_cached_payload(league_key)
+            if sim_payload is None and league_draft_order_rule(league_key) is not None:
+                # A league WITH a rule whose fresh simulation is missing or
+                # stale: transient — refuse the write so the week's capture
+                # is retried, never lock in a slot-less forecast.  (No rule,
+                # or a simulation that refused, is structural and recorded.)
+                inputs.forecast_reason = "season_simulation_unavailable"
+            else:
+                # The exact call /api/ros/pick-projections serves.
+                inputs.forecast = build_pick_projections(
+                    list(inputs.overlay_teams), sim_payload, league_key=league_key
+                )
         except Exception as exc:  # noqa: BLE001
             inputs.forecast_reason = f"pick_projection_failed:{_reason(exc)}"
 
