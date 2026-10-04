@@ -20,6 +20,40 @@ _ARTIFACT_PATHS = (
     "scripts/release_artifact.py",
     "scripts/stage_release_artifact.py",
 )
+_CUTOVER_PATH = "scripts/stage_release_artifact.py"
+
+
+def _historical_target(repo: Path, target: str) -> bool:
+    """Accept only commits before the first artifact deploy on this workflow lineage."""
+    additions = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "log",
+            "--first-parent",
+            "--diff-filter=A",
+            "--format=%H",
+            "--reverse",
+            "HEAD",
+            "--",
+            _CUTOVER_PATH,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if additions.returncode or not additions.stdout.strip():
+        return False
+    cutover = additions.stdout.splitlines()[0]
+    ancestor = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", target, f"{cutover}^"],
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    return ancestor.returncode == 0
 
 
 def release_mode(repo: Path, target: str, event: str, allow_legacy: bool) -> str:
@@ -47,7 +81,9 @@ def release_mode(repo: Path, target: str, event: str, allow_legacy: bool) -> str
     if not missing:
         return "artifact"
     if event == "workflow_dispatch" and allow_legacy:
-        return "legacy"
+        if _historical_target(repo, target):
+            return "legacy"
+        raise ValueError("legacy target is not a verified pre-artifact ancestor")
     raise ValueError(
         "target lacks artifact contract paths: "
         + ", ".join(missing)

@@ -26,14 +26,6 @@ def test_release_mode_never_silently_downgrades(tmp_path: Path):
     _git(repo, "commit", "-q", "-m", "legacy")
     legacy = _git(repo, "rev-parse", "HEAD")
 
-    with pytest.raises(ValueError, match="explicit manual rollback override"):
-        release_mode(repo, legacy, "push", False)
-    with pytest.raises(ValueError, match="explicit manual rollback override"):
-        release_mode(repo, legacy, "push", True)
-    with pytest.raises(ValueError, match="explicit manual rollback override"):
-        release_mode(repo, legacy, "workflow_dispatch", False)
-    assert release_mode(repo, legacy, "workflow_dispatch", True) == "legacy"
-
     for path in (
         "requirements.lock.txt",
         "requirements-dev.lock.txt",
@@ -46,8 +38,32 @@ def test_release_mode_never_silently_downgrades(tmp_path: Path):
     _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", "artifact")
     artifact = _git(repo, "rev-parse", "HEAD")
+
+    with pytest.raises(ValueError, match="explicit manual rollback override"):
+        release_mode(repo, legacy, "push", False)
+    with pytest.raises(ValueError, match="explicit manual rollback override"):
+        release_mode(repo, legacy, "push", True)
+    with pytest.raises(ValueError, match="explicit manual rollback override"):
+        release_mode(repo, legacy, "workflow_dispatch", False)
+    assert release_mode(repo, legacy, "workflow_dispatch", True) == "legacy"
     assert release_mode(repo, artifact, "push", False) == "artifact"
     assert release_mode(repo, artifact, "workflow_dispatch", True) == "artifact"
+
+    (repo / "scripts/stage_release_artifact.py").unlink()
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "broken forward target")
+    forward = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(ValueError, match="not a verified pre-artifact ancestor"):
+        release_mode(repo, forward, "workflow_dispatch", True)
+
+    _git(repo, "checkout", "-q", legacy)
+    (repo / "requirements.txt").write_text("sideways\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "sideways target")
+    sideways = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", forward)
+    with pytest.raises(ValueError, match="not a verified pre-artifact ancestor"):
+        release_mode(repo, sideways, "workflow_dispatch", True)
 
     with pytest.raises(ValueError, match="exact commit SHA"):
         release_mode(repo, "HEAD", "workflow_dispatch", True)
