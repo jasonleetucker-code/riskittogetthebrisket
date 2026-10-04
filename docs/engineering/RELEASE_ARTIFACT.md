@@ -34,6 +34,8 @@ This checks the tree that exists locally; a dirty checkout is test evidence,
 not a release candidate. The CI workflow asserts the exact resolved SHA before
 creating the manifest. The tar's SHA-256 sidecar detects transport corruption;
 manifest verification detects substituted locks, build IDs or built bytes.
+PR Validation also packages its real Linux Next build into the deploy tar
+layout, checks the archive checksum, extracts it and re-verifies the bytes.
 
 The artifact is retained for three days by the current workflow. The stacked
 deployment cutover downloads that exact run artifact and compares its digest

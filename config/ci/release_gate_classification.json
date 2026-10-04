@@ -469,6 +469,9 @@
     "pr-validation.yml::validate::Frontend build + bundle-size budget": {
       "category": "blocking"
     },
+    "pr-validation.yml::validate::Package and verify frontend release candidate": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::Frontend unit tests (vitest)": {
       "category": "blocking"
     },
