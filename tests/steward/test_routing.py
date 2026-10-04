@@ -154,6 +154,35 @@ def test_cost_per_accepted_task_includes_failed_runs_only_with_full_cost_coverag
     assert retrospective(rows)["groups"][0]["evaluated"] == 4
 
 
+def test_cheaper_challenger_requires_costs_for_failed_runs_too():
+    base = route()
+    rows = [
+        measured(
+            base
+            | {
+                "execution": "EXECUTED",
+                "acceptance": n > 0,
+                "acceptance_evidence": "VERIFIED_AGAINST_ARTIFACT",
+                "eval_case_id": f"case-{n}",
+                "repo_head_end": "a" * 40,
+                "first_pass": True,
+            },
+            cost_usd=None if n == 0 else 2,
+        )
+        for n in range(6)
+    ]
+    card = retrospective(rows)["groups"][0]
+    assert card["acceptance_rate"] == 5 / 6
+    assert card["first_pass_acceptance_rate"] == 5 / 6
+    assert card["measured_cost_per_accepted_task_usd"] is None
+    assert card["proposal"] == "collect measured cost before cheaper challenger"
+
+    rows[0] = measured(rows[0], cost_usd=2)
+    card = retrospective(rows)["groups"][0]
+    assert card["measured_cost_per_accepted_task_usd"] == 12 / 5
+    assert card["proposal"] == "evaluate cheaper challenger"
+
+
 def test_failure_layer_needs_evidence_and_consistent_attribution():
     failures = [
         {"accepted": False, "failure_layer": "LOOP", "failure_layer_evidence_refs": ["receipt:1"]},

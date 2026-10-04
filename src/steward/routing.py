@@ -182,7 +182,11 @@ def retrospective(receipts: list[dict]) -> dict:
             for row in accepted_rows
             if row.get("metrics", {}).get("retries") is not None
         ]
-        first_pass = [row["first_pass"] for row in evaluated if type(row.get("first_pass")) is bool]
+        first_pass = [
+            row["acceptance"] and row["first_pass"]
+            for row in evaluated
+            if type(row.get("first_pass")) is bool
+        ]
         corrections = [
             row["metrics"]["reviewer_corrections"]
             for row in evaluated
@@ -220,7 +224,7 @@ def retrospective(receipts: list[dict]) -> dict:
                 "evaluate stronger/context challenger"
                 if rejected / len(evaluated) > 0.2
                 else "evaluate cheaper challenger"
-                if len(accepted_costs) >= 3
+                if len(accepted_costs) >= 3 and len(costs) == len(evaluated)
                 else "collect measured cost before cheaper challenger"
             )
         cards.append(
