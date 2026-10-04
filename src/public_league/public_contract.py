@@ -356,6 +356,9 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "sourceNativeValues",
         "sourceOriginalRanks",
         "sourceShadowMeta",
+        # Aggregates only, and unreachable publicly today; blocked anyway as
+        # defence in depth (it names which private sources are configured).
+        "privateSourceAvailability",
         "signalsSf",
         "signalsIdp",
         "signalsIdpDl",

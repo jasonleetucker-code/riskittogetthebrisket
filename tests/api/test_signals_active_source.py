@@ -250,7 +250,10 @@ class TestNativeValueContributes:
         assert _voted(meta)
         assert meta["scope"] == "position_idp" and meta["positionGroup"] == "DL"
         assert meta["method"] != "fallback"
-        assert not meta.get("sharedMarketTranslated")
+        # Provenance reports the OUTCOME: crosswalked onto the bridge's
+        # shared-market family ladder (review of the shadow round).
+        assert meta["sharedMarketTranslated"] is True
+        assert meta["rankCoordinatePool"] == "shared_market"
         assert row["sourceNativeValues"]["signalsIdpDl"] == 4900.0
 
     def test_signals_moves_the_board(self, boards):

@@ -69,7 +69,7 @@ class BridgeLadder:
 
     def family_ladder(self, family: str) -> tuple[int, ...]:
         """The shared-market ladder for one IDP family, or ``()`` if none."""
-        return self.position_ladders.get(str(family or "").upper(), ())
+        return self.position_ladders.get(str(family or "").strip().upper(), ())
 
     @property
     def available(self) -> bool:
@@ -134,7 +134,7 @@ def _ladders_for(
                 break
         if val is None:
             continue
-        pos = str(row.get("position") or "").upper()
+        pos = str(row.get("position") or "").strip().upper()
         is_idp = pos in idp_positions
         if not is_idp and pos not in offense_positions:
             continue

@@ -19,9 +19,14 @@ name: Signals On-Box Verification
 #     Candidate A per family, the diagnostic Candidate B, the watch list and
 #     the completed-trade check — the promotion gate's inputs.
 #
-# Output is aggregates and the preregistered watch list only; no raw Signals
-# payload is printed.  The runner's copy of the script is uploaded into a
-# mktemp dir and removed on exit; the app tree is not modified.
+# THIS REPOSITORY IS PUBLIC: the log and the artifact below are readable by
+# anyone.  The script therefore prints ONLY its public projection — counts,
+# distributions, states and per-criterion pass/fail; never a player name, a
+# per-player or vendor number, or a session timestamp (``assert_public_safe``
+# refuses otherwise).  The full report, watch list included, is written 0600
+# to the box's private Signals store (data/sources/signals/reports/) and never
+# leaves the host.  The runner's copy of the script is uploaded into a mktemp
+# dir and removed on exit.
 
 on:
   workflow_dispatch:

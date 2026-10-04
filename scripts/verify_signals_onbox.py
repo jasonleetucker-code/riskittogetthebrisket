@@ -13,9 +13,13 @@ for two things:
   diagnostic Candidate B and the completed-trade check — the inputs to the
   promotion gate.
 
-Privacy: prints counts, distributions, states and watch-list rows only.  It
-never prints a token, a session field beyond its health, or a raw Signals
-payload; per-player numbers appear only for the preregistered watch list.
+Privacy: the repository is PUBLIC, so whatever this prints lands in a
+readable Actions log and artifact.  It prints ONLY ``public_projection`` —
+counts, distributions, states and per-criterion pass/fail — and refuses to
+print anything carrying a player name or a per-player/vendor number
+(``assert_public_safe``).  The full report (watch list, largest
+disagreements, membership names) is written 0600 to the private Signals store
+on the box, ``data/sources/signals/reports/``.
 
 Read-only except ``--collect``, which starts the existing
 ``dynasty-signals-values.service`` once (``sudo -n systemctl start``) exactly
@@ -166,7 +170,8 @@ def check_session() -> dict[str, Any]:
 def run_collection(timeout: int = 900) -> dict[str, Any]:
     rc, out = _systemctl("start", f"{UNIT}.service", sudo=True, timeout=timeout)
     result = _show(f"{UNIT}.service", "Result", "ExecMainStatus", "ExecMainExitTimestamp")
-    return {"startExit": rc, "startOutput": out.strip()[-400:], **result}
+    # Exit code + unit result only: free text from systemctl stays on the box.
+    return {"startExit": rc, **result}
 
 
 def collector_state(app_dir: Path) -> dict[str, Any]:
@@ -380,6 +385,7 @@ def idp_report(
         withheld: dict[str, int] = {}
         translated = 0
         disagreements = []
+        signed: list[float] = []
         b_vs_a = []
         n_family = sum(1 for _n, m in shadow if m.get("familyRank"))
         ladder = ladders_promoted.get(fam) or []
@@ -399,6 +405,7 @@ def idp_report(
             if others:
                 med = statistics.median(others)
                 disagreements.append((abs(m["wouldContribute"] - med) / max(1.0, med), n, m, med))
+                signed.append((m["wouldContribute"] - med) / max(1.0, med))
             rb = _candidate_b_rank(int(m["familyRank"]), n_family, ladder)
             if rb is not None:
                 vb = float(
@@ -411,11 +418,19 @@ def idp_report(
         votes = [v for v in votes if isinstance(v, dict)]
         dropped = sum(1 for v in votes if v.get("hampelDropped"))
         pools = sorted({str(v.get("rankCoordinatePool")) for v in votes})
+        # A Signals family entry joined to a row we hold at ANOTHER position:
+        # the scope filter drops its vote, so count it from the evidence.
         mismatched = sum(
             1
-            for n, r in p.items()
-            if key in (r.get("sourceRankMeta") or {}) and r.get("position") != fam
+            for r in s.values()
+            if key in (r.get("sourceNativeValues") or {}) and r.get("position") != fam
         )
+        signals_covered = {n for n in rows if key in (s[n].get("sourceNativeValues") or {})}
+        on_bridge = {
+            n
+            for n in rows
+            if ((s[n].get("canonicalSiteValues") or {}).get("idpTradeCalc") or 0) > 0
+        }
         disagreements.sort(key=lambda t: -t[0])
         per_family[fam] = {
             "key": key,
@@ -430,6 +445,11 @@ def idp_report(
             "coordinatePools": pools,
             "familyMismatches": mismatched,
             "relDisagreementVsRowMedian": _dist([d for d, *_ in disagreements]),
+            # Gate 6b: a consistent shift is invisible to |disagreement|.
+            "signedRelBiasMedian": (round(statistics.median(signed), 4) if signed else None),
+            "signedRelBias": _dist(signed),
+            "bridgeRowsSignalsLacks": len(on_bridge - signals_covered),
+            "signalsRowsBridgeLacks": len(signals_covered - on_bridge),
             "candidateBvsA_relDiff": _dist(b_vs_a),
             "largestDisagreements": [
                 {
@@ -451,11 +471,16 @@ def idp_report(
     return {
         "families": per_family,
         "combinedMovementIfPromoted": _movement(s, p, all_idp),
-        "nonIdpRowsMovedIfPromoted": sum(
+        # Gate 6: offense PLAYER rows must not move; current-year slot picks
+        # tethered to the merged rookie pool may, and are reported apart.
+        "offensePlayerRowsMovedIfPromoted": sum(
             1
-            for n in s
-            if n not in set(all_idp)
-            and s[n].get("rankDerivedValue") != p.get(n, {}).get("rankDerivedValue")
+            for n, r in s.items()
+            if str(r.get("position") or "") in {"QB", "RB", "WR", "TE"}
+            and r.get("rankDerivedValue") != p.get(n, {}).get("rankDerivedValue")
+        ),
+        "pickRowsMovedIfPromoted": _movement(
+            s, p, [n for n, r in s.items() if str(r.get("position") or "") == "PICK"]
         ),
         "top50": _membership(s, p, 50),
         "top100": _membership(s, p, 100),
@@ -545,6 +570,12 @@ def watch_list(shipped: dict, promoted: dict) -> list[dict[str, Any]]:
 # ── 6: completed-trade check (§10.7) ─────────────────────────────────────
 
 
+def _va_gap(give: list[int], recv: list[int]) -> int:
+    from src.trade.suggestions import _va_gap as va_gap
+
+    return va_gap(give, recv)
+
+
 def trade_check(app_dir: Path, shipped: dict, promoted: dict) -> dict[str, Any]:
     db = app_dir / "data" / "market_trades" / "underlying_trades.sqlite"
     if not db.is_file():
@@ -582,7 +613,9 @@ def trade_check(app_dir: Path, shipped: dict, promoted: dict) -> dict[str, Any]:
         if any(a.get("kind") != "player" for a in assets):
             skipped["has_non_player_asset"] = skipped.get("has_non_player_asset", 0) + 1
             continue
-        totals_a, totals_b, ok = [0.0, 0.0], [0.0, 0.0], True
+        vals_a: list[list[int]] = [[], []]
+        vals_b: list[list[int]] = [[], []]
+        ok = True
         for i, side in enumerate(sides):
             for a in side:
                 sid = str(a.get("canonicalId") or "").removeprefix("player:")
@@ -592,15 +625,17 @@ def trade_check(app_dir: Path, shipped: dict, promoted: dict) -> dict[str, Any]:
                 if not isinstance(va, (int, float)) or not isinstance(vb, (int, float)):
                     ok = False
                     break
-                totals_a[i] += float(va)
-                totals_b[i] += float(vb)
+                vals_a[i].append(int(va))
+                vals_b[i].append(int(vb))
             if not ok:
                 break
         if not ok:
             skipped["unpriced_asset"] = skipped.get("unpriced_asset", 0) + 1
             continue
-        gaps_a.append(abs(totals_a[0] - totals_a[1]))
-        gaps_b.append(abs(totals_b[0] - totals_b[1]))
+        # The canonical comparison quantity is raw + Value Adjustment, never
+        # a raw sum (CLAUDE.md "Trade comparison"; §10.7).
+        gaps_a.append(abs(_va_gap(vals_a[0], vals_a[1])))
+        gaps_b.append(abs(_va_gap(vals_b[0], vals_b[1])))
     med_a = statistics.median(gaps_a) if gaps_a else None
     med_b = statistics.median(gaps_b) if gaps_b else None
     return {
@@ -613,6 +648,156 @@ def trade_check(app_dir: Path, shipped: dict, promoted: dict) -> dict[str, Any]:
         "relChange": round((med_b - med_a) / med_a, 4) if med_a else None,
         "sufficient": len(gaps_a) >= 30,
     }
+
+
+# ── public projection (the ONLY thing printed / uploaded) ────────────────
+#
+# The repository is PUBLIC: its Actions logs and artifacts are readable by
+# anyone.  The full report names players and carries Signals' per-player
+# family ranks, would-be contributions and private board values, so it is
+# written to the box's private store only (``_write_private_report``).  What
+# leaves the box is this projection: counts, distributions and pass/fail per
+# preregistered gate criterion — never a player name, a per-player number, a
+# vendor value or a session timestamp.  ``assert_public_safe`` enforces it.
+
+_PUBLIC_FORBIDDEN_KEYS = frozenset(
+    {
+        "player",
+        "players",
+        "watchList",
+        "largestDisagreements",
+        "entered",
+        "left",
+        "shadow",
+        "sourceShadowMeta",
+        "sourceNativeValues",
+        "familyRank",
+        "translatedRank",
+        "wouldContribute",
+        "valueContribution",
+        "effectiveRank",
+        "valueShipped",
+        "valuePromoted",
+        "rankShipped",
+        "rankPromoted",
+        "rankDerivedValue",
+        "otherSourceContributions",
+        "rowOthersMedian",
+        "capturedAt",
+        "lastRenewedAt",
+        "accessTokenExpiresAt",
+        "startOutput",
+    }
+)
+
+
+def _membership_counts(m: Mapping[str, Any]) -> dict[str, int]:
+    return {"enteredCount": len(m.get("entered") or []), "leftCount": len(m.get("left") or [])}
+
+
+def _watch_outcomes(watch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per watch-list entry: its preregistered LABEL (never a name) and
+    whether Signals' promoted vote sits within the row's other contributions
+    widened by 15% (gate criterion 3 — the IDP-local inflation case)."""
+    out = []
+    for w in watch:
+        others = w.get("otherSourceContributions") or []
+        votes = [
+            v
+            for v in (w.get("signalsVoteWhenPromoted") or {}).values()
+            if isinstance(v.get("valueContribution"), (int, float))
+        ]
+        within = None
+        if others and votes:
+            lo, hi = min(others) / 1.15, max(others) * 1.15
+            within = all(lo <= float(v["valueContribution"]) <= hi for v in votes)
+        out.append(
+            {
+                "label": w.get("why"),
+                "position": w.get("position"),
+                "signalsVotes": len(votes),
+                "signalsOutlierDropped": sum(1 for v in votes if v.get("hampelDropped")),
+                "withinRowRange15pct": within,
+            }
+        )
+    return out
+
+
+def public_projection(report: Mapping[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        k: report.get(k) for k in ("utc", "deployedCommit", "timer", "collector", "payload")
+    }
+    sess = report.get("session") or {}
+    out["session"] = {k: sess.get(k) for k in ("state", "acquisitionState", "error") if k in sess}
+    if "collection" in report:
+        out["collection"] = report["collection"]
+    psa = report.get("privateSourceAvailability")
+    if psa is not None:
+        out["privateSourceAvailability"] = psa
+    off = report.get("offense")
+    if off:
+        out["offense"] = {
+            **{k: v for k, v in off.items() if k not in ("top50", "top200")},
+            "top50": _membership_counts(off.get("top50") or {}),
+            "top200": _membership_counts(off.get("top200") or {}),
+        }
+    idp = report.get("idp")
+    if idp:
+        fams = {
+            fam: {k: v for k, v in rep.items() if k != "largestDisagreements"}
+            for fam, rep in (idp.get("families") or {}).items()
+        }
+        out["idp"] = {
+            **{
+                k: v
+                for k, v in idp.items()
+                if k not in ("families", "top50", "top100", "top200", "idpTop100")
+            },
+            "families": fams,
+            **{
+                k: _membership_counts(idp.get(k) or {})
+                for k in ("top50", "top100", "top200", "idpTop100")
+            },
+        }
+    if "watchList" in report:
+        out["watchList_outcomes"] = _watch_outcomes(report["watchList"])
+    if "trades" in report:
+        out["trades"] = report["trades"]
+    return out
+
+
+def assert_public_safe(obj: Any, player_names: Iterable[str]) -> None:
+    """Refuse to emit anything carrying a forbidden key or a player name."""
+    names = {str(n) for n in player_names if n}
+
+    def walk(x: Any, path: str) -> None:
+        if isinstance(x, Mapping):
+            for k, v in x.items():
+                if str(k) in _PUBLIC_FORBIDDEN_KEYS:
+                    raise ValueError(f"public report carries forbidden key {path}.{k}")
+                if str(k) in names:
+                    raise ValueError(f"public report carries a player name as a key at {path}")
+                walk(v, f"{path}.{k}")
+        elif isinstance(x, (list, tuple)):
+            for i, v in enumerate(x):
+                walk(v, f"{path}[{i}]")
+        elif isinstance(x, str) and x in names:
+            raise ValueError(f"public report carries a player name at {path}")
+
+    walk(obj, "$")
+
+
+def _write_private_report(app_dir: Path, report: Mapping[str, Any]) -> Path:
+    """The full report, 0600 inside the private, gitignored Signals store
+    (already covered by the nightly state backup)."""
+    out_dir = app_dir / "data" / "sources" / "signals" / "reports"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(out_dir, 0o700)
+    path = out_dir / f"onbox_{str(report.get('utc') or 'unknown').replace(':', '')}.json"
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, sort_keys=True, default=str)
+    return path
 
 
 def main() -> int:
@@ -644,7 +829,19 @@ def main() -> int:
         report["idp"]["familyLadderDepths"] = {k: len(v) for k, v in ladders.items()}
         report["watchList"] = watch_list(shipped, promoted)
         report["trades"] = trade_check(app_dir, shipped, promoted)
-    print(json.dumps(report, indent=2, sort_keys=True, default=str))
+        names = [r.get("displayName") for r in shipped.get("playersArray") or []]
+    else:
+        names = []
+    public = public_projection(report)
+    try:
+        private_path = _write_private_report(app_dir, report)
+        public["privateReport"] = str(private_path.relative_to(app_dir))
+    except OSError as exc:
+        # The aggregates still print; the full report is simply not kept.
+        public["privateReport"] = None
+        public["privateReportError"] = type(exc).__name__
+    assert_public_safe(public, names)
+    print(json.dumps(public, indent=2, sort_keys=True, default=str))
     return 0
 
 

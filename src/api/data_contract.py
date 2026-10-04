@@ -2203,8 +2203,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # WHY POSITIONAL (independent review of #1627, 2026-10-03): Signals'
         # IDP ``value`` is a strictly monotone function of a per-FAMILY
         # composite (Spearman 1.000) — each family is normalised on its own
-        # scale (tops DL 4,880 / LB 4,913 / DB 4,754; near-identical curves
-        # at #12 and #24), and its top-100 is half DBs.  It is not a
+        # scale (the three family tops sit within 4% of each other, with
+        # near-identical curves at #12 and #24), and its top-100 is half DBs.  It is not a
         # cross-family price.  Ordering it across families and crosswalking
         # that order (the first design) manufactured exactly the shared
         # DL/LB/DB rank the owner addendum forbids.  So each family is
@@ -10914,8 +10914,15 @@ def _compute_unified_rankings(
                 # back to the raw rank — a provenance field that lied in
                 # exactly the case where provenance mattered.
                 "sharedMarketTranslated": bool(
-                    needs_shared_market
-                    and row_scope == SOURCE_SCOPE_OVERALL_IDP
+                    (
+                        (needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP)
+                        # A family board crosswalked onto the bridge's
+                        # shared-market family ladder (Signals DL/LB/DB).
+                        or (
+                            rank_pool == RANK_POOL_SHARED_MARKET
+                            and bool(src.get("family_shared_market_translation"))
+                        )
+                    )
                     and method != TRANSLATION_FALLBACK
                 ),
                 "rankCoordinatePool": rank_pool,

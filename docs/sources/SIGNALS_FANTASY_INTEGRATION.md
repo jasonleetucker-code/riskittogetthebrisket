@@ -345,11 +345,10 @@ retained as provenance and never become an overall order. Dataset-internal
 homonyms (6 IDP rows) and rows keyed by a vendor slug instead of a Sleeper id
 (2 IDP draft-prospect rows) are withheld, never guessed.
 
-**Offense format, established by measurement (2026-10-03).** Superflex: Josh
-Allen priced above Jaxon Smith-Njigba; Caleb Williams / Lamar Jackson / Joe
-Burrow priced as top-12 assets (a 1QB board puts those QBs near half of WR1).
-Not TE-premium: the TE1 sits below WRs FantasyCalc prices equally, and the
-stored value has no TEP control. So `is_tep_premium=False`, and the board's
+**Offense format, established by measurement (2026-10-03)** on the
+authenticated board: Superflex (elite and mid-tier QBs price as superflex
+assets, not at 1QB levels), and not TE-premium (TEs price below the WRs
+FantasyCalc prices equally, and the stored value has no TEP control). So `is_tep_premium=False`, and the board's
 measured base → TE++ conversion (ADR-015) applies **exactly once** (pinned).
 The stored value carries no league adjustment, so nothing is double-applied.
 
@@ -509,7 +508,7 @@ state), with and without the Signals store under `/tmp`. Both builds validate
 |---|---|---|---|
 | Myles Garrett (DL) | 5,237 → 5,237 | 61 → 61 | <1% |
 | Travis Hunter (WR) | 3,997 → 3,997 | 107 → 106 | <1% |
-| DJ Rogers (TE) | 674 → 2,074 | unranked → 313 | >15% (offense vote; Signals ranks him far above the thin consensus) |
+| DJ Rogers (TE) | 674 → 2,074 | unranked → 313 | >15% (offense vote; the row leaves the single-source haircut) |
 
 - **Family cap:** 363 offense rows carry both FantasyCalc and Signals votes;
   combined authority max 1.0000, median family adjustment 0.5.
@@ -605,14 +604,32 @@ on the production board:
 4. Hampel drops among Signals IDP votes ≤ 5% (the retired route: 76/406 = 19%),
    with the outlier window unchanged (no threshold edits).
 5. Family composition: each family's share of the overall top-200 moves by at
-   most 3 percentage points, or the movement is explained by named rows.
-6. Board movement: IDP value movement median ≤ 2%, p90 ≤ 8%; no non-IDP row
-   moves (offense and picks byte-identical apart from shared-tie effects).
+   most 3 percentage points.  (Amended 2026-10-04, before any result was
+   run: the earlier "or explained by named rows" escape could not fail and
+   is removed.)
+6. Board movement: IDP value movement median ≤ 2%, p90 ≤ 8%; no offense
+   PLAYER row changes value.  Current-year slot picks are tethered to the
+   merged offense+IDP rookie pool (Phase 5.2b), so a Signals-covered IDP
+   rookie can legitimately move a slot pick: that pick movement is allowed,
+   reported separately (count, median, max), and never counted as a
+   violation.  (Amended 2026-10-04, before any result was run — the
+   earlier "no non-IDP row moves" was predictably violated by that known
+   coupling.)
+6b. Coverage bias: per family, the SIGNED median of
+   (`wouldContribute` − row median of the other sources) / row median lies
+   within ±5%.  Signals' family rank counts only rows Signals covers while
+   the family ladder counts rows the bridge covers, so a coverage hole above
+   rank k shifts every later Signals rank by one market position; an
+   absolute-disagreement metric cannot see a consistent shift.  The count of
+   bridge players Signals lacks (and vice versa) is reported per family.
+   (Added 2026-10-04, before any result was run; from the IDP-math review.)
 7. Independent fresh-context review approves the methodology and the numbers.
 8. Tests cover missing ladder, bad identity, unsupported family, stale source.
 9. Completed-trade evidence (§10.7) does not materially contradict A: the
    median absolute side gap of covered trades does not worsen by more than
-   5% under A versus the champion.  With fewer than 30 covered trades this
+   5% under A versus the champion.  The gap is the repo's canonical
+   comparison quantity — raw + Value Adjustment (`_va_gap`), never a raw
+   sum (amended 2026-10-04, before any result was run).  With fewer than 30 covered trades this
    criterion is recorded as INSUFFICIENT and does not block on its own; it is
    re-run as the ledger grows.
 
@@ -628,11 +645,15 @@ group owner already collapses a Sleeper trade seen twice and a KTC/Sleeper
 echo of one event).  Admitted: dispositions `NATIVE_COMPARABLE` and
 `VALIDATED_TRANSFORMABLE` only, verified dynasty, at least one DL/LB/DB player
 on either side.  `BROAD_CONTEXT` trades are counted, not scored.  Score: for
-each trade, `|Σ side A − Σ side B|` in canonical value, under the champion and
+each trade, the Value-Adjustment-inclusive gap (`suggestions._va_gap`, the
+canonical comparison quantity) in canonical value, under the champion and
 under A.  Candidate A fits no parameter, so no trade is used for fitting and
 there is no train/test overlap.
 
 ### 10.8 Results
 
-Appended by the on-box evaluation (`scripts/verify_signals_onbox.py`, workflow
-`signals-onbox-verification.yml`).
+Appended from the on-box evaluation (`scripts/verify_signals_onbox.py`, workflow
+`signals-onbox-verification.yml`).  ONLY the public projection is recorded
+here — counts, distributions and per-criterion pass/fail.  The watch list,
+largest disagreements and any per-player Signals number stay in the private
+on-box report (`data/sources/signals/reports/`); this repository is public.
