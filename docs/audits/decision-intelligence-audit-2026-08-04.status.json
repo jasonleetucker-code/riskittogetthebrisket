@@ -465,16 +465,16 @@
    "auditEvidence": "src/trade/finder.py:665 `if len(give) > len(receive):` gates MULTI_FOR_ONE_MIN_RATIO (0.55), ELITE_MULTI_MIN_RATIO (0.65) and PACKAGE_ANCHOR_MIN_PCT (0.35). Nothing constrains `len(receive) > len(give)`. Measured across all 12 live rosters: package shapes returned were `Counter({'1-for-2': 441, '1-for-1': 8})` \u2014 zero 2-for-1s survived, and every 1-for-2 bypassed every ratio guard.",
    "auditId": "T-7",
    "path": "src/trade/finder.py",
-   "signature": "if len(give) > len(receive):",
+   "signature": "if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):",
    "status": "open",
-   "verifiedBy": "Multi-piece guards still gate on the give-more direction only; the 1-for-N direction is unguarded.",
+   "verifiedBy": "Multi-piece guards still gate on the give-more direction only; the 1-for-N direction is unguarded.\n\nSIGNATURE RESPELLED 2026-10-04 (C3-TOPO-01), STATUS DELIBERATELY UNCHANGED. Wave B counts the guard's sides in PLAYERS (a pick added to a 1-for-1 is not a two-fillers-for-an-elite package), so the old needle `if len(give) > len(receive):` stopped matching. The cited MECHANISM changed; the defect did not: the guard still fires only when the requester gives more players, and the 1-for-N direction is still unguarded. The needle follows the new spelling of the same one-directional comparison.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "src/trade/finder.py",
-    "needle": "if len(give) > len(receive):"
+    "needle": "if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):"
    }
   },
   {

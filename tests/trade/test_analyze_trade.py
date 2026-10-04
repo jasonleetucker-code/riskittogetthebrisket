@@ -327,19 +327,42 @@ class TestMissingIsNamed:
         assert a["lenses"]["roster"]["unavailableReason"] == "season_unresolved"
         assert a["confidence"] != "HIGH"
 
-    def test_posture_and_current_season_equity_are_named_absent(self):
+    def test_current_season_equity_is_named_absent(self):
         a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
         names = {d["dimension"] for d in a["unavailableDimensions"]}
-        assert {
-            "marketCorroboration",
-            "valueUncertainty",
-            "strategicPosture",
-            "currentSeasonEquity",
-        } <= names
+        assert {"marketCorroboration", "valueUncertainty", "currentSeasonEquity"} <= names
         for d in a["unavailableDimensions"]:
             assert d["reason"] and d["notes"]
-        # Never smuggled in as a neutral lens.
-        assert "strategicPosture" not in a["lenses"]
+
+    def test_posture_without_its_owner_answer_is_named_unavailable_and_never_votes(self):
+        # Wave B: posture has a canonical owner now (#840 / C7-POST-01).  A
+        # simulation that did not carry its answer reports it UNAVAILABLE —
+        # never smuggled in as a neutral lens, and never a vote.
+        a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
+        lens = a["lenses"]["posture"]
+        assert lens["available"] is False and lens["votes"] is False
+        assert lens["unavailableReason"] == "not_computed"
+
+    def test_posture_is_context_and_cannot_move_the_recommendation(self):
+        base = _sim([5000], [3000], utility=_utility(2.0))
+        plain = analyze_trade(base)
+        for label in ("PUSH", "HOLD", "RETOOL", "REBUILD"):
+            with_posture = analyze_trade(
+                {
+                    **base,
+                    "competitivePosture": {
+                        "available": True,
+                        "label": label,
+                        "probabilities": {label: 1.0},
+                        "confidence": 1.0,
+                    },
+                }
+            )
+            lens = with_posture["lenses"]["posture"]
+            assert lens["available"] is True and lens["votes"] is False
+            assert lens["detail"]["label"] == label
+            assert with_posture["recommendation"] == plain["recommendation"]
+            assert with_posture["confidence"] == plain["confidence"]
 
     def test_no_priced_assets_is_too_close_low_confidence(self):
         a = analyze_trade(_sim([], []))

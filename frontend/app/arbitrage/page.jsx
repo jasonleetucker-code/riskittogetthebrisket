@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
@@ -12,13 +12,22 @@ import {
   Field,
   PageHeader,
   Panel,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
-import { buildArbitrageRows } from "@/lib/market-arbitrage";
+import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
+
+// C3-CTX-01 — the same Team context / Asset only switch the Trade War Room
+// uses.  ON lets this team's roster (needs, forced releases) shape the order;
+// OFF ranks on asset value and market appeal alone.  Values never change.
+const CONTEXT_OPTIONS = [
+  { value: "team", label: "Team context" },
+  { value: "asset", label: "Asset only" },
+];
 import styles from "./arbitrage.module.css";
 
 // ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
@@ -146,7 +155,11 @@ function AssetList({ assets, onExclude }) {
           <Badge tone="neutral">{a.position}</Badge>
           <span className={styles.assetValues}>
             board {fmt(a.modelValue)}
-            {a.ktcValue != null ? ` · market ${fmt(a.ktcValue)}` : " · unpriced"}
+            {a.ktcValue == null
+              ? " · unpriced"
+              : a.marketDerivation
+                ? ` · market ≈${fmt(a.ktcValue)} (KTC tier average — slot unknown)`
+                : ` · market ${fmt(a.ktcValue)}`}
           </span>
           {onExclude && a.name ? (
             <button
@@ -168,22 +181,28 @@ function AssetList({ assets, onExclude }) {
 function TradeCard({ trade, myTeam, opponent, onExclude }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
+  const counterparty = trade.counterparty || (opponent && opponent !== "all" ? opponent : null);
+  const mine = rosterCapacityLine(trade.rosterCapacity);
+  const theirs = rosterCapacityLine(trade.counterpartyRosterCapacity);
 
   const openInCalculator = useMemo(() => {
-    const give = (trade.give || []).map((a) => a.name).filter(Boolean);
-    const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
+    // A pick travels as its canonical board row ("2027 Round 1"), the name
+    // the calculator can resolve — not the "2027 1st (Team)" display label.
+    const asCalculatorName = (a) => a.boardRowName || a.name;
+    const give = (trade.give || []).map(asCalculatorName).filter(Boolean);
+    const receive = (trade.receive || []).map(asCalculatorName).filter(Boolean);
     if (!give.length && !receive.length) return null;
     try {
       return buildShareUrl({
         sides: [
           { name: myTeam || "You", players: give },
-          { name: opponent && opponent !== "all" ? opponent : "Them", players: receive },
+          { name: counterparty || "Them", players: receive },
         ],
       });
     } catch {
       return null;
     }
-  }, [trade, myTeam, opponent]);
+  }, [trade, myTeam, counterparty]);
 
   return (
     <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
@@ -207,6 +226,16 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
           </Badge>
         ) : null}
       </div>
+      {mine || theirs ? (
+        <ul className={styles.capacityList} aria-label="Roster consequences">
+          {mine ? <li>Your roster: {mine}</li> : null}
+          {theirs ? (
+            <li>
+              {counterparty ? `${counterparty}'s` : "Their"} roster: {theirs}
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
@@ -258,6 +287,11 @@ export default function ArbitragePage() {
   const [edgeClass, setEdgeClass] = useState("all");
   const [edgeFloor, setEdgeFloor] = useState(0.05);
   const [excludedPlayers, setExcludedPlayers] = useState([]);
+  const [useTeamContext, setUseTeamContext] = useState(true);
+  // Only the LATEST scan may write the result: a mode switch mid-scan starts a
+  // new request, and a slower earlier response must not paint the other
+  // mode's order under the current switch position.
+  const scanSeq = useRef(0);
 
   const effectiveTeam = myTeam || defaultTeam;
 
@@ -284,7 +318,7 @@ export default function ArbitragePage() {
     [rows, edgeFloor],
   );
 
-  async function run(nextExcluded = excludedPlayers) {
+  async function run(nextExcluded = excludedPlayers, teamContext = useTeamContext) {
     if (!effectiveTeam) return;
     const normalizedExcluded = Array.from(
       new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
@@ -294,6 +328,7 @@ export default function ArbitragePage() {
         ? teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)
         : [opponent];
 
+    const seq = ++scanSeq.current;
     setRunning(true);
     setError("");
     try {
@@ -313,6 +348,7 @@ export default function ArbitragePage() {
           },
         ],
       };
+      body.useTeamContext = teamContext !== false;
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/finder", {
         method: "POST",
@@ -321,6 +357,7 @@ export default function ArbitragePage() {
         body: JSON.stringify(withValuationMode(body)),
       });
       const data = await res.json().catch(() => ({}));
+      if (seq !== scanSeq.current) return;
       if (!res.ok) {
         setError(data?.error || `Request failed (${res.status})`);
         setResult(null);
@@ -328,10 +365,11 @@ export default function ArbitragePage() {
         setResult(data);
       }
     } catch (err) {
+      if (seq !== scanSeq.current) return;
       setError(err?.message || "Request failed");
       setResult(null);
     } finally {
-      setRunning(false);
+      if (seq === scanSeq.current) setRunning(false);
     }
   }
 
@@ -463,6 +501,18 @@ export default function ArbitragePage() {
                 ))}
             </Select>
           </Field>
+          <SegmentedControl
+            label="Analysis mode"
+            options={CONTEXT_OPTIONS}
+            value={useTeamContext ? "team" : "asset"}
+            onChange={(v) => {
+              const next = v === "team";
+              setUseTeamContext(next);
+              // Re-scan an existing result in the new mode; never silently
+              // keep showing the other mode's order.
+              if (result) run(excludedPlayers, next);
+            }}
+          />
           <Button onClick={() => run(excludedPlayers)} disabled={running || dataLoading || !effectiveTeam}>
             {running ? "Scanning…" : "Find trade packages"}
           </Button>

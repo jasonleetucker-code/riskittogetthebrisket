@@ -26,8 +26,12 @@ The packet answers separate questions in separate LENSES
 * **evidence** — how trustworthy is the rest?  Projection coverage, the
   estimate's own precision, canonical confidence stamps on the traded assets.
   NEVER votes; it sets confidence and fills ``uncertainty``.
-* **strategicPosture** / **currentSeasonEquity** — named UNAVAILABLE with the
-  reason: #840 has no canonical owner yet, and the playoff simulator's trade
+* **strategicPosture** — Competitive Posture (#840 / C7-POST-01) from its
+  canonical owner (``src.roster_intel.window.competitive_posture``).  CONTEXT,
+  NEVER votes: it interprets the same evidence the roster lens and the playoff
+  odds already carry, so a vote would count it twice; and the owner decision
+  says posture is never a veto.  Excluded by mode under Asset-Only.
+* **currentSeasonEquity** — named UNAVAILABLE: the playoff simulator's trade
   counterfactual (``playoff_sim.simulate_trade_impact``) takes a weekly-mean
   shift only and is not wired.  Unavailable is not neutral and is never read
   as zero.
@@ -67,6 +71,9 @@ _DEFAULTS = {"materialityPpg": 1.0, "largeMultiple": 3.0, "depthNotableLossPpg":
 LINEAGE_CANONICAL_VALUE = "canonical_value"
 LINEAGE_PROJECTION = "league_scored_projection"
 LINEAGE_ROSTER_RULES = "league_roster_rules"
+#: Competitive Posture is an INTERPRETATION of evidence other lenses already
+#: carry (playoff odds, Team Strength, age-value) — context, never a vote.
+LINEAGE_TEAM_STRATEGY = "team_strategy_context"
 
 #: Dimensions this depth deliberately does not compute, named so "not
 #: included" and "computed and found neutral" never look the same.
@@ -83,12 +90,6 @@ _UNAVAILABLE_DIMENSIONS = (
         "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation "
         "items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md §A) and are not "
         "folded into this recommendation until that audit closes.",
-    },
-    {
-        "dimension": "strategicPosture",
-        "reason": "no_canonical_owner",
-        "notes": "Competitive posture (#840) has no canonical owner yet and awaits an "
-        "owner decision; no posture is invented here.",
     },
     {
         "dimension": "currentSeasonEquity",
@@ -703,10 +704,58 @@ class AnalyzeTradeResult:
                 "roster": by_name.get("rosterUtility"),
                 "feasibility": by_name.get("feasibility"),
                 "evidence": by_name.get("evidence"),
+                "posture": by_name.get("strategicPosture"),
             },
             "dimensions": [d.to_dict() for d in self.dimensions],
             "unavailableDimensions": list(self.unavailable_dimensions),
         }
+
+
+def _posture_lens(simulation: dict[str, Any]) -> DimensionResult:
+    """Competitive Posture (#840 / C7-POST-01) as CONTEXT, never a vote.
+
+    The owner (``src.roster_intel.window.competitive_posture``) publishes
+    PUSH / HOLD / RETOOL / REBUILD as an explained probabilistic
+    classification.  Owner decision 2026-09-24: posture is context, never an
+    automatic veto, and Analyze Trade weighs the underlying evidence rather
+    than the label.  It is derived from the same lineage the roster lens and
+    the playoff odds carry, so letting it vote would count that evidence
+    twice.  ``votes=False`` makes that structural: ``_recommend`` reads only
+    market / roster / feasibility.
+    """
+    block = simulation.get("competitivePosture")
+    if not isinstance(block, dict) or not block.get("available"):
+        reason = (block or {}).get("unavailableReason") if isinstance(block, dict) else None
+        return DimensionResult(
+            name="strategicPosture",
+            available=False,
+            unavailable_reason=reason or "not_computed",
+            votes=False,
+            lineage=LINEAGE_TEAM_STRATEGY,
+        )
+    impact = simulation.get("teamImpact") or {}
+    detail = {
+        "label": block.get("label"),
+        "evidence": block.get("evidence"),
+        "probabilities": block.get("probabilities"),
+        "confidence": block.get("confidence"),
+        "components": block.get("components"),
+        "paramsVersion": block.get("paramsVersion"),
+        "parameterStatus": block.get("parameterStatus"),
+        # How the moving assets line up with the posture (team_impact's window
+        # fit, weighted by the posture probabilities).  Reported, not voted.
+        "windowFit": impact.get("windowFit"),
+        "role": "context_not_vote",
+        "notes": block.get("notes") or [],
+    }
+    return DimensionResult(
+        name="strategicPosture",
+        available=True,
+        direction="context",
+        detail=detail,
+        votes=False,
+        lineage=LINEAGE_TEAM_STRATEGY,
+    )
 
 
 def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
@@ -735,9 +784,12 @@ def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
     if team_context:
         roster = _roster_lens(simulation, cfg)
         feasibility = _feasibility_lens(simulation)
+        posture = _posture_lens(simulation)
     else:
         roster = _excluded_by_mode("rosterUtility", LINEAGE_PROJECTION)
         feasibility = _excluded_by_mode("feasibility", LINEAGE_ROSTER_RULES)
+        posture = _excluded_by_mode("strategicPosture", LINEAGE_TEAM_STRATEGY)
+        posture.votes = False
     evidence = _evidence_lens(simulation, roster)
 
     recommendation, confidence, basis = _recommend(market, roster, feasibility)
@@ -755,7 +807,7 @@ def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
         reasons_for=reasons_for,
         reasons_against=reasons_against,
         uncertainty=uncertainty,
-        dimensions=[market, roster, feasibility, evidence],
+        dimensions=[market, roster, feasibility, evidence, posture],
         unavailable_dimensions=list(_UNAVAILABLE_DIMENSIONS),
         team_context={
             "applied": team_context,

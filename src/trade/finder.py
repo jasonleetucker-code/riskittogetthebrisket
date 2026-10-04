@@ -14,7 +14,7 @@ _rawComposite / _canonicalSiteValues fields).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from src import packages as substrate
 from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
@@ -180,6 +180,16 @@ class Asset:
     source_count: int = 0  # Number of valuation sources
     market_rank: int | None = None  # 1-based rank WITHIN this asset's market
     market_source: str | None = None  # "ktcSfTep" | "ktc" | "idpTradeCalc"
+    #: Canonical owned-pick id (``pick:<league>:<season>:r<N>:o<rid>``) for a
+    #: league pick; empty for board assets.  Identity for dedup.
+    asset_id: str = ""
+    #: How ``market_value`` was obtained when it is NOT a native market price
+    #: (C7-PICKGEN-01: ``src/trade/pick_market`` derivation), with provenance.
+    market_derivation: dict | None = None
+    #: For a league pick: the canonical board row it resolves to
+    #: (``"2027 Round 1"`` / ``"2026 Pick 1.06"``), so a consumer can hand
+    #: the calculator a name it recognises instead of the display label.
+    board_row: str | None = None
 
     @property
     def has_market(self) -> bool:
@@ -207,6 +217,16 @@ class Asset:
 # normalization.  Audit S2.
 
 
+def _package_size_label(give: list[Asset], receive: list[Asset]) -> str:
+    """PLAYER topology, with picks named separately (C3-TOPO-01: picks are
+    not players).  ``"1-for-2 + 1 pick"`` rather than ``"2-for-2"``."""
+    pg = sum(1 for a in give if not a.is_pick)
+    pr = sum(1 for a in receive if not a.is_pick)
+    picks = sum(1 for a in (*give, *receive) if a.is_pick)
+    label = f"{pg}-for-{pr}"
+    return f"{label} + {picks} pick{'s' if picks != 1 else ''}" if picks else label
+
+
 @dataclass
 class TradeCandidate:
     """A scored trade proposal."""
@@ -230,6 +250,9 @@ class TradeCandidate:
     summary: str = ""  # Human-readable one-liner
     ranking_factors: dict = field(default_factory=dict)  # Score component breakdown
     flags: list[str] = field(default_factory=list)  # Active guards/bonuses
+    #: The opponent team this package was generated against (Wave B): the
+    #: counterparty whose roster capacity is reported beside the requester's.
+    counterparty: str | None = None
 
     def markets_used(self) -> list[str]:
         """Which retail markets priced the assets in this trade.
@@ -254,6 +277,14 @@ class TradeCandidate:
                 "ktcValue": a.ktc_value,
                 "ktcRank": a.ktc_rank,
             }
+            if a.asset_id:
+                d["assetId"] = a.asset_id
+            if a.board_row:
+                d["boardRowName"] = a.board_row
+            if a.market_derivation is not None:
+                # The market number is DERIVED (generic unknown-slot pick), not
+                # a native vendor price for this asset — the name travels.
+                d["marketDerivation"] = a.market_derivation
             return d
 
         return {
@@ -293,7 +324,8 @@ class TradeCandidate:
             "summary": self.summary,
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
-            "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            "packageSize": _package_size_label(self.give, self.receive),
+            "counterparty": self.counterparty,
             # KTC package Value Adjustment.  These used to be spliced in by a
             # wrapper installed over this method at import time; they are part
             # of the payload now, so the shape is readable here.
@@ -708,7 +740,10 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     # value must be a meaningful fraction of the receive side.
     flags: list[str] = []
 
-    if len(give) > len(receive):
+    # Counted in PLAYERS (C3-TOPO-01): a pick added to a 1-for-1 is not a
+    # "two fillers for an elite" package.  The simplicity penalty below still
+    # counts every asset — a pick is one more piece to negotiate.
+    if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):
         if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
             return None
         # ── Elite target protection (tighter ratio) ──────────────────
@@ -771,7 +806,7 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     ktc_delta = give_ktc - recv_ktc  # positive = opponent gets more KTC than they give
 
     # Core arbitrage: we win on model, opponent wins on KTC
-    f_board_edge = board_gain_norm * 50
+    f_board_edge = board_gain_norm * _BOARD_EDGE_WEIGHT
     f_ktc_appeal = opp_appeal * 30
     f_positive_bonus = (1.0 if board_delta > 0 else 0.0) * 10
     arbitrage = f_board_edge + f_ktc_appeal + f_positive_bonus
@@ -813,7 +848,7 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     conf_tier = _confidence_tier(confidence)
     flags.append(f"{conf_tier}_confidence")
     edge_lbl = _edge_label(board_gain_norm)
-    pkg_size_str = f"{len(give)}-for-{len(receive)}"
+    pkg_size_str = _package_size_label(give, receive)
     summary = _build_summary(
         board_delta,
         board_gain_norm,
@@ -855,12 +890,28 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     return tc
 
 
+#: Weight on board gain normalised by the outgoing total.  Shared by the
+#: forced-drop cost (Wave B): a forced release is board value the requester
+#: loses, so it is priced on exactly the scale the board edge is — no second
+#: coefficient.
+_BOARD_EDGE_WEIGHT = 50
+#: Bound on how many ranked candidates the forced-drop rerank evaluates, as a
+#: multiple of ``max_results``.
+_FORCED_DROP_RERANK_WINDOW_MULT = 5
+
 #: Pool bound for asymmetric 2-for-1 / 1-for-2 search in legacy/default mode.
 _ASYMMETRIC_POOL_LIMIT = 30
 #: 2-for-2 is combinatorial on BOTH sides.  Eighteen keeps its search space
 #: close to the old asymmetric cost while still covering the highest-value
 #: roster core first (rank_key is by_value_desc).
 _TWO_FOR_TWO_POOL_LIMIT = 18
+#: C3-TOPO-01 (Wave B): the owner topology rule allows 2-for-2, 3-for-2 and
+#: 2-for-3, which the default search never offered.  These shapes are
+#: combinatorial on both sides, so they search only the top of each roster
+#: (rank_key is by_value_desc) — the region where multi-player packages are
+#: plausible at all.  Sized from a measured budget on the live board, see
+#: ``tests/trade/test_generated_topology.py``.
+_MULTI_PLAYER_POOL_LIMIT = 6
 
 
 def _generate_packages(
@@ -879,7 +930,8 @@ def _generate_packages(
     arbitrage finder rather than one of the other three products, and none of
     that moved.
 
-    Default callers preserve the historical 1-for-1 + asymmetric search.
+    Default callers get 1-for-1, the asymmetric 2-for-1 / 1-for-2 search and
+    (C3-TOPO-01) a top-of-roster 2-for-2 / 3-for-2 / 2-for-3 search.
     ``/arbitrage`` explicitly requests ``equal_count_only`` and gets exactly
     1-for-1 + 2-for-2.  That keeps this UX policy scoped to the surface that
     asked for it instead of silently changing other internal callers.
@@ -933,9 +985,18 @@ def _generate_packages(
         [substrate.PackageShape(2, 1), substrate.PackageShape(1, 2)],
         _ASYMMETRIC_POOL_LIMIT,
     )
+    multi_player = _run(
+        [
+            substrate.PackageShape(2, 2),
+            substrate.PackageShape(3, 2),
+            substrate.PackageShape(2, 3),
+        ],
+        _MULTI_PLAYER_POOL_LIMIT,
+    )
     return results, {
         "oneForOne": one_for_one.to_dict(),
         "asymmetric": asymmetric.to_dict(),
+        "multiPlayer": multi_player.to_dict(),
     }
 
 
@@ -945,8 +1006,8 @@ def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
     result: list[TradeCandidate] = []
     for tc in trades:
         key = (
-            tuple(sorted(a.name for a in tc.give)),
-            tuple(sorted(a.name for a in tc.receive)),
+            tuple(sorted(a.asset_id or a.name for a in tc.give)),
+            tuple(sorted(a.asset_id or a.name for a in tc.receive)),
         )
         if key in seen:
             continue
@@ -995,6 +1056,280 @@ def _parse_arbitrage_controls(
     return opponents, equal_count_only, excluded_keys, excluded_display
 
 
+def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
+    """Apply the requester's forced-drop cost to ``tc`` and return the factor.
+
+    ``-(cost / give_model) * _BOARD_EDGE_WEIGHT`` — the board-edge formula
+    applied to board value the requester loses.  Unknown cost is ``None`` in
+    ``rankingFactors`` with its reason, and moves nothing.
+    """
+    from src.trade.roster_capacity import forced_drop_cost  # noqa: PLC0415
+
+    if capacity is None:
+        tc.ranking_factors["forcedDropCost"] = None
+        tc.ranking_factors["forcedDropCostBasis"] = {
+            "state": "unknown",
+            "reason": "capacity_unavailable",
+        }
+        return 0.0
+    cost, basis = forced_drop_cost(capacity)
+    tc.ranking_factors["forcedDropCostBasis"] = basis
+    if cost is None:
+        tc.ranking_factors["forcedDropCost"] = None
+        return 0.0
+    factor = -(cost / max(tc.give_model_total, 1)) * _BOARD_EDGE_WEIGHT
+    tc.ranking_factors["forcedDropCost"] = round(factor, 2)
+    if factor < 0:
+        tc.arbitrage_score += factor
+        tc.flags.append("forced_drop_cost")
+        tc.summary += " Score is net of the release this trade forces."
+    return factor
+
+
+def _rerank_with_forced_drop_cost(
+    ranked: list[TradeCandidate],
+    max_results: int,
+    capacity_for: Callable[[TradeCandidate], Any],
+) -> list[TradeCandidate]:
+    """Top-``max_results`` after the forced-drop cost, lazily and bounded.
+
+    ``ranked`` is ordered by (full coverage first, score).  The cost can only
+    LOWER a score, so a candidate's pre-cost key bounds its post-cost key:
+    evaluate in order and stop once ``max_results`` evaluated candidates sit at
+    or above the next unevaluated candidate's bound — exact up to that point.
+    Each evaluation is a cut-ladder solve, so at most
+    ``_FORCED_DROP_RERANK_WINDOW_MULT x max_results`` candidates are evaluated
+    (measured: an over-cap roster otherwise evaluated thousands, 73 s).  A
+    candidate below the window is never surfaced — exactly as it was not
+    before this cost existed.
+    """
+
+    def _key(tc: TradeCandidate) -> tuple[int, float]:
+        return (1 if tc.ktc_coverage == "full" else 0, tc.arbitrage_score)
+
+    evaluated: list[TradeCandidate] = []
+    window = ranked[: max(1, max_results) * _FORCED_DROP_RERANK_WINDOW_MULT]
+    for i, tc in enumerate(window):
+        _forced_drop_factor(tc, capacity_for(tc))
+        evaluated.append(tc)
+        evaluated.sort(key=_key, reverse=True)
+        if len(evaluated) >= max_results:
+            nxt = window[i + 1] if i + 1 < len(window) else None
+            if nxt is None or _key(evaluated[max_results - 1]) >= _key(nxt):
+                break
+    return evaluated[:max_results]
+
+
+#: C7-PICKGEN-01: pool bound for the player cores a posture-aware pick is
+#: added to, and how many of a team's owned picks (most valuable first) are
+#: tried.  Bounded because each combination is a full package score.
+_PICK_CORE_POOL_LIMIT = 8
+_PICKS_TRIED_PER_TEAM = 4
+_FUTURE_TILTING = ("RETOOL", "REBUILD")
+
+
+def _owned_pick_assets(
+    team: dict[str, Any] | None,
+    contract: dict[str, Any] | None,
+    players: dict[str, Any],
+    pool_by_name: dict[str, Asset],
+    forecasts: dict[int, tuple[int, Any]] | None = None,
+    unfiltered: dict[str, Asset] | None = None,
+) -> tuple[list[Asset], dict[str, int]]:
+    """The league picks ``team`` owns, as finder assets.
+
+    Identity is the canonical fold (``sleeper.teams[].pickDetails`` /
+    ``assetId``) and the market reference is ``identity.picks.
+    market_resolution`` — nothing here parses a pick label.  Model value is the
+    canonical board's (``pick_value_resolution``).  Market value is the native
+    board row's when the slot or tier is known; for an UNKNOWN slot it is the
+    ``pick_market`` derivation (KTC tier average, PRIOR), labelled.  An
+    unpublished inventory (#1618) yields no picks; an unpriced pick is counted,
+    never zeroed.
+    """
+    from src.api.pick_value_resolution import resolve_pick_value  # noqa: PLC0415
+    from src.identity.picks import market_resolution, round_suffix  # noqa: PLC0415
+    from src.trade.pick_market import unknown_slot_market_value  # noqa: PLC0415
+
+    stats = {"owned": 0, "priced": 0, "unpriced": 0, "belowMinValue": 0}
+    details = (team or {}).get("pickDetails")
+    if not isinstance(details, list) or not isinstance(contract, dict):
+        return [], stats
+    try:
+        current_draft_year = int(contract.get("currentDraftYear"))
+    except (TypeError, ValueError):
+        return [], stats
+    # KTC's own published prices, BEFORE this engine's top-N quality gate: a
+    # row below the cut is still a published price, and a pick must not become
+    # unpriced merely because its slot became known.  Built once per request
+    # by the caller when it can be.
+    if unfiltered is None:
+        unfiltered = {a.name: a for a in build_asset_pool(players, market_top_n=0)}
+    out: list[Asset] = []
+    for d in details:
+        if not isinstance(d, dict):
+            continue
+        try:
+            year, rnd = int(d.get("season")), int(d.get("round"))
+        except (TypeError, ValueError):
+            continue
+        stats["owned"] += 1
+        slot = d.get("slot") if isinstance(d.get("slot"), int) else None
+        res = market_resolution(
+            year=year, round_num=rnd, slot=slot, current_draft_year=current_draft_year
+        )
+        model = resolve_pick_value(contract, res.ref).value
+        market: int | None = None
+        derivation: dict | None = None
+        source: str | None = None
+        origin_rid = _int_or_none(d.get("fromRosterId", d.get("original_roster_id")))
+        if res.basis == "unknown_slot":
+            sfx = round_suffix(rnd)
+            tiers = {
+                t: (unfiltered.get(f"{year} {t.capitalize()} {sfx}") or Asset("", "", "", 0, None))
+                for t in ("early", "mid", "late")
+            }
+            # The ORIGINATING franchise's finish decides the slot; a forecast
+            # exists only for the class drafted after the simulated season.
+            fc = (forecasts or {}).get(origin_rid) if origin_rid is not None else None
+            forecast = fc[1] if fc and fc[0] == year else None
+            if forecast is not None:
+                no_forecast = None
+            elif not forecasts:
+                no_forecast = "no_slot_forecast_available"
+            elif origin_rid is None:
+                no_forecast = "origin_franchise_unknown"
+            elif fc is None:
+                no_forecast = "no_forecast_for_origin_franchise"
+            else:
+                no_forecast = "class_beyond_forecast_horizon"
+            est = unknown_slot_market_value(
+                year,
+                rnd,
+                {t: a.market_value for t, a in tiers.items()},
+                forecast=forecast,
+                forecast_unavailable_reason=no_forecast,
+                ktc_tier_sources={t: a.market_source for t, a in tiers.items()},
+            )
+            market = est.value
+            derivation = est.to_dict()
+            source = "ktc_tier_average"
+        else:
+            row = unfiltered.get(res.ref.board_row_name() or "")
+            if row is not None and row.has_market:
+                market, source = row.market_value, row.market_source
+        if model is None or market is None:
+            stats["unpriced"] += 1
+            continue
+        if model < MIN_ASSET_VALUE:
+            # Priced, just below the engine's tradeable floor — not "unpriced".
+            stats["belowMinValue"] += 1
+            continue
+        stats["priced"] += 1
+        # Named by the ORIGINATING franchise ("2027 1st (Blaine)"): unambiguous
+        # from either side of the trade, unlike "(own)".
+        origin = str(d.get("fromTeam") or f"roster {origin_rid}")
+        out.append(
+            Asset(
+                name=f"{year} {round_suffix(rnd)} ({origin})",
+                position="PICK",
+                team="",
+                model_value=int(model),
+                market_value=int(market),
+                is_pick=True,
+                source_count=2,
+                market_source=source,
+                asset_id=str(d.get("assetId") or ""),
+                market_derivation=derivation,
+                board_row=res.ref.board_row_name(),
+            )
+        )
+    out.sort(key=lambda a: -a.model_value)
+    return out, stats
+
+
+def _posture_pick_packages(
+    my_roster: list[Asset],
+    opp_roster: list[Asset],
+    my_picks: list[Asset],
+    opp_picks: list[Asset],
+    my_posture: str | None,
+    opp_posture: str | None,
+    outgoing_policy: Any,
+    *,
+    equal_count_only: bool,
+) -> tuple[list[TradeCandidate], str | None]:
+    """Pick-inclusive packages for a COMPLEMENTARY posture pair only.
+
+    C7-PICKGEN-01: picks enter a generated trade because the two teams value
+    present production and future capital differently — never as filler.
+
+    * PUSH requester vs RETOOL/REBUILD opponent: the requester may ADD one of
+      its own picks to what it sends.
+    * RETOOL/REBUILD requester vs PUSH opponent: the requester may ASK for one
+      of the opponent's picks.
+    * HOLD or same-direction pairs: none (player-only).
+
+    A pick-inclusive package is kept only when it beats its own player-only
+    core on the finder's objective, or rescues a core that failed a gate
+    (the "two-team objective mismatch" a pick legitimately solves).  Picks are
+    not players, so the core's C3-TOPO-01 topology is the package's.
+    """
+    if my_posture == "PUSH" and opp_posture in _FUTURE_TILTING:
+        side, picks, pair = "give", my_picks, f"PUSH->{opp_posture}"
+    elif my_posture in _FUTURE_TILTING and opp_posture == "PUSH":
+        side, picks, pair = "receive", opp_picks, f"{my_posture}->PUSH"
+    else:
+        return [], None
+    if not picks:
+        return [], pair
+    shapes = (
+        [substrate.PackageShape(1, 1), substrate.PackageShape(2, 2)]
+        if equal_count_only
+        else [
+            substrate.PackageShape(1, 1),
+            substrate.PackageShape(2, 1),
+            substrate.PackageShape(1, 2),
+        ]
+    )
+    cores, _report = substrate.enumerate_packages(
+        my_roster,
+        opp_roster,
+        outgoing_policy=outgoing_policy,
+        policy=substrate.EligibilityPolicy(
+            min_value=MIN_ASSET_VALUE, allow_unknown_value=False, require_position=False
+        ),
+        shapes=shapes,
+        pool_limit=_PICK_CORE_POOL_LIMIT,
+        rank_key=substrate.by_value_desc,
+    )
+    out: list[TradeCandidate] = []
+    for pair_ in cores:
+        give, receive = pair_.sources()
+        core = _score_trade(give, receive)
+        best: TradeCandidate | None = None
+        for pick in picks[:_PICKS_TRIED_PER_TEAM]:
+            g, r = (give + [pick], receive) if side == "give" else (give, receive + [pick])
+            tc = _score_trade(g, r)
+            if tc is None:
+                continue
+            if core is not None and tc.arbitrage_score <= core.arbitrage_score:
+                continue
+            if best is None or tc.arbitrage_score > best.arbitrage_score:
+                best = tc
+        if best is not None:
+            best.flags.append("posture_aware_pick")
+            best.ranking_factors["pickPosturePair"] = pair
+            if any(a.market_derivation is not None for a in best.give + best.receive):
+                best.flags.append("pick_market_derived")
+                best.summary += (
+                    " The pick's market value is a KTC tier average (unknown slot), "
+                    "not a native KTC price."
+                )
+            out.append(best)
+    return out, pair
+
+
 def find_trades(
     players: dict[str, Any],
     my_team: str,
@@ -1008,6 +1343,8 @@ def find_trades(
     capacity_context: Any | None = None,
     constraints: Any | None = None,
     use_team_context: bool = True,
+    postures: dict[str, str] | None = None,
+    pick_forecasts: dict[int, tuple[int, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1016,6 +1353,17 @@ def find_trades(
     ----------
     players : dict
         Raw players dict from the live data payload.
+    postures : dict | None
+        C7-PICKGEN-01.  ``team name -> canonical Competitive Posture label``
+        (``src.roster_intel.window.competitive_posture``), resolved by the
+        route.  With Team Context ON, a complementary pair (PUSH vs
+        RETOOL/REBUILD) may receive pick-inclusive packages; absent or OFF,
+        generation is player-only.
+    pick_forecasts : dict | None
+        ``{originRosterId: (draftYear, TierForecast)}`` from
+        ``pick_market.owned_pick_forecasts`` (route-resolved).  Moves an
+        unknown-slot pick's market side from the plain KTC tier average
+        toward its forecast tier distribution, by confidence.
     use_team_context : bool
         V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
         "fills a need" arm consult the canonical Team Weakness owner
@@ -1221,6 +1569,50 @@ def find_trades(
     opponents_analyzed = 0
     warnings: list[str] = []
 
+    # C7-PICKGEN-01 — posture-aware picks.  Team context, so OFF (or no
+    # posture from the canonical owner) keeps generation player-only.
+    pick_generation_on = bool(use_team_context and postures and postures.get(my_team))
+    pick_generation: dict[str, Any] = {
+        "applied": pick_generation_on,
+        "reason": (
+            None
+            if pick_generation_on
+            else ("context_off" if not use_team_context else "no_canonical_posture")
+        ),
+        "myPosture": (postures or {}).get(my_team),
+        "marketBasis": (
+            "native board row; unknown slot = KTC tier average shrunk toward the "
+            "season-simulation slot forecast by confidence (PRIOR, provisional)"
+        ),
+        "slotForecasts": len(pick_forecasts or {}),
+        "pairs": {},
+    }
+    my_picks: list[Asset] = []
+    unfiltered_pool: dict[str, Asset] | None = None
+    if pick_generation_on:
+        unfiltered_pool = {a.name: a for a in build_asset_pool(players, market_top_n=0)}
+        me_team = next((t for t in sleeper_teams if t.get("name") == my_team), None)
+        my_picks, my_pick_stats = _owned_pick_assets(
+            me_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
+        )
+        my_picks = [a for a in my_picks if a.name.strip().casefold() not in excluded_player_keys]
+        # C3-CON-01: a pick the user protects or excludes is never sent
+        # (``block_reason``; a LOCK means "must include", which this generator
+        # does not enforce for picks, so it does not block either).  Pick
+        # constraints key on the canonical ``assetId`` or this generator's
+        # display name.  Applied here because picks are added after player
+        # enumeration.
+        blocked_picks = (
+            [(a, constraints.block_reason(a)) for a in my_picks] if constraints is not None else []
+        )
+        blocked_picks = [(a, r) for a, r in blocked_picks if r is not None]
+        if blocked_picks:
+            blocked_ids = {id(a) for a, _r in blocked_picks}
+            my_picks = [a for a in my_picks if id(a) not in blocked_ids]
+        pick_generation["myOwnedPicks"] = my_pick_stats
+        pick_generation["picksBlockedByConstraints"] = len(blocked_picks)
+        pick_generation["picksBlockedReasons"] = sorted({r for _a, r in blocked_picks})
+
     if unpriced_by_board:
         warnings.append(
             f"{unpriced_by_board} assets carry a scraper value above "
@@ -1296,6 +1688,38 @@ def find_trades(
             outgoing_policy,
             equal_count_only=equal_count_only,
         )
+        if pick_generation_on:
+            # The opponent's picks are only ever ASKED for when we tilt future
+            # and they PUSH; resolve them only then.
+            opp_picks: list[Asset] = []
+            opp_stats: dict[str, int] | None = None
+            if postures.get(my_team) in _FUTURE_TILTING and postures.get(opp_name) == "PUSH":
+                opp_team = next((t for t in sleeper_teams if t.get("name") == opp_name), None)
+                opp_picks, opp_stats = _owned_pick_assets(
+                    opp_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
+                )
+                opp_picks = [
+                    a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
+                ]
+            with_picks, pair = _posture_pick_packages(
+                my_roster,
+                opp_filtered,
+                my_picks,
+                opp_picks,
+                postures.get(my_team),
+                postures.get(opp_name),
+                outgoing_policy,
+                equal_count_only=equal_count_only,
+            )
+            shaped.extend(with_picks)
+            pick_generation["pairs"][opp_name] = {
+                "posture": postures.get(opp_name),
+                "pair": pair,
+                "pickInclusiveCandidates": len(with_picks),
+                "ownedPicks": opp_stats,
+            }
+        for tc in shaped:
+            tc.counterparty = opp_name
         all_trades.extend(shaped)
         enumeration_reports[opp_name] = enum_report
 
@@ -1354,32 +1778,67 @@ def find_trades(
     partial_cov = [t for t in ranked if t.ktc_coverage != "full"]
     ranked = full_cov + partial_cov
 
-    capped = ranked[:max_results]
+    # ── Roster capacity (C3-CAP-01, Wave B) ──────────────────────────
+    # The requester's capacity is assessed per candidate.  With Team Context
+    # ON, the cost of the releases a trade FORCES (``forced_drop_cost``) is a
+    # named ranking component on the board-edge scale: it can only LOWER a
+    # trade, so it reorders and never filters — every candidate that passed
+    # the gates above is still returned in the same count.  OFF (Asset-only)
+    # keeps capacity a report and the ranking untouched.
+    capacity_by_trade: dict[int, Any] = {}
 
-    # Roster capacity, attached to the RETURNED set only.  Scoring every
-    # candidate would pay for a lineup re-solve on thousands of trades nobody
-    # will see; the answer is identical either way because capacity does not
-    # feed the ranking — deliberately, per the "report, never filter" rule
-    # above.
-    trade_dicts = [t.to_dict() for t in capped]
-    if capacity_context is not None:
-        from src.trade.roster_capacity import (  # noqa: PLC0415
-            assess_roster_capacity,
-            player_names_only,
-        )
+    def _capacity_for(tc: TradeCandidate) -> Any:
+        key = id(tc)
+        if key not in capacity_by_trade:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                player_names_only,
+            )
 
-        for payload, tc in zip(trade_dicts, capped):
             try:
-                payload["rosterCapacity"] = assess_roster_capacity(
+                capacity_by_trade[key] = assess_roster_capacity(
                     capacity_context,
                     incoming_players=player_names_only(tc.receive),
                     outgoing_players=player_names_only(tc.give),
-                ).to_dict()
+                )
             except Exception:  # noqa: BLE001 — an annotation never drops a trade
-                payload["rosterCapacity"] = {
+                capacity_by_trade[key] = None
+        return capacity_by_trade[key]
+
+    if use_team_context and capacity_context is not None:
+        capped = _rerank_with_forced_drop_cost(ranked, max_results, _capacity_for)
+    else:
+        capped = ranked[:max_results]
+
+    trade_dicts = [t.to_dict() for t in capped]
+    if capacity_context is not None:
+        from src.trade.roster_capacity import (  # noqa: PLC0415
+            counterparty_capacity_block,
+            counterparty_context_resolver,
+            player_names_only,
+        )
+
+        counterparty_context = counterparty_context_resolver(
+            capacity_context, contract, sleeper_teams
+        )
+        for payload, tc in zip(trade_dicts, capped):
+            cap = _capacity_for(tc)
+            payload["rosterCapacity"] = (
+                cap.to_dict()
+                if cap is not None
+                else {
                     "unavailable": "assessment_failed",
                     "notes": ["roster capacity could not be computed for this trade"],
                 }
+            )
+            # The counterparty receives what we give and sends what we receive.
+            # Reported, never ranked: their acceptance is scored on the market
+            # board, and pricing their releases on OUR board would mix scales.
+            payload["counterpartyRosterCapacity"] = counterparty_capacity_block(
+                counterparty_context(tc.counterparty),
+                incoming_players=player_names_only(tc.give),
+                outgoing_players=player_names_only(tc.receive),
+            )
 
     return {
         "trades": trade_dicts,
@@ -1396,6 +1855,12 @@ def find_trades(
             # actually influenced this run's roster-fit bonus, and why not
             # when it did not.
             "teamContext": team_context,
+            "pickGeneration": {
+                **pick_generation,
+                "pickInclusiveReturned": sum(
+                    1 for t in capped if any(a.is_pick for a in t.give + t.receive)
+                ),
+            },
             # Why the outgoing pool may be smaller than the roster.  Published
             # unconditionally: "you protect 22 players" and "no trade exists"
             # must not render identically.
