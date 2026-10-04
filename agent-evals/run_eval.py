@@ -112,12 +112,20 @@ def main(argv: list[str] | None = None) -> int:
         source = artifact.get("source_receipt")
         if source is not None and args.steward_state is not None:
             expected = artifact_from_state(args.steward_state, source["run_id"])
-            result.evidence.append(
-                {"check": "steward_receipt_mapping", "level": "VERIFIED_AGAINST_ARTIFACT"}
-            )
             if artifact != expected:
+                result.evidence.append(
+                    {
+                        "check": "steward_receipt_mapping",
+                        "level": "NOT_CHECKED",
+                        "reason": "artifact_mismatch",
+                    }
+                )
                 result.failures.append("eval artifact does not match the persisted Steward receipt")
                 result.passed = False
+            else:
+                result.evidence.append(
+                    {"check": "steward_receipt_mapping", "level": "VERIFIED_AGAINST_ARTIFACT"}
+                )
         elif source is not None:
             result.evidence.append(
                 {

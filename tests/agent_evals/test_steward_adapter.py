@@ -104,4 +104,7 @@ def test_edited_artifact_fails_source_mapping(tmp_path: Path, capsys):
         )
         == 1
     )
-    assert "does not match the persisted Steward receipt" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "does not match the persisted Steward receipt" in output
+    assert "[NOT_CHECKED] steward_receipt_mapping (artifact_mismatch)" in output
+    assert "[VERIFIED_AGAINST_ARTIFACT] steward_receipt_mapping" not in output
