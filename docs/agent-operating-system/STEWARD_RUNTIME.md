@@ -181,11 +181,19 @@ against the source row only when supplied `--steward-state`; use
 `--require-verified-steward-receipt` and `--require-verified-diff` for the
 report-only case. The source check proves mapping to the persisted receipt,
 not the truth of every observation inside it.
-`retrospective` groups comparable task classes, exposes measurement coverage
-and proposes challengers without promoting them. `diagnose_failures` records
-specific rule references when repeated independent failures suggest an
-instruction/specification problem. Investigate the spec, test and architecture
-before repeating the same failing prompt.
+`retrospective` groups comparable task class, profile, model and reasoning.
+Only executed rows with an acceptance result, artifact-evidence marker, eval
+case and ending repository head contribute to acceptance rates. A claimed
+marker is input to this report-only scorecard, not independent verification
+by itself. Fewer than five evaluated rows cannot propose a challenger.
+Latency, token, context, tool and cost coverage is explicit; unavailable
+measurements remain null, never zero. The router neither dispatches nor
+promotes a model. `diagnose_failures` records specific rule references when
+repeated independent failures suggest an instruction/specification problem.
+An engineering layer (HARNESS, LOOP, GRAPH, DATA, MODEL or INFRA) is reported
+only when all failed events consistently provide that layer and nonempty
+evidence references; otherwise it is UNKNOWN. Investigate the spec, test and
+architecture before repeating the same failing prompt.
 
 ## Moving Main and Generated Data
 
