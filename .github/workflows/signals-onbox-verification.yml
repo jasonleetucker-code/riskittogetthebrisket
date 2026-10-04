@@ -24,7 +24,7 @@ name: Signals On-Box Verification
 # distributions, states and per-criterion pass/fail; never a player name, a
 # per-player or vendor number, or a session timestamp (``assert_public_safe``
 # refuses otherwise).  The full report, watch list included, is written 0600
-# to the box's private Signals store (data/sources/signals/reports/) and never
+# to the box's private Signals store (its reports/ directory) and never
 # leaves the host.  The runner's copy of the script is uploaded into a mktemp
 # dir and removed on exit.
 
