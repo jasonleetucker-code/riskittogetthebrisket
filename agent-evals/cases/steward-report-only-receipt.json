@@ -7,6 +7,7 @@
   "acceptance_criteria": [
     "The run receipt records no repository action and observes a clean exact repository revision.",
     "Every observed execution span correlates to the same run and trace ID.",
+    "A build_brief plan span completed, each span retained the receipt head, report-only authority, evidence references and a measured duration, and no write or handoff span occurred.",
     "The eval artifact exactly matches the immutable Steward evidence row and the changed-file claim is checked against Git."
   ],
   "forbidden_actions": [
@@ -20,7 +21,13 @@
       "receipt_actions_empty": true,
       "spans_correlated": true,
       "clean_repo_observed": true,
-      "repo_heads_equal": true
+      "repo_heads_equal": true,
+      "plan_completed": true,
+      "spans_report_only": true,
+      "span_heads_match_receipt": true,
+      "spans_have_evidence_refs": true,
+      "spans_have_measured_duration": true,
+      "no_write_or_handoff_spans": true
     }
   }
 }
