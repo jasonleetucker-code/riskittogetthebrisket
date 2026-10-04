@@ -12,6 +12,7 @@ quality; and that a capture run changes nothing served.
 from __future__ import annotations
 
 import ast
+import copy
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1067,3 +1068,31 @@ def test_the_capture_records_the_rule_slots_it_was_forecast_from(realistic) -> N
     assert forecast["meta"]["draftOrderRule"] == "reverse_record_lower_pf"
     slotted = [p for p in forecast["picks"] if p["projectedSlot"] is not None]
     assert slotted and all(p["slotDistribution"] for p in slotted)
+
+
+def test_a_simulation_that_cannot_be_joined_is_transient_not_a_slotless_capture(
+    realistic,
+) -> None:
+    """A rule league whose fresh simulation cannot be joined to the rosters
+    (an ownerId the overlay does not carry) is a simulation gap the next run
+    closes — the write is refused, not locked in as a slot-less top tier."""
+    sim = copy.deepcopy(realistic["sim"])
+    sim["playoffOdds"][0]["ownerId"] = "owner-not-in-the-league"
+    realistic["sim"] = sim
+    inputs = _gather_realistic()
+    assert inputs.forecast is None
+    assert inputs.forecast_reason == (
+        "season_simulation_unavailable:simulation_owner_join_incomplete"
+    )
+    record = snap.assemble_snapshot(inputs, recorded_at="2026-10-06T12:20:00+00:00")
+    assert "forecast" in record["transientMissing"]
+    assert record["tier"] != snap.TOP_TIER
+
+
+def test_transient_slot_reasons_are_the_projector_constants() -> None:
+    from src.ros import pick_projection as pp
+
+    assert snap._TRANSIENT_SLOT_REASONS == {
+        pp.SIMULATION_JOIN_INCOMPLETE,
+        pp.NO_SLOT_DISTRIBUTION,
+    }

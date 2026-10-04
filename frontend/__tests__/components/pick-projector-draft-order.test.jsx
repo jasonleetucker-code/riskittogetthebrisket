@@ -90,7 +90,11 @@ describe("PickProjectorPanel (draft-order rule)", () => {
               slotForecastUnavailableReason: "class_beyond_simulated_season",
             }),
           ],
-          meta: { pickOwnershipState: "observed", unprojectablePicks: 0 },
+          meta: {
+            pickOwnershipState: "observed",
+            unprojectablePicks: 0,
+            draftOrderRule: "reverse_record_lower_pf",
+          },
         }),
       })),
     );
@@ -100,7 +104,7 @@ describe("PickProjectorPanel (draft-order rule)", () => {
     const noSlot = screen.getByTestId("pick-projector-no-slot");
     expect(noSlot.textContent).toBe("No slot forecast");
     expect(noSlot.getAttribute("title")).toMatch(/Only next season/);
-    expect(screen.getByText(/draft-order rule/)).toBeTruthy();
+    expect(screen.getByText(/worst final record picks first/)).toBeTruthy();
     expect(screen.queryByText(/roster strength/)).toBeNull();
   });
 });
@@ -134,5 +138,7 @@ describe("PickProjectorPanel — league with no slot forecast", () => {
     render(<PickProjectorPanel leagueKey="dynasty_new" />);
     const note = await screen.findByTestId("pick-projector-no-forecast-note");
     expect(note.textContent).toMatch(/no recorded draft-order rule/);
+    // The header does not describe a rule the league does not have.
+    expect(screen.queryByText(/worst final record picks first/)).toBeNull();
   });
 });

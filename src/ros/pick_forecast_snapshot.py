@@ -185,6 +185,14 @@ CORE_TEAM_FIELDS: tuple[str, ...] = ("record", "points")
 #: else -- ``unidentifiable_pick_details:N``, ``canonical_contract_is_for_league``,
 #: ``contract_build_skipped``, ``no_games_played``, ``draftOrderRule`` -- is
 #: structural: a re-run would answer the same.
+#: Projector slot-forecast reasons that are a SIMULATION gap for a league
+#: that has a rule (not a structural absence), so a capture is retried.
+#: Values of ``pick_projection.SIMULATION_JOIN_INCOMPLETE`` /
+#: ``NO_SLOT_DISTRIBUTION`` — pinned equal by test.
+_TRANSIENT_SLOT_REASONS: frozenset[str] = frozenset(
+    {"simulation_owner_join_incomplete", "simulation_published_no_slot_distribution"}
+)
+
 TRANSIENT_REASON_MARKERS: tuple[str, ...] = (
     "public_snapshot_failed",
     "league_has_no_current_season",
@@ -1180,9 +1188,20 @@ def gather_inputs(
                 inputs.forecast_reason = "season_simulation_unavailable"
             else:
                 # The exact call /api/ros/pick-projections serves.
-                inputs.forecast = build_pick_projections(
+                forecast = build_pick_projections(
                     list(inputs.overlay_teams), sim_payload, league_key=league_key
                 )
+                slot_reason = (forecast.get("meta") or {}).get("slotForecastUnavailableReason")
+                if (
+                    slot_reason in _TRANSIENT_SLOT_REASONS
+                    and league_draft_order_rule(league_key) is not None
+                ):
+                    # The rule exists but this simulation could not be
+                    # joined / published no slots: a gap the next run can
+                    # close, so the write is refused and retried.
+                    inputs.forecast_reason = f"season_simulation_unavailable:{slot_reason}"
+                else:
+                    inputs.forecast = forecast
         except Exception as exc:  # noqa: BLE001
             inputs.forecast_reason = f"pick_projection_failed:{_reason(exc)}"
 

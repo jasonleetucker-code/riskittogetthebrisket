@@ -109,9 +109,9 @@ class TestRuleSlotForecasts:
         assert all(r["confidence"] != "high" for r in order)
 
     def test_ties_on_expected_slot_break_on_roster_id(self):
-        same = {1: [0.5, 0.5], 2: [0.5, 0.5]}
+        same = {1: [0.0, 0.5, 0.5], 2: [0.0, 0.5, 0.5], 3: [1.0, 0.0, 0.0]}
         order, _, _, _ = rule_slot_forecasts(sim(same), teams3())
-        assert [r["rosterId"] for r in order] == [1, 2]
+        assert [r["rosterId"] for r in order] == [3, 1, 2]
 
     def test_unknowns_are_reasons_never_an_order(self):
         def reason(payload, **kw):
@@ -168,6 +168,14 @@ class TestRuleSlotForecasts:
         ):
             order, _, reason, _ = rule_slot_forecasts(sim(bad), teams3())
             assert (order, reason) == ([], pp.NO_SLOT_DISTRIBUTION)
+
+    def test_an_unsimulated_roster_refuses_the_order(self):
+        """A rostered team the simulation never saw (an orphan with no owner)
+        still picks in the real draft: ordering only the simulated two would
+        hand out slots 1-2 of a three-team draft."""
+        two = {1: [0.0, 1.0], 3: [1.0, 0.0]}
+        order, _, reason, _ = rule_slot_forecasts(sim(two), teams3())
+        assert (order, reason) == ([], pp.SIMULATION_JOIN_INCOMPLETE)
 
 
 class TestBuildPickProjections:

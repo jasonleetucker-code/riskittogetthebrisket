@@ -205,6 +205,12 @@ def rule_slot_forecasts(
     if not sim_rows:
         return [], draft_year, NO_SLOT_DISTRIBUTION, {}
     league_size = len(sim_rows)
+    # Every rostered team must be simulated: an overlay roster the
+    # simulation never saw (an orphan without an owner) still picks in the
+    # real draft, so ordering only the simulated teams would compress the
+    # order around it.
+    if len(name_by_rid) != league_size:
+        return [], draft_year, SIMULATION_JOIN_INCOMPLETE, {}
     rows: list[dict[str, Any]] = []
     for r in sim_rows:
         dist = r.get("draftSlotDistribution")

@@ -47,8 +47,7 @@ const SLOT_FORECAST_REASON_TEXT = {
     "Only next season's draft is forecast; this class is further out.",
   no_draft_order_rule_for_league:
     "This league has no recorded draft-order rule, so no slot is forecast.",
-  no_fresh_season_simulation:
-    "No current season simulation is available yet.",
+  no_fresh_season_simulation: "No current season simulation is available yet.",
   season_simulation_unsimulable:
     "The season can't be simulated right now (for example before games start, or between seasons).",
   simulation_published_no_slot_distribution:
@@ -171,9 +170,19 @@ export default function PickProjectorPanel({ leagueKey }) {
           marginBottom: 4,
         }}
       >
-        Where next season&apos;s picks are projected to land, from the season
-        simulation under this league&apos;s draft-order rule: the worst final
-        record picks first, and a tied record goes to the lower Points For.
+        {data?.meta?.draftOrderRule ? (
+          <>
+            Where next season&apos;s picks are projected to land, from the
+            season simulation under this league&apos;s draft-order rule: the
+            worst final record picks first, and a tied record goes to the lower
+            Points For.
+          </>
+        ) : (
+          <>
+            This league&apos;s future picks and who holds them. No draft-order
+            rule is recorded for it, so no slot is projected.
+          </>
+        )}
       </div>
       <div
         style={{ fontSize: "0.66rem", color: "var(--muted)", marginBottom: 10 }}
@@ -281,9 +290,7 @@ export default function PickProjectorPanel({ leagueKey }) {
                           No slot forecast
                         </td>
                       ) : (
-                        <td
-                          style={{ textAlign: "center", color: style.color }}
-                        >
+                        <td style={{ textAlign: "center", color: style.color }}>
                           {style.label}
                         </td>
                       )}
@@ -299,8 +306,8 @@ export default function PickProjectorPanel({ leagueKey }) {
       {unprojectable > 0 ? (
         <div style={{ fontSize: "0.66rem", color: "var(--amber)" }}>
           {unprojectable} pick{unprojectable === 1 ? "" : "s"} could not be
-          projected — the original team is not in the season simulation.
-          Counted rather than dropped silently.
+          projected — the original team is not in the season simulation. Counted
+          rather than dropped silently.
         </div>
       ) : null}
     </div>
