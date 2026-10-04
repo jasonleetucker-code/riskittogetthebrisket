@@ -25,6 +25,7 @@ _RECEIPT_VERSION = "steward-phase1-receipt/v1"
 _RUN_STATE_PREFIX = "phase1-run:"
 _WEEK1_ROW = re.compile(r"^\| W1-(\d{2}) \|.*\| ([A-Z_ ]+) \|$")
 _SHA = re.compile(r"^[0-9a-f]{40}$")
+_MAX_RECEIPT_LINE_BYTES = 1_000_000
 
 
 class ContractError(ValueError):
@@ -276,25 +277,68 @@ class Phase1Controller:
             "budget_max_usd": 0.0,
         }
 
+    def _receipt_line(self, receipt: dict[str, Any]) -> bytes:
+        line = (json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n").encode()
+        if len(line) > _MAX_RECEIPT_LINE_BYTES:
+            raise ContractError("receipt exceeds JSONL mirror line limit")
+        return line
+
     def _append_receipt(self, receipt: dict[str, Any]) -> None:
         day = receipt["ended_at"][:10]
         path = self.receipt_dir / f"{day}.jsonl"
+        line = self._receipt_line(receipt)
         fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
         try:
-            line = (json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n").encode()
-            os.write(fd, line)
+            pending = memoryview(line)
+            while pending:
+                written = os.write(fd, pending)
+                if written <= 0:
+                    raise OSError("receipt mirror write made no progress")
+                pending = pending[written:]
             os.fsync(fd)
         finally:
             os.close(fd)
         _ensure_private_file(path)
 
+    def _mirror_has_receipt(self, receipt: dict[str, Any]) -> bool:
+        """Check the optional JSONL mirror before repairing a committed receipt."""
+        path = self.receipt_dir / f"{receipt['ended_at'][:10]}.jsonl"
+        if not path.exists():
+            return False
+        seen = 0
+        with path.open("rb") as handle:
+            while line := handle.readline(_MAX_RECEIPT_LINE_BYTES + 1):
+                if len(line) > _MAX_RECEIPT_LINE_BYTES or not line.endswith(b"\n"):
+                    raise ConflictError("receipt mirror has an incomplete or oversized row")
+                try:
+                    mirrored = json.loads(line)
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise ConflictError("receipt mirror has a malformed row") from exc
+                if not isinstance(mirrored, dict):
+                    raise ConflictError("receipt mirror has a non-object row")
+                if mirrored.get("run_id") == receipt["run_id"]:
+                    if mirrored != receipt:
+                        raise ConflictError("receipt mirror conflicts with canonical state")
+                    seen += 1
+        if seen > 1:
+            raise ConflictError("receipt mirror contains duplicate run ids")
+        return seen == 1
+
+    def _ensure_mirror(self, receipt: dict[str, Any]) -> None:
+        """Serialize mirror check and append across cooperating controller processes."""
+        with self.store.connection:
+            self.store.connection.execute("BEGIN IMMEDIATE")
+            if not self._mirror_has_receipt(receipt):
+                self._append_receipt(receipt)
+
     def _record(self, receipt: dict[str, Any]) -> None:
+        self._receipt_line(receipt)
         state_name = _RUN_STATE_PREFIX + receipt["run_id"]
         revision, existing = self.store.read(state_name)
         if existing is not None:
             raise ConflictError(f"duplicate run id: {receipt['run_id']}")
         self.store.write(state_name, receipt, expected_revision=revision)
-        self._append_receipt(receipt)
+        self._ensure_mirror(receipt)
 
     def run(self, contract: dict[str, Any]) -> ControllerResult:
         """Perform one bounded report-only run and persist its audit receipt."""
@@ -305,6 +349,7 @@ class Phase1Controller:
         state_name = _RUN_STATE_PREFIX + run_id
         _, previous = self.store.read(state_name)
         if previous is not None:
+            self._ensure_mirror(previous)
             return ControllerResult(
                 status="DUPLICATE",
                 receipt=previous,
