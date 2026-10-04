@@ -77,6 +77,17 @@ def test_parse_reads_the_documented_row_attributes():
 def test_pull_joins_by_name_team_position_confirmed_by_salary_and_records_at_fetch_time(
     monkeypatch,
 ):
+    # The view below is read as of a fixed 2026-10-04 16:00Z; observations are
+    # stamped at import / fetch time, so both clocks are pinned before it (a
+    # real wall clock postdates it from that moment on and empties the view).
+    fixed = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(store, "now_iso", lambda: fixed.isoformat())
+    real_fetch = sources_dff.fetch
+    monkeypatch.setattr(
+        sources_dff,
+        "fetch",
+        lambda sport, platform, now=None: real_fetch(sport, platform, now=fixed.timestamp()),
+    )
     athletes = _athletes()
     snap = _snapshot(athletes)
     page = _page(athletes, salary_off=athletes[3].player_id).encode()
