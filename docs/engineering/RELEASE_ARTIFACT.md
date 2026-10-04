@@ -1,14 +1,14 @@
 # CI release artifact
 
-**State:** CI packaging unit, stacked after the exact Python lock. The VPS
-still rebuilds the frontend until the separate deployment cutover is reviewed,
+**State:** CI packaging and draft deployment cutover, stacked after the exact
+Python lock. The VPS still rebuilds the frontend until this cutover is reviewed,
 merged and production verified. Do not infer artifact deployment from the
-presence of an uploaded artifact.
+presence of an uploaded artifact or this draft workflow.
 
-The production workflow's `validate` job already tests the resolved full Git
-SHA, installs the exact development lock, runs backend and frontend gates, and
-builds Next. Immediately after those gates, it now writes
-`release-manifest.json` from the checked-out source and actual `.next` bytes,
+For normal artifact-mode targets, the production workflow's `validate` job
+tests the resolved full Git SHA, installs the exact development lock, runs
+backend and frontend gates, and builds Next. Immediately after those gates,
+it writes `release-manifest.json` from the checked-out source and actual `.next` bytes,
 then creates a tar archive and SHA-256 sidecar. The tar excludes `.next/cache`,
 which is not served and measured 327 MB of a 344 MB local build. CI extracts
 the tar into a fresh directory and verifies its contents before upload.

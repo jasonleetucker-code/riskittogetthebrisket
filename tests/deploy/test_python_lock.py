@@ -84,4 +84,17 @@ def test_required_validation_installs_exact_development_graph(path):
     workflow = (python_lock.ROOT / path).read_text(encoding="utf-8")
     assert "python scripts/python_lock.py check" in workflow
     assert "pip install --require-hashes -r requirements-dev.lock.txt" in workflow
+    if path == ".github/workflows/deploy.yml":
+        # An explicitly requested pre-artifact historical rollback cannot
+        # carry a lock that did not exist at its target revision. The deploy
+        # classifier admits that mode only for a manual pre-cutover ancestor;
+        # keep the one floating install confined to that named exception.
+        legacy_install = (
+            'elif [[ "${RELEASE_MODE}" == "legacy" ]]; then\n'
+            '            echo "::notice::Explicit historical rollback: installing the target\'s legacy requirements-dev.txt. Exact Python lock identity is unavailable."\n'
+            "            pip install -r requirements-dev.txt"
+        )
+        assert legacy_install in workflow
+        assert workflow.count("pip install -r requirements-dev.txt") == 1
+        workflow = workflow.replace(legacy_install, "")
     assert "pip install -r requirements-dev.txt" not in workflow
