@@ -115,21 +115,17 @@ jobs:
           python-version: "3.12"
           cache: "pip"
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+            requirements-dev.lock.txt
 
       - name: Install dependencies (requirements-dev.txt)
         shell: bash
         run: |
           set -Eeuo pipefail
-          [[ -f "requirements.txt" ]] || { echo "::error title=Missing Python manifest::requirements.txt is required for production deploy dependency installation."; exit 1; }
-          [[ -f "requirements-dev.txt" ]] || { echo "::error title=Missing dev manifest::requirements-dev.txt is required so the validate job can run the test suite."; exit 1; }
+          [[ -f "requirements.lock.txt" ]] || { echo "::error title=Missing Python lock::requirements.lock.txt is required for production deploy."; exit 1; }
+          [[ -f "requirements-dev.lock.txt" ]] || { echo "::error title=Missing dev lock::requirements-dev.lock.txt is required for tests."; exit 1; }
           python -m pip install --upgrade pip
-          # Validate job installs the dev manifest (which chains in
-          # requirements.txt) so the test step below has pytest + httpx
-          # available.  Production itself only installs requirements.txt
-          # on the production host via deploy/deploy.sh::prepare_python_runtime.
-          pip install -r requirements-dev.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
 
       - name: Validate dependency graph (pip check)
         shell: bash

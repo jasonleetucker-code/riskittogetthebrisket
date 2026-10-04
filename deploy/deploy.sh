@@ -191,7 +191,7 @@ is_full_commit_sha() {
 }
 
 canonical_requirements_file() {
-  printf '%s\n' "requirements.txt"
+  printf '%s\n' "requirements.lock.txt"
 }
 
 ensure_venv_site_packages_writable() {
@@ -235,6 +235,7 @@ prepare_python_runtime() {
   log "Python dependency manifest detected: ${req_file}"
 
   require_command python3
+  python3 scripts/python_lock.py check
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
@@ -242,7 +243,7 @@ prepare_python_runtime() {
 
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
   "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
 }
 
 maybe_build_frontend() {

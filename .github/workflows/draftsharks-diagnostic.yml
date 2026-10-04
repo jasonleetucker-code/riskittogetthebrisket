@@ -55,7 +55,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
           # Same install the data pipeline uses (scheduled-refresh.yml).
           # Unlike there, a missing browser here is fatal: the whole point
           # of this job is to drive a real one.

@@ -45,12 +45,17 @@ For first-time server setup and deploy hardening, use:
 
 ## Environment Setup (Linux / macOS / WSL)
 
-**Single source of truth for Python deps.** Local dev, CI, and production
-all install from the same two manifests:
+**Python dependency intent and exact resolution.** The manifests declare
+dependencies; local setup, CI and production install their committed locks:
 
 - `requirements.txt` — runtime deps (what the server + scrapers need).
 - `requirements-dev.txt` — chains in `requirements.txt` via `-r` and adds
   test-only deps (`pytest`, `httpx` for `fastapi.testclient`).
+- `requirements.lock.txt` — exact, hash-pinned runtime graph.
+- `requirements-dev.lock.txt` — exact test graph with identical runtime versions.
+
+See [Python dependency lock](docs/engineering/PYTHON_DEPENDENCY_LOCK.md) for
+updates and the Windows install command.
 
 One-command bootstrap on a clean checkout:
 
@@ -62,14 +67,12 @@ make test         # runs pytest exactly like CI does
 `make setup` wraps `scripts/setup.sh`, which:
 
 1. Creates a `.venv/` virtualenv (so nothing leaks from the system Python).
-2. Installs `requirements-dev.txt` into it.
+2. Checks both locks and installs `requirements-dev.lock.txt` with hash verification.
 3. Runs `pip check` — fails fast on conflicting pins.
 4. Runs `scripts/check_env.py` — validates every expected module imports.
 5. Installs the Playwright Chromium browser (set `SKIP_PLAYWRIGHT=1` to skip).
 
-If `make test` passes on your machine, it will pass in CI — every
-workflow runs the same install + preflight path (`pip install -r
-requirements-dev.txt && pip check && python scripts/check_env.py`).
+CI runs the same lock check and hash-verified installation before its tests.
 
 ## Quick Start (Windows / PowerShell)
 
