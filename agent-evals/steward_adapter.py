@@ -7,6 +7,7 @@ import argparse
 from contextlib import closing
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import sqlite3
@@ -84,6 +85,41 @@ def artifact_from_state(state: Path, run_id: str) -> dict:
         ),
         "clean_repo_observed": report.get("dirty") is False,
         "repo_heads_equal": start == end,
+        "plan_completed": any(
+            isinstance(span, dict)
+            and span.get("phase") == "plan"
+            and span.get("action") == "build_brief"
+            and span.get("status") == "DONE"
+            for span in spans
+        ),
+        "spans_report_only": all(
+            isinstance(span, dict) and span.get("authority_decision") == "A_REPORT_ONLY"
+            for span in spans
+        ),
+        "span_heads_match_receipt": all(
+            isinstance(span, dict)
+            and span.get("repo_head_start") == start
+            and span.get("repo_head_end") == end
+            for span in spans
+        ),
+        "spans_have_evidence_refs": all(
+            isinstance(span, dict)
+            and isinstance(span.get("evidence_refs"), list)
+            and any(isinstance(ref, str) and ref for ref in span["evidence_refs"])
+            for span in spans
+        ),
+        "spans_have_measured_duration": all(
+            isinstance(span, dict)
+            and type(span.get("duration_ms")) in {int, float}
+            and math.isfinite(span["duration_ms"])
+            and span["duration_ms"] >= 0
+            for span in spans
+        ),
+        "no_write_or_handoff_spans": all(
+            isinstance(span, dict)
+            and span.get("phase") in {"plan", "turn", "tool", "guard", "verifier"}
+            for span in spans
+        ),
     }
     return {
         "schema_version": "agent-eval-artifact/v1",
