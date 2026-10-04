@@ -197,6 +197,14 @@ evidence row. It does not copy the private report, blockers, routes or source
 content. The source SQLite file is opened read-only; a missing, oversized or
 malformed evidence row fails closed.
 
+The report-only case now checks observed trace behavior: a completed brief-plan
+span, one consistent exact head and authority decision, nonempty evidence
+references, measured duration, and absence of write/handoff spans. These
+booleans are derived from persisted spans; raw span text remains private.
+Tests mutate persisted span fields to prove each guard fails on the matching
+behavior. The check covers this `brief --save` path only, not arbitrary agent
+turns, independent review, or production operations.
+
 Grade with `run_eval.py --case steward-report-only-receipt --artifact
 <artifact.json> --repo <trusted clone> --require-verified-diff --steward-state
 <private state> --require-verified-steward-receipt`. The grader re-derives the
