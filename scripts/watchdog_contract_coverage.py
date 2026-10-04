@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 # Allow ``python scripts/watchdog_contract_coverage.py`` from repo root.
@@ -67,6 +68,7 @@ from src.api.source_health_alerts import (  # noqa: E402
     load_thresholds,
     resolve_threshold,
 )
+from src.sources.seasonal_policy import contract_inactive_sources  # noqa: E402
 
 # Reuse the freshness watchdog's stamp-or-mtime reader verbatim so the
 # two watchdogs agree byte-for-byte on which sources are "fresh".
@@ -166,15 +168,29 @@ def evaluate_coverage(
       * ok         — [(source_key, coverage)] healthy registered
         sources.
       * skipped    — source keys not evaluated because they are stale
-        (owned by the freshness watchdog) or have an empty/missing CSV.
+        (owned by the freshness watchdog), have an empty/missing CSV, or
+        were seasonally inactive ON THIS BOARD.
+
+    The seasonal skip set comes from the contract's own
+    ``sourceSeasonalState`` stamp (the state at the board's scrape time),
+    never from the current state directory: ``scheduled-refresh.yml`` builds
+    the board BEFORE the seasonal fetcher runs, so on a reactivation run
+    the current state is already ``active`` while this board (correctly)
+    carries no vote from the source.
     """
-    return evaluate_coverage_map(_source_coverage(contract), freshness, thresholds)
+    return evaluate_coverage_map(
+        _source_coverage(contract),
+        freshness,
+        thresholds,
+        seasonally_inactive=contract_inactive_sources(contract),
+    )
 
 
 def evaluate_coverage_map(
     cov: dict[str, int],
     freshness: dict[str, dict],
     thresholds: dict,
+    seasonally_inactive: "Iterable[str] | None" = None,
 ) -> tuple[list[tuple[str, int]], list[tuple[str, int]], list[str]]:
     """Same decision core as :func:`evaluate_coverage` but driven by a
     pre-computed ``{sourceKey: playerCount}`` map instead of a contract.
@@ -183,8 +199,19 @@ def evaluate_coverage_map(
     ``served_source_coverage`` (from ``/api/status``) through the
     identical fresh-but-absent logic the CI watchdog uses — one
     decision core, so the pre-merge and runtime gates can never drift.
+
+    ``seasonally_inactive`` names the sources that were seasonally inactive
+    ON THE BOARD WHOSE COVERAGE THIS IS (owner decision 2026-10-03,
+    ``src/sources/seasonal_policy.py``) — for a built contract
+    :func:`contract_inactive_sources`, for the live board the served
+    generation's ``served_seasonal_inactive`` from ``/api/status``.  Such a
+    source casts no vote on that board by design, so its absence is not a
+    coverage regression.  ``None`` excuses nothing (fail closed): the
+    decision is never taken from the current state directory, which can
+    disagree with the board being checked.
     """
     registered = [str(s.get("key") or "") for s in _RANKING_SOURCES]
+    inactive = {str(k) for k in (seasonally_inactive or ())}
 
     violations: list[tuple[str, int]] = []
     ok: list[tuple[str, int]] = []
@@ -194,9 +221,10 @@ def evaluate_coverage_map(
         info = freshness.get(key)
         threshold = resolve_threshold(key, thresholds)
         is_fresh = info is not None and float(info.get("ageHours", 0.0)) <= threshold
-        if not is_fresh or not _csv_nonempty(key):
+        if not is_fresh or not _csv_nonempty(key) or key in inactive:
             # Stale → freshness watchdog already owns it.
             # Empty/missing CSV → nothing to land; not a coverage bug.
+            # Seasonally inactive → no vote by declaration; not a coverage bug.
             skipped.append(key)
             continue
         c = int(cov.get(key, 0))
@@ -233,7 +261,11 @@ def _write_summary(
     ]
     lines += [f"| `{k}` | {c} |" for k, c in ok]
     if skipped:
-        lines += ["", f"_Skipped (stale or empty CSV): {', '.join(skipped)}_"]
+        lines += [
+            "",
+            f"_Skipped (stale, empty CSV, or seasonally inactive on this board): "
+            f"{', '.join(skipped)}_",
+        ]
     try:
         with open(summary_path, "a", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")

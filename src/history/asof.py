@@ -61,6 +61,7 @@ original stays readable in the store).
 from __future__ import annotations
 
 import sqlite3
+from bisect import bisect_right
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
@@ -207,9 +208,18 @@ def _select_best(rows: list[sqlite3.Row]) -> sqlite3.Row | None:
     """
     if not rows:
         return None
+    return _selection_order(rows)[0]
 
-    # Python's sort is stable; do it in passes, least significant
-    # first, all ascending-normalized.
+
+def _selection_order(rows: list[sqlite3.Row]) -> list[sqlite3.Row]:
+    """``rows`` in :func:`_select_best`'s preference order, best first.
+
+    Python's sort is stable; do it in passes, least significant first,
+    all ascending-normalized.  Because every pass is stable, the order
+    this imposes on any SUBSET of ``rows`` is exactly the order sorting
+    that subset alone would produce (input order breaks full ties in
+    both) — the property :class:`_KnownBeforeIndex` rests on.
+    """
     ordered = sorted(rows, key=lambda r: str(r["content_hash"]))
     ordered = sorted(ordered, key=lambda r: origin_rank(str(r["origin"])))
     ordered = sorted(
@@ -217,8 +227,52 @@ def _select_best(rows: list[sqlite3.Row]) -> sqlite3.Row | None:
         key=lambda r: (1, str(r["observed_at"])) if r["observed_at"] else (0, ""),
         reverse=True,
     )
-    ordered = sorted(ordered, key=lambda r: str(r["observed_date"]), reverse=True)
-    return ordered[0]
+    return sorted(ordered, key=lambda r: str(r["observed_date"]), reverse=True)
+
+
+class _KnownBeforeIndex:
+    """One asset's candidate rows, indexed so each instant-strict request
+    is answered without re-filtering and re-sorting the whole history.
+
+    :func:`_select_best` ranks ``observed_date`` first, so the best
+    admissible row lives in the LATEST date that has one: ``requested``'s
+    own day when one of its rows carries a PROVEN instant at or before the
+    request, otherwise the latest earlier day (every row of an earlier day
+    is admissible).  Rows are grouped by date in their fetch order and a
+    group is put in :func:`_selection_order` only when a request reaches
+    it; by the subset property that equals the group's order inside the
+    full sort, so the first admissible row of the first admissible group
+    IS ``_select_best`` of the per-request filter.  Pinned against the
+    retired per-request form by
+    ``tests/history/test_batch_known_before_selection_equivalence.py``.
+    """
+
+    __slots__ = ("_by_date", "_dates", "_ordered")
+
+    def __init__(self, rows: list[sqlite3.Row]) -> None:
+        self._by_date: dict[str, list[sqlite3.Row]] = {}
+        for r in rows:
+            self._by_date.setdefault(str(r["observed_date"]), []).append(r)
+        self._dates = sorted(self._by_date)
+        self._ordered: dict[str, list[sqlite3.Row]] = {}
+
+    def _group(self, day: str) -> list[sqlite3.Row]:
+        group = self._ordered.get(day)
+        if group is None:
+            group = _selection_order(self._by_date[day])
+            self._ordered[day] = group
+        return group
+
+    def best(self, requested: str, utc: datetime) -> sqlite3.Row | None:
+        j = bisect_right(self._dates, requested)
+        if j and self._dates[j - 1] == requested:
+            for r in self._group(requested):
+                if _instant_at_or_before(r["observed_at"], utc):
+                    return r
+            j -= 1
+        if j:
+            return self._group(self._dates[j - 1])[0]
+        return None
 
 
 def _fetch_candidates(
@@ -493,20 +547,14 @@ def batch_known_before(
 
             max_date = max(normalized[i][1].date().isoformat() for i in eligible_idxs)
             rows = _fetch_candidates(conn, asset_key, lane, source_key, date_max=max_date)
+            # Indexed ONCE per key, not filtered + re-sorted (four passes
+            # over the whole history) once per request.  Same selection.
+            index = _KnownBeforeIndex(rows)
 
             for i in eligible_idxs:
                 utc = normalized[i][1]
                 requested = utc.date().isoformat()
-                filtered = [
-                    r
-                    for r in rows
-                    if str(r["observed_date"]) < requested
-                    or (
-                        str(r["observed_date"]) == requested
-                        and _instant_at_or_before(r["observed_at"], utc)
-                    )
-                ]
-                best = _select_best(filtered)
+                best = index.best(requested, utc)
                 if best is None:
                     out = _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
                     out["requestedInstant"] = utc.isoformat()

@@ -430,6 +430,44 @@ def _build_activity_section(
     return activity.build_section(snapshot, valuation_factory=activity_valuation)
 
 
+def activity_serving_payload(
+    contract_version: str,
+    league_header: dict[str, Any],
+    section_body: dict[str, Any],
+) -> dict[str, Any]:
+    """The ``GET /api/public/league/activity`` response body.
+
+    ``section_body`` is a full ``activity.build_section`` result — either
+    the one a full contract build already holds in
+    ``sections["activity"]`` or a fresh activity-only build — reduced to
+    its HTTP readers' fields by ``activity.serving_view``.  The private-
+    field safety walk runs here, exactly once, over exactly what is
+    served.
+    """
+    payload = {
+        "contractVersion": contract_version,
+        "league": league_header,
+        "section": "activity",
+        "data": activity.serving_view(section_body),
+    }
+    assert_public_payload_safe(payload)
+    return payload
+
+
+def build_activity_serving_payload(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    activity_valuation: activity._ResolverFactory | None = None,
+) -> dict[str, Any]:
+    """Build ONLY the activity section and wrap it for serving — the
+    per-generation memo's miss path (see ``server.py``)."""
+    return activity_serving_payload(
+        PUBLIC_CONTRACT_VERSION,
+        _league_header(snapshot),
+        _build_activity_section(snapshot, activity_valuation),
+    )
+
+
 def build_section_payload(
     snapshot: PublicLeagueSnapshot,
     section: str,

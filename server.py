@@ -463,6 +463,27 @@ contract_health: dict = {
 # loudly instead of silently serving wrong values.
 served_source_coverage: dict = {}
 
+# Sources the SERVED board recorded as seasonally inactive (its own
+# ``sourceSeasonalState`` stamp — the state at that board's scrape time;
+# owner decision 2026-10-03, ``src/sources/seasonal_policy.py``).  Published
+# on ``/api/status`` beside ``served_source_coverage`` and swapped with it, so
+# the deploy gate excuses a source's absence only when the board it is
+# checking legitimately carries no vote from it — never because the
+# checkout's CURRENT state says so (the two differ on every reactivation and
+# inactivation run).
+served_seasonal_inactive: list[str] = []
+
+
+def _compute_served_seasonal_inactive(contract: dict | None) -> list[str]:
+    """Sorted keys of the served contract's seasonal-inactive stamp.
+    Defensive: any shape surprise yields ``[]`` (nothing excused)."""
+    try:
+        from src.sources.seasonal_policy import contract_inactive_sources
+
+        return sorted(contract_inactive_sources(contract))
+    except Exception:  # noqa: BLE001
+        return []
+
 
 def _compute_served_source_coverage(contract: dict | None) -> dict:
     """Count, per source, how many served players carry it in
@@ -2588,6 +2609,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_compact_data_etag
     global contract_health
     global served_source_coverage
+    global served_seasonal_inactive
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -2613,8 +2635,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             latest_compact_data_bytes, \
             latest_compact_data_gzip_bytes, \
             latest_compact_data_etag
-        global served_source_coverage
+        global served_source_coverage, served_seasonal_inactive
         served_source_coverage = {}
+        served_seasonal_inactive = []
         latest_data_bytes = None
         latest_data_gzip_bytes = None
         latest_data_etag = None
@@ -2760,6 +2783,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         except Exception:  # noqa: BLE001
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
+        new_seasonal_inactive = _compute_served_seasonal_inactive(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -2887,6 +2911,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_contract_data = contract_payload
     contract_health = contract_report
     served_source_coverage = new_coverage
+    served_seasonal_inactive = new_seasonal_inactive
     latest_data_bytes = raw
     latest_data_gzip_bytes = full_gzip
     latest_data_etag = full_etag
@@ -5784,6 +5809,10 @@ async def get_status():
             # ``sites`` list (2 anchor rows, not the 3 this comment
             # claimed) and so could not detect a degraded board; F-7.
             "served_source_coverage": served_source_coverage,
+            # The served board's own seasonal-inactive set (see the
+            # ``served_seasonal_inactive`` global): the coverage gate
+            # excuses exactly these, read from the board it is judging.
+            "served_seasonal_inactive": served_seasonal_inactive,
             # R-4: Scrape success rate tracking
             "scrape_success_rate_24h": _scrape_success_rate_24h(),
             "last_n_scrapes": scrape_history[-20:],
@@ -10337,6 +10366,12 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     effective_slot_to_rid: dict[int, int] = {}
     live_standings_active: bool = False
     first_name_to_rid: dict[str, int] = {}
+    # Wave A: the league-scoped draft years (set inside the try once the
+    # league is known) and the stable roster/owner keys for teamTotals.
+    league_draft_years = None
+    _league_id_for_draft = None
+    roster_name_by_id: dict[int, str] = {}
+    owner_id_by_rid: dict[int, str] = {}
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -10352,6 +10387,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # only the prior season, while /league/{id}.season already
         # reports the active one and /traded_picks contains the
         # active-season trades that need to apply to the workbook.
+        league_meta: Any = None
         try:
             league_resp = urllib.request.urlopen(
                 f"https://api.sleeper.app/v1/league/{_league_id_for_draft}", timeout=15
@@ -10389,6 +10425,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             oid = r.get("owner_id", "")
             if oid:
                 owner_to_roster_id[str(oid)] = rid
+                owner_id_by_rid[rid] = str(oid)
             roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
         all_team_names = list(roster_name_by_id.values())
 
@@ -10433,15 +10470,50 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # most-recent COMPLETE draft (slot order from the prior year's
         # final standings) because the workbook's standings carry the
         # same placeholder ordering until the new NFL season finishes.
-        current_draft_complete = any(
-            isinstance(d, dict)
-            and str(d.get("status", "")).lower() == "complete"
-            and (str(d.get("season", "")) == str(league_season))
-            for d in all_drafts
-        )
+        #
+        # Wave A (owner directive 2026-10-03): WHICH year is "upcoming" is
+        # the league-scoped canonical answer
+        # (``pick_lifecycle.league_draft_years`` — completion AND roster
+        # consumption, the same rule every other league-scoped surface
+        # reads), not a local "any complete draft → +1".  Evidence is the
+        # league's persisted snapshot; when there is none yet, it is
+        # assembled from this request's own Sleeper reads rather than
+        # treated as "nothing retired".
         slot_lookup_season = league_season
-        if current_draft_complete:
-            league_season = league_season + 1
+        _dc_evidence = None
+        try:
+            from src.api.draft_class_evidence import (  # noqa: PLC0415
+                collect_league_draft_evidence,
+                read_snapshot,
+            )
+
+            _dc_evidence = read_snapshot(_league_id_for_draft)
+            if _dc_evidence is None:
+
+                def _dc_get(url: str):
+                    try:
+                        return json.loads(urllib.request.urlopen(url, timeout=15).read())
+                    except Exception:  # noqa: BLE001 — unobserved, never zero
+                        return None
+
+                _dc_evidence = collect_league_draft_evidence(
+                    _league_id_for_draft,
+                    league_key=league_key,
+                    fetch=_dc_get,
+                    rosters=rosters if isinstance(rosters, list) else None,
+                    league_info=league_meta if isinstance(league_meta, dict) else None,
+                )
+        except Exception as exc:  # noqa: BLE001 — unknown never retires
+            logging.warning(f"draft-capital: draft-class evidence unavailable: {exc}")
+            _dc_evidence = None
+        from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+
+        league_draft_years = league_draft_years_for(
+            _league_id_for_draft,
+            league_season=league_meta_season or league_season,
+            evidence=_dc_evidence,
+        )
+        league_season = league_draft_years.upcoming_draft_year
         # The slot-to-roster map MUST come from a real draft.  Use the
         # most-recent-completed draft (``slot_lookup_season``) so the
         # first_name → roster_id bridge keeps working into the
@@ -10669,9 +10741,47 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     except Exception as e:
         logging.warning(f"Sleeper API failed for draft capital team-name mapping: {e}")
 
+    if league_draft_years is None:
+        # Sleeper unreachable before the season was resolved: the persisted
+        # snapshot still answers the league-scoped question (the workbook is
+        # maintained for the league's UPCOMING draft), never the bare clock.
+        try:
+            from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+
+            league_draft_years = league_draft_years_for(_league_id_for_draft)
+            league_season = league_draft_years.upcoming_draft_year
+        except Exception as exc:  # noqa: BLE001 — degrade to the calendar year
+            logging.warning(f"draft-capital: league draft years unavailable: {exc}")
+
     def display(first_name) -> str:
         fn = str(first_name).strip() if first_name else ""
         return first_name_to_team.get(fn, fn) if fn else "Unknown"
+
+    # Canonical owned-pick identity for each workbook row (C1-ID-02): a row
+    # IS ``pick:<leagueKey>:<season>:r<round>:o<origin roster>`` once its
+    # slot's origin roster is known.  Minted only under a REGISTRY key (fail
+    # closed), so consumers can count each real pick exactly once (Wave A).
+    _pick_league_key = None
+    try:
+        _pick_league_key = (
+            _league_registry.league_key_for_sleeper_id(_league_id_for_draft)
+            if _league_id_for_draft
+            else None
+        )
+    except Exception:  # noqa: BLE001
+        _pick_league_key = None
+
+    def _workbook_asset_id(rnd: int, origin_rid: int | None) -> str | None:
+        if _pick_league_key is None or origin_rid is None:
+            return None
+        from src.identity.picks import LeaguePickIdentity  # noqa: PLC0415
+
+        return LeaguePickIdentity(
+            league_key=_pick_league_key,
+            season=int(league_season),
+            round_num=int(rnd),
+            origin_roster_id=int(origin_rid),
+        ).canonical_id
 
     # ── Build pick list + team totals from sheet ownership ──
     all_picks: list[dict] = []
@@ -10786,6 +10896,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "originalDollarValue": dollar,
                 "originalOwner": origin_team,
                 "currentOwner": owner_team,
+                # Stable ids beside the display names (Wave A).  ``None`` when
+                # the Sleeper bridge could not prove the roster.
+                "originRosterId": origin_rid,
+                "currentOwnerRosterId": owner_rid,
+                "assetId": _workbook_asset_id(rnd, origin_rid),
                 "isTraded": is_traded,
                 "isExpansion": slot <= 2,
                 "rookieName": None,
@@ -10885,13 +11000,40 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
 
+    # Stable team keys (Wave A): ``team`` is a display name, and /trade's
+    # Sleeper teams are named differently (owner first name vs Sleeper team
+    # name), so consumers join on ``rosterId`` / ``ownerId``.  Stamped only
+    # when the display name belongs to exactly one roster — an ambiguous
+    # name gets ``None``, never a guessed roster.
+    _rids_by_name: dict[str, list[int]] = {}
+    for _rid, _nm in roster_name_by_id.items():
+        _rids_by_name.setdefault(_nm, []).append(int(_rid))
+
+    def _team_row(t: str, v: int) -> dict:
+        rids = _rids_by_name.get(t) or []
+        rid = rids[0] if len(rids) == 1 else None
+        return {
+            "team": t,
+            "auctionDollars": v,
+            "rosterId": rid,
+            "ownerId": owner_id_by_rid.get(rid) if rid is not None else None,
+        }
+
     result = {
         "picks": all_picks,
-        "teamTotals": [{"team": t, "auctionDollars": v} for t, v in sorted_teams],
+        "teamTotals": [_team_row(t, v) for t, v in sorted_teams],
         "totalBudget": total_budget,
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
         "season": league_season,
+        # The workbook is ONE draft: ``teamTotals`` are exactly that season's
+        # sheet dollars.  Stated, so no consumer re-adds that season's picks
+        # from roster ownership (the 2027 double count, Wave A).
+        "coveredPickYears": [league_season],
+        # League-scoped draft years (``pick_lifecycle.league_draft_years``) —
+        # the field the /trade stack anchors on, never the board's year.
+        "upcomingDraftYear": league_season,
+        "leagueDraftYears": league_draft_years.to_dict() if league_draft_years else None,
         "ktcSource": ktc_source,
         "ktcRookieCount": ktc_count,
         "ktcTotalFilled": len(rookies),
@@ -11089,29 +11231,25 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
             rookie_rows = None
 
-        # #1414: the board starts at this league's first NON-retired class.
-        # A class the league has drafted and rostered is no longer draft
-        # capital, and the rookie pool (``years_exp == 0``) IS that class —
-        # stapling it onto the next class's slots would price last draft's
-        # rookies as next draft's picks, so it is withheld when a class was
-        # skipped.  League-scoped verdict from the persisted snapshot; no
-        # snapshot → nothing retired → the calendar year, as before.
-        _dc_calendar_season = datetime.now(timezone.utc).year
-        _dc_season = _dc_calendar_season
+        # #1414 + Wave A: the board starts at this league's UPCOMING draft —
+        # the league-scoped canonical answer
+        # (``pick_lifecycle.league_draft_years``), the same one the workbook
+        # path, the Sleeper overlay and the scraper read.  A class the league
+        # has drafted and rostered is no longer draft capital, and the rookie
+        # pool (``years_exp == 0``) IS that class — stapling it onto the next
+        # class's slots would price last draft's rookies as next draft's
+        # picks, so it is withheld when a class was skipped.  No snapshot →
+        # nothing retired → the anchor year.
+        _dc_years = None
         try:
-            from src.api.draft_class_evidence import (  # noqa: PLC0415
-                active_seasons_for_league,
-            )
+            from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
 
-            _dc_active = active_seasons_for_league(
-                league_cfg.sleeper_league_id,
-                range(_dc_calendar_season, _dc_calendar_season + 4),
-            )
-            if _dc_active:
-                _dc_season = _dc_active[0]
+            _dc_years = league_draft_years_for(league_cfg.sleeper_league_id)
         except Exception:  # noqa: BLE001 — unknown never retires
             logging.warning("draft-capital fallback: lifecycle unavailable", exc_info=True)
-        if _dc_season != _dc_calendar_season:
+        _dc_calendar_season = datetime.now(timezone.utc).year
+        _dc_season = _dc_years.upcoming_draft_year if _dc_years else _dc_calendar_season
+        if _dc_season != (_dc_years.anchor_year if _dc_years else _dc_calendar_season):
             rookie_rows = None
 
         return build_sleeper_derived(
@@ -11120,6 +11258,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             current_season=_dc_season,
             declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
             rookies=rookie_rows,
+            league_draft_years=_dc_years,
         )
 
     lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)
@@ -11405,7 +11544,9 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_section_payload,
 )
 from src.public_league.public_contract import (  # noqa: E402 — grouped with public-league block
+    activity_serving_payload,
     assert_public_payload_safe,
+    build_activity_serving_payload,
     is_private_intelligence_section,
 )
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
@@ -11594,12 +11735,14 @@ def _memoized_overview(key):
 
 
 def _seed_public_generation(snapshot, contract, key, started_at: float):
-    """File one built contract under both memos; returns
+    """File one built contract under every generation memo; returns
     ``(overview_payload, encoded_bytes_or_None)``.  The overview comes
     first and does not depend on the full-contract encode: a value in some
-    OTHER section that cannot be encoded fails only the full contract."""
+    OTHER section that cannot be encoded fails only the full contract.
+    The activity memo is seeded independently for the same reason."""
     overview = _overview_payload_from_contract(contract)
     _remember_overview(key, overview, started_at)
+    _seed_public_activity(contract, key, started_at)
     try:
         raw = _store_public_contract_bytes(snapshot, contract, key=key, started_at=started_at)
     except Exception as exc:  # noqa: BLE001
@@ -11635,6 +11778,94 @@ async def _get_public_overview_payload(snapshot, *, bypass_cache: bool = False):
             )
             overview, _ = _seed_public_generation(snapshot, contract, key, started_at)
             return overview
+
+        return await run_in_threadpool(_build)
+
+
+# ``GET /api/public/league/activity`` rebuilt the section on EVERY request:
+# the as-of trade grading (one ledger fetch per traded asset), two private-
+# field safety walks and a fresh ~421 KB encode.  Measured 2026-10-03:
+# p50 1.95 s / p95 3.60 s / max 5.79 s -- the only desktop V1 failure in
+# that run -- while every snapshot rebuild already built the identical
+# section into the full contract and threw it away.
+#
+# It now serves PREPARED bytes: seeded from that contract by
+# ``_seed_public_generation`` (rebuild thread, before publish), keyed by the
+# full contract's generation key -- which carries ``latest_data_etag``
+# because the grades derive from the private board's generation -- with the
+# overview memo's age bound and newer-build-wins rule.  A miss (e.g. a
+# private-board publish between snapshot rebuilds) builds ONLY the activity
+# section, once, single-flighted on the event loop.  The body is the HTTP
+# serving view (``activity.serving_view``): only the fields its two page
+# readers use, safety-walked once over exactly what is served, encoded and
+# gzipped once.  It is NOT in ``_HEAVY_SECTION_KEYS``: that cache is keyed
+# by snapshot identity alone, which is incomplete for a section graded off
+# the private board.
+# Value: (key, raw bytes, gzip bytes, build start on the monotonic clock).
+_PUBLIC_ACTIVITY_CACHE: dict = {}
+_PUBLIC_ACTIVITY_LOCK = threading.Lock()  # stores come from pool + rebuild threads
+_public_activity_async_lock: asyncio.Lock | None = None
+
+
+def _remember_activity(key, payload, started_at: float) -> tuple[bytes, bytes]:
+    """Encode ``payload`` (``JSONResponse.render``-compatible) and gzip it
+    once; memoize unless a newer build already landed.  Returns the
+    encoded pair either way, so the caller that built it can serve it."""
+    raw = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    gz = gzip.compress(raw, compresslevel=5)
+    with _PUBLIC_ACTIVITY_LOCK:
+        current = _PUBLIC_ACTIVITY_CACHE.get("activity")
+        if current is None or current[3] <= started_at:
+            _PUBLIC_ACTIVITY_CACHE["activity"] = (key, raw, gz, started_at)
+    return raw, gz
+
+
+def _memoized_activity(key) -> tuple[bytes, bytes] | None:
+    hit = _PUBLIC_ACTIVITY_CACHE.get("activity")
+    if hit is not None and hit[0] == key and _public_memo_entry_fresh(hit[3]):
+        return hit[1], hit[2]
+    return None
+
+
+def _seed_public_activity(contract, key, started_at: float) -> None:
+    """Seed the activity memo from an already-built full contract.  Never
+    raises: a failure here leaves the memo to its miss path and must not
+    cost the overview or the full contract their seeds."""
+    try:
+        payload = activity_serving_payload(
+            contract["contractVersion"], contract["league"], contract["sections"]["activity"]
+        )
+        _remember_activity(key, payload, started_at)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("public activity payload not memoized: %s", exc)
+
+
+async def _get_public_activity_bytes(snapshot, *, bypass_cache: bool = False):
+    """Per-generation prepared activity response (see above); returns
+    ``(raw, gzip)``.  ``bypass_cache`` must come from
+    ``_authorized_force_refresh`` (B8), exactly as for the overview."""
+    global _public_activity_async_lock
+    key = _public_contract_cache_key(snapshot)
+    if not bypass_cache:
+        hit = _memoized_activity(key)
+        if hit is not None:
+            return hit
+    if _public_activity_async_lock is None:
+        _public_activity_async_lock = asyncio.Lock()
+    async with _public_activity_async_lock:
+        if not bypass_cache:
+            hit = _memoized_activity(key)
+            if hit is not None:
+                return hit
+        started_at = time.monotonic()
+
+        def _build():
+            payload = build_activity_serving_payload(
+                snapshot, activity_valuation=_build_public_activity_valuation()
+            )
+            return _remember_activity(key, payload, started_at)
 
         return await run_in_threadpool(_build)
 
@@ -12477,6 +12708,7 @@ async def get_public_league(request: Request, refresh: str = ""):
         # over a multi-MB tree.
         raw = _store_public_contract_bytes(snapshot, payload, key=key, started_at=started_at)
         _remember_overview(key, _overview_payload_from_contract(payload), started_at)
+        _seed_public_activity(payload, key, started_at)
         return raw
 
     try:
@@ -12890,6 +13122,17 @@ async def get_public_league_section(
             payload = await _get_public_overview_payload(
                 snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
             )
+        elif section == "activity":
+            # Prepared, pre-encoded bytes (see ``_get_public_activity_bytes``),
+            # gzip negotiated here so GZipMiddleware never re-compresses.
+            raw, gz = await _get_public_activity_bytes(
+                snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
+            headers = {"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL, "Vary": "Accept-Encoding"}
+            if "gzip" in (request.headers.get("accept-encoding") or "").lower():
+                headers["Content-Encoding"] = "gzip"
+                return Response(content=gz, media_type="application/json", headers=headers)
+            return Response(content=raw, media_type="application/json", headers=headers)
         else:
             # Every other section still runs its build in the worker so a
             # heavier-than-expected builder can't block the event loop.
@@ -14182,14 +14425,39 @@ async def _build_trade_simulation(
     raw_context = body.get("useTeamContext")
     use_team_context = raw_context if isinstance(raw_context, bool) else True
 
+    def _picks_with_ids(key: str, ids_key: str) -> tuple[list[str], list[str | None]]:
+        # Wave A: ``pickAssetIdsIn`` / ``pickAssetIdsOut`` run PARALLEL to the
+        # pick lists (``null`` for a pick without an owned id), so they are
+        # aligned before any entry is filtered out.
+        labels = body.get(key) or []
+        ids = body.get(ids_key) or []
+        if not isinstance(labels, list):
+            return [], []
+        if not isinstance(ids, list):
+            ids = []
+        out_l: list[str] = []
+        out_i: list[str | None] = []
+        for i, x in enumerate(labels):
+            if not isinstance(x, (str, int)) or not str(x).strip():
+                continue
+            aid = ids[i] if i < len(ids) else None
+            out_l.append(str(x))
+            out_i.append(str(aid).strip() if isinstance(aid, str) and aid.strip() else None)
+        return out_l, out_i
+
+    picks_in, pick_ids_in = _picks_with_ids("picksIn", "pickAssetIdsIn")
+    picks_out, pick_ids_out = _picks_with_ids("picksOut", "pickAssetIdsOut")
+
     result = await run_in_threadpool(
         _trade_simulator.simulate_trade,
         contract,
         resolved_team=resolved_team,
         players_in=_str_list("playersIn"),
         players_out=_str_list("playersOut"),
-        picks_in=_str_list("picksIn"),
-        picks_out=_str_list("picksOut"),
+        picks_in=picks_in,
+        picks_out=picks_out,
+        pick_asset_ids_in=pick_ids_in,
+        pick_asset_ids_out=pick_ids_out,
         roster_settings=dict(league_cfg.roster_settings or {}),
         league_key=league_cfg.key,
         include_roster_utility=for_analysis and use_team_context,

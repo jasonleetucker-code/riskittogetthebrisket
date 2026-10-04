@@ -195,6 +195,14 @@ export default async function LeagueRoute({ searchParams }) {
   // sees the shell rather than the table.  Archives is a waiver / draft /
   // trade log, not the shareable surface; ``overview``, which carries the
   // OG title and description, still server-renders on every tab.
+  //
+  // ``activity`` was considered for this list (2026-10-03) and deliberately
+  // stays server-rendered: its slow SSR fetch was the backend REBUILDING
+  // the section per request (document 3.1 s, then a client retry that ran
+  // out the 5 s deadline).  The backend now serves it as prepared,
+  // trimmed bytes (~174 KB, was ~421 KB), so SSR is a memo read again, and
+  // ``/league?tab=activity`` is in the sitemap — skipping SSR would show
+  // crawlers and first paint a spinner for no measured gain.
   const landing = sectionForTab(normalizeTabKey(rawTab));
   const ssrSkip = new Set(["archives"]);
   const wanted =

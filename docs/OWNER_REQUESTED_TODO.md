@@ -1476,6 +1476,27 @@ which stays immutable.
 | 6. Create a separately versioned, preregistered prospective lineage-threshold policy before the next such experiment | DONE (policy) — `docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md` (`lineage-policy/v1`), preregistered in its own commit `94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05` (committed 2026-10-02T01:10:52Z, the §14.1 boundary) before any result set was examined under it; normative-block sha256 in the sidecar `.sha256`, pinned by `tests/sources/test_lineage_policy_v1_preregistration.py`. Instrument and vocabulary implementation is a separate reviewed unit |
 | 7. No canonical player value changes merely from recording these decisions | BINDING — this record is documentation only |
 
+## Added 2026-10-03 — Flock rookie board: declared seasonal window (owner methodology decision, #1552)
+
+Owner decision received in chat 2026-10-03, recorded verbatim in substance; it supersedes the unresolved choice
+in `docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md` §4 (declared seasonal window vs relative drop guard), and
+that section now carries the decision, the implementation map and the measured board impact.
+
+**Decision.** Choose the DECLARED SEASONAL-WINDOW approach for `flockFantasySfRookies`, implemented as a real
+phase-dependent source state — not a generic weakening of freshness monitoring.
+
+| Item | Disposition |
+|---|---|
+| For the graduating 2026 class, an empty `PROSPECTS_SF` response from October 1, 2026 is an expected `seasonally_inactive` state, not a stale-source failure | IMPLEMENTED — `claude/flock-rookie-seasonal-window` (`src/sources/seasonal_policy.py`, `config/sources/seasonal_policy_v1.json`) |
+| Keep attempting the fetch on every normal schedule while inactive; never fabricate a success timestamp, freshness stamp, row or payload | IMPLEMENTED — fetcher exit 4 + explicit `<key>_seasonal.json` state; `run_fetcher` still stamps only on exit 0 |
+| An inactive rookie source must not keep contributing its old rankings to current canonical values: no current vote — not zero value, not indefinitely decayed stale authority; historical CSV/archive kept intact | IMPLEMENTED — dropped at the active-source gate like a disabled source; CSV untouched |
+| First valid non-empty `PROSPECTS_SF` response for the next class reactivates immediately, regardless of date; normal 24h freshness and shape/schema guards then apply | IMPLEMENTED |
+| Keep the within-active-season truncation / row-count protections (window = "should a board exist?"; floor = "is it truncated?") | KEPT — floor unchanged |
+| Do not add the source to `soft` | HONOURED |
+| Configuration-backed and reusable for other phase-dependent sources; fail closed for any source with no declared policy | IMPLEMENTED |
+| Tests: empty after cutoff → inactive + workflow green; zero voting authority; no fake stamp; attempts continue; next-class data reactivates; malformed non-empty still fails guards; empty while expected active still fails closed | IMPLEMENTED — `tests/sources/test_seasonal_policy.py`, `tests/scripts/test_flock_rookie_seasonal_window.py`, `tests/api/test_seasonal_source_consumers.py` |
+| No change to unrelated source thresholds, weights, Hill methodology or canonical values beyond removing the inactive board from current voting | HONOURED — measured: 83 values moved, all Flock-rookie-voted rows (43) or rookie-tethered 2026 slot picks (40), 0 others |
+
 ## Added 2026-10-03 — Trade Calculator: unlimited asset quantity + Early/Mid/Late market picks (owner decision)
 
 Two owner decisions, dated 2026-10-03. **They supersede the T-NEW-02 / #1415 uniqueness rule for the
@@ -1511,3 +1532,21 @@ keeps its existing label and valuation method.
 | Equalizer keeps roster-aware ownership via `heldAssetKeysInTrade` / `unusedTeamPickEntries` (recommendation-only) | IMPLEMENTED |
 | Early/Mid/Late disappearance: data was present (priced, unsuppressed tier rows); `/trade` search put up to 5 owned picks BEFORE the board rows and the dropdown did not scroll, so on an iPhone with the keyboard open only owned "2027 1st / 2nd" rows were visible | FIXED — market group first, owned picks second, separate limits (`searchCalculatorAssets`), exact-query relevance first, scrollable dropdown |
 | Suppressed generic aliases (`pickGenericSuppressed`) stay excluded | UNCHANGED — pinned by test |
+
+## Added 2026-10-03 — Calculator batch: Waves A/B, UI lane, activity performance lane, Signals addendum (owner directive)
+
+Owner directive received in chat 2026-10-03 ("Yes, execute both"); verbatim text preserved off-repo by the
+integration session (`_owner-directives/2026-10-03_calculator_batch_waveA_waveB.md` and
+`..._signals_active_source.md`).  Summarized here; recording it authorizes nothing beyond what the directive itself
+authorizes, and `docs/EXECUTION_PLAN.md` remains the authorization record.
+
+| Item | Disposition |
+|---|---|
+| Precondition: finish #1621 (prior-batch reconciliation) through the normal gated path before starting the batch | CAPTURED — integration session |
+| **Wave A — draft-capital correctness (highest priority).** Three independent defects: (1) draft year inconsistent between surfaces (2027 vs 2026); (2) 2027 picks counted twice in team stacks; (3) a trade can show a team sending a pick it does not own. One canonical pick season/year interpretation; exact unique-pick identity where ownership matters; generic picks stay repeatable; no exact owned pick double-counted; no team sends a unique pick it does not own; the calculator may still add any asset repeatedly (#1619); RED→GREEN + sabotage tests; consumer audit; production numbers verified after deploy | IMPLEMENTED — `claude/draft-capital-correctness` (league-scoped resolver `pick_lifecycle.league_draft_years`; draft-capital payloads stamp `coveredPickYears` / `upcomingDraftYear` / stable team keys / pick `assetId`; ownership lookup `picks.lookup_league_pick_owner` consumed by simulate / analyze and the /trade stack note). Production verification pending deploy |
+| #1529 draft-capital STACK EFFECT rebuild | UNCHANGED — LATER / NOT AUTHORIZED. Wave A is its prerequisite, not permission to rebuild, promote, tune or re-enable stack effects; the stack stays informational only |
+| **Wave B — one coherent phase after Wave A:** C3-TOPO-01 trade topology, C3-CTX-01 Use Team Context toggle, C7-PICKGEN-01 posture-aware pick handling, C7-POST-01 PUSH / RETOOL / REBUILD posture, C3-CAP-01 evaluate against the FINAL LEGAL ROSTER. Raw values stay canonical and inspectable; Team Context is a separable, switch-off-able layer; posture is evidence-derived; forced drops are part of the evaluated state; no double counting across topology / posture / capacity; explanations separate context from raw value; mobile parity and accessibility | CAPTURED — authorized by the directive, sequenced after Wave A |
+| **Lane 6 / Premium UI in parallel** while /trade is touched: fix the duplicate `<main>` landmark; keep the Premium Sports Intelligence north star and design-system tokens (no shadcn-default look, rounded-card drift, gradients or glassmorphism); Team Context state and final-roster consequences understandable without help-text burial | CAPTURED — `<main>` landmark in PR #1624 |
+| **Activity performance lane:** `/league?tab=activity` measured ~421 KB and 2.3–4.7 s (the only remaining desktop V1 failure); a new explicit follow-up under the global performance standard (#1338 is closed); acquire → normalize → compute → materialize → serve prepared output; production p50/p95 before and after; no regression to other League tabs | CAPTURED — issue #1622, PR #1623 |
+| Out of scope: #1529, #1513 (leave unpromoted), #1505 (intent only), DFS and Rookie Auction Room (their own workstreams); never change canonical player values to make contextual trade outputs look better | BINDING |
+| **Signals addendum:** Signals moves from non-voting second opinion to an ACTIVE validated source for OFFENSE (QB/RB/WR/TE) and IDP, visible in the Rankings source column. Selection order: authenticated native value on the exact league configuration, then the closest Dynasty / Superflex / TEP preset, then authenticated rank, then public rank; values first, ranks as an explicit per-asset fallback, missing never zero; public positional ranks never manufactured into cross-position values | CAPTURED — supersedes the second-opinion-only state; sequencing in `docs/EXECUTION_PLAN.md` |

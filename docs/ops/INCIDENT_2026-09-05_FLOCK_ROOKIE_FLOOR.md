@@ -153,23 +153,67 @@ first fresh copy comes from the pipeline.
 
 ---
 
-## 4. Known follow-up (not fixed here)
+## 4. Owner methodology decision (2026-10-03) — declared seasonal window
 
-This board is expected to keep shrinking as the 2026 class fully graduates,
-possibly to zero, before repopulating with the 2027 class. **"The vendor no
-longer publishes a rookie board this phase" is a different question from "the
-fetch broke,"** and a fixed row-count floor cannot tell them apart — the new
-floor is not pretending to. When the board empties, the fetcher will exit 1
-("no rows extracted") and the source will go stale again with the same
-symptom and a different cause.
+> **Supersedes, in place, the open follow-up this section used to carry.** It read: the board will keep
+> shrinking, possibly to zero, before the next class; "the vendor no longer publishes a rookie board this
+> phase" is a different question from "the fetch broke"; the honest shape is either a declared seasonal
+> window or a relative drop guard; "both are new methodology and neither is invented here." The owner chose.
+> Tracking issue #1552.
 
-The honest shape for that is a source whose *expected coverage is
-phase-dependent* — either a declared seasonal window for `flockFantasySfRookies`
-in `config/source_staleness.json`, or a relative drop guard measured against the
-source's own recent history rather than an absolute count. Both are new
-methodology and neither is invented here.
+**What happened.** The prediction came true on 2026-09-30: `PROSPECTS_SF` now answers HTTP 200 with
+`year: 2026` and an empty `data` list. The fetcher exited 1 ("no rows extracted"), wrote no success stamp,
+the 48-row CSV of 2026-09-30 kept voting in the canonical board while aging, and `scheduled-refresh.yml`
+went red on every run again. (The scrape-sanity half was fixed separately by #1616.)
 
----
+**Decision (owner, 2026-10-03): the DECLARED SEASONAL-WINDOW approach**, implemented as a real
+phase-dependent source state — not a generic weakening of freshness monitoring.
+
+1. For the graduating 2026 class, an empty `PROSPECTS_SF` response from **October 1, 2026** is an expected
+   `seasonally_inactive` state, not a stale-source failure.
+2. The fetch keeps running on every normal schedule while inactive. No success timestamp, freshness stamp,
+   row or payload is fabricated.
+3. A seasonally inactive rookie source contributes **no current vote** — not a zero value, and not
+   indefinitely decayed stale authority. The historical CSV/archive stays intact for provenance, replay
+   and research.
+4. The first valid non-empty `PROSPECTS_SF` response for the next class reactivates the source
+   immediately, whatever the date; the normal 24-hour freshness policy and every shape/schema guard then
+   apply again.
+5. The within-season truncation / row-count guard is kept. The window answers *"is this board expected to
+   exist right now?"*; the floor keeps answering *"is this board malformed or truncated?"*.
+6. Not added to `soft` — soft is a delayed outage alarm, the wrong semantics for a source that
+   legitimately disappears between classes.
+7. Configuration-backed and reusable for other genuinely phase-dependent sources; fail-closed for every
+   source with no declared policy.
+
+**Implementation** (`claude/flock-rookie-seasonal-window`):
+
+| concern | owner / mechanism |
+|---|---|
+| policy | `config/sources/seasonal_policy_v1.json` — expected-empty signature (`data == []`, `year` = class year, `format == "PROSPECTS_SF"`), `inactiveFromMonthDay: "10-01"`, `reactivation: first_valid_nonempty_response`. Window per class `Y` is `[Y-10-01, (Y+1)-10-01)` UTC — one declared cycle, no tuned number |
+| verdict + state | `src/sources/seasonal_policy.py` (the one owner). State file `data/scrape_state/<key>_seasonal.json` with an explicit `seasonally_inactive` state, `lastInactiveVerifiedAt` (when the empty signature was last re-observed — proof attempts continue, never a success time) and a bounded transition history |
+| vocabulary | `src/sources/acquisition_state.py` gains `SEASONALLY_INACTIVE` (acquired, `rowCount` 0, **not usable**) and `SEASONALLY_INACTIVE_EXIT_CODE = 4` (3 is taken by Yahoo Boone's partial scrape). `state_from_exit_code` maps exit 4 to `SEASONALLY_INACTIVE` only for a `source_key` with a declared policy in the owner module; for any other source exit 4 is `UNAVAILABLE` |
+| fetcher | exit 4 + state on the declared signature inside the window; exit 1 for every other empty response (wrong/missing year, wrong format, before the cutoff, all rows filtered out); exit 2 for shape / row-floor failures as before; exit 0 writes the CSV, *then* records reactivation (a crash between the two leaves the source excluded) |
+| workflow | `run_fetcher` stamps only on exit 0, unchanged; exit 4 is logged as a notice instead of a fetch failure |
+| watchdog / alerts | `watchdog_freshness.split_seasonally_inactive` and the alert engine accept the inactive state only while it is re-verified within the source's **normal** threshold (24h); a lapsed re-verification is classified exactly as before (hard-stale on its old stamp) |
+| coverage watchdog | `watchdog_contract_coverage` skips a source only when the BOARD BEING CHECKED was built with it inactive — the contract's own `sourceSeasonalState` stamp (`seasonal_policy.contract_inactive_sources`), never the checkout's current state. The live deploy gate (`verify_live_source_coverage.py`, run by `verify-deploy.sh`) reads the served generation's `served_seasonal_inactive` from `/api/status` for the same reason. `scheduled-refresh.yml` builds the board before the Flock fetcher runs, so on the reactivation run the current state is already active while the board (correctly) carries no Flock vote, and on the inactivation run the reverse; comparing a board with today's state turned reactivation into a deterministic red watchdog and a possible deploy auto-rollback (review finding M1). A missing or malformed stamp excuses nothing |
+| vote | `data_contract._seasonally_inactive_sources` resolves the state as of the board's own scrape time from the build's state directory; `_compute_unified_rankings` drops the source at the one active-source gate, exactly as a disabled source is dropped, and the per-row source audit no longer lists it as expected (so graduated-class rookies are not reported `partial_coverage`). A payload with no `scrapeTimestamp` gets no seasonal exclusions, mirroring freshness weighting. Stamped on the contract as `sourceSeasonalState` and as `staleness: "seasonally_inactive"` in `dataFreshness.sourceTimestamps` |
+
+**Confidence (B11) decision.** A seasonally inactive source is **not an eligible family**. The existing
+rule walks `active_sources` and requires a non-empty source pool, so a vendor publishing no board this phase
+is not something that *could* have covered a row — the same treatment a disabled source already gets. It is
+also not "present evidence" for the single-source haircut (unlike a freshness-quarantined source, whose
+board exists but is old). In practice the `flockFantasy` B10 family stays eligible on every offense row
+through `flockFantasySf`, so coverage denominators do not change.
+
+**Measured canonical impact** (`scripts/golden_board.py` on `exports/latest/dynasty_data_2026-10-03.json`,
+identical inputs, without vs with the inactive state): Flock rookies voted on 46 rows before, 0 after.
+**83 values moved** — 43 are rows Flock rookies voted on and 40 are current-year slot picks (tethered to the
+rookie pool, CLAUDE.md pipeline step 13); **0 other rows moved value**. |Δ| p50 0.2%, p90 0.8%, max 2.0%
+(Oscar Delp 2369 → 2322); 61 up / 22 down. 96 ranks changed (26 Flock-voted rows, 4 picks, the rest
+displaced by them); 1 confidence flip (Germie Bernard medium → high); 0 `isSingleSource` flips; 621
+`canonicalTierId` renumberings from the gap-based tierer (tier ids are ordinals, so a boundary that moves
+near the top renumbers everything below it; no value moved on those rows).
 
 ## 5. Impact
 

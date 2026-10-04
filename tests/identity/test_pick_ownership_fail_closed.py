@@ -587,3 +587,18 @@ def test_forecast_capture_reads_the_stated_ownership(monkeypatch):
     assert inputs.overlay_teams is None
     assert inputs.overlay_reason == "traded_picks_fetch_failed_ownership_unproven"
     assert inputs.forecast is None
+
+
+def test_unavailable_inventory_is_unknown_to_the_wave_a_ownership_lookup():
+    """#1618 x Wave A: the two fail-closed rules must agree.
+
+    A failed ``/traded_picks`` fetch publishes ``pickDetails: None``; the
+    canonical ownership lookup (``lookup_league_pick_owner``) must read that
+    as UNKNOWN (``pick_inventory_unpublished``) — never ``absent``, which
+    would assert that no team holds the pick.
+    """
+    teams = _overlay_teams(None)
+    asset_id = f"pick:dynasty_main:{datetime.datetime.now(datetime.timezone.utc).year + 1}:r1:o1"
+    own = pick_identity.lookup_league_pick_owner(teams, asset_id)
+    assert own.state == pick_identity.PICK_OWNER_UNKNOWN
+    assert own.reason == "pick_inventory_unpublished"

@@ -368,5 +368,8 @@ def test_overlay_pick_ownership_drops_the_leagues_retired_class(registry):
         own = sleeper_overlay._build_pick_ownership(league_id, [1, 2], getter=lambda url: [])
         return {int(p["season"]) for plist in own.values() for p in plist}
 
-    assert seasons(board_lid) == {this_year + 1, this_year + 2}
-    assert seasons(OTHER_LEAGUE_ID) == {this_year, this_year + 1, this_year + 2}
+    # Wave A: the overlay spans the canonical league horizon
+    # (``pick_lifecycle.OWNED_PICK_HORIZON_CLASSES`` = 4 classes from the
+    # anchor), the same as the scraper -- it used to stop one class short.
+    assert seasons(board_lid) == {this_year + 1, this_year + 2, this_year + 3}
+    assert seasons(OTHER_LEAGUE_ID) == {this_year, this_year + 1, this_year + 2, this_year + 3}

@@ -39,18 +39,21 @@ const PUBLIC_FEED = [
         rosterId: 1,
         ownerId: "ownA",
         teamName: "Team A",
-        receivedAssets: [{ kind: "player", name: "Caleb Williams", position: "QB" }],
+        receivedAssets: [{ kind: "player", playerName: "Caleb Williams", position: "QB" }],
         grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
       },
       {
         rosterId: 2,
         ownerId: "ownB",
         teamName: "Team B",
-        receivedAssets: [{ kind: "player", name: "Drake Maye", position: "QB" }],
+        receivedAssets: [
+          { kind: "player", playerName: "Drake Maye", position: "QB" },
+          { kind: "pick", season: "2027", round: 1, label: "2027 R1" },
+        ],
         grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
       },
     ],
-    totalAssets: 2,
+    totalAssets: 3,
     notableAssetCount: 2,
   },
 ];
@@ -138,7 +141,7 @@ describe("ActivityPage trade feed source", () => {
     // Asset names come resolved from the public payload too.  (The
     // detail string appears in both the desktop and mobile rows, so
     // match all rather than requiring exactly one.)
-    expect(screen.getAllByText("Caleb Williams · Drake Maye").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Caleb Williams · Drake Maye · 2027 R1").length).toBeGreaterThan(0);
   });
 
   it("shows an explicit failure state when the public section cannot load", async () => {

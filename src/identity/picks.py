@@ -61,6 +61,12 @@ __all__ = [
     "ParsedPickLabel",
     "PICK_TIERS",
     "build_pick_ownership",
+    "LeaguePickOwner",
+    "PICK_OWNER_ABSENT",
+    "PICK_OWNER_OWNED",
+    "PICK_OWNER_UNKNOWN",
+    "league_pick_owner_index",
+    "lookup_league_pick_owner",
     "format_intel_pick_asset_id",
     "format_pick_label_baked",
     "format_pick_label_overlay",
@@ -873,3 +879,106 @@ def parse_any_pick_asset_id(
     if intel is not None:
         return ("intel_generic", intel)
     return None
+
+
+# ── Who holds an owned league pick NOW (Wave A, owner directive 2026-10-03) ──
+#
+# The ONE answer to "which roster currently owns ``pick:<league>:<season>:
+# r<N>:o<origin>``?".  Read from the canonical ownership fold as it is
+# PUBLISHED on ``sleeper.teams[].pickDetails[].assetId`` (the scraper and the
+# Sleeper overlay both stamp it from :func:`build_pick_ownership`), so this
+# re-folds nothing — it indexes what the fold already decided.
+#
+# Uniqueness lives here, never in the hypothetical Trade Calculator (owner
+# decision 2026-10-03, #1619: calculator assets are hypothetical quantities;
+# real uniqueness is in ownership records, pick identity and roster-aware
+# recommendations).  Every TEAM-ATTRIBUTED consumer — the simulator / Analyze
+# Trade, draft-capital stacks — asks this lookup before debiting or crediting
+# a team for an owned pick.
+#
+# Three answers, never collapsed:
+#
+# * ``owned``   — exactly one team's published inventory carries the id;
+# * ``unknown`` — the id is not provable either way: some team's inventory is
+#   UNPUBLISHED (``pickDetails`` not a list — e.g. a failed ``/traded_picks``
+#   fetch, #1618), or two teams both claim it.  Unknown is NEVER "owned by the
+#   sender", and NEVER silently resolved to a different pick by its label;
+# * ``absent``  — every team's inventory is published and none carries it (a
+#   retired class, a season past the horizon, another league's id, junk).
+
+PICK_OWNER_OWNED = "owned"
+PICK_OWNER_UNKNOWN = "unknown"
+PICK_OWNER_ABSENT = "absent"
+
+
+@dataclass(frozen=True)
+class LeaguePickOwner:
+    asset_id: str
+    state: str
+    owner_roster_id: int | None = None
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "assetId": self.asset_id,
+            "ownershipState": self.state,
+            "ownerRosterId": self.owner_roster_id,
+            "reason": self.reason,
+        }
+
+
+def _team_roster_id(team: Mapping[str, Any]) -> int | None:
+    for key in ("roster_id", "rosterId"):
+        rid = _coerce_int(team.get(key))
+        if rid is not None:
+            return rid
+    return None
+
+
+def league_pick_owner_index(
+    teams: Iterable[Mapping[str, Any]] | None,
+) -> tuple[dict[str, list[int]], bool]:
+    """``({assetId: [rosterId, ...]}, every_inventory_published)`` over ``teams``.
+
+    A list per id so a double claim is visible rather than last-writer-wins.
+    A team whose ``pickDetails`` is not a list has an UNPUBLISHED inventory.
+    """
+    owners: dict[str, list[int]] = {}
+    complete = True
+    for team in teams or []:
+        if not isinstance(team, Mapping):
+            complete = False
+            continue
+        details = team.get("pickDetails")
+        rid = _team_roster_id(team)
+        if not isinstance(details, list) or rid is None:
+            complete = False
+            continue
+        for d in details:
+            if not isinstance(d, Mapping):
+                continue
+            aid = str(d.get("assetId") or "").strip()
+            if aid:
+                owners.setdefault(aid, []).append(rid)
+    return owners, complete
+
+
+def lookup_league_pick_owner(
+    teams: Iterable[Mapping[str, Any]] | None,
+    asset_id: Any,
+    *,
+    index: tuple[dict[str, list[int]], bool] | None = None,
+) -> LeaguePickOwner:
+    """Who holds ``asset_id`` now — see the section comment for the three states."""
+    aid = str(asset_id or "").strip()
+    if parse_league_pick_id(aid) is None:
+        return LeaguePickOwner(aid, PICK_OWNER_ABSENT, None, "not_a_league_pick_id")
+    owners, complete = index if index is not None else league_pick_owner_index(teams)
+    holders = sorted(set(owners.get(aid) or []))
+    if len(holders) == 1:
+        return LeaguePickOwner(aid, PICK_OWNER_OWNED, holders[0], None)
+    if len(holders) > 1:
+        return LeaguePickOwner(aid, PICK_OWNER_UNKNOWN, None, "conflicting_ownership_records")
+    if not complete:
+        return LeaguePickOwner(aid, PICK_OWNER_UNKNOWN, None, "pick_inventory_unpublished")
+    return LeaguePickOwner(aid, PICK_OWNER_ABSENT, None, "not_in_league_inventory")

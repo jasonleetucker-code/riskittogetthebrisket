@@ -45,11 +45,34 @@ Run::
     python3 scripts/fetch_flock_fantasy_rookies.py [--mirror-data-dir] [--dry-run]
 
 Exit codes:
-    0  - success, CSV written
-    1  - soft failure (fetch / parse error, or zero rows extracted)
+    0  - success, CSV written (and, if the source was seasonally inactive,
+         reactivated — see below)
+    1  - soft failure (fetch / parse error, or zero rows extracted outside
+         the declared seasonal window)
     2  - schema / shape regression:
          * response is not a dict with a ``data`` array, or
          * row count below :data:`_FF_ROOKIE_ROW_COUNT_FLOOR`
+    4  - SEASONALLY INACTIVE (``SEASONALLY_INACTIVE_EXIT_CODE``): a verified
+         HTTP 200 matching the declared expected-empty signature inside its
+         window.  No CSV, no row, no success stamp is written; only the
+         explicit ``data/scrape_state/flockFantasySfRookies_seasonal.json``
+         state.
+
+Seasonal window (owner decision 2026-10-03, issue #1552)
+---------------------------------------------------------
+
+The PROSPECTS_SF board empties once the rookie class graduates onto the
+main board.  ``config/sources/seasonal_policy_v1.json`` declares that an
+empty response for class ``Y`` (``year == Y``, ``format == PROSPECTS_SF``)
+observed from ``Y-10-01`` is the expected ``seasonally_inactive`` state, not
+a stale-source failure.  The owner of that question is
+``src/sources/seasonal_policy.py``; this fetcher only asks it.  Every other
+empty response — wrong year, missing year, wrong format, before the cutoff,
+or a non-empty board whose rows were all filtered out — fails closed with
+exit 1 exactly as before.  The first valid non-empty board that passes the
+normal guards reactivates the source immediately, whatever the date.  The
+row-count floor is unchanged: the window answers "should a board exist?",
+the floor answers "is this board truncated?".
 """
 
 from __future__ import annotations
@@ -58,6 +81,7 @@ import argparse
 import csv
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +103,14 @@ UA = (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "flockFantasySfRookies.csv"
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "flockFantasySfRookies.csv"
+DEFAULT_STATE_DIR = REPO_ROOT / "data" / "scrape_state"
+SOURCE_KEY = "flockFantasySfRookies"
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.sources import seasonal_policy  # noqa: E402
+from src.sources.acquisition_state import SEASONALLY_INACTIVE_EXIT_CODE  # noqa: E402
 
 # Minimum row count — a TRUNCATION guard, not a class-size expectation.
 #
@@ -104,11 +136,12 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "flockFa
 # to mean anything, and 2x headroom under today's observation.  A genuinely
 # broken or truncated response still trips exit 2.
 #
-# Known follow-up recorded in that incident note: this board is expected to
-# keep shrinking as the class fully graduates, and "the vendor no longer
-# publishes a rookie board this phase" is a DIFFERENT question from "the
-# fetch broke".  A fixed floor cannot tell those apart and this one is not
-# pretending to.
+# "The vendor no longer publishes a rookie board this phase" is a DIFFERENT
+# question from "the fetch broke", and a fixed floor cannot tell them apart.
+# Resolved 2026-10-03 by the owner's declared seasonal window (module
+# docstring; ``src/sources/seasonal_policy.py``), NOT by this floor: an EMPTY
+# board in the declared window is ``seasonally_inactive``, while a NON-empty
+# board below this floor still exits 2 in every phase.
 _FF_ROOKIE_ROW_COUNT_FLOOR: int = 24
 
 # Offensive positions we accept from Flock Fantasy rookies.  The
@@ -236,7 +269,24 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Read JSON from file instead of fetching (for dev / tests).",
     )
+    parser.add_argument(
+        "--state-dir",
+        type=Path,
+        default=DEFAULT_STATE_DIR,
+        help="Where the seasonal state file lives (default: data/scrape_state).",
+    )
+    parser.add_argument(
+        "--now",
+        default=None,
+        help="Observation time as ISO-8601 (tests only; default: wall clock UTC).",
+    )
     args = parser.parse_args(argv)
+    if args.now:
+        now = datetime.fromisoformat(str(args.now).replace("Z", "+00:00"))
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = datetime.now(timezone.utc)
 
     try:
         if args.from_file:
@@ -267,11 +317,39 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if not rows:
-        print(
-            "[fetch_flock_fantasy_rookies] no rows extracted",
-            file=sys.stderr,
+        # Is this the DECLARED expected-empty state?  Only the seasonal-policy
+        # owner may say so; any miss fails closed exactly as before.
+        try:
+            policy = seasonal_policy.load_policies().get(SOURCE_KEY)
+        except seasonal_policy.SeasonalPolicyError as exc:
+            print(
+                f"[fetch_flock_fantasy_rookies] seasonal policy unreadable: {exc}",
+                file=sys.stderr,
+            )
+            policy = None
+        verdict = seasonal_policy.classify_empty_response(policy, data, now)
+        if not verdict.expected:
+            print(
+                f"[fetch_flock_fantasy_rookies] no rows extracted ({verdict.reason})",
+                file=sys.stderr,
+            )
+            return 1
+        vendor_updated = data.get("lastUpdated") if isinstance(data, dict) else None
+        if args.dry_run:
+            print(
+                f"[fetch_flock_fantasy_rookies] seasonally inactive ({verdict.reason}); "
+                "--dry-run, state not recorded"
+            )
+            return SEASONALLY_INACTIVE_EXIT_CODE
+        seasonal_policy.record_inactive_observation(
+            args.state_dir, policy, verdict, now, vendor_last_updated=vendor_updated
         )
-        return 1
+        print(
+            f"[fetch_flock_fantasy_rookies] seasonally inactive ({verdict.reason}): "
+            "empty PROSPECTS_SF is the declared between-classes state. No CSV, "
+            "no success stamp; state recorded and the source casts no current vote."
+        )
+        return SEASONALLY_INACTIVE_EXIT_CODE
 
     if len(rows) < _FF_ROOKIE_ROW_COUNT_FLOOR:
         print(
@@ -291,6 +369,28 @@ def main(argv: list[str] | None = None) -> int:
 
     _write_csv(args.dest, rows)
     print(f"[fetch_flock_fantasy_rookies] wrote {len(rows)} rows -> {args.dest}")
+
+    # Reactivation AFTER the CSV write: a crash between the two leaves the
+    # source excluded (fail closed), never voting with the graduated board.
+    try:
+        reactivated = seasonal_policy.record_reactivation(
+            args.state_dir,
+            SOURCE_KEY,
+            now,
+            row_count=len(rows),
+            class_year=data.get("year") if isinstance(data, dict) else None,
+        )
+    except Exception as exc:
+        print(
+            f"[fetch_flock_fantasy_rookies] could not record reactivation: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+    if reactivated is not None:
+        print(
+            f"[fetch_flock_fantasy_rookies] REACTIVATED: first valid non-empty "
+            f"board ({len(rows)} rows) closes the seasonal window"
+        )
 
     if args.mirror_data_dir:
         try:
