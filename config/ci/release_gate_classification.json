@@ -217,6 +217,9 @@
     "deploy.yml::validate::Install dependencies (requirements-dev.txt)": {
       "category": "blocking"
     },
+    "deploy.yml::validate::Package tested release artifact": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::Preflight environment check": {
       "category": "blocking"
     },
@@ -242,6 +245,9 @@
       "category": "blocking"
     },
     "deploy.yml::validate::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Upload tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::validate::Validate dependency graph (pip check)": {
@@ -446,6 +452,9 @@
       "category": "blocking"
     },
     "pr-validation.yml::validate::Frontend build + bundle-size budget": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Package and verify frontend release candidate": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Frontend unit tests (vitest)": {
