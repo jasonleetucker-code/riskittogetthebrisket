@@ -112,6 +112,12 @@
     "c1a-run-playerctx-push.yml::push::Start the unit and report what it published": {
       "category": "blocking"
     },
+    "class-b-isolation.yml::isolation::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-isolation.yml::isolation::Exercise denied and allowed container actions": {
+      "category": "blocking"
+    },
     "claude.yml::claude::Checkout repository": {
       "category": "blocking"
     },
