@@ -34,9 +34,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          # Single manifest for runtime + dev deps keeps smoke-test,
-          # pr-validation, refit-hill-curves, and deploy gates in lockstep.
-          pip install -r requirements-dev.txt
+          # The development lock includes the exact runtime resolution.
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
 
       - name: Validate dependency graph (pip check)
         shell: bash
