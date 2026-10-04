@@ -12,6 +12,7 @@ import {
   ktcAdjustPackage,
 } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition } from "@/lib/starter-slots";
+import { pickOwnershipUnavailableReason } from "@/lib/pick-ownership";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
 export const POS_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
@@ -766,7 +767,12 @@ export function buildPlayerMetaMap(rows) {
  *   stamped none, rather than guessing a lineup here.  Kept in the
  *   signature so existing callers keep working.
  * @returns {{ total, byGroup, playerDetails, pickDetails,
- *   starterSlotsUnavailable }}
+ *   starterSlotsUnavailable, pickOwnershipUnavailable, totalIsPartial }}
+ *
+ * Pick ownership UNKNOWN (``team.pickOwnershipState === "unavailable"``,
+ * see ``lib/pick-ownership.js``): ``byGroup.PICKS`` is ``null`` rather than
+ * 0, ``pickOwnershipUnavailable`` carries the reason, and under the "full"
+ * scope ``totalIsPartial`` says the total excludes this team's picks.
  */
 export function buildTeamValueBreakdown(
   team,
@@ -785,6 +791,7 @@ export function buildTeamValueBreakdown(
 
   const teamPlayers = Array.isArray(team.players) ? team.players : [];
   const teamPicks = Array.isArray(team.picks) ? team.picks : [];
+  const pickOwnershipUnavailable = pickOwnershipUnavailableReason(team);
 
   // Build row lookup for pick resolution
   const rowLookup = buildRowLookup(rows);
@@ -806,7 +813,7 @@ export function buildTeamValueBreakdown(
   // Resolve pick values using multi-candidate lookup so Sleeper labels
   // like "2026 1.04 (from Team X)" resolve against rankings rows stored
   // as "2026 Pick 1.04".
-  if (assetScope === "full") {
+  if (assetScope === "full" && !pickOwnershipUnavailable) {
     const pickSources = teamPicks.length > 0 ? teamPicks : teamPlayers.filter((p) => parsePickToken(p));
     for (const pickName of pickSources) {
       if (!parsePickToken(pickName)) continue;
@@ -838,10 +845,21 @@ export function buildTeamValueBreakdown(
     }
   }
 
-  byGroup.PICKS = assetScope === "full" ? pickValue : 0;
+  // Unknown ownership is not 0 picks: PICKS stays null and the total says it
+  // is partial, rather than quietly reading as a team with no draft capital.
+  const totalIsPartial = assetScope === "full" && !!pickOwnershipUnavailable;
+  byGroup.PICKS = assetScope === "full" ? (pickOwnershipUnavailable ? null : pickValue) : 0;
   const total = POS_GROUPS.reduce((s, g) => s + (byGroup[g] || 0), 0);
 
-  return { total, byGroup, playerDetails, pickDetails, starterSlotsUnavailable };
+  return {
+    total,
+    byGroup,
+    playerDetails,
+    pickDetails,
+    starterSlotsUnavailable,
+    pickOwnershipUnavailable,
+    totalIsPartial,
+  };
 }
 
 // ── Build All Team Summaries ────────────────────────────────────────────
@@ -872,10 +890,17 @@ export function buildAllTeamSummaries(
       total: breakdown.total,
       byGroup: breakdown.byGroup,
       playerCount: (team.players || []).length,
-      pickCount: Array.isArray(team.picks) ? team.picks.length : 0,
+      // null = ownership unknown, never 0 picks.
+      pickCount: breakdown.pickOwnershipUnavailable
+        ? null
+        : Array.isArray(team.picks)
+          ? team.picks.length
+          : 0,
       players: breakdown.playerDetails,
       pickDetails: breakdown.pickDetails,
       starterSlotsUnavailable: breakdown.starterSlotsUnavailable,
+      pickOwnershipUnavailable: breakdown.pickOwnershipUnavailable,
+      totalIsPartial: breakdown.totalIsPartial,
     };
   });
 
@@ -887,7 +912,9 @@ export function buildAllTeamSummaries(
 export function computeGroupAverages(teams) {
   const avg = {};
   POS_GROUPS.forEach((g) => {
-    const vals = teams.map((t) => t.byGroup[g] || 0);
+    // A group a team cannot measure (``null`` — e.g. PICKS with ownership
+    // unknown) is left out of the league average rather than averaged in as 0.
+    const vals = teams.map((t) => t.byGroup[g]).filter((v) => typeof v === "number");
     avg[g] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   });
   return avg;

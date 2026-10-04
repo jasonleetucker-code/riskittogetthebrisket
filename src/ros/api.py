@@ -205,7 +205,9 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
     League resolution mirrors ``/team-strength``.  Degraded states
     follow this router's convention (200 + ``error`` field):
     ``no_snapshot`` when team strength hasn't been built for the
-    league, ``no_teams`` when the Sleeper overlay is unreachable.
+    league, ``no_teams`` when the Sleeper overlay is unreachable,
+    ``pick_ownership_unavailable`` (``picks: null``) when the overlay's
+    ``/traded_picks`` fetch failed and ownership is unknown.
     """
     resolved_key = leagueKey
     sleeper_league_id: str | None = None
@@ -249,6 +251,13 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
 
     payload = build_pick_projections(teams, strength_rows)
     payload["leagueKey"] = resolved_key
+    if payload.get("picks") is None:
+        # Pick ownership unknown (failed /traded_picks): refused, not zero
+        # picks.  Same 200 + ``error`` convention as the states above; the
+        # reason travels in ``meta.pickOwnershipReason``.
+        from src.identity.picks import PICK_OWNERSHIP_UNAVAILABLE_ERROR  # noqa: PLC0415
+
+        payload["error"] = PICK_OWNERSHIP_UNAVAILABLE_ERROR
     return JSONResponse(payload)
 
 

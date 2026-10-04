@@ -206,7 +206,9 @@ export function buildBdvmRosterRows(payload) {
     valueWeightedAge: _num(r?.valueWeightedAge),
     starterFpg: _num(r?.starterFpg),
     assetCount: _num(r?.assetCount) ?? 0,
-    pickCount: _num(r?.pickCount) ?? 0,
+    // null = pick ownership UNKNOWN (failed /traded_picks), never 0 picks.
+    pickCount: _num(r?.pickCount),
+    pickCountUnavailableReason: r?.pickCountUnavailableReason ?? null,
     assets: Array.isArray(r?.assets) ? r.assets : [],
   }));
 }
