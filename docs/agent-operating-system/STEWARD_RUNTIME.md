@@ -193,9 +193,11 @@ The separate `Phase1Controller.run` path commits its report-only receipt to
 private SQLite before appending a daily JSONL mirror. SQLite is canonical. If
 the append fails, a retry with the same run ID checks the mirror and repairs a
 missing row from SQLite; a conflicting, malformed, duplicated or truncated
-mirror fails closed for operator inspection. The write loop handles short OS
-writes. This is crash recovery for the mirror, not tamper-proof storage or an
-exactly-once guarantee across two independent sinks. A hash chain stored in
+mirror fails closed for operator inspection. Mirror check and append share a
+SQLite immediate transaction across cooperating controller processes; the
+write loop handles short OS writes and a line-size guard runs before the
+canonical commit. This is crash recovery for the mirror, not tamper-proof
+storage or a cross-sink atomic transaction. A hash chain stored in
 the same locally writable state would not add an independent trust anchor, so
 this unit does not add one. Git/CI revision evidence remains separate from
 the local receipt's observations.

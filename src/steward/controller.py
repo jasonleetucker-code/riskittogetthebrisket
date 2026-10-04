@@ -277,12 +277,18 @@ class Phase1Controller:
             "budget_max_usd": 0.0,
         }
 
+    def _receipt_line(self, receipt: dict[str, Any]) -> bytes:
+        line = (json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n").encode()
+        if len(line) > _MAX_RECEIPT_LINE_BYTES:
+            raise ContractError("receipt exceeds JSONL mirror line limit")
+        return line
+
     def _append_receipt(self, receipt: dict[str, Any]) -> None:
         day = receipt["ended_at"][:10]
         path = self.receipt_dir / f"{day}.jsonl"
+        line = self._receipt_line(receipt)
         fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
         try:
-            line = (json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n").encode()
             pending = memoryview(line)
             while pending:
                 written = os.write(fd, pending)
@@ -318,13 +324,21 @@ class Phase1Controller:
             raise ConflictError("receipt mirror contains duplicate run ids")
         return seen == 1
 
+    def _ensure_mirror(self, receipt: dict[str, Any]) -> None:
+        """Serialize mirror check and append across cooperating controller processes."""
+        with self.store.connection:
+            self.store.connection.execute("BEGIN IMMEDIATE")
+            if not self._mirror_has_receipt(receipt):
+                self._append_receipt(receipt)
+
     def _record(self, receipt: dict[str, Any]) -> None:
+        self._receipt_line(receipt)
         state_name = _RUN_STATE_PREFIX + receipt["run_id"]
         revision, existing = self.store.read(state_name)
         if existing is not None:
             raise ConflictError(f"duplicate run id: {receipt['run_id']}")
         self.store.write(state_name, receipt, expected_revision=revision)
-        self._append_receipt(receipt)
+        self._ensure_mirror(receipt)
 
     def run(self, contract: dict[str, Any]) -> ControllerResult:
         """Perform one bounded report-only run and persist its audit receipt."""
@@ -335,8 +349,7 @@ class Phase1Controller:
         state_name = _RUN_STATE_PREFIX + run_id
         _, previous = self.store.read(state_name)
         if previous is not None:
-            if not self._mirror_has_receipt(previous):
-                self._append_receipt(previous)
+            self._ensure_mirror(previous)
             return ControllerResult(
                 status="DUPLICATE",
                 receipt=previous,

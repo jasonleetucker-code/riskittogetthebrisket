@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
+from threading import Event
 
 import pytest
 
@@ -200,6 +203,87 @@ def test_duplicate_refuses_truncated_mirror(tmp_path: Path):
         receipt_file.write_bytes(b'{"run_id":"truncated-run"')
         with pytest.raises(ConflictError, match="incomplete"):
             controller.run(contract("truncated-run"))
+
+
+def test_mirror_check_and_append_are_serialized_across_controllers(tmp_path: Path):
+    repo = init_repo(tmp_path)
+    runtime = tmp_path / "private-runtime"
+    ready_first, ready_second = Event(), Event()
+    start_first, start_second = Event(), Event()
+    first_in_append, release_first, second_entered, second_checked = (
+        Event(),
+        Event(),
+        Event(),
+        Event(),
+    )
+
+    def first():
+        with Phase1Controller(repo, runtime) as controller:
+            append = controller._append_receipt
+
+            def paused_append(receipt):
+                first_in_append.set()
+                assert release_first.wait(5)
+                append(receipt)
+
+            controller._append_receipt = paused_append
+            ready_first.set()
+            assert start_first.wait(5)
+            return controller.run(contract("race-run"))
+
+    def second():
+        with Phase1Controller(repo, runtime) as controller:
+            check = controller._mirror_has_receipt
+
+            def observed_check(receipt):
+                second_checked.set()
+                return check(receipt)
+
+            controller._mirror_has_receipt = observed_check
+            ready_second.set()
+            assert start_second.wait(5)
+            second_entered.set()
+            return controller.run(contract("race-run"))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_result = pool.submit(first)
+        second_result = pool.submit(second)
+        assert ready_first.wait(5) and ready_second.wait(5)
+        start_first.set()
+        assert first_in_append.wait(5)
+        start_second.set()
+        assert second_entered.wait(5)
+        try:
+            assert not second_checked.wait(0.3)
+        finally:
+            release_first.set()
+        assert first_result.result(timeout=5).status == "DONE"
+        assert second_result.result(timeout=5).status == "DUPLICATE"
+        assert second_checked.is_set()
+
+    receipt_file = next((runtime / "receipts").glob("*.jsonl"))
+    assert len(receipt_file.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_oversized_receipt_is_rejected_before_sqlite_commit(tmp_path: Path):
+    repo = init_repo(tmp_path)
+    with Phase1Controller(repo, tmp_path / "private-runtime") as controller:
+        huge_id = "x" * 1_000_000
+        with pytest.raises(ContractError, match="mirror line limit"):
+            controller.run(contract(huge_id))
+        assert controller.store.read("phase1-run:" + huge_id)[1] is None
+        assert not list(controller.receipt_dir.glob("*.jsonl"))
+
+
+def test_short_os_writes_still_complete_one_jsonl_row(tmp_path: Path, monkeypatch):
+    repo = init_repo(tmp_path)
+    real_write = os.write
+    monkeypatch.setattr(os, "write", lambda fd, data: real_write(fd, data[:7]))
+    runtime = tmp_path / "private-runtime"
+    with Phase1Controller(repo, runtime) as controller:
+        result = controller.run(contract("short-write-run"))
+    receipt_file = next((runtime / "receipts").glob("*.jsonl"))
+    assert json.loads(receipt_file.read_text(encoding="utf-8")) == result.receipt
 
 
 def test_incomplete_week1_blocks_and_is_receipted(tmp_path: Path):
