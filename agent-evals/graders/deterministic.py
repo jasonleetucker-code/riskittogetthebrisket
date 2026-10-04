@@ -67,6 +67,7 @@ VALID_CATEGORIES = {
     "external_guidance_hygiene",
     "cross_session_continuity",
     "missing_never_zero",
+    "steward_receipt_integrity",
 }
 
 VALID_STATUSES = {
@@ -211,6 +212,17 @@ def validate_artifact_shape(artifact: dict, *, source: str = "<artifact>") -> No
         value = artifact.get(key)
         if value is not None and not is_full_sha(value):
             raise CaseError(f"{source}: {key} must be a full 40-character lowercase hex SHA")
+    source_receipt = artifact.get("source_receipt")
+    if source_receipt is not None and (
+        not isinstance(source_receipt, dict)
+        or set(source_receipt) != {"run_id", "sha256"}
+        or not isinstance(source_receipt["run_id"], str)
+        or not source_receipt["run_id"]
+        or not isinstance(source_receipt["sha256"], str)
+        or len(source_receipt["sha256"]) != 64
+        or any(ch not in "0123456789abcdef" for ch in source_receipt["sha256"])
+    ):
+        raise CaseError(f"{source}: source_receipt must identify one SHA-256 evidence row")
 
 
 def _normalize_path(path) -> str:

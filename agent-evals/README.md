@@ -40,6 +40,7 @@ agent-evals/
   graders/
     deterministic.py                 the grader (no deps, no network, no model calls)
   run_eval.py                        CLI: --list, --case <id> --artifact <path>
+  steward_adapter.py                 bounded export from one private Steward brief receipt
 tests/agent_evals/
   test_case_schema.py                every shipped case validates and is internally consistent
   test_deterministic_grader.py       the grader actually discriminates pass from fail
@@ -66,6 +67,7 @@ plus a dedicated classic "missing→zero" case (Priority 8's own first candidate
 | `graph_failure_containment` | `sibling-work-survives-failed-unit` |
 | `external_guidance_hygiene` | `unsupported-adoption-statistic-rejected` |
 | `cross_session_continuity` | `cross-session-recovers-durable-state` |
+| `steward_receipt_integrity` | `steward-report-only-receipt` |
 
 Run `python agent-evals/run_eval.py --list` for the live list (source of truth over
 this table if they ever drift).
@@ -184,6 +186,26 @@ Limits, stated plainly:
   run the grader from a trusted directory.
 - One verified check never makes a run verified. The CLI prints
   `run as a whole: NOT VERIFIED` on every result.
+
+### Steward receipt bridge
+
+`brief --save` writes a private receipt to `.agent-runtime/steward/state.sqlite3`.
+For one observed run ID, `steward_adapter.py --state <private state> --run-id
+<id> --output <artifact.json>` exports only status, a fixed summary, unresolved
+count, exact heads, bounded derived flags and a SHA-256 digest of the source
+evidence row. It does not copy the private report, blockers, routes or source
+content. The source SQLite file is opened read-only; a missing, oversized or
+malformed evidence row fails closed.
+
+Grade with `run_eval.py --case steward-report-only-receipt --artifact
+<artifact.json> --repo <trusted clone> --require-verified-diff --steward-state
+<private state> --require-verified-steward-receipt`. The grader re-derives the
+complete artifact from the persisted row. A mismatch fails; a match is marked
+`VERIFIED_AGAINST_ARTIFACT`. Without `--steward-state`, the mapping is
+`NOT_CHECKED`. The Git diff independently checks the pinned changed-file claim.
+The persisted receipt still records observations, not ground truth about every
+external system or the honesty of its producer. A passing case cannot promote
+a model, routing policy, or autonomy class.
 
 ## Capturing a real run
 

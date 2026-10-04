@@ -174,6 +174,13 @@ token and cost measurements stay null because these operations do not expose
 them. Spans live in the existing private receipt evidence, not a new store.
 They establish report execution timing, not agent-turn or tool-executor
 coverage. No eval grade or model routing decision is inferred from them.
+The private receipt can be projected into a bounded `agent-evals` artifact with
+`python agent-evals/steward_adapter.py --state <private-state.sqlite3> --run-id
+<observed-id> --output <artifact.json>`. The grader verifies that projection
+against the source row only when supplied `--steward-state`; use
+`--require-verified-steward-receipt` and `--require-verified-diff` for the
+report-only case. The source check proves mapping to the persisted receipt,
+not the truth of every observation inside it.
 `retrospective` groups comparable task classes, exposes measurement coverage
 and proposes challengers without promoting them. `diagnose_failures` records
 specific rule references when repeated independent failures suggest an
