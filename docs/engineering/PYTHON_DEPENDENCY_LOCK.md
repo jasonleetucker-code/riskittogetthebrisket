@@ -19,7 +19,10 @@ On Windows, invoke the same command with the installed `uv.exe` path through
 `config/python-lock.json` in one PR. A Dependabot edit to either manifest must
 refresh both locks in that PR. Do not use `pip freeze` for these files.
 
-CI and production install with `pip install --require-hashes -r <lock>`.
+The PR validation, release-candidate and current-revision production install
+paths changed in this unit use `pip install --require-hashes -r <lock>`.
+`scheduled-refresh.yml` still installs floating `requirements.txt`; PR #1627
+owns that workflow, so full CI lock parity remains pending its reconciliation.
 Rollback to a revision with a lock checks and installs that lock. A rollback
 to a revision older than this contract explicitly uses its legacy
 `requirements.txt`, so those historical revisions remain recoverable without
