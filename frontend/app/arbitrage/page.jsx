@@ -12,13 +12,22 @@ import {
   Field,
   PageHeader,
   Panel,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
-import { buildArbitrageRows } from "@/lib/market-arbitrage";
+import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
+
+// C3-CTX-01 — the same Team context / Asset only switch the Trade War Room
+// uses.  ON lets this team's roster (needs, forced releases) shape the order;
+// OFF ranks on asset value and market appeal alone.  Values never change.
+const CONTEXT_OPTIONS = [
+  { value: "team", label: "Team context" },
+  { value: "asset", label: "Asset only" },
+];
 import styles from "./arbitrage.module.css";
 
 // ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
@@ -168,6 +177,9 @@ function AssetList({ assets, onExclude }) {
 function TradeCard({ trade, myTeam, opponent, onExclude }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
+  const counterparty = trade.counterparty || (opponent && opponent !== "all" ? opponent : null);
+  const mine = rosterCapacityLine(trade.rosterCapacity);
+  const theirs = rosterCapacityLine(trade.counterpartyRosterCapacity);
 
   const openInCalculator = useMemo(() => {
     const give = (trade.give || []).map((a) => a.name).filter(Boolean);
@@ -177,13 +189,13 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
       return buildShareUrl({
         sides: [
           { name: myTeam || "You", players: give },
-          { name: opponent && opponent !== "all" ? opponent : "Them", players: receive },
+          { name: counterparty || "Them", players: receive },
         ],
       });
     } catch {
       return null;
     }
-  }, [trade, myTeam, opponent]);
+  }, [trade, myTeam, counterparty]);
 
   return (
     <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
@@ -207,6 +219,16 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
           </Badge>
         ) : null}
       </div>
+      {mine || theirs ? (
+        <ul className={styles.capacityList} aria-label="Roster consequences">
+          {mine ? <li>Your roster: {mine}</li> : null}
+          {theirs ? (
+            <li>
+              {counterparty ? `${counterparty}'s` : "Their"} roster: {theirs}
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
@@ -258,6 +280,7 @@ export default function ArbitragePage() {
   const [edgeClass, setEdgeClass] = useState("all");
   const [edgeFloor, setEdgeFloor] = useState(0.05);
   const [excludedPlayers, setExcludedPlayers] = useState([]);
+  const [useTeamContext, setUseTeamContext] = useState(true);
 
   const effectiveTeam = myTeam || defaultTeam;
 
@@ -284,7 +307,7 @@ export default function ArbitragePage() {
     [rows, edgeFloor],
   );
 
-  async function run(nextExcluded = excludedPlayers) {
+  async function run(nextExcluded = excludedPlayers, teamContext = useTeamContext) {
     if (!effectiveTeam) return;
     const normalizedExcluded = Array.from(
       new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
@@ -313,6 +336,7 @@ export default function ArbitragePage() {
           },
         ],
       };
+      body.useTeamContext = teamContext !== false;
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/finder", {
         method: "POST",
@@ -463,6 +487,18 @@ export default function ArbitragePage() {
                 ))}
             </Select>
           </Field>
+          <SegmentedControl
+            label="Analysis mode"
+            options={CONTEXT_OPTIONS}
+            value={useTeamContext ? "team" : "asset"}
+            onChange={(v) => {
+              const next = v === "team";
+              setUseTeamContext(next);
+              // Re-scan an existing result in the new mode; never silently
+              // keep showing the other mode's order.
+              if (result) run(excludedPlayers, next);
+            }}
+          />
           <Button onClick={() => run(excludedPlayers)} disabled={running || dataLoading || !effectiveTeam}>
             {running ? "Scanning…" : "Find trade packages"}
           </Button>

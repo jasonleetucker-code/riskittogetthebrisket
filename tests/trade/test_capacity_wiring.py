@@ -657,3 +657,34 @@ def test_finder_reports_the_counterparty_capacity_too():
         assert other["incoming"] == len(trade["give"])
         assert other["outgoing"] == len(trade["receive"])
         assert other["rosterLimit"] == ROSTER_SIZE
+
+
+def test_angle_packages_report_the_counterparty_capacity(angle_setup, full_roster_setup):
+    """Wave B (C3-CAP-01): the team sending the counter-package is measured
+    too, through the same owner (``counterparty_context_resolver``)."""
+    from src.trade.angle import find_angle_packages
+    from src.trade.roster_capacity import counterparty_context_resolver
+
+    pool, roster, context, rows, teams = angle_setup
+    contract = _contract_for(pool, roster)
+    offer = roster[:2]
+    resolver = counterparty_context_resolver(context, contract, teams)
+    result = find_angle_packages(
+        rows,
+        offer,
+        "owner-1",
+        teams,
+        min_my_gain_pct=1.0,
+        max_market_gain_pct=50.0,
+        include_idp=True,
+        capacity_context=context,
+        counterparty_context=resolver,
+    )
+    assert result["candidates"]
+    by_owner = {str(t.get("ownerId")): t for t in teams}
+    for c in result["candidates"]:
+        other = c["counterpartyRosterCapacity"]
+        team = by_owner[c["owner_id"]]
+        assert other["sizeBefore"] == len(team["players"])
+        assert other["incoming"] == len(offer)
+        assert other["outgoing"] == len(c["players"])

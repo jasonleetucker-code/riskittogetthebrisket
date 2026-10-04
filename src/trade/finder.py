@@ -1484,35 +1484,14 @@ def find_trades(
     trade_dicts = [t.to_dict() for t in capped]
     if capacity_context is not None:
         from src.trade.roster_capacity import (  # noqa: PLC0415
-            assess_roster_capacity,
-            capacity_context_for_team,
+            counterparty_capacity_block,
+            counterparty_context_resolver,
             player_names_only,
         )
 
-        counterparty_contexts: dict[str, Any] = {}
-
-        def _counterparty_context(name: str | None) -> Any:
-            if not name:
-                return None
-            if name not in counterparty_contexts:
-                team = next(
-                    (
-                        t
-                        for t in sleeper_teams
-                        if isinstance(t, dict) and str(t.get("name") or "") == name
-                    ),
-                    None,
-                )
-                try:
-                    counterparty_contexts[name] = (
-                        capacity_context_for_team(capacity_context, contract, team)
-                        if team is not None
-                        else None
-                    )
-                except Exception:  # noqa: BLE001 — a report never drops a trade
-                    counterparty_contexts[name] = None
-            return counterparty_contexts[name]
-
+        counterparty_context = counterparty_context_resolver(
+            capacity_context, contract, sleeper_teams
+        )
         for payload, tc in zip(trade_dicts, capped):
             cap = _capacity_for(tc)
             payload["rosterCapacity"] = (
@@ -1526,24 +1505,11 @@ def find_trades(
             # The counterparty receives what we give and sends what we receive.
             # Reported, never ranked: their acceptance is scored on the market
             # board, and pricing their releases on OUR board would mix scales.
-            ctx = _counterparty_context(tc.counterparty)
-            if ctx is None:
-                payload["counterpartyRosterCapacity"] = {
-                    "unavailable": "counterparty_unresolved",
-                    "notes": ["the counterparty's roster did not resolve"],
-                }
-                continue
-            try:
-                payload["counterpartyRosterCapacity"] = assess_roster_capacity(
-                    ctx,
-                    incoming_players=player_names_only(tc.give),
-                    outgoing_players=player_names_only(tc.receive),
-                ).to_dict()
-            except Exception:  # noqa: BLE001
-                payload["counterpartyRosterCapacity"] = {
-                    "unavailable": "assessment_failed",
-                    "notes": ["counterparty roster capacity could not be computed"],
-                }
+            payload["counterpartyRosterCapacity"] = counterparty_capacity_block(
+                counterparty_context(tc.counterparty),
+                incoming_players=player_names_only(tc.give),
+                outgoing_players=player_names_only(tc.receive),
+            )
 
     return {
         "trades": trade_dicts,

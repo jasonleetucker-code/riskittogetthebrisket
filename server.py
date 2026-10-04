@@ -8690,10 +8690,9 @@ async def post_trade_finder(request: Request):
     # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
     # ``useTeamContext``; missing/non-bool falls back to the canonical
     # default (True) rather than silently disabling the signal.
-    raw_use_team_context = body.get("useTeamContext")
-    use_team_context = (
-        bool(raw_use_team_context) if isinstance(raw_use_team_context, bool) else True
-    )
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
 
     try:
         result = await run_in_threadpool(
@@ -9085,6 +9084,12 @@ async def post_angle_packages(request: Request):
         _team_block_by_owner_id(sleeper_teams, owner_id),
         surface="/api/angle/packages",
     )
+    # Wave B (C3-CAP-01): the counterparty's roster consequence, same owner.
+    from src.trade.roster_capacity import counterparty_context_resolver
+
+    angle_counterparty_context = counterparty_context_resolver(
+        angle_capacity_context, contract, sleeper_teams
+    )
 
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
@@ -9111,6 +9116,7 @@ async def post_angle_packages(request: Request):
                 min_player_my_value=min_player,
                 include_idp=include_idp,
                 capacity_context=angle_capacity_context,
+                counterparty_context=angle_counterparty_context,
                 constraints=angle_constraints,
             )
         except Exception as exc:  # noqa: BLE001
@@ -9153,6 +9159,7 @@ async def post_angle_packages(request: Request):
             seed_player_names=seeds_req or None,
             include_idp=include_idp,
             capacity_context=angle_capacity_context,
+            counterparty_context=angle_counterparty_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
@@ -14422,8 +14429,9 @@ async def _build_trade_simulation(
     # Use Team Context (#842): default ON, and only an explicit boolean
     # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
     # It changes which LENSES Analyze Trade may count, never an asset value.
-    raw_context = body.get("useTeamContext")
-    use_team_context = raw_context if isinstance(raw_context, bool) else True
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
 
     def _picks_with_ids(key: str, ids_key: str) -> tuple[list[str], list[str | None]]:
         # Wave A: ``pickAssetIdsIn`` / ``pickAssetIdsOut`` run PARALLEL to the

@@ -99,7 +99,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from collections import Counter
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
 from src.draft.displacement import (
@@ -116,6 +116,8 @@ __all__ = [
     "assess_roster_capacity",
     "build_capacity_context",
     "capacity_context_for_team",
+    "counterparty_capacity_block",
+    "counterparty_context_resolver",
     "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
@@ -565,6 +567,63 @@ def capacity_context_for_team(
     return build_capacity_context(
         contract, base.league_key, team, roster_settings=base.roster_settings
     )
+
+
+def counterparty_context_resolver(
+    base: CapacityContext | None,
+    contract: Mapping[str, Any] | None,
+    sleeper_teams: Sequence[Any] | None,
+) -> Callable[[str | None], CapacityContext | None]:
+    """``team key -> CapacityContext`` for counterparties, memoised.
+
+    A key matches a team's ``ownerId`` or its display ``name``.  ``None`` for
+    an unknown team or a failed build — a report that cannot be made is
+    reported as unavailable by the caller, never guessed.
+    """
+    cache: dict[str, CapacityContext | None] = {}
+    teams = [t for t in (sleeper_teams or []) if isinstance(t, Mapping)]
+
+    def resolve(key: str | None) -> CapacityContext | None:
+        if base is None or not key:
+            return None
+        k = str(key)
+        if k not in cache:
+            team = next(
+                (t for t in teams if k in (str(t.get("ownerId") or ""), str(t.get("name") or ""))),
+                None,
+            )
+            try:
+                cache[k] = capacity_context_for_team(base, contract, team) if team else None
+            except Exception:  # noqa: BLE001 — a report never fails its caller
+                cache[k] = None
+        return cache[k]
+
+    return resolve
+
+
+def counterparty_capacity_block(
+    context: CapacityContext | None,
+    *,
+    incoming_players: Sequence[str],
+    outgoing_players: Sequence[str],
+) -> dict[str, Any]:
+    """The counterparty's capacity read, or a NAMED unavailable."""
+    if context is None:
+        return {
+            "unavailable": "counterparty_unresolved",
+            "notes": ["the counterparty's roster did not resolve"],
+        }
+    try:
+        return assess_roster_capacity(
+            context,
+            incoming_players=incoming_players,
+            outgoing_players=outgoing_players,
+        ).to_dict()
+    except Exception:  # noqa: BLE001
+        return {
+            "unavailable": "assessment_failed",
+            "notes": ["counterparty roster capacity could not be computed"],
+        }
 
 
 def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, Any]]:

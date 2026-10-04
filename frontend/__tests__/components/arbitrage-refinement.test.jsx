@@ -27,7 +27,8 @@ vi.mock("@/components/useTeam", () => ({
   useTeam: () => ({ selectedLeagueKey: "dynasty_main", selectedOwnerId: "me" }),
 }));
 
-vi.mock("@/lib/market-arbitrage", () => ({
+vi.mock("@/lib/market-arbitrage", async (importOriginal) => ({
+  ...(await importOriginal()),
   buildArbitrageRows: () => [],
 }));
 
@@ -177,5 +178,45 @@ describe("/arbitrage package refinement", () => {
     expect(
       screen.queryByRole("button", { name: "Restore Target Bob to suggestions" }),
     ).toBeNull();
+  });
+
+  it("sends Team Context ON by default and re-scans in Asset-only when switched (C3-CTX-01)", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
+    render(<ArbitragePage />);
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await screen.findByRole("button", { name: "Exclude Target Bob from suggestions" });
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).useTeamContext).toBe(true);
+
+    await user.click(screen.getByRole("radio", { name: "Asset only" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body).useTeamContext).toBe(false);
+  });
+
+  it("shows both teams' roster consequence and names the counterparty", async () => {
+    const user = userEvent.setup();
+    const body = payload("Target Bob");
+    body.trades[0].counterparty = "Other Team";
+    body.trades[0].rosterCapacity = {
+      requiresDrops: true,
+      forcedDropsAreUpperBound: false,
+      rosterLimit: 58,
+      forcedDrops: [{ name: "Bench Guy" }],
+    };
+    body.trades[0].counterpartyRosterCapacity = {
+      requiresDrops: null,
+      rosterLimit: 58,
+      forcedDrops: [],
+    };
+    global.fetch = vi.fn().mockResolvedValue(response(body));
+    render(<ArbitragePage />);
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const list = await screen.findByRole("list", { name: "Roster consequences" });
+    expect(list).toHaveTextContent("Your roster: must release 1: Bench Guy");
+    expect(list).toHaveTextContent(
+      "Other Team's roster: may need a release (taxi occupancy unknown)",
+    );
   });
 });

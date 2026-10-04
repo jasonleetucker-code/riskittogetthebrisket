@@ -389,6 +389,32 @@ def _capacity_block(
         }
 
 
+def _counterparty_block(
+    resolver: Any,
+    owner_id: Any,
+    *,
+    incoming: Sequence[Any],
+    outgoing: Sequence[Any],
+) -> dict[str, Any]:
+    """The counterparty's capacity read via the owner, or a NAMED unavailable."""
+    from src.trade.roster_capacity import (  # noqa: PLC0415
+        counterparty_capacity_block,
+        player_names_only,
+    )
+
+    owner = str(owner_id or "")
+    if not owner or "+" in owner:
+        return {
+            "unavailable": "multiple_counterparties" if "+" in owner else "counterparty_unresolved",
+            "notes": ["this package does not come from exactly one team"],
+        }
+    return counterparty_capacity_block(
+        resolver(owner),
+        incoming_players=player_names_only(incoming),
+        outgoing_players=player_names_only(outgoing),
+    )
+
+
 def find_angles(
     players_array: list[dict[str, Any]],
     selected_player_name: str,
@@ -679,6 +705,7 @@ def find_angle_packages(
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    counterparty_context: Any | None = None,
     constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
@@ -1172,6 +1199,16 @@ def find_angle_packages(
                 incoming=c.get("players") or [],
                 outgoing=offer_players,
             )
+    # Wave B (C3-CAP-01): the counterparty's roster consequence too — it
+    # receives the offer and sends the candidate.  Reported, never ranked.
+    if counterparty_context is not None:
+        for c in candidates:
+            c["counterpartyRosterCapacity"] = _counterparty_block(
+                counterparty_context,
+                c.get("owner_id"),
+                incoming=offer_players,
+                outgoing=c.get("players") or [],
+            )
 
     warnings.extend(_diagnostic_warnings(diag))
 
@@ -1221,6 +1258,7 @@ def find_acquisition_packages(
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    counterparty_context: Any | None = None,
     constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
@@ -1578,6 +1616,25 @@ def find_acquisition_packages(
                 capacity_context,
                 incoming=desired_players,
                 outgoing=c.get("players") or [],
+            )
+    # The counterparty is whoever holds the desired players; it receives the
+    # candidate and sends them.  Several holders is several counterparties —
+    # named, not merged into one roster.
+    if counterparty_context is not None:
+        holders = sorted({str(p.get("owner_id") or "") for p in desired_players})
+        for c in candidates:
+            c["counterpartyRosterCapacity"] = (
+                _counterparty_block(
+                    counterparty_context,
+                    holders[0],
+                    incoming=c.get("players") or [],
+                    outgoing=desired_players,
+                )
+                if len(holders) == 1 and holders[0]
+                else {
+                    "unavailable": "multiple_counterparties",
+                    "notes": ["the desired players are held by more than one team"],
+                }
             )
 
     warnings.extend(_diagnostic_warnings(diag))
