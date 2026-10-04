@@ -531,3 +531,108 @@ state), with and without the Signals store under `/tmp`. Both builds validate
   Sleeper ids.
 - The RANK fallback is inert.
 - Production verification (acceptance 17) happens after merge and deploy.
+
+## 10. Signals IDP — shared-market family crosswalk (PREREGISTERED 2026-10-04)
+
+Written before any production measurement of the new route.  The candidates,
+metrics and thresholds below are fixed; results are appended in §10.6 and
+judged against them, never the other way round.
+
+### 10.1 What Signals knows, and what it does not
+
+Signals' IDP values are normalised WITHIN a family (DL, LB, DB each have their
+own scale, §9.2).  Signals therefore says "this player is about LB3" and does
+not say "LB3 > DB2".  The crosswalk uses Signals for the first statement only
+and the existing shared market for the second: where the k-th player of a
+family sits against every other IDP, offense and pick is the shared market's
+question, answered by its existing owner.
+
+### 10.2 The coordinate system (no new scale)
+
+The bridge owner (`src/bridges/ladder.py`) already builds the shared-market
+ladder every other IDP voter is translated through (today exactly IDP Trade
+Calculator, `multi_bridge_ladder` OFF).  It now also publishes, in the same
+pass, a FAMILY slice: the combined offense+IDP+pick rank of each family's
+i-th player.  Same ordering, same rescale and blend, same monotonicity.
+
+Lineage, unchanged and already recorded in `config/sources/source_lineage.json`:
+the shared market is positioned against IDPTC's offense half, which is a lagged
+copy of KTC Crowd in some batches (`idptc-offense-ktc-value-identity`).  The
+crosswalk inherits that dependence exactly as `dlfIdp` and `fantasyProsIdp`
+already do; it adds none.
+
+Reproducibility: a crosswalk result is a function of (code SHA, the board's raw
+payload, the IDPTC CSV, the Signals release `contentSha256`, the league's
+scoring card, identity owner version).  The on-box evaluation records all of
+them.
+
+### 10.3 Candidates (exactly two; declared before results)
+
+| | Rule | Role |
+|---|---|---|
+| **A** | Signals family rank k → `family_ladder[k-1]` (shared-market combined rank of the k-th player of that family) → GLOBAL curve.  k past the ladder's depth is WITHHELD (no extrapolation).  Only value-ordered rows (a native value exists). | The candidate for promotion.  Implemented in the contract (shadow). |
+| **B** | Signals family percentile `(k-1)/(N_signals-1)` → the same quantile of the family ladder (linear interpolation) → GLOBAL curve. | Diagnostic only: shows how much of any disagreement is Signals covering more or fewer players of a family than the market.  Not promotable in this round. |
+
+The incumbent ("champion") is the board with no Signals IDP vote.
+
+### 10.4 Metrics, per family (DL, LB, DB) and combined
+
+Rows collected, identity-matched, translated, withheld (by reason),
+extrapolated (must be 0 for A); family-position mismatches (must be 0);
+Hampel outlier drops among Signals votes; value movement median / p90 / max;
+rank movement median; top-50 / top-100 / top-200 membership changes; DL/LB/DB
+share of the IDP top-100 and of the overall top-200; confidence-bucket
+changes; independent-family-count changes; the watch list (§10.5); completed-
+trade fit (§10.7).
+
+### 10.5 Watch list (interpretation only; never tuned on)
+
+The #1627 cases (the LB the backbone ranks IDP #4 that the retired route
+priced at 9,484; the two top-50 LBs re-admitted at +867 / +875), plus for each
+family the Signals rank-1, rank-12 and rank-36 players (elite / mid / deep),
+plus the five rows where Signals' family rank and the market's family rank
+differ most.
+
+### 10.6 Promotion gate (fixed now)
+
+Candidate A may be switched on (`signals_idp_shared_market`) only when ALL hold
+on the production board:
+
+1. No Signals-created cross-family order (structural; tested).
+2. Every Signals IDP vote lands in `shared_market` coordinates (structural; tested).
+3. The 9,484 case: the watch-list LB's Signals contribution lies within the
+   range of the other sources on its row, widened by 15%.
+4. Hampel drops among Signals IDP votes ≤ 5% (the retired route: 76/406 = 19%),
+   with the outlier window unchanged (no threshold edits).
+5. Family composition: each family's share of the overall top-200 moves by at
+   most 3 percentage points, or the movement is explained by named rows.
+6. Board movement: IDP value movement median ≤ 2%, p90 ≤ 8%; no non-IDP row
+   moves (offense and picks byte-identical apart from shared-tie effects).
+7. Independent fresh-context review approves the methodology and the numbers.
+8. Tests cover missing ladder, bad identity, unsupported family, stale source.
+9. Completed-trade evidence (§10.7) does not materially contradict A: the
+   median absolute side gap of covered trades does not worsen by more than
+   5% under A versus the champion.  With fewer than 30 covered trades this
+   criterion is recorded as INSUFFICIENT and does not block on its own; it is
+   re-run as the ledger grows.
+
+If any of 1–8 fails, the hold stays, the shadow keeps running, and the failed
+criterion is recorded here.  A failed first challenger is evidence about A,
+not about Signals IDP.
+
+### 10.7 Completed-trade validation design
+
+Source: the production `data/market_trades/underlying_trades.sqlite`
+(`scripts/market_trade_ledger.py`), one row per `underlyingTradeId` (the
+group owner already collapses a Sleeper trade seen twice and a KTC/Sleeper
+echo of one event).  Admitted: dispositions `NATIVE_COMPARABLE` and
+`VALIDATED_TRANSFORMABLE` only, verified dynasty, at least one DL/LB/DB player
+on either side.  `BROAD_CONTEXT` trades are counted, not scored.  Score: for
+each trade, `|Σ side A − Σ side B|` in canonical value, under the champion and
+under A.  Candidate A fits no parameter, so no trade is used for fitting and
+there is no train/test overlap.
+
+### 10.8 Results
+
+Appended by the on-box evaluation (`scripts/verify_signals_onbox.py`, workflow
+`signals-onbox-verification.yml`).
