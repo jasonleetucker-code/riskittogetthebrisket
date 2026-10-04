@@ -681,6 +681,64 @@ def _league_best_ball(league_key: str | None = None) -> bool:
         return False
 
 
+def _simulated_season(snapshot: Any) -> Any:
+    """The season the simulator reads — the SAME selector as
+    :func:`_current_record` and :func:`_remaining_schedule`."""
+    seasons = list(getattr(snapshot, "seasons", None) or [])
+    if not seasons:
+        return None
+    return sorted(seasons, key=lambda s: luck._season_sort_key(s.season))[-1]
+
+
+def _season_year(snapshot: Any) -> int | None:
+    """The simulated NFL season as a year."""
+    season = _simulated_season(snapshot)
+    try:
+        return int(getattr(season, "season", None))
+    except (TypeError, ValueError):
+        return None
+
+
+def _regular_season_progress(snapshot: Any, structure: Any) -> dict[str, Any]:
+    """How much of the regular season is FINISHED, in the league's own weeks.
+
+    Counted in weeks, not games: the regular season is weeks
+    ``1 .. playoff_week_start - 1`` (the league's own settings), and a week
+    counts only when it is in the canonical finished-week set
+    (``playoff_odds._final_week_set``) — the same gate the record uses.  It is
+    deliberately NOT inferred from an empty remaining schedule: future
+    matchups that failed to post (or whose owners did not resolve) also leave
+    the schedule empty, and that is not a finished season.  An unknown
+    ``playoff_week_start`` answers ``None`` throughout — unknown, not zero.
+    """
+    week_start = getattr(structure, "week_start", None)
+    season = _simulated_season(snapshot)
+    if not isinstance(week_start, int) or week_start < 2 or season is None:
+        return {"weeksTotal": None, "weeksFinal": None, "complete": None}
+    total = week_start - 1
+    final_weeks = playoff_odds._final_week_set(season)
+    done = sum(1 for wk in range(1, total + 1) if wk in final_weeks)
+    return {"weeksTotal": total, "weeksFinal": done, "complete": done >= total}
+
+
+def _summary(samples: list[float]) -> dict[str, float] | None:
+    """Mean and 10th/50th/90th percentiles of a simulated quantity."""
+    if not samples:
+        return None
+    xs = sorted(samples)
+    n = len(xs)
+
+    def pct(q: float) -> float:
+        return xs[min(n - 1, max(0, int(round(q * (n - 1)))))]
+
+    return {
+        "mean": round(sum(xs) / n, 2),
+        "p10": round(pct(0.10), 2),
+        "p50": round(pct(0.50), 2),
+        "p90": round(pct(0.90), 2),
+    }
+
+
 def _simulate_bracket(
     seeded: list[str],
     distributions: dict[str, _TeamDist],
@@ -943,6 +1001,37 @@ def simulate_playoff_odds(
     champ_count: dict[str, int] = {o: 0 for o in owners}
     completed = 0
 
+    # Rookie-draft slot distribution under the league's CANONICAL draft-order
+    # rule (src/public_league/draft_order.py), applied to each simulation's
+    # final regular-season wins and Points For.  A league with no recorded
+    # rule gets none — never an assumed order.
+    from src.public_league.draft_order import (  # noqa: PLC0415
+        draft_order,
+        league_draft_order_rule,
+    )
+
+    draft_rule = league_draft_order_rule(league_key)
+    # Its own stream, cloned from the main rng's state without consuming it,
+    # so publishing slots leaves every playoff/championship draw unchanged.
+    draft_rng = random.Random()
+    draft_rng.setstate(rng.getstate())
+    # Draft order ranks on RECORD, where a tied game is half a win (the
+    # ``wins + 0.5 * ties`` key ``_regular_season_record_to_date`` documents).
+    # ``sim_wins`` is seeded from wins alone — the playoff seeding reads it
+    # that way today, and changing it would move every published odd — so the
+    # draft order adds the half-wins from ties already on the books here.
+    tie_credit: dict[str, float] = {}
+    for o in owners:
+        ties = (record.get(o) or {}).get("ties")
+        tie_credit[o] = (
+            0.5 * float(ties)
+            if isinstance(ties, (int, float)) and not isinstance(ties, bool)
+            else 0.0
+        )
+    draft_slot_counts: dict[str, list[int]] = {o: [0] * len(owners) for o in owners}
+    final_wins_samples: dict[str, list[float]] = {o: [] for o in owners}
+    final_pf_samples: dict[str, list[float]] = {o: [] for o in owners}
+
     for sim_i in range(max_simulations):
         completed = sim_i + 1
         sim_wins: dict[str, float] = {o: float(record.get(o, {}).get("wins", 0)) for o in owners}
@@ -972,6 +1061,15 @@ def simulate_playoff_odds(
         # event.  ``rng`` is passed explicitly per W19-F008 — see the guard in
         # tests/ros/test_standings_tiebreak.py.
         ranked = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
+        if draft_rule is not None:
+            record_wins = {o: sim_wins.get(o, 0.0) + tie_credit[o] for o in owners}
+            for slot_i, owner in enumerate(
+                draft_order(record_wins, sim_pf, owners, rng=draft_rng).order
+            ):
+                draft_slot_counts[owner][slot_i] += 1
+            for owner in owners:
+                final_wins_samples[owner].append(record_wins[owner])
+                final_pf_samples[owner].append(sim_pf.get(owner, 0.0))
         for i, owner in enumerate(ranked):
             seed_counts[owner][i] += 1
             wins_total[owner] += sim_wins.get(owner, 0.0)
@@ -1031,6 +1129,15 @@ def simulate_playoff_odds(
                 "medianFinalSeed": median_seed,
                 "mostLikelySeed": most_likely_seed,
                 "seedDistribution": [c / n_safe for c in seed_dist],
+                **(
+                    {
+                        "draftSlotDistribution": [c / n_safe for c in draft_slot_counts[owner]],
+                        "finalWins": _summary(final_wins_samples[owner]),
+                        "finalPointsFor": _summary(final_pf_samples[owner]),
+                    }
+                    if draft_rule is not None
+                    else {}
+                ),
             }
         )
     out.sort(key=lambda r: -r["playoffOdds"])
@@ -1054,6 +1161,13 @@ def simulate_playoff_odds(
         "bestBallVarianceMode": "depth_aware" if best_ball else "off",
         "pointsModelSource": model.source,
         "pointsModelGeneratedAt": model.generated_at,
+        # Which draft-order rule produced ``draftSlotDistribution`` (None =
+        # the league has no recorded rule, so no slot distribution exists).
+        "draftOrderRule": draft_rule,
+        "season": _season_year(snapshot),
+        # Season progress in the league's own regular-season WEEKS — see
+        # ``_regular_season_progress``.  ``None`` = unknown, never zero.
+        "regularSeasonProgress": _regular_season_progress(snapshot, structure),
     }
 
 

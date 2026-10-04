@@ -394,6 +394,45 @@ def _diff(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     return delta
 
 
+def competitive_posture_for(
+    contract: Any,
+    league_key: str,
+    team: dict[str, Any],
+    *,
+    build_if_missing: bool,
+) -> dict[str, Any]:
+    """This team's canonical posture block, or a NAMED unavailable.
+
+    The route calls this and hands the block to :func:`simulate_trade`.
+    Analyze Trade may build the league bundle (``build_if_missing``); a plain
+    simulate (every calculator edit) reads a warm one only, so it never pays
+    the cold solve.
+    """
+    owner_id = str(team.get("ownerId") or "")
+    try:
+        from src.api.gameplan import GameplanUnavailable, league_competitive_postures
+        from src.api.league_registry import get_scoring_profile
+
+        postures, meta = league_competitive_postures(
+            league_key,
+            get_scoring_profile(league_key),
+            contract,
+            build_if_missing=build_if_missing,
+        )
+    except GameplanUnavailable as exc:
+        return {"available": False, "unavailableReason": exc.reason}
+    except Exception as exc:  # noqa: BLE001 — context never fails a simulation
+        return {"available": False, "unavailableReason": f"error:{type(exc).__name__}"}
+    posture = postures.get(owner_id)
+    if posture is None:
+        return {"available": False, "unavailableReason": "team_not_in_league_bundle"}
+    return {
+        "available": True,
+        **posture.to_dict(),
+        "bundleFreshness": meta.get("bundleFreshness"),
+    }
+
+
 def simulate_trade(
     contract: dict[str, Any],
     *,
@@ -405,6 +444,7 @@ def simulate_trade(
     roster_settings: dict[str, Any] | None = None,
     league_key: str | None = None,
     include_roster_utility: bool = False,
+    competitive_posture: dict[str, Any] | None = None,
     pick_asset_ids_in: list[Any] | None = None,
     pick_asset_ids_out: list[Any] | None = None,
 ) -> dict[str, Any]:
@@ -665,6 +705,13 @@ def simulate_trade(
             ),
         }
 
+    # Competitive Posture (#840 / C7-POST-01): the canonical owner's answer
+    # for THIS team, resolved by the caller (``competitive_posture_for``) and
+    # passed in — this function stays pure over its inputs.
+    posture_block = competitive_posture if isinstance(competitive_posture, dict) else None
+    if resolved_team and posture_block is not None:
+        response["competitivePosture"] = posture_block
+
     # Roster-shape-aware fit verdict.  Only computed when we have both
     # a resolved team and league roster settings — free-analysis mode
     # (no team selected) and contracts without league context skip
@@ -679,6 +726,9 @@ def simulate_trade(
             sending=sending,
             equity=int(equity),
             roster_settings=roster_settings,
+            canonical_posture=(
+                posture_block if posture_block and posture_block.get("label") else None
+            ),
         )
         if impact is not None:
             response["teamImpact"] = impact

@@ -1,4 +1,16 @@
-"""The arbitrage finder cannot currently trade a draft pick, and that is recorded.
+"""The arbitrage finder trades a draft pick ONLY through posture-aware generation.
+
+**Wave B update (C7-PICKGEN-01, owner decision 2026-10-03).**  Owned picks now
+reach the finder through ``finder._owned_pick_assets`` (the canonical
+``pickDetails`` fold + ``identity.picks.market_resolution``; the label-grammar
+break below is still NOT repaired with a finder regex) and only when the route
+supplies canonical postures for a complementary pair — see
+``tests/trade/test_posture_aware_picks.py``.  ``_resolve_roster`` still reads
+players only, and WITHOUT postures every assertion below still holds: that is
+the invariant these tests now pin.  The history that follows is kept as the
+record of why.
+
+Original note — the arbitrage finder could not trade a draft pick.
 
 Measured on the 2026-08-18 board across all twelve ``dynasty_main`` rosters:
 **480 returned trades, 0 containing a pick**, shapes only ``(1,1)`` and
