@@ -19,6 +19,9 @@ FRONTEND_STAGING_DIR_NAME="${FRONTEND_STAGING_DIR_NAME:-.next.new}"
 FRONTEND_PROBE_MAX_ATTEMPTS="${FRONTEND_PROBE_MAX_ATTEMPTS:-15}"
 FRONTEND_PROBE_SLEEP_SECONDS="${FRONTEND_PROBE_SLEEP_SECONDS:-2}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"
+ROLLBACK_ARTIFACT_ARCHIVE=""
+ROLLBACK_ARTIFACT_SHA256=""
+ROLLBACK_TARGET_REV=""
 PUBLIC_URL="${PUBLIC_URL:-}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ROLLBACK_REF="${1:-${ROLLBACK_REF:-}}"
@@ -341,7 +344,7 @@ PY
 maybe_rebuild_frontend_after_rollback() {
   local run_build
   run_build="$(lower "${RUN_FRONTEND_BUILD}")"
-  if [[ "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
+  if [[ -z "${ROLLBACK_ARTIFACT_ARCHIVE}" && "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
     log "Frontend build disabled (RUN_FRONTEND_BUILD=${RUN_FRONTEND_BUILD}); skipping rollback frontend rebuild."
     return 0
   fi
@@ -368,12 +371,33 @@ maybe_rebuild_frontend_after_rollback() {
 
   log "Installing frontend dependencies in ${frontend_dir} (rollback)"
   if [[ -f "${frontend_dir}/package-lock.json" ]]; then
-    npm ci --prefix "${frontend_dir}"
+    if ! npm ci --prefix "${frontend_dir}"; then
+      error "Rollback frontend dependency install failed."
+      return 1
+    fi
   else
-    npm install --prefix "${frontend_dir}"
+    if ! npm install --prefix "${frontend_dir}"; then
+      error "Rollback frontend dependency install failed."
+      return 1
+    fi
   fi
 
-  log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
+  if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    log "Restoring verified CI release artifact for ${ROLLBACK_TARGET_REV}."
+    if ! python3 -m scripts.stage_release_artifact \
+      --archive "${ROLLBACK_ARTIFACT_ARCHIVE}" \
+      --archive-sha256 "${ROLLBACK_ARTIFACT_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${ROLLBACK_TARGET_REV}" \
+      --staging "${staging_dir}" \
+      --node-version "$(node --version)" \
+      --receipt "${DEPLOY_STATE_DIR}/staged_release_manifest.json"; then
+      error "Rollback release artifact verification failed; refusing a rebuild that changes tested bytes."
+      return 1
+    fi
+  else
+    log "No saved release artifact for rollback target; rebuilding the legacy frontend."
+    log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
   # The exit status is captured EXPLICITLY, and that is the whole fix for
   # the 2026-08-12 swap-a-broken-build defect.
   #
@@ -408,6 +432,7 @@ maybe_rebuild_frontend_after_rollback() {
     error "Staging dir ${staging_dir} is incomplete and will NOT be swapped in."
     rm -rf "${staging_dir}"
     return 1
+  fi
   fi
 
   verify_frontend_build_manifest "${staging_dir}" || return 1
@@ -624,14 +649,33 @@ main() {
   git checkout --force "${rollback_target}"
   git reset --hard "${rollback_target}"
 
+  ROLLBACK_TARGET_REV="${rollback_target}"
+  if [[ -f "${state_dir}/releases/${rollback_target}.tar" ]]; then
+    [[ -f "${state_dir}/releases/${rollback_target}.sha256" ]] || {
+      error "Saved release artifact has no checksum: ${rollback_target}"
+      exit 1
+    }
+    ROLLBACK_ARTIFACT_ARCHIVE="${state_dir}/releases/${rollback_target}.tar"
+    ROLLBACK_ARTIFACT_SHA256="$(tr -d '[:space:]' < "${state_dir}/releases/${rollback_target}.sha256")"
+  fi
+
   prepare_python_runtime
 
   # Rebuild the frontend from the rolled-back source tree before
   # restarting the backend.  A failure here should still fall through
   # to the backend restart, but we log the failure loudly so operators
   # know the frontend is potentially inconsistent.
+  local rollback_frontend_ok="true"
   if ! maybe_rebuild_frontend_after_rollback; then
     error "Rollback frontend rebuild failed; backend will still be restarted but frontend state is suspect."
+    rollback_frontend_ok="false"
+  fi
+
+  if [[ "${rollback_frontend_ok}" == "true" && -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    cp "${state_dir}/staged_release_manifest.json" "${APP_DIR}/.release-manifest.json.tmp"
+    mv -f "${APP_DIR}/.release-manifest.json.tmp" "${APP_DIR}/.release-manifest.json"
+  else
+    rm -f "${APP_DIR}/.release-manifest.json"
   fi
 
   reconcile_runtime_state_for_rollback
@@ -663,6 +707,21 @@ main() {
     PUBLIC_URL="${PUBLIC_URL}" \
     STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH}" \
     bash "${APP_DIR}/deploy/verify-deploy.sh"
+  fi
+
+  if [[ "${rollback_frontend_ok}" != "true" ]]; then
+    error "Rollback frontend was not restored; refusing to record this revision as successful."
+    exit 1
+  fi
+
+  if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    python3 -m scripts.release_artifact verify \
+      --root "${APP_DIR}" \
+      --manifest "${state_dir}/staged_release_manifest.json" \
+      --commit "${rollback_target}"
+    cp "${state_dir}/staged_release_manifest.json" "${state_dir}/last_successful_release_manifest.json"
+  else
+    rm -f "${state_dir}/last_successful_release_manifest.json"
   fi
 
   printf '%s\n' "${rollback_target}" > "${state_dir}/last_successful_rev"
