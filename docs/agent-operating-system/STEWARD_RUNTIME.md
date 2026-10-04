@@ -203,6 +203,17 @@ only when all failed events consistently provide that layer and nonempty
 evidence references; otherwise it is UNKNOWN. Investigate the spec, test and
 architecture before repeating the same failing prompt.
 
+The optional `python -m src.steward.decision_advisor --task <json>
+--advisor-answer <json>` command is an **offline shadow replay** of one
+low-authority `task_profile` CHOICE question. Its baseline is the existing
+deterministic `classify` rule; the answer is read from a bounded file, never
+fetched from a provider. An explicit `needs_system2` label permits abstention.
+Unknown labels, permission questions, extra authority fields, malformed
+probabilities and claimed calibration fail closed. The output contains no task
+goal/context, has `effect: NONE`, and cannot modify the live route. It is a
+port for later measured comparison, not a calibrated advisor, model benchmark,
+or production dependency.
+
 ## Moving Main and Generated Data
 
 Fetch before major phases, expensive final validation and integration. The
