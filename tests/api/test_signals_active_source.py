@@ -173,18 +173,29 @@ def _rows(contract: dict) -> dict[str, dict]:
     return {str(r.get("displayName")): r for r in contract.get("playersArray") or []}
 
 
+@contextlib.contextmanager
+def _idp_promoted():
+    """``signals_idp_shared_market`` ON — the promotion switch, exercised
+    through the real flag (env + reload), not by editing the hold table."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET", "1")
+        feature_flags.reload()
+        try:
+            yield
+        finally:
+            mp.delenv("RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET")
+            feature_flags.reload()
+
+
 @pytest.fixture(scope="module")
 def boards(tmp_path_factory):
-    """Built with the IDP vote hold LIFTED, so the positional IDP mechanics
-    (which the hold exists to keep out of production until their coordinate
-    question is decided) stay pinned for the day the hold is lifted."""
-    import src.api.data_contract as dc
-
+    """Built with Signals IDP PROMOTED (voting through the shared-market
+    family crosswalk), so the voting mechanics stay pinned for the day the
+    promotion gate passes."""
     on = tmp_path_factory.mktemp("signals_on")
     _write_store(on)
     off = tmp_path_factory.mktemp("signals_off")
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(dc, "PRIVATE_SOURCE_VOTE_HOLDS", {})
+    with _idp_promoted():
         with_signals = _build(on)
         without = _build(off)
     return with_signals, without
@@ -231,7 +242,7 @@ class TestNativeValueContributes:
         meta = _rows(boards[0])[_off(0)]["sourceRankMeta"]["signalsSf"]
         assert meta["effectiveRank"] == 10
 
-    def test_idp_through_the_positional_family_ladder(self, boards):
+    def test_idp_through_the_shared_market_family_ladder(self, boards):
         rows = _rows(boards[0])
         row = rows[_idp(0)]  # a DL
         meta = row["sourceRankMeta"]["signalsIdpDl"]
@@ -257,14 +268,24 @@ class TestNativeValueContributes:
 
 
 class TestRankFallback:
-    @pytest.mark.parametrize(
-        "name,key", [(_off(OFF_FALLBACK), "signalsSf"), (_idp(IDP_FALLBACK), "signalsIdpDl")]
-    )
-    def test_a_cross_position_rank_without_a_value_votes_as_rank(self, boards, name, key):
-        row = _rows(boards[0])[name]
-        assert _voted(row["sourceRankMeta"][key])
-        assert key not in (row.get("sourceNativeValues") or {})  # RANK basis: no value
-        assert key in row["sourceOriginalRanks"]
+    def test_a_cross_position_rank_without_a_value_votes_as_rank(self, boards):
+        row = _rows(boards[0])[_off(OFF_FALLBACK)]
+        assert _voted(row["sourceRankMeta"]["signalsSf"])
+        assert "signalsSf" not in (row.get("sourceNativeValues") or {})  # RANK basis
+        assert "signalsSf" in row["sourceOriginalRanks"]
+
+    def test_an_idp_cross_position_rank_is_never_read_as_a_family_rank(self, boards, held):
+        """The IDP crosswalk translates a WITHIN-FAMILY rank, and Signals'
+        only within-family order is its native values.  A cross-position
+        rank with no value (inert today: the IDP dataset publishes none) is
+        not "the k-th DL" and is withheld, voting or shadow."""
+        promoted = _rows(boards[0])[_idp(IDP_FALLBACK)]
+        assert "signalsIdpDl" not in (promoted.get("sourceRankMeta") or {})
+        withheld = boards[0]["crossPositionBridges"]["withheldFamilyCrosswalk"]
+        assert withheld["signalsIdpDl"]["not_a_within_family_rank"] == 1
+        shadow = _rows(held[0])[_idp(IDP_FALLBACK)]["sourceShadowMeta"]["signalsIdpDl"]
+        assert shadow["withheldReason"] == "not_a_within_family_rank"
+        assert shadow["wouldContribute"] is None
 
     def test_a_positional_rank_alone_never_votes(self, boards):
         row = _rows(boards[0])[_off(OFF_POSITIONAL_ONLY)]
@@ -341,16 +362,35 @@ class TestOneFamily:
         """FantasyCalc publishes no IDP, so the shared group adds ONE family
         on an IDP row Signals covers — stated, not hidden (review N1)."""
         with_s, without = (_rows(b) for b in boards)
-        row_on, row_off = with_s[_idp(30)], without[_idp(30)]
+        # The top DL: above the fixture's coverage gap, and a row where no
+        # other source sits outside the outlier window (the synthetic
+        # IDPTC's value-direct price runs high against the Hill-priced
+        # specialists deeper down, so an added agreeing vote can Hampel-drop
+        # it there — a fixture artifact, not a family question).
+        row_on, row_off = with_s[_idp(0)], without[_idp(0)]
         assert row_on["independentSourceCount"] == row_off["independentSourceCount"] + 1
 
 
-# ── the positional IDP path (UNEXERCISED before Signals; review B1) ──────
+# ── the shared-market family crosswalk (2026-10-04; replaces review B1's
+#    IDP-local positional route) ───────────────────────────────────────────
 
 
-def _idp_backbone_ladder(group: str) -> list[int]:
-    """IDP-overall ranks of each ``group`` member in the backbone's order —
-    recomputed independently from the fixture's IDPTC values."""
+def _shared_market_family_ladder(group: str, raw: dict | None = None) -> list[int]:
+    """COMBINED offense+IDP ranks of each ``group`` member on the bridge's
+    (IDPTC's) pool — recomputed independently from the fixture's values,
+    with the bridge owner's ordering (value desc, displayName)."""
+    players = (raw or _raw_payload())["players"]
+    pool = [
+        (float(p["idpTradeCalc"]), n, p["position"])
+        for n, p in players.items()
+        if float(p.get("idpTradeCalc") or 0) > 0
+    ]
+    pool.sort(key=lambda t: (-t[0], t[1].lower()))
+    return [i for i, (_v, _n, pos) in enumerate(pool, start=1) if pos == group]
+
+
+def _idp_local_family_ladder(group: str) -> list[int]:
+    """The RETIRED route's ladder: IDP-only ranks of each ``group`` member."""
     idp = [
         (p["idpTradeCalc"], n, p["position"])
         for n, p in _raw_payload()["players"].items()
@@ -360,10 +400,12 @@ def _idp_backbone_ladder(group: str) -> list[int]:
     return [i for i, (_v, _n, pos) in enumerate(idp, start=1) if pos == group]
 
 
-class TestPositionalIdpPath:
+class TestSharedMarketFamilyCrosswalk:
     @pytest.mark.parametrize("group", ["DL", "LB", "DB"])
-    def test_a_within_family_rank_lands_on_that_familys_ladder(self, boards, group):
-        ladder = _idp_backbone_ladder(group)
+    def test_family_rank_k_lands_where_the_kth_of_that_family_sits_on_the_market(
+        self, boards, group
+    ):
+        ladder = _shared_market_family_ladder(group)
         key = f"signalsIdp{group.title()}"
         seen = 0
         for row in boards[0]["playersArray"]:
@@ -372,8 +414,16 @@ class TestPositionalIdpPath:
                 continue
             assert row["position"] == group
             assert meta["effectiveRank"] == ladder[int(meta["rawRank"]) - 1], row["displayName"]
+            assert meta["rankCoordinatePool"] == "shared_market"
             seen += 1
         assert seen > 20
+
+    def test_the_shared_market_ladder_is_not_the_idp_local_one(self):
+        """The fixture interleaves offense and IDP on IDPTC, so the two
+        coordinate systems genuinely differ — the tests above would catch a
+        regression to the IDP-local route."""
+        for group in IDP_POS:
+            assert _shared_market_family_ladder(group) != _idp_local_family_ladder(group)
 
     def test_every_family_board_starts_at_one(self, boards):
         """No cross-family order: each family's best Signals row carries
@@ -385,7 +435,7 @@ class TestPositionalIdpPath:
                     firsts[key] = row["displayName"]
         assert set(firsts) == set(SIGNALS_KEYS[1:])
 
-    def test_a_db_number_one_never_inherits_the_idp_number_one_price(self, boards):
+    def test_a_db_number_one_lands_where_the_first_db_sits_not_at_market_one(self, boards):
         rows = _rows(boards[0])
         db1 = next(
             r
@@ -394,38 +444,74 @@ class TestPositionalIdpPath:
         )
         meta = db1["sourceRankMeta"]["signalsIdpDb"]
         assert meta["rawRank"] == 1
-        assert meta["effectiveRank"] == _idp_backbone_ladder("DB")[0] > 1
-        idp1 = next(
-            r
-            for r in rows.values()
-            if (r.get("sourceRankMeta") or {}).get("signalsIdpDl", {}).get("effectiveRank") == 1
-        )
-        assert (
-            meta["valueContribution"] < idp1["sourceRankMeta"]["signalsIdpDl"]["valueContribution"]
-        )
+        assert meta["effectiveRank"] == _shared_market_family_ladder("DB")[0] > 1
 
-    def test_no_family_ladder_means_the_vote_is_withheld_not_passed_through(
-        self, tmp_path, monkeypatch
-    ):
-        """Without the backbone (no IDPTC IDP values) there is no family
-        ladder; the raw within-family rank must NOT be voted as an IDP rank."""
-        import src.api.data_contract as dc
+    def test_signals_idp_prices_in_the_same_coordinates_as_its_peers(self, boards):
+        """THE regression the hold existed for.  On the retired route an LB
+        the backbone ranked IDP #4 contributed 9,484 against 5,238-5,668 from
+        the row's other sources.  The fixture's sources all agree on order,
+        so every Signals IDP vote must now sit within a few percent of the
+        shared-market specialist (``dlfIdp``) on the same row, and none may
+        be outlier-dropped."""
+        compared = 0
+        for row in boards[0]["playersArray"]:
+            # Rows above the fixture's coverage gap (10-19 are absent from
+            # Signals): below it, Signals' within-family rank is relative to
+            # its own coverage — the 4th DB it lists is the 7th the market
+            # lists — a property of every rank crosswalk, measured on the
+            # production board by the shadow evaluation rather than hidden.
+            if int(str(row["displayName"])[-3:]) >= 10:
+                continue
+            metas = row.get("sourceRankMeta") or {}
+            peer = metas.get("dlfIdp")
+            for key in SIGNALS_KEYS[1:]:
+                meta = metas.get(key)
+                if not meta or not peer or "valueContribution" not in peer:
+                    continue
+                assert not meta.get("hampelDropped"), (row["displayName"], key)
+                a, b = float(meta["valueContribution"]), float(peer["valueContribution"])
+                assert abs(a - b) <= 0.08 * max(a, b), (row["displayName"], key, a, b)
+                compared += 1
+        assert compared >= 6
 
-        monkeypatch.setattr(dc, "PRIVATE_SOURCE_VOTE_HOLDS", {})
+    def test_no_bridge_means_the_vote_is_withheld_not_passed_through(self, tmp_path):
+        """Without a usable bridge (no IDPTC IDP values) there is no family
+        ladder; the raw within-family rank must NOT be voted."""
         _write_store(tmp_path)
         raw = _raw_payload()
-        for name, p in raw["players"].items():
+        for p in raw["players"].values():
             if p["position"] in IDP_POS:
                 p.pop("idpTradeCalc", None)
                 p["_canonicalSiteValues"].pop("idpTradeCalc", None)
-        with contextlib.redirect_stdout(io.StringIO()):
+        with _idp_promoted(), contextlib.redirect_stdout(io.StringIO()):
             contract = build_api_data_contract(raw, csv_root=tmp_path)
         for row in contract["playersArray"]:
             for key in SIGNALS_KEYS[1:]:
                 meta = (row.get("sourceRankMeta") or {}).get(key)
                 assert not meta, (row["displayName"], key, meta)
-        withheld = (contract.get("crossPositionBridges") or {}).get("withheldNoBridge") or {}
-        assert sum(withheld.get(k, 0) for k in SIGNALS_KEYS[1:]) > 0
+        withheld = (contract.get("crossPositionBridges") or {}).get("withheldFamilyCrosswalk")
+        assert sum((withheld or {}).get(k, {}).get("no_family_ladder", 0) for k in SIGNALS_KEYS[1:])
+
+    def test_a_rank_past_the_familys_market_depth_is_withheld_not_extrapolated(self, tmp_path):
+        """Candidate A: k deeper than the market's own LB list has no
+        measured market position.  Drop IDPTC from the deepest LBs so the
+        Signals LB board runs past the family ladder."""
+        _write_store(tmp_path)
+        raw = _raw_payload()
+        lbs = [n for n, p in raw["players"].items() if p["position"] == "LB"]
+        for name in lbs[-15:]:
+            raw["players"][name].pop("idpTradeCalc", None)
+            raw["players"][name]["_canonicalSiteValues"].pop("idpTradeCalc", None)
+        with _idp_promoted(), contextlib.redirect_stdout(io.StringIO()):
+            contract = build_api_data_contract(raw, csv_root=tmp_path)
+        depth = len(_shared_market_family_ladder("LB", raw))
+        for row in contract["playersArray"]:
+            meta = (row.get("sourceRankMeta") or {}).get("signalsIdpLb")
+            if meta:
+                assert int(meta["rawRank"]) <= depth
+                assert meta["method"] != "extrapolated"
+        withheld = (contract.get("crossPositionBridges") or {}).get("withheldFamilyCrosswalk")
+        assert (withheld or {}).get("signalsIdpLb", {}).get("beyond_family_ladder", 0) > 0
 
     def test_a_family_mismatch_with_our_position_casts_no_vote(self, boards):
         """A Signals DB board row joined to a row WE hold as DL is not
@@ -433,6 +519,9 @@ class TestPositionalIdpPath:
         for row in boards[0]["playersArray"]:
             for key, grp in zip(SIGNALS_KEYS[1:], ("DL", "LB", "DB")):
                 if (row.get("sourceRankMeta") or {}).get(key):
+                    assert row["position"] == grp
+            for key, grp in zip(SIGNALS_KEYS[1:], ("DL", "LB", "DB")):
+                if (row.get("sourceShadowMeta") or {}).get(key):
                     assert row["position"] == grp
 
 
@@ -555,17 +644,19 @@ def test_the_csv_paths_never_point_into_the_committed_tree():
     }
 
 
-# ── the IDP vote HOLD (review B1; the shipped state) ─────────────────────
+# ── Signals IDP in SHADOW (the shipped state) ───────────────────────────
 
 
-class TestIdpVoteHold:
-    def test_idp_boards_are_collected_and_shown_but_cast_no_vote(self, held):
+class TestIdpShadow:
+    def test_idp_boards_are_collected_shown_and_shadowed_but_cast_no_vote(self, held):
         contract, _ = held
         for key in SIGNALS_KEYS[1:]:
             info = contract["privateSourceAvailability"][key]
             assert info["state"] == PRIVATE_SOURCE_PRESENT
             assert info["votes"] is False
-            assert info["heldFromVote"] == "positional_idp_path_prices_in_idp_local_coordinates"
+            assert info["voteState"] == "shadow"
+            assert info["heldFromVote"] == "shared_market_crosswalk_in_shadow_pending_promotion"
+        assert contract["privateSourceAvailability"]["signalsSf"]["voteState"] == "active"
         shown = 0
         for row in contract["playersArray"]:
             meta = row.get("sourceRankMeta") or {}
@@ -574,32 +665,53 @@ class TestIdpVoteHold:
                 shown += 1
         assert shown > 50  # displayed: native value + within-family rank
 
+    def test_shadow_meta_carries_the_shared_market_translation(self, held):
+        contract, _ = held
+        seen = 0
+        for row in contract["playersArray"]:
+            for key, grp in zip(SIGNALS_KEYS[1:], ("DL", "LB", "DB")):
+                shadow = (row.get("sourceShadowMeta") or {}).get(key)
+                if not shadow or shadow.get("withheldReason"):
+                    continue
+                ladder = _shared_market_family_ladder(grp)
+                assert shadow["translatedRank"] == ladder[int(shadow["familyRank"]) - 1]
+                assert shadow["rankCoordinatePool"] == "shared_market"
+                assert isinstance(shadow["wouldContribute"], int)
+                seen += 1
+        assert seen > 50
+
+    def test_the_shadow_number_is_exactly_what_promotion_would_vote(self, held, boards):
+        """The diagnostic must not be a second methodology: the published
+        ``wouldContribute`` equals the contribution the same row casts once
+        the switch is on (pre-blend; same curve, same rank)."""
+        shadow_rows, promoted_rows = _rows(held[0]), _rows(boards[0])
+        compared = 0
+        for name, row in shadow_rows.items():
+            for key in SIGNALS_KEYS[1:]:
+                shadow = (row.get("sourceShadowMeta") or {}).get(key)
+                voted = (promoted_rows[name].get("sourceRankMeta") or {}).get(key)
+                if not shadow or not voted or shadow.get("withheldReason"):
+                    continue
+                assert shadow["translatedRank"] == voted["effectiveRank"]
+                assert abs(shadow["wouldContribute"] - float(voted["valueContribution"])) <= 1
+                compared += 1
+        assert compared > 50
+
     def test_offense_still_votes(self, held):
         row = _rows(held[0])[_off(40)]
         assert _voted(row["sourceRankMeta"]["signalsSf"])
 
-    def test_held_idp_moves_no_idp_value_and_raises_nothing(self, held):
+    def test_shadow_idp_moves_no_idp_value_and_raises_nothing(self, held):
         on, off = (_rows(b) for b in held)
         idp = [n for n in on if n.startswith("Synthetic Idp")]
         assert all(on[n]["rankDerivedValue"] == off[n]["rankDerivedValue"] for n in idp)
         assert all(on[n]["independentSourceCount"] == off[n]["independentSourceCount"] for n in idp)
+        assert all(on[n].get("confidenceBucket") == off[n].get("confidenceBucket") for n in idp)
         report = validate_api_data_contract(held[0])
         assert not [e for e in report["errors"] if "signals" in e]
 
-    def test_why_it_is_held_positional_ranks_are_idp_local(self, boards):
-        """With the hold lifted, the positional path stamps its rank in the
-        IDP-LOCAL coordinate pool while every other IDP specialist on the
-        same row is in the SHARED-MARKET pool — two scales averaged as one.
-        On the production board that priced an IDP #4 at 9,484 against
-        5,238-5,668 from the row's other sources.  If this ever changes (the
-        coordinate question is decided and the path repaired), revisit the
-        hold."""
-        pools = {}
-        for row in boards[0]["playersArray"]:
-            for key, meta in (row.get("sourceRankMeta") or {}).items():
-                if key.startswith("signalsIdp") or key in ("dlfIdp", "fantasyProsIdp"):
-                    pools.setdefault(key[:10] if key.startswith("signalsIdp") else key, set()).add(
-                        meta.get("rankCoordinatePool")
-                    )
-        assert pools["signalsIdp"] == {"idp"}
-        assert pools["dlfIdp"] == {"shared_market"}
+    def test_promotion_switch_turns_the_shadow_into_a_vote(self, boards):
+        for key in SIGNALS_KEYS[1:]:
+            info = boards[0]["privateSourceAvailability"][key]
+            assert info["votes"] is True and info["voteState"] == "active"
+            assert info["heldFromVote"] is None

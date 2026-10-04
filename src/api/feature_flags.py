@@ -127,6 +127,14 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # expected — while their native values stay visible; the contract stamps
     # ``privateSourceAvailability[*].rolledBack``.
     "signals_active_source": True,
+    # Signals IDP promotion switch (2026-10-04).  OFF: the three Signals IDP
+    # boards (signalsIdpDl/Lb/Db) run in SHADOW — their within-family rank is
+    # translated onto the shared market (the bridge owner's family ladder)
+    # and published per row as ``sourceShadowMeta``, with no vote.  ON: they
+    # vote through that translation.  Switched on only when the promotion
+    # gate in docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10 passes.
+    # Rollback: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart.
+    "signals_idp_shared_market": False,
     # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
     # owner decision B 2026-10-01) -- two separately promotable halves, both
     # OFF until the owner approves that specific candidate (valuation
@@ -741,6 +749,7 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._private_source_vote_state``, reached through
     # ``build_api_data_contract`` on every /api/data build.
     "signals_active_source": LIVE,
+    "signals_idp_shared_market": LIVE,
     # joint_outlier_sparse_challenger swaps the per-player outlier filter and
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).
