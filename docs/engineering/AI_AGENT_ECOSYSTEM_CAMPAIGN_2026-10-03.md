@@ -37,12 +37,22 @@ production permissions.
 | Optional typed decision advisor | Existing Steward router/evals | SHADOW PORT IN PROGRESS — offline task-profile comparison only; no provider, labeled corpus, calibration or active routing | Simple baseline, held-out task labels, per-family calibration and risk/coverage before any advisory use |
 | Class-B executor and isolation | Existing Steward controller/contracts | PROBE IN PROGRESS — fixed-container boundary only; no worker or command policy | Denied path/command/network/credential tests; branch-only PR |
 | Action receipt integrity | Existing Steward store/controller | RECOVERY IN PROGRESS — SQLite/JSONL mirror repair on retry; no independent cryptographic anchor | Append-failure recovery, conflict/truncation refusal, exact source mapping |
-| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | NOT STARTED | Structured findings plus deterministic assertions |
+| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public browser spot check and two incident cases; no durable exploratory verifier | Structured findings plus deterministic assertions |
 | Final reconciliation | Canonical docs, CI, deploy and production evidence | NOT STARTED | Exact merged and served identity; unresolved debt |
 
 No new generic orchestration framework, vector memory, generic feature store,
 MCP conversion, paid collector/sandbox, or self-promoting routing is planned.
 Domain methodology and production permissions remain with their current owners.
+
+On 2026-10-04 a read-only Playwright CLI spot check opened production `/league`
+at desktop and 390×844 mobile widths. The Home data rendered, and selecting
+Trades on mobile reached `/league?tab=activity` with a populated Trade activity
+panel. The browser logged a `favicon.ico` 404 and a CSS preload warning. This
+single visit is not a regression suite or proof for the unmerged campaign; the
+existing production E2E workflow and deterministic journey assertions remain
+the browser acceptance path. A full Trades accessibility snapshot was about
+85,000 output tokens, reinforcing the need for targeted browser queries and
+bounded evidence summaries rather than bulk DOM context.
 
 ## Engineering applicability
 
