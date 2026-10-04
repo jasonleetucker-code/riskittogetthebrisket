@@ -204,6 +204,11 @@ module.exports = defineConfig({
     // dozen connection-refused failures that read as a mass product
     // regression.  See stack-death-reporter.js.
     [require.resolve("./stack-death-reporter.js")],
+    // Opt-in, bounded machine-readable evidence. Keep the guard reporter
+    // above loaded; a CLI --reporter flag would replace this whole list.
+    ...(process.env.E2E_JOURNEY_EVIDENCE === "1"
+      ? [[require.resolve("./structured-journey-reporter.js")]]
+      : []),
   ],
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:8000",

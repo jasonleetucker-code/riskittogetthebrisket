@@ -37,7 +37,7 @@ production permissions.
 | Optional typed decision advisor | Existing Steward router/evals | SHADOW PORT IN PROGRESS — offline task-profile comparison only; no provider, labeled corpus, calibration or active routing | Simple baseline, held-out task labels, per-family calibration and risk/coverage before any advisory use |
 | Class-B executor and isolation | Existing Steward controller/contracts | PROBE IN PROGRESS — fixed-container boundary only; no worker or command policy | Denied path/command/network/credential tests; branch-only PR |
 | Action receipt integrity | Existing Steward store/controller | RECOVERY IN PROGRESS — SQLite/JSONL mirror repair on retry; no independent cryptographic anchor | Append-failure recovery, conflict/truncation refusal, exact source mapping |
-| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public CLI exploration, 44 deterministic production E2E checks and two adversarial cases; no standardized exploratory findings artifact | Structured findings plus deterministic assertions |
+| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public CLI exploration, 44 deterministic production E2E checks and two adversarial cases; opt-in structured journey reporter exercised locally, no CI artifact or campaign production proof yet | Structured findings plus deterministic assertions |
 | Final reconciliation | Canonical docs, CI, deploy and production evidence | NOT STARTED | Exact merged and served identity; unresolved debt |
 
 No new generic orchestration framework, vector memory, generic feature store,
@@ -60,6 +60,20 @@ is agent-declared rather than CI-attested. The scheduled production E2E run
 [37160601511](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/37160601511)
 also succeeded on main commit `0aaff7cdb2842dd4a40f4278523dbdd20f32cfc2`
 before this check. Neither run exercises unmerged campaign code.
+
+The browser-evidence unit adds an opt-in, bounded JSON reporter to the same
+Playwright run, preserving the existing failure guards and deterministic
+assertions. It records each selected journey's project, outcome, retries,
+duration and failure-artifact presence without raw error text, page content or
+attachment paths. A local read-only production run on 2026-10-04 selected the
+public `/league?tab=awards` deep-link assertion in desktop and 390×844 mobile
+Chromium: the generated `tests/e2e/playwright-report/journey-evidence.json`
+reported 2 passed, 0 failed/flaky/skipped, one attempt per test, and no failure
+artifacts. This local report has `source_commit: null` because the working tree
+was uncommitted, and it is ignored by Git. It is agent-declared evidence for
+the reporter and current production journey, not CI-attested proof of unmerged
+campaign code. Exact-head CI and retained evidence remain pending; the earlier
+CLI spot check is also agent-declared.
 
 ## Engineering applicability
 
