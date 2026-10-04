@@ -1,9 +1,9 @@
 # AI Agent Ecosystem Reconciliation — 2026-10-03
 
-**Owner request:** issue #1628  
-**External stimulus:** https://x.com/thegreatest_sv/status/2080634616860320073?s=46  
-**Repository base inspected:** main at acb1da9c4c084fc1eaa26139ac73cec7307b825a after #1626 merged  
-**Agent-OS-Receipt:** cdca1dca8385f70c0989302dece8d1bd4ce4843c  
+**Owner request:** issue #1628\
+**External stimulus:** https://x.com/thegreatest_sv/status/2080634616860320073?s=46\
+**Repository base inspected:** main at acb1da9c4c084fc1eaa26139ac73cec7307b825a after #1626 merged\
+**Agent-OS-Receipt:** cdca1dca8385f70c0989302dece8d1bd4ce4843c\
 **Status:** RESEARCH / PLANNING ONLY. This record does not authorize production behavior, source activation, model promotion, spending, merge or deploy.
 
 ## 1. Executive Summary
@@ -85,7 +85,7 @@ Recoverable indexed text:
 
 The remainder describes a free GitHub list that maps 300+ AI-agent tools in one place.
 
-Account: thegreatest_sv.  
+Account: thegreatest_sv.\
 Status ID: 2080634616860320073.
 
 ### INFERRED WITH HIGH CONFIDENCE
