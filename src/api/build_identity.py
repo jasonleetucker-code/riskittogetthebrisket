@@ -220,8 +220,66 @@ def verify_release_manifest(
         raise ValueError("release artifact identity mismatch")
 
 
+def resolve_runtime_release_identity(repo_root: Path, *, commit: str | None) -> dict:
+    """Snapshot the verified release when the backend process starts."""
+    repo_root = Path(repo_root)
+    lock = repo_root / "requirements.lock.txt"
+    frontend_lock = repo_root / "frontend/package-lock.json"
+
+    def optional_digest(path: Path) -> str | None:
+        try:
+            return _sha256_text(path)
+        except OSError:
+            return None
+
+    lock_digest = optional_digest(lock)
+    frontend_lock_digest = optional_digest(frontend_lock)
+    result = {
+        "dependency_lock_sha256": lock_digest,
+        "dependency_lock_unavailable_reason": None if lock_digest else "lock_missing_or_unreadable",
+        "frontend_lock_sha256": frontend_lock_digest,
+        "frontend_lock_unavailable_reason": (
+            None if frontend_lock_digest else "frontend_lock_missing_or_unreadable"
+        ),
+        "python_abi": f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}",
+        "ci_python_abi": None,
+        "frontend_artifact_id": None,
+        "frontend_build_id": None,
+        "frontend_tree_sha256": None,
+        "frontend_artifact_unavailable_reason": "manifest_missing",
+        "backend_artifact_sha256": None,
+        "backend_artifact_unavailable_reason": "backend_artifact_not_built_in_this_phase",
+    }
+    manifest_path = repo_root / ".release-manifest.json"
+    if not manifest_path.is_file():
+        return result
+    if not commit:
+        result["frontend_artifact_unavailable_reason"] = "commit_unknown"
+        return result
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        verify_release_manifest(
+            manifest, repo_root, repo_root / "frontend/.next", expected_commit=commit
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        result["frontend_artifact_unavailable_reason"] = "manifest_invalid_or_mismatch"
+        return result
+    identity = manifest["identity"]
+    result.update(
+        ci_python_abi=identity["python_abi"],
+        frontend_artifact_id=manifest["artifact_id"],
+        frontend_build_id=identity["next_build_id"],
+        frontend_tree_sha256=identity["frontend_tree_sha256"],
+        frontend_artifact_unavailable_reason=None,
+    )
+    return result
+
+
 # Captured once per process, at import -- see the module docstring.
 PROCESS_BUILD = {
     **resolve_build_identity(Path(__file__).resolve().parents[2]),
     "process_started_at": datetime.now(timezone.utc).isoformat(),
 }
+PROCESS_RELEASE = resolve_runtime_release_identity(
+    Path(__file__).resolve().parents[2], commit=PROCESS_BUILD["commit"]
+)
