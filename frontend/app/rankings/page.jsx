@@ -1186,7 +1186,7 @@ export default function RankingsPage() {
                     <span className={styles.srcRank}> ({cell.rankLabel})</span>
                   </>
                 ) : (
-                  <span className={styles.muted}>—</span>
+                  <span className={styles.muted}>{cell.mutedText || "—"}</span>
                 )}
               </span>
             );

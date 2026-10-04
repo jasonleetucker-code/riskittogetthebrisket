@@ -29,11 +29,12 @@ const SIGNALS_IDP = RANKING_SOURCES.find((s) => s.key === "signalsIdpDl");
 
 const RAW = {
   privateSourceAvailability: {
-    signalsSf: { state: "present", votes: true },
+    signalsSf: { state: "present", votes: true, voteState: "active" },
     signalsIdpDl: {
       state: "present",
       votes: false,
-      heldFromVote: "positional_idp_path_prices_in_idp_local_coordinates",
+      voteState: "shadow",
+      heldFromVote: "shared_market_crosswalk_in_shadow_pending_promotion",
     },
   },
   sourceWeighting: {
@@ -67,6 +68,15 @@ function idpRow() {
     sourceOriginalRanks: { signalsIdpDl: 13 },
     sourceNativeValues: { signalsIdpDl: 4310 },
     sourceRankMeta: { signalsIdpDl: { valueContribution: 3420, appliedWeight: 1 } },
+    sourceShadowMeta: {
+      signalsIdpDl: {
+        familyRank: 13,
+        translatedRank: 88,
+        rankCoordinatePool: "shared_market",
+        wouldContribute: 4987,
+        withheldReason: null,
+      },
+    },
     sourceAudit: { matchedSources: ["signalsIdpDl"], expectedSources: ["signalsIdpDl"] },
   };
 }
@@ -181,8 +191,12 @@ describe("Rankings source column", () => {
     );
     expect(screen.getByText("VALUE (native value)")).toBeTruthy();
     expect(screen.getByText("Native value")).toBeTruthy();
-    // IDP is collected and shown but HELD from voting (review B1).
-    expect(screen.getByText("Collected, not voting (held)")).toBeTruthy();
+    // IDP is collected, shown and translated in SHADOW — never a vote.
+    expect(screen.getByText("Shadow — not voting")).toBeTruthy();
+    expect(screen.getByText(/Signals ranks this player within DL/)).toBeTruthy();
+    expect(
+      screen.getByText("DL13 → shared-market #88 · would contribute 4,987"),
+    ).toBeTruthy();
     expect(screen.getByText("4,310")).toBeTruthy();
     expect(screen.getByText("#13 value-ordered DL rank (derived)")).toBeTruthy();
     expect(screen.getByText("IDP — DL")).toBeTruthy();
@@ -191,15 +205,73 @@ describe("Rankings source column", () => {
   });
 });
 
-describe("held IDP boards", () => {
-  it("say NOT voting in the cell title; offense says nothing of the kind", () => {
-    const idp = formatSourceCell(
-      { ...idpRow(), sourceRankMeta: {} },
-      SIGNALS_IDP,
-      RAW,
-    );
-    expect(idp.title).toContain("collected, NOT voting");
+describe("Signals vote states", () => {
+  it("shadow IDP says so in the cell title; offense says nothing of the kind", () => {
+    const idp = formatSourceCell({ ...idpRow(), sourceRankMeta: {} }, SIGNALS_IDP, RAW);
+    expect(idp.title).toContain("Shadow — not voting");
+    expect(idp.title).toContain("would contribute 4,987 (shadow)");
     const off = formatSourceCell(offenseRow(), SIGNALS_SF, RAW);
-    expect(off.title).not.toContain("NOT voting");
+    expect(off.title).not.toContain("not voting");
+  });
+
+  it("a non-voting IDP cell shows its family rank and state, never a contribution", () => {
+    const idp = formatSourceCell({ ...idpRow(), sourceRankMeta: {} }, SIGNALS_IDP, RAW);
+    expect(idp.hasVal).toBe(false);
+    expect(idp.mutedText).toBe("DL13 · shadow");
+  });
+
+  it("each backend state gets the owner's label; old payloads fall back honestly", () => {
+    const states = {
+      active: "Active",
+      shadow: "Shadow — not voting",
+      held: "Collected — not voting",
+      rolled_back: "Rolled back — not voting",
+    };
+    for (const [voteState, label] of Object.entries(states)) {
+      const raw = {
+        privateSourceAvailability: {
+          signalsIdpDl: { state: "present", votes: voteState === "active", voteState },
+        },
+      };
+      expect(sourceObservation(idpRow(), SIGNALS_IDP, raw).voteLabel).toBe(label);
+    }
+    const legacy = {
+      privateSourceAvailability: {
+        signalsIdpDl: { state: "present", votes: false, heldFromVote: "x" },
+      },
+    };
+    expect(sourceObservation(idpRow(), SIGNALS_IDP, legacy).voteState).toBe("held");
+  });
+
+  it("a withheld shadow translation names its reason", () => {
+    const row = {
+      ...idpRow(),
+      sourceShadowMeta: {
+        signalsIdpDl: { familyRank: 90, withheldReason: "beyond_family_ladder" },
+      },
+    };
+    const obs = sourceObservation(row, SIGNALS_IDP, RAW);
+    expect(sourceObservationText(obs)).toContain(
+      "shadow withheld: deeper than the market's own list for this family",
+    );
+  });
+
+  it("offense audit card states the FantasyCalc family cap and an outlier drop", () => {
+    render(
+      <SourceAuditPanel
+        row={offenseRow({
+          sourceRankMeta: {
+            signalsSf: { valueContribution: 6123, appliedWeight: 0, hampelDropped: true },
+          },
+        })}
+        rawData={RAW}
+        val={6000}
+        edge={{ label: "—", title: "" }}
+        confidence={{ label: "Medium", reasons: [] }}
+      />,
+    );
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.getByText(/fantasyCalc family \(family-capped\)/)).toBeTruthy();
+    expect(screen.getByText(/outlier/)).toBeTruthy();
   });
 });

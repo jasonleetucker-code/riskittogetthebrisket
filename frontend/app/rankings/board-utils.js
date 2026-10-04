@@ -1,3 +1,4 @@
+import { VOTE_STATE_LABELS, sourceVoteState } from "@/lib/source-vote-state";
 // board-utils.js — pure helpers shared by the rankings page, its table
 // cells, the expanded source-audit panel, and the copy/CSV exporters.
 // No React, no fetching — verbatim extraction from the pre-R2 page so
@@ -51,20 +52,46 @@ export function sourceObservation(row, src, rawData) {
   const hasNative = nativeVal != null && Number.isFinite(Number(nativeVal));
   const hasRank = origRank != null && Number.isFinite(Number(origRank));
   if (!hasNative && !hasRank) return null;
-  const subset = rawData?.sourceWeighting?.sources?.[src.key]?.subsets?.players || null;
+  const subset =
+    rawData?.sourceWeighting?.sources?.[src.key]?.subsets?.players || null;
   // A collected-but-held board (backend ``privateSourceAvailability``:
   // ``votes: false`` with ``heldFromVote`` / ``rolledBack``) is shown, never
   // presented as a vote.
   const avail = rawData?.privateSourceAvailability?.[src.key] || null;
   const voting = avail ? avail.votes !== false : null;
+  const voteState = sourceVoteState(avail);
+  const shadow = row?.sourceShadowMeta?.[src.key] || null;
+  const meta = row?.sourceRankMeta?.[src.key] || null;
   return {
     voting,
-    heldReason: avail?.heldFromVote || (avail?.rolledBack ? "rolled back" : null),
+    voteState,
+    voteLabel: VOTE_STATE_LABELS[voteState] || null,
+    voteExplanation: voteStateExplanation(voteState, src),
+    heldReason:
+      avail?.heldFromVote || (avail?.rolledBack ? "rolled back" : null),
+    family: src.positionGroup || null,
+    familyNote:
+      src.correlationGroup && src.correlationGroup !== src.key
+        ? `Shares one provider's authority with its ${src.correlationGroup} family (family-capped)`
+        : null,
+    excludedReason: meta?.hampelDropped
+      ? "outlier (dropped by the per-row filter)"
+      : null,
+    shadow: shadow
+      ? {
+          familyRank: shadow.familyRank ?? null,
+          translatedRank: shadow.translatedRank ?? null,
+          wouldContribute: shadow.wouldContribute ?? null,
+          withheldReason: shadow.withheldReason || null,
+        }
+      : null,
     basis: hasNative ? "VALUE" : "RANK",
     basisLabel: hasNative ? "native value" : "rank fallback",
     rankLabel: hasRank
       ? `#${Number(origRank)} ${
-          hasNative ? src.observationRankLabel || "value-ordered rank (derived)" : "published rank"
+          hasNative
+            ? src.observationRankLabel || "value-ordered rank (derived)"
+            : "published rank"
         }`
       : null,
     nativeValue: hasNative ? Number(nativeVal) : null,
@@ -75,18 +102,60 @@ export function sourceObservation(row, src, rawData) {
   };
 }
 
+// Vote-state names come from the one shared reader (lib/source-vote-state).
+export { VOTE_STATE_LABELS, sourceVoteState };
+
+const WITHHELD_REASON_TEXT = {
+  no_family_ladder: "no shared-market ladder for this family",
+  beyond_family_ladder: "deeper than the market's own list for this family",
+  not_a_within_family_rank: "no within-family value to translate",
+};
+
+export function withheldReasonText(reason) {
+  return reason ? WITHHELD_REASON_TEXT[reason] || reason : null;
+}
+
+/** Why a collected Signals board is not voting, in the owner's words. */
+export function voteStateExplanation(voteState, src) {
+  const fam = src?.positionGroup;
+  if (voteState === "shadow" && fam) {
+    return (
+      `Signals ranks this player within ${fam}. Its IDP values are position-family ` +
+      "normalized and do not establish a DL/LB/DB shared price scale. Calculator is " +
+      "currently translating this information in shadow before allowing it to affect " +
+      "canonical values."
+    );
+  }
+  if (voteState === "held") {
+    return "Collected and shown; a declared methodology hold keeps it out of the blend.";
+  }
+  if (voteState === "rolled_back") {
+    return "Switched off by the operator's rollback flag; its evidence stays visible.";
+  }
+  return null;
+}
+
 /** One-line provenance string for a cell tooltip / chip title. */
 export function sourceObservationText(obs) {
   if (!obs) return "";
   const parts = [
-    obs.voting === false ? "collected, NOT voting" : null,
+    obs.voting === false ? obs.voteLabel || "collected, NOT voting" : null,
     obs.basis === "VALUE"
       ? `native value ${obs.nativeValue.toLocaleString()} (VALUE)`
       : "RANK fallback",
     obs.rankLabel,
     `${obs.dataset} dataset`,
     obs.format,
-    obs.asOf ? `as of ${String(obs.asOf).slice(0, 10)}${obs.state ? ` (${obs.state})` : ""}` : null,
+    obs.asOf
+      ? `as of ${String(obs.asOf).slice(0, 10)}${obs.state ? ` (${obs.state})` : ""}`
+      : null,
+    obs.shadow?.wouldContribute != null
+      ? `would contribute ${Number(obs.shadow.wouldContribute).toLocaleString()} (shadow)`
+      : null,
+    obs.shadow?.withheldReason
+      ? `shadow withheld: ${withheldReasonText(obs.shadow.withheldReason)}`
+      : null,
+    obs.excludedReason,
   ].filter(Boolean);
   return parts.join(" · ");
 }
@@ -132,8 +201,19 @@ export function formatSourceCell(row, src, rawData) {
     // instead of claiming the player wasn't listed.
     const listed = effectiveRank != null || origRank != null || hasNative;
     if (listed) {
+      // A collected source that is not voting (Signals IDP in shadow) still
+      // has something true to show in its column: the within-family rank it
+      // published, labelled with its state — never a contribution it did
+      // not cast.
+      const mutedText =
+        observation && observation.voting === false && origRank != null
+          ? `${observation.family || "#"}${Number(origRank)} · ${
+              observation.voteState === "shadow" ? "shadow" : "not voting"
+            }`
+          : null;
       return {
         hasVal: false,
+        mutedText,
         primary: "—",
         rankLabel: effectiveRank != null ? `#${effectiveRank}` : "—",
         title: `${src.displayName}: no normalized contribution${
