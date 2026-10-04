@@ -8616,6 +8616,23 @@ def _finder_postures(contract: Any, league_cfg: Any, sleeper_teams: Any) -> dict
     }
 
 
+def _finder_pick_forecasts(contract: Any, league_cfg: Any) -> dict | None:
+    """Owned-pick slot forecasts from the league's cached season simulation.
+
+    Reads the persisted sim only (never re-runs it on this request); a stale
+    or absent cache, or a league without a recorded draft-order rule, yields
+    none and every unknown-slot pick stays at the plain KTC tier average.
+    """
+    try:
+        from src.ros.playoff_sim import _load_cached_payload
+        from src.trade.pick_market import owned_pick_forecasts
+
+        return owned_pick_forecasts(_load_cached_payload(league_cfg.key), contract)
+    except Exception as exc:  # noqa: BLE001 — a forecast never fails the finder
+        log.info("finder pick forecasts unavailable: %s", exc)
+        return None
+
+
 @app.post("/api/trade/finder")
 async def post_trade_finder(request: Request):
     """Find board-arbitrage trades: good for me on our model, plausible for them on KTC.
@@ -8729,6 +8746,11 @@ async def post_trade_finder(request: Request):
         if use_team_context
         else None
     )
+    finder_pick_forecasts = (
+        await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+        if use_team_context
+        else None
+    )
 
     try:
         result = await run_in_threadpool(
@@ -8747,6 +8769,7 @@ async def post_trade_finder(request: Request):
             contract=contract,
             use_team_context=use_team_context,
             postures=finder_postures,
+            pick_forecasts=finder_pick_forecasts,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")

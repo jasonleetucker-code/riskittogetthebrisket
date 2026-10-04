@@ -199,3 +199,21 @@ def test_find_trades_without_postures_is_player_only_and_says_why():
     )
     pg = out["metadata"]["pickGeneration"]
     assert pg["applied"] is False and pg["reason"] == "no_canonical_posture"
+
+
+def test_finder_pick_takes_the_forecast_for_its_originating_franchise():
+    from src.trade.pick_market import TierForecast
+
+    c = _contract([_DETAIL])
+    forecast = TierForecast({"early": 1.0, "mid": 0.0, "late": 0.0}, confidence=0.5, source="t")
+    (with_fc,), _ = finder._owned_pick_assets(
+        c["sleeper"]["teams"][0], c, _players(), {}, {1: (2027, forecast)}
+    )
+    (plain,), _ = finder._owned_pick_assets(c["sleeper"]["teams"][0], c, _players(), {})
+    assert with_fc.market_value > plain.market_value  # leans toward Early (7000)
+    assert with_fc.model_value == plain.model_value == 5800  # canonical value untouched
+    # A forecast for a different class never applies.
+    (other_year,), _ = finder._owned_pick_assets(
+        c["sleeper"]["teams"][0], c, _players(), {}, {1: (2028, forecast)}
+    )
+    assert other_year.market_value == plain.market_value

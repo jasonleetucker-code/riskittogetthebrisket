@@ -276,3 +276,67 @@ def test_ros_engines_state_their_tiebreak_choice():
         "If an engine stopped ordering standings, say so here; if it was "
         "renamed, this guard is now blind."
     )
+
+
+# ── Draft-slot distribution (owner draft-order rule, 2026-10-04) ──────
+
+
+def _run_spread(league_key, *, sims=600):
+    """A league the simulator CAN separate, so slots carry information."""
+    names = ["aa", "bb", "cc", "dd"]
+    means = {"aa": 80.0, "bb": 95.0, "cc": 110.0, "dd": 125.0}
+    dists = {
+        o: playoff_sim._TeamDist(owner_id=o, mean=means[o], sd=10.0, pf_to_date=0.0) for o in names
+    }
+    schedule = [
+        (w, names[i], names[j])
+        for w in range(1, 4)
+        for i in range(len(names))
+        for j in range(i + 1, len(names))
+    ]
+    with (
+        mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: {o: {} for o in names}),
+        mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
+        mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
+        mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
+        mock.patch.object(
+            playoff_sim,
+            "_build_team_distributions",
+            lambda *a, **k: (dists, {o: 0.0 for o in names}),
+        ),
+        mock.patch("src.ros.team_strength.resolve_snapshot_league_key", lambda *a, **k: league_key),
+    ):
+        return playoff_sim.simulate_playoff_odds(
+            _snapshot(2),
+            n_simulations=sims,
+            min_simulations=sims,
+            max_simulations=sims,
+            rng=random.Random(5),
+        )
+
+
+def test_slot_distribution_follows_the_canonical_rule():
+    out = _run_spread("dynasty_main")
+    assert out["draftOrderRule"] == "reverse_record_lower_pf"
+    assert out["season"] == 2026
+    rows = {r["ownerId"]: r for r in out["playoffOdds"]}
+    for r in rows.values():
+        assert sum(r["draftSlotDistribution"]) == pytest.approx(1.0)
+        assert r["finalWins"]["p10"] <= r["finalWins"]["p50"] <= r["finalWins"]["p90"]
+    for slot in range(4):
+        assert sum(r["draftSlotDistribution"][slot] for r in rows.values()) == pytest.approx(1.0)
+    # The weakest team most often picks first; the strongest most often last.
+    assert rows["aa"]["draftSlotDistribution"][0] > 0.5
+    assert rows["dd"]["draftSlotDistribution"][3] > 0.5
+
+
+def test_no_recorded_rule_publishes_no_slots_and_leaves_the_odds_unchanged():
+    with_rule = _run_spread("dynasty_main")
+    without = _run_spread("unknown_league")
+    assert without["draftOrderRule"] is None
+    assert all("draftSlotDistribution" not in r for r in without["playoffOdds"])
+    # The draft-order draws use their own stream: playoff odds are identical.
+    key = lambda o: sorted(
+        (r["ownerId"], r["playoffOdds"], r["championshipOdds"]) for r in o["playoffOdds"]
+    )  # noqa: E731
+    assert key(with_rule) == key(without)

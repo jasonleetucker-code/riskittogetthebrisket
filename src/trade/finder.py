@@ -1114,6 +1114,7 @@ def _owned_pick_assets(
     contract: dict[str, Any] | None,
     players: dict[str, Any],
     pool_by_name: dict[str, Asset],
+    forecasts: dict[int, tuple[int, Any]] | None = None,
 ) -> tuple[list[Asset], dict[str, int]]:
     """The league picks ``team`` owns, as finder assets.
 
@@ -1166,8 +1167,12 @@ def _owned_pick_assets(
                 t: (unfiltered.get(f"{year} {t.capitalize()} {sfx}") or Asset("", "", "", 0, None))
                 for t in ("early", "mid", "late")
             }
+            # The ORIGINATING franchise's finish decides the slot; a forecast
+            # exists only for the class drafted after the simulated season.
+            fc = (forecasts or {}).get(_int_or_none(d.get("fromRosterId")) or -1)
+            forecast = fc[1] if fc and fc[0] == year else None
             est = unknown_slot_market_value(
-                year, rnd, {t: a.market_value for t, a in tiers.items()}
+                year, rnd, {t: a.market_value for t, a in tiers.items()}, forecast=forecast
             )
             market = est.value
             derivation = est.to_dict()
@@ -1297,6 +1302,7 @@ def find_trades(
     constraints: Any | None = None,
     use_team_context: bool = True,
     postures: dict[str, str] | None = None,
+    pick_forecasts: dict[int, tuple[int, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1311,6 +1317,11 @@ def find_trades(
         route.  With Team Context ON, a complementary pair (PUSH vs
         RETOOL/REBUILD) may receive pick-inclusive packages; absent or OFF,
         generation is player-only.
+    pick_forecasts : dict | None
+        ``{originRosterId: (draftYear, TierForecast)}`` from
+        ``pick_market.owned_pick_forecasts`` (route-resolved).  Moves an
+        unknown-slot pick's market side from the plain KTC tier average
+        toward its forecast tier distribution, by confidence.
     use_team_context : bool
         V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
         "fills a need" arm consult the canonical Team Weakness owner
@@ -1527,13 +1538,19 @@ def find_trades(
             else ("context_off" if not use_team_context else "no_canonical_posture")
         ),
         "myPosture": (postures or {}).get(my_team),
-        "marketBasis": "native board row; unknown slot = plain KTC tier average (PRIOR)",
+        "marketBasis": (
+            "native board row; unknown slot = KTC tier average shrunk toward the "
+            "season-simulation slot forecast by confidence (PRIOR, provisional)"
+        ),
+        "slotForecasts": len(pick_forecasts or {}),
         "pairs": {},
     }
     my_picks: list[Asset] = []
     if pick_generation_on:
         me_team = next((t for t in sleeper_teams if t.get("name") == my_team), None)
-        my_picks, my_pick_stats = _owned_pick_assets(me_team, contract, players, pool_by_name)
+        my_picks, my_pick_stats = _owned_pick_assets(
+            me_team, contract, players, pool_by_name, pick_forecasts
+        )
         my_picks = [a for a in my_picks if a.name.strip().casefold() not in excluded_player_keys]
         pick_generation["myOwnedPicks"] = my_pick_stats
 
@@ -1614,7 +1631,9 @@ def find_trades(
         )
         if pick_generation_on:
             opp_team = next((t for t in sleeper_teams if t.get("name") == opp_name), None)
-            opp_picks, opp_stats = _owned_pick_assets(opp_team, contract, players, pool_by_name)
+            opp_picks, opp_stats = _owned_pick_assets(
+                opp_team, contract, players, pool_by_name, pick_forecasts
+            )
             opp_picks = [
                 a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
             ]

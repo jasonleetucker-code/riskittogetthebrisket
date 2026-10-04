@@ -20,12 +20,14 @@ The formula (owner, verbatim in intent)::
     V_market     = sum over Early/Mid/Late of P_used(tier) x KTC_tier_value
 
 With no forecast (``c = 0``) that is exactly the plain average of KTC's three
-native tier values for that exact year and round — the only path live today.
-A forecast plugs into the same formula once owned-pick forecasting exists
-(C1-U7) AND the league's real rookie-draft-order rule is settled (reverse
-standings is NOT established versus Max PF / points); its confidence must be
-empirically calibrated and is provisional until then.  Every input travels in
-the provenance.
+native tier values for that exact year and round.  For the upcoming class the
+forecast comes from the season simulation under the league's canonical
+draft-order rule (owner decision 2026-10-04: reverse final regular-season
+record, ties to the LOWER total Points For — ``src/public_league/
+draft_order.py``), with a PROVISIONAL confidence until it is calibrated against
+realized drafts (:func:`calibrated_confidence`).  Later classes have no
+forecast and stay at the plain average.  Every input travels in the
+provenance.
 """
 
 from __future__ import annotations
@@ -35,13 +37,18 @@ from typing import Any, Mapping
 
 __all__ = [
     "PICK_MARKET_METHOD_VERSION",
+    "PROVISIONAL_CONFIDENCE_CAP",
     "TIERS",
     "PickMarketEstimate",
     "TierForecast",
+    "calibrated_confidence",
+    "owned_pick_forecasts",
+    "provisional_confidence",
+    "tier_probabilities_from_slots",
     "unknown_slot_market_value",
 ]
 
-PICK_MARKET_METHOD_VERSION = "pick_market_v1_tier_average"
+PICK_MARKET_METHOD_VERSION = "pick_market_v2_tier_average_forecast_shrink"
 TIERS = ("early", "mid", "late")
 
 
@@ -57,6 +64,9 @@ class TierForecast:
     confidence: float
     source: str
     calibrated: bool = False
+    #: Explainability: the record / Points For / slot distributions the
+    #: probabilities came from, and how the confidence was set.
+    provenance: Mapping[str, Any] = field(default_factory=dict)
 
     def validated(self) -> "TierForecast":
         probs = {t: float(self.probabilities.get(t, 0.0)) for t in TIERS}
@@ -143,8 +153,152 @@ def unknown_slot_market_value(
             "forecastConfidence": None if forecast is None else confidence,
             "forecastSource": None if forecast is None else forecast.source,
             "forecastCalibrated": None if forecast is None else forecast.calibrated,
+            "forecastEvidence": None if forecast is None else dict(forecast.provenance),
             "forecastWeightedValue": None if forecast_value is None else round(forecast_value, 1),
             "tierWeightsUsed": {t: round(used[t], 6) for t in TIERS},
             "basis": "plain_ktc_tier_average" if forecast is None else "forecast_shrunk_to_thirds",
         },
     )
+
+
+# ── The forecast half (owner decision 2026-10-04) ────────────────────
+#
+# The upcoming class's slot follows the league's CANONICAL draft-order rule
+# (``src/public_league/draft_order.py``: reverse final regular-season record,
+# ties to the LOWER total Points For).  The season simulation
+# (``src/ros/playoff_sim.py``) draws final records and Points For and applies
+# that rule per simulation, publishing ``draftSlotDistribution``.  Here a slot
+# distribution becomes Early/Mid/Late probabilities and a confidence, and
+# :func:`unknown_slot_market_value` shrinks it toward thirds — so the forecast
+# replaces the equal-third prior gradually, by evidence, with no new formula.
+
+#: PRIOR, PROVISIONAL: the most a not-yet-calibrated forecast may move the
+#: market side mid-season.  Confidence rises with the share of the regular
+#: season already played (an early-season record says little), and reaches
+#: 1.0 only when the regular season is complete — then the final standings
+#: are OBSERVED, not forecast.  Replaced by :func:`calibrated_confidence`
+#: once enough realized drafts exist.
+PROVISIONAL_CONFIDENCE_CAP = 0.5
+#: Minimum realized (forecast, slot) outcomes before calibration is trusted:
+#: two full 12-team classes.
+CALIBRATION_MIN_OUTCOMES = 24
+
+
+def tier_probabilities_from_slots(
+    slot_distribution: list[float], *, league_size: int
+) -> dict[str, float] | None:
+    """``P(slot = i)`` (index 0 = slot 1) → Early/Mid/Late via ``slot_tier``."""
+    from src.identity.picks import slot_tier  # noqa: PLC0415
+
+    total = sum(p for p in slot_distribution if isinstance(p, (int, float)))
+    if not slot_distribution or total <= 0:
+        return None
+    probs = {t: 0.0 for t in TIERS}
+    for i, p in enumerate(slot_distribution):
+        tier = slot_tier(i + 1, league_size=league_size)
+        if tier is None or not isinstance(p, (int, float)):
+            continue
+        probs[tier] += float(p) / total
+    return probs
+
+
+def provisional_confidence(games_played: int, games_remaining: int) -> tuple[float, str]:
+    """``(confidence, basis)`` before calibration exists — labelled provisional."""
+    played, remaining = max(0, int(games_played)), max(0, int(games_remaining))
+    if played > 0 and remaining == 0:
+        return 1.0, "final_standings_observed"
+    total = played + remaining
+    if total <= 0:
+        return 0.0, "no_regular_season_evidence"
+    return PROVISIONAL_CONFIDENCE_CAP * played / total, "provisional_season_progress"
+
+
+def calibrated_confidence(
+    history: list[tuple[Mapping[str, float], str]],
+) -> float | None:
+    """Confidence from realized outcomes, or ``None`` until there are enough.
+
+    ``history`` is ``[(forecast tier probabilities, realized tier), ...]`` where
+    the realized tier comes from the league's actual draft order.  The score is
+    the forecast's Brier skill against the equal-thirds prior, clamped to
+    [0, 1]: a forecast no better than thirds earns no weight.
+    """
+    if len(history) < CALIBRATION_MIN_OUTCOMES:
+        return None
+    uniform = {t: 1.0 / 3.0 for t in TIERS}
+
+    def brier(p: Mapping[str, float], actual: str) -> float:
+        return sum((float(p.get(t, 0.0)) - (1.0 if t == actual else 0.0)) ** 2 for t in TIERS)
+
+    model = sum(brier(p, a) for p, a in history) / len(history)
+    base = sum(brier(uniform, a) for _p, a in history) / len(history)
+    if base <= 0:
+        return None
+    return max(0.0, min(1.0, 1.0 - model / base))
+
+
+def owned_pick_forecasts(
+    sim_payload: Mapping[str, Any] | None,
+    contract: Mapping[str, Any] | None,
+    *,
+    calibration: float | None = None,
+) -> dict[int, tuple[int, TierForecast]]:
+    """``{originRosterId: (draftYear, TierForecast)}`` for the upcoming class.
+
+    Only the class drafted after the SIMULATED season (``season + 1``) has a
+    forecast; later classes have none and stay at the plain average.  A sim
+    without ``draftSlotDistribution`` (no recorded draft-order rule) yields
+    nothing.  ``calibration`` (from :func:`calibrated_confidence`) replaces the
+    provisional confidence when supplied.
+    """
+    if not isinstance(sim_payload, Mapping) or not sim_payload.get("draftOrderRule"):
+        return {}
+    try:
+        draft_year = int(sim_payload.get("season")) + 1
+    except (TypeError, ValueError):
+        return {}
+    rows = [r for r in sim_payload.get("playoffOdds") or [] if isinstance(r, Mapping)]
+    teams = ((contract or {}).get("sleeper") or {}).get("teams") or []
+    rid_by_owner: dict[str, int] = {}
+    for t in teams:
+        try:
+            rid_by_owner[str(t.get("ownerId") or "")] = int(t.get("roster_id"))
+        except (TypeError, ValueError):
+            continue
+    league_size = len(rows)
+    if calibration is not None:
+        confidence, basis, calibrated = float(calibration), "calibrated_brier_skill", True
+    else:
+        confidence, basis = provisional_confidence(
+            int(sim_payload.get("regularSeasonGamesPlayed") or 0),
+            int(sim_payload.get("regularSeasonGamesRemaining") or 0),
+        )
+        calibrated = False
+    out: dict[int, tuple[int, TierForecast]] = {}
+    for r in rows:
+        rid = rid_by_owner.get(str(r.get("ownerId") or ""))
+        dist = r.get("draftSlotDistribution")
+        if rid is None or not isinstance(dist, list):
+            continue
+        probs = tier_probabilities_from_slots(dist, league_size=league_size)
+        if probs is None:
+            continue
+        out[rid] = (
+            draft_year,
+            TierForecast(
+                probabilities=probs,
+                confidence=confidence,
+                source="season_simulation",
+                calibrated=calibrated,
+                provenance={
+                    "draftOrderRule": sim_payload.get("draftOrderRule"),
+                    "simulatedSeason": sim_payload.get("season"),
+                    "simulations": sim_payload.get("n_simulations"),
+                    "finalRecordDistribution": r.get("finalWins"),
+                    "finalPointsForDistribution": r.get("finalPointsFor"),
+                    "slotDistribution": [round(float(p), 4) for p in dist],
+                    "confidenceBasis": basis,
+                },
+            ),
+        )
+    return out
