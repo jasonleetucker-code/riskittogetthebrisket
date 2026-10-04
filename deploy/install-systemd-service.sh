@@ -945,6 +945,12 @@ main() {
   # the authenticated /api/second-opinion/signals (src/sources/signals.py).
   # Public pages, no creds; a 401/403 persists a stop the script obeys.
   install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
+  # Signals Fantasy AUTHENTICATED native values -> box-local private store +
+  # the board CSVs the canonical contract reads (signalsSf + signalsIdp{Dl,Lb,Db}; an
+  # ACTIVE source since the owner addendum of 2026-10-03).  Uses the owner
+  # session at /var/lib/signals-auth; until that exists every run records
+  # auth_unavailable and the source stays absent (never zero).
+  install_simple_timer "signals-values" "Signals authenticated value collection (active canonical source)"
   # KTC Trade Database -> append-only raw trade archive (Market Trade Ledger,
   # Batch 3 Unit I; src/sources/ktc_trades.py).  Public page, no creds; a
   # 401/403/challenge persists a stop the script obeys.  Never moves a value.

@@ -854,6 +854,15 @@ optional backup_dir "${DATA_DIR}/pick_forecast_snapshots"
 #     Shadow-evaluation ledgers (monthly JSONL) — what each shadow run saw.
 optional backup_dir "${DATA_DIR}/sparse_evidence_shadow"
 optional backup_dir "${DATA_DIR}/robust_filter_shadow"
+#   * Signals Fantasy private store (docs/sources/SIGNALS_FANTASY_INTEGRATION.md):
+#     validated value releases, board CSVs, fetch/collector state and raw
+#     gzip payloads.  Box-local by design (never committed, never in CI) and
+#     the vendor serves CURRENT values only, so a lost release is lost.  The
+#     owner session (/var/lib/signals-auth) is NOT here and never will be —
+#     credentials stay with their dedicated owner.  The data/scrape_state
+#     Signals stamps are not copied: the next healthy collection re-stamps
+#     them from the vendor's own as-of clock.
+optional backup_dir "${DATA_DIR}/sources/signals" "signals_sources"
 #   * Consensus Edge daily label history — a label is what the model said
 #     on that day; it cannot be recomputed later from later boards.
 optional backup_sqlite "${DATA_DIR}/consensus_edge.sqlite"

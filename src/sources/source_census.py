@@ -1673,7 +1673,7 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
                 {"laneEligible": False, "distinctDates": None, "firstDate": None},
             )
             e.unknown["history.temporalLedger.distinctDates"] = (
-                "the source_value lane records only value-direct retail keys; this source can never appear there"
+                "the source_value lane records only value-direct retail keys and vendor-native values; this source can never appear there"
             )
             e.unknown["history.temporalLedger.firstDate"] = e.unknown[
                 "history.temporalLedger.distinctDates"

@@ -189,11 +189,18 @@ SWEEP_JSON = REPO / "docs" / "sources" / "integrity" / "INTEGRITY_SWEEP_2026-10-
 
 
 def test_committed_sweep_covers_every_voting_source():
-    from src.api.data_contract import _RANKING_SOURCES
+    from src.api.data_contract import _RANKING_SOURCES, private_source_keys
 
     data = json.loads(SWEEP_JSON.read_text(encoding="utf-8"))
     assert data["schema"] == "lineage-integrity-sweep/v1"
-    voting = {s["key"] for s in _RANKING_SOURCES}
+    # A PRIVATE box-local voter (Signals, active 2026-10-03) has no committed
+    # CSV history for this sweep to read — by design, its data never reaches
+    # the repository.  Its lineage is recorded instead as UNKNOWN with a
+    # reason (``pair-signals-market-families``) and it votes inside the
+    # FantasyCalc family; it is exempt here by that declaration, nothing else.
+    private = private_source_keys()
+    assert private == {"signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"}
+    voting = {s["key"] for s in _RANKING_SOURCES} - private
     swept = {k for k, v in data["sources"].items() if v.get("voting")}
     assert voting <= swept, sorted(voting - swept)
 

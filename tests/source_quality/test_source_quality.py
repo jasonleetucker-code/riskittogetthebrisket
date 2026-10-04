@@ -334,6 +334,35 @@ def test_eligibility_fails_closed_on_unverified_game_type():
     assert set(excluded) == {"b", "c", "d"}
 
 
+def test_family_scoped_boards_are_excluded_but_offense_signals_is_eligible():
+    """Signals DL / LB / DB rank one family each on its own scale; scoring
+    them as universe ranks would read DL #5 as IDP #5.  signalsSf is an
+    ordinary offense board, evaluated leave-family-out from its ledger."""
+    ok = {
+        "votingStatus": "VOTING",
+        "gameType": "DYNASTY",
+        "outOfSampleEvaluation": {"state": "DATA_PREREQUISITES_MET"},
+        "family": {"correlationGroup": "fantasyCalc"},
+    }
+    census = {
+        "sources": [
+            {**ok, "key": "signalsSf", "population": {"offense": True}},
+            {**ok, "key": "signalsIdpDl", "population": {"idp": True}},
+        ]
+    }
+    registry = [
+        {"key": "signalsSf", "scope": "overall_offense"},
+        {"key": "signalsIdpDl", "scope": "position_idp"},
+    ]
+    paths = {
+        "signalsSf": {"path": "data/sources/signals/board/signalsSf.csv", "signal": "rank"},
+        "signalsIdpDl": {"path": "data/sources/signals/board/signalsIdpDl.csv", "signal": "rank"},
+    }
+    specs, excluded = pn.eligible_specs(census, registry, paths)
+    assert [(s.key, s.family) for s in specs] == [("signalsSf", "fantasyCalc")]
+    assert excluded == {"signalsIdpDl": "family_scoped_board:needs_family_scoped_evaluation"}
+
+
 def test_fundamental_foresight_and_transaction_fit_declare_missing_evidence(synth):
     _, dates, m, X = synth
     assert mt.fundamental_foresight(m, X, None, dates[-1])["status"] == "INSUFFICIENT_EVIDENCE"

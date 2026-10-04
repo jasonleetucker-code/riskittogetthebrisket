@@ -859,3 +859,49 @@ class TestValuationInertness(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSignalsNativeValues(unittest.TestCase):
+    """Signals votes as a rank signal, so its canonicalSiteValues entry is a
+    synthetic rank encoding.  Only the vendor-native number may enter the
+    source_value lane, and only from sourceNativeValues."""
+
+    def _row(self, **extra):
+        return {
+            "displayName": "Josh Allen",
+            "canonicalName": "Josh Allen",
+            "position": "QB",
+            "playerId": "4984",
+            "rankDerivedValue": 9000,
+            "canonicalConsensusRank": 1,
+            **extra,
+        }
+
+    def _source_obs(self, row):
+        contract = {"playersArray": [row], "scrapeTimestamp": "2026-10-04T12:00:00+00:00"}
+        obs, _ = record.observations_from_contract(contract, observed_date="2026-10-04")
+        return {o["source_key"]: o["value"] for o in obs if o["lane"] == store.LANE_SOURCE}
+
+    def test_native_value_is_recorded_from_source_native_values_only(self):
+        row = self._row(
+            sourceNativeValues={"signalsSf": 8550.0},
+            canonicalSiteValues={"signalsSf": 9123},  # synthetic rank encoding
+        )
+        self.assertEqual(self._source_obs(row), {"signalsSf": 8550.0})
+
+    def test_a_synthetic_encoding_alone_is_never_recorded(self):
+        row = self._row(canonicalSiteValues={"signalsSf": 9123})
+        self.assertEqual(self._source_obs(row), {})
+
+    def test_family_boards_are_recorded_per_key_and_missing_is_never_zero(self):
+        row = self._row(
+            position="LB",
+            sourceNativeValues={"signalsIdpLb": 61.5, "signalsIdpDl": 0, "signalsIdpDb": None},
+        )
+        self.assertEqual(self._source_obs(row), {"signalsIdpLb": 61.5})
+
+    def test_the_census_sees_every_key_the_lane_can_hold(self):
+        self.assertTrue(
+            set(record._CONTRACT_RETAIL_KEYS) | set(record._CONTRACT_NATIVE_VALUE_KEYS)
+            == set(record.LEDGER_SOURCE_KEYS)
+        )

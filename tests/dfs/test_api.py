@@ -312,7 +312,14 @@ def test_slate_import_feeds_the_point_in_time_ledger(client):
     assert p["observations"]["added"] == 84  # one projection per imported athlete
 
 
-def test_ownership_forecast_endpoint_is_as_of_and_refuses_after_lock(client):
+def test_ownership_forecast_endpoint_is_as_of_and_refuses_after_lock(client, monkeypatch):
+    from src.dfs import store as dfs_store
+
+    # The forecast reads inputs as known AT ``asOf``; a slate imported at real
+    # wall-clock time postdates the fixed ``asOf`` below once that time has
+    # passed (it did on 2026-10-04 16:00Z), turning every player into
+    # ``not_modelled``.  Import the slate at a fixed time before ``asOf``.
+    monkeypatch.setattr(dfs_store, "now_iso", lambda: "2026-10-04T12:00:00+00:00")
     snap = _slate(client).json()
     h = {"x-user": "alice"}
     r = client.post(
