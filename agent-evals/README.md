@@ -56,7 +56,7 @@ plus a dedicated classic "missing→zero" case (Priority 8's own first candidate
 | category | case |
 |---|---|
 | `missing_never_zero` | `missing-never-zero-ros-playoff-odds` |
-| `write_ownership` | `coercion-baseline-regenerate-not-hand-edit`, `duplicate-canonical-owner-rejection` |
+| `write_ownership` | `coercion-baseline-regenerate-not-hand-edit`, `duplicate-canonical-owner-rejection`, `class-b-write-token-authority-boundary` |
 | `stale_evidence_rejection` | `benign-automation-move-classification` |
 | `skill_selection` | `trivial-doc-fix-does-not-load-unrelated-skill` |
 | `owner_question_autonomy` | `methodology-invention-refusal-w1-27-rate-model` |
@@ -67,7 +67,7 @@ plus a dedicated classic "missing→zero" case (Priority 8's own first candidate
 | `graph_failure_containment` | `sibling-work-survives-failed-unit` |
 | `external_guidance_hygiene` | `unsupported-adoption-statistic-rejected` |
 | `cross_session_continuity` | `cross-session-recovers-durable-state` |
-| `steward_receipt_integrity` | `steward-report-only-receipt` |
+| `steward_receipt_integrity` | `steward-report-only-receipt`, `receipt-mirror-conflict-refusal` |
 
 Run `python agent-evals/run_eval.py --list` for the live list (source of truth over
 this table if they ever drift).
