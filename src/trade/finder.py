@@ -186,6 +186,10 @@ class Asset:
     #: How ``market_value`` was obtained when it is NOT a native market price
     #: (C7-PICKGEN-01: ``src/trade/pick_market`` derivation), with provenance.
     market_derivation: dict | None = None
+    #: For a league pick: the canonical board row it resolves to
+    #: (``"2027 Round 1"`` / ``"2026 Pick 1.06"``), so a consumer can hand
+    #: the calculator a name it recognises instead of the display label.
+    board_row: str | None = None
 
     @property
     def has_market(self) -> bool:
@@ -211,6 +215,16 @@ class Asset:
 # it's now imported directly from ``src.utils.name_clean`` (alias
 # ``_norm_pos``) so every trade engine uses the same null-tolerant
 # normalization.  Audit S2.
+
+
+def _package_size_label(give: list[Asset], receive: list[Asset]) -> str:
+    """PLAYER topology, with picks named separately (C3-TOPO-01: picks are
+    not players).  ``"1-for-2 + 1 pick"`` rather than ``"2-for-2"``."""
+    pg = sum(1 for a in give if not a.is_pick)
+    pr = sum(1 for a in receive if not a.is_pick)
+    picks = sum(1 for a in (*give, *receive) if a.is_pick)
+    label = f"{pg}-for-{pr}"
+    return f"{label} + {picks} pick{'s' if picks != 1 else ''}" if picks else label
 
 
 @dataclass
@@ -265,6 +279,8 @@ class TradeCandidate:
             }
             if a.asset_id:
                 d["assetId"] = a.asset_id
+            if a.board_row:
+                d["boardRowName"] = a.board_row
             if a.market_derivation is not None:
                 # The market number is DERIVED (generic unknown-slot pick), not
                 # a native vendor price for this asset — the name travels.
@@ -308,7 +324,7 @@ class TradeCandidate:
             "summary": self.summary,
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
-            "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            "packageSize": _package_size_label(self.give, self.receive),
             "counterparty": self.counterparty,
             # KTC package Value Adjustment.  These used to be spliced in by a
             # wrapper installed over this method at import time; they are part
@@ -724,7 +740,10 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     # value must be a meaningful fraction of the receive side.
     flags: list[str] = []
 
-    if len(give) > len(receive):
+    # Counted in PLAYERS (C3-TOPO-01): a pick added to a 1-for-1 is not a
+    # "two fillers for an elite" package.  The simplicity penalty below still
+    # counts every asset — a pick is one more piece to negotiate.
+    if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):
         if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
             return None
         # ── Elite target protection (tighter ratio) ──────────────────
@@ -829,7 +848,7 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     conf_tier = _confidence_tier(confidence)
     flags.append(f"{conf_tier}_confidence")
     edge_lbl = _edge_label(board_gain_norm)
-    pkg_size_str = f"{len(give)}-for-{len(receive)}"
+    pkg_size_str = _package_size_label(give, receive)
     summary = _build_summary(
         board_delta,
         board_gain_norm,
@@ -987,8 +1006,8 @@ def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
     result: list[TradeCandidate] = []
     for tc in trades:
         key = (
-            tuple(sorted(a.name for a in tc.give)),
-            tuple(sorted(a.name for a in tc.receive)),
+            tuple(sorted(a.asset_id or a.name for a in tc.give)),
+            tuple(sorted(a.asset_id or a.name for a in tc.receive)),
         )
         if key in seen:
             continue
@@ -1115,6 +1134,7 @@ def _owned_pick_assets(
     players: dict[str, Any],
     pool_by_name: dict[str, Asset],
     forecasts: dict[int, tuple[int, Any]] | None = None,
+    unfiltered: dict[str, Asset] | None = None,
 ) -> tuple[list[Asset], dict[str, int]]:
     """The league picks ``team`` owns, as finder assets.
 
@@ -1139,7 +1159,12 @@ def _owned_pick_assets(
         current_draft_year = int(contract.get("currentDraftYear"))
     except (TypeError, ValueError):
         return [], stats
-    unfiltered: dict[str, Asset] | None = None
+    # KTC's own published prices, BEFORE this engine's top-N quality gate: a
+    # row below the cut is still a published price, and a pick must not become
+    # unpriced merely because its slot became known.  Built once per request
+    # by the caller when it can be.
+    if unfiltered is None:
+        unfiltered = {a.name: a for a in build_asset_pool(players, market_top_n=0)}
     out: list[Asset] = []
     for d in details:
         if not isinstance(d, dict):
@@ -1157,11 +1182,8 @@ def _owned_pick_assets(
         market: int | None = None
         derivation: dict | None = None
         source: str | None = None
+        origin_rid = _int_or_none(d.get("fromRosterId", d.get("original_roster_id")))
         if res.basis == "unknown_slot":
-            if unfiltered is None:
-                # KTC's own tier values, before this engine's top-N quality
-                # gate: a tier below the cut is still a published price.
-                unfiltered = {a.name: a for a in build_asset_pool(players, market_top_n=0)}
             sfx = round_suffix(rnd)
             tiers = {
                 t: (unfiltered.get(f"{year} {t.capitalize()} {sfx}") or Asset("", "", "", 0, None))
@@ -1169,7 +1191,7 @@ def _owned_pick_assets(
             }
             # The ORIGINATING franchise's finish decides the slot; a forecast
             # exists only for the class drafted after the simulated season.
-            fc = (forecasts or {}).get(_int_or_none(d.get("fromRosterId")) or -1)
+            fc = (forecasts or {}).get(origin_rid) if origin_rid is not None else None
             forecast = fc[1] if fc and fc[0] == year else None
             est = unknown_slot_market_value(
                 year, rnd, {t: a.market_value for t, a in tiers.items()}, forecast=forecast
@@ -1178,7 +1200,7 @@ def _owned_pick_assets(
             derivation = est.to_dict()
             source = "ktc_tier_average"
         else:
-            row = pool_by_name.get(res.ref.board_row_name() or "")
+            row = unfiltered.get(res.ref.board_row_name() or "")
             if row is not None and row.has_market:
                 market, source = row.market_value, row.market_source
         if model is None or market is None or model < MIN_ASSET_VALUE:
@@ -1187,7 +1209,7 @@ def _owned_pick_assets(
         stats["priced"] += 1
         # Named by the ORIGINATING franchise ("2027 1st (Blaine)"): unambiguous
         # from either side of the trade, unlike "(own)".
-        origin = str(d.get("fromTeam") or f"roster {d.get('fromRosterId')}")
+        origin = str(d.get("fromTeam") or f"roster {origin_rid}")
         out.append(
             Asset(
                 name=f"{year} {round_suffix(rnd)} ({origin})",
@@ -1200,6 +1222,7 @@ def _owned_pick_assets(
                 market_source=source,
                 asset_id=str(d.get("assetId") or ""),
                 market_derivation=derivation,
+                board_row=res.ref.board_row_name(),
             )
         )
     out.sort(key=lambda a: -a.model_value)
@@ -1546,13 +1569,26 @@ def find_trades(
         "pairs": {},
     }
     my_picks: list[Asset] = []
+    unfiltered_pool: dict[str, Asset] | None = None
     if pick_generation_on:
+        unfiltered_pool = {a.name: a for a in build_asset_pool(players, market_top_n=0)}
         me_team = next((t for t in sleeper_teams if t.get("name") == my_team), None)
         my_picks, my_pick_stats = _owned_pick_assets(
-            me_team, contract, players, pool_by_name, pick_forecasts
+            me_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
         )
         my_picks = [a for a in my_picks if a.name.strip().casefold() not in excluded_player_keys]
+        # C3-CON-01: a pick the user protects, LOCKs or excludes is never sent.
+        # Applied here because picks are added after player enumeration.
+        blocked_picks = (
+            [(a, constraints.block_reason(a)) for a in my_picks] if constraints is not None else []
+        )
+        blocked_picks = [(a, r) for a, r in blocked_picks if r is not None]
+        if blocked_picks:
+            blocked_ids = {id(a) for a, _r in blocked_picks}
+            my_picks = [a for a in my_picks if id(a) not in blocked_ids]
         pick_generation["myOwnedPicks"] = my_pick_stats
+        pick_generation["picksBlockedByConstraints"] = len(blocked_picks)
+        pick_generation["picksBlockedReasons"] = sorted({r for _a, r in blocked_picks})
 
     if unpriced_by_board:
         warnings.append(
@@ -1630,13 +1666,18 @@ def find_trades(
             equal_count_only=equal_count_only,
         )
         if pick_generation_on:
-            opp_team = next((t for t in sleeper_teams if t.get("name") == opp_name), None)
-            opp_picks, opp_stats = _owned_pick_assets(
-                opp_team, contract, players, pool_by_name, pick_forecasts
-            )
-            opp_picks = [
-                a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
-            ]
+            # The opponent's picks are only ever ASKED for when we tilt future
+            # and they PUSH; resolve them only then.
+            opp_picks: list[Asset] = []
+            opp_stats: dict[str, int] | None = None
+            if postures.get(my_team) in _FUTURE_TILTING and postures.get(opp_name) == "PUSH":
+                opp_team = next((t for t in sleeper_teams if t.get("name") == opp_name), None)
+                opp_picks, opp_stats = _owned_pick_assets(
+                    opp_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
+                )
+                opp_picks = [
+                    a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
+                ]
             with_picks, pair = _posture_pick_packages(
                 my_roster,
                 opp_filtered,

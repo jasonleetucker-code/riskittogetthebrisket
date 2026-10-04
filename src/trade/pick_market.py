@@ -269,10 +269,14 @@ def owned_pick_forecasts(
     if calibration is not None:
         confidence, basis, calibrated = float(calibration), "calibrated_brier_skill", True
     else:
-        confidence, basis = provisional_confidence(
-            int(sim_payload.get("regularSeasonGamesPlayed") or 0),
-            int(sim_payload.get("regularSeasonGamesRemaining") or 0),
-        )
+        played = sim_payload.get("regularSeasonGamesPlayed")
+        remaining = sim_payload.get("regularSeasonGamesRemaining")
+        if isinstance(played, int) and isinstance(remaining, int):
+            confidence, basis = provisional_confidence(played, remaining)
+        else:
+            # Season progress unknown: no evidence to lean on, so the forecast
+            # gets no weight and the value stays the plain tier average.
+            confidence, basis = 0.0, "season_progress_unknown"
         calibrated = False
     out: dict[int, tuple[int, TierForecast]] = {}
     for r in rows:

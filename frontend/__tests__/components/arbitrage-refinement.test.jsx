@@ -235,4 +235,35 @@ describe("/arbitrage package refinement", () => {
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     expect(await screen.findByText(/KTC tier average — slot unknown/)).toBeInTheDocument();
   });
+
+  it("drops a stale scan when the mode is switched mid-flight", async () => {
+    const user = userEvent.setup();
+    let resolveFirst;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response(payload("Target Bob")))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = () => resolve(response(payload("Stale Asset Pick")));
+          }),
+      )
+      .mockResolvedValueOnce(response(payload("Target Charlie")));
+    render(<ArbitragePage />);
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await screen.findByRole("button", { name: "Exclude Target Bob from suggestions" });
+
+    await user.click(screen.getByRole("radio", { name: "Asset only" })); // slow, will be stale
+    await user.click(screen.getByRole("radio", { name: "Team context" })); // latest
+    await screen.findByRole("button", { name: "Exclude Target Charlie from suggestions" });
+    await act(async () => {
+      resolveFirst();
+    });
+    expect(
+      screen.queryByRole("button", { name: "Exclude Stale Asset Pick from suggestions" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Exclude Target Charlie from suggestions" }),
+    ).toBeTruthy();
+  });
 });

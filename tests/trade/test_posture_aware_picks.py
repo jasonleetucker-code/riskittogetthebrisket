@@ -217,3 +217,107 @@ def test_finder_pick_takes_the_forecast_for_its_originating_franchise():
         c["sleeper"]["teams"][0], c, _players(), {}, {1: (2028, forecast)}
     )
     assert other_year.market_value == plain.market_value
+
+
+# ── Independent re-review regressions ────────────────────────────────
+
+
+def _two_team_fixture():
+    players = {
+        "Mine A": {"_finalAdjusted": 5000, "_sites": 6, "_canonicalSiteValues": {"ktcSfTep": 5000}},
+        "Theirs A": {
+            "_finalAdjusted": 5500,
+            "_sites": 6,
+            "_canonicalSiteValues": {"ktcSfTep": 4500},
+        },
+    }
+    teams = [
+        {"name": "Us", "players": ["Mine A"], "roster_id": 1},
+        {"name": "Them", "players": ["Theirs A"], "roster_id": 2},
+    ]
+    return players, teams
+
+
+def test_a_protected_pick_is_never_sent(monkeypatch):
+    """BLOCKING finding: picks were appended after enumeration and skipped
+    C3-CON-01.  A protected / locked / excluded pick must never be offered."""
+    from src.trade.constraints import TradeConstraints, constraint_key
+
+    pick = Asset(
+        name="2027 1st (Us)",
+        position="PICK",
+        team="",
+        model_value=5000,
+        market_value=5000,
+        is_pick=True,
+        asset_id="pick:dynasty_main:2027:r1:o1",
+    )
+    monkeypatch.setattr(finder, "_owned_pick_assets", lambda *a, **k: ([pick], {"owned": 1}))
+    seen: list = []
+
+    def capture(my_roster, opp, my_picks, opp_picks, *a, **k):
+        seen.append(list(my_picks))
+        return [], None
+
+    monkeypatch.setattr(finder, "_posture_pick_packages", capture)
+    players, teams = _two_team_fixture()
+    out = finder.find_trades(
+        players,
+        "Us",
+        ["Them"],
+        teams,
+        market_top_n=0,
+        postures={"Us": "PUSH", "Them": "REBUILD"},
+        constraints=TradeConstraints(
+            protected_outgoing=frozenset({constraint_key("pick:dynasty_main:2027:r1:o1")})
+        ),
+    )
+    assert seen and seen[0] == []
+    pg = out["metadata"]["pickGeneration"]
+    assert pg["picksBlockedByConstraints"] == 1
+    assert pg["picksBlockedReasons"] == ["protected_individual"]
+
+
+def test_package_label_counts_players_and_names_picks_separately():
+    give = [_a("P1", 5000), MY_PICK]
+    receive = [_a("Q1", 3000), _a("Q2", 2900)]
+    assert finder._package_size_label(give, receive) == "1-for-2 + 1 pick"
+    assert finder._package_size_label([_a("P1", 1)], [_a("Q1", 1)]) == "1-for-1"
+
+
+def test_fire_sale_guard_counts_players_not_picks():
+    # 1 player + a pick for 1 player is NOT "two pieces for one".
+    tc = finder._score_trade_on_values([_a("P1", 5000), MY_PICK], [_a("Q1", 8900)])
+    multi = finder._score_trade_on_values([_a("P1", 5000), _a("P2", 4000)], [_a("Q1", 8900)])
+    if tc is not None:
+        assert "anchor_verified" not in tc.flags
+    if multi is not None:
+        assert "anchor_verified" in multi.flags
+
+
+def test_a_known_slot_pick_is_priced_from_the_unfiltered_market():
+    detail = {**_DETAIL, "season": 2026, "round": 3, "slot": 6, "assetId": "pick:x:2026:r3:o1"}
+    c = _contract([detail])
+    c["playersArray"].append(
+        {"canonicalName": "2026 Pick 3.06", "assetClass": "pick", "rankDerivedValue": 1500}
+    )
+    players = {
+        "2026 Pick 3.06": {
+            "_finalAdjusted": 1500,
+            "position": "PICK",
+            "_sites": 6,
+            "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 1400, "ktc": 1400},
+        }
+    }
+    # pool_by_name is the FILTERED pool — empty here, as for a row below the cut.
+    assets, stats = finder._owned_pick_assets(c["sleeper"]["teams"][0], c, players, {})
+    assert stats["priced"] == 1 and assets[0].market_value == 1400
+    assert assets[0].board_row == "2026 Pick 3.06"
+
+
+def test_overlay_shaped_pick_details_name_their_origin():
+    detail = {k: v for k, v in _DETAIL.items() if k not in ("fromRosterId", "fromTeam")}
+    detail["original_roster_id"] = 1
+    c = _contract([detail])
+    (a,), _ = finder._owned_pick_assets(c["sleeper"]["teams"][0], c, _players(), {})
+    assert a.name == "2027 1st (roster 1)"

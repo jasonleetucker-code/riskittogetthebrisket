@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
@@ -186,8 +186,11 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
   const theirs = rosterCapacityLine(trade.counterpartyRosterCapacity);
 
   const openInCalculator = useMemo(() => {
-    const give = (trade.give || []).map((a) => a.name).filter(Boolean);
-    const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
+    // A pick travels as its canonical board row ("2027 Round 1"), the name
+    // the calculator can resolve — not the "2027 1st (Team)" display label.
+    const asCalculatorName = (a) => a.boardRowName || a.name;
+    const give = (trade.give || []).map(asCalculatorName).filter(Boolean);
+    const receive = (trade.receive || []).map(asCalculatorName).filter(Boolean);
     if (!give.length && !receive.length) return null;
     try {
       return buildShareUrl({
@@ -285,6 +288,10 @@ export default function ArbitragePage() {
   const [edgeFloor, setEdgeFloor] = useState(0.05);
   const [excludedPlayers, setExcludedPlayers] = useState([]);
   const [useTeamContext, setUseTeamContext] = useState(true);
+  // Only the LATEST scan may write the result: a mode switch mid-scan starts a
+  // new request, and a slower earlier response must not paint the other
+  // mode's order under the current switch position.
+  const scanSeq = useRef(0);
 
   const effectiveTeam = myTeam || defaultTeam;
 
@@ -321,6 +328,7 @@ export default function ArbitragePage() {
         ? teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)
         : [opponent];
 
+    const seq = ++scanSeq.current;
     setRunning(true);
     setError("");
     try {
@@ -349,6 +357,7 @@ export default function ArbitragePage() {
         body: JSON.stringify(withValuationMode(body)),
       });
       const data = await res.json().catch(() => ({}));
+      if (seq !== scanSeq.current) return;
       if (!res.ok) {
         setError(data?.error || `Request failed (${res.status})`);
         setResult(null);
@@ -356,10 +365,11 @@ export default function ArbitragePage() {
         setResult(data);
       }
     } catch (err) {
+      if (seq !== scanSeq.current) return;
       setError(err?.message || "Request failed");
       setResult(null);
     } finally {
-      setRunning(false);
+      if (seq === scanSeq.current) setRunning(false);
     }
   }
 

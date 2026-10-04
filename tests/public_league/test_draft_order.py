@@ -67,7 +67,9 @@ def test_missing_points_for_is_unknown_not_zero():
     with pytest.raises(ValueError):
         draft_order({"a": 5}, {}, ["a"])
     with pytest.raises(ValueError):
-        draft_order_from_standings([{"ownerId": "a", "wins": 5, "pointsFor": None}])
+        draft_order_from_standings([{"ownerId": "a", "wins": 5, "ties": 0, "pointsFor": None}])
+    with pytest.raises(ValueError):
+        draft_order_from_standings([{"ownerId": "a", "pointsFor": 1200}])
 
 
 def test_the_rule_is_recorded_for_dynasty_main_and_unknown_elsewhere(tmp_path):

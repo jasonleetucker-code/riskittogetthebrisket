@@ -1202,10 +1202,23 @@ def find_angle_packages(
     # Wave B (C3-CAP-01): the counterparty's roster consequence too — it
     # receives the offer and sends the candidate.  Reported, never ranked.
     if counterparty_context is not None:
+        # Seed mode labels a candidate with every target team ("a+b") even when
+        # all its players come from one roster; the real holder is decided by
+        # the players themselves.
+        holder_by_name = {
+            str(n): str(t.get("ownerId") or "")
+            for t in sleeper_teams
+            if isinstance(t, dict)
+            for n in (t.get("players") or [])
+        }
         for c in candidates:
+            owners = {
+                holder_by_name.get(str(p.get("name") or ""), "") for p in c.get("players") or []
+            }
+            owner = next(iter(owners)) if len(owners) == 1 else c.get("owner_id")
             c["counterpartyRosterCapacity"] = _counterparty_block(
                 counterparty_context,
-                c.get("owner_id"),
+                owner,
                 incoming=offer_players,
                 outgoing=c.get("players") or [],
             )
@@ -1632,8 +1645,14 @@ def find_acquisition_packages(
                 )
                 if len(holders) == 1 and holders[0]
                 else {
-                    "unavailable": "multiple_counterparties",
-                    "notes": ["the desired players are held by more than one team"],
+                    "unavailable": (
+                        "multiple_counterparties" if len(holders) > 1 else "counterparty_unresolved"
+                    ),
+                    "notes": [
+                        "the desired players are held by more than one team"
+                        if len(holders) > 1
+                        else "the desired players' holder did not resolve"
+                    ],
                 }
             )
 

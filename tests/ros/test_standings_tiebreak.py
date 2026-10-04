@@ -335,8 +335,11 @@ def test_no_recorded_rule_publishes_no_slots_and_leaves_the_odds_unchanged():
     without = _run_spread("unknown_league")
     assert without["draftOrderRule"] is None
     assert all("draftSlotDistribution" not in r for r in without["playoffOdds"])
+
     # The draft-order draws use their own stream: playoff odds are identical.
-    key = lambda o: sorted(
-        (r["ownerId"], r["playoffOdds"], r["championshipOdds"]) for r in o["playoffOdds"]
-    )  # noqa: E731
+    def key(o):
+        return sorted(
+            (r["ownerId"], r["playoffOdds"], r["championshipOdds"]) for r in o["playoffOdds"]
+        )
+
     assert key(with_rule) == key(without)

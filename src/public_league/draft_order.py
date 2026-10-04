@@ -121,9 +121,12 @@ def draft_order_from_standings(rows: Iterable[Mapping[str, Any]]) -> DraftOrder:
         oid = str(r.get("ownerId") or "")
         if not oid:
             continue
-        points = r.get("pointsFor")
-        if not isinstance(points, (int, float)) or isinstance(points, bool):
-            raise ValueError(f"owner {oid} has no final Points For — order is unknown, not 0")
-        wins[oid] = float(r.get("wins") or 0) + 0.5 * float(r.get("ties") or 0)
-        pf[oid] = float(points)
+        values = {k: r.get(k) for k in ("wins", "ties", "pointsFor")}
+        bad = [
+            k for k, v in values.items() if not isinstance(v, (int, float)) or isinstance(v, bool)
+        ]
+        if bad:
+            raise ValueError(f"owner {oid} lacks final {bad} — order is unknown, not 0")
+        wins[oid] = float(values["wins"]) + 0.5 * float(values["ties"])
+        pf[oid] = float(values["pointsFor"])
     return draft_order(wins, pf, list(wins))
