@@ -598,7 +598,7 @@ _ANGLE_POLICY = _EligibilityPolicy(min_value=None, allow_unknown_value=True, req
 # carry no canonical asset id, which means the dedup identity here falls back
 # to names — the substrate reports that rather than letting it pass as an id
 # key.
-def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
+def _angle_sides(pool, sizes, *, side, outgoing_policy, required=(), against=None, refused=None):
     """Every candidate package side, via the canonical substrate.
 
     ``side`` and ``outgoing_policy`` are REQUIRED and are threaded from the
@@ -608,7 +608,7 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
     would put a C3-CON-01 outgoing constraint on an incoming pool — the §2.2
     asymmetry inverted, which blocks acquiring a player the user protects.
     """
-    from src.packages import enumerate_sides  # noqa: PLC0415
+    from src.packages import enumerate_sides, topology_is_allowed  # noqa: PLC0415
 
     sides, _report = enumerate_sides(
         pool,
@@ -623,6 +623,15 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
         adapt=False,
     )
     for side_assets in sides:
+        # C3-TOPO-01 (Wave B): a generated counter-package keeps the two
+        # sides' PLAYER counts within one of each other.  ``against`` is the
+        # fixed side the user built (offer mode: what we send; acquire mode:
+        # what we want).  Picks are not players, so "2 players + a pick for 3
+        # players" is even.  Refusals are counted, never silent.
+        if against is not None and not topology_is_allowed(side_assets, against):
+            if refused is not None:
+                refused["topologyRejected"] = refused.get("topologyRejected", 0) + 1
+            continue
         yield tuple(a.source for a in side_assets)
 
 
@@ -826,8 +835,12 @@ def find_angle_packages(
             "assumed offense<->IDP exchange rate."
         )
 
-    # Target sizes: N-1, N, N+1 — never less than 1.
+    # Target sizes: N-1, N, N+1 — never less than 1.  These are ASSET counts;
+    # the C3-TOPO-01 player-count rule is applied per package against the
+    # offer (``offer_side_assets``), because an offer can carry picks.
     target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
+    offer_side_assets = _angle_pool_assets(offer_entries)
+    topology_report: dict[str, int] = {"topologyRejected": 0}
 
     # Normalise position filter.
     position_filter: set[str] | None = None
@@ -1100,6 +1113,8 @@ def find_angle_packages(
                 side=_RECEIVE,
                 outgoing_policy=_UNCONSTRAINED_OUTGOING,
                 required=_angle_pool_assets(seed_entries),
+                against=offer_side_assets,
+                refused=topology_report,
             ):
                 cand = _make_candidate(combo, team_label, owner_label)
                 if cand is not None:
@@ -1114,6 +1129,8 @@ def find_angle_packages(
                 target_sizes,
                 side=_RECEIVE,
                 outgoing_policy=_UNCONSTRAINED_OUTGOING,
+                against=offer_side_assets,
+                refused=topology_report,
             ):
                 cand = _make_candidate(
                     combo,
@@ -1178,6 +1195,8 @@ def find_angle_packages(
             "candidate_pool_per_team": candidate_pool_per_team,
             "per_team_limit": per_team_limit,
             "target_sizes": target_sizes,
+            "topologyRule": "abs(players_send - players_receive) <= 1 (C3-TOPO-01; picks are not players)",
+            "topologyRejected": topology_report["topologyRejected"],
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
             "target_team_owner_ids": sorted(target_ids) if target_ids else [],
@@ -1367,6 +1386,8 @@ def find_acquisition_packages(
         )
 
     target_sizes = sorted({max(1, desired_size - 1), desired_size, desired_size + 1})
+    desired_side_assets = _angle_pool_assets(desired_entries)
+    topology_report: dict[str, int] = {"topologyRejected": 0}
 
     position_filter: set[str] | None = None
     if positions:
@@ -1535,6 +1556,8 @@ def find_acquisition_packages(
         # that carries C3-CON-01.
         side=_SEND,
         outgoing_policy=_outgoing_policy,
+        against=desired_side_assets,
+        refused=topology_report,
     ):
         cand = _make_candidate(combo)
         if cand is not None:
@@ -1586,6 +1609,8 @@ def find_acquisition_packages(
             "limit": limit,
             "candidate_pool": candidate_pool,
             "target_sizes": target_sizes,
+            "topologyRule": "abs(players_send - players_receive) <= 1 (C3-TOPO-01; picks are not players)",
+            "topologyRejected": topology_report["topologyRejected"],
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
             "include_idp": bool(include_idp),

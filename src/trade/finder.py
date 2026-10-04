@@ -861,6 +861,13 @@ _ASYMMETRIC_POOL_LIMIT = 30
 #: close to the old asymmetric cost while still covering the highest-value
 #: roster core first (rank_key is by_value_desc).
 _TWO_FOR_TWO_POOL_LIMIT = 18
+#: C3-TOPO-01 (Wave B): the owner topology rule allows 2-for-2, 3-for-2 and
+#: 2-for-3, which the default search never offered.  These shapes are
+#: combinatorial on both sides, so they search only the top of each roster
+#: (rank_key is by_value_desc) — the region where multi-player packages are
+#: plausible at all.  Sized from a measured budget on the live board, see
+#: ``tests/trade/test_generated_topology.py``.
+_MULTI_PLAYER_POOL_LIMIT = 6
 
 
 def _generate_packages(
@@ -879,7 +886,8 @@ def _generate_packages(
     arbitrage finder rather than one of the other three products, and none of
     that moved.
 
-    Default callers preserve the historical 1-for-1 + asymmetric search.
+    Default callers get 1-for-1, the asymmetric 2-for-1 / 1-for-2 search and
+    (C3-TOPO-01) a top-of-roster 2-for-2 / 3-for-2 / 2-for-3 search.
     ``/arbitrage`` explicitly requests ``equal_count_only`` and gets exactly
     1-for-1 + 2-for-2.  That keeps this UX policy scoped to the surface that
     asked for it instead of silently changing other internal callers.
@@ -933,9 +941,18 @@ def _generate_packages(
         [substrate.PackageShape(2, 1), substrate.PackageShape(1, 2)],
         _ASYMMETRIC_POOL_LIMIT,
     )
+    multi_player = _run(
+        [
+            substrate.PackageShape(2, 2),
+            substrate.PackageShape(3, 2),
+            substrate.PackageShape(2, 3),
+        ],
+        _MULTI_PLAYER_POOL_LIMIT,
+    )
     return results, {
         "oneForOne": one_for_one.to_dict(),
         "asymmetric": asymmetric.to_dict(),
+        "multiPlayer": multi_player.to_dict(),
     }
 
 
