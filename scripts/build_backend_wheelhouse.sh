@@ -37,7 +37,7 @@ for package in "${work_dir}"/backend-inputs/*; do
     *.whl) cp "${package}" "${work_dir}/backend-wheels/" ;;
     *.tar.gz|*.zip)
       cp "${package}" "${work_dir}/backend-sources/"
-      "${work_dir}/build-venv/bin/python" -m pip wheel \
+      PIP_NO_INDEX=1 "${work_dir}/build-venv/bin/python" -m pip wheel \
         --no-build-isolation --no-deps \
         --wheel-dir "${work_dir}/backend-wheels" "${package}"
       ;;
