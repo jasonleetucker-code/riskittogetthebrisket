@@ -32,17 +32,27 @@ production permissions.
 | Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IN PROGRESS — scheduled refresh now uses the runtime lock on the current-main rehearsal; updated foundation CI and integration pending | Hash-checked lock, Windows/Linux install, CI/deploy parity, drift sabotage |
 | Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | IN PROGRESS — CI package and draft frontend cutover; no production proof | CI digest, exact deploy, served fingerprint, rollback |
 | Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | IN PROGRESS — `/api/leagues` pilot plus generated parity; CI/production pending | Public/private schema tests, OpenAPI, deterministic type parity |
-| Application trace and SLOs | Existing API/log/performance owners | IN PROGRESS — `/api/leagues` trace pilot; source spans and SLOs pending | Correlated route and source evidence, privacy, failure isolation |
+| Application trace and SLOs | Existing API/log/performance owners | IN PROGRESS — `/api/leagues` trace pilot and privacy-safe source lifecycle proof; source spans and SLOs pending | Correlated route and source evidence, privacy, failure isolation |
 | Steward spans, eval bridge, routing scorecards | `src/steward/`, `agent-evals/` | IN PROGRESS — draft span, receipt bridge, scorecard and trace-behavior PRs; context command budget counts in next unit; no integration proof | Real run artifact, exact-revision grading, challenger only |
 | Optional typed decision advisor | Existing Steward router/evals | SHADOW PORT IN PROGRESS — offline task-profile comparison only; no provider, labeled corpus, calibration or active routing | Simple baseline, held-out task labels, per-family calibration and risk/coverage before any advisory use |
-| Class-B executor and isolation | Existing Steward controller/contracts | PROBE IN PROGRESS — fixed-container boundary only; no worker or command policy | Denied path/command/network/credential tests; branch-only PR |
+| Class-B executor and isolation | Existing Steward controller/contracts | DETERMINISTIC PILOT ON PR — fixed Docker worker repaired one real document link with path/command/network refusal evidence; no model runtime, automated branch writer, or active Class-B authority | Denied path/command/network/credential tests; branch-only PR |
 | Action receipt integrity | Existing Steward store/controller | RECOVERY IN PROGRESS — SQLite/JSONL mirror repair on retry; no independent cryptographic anchor | Append-failure recovery, conflict/truncation refusal, exact source mapping |
 | Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public CLI exploration, 44 deterministic production E2E checks and two adversarial cases; structured journey reporter exercised locally and in CI, corrected dual-origin metadata pending exact-head recheck, no campaign production proof | Structured findings plus deterministic assertions |
-| Final reconciliation | Canonical docs, CI, deploy and production evidence | NOT STARTED | Exact merged and served identity; unresolved debt |
+| Final reconciliation | Canonical docs, CI, deploy and production evidence | IN PROGRESS — draft integration train #1667 opened after product #1658 merged; exact-head L2, strict L3, merge, deploy and served identity remain | Exact merged and served identity; unresolved debt |
 
 No new generic orchestration framework, vector memory, generic feature store,
 MCP conversion, paid collector/sandbox, or self-promoting routing is planned.
 Domain methodology and production permissions remain with their current owners.
+
+The integration train #1667 contains the reviewed fixed Class-B document pilot
+(#1665) and source lifecycle proof (#1666). The pilot runs a credential-free
+container against one real broken anchor and verifies the exact repaired bytes;
+its worker is deterministic, and its trusted host still creates the PR. It does
+not satisfy the autonomous model executor or branch-writer credential boundary.
+The source proof parses existing private scrape events on the production host
+and returns only an allowlisted start-to-terminal summary. Its production
+workflow cannot run from `main` until this train merges; an older read-only
+diagnostic supported one historical source pair, not current L3 evidence.
 
 An agent-declared 2026-10-04 read-only Playwright CLI spot check opened production `/league`
 at desktop and 390×844 mobile widths. The Home data rendered, and selecting
