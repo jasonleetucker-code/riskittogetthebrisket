@@ -38,4 +38,12 @@ describe("FailureState never points at an absent reason", () => {
     expect(screen.getByTestId("failure-code")).toHaveTextContent("(contract_build_failed)");
     expect(screen.getByRole("alert")).toHaveTextContent(/latest rankings build failed/);
   });
+
+  it("block variant: the code sits beside the description, never inside it", () => {
+    const failure = { kind: "error", code: "invalid_matchup", message: "The response is incomplete. Please retry." };
+    render(<FailureState failure={failure} variant="block" />);
+    // The reader-facing sentence is matchable exactly, on its own.
+    expect(screen.getByText("The response is incomplete. Please retry.")).toBeInTheDocument();
+    expect(screen.getByTestId("failure-code")).toHaveTextContent("(invalid_matchup)");
+  });
 });

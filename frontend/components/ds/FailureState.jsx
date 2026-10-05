@@ -146,15 +146,28 @@ export function FailureState({
   const showRetry = Boolean(onRetry) && spec.canRetry && failure.retryable !== false;
 
   if (variant === "block") {
+    // The code sits on its own line, outside the description, so the
+    // description stays exactly the reader-facing sentence.
+    const code = codeNote ? (
+      <p className="ds-empty__description" data-testid="failure-code" style={{ opacity: 0.7, fontSize: "0.85em" }}>
+        {codeNote}
+      </p>
+    ) : null;
+    const retry = showRetry ? (
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    ) : null;
     return (
       <EmptyState
         title={title}
-        description={[detail, spec.hint, codeNote].filter(Boolean).join(" ")}
+        description={[detail, spec.hint].filter(Boolean).join(" ")}
         action={
-          showRetry ? (
-            <Button variant="secondary" size="sm" onClick={onRetry}>
-              Try again
-            </Button>
+          code || retry ? (
+            <>
+              {code}
+              {retry}
+            </>
           ) : undefined
         }
         className={className}
