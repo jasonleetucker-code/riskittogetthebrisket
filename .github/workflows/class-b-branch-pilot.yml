@@ -8,7 +8,6 @@ on:
       - 'scripts/class_b_branch_verify.py'
       - 'tests/scripts/test_class_b_branch_pilot.py'
       - 'docs/master-site-audit/PERFORMANCE_AUDIT.md'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,7 +23,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Run credential-free worker and independently verify exact output
-        if: github.event_name == 'pull_request'
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

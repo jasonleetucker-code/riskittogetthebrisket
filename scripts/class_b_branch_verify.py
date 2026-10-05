@@ -1,7 +1,9 @@
-"""Trusted, independent verifier for the fixed Class-B document pilot.
+"""Host-side verifier for the fixed Class-B document pilot.
 
 Receipts and file bytes are untrusted worker output. This module never executes
 worker-supplied commands or accepts worker-supplied paths or Git refs.
+It is loaded from this PR checkout, so it is not an immutable trust root against
+future PR authors; the current pilot relies on independent review of this exact head.
 """
 
 from __future__ import annotations

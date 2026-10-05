@@ -25,3 +25,8 @@ main protection still permits direct fast-forward pushes, so a `contents:write`
 coordinator would have merge/deploy-equivalent authority. `B_REVERSIBLE_BRANCH`
 remains inactive until that credential boundary and a real authorized model
 runtime are in place.
+
+The verifier and workflow are loaded from this PR checkout. Their result is
+evidence for this independently reviewed head, not an immutable trust root
+against a future PR that changes those files. Activation must pin the trusted
+coordinator/verifier outside the worker-controlled branch.
