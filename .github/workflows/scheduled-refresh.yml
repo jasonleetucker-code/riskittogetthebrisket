@@ -57,7 +57,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
           pip check
           python scripts/check_env.py --runtime
           # Playwright package itself is declared in requirements.txt;

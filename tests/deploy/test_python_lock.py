@@ -98,3 +98,12 @@ def test_required_validation_installs_exact_development_graph(path):
         assert workflow.count("pip install -r requirements-dev.txt") == 1
         workflow = workflow.replace(legacy_install, "")
     assert "pip install -r requirements-dev.txt" not in workflow
+
+
+def test_scheduled_refresh_installs_exact_runtime_graph():
+    workflow = (python_lock.ROOT / ".github/workflows/scheduled-refresh.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "python scripts/python_lock.py check" in workflow
+    assert "pip install --require-hashes -r requirements.lock.txt" in workflow
+    assert "pip install -r requirements.txt" not in workflow
