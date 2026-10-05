@@ -14,7 +14,11 @@ then installs every resulting wheel in a fresh Python 3.12 virtual environment
 from a generated exact-hash file with `--no-index`. It runs `pip check` and the
 wheelhouse manifest tests before uploading a tarball. The manifest binds every
 wheel and source archive's name, size and SHA-256 to the dev lock, Python ABI
-and platform. It rejects symlinks, extra files, substituted bytes and lock drift.
+and platform. `requirements-build.lock.txt` pins the build environment's
+setuptools and wheel distributions by hash; the source build runs with build
+isolation disabled so it cannot fetch a newer build tool. The manifest binds
+that build lock too. It rejects symlinks, extra files, substituted bytes and
+lock drift.
 
 This is **build and validation evidence only**. The production deploy and
 rollback paths still install from the runtime hash lock, and `/api/status`
@@ -23,7 +27,6 @@ the tested wheel archive to be transferred, verified before extraction,
 installed offline from the runtime subset, saved for exact rollback and
 attested by the running process. The workflow reports the archive size so that
 the VPS disk and release-retention impact can be judged before that cutover.
-Build-tool dependencies for source archives also need exact pins before a
-production cutover; their current CI download is a measured gap, not a claim of
-fully reproducible backend builds. No credentials or paid model service are
-used by this proof.
+The production cutover still needs a separate runtime-only artifact and
+verified offline installation and rollback. No credentials or paid model
+service are used by this proof.

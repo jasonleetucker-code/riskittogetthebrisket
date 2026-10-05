@@ -34,11 +34,13 @@ def _lock_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
-def inspect(wheel_dir: Path, lock: Path, source_dir: Path | None = None) -> dict:
+def inspect(wheel_dir: Path, lock: Path, build_lock: Path, source_dir: Path | None = None) -> dict:
     if wheel_dir.is_symlink() or not wheel_dir.is_dir():
         raise ValueError("wheelhouse must be a regular directory")
     if lock.is_symlink() or not lock.is_file():
         raise ValueError("lock must be a regular file")
+    if build_lock.is_symlink() or not build_lock.is_file():
+        raise ValueError("build lock must be a regular file")
     paths = sorted(wheel_dir.iterdir(), key=lambda path: path.name)
     if not paths or len(paths) > MAX_WHEELS:
         raise ValueError("wheelhouse has an invalid wheel count")
@@ -84,6 +86,7 @@ def inspect(wheel_dir: Path, lock: Path, source_dir: Path | None = None) -> dict
         "python_abi": f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}",
         "platform": sysconfig.get_platform(),
         "lock_sha256": _lock_sha256(lock),
+        "build_lock_sha256": _lock_sha256(build_lock),
         "wheels": wheels,
         "source_archives": sources,
     }
@@ -91,17 +94,27 @@ def inspect(wheel_dir: Path, lock: Path, source_dir: Path | None = None) -> dict
     return {**identity, "wheelhouse_sha256": hashlib.sha256(encoded).hexdigest()}
 
 
-def verify(manifest: dict, wheel_dir: Path, lock: Path, source_dir: Path | None = None) -> str:
-    observed = inspect(wheel_dir, lock, source_dir)
+def verify(
+    manifest: dict,
+    wheel_dir: Path,
+    lock: Path,
+    build_lock: Path,
+    source_dir: Path | None = None,
+) -> str:
+    observed = inspect(wheel_dir, lock, build_lock, source_dir)
     if manifest != observed:
         raise ValueError("wheelhouse manifest differs from local bytes, lock or runtime")
     return observed["wheelhouse_sha256"]
 
 
 def install_requirements(
-    manifest: dict, wheel_dir: Path, lock: Path, source_dir: Path | None
+    manifest: dict,
+    wheel_dir: Path,
+    lock: Path,
+    build_lock: Path,
+    source_dir: Path | None,
 ) -> str:
-    verify(manifest, wheel_dir, lock, source_dir)
+    verify(manifest, wheel_dir, lock, build_lock, source_dir)
     return "".join(
         f"{(wheel_dir / wheel['name']).resolve().as_uri()} --hash=sha256:{wheel['sha256']}\n"
         for wheel in manifest["wheels"]
@@ -114,11 +127,12 @@ def main() -> None:
     parser.add_argument("--wheel-dir", type=Path, required=True)
     parser.add_argument("--source-dir", type=Path)
     parser.add_argument("--lock", type=Path, required=True)
+    parser.add_argument("--build-lock", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.action == "create":
-        manifest = inspect(args.wheel_dir, args.lock, args.source_dir)
+        manifest = inspect(args.wheel_dir, args.lock, args.build_lock, args.source_dir)
         args.manifest.write_text(
             json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8"
         )
@@ -128,11 +142,13 @@ def main() -> None:
             if args.output is None:
                 parser.error("requirements requires --output")
             args.output.write_text(
-                install_requirements(manifest, args.wheel_dir, args.lock, args.source_dir),
+                install_requirements(
+                    manifest, args.wheel_dir, args.lock, args.build_lock, args.source_dir
+                ),
                 encoding="utf-8",
             )
         else:
-            verify(manifest, args.wheel_dir, args.lock, args.source_dir)
+            verify(manifest, args.wheel_dir, args.lock, args.build_lock, args.source_dir)
     print(manifest["wheelhouse_sha256"])
 
 
