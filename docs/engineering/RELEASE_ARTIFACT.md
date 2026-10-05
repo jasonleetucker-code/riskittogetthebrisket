@@ -49,6 +49,13 @@ archive stages the exact previous frontend bytes; historical revisions with
 no saved archive use the established rebuild path. Successful deploys retain
 the eight newest complete archives plus the current and immediately previous
 revisions, leaving unknown/incomplete files for operator inspection.
+Before touching the live frontend, a same-revision redeploy checks any saved
+archive and manifest. It preserves a complete, checksum-valid rollback archive
+when the artifact ID matches and refuses a different artifact ID or incomplete
+archive for that SHA. A new archive is copied and checksummed in a temporary
+directory before its three saved files are published. An interrupted first save
+may leave an incomplete triplet for operator inspection; it cannot overwrite a
+previously complete archive for the same revision.
 
 The deploy script rechecks the live `.next` bytes before recording success,
 and the workflow independently compares their artifact ID with CI's output
@@ -69,6 +76,8 @@ locks or a tested frontend artifact for a commit that predates them.
 
 This cutover remains **unverified in production** until its PR passes Linux
 CI, integrates and the deployed Next build ID and artifact ID are observed
-from the live service. The backend still installs the pinned lock on the VPS;
+from the live process and on-disk build. The public smoke checks asset HTTP
+availability, but does not yet compare HTTP-served asset bytes with CI; that
+last equivalence remains inferred. The backend still installs the pinned lock on the VPS;
 its built artifact digest is explicitly unknown. That backend build-once piece
 remains open.
