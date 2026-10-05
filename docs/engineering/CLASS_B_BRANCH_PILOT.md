@@ -30,3 +30,8 @@ The verifier and workflow are loaded from this PR checkout. Their result is
 evidence for this independently reviewed head, not an immutable trust root
 against a future PR that changes those files. Activation must pin the trusted
 coordinator/verifier outside the worker-controlled branch.
+
+After the one-link fix lands, the PR workflow checks that both the base and
+candidate still contain the resolved anchor. It runs the Docker repair proof
+only while the base contains the original broken link, so later documentation
+or pilot-code PRs do not require a defect that has already been fixed.
