@@ -27,7 +27,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -595,7 +595,11 @@ def _stale_board(root: Path, *, age: timedelta) -> dict[str, bytes]:
     _write_store(root)
     state_dir = root / "data" / "scrape_state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    old = datetime.now(timezone.utc) - age
+    # Age is measured against the BUILD's as-of (the fixture payload's
+    # scrapeTimestamp), so the board is stamped relative to that, never the
+    # wall clock: ``now - 60h`` drifted under the decay window a day later.
+    as_of = datetime.fromisoformat(_raw_payload()["scrapeTimestamp"].replace("Z", "+00:00"))
+    old = as_of - age
     DS.record_source_file(
         source_key="signalsSf",
         csv_path=S.board_csv_path(root / "data" / "sources" / "signals", "signalsSf"),
@@ -786,3 +790,53 @@ class TestIdpShadow:
             info = boards[0]["privateSourceAvailability"][key]
             assert info["votes"] is True and info["voteState"] == "active"
             assert info["heldFromVote"] is None
+
+
+def test_a_retired_pick_class_does_not_misplace_shadow_meta(tmp_path, monkeypatch):
+    """Production 2026-10-05 (the Rankings outage): the shadow diagnostic was
+    stamped by Phase-1 row INDEX after ``_drop_retired_pick_class_rows`` had
+    compacted ``playersArray`` in place.  With a retired class sitting before
+    the IDP rows, every shadow index shifted — the tail ran off the end
+    (``IndexError``, contract build failed, no board served) and the rest
+    landed on the wrong rows.  The stamp must go on the row it was computed
+    for, whatever is removed afterwards."""
+    from src.api import data_contract as dc
+
+    _write_store(tmp_path)
+    raw = _raw_payload()
+    retired = {
+        f"2025 Pick 1.{slot:02d}": {
+            "_canonicalSiteValues": {"ktcCrowdSfTep": 6000 - 10 * slot},
+            "ktcCrowdSfTep": 6000 - 10 * slot,
+            "position": "PICK",
+        }
+        for slot in range(1, 13)
+    }
+    raw["players"] = {**retired, **raw["players"]}  # the retired rows come FIRST
+
+    real = dc._evaluate_pick_class_lifecycle
+
+    def lifecycle_with_2025_retired(players_by_name, sleeper_block):
+        out = real(players_by_name, sleeper_block)
+        out["retiredYears"] = sorted({*out.get("retiredYears", []), 2025})
+        return out
+
+    monkeypatch.setattr(dc, "_evaluate_pick_class_lifecycle", lifecycle_with_2025_retired)
+    with contextlib.redirect_stdout(io.StringIO()):
+        contract = build_api_data_contract(raw, csv_root=tmp_path)
+
+    rows = contract["playersArray"]
+    assert not any(str(r.get("displayName", "")).startswith("2025 Pick") for r in rows)
+    stamped = 0
+    for row in rows:
+        for key, meta in (row.get("sourceShadowMeta") or {}).items():
+            # Each diagnostic describes THIS row: a row Signals covers, on
+            # the board of its own family (the fixture's coverage map).
+            name = str(row["displayName"])
+            assert name.startswith("Synthetic Idp "), (name, key)
+            i = int(name.rsplit(" ", 1)[1])
+            assert i not in IDP_UNCOVERED, (name, key)
+            family = dict(zip(SIGNALS_KEYS[1:], IDP_POS))[key]
+            assert IDP_POS[i % 3] == family and meta["positionGroup"] == family, (name, key)
+            stamped += 1
+    assert stamped > 50
