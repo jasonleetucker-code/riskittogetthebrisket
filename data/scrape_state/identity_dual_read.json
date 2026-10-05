@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-10-04T23:39:16.341509+00:00",
+ "generatedAt": "2026-10-05T06:17:40.493800+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2076,
+ "calls": 2073,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2054,
- "v2WouldChange": 22,
+ "v2Same": 2050,
+ "v2WouldChange": 23,
  "v2Examples": [
   {
    "name": "Andru Phillips",
@@ -50,6 +50,14 @@
    "served": "10917",
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Cam Miller",
+   "pos": "",
+   "served": "12688",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
   },
   {
