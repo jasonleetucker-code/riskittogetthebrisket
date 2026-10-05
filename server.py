@@ -4817,10 +4817,26 @@ async def get_data(request: Request):
         if payload_bytes:
             return Response(content=payload_bytes, media_type="application/json", headers=headers)
         return JSONResponse(content=payload_obj, headers=headers)
-    return JSONResponse(
-        status_code=503,
-        content={"error": "No data available yet. First scrape may still be running."},
+    # No board loaded.  Say WHICH no-board state this is, with a machine code
+    # the client can map, instead of a sentence in ``error``: a failed build
+    # (``contract_health`` says so) is not "the first scrape may still be
+    # running", and the Rankings banner rendered the old shape as "declining
+    # for the reason above" with no reason (2026-10-05).
+    build_failed = (contract_health or {}).get("status") == "invalid" and any(
+        str(e).startswith("contract build failed")
+        for e in (contract_health or {}).get("errors") or []
     )
+    if build_failed:
+        content = {
+            "error": "contract_build_failed",
+            "message": "The latest rankings build failed, so no board is loaded right now.",
+        }
+    else:
+        content = {
+            "error": "data_not_ready",
+            "message": "No rankings board is loaded yet. The first scrape may still be running.",
+        }
+    return JSONResponse(status_code=503, content=content)
 
 
 @app.get("/api/dynasty-data")
