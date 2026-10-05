@@ -27,7 +27,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -595,7 +595,11 @@ def _stale_board(root: Path, *, age: timedelta) -> dict[str, bytes]:
     _write_store(root)
     state_dir = root / "data" / "scrape_state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    old = datetime.now(timezone.utc) - age
+    # Age is measured against the BUILD's as-of (the fixture payload's
+    # scrapeTimestamp), so the board is stamped relative to that, never the
+    # wall clock: ``now - 60h`` drifted under the decay window a day later.
+    as_of = datetime.fromisoformat(_raw_payload()["scrapeTimestamp"].replace("Z", "+00:00"))
+    old = as_of - age
     DS.record_source_file(
         source_key="signalsSf",
         csv_path=S.board_csv_path(root / "data" / "sources" / "signals", "signalsSf"),
