@@ -473,6 +473,27 @@ served_source_coverage: dict = {}
 # inactivation run).
 served_seasonal_inactive: list[str] = []
 
+# Private sources the SERVED board declares it carries no vote from by design
+# (``data_contract.private_sources_absent_by_design`` over that board's own
+# ``privateSourceAvailability``: not provisioned, rolled back, or held — e.g.
+# Signals IDP in shadow).  Published beside ``served_seasonal_inactive`` and
+# swapped with it, so the deploy coverage gate excuses exactly what the board
+# it is judging declared — never what the checkout currently says.
+served_private_absent_by_design: list[str] = []
+
+
+def _compute_served_private_absent_by_design(contract: dict | None) -> list[str]:
+    """Sorted keys the served contract declares absent by design.
+    Defensive: any shape surprise yields ``[]`` (nothing excused)."""
+    try:
+        from src.api.data_contract import private_sources_absent_by_design
+
+        return sorted(
+            private_sources_absent_by_design((contract or {}).get("privateSourceAvailability"))
+        )
+    except Exception:  # noqa: BLE001
+        return []
+
 
 def _compute_served_seasonal_inactive(contract: dict | None) -> list[str]:
     """Sorted keys of the served contract's seasonal-inactive stamp.
@@ -2610,6 +2631,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     global contract_health
     global served_source_coverage
     global served_seasonal_inactive
+    global served_private_absent_by_design
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -2635,9 +2657,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             latest_compact_data_bytes, \
             latest_compact_data_gzip_bytes, \
             latest_compact_data_etag
-        global served_source_coverage, served_seasonal_inactive
+        global served_source_coverage, served_seasonal_inactive, served_private_absent_by_design
         served_source_coverage = {}
         served_seasonal_inactive = []
+        served_private_absent_by_design = []
         latest_data_bytes = None
         latest_data_gzip_bytes = None
         latest_data_etag = None
@@ -2784,6 +2807,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
         new_seasonal_inactive = _compute_served_seasonal_inactive(contract_payload)
+        new_private_absent_by_design = _compute_served_private_absent_by_design(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -2912,6 +2936,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     contract_health = contract_report
     served_source_coverage = new_coverage
     served_seasonal_inactive = new_seasonal_inactive
+    served_private_absent_by_design = new_private_absent_by_design
     latest_data_bytes = raw
     latest_data_gzip_bytes = full_gzip
     latest_data_etag = full_etag
@@ -5813,6 +5838,9 @@ async def get_status():
             # ``served_seasonal_inactive`` global): the coverage gate
             # excuses exactly these, read from the board it is judging.
             "served_seasonal_inactive": served_seasonal_inactive,
+            # Private sources the served board declares it carries no vote
+            # from by design (see ``served_private_absent_by_design``).
+            "served_private_absent_by_design": served_private_absent_by_design,
             # R-4: Scrape success rate tracking
             "scrape_success_rate_24h": _scrape_success_rate_24h(),
             "last_n_scrapes": scrape_history[-20:],

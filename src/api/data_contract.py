@@ -872,6 +872,34 @@ def private_source_availability(csv_root: "Path | None" = None) -> dict[str, dic
     return out
 
 
+def private_sources_absent_by_design(private_state: Any) -> frozenset[str]:
+    """Private sources a board DECLARES it carries no vote from, by design.
+
+    Read from that board's own ``privateSourceAvailability`` stamp: a source
+    the building host has never provisioned, one rolled back by its flag, or
+    one held from the vote (e.g. Signals IDP in shadow).  Such a source is
+    absent from the blend on purpose, so neither the contract validator nor
+    the served-board coverage gate may treat its absence as a lost source.
+
+    A ``missing`` source (provisioned host, CSV gone) is NOT absent by design
+    and stays a failure.  Anything that is not the expected shape excuses
+    nothing (fail closed).
+    """
+    out: set[str] = set()
+    if not isinstance(private_state, dict):
+        return frozenset()
+    for key, info in private_state.items():
+        if not isinstance(info, dict):
+            continue
+        if (
+            info.get("state") == PRIVATE_SOURCE_NOT_PROVISIONED
+            or info.get("rolledBack") is True
+            or bool(info.get("heldFromVote"))
+        ):
+            out.add(str(key))
+    return frozenset(out)
+
+
 #: Registered private sources that are COLLECTED and DISPLAYED but do not
 #: vote, with the reason.  Not a rollback (that is the feature flag) — a
 #: declared methodology state, changed only by a reviewed change.
@@ -15119,18 +15147,9 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         # explicit stamp — a payload without ``privateSourceAvailability``
         # fails closed — and a provisioned host whose board vanished
         # (``missing``) still raises ``source_missing``.
-        private_state = payload.get("privateSourceAvailability")
-        absent_by_design: set[str] = set()
-        if isinstance(private_state, dict):
-            for p_key, p_info in private_state.items():
-                if not isinstance(p_info, dict):
-                    continue
-                if (
-                    p_info.get("state") == PRIVATE_SOURCE_NOT_PROVISIONED
-                    or p_info.get("rolledBack") is True
-                    or bool(p_info.get("heldFromVote"))
-                ):
-                    absent_by_design.add(str(p_key))
+        absent_by_design = private_sources_absent_by_design(
+            payload.get("privateSourceAvailability")
+        )
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)

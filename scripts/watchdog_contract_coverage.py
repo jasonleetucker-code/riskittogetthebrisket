@@ -63,6 +63,7 @@ from src.api.data_contract import (  # noqa: E402
     _RANKING_SOURCES,
     _SOURCE_CSV_PATHS,
     build_api_data_contract,
+    private_sources_absent_by_design,
 )
 from src.api.source_health_alerts import (  # noqa: E402
     load_thresholds,
@@ -183,6 +184,9 @@ def evaluate_coverage(
         freshness,
         thresholds,
         seasonally_inactive=contract_inactive_sources(contract),
+        absent_by_design=private_sources_absent_by_design(
+            (contract or {}).get("privateSourceAvailability")
+        ),
     )
 
 
@@ -191,6 +195,7 @@ def evaluate_coverage_map(
     freshness: dict[str, dict],
     thresholds: dict,
     seasonally_inactive: "Iterable[str] | None" = None,
+    absent_by_design: "Iterable[str] | None" = None,
 ) -> tuple[list[tuple[str, int]], list[tuple[str, int]], list[str]]:
     """Same decision core as :func:`evaluate_coverage` but driven by a
     pre-computed ``{sourceKey: playerCount}`` map instead of a contract.
@@ -212,6 +217,12 @@ def evaluate_coverage_map(
     """
     registered = [str(s.get("key") or "") for s in _RANKING_SOURCES]
     inactive = {str(k) for k in (seasonally_inactive or ())}
+    # Private sources the SAME board declares it carries no vote from
+    # (``data_contract.private_sources_absent_by_design``: not provisioned,
+    # rolled back, or held — e.g. Signals IDP in shadow).  Same rule and same
+    # fail-closed posture as the seasonal set: taken from the board being
+    # judged, never from this checkout.
+    inactive |= {str(k) for k in (absent_by_design or ())}
 
     violations: list[tuple[str, int]] = []
     ok: list[tuple[str, int]] = []
@@ -224,7 +235,8 @@ def evaluate_coverage_map(
         if not is_fresh or not _csv_nonempty(key) or key in inactive:
             # Stale → freshness watchdog already owns it.
             # Empty/missing CSV → nothing to land; not a coverage bug.
-            # Seasonally inactive → no vote by declaration; not a coverage bug.
+            # Seasonally inactive / private absent-by-design → no vote by
+            # declaration; not a coverage bug.
             skipped.append(key)
             continue
         c = int(cov.get(key, 0))
