@@ -570,7 +570,9 @@ class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
         """
         from src.consensus_edge import service as svc
 
-        board = svc.build_board(_CONTRACT, hours_stale=svc.resolve_hours_stale(_CONTRACT))
+        # This assertion isolates the weighted-component ceiling. The tracked
+        # archive keeps aging, so wall-clock freshness must not decide it.
+        board = svc.build_board(_CONTRACT, hours_stale=0.0)
         live = sum(1 for v in board["componentAvailability"].values() if v["available"])
         self.assertEqual(live, 1, "expected only mispricing live with no inputs supplied")
         self.assertTrue(board["strongLabelsReachable"])
