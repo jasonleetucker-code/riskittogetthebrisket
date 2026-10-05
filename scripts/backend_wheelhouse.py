@@ -19,6 +19,7 @@ WHEEL_NAME = re.compile(r"[A-Za-z0-9_.+\-]+\.whl")
 MAX_WHEELS = 500
 MAX_WHEEL_BYTES = 750 * 1024 * 1024
 MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024
+SOURCE_SUFFIXES = (".tar.gz", ".zip")
 
 
 def _sha256(path: Path) -> str:
@@ -33,7 +34,7 @@ def _lock_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
-def inspect(wheel_dir: Path, lock: Path) -> dict:
+def inspect(wheel_dir: Path, lock: Path, source_dir: Path | None = None) -> dict:
     if wheel_dir.is_symlink() or not wheel_dir.is_dir():
         raise ValueError("wheelhouse must be a regular directory")
     if lock.is_symlink() or not lock.is_file():
@@ -61,39 +62,77 @@ def inspect(wheel_dir: Path, lock: Path) -> dict:
             raise ValueError("duplicate wheel name")
         names.add(folded)
         wheels.append({"name": path.name, "sha256": _sha256(path), "bytes": size})
+    sources = []
+    if source_dir is not None:
+        if source_dir.is_symlink() or not source_dir.is_dir():
+            raise ValueError("source archive directory must be regular")
+        for path in sorted(source_dir.iterdir(), key=lambda path: path.name):
+            size = path.stat().st_size
+            if (
+                path.is_symlink()
+                or not path.is_file()
+                or not path.name.endswith(SOURCE_SUFFIXES)
+                or size > MAX_WHEEL_BYTES
+            ):
+                raise ValueError(f"unsafe source archive entry: {path.name}")
+            total_bytes += size
+            if total_bytes > MAX_TOTAL_BYTES:
+                raise ValueError("wheelhouse exceeds size budget")
+            sources.append({"name": path.name, "sha256": _sha256(path), "bytes": size})
     identity = {
         "schema": SCHEMA,
         "python_abi": f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}",
         "platform": sysconfig.get_platform(),
         "lock_sha256": _lock_sha256(lock),
         "wheels": wheels,
+        "source_archives": sources,
     }
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {**identity, "wheelhouse_sha256": hashlib.sha256(encoded).hexdigest()}
 
 
-def verify(manifest: dict, wheel_dir: Path, lock: Path) -> str:
-    observed = inspect(wheel_dir, lock)
+def verify(manifest: dict, wheel_dir: Path, lock: Path, source_dir: Path | None = None) -> str:
+    observed = inspect(wheel_dir, lock, source_dir)
     if manifest != observed:
         raise ValueError("wheelhouse manifest differs from local bytes, lock or runtime")
     return observed["wheelhouse_sha256"]
 
 
+def install_requirements(
+    manifest: dict, wheel_dir: Path, lock: Path, source_dir: Path | None
+) -> str:
+    verify(manifest, wheel_dir, lock, source_dir)
+    return "".join(
+        f"{(wheel_dir / wheel['name']).resolve().as_uri()} --hash=sha256:{wheel['sha256']}\n"
+        for wheel in manifest["wheels"]
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("create", "verify"))
+    parser.add_argument("action", choices=("create", "verify", "requirements"))
     parser.add_argument("--wheel-dir", type=Path, required=True)
+    parser.add_argument("--source-dir", type=Path)
     parser.add_argument("--lock", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.action == "create":
-        manifest = inspect(args.wheel_dir, args.lock)
+        manifest = inspect(args.wheel_dir, args.lock, args.source_dir)
         args.manifest.write_text(
             json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8"
         )
     else:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-        verify(manifest, args.wheel_dir, args.lock)
+        if args.action == "requirements":
+            if args.output is None:
+                parser.error("requirements requires --output")
+            args.output.write_text(
+                install_requirements(manifest, args.wheel_dir, args.lock, args.source_dir),
+                encoding="utf-8",
+            )
+        else:
+            verify(manifest, args.wheel_dir, args.lock, args.source_dir)
     print(manifest["wheelhouse_sha256"])
 
 

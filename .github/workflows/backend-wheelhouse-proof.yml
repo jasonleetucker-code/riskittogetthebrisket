@@ -33,15 +33,35 @@ jobs:
         run: |
           set -Eeuo pipefail
           python scripts/python_lock.py check
-      - name: Download exact Linux wheels and test an offline install
+      - name: Download locked Linux packages and test an offline wheel install
         run: |
           set -Eeuo pipefail
-          python -m pip download --require-hashes --only-binary=:all: \
-            -r requirements-dev.lock.txt --dest backend-wheels
+          mkdir -p backend-inputs backend-wheels backend-sources
+          python -m pip download --require-hashes \
+            -r requirements-dev.lock.txt --dest backend-inputs
+          for package in backend-inputs/*; do
+            case "$package" in
+              *.whl) cp "$package" backend-wheels/ ;;
+              *.tar.gz|*.zip)
+                cp "$package" backend-sources/
+                python -m pip wheel --no-deps --wheel-dir backend-wheels "$package"
+                ;;
+              *) echo "Unsupported locked package: $package" >&2; exit 1 ;;
+            esac
+          done
+          python scripts/backend_wheelhouse.py create \
+            --wheel-dir backend-wheels --source-dir backend-sources \
+            --lock requirements-dev.lock.txt \
+            --manifest backend-wheelhouse-manifest.json
+          python scripts/backend_wheelhouse.py requirements \
+            --wheel-dir backend-wheels --source-dir backend-sources \
+            --lock requirements-dev.lock.txt \
+            --manifest backend-wheelhouse-manifest.json \
+            --output backend-install.requirements.txt
           python -m venv /tmp/calculator-wheelhouse-venv
           /tmp/calculator-wheelhouse-venv/bin/python -m pip install \
-            --no-index --find-links backend-wheels --require-hashes \
-            -r requirements-dev.lock.txt
+            --no-index --no-deps --require-hashes \
+            -r backend-install.requirements.txt
           /tmp/calculator-wheelhouse-venv/bin/python -m pip check
           /tmp/calculator-wheelhouse-venv/bin/python -m pytest -q \
             tests/scripts/test_backend_wheelhouse.py
@@ -49,14 +69,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           python scripts/backend_wheelhouse.py create \
-            --wheel-dir backend-wheels --lock requirements-dev.lock.txt \
+            --wheel-dir backend-wheels --source-dir backend-sources \
+            --lock requirements-dev.lock.txt \
             --manifest backend-wheelhouse-manifest.json
           python scripts/backend_wheelhouse.py verify \
-            --wheel-dir backend-wheels --lock requirements-dev.lock.txt \
+            --wheel-dir backend-wheels --source-dir backend-sources \
+            --lock requirements-dev.lock.txt \
             --manifest backend-wheelhouse-manifest.json
           tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
             -cf calculator-backend-wheels.tar \
-            backend-wheelhouse-manifest.json requirements-dev.lock.txt backend-wheels
+            backend-wheelhouse-manifest.json requirements-dev.lock.txt \
+            backend-wheels backend-sources
           sha256sum calculator-backend-wheels.tar > calculator-backend-wheels.tar.sha256
           sha256sum -c calculator-backend-wheels.tar.sha256
           du -h calculator-backend-wheels.tar

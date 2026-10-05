@@ -64,3 +64,20 @@ def test_manifest_json_roundtrip(tmp_path):
         artifact.verify(json.loads(json.dumps(manifest)), wheels, lock)
         == manifest["wheelhouse_sha256"]
     )
+
+
+def test_built_source_archive_and_offline_install_file_are_bound(tmp_path):
+    wheels, lock = _fixture(tmp_path)
+    sources = tmp_path / "sources"
+    sources.mkdir()
+    source = sources / "example-1.0.tar.gz"
+    source.write_bytes(b"original locked source bytes")
+    manifest = artifact.inspect(wheels, lock, sources)
+    requirements = artifact.install_requirements(manifest, wheels, lock, sources)
+    assert requirements == (
+        f"{(wheels / 'example-1.0-py3-none-any.whl').resolve().as_uri()} "
+        f"--hash=sha256:{manifest['wheels'][0]['sha256']}\n"
+    )
+    source.write_bytes(b"substituted")
+    with pytest.raises(ValueError, match="differs"):
+        artifact.install_requirements(manifest, wheels, lock, sources)

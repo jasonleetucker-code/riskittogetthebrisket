@@ -74,6 +74,24 @@
     "audit-rank-form-drift.yml::audit::Set up Python": {
       "category": "blocking"
     },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Set up Python": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Verify lock and artifact logic": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Download locked Linux packages and test an offline wheel install": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Bind wheel bytes to the tested lock and runtime": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Upload measured backend artifact": {
+      "category": "blocking"
+    },
     "c1a-closure-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
