@@ -334,7 +334,7 @@ def _build_pick_ownership(
     num_rounds: int | None = None,
     getter=None,
     league_season: Any = None,
-) -> dict[int, list[dict[str, Any]]]:
+) -> dict[int, list[dict[str, Any]]] | None:
     """Return ``{rosterId: [pickDetail, ...]}`` — which future picks
     each roster currently owns based on the league's
     ``/traded_picks`` endpoint.
@@ -345,8 +345,12 @@ def _build_pick_ownership(
     ownership.  Matches the scraper's team_pick_details construction
     in Dynasty Scraper.py (fetch_sleeper_rosters).
 
-    Returns an empty map on any fetch failure — callers degrade to
-    the data-not-ready state for draft-capital widgets.
+    Returns ``None`` when ``/traded_picks`` was not OBSERVED (failed
+    fetch, or a non-list body): ownership is UNKNOWN, and folding the
+    defaults over a missing diff would publish "no pick was ever traded"
+    as fact.  A 200 empty list is an observation and still folds the
+    defaults.  The state vocabulary lives in ``src/identity/picks.py``
+    (``traded_picks_observation`` / ``pick_ownership_fields``).
     """
     import datetime as _dt
 
@@ -378,9 +382,17 @@ def _build_pick_ownership(
         current_year = _dt.datetime.now(_dt.timezone.utc).year
         years = [current_year + y for y in range(OWNED_PICK_HORIZON_CLASSES)]
 
-    traded = (getter or _http_get_json)(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
+    traded = _pick_identity.traded_picks_observation(
+        (getter or _http_get_json)(
+            f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
+        )
     )
+    if traded is None:
+        log.warning(
+            "sleeper_overlay: /traded_picks not observed for %s; pick ownership unknown",
+            sleeper_league_id,
+        )
+        return None
 
     # The seed + traded-diff fold is owned by the canonical pick-identity
     # module (C1-ID-02) — one implementation instead of the four copies
@@ -393,7 +405,7 @@ def _build_pick_ownership(
     owned = _pick_identity.build_pick_ownership(
         league_key or "unregistered-league",
         roster_ids,
-        traded if isinstance(traded, list) else [],
+        traded,
         seasons=years,
         rounds=num_rounds,
     )
@@ -437,7 +449,11 @@ def _build_teams_block(
 
     Also populates ``picks`` (list of pick labels) + ``pickDetails``
     (raw {season, round, ...} dicts) per team by resolving
-    ``/traded_picks`` against each roster's default ownership.
+    ``/traded_picks`` against each roster's default ownership.  Every
+    team carries ``pickOwnershipState`` (``observed`` | ``unavailable``)
+    and ``pickOwnershipReason``; when ``/traded_picks`` was not observed
+    the rosters still publish but ``picks`` / ``pickDetails`` are ``None``
+    (unknown), never ``[]``.
     This is what unblocks /api/draft-capital + angle-finder for
     non-default leagues.
     """
@@ -507,6 +523,9 @@ def _build_teams_block(
         getter=getter,
         league_season=league_info.get("season") if isinstance(league_info, dict) else None,
     )
+    # None = /traded_picks not observed: every team's picks are UNKNOWN
+    # (``None``), never ``[]`` — an empty list would say "owns no picks".
+    pick_state = _pick_identity.pick_ownership_fields(pick_ownership is not None)
 
     teams: list[dict[str, Any]] = []
     for r in rosters:
@@ -530,8 +549,15 @@ def _build_teams_block(
             rid_int = int(roster_id) if roster_id is not None else 0
         except (TypeError, ValueError):
             rid_int = 0
-        pick_details = pick_ownership.get(rid_int, [])
-        pick_labels = [p["label"] for p in pick_details]
+        pick_details: list[dict[str, Any]] | None
+        pick_labels: list[str] | None
+        if pick_ownership is None:
+            pick_details = None
+            pick_labels = None
+        else:
+            # Observed: a roster absent from the fold genuinely owns none.
+            pick_details = pick_ownership.get(rid_int, [])
+            pick_labels = [p["label"] for p in pick_details]
 
         # FAAB used lives at ``roster.settings.waiver_budget_used``
         # and is reset every season by Sleeper.  Combined with the
@@ -561,6 +587,7 @@ def _build_teams_block(
                 "playerIds": [str(pid) for pid in player_ids if pid],
                 "picks": pick_labels,
                 "pickDetails": pick_details,
+                **pick_state,
                 "faabBudget": league_faab_budget,
                 "faabUsed": faab_used,
                 "faabRemaining": faab_remaining,
@@ -1454,7 +1481,7 @@ def fetch_sleeper_overlay(
         {
             "leagueId":    str,
             "leagueName":  str,
-            "teams":       [{name, ownerId, roster_id, players, playerIds, picks=[], pickDetails=[]}],
+            "teams":       [{name, ownerId, roster_id, players, playerIds, picks, pickDetails, pickOwnershipState, pickOwnershipReason}],
             "trades":      [<raw sleeper trade dicts>],
             "tradeWindowDays":  int,
             "tradeWindowStart": iso-str,

@@ -481,10 +481,19 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
                   label="Equity"
                   value={`${ti.equityScore >= 0 ? "+" : ""}${ti.equityScore.toFixed(1)}`}
                 />
+                {/* Wave B: window fit follows the canonical Competitive
+                    Posture (C7-POST-01). Without one it is NOT computed —
+                    shown as unavailable, never as a neutral 0.00. */}
                 <StatTile
-                  label={ti.posture || "Window"}
-                  value={`${ti.windowFit >= 0 ? "+" : ""}${ti.windowFit.toFixed(2)}`}
-                  meta="window fit"
+                  label={ti.competitivePosture || "Window"}
+                  value={
+                    typeof ti.windowFit === "number"
+                      ? `${ti.windowFit >= 0 ? "+" : ""}${ti.windowFit.toFixed(2)}`
+                      : "—"
+                  }
+                  meta={
+                    typeof ti.windowFit === "number" ? "window fit" : "posture unavailable"
+                  }
                 />
               </div>
               {starterEntries.length > 0 ? (

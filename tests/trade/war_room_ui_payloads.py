@@ -102,6 +102,32 @@ def _ppg(ids, season, scoring_settings):
     )
 
 
+def _synthetic_posture() -> dict:
+    """The REAL posture owner on a LABELLED synthetic window.
+
+    The route resolves posture from the league bundle (machine data); the
+    fixture pins a strong, mid-age roster in the offseason so the UI renders
+    the owner's genuine output shape.
+    """
+    from src.roster_intel.window import (
+        CompetitiveWindow,
+        WindowInputs,
+        _softmax_affinities,
+        competitive_posture,
+        season_timing,
+    )
+
+    aff = _softmax_affinities(0.85, 0.5, 0.18)
+    window = CompetitiveWindow(
+        aff, WindowInputs(0.85, 0.5, "championshipOdds", 8), max(aff, key=aff.get)
+    )
+    block = competitive_posture(
+        window, season_timing(None, False, 13), own_first_round_pick_held=True
+    ).to_dict()
+    block["notes"] = [*block["notes"], "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"]
+    return {"available": True, **block}
+
+
 def build(name: str) -> dict:
     players_in, players_out, picks_in, picks_out, context, with_team, description = SCENARIOS[name]
     contract = _contract(league_key="main")
@@ -129,6 +155,7 @@ def build(name: str) -> dict:
             roster_settings=_SETTINGS,
             league_key="main",
             include_roster_utility=context,
+            competitive_posture=_synthetic_posture() if with_team else None,
         )
     result["leagueKey"] = "main"
     result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}

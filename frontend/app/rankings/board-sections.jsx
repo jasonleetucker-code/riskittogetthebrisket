@@ -8,11 +8,17 @@
  * All data derivations live in the page / lib helpers — these render
  * backend stamps verbatim (no ranking math client-side).
  */
-import { Icon, Panel, PlayerNameButton, canonicalPlayerId } from "@/components/ds";
+import {
+  Icon,
+  Panel,
+  PlayerNameButton,
+  canonicalPlayerId,
+} from "@/components/ds";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { formatHours, rowAuthority } from "@/lib/value-explainers";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
+import { sourceObservation, withheldReasonText } from "./board-utils";
 import styles from "./board.module.css";
 
 const srcLabel = (key) =>
@@ -58,30 +64,67 @@ export function MethodologySection({ methodology, sourceWeighting } = {}) {
   const weighting = sourceWeighting?.formula;
   return (
     <ol className={styles.methodologyList}>
-      <li><strong>Source ingestion</strong> — Dynasty values and ranks from {sourceNames}. KTC Market is a benchmark and never one of them.</li>
-      <li><strong>Shared rank scale</strong> — Each source&rsquo;s rank for the player is placed on one shared scale; position-only IDP lists are first translated onto the full IDP board.</li>
-      <li><strong>Rank to value</strong> — Rank-based sources are converted to 1–9,999 values through the Hill curve; the value-based markets (KTC Crowd, KTC Trades, IDP Trade Calculator) are rescaled directly.</li>
       <li>
-        <strong>Weighting</strong> — Each vote is weighted by how fresh, healthy and complete its source is
-        {weighting ? <> ({weighting})</> : null}; correlated boards from one provider family share one vote.
+        <strong>Source ingestion</strong> — Dynasty values and ranks from{" "}
+        {sourceNames}. KTC Market is a benchmark and never one of them.
       </li>
-      <li><strong>Blend</strong> — Outliers are filtered, then a count-aware weighted mean-median combines the votes. IDP players and picks blend toward an anchor market; offense uses a flat blend. A player backed by one evidence family keeps 30% of the blend.</li>
       <li>
-        <strong>Unified sort</strong> — Every asset is sorted by value into one board
-        {Number.isFinite(rankLimit) && rankLimit > 0
-          ? <>; the top {rankLimit.toLocaleString()} receive an official rank.</>
-          : "."}
+        <strong>Shared rank scale</strong> — Each source&rsquo;s rank for the
+        player is placed on one shared scale; position-only IDP lists are first
+        translated onto the full IDP board.
       </li>
-      <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
+      <li>
+        <strong>Rank to value</strong> — Rank-based sources are converted to
+        1–9,999 values through the Hill curve; the value-based markets (KTC
+        Crowd, KTC Trades, IDP Trade Calculator) are rescaled directly.
+      </li>
+      <li>
+        <strong>Weighting</strong> — Each vote is weighted by how fresh, healthy
+        and complete its source is
+        {weighting ? <> ({weighting})</> : null}; correlated boards from one
+        provider family share one vote.
+      </li>
+      <li>
+        <strong>Blend</strong> — Outliers are filtered, then a count-aware
+        weighted mean-median combines the votes. IDP players and picks blend
+        toward an anchor market; offense uses a flat blend. A player backed by
+        one evidence family keeps 30% of the blend.
+      </li>
+      <li>
+        <strong>Unified sort</strong> — Every asset is sorted by value into one
+        board
+        {Number.isFinite(rankLimit) && rankLimit > 0 ? (
+          <>; the top {rankLimit.toLocaleString()} receive an official rank.</>
+        ) : (
+          "."
+        )}
+      </li>
+      <li>
+        <strong>Tier detection</strong> — Natural value clusters detected via
+        gap analysis. Tier breaks appear where adjacent players have unusually
+        large value gaps.
+      </li>
       <li>
         <strong>Confidence</strong>
         {axisNames.length > 0 ? (
-          <> — Graded on {axisNames.join(", ")}; the overall level is the weakest of them.</>
+          <>
+            {" "}
+            — Graded on {axisNames.join(", ")}; the overall level is the weakest
+            of them.
+          </>
         ) : (
-          <> — Graded by the backend evidence checks; the overall level is the weakest of them.</>
+          <>
+            {" "}
+            — Graded by the backend evidence checks; the overall level is the
+            weakest of them.
+          </>
         )}
       </li>
-      <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
+      <li>
+        <strong>Identity validation</strong> — Post-ranking pass checks for
+        entity resolution problems. Flagged rows are quarantined (confidence
+        degraded, not removed).
+      </li>
       {formula?.expression ? (
         <li className={styles.methodologyFormula}>
           {formula.name ? `${formula.name}: ` : null}
@@ -224,12 +267,39 @@ export function MobileSourceStrip({ row, formatSourceCell }) {
               {cell.hasVal ? (
                 <>
                   {cell.primary}
-                  <span className={styles.mobileSourceRank}> ({cell.rankLabel})</span>
+                  <span className={styles.mobileSourceRank}>
+                    {" "}
+                    ({cell.rankLabel})
+                  </span>
                 </>
               ) : (
                 "—"
               )}
             </span>
+            {cell.observation && (
+              <span
+                className={styles.mobileSourceRank}
+                data-testid={`source-observation-${src.key}`}
+              >
+                {cell.observation.voting === false
+                  ? `${cell.observation.voteLabel || "not voting"} · `
+                  : ""}
+                {cell.observation.basis === "VALUE"
+                  ? `native ${cell.observation.nativeValue.toLocaleString()}`
+                  : "rank fallback"}
+                {cell.observation.rankLabel
+                  ? ` · ${cell.observation.rankLabel}`
+                  : ""}
+                {cell.observation.asOf
+                  ? ` · ${String(cell.observation.asOf).slice(0, 10)}`
+                  : ""}
+                {cell.observation.shadow?.wouldContribute != null
+                  ? ` · would contribute ${Number(
+                      cell.observation.shadow.wouldContribute,
+                    ).toLocaleString()}`
+                  : ""}
+              </span>
+            )}
           </span>
         );
       })}
@@ -267,7 +337,7 @@ function AuditField({ label, children }) {
   );
 }
 
-export function SourceAuditPanel({ row, val, edge, confidence }) {
+export function SourceAuditPanel({ row, rawData, val, edge, confidence }) {
   const audit = row.sourceAudit || row.raw?.sourceAudit || {};
   const authority = rowAuthority(row);
   return (
@@ -296,6 +366,10 @@ export function SourceAuditPanel({ row, val, edge, confidence }) {
           const isUnmatched = (audit.unmatchedSources || []).includes(src.key);
           const status = isMatched ? "matched" : isUnmatched ? "missing" : isExpected ? "expected" : "n/a";
           const freshness = Number(meta?.freshness);
+          // Signals (owner addendum 2026-10-03): native value vs rank
+          // fallback, the DERIVED value-ordered rank, dataset, format and
+          // as-of — all backend stamps (board-utils.sourceObservation).
+          const observation = sourceObservation(row, src, rawData);
 
           return (
             <div
@@ -310,11 +384,76 @@ export function SourceAuditPanel({ row, val, edge, confidence }) {
               </div>
               {hasVal ? (
                 <div className={styles.auditCardBody}>
-                  <AuditField label={src.isRankSignal ? "Rank" : "Value"}>
-                    {src.isRankSignal
-                      ? `#${origRk != null ? origRk : "—"}`
-                      : Math.round(Number(siteVal)).toLocaleString()}
-                  </AuditField>
+                  {observation ? (
+                    <>
+                      {observation.voteLabel && (
+                        <AuditField label="Vote">
+                          {observation.voteLabel}
+                        </AuditField>
+                      )}
+                      {observation.voteExplanation && (
+                        <AuditField label="Why">
+                          {observation.voteExplanation}
+                        </AuditField>
+                      )}
+                      {observation.family && (
+                        <AuditField label="Family">
+                          {observation.family}
+                        </AuditField>
+                      )}
+                      {observation.shadow && (
+                        <AuditField label="Shadow">
+                          {observation.shadow.withheldReason
+                            ? `withheld — ${withheldReasonText(observation.shadow.withheldReason)}`
+                            : `${observation.family || ""}${
+                                observation.shadow.familyRank ?? "?"
+                              } → shared-market #${observation.shadow.translatedRank} · would contribute ${Number(
+                                observation.shadow.wouldContribute,
+                              ).toLocaleString()}`}
+                        </AuditField>
+                      )}
+                      {observation.familyNote && (
+                        <AuditField label="Family cap">
+                          {observation.familyNote}
+                        </AuditField>
+                      )}
+                      {observation.excludedReason && (
+                        <AuditField label="Excluded">
+                          {observation.excludedReason}
+                        </AuditField>
+                      )}
+                      <AuditField label="Basis">
+                        {observation.basis === "VALUE"
+                          ? "VALUE (native value)"
+                          : "RANK fallback"}
+                      </AuditField>
+                      {observation.nativeValue != null && (
+                        <AuditField label="Native value">
+                          {observation.nativeValue.toLocaleString()}
+                        </AuditField>
+                      )}
+                      {observation.rankLabel && (
+                        <AuditField label="Signals rank">{observation.rankLabel}</AuditField>
+                      )}
+                      <AuditField label="Dataset">{observation.dataset}</AuditField>
+                      {observation.format && (
+                        <AuditField label="Format">{observation.format}</AuditField>
+                      )}
+                      <AuditField label="As of">
+                        {observation.asOf
+                          ? `${String(observation.asOf).slice(0, 10)}${
+                              observation.state ? ` · ${observation.state}` : ""
+                            }`
+                          : "unknown"}
+                      </AuditField>
+                    </>
+                  ) : (
+                    <AuditField label={src.isRankSignal ? "Rank" : "Value"}>
+                      {src.isRankSignal
+                        ? `#${origRk != null ? origRk : "—"}`
+                        : Math.round(Number(siteVal)).toLocaleString()}
+                    </AuditField>
+                  )}
                   {eRank != null && <AuditField label="Eff. rank">#{eRank}</AuditField>}
                   {meta?.valueContribution != null && (
                     <AuditField label="Hill value">{meta.valueContribution.toLocaleString()}</AuditField>

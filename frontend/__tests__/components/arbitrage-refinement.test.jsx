@@ -27,7 +27,8 @@ vi.mock("@/components/useTeam", () => ({
   useTeam: () => ({ selectedLeagueKey: "dynasty_main", selectedOwnerId: "me" }),
 }));
 
-vi.mock("@/lib/market-arbitrage", () => ({
+vi.mock("@/lib/market-arbitrage", async (importOriginal) => ({
+  ...(await importOriginal()),
   buildArbitrageRows: () => [],
 }));
 
@@ -177,5 +178,92 @@ describe("/arbitrage package refinement", () => {
     expect(
       screen.queryByRole("button", { name: "Restore Target Bob to suggestions" }),
     ).toBeNull();
+  });
+
+  it("sends Team Context ON by default and re-scans in Asset-only when switched (C3-CTX-01)", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
+    render(<ArbitragePage />);
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await screen.findByRole("button", { name: "Exclude Target Bob from suggestions" });
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body).useTeamContext).toBe(true);
+
+    await user.click(screen.getByRole("radio", { name: "Asset only" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(global.fetch.mock.calls[1][1].body).useTeamContext).toBe(false);
+  });
+
+  it("shows both teams' roster consequence and names the counterparty", async () => {
+    const user = userEvent.setup();
+    const body = payload("Target Bob");
+    body.trades[0].counterparty = "Other Team";
+    body.trades[0].rosterCapacity = {
+      requiresDrops: true,
+      forcedDropsAreUpperBound: false,
+      rosterLimit: 58,
+      forcedDrops: [{ name: "Bench Guy" }],
+    };
+    body.trades[0].counterpartyRosterCapacity = {
+      requiresDrops: null,
+      rosterLimit: 58,
+      forcedDrops: [],
+    };
+    global.fetch = vi.fn().mockResolvedValue(response(body));
+    render(<ArbitragePage />);
+
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const list = await screen.findByRole("list", { name: "Roster consequences" });
+    expect(list).toHaveTextContent("Your roster: must release 1: Bench Guy");
+    expect(list).toHaveTextContent(
+      "Other Team's roster: may need a release (taxi occupancy unknown)",
+    );
+  });
+
+  it("labels a derived pick market value as derived, never a native price", async () => {
+    const user = userEvent.setup();
+    const body = payload("Target Bob");
+    body.trades[0].give.push({
+      name: "2027 1st (My Team)",
+      position: "PICK",
+      modelValue: 5800,
+      ktcValue: 5967,
+      marketDerivation: { basis: "plain_ktc_tier_average", isNativeMarketPrice: false },
+    });
+    global.fetch = vi.fn().mockResolvedValue(response(body));
+    render(<ArbitragePage />);
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    expect(await screen.findByText(/KTC tier average — slot unknown/)).toBeInTheDocument();
+  });
+
+  it("drops a stale scan when the mode is switched mid-flight", async () => {
+    const user = userEvent.setup();
+    let resolveFirst;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response(payload("Target Bob")))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = () => resolve(response(payload("Stale Asset Pick")));
+          }),
+      )
+      .mockResolvedValueOnce(response(payload("Target Charlie")));
+    render(<ArbitragePage />);
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    await screen.findByRole("button", { name: "Exclude Target Bob from suggestions" });
+
+    await user.click(screen.getByRole("radio", { name: "Asset only" })); // slow, will be stale
+    await user.click(screen.getByRole("radio", { name: "Team context" })); // latest
+    await screen.findByRole("button", { name: "Exclude Target Charlie from suggestions" });
+    await act(async () => {
+      resolveFirst();
+    });
+    expect(
+      screen.queryByRole("button", { name: "Exclude Stale Asset Pick from suggestions" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Exclude Target Charlie from suggestions" }),
+    ).toBeTruthy();
   });
 });

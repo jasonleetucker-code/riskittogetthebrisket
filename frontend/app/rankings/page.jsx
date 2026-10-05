@@ -309,6 +309,18 @@ export default function RankingsPage() {
     },
     [updateSiteWeight],
   );
+  // Only the source clocks feed the per-source cell provenance (as-of /
+  // freshness state); memoised so the column set does not rebuild on every
+  // unrelated contract field.
+  const sourceWeightingStamp = rawData?.sourceWeighting;
+  const privateSourceStamp = rawData?.privateSourceAvailability;
+  const sourceClockData = useMemo(
+    () => ({
+      sourceWeighting: sourceWeightingStamp,
+      privateSourceAvailability: privateSourceStamp,
+    }),
+    [sourceWeightingStamp, privateSourceStamp],
+  );
   const hiddenSiteCols = settings.hiddenSiteCols || {};
   const visibleSources = useMemo(
     () => RANKING_SOURCES.filter((s) => !hiddenSiteCols[s.key]),
@@ -1165,7 +1177,7 @@ export default function RankingsPage() {
               : "linear rescale of this source's native trade value"
           }) with its effective rank on the shared board in parentheses.`,
           render: (row) => {
-            const cell = formatSourceCell(row, src);
+            const cell = formatSourceCell(row, src, sourceClockData);
             return (
               <span className={styles.srcCell} title={cell.title}>
                 {cell.hasVal ? (
@@ -1174,7 +1186,7 @@ export default function RankingsPage() {
                     <span className={styles.srcRank}> ({cell.rankLabel})</span>
                   </>
                 ) : (
-                  <span className={styles.muted}>—</span>
+                  <span className={styles.muted}>{cell.mutedText || "—"}</span>
                 )}
               </span>
             );
@@ -1359,6 +1371,8 @@ export default function RankingsPage() {
     openPlayerPopup,
     toggleWatchlist,
     bdvmIndex,
+    // Source-column provenance (Signals' as-of) reads the source clocks.
+    sourceClockData,
   ]);
 
   const totalCols = columns.length;
@@ -2116,7 +2130,7 @@ export default function RankingsPage() {
                       <td colSpan={totalCols}>
                         <MobileSourceStrip
                           row={row}
-                          formatSourceCell={formatSourceCell}
+                          formatSourceCell={(r, s) => formatSourceCell(r, s, rawData)}
                         />
                       </td>
                     </tr>
@@ -2128,6 +2142,7 @@ export default function RankingsPage() {
                       <td colSpan={totalCols}>
                         <SourceAuditPanel
                           row={row}
+                          rawData={rawData}
                           val={val}
                           edge={marketEdge(row)}
                           confidence={confidenceDisplay(row)}

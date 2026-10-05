@@ -66,6 +66,16 @@ def _pool(
     return [_asset(f"pool{v}", v, position) for v in range(lo, hi + 1, step)]
 
 
+def _addition_keeps_topology(suggestion: TradeSuggestion) -> bool:
+    """Whether one more player on the sweetening side passes C3-TOPO-01."""
+    give, receive = len(suggestion.give), len(suggestion.receive)
+    if suggestion.gap < 0:
+        give += 1
+    else:
+        receive += 1
+    return abs(give - receive) <= 1
+
+
 def _residual_for(suggestion: TradeSuggestion, value: int, side: str) -> int:
     give = [p.display_value for p in suggestion.give]
     receive = [p.display_value for p in suggestion.receive]
@@ -106,6 +116,11 @@ def test_chosen_balancer_is_the_best_available_from_the_pool(give, receive):
     suggestion = _suggestion(give, receive)
     pool = _pool()
     balancers, side, residuals = _find_balancers(suggestion, pool, set(), set())
+    if not _addition_keeps_topology(suggestion):
+        # C3-TOPO-01 (Wave B): one more player on this side would leave the
+        # player counts more than one apart, so nothing is eligible.
+        assert balancers == []
+        return
     if not balancers:
         # Only legitimate when nothing in the pool improves on the gap.
         for candidate in pool:
@@ -141,7 +156,9 @@ def test_the_retired_value_matching_rule_would_have_picked_worse():
     value-matching would pass every other test in this file.
     """
 
-    suggestion = _suggestion([8000], [3000, 2500])
+    # 2-for-2 so the opponent's addition (2-for-3) is legal C3-TOPO-01
+    # topology; a 1-for-2 base would be refused before any scoring.
+    suggestion = _suggestion([7000, 1200], [4500, 2600])
     pool = _pool()
     side = "they_add"
     target = abs(suggestion.gap)

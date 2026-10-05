@@ -16,7 +16,6 @@
     "decline": -20
   },
   "windowFit": {
-    "contendIndexThreshold": 0.15,
     "youngStarterMaxAge": 23,
     "primeStarterMinAge": 24,
     "primeStarterMaxAge": 29

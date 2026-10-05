@@ -773,7 +773,220 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/pfkDynasty.csv",
         "signal": "rank",
     },
+    # Signals Fantasy AUTHENTICATED native dynasty values — an ACTIVE source
+    # since the owner addendum of 2026-10-03 (docs/sources/
+    # SIGNALS_FANTASY_INTEGRATION.md §9; owner module src/sources/signals.py).
+    #
+    # The first PRIVATE, BOX-LOCAL voter.  Every other CSV here is committed;
+    # these are written by ``scripts/fetch_signals_values.py`` on the
+    # production box into the gitignored ``data/sources/signals/`` store,
+    # because raw paid Signals data may never reach this public repository,
+    # its CI artifacts or logs (§2).  ``private_marker`` is the collector's
+    # provisioning stamp: a host where the authenticated collector has never
+    # run (CI, local dev, a fresh box) has no marker, so the source is NOT
+    # PROVISIONED there — absent (missing, never zero), not expected on any
+    # row, and not a ``source_missing`` error in either CI lane.  On a
+    # provisioned host a missing CSV is a real failure and is reported as
+    # one.  See ``private_source_availability``.
+    #
+    # Signal=rank, the FantasyCalc / Dynasty Daddy path (owner decision
+    # 2026-10-03, "value-ordered rank"): the CSV ``rank`` is DERIVED from
+    # Signals' own cross-position native-value ordering and travels rank ->
+    # percentile -> Hill.  Value-direct was declined on measurement — Signals
+    # values run ~1.0x market at the top but 1.4-3.1x deeper (a much flatter
+    # curve), so the value-direct path would be new methodology.  The native
+    # value stays visible through ``sourceNativeValues``.
+    "signalsSf": {
+        "path": "data/sources/signals/board/signalsSf.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
+    # Signals IDP: one board PER FAMILY (DL / LB / DB).  Signals' IDP value is
+    # normalised within each family (independent review of #1627,
+    # 2026-10-03), so it carries no cross-family order and each family's
+    # within-family value rank votes through the positional IDP path.
+    "signalsIdpDl": {
+        "path": "data/sources/signals/board/signalsIdpDl.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
+    "signalsIdpLb": {
+        "path": "data/sources/signals/board/signalsIdpLb.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
+    "signalsIdpDb": {
+        "path": "data/sources/signals/board/signalsIdpDb.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
 }
+
+
+#: Private-source availability states (``private_source_availability``).
+PRIVATE_SOURCE_PRESENT = "present"
+PRIVATE_SOURCE_MISSING = "missing"
+PRIVATE_SOURCE_NOT_PROVISIONED = "not_provisioned"
+
+
+def private_source_availability(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
+    """Availability of every PRIVATE, box-local source on THIS host.
+
+    ``{source_key: {"state", "provisioned", "csvPresent"}}`` for each
+    ``_SOURCE_CSV_PATHS`` entry that declares a ``private_marker``:
+
+    * ``present``          — the board CSV exists; the source votes as usual;
+    * ``missing``          — the host IS provisioned (its collector has run)
+      but the CSV is absent: a real failure, reported (``source_missing``);
+    * ``not_provisioned``  — the collector has never run here (CI, local
+      dev, a fresh box): the source is absent by design.  It casts no vote,
+      is expected on no row and raises no error — a public CI build can
+      never hold private data, so it must not fail for lacking it.
+
+    The decision is made from files on this host only, never from an
+    environment label.
+    """
+    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    out: dict[str, dict[str, Any]] = {}
+    for key, cfg in _SOURCE_CSV_PATHS.items():
+        if not isinstance(cfg, dict) or not cfg.get("private_marker"):
+            continue
+        # Provisioning evidence: the collector's marker, OR any freshness
+        # trace it leaves in the scrape state (a success stamp or a dataset
+        # state).  Deleting the private store on a box that collected before
+        # must surface ``missing``, never quietly become ``not_provisioned``.
+        state_dir = root / "data" / "scrape_state"
+        provisioned = (
+            (root / str(cfg["private_marker"])).is_file()
+            or (state_dir / f"{key}_last_success").is_file()
+            or (state_dir / f"{key}_dataset.json").is_file()
+        )
+        csv_present = (root / str(cfg.get("path") or "")).is_file()
+        if csv_present:
+            state = PRIVATE_SOURCE_PRESENT
+        elif provisioned:
+            state = PRIVATE_SOURCE_MISSING
+        else:
+            state = PRIVATE_SOURCE_NOT_PROVISIONED
+        out[key] = {"state": state, "provisioned": provisioned, "csvPresent": csv_present}
+    return out
+
+
+def private_sources_absent_by_design(private_state: Any) -> frozenset[str]:
+    """Private sources a board DECLARES it carries no vote from, by design.
+
+    Read from that board's own ``privateSourceAvailability`` stamp: a source
+    the building host has never provisioned, one rolled back by its flag, or
+    one held from the vote (e.g. Signals IDP in shadow).  Such a source is
+    absent from the blend on purpose, so neither the contract validator nor
+    the served-board coverage gate may treat its absence as a lost source.
+
+    A ``missing`` source (provisioned host, CSV gone) is NOT absent by design
+    and stays a failure.  Anything that is not the expected shape excuses
+    nothing (fail closed).
+    """
+    out: set[str] = set()
+    if not isinstance(private_state, dict):
+        return frozenset()
+    for key, info in private_state.items():
+        if not isinstance(info, dict):
+            continue
+        if (
+            info.get("state") == PRIVATE_SOURCE_NOT_PROVISIONED
+            or info.get("rolledBack") is True
+            or bool(info.get("heldFromVote"))
+        ):
+            out.add(str(key))
+    return frozenset(out)
+
+
+#: Registered private sources that are COLLECTED and DISPLAYED but do not
+#: vote, with the reason.  Not a rollback (that is the feature flag) — a
+#: declared methodology state, changed only by a reviewed change.
+#:
+#: Signals IDP.  Signals' IDP value is normalised within each family, so the
+#: only legitimate vote is a within-family rank (independent review of #1627,
+#: B1).  The first route for that (2026-10-03) — the positional IDP path,
+#: ``IdpBackbone.ladder_for`` — landed the rank in IDP-LOCAL coordinates
+#: priced by the IDP master while every other IDP voter is priced in
+#: SHARED-MARKET coordinates: an LB the backbone ranks IDP #4 contributed
+#: 9,484 against 5,238-5,668, and 76 of 406 Signals IDP votes were
+#: outlier-dropped.  That route is retired for these keys
+#: (``family_shared_market_translation``, 2026-10-04): the within-family rank
+#: now lands at the shared-market position of the k-th player of the same
+#: family.  Until that crosswalk passes its promotion gate
+#: (``docs/sources/SIGNALS_FANTASY_INTEGRATION.md`` §10) the boards run in
+#: SHADOW: translated, published per row (``sourceShadowMeta``), no vote.
+#: ``signals_idp_shared_market`` (default OFF) is the promotion switch.
+PRIVATE_SOURCE_VOTE_HOLDS: dict[str, str] = {
+    key: "shared_market_crosswalk_in_shadow_pending_promotion"
+    for key in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
+}
+
+#: Held sources whose crosswalk runs in SHADOW while held.  Lifted together
+#: with their hold by ``signals_idp_shared_market``.
+PRIVATE_SOURCE_SHADOW_KEYS: frozenset[str] = frozenset(PRIVATE_SOURCE_VOTE_HOLDS)
+
+#: The vote states a private source can be in (``voteState``).
+VOTE_STATE_ACTIVE = "active"
+VOTE_STATE_SHADOW = "shadow"
+VOTE_STATE_HELD = "held"
+VOTE_STATE_ROLLED_BACK = "rolled_back"
+VOTE_STATE_UNAVAILABLE = "unavailable"
+
+
+def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
+    """``private_source_availability`` plus whether each source may vote.
+
+    A source votes only when its CSV is present, it is not rolled back
+    (``signals_active_source``; ``RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0`` +
+    restart) and it is not held.  The Signals IDP hold is lifted by
+    ``signals_idp_shared_market`` (``RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET``).
+
+    ``voteState`` names the outcome for readers (the Rankings page):
+    ``active`` / ``shadow`` (translated, not voting) / ``held`` / ``rolled_back``
+    / ``unavailable`` (CSV absent here).  ``heldFromVote`` keeps the reason.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    active = is_enabled("signals_active_source")
+    idp_promoted = is_enabled("signals_idp_shared_market")
+    out: dict[str, dict[str, Any]] = {}
+    for key, info in private_source_availability(csv_root).items():
+        rolled_back = key.startswith("signals") and not active
+        held = PRIVATE_SOURCE_VOTE_HOLDS.get(key)
+        if held and key in PRIVATE_SOURCE_SHADOW_KEYS and idp_promoted:
+            held = None
+        present = info["state"] == PRIVATE_SOURCE_PRESENT
+        votes = present and not rolled_back and not held
+        if not present:
+            vote_state = VOTE_STATE_UNAVAILABLE
+        elif rolled_back:
+            vote_state = VOTE_STATE_ROLLED_BACK
+        elif held and key in PRIVATE_SOURCE_SHADOW_KEYS:
+            vote_state = VOTE_STATE_SHADOW
+        elif held:
+            vote_state = VOTE_STATE_HELD
+        else:
+            vote_state = VOTE_STATE_ACTIVE
+        out[key] = {
+            **info,
+            "rolledBack": rolled_back,
+            "heldFromVote": held,
+            "votes": votes,
+            "voteState": vote_state,
+        }
+    return out
+
+
+def private_source_keys() -> frozenset[str]:
+    """Keys of every private, box-local source (``private_marker`` declared)."""
+    return frozenset(
+        k
+        for k, cfg in _SOURCE_CSV_PATHS.items()
+        if isinstance(cfg, dict) and cfg.get("private_marker")
+    )
+
 
 # CSVs that are intentionally loadable into canonicalSiteValues but are NOT
 # eligible to cast a consensus vote.  This is a canonical declaration, not a
@@ -917,6 +1130,15 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # PR #532.)
     "fantasyNavigatorSf": 6,
     "pfkDynasty": 6,
+    # Signals authenticated values: collected on the box by the 6-hourly
+    # ``dynasty-signals-values`` timer, which stamps ``<key>_last_success``
+    # on every successful run.  24h is ``config/source_staleness.json``'s
+    # threshold for the ``signals`` prefix, so the board stops counting the
+    # evidence as current no later than the operator is told it is stale.
+    "signalsSf": 24,
+    "signalsIdpDl": 24,
+    "signalsIdpLb": 24,
+    "signalsIdpDb": 24,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -988,6 +1210,15 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
+    # Signals authenticated values (2026-10-03): ~80% of the canonical-match
+    # counts measured on the production box (offense 501; IDP per family
+    # DL 164 / LB 103 / DB 149).  Checked
+    # only where the private store is provisioned — an unprovisioned host
+    # (CI) is exempt by the explicit ``privateSourceAvailability`` stamp.
+    "signalsSf": 400,
+    "signalsIdpDl": 130,
+    "signalsIdpLb": 80,
+    "signalsIdpDb": 120,
     # The IDP Show (IDP-only) floor is REMOVED, not kept, as of
     # 2026-08-20 — see the ``idpShowCombined`` registry entry.  This
     # dict's floor gate reads ``canonicalSiteValues`` population for
@@ -1411,6 +1642,7 @@ from src.canonical.idp_backbone import (  # noqa: E402
     coverage_weight,
     translate_position_rank,
     TRANSLATION_DIRECT,
+    TRANSLATION_EXTRAPOLATED,
     TRANSLATION_FALLBACK,
 )
 from src.bridges.assess import assess_bridges  # noqa: E402
@@ -1475,6 +1707,11 @@ GAME_TYPES: frozenset[str] = frozenset(
     }
 )
 
+
+_SIGNALS_IDP_GAME_TYPE_EVIDENCE = (
+    "Signals authenticated listIdpDynastyValuesBySeason rows keyed sk '<season>#dynasty', "
+    "re-verified on every row of every release (src/sources/signals.py::normalize_idp_items)"
+)
 
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
@@ -1933,6 +2170,157 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        # Head of the ``fantasyCalc`` B10 family since 2026-10-03: the four
+        # Signals keys below join it (registry-earlier member = head).
+        "correlation_group": "fantasyCalc",
+    },
+    {
+        # Signals Fantasy AUTHENTICATED native dynasty values — OFFENSE.
+        # ACTIVE since the owner addendum of 2026-10-03
+        # (docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9).  Collected on the
+        # box by ``scripts/fetch_signals_values.py`` into the PRIVATE store
+        # (see the ``_SOURCE_CSV_PATHS`` entry and
+        # ``private_source_availability``); absent — never zero — on any host
+        # where that collector has not run.
+        #
+        # Votes like FantasyCalc: Signals' own cross-position VALUE ordering
+        # is the rank (labelled DERIVED: Signals published the value, not the
+        # rank), rank -> percentile -> OFFENSE Hill.  Format, proven by
+        # measurement on 2026-10-03: DYNASTY, SUPERFLEX (Josh Allen above JSN;
+        # Caleb / Lamar / Burrow priced as top-12 assets), NOT TE-premium (the
+        # TE1 below WRs FantasyCalc prices equally) — so
+        # ``is_tep_premium=False`` and ADR-015's base -> TE++ conversion
+        # applies exactly once.  The stored preset value is used: Signals'
+        # exact-league values are computed client-side over a FantasyCalc
+        # fetch and are not a server observation.
+        #
+        # FAMILY: ``fantasyCalc``.  Signals' app falls back to FantasyCalc
+        # values for its dynasty baseline and composes league values over a
+        # FantasyCalc fetch (bundle evidence, §9), and the owner directed "no
+        # artificial independence bonus": FantasyCalc + Signals share ONE
+        # family vote through ``cap_family_weights`` and count as ONE B10
+        # family to the confidence gate.
+        "key": "signalsSf",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Signals authenticated PlayerValueSnapshot.signalsDynastyValue — the dynasty "
+            "value field, distinct from the snapshot's signalsRedraft* fields, which the "
+            "collector never selects (src/sources/signals.py::VALUE_DATASETS)"
+        ),
+        "display_name": "Signals Fantasy Dynasty SF",
+        "column_label": "Signals",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        # ~ the live canonical-match count (501 of 507 offense board rows on
+        # the 2026-10-03 production measurement), the convention
+        # fantasyNavigatorSf / pfkDynasty use.
+        "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+    },
+    {
+        # Signals Fantasy AUTHENTICATED native dynasty values — IDP, one board
+        # PER FAMILY (DL here; LB and DB below).  Same activation, store and
+        # provider family as ``signalsSf``.
+        #
+        # WHY POSITIONAL (independent review of #1627, 2026-10-03): Signals'
+        # IDP ``value`` is a strictly monotone function of a per-FAMILY
+        # composite (Spearman 1.000) — each family is normalised on its own
+        # scale (the three family tops sit within 4% of each other, with
+        # near-identical curves at #12 and #24), and its top-100 is half DBs.  It is not a
+        # cross-family price.  Ordering it across families and crosswalking
+        # that order (the first design) manufactured exactly the shared
+        # DL/LB/DB rank the owner addendum forbids.  So each family is
+        # ranked by Signals' value WITHIN the family only, on a
+        # ``SOURCE_SCOPE_POSITION_IDP`` board.  (The first positional route
+        # put DB #k at the backbone's k-th DB in IDP-LOCAL space and priced
+        # it on the IDP master — the coordinate error TRANSLATION below
+        # replaces.)  No cross-family order is derived anywhere; with no
+        # usable family ladder the vote is WITHHELD.
+        #
+        # Family: one Signals family inside FantasyCalc's group — a
+        # DELIBERATE shared label.  FantasyCalc publishes no IDP, so on IDP
+        # rows Signals is its own family to the confidence gate (defensible:
+        # its IDP value is model-derived from per-snap features with no
+        # market input, source_lineage.json), and family leave-one-out
+        # (``expand_correlation_groups(["fantasyCalc"])``) drops the IDP
+        # boards with FantasyCalc — the conservative direction.  If
+        # FantasyCalc ever registers an IDP key it would be capped together
+        # with Signals IDP; revisit the group then.
+        # Signals' raw position (CB/S/DT/DE/LB) is provenance only.
+        #
+        # TRANSLATION (2026-10-04): ``family_shared_market_translation``
+        # routes the within-family rank through the bridge owner's FAMILY
+        # slice of the shared-market ladder — LB k lands at the combined
+        # rank of the k-th LB on the market every other IDP voter is priced
+        # on (GLOBAL curve), never at an IDP-local rank (the retired route
+        # that put one LB at 9,484 against 5,238-5,668), and never ordered
+        # against DL or DB by Signals.  Past the family ladder's depth the
+        # vote is WITHHELD, not extrapolated.
+        #
+        # VOTE STATE (``_private_source_vote_state``): SHADOW by default —
+        # translated and published per row as ``sourceShadowMeta``, no vote
+        # — until the promotion gate in SIGNALS_FANTASY_INTEGRATION.md §10
+        # passes and ``signals_idp_shared_market`` is switched on.
+        "key": "signalsIdpDl",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": _SIGNALS_IDP_GAME_TYPE_EVIDENCE,
+        "display_name": "Signals Fantasy Dynasty IDP — DL",
+        "column_label": "Signals DL",
+        "scope": SOURCE_SCOPE_POSITION_IDP,
+        "position_group": "DL",
+        "depth": 165,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+        "family_shared_market_translation": True,
+    },
+    {
+        # Signals IDP — the LB family's board (see ``signalsIdpDl``).
+        "key": "signalsIdpLb",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": _SIGNALS_IDP_GAME_TYPE_EVIDENCE,
+        "display_name": "Signals Fantasy Dynasty IDP — LB",
+        "column_label": "Signals LB",
+        "scope": SOURCE_SCOPE_POSITION_IDP,
+        "position_group": "LB",
+        "depth": 105,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+        "family_shared_market_translation": True,
+    },
+    {
+        # Signals IDP — the DB family's board (see ``signalsIdpDl``).
+        "key": "signalsIdpDb",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": _SIGNALS_IDP_GAME_TYPE_EVIDENCE,
+        "display_name": "Signals Fantasy Dynasty IDP — DB",
+        "column_label": "Signals DB",
+        "scope": SOURCE_SCOPE_POSITION_IDP,
+        "position_group": "DB",
+        "depth": 150,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+        "family_shared_market_translation": True,
     },
     {
         # OTC Fantasy Football Superflex trade-derived values — fetched
@@ -4350,6 +4738,9 @@ _TRUST_MIRROR_FIELDS = (
     # sourceOriginalRanks).  Without mirroring, the default view=app
     # payload (which strips playersArray) would never carry them.
     "sourceNativeValues",
+    # SHADOW sources' would-be contribution (Signals IDP) — a named
+    # diagnostic the Rankings page shows on the default view=app payload.
+    "sourceShadowMeta",
     "canonicalTierId",
     # ``rankChange`` is stamped by ``_stamp_rank_changes`` at the end
     # of ``_compute_unified_rankings`` but only onto the playersArray.
@@ -4511,6 +4902,9 @@ _LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 # bridges actually contributed to the shared-market ladder, and the withheld
 # vote count per source.  ``None`` before any board is built.
 _LAST_CROSS_POSITION_BRIDGE_SUMMARY: dict | None = None
+# The last built ``BridgeLadder`` (in-process diagnostics only; see the
+# on-box Signals crosswalk evaluation).  ``None`` before any board is built.
+_LAST_BRIDGE_LADDER: Any = None
 # Board-level KTC Market benchmark summary (``_stamp_ktc_market_benchmark``).
 _LAST_KTC_MARKET_SUMMARY: dict | None = None
 # Board-level source weighting summary (``_source_weighting_summary``).
@@ -5019,6 +5413,15 @@ def _enrich_from_source_csvs(
     if csv_root is not None:
         repo = Path(csv_root)
 
+    # A private, box-local source that is NOT PROVISIONED on this host is
+    # absent by design (``private_source_availability``) — not a parse error
+    # and not worth a warning on every CI build.  A provisioned host whose
+    # CSV is gone still reports ``file_not_found`` below.
+    _unprovisioned_private = {
+        k
+        for k, v in private_source_availability(repo).items()
+        if v["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+    }
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
             csv_rel = cfg
@@ -5032,6 +5435,8 @@ def _enrich_from_source_csvs(
             continue
         csv_path = repo / csv_rel
         if not csv_path.exists():
+            if source_key in _unprovisioned_private:
+                continue
             if parse_errors is not None:
                 parse_errors.append(
                     {
@@ -6924,6 +7329,7 @@ def _restate_confidence_after_override(
 def _apply_two_way_player_boost(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
+    excluded_keys: frozenset[str] = frozenset(),
 ) -> None:
     """For players in ``_TWO_WAY_PLAYERS``, compute what their value
     would be under the alt-position family and use max(offense, alt)
@@ -7000,17 +7406,20 @@ def _apply_two_way_player_boost(
 
     # Collect IDP signal sources (the ones that could contribute to
     # an alt-family value for an offense-classed player).
+    # ``excluded_keys`` are private sources that do not vote on this build
+    # (absent, held, in shadow, or rolled back): a source that may not vote
+    # must not reach the board through the alt-family side door either.
     idp_source_keys = {
         str(s.get("key") or "")
         for s in _RANKING_SOURCES
         if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
-    }
+    } - excluded_keys
     # Same for offense sources — used when the alt-family is offense.
     offense_source_keys = {
         str(s.get("key") or "")
         for s in _RANKING_SOURCES
         if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
-    }
+    } - excluded_keys
 
     alt_asset_class_for_family = {True: "idp", False: "offense"}
 
@@ -9763,6 +10172,8 @@ def _compute_unified_rankings(
     source_weighting: Mapping[str, Any] | None = None,
     retired_pick_years: Iterable[int] | None = None,
     seasonally_inactive_sources: Iterable[str] | None = None,
+    absent_private_sources: Iterable[str] | None = None,
+    shadow_private_sources: Iterable[str] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -9998,6 +10409,22 @@ def _compute_unified_rankings(
     # same posture a disabled source already has (see the bridge note
     # below); nothing votes from them.
     _seasonal_off = {str(k) for k in (seasonally_inactive_sources or ())}
+    # A PRIVATE, box-local source that is absent BY DESIGN on this host (not
+    # provisioned — CI, local dev, a fresh box) or rolled back with
+    # ``RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0`` takes the same posture
+    # (``private_source_availability``): no vote, not expected on any row.
+    # Reusing this one gate is what keeps "absent by design" from reading as
+    # a matching failure anywhere downstream.
+    _seasonal_off |= {str(k) for k in (absent_private_sources or ())}
+    # SHADOW private sources (Signals IDP, 2026-10-04): a subset of the
+    # absent ones above.  They cast no vote and are expected on no row —
+    # exactly the posture above — but Phase 1 still translates them so
+    # each row can publish what the source WOULD contribute
+    # (``sourceShadowMeta``).  A named diagnostic, never a second board:
+    # nothing from it reaches ``row_source_ranks``, the blend, the Hampel
+    # filter, confidence or any value.
+    _shadow_keys = {str(k) for k in (shadow_private_sources or ())} & _seasonal_off
+    shadow_sources = [s for s in active_sources if str(s.get("key") or "") in _shadow_keys]
     if _seasonal_off:
         active_sources = [s for s in active_sources if str(s.get("key") or "") not in _seasonal_off]
     active_keys = {str(s.get("key") or "") for s in active_sources}
@@ -10168,6 +10595,11 @@ def _compute_unified_rankings(
     # {sourceKey: rows whose vote was withheld for want of a usable bridge}.
     # Reported on the contract; never silently zero.
     withheld_no_bridge: dict[str, int] = {}
+    # Family-crosswalk withholds for VOTING family-translated sources, by
+    # reason (``beyond_family_ladder`` / ``no_family_ladder``).
+    withheld_family_crosswalk: dict[str, dict[str, int]] = {}
+    # ``{row_idx: {source_key: {...}}}`` for SHADOW sources only.
+    row_shadow_meta: dict[int, dict[str, dict[str, Any]]] = {}
     # row_eligible_families[row_idx] = every provider family that COULD
     # have covered this row.  Filled in Phase 3 beside softFallbackCount
     # (same eligibility test) and read by the B11 confidence gate.
@@ -10207,8 +10639,10 @@ def _compute_unified_rankings(
     # Every non-empty set is truthy, so that mistake would silently route
     # offense rookies through the IDP ladder instead of raising.
     # Removal verified inert: the default board is byte-identical.
-    for src in active_sources:
+    _shadow_loop_keys = {str(s.get("key") or "") for s in shadow_sources}
+    for src in [*active_sources, *shadow_sources]:
         source_key: str = src["key"]
+        is_shadow = source_key in _shadow_loop_keys
         position_group: str | None = src.get("position_group")
         primary_scope: str = src["scope"]
         needs_shared_market = bool(src.get("needs_shared_market_translation")) and not src.get(
@@ -10282,6 +10716,31 @@ def _compute_unified_rankings(
                 continue
             if val <= 0 and source_key not in _DS_COMBINED_RANK_KEYS:
                 continue
+            if src.get("family_shared_market_translation") and source_key not in (
+                row.get("sourceNativeValues") or {}
+            ):
+                # A family crosswalk translates a WITHIN-FAMILY rank, and the
+                # only within-family rank this source has is the order of
+                # its native values.  A row it reached some other way (a
+                # cross-position rank with no value) is not "the k-th of
+                # its family" and must not be read as one.
+                if is_shadow:
+                    row_shadow_meta.setdefault(idx, {})[source_key] = {
+                        "familyRank": None,
+                        "positionGroup": position_group,
+                        "translatedRank": None,
+                        "rankCoordinatePool": None,
+                        "method": None,
+                        "familyLadderDepth": None,
+                        "withheldReason": "not_a_within_family_rank",
+                        "wouldContribute": None,
+                    }
+                else:
+                    bucket = withheld_family_crosswalk.setdefault(source_key, {})
+                    bucket["not_a_within_family_rank"] = (
+                        bucket.get("not_a_within_family_rank", 0) + 1
+                    )
+                continue
             tiebreak_name = str(row.get("canonicalName") or row.get("displayName") or "").lower()
             eligible.append((val, idx, row_scope, tiebreak_name))
 
@@ -10293,7 +10752,8 @@ def _compute_unified_rankings(
         # order — important because the playersArray comes from a dict
         # whose iteration order can drift between runs.
         eligible.sort(key=lambda t: (-t[0], t[3]))
-        source_pool_sizes[source_key] = len(eligible)
+        if not is_shadow:
+            source_pool_sizes[source_key] = len(eligible)
 
         for rank_idx, (val, row_idx, row_scope, _name) in enumerate(eligible):
             # Dense ranking: tied values share the same rank.
@@ -10343,15 +10803,89 @@ def _compute_unified_rankings(
             backbone_depth_meta: int | None = None
             native_pool = native_pool_for_source(src)
             rank_pool = native_pool
-            if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group:
+            if (
+                row_scope == SOURCE_SCOPE_POSITION_IDP
+                and position_group
+                and src.get("family_shared_market_translation")
+            ):
+                # ── Within-family rank → SHARED-MARKET coordinates ──
+                #
+                # Signals IDP (2026-10-04).  The source ranks players only
+                # WITHIN a family ("LB3"), so the only question it answers
+                # is "which LB is this".  Where the k-th LB sits against DL,
+                # DB, offense and picks is the shared market's question, and
+                # the shared market's owner answers it: the bridge ladder's
+                # family slice holds the COMBINED rank of each family's
+                # (i+1)-th player.  So LB3 lands where the third LB sits on
+                # the market every other IDP voter is priced on, and is
+                # priced on the same (GLOBAL) curve.  No family is ever
+                # ordered against another by this source.
+                #
+                # The retired route below (``backbone.ladder_for``) lands in
+                # IDP-LOCAL coordinates and prices on the IDP master — the
+                # mismatch that put one LB at 9,484 against 5,238-5,668.
+                #
+                # Candidate A withholds past the ladder's depth: a k deeper
+                # than the market's own family list has no measured market
+                # position, and extrapolating one would be a guess.
+                ladder = list(bridge_ladder.family_ladder(position_group))
+                effective_rank, method = translate_position_rank(raw_rank, ladder)
+                ladder_depth_meta = len(ladder)
+                backbone_depth_meta = shared_market_depth
+                withheld_reason: str | None = None
+                if method == TRANSLATION_FALLBACK or not ladder:
+                    withheld_reason = "no_family_ladder"
+                elif method == TRANSLATION_EXTRAPOLATED:
+                    withheld_reason = "beyond_family_ladder"
+                rank_pool = RANK_POOL_SHARED_MARKET
+                if is_shadow:
+                    shadow_entry: dict[str, Any] = {
+                        "familyRank": raw_rank,
+                        "positionGroup": position_group,
+                        "translatedRank": None if withheld_reason else effective_rank,
+                        "rankCoordinatePool": None if withheld_reason else rank_pool,
+                        "method": method,
+                        "familyLadderDepth": ladder_depth_meta,
+                        "withheldReason": withheld_reason,
+                        "wouldContribute": None,
+                    }
+                    if withheld_reason is None:
+                        _hc, _hs = curve_for_pool(rank_pool)
+                        _p = rank_to_percentile(
+                            float(effective_rank), reference_n=_PERCENTILE_REFERENCE_N
+                        )
+                        shadow_entry["wouldContribute"] = int(
+                            round(float(percentile_to_value(_p, midpoint=_hc, slope=_hs)))
+                        )
+                    row_shadow_meta.setdefault(row_idx, {})[source_key] = shadow_entry
+                    continue
+                if withheld_reason is not None:
+                    bucket = withheld_family_crosswalk.setdefault(source_key, {})
+                    bucket[withheld_reason] = bucket.get(withheld_reason, 0) + 1
+                    continue
+            elif is_shadow:
+                # A shadow source with no shadow translation has nothing to
+                # publish; it never reaches the vote path.
+                continue
+            elif row_scope == SOURCE_SCOPE_POSITION_IDP and position_group:
                 ladder = backbone.ladder_for(position_group)
                 effective_rank, method = translate_position_rank(raw_rank, ladder)
                 ladder_depth_meta = len(ladder)
                 backbone_depth_meta = backbone_depth
                 # ``ladder_for`` is numbered over IDP entries only, so a
-                # successful lift lands in IDP-overall space — as does
-                # the untranslated within-position fallback.
+                # successful lift lands in IDP-overall space.
                 rank_pool = RANK_POOL_IDP
+                if method == TRANSLATION_FALLBACK:
+                    # WITHHOLD, never pass the within-family rank through —
+                    # the Lane 8 rule below, applied to the positional scope
+                    # the first time a source exercises it (Signals IDP,
+                    # 2026-10-03).  With no family ladder the raw rank is a
+                    # within-family ordinal; recording it would assert that
+                    # the family's #1 is the IDP #1 — a cross-family price
+                    # the source never published.
+                    withheld_no_bridge.setdefault(source_key, 0)
+                    withheld_no_bridge[source_key] += 1
+                    continue
             elif needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP:
                 # Crosswalk an IDP-only expert board's raw IDP ordinal
                 # into the backbone source's combined offense+IDP rank
@@ -10417,8 +10951,15 @@ def _compute_unified_rankings(
                 # back to the raw rank — a provenance field that lied in
                 # exactly the case where provenance mattered.
                 "sharedMarketTranslated": bool(
-                    needs_shared_market
-                    and row_scope == SOURCE_SCOPE_OVERALL_IDP
+                    (
+                        (needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP)
+                        # A family board crosswalked onto the bridge's
+                        # shared-market family ladder (Signals DL/LB/DB).
+                        or (
+                            rank_pool == RANK_POOL_SHARED_MARKET
+                            and bool(src.get("family_shared_market_translation"))
+                        )
+                    )
                     and method != TRANSLATION_FALLBACK
                 ),
                 "rankCoordinatePool": rank_pool,
@@ -12150,7 +12691,11 @@ def _compute_unified_rankings(
     pre_override_values = {
         row_idx: players_array[row_idx].get("rankDerivedValue") for row_idx in row_confidence_inputs
     }
-    _apply_two_way_player_boost(players_array, players_by_name)
+    _apply_two_way_player_boost(
+        players_array,
+        players_by_name,
+        excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())),
+    )
     # ── Confidence describes the value that SHIPPED (B11) ──
     #
     # The gate's agreement axis asks how many families price within a
@@ -12191,6 +12736,18 @@ def _compute_unified_rankings(
     # compress/boost + 75-pt monotonicity cap was a heuristic stack
     # sitting on top of the Hill curve and has been removed
     # outright — see docs/architecture/live-value-pipeline-trace.md.)
+
+    # SHADOW sources (``shadow_private_sources``): publish what each would
+    # contribute on EVERY row it covers — ranked, off-cap or unranked — as a
+    # named diagnostic.  It feeds no value, rank, tier or confidence.
+    #
+    # Stamped HERE, while ``row_shadow_meta``'s Phase-1 row indices still
+    # address ``players_array``: the retired-class drop just below compacts
+    # the list in place, and stamping after it put every diagnostic on the
+    # wrong row and ran the tail off the end (``IndexError`` — no contract
+    # built, the 2026-10-05 Rankings outage).
+    for _shadow_idx, _shadow_meta in row_shadow_meta.items():
+        players_array[_shadow_idx]["sourceShadowMeta"] = _shadow_meta
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 0) A retired draft class leaves the board here (#1414): valued
@@ -12385,7 +12942,11 @@ def _compute_unified_rankings(
         if row.get("pickRookieAnchor"):
             pdata["pickRookieAnchor"] = row["pickRookieAnchor"]
 
-    global _LAST_CROSS_POSITION_BRIDGE_SUMMARY
+    global _LAST_CROSS_POSITION_BRIDGE_SUMMARY, _LAST_BRIDGE_LADDER
+    # The ladder object itself, in-process only (never on the payload): the
+    # on-box crosswalk evaluation (``scripts/verify_signals_onbox.py``) reads
+    # the family slices to compute its diagnostic Candidate B.
+    _LAST_BRIDGE_LADDER = bridge_ladder
     _LAST_CROSS_POSITION_BRIDGE_SUMMARY = {
         "bridges": [a.to_dict() for a in bridge_assessments],
         "ladder": bridge_ladder.to_dict(),
@@ -12393,6 +12954,10 @@ def _compute_unified_rankings(
         # bridge, rather than passed through untranslated (Lane 8's repair).
         # Never silently absent — an empty dict IS the honest "0 withheld".
         "withheldNoBridge": dict(withheld_no_bridge),
+        "withheldFamilyCrosswalk": {k: dict(v) for k, v in withheld_family_crosswalk.items()},
+        "familyLadderDepths": {
+            k: len(v) for k, v in sorted(bridge_ladder.position_ladders.items())
+        },
         "multiBridgeLadderEnabled": _feature_flags.is_enabled("multi_bridge_ladder"),
     }
 
@@ -13143,6 +13708,16 @@ def build_api_data_contract(
     freshness_as_of = _payload_as_of(raw_payload)
     source_weighting = _load_source_weighting(freshness_as_of, csv_root)
     seasonally_inactive = _seasonally_inactive_sources(freshness_as_of, csv_root)
+    # Private, box-local sources (Signals): absent BY DESIGN where the
+    # collector has never run, or rolled back by flag.  Not a vote, not an
+    # expected source, not an error — and stamped on the payload so the
+    # validator and every reader can tell "not provisioned here" from a
+    # source that disappeared.
+    private_availability = _private_source_vote_state(csv_root)
+    absent_private = frozenset(k for k, v in private_availability.items() if not v["votes"])
+    shadow_private = frozenset(
+        k for k, v in private_availability.items() if v.get("voteState") == VOTE_STATE_SHADOW
+    )
     pick_aliases = _compute_unified_rankings(
         players_array,
         players_by_name,
@@ -13160,6 +13735,8 @@ def build_api_data_contract(
         source_weighting=source_weighting,
         retired_pick_years=_retired_pick_years,
         seasonally_inactive_sources=frozenset(seasonally_inactive),
+        absent_private_sources=absent_private,
+        shadow_private_sources=shadow_private,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -13220,6 +13797,18 @@ def build_api_data_contract(
                 **source_timestamps[_seasonal_key],
                 "staleness": "seasonally_inactive",
                 "seasonalState": dict(_seasonal_info),
+            }
+    # A private source that is not provisioned on this host is not "missing"
+    # here: there is nothing this host could have fetched.  Named explicitly,
+    # exactly as seasonal inactivity is, so the two never read alike.
+    for _private_key, _private_info in private_availability.items():
+        if (
+            _private_info["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+            and _private_key in source_timestamps
+        ):
+            source_timestamps[_private_key] = {
+                **source_timestamps[_private_key],
+                "staleness": PRIVATE_SOURCE_NOT_PROVISIONED,
             }
     _fresh_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "fresh")
     _stale_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "stale")
@@ -13541,6 +14130,13 @@ def build_api_data_contract(
             "asOf": _iso_or_none(freshness_as_of),
             "inactive": {k: dict(v) for k, v in sorted(seasonally_inactive.items())},
         },
+        # Private, box-local sources (Signals, owner addendum 2026-10-03):
+        # whether each is present / missing / not provisioned on the host
+        # that built this board, and whether it voted.  States only — never
+        # a value.  ``validate_api_data_contract`` reads it so a build that
+        # CANNOT hold private data (CI) is not failed for lacking it, while
+        # a provisioned host whose board vanished still is.
+        "privateSourceAvailability": {k: dict(v) for k, v in sorted(private_availability.items())},
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
@@ -14545,9 +15141,21 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
 
         # ``sorted`` so the emitted order is a property of the population rather
         # than of a config file's key order.
+        # A PRIVATE, box-local source the building host declares NOT
+        # PROVISIONED (or rolled back) is absent by design, not gone: a public
+        # CI build can never hold private data.  Exempted ONLY on that
+        # explicit stamp — a payload without ``privateSourceAvailability``
+        # fails closed — and a provisioned host whose board vanished
+        # (``missing``) still raises ``source_missing``.
+        absent_by_design = private_sources_absent_by_design(
+            payload.get("privateSourceAvailability")
+        )
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)
+            if count == 0 and src_key in absent_by_design:
+                warnings.append(f"private_source_absent_by_design:{src_key}")
+                continue
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
                 any_source_missing = True
