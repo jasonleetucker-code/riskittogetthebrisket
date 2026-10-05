@@ -778,6 +778,15 @@
     "scoring-snapshot-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Checkout proof code without persisted credentials": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Configure production SSH": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Prove a recent source lifecycle without transferring raw telemetry": {
+      "category": "blocking"
+    },
     "scrape-telemetry-diagnostics.yml::fetch-telemetry::Configure production SSH": {
       "category": "blocking"
     },
