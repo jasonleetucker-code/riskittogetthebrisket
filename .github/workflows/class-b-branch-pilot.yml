@@ -35,6 +35,15 @@ jobs:
           trap 'sudo umount "$output_dir" || true' EXIT
           git show "${BASE_SHA}:docs/master-site-audit/PERFORMANCE_AUDIT.md" > "$fixture_dir/PERFORMANCE_AUDIT.md"
           chmod 444 "$fixture_dir/PERFORMANCE_AUDIT.md"
+          if ! grep -Fq '[Optimisations that serve a different answer](#optimisations-that-serve-a-different-answer)' "$fixture_dir/PERFORMANCE_AUDIT.md"; then
+            # The one-time repair has landed. Future changes to this document or
+            # pilot code still must preserve the resolved anchor.
+            python -I -B scripts/class_b_branch_worker.py --check "$fixture_dir/PERFORMANCE_AUDIT.md"
+            python -I -B scripts/class_b_branch_worker.py --check docs/master-site-audit/PERFORMANCE_AUDIT.md
+            git diff --check "${BASE_SHA}" HEAD -- docs/master-site-audit/PERFORMANCE_AUDIT.md
+            echo 'Fixed Class B pilot anchor remains valid; original container proof is recorded on the pilot PR.'
+            exit 0
+          fi
           timeout 90s docker run --rm --pull=always \
             --network=none --read-only --cap-drop=ALL \
             --security-opt=no-new-privileges --user=65534:65534 \
