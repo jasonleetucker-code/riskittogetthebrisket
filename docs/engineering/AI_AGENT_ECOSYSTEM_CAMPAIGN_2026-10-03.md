@@ -18,9 +18,9 @@ production permissions.
 - Week 1 completion contract: 30/30 literal `VERIFIED` at session start.
 - The research document is still on open PR #1629, not on `main`. Its findings
   are candidate evidence; live files and current claims decide each unit.
-- PR #1627 owns `docs/OWNER_REQUESTED_TODO.md`; PR #1513 also changes that
-  ledger and `docs/EXECUTION_PLAN.md`. The compact owner-intake pointer and
-  execution-plan section are queued for reconciliation after those claims clear.
+- PR #1627 merged on 2026-10-04; PR #1513 still changes
+  `docs/OWNER_REQUESTED_TODO.md` and `docs/EXECUTION_PLAN.md`. The compact
+  owner-intake pointer and execution-plan section remain queued behind #1513.
   Their absence here is **partial authority capture**, not a claim of completion.
 - Open Dependabot PRs #1506 and #1508 change `requirements.txt`; their exact
   dependency changes must regenerate the locks before either can integrate.
@@ -29,7 +29,7 @@ production permissions.
 
 | Unit | Canonical owner to extend | State | Required proof |
 |---|---|---|---|
-| Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IN PROGRESS | Hash-checked lock, Windows/Linux install, CI/deploy parity, drift sabotage |
+| Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IN PROGRESS — scheduled refresh now uses the runtime lock on the current-main rehearsal; updated foundation CI and integration pending | Hash-checked lock, Windows/Linux install, CI/deploy parity, drift sabotage |
 | Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | IN PROGRESS — CI package and draft frontend cutover; no production proof | CI digest, exact deploy, served fingerprint, rollback |
 | Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | IN PROGRESS — `/api/leagues` pilot plus generated parity; CI/production pending | Public/private schema tests, OpenAPI, deterministic type parity |
 | Application trace and SLOs | Existing API/log/performance owners | IN PROGRESS — `/api/leagues` trace pilot; source spans and SLOs pending | Correlated route and source evidence, privacy, failure isolation |
@@ -92,8 +92,8 @@ methodology changes are `NOT_RELEVANT` to the lock implementation.
 
 - Verify a clean Windows installation and an Ubuntu CI installation from the
   committed hashes.
-- Reconcile all Python installing workflows, including `scheduled-refresh.yml`
-  after PR #1627 releases it.
+- Verify the `scheduled-refresh.yml` hash-locked install in updated foundation
+  CI; its prior #1627 ownership collision has cleared.
 - Review exact package changes against current production environment.
 - Merge through the normal exact-head gate, deploy, and inspect the served SHA.
   Build artifact identity remains a separate dependent unit.
