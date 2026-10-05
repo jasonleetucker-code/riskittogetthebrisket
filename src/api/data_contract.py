@@ -12709,6 +12709,18 @@ def _compute_unified_rankings(
     # sitting on top of the Hill curve and has been removed
     # outright — see docs/architecture/live-value-pipeline-trace.md.)
 
+    # SHADOW sources (``shadow_private_sources``): publish what each would
+    # contribute on EVERY row it covers — ranked, off-cap or unranked — as a
+    # named diagnostic.  It feeds no value, rank, tier or confidence.
+    #
+    # Stamped HERE, while ``row_shadow_meta``'s Phase-1 row indices still
+    # address ``players_array``: the retired-class drop just below compacts
+    # the list in place, and stamping after it put every diagnostic on the
+    # wrong row and ran the tail off the end (``IndexError`` — no contract
+    # built, the 2026-10-05 Rankings outage).
+    for _shadow_idx, _shadow_meta in row_shadow_meta.items():
+        players_array[_shadow_idx]["sourceShadowMeta"] = _shadow_meta
+
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 0) A retired draft class leaves the board here (#1414): valued
     #    against the unaltered vendor rank spaces above, gone before the
@@ -12907,12 +12919,6 @@ def _compute_unified_rankings(
     # on-box crosswalk evaluation (``scripts/verify_signals_onbox.py``) reads
     # the family slices to compute its diagnostic Candidate B.
     _LAST_BRIDGE_LADDER = bridge_ladder
-    # SHADOW sources (``shadow_private_sources``): publish what each would
-    # contribute on EVERY row it covers — ranked, off-cap or unranked — as a
-    # named diagnostic.  It feeds no value, rank, tier or confidence.
-    for _shadow_idx, _shadow_meta in row_shadow_meta.items():
-        players_array[_shadow_idx]["sourceShadowMeta"] = _shadow_meta
-
     _LAST_CROSS_POSITION_BRIDGE_SUMMARY = {
         "bridges": [a.to_dict() for a in bridge_assessments],
         "ladder": bridge_ladder.to_dict(),
