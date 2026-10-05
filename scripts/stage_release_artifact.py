@@ -27,6 +27,7 @@ def _extract_checked(archive: Path, destination: Path) -> None:
         "release-manifest.json",
         "requirements.lock.txt",
         "frontend/package-lock.json",
+        "backend-wheelhouse.tar",
     }
     with tarfile.open(archive, "r:") as bundle:
         members = bundle.getmembers()

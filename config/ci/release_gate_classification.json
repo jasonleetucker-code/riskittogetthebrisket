@@ -92,6 +92,18 @@
     "backend-wheelhouse-proof.yml::prove-linux-wheels::Upload measured backend artifact": {
       "category": "blocking"
     },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Checkout runtime proof without persisted credentials": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Set up Python for runtime proof": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Build and verify production runtime wheels offline": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Upload production runtime wheel proof": {
+      "category": "blocking"
+    },
     "class-b-branch-pilot.yml::fixed-document-task::Checkout without persisted credentials": {
       "category": "blocking"
     },
@@ -254,6 +266,9 @@
       "category": "blocking"
     },
     "deploy.yml::validate::Checkout": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Build and test offline backend runtime wheelhouse": {
       "category": "blocking"
     },
     "deploy.yml::validate::Deploy script syntax gate (existing scripts only)": {

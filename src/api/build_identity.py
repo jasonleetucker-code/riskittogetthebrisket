@@ -152,8 +152,9 @@ def create_release_manifest(
     node_version: str,
     run_id: str | None = None,
     built_at_utc: str | None = None,
+    backend_archive: Path | None = None,
 ) -> dict:
-    """Describe exact CI build bytes; unbuilt backend artifacts stay unknown."""
+    """Describe exact CI build bytes, including an optional backend archive."""
     if not _FULL_SHA.fullmatch(commit):
         raise ValueError("release manifest requires a full lowercase Git SHA")
     observed_commit = resolve_build_identity(repo_root)["commit"]
@@ -168,6 +169,11 @@ def create_release_manifest(
         raise ValueError("Next BUILD_ID is invalid")
     if not node_version.strip():
         raise ValueError("Node version is missing")
+    if backend_archive is not None and (
+        backend_archive.is_symlink() or not backend_archive.is_file()
+    ):
+        raise ValueError("backend artifact must be a regular file")
+    backend_digest = _sha256_file(backend_archive) if backend_archive is not None else None
     identity = {
         "commit": commit,
         "python_lock_sha256": _sha256_text(repo_root / "requirements.lock.txt"),
@@ -176,33 +182,64 @@ def create_release_manifest(
         "node_version": node_version.strip(),
         "next_build_id": build_id,
         "frontend_tree_sha256": _frontend_tree_digest(build_dir),
-        "backend_artifact_sha256": None,
+        "backend_artifact_sha256": backend_digest,
     }
-    return {
-        "schema_version": "calculator-release/v1",
+    manifest = {
+        "schema_version": "calculator-release/v2" if backend_digest else "calculator-release/v1",
         "artifact_id": _artifact_id(identity),
         "identity": identity,
-        "backend_artifact_unavailable_reason": "backend_artifact_not_built_in_this_phase",
         "built_at_utc": built_at_utc or datetime.now(timezone.utc).isoformat(),
         "workflow_run_id": run_id,
     }
+    if backend_digest is None:
+        manifest["backend_artifact_unavailable_reason"] = "backend_artifact_not_built_in_this_phase"
+    return manifest
 
 
 def verify_release_manifest(
-    manifest: dict, repo_root: Path, build_dir: Path, *, expected_commit: str
+    manifest: dict,
+    repo_root: Path,
+    build_dir: Path,
+    *,
+    expected_commit: str,
+    backend_archive: Path | None = None,
 ) -> None:
     """Refuse a stale, substituted or corrupted build before deployment."""
-    if manifest.get("schema_version") != "calculator-release/v1":
+    schema = manifest.get("schema_version")
+    if schema not in ("calculator-release/v1", "calculator-release/v2"):
         raise ValueError("unsupported release manifest schema")
     identity = manifest.get("identity")
     if not isinstance(identity, dict) or identity.get("commit") != expected_commit:
         raise ValueError("release artifact Git SHA mismatch")
-    if (
-        identity.get("backend_artifact_sha256") is not None
-        or manifest.get("backend_artifact_unavailable_reason")
-        != "backend_artifact_not_built_in_this_phase"
-    ):
-        raise ValueError("release artifact backend identity is unsupported in v1")
+    if schema == "calculator-release/v1":
+        if (
+            identity.get("backend_artifact_sha256") is not None
+            or manifest.get("backend_artifact_unavailable_reason")
+            != "backend_artifact_not_built_in_this_phase"
+        ):
+            raise ValueError("release artifact backend identity is unsupported in v1")
+    else:
+        digest = identity.get("backend_artifact_sha256")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("release artifact backend digest is invalid")
+        artifact = backend_archive or repo_root / "backend-wheelhouse.tar"
+        if artifact.is_file() and not artifact.is_symlink():
+            if _sha256_file(artifact) != digest:
+                raise ValueError("release artifact backend bytes mismatch")
+        else:
+            receipt = repo_root / ".backend-artifact-receipt.json"
+            try:
+                installed = json.loads(receipt.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                raise ValueError("release artifact backend install receipt missing") from exc
+            if installed != {
+                "commit": expected_commit,
+                "backend_artifact_sha256": digest,
+                "python_lock_sha256": identity.get("python_lock_sha256"),
+                "python_abi": identity.get("python_abi"),
+                "pip_check": "passed",
+            }:
+                raise ValueError("release artifact backend install receipt mismatch")
     if identity.get("python_lock_sha256") != _sha256_text(repo_root / "requirements.lock.txt"):
         raise ValueError("release artifact Python lock mismatch")
     if identity.get("frontend_lock_sha256") != _sha256_text(
@@ -271,6 +308,12 @@ def resolve_runtime_release_identity(repo_root: Path, *, commit: str | None) -> 
         frontend_build_id=identity["next_build_id"],
         frontend_tree_sha256=identity["frontend_tree_sha256"],
         frontend_artifact_unavailable_reason=None,
+        backend_artifact_sha256=identity["backend_artifact_sha256"],
+        backend_artifact_unavailable_reason=(
+            None
+            if identity["backend_artifact_sha256"]
+            else "backend_artifact_not_built_in_this_phase"
+        ),
     )
     return result
 

@@ -586,11 +586,31 @@ prepare_python_runtime() {
     python3 -m venv "${VENV_DIR}"
   fi
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
-  "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  if [[ "${req_file}" == "requirements.lock.txt" ]]; then
-    "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+  local release_schema=""
+  if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    release_schema="$(tar -xOf "${ROLLBACK_ARTIFACT_ARCHIVE}" release-manifest.json | \
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["schema_version"])')"
+  fi
+  if [[ "${release_schema}" == "calculator-release/v2" ]]; then
+    log "Restoring exact CI backend wheels offline from the saved release archive."
+    python3 -m scripts.stage_backend_artifact \
+      --release-archive "${ROLLBACK_ARTIFACT_ARCHIVE}" \
+      --archive-sha256 "${ROLLBACK_ARTIFACT_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${ROLLBACK_TARGET_REV}" \
+      --venv-python "${VENV_DIR}/bin/python" \
+      --receipt "${APP_DIR}/.backend-artifact-receipt.json"
+  elif [[ -z "${release_schema}" || "${release_schema}" == "calculator-release/v1" ]]; then
+    "${VENV_DIR}/bin/python" -m pip install --upgrade pip
+    if [[ "${req_file}" == "requirements.lock.txt" ]]; then
+      "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+    else
+      "${VENV_DIR}/bin/pip" install -r "${req_file}"
+    fi
+    rm -f "${APP_DIR}/.backend-artifact-receipt.json"
   else
-    "${VENV_DIR}/bin/pip" install -r "${req_file}"
+    error "Unsupported rollback artifact schema: ${release_schema}"
+    exit 1
   fi
 }
 

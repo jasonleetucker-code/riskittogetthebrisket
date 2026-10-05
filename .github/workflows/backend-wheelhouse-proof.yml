@@ -5,6 +5,9 @@ on:
     paths:
       - '.github/workflows/backend-wheelhouse-proof.yml'
       - 'scripts/backend_wheelhouse.py'
+      - 'scripts/build_backend_wheelhouse.sh'
+      - 'scripts/stage_backend_artifact.py'
+      - 'tests/deploy/test_stage_backend_artifact.py'
       - 'tests/scripts/test_backend_wheelhouse.py'
       - 'requirements.lock.txt'
       - 'requirements-dev.lock.txt'
@@ -34,62 +37,18 @@ jobs:
         run: |
           set -Eeuo pipefail
           python scripts/python_lock.py check
-          python -m venv /tmp/calculator-build-venv
-          /tmp/calculator-build-venv/bin/python -m pip install \
-            --require-hashes --only-binary=:all: -r requirements-build.lock.txt
       - name: Download locked Linux packages and test an offline wheel install
         run: |
           set -Eeuo pipefail
-          mkdir -p backend-inputs backend-wheels backend-sources
-          /tmp/calculator-build-venv/bin/python -m pip download \
-            --no-build-isolation --require-hashes \
-            -r requirements-dev.lock.txt --dest backend-inputs
-          for package in backend-inputs/*; do
-            case "$package" in
-              *.whl) cp "$package" backend-wheels/ ;;
-              *.tar.gz|*.zip)
-                cp "$package" backend-sources/
-                /tmp/calculator-build-venv/bin/python -m pip wheel \
-                  --no-build-isolation --no-deps --wheel-dir backend-wheels "$package"
-                ;;
-              *) echo "Unsupported locked package: $package" >&2; exit 1 ;;
-            esac
-          done
-          python scripts/backend_wheelhouse.py create \
-            --wheel-dir backend-wheels --source-dir backend-sources \
-            --lock requirements-dev.lock.txt --build-lock requirements-build.lock.txt \
-            --manifest backend-wheelhouse-manifest.json
-          python scripts/backend_wheelhouse.py requirements \
-            --wheel-dir backend-wheels --source-dir backend-sources \
-            --lock requirements-dev.lock.txt --build-lock requirements-build.lock.txt \
-            --manifest backend-wheelhouse-manifest.json \
-            --output backend-install.requirements.txt
-          python -m venv /tmp/calculator-wheelhouse-venv
-          /tmp/calculator-wheelhouse-venv/bin/python -m pip install \
-            --no-index --no-deps --require-hashes \
-            -r backend-install.requirements.txt
-          /tmp/calculator-wheelhouse-venv/bin/python -m pip check
-          /tmp/calculator-wheelhouse-venv/bin/python -m pytest -q \
-            tests/scripts/test_backend_wheelhouse.py
+          bash scripts/build_backend_wheelhouse.sh \
+            requirements-dev.lock.txt calculator-backend-wheels.tar
+          calculator-backend-wheels.tar.work/offline-venv/bin/python -m pytest -q \
+            tests/scripts/test_backend_wheelhouse.py \
+            tests/deploy/test_stage_backend_artifact.py
       - name: Bind wheel bytes to the tested lock and runtime
         run: |
           set -Eeuo pipefail
-          python scripts/backend_wheelhouse.py create \
-            --wheel-dir backend-wheels --source-dir backend-sources \
-            --lock requirements-dev.lock.txt --build-lock requirements-build.lock.txt \
-            --manifest backend-wheelhouse-manifest.json
-          python scripts/backend_wheelhouse.py verify \
-            --wheel-dir backend-wheels --source-dir backend-sources \
-            --lock requirements-dev.lock.txt --build-lock requirements-build.lock.txt \
-            --manifest backend-wheelhouse-manifest.json
-          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
-            -cf calculator-backend-wheels.tar \
-            backend-wheelhouse-manifest.json requirements-dev.lock.txt \
-            requirements-build.lock.txt \
-            backend-wheels backend-sources
-          sha256sum calculator-backend-wheels.tar > calculator-backend-wheels.tar.sha256
           sha256sum -c calculator-backend-wheels.tar.sha256
-          du -h calculator-backend-wheels.tar
       - name: Upload measured backend artifact
         uses: actions/upload-artifact@v4
         with:
@@ -97,5 +56,34 @@ jobs:
           path: |
             calculator-backend-wheels.tar
             calculator-backend-wheels.tar.sha256
+          compression-level: 0
+          if-no-files-found: error
+
+  prove-runtime-wheels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout runtime proof without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Python for runtime proof
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Build and verify production runtime wheels offline
+        run: |
+          set -Eeuo pipefail
+          python scripts/python_lock.py check
+          bash scripts/build_backend_wheelhouse.sh \
+            requirements.lock.txt backend-wheelhouse.tar
+          sha256sum -c backend-wheelhouse.tar.sha256
+      - name: Upload production runtime wheel proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-runtime-wheels-${{ github.event.pull_request.head.sha }}
+          path: |
+            backend-wheelhouse.tar
+            backend-wheelhouse.tar.sha256
           compression-level: 0
           if-no-files-found: error
