@@ -60,10 +60,11 @@ def _read_freshness() -> dict[str, dict]:
     state_dir = _REPO_ROOT / "data" / "scrape_state"
     out: dict[str, dict] = {}
     now_epoch = datetime.now(tz=timezone.utc).timestamp()
+    unprovisioned = set(unprovisioned_private_sources())
 
     for src_key, entry in _SOURCE_CSV_PATHS.items():
         csv_rel = entry if isinstance(entry, str) else (entry or {}).get("path")
-        if not csv_rel:
+        if not csv_rel or src_key in unprovisioned:
             continue
         csv_path = _REPO_ROOT / csv_rel
         stamp_path = state_dir / f"{src_key}_last_success"
@@ -90,6 +91,30 @@ def _read_freshness() -> dict[str, dict]:
             "ageHours": round(age_hours, 2),
         }
     return out
+
+
+def unprovisioned_private_sources() -> list[str]:
+    """Private, box-local sources this host was never meant to carry.
+
+    A source whose ``_SOURCE_CSV_PATHS`` entry declares a ``private_marker``
+    (Signals' authenticated values, owner addendum 2026-10-03) is collected
+    only on the production box, into a gitignored store.  Where its collector
+    has never run — a GitHub runner above all — there is nothing to be fresh
+    or stale: it is NOT PROVISIONED, reported as such, and never "unmeasurable"
+    (which would turn every scheduled refresh red for lacking private data).
+    One owner decides: ``data_contract.private_source_availability``.  A
+    provisioned host with no stamp and no CSV is still unmeasurable.
+    """
+    from src.api.data_contract import (  # noqa: PLC0415
+        PRIVATE_SOURCE_NOT_PROVISIONED,
+        private_source_availability,
+    )
+
+    return sorted(
+        k
+        for k, v in private_source_availability(_REPO_ROOT).items()
+        if v["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+    )
 
 
 def unmeasurable_sources() -> list[str]:
@@ -124,9 +149,10 @@ def unmeasurable_sources() -> list[str]:
 
     state_dir = _REPO_ROOT / "data" / "scrape_state"
     out: list[str] = []
+    unprovisioned = set(unprovisioned_private_sources())
     for src_key, entry in _SOURCE_CSV_PATHS.items():
         csv_rel = entry if isinstance(entry, str) else (entry or {}).get("path")
-        if not csv_rel:
+        if not csv_rel or src_key in unprovisioned:
             continue
         has_stamp = (state_dir / f"{src_key}_last_success").exists()
         has_csv = (_REPO_ROOT / csv_rel).exists()
@@ -323,6 +349,13 @@ def main() -> int:
             f"board was last re-verified at {info.get('lastInactiveVerifiedAt')} "
             f"(threshold {info.get('thresholdHours')}h).  Classified on its normal "
             f"freshness instead."
+        )
+
+    for src in unprovisioned_private_sources():
+        print(
+            f"::notice title=Private source not provisioned: {src}::Box-local private "
+            f"source (gitignored store); its collector has never run on this host, so "
+            f"it is absent by design here: not fresh, not stale, not unmeasurable."
         )
 
     for src in unmeasurable:

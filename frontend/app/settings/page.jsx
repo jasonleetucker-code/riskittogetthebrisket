@@ -16,6 +16,7 @@ import {
   detectActivePreset,
 } from "@/lib/weight-presets";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import { sourceVoteFields } from "@/lib/source-vote-state";
 import { ROS_SOURCES } from "@/lib/ros-sources";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
@@ -321,8 +322,16 @@ export default function SettingsPage() {
         Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0
           ? Number(ov.weight)
           : Number(src.weight ?? 1);
+      // Private sources carry a backend vote state.  A source that is not
+      // voting (Signals IDP in shadow) is shown with its state and offers
+      // no include/weight control — a control would imply it moves the
+      // blend, and it does not.
+      const vote = sourceVoteFields(
+        rawData?.privateSourceAvailability?.[src.key],
+      );
       return {
         ...src,
+        ...vote,
         covered,
         live: covered > 0,
         userInclude,
@@ -335,11 +344,12 @@ export default function SettingsPage() {
       offense: RANKING_SOURCES.filter((s) => s.scope === "overall_offense").map(
         decorate,
       ),
-      idp: RANKING_SOURCES.filter((s) => s.scope === "overall_idp").map(
-        decorate,
-      ),
+      // Family-scoped IDP boards (Signals DL / LB / DB) are IDP sources too.
+      idp: RANKING_SOURCES.filter(
+        (s) => s.scope === "overall_idp" || s.scope === "position_idp",
+      ).map(decorate),
     };
-  }, [rows, settings?.siteWeights]);
+  }, [rows, settings?.siteWeights, rawData?.privateSourceAvailability]);
 
   if (!hydrated) return null;
 
@@ -1163,8 +1173,13 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                 : src.isBackbone
                   ? "Backbone (IDP)"
                   : "Expert consensus";
-              const statusLabel = src.live ? "Live" : "Idle";
-              const statusColor = src.live ? "var(--green)" : "var(--subtext)";
+              const statusLabel = src.nonVoting
+                ? src.voteLabel
+                : src.live
+                  ? "Live"
+                  : "Idle";
+              const statusColor =
+                src.live && !src.nonVoting ? "var(--green)" : "var(--subtext)";
               const enabled = src.userInclude !== false;
               return (
                 <tr
@@ -1250,43 +1265,61 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                   >
                     {role}
                   </td>
-                  <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={(e) => onToggle?.(src.key, e.target.checked)}
-                      aria-label={`Include ${src.displayName} in blend`}
-                      className="settings-src-toggle"
-                      style={{ cursor: "pointer" }}
-                    />
-                  </td>
-                  <td
-                    style={{
-                      padding: "6px 8px",
-                      textAlign: "right",
-                      fontFamily: "var(--mono)",
-                    }}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      max={5}
-                      step={0.1}
-                      value={Number(src.userWeight).toFixed(1)}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        if (Number.isFinite(v) && v >= 0)
-                          onWeight?.(src.key, v);
-                      }}
-                      disabled={!enabled}
-                      className="input weight-input"
+                  {src.nonVoting ? (
+                    <td
+                      colSpan={2}
+                      data-testid={`settings-src-vote-state-${src.key}`}
+                      title="Collected and shown on Rankings; it does not vote, so there is nothing to include or weight."
                       style={{
-                        textAlign: "right",
-                        fontFamily: "var(--mono)",
+                        padding: "6px 8px",
+                        textAlign: "center",
+                        fontSize: "0.68rem",
+                        color: "var(--subtext)",
                       }}
-                      aria-label={`${src.displayName} weight`}
-                    />
-                  </td>
+                    >
+                      {src.voteLabel}
+                    </td>
+                  ) : (
+                    <>
+                      <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(e) => onToggle?.(src.key, e.target.checked)}
+                          aria-label={`Include ${src.displayName} in blend`}
+                          className="settings-src-toggle"
+                          style={{ cursor: "pointer" }}
+                        />
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          textAlign: "right",
+                          fontFamily: "var(--mono)",
+                        }}
+                      >
+                        <input
+                          type="number"
+                          min={0}
+                          max={5}
+                          step={0.1}
+                          value={Number(src.userWeight).toFixed(1)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (Number.isFinite(v) && v >= 0)
+                              onWeight?.(src.key, v);
+                          }}
+                          disabled={!enabled}
+                          className="input weight-input"
+                          style={{
+                            textAlign: "right",
+                            fontFamily: "var(--mono)",
+                          }}
+                          aria-label={`${src.displayName} weight`}
+                        />
+                      </td>
+                    </>
+                  )}
                   <td
                     className="settings-src-col-covered"
                     style={{

@@ -140,6 +140,15 @@ def eligible_specs(
                 f"oos_blocked:{','.join((entry.get('outOfSampleEvaluation') or {}).get('blockers') or [])}"
             )
             continue
+        r = reg.get(key) or {}
+        # A family-scoped board (Signals DL / LB / DB) ranks one family on
+        # its own scale.  This panel compares -log(rank) within a whole
+        # universe, so DL #5 would be scored as IDP #5 — the coordinate
+        # error the shared-market crosswalk exists to avoid.  Excluded until
+        # a family-scoped evaluation exists; its observations still accrue.
+        if r.get("scope") == "position_idp":
+            excluded[key] = "family_scoped_board:needs_family_scoped_evaluation"
+            continue
         cfg = csv_paths.get(key)
         if cfg is None:
             excluded[key] = "no_registered_csv"
@@ -150,7 +159,6 @@ def eligible_specs(
         universes = {
             u for u, flag in ((OFFENSE, "offense"), (IDP, "idp"), (PICK, "picks")) if pop.get(flag)
         }
-        r = reg.get(key) or {}
         specs.append(
             SourceSpec(
                 key=key,

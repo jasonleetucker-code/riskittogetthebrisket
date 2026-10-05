@@ -664,6 +664,23 @@ Steps:
    Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
    conversions — votes via rank → percentile → Hill.  (The refit
    workflow trains the scope masters on value-based observations.)
+   **Signals Fantasy** offense (``signalsSf``; ACTIVE since the owner
+   addendum of 2026-10-03) votes the same way: its authenticated native
+   VALUE order is the rank (labelled derived), inside the ``fantasyCalc``
+   B10 family (no independence bonus).  Its IDP value is normalised per
+   family, so IDP is one ``position_idp`` board per family
+   (``signalsIdp{Dl,Lb,Db}``), collected and displayed but HELD from voting
+   (``PRIVATE_SOURCE_VOTE_HOLDS``: the positional path prices in IDP-local
+   coordinates — never derive a cross-family order).  It is the first
+   **private, box-local** voter: its CSVs live in the gitignored
+   ``data/sources/signals/board/`` store written by the box timer
+   ``dynasty-signals-values``, never in ``CSVs/site_raw``.  Where that
+   collector never ran (CI, dev) ``private_source_availability`` says
+   ``not_provisioned``: no vote, not expected, no error in either CI lane;
+   a provisioned host whose CSV vanished IS ``source_missing``.  Public
+   positional Signals boards never vote.  Rollback
+   ``RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0`` + restart.  Full record:
+   ``docs/sources/SIGNALS_FANTASY_INTEGRATION.md`` §9.
 5. Scope-appropriate curve routing (cross-market → GLOBAL, overall
    IDP → IDP, everything else → OFFENSE; the ROOKIE master is refit
    tooling only — rookie sources ladder-translate first)
@@ -1330,9 +1347,11 @@ current ``suggestions.py`` shape (1-for-1, 2-for-1) can exceed a cap, so the
 forced-drop path is reachable there only on an already-over-limit roster.  A
 test fails if a 1-for-2 suggestion generator is added, which is when that
 changes.  The shapes that DO go over are the finder's ``PackageShape(1, 2)``
-and Angle's N+1 counter-package — the latter on ANY roster at the cap, with no
-over-limit precondition, which makes ``/api/angle/packages`` the surface where
-the forced-drop path is genuinely exercised.
+and ``PackageShape(2, 3)`` (Wave B) and Angle's N+1 counter-package — the
+latter on ANY roster at the cap, with no over-limit precondition, which makes
+``/api/angle/packages`` the surface where the forced-drop path is genuinely
+exercised.  With Team Context ON the finder's forced releases also REORDER its
+results (``forcedDropCost``, below); they still filter nothing.
 
 **The finder's Value Adjustment is no longer a monkeypatch.**
 ``src/trade/__init__.py`` used to rebind ``finder._score_trade`` and
@@ -1345,6 +1364,69 @@ inert.  Pinned by ``tests/trade/test_finder_va_is_not_bypassable.py``, which
 tests the PROPERTY (the premium is applied and published) plus AST guards that
 no generator bypasses the adjusting scorer and the ``__init__`` has no
 executable statements.
+
+**Forced-drop opportunity cost and both teams (Wave B, C3-CAP-01).**
+``roster_capacity.forced_drop_cost`` prices the releases a trade ADDS —
+``min(overLimitAfter, net roster growth)``, from ``ForcedDrop.release_cost`` —
+so a roster already over the cap is not charged its existing overage.  ``None``
+when undeterminable (never free); taxi-unknown / unpriced / exhausted-ladder
+answers are labelled lower bounds.  With Team Context ON the finder charges it
+as ``rankingFactors.forcedDropCost = -(cost / give_model) x _BOARD_EDGE_WEIGHT``
+— the board-edge scale, no second coefficient — via a lazy top-K bounded to
+``5 x max_results``.  It only lowers a score, so the rule above still holds:
+it reorders, it filters nothing.  Asset-only keeps capacity a pure report.
+Every finder / angle candidate also carries ``counterpartyRosterCapacity``
+(``counterparty_context_resolver`` + ``counterparty_capacity_block``, same
+owner); it is reported, never ranked — the counterparty's acceptance is scored
+on the market board, and pricing its releases on ours would mix scales.
+
+**Generated-trade topology (C3-TOPO-01).**  Every generator applies
+``src/packages/construction.py::topology_is_allowed`` (``abs(players_A -
+players_B) <= 1``, picks are not players): the finder through
+``enumerate_packages`` (default mode adds top-6 2v2 / 3v2 / 2v3), angle per
+generated side (``thresholds.topologyRejected``), and the suggestions
+equalizer per addition.  A balancer is never a draft pick (C7-PICKGEN-01
+rule 5: picks enter generated trades only through a posture-aware
+generator).
+
+### Competitive Posture — one owner (#840 / C7-POST-01, Wave B)
+
+``src/roster_intel/window.py::competitive_posture`` publishes PUSH / HOLD /
+RETOOL / REBUILD as an explained probabilistic classification over the
+continuous competitive window (owner decision 2026-09-24; map owner-chosen
+2026-10-03, every constant a declared PRIOR, ``paramsVersion
+posture_v1_prior``): PUSH = both contender states; RETOOL / REBUILD split
+``productive_struggle`` by trajectory; ``season_timing`` (week + the LEAGUE's
+own ``trade_deadline``) sharpens the split toward the deadline; HOLD is the
+share of a 3x3 perturbation grid over the window's measured inputs on which
+the directional label flips — no probability cut, and labels change direction
+only through HOLD (pinned by a sweep).  No competitiveness evidence is HOLD.
+
+Consumers read it, never re-derive it: ``gameplan.league_competitive_postures``
+(the cached league bundle's windows; warm-only mode for latency-sensitive
+callers), ``trade_simulator.competitive_posture_for`` (resolved by the ROUTE so
+``simulate_trade`` stays pure), ``team_impact`` window fit (the hard-threshold
+``_classify_window`` is retired; no posture = ``windowFit: null``), and Analyze
+Trade's ``strategicPosture`` lens, which has ``votes=False`` — posture
+interprets evidence the other lenses already carry, so voting would count it
+twice, and it is never a veto.  ``ros/direction.py`` (public deadline
+buyer/seller) and BDVM's direction remain separately named concepts.
+
+Use Team Context is read in ONE place: ``src/trade/team_context.py``.
+
+### Rookie-draft order — one owner (owner decision 2026-10-04)
+
+``src/public_league/draft_order.py`` owns "which team picks where": reverse
+final REGULAR-SEASON record, teams tied on record ordered by LOWER total Points
+For, recursively (``config/leagues/draft_order_rules.json`` records it for
+``dynasty_main``; any other league is UNKNOWN and gets no slot forecast).  Not
+Max PF, all-play or Team Strength rank — predictive evidence forecasts record
+and PF, it never decides order.  ``playoff_sim`` applies the rule per simulation
+and publishes ``draftSlotDistribution`` / ``finalWins`` / ``finalPointsFor``;
+``src/trade/pick_market.py`` turns that into the generated-trade market side
+(``P_used = c x P + (1-c)/3`` over KTC's native tiers; provisional ``c`` until
+calibrated against realized drafts).  Never the canonical pick value.  Full
+record: ``docs/picks/DRAFT_ORDER_RULE.md``.
 
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is

@@ -263,7 +263,7 @@ def collect_inputs(payload_path: Path, args: argparse.Namespace):
         if ledger.get("exists")
         else "temporal ledger (data/temporal_ledger.sqlite) is gitignored and lives on the "
         "production host; absent from this checkout (pass --ledger to read a copy)",
-        ledger_eligible_keys=frozenset(ledger_record._CONTRACT_RETAIL_KEYS)
+        ledger_eligible_keys=frozenset(ledger_record.LEDGER_SOURCE_KEYS)
         | frozenset(ledger_backfill._RAW_RETAIL_KEYS),
         second_opinions=second_opinions,
         benchmark_key=ktc_market.KTC_MARKET_KEY,

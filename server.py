@@ -478,6 +478,27 @@ served_source_coverage: dict = {}
 # inactivation run).
 served_seasonal_inactive: list[str] = []
 
+# Private sources the SERVED board declares it carries no vote from by design
+# (``data_contract.private_sources_absent_by_design`` over that board's own
+# ``privateSourceAvailability``: not provisioned, rolled back, or held — e.g.
+# Signals IDP in shadow).  Published beside ``served_seasonal_inactive`` and
+# swapped with it, so the deploy coverage gate excuses exactly what the board
+# it is judging declared — never what the checkout currently says.
+served_private_absent_by_design: list[str] = []
+
+
+def _compute_served_private_absent_by_design(contract: dict | None) -> list[str]:
+    """Sorted keys the served contract declares absent by design.
+    Defensive: any shape surprise yields ``[]`` (nothing excused)."""
+    try:
+        from src.api.data_contract import private_sources_absent_by_design
+
+        return sorted(
+            private_sources_absent_by_design((contract or {}).get("privateSourceAvailability"))
+        )
+    except Exception:  # noqa: BLE001
+        return []
+
 
 def _compute_served_seasonal_inactive(contract: dict | None) -> list[str]:
     """Sorted keys of the served contract's seasonal-inactive stamp.
@@ -2615,6 +2636,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     global contract_health
     global served_source_coverage
     global served_seasonal_inactive
+    global served_private_absent_by_design
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -2640,9 +2662,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             latest_compact_data_bytes, \
             latest_compact_data_gzip_bytes, \
             latest_compact_data_etag
-        global served_source_coverage, served_seasonal_inactive
+        global served_source_coverage, served_seasonal_inactive, served_private_absent_by_design
         served_source_coverage = {}
         served_seasonal_inactive = []
+        served_private_absent_by_design = []
         latest_data_bytes = None
         latest_data_gzip_bytes = None
         latest_data_etag = None
@@ -2789,6 +2812,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
         new_seasonal_inactive = _compute_served_seasonal_inactive(contract_payload)
+        new_private_absent_by_design = _compute_served_private_absent_by_design(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -2917,6 +2941,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     contract_health = contract_report
     served_source_coverage = new_coverage
     served_seasonal_inactive = new_seasonal_inactive
+    served_private_absent_by_design = new_private_absent_by_design
     latest_data_bytes = raw
     latest_data_gzip_bytes = full_gzip
     latest_data_etag = full_etag
@@ -5845,6 +5870,9 @@ async def get_status():
             # ``served_seasonal_inactive`` global): the coverage gate
             # excuses exactly these, read from the board it is judging.
             "served_seasonal_inactive": served_seasonal_inactive,
+            # Private sources the served board declares it carries no vote
+            # from by design (see ``served_private_absent_by_design``).
+            "served_private_absent_by_design": served_private_absent_by_design,
             # R-4: Scrape success rate tracking
             "scrape_success_rate_24h": _scrape_success_rate_24h(),
             "last_n_scrapes": scrape_history[-20:],
@@ -8620,6 +8648,51 @@ async def post_trade_suggestions(request: Request):
     return JSONResponse(content=result)
 
 
+def _finder_postures(contract: Any, league_cfg: Any, sleeper_teams: Any) -> dict[str, str] | None:
+    """``{team name: posture label}`` from the canonical owner, or ``None``.
+
+    Measured labels only: a no-evidence HOLD carries no direction, so it is
+    left out rather than treated as a posture.
+    """
+    try:
+        from src.api.gameplan import league_competitive_postures
+        from src.api.league_registry import get_scoring_profile
+
+        postures, _meta = league_competitive_postures(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+    except Exception as exc:  # noqa: BLE001 — context never fails the finder
+        log.info("finder postures unavailable: %s", exc)
+        return None
+    names = {
+        str(t.get("ownerId") or ""): str(t.get("name") or "")
+        for t in (sleeper_teams or [])
+        if isinstance(t, dict)
+    }
+    return {
+        names[oid]: p.label
+        for oid, p in postures.items()
+        if names.get(oid) and p.evidence == "measured"
+    }
+
+
+def _finder_pick_forecasts(contract: Any, league_cfg: Any) -> dict | None:
+    """Owned-pick slot forecasts from the league's cached season simulation.
+
+    Reads the persisted sim only (never re-runs it on this request); a stale
+    or absent cache, or a league without a recorded draft-order rule, yields
+    none and every unknown-slot pick stays at the plain KTC tier average.
+    """
+    try:
+        from src.ros.playoff_sim import _load_cached_payload
+        from src.trade.pick_market import owned_pick_forecasts
+
+        return owned_pick_forecasts(_load_cached_payload(league_cfg.key), contract)
+    except Exception as exc:  # noqa: BLE001 — a forecast never fails the finder
+        log.info("finder pick forecasts unavailable: %s", exc)
+        return None
+
+
 @app.post("/api/trade/finder")
 async def post_trade_finder(request: Request):
     """Find board-arbitrage trades: good for me on our model, plausible for them on KTC.
@@ -8722,9 +8795,21 @@ async def post_trade_finder(request: Request):
     # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
     # ``useTeamContext``; missing/non-bool falls back to the canonical
     # default (True) rather than silently disabling the signal.
-    raw_use_team_context = body.get("useTeamContext")
-    use_team_context = (
-        bool(raw_use_team_context) if isinstance(raw_use_team_context, bool) else True
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+    # C7-PICKGEN-01: the canonical Competitive Posture per team (by name), so
+    # the finder can consider posture-aware picks.  Context only; absent on
+    # any failure, which keeps generation player-only.
+    finder_postures = (
+        await run_in_threadpool(_finder_postures, contract, league_cfg, sleeper_teams)
+        if use_team_context
+        else None
+    )
+    finder_pick_forecasts = (
+        await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+        if use_team_context
+        else None
     )
 
     try:
@@ -8743,6 +8828,8 @@ async def post_trade_finder(request: Request):
             # composite, which no other engine and no UI surface reads.
             contract=contract,
             use_team_context=use_team_context,
+            postures=finder_postures,
+            pick_forecasts=finder_pick_forecasts,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -9117,6 +9204,12 @@ async def post_angle_packages(request: Request):
         _team_block_by_owner_id(sleeper_teams, owner_id),
         surface="/api/angle/packages",
     )
+    # Wave B (C3-CAP-01): the counterparty's roster consequence, same owner.
+    from src.trade.roster_capacity import counterparty_context_resolver
+
+    angle_counterparty_context = counterparty_context_resolver(
+        angle_capacity_context, contract, sleeper_teams
+    )
 
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
@@ -9143,6 +9236,7 @@ async def post_angle_packages(request: Request):
                 min_player_my_value=min_player,
                 include_idp=include_idp,
                 capacity_context=angle_capacity_context,
+                counterparty_context=angle_counterparty_context,
                 constraints=angle_constraints,
             )
         except Exception as exc:  # noqa: BLE001
@@ -9185,6 +9279,7 @@ async def post_angle_packages(request: Request):
             seed_player_names=seeds_req or None,
             include_idp=include_idp,
             capacity_context=angle_capacity_context,
+            counterparty_context=angle_counterparty_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
@@ -14454,8 +14549,9 @@ async def _build_trade_simulation(
     # Use Team Context (#842): default ON, and only an explicit boolean
     # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
     # It changes which LENSES Analyze Trade may count, never an asset value.
-    raw_context = body.get("useTeamContext")
-    use_team_context = raw_context if isinstance(raw_context, bool) else True
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
 
     def _picks_with_ids(key: str, ids_key: str) -> tuple[list[str], list[str | None]]:
         # Wave A: ``pickAssetIdsIn`` / ``pickAssetIdsOut`` run PARALLEL to the
@@ -14493,6 +14589,16 @@ async def _build_trade_simulation(
         roster_settings=dict(league_cfg.roster_settings or {}),
         league_key=league_cfg.key,
         include_roster_utility=for_analysis and use_team_context,
+        # Wave B (C7-POST-01): the canonical posture, resolved here so the
+        # simulator stays pure.  Analyze Trade may build the league bundle;
+        # a plain simulate reads a warm one only.
+        competitive_posture=await run_in_threadpool(
+            _trade_simulator.competitive_posture_for,
+            contract,
+            league_cfg.key,
+            resolved_team,
+            build_if_missing=for_analysis and use_team_context,
+        ),
     )
     if for_analysis:
         result["teamContext"] = {

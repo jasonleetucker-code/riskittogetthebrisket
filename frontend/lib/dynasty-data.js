@@ -469,6 +469,110 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
+    // Head of the `fantasyCalc` B10 family since 2026-10-03: the two
+    // Signals entries below vote inside it (no independence bonus).
+    correlationGroup: "fantasyCalc",
+  },
+  {
+    // Signals Fantasy AUTHENTICATED native dynasty values, OFFENSE — an
+    // ACTIVE source since the owner addendum of 2026-10-03.  Mirrors the
+    // backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // Collected privately on the production box (never committed); absent,
+    // never zero, wherever that collector has not run.
+    // Votes like FantasyCalc: Signals' own cross-position VALUE ordering is
+    // the rank (DERIVED — Signals published the value, not the rank), so
+    // the cell's original rank is labelled "value-ordered rank (derived)"
+    // and the native value is shown beside it.  Superflex, NOT TE-premium
+    // (TE rows get the board's base -> TE++ conversion once).
+    key: "signalsSf",
+    displayName: "Signals Fantasy Dynasty SF",
+    columnLabel: "Signals",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 500,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    // Display-only provenance for the Rankings source column (not parity-
+    // checked; never used for ranking).
+    privateSource: true,
+    observationDataset: "Offense",
+    observationFormat: "Dynasty · Superflex · non-TEP (TE++ converted)",
+  },
+  {
+    // Signals Fantasy AUTHENTICATED native dynasty values, IDP — one board
+    // PER FAMILY (DL / LB / DB).  Mirrors the backend entries.  Signals'
+    // IDP value is normalised within each family, so it is ranked within
+    // the family only and votes through the positional IDP path
+    // (scope position_idp + the backbone's family ladder).  No
+    // cross-family order is ever derived.
+    key: "signalsIdpDl",
+    displayName: "Signals Fantasy Dynasty IDP — DL",
+    columnLabel: "Signals DL",
+    scope: "position_idp",
+    extraScopes: [],
+    positionGroup: "DL",
+    depth: 165,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP — DL",
+    observationFormat: "Dynasty · IDP · ranked within DL only (DT/DE); no cross-family order",
+    observationRankLabel: "value-ordered DL rank (derived)",
+  },
+  {
+    key: "signalsIdpLb",
+    displayName: "Signals Fantasy Dynasty IDP — LB",
+    columnLabel: "Signals LB",
+    scope: "position_idp",
+    extraScopes: [],
+    positionGroup: "LB",
+    depth: 105,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP — LB",
+    observationFormat: "Dynasty · IDP · ranked within LB only (LB); no cross-family order",
+    observationRankLabel: "value-ordered LB rank (derived)",
+  },
+  {
+    key: "signalsIdpDb",
+    displayName: "Signals Fantasy Dynasty IDP — DB",
+    columnLabel: "Signals DB",
+    scope: "position_idp",
+    extraScopes: [],
+    positionGroup: "DB",
+    depth: 150,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP — DB",
+    observationFormat: "Dynasty · IDP · ranked within DB only (CB/S); no cross-family order",
+    observationRankLabel: "value-ordered DB rank (derived)",
   },
   {
     // OTC Fantasy Football Superflex trade-derived values — fetched

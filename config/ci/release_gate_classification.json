@@ -457,6 +457,18 @@
     "lane4-onbox-verification.yml::lane4-onbox::Upload the report": {
       "category": "blocking"
     },
+    "signals-onbox-verification.yml::verify::Checkout": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Configure production SSH": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Run Signals verification on the host": {
+      "category": "blocking"
+    },
+    "signals-onbox-verification.yml::verify::Upload report": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
       "category": "blocking"
     },

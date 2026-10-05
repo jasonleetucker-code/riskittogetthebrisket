@@ -156,7 +156,20 @@ _SCRAPER_FLOOR_RESOLVERS = {
     "ktcCrowdSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_CROWD],
     "ktcTradesSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_TRADES],
     "ktcCrowdTradesSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_CROWD_TRADES],
+    # Signals authenticated values (2026-10-03): the collector quarantines a
+    # release below ``MIN_BOARD_ROWS`` and keeps the last good board.
+    "signalsSf": lambda: _signals_min_rows("signalsSf"),
+    "signalsIdpDl": lambda: _signals_min_rows("signalsIdpDl"),
+    "signalsIdpLb": lambda: _signals_min_rows("signalsIdpLb"),
+    "signalsIdpDb": lambda: _signals_min_rows("signalsIdpDb"),
 }
+
+
+def _signals_min_rows(key: str) -> int:
+    from src.sources.signals import MIN_BOARD_ROWS  # noqa: PLC0415
+
+    return MIN_BOARD_ROWS[key]
+
 
 # Sources whose scraper has NO aligned internal floor yet.  Each entry:
 # one-line rationale + the follow-up PR that will add the guard and

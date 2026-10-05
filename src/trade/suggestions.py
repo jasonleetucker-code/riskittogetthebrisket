@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
-from src.packages import PackageAsset, adapt_assets, side_key
+from src.packages import PackageAsset, adapt_assets, side_key, topology_is_allowed
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.ros.lineup import resolve_league_slot_demand
@@ -1560,6 +1560,30 @@ def _find_balancers(
             roster_names_set,
             exclude_names,
         )
+    if not candidates:
+        return ([], side, [])
+
+    # A balancer is an asset chosen to make totals line up, so it obeys the
+    # generated-trade rules (Wave B, B0):
+    #
+    # * C7-PICKGEN-01 rule 5 — "do not use a pick merely to make raw totals
+    #   line up".  Picks enter generated trades only through the posture-aware
+    #   generator, which reasons about BOTH teams' strategy; never as filler.
+    # * C3-TOPO-01 — the package after the addition must still pass
+    #   ``topology_is_allowed`` (adding a player to the larger side of a
+    #   2-for-1 proposes a 3-for-1).
+    give_side = adapt_assets(suggestion.give)
+    receive_side = adapt_assets(suggestion.receive)
+
+    def _admissible(candidate: PlayerAsset) -> bool:
+        (added,) = adapt_assets([candidate])
+        if added.is_pick:
+            return False
+        if side == "you_add":
+            return topology_is_allowed([*give_side, added], receive_side)
+        return topology_is_allowed(give_side, [*receive_side, added])
+
+    candidates = [c for c in candidates if _admissible(c)]
     if not candidates:
         return ([], side, [])
 
