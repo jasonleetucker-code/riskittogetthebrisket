@@ -269,7 +269,7 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
+  const { loading, error, failure, overrideFailure, rows, rawData, retry } = useDynastyData();
   const {
     settings,
     update: updateSetting,
@@ -1719,6 +1719,18 @@ export default function RankingsPage() {
           read like a fault.  `failure.kind` decides tone, title and
           whether a retry is even offered; a 403 gets no retry button
           because retrying cannot change the answer. */}
+      {!failure && overrideFailure ? (
+        // The board below is the DEFAULT mix: say so, rather than passing it
+        // off as the custom source/TE settings the user asked for.
+        <FailureState
+          failure={{
+            ...overrideFailure,
+            message: `Your custom source mix could not be applied, so this is the default board. ${overrideFailure.message || ""}`.trim(),
+          }}
+          onRetry={retry}
+          context="custom source mix"
+        />
+      ) : null}
       {failure ? (
         <FailureState failure={failure} onRetry={retry} context="rankings" />
       ) : null}

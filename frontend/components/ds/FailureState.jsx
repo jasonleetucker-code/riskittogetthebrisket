@@ -79,7 +79,9 @@ const PRESENTATION = {
   degraded: {
     tone: "warning",
     title: "Serving degraded",
-    hint: "The server is up and declining this request for the reason above.",
+    // Never "for the reason above": the reason is rendered as the detail
+    // line, and when the server gave none the classifier says so plainly.
+    hint: "The server is up but declined this request.",
     canRetry: true,
   },
   unavailable: {
@@ -138,13 +140,16 @@ export function FailureState({
   // than our generic sentence, and dropping it in favour of a friendlier
   // one is how a degraded state becomes indistinguishable from an outage.
   const detail = failure.message || "";
+  // The machine-readable code travels with the explanation (small, for a
+  // support report), never instead of it.
+  const codeNote = failure.code ? `(${failure.code})` : "";
   const showRetry = Boolean(onRetry) && spec.canRetry && failure.retryable !== false;
 
   if (variant === "block") {
     return (
       <EmptyState
         title={title}
-        description={[detail, spec.hint].filter(Boolean).join(" ")}
+        description={[detail, spec.hint, codeNote].filter(Boolean).join(" ")}
         action={
           showRetry ? (
             <Button variant="secondary" size="sm" onClick={onRetry}>
@@ -162,6 +167,14 @@ export function FailureState({
       {detail ? <span>{detail}</span> : null}
       {detail && spec.hint ? " " : null}
       {spec.hint ? <span>{spec.hint}</span> : null}
+      {codeNote ? (
+        <>
+          {" "}
+          <span data-testid="failure-code" style={{ opacity: 0.7, fontSize: "0.85em" }}>
+            {codeNote}
+          </span>
+        </>
+      ) : null}
       {showRetry ? (
         <>
           {" "}
