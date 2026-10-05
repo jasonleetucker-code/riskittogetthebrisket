@@ -119,6 +119,7 @@ def test_deploy_consumes_validation_archive_and_rollback_keeps_it():
     assert "if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}" in workflow
     assert "Verify live frontend matches the tested artifact" in workflow
     assert "python3 -m scripts.stage_release_artifact" in deploy
-    assert 'cp "${RELEASE_ARCHIVE}" "${release_dir}/${TARGET_REV}.tar"' in deploy
+    assert "python3 -m scripts.save_release_archive" in deploy
+    assert "--check-only" in deploy
     assert "python3 -m scripts.stage_release_artifact" in rollback
     assert "refusing a rebuild that changes tested bytes" in rollback

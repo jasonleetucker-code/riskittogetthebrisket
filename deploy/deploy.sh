@@ -270,6 +270,14 @@ maybe_build_frontend() {
       --staging "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}" \
       --node-version "$(node --version)" \
       --receipt "${STATE_DIR}/staged_release_manifest.json"
+    mkdir -p "${STATE_DIR}/releases"
+    python3 -m scripts.save_release_archive \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --release-dir "${STATE_DIR}/releases" \
+      --commit "${TARGET_REV}" \
+      --check-only
     verify_frontend_build_manifest "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}"
     return 0
   fi
@@ -1106,11 +1114,16 @@ record_success_state() {
   mkdir -p "${STATE_DIR}"
   if [[ -n "${RELEASE_ARCHIVE}" ]]; then
     local release_dir="${STATE_DIR}/releases"
+    local saved_manifest=""
     mkdir -p "${release_dir}"
-    cp "${RELEASE_ARCHIVE}" "${release_dir}/${TARGET_REV}.tar"
-    printf '%s\n' "${RELEASE_ARCHIVE_SHA256}" > "${release_dir}/${TARGET_REV}.sha256"
-    cp "${STATE_DIR}/staged_release_manifest.json" "${release_dir}/${TARGET_REV}.json"
-    cp "${STATE_DIR}/staged_release_manifest.json" "${STATE_DIR}/last_successful_release_manifest.json"
+    saved_manifest="$(python3 -m scripts.save_release_archive \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --release-dir "${release_dir}" \
+      --commit "${TARGET_REV}")"
+    [[ -n "${saved_manifest}" ]] || { error "Saved release manifest was not returned."; return 1; }
+    cp "${saved_manifest}" "${STATE_DIR}/last_successful_release_manifest.json"
   fi
   printf '%s\n' "${TARGET_REV}" > "${STATE_DIR}/last_successful_rev"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATE_DIR}/last_successful_at_utc"
