@@ -54,8 +54,9 @@ archive and manifest. It preserves a complete, checksum-valid rollback archive
 when the artifact ID matches and refuses a different artifact ID or incomplete
 archive for that SHA. A new archive is copied and checksummed in a temporary
 directory before its three saved files are published. An interrupted first save
-may leave an incomplete triplet for operator inspection; it cannot overwrite a
-previously complete archive for the same revision.
+may leave an incomplete triplet for operator inspection. The preservation
+guarantee applies to the workflow's serialized deploy path; direct concurrent
+on-box deploy or rollback invocations must be serialized by the operator.
 
 The deploy script rechecks the live `.next` bytes before recording success,
 and the workflow independently compares their artifact ID with CI's output
