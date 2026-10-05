@@ -1,16 +1,12 @@
 name: Scrape Source Lifecycle Proof (read-only)
 
-# Emits only a validated timing/status summary. Raw telemetry stays on the
-# production box or in the SSH pipe; it is never uploaded or echoed in logs.
+# The proof script runs on production over SSH. Only its allowlisted JSON
+# result crosses the SSH channel; raw telemetry stays on the production box.
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: production-deploy
-  cancel-in-progress: false
 
 jobs:
   source-lifecycle:
@@ -37,7 +33,7 @@ jobs:
           chmod 644 "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
-      - name: Prove a recent source lifecycle from production telemetry
+      - name: Prove a recent source lifecycle without transferring raw telemetry
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -45,16 +41,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ssh -i "$HOME/.ssh/id_ed25519" \
+          cat scripts/scrape_source_lifecycle_proof.py | ssh -i "$HOME/.ssh/id_ed25519" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") bash -s" <<'REMOTE' | python scripts/scrape_source_lifecycle_proof.py
-          set -Eeuo pipefail
-          event_path="$APP_DIR/data/diagnostics/scrape_events.jsonl"
-          test -f "$event_path" || exit 2
-          checkout_sha="$(git -C "$APP_DIR" rev-parse HEAD)"
-          printf '{"type":"checkout_identity","sha":"%s"}\n' "$checkout_sha"
-          tail -n 10000 -- "$event_path"
-          REMOTE
+            "APP_DIR=$(printf %q "$APP_DIR") python3 - --production"

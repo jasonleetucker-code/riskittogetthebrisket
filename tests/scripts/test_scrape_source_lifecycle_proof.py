@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from scripts import scrape_source_lifecycle_proof as lifecycle
 from scripts.scrape_source_lifecycle_proof import ProofError, prove
 
 
@@ -37,7 +38,7 @@ def test_correlates_real_source_lifecycle_without_exposing_private_fields():
     assert result["duration_seconds"] == 19.125
     assert result["outcome"] == "source_complete"
     assert result["worker_id"] == WORKER
-    assert result["checkout_sha"] == SHA
+    assert result["checkout_sha_observed"] == SHA
     assert "private" not in json.dumps(result)
     assert "secret" not in json.dumps(result)
 
@@ -87,3 +88,70 @@ def test_requires_checkout_identity_and_rejects_future_terminal():
             lines(row("source_start", NOW), row("source_complete", NOW + timedelta(seconds=1))),
             now=NOW,
         )
+
+
+def test_production_mode_reads_events_on_host_without_echoing_private_data(tmp_path, monkeypatch):
+    events = tmp_path / "data" / "diagnostics" / "scrape_events.jsonl"
+    events.parent.mkdir(parents=True)
+    events.write_text(
+        row("source_start", NOW - timedelta(seconds=4), message="private")
+        + "\n"
+        + row("source_complete", NOW, meta={"secret": "credential"})
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("APP_DIR", str(tmp_path))
+    monkeypatch.setattr(lifecycle.subprocess, "check_output", lambda *args, **kwargs: SHA)
+    result = prove(lifecycle._production_lines(), now=NOW)
+    assert result["checkout_sha_observed"] == SHA
+    assert result["duration_seconds"] == 4.0
+    assert "private" not in json.dumps(result)
+    assert "credential" not in json.dumps(result)
+
+
+def test_streamed_script_runs_on_host_and_emits_only_allowlisted_summary(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "fixture",
+        ],
+        check=True,
+    )
+    events = tmp_path / "data" / "diagnostics" / "scrape_events.jsonl"
+    events.parent.mkdir(parents=True)
+    now = datetime.now(timezone.utc)
+    events.write_text(
+        row("source_start", now - timedelta(seconds=2), message="private")
+        + "\n"
+        + row("source_complete", now, meta={"secret": "credential"})
+        + "\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, "-", "--production"],
+        input=open(lifecycle.__file__, encoding="utf-8").read(),
+        text=True,
+        capture_output=True,
+        env={**os.environ, "APP_DIR": str(tmp_path)},
+        check=True,
+    )
+    summary = json.loads(result.stdout)
+    assert summary["schema"] == "scrape-source-lifecycle-proof/v1"
+    assert summary["duration_seconds"] == 2.0
+    assert "private" not in result.stdout
+    assert "credential" not in result.stdout

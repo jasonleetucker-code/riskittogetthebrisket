@@ -1,11 +1,18 @@
 """Read-only, privacy-safe proof from the existing production scrape event stream.
 
-Input is JSONL over stdin. Raw messages and metadata are never printed.
+Production mode reads JSONL on the production host and emits only allowlisted
+summary fields. The default mode accepts JSONL over stdin for tests.
+Raw messages and metadata are never printed.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
+import subprocess
+from collections import deque
+from pathlib import Path
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -80,7 +87,7 @@ def prove(lines: Iterable[str], *, now: datetime | None = None, max_age_hours: i
         raise ProofError("latest complete source lifecycle is stale")
     return {
         "schema": "scrape-source-lifecycle-proof/v1",
-        "checkout_sha": checkout_sha,
+        "checkout_sha_observed": checkout_sha,
         "worker_id": worker,
         "source": source,
         "outcome": outcome,
@@ -91,11 +98,31 @@ def prove(lines: Iterable[str], *, now: datetime | None = None, max_age_hours: i
     }
 
 
+def _production_lines():
+    app_dir = Path(os.environ["APP_DIR"]).resolve()
+    event_path = app_dir / "data" / "diagnostics" / "scrape_events.jsonl"
+    if event_path.is_symlink() or not event_path.resolve().is_relative_to(app_dir):
+        raise ProofError("production telemetry path is unsafe")
+    checkout_sha = subprocess.check_output(
+        ["git", "-C", str(app_dir), "rev-parse", "HEAD"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+        timeout=10,
+    ).strip()
+    yield json.dumps({"type": "checkout_identity", "sha": checkout_sha})
+    with event_path.open(encoding="utf-8", errors="replace") as handle:
+        yield from deque(handle, maxlen=10000)
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--production", action="store_true")
+    args = parser.parse_args()
     try:
-        result = prove(sys.stdin)
-    except ProofError as exc:
-        print(f"::error title=Scrape source lifecycle proof::{exc}", file=sys.stderr)
+        result = prove(_production_lines() if args.production else sys.stdin)
+    except (ProofError, OSError, subprocess.SubprocessError, KeyError) as exc:
+        message = str(exc) if isinstance(exc, ProofError) else "production telemetry unavailable"
+        print(f"::error title=Scrape source lifecycle proof::{message}", file=sys.stderr)
         return 2
     print(json.dumps(result, sort_keys=True))
     return 0
