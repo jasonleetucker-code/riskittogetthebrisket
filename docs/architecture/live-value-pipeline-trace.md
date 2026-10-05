@@ -83,6 +83,9 @@ policy.  Pinned against the registry by
 | `fantasyProsIdp` | overall_idp | 1.0 | 100 | `rank_signal`, `shared_market_translation`, `excludes_rookies` |
 | `idpShowCombined` | overall_idp (+ overall_offense) | 1.0 | 450 | `rank_signal` |
 | `idpTradeCalc` | overall_idp (+ overall_offense) | 1.0 | — | `backbone`, `tep_premium` |
+| `signalsIdpDl` | position_idp (DL) | 1.0 | 165 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP DL board) |
+| `signalsIdpLb` | position_idp (LB) | 1.0 | 105 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP LB board) |
+| `signalsIdpDb` | position_idp (DB) | 1.0 | 150 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP DB board) |
 | `dlfRookieSf` | overall_offense | 1.0 | 50 | `rank_signal` |
 | `dlfSf` | overall_offense | 1.0 | 280 | `rank_signal` |
 | `draftSharks` | overall_offense | 1.0 | 500 | `tep_premium` |
@@ -98,12 +101,19 @@ policy.  Pinned against the registry by
 | `ktcTradesSfTep` | overall_offense | 1.0 | — | `retail`, `tep_premium` (KTC Trades — model input) |
 | `otcffbSf` | overall_offense | 1.0 | 460 | `rank_signal` |
 | `pfkDynasty` | overall_offense | 1.0 | 460 | `rank_signal` |
+| `signalsSf` | overall_offense | 1.0 | 500 | `rank_signal`, `private_box_local` (Signals offense, fantasyCalc family) |
 | `yahooBoone` | overall_offense | 1.0 | 500 | `tep_premium`, `rank_signal` |
 
 ## Ingestion
 
 1. Per-source scripts (`scripts/fetch_*.py`, `Dynasty Scraper.py`) write
-   per-source CSVs to `CSVs/site_raw/<key>.csv`.
+   per-source CSVs to `CSVs/site_raw/<key>.csv` — except the PRIVATE,
+   box-local Signals boards (`signalsSf`, and the HELD per-family IDP boards
+   `signalsIdp{Dl,Lb,Db}`, since 2026-10-03),
+   which `scripts/fetch_signals_values.py` writes to the gitignored
+   `data/sources/signals/board/` on the production box only; where that
+   collector never ran they are `not_provisioned` (absent, never zero).
+   See `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` §9.
 2. The scraper bundle is pickled into `exports/latest/dynasty_data_*.json`
    and served as `data` to `_prime_latest_payload` at startup.
 3. Per-source CSVs are re-read at contract build time by

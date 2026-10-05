@@ -427,10 +427,18 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C25": (
         "T-7",
         "src/trade/finder.py",
-        "if len(give) > len(receive):",
+        "if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):",
         OPEN,
         "Multi-piece guards still gate on the give-more direction only; "
-        "the 1-for-N direction is unguarded.",
+        "the 1-for-N direction is unguarded.\n\n"
+        "SIGNATURE RESPELLED 2026-10-04 (C3-TOPO-01), STATUS DELIBERATELY "
+        "UNCHANGED. Wave B counts the guard's sides in PLAYERS (a pick added "
+        "to a 1-for-1 is not a two-fillers-for-an-elite package), so the old "
+        "needle `if len(give) > len(receive):` stopped matching. The cited "
+        "MECHANISM changed; the defect did not: the guard still fires only "
+        "when the requester gives more players, and the 1-for-N direction is "
+        "still unguarded. The needle follows the new spelling of the same "
+        "one-directional comparison.",
     ),
     "C26": (
         "T-9",

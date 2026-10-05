@@ -64,6 +64,10 @@
     "yahooBoone": {"seedHours": 840, "minHours": 336, "maxHours": 1080},
     "dynastyNerdsSfTep": {"seedHours": 720, "minHours": 240, "maxHours": 1080},
     "flockFantasySf": {"seedHours": 48, "minHours": 24, "maxHours": 168},
-    "flockFantasySfRookies": {"seedHours": 336, "minHours": 168, "maxHours": 720}
+    "flockFantasySfRookies": {"seedHours": 336, "minHours": 168, "maxHours": 720},
+    "signalsSf": {"seedHours": 24, "minHours": 24, "maxHours": 96, "style": "EXPLICIT_UPSTREAM_TIMESTAMP"},
+    "signalsIdpDl": {"seedHours": 168, "minHours": 72, "maxHours": 336, "style": "EXPLICIT_UPSTREAM_TIMESTAMP"},
+    "signalsIdpLb": {"seedHours": 168, "minHours": 72, "maxHours": 336, "style": "EXPLICIT_UPSTREAM_TIMESTAMP"},
+    "signalsIdpDb": {"seedHours": 168, "minHours": 72, "maxHours": 336, "style": "EXPLICIT_UPSTREAM_TIMESTAMP"}
   }
 }

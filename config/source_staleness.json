@@ -14,7 +14,8 @@
     "yahooBoone": 24,
     "idpShow": 24,
     "fantasyNavigator": 24,
-    "pfkDynasty": 24
+    "pfkDynasty": 24,
+    "signals": 24
   },
   "_comment_soft": "Sources listed in 'soft' are still reported everywhere (on-site stale banner, email alerts with their existing cooldown, the freshness-watchdog summary) but do NOT hard-fail the scheduled-refresh workflow for the first 'softEscalateHours'. Use this only for sources whose staleness recurs for reasons outside the cron's control. idpShow authenticates with a browser-minted cookie (deploy/idpshow_fetch_and_push.sh) that the operator must periodically re-mint by hand; when it lapses, one expiring cookie should not turn every 2h run red. SOFT IS A DELAY, NOT AN EXEMPTION: past softEscalateHours a soft source hard-fails like any other. Before 2026-07-27 the flag had no upper bound, which quietly meant 'this source is unmonitored' — a lapsed cookie and a dead vendor looked identical forever. Matched by exact key or vendor prefix, same as thresholds. (draftSharks was temporarily soft-flagged 2026-07-25 while its fetcher was broken by the DS UI redesign; removed the same day after the rebuilt Alpine activation chain was validated live in run 30178412079.)",
   "soft": [

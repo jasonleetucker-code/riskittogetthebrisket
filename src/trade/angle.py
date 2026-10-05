@@ -389,6 +389,32 @@ def _capacity_block(
         }
 
 
+def _counterparty_block(
+    resolver: Any,
+    owner_id: Any,
+    *,
+    incoming: Sequence[Any],
+    outgoing: Sequence[Any],
+) -> dict[str, Any]:
+    """The counterparty's capacity read via the owner, or a NAMED unavailable."""
+    from src.trade.roster_capacity import (  # noqa: PLC0415
+        counterparty_capacity_block,
+        player_names_only,
+    )
+
+    owner = str(owner_id or "")
+    if not owner or "+" in owner:
+        return {
+            "unavailable": "multiple_counterparties" if "+" in owner else "counterparty_unresolved",
+            "notes": ["this package does not come from exactly one team"],
+        }
+    return counterparty_capacity_block(
+        resolver(owner),
+        incoming_players=player_names_only(incoming),
+        outgoing_players=player_names_only(outgoing),
+    )
+
+
 def find_angles(
     players_array: list[dict[str, Any]],
     selected_player_name: str,
@@ -598,7 +624,7 @@ _ANGLE_POLICY = _EligibilityPolicy(min_value=None, allow_unknown_value=True, req
 # carry no canonical asset id, which means the dedup identity here falls back
 # to names — the substrate reports that rather than letting it pass as an id
 # key.
-def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
+def _angle_sides(pool, sizes, *, side, outgoing_policy, required=(), against=None, refused=None):
     """Every candidate package side, via the canonical substrate.
 
     ``side`` and ``outgoing_policy`` are REQUIRED and are threaded from the
@@ -608,7 +634,7 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
     would put a C3-CON-01 outgoing constraint on an incoming pool — the §2.2
     asymmetry inverted, which blocks acquiring a player the user protects.
     """
-    from src.packages import enumerate_sides  # noqa: PLC0415
+    from src.packages import enumerate_sides, topology_is_allowed  # noqa: PLC0415
 
     sides, _report = enumerate_sides(
         pool,
@@ -623,6 +649,15 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
         adapt=False,
     )
     for side_assets in sides:
+        # C3-TOPO-01 (Wave B): a generated counter-package keeps the two
+        # sides' PLAYER counts within one of each other.  ``against`` is the
+        # fixed side the user built (offer mode: what we send; acquire mode:
+        # what we want).  Picks are not players, so "2 players + a pick for 3
+        # players" is even.  Refusals are counted, never silent.
+        if against is not None and not topology_is_allowed(side_assets, against):
+            if refused is not None:
+                refused["topologyRejected"] = refused.get("topologyRejected", 0) + 1
+            continue
         yield tuple(a.source for a in side_assets)
 
 
@@ -670,6 +705,7 @@ def find_angle_packages(
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    counterparty_context: Any | None = None,
     constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
@@ -826,8 +862,12 @@ def find_angle_packages(
             "assumed offense<->IDP exchange rate."
         )
 
-    # Target sizes: N-1, N, N+1 — never less than 1.
+    # Target sizes: N-1, N, N+1 — never less than 1.  These are ASSET counts;
+    # the C3-TOPO-01 player-count rule is applied per package against the
+    # offer (``offer_side_assets``), because an offer can carry picks.
     target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
+    offer_side_assets = _angle_pool_assets(offer_entries)
+    topology_report: dict[str, int] = {"topologyRejected": 0}
 
     # Normalise position filter.
     position_filter: set[str] | None = None
@@ -1100,6 +1140,8 @@ def find_angle_packages(
                 side=_RECEIVE,
                 outgoing_policy=_UNCONSTRAINED_OUTGOING,
                 required=_angle_pool_assets(seed_entries),
+                against=offer_side_assets,
+                refused=topology_report,
             ):
                 cand = _make_candidate(combo, team_label, owner_label)
                 if cand is not None:
@@ -1114,6 +1156,8 @@ def find_angle_packages(
                 target_sizes,
                 side=_RECEIVE,
                 outgoing_policy=_UNCONSTRAINED_OUTGOING,
+                against=offer_side_assets,
+                refused=topology_report,
             ):
                 cand = _make_candidate(
                     combo,
@@ -1155,6 +1199,29 @@ def find_angle_packages(
                 incoming=c.get("players") or [],
                 outgoing=offer_players,
             )
+    # Wave B (C3-CAP-01): the counterparty's roster consequence too — it
+    # receives the offer and sends the candidate.  Reported, never ranked.
+    if counterparty_context is not None:
+        # Seed mode labels a candidate with every target team ("a+b") even when
+        # all its players come from one roster; the real holder is decided by
+        # the players themselves.
+        holder_by_name = {
+            str(n): str(t.get("ownerId") or "")
+            for t in sleeper_teams
+            if isinstance(t, dict)
+            for n in (t.get("players") or [])
+        }
+        for c in candidates:
+            owners = {
+                holder_by_name.get(str(p.get("name") or ""), "") for p in c.get("players") or []
+            }
+            owner = next(iter(owners)) if len(owners) == 1 else c.get("owner_id")
+            c["counterpartyRosterCapacity"] = _counterparty_block(
+                counterparty_context,
+                owner,
+                incoming=offer_players,
+                outgoing=c.get("players") or [],
+            )
 
     warnings.extend(_diagnostic_warnings(diag))
 
@@ -1178,6 +1245,8 @@ def find_angle_packages(
             "candidate_pool_per_team": candidate_pool_per_team,
             "per_team_limit": per_team_limit,
             "target_sizes": target_sizes,
+            "topologyRule": "abs(players_send - players_receive) <= 1 (C3-TOPO-01; picks are not players)",
+            "topologyRejected": topology_report["topologyRejected"],
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
             "target_team_owner_ids": sorted(target_ids) if target_ids else [],
@@ -1202,6 +1271,7 @@ def find_acquisition_packages(
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    counterparty_context: Any | None = None,
     constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
@@ -1367,6 +1437,8 @@ def find_acquisition_packages(
         )
 
     target_sizes = sorted({max(1, desired_size - 1), desired_size, desired_size + 1})
+    desired_side_assets = _angle_pool_assets(desired_entries)
+    topology_report: dict[str, int] = {"topologyRejected": 0}
 
     position_filter: set[str] | None = None
     if positions:
@@ -1535,6 +1607,8 @@ def find_acquisition_packages(
         # that carries C3-CON-01.
         side=_SEND,
         outgoing_policy=_outgoing_policy,
+        against=desired_side_assets,
+        refused=topology_report,
     ):
         cand = _make_candidate(combo)
         if cand is not None:
@@ -1555,6 +1629,31 @@ def find_acquisition_packages(
                 capacity_context,
                 incoming=desired_players,
                 outgoing=c.get("players") or [],
+            )
+    # The counterparty is whoever holds the desired players; it receives the
+    # candidate and sends them.  Several holders is several counterparties —
+    # named, not merged into one roster.
+    if counterparty_context is not None:
+        holders = sorted({str(p.get("owner_id") or "") for p in desired_players})
+        for c in candidates:
+            c["counterpartyRosterCapacity"] = (
+                _counterparty_block(
+                    counterparty_context,
+                    holders[0],
+                    incoming=c.get("players") or [],
+                    outgoing=desired_players,
+                )
+                if len(holders) == 1 and holders[0]
+                else {
+                    "unavailable": (
+                        "multiple_counterparties" if len(holders) > 1 else "counterparty_unresolved"
+                    ),
+                    "notes": [
+                        "the desired players are held by more than one team"
+                        if len(holders) > 1
+                        else "the desired players' holder did not resolve"
+                    ],
+                }
             )
 
     warnings.extend(_diagnostic_warnings(diag))
@@ -1586,6 +1685,8 @@ def find_acquisition_packages(
             "limit": limit,
             "candidate_pool": candidate_pool,
             "target_sizes": target_sizes,
+            "topologyRule": "abs(players_send - players_receive) <= 1 (C3-TOPO-01; picks are not players)",
+            "topologyRejected": topology_report["topologyRejected"],
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
             "include_idp": bool(include_idp),

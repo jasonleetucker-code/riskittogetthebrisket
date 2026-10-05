@@ -22,6 +22,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from src.identity.picks import (
+    PICK_OWNERSHIP_OBSERVED,
+    PICK_OWNERSHIP_UNAVAILABLE,
+    team_pick_ownership_unavailable_reason,
+)
+
 # Confidence bands for a projected slot, derived from how isolated a
 # team's strength score is from its immediate neighbors relative to
 # the league's average inter-team gap.  A team wedged in a cluster
@@ -182,6 +188,13 @@ def build_pick_projections(
         {season, round, projectedSlot, projectedPickNumber, label,
          confidence, ownerRosterId, ownerTeam,
          originalRosterId, originalTeam}
+
+    Ownership UNKNOWN is refused, never projected as zero picks: when any
+    team's pick ownership is unavailable (``pickOwnershipState:
+    "unavailable"`` — a failed ``/traded_picks`` fetch — or no ownership
+    stated at all), ``picks`` is ``None`` and ``meta`` carries
+    ``pickOwnershipState`` / ``pickOwnershipReason``.  ``projectedOrder``
+    is still served: it depends on team strength, not ownership.
     """
     if current_season is None:
         current_season = datetime.now(timezone.utc).year
@@ -189,6 +202,29 @@ def build_pick_projections(
     order = project_draft_order(strength_rows)
     slot_by_rid = {row["rosterId"]: row for row in order}
     team_count = len(order)
+
+    ownership_reasons = sorted(
+        {
+            reason
+            for t in teams or []
+            if (reason := team_pick_ownership_unavailable_reason(t)) is not None
+        }
+    )
+    if ownership_reasons:
+        return {
+            "projectedOrder": order,
+            "picks": None,
+            "meta": {
+                "source": "teamRosStrength",
+                "teamCount": team_count,
+                "currentSeason": current_season,
+                "unprojectablePicks": None,
+                "pickOwnershipState": PICK_OWNERSHIP_UNAVAILABLE,
+                "pickOwnershipReason": ownership_reasons[0]
+                if len(ownership_reasons) == 1
+                else ",".join(ownership_reasons),
+            },
+        }
 
     name_by_rid: dict[int, str] = {}
     for t in teams or []:
@@ -257,5 +293,7 @@ def build_pick_projections(
             "teamCount": team_count,
             "currentSeason": current_season,
             "unprojectablePicks": unprojectable,
+            "pickOwnershipState": PICK_OWNERSHIP_OBSERVED,
+            "pickOwnershipReason": None,
         },
     }

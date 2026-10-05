@@ -14,6 +14,12 @@
 // second, unreviewed valuation next to the real one.
 
 import { useEffect, useState } from "react";
+import {
+  PICK_OWNERSHIP_UNAVAILABLE,
+  PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  describePickOwnershipReason,
+} from "@/lib/pick-ownership";
 
 const CONFIDENCE_STYLE = {
   high: { color: "var(--green)", label: "high" },
@@ -30,6 +36,24 @@ const QUIET_ERRORS = new Set(["no_snapshot", "no_teams"]);
 
 export function confidenceStyle(confidence) {
   return CONFIDENCE_STYLE[confidence] || CONFIDENCE_STYLE.low;
+}
+
+/**
+ * The reason projections were REFUSED because pick ownership is unknown
+ * (failed /traded_picks), or null.  Unlike the QUIET_ERRORS above this is
+ * not a steady state: hiding it would make "we could not see who owns the
+ * picks" look exactly like "no future picks exist", so the panel says so.
+ */
+export function projectionOwnershipUnavailableReason(data) {
+  if (!data || typeof data !== "object") return null;
+  const meta = data.meta || {};
+  if (meta.pickOwnershipState === PICK_OWNERSHIP_UNAVAILABLE) {
+    return meta.pickOwnershipReason || PICK_OWNERSHIP_UNAVAILABLE;
+  }
+  if (data.error === PICK_OWNERSHIP_UNAVAILABLE_ERROR) {
+    return meta.pickOwnershipReason || PICK_OWNERSHIP_UNAVAILABLE;
+  }
+  return null;
 }
 
 /** Group picks by season, preserving the backend's ordering within each. */
@@ -75,6 +99,21 @@ export default function PickProjectorPanel({ leagueKey }) {
   if (failed) return null;
   if (!data) return null;
   if (data.error && QUIET_ERRORS.has(data.error)) return null;
+
+  const ownershipReason = projectionOwnershipUnavailableReason(data);
+  if (ownershipReason) {
+    return (
+      <div className="card" style={{ marginTop: "var(--space-md)" }} role="status">
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>Pick Projector</div>
+        <div style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>
+          <strong>{PICK_OWNERSHIP_UNAVAILABLE_LABEL}.</strong>{" "}
+          {describePickOwnershipReason(ownershipReason)} Projected slots are
+          withheld rather than shown as if every team still held only its own
+          picks.
+        </div>
+      </div>
+    );
+  }
 
   const groups = groupBySeason(data.picks);
   // No FUTURE picks is a legitimate steady state late in a rookie-draft

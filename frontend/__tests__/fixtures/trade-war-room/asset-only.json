@@ -125,6 +125,16 @@
     "direction": null,
     "lineage": null,
     "votes": false
+   },
+   {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "strategicPosture",
+    "lineage": "team_strategy_context",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
    }
   ],
   "lenses": {
@@ -180,6 +190,16 @@
     "lineage": "canonical_value",
     "votes": true
    },
+   "posture": {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "strategicPosture",
+    "lineage": "team_strategy_context",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
    "roster": {
     "available": false,
     "detail": {
@@ -211,11 +231,6 @@
     "dimension": "valueUncertainty",
     "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
     "reason": "unaudited_model"
-   },
-   {
-    "dimension": "strategicPosture",
-    "notes": "Competitive posture (#840) has no canonical owner yet and awaits an owner decision; no posture is invented here.",
-    "reason": "no_canonical_owner"
    },
    {
     "dimension": "currentSeasonEquity",
@@ -268,6 +283,53 @@
    "mid": 4
   },
   "totalValue": 19000
+ },
+ "competitivePosture": {
+  "available": true,
+  "components": {
+   "directional": {
+    "PUSH": 0.9186,
+    "REBUILD": 0.0035,
+    "RETOOL": 0.0779
+   },
+   "labelStability": 1.0,
+   "ownFirstRoundPickHeld": true,
+   "timing": {
+    "phase": "offseason",
+    "progressToDeadline": 0.0,
+    "tradeDeadlineWeek": 13,
+    "week": null
+   },
+   "window": {
+    "championship_contender": 0.488,
+    "playoff_contender": 0.4306,
+    "productive_struggle": 0.0062,
+    "rebuild": 0.0004,
+    "retool": 0.0748
+   },
+   "windowInputs": {
+    "competitiveness": 0.85,
+    "competitivenessSource": "championshipOdds",
+    "trajectory": 0.5,
+    "trajectorySample": 8
+   },
+   "windowOverridden": false
+  },
+  "confidence": 0.9076,
+  "evidence": "measured",
+  "isVerdict": false,
+  "label": "PUSH",
+  "notes": [
+   "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
+  ],
+  "parameterStatus": "PRIOR",
+  "paramsVersion": "posture_v1_prior",
+  "probabilities": {
+   "HOLD": 0.0,
+   "PUSH": 0.9076,
+   "REBUILD": 0.0047,
+   "RETOOL": 0.0877
+  }
  },
  "delta": {
   "byPosition": {
@@ -857,6 +919,7 @@
  },
  "teamImpact": {
   "ageDelta": 0.0,
+  "competitivePosture": "PUSH",
   "compositeScore": 36.9,
   "depthDelta": {
    "QB": 0,
@@ -903,6 +966,7 @@
    "startersBefore": 4
   },
   "posture": "contender",
+  "postureSource": "canonical",
   "rationale": [
    "Shifts WR starter quality (+1000.0)",
    "Adds a starting TE (+500.0 starter value)",

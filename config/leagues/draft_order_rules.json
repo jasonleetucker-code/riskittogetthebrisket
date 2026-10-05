@@ -1,0 +1,11 @@
+{
+  "_comment": "Rookie-draft ORDER rule per league (leagueKey). One owner: src/public_league/draft_order.py. A league absent here has an UNKNOWN rule and gets no draft-slot forecast (fails closed) — never assume every league uses reverse standings (OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13).",
+  "rules": {
+    "dynasty_main": {
+      "rule": "reverse_record_lower_pf",
+      "approvedBy": "owner",
+      "approvedAt": "2026-10-04",
+      "description": "Reverse final regular-season record: worst record picks first; teams tied on record are ordered by LOWER total regular-season Points For first, applied recursively through every tied group. Not Max PF, not all-play record, not Team Strength rank."
+    }
+  }
+}

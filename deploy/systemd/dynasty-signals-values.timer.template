@@ -1,0 +1,20 @@
+[Unit]
+Description=6-hourly Signals authenticated value collection for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already binds it
+# (same reasoning as the crowd-faab and signals-fetch timers).
+
+[Timer]
+# Every 6 hours.  Signals writes one offense value snapshot per player per day
+# (observed complete by ~12:00 UTC on 2026-10-03); the IDP board claims a
+# weekly rebuild.  Four runs a day give the contract a current board within
+# hours of a publication and keep the 24 h freshness budget honest; the
+# script's --min-interval-hours 5 bounds manual + timer overlap.  Offset :17
+# keeps it off the top of the hour and the signals-fetch (:47) timer.
+OnCalendar=*-*-* 01/6:17:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-signals-values.service
+
+[Install]
+WantedBy=timers.target

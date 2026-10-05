@@ -110,6 +110,13 @@ def test_every_flag_defaults_off_except_safe_additive():
         # 4 top-200 membership changes; IDP and picks unchanged.  Rollback:
         # RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0.
         "source_universe_freshness",
+        # Owner addendum 2026-10-03: Signals' authenticated native values vote
+        # (value-ordered rank, FantasyCalc family).  Inert wherever the
+        # box-local private store is absent (CI, dev).  Whole-board impact
+        # measured on the production box: see the PR / docs/sources/
+        # SIGNALS_FANTASY_INTEGRATION.md §9.  Rollback:
+        # RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0 + restart.
+        "signals_active_source",
         # Collaborative audit finding F.  Replaces the flat 1.15 TE
         # alignment multiplier with KTC's measured base → TE++ curve.
         # Blast radius measured against the 2026-07-27 live board (810

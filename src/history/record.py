@@ -18,7 +18,8 @@ What one contract build contributes:
 * one ``source_value`` observation per value-direct retail number on
   the row (``ktcSfTep`` / ``idpTradeCalc`` — the ``_VALUE_BASED_SOURCES``
   restriction ``board_store._retail`` documents; rank-signal synthetic
-  encodings never enter this lane).
+  encodings never enter this lane), plus each Signals native value read
+  from ``sourceNativeValues`` only (``_CONTRACT_NATIVE_VALUE_KEYS``).
 
 Rows the key layer cannot resolve, and rows asserting neither a value
 nor a rank, are counted in the returned summary — never silently
@@ -49,6 +50,19 @@ ORIGIN_LIVE = "live:server"
 # answerable for all three independently.
 _CONTRACT_RETAIL_KEYS = ("ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep", "idpTradeCalc")
 
+# Signals Fantasy publishes NATIVE values (docs/sources/SIGNALS_FANTASY_
+# INTEGRATION.md).  They vote as rank signals, so their ``canonicalSiteValues``
+# entry is a SYNTHETIC rank encoding and must never be read here — the
+# vendor's own number lives only in ``sourceNativeValues``, and that is the
+# one block these keys are read from.  The IDP keys are each one family's
+# board on a family-local scale: a "what did Signals say for this DL on day D"
+# record, never comparable across DL / LB / DB.  The ledger is box-local and
+# private; nothing public reads the source_value lane.
+_CONTRACT_NATIVE_VALUE_KEYS = ("signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
+
+# Every key the source_value lane may hold from a contract row.
+LEDGER_SOURCE_KEYS = _CONTRACT_RETAIL_KEYS + _CONTRACT_NATIVE_VALUE_KEYS
+
 
 def _num(value: Any) -> float | None:
     if isinstance(value, bool) or value is None:
@@ -67,6 +81,14 @@ def _retail(row: dict[str, Any], key: str) -> float | None:
             if got is not None:
                 return got
     return _num(row.get(key))
+
+
+def _native(row: dict[str, Any], key: str) -> float | None:
+    """A vendor-native value from ``sourceNativeValues`` only (never a
+    synthetic encoding); non-positive is missing, never zero."""
+    block = row.get("sourceNativeValues")
+    got = _num(block.get(key)) if isinstance(block, dict) else None
+    return got if got is not None and got > 0 else None
 
 
 def _players_array(contract: dict[str, Any]) -> list[dict[str, Any]]:
@@ -171,8 +193,11 @@ def observations_from_contract(
                 }
             )
 
-        for skey in _CONTRACT_RETAIL_KEYS:
-            got = _retail(row, skey)
+        for skey, reader in (
+            *((k, _retail) for k in _CONTRACT_RETAIL_KEYS),
+            *((k, _native) for k in _CONTRACT_NATIVE_VALUE_KEYS),
+        ):
+            got = reader(row, skey)
             if got is not None:
                 out.append(
                     {

@@ -393,6 +393,8 @@ AL_P2_OPTIONAL = {
     "pick_forecast_snapshots",
     "sparse_evidence_shadow",
     "robust_filter_shadow",
+    # Signals Fantasy private store: vendor serves current values only.
+    "signals_sources",
 }
 
 
