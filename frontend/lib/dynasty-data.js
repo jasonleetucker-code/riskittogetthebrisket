@@ -39,6 +39,7 @@
 
 // The active-league key and the early head-script request share one owner.
 import { LEAGUE_LOCAL_KEY, takeEarlyContract } from "./early-contract.js";
+import { classifyContractFailure } from "./contract-failure.js";
 
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
 const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
@@ -2414,6 +2415,11 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
     return null;
   });
   const base = await basePromise;
+  // Why the requested mix could not be applied, classified with the same
+  // owner as every other contract failure.  Returned ON the fallback so the
+  // page can say "showing the default board" instead of passing the default
+  // board off as the custom mix the user asked for.
+  let overrideFailure = classifyContractFailure(null, null);
   try {
     const overrideRes = await postPromise;
     if (overrideRes && overrideRes.ok) {
@@ -2448,11 +2454,26 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
         };
         return passthrough;
       }
-    } else if (overrideRes && typeof console !== "undefined" && console.warn) {
-      console.warn(
-        `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
-          "falling through to base contract.",
-      );
+      overrideFailure = classifyContractFailure(500, { error: "unrecognised_override_response" });
+    } else if (overrideRes) {
+      let failBody = null;
+      try {
+        const txt = await overrideRes.text();
+        try {
+          failBody = JSON.parse(txt);
+        } catch {
+          failBody = txt || null;
+        }
+      } catch {
+        failBody = null;
+      }
+      overrideFailure = classifyContractFailure(overrideRes.status, failBody);
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(
+          `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
+            "falling through to base contract.",
+        );
+      }
     }
   } catch (err) {
     if (typeof console !== "undefined" && console.warn) {
@@ -2463,8 +2484,9 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
     }
   }
 
-  // Override endpoint failed — return the base contract unchanged.
-  return base;
+  // Override endpoint failed — the base contract, LABELLED as such.  Never
+  // cached (only successful merges are), so the next load retries the mix.
+  return base && typeof base === "object" ? { ...base, overrideFailure } : base;
 }
 
 /**
