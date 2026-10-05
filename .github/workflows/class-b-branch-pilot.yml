@@ -52,6 +52,3 @@ jobs:
             --output "$output_dir" --require-network-probe
           cmp "$output_dir/PERFORMANCE_AUDIT.md" docs/master-site-audit/PERFORMANCE_AUDIT.md
           git diff --check "${BASE_SHA}" HEAD -- docs/master-site-audit/PERFORMANCE_AUDIT.md
-
-
-\n
