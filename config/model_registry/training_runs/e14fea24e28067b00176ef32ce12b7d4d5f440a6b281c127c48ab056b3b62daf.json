@@ -1,0 +1,729 @@
+{
+  "challengerHash": "e14fea24e28067b00176ef32ce12b7d4d5f440a6b281c127c48ab056b3b62daf",
+  "code": {
+    "codeHash": "438a385ea3292486a1950a1c09518d76a9fae0364686057f00da193c2ae0f8a4",
+    "files": {
+      "scripts/fit_hill_curve_percentile.py": "f187167c4105a4cfa24a7094d2f1454bb0ff1e58b11de8e6d72c614152176afa",
+      "src/canonical/tail_policy.py": "b80e570338406e30483bc1b26338a2f890fcf0bd72ae42e93aa0d7d308c18faa",
+      "src/identity/picks.py": "14ca225488e3d9ede07b1737d992001b3630ecb281b20fdde117b154884397cc",
+      "src/model_registry/training_manifest.py": "50a3616a505afe54f613e701df97f18d7574d1d165fdd27ddef19c073ec10491",
+      "src/model_registry/training_run.py": "256d987c81cbfe5f72d346115929e2884e93a7b066eafa50f19773ffbc9b90e5",
+      "src/sources/dataset_state.py": "d4fd927aa73c297b6d13b2b62a37ef4175a2ef279a50f37b2e71b78efddf1d8c",
+      "src/sources/freshness.py": "9307d697ac70589e61423867fa439c2071904a1ccfabe82f8db1253f905556b8"
+    },
+    "percentileCoordinateDigest": "544dc33e2ef335860df8b1427479202780669d4a5a3417f0613e9c08c840561d",
+    "percentileReferenceN": 500
+  },
+  "codeHash": "438a385ea3292486a1950a1c09518d76a9fae0364686057f00da193c2ae0f8a4",
+  "codeSha": "726da5e4c",
+  "config": {
+    "cGrid": "0.005 + 0.005*i, i in [0, 100)",
+    "constantRounding": {
+      "c": 4,
+      "s": 3
+    },
+    "fitTopN": 400,
+    "hashNormalization": "crlf_to_lf",
+    "masterCombine": "unweighted mean of per-source curves (authority weighting H4: not applied)",
+    "minCombinedRows": 20,
+    "minRookieRows": 10,
+    "percentileReferenceN": 500,
+    "policy": {
+      "allowRankVoterNativeValues": true,
+      "holdoutMeasuredDependence": "retain_and_report"
+    },
+    "refine": "dc in +-{0.001, 0.002}, ds in +-{0.005, 0.01}",
+    "sGrid": "0.4 + 0.02*i, i in [0, 106)"
+  },
+  "evidenceHash": "ff69a6997d61e8419bd92e9c31821b2b7175a430dde570ea38f268834c722b32",
+  "freshnessConfig": {
+    "origin": "inputs",
+    "path": "config/sources/freshness_v1.json",
+    "sha256": "eb56e7c3b0816e008f5fd035f27c57785a240468e3596385e6f37afbf0d63e21"
+  },
+  "gameFormat": {
+    "gameType": "DYNASTY",
+    "note": "TE basis lift and league scoring are serve-time steps, not training inputs",
+    "population": "players_only"
+  },
+  "inputs": {
+    "CSVs/site_raw/draftSharksIdp.csv": {
+      "bytes": 22163,
+      "csvSignal": "value",
+      "datasetState": {
+        "ageHours": 0.0,
+        "coverage": 1.0,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-06T15:34:06Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-06T15:34:06Z",
+        "lastBroadDatasetChangeAt": "2026-10-06T15:34:06Z",
+        "measured": true,
+        "playersFingerprint": "250b54c9a7cd286b6c6e688e",
+        "rowCount": 409,
+        "stateSha256": "223127efe9ce836215ca9eaa5fb46aceea040f0fdf04d879e4faf01e971dc68c"
+      },
+      "family": "draftSharks",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 226,
+      "picksDropped": 0,
+      "playerRows": 183,
+      "population": "players_only",
+      "rowsRead": 409,
+      "sha256": "b00d40ec7dcc141ad262d42843f142de2f10d9f4182394f69935d0652291308b",
+      "sourceKey": "draftSharksIdp",
+      "spacingEvidence": "native_value",
+      "universe": "offense+idp",
+      "unparsable": 0,
+      "usedBy": [
+        "GLOBAL:DraftSharks-Combined:train",
+        "IDP:DraftSharks-IDP:train"
+      ],
+      "valueColumn": "3D Value +",
+      "windowRows": 183
+    },
+    "CSVs/site_raw/draftSharksSf.csv": {
+      "bytes": 146865,
+      "csvSignal": "value",
+      "datasetState": {
+        "ageHours": 0.0,
+        "coverage": 0.9825,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-06T15:34:06Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-06T15:34:06Z",
+        "lastBroadDatasetChangeAt": "2026-10-06T15:34:06Z",
+        "measured": true,
+        "playersFingerprint": "e87d7866c3b60e21a6492610",
+        "rowCount": 392,
+        "stateSha256": "7f767f546a91ee4d3e10f92ba552441d84d667d9a5d8d0182d5043b7c6628443"
+      },
+      "family": "draftSharks",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 35,
+      "picksDropped": 0,
+      "playerRows": 357,
+      "population": "players_only",
+      "rowsRead": 392,
+      "sha256": "effeba015c431ea3e02dc3e1adc3c301498f1c67615f3af5212021dbc448a0a8",
+      "sourceKey": "draftSharks",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "GLOBAL:DraftSharks-Combined:train",
+        "OFFENSE:DraftSharks:train"
+      ],
+      "valueColumn": "3D Value +",
+      "windowRows": 357
+    },
+    "CSVs/site_raw/dynastyDaddySf.csv": {
+      "bytes": 8474,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 0.0,
+        "coverage": 1.0117,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-06T15:34:06Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-06T15:34:06Z",
+        "lastBroadDatasetChangeAt": "2026-10-06T15:34:06Z",
+        "measured": true,
+        "playersFingerprint": "ab98abded8fa02dbcb30ea80",
+        "rowCount": 389,
+        "stateSha256": "986e7b2c4f51b4a49792ea4f7635d6628f25d6bc4e75a1c20a2e46e95779a7a2"
+      },
+      "family": "dynastyDaddySf",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 0,
+      "playerRows": 389,
+      "population": "players_only",
+      "rowsRead": 389,
+      "sha256": "053fa408f8e1dc76d856eb11d56dd2ee42380b99e8e0d0b6c1071ef9829fcd76",
+      "sourceKey": "dynastyDaddySf",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:DynastyDaddy:train"
+      ],
+      "valueColumn": "value",
+      "windowRows": 389
+    },
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": {
+      "bytes": 9939,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 598.7,
+        "coverage": 1.0,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-09-11T16:52:14Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-09-11T16:52:14Z",
+        "lastBroadDatasetChangeAt": "2026-09-11T16:52:14Z",
+        "measured": true,
+        "playersFingerprint": "f48b3f0a390445288975df92",
+        "rowCount": 294,
+        "stateSha256": "279018eb40b9953bac7a355d8dbf5e0e94c2cf41de263ffa3dbf35a26dc3d7c7"
+      },
+      "family": "dynastyNerdsSfTep",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 0,
+      "playerRows": 294,
+      "population": "players_only",
+      "rowsRead": 294,
+      "sha256": "5632c512cf6724409d2d446308525ca0f6c4d8bda427577700e27eef46567f0a",
+      "sourceKey": "dynastyNerdsSfTep",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:DynastyNerds:train"
+      ],
+      "valueColumn": "Value",
+      "windowRows": 294
+    },
+    "CSVs/site_raw/fantasyCalc.csv": {
+      "bytes": 8632,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 0.0,
+        "coverage": 1.0,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-06T15:34:06Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-06T15:34:06Z",
+        "lastBroadDatasetChangeAt": "2026-10-06T15:34:06Z",
+        "measured": true,
+        "playersFingerprint": "165890ff3b2130be19ffe824",
+        "rowCount": 395,
+        "stateSha256": "139ef29ef7749154eeb8566b663c96e61224c6ea65baa78cae30739494622373"
+      },
+      "family": "fantasyCalc",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 0,
+      "playerRows": 395,
+      "population": "players_only",
+      "rowsRead": 395,
+      "sha256": "99aefd9187192facc248d17d4c95498deab1b7b27a0a8af06ff687e9f1059f3f",
+      "sourceKey": "fantasyCalc",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:FantasyCalc:holdout"
+      ],
+      "valueColumn": "value",
+      "windowRows": 395
+    },
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": {
+      "bytes": 8203,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 98.3,
+        "coverage": 1.0,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-02T13:18:58Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-02T13:18:58Z",
+        "lastBroadDatasetChangeAt": "2026-10-02T13:18:58Z",
+        "measured": true,
+        "playersFingerprint": "6f53f1d7103712634d0a9706",
+        "rowCount": 299,
+        "stateSha256": "8747172e5823bb26c3ff0509d67a9d23bc9dcba86c67bbb344845e0e8ca3aed1"
+      },
+      "family": "fantasyPros",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 0,
+      "playerRows": 299,
+      "population": "players_only",
+      "rowsRead": 299,
+      "sha256": "7ddd5d839d95e5ef32d8e867d89d75023aa2b9720765a06a25d161d423b56928",
+      "sourceKey": "fantasyProsFitzmaurice",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:Fitzmaurice:train"
+      ],
+      "valueColumn": "value",
+      "windowRows": 299
+    },
+    "CSVs/site_raw/idpTradeCalc.csv": {
+      "bytes": 18752,
+      "csvSignal": "value",
+      "datasetState": {
+        "ageHours": 24.2,
+        "coverage": 1.0,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-05T15:24:15Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-05T15:24:15Z",
+        "lastBroadDatasetChangeAt": "2026-10-05T15:24:15Z",
+        "measured": true,
+        "playersFingerprint": "8e5b1b8ba659687d3c312941",
+        "rowCount": 900,
+        "stateSha256": "73a0b7f6785db79b55302e9b854286703e2f74723d02dbaec343a01935cb7eed"
+      },
+      "family": "idpTradeCalc",
+      "gameType": "DYNASTY",
+      "liveRole": "value_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 84,
+      "playerRows": 816,
+      "population": "players_only",
+      "rowsRead": 900,
+      "sha256": "76461816cfbd9ec879e6deff5c977b0ab1de60a7eed9c417f456d78282152e83",
+      "sourceKey": "idpTradeCalc",
+      "spacingEvidence": "native_value",
+      "universe": "offense+idp",
+      "unparsable": 0,
+      "usedBy": [
+        "GLOBAL:IDPTradeCalc:train"
+      ],
+      "valueColumn": "value",
+      "windowRows": 400
+    },
+    "CSVs/site_raw/ktc.csv": {
+      "bytes": 9339,
+      "csvSignal": "value",
+      "datasetState": {
+        "measured": false,
+        "reason": "no dataset state file"
+      },
+      "family": "ktcCrowd",
+      "gameType": "DYNASTY",
+      "liveRole": "non_voting_calibration",
+      "nonPositiveDropped": 0,
+      "picksDropped": 36,
+      "playerRows": 464,
+      "population": "players_only",
+      "rowsRead": 500,
+      "sha256": "abc63b1d7e0461ca1ebf1bb9d56ba6b1788c3cadf5f354240e3669009c8ff108",
+      "sourceKey": "ktc",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:KTC:train"
+      ],
+      "valueColumn": "value",
+      "windowRows": 400
+    },
+    "CSVs/site_raw/otcffbSf.csv": {
+      "bytes": 8168,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 0.0,
+        "coverage": 1.0247,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-06T15:34:06Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-06T15:34:06Z",
+        "lastBroadDatasetChangeAt": "2026-10-06T15:34:06Z",
+        "measured": true,
+        "playersFingerprint": "647be51fa81267a207a86e60",
+        "rowCount": 374,
+        "stateSha256": "1ce5cb99e00f5459d7e1c03bd3d7e099ad97e3a3d79431a023e671557a822550"
+      },
+      "family": "otcffbSf",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 0,
+      "playerRows": 374,
+      "population": "players_only",
+      "rowsRead": 374,
+      "sha256": "f72d567a3c28a2dc9f63b07e98990f9d825be527db7225bc24ed7cecf966133c",
+      "sourceKey": "otcffbSf",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:OTCFFB:holdout"
+      ],
+      "valueColumn": "value",
+      "windowRows": 374
+    },
+    "CSVs/site_raw/pfkDynasty.csv": {
+      "bytes": 14699,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 16.5,
+        "coverage": 1.0,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-10-05T23:05:23Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-10-05T23:05:23Z",
+        "lastBroadDatasetChangeAt": "2026-10-05T23:05:23Z",
+        "measured": true,
+        "playersFingerprint": "5330a3a744eb4182202aa13c",
+        "rowCount": 496,
+        "stateSha256": "f54eb023376b41d7a4acd61b3bccd19d31778463f4abe4ff9f81bfca62aad974"
+      },
+      "family": "pfkDynasty",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 0,
+      "picksDropped": 0,
+      "playerRows": 496,
+      "population": "players_only",
+      "rowsRead": 496,
+      "sha256": "98db281ef5555e5296066a80ebe562d389deeb03160f1c4a5dd849bebf9bfde9",
+      "sourceKey": "pfkDynasty",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:PFKDynasty:holdout"
+      ],
+      "valueColumn": "value",
+      "windowRows": 400
+    },
+    "CSVs/site_raw/yahooBoone.csv": {
+      "bytes": 9634,
+      "csvSignal": "rank",
+      "datasetState": {
+        "ageHours": 788.0,
+        "coverage": 0.9318,
+        "coverageFactor": 1.0,
+        "dataAsOf": "2026-09-03T19:33:41Z",
+        "freshness": 1.0,
+        "freshnessState": "ON_SCHEDULE",
+        "health": "HEALTHY",
+        "healthFactor": 1.0,
+        "lastAnyMeaningfulChangeAt": "2026-09-03T19:33:41Z",
+        "lastBroadDatasetChangeAt": "2026-09-03T19:33:41Z",
+        "measured": true,
+        "playersFingerprint": "82e9e0a4e98c581025f9c074",
+        "rowCount": 410,
+        "stateSha256": "adc05e1807359a7c967a2f06b551c02a89dc95a0f11b047142181ead370b0cf7"
+      },
+      "family": "yahooBoone",
+      "gameType": "DYNASTY",
+      "liveRole": "rank_voter",
+      "nonPositiveDropped": 6,
+      "picksDropped": 0,
+      "playerRows": 404,
+      "population": "players_only",
+      "rowsRead": 410,
+      "sha256": "40e161e3b7001c00bf30774e5e9ebc5111273cd526c2abdef7c3b7c098d41688",
+      "sourceKey": "yahooBoone",
+      "spacingEvidence": "native_value",
+      "universe": "offense",
+      "unparsable": 0,
+      "usedBy": [
+        "OFFENSE:YahooBoone:train"
+      ],
+      "valueColumn": "boone_value",
+      "windowRows": 400
+    }
+  },
+  "inputsCommit": "726da5e4c4a455cd6ce5486fb8f62c163def8cc9",
+  "inputsContentHash": "b9d05ac072c141576e8e9ba28ab1b73b9d3af546c812018ff183d0254e032973",
+  "inputsOrigin": "worktree@726da5e4c4a455cd6ce5486fb8f62c163def8cc9",
+  "lineage": {
+    "errorCount": 0,
+    "errors": [],
+    "path": "config/sources/source_lineage.json",
+    "sha256": "09ced30bb9d24ee30925168755d9acbf3accf0ddcaed638c51af91cce45a606f",
+    "valid": true
+  },
+  "manifestHash": "54584777011eed0475c328eb4daeb75b6ecfb91db1721de5f5bb83ca05e37783",
+  "masters": {
+    "GLOBAL": {
+      "c": 0.058,
+      "rmse": 22.819,
+      "s": 0.71
+    },
+    "IDP": {
+      "c": 0.036,
+      "rmse": 22.547,
+      "s": 0.805
+    },
+    "OFFENSE": {
+      "c": 0.066,
+      "rmse": 28.6,
+      "s": 1.1
+    },
+    "ROOKIE": {
+      "c": 0.024,
+      "rmse": 14.592,
+      "s": 0.83
+    }
+  },
+  "modelHash": "86ec84dbeed3b2d309cf511f80e29659a229a5d39865a0d57f29302de5ec021d",
+  "perSourceFits": {
+    "GLOBAL": [
+      {
+        "c": 0.126,
+        "label": "IDPTradeCalc",
+        "n": 400,
+        "rmse": 136.134,
+        "s": 0.79
+      },
+      {
+        "c": 0.026,
+        "label": "DraftSharks-Combined",
+        "n": 400,
+        "rmse": 100.886,
+        "s": 0.73
+      }
+    ],
+    "IDP": [
+      {
+        "c": 0.065,
+        "label": "IDPTradeCalc-IDP",
+        "n": 376,
+        "rmse": 289.951,
+        "s": 0.79
+      },
+      {
+        "c": 0.021,
+        "label": "DraftSharks-IDP",
+        "n": 183,
+        "rmse": 298.994,
+        "s": 0.93
+      }
+    ],
+    "OFFENSE": [
+      {
+        "c": 0.104,
+        "label": "KTC",
+        "n": 400,
+        "rmse": 213.05,
+        "s": 0.915
+      },
+      {
+        "c": 0.054,
+        "label": "DynastyDaddy",
+        "n": 389,
+        "rmse": 315.786,
+        "s": 1.195
+      },
+      {
+        "c": 0.056,
+        "label": "DynastyNerds",
+        "n": 294,
+        "rmse": 253.816,
+        "s": 1.73
+      },
+      {
+        "c": 0.076,
+        "label": "YahooBoone",
+        "n": 400,
+        "rmse": 363.914,
+        "s": 1.26
+      },
+      {
+        "c": 0.121,
+        "label": "Fitzmaurice",
+        "n": 299,
+        "rmse": 507.203,
+        "s": 1.31
+      },
+      {
+        "c": 0.026,
+        "label": "DraftSharks",
+        "n": 357,
+        "rmse": 165.99,
+        "s": 0.81
+      }
+    ],
+    "ROOKIE": [
+      {
+        "c": 0.02,
+        "label": "KTC-Rookie",
+        "n": 68,
+        "rmse": 383.327,
+        "s": 0.805
+      },
+      {
+        "c": 0.029,
+        "label": "IDPTC-Rookie",
+        "n": 121,
+        "rmse": 337.808,
+        "s": 0.85
+      }
+    ]
+  },
+  "pinsHash": "c8d1002cec50263002b97159008802958095cb2080106736b0c5382eec224488",
+  "reproducible": true,
+  "scopes": {
+    "GLOBAL": {
+      "excluded": {},
+      "fitSkipped": {},
+      "holdoutFamilies": [],
+      "holdouts": [],
+      "measuredDependence": {},
+      "nonPromotableReasons": [],
+      "promotable": true,
+      "trainers": [
+        "IDPTradeCalc",
+        "DraftSharks-Combined"
+      ],
+      "trainingFamilies": [
+        "draftSharks",
+        "idpTradeCalc"
+      ]
+    },
+    "IDP": {
+      "excluded": {},
+      "fitSkipped": {},
+      "holdoutFamilies": [],
+      "holdouts": [],
+      "measuredDependence": {},
+      "nonPromotableReasons": [],
+      "promotable": true,
+      "trainers": [
+        "IDPTradeCalc-IDP",
+        "DraftSharks-IDP"
+      ],
+      "trainingFamilies": [
+        "draftSharks",
+        "idpTradeCalc"
+      ]
+    },
+    "OFFENSE": {
+      "excluded": {
+        "FantasyNavigator": "confirmed_common_ancestry:ktcCrowd (trains via KTC)"
+      },
+      "fitSkipped": {},
+      "holdoutFamilies": [
+        "fantasyCalc",
+        "otcffbSf",
+        "pfkDynasty"
+      ],
+      "holdouts": [
+        "FantasyCalc",
+        "OTCFFB",
+        "PFKDynasty"
+      ],
+      "measuredDependence": {
+        "FantasyCalc": [
+          "dynastyDaddySf"
+        ],
+        "OTCFFB": [
+          "dynastyDaddySf",
+          "ktcCrowd",
+          "yahooBoone"
+        ],
+        "PFKDynasty": [
+          "ktcCrowd"
+        ]
+      },
+      "nonPromotableReasons": [],
+      "promotable": true,
+      "trainers": [
+        "KTC",
+        "DynastyDaddy",
+        "DynastyNerds",
+        "YahooBoone",
+        "Fitzmaurice",
+        "DraftSharks"
+      ],
+      "trainingFamilies": [
+        "draftSharks",
+        "dynastyDaddySf",
+        "dynastyNerdsSfTep",
+        "fantasyPros",
+        "ktcCrowd",
+        "yahooBoone"
+      ]
+    },
+    "ROOKIE": {
+      "excluded": {
+        "Boone-Rookie": "synthetic_rank_encoding: snapshot field of a rank-signal source",
+        "Fitzmaurice-Rookie": "synthetic_rank_encoding: snapshot field of a rank-signal source"
+      },
+      "fitSkipped": {
+        "DraftSharks-Rookie": "only 0 rookies with values"
+      },
+      "holdoutFamilies": [],
+      "holdouts": [],
+      "measuredDependence": {},
+      "nonPromotableReasons": [
+        "declared_trainer_skipped:DraftSharks-Rookie:only 0 rookies with values"
+      ],
+      "promotable": false,
+      "trainers": [
+        "KTC-Rookie",
+        "IDPTC-Rookie",
+        "DraftSharks-Rookie"
+      ],
+      "trainingFamilies": [
+        "draftSharks",
+        "idpTradeCalc",
+        "ktcCrowd"
+      ]
+    }
+  },
+  "snapshot": {
+    "bytes": 940864,
+    "path": "exports/latest/dynasty_data_2026-10-06.json",
+    "resolved": true,
+    "scrapeTimestamp": "2026-10-06T15:30:39.483681+00:00",
+    "sha256": "cd3088b73b6c8fb13af32ba5f2f04cdc16b182f909501fcf0aaf241410b00014"
+  },
+  "substrateVersion": 2,
+  "trainingContent": {
+    "GLOBAL": {
+      "DraftSharks-Combined": "ce2903922e1b9cdb5fdf336ed695dd3fc98ab797097275469f4ea37b84315440",
+      "IDPTradeCalc": "dbfca1385e866302be75d14803ce1bfee4b08f3c6b0288a187ad412d2d7ff621"
+    },
+    "IDP": {
+      "DraftSharks-IDP": "8a55b6d0940187a921d6aa921043b43a0bdc2b6e4bc5730e0b0022e760806347",
+      "IDPTradeCalc-IDP": "1b616c6f3385239f92a00acc7cb7020560465a5ad9e38193997825d128a5a870"
+    },
+    "OFFENSE": {
+      "DraftSharks": "8e5d2fb5bf3ad392d414cc99d5415bf6b27c313decca2197bc8d841e9d779afb",
+      "DynastyDaddy": "2d3fb21e740deae605c45553f4d448324b74106db4f32dd5c730d3efa94586b7",
+      "DynastyNerds": "cd4cca3fb577ffb0d6472446605d55f9ae80d5e415fa8697930b72a3f81f7f4d",
+      "Fitzmaurice": "346b6ad7f8f82c53767bb02e08ec9358681ef3a1ba30ffb8542518d2767d9f91",
+      "KTC": "861c7a533a7093ec529db401b9b64b0bb7116eda0e7565575007957ee489d968",
+      "YahooBoone": "793f5ea58a41c937d493771a1de736b0b903012ae7f03b202c05e65fda052dd0"
+    },
+    "ROOKIE": {
+      "IDPTC-Rookie": "08a804b5653cc929f014e2dbeade0237d0b268b57534f166947207c6181164d1",
+      "KTC-Rookie": "71729ff713e6cde3701d93d173ee037ff685d73618ccca2f691d0312ebd4079d"
+    }
+  },
+  "trainingCutoff": "2026-10-06T15:34:06+00:00"
+}
