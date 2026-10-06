@@ -1,0 +1,195 @@
+name: Class B Model Branch
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/class-b-model-branch.yml'
+      - 'deploy/class-b-model/Dockerfile'
+      - 'scripts/class_b_model_task.py'
+      - 'scripts/class_b_model_verify.py'
+      - 'scripts/class_b_model_publish.py'
+      - 'tests/scripts/test_class_b_model_task.py'
+      - 'tests/scripts/test_class_b_model_publish.py'
+      - 'docs/engineering/CLASS_B_ISOLATION.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: class-b-model-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    name: Credential-free model proposal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      ready: ${{ steps.task.outputs.ready }}
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Test model task and trusted publisher policy
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --require-hashes -r requirements-dev.lock.txt
+          python -m pytest -q tests/scripts/test_class_b_model_task.py \
+            tests/scripts/test_class_b_model_publish.py
+      - name: Download exact free model and runtime
+        id: task
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          set -Eeuo pipefail
+          fixture_dir="$(mktemp -d)"
+          git show "${BASE_SHA}:docs/engineering/CLASS_B_ISOLATION.md" > "${fixture_dir}/CLASS_B_ISOLATION.md"
+          git show "${BASE_SHA}:docs/engineering/CLASS_B_BRANCH_PILOT.md" > "${fixture_dir}/CLASS_B_BRANCH_PILOT.md"
+          if ! grep -Fq '**Status:** PROBE ONLY.' "${fixture_dir}/CLASS_B_ISOLATION.md"; then
+            echo 'Authorized documentation transition has already landed.'
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "CLASS_B_FIXTURE=${fixture_dir}" >> "$GITHUB_ENV"
+          proof_api_dir="$(mktemp -d)"
+          curl --fail --location --retry 3 --max-time 30 \
+            --output "${proof_api_dir}/run.json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/37388008366"
+          curl --fail --location --retry 3 --max-time 30 \
+            --output "${proof_api_dir}/jobs.json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/37388008366/jobs?per_page=100"
+          python scripts/class_b_model_verify.py \
+            --run-api "${proof_api_dir}/run.json" \
+            --jobs-api "${proof_api_dir}/jobs.json" \
+            --proof-output "${fixture_dir}/PILOT_PROOF.json"
+          chmod 755 "${fixture_dir}"
+          chmod 444 "${fixture_dir}"/*
+          runtime_dir="$(mktemp -d)"
+          model_dir="$(mktemp -d)"
+          curl --fail --location --retry 3 --max-time 300 \
+            --output "${runtime_dir}/runtime.tar.gz" \
+            https://github.com/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-ubuntu-x64.tar.gz
+          echo "f6d25dde8f51133143d1453da4fd5f73b145127177612a283bf7995957af3392  ${runtime_dir}/runtime.tar.gz" | sha256sum -c -
+          tar -xf "${runtime_dir}/runtime.tar.gz" -C "${runtime_dir}"
+          echo "7119bef261611b26f326f7c4da4dc3fdeb7bb28e2faf1ec392bda7b21215ef52  ${runtime_dir}/llama-b11429/llama-completion" | sha256sum -c -
+          curl --fail --location --retry 3 --max-time 600 \
+            --output "${model_dir}/model.gguf" \
+            https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
+          echo "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046  ${model_dir}/model.gguf" | sha256sum -c -
+          chmod 755 "${runtime_dir}" "${runtime_dir}/llama-b11429" "${model_dir}"
+          chmod 444 "${model_dir}/model.gguf"
+          echo "CLASS_B_RUNTIME=${runtime_dir}/llama-b11429" >> "$GITHUB_ENV"
+          echo "CLASS_B_MODEL=${model_dir}" >> "$GITHUB_ENV"
+      - name: Run model in credential-free container
+        if: ${{ steps.task.outputs.ready == 'true' }}
+        run: |
+          set -Eeuo pipefail
+          output_dir="$(mktemp -d)"
+          sudo mount -t tmpfs -o size=1m,mode=1777 tmpfs "${output_dir}"
+          echo "CLASS_B_OUTPUT=${output_dir}" >> "$GITHUB_ENV"
+          docker build --pull --tag calculator-class-b-model:local deploy/class-b-model
+          timeout 360s docker run --rm --network=none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            --user=65534:65534 --pids-limit=64 --memory=3g --cpus=2 --shm-size=8m \
+            --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777 \
+            --env LD_LIBRARY_PATH=/runtime \
+            --mount "type=bind,source=${CLASS_B_FIXTURE},target=/input,readonly" \
+            --mount "type=bind,source=${CLASS_B_RUNTIME},target=/runtime,readonly" \
+            --mount "type=bind,source=${CLASS_B_MODEL},target=/model,readonly" \
+            --mount "type=bind,source=${output_dir},target=/output" \
+            --mount "type=bind,source=${PWD}/scripts/class_b_model_task.py,target=/worker.py,readonly" \
+            calculator-class-b-model:local \
+            python -I -B /worker.py \
+              --source /input/CLASS_B_ISOLATION.md \
+              --evidence /input/CLASS_B_BRANCH_PILOT.md \
+              --proof /input/PILOT_PROOF.json \
+              --model /model/model.gguf \
+              --llama-cli /runtime/llama-completion \
+              --output-dir /output --probe-network
+      - name: Independently verify exact proposal and refusal evidence
+        if: ${{ steps.task.outputs.ready == 'true' }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/class_b_model_verify.py \
+            --source "${CLASS_B_FIXTURE}/CLASS_B_ISOLATION.md" \
+            --evidence "${CLASS_B_FIXTURE}/CLASS_B_BRANCH_PILOT.md" \
+            --output-dir "${CLASS_B_OUTPUT}" --require-network
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] &&
+            ! git diff --quiet "${{ github.event.pull_request.base.sha }}" HEAD -- docs/engineering/CLASS_B_ISOLATION.md; then
+            cmp "${CLASS_B_OUTPUT}/candidate.md" docs/engineering/CLASS_B_ISOLATION.md
+          fi
+      - name: Upload verified proposal for trusted publisher
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && steps.task.outputs.ready == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: class-b-verified-proposal
+          path: |
+            ${{ env.CLASS_B_OUTPUT }}/candidate.md
+            ${{ env.CLASS_B_OUTPUT }}/receipt.json
+            ${{ env.CLASS_B_OUTPUT }}/model-output.txt
+            ${{ env.CLASS_B_OUTPUT }}/pilot-proof.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish verified review branch
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && needs.propose.outputs.ready == 'true' }}
+    needs: propose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Download verified proposal
+        uses: actions/download-artifact@v4
+        with:
+          name: class-b-verified-proposal
+          path: verified-proposal
+      - name: Verify again and push only the fixed review branch
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          branch="$(python scripts/class_b_model_publish.py \
+            --repo . --output-dir verified-proposal --run-id "${RUN_ID}" | tail -n 1)"
+          [[ "${branch}" == "codex/class-b-isolation-${RUN_ID}" ]]
+          echo "CLASS_B_BRANCH=${branch}" >> "$GITHUB_ENV"
+      - name: Open review-only pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          cat > class-b-pr-body.md <<'BODY'
+          Fixed Class-B documentation task. A pinned local model ran inside a
+          credential-free, network-denied container. A separate trusted job
+          independently verified the exact document diff, model output,
+          refusal events and branch target before pushing this branch.
+          This PR is for human review; no merge or deploy is authorized by it.
+          BODY
+          printf '\nModel and isolation evidence: %s/%s/actions/runs/%s\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> class-b-pr-body.md
+          gh pr create --draft --base main --head "${CLASS_B_BRANCH}" \
+            --title 'Update bounded Class-B isolation status' \
+            --body-file class-b-pr-body.md
