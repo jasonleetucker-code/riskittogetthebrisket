@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-06T15:30:39.548923+00:00",
+ "generatedAt": "2026-10-06T21:17:35.454963+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
@@ -53,14 +53,6 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "Elijah Mitchell",
-   "pos": "",
-   "served": "7561",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
-   "v2Reason": "ambiguous"
-  },
-  {
    "name": "J.T. Tuimoloau",
    "pos": "",
    "served": "12594",
@@ -75,6 +67,14 @@
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Jaylon Jones",
+   "pos": "",
+   "served": "8702",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
   },
   {
    "name": "Johnny Newton",
