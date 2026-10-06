@@ -70,17 +70,23 @@ def _release(tmp_path: Path) -> tuple[Path, Path, str]:
 def test_installer_checks_layers_and_records_only_successful_offline_install(tmp_path, monkeypatch):
     root, release, digest = _release(tmp_path)
     calls = []
+    monkeypatch.setenv("PIP_TARGET", str(tmp_path / "redirected"))
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "injected"))
 
     def fake_run(args, **kwargs):
-        calls.append(args)
+        calls.append((args, kwargs))
         return SimpleNamespace(returncode=0)
+
+    def fake_output(args, **_kwargs):
+        if "-I" in args:
+            return json.dumps({"example": {"version": "1.0", "in_venv": True}})
+        return f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}\n"
 
     monkeypatch.setattr(stage_backend_artifact.subprocess, "run", fake_run)
     monkeypatch.setattr(
         stage_backend_artifact.subprocess,
         "check_output",
-        lambda *_args,
-        **_kwargs: f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}\n",
+        fake_output,
     )
     monkeypatch.setattr(
         stage_backend_artifact.shutil,
@@ -103,9 +109,12 @@ def test_installer_checks_layers_and_records_only_successful_offline_install(tmp
         ]
     )
     assert len(calls) == 2
-    assert "--no-index" in calls[0] and "--require-hashes" in calls[0]
-    assert calls[1][-1] == "check"
+    assert "--no-index" in calls[0][0] and "--require-hashes" in calls[0][0]
+    assert "--isolated" in calls[0][0] and calls[1][0][-1] == "check"
+    assert "PIP_TARGET" not in calls[0][1]["env"]
+    assert "PYTHONPATH" not in calls[0][1]["env"]
     assert json.loads(receipt.read_text())["pip_check"] == "passed"
+    assert json.loads(receipt.read_text())["installed_wheels_verified"] == 1
 
     receipt.unlink()
     with pytest.raises(ValueError, match="release archive SHA-256 mismatch"):
@@ -119,6 +128,34 @@ def test_installer_checks_layers_and_records_only_successful_offline_install(tmp
         )
     assert not receipt.exists()
     assert len(calls) == 2
+
+
+def test_installer_refuses_receipt_for_wrong_serving_venv_distribution(tmp_path, monkeypatch):
+    root, release, digest = _release(tmp_path)
+    monkeypatch.setattr(stage_backend_artifact.subprocess, "run", lambda *_args, **_kwargs: None)
+
+    def fake_output(args, **_kwargs):
+        if "-I" in args:
+            return json.dumps({"example": {"version": "1.0", "in_venv": False}})
+        return f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}\n"
+
+    monkeypatch.setattr(stage_backend_artifact.subprocess, "check_output", fake_output)
+    monkeypatch.setattr(
+        stage_backend_artifact.shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(free=10 * 1024**3),
+    )
+    receipt = root / ".backend-artifact-receipt.json"
+    with pytest.raises(ValueError, match="not installed in serving venv"):
+        stage_backend_artifact.install(
+            release_archive=release,
+            archive_sha256=digest,
+            checkout=root,
+            commit=SHA,
+            venv_python=Path(sys.executable),
+            receipt=receipt,
+        )
+    assert not receipt.exists()
 
 
 def test_nested_wheelhouse_rejects_path_escape(tmp_path):

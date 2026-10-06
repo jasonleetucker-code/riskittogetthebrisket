@@ -17,15 +17,17 @@ the deploy job verifies the transferred outer archive before running
 2 GiB before transfer. The host helper repeats the outer and inner checks,
 compares the embedded lock and build lock to the checkout, checks Python ABI
 and platform, and installs from per-wheel SHA-256 file URLs with `--no-index`
-and `pip check`. It writes an install receipt only after that passes. The
-runtime `/api/status` exposes the backend digest only when the manifest and
-receipt match the running commit. The post-deploy smoke checks that digest
+and isolated pip configuration. It runs `pip check` and verifies every wheel's
+version is installed inside the serving virtual environment before writing an
+install receipt. The runtime `/api/status` exposes the backend digest only
+when the manifest and receipt match the running commit. The post-deploy smoke checks that digest
 against the validation job's output.
 
-`deploy/rollback.sh` uses the saved exact archive to reinstall a v2 backend
-offline. Historical v1 releases continue their prior lock-based online install
-and report the backend artifact as unavailable. A failed install never writes
-a new success receipt; deployment's existing auto-rollback path remains armed.
+`deploy/rollback.sh` restores both the saved frontend build and v2 backend
+wheels without a package registry. Historical v1 releases continue their prior
+lock-based online install and report the backend artifact as unavailable. A
+failed install never writes a new success receipt; deployment's existing
+auto-rollback path remains armed.
 
 The production virtual environment is currently updated in place. The
 installer force-reinstalls every locked distribution from CI wheels, but does

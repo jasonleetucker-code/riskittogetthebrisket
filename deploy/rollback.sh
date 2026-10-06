@@ -369,19 +369,6 @@ maybe_rebuild_frontend_after_rollback() {
     rm -rf "${staging_dir}"
   fi
 
-  log "Installing frontend dependencies in ${frontend_dir} (rollback)"
-  if [[ -f "${frontend_dir}/package-lock.json" ]]; then
-    if ! npm ci --prefix "${frontend_dir}"; then
-      error "Rollback frontend dependency install failed."
-      return 1
-    fi
-  else
-    if ! npm install --prefix "${frontend_dir}"; then
-      error "Rollback frontend dependency install failed."
-      return 1
-    fi
-  fi
-
   if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
     log "Restoring verified CI release artifact for ${ROLLBACK_TARGET_REV}."
     if ! python3 -m scripts.stage_release_artifact \
@@ -397,6 +384,18 @@ maybe_rebuild_frontend_after_rollback() {
     fi
   else
     log "No saved release artifact for rollback target; rebuilding the legacy frontend."
+    log "Installing frontend dependencies in ${frontend_dir} (legacy rollback)"
+    if [[ -f "${frontend_dir}/package-lock.json" ]]; then
+      if ! npm ci --prefix "${frontend_dir}"; then
+        error "Rollback frontend dependency install failed."
+        return 1
+      fi
+    else
+      if ! npm install --prefix "${frontend_dir}"; then
+        error "Rollback frontend dependency install failed."
+        return 1
+      fi
+    fi
     log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
   # The exit status is captured EXPLICITLY, and that is the whole fix for
   # the 2026-08-12 swap-a-broken-build defect.
