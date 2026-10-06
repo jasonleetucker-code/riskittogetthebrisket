@@ -80,6 +80,42 @@
     "class-b-branch-pilot.yml::fixed-document-task::Run credential-free worker and independently verify exact output": {
       "category": "blocking"
     },
+    "class-b-model-branch.yml::propose::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Set up Python": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Test model task and trusted publisher policy": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Download exact free model and runtime": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Run model in credential-free container": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Independently verify exact proposal and refusal evidence": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Upload verified proposal for trusted publisher": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Checkout trusted default branch": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Set up Python": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Download verified proposal": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Verify again and push only the fixed review branch": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Open review-only pull request": {
+      "category": "blocking"
+    },
     "c1a-closure-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
