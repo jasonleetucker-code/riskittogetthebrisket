@@ -70,7 +70,7 @@ jobs:
             https://github.com/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-ubuntu-x64.tar.gz
           echo "f6d25dde8f51133143d1453da4fd5f73b145127177612a283bf7995957af3392  ${runtime_dir}/runtime.tar.gz" | sha256sum -c -
           tar -xf "${runtime_dir}/runtime.tar.gz" -C "${runtime_dir}"
-          echo "7119bef261611b26f326f7c4da4dc3fdeb7bb28e2faaf1ec392bda7b21215ef52  ${runtime_dir}/llama-b11429/llama-completion" | sha256sum -c -
+          echo "7119bef261611b26f326f7c4da4dc3fdeb7bb28e2faf1ec392bda7b21215ef52  ${runtime_dir}/llama-b11429/llama-completion" | sha256sum -c -
           curl --fail --location --retry 3 --max-time 600 \
             --output "${model_dir}/model.gguf" \
             https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf

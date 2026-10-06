@@ -20,7 +20,7 @@ SOURCE_NAME = "CLASS_B_ISOLATION.md"
 EVIDENCE_NAME = "CLASS_B_BRANCH_PILOT.md"
 OUTPUT_NAME = "candidate.md"
 MODEL_SHA256 = "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046"
-RUNTIME_SHA256 = "7119bef261611b26f326f7c4da4dc3fdeb7bb28e2faaf1ec392bda7b21215ef52"
+RUNTIME_SHA256 = "7119bef261611b26f326f7c4da4dc3fdeb7bb28e2faf1ec392bda7b21215ef52"
 MAX_SOURCE_BYTES = 64 * 1024
 OLD_STATUS = (
     "**Status:** PROBE ONLY. No Class-B worker, branch writer, Git credential, model\n"
