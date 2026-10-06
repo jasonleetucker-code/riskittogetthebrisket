@@ -18,7 +18,15 @@ from pathlib import Path
 TASK_ID = "class-b-isolation-status"
 SOURCE_NAME = "CLASS_B_ISOLATION.md"
 EVIDENCE_NAME = "CLASS_B_BRANCH_PILOT.md"
+PROOF_NAME = "PILOT_PROOF.json"
 OUTPUT_NAME = "candidate.md"
+PILOT_PROOF = {
+    "schema": "class-b-pilot-proof/v1",
+    "run_id": 37388008366,
+    "head_sha": "7d71b7b1ed0f5ba87bc2595eb29f770de052b55c",
+    "workflow_conclusion": "success",
+    "worker_step_conclusion": "success",
+}
 MODEL_SHA256 = "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046"
 RUNTIME_SHA256 = "7119bef261611b26f326f7c4da4dc3fdeb7bb28e2faf1ec392bda7b21215ef52"
 MAX_SOURCE_BYTES = 64 * 1024
@@ -76,8 +84,7 @@ def expected_candidate(source: str) -> str:
 
 
 def classify_output(raw: str) -> str:
-    choices = re.findall(r"\b(?:COMPLETE|PENDING)\b", raw.upper())
-    if choices != ["COMPLETE"]:
+    if not re.fullmatch(r"\s*COMPLETE(?:\s*\n\s*> EOF by user)?\s*", raw, re.I):
         raise ValueError(f"model did not make the one authorized decision: {raw[-500:]!r}")
     return "COMPLETE"
 
@@ -86,12 +93,13 @@ def run(
     *,
     source: Path,
     evidence: Path,
+    proof: Path,
     model: Path,
     llama_cli: Path,
     output_dir: Path,
     probe_network: bool,
 ) -> dict:
-    for path, name in ((source, SOURCE_NAME), (evidence, EVIDENCE_NAME)):
+    for path, name in ((source, SOURCE_NAME), (evidence, EVIDENCE_NAME), (proof, PROOF_NAME)):
         if path.name != name or path.is_symlink() or not path.is_file():
             raise ValueError("fixed task requires regular authorized input files")
         if path.stat().st_size > MAX_SOURCE_BYTES:
@@ -110,6 +118,9 @@ def run(
     original = source.read_bytes()
     source_text = original.decode("utf-8")
     evidence_text = evidence.read_text(encoding="utf-8")
+    proof_bytes = proof.read_bytes()
+    if json.loads(proof_bytes) != PILOT_PROOF:
+        raise ValueError("pilot run proof does not match the audited successful head")
     candidate = expected_candidate(source_text)
     if not re.search(r"deterministic\s+Class-B execution", evidence_text):
         raise ValueError("pilot evidence is missing")
@@ -135,9 +146,10 @@ def run(
         "Classify the later fixed Class-B pilot, not the general autonomous lane. "
         "The older source described a future worker. The later evidence follows.\n"
         f"<later_evidence>\n{evidence_text[:1700]}\n</later_evidence>\n"
-        "Does the later evidence document a real fixed-task repair with independent "
-        "verification (COMPLETE), or only a plan for future repair (PENDING)? "
-        "Reply with one word.\n"
+        f"<independent_ci_proof>\n{proof_bytes.decode('utf-8')}\n</independent_ci_proof>\n"
+        "The audited CI run completed successfully and its worker/verification "
+        "step passed. Classify whether this fixed-task repair is complete. "
+        "Reply COMPLETE for a completed repair.\n"
         "<|im_end|>\n<|im_start|>assistant\n"
     )
     prompt_path = output_dir / "prompt.txt"
@@ -175,6 +187,7 @@ def run(
         raise ValueError("model output exceeds limit")
     decision = classify_output(completed.stdout)
     (output_dir / "model-output.txt").write_text(completed.stdout, encoding="utf-8")
+    (output_dir / "pilot-proof.json").write_bytes(proof_bytes)
     after = candidate.encode("utf-8")
     (output_dir / OUTPUT_NAME).write_bytes(after)
     receipt = {
@@ -183,6 +196,8 @@ def run(
         "model_sha256": MODEL_SHA256,
         "runtime_sha256": RUNTIME_SHA256,
         "source_sha256": digest(original),
+        "evidence_sha256": digest(evidence.read_bytes()),
+        "pilot_proof_sha256": digest(proof_bytes),
         "candidate_sha256": digest(after),
         "model_output_sha256": digest(completed.stdout.encode("utf-8")),
         "decision": decision,
@@ -200,6 +215,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--proof", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--llama-cli", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)

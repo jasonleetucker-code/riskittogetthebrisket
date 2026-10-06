@@ -15,16 +15,23 @@ files are the [Qwen Q4_K_M GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-
 and [llama.cpp b11429 Ubuntu x64 release](https://github.com/ggml-org/llama.cpp/releases/tag/b11429).
 The model
 runs as a non-root user in a read-only container with no network route,
-Docker socket, repository mount or Git token. Only two public documents,
+Docker socket, repository mount or Git token. Two public documents and a
+host-verified public Actions run proof,
 the pinned runtime/model, a worker script and a 1 MB output tmpfs are
 mounted. CPU, memory, process count, shared memory and wall time are bounded.
+The host checks the audited fixed-pilot run ID, exact PR head, successful
+worker/verifier step and run conclusion through the public GitHub API before
+mounting a small proof record. The receipt binds both the document evidence
+and that proof by SHA-256. Model prose, negation and extra status words fail
+the independent verifier.
 The worker exercises denied path, command and network attempts and records
 the refusal events. The model output and receipt are untrusted data.
 
 Only a successful `workflow_dispatch` on `main` can run the separate
 publisher job with `contents: write` and `pull-requests: write`. That job
-checks out trusted default-branch code, downloads the three verified output
-files, re-verifies the exact document diff, and pushes a branch named solely
+checks out the exact dispatch SHA from the trusted default branch, downloads
+the four verified output files, re-verifies the exact document diff and
+evidence digests, and pushes a branch named solely
 from the numeric workflow run ID. It opens a draft PR for human review.
 There is no merge, deploy, production state write or self-approval path.
 The public repository's current main ruleset still allows some direct

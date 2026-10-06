@@ -45,12 +45,16 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     )
     (output / "candidate.md").write_bytes(after)
     (output / "model-output.txt").write_bytes(b"COMPLETE\n")
+    proof_bytes = (json.dumps(verifier.PILOT_PROOF, sort_keys=True) + "\n").encode("utf-8")
+    (output / verifier.PROOF_NAME).write_bytes(proof_bytes)
     receipt = {
         "schema": "class-b-model-task/v1",
         "task_id": verifier.TASK_ID,
         "model_sha256": verifier.MODEL_SHA256,
         "runtime_sha256": verifier.RUNTIME_SHA256,
         "source_sha256": verifier._digest(before),
+        "evidence_sha256": verifier._digest(evidence.read_bytes()),
+        "pilot_proof_sha256": verifier._digest(proof_bytes),
         "candidate_sha256": verifier._digest(after),
         "model_output_sha256": verifier._digest(b"COMPLETE\n"),
         "decision": "COMPLETE",
@@ -78,6 +82,23 @@ def test_publisher_pushes_only_the_verified_branch(tmp_path):
     assert (
         _git(repo, "show", "--pretty=format:", "--name-only", "HEAD") == publisher.TARGET.as_posix()
     )
+
+
+def test_publisher_refuses_changed_evidence_and_proof(tmp_path):
+    repo, _, output = _fixture(tmp_path)
+    evidence = repo / publisher.EVIDENCE
+    evidence.write_text(evidence.read_text(encoding="utf-8") + "\nnew evidence\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="receipt disagrees"):
+        publisher.publish(repo, output, run_id="12346")
+    assert not _git(repo, "ls-remote", "--heads", "origin", "codex/class-b-isolation-12346")
+
+    second = tmp_path / "second"
+    second.mkdir()
+    repo, _, output = _fixture(second)
+    (output / verifier.PROOF_NAME).write_text('{"run_id": 0}', encoding="utf-8")
+    with pytest.raises(ValueError, match="pilot run proof"):
+        publisher.publish(repo, output, run_id="12347")
+    assert not _git(repo, "ls-remote", "--heads", "origin", "codex/class-b-isolation-12347")
 
 
 @pytest.mark.parametrize("bad", ["0", "../main", "main", "123;echo", "1" * 21])

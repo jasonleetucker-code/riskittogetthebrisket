@@ -61,6 +61,17 @@ jobs:
           fi
           echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "CLASS_B_FIXTURE=${fixture_dir}" >> "$GITHUB_ENV"
+          proof_api_dir="$(mktemp -d)"
+          curl --fail --location --retry 3 --max-time 30 \
+            --output "${proof_api_dir}/run.json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/37388008366"
+          curl --fail --location --retry 3 --max-time 30 \
+            --output "${proof_api_dir}/jobs.json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/37388008366/jobs?per_page=100"
+          python scripts/class_b_model_verify.py \
+            --run-api "${proof_api_dir}/run.json" \
+            --jobs-api "${proof_api_dir}/jobs.json" \
+            --proof-output "${fixture_dir}/PILOT_PROOF.json"
           chmod 755 "${fixture_dir}"
           chmod 444 "${fixture_dir}"/*
           runtime_dir="$(mktemp -d)"
@@ -101,6 +112,7 @@ jobs:
             python -I -B /worker.py \
               --source /input/CLASS_B_ISOLATION.md \
               --evidence /input/CLASS_B_BRANCH_PILOT.md \
+              --proof /input/PILOT_PROOF.json \
               --model /model/model.gguf \
               --llama-cli /runtime/llama-completion \
               --output-dir /output --probe-network
@@ -125,6 +137,7 @@ jobs:
             ${{ env.CLASS_B_OUTPUT }}/candidate.md
             ${{ env.CLASS_B_OUTPUT }}/receipt.json
             ${{ env.CLASS_B_OUTPUT }}/model-output.txt
+            ${{ env.CLASS_B_OUTPUT }}/pilot-proof.json
           if-no-files-found: error
 
   publish:
@@ -140,7 +153,7 @@ jobs:
       - name: Checkout trusted default branch
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v7
