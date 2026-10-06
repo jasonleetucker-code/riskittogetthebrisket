@@ -6,6 +6,12 @@
 
 This is not permission to start broad work during an active higher-priority completion tranche. `docs/EXECUTION_PLAN.md` and active owner-authorized contracts still control timing and authorization.
 
+The 2026-10-03 owner-authorized AI architecture campaign implements selected
+dependency, artifact, typing, trace, eval and isolation priorities on an
+integration candidate. Its exact progress and production gates are tracked in
+`docs/engineering/AI_AGENT_ECOSYSTEM_CAMPAIGN_2026-10-03.md`; the wider backlog
+below is not marked complete by that candidate.
+
 ## Core conclusion
 
 The repository's agent/orchestration layer is comparatively mature. The next six-month engineering gains should come primarily from making the **application substrate** more mechanically reproducible, typed, observable, contract-driven, adversarially tested, and artifact-identifiable rather than adding more agent personalities.

@@ -19,12 +19,15 @@ On Windows, invoke the same command with the installed `uv.exe` path through
 `config/python-lock.json` in one PR. A Dependabot edit to either manifest must
 refresh both locks in that PR. Do not use `pip freeze` for these files.
 
-The PR validation, release-candidate, scheduled refresh and current-revision
-production install paths use `pip install --require-hashes -r <lock>`.
+PR validation, release-candidate and scheduled refresh install from the
+hash-pinned locks. Normal v2 production deployment instead installs the CI
+built wheelhouse offline using per-wheel hashes and isolated pip configuration;
+its build is bound to this runtime lock and the pinned build-tools lock.
 Scheduled refresh runs `python scripts/python_lock.py check` before installing
 the runtime lock, so a manifest edit without a refreshed lock stops the scrape.
-Rollback to a revision with a lock checks and installs that lock. A rollback
-to a revision older than this contract explicitly uses its legacy
+Saved v2 rollback restores the same wheelhouse offline. Historical v1 rollback
+checks and installs its lock online. A rollback to a revision older than this
+contract explicitly uses its legacy
 `requirements.txt`, so those historical revisions remain recoverable without
 claiming a locked graph for them.
 Developers can use `scripts/setup.sh` or, in PowerShell:
@@ -36,7 +39,8 @@ python -m venv .venv
 .venv\Scripts\python.exe -m pip check
 ```
 
-The lock fixes Python package versions and accepted distribution bytes. It
-does not by itself prove the exact deployed frontend or backend artifact, nor
-remove packages already present in an old production virtual environment.
-Those guarantees belong to the tested-artifact/deployment unit in the campaign.
+The lock fixes Python package versions and accepted distribution bytes. The
+v2 artifact and served identity chain is documented in
+`docs/engineering/BACKEND_ARTIFACT_CUTOVER.md`. The installer updates the
+production virtual environment in place and does not remove historical extra
+packages; no pristine runtime claim is made.

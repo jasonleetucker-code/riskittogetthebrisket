@@ -1,9 +1,9 @@
 # CI release artifact
 
-**State:** CI packaging and draft deployment cutover, stacked after the exact
-Python lock. The VPS still rebuilds the frontend until this cutover is reviewed,
-merged and production verified. Do not infer artifact deployment from the
-presence of an uploaded artifact or this draft workflow.
+**State:** integration candidate. CI packaging, frontend artifact deployment
+and the backend v2 wheelhouse cutover are implemented on the campaign train;
+production deployment and served-identity proof remain pending. An uploaded
+archive alone does not prove what the VPS is serving.
 
 For normal artifact-mode targets, the production workflow's `validate` job
 tests the resolved full Git SHA, installs the exact development lock, runs
@@ -20,7 +20,8 @@ The manifest records:
 - Python ABI, Node version, Next `BUILD_ID`;
 - content digest of served `.next` files;
 - content-derived artifact ID, separate from build time and workflow run ID;
-- explicit `null` backend artifact digest with an unavailable reason.
+- backend artifact SHA-256 for v2 releases; historical v1 releases retain an
+  explicit `null` digest and unavailable reason.
 
 `src/api/build_identity.py` owns construction and verification. Run locally
 from the repository root after a Next build:
@@ -37,15 +38,16 @@ manifest verification detects substituted locks, build IDs or built bytes.
 PR Validation also packages its real Linux Next build into the deploy tar
 layout, checks the archive checksum, extracts it and re-verifies the bytes.
 
-The artifact is retained for three days by the current workflow. The stacked
-deployment cutover downloads that exact run artifact and compares its digest
+The artifact is retained for three days by the current workflow. The
+deployment job downloads that exact run artifact and compares its digest
 with the validation job's output before transfer. On the VPS,
 `scripts/stage_release_artifact.py` checks its digest, full commit, both locks,
 Node major version, build ID and all frontend bytes before staging `.next.new`.
 `deploy/deploy.sh` installs frontend dependencies from `package-lock.json`
 with `npm ci`, then uses its existing atomic swap and probes. It archives a
-successful release under the deploy state directory. A rollback with a saved
-archive stages the exact previous frontend bytes; historical revisions with
+successful release under the deploy state directory. A saved-artifact rollback
+restores the tested frontend bytes without npm installation; historical
+revisions with
 no saved archive use the established rebuild path. Successful deploys retain
 the eight newest complete archives plus the current and immediately previous
 revisions, leaving unknown/incomplete files for operator inspection.
@@ -75,10 +77,11 @@ with `allow_non_fast_forward=true`. That path still validates the target and
 checks the served commit and frontend assets, but it cannot claim exact Python
 locks or a tested frontend artifact for a commit that predates them.
 
-This cutover remains **unverified in production** until its PR passes Linux
-CI, integrates and the deployed Next build ID and artifact ID are observed
-from the live process and on-disk build. The public smoke checks asset HTTP
-availability, but does not yet compare HTTP-served asset bytes with CI; that
-last equivalence remains inferred. The backend still installs the pinned lock on the VPS;
-its built artifact digest is explicitly unknown. That backend build-once piece
-remains open.
+This cutover remains **unverified in production** until the train passes its
+final gates, merges, deploys, and the served frontend and backend identities
+match CI. The public smoke checks asset HTTP availability, but does not yet
+compare HTTP-served asset bytes with CI; that last equivalence remains
+inferred. The v2 backend wheelhouse, isolated offline installer, runtime
+receipt and offline rollback are described in
+`docs/engineering/BACKEND_ARTIFACT_CUTOVER.md`. Historical v1 releases still
+report the backend digest as unavailable.

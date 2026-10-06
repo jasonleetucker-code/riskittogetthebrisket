@@ -1,6 +1,6 @@
 # AI-agent ecosystem implementation campaign
 
-**Status:** IN PROGRESS — no unit is production verified by this record.
+**Status:** INTEGRATION CANDIDATE — production verification is pending.
 **Owner directive:** 2026-10-03 implementation request; research issue #1628 and research PR #1629.
 **Agent-OS-Receipt:** `cdca1dca8385f70c0989302dece8d1bd4ce4843c`.
 
@@ -12,12 +12,12 @@ integration, deploy and production proof. It does not authorize paid services,
 methodology promotion, source activation, autonomous merge/deploy, or broader
 production permissions.
 
-## Current-main reconciliation
+## Campaign-start reconciliation
 
-- Base inspected: `f595c5a0bb106554e96cc7b26b53d1312f05a7dd`.
+- Initial base inspected: `f595c5a0bb106554e96cc7b26b53d1312f05a7dd`.
 - Week 1 completion contract: 30/30 literal `VERIFIED` at session start.
-- The research document is still on open PR #1629, not on `main`. Its findings
-  are candidate evidence; live files and current claims decide each unit.
+- Research PR #1629 was incorporated into the integration candidate; its
+  findings remain candidate evidence, while live files and claims decide work.
 - PR #1627 merged on 2026-10-04; PR #1513 still changes
   `docs/OWNER_REQUESTED_TODO.md` and `docs/EXECUTION_PLAN.md`. The compact
   owner-intake pointer and execution-plan section remain queued behind #1513.
@@ -29,30 +29,32 @@ production permissions.
 
 | Unit | Canonical owner to extend | State | Required proof |
 |---|---|---|---|
-| Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IN PROGRESS — scheduled refresh now uses the runtime lock on the current-main rehearsal; updated foundation CI and integration pending | Hash-checked lock, Windows/Linux install, CI/deploy parity, drift sabotage |
-| Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | IN PROGRESS — CI package and draft frontend cutover; no production proof | CI digest, exact deploy, served fingerprint, rollback |
-| Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | IN PROGRESS — `/api/leagues` pilot plus generated parity; CI/production pending | Public/private schema tests, OpenAPI, deterministic type parity |
-| Application trace and SLOs | Existing API/log/performance owners | IN PROGRESS — `/api/leagues` trace pilot and privacy-safe source lifecycle proof; source spans and SLOs pending | Correlated route and source evidence, privacy, failure isolation |
-| Steward spans, eval bridge, routing scorecards | `src/steward/`, `agent-evals/` | IN PROGRESS — draft span, receipt bridge, scorecard and trace-behavior PRs; context command budget counts in next unit; no integration proof | Real run artifact, exact-revision grading, challenger only |
-| Optional typed decision advisor | Existing Steward router/evals | SHADOW PORT IN PROGRESS — offline task-profile comparison only; no provider, labeled corpus, calibration or active routing | Simple baseline, held-out task labels, per-family calibration and risk/coverage before any advisory use |
-| Class-B executor and isolation | Existing Steward controller/contracts | DETERMINISTIC PILOT ON PR — fixed Docker worker repaired one real document link with path/command/network refusal evidence; no model runtime, automated branch writer, or active Class-B authority | Denied path/command/network/credential tests; branch-only PR |
-| Action receipt integrity | Existing Steward store/controller | RECOVERY IN PROGRESS — SQLite/JSONL mirror repair on retry; no independent cryptographic anchor | Append-failure recovery, conflict/truncation refusal, exact source mapping |
-| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public CLI exploration, 44 deterministic production E2E checks and two adversarial cases; structured journey reporter exercised locally and in CI, corrected dual-origin metadata pending exact-head recheck, no campaign production proof | Structured findings plus deterministic assertions |
-| Final reconciliation | Canonical docs, CI, deploy and production evidence | IN PROGRESS — draft integration train #1667 opened after product #1658 merged; exact-head L2, strict L3, merge, deploy and served identity remain | Exact merged and served identity; unresolved debt |
+| Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IMPLEMENTED ON TRAIN — hash-locked CI/scheduled refresh and Linux wheelhouse proof; production parity pending | Exact-head train CI, deploy and served dependency digest |
+| Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | IMPLEMENTED ON TRAIN — release manifest v2 binds CI frontend and backend wheel tar; saved v2 rollback uses offline wheels and frontend bytes; production proof pending | Final train CI, strict candidate, deploy, served fingerprint, rollback |
+| Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | IMPLEMENTED ON TRAIN — `/api/leagues` schema, OpenAPI generation and deterministic frontend parity; production pending | Final contract/E2E CI and served route |
+| Application trace and SLOs | Existing API/log/performance owners | PARTIAL — correlated route trace and privacy-safe source lifecycle proof implemented; production source dispatch and end-to-end served trace pending | Trace, source and SLO evidence from merged revision |
+| Steward spans, eval bridge, routing scorecards | `src/steward/`, `agent-evals/` | IMPLEMENTED ON TRAIN — execution receipts, deterministic adapter, scorecards and challenger-only routing; no automatic promotion | Final eval/CI and live run evidence |
+| Optional typed decision advisor | Existing Steward router/evals | SHADOW ONLY — offline task-profile comparison; no provider, labeled corpus, calibration or active routing | Held-out labels and risk/coverage before any advisory promotion |
+| Class-B executor and isolation | Existing Steward controller/contracts | PARTIAL — fixed deterministic repair and one SHA-pinned local-model evidence task passed credential-free Docker/host verification; main-only publisher still unexercised | Final train isolation/model CI; post-merge branch and review PR; broader authority remains inactive |
+| Action receipt integrity | Existing Steward store/controller | IMPLEMENTED ON TRAIN — SQLite/JSONL mirror recovery, conflict and truncation refusal; no independent cryptographic anchor | Final exact-head tests and persisted receipt proof |
+| Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | PARTIAL — public desktop/mobile exploration, 44 deterministic production E2E checks, structured journey evidence and adversarial cases; campaign production proof pending | Final train E2E and post-deploy journey |
+| Final reconciliation | Canonical docs, CI, deploy and production evidence | IN PROGRESS — train #1667 incorporates product #1658, current relevant main movement and reviewed component heads; final gates and deployment pending | Exact merged and served identity; unresolved debt |
 
 No new generic orchestration framework, vector memory, generic feature store,
 MCP conversion, paid collector/sandbox, or self-promoting routing is planned.
 Domain methodology and production permissions remain with their current owners.
 
-The integration train #1667 contains the reviewed fixed Class-B document pilot
-(#1665) and source lifecycle proof (#1666). The pilot runs a credential-free
-container against one real broken anchor and verifies the exact repaired bytes;
-its worker is deterministic, and its trusted host still creates the PR. It does
-not satisfy the autonomous model executor or branch-writer credential boundary.
-The source proof parses existing private scrape events on the production host
-and returns only an allowlisted start-to-terminal summary. Its production
-workflow cannot run from `main` until this train merges; an older read-only
-diagnostic supported one historical source pair, not current L3 evidence.
+The integration train #1667 contains fixed Class-B pilot #1665, source
+lifecycle proof #1666, backend wheelhouse/cutover #1669–#1670, and the bounded
+model task #1671. The deterministic pilot repaired one broken link. The model
+task used a pinned free local model to classify an audited successful pilot
+run in a credential-free, network-denied container; an independent verifier
+accepted only one exact document proposal. Neither grants general Class-B
+coding authority. Only after merge can the separate trusted publisher exercise
+its review-branch/PR path; its GitHub token is broader than branch-only under
+the current main ruleset. The source proof parses private scrape events on the
+production host and emits an allowlisted summary; its current production
+dispatch remains pending. Saved artifact deploy and rollback also require L3.
 
 An agent-declared 2026-10-04 read-only Playwright CLI spot check opened production `/league`
 at desktop and 390×844 mobile widths. The Home data rendered, and selecting
@@ -98,12 +100,17 @@ Typed API, tracing, evals and capability isolation are separate authorized units
 not implied changes to this lock PR. Product valuation, ranking, DFS and source
 methodology changes are `NOT_RELEVANT` to the lock implementation.
 
-## First unit evidence still needed
+## Current release gate
 
-- Verify a clean Windows installation and an Ubuntu CI installation from the
-  committed hashes.
-- Verify the `scheduled-refresh.yml` hash-locked install in updated foundation
-  CI; its prior #1627 ownership collision has cleared.
-- Review exact package changes against current production environment.
-- Merge through the normal exact-head gate, deploy, and inspect the served SHA.
-  Build artifact identity remains a separate dependent unit.
+- The final train head needs full L2 validation, E2E, isolation, model and
+  wheelhouse proofs, plus strict release-candidate validation against the
+  current `main` tree. Relevant automated `main` movement is reconciled once
+  before the frozen gate; no prior head's green check substitutes for this.
+- After merge, production deploy must compare the intended Git SHA, frontend
+  artifact ID and backend wheelhouse digest with `/api/status`, and exercise
+  health, critical routes, source lifecycle proof and browser useful states.
+- The main-only bounded-model dispatch must create a real review branch and
+  draft PR; that generated PR needs independent validation. The general
+  Class-B lane remains inactive.
+- Owner intake and the execution-plan pointer remain queued behind #1513's
+  active shared-file claim. They are partial authority capture, not complete.
