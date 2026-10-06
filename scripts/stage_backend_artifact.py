@@ -24,6 +24,13 @@ _BACKEND_MEMBERS = {
 }
 _BACKEND_DIRS = {"backend-wheels", "backend-sources"}
 _MAX_BACKEND_BYTES = 400 * 1024 * 1024
+_INSTALLED_DISTRIBUTIONS = (
+    "import importlib.metadata as m,json,pathlib,sys;"
+    "prefix=pathlib.Path(sys.prefix).resolve();"
+    "print(json.dumps({d.metadata['Name'].lower().replace('_','-').replace('.','-'):"
+    "{'version':d.version,'in_venv':pathlib.Path(d.locate_file('')).resolve().is_relative_to(prefix)}"
+    " for d in m.distributions()}))"
+)
 
 
 def _digest(path: Path) -> str:
@@ -173,11 +180,17 @@ def install(
         )
         install_file = artifact / "backend-install.requirements.txt"
         install_file.write_text(requirements, encoding="utf-8")
+        pip_env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("PIP_") and key not in {"PYTHONPATH", "PYTHONHOME"}
+        }
         subprocess.run(
             [
                 str(venv_python),
                 "-m",
                 "pip",
+                "--isolated",
                 "install",
                 "--no-index",
                 "--no-deps",
@@ -187,15 +200,33 @@ def install(
                 str(install_file),
             ],
             check=True,
-            env={**os.environ, "PIP_NO_INDEX": "1"},
+            env=pip_env,
         )
-        subprocess.run([str(venv_python), "-m", "pip", "check"], check=True)
+        subprocess.run(
+            [str(venv_python), "-m", "pip", "--isolated", "check"],
+            check=True,
+            env=pip_env,
+        )
+        observed = json.loads(
+            subprocess.check_output(
+                [str(venv_python), "-I", "-c", _INSTALLED_DISTRIBUTIONS],
+                text=True,
+                env=pip_env,
+            )
+        )
+        for wheel in wheels_manifest["wheels"]:
+            name, version, _ = wheel["name"].split("-", 2)
+            canonical = re.sub(r"[-_.]+", "-", name).lower()
+            installed_dist = observed.get(canonical)
+            if installed_dist != {"version": version, "in_venv": True}:
+                raise ValueError(f"backend distribution not installed in serving venv: {canonical}")
         installed = {
             "commit": commit,
             "backend_artifact_sha256": backend_sha,
             "python_lock_sha256": identity["python_lock_sha256"],
             "python_abi": identity["python_abi"],
             "pip_check": "passed",
+            "installed_wheels_verified": len(wheels_manifest["wheels"]),
         }
         candidate = stage / "backend-artifact-receipt.json"
         candidate.write_text(json.dumps(installed, sort_keys=True) + "\n", encoding="utf-8")
