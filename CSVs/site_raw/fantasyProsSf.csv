@@ -26,10 +26,10 @@ Brock Bowers,24,TE,LV
 Bo Nix,25,QB,DEN
 Jaxson Dart,26,QB,NYG
 James Cook III,27,RB,BUF
-Tetairoa McMillan,28,WR,CAR
-Kenneth Walker III,29,RB,KC
-Trey McBride,30,TE,ARI
-Chris Olave,31,WR,NO
+Kenneth Walker III,28,RB,KC
+Tetairoa McMillan,29,WR,CAR
+Chris Olave,30,WR,NO
+Trey McBride,31,TE,ARI
 Jonathan Taylor,32,RB,IND
 Dak Prescott,33,QB,DAL
 Tyler Shough,34,QB,NO
@@ -39,14 +39,14 @@ Zay Flowers,37,WR,BAL
 Jordan Love,38,QB,GB
 Nico Collins,39,WR,HOU
 Jared Goff,40,QB,DET
-De'Von Achane,41,RB,MIA
-Emeka Egbuka,42,WR,TB
+Emeka Egbuka,41,WR,TB
+De'Von Achane,42,RB,MIA
 Garrett Wilson,43,WR,NYJ
 Carnell Tate,44,WR,TEN
-DeVonta Smith,45,WR,PHI
-Luther Burden III,46,WR,CHI
-Ladd McConkey,47,WR,LAC
-Breece Hall,48,RB,NYJ
+Luther Burden III,45,WR,CHI
+DeVonta Smith,46,WR,PHI
+Breece Hall,47,RB,NYJ
+Ladd McConkey,48,WR,LAC
 Fernando Mendoza,49,QB,LV
 Chase Brown,50,RB,CIN
 Colston Loveland,51,TE,CHI
@@ -55,9 +55,9 @@ Tyler Warren,53,TE,IND
 Sam Darnold,54,QB,SEA
 Parker Washington,55,WR,JAC
 Rashee Rice,56,WR,KC
-Jaylen Waddle,57,WR,DEN
-Christian Watson,58,WR,GB
-Tee Higgins,59,WR,CIN
+Tee Higgins,57,WR,CIN
+Jaylen Waddle,58,WR,DEN
+Christian Watson,59,WR,GB
 Bryce Young,60,QB,CAR
 C.J. Stroud,61,QB,HOU
 Baker Mayfield,62,QB,TB
@@ -87,8 +87,8 @@ Malik Willis,85,QB,MIA
 DJ Moore,86,WR,BUF
 Kyle Pitts Sr.,87,TE,ATL
 Daniel Jones,88,QB,IND
-Marvin Harrison Jr.,89,WR,ARI
-Jadarian Price,90,RB,SEA
+Jadarian Price,89,RB,SEA
+Marvin Harrison Jr.,90,WR,ARI
 Bhayshul Tuten,91,RB,JAC
 Travis Etienne Jr.,92,RB,NO
 Denzel Boston,93,WR,CLE
@@ -112,15 +112,15 @@ Wan'Dale Robinson,110,WR,TEN
 Mike Evans,111,WR,SF
 David Montgomery,112,RB,HOU
 Jake Ferguson,113,TE,DAL
-Brenton Strange,114,TE,JAC
-Omar Cooper Jr.,115,WR,NYJ
-Chuba Hubbard,116,RB,CAR
+Chuba Hubbard,114,RB,CAR
+Brenton Strange,115,TE,JAC
+Omar Cooper Jr.,116,WR,NYJ
 Jakobi Meyers,117,WR,JAC
 Josh Jacobs,118,RB,GB
 Xavier Worthy,119,WR,KC
 Antonio Williams,120,WR,WAS
-Terrance Ferguson,121,TE,LAR
-Blake Corum,122,RB,LAR
+Blake Corum,121,RB,LAR
+Terrance Ferguson,122,TE,LAR
 Eli Stowers,123,TE,PHI
 Chris Godwin Jr.,124,WR,TB
 Quentin Johnston,125,WR,LAC
@@ -390,7 +390,7 @@ Dyami Brown,388,WR,WAS
 Tyren Montgomery,389,WR,TEN
 Luke McCaffrey,390,WR,WAS
 Tyrell Shavers,391,WR,BUF
-Robert Henry Jr.,392,RB,WAS
+Robert Henry Jr.,392,RB,SEA
 Jared Wiley,393,TE,KC
 Theo Wease Jr.,394,WR,LAC
 DeAndre Hopkins,395,WR,BAL
