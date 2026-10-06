@@ -157,12 +157,18 @@ def run(
         "0",
         "--simple-io",
         "--no-display-prompt",
-        "--no-show-timings",
     ]
     if allowed_command(["sudo", "true"], command):
         raise ValueError("forbidden command was accepted")
     refusals.append("command_denied")
-    completed = subprocess.run(command, capture_output=True, text=True, check=True, timeout=240)
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=True, timeout=240)
+    except subprocess.CalledProcessError as exc:
+        # This worker receives public inputs and no secrets. Keep diagnostics
+        # bounded so a runtime failure can be repaired without exposing paths
+        # outside the mounted task or flooding CI output.
+        detail = (exc.stderr or "")[-1000:]
+        raise RuntimeError(f"model runtime failed ({exc.returncode}): {detail}") from exc
     prompt_path.unlink()
     if len(completed.stdout) > 4096:
         raise ValueError("model output exceeds limit")
