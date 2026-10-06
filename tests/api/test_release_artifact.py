@@ -159,6 +159,7 @@ def test_v2_backend_identity_requires_exact_archive_or_install_receipt(release_t
         "python_lock_sha256": identity["python_lock_sha256"],
         "python_abi": identity["python_abi"],
         "pip_check": "passed",
+        "installed_wheels_verified": 1,
     }
     (root / ".backend-artifact-receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
     verify_release_manifest(built, root, build, expected_commit=SHA)
@@ -166,6 +167,11 @@ def test_v2_backend_identity_requires_exact_archive_or_install_receipt(release_t
     running = resolve_runtime_release_identity(root, commit=SHA)
     assert running["backend_artifact_sha256"] == identity["backend_artifact_sha256"]
     assert running["backend_artifact_unavailable_reason"] is None
+    receipt["installed_wheels_verified"] = 0
+    (root / ".backend-artifact-receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(ValueError, match="install receipt mismatch"):
+        verify_release_manifest(built, root, build, expected_commit=SHA)
+    receipt["installed_wheels_verified"] = 1
     receipt["pip_check"] = "failed"
     (root / ".backend-artifact-receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
     with pytest.raises(ValueError, match="install receipt mismatch"):

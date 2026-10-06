@@ -232,13 +232,22 @@ def verify_release_manifest(
                 installed = json.loads(receipt.read_text(encoding="utf-8"))
             except (OSError, ValueError) as exc:
                 raise ValueError("release artifact backend install receipt missing") from exc
-            if installed != {
+            expected_receipt = {
                 "commit": expected_commit,
                 "backend_artifact_sha256": digest,
                 "python_lock_sha256": identity.get("python_lock_sha256"),
                 "python_abi": identity.get("python_abi"),
                 "pip_check": "passed",
-            }:
+            }
+            if not isinstance(installed, dict):
+                raise ValueError("release artifact backend install receipt mismatch")
+            wheel_count = installed.get("installed_wheels_verified")
+            if (
+                set(installed) != set(expected_receipt) | {"installed_wheels_verified"}
+                or any(installed.get(key) != value for key, value in expected_receipt.items())
+                or type(wheel_count) is not int
+                or not 1 <= wheel_count <= 500
+            ):
                 raise ValueError("release artifact backend install receipt mismatch")
     if identity.get("python_lock_sha256") != _sha256_text(repo_root / "requirements.lock.txt"):
         raise ValueError("release artifact Python lock mismatch")
