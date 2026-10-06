@@ -52,8 +52,23 @@ jobs:
         run: |
           set -Eeuo pipefail
           fixture_dir="$(mktemp -d)"
-          git show "${BASE_SHA}:docs/engineering/CLASS_B_ISOLATION.md" > "${fixture_dir}/CLASS_B_ISOLATION.md"
-          git show "${BASE_SHA}:docs/engineering/CLASS_B_BRANCH_PILOT.md" > "${fixture_dir}/CLASS_B_BRANCH_PILOT.md"
+          if git cat-file -e "${BASE_SHA}:docs/engineering/CLASS_B_ISOLATION.md" 2>/dev/null &&
+            git cat-file -e "${BASE_SHA}:docs/engineering/CLASS_B_BRANCH_PILOT.md" 2>/dev/null; then
+            git show "${BASE_SHA}:docs/engineering/CLASS_B_ISOLATION.md" > "${fixture_dir}/CLASS_B_ISOLATION.md"
+            git show "${BASE_SHA}:docs/engineering/CLASS_B_BRANCH_PILOT.md" > "${fixture_dir}/CLASS_B_BRANCH_PILOT.md"
+            echo "CLASS_B_BASE_HAS_SOURCE=true" >> "$GITHUB_ENV"
+          elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] &&
+            ! git cat-file -e "${BASE_SHA}:docs/engineering/CLASS_B_ISOLATION.md" 2>/dev/null &&
+            ! git cat-file -e "${BASE_SHA}:docs/engineering/CLASS_B_BRANCH_PILOT.md" 2>/dev/null; then
+            # The integration train introduces both documents together. This
+            # PR-only proof uses the reviewed checkout and cannot publish.
+            cp docs/engineering/CLASS_B_ISOLATION.md "${fixture_dir}/CLASS_B_ISOLATION.md"
+            cp docs/engineering/CLASS_B_BRANCH_PILOT.md "${fixture_dir}/CLASS_B_BRANCH_PILOT.md"
+            echo "CLASS_B_BASE_HAS_SOURCE=false" >> "$GITHUB_ENV"
+          else
+            echo 'The fixed Class-B documents are incomplete at the authorized base.' >&2
+            exit 1
+          fi
           if ! grep -Fq '**Status:** PROBE ONLY.' "${fixture_dir}/CLASS_B_ISOLATION.md"; then
             echo 'Authorized documentation transition has already landed.'
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -124,7 +139,8 @@ jobs:
             --source "${CLASS_B_FIXTURE}/CLASS_B_ISOLATION.md" \
             --evidence "${CLASS_B_FIXTURE}/CLASS_B_BRANCH_PILOT.md" \
             --output-dir "${CLASS_B_OUTPUT}" --require-network
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] &&
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" &&
+            "${CLASS_B_BASE_HAS_SOURCE}" == "true" ]] &&
             ! git diff --quiet "${{ github.event.pull_request.base.sha }}" HEAD -- docs/engineering/CLASS_B_ISOLATION.md; then
             cmp "${CLASS_B_OUTPUT}/candidate.md" docs/engineering/CLASS_B_ISOLATION.md
           fi
