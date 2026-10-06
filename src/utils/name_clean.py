@@ -182,6 +182,16 @@ POSITION_ALIASES: dict[str, str] = {
     "DT": "DL",
     "EDGE": "DL",
     "NT": "DL",
+    # ``ED`` (edge) and ``IDL`` (interior DL) are Over The Cap's spellings —
+    # 250 + 268 rows of the nflverse contracts asset.  ADDED 2026-10-05.
+    # Unmapped, they passed through as their own "families", so every OTC
+    # defensive lineman missed the position-aware name rungs in
+    # ``playerctx.normalize`` and fell to the position-blind one — which
+    # handed the Jaguars' edge rusher Josh Allen's rookie deal to QB Josh
+    # Allen.  Same lesson as ``SAF`` below: patch the canonical map, not a
+    # private table (bdvm / fetch_idpshow already carried local copies).
+    "ED": "DL",
+    "IDL": "DL",
     "LB": "LB",
     "ILB": "LB",
     "OLB": "LB",
