@@ -77,6 +77,7 @@ jobs:
     outputs:
       archive_sha256: ${{ steps.package.outputs.archive_sha256 }}
       artifact_id: ${{ steps.package.outputs.artifact_id }}
+      backend_sha256: ${{ steps.package.outputs.backend_sha256 }}
     # Measured 2026-09-09: the last SUCCESSFUL deploy (run 34267910262,
     # 2026-09-08T19:15-19:35) finished in 19m59s -- one second inside the
     # old 20-minute budget. Every deploy since timed out mid-run (three in
@@ -342,6 +343,15 @@ jobs:
           # the workflow log shows a clean ✓ separately from the build.
           npm run check:bundles
 
+      - name: Build and test offline backend runtime wheelhouse
+        if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/python_lock.py check
+          bash scripts/build_backend_wheelhouse.sh \
+            requirements.lock.txt backend-wheelhouse.tar
+
       - name: Package tested release artifact
         if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}
         id: package
@@ -353,11 +363,12 @@ jobs:
           python -m scripts.release_artifact create \
             --commit "${TARGET_SHA}" \
             --node-version "$(node --version)" \
-            --run-id "${GITHUB_RUN_ID}"
+            --run-id "${GITHUB_RUN_ID}" \
+            --backend-archive backend-wheelhouse.tar
           tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
             --exclude='frontend/.next/cache' \
             -cf calculator-release.tar \
-            release-manifest.json requirements.lock.txt \
+            release-manifest.json requirements.lock.txt backend-wheelhouse.tar \
             frontend/package-lock.json frontend/.next
           sha256sum calculator-release.tar > calculator-release.tar.sha256
           sha256sum -c calculator-release.tar.sha256
@@ -367,6 +378,7 @@ jobs:
           python -m scripts.release_artifact verify \
             --root "${verify_dir}" --commit "${TARGET_SHA}"
           echo "artifact_id=$(python -c 'import json; print(json.load(open("release-manifest.json"))["artifact_id"])')" >> "$GITHUB_OUTPUT"
+          echo "backend_sha256=$(python -c 'import json; print(json.load(open("release-manifest.json"))["identity"]["backend_artifact_sha256"])')" >> "$GITHUB_OUTPUT"
 
       - name: Upload tested release artifact
         if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}
@@ -718,6 +730,16 @@ jobs:
           ssh -i "${DEPLOY_KEY_FILE}" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" -p "${DEPLOY_PORT_RESOLVED}" \
             "${TARGET}" "install -d -m 700 '${DEPLOY_STATE_DIR}/incoming'"
+          ARCHIVE_SIZE="$(stat -c %s release-input/calculator-release.tar)"
+          REMOTE_FREE="$(ssh -i "${DEPLOY_KEY_FILE}" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" -p "${DEPLOY_PORT_RESOLVED}" \
+            "${TARGET}" "df -B1 --output=avail '${DEPLOY_STATE_DIR}/incoming' | tail -n 1 | tr -d '[:space:]'")"
+          [[ "${REMOTE_FREE}" =~ ^[0-9]+$ ]] || { echo "::error::remote free-space check failed"; exit 1; }
+          MIN_REQUIRED="$((ARCHIVE_SIZE + 2 * 1024 * 1024 * 1024))"
+          [[ "${REMOTE_FREE}" -ge "${MIN_REQUIRED}" ]] || {
+            echo "::error::remote disk has ${REMOTE_FREE} bytes free; ${MIN_REQUIRED} required before artifact transfer"
+            exit 1
+          }
           scp -i "${DEPLOY_KEY_FILE}" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" -P "${DEPLOY_PORT_RESOLVED}" \
             release-input/calculator-release.tar "${TARGET}:${REMOTE_ARCHIVE}"
@@ -835,6 +857,7 @@ jobs:
         if: ${{ vars.PROD_PUBLIC_URL != '' }}
         env:
           EXPECTED_ARTIFACT_ID: ${{ needs.validate.outputs.artifact_id }}
+          EXPECTED_BACKEND_SHA256: ${{ needs.validate.outputs.backend_sha256 }}
           RELEASE_MODE: ${{ needs.resolve.outputs.release_mode }}
         shell: bash
         run: |
@@ -1060,6 +1083,15 @@ jobs:
               PASS=$((PASS + 1))
             else
               echo "::error title=Served artifact mismatch::/api/status reports artifact '${_artifact:-<none>}' (${_artifact_why:-no reason}); validated artifact is '${EXPECTED_ARTIFACT_ID:-<none>}'."
+              FAIL=$((FAIL + 1))
+            fi
+            _backend="$(jq -r '.release.backend_artifact_sha256 // empty' <<<"${_build}" 2>/dev/null || true)"
+            if [[ "${RELEASE_MODE}" == "artifact" && "${_backend}" == "${EXPECTED_BACKEND_SHA256}" &&
+                  "${_backend}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "PASS build.release.backend_artifact_sha256 == ${EXPECTED_BACKEND_SHA256}"
+              PASS=$((PASS + 1))
+            elif [[ "${RELEASE_MODE}" == "artifact" ]]; then
+              echo "::error title=Served backend artifact mismatch::/api/status reports backend '${_backend:-<none>}'; validated backend is '${EXPECTED_BACKEND_SHA256:-<none>}'."
               FAIL=$((FAIL + 1))
             fi
           fi

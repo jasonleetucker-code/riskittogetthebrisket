@@ -102,6 +102,53 @@ def test_archive_path_escape_refused(release, tmp_path):
     assert not (checkout / "frontend/.next.new").exists()
 
 
+def test_v2_backend_archive_is_verified_before_frontend_staging(release, tmp_path):
+    checkout, _, _, _ = release
+    backend = checkout / "backend-wheelhouse.tar"
+    backend.write_bytes(b"ci backend bytes")
+    manifest = create_release_manifest(
+        checkout,
+        checkout / "frontend/.next",
+        commit=SHA,
+        node_version="v20.19.0",
+        backend_archive=backend,
+    )
+    (checkout / "release-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    archive = tmp_path / "v2-release.tar"
+    with tarfile.open(archive, "w") as bundle:
+        for name in (
+            "release-manifest.json",
+            "requirements.lock.txt",
+            "frontend/package-lock.json",
+            "frontend/.next/BUILD_ID",
+            "frontend/.next/static/app.js",
+            "backend-wheelhouse.tar",
+        ):
+            bundle.add(checkout / name, arcname=name)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert (
+        _stage(tmp_path, release, archive=archive, archive_sha256=digest) == manifest["artifact_id"]
+    )
+    backend.write_bytes(b"changed")
+    with tarfile.open(archive, "w") as bundle:
+        for name in (
+            "release-manifest.json",
+            "requirements.lock.txt",
+            "frontend/package-lock.json",
+            "frontend/.next/BUILD_ID",
+            "frontend/.next/static/app.js",
+            "backend-wheelhouse.tar",
+        ):
+            bundle.add(checkout / name, arcname=name)
+    with pytest.raises(ValueError, match="backend bytes mismatch"):
+        _stage(
+            tmp_path,
+            release,
+            archive=archive,
+            archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
+        )
+
+
 def test_deploy_consumes_validation_archive_and_rollback_keeps_it():
     root = Path(__file__).resolve().parents[2]
     workflow = (root / ".github/workflows/deploy.yml").read_text(encoding="utf-8")

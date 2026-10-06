@@ -244,8 +244,28 @@ prepare_python_runtime() {
   fi
 
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
-  "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+  local release_schema=""
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    release_schema="$(tar -xOf "${RELEASE_ARCHIVE}" release-manifest.json | \
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["schema_version"])')"
+  fi
+  if [[ "${release_schema}" == "calculator-release/v2" ]]; then
+    log "Installing exact CI backend wheels offline from the verified release archive."
+    python3 -m scripts.stage_backend_artifact \
+      --release-archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${TARGET_REV}" \
+      --venv-python "${VENV_DIR}/bin/python" \
+      --receipt "${APP_DIR}/.backend-artifact-receipt.json"
+  elif [[ -z "${release_schema}" || "${release_schema}" == "calculator-release/v1" ]]; then
+    "${VENV_DIR}/bin/python" -m pip install --upgrade pip
+    "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+    rm -f "${APP_DIR}/.backend-artifact-receipt.json"
+  else
+    error "Unsupported release artifact schema: ${release_schema}"
+    exit 1
+  fi
 }
 
 maybe_build_frontend() {

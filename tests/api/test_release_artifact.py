@@ -133,6 +133,45 @@ def test_running_identity_reports_verified_bytes_and_unknown_backend(release_tre
     assert corrupt["frontend_artifact_unavailable_reason"] == "manifest_invalid_or_mismatch"
 
 
+def test_v2_backend_identity_requires_exact_archive_or_install_receipt(release_tree):
+    root, build = release_tree
+    archive = root / "backend-wheelhouse.tar"
+    archive.write_bytes(b"tested backend artifact")
+    built = create_release_manifest(
+        root,
+        build,
+        commit=SHA,
+        node_version="v20.19.0",
+        backend_archive=archive,
+    )
+    assert built["schema_version"] == "calculator-release/v2"
+    verify_release_manifest(built, root, build, expected_commit=SHA)
+    archive.write_bytes(b"substituted backend artifact")
+    with pytest.raises(ValueError, match="backend bytes mismatch"):
+        verify_release_manifest(built, root, build, expected_commit=SHA)
+    archive.unlink()
+    with pytest.raises(ValueError, match="install receipt missing"):
+        verify_release_manifest(built, root, build, expected_commit=SHA)
+    identity = built["identity"]
+    receipt = {
+        "commit": SHA,
+        "backend_artifact_sha256": identity["backend_artifact_sha256"],
+        "python_lock_sha256": identity["python_lock_sha256"],
+        "python_abi": identity["python_abi"],
+        "pip_check": "passed",
+    }
+    (root / ".backend-artifact-receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+    verify_release_manifest(built, root, build, expected_commit=SHA)
+    (root / ".release-manifest.json").write_text(json.dumps(built), encoding="utf-8")
+    running = resolve_runtime_release_identity(root, commit=SHA)
+    assert running["backend_artifact_sha256"] == identity["backend_artifact_sha256"]
+    assert running["backend_artifact_unavailable_reason"] is None
+    receipt["pip_check"] = "failed"
+    (root / ".backend-artifact-receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+    with pytest.raises(ValueError, match="install receipt mismatch"):
+        verify_release_manifest(built, root, build, expected_commit=SHA)
+
+
 def test_workflow_packages_only_after_build_and_checks():
     workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/deploy.yml").read_text(
         encoding="utf-8"
