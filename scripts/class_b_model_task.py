@@ -78,7 +78,7 @@ def expected_candidate(source: str) -> str:
 def classify_output(raw: str) -> str:
     choices = re.findall(r"\b(?:COMPLETE|PENDING)\b", raw.upper())
     if choices != ["COMPLETE"]:
-        raise ValueError("model did not make the one authorized decision")
+        raise ValueError(f"model did not make the one authorized decision: {raw[-500:]!r}")
     return "COMPLETE"
 
 
