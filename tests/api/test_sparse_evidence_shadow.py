@@ -131,7 +131,8 @@ def test_the_recorder_never_writes_a_served_field(recorded):
 
 def test_the_module_has_no_write_path_but_the_ledger_append():
     """Structural: the only file-writing call -- in this module and in the shared
-    append-only owner it delegates to -- is in ``append_record``."""
+    append-only owner it delegates to -- is in ``append_records`` (``append_record``
+    is its one-record form)."""
     from src.utils import append_ledger  # noqa: PLC0415
 
     writers = {"write_text", "write_bytes", "replace", "rename", "unlink", "dump"}
@@ -144,7 +145,10 @@ def test_the_module_has_no_write_path_but_the_ledger_append():
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     if node.func.attr in writers:
                         raise AssertionError(f"{fn.name} calls {node.func.attr}")
-                    if node.func.attr == "open" and fn.name != "append_record":
+                    if node.func.attr == "open" and fn.name not in (
+                        "append_record",
+                        "append_records",
+                    ):
                         mode = node.args[0] if node.args else None
                         assert isinstance(mode, ast.Constant) and mode.value in ("r", "rb"), fn.name
     source = inspect.getsource(shadow)

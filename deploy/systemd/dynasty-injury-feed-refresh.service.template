@@ -24,7 +24,12 @@ Wants=network-online.target
 #
 # Exit codes (scripts/refresh_injury_feed.py):
 #   0 - ok (including "flag off, no-op" and "no injuries")
-#   1 - event merge failed; prior snapshot untouched
+#   1 - fetch not proven (ESPN failure: no events, no history row) or event
+#       merge failed; prior snapshot untouched either way
+#
+# Also appends each proven fetch to the as-known history log
+# data/nfl_data/injury_history/ (src/nfl_data/injury_history.py; backed up
+# by riskit-state-backup.sh).
 
 [Service]
 Type=oneshot

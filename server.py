@@ -698,6 +698,28 @@ def _live_player_meta() -> dict[str, dict[str, str | None]]:
         contract = latest_contract_data or {}
         rows = contract.get("playersArray") or []
         meta: dict[str, dict[str, str | None]] = {}
+        # ``playerId`` rides alongside for the as-known news archive
+        # (``src/news/archive.py``) only — enrichment reads position/team
+        # and nothing else, so the served mentions are unchanged.  A display
+        # name two rows with different ids share keeps NO id (never a guess).
+        ids: dict[str, str | None] = {}
+        id_conflicts: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = ""
+            for key in ("displayName", "name", "canonicalName", "fullName"):
+                v = row.get(key)
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+                    break
+            if not name:
+                continue
+            pid = str(row.get("playerId") or "").strip() or None
+            if name not in ids:
+                ids[name] = pid
+            elif ids[name] != pid:
+                id_conflicts.add(name)
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -726,6 +748,14 @@ def _live_player_meta() -> dict[str, dict[str, str | None]]:
                 # attribute a mention safely, so stamp nothing rather
                 # than the wrong player's identity.
                 meta[name] = {"position": None, "team": None}
+        for name, entry in meta.items():
+            if name in id_conflicts:
+                entry["playerId"] = None
+                entry["playerIdNullReason"] = "display_name_shared_by_multiple_player_ids"
+            else:
+                entry["playerId"] = ids.get(name)
+                if entry["playerId"] is None:
+                    entry["playerIdNullReason"] = "board_row_has_no_player_id"
         return meta
 
     return _live_contract_scan("player_meta", _build)

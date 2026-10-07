@@ -1,8 +1,9 @@
 """Append-only, monthly-rotated JSONL ledger with a sidecar key index.
 
-One neutral owner for the mechanics two capture stores share (the
-sparse-evidence shadow, ``src/api/sparse_evidence_shadow.py``, and the AL-P4
-pick-forecast snapshot, ``src/ros/pick_forecast_snapshot.py``). It knows
+One neutral owner for the mechanics the capture stores share (the
+sparse-evidence shadow, ``src/api/sparse_evidence_shadow.py``, the AL-P4
+pick-forecast snapshot, ``src/ros/pick_forecast_snapshot.py``, and the G4
+as-known stores ``src/nfl_data/injury_history.py`` / ``src/news/archive.py``). It knows
 nothing about what a record MEANS -- only that every record carries a ``key``
 and a ``recordedAt``:
 
@@ -23,7 +24,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -131,32 +132,61 @@ def append_record(base: Path, record: Mapping[str, Any], legacy_name: str | None
     a missing index is first seeded with every key already in the files, so it
     never forgets a record.
     """
-    key = record.get("key")
-    if not key:
-        raise ValueError("record has no key")
+    return append_records(base, [record], legacy_name) == 1
+
+
+def append_records(
+    base: Path, records: Iterable[Mapping[str, Any]], legacy_name: str | None = None
+) -> int:
+    """Append every record whose key is not yet recorded; return how many were written.
+
+    The batch form of :func:`append_record`, with identical semantics: the index
+    is read ONCE, a key repeated inside the batch is written once, every line is
+    durable (fsync) before its key enters the index, and nothing already in a
+    file is ever rewritten. Records are grouped by their ``recordedAt`` month and
+    keep their input order inside a month.
+    """
+    batch = list(records)
+    for record in batch:
+        if not record.get("key"):
+            raise ValueError("record has no key")
     base = Path(base)
     index = index_path(base)
     seed = not index.exists()
     known = recorded_keys(base, legacy_name)
-    if key in known:
-        return False
+    fresh: list[Mapping[str, Any]] = []
+    taken: set[str] = set()
+    for record in batch:
+        key = str(record["key"])
+        if key in known or key in taken:
+            continue
+        taken.add(key)
+        fresh.append(record)
+    if not fresh:
+        return 0
     base.mkdir(parents=True, exist_ok=True)
-    path = ledger_path(base, record.get("recordedAt"))
-    line = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
-    torn = path.exists() and path.stat().st_size > 0 and not ends_with_newline(path)
-    with path.open("a", encoding="utf-8") as fh:
-        if torn:  # a crash mid-append: start fresh, never rewrite what is there
-            fh.write("\n")
-        fh.write(line + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
+    by_path: dict[Path, list[str]] = {}
+    for record in fresh:
+        path = ledger_path(base, record.get("recordedAt"))
+        line = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
+        by_path.setdefault(path, []).append(line)
+    for path, lines in by_path.items():
+        torn = path.exists() and path.stat().st_size > 0 and not ends_with_newline(path)
+        with path.open("a", encoding="utf-8") as fh:
+            if torn:  # a crash mid-append: start fresh, never rewrite what is there
+                fh.write("\n")
+            for line in lines:
+                fh.write(line + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
     index_torn = index.exists() and index.stat().st_size > 0 and not ends_with_newline(index)
     with index.open("a", encoding="utf-8") as fh:
         if index_torn:  # a crash mid-append: never glue the next key onto a partial one
             fh.write("\n")
         for k in sorted(known) if seed else ():
             fh.write(k + "\n")
-        fh.write(str(key) + "\n")
+        for record in fresh:
+            fh.write(str(record["key"]) + "\n")
         fh.flush()
         os.fsync(fh.fileno())
-    return True
+    return len(fresh)

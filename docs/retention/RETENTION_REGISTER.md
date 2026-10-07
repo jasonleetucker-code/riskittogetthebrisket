@@ -886,3 +886,55 @@ restore-and-verify the AL-P2 artifacts at first; §5 adds the small ones.
   (a SIGKILLed run's, PID reused the same day) before writing.
 * **Proof accepts only known optional names** as explained absences, so a CORE
   artifact can never be excused by a forged or stray manifest row.
+
+## Addendum — As-known injury + news capture joined the backup set (Adaptive Learning G4 / IC-1), 2026-10-07
+
+**Not a C1A row**, like the addenda above. Owner unit: IC-1 evidence closure,
+Adaptive Learning gap **G4** ("As-known injury / news state",
+`docs/BRISKET_IDEAS.md` §13). Both stores are OPTIONAL in
+`riskit-state-backup.sh` (guarded, never in `BACKUP_REQUIRED`, failure = WARN +
+exit 3, generation kept), listed in the proof's `KNOWN_OPTIONAL_STORES`, and
+restore-checked by `prove_dir` in `retention_backup_restore_proof.sh`.
+
+**Why they are perishable.** Each records something that exists only while it
+is current. ESPN's injury endpoint serves the report as it stands NOW; the news
+providers behind `/api/news` serve a rolling window and the service drops
+anything older than 7 days. Before this change the injury refresh overwrote
+`data/nfl_data/injuries_prior.json` and kept only transition events, and news
+lived only in an in-memory cache — so "what status did this player carry at
+kickoff" and "which headlines existed when this alert fired" were unrecoverable
+the moment the week moved on. Every in-season week not captured is lost for
+good; official weekly designations may be recoverable from nflverse later
+(2026 in-season availability UNVERIFIED), the intraday ESPN state and the news
+set are not.
+
+| | `data/nfl_data/injury_history/` | `data/news_archive/` |
+|---|---|---|
+| **Write owner** | `src/nfl_data/injury_history.py::capture` (called by `scripts/refresh_injury_feed.py`, `dynasty-injury-feed-refresh` timer, every 4 h) | `src/news/archive.py::archive` (the `NewsService.on_refresh` hook, background thread, at each real aggregator refresh ≈ every 10 min while `/api/news` is hit) |
+| **Format** | append-only monthly `ledger-YYYY-MM.jsonl` + `ledger.keys`, via `src/utils/append_ledger.py` | same |
+| **Record** | `snapshot` (whole report: per entry ESPN id, name, position, team, status, body part, description, date reported, return text — blanks `null` — plus `identity`) or `reobserved` (identical content seen again at a later fetch: key, content hash, `snapshotKey`) | one per `(provider, provider item id)`: provider, item id, `publishedAt` (+ parsed or `null`), `fetchedAt` = first refresh that served it, headline, URL, kind, severity, tags, mentions with `sleeperId` or `null` + reason. **No article body or summary** (copyright) |
+| **Dedupe** | key `(provider, contentSha256, fetchedAt)`: the same fetch never twice; identical content after the last state is a small re-observation, never a copy; A→B→A records A again | first sighting wins; later refreshes write nothing |
+| **As-known semantics** | `fetchedAt` is the response cache's own `fetched_at` (a cache hit is not a new fetch). `providerAsOf` is `null` with reason — the endpoint has no as-of stamp. `as_known_at(T)` selects only `fetchedAt ≤ T` | `known_at(T)` selects only `fetchedAt ≤ T` — an item first seen later is never selectable, even if `publishedAt` is earlier |
+| **Identity** | ESPN id → Sleeper id by EXACT id only, through `src.identity.resolution.resolve_canonical_v2(espn_id=…)`; unknown id, an id two Sleeper players share, or no directory stays `unresolved` with its reason | the tagger's exact board display name → that row's `playerId`; ambiguous mention, unknown name, or a display name two ids share stays `null` with reason |
+| **Retention** | indefinite, append-only | indefinite, append-only |
+| **Privacy class** | public facts, but box-local (never committed; outside every `git add -f` path) | box-local; headlines + URLs are third-party metadata, never republished |
+| **Restore / replay** | restore the tar; nothing re-derives it | same |
+| **Backup** | `dirs/injury_history.tar.gz` | `dirs/news_archive.tar.gz` |
+| **Size** | ~300 entries × ~250 B per changed report, ≤ 6/day → ≲ 20 MB/yr raw, far less gzipped | ~100–500 new items/day × ~500 B → ≲ 100 MB/yr raw |
+| **Health signal** | the refresh's journal line; the as-of reader's `observedAgeSeconds` shows a stalled collector | none yet |
+
+**Fail-closed fetch (same change).** `fetch_injuries` returns `[]` both for "no
+injuries" and for "the fetch failed". The refresh used to treat a failure as an
+empty report: it emitted an `ACTIVATED_RETURN` for every injured player and
+overwrote the prior with `[]`, so the next good fetch re-emitted every injury as
+new (reproduced on the pre-change script: 2 injured → 2 `ACTIVATED_RETURN`,
+prior `[]`). The refresh now proceeds only when the response cache proves the
+returned list was fetched, and otherwise changes nothing and exits 1 — the exit
+code its own docstring already promised.
+
+**Evidence status: NONE MEASURED.** No production generation has been observed
+containing either artifact; the rows are pinned by
+`tests/deploy/test_state_backup_dir_archiving.py` and the proof's lockstep test —
+repository facts, not production evidence. The first box observation is
+`ls data/nfl_data/injury_history data/news_archive` after the first deploy, then a
+generation listing.
