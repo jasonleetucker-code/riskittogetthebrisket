@@ -156,6 +156,12 @@ class PublicLeagueSnapshot:
     # Keyed by str(player_id) — Sleeper player dump.  May be empty if
     # the NFL players endpoint was unreachable.
     nfl_players: dict[str, Any] = field(default_factory=dict)
+    # How the ``previous_league_id`` walk that produced ``seasons`` ended
+    # (``sleeper_client.walk_league_chain_status``): ``{"state": complete |
+    # truncated | unverified, "seasonsWalked", "cap"}``.  ``None`` when the
+    # snapshot was not built from a chain walk (tests, a pre-field on-disk
+    # snapshot) -- unknown, never assumed complete.
+    history_coverage: dict[str, Any] | None = None
 
     @property
     def current_season(self) -> SeasonSnapshot | None:
@@ -341,13 +347,13 @@ def build_public_snapshot(
     max_seasons: int = PUBLIC_MAX_SEASONS,
     include_nfl_players: bool = True,
 ) -> PublicLeagueSnapshot:
-    """Build a PublicLeagueSnapshot for the last ``max_seasons`` dynasty
-    seasons starting from ``root_league_id``.
+    """Build a PublicLeagueSnapshot for every dynasty season of the league
+    starting from ``root_league_id`` (``max_seasons`` is a safety cap).
 
-    The chain walk follows Sleeper ``previous_league_id`` links.  If
-    the chain is shorter than ``max_seasons`` (e.g. league is in its
-    first season), the snapshot simply has fewer entries — every
-    section module handles the short case.
+    The chain walk follows Sleeper ``previous_league_id`` links to the
+    league's first season; ``history_coverage`` records whether it got there
+    (``complete``) or stopped early (``truncated`` at the cap, ``unverified``
+    on an unreadable link).  Every section module handles a short chain.
 
     ``include_nfl_players`` controls whether we fetch the ~5 MB
     players/nfl dump.  Tests pass ``False``; production fetches it.
@@ -359,7 +365,10 @@ def build_public_snapshot(
     if not snapshot.root_league_id:
         return snapshot
 
-    chain = sleeper_client.walk_league_chain(snapshot.root_league_id, max_seasons=max_seasons)
+    chain, coverage = sleeper_client.walk_league_chain_status(
+        snapshot.root_league_id, max_seasons=max_seasons
+    )
+    snapshot.history_coverage = coverage
     if not chain:
         return snapshot
 

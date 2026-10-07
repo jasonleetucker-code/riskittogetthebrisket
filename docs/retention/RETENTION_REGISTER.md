@@ -429,18 +429,33 @@ the live path lost `transaction_id` in the first place.
 
 ---
 
-## `C1-RET-07` — identity resolution reports
+## `C1-RET-07` — identity resolution evidence
 
-| | |
-|---|---|
-| **Primary store** | `data/identity/identity_{resolution,report}_*.json` |
-| **Backup** | `riskit-state-backup.sh` → `dirs/identity.tar.gz` |
-| **Write owner** | the scraper / `scripts/identity_resolve.py` — **the producer is not currently in the tree** |
-| **Read owner** | `GET /api/scaffold/identity` (private-auth) |
-| **Retention** | indefinite; 177 artifacts on the live checkout |
-| **Privacy class** | internal |
-| **Restore / replay** | restore the tarball. Reports are derived from raw source snapshots, so a *reconstruction* is possible where those survive — it is not the original observation |
-| **Health signal** | `scripts/retention_health.py` → `C1-RET-07`; budget 48 h |
+**Repointed 2026-10-07 (#1676).** The stream now has TWO stores with different
+contracts, and only the live one is graded for freshness.
+
+| | live stream (graded) | legacy archive (frozen) |
+|---|---|---|
+| **Store** | `data/scrape_state/identity_dual_read.json` | `data/identity/identity_{resolution,report}_*.json` |
+| **Write owner** | `Dynasty Scraper.py` — the C1-ID-01 dual-read record, rewritten every scrape cycle by the canonical identity owner (`src/identity/resolution.py`) | **none** — `scripts/identity_resolve.py` (retired Jenkins pipeline) last ran 2026-04-20; retired by #173 |
+| **Freshness stamp** | the record's own `generatedAt` (never mtime — the file is git-tracked and a checkout rewrites mtime) | filename date, reported for information only |
+| **Freshness budget** | `SCRAPE_BUDGET_H` (6 h) — the scrape cadence rule, because the scrape writes it | **none** — no producer exists, so no SLA can be met |
+| **Retention** | the newest record on the box; every refresh commit keeps its history in git | **indefinite**: git-tracked, backed up nightly, never deleted |
+| **Backup** | git history (`scheduled-refresh.yml` force-adds `data/scrape_state/`) | `riskit-state-backup.sh` → `dirs/identity.tar.gz` |
+| **Read owner** | `scripts/identity_parity.py`; this probe | `GET /api/scaffold/identity` (private-auth, age-labelled) |
+| **Health signal** | `scripts/retention_health.py` → `C1-RET-07` state | `C1-RET-07.legacyArchive` (`state: frozen`, artifact count, newest, age) |
+| **Privacy class** | internal | internal |
+| **Restore / replay** | `git show <sha>:data/scrape_state/identity_dual_read.json` | restore the tarball, or check it out from git. Reports are derived from raw source snapshots, so a *reconstruction* is possible where those survive — it is not the original observation |
+
+**Why the repoint is not a weakened check.** The old probe graded the frozen
+archive against a 48 h budget that nothing could ever satisfy, so the nightly
+watchdog was red every day from 2026-04-20 — and a watchdog that is always red
+reports nothing new: `C1-RET-08` went stale 2026-09-23..27 and nobody saw it,
+because the job was already failing. Identity evidence never stopped being
+produced; it moved to the dual-read record at the C1-ID-01 cut-over. The probe
+now grades that record (missing / unreadable / no `generatedAt` / zero
+`calls` are all *not ok*), and the workflow runs one job per stream so one
+known-bad stream can no longer mask another.
 
 **Why it was at risk.** HALTED 2026-04-20. Measured on the live checkout at
 2026-08-15: newest artifact `identity_report_20260420T194828Z.json`, **2,791.9

@@ -41,7 +41,9 @@ EXIT_CANNOT_RUN = 1
 EXIT_UNHEALTHY = 2
 
 
-def _run(data_dir: Path, *, event_name: str = "", require: str = "") -> subprocess.CompletedProcess:
+def _run(
+    data_dir: Path, *, event_name: str = "", require: str = "", stream: str = ""
+) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env.update(
         {
@@ -50,6 +52,7 @@ def _run(data_dir: Path, *, event_name: str = "", require: str = "") -> subproce
             "DATA_DIR": str(data_dir),
             "EVENT_NAME": event_name,
             "REQUIRE": require,
+            "STREAM": stream,
         }
     )
     return subprocess.run(
@@ -282,3 +285,64 @@ def test_the_watchdog_does_not_share_a_concurrency_group_with_deploys(empty_data
     cfg = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     assert cfg["concurrency"]["group"] != "production-deploy"
     assert cfg["concurrency"]["cancel-in-progress"] is False
+
+
+# ── each stream alerts on its own (#1676) ────────────────────────────
+#
+# One exit code for eight streams let C1-RET-07's months-long red hide
+# C1-RET-08 going stale on 2026-09-23..27.  The workflow now runs one job
+# per stream; STREAM decides which stream a job's exit code answers for.
+
+
+def test_a_stream_job_is_red_only_for_its_own_stream(one_healthy_stream):
+    healthy = _run(one_healthy_stream, event_name="schedule", stream="C1-RET-01")
+    unhealthy = _run(one_healthy_stream, event_name="schedule", stream="C1-RET-04")
+
+    assert healthy.returncode == EXIT_OK, f"stdout:\n{healthy.stdout}\nstderr:\n{healthy.stderr}"
+    # The siblings' failures are still printed, not swallowed.
+    assert "alerted by their own jobs" in healthy.stderr
+    assert unhealthy.returncode == EXIT_UNHEALTHY
+    assert "C1-RET-04=missing" in unhealthy.stderr
+
+
+def test_a_stream_job_still_requires_the_whole_tranche_on_a_schedule(one_healthy_stream):
+    # REQUIRE cannot narrow a scheduled run, with or without STREAM.
+    result = _run(
+        one_healthy_stream, event_name="schedule", require="C1-RET-01", stream="C1-RET-04"
+    )
+
+    assert result.returncode == EXIT_UNHEALTHY
+    assert "ignoring REQUIRE" in result.stdout
+
+
+def test_a_bad_stream_value_cannot_pass(empty_data):
+    for bad in ("C1-RET-99", "-h", "C1-RET-01 --json"):
+        result = _run(empty_data, event_name="schedule", stream=bad)
+        assert result.returncode == EXIT_CANNOT_RUN, bad
+
+
+def test_a_require_typo_still_fails_inside_a_stream_job(one_healthy_stream):
+    result = _run(
+        one_healthy_stream,
+        event_name="workflow_dispatch",
+        require="C1-RET-01 C1-RET-99",
+        stream="C1-RET-01",
+    )
+
+    assert result.returncode == EXIT_CANNOT_RUN
+
+
+def test_the_workflow_runs_exactly_one_job_per_declared_stream():
+    """A stream with no job would never alert -- the same silence as a
+    watchdog that cannot fail."""
+    import yaml
+
+    from src.retention.health import STREAM_IDS
+
+    cfg = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    job = cfg["jobs"]["probe"]
+    assert job["strategy"]["fail-fast"] is False
+    assert list(job["strategy"]["matrix"]["stream"]) == list(STREAM_IDS)
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "STREAM: ${{ matrix.stream }}" in text
+    assert "STREAM=$(printf %q" in text

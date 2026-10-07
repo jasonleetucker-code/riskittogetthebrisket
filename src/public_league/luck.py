@@ -90,9 +90,11 @@ def _season_weekly_scores(
 
     **An in-progress week contributes to nobody.**  The week gate is
     ``metrics.final_regular_season_weeks``, not ``season.regular_season_weeks``.
-    This function feeds per-game aggregation in two places — the Luck section
-    and ``ros.power_v2`` — so admitting a live week made a Thursday-night
-    sliver count as a completed game.  Measured on 2026-09-19: live week 2
+    This function feeds per-game aggregation in ``ros.power_v2`` and
+    ``playoff_odds`` (it fed the Luck section too, until Luck moved onto the
+    canonical schedule-impact owner -- see ``_season_team_weeks``), so
+    admitting a live week made a Thursday-night sliver count as a completed
+    game.  Measured on 2026-09-19: live week 2
     held 8 partial scores and 4 rosters at ``0.0``, so eight teams' PPG was
     divided by 2 and four by 1, inside one table (PRIOR-A03-F03).
 
@@ -103,8 +105,14 @@ def _season_weekly_scores(
     denominator again, in the direction that hides the defect.  MISSING IS
     NEVER ZERO must not become "zero is never real".
 
-    ``_actual_week_results`` inherits the gate for free: both callers iterate
+    ``_actual_week_results`` inherits the gate for free: its caller iterates
     only the weeks this function returned.
+
+    Orphan rosters (no owner that season) are skipped HERE, while
+    ``_actual_week_results`` credits the owner who played one -- the
+    inconsistency #1530 finding A measured.  The Luck section no longer reads
+    this pair; ``ros.power_v2`` still does, and changing its inputs is a Power
+    methodology question, not a Luck one.
     """
     out: dict[int, list[tuple[str, float]]] = {}
     for wk in metrics.final_regular_season_weeks(season):
@@ -163,6 +171,70 @@ def _actual_week_results(
     return actual, pair_pts
 
 
+def _season_team_weeks(
+    season: SeasonSnapshot,
+    registry: ManagerRegistry,
+) -> list[tuple[int, str, dict[str, float | int], float, float, float]]:
+    """Every owner's evaluable regular-season game as
+    ``(week, owner_id, all_play, actual_share, points_for, points_against)``.
+
+    Consumed from the canonical schedule-impact owner
+    (``schedule_impact.season_week_inputs`` + ``compute_schedule_impact``)
+    rather than re-derived, so the EXPECTED and the ACTUAL halves of the luck
+    delta are measured over one game set by construction (#1530 finding A).
+
+    The defect this replaced: ``_season_weekly_scores`` dropped an ownerless
+    (orphan) roster from every all-play rival set, while
+    ``_actual_week_results`` still credited the owner who played it.  In
+    ``dynasty_new`` 2024 (rosters 3 and 5 had no owner) expected and actual
+    wins were therefore summed over different games.  The canonical owner keeps
+    an orphan roster as a real participant (``roster:<id>``): a rival in every
+    all-play comparison and a real opponent.  It is never published as a luck
+    row of its own -- it has no manager to be lucky -- which is why ``roster:``
+    keys are skipped here and only here.
+
+    Two consequences of consuming the owner, both its documented rules:
+
+    * a team that scored but played no head-to-head game (a bye) is not an
+      eligible all-play rival that week (``equal_opponent_v1``), and has no
+      luck row for it -- no game, so no actual result to compare against;
+    * a game whose score is missing is excluded for BOTH teams, never scored
+      as a 0-point loss (MISSING IS NEVER ZERO); a format the owner calls
+      ``unsupported`` (a team in two games in one week) yields no luck rows
+      rather than a plausible number from a simplified format.
+
+    Week gate: the owner's own, ``metrics.final_regular_season_weeks``.
+    """
+    core = schedule_impact.compute_schedule_impact(
+        schedule_impact.season_week_inputs(season, registry)
+    )
+    out: list[tuple[int, str, dict[str, float | int], float, float, float]] = []
+    for row in core.get("weeks") or []:
+        key = row["teamKey"]
+        if key.startswith("roster:"):
+            continue
+        beats, ties = int(row["allPlayWins"]), int(row["allPlayTies"])
+        rivals = beats + ties + int(row["allPlayLosses"])
+        all_play = {
+            "beats": beats,
+            "ties": ties,
+            "rivals": rivals,
+            "expectedShare": float(row["allPlayRate"]),
+        }
+        out.append(
+            (
+                int(row["week"]),
+                key,
+                all_play,
+                float(row["h2hCredit"]),
+                float(row["score"]),
+                float(row["opponentScore"]),
+            )
+        )
+    out.sort(key=lambda r: (r[0], r[1]))
+    return out
+
+
 def _roster_id_for_owner(registry: ManagerRegistry, league_id: str, owner_id: str) -> int | None:
     for (lid, rid), oid in registry.roster_to_owner.items():
         if lid == league_id and oid == owner_id:
@@ -213,101 +285,76 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # walked most-recent-first (the snapshot's natural order), cumGames
     # would decrease in the sorted output.
     for season in sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season)):
-        week_scores = _season_weekly_scores(season, registry)
-        for wk in sorted(week_scores.keys()):
-            scores = week_scores[wk]
-            all_play = _all_play_week(scores)
-            actual, pair_pts = _actual_week_results(season, wk, registry)
+        for wk, oid, ap, actual_share, pts_for, pts_against in _season_team_weeks(season, registry):
+            expected_share = float(ap["expectedShare"])
 
-            for oid, ap in all_play.items():
-                if oid not in actual:
-                    # Scored this week but never PAIRED — a bye, an odd
-                    # team count, or a matchup row Sleeper didn't group.
-                    # Their score still counts as a rival in everyone
-                    # else's all-play (it is a real week of scoring), but
-                    # they played no game, so there is no actual result
-                    # to compare their expected share against.  Defaulting
-                    # to 0.0 charged them a full phantom loss and, via
-                    # ``pair_pts``'s matching default, silently deflated
-                    # their career pointsFor by a real week's score.
-                    continue
-                # ``actual`` and ``pair_pts`` are populated in lockstep by
-                # ``_actual_week_results``, so the gate above also makes
-                # this default unreachable — it stays only so a future
-                # divergence degrades instead of raising.
-                pts_for, pts_against = pair_pts.get(oid, (0.0, 0.0))
-                expected_share = float(ap["expectedShare"])
-                actual_share = actual[oid]
+            # Career aggregate.
+            career = by_owner_career[oid]
+            if not career["ownerId"]:
+                career["ownerId"] = oid
+                career["displayName"] = metrics.display_name_for(snapshot, oid)
+                current = snapshot.current_season
+                if current:
+                    rid_current = _roster_id_for_owner(registry, current.league_id, oid)
+                    career["teamName"] = metrics.team_name(snapshot, current.league_id, rid_current)
+            career["gamesPlayed"] += 1
+            career["expectedWins"] += expected_share
+            career["actualWins"] += actual_share
+            career["pointsFor"] += pts_for
+            career["pointsAgainst"] += pts_against
+            career["allPlayBeats"] += int(ap["beats"])
+            career["allPlayTies"] += int(ap["ties"])
+            career["allPlayRivals"] += int(ap["rivals"])
 
-                # Career aggregate.
-                career = by_owner_career[oid]
-                if not career["ownerId"]:
-                    career["ownerId"] = oid
-                    career["displayName"] = metrics.display_name_for(snapshot, oid)
-                    current = snapshot.current_season
-                    if current:
-                        rid_current = _roster_id_for_owner(registry, current.league_id, oid)
-                        career["teamName"] = metrics.team_name(
-                            snapshot, current.league_id, rid_current
-                        )
-                career["gamesPlayed"] += 1
-                career["expectedWins"] += expected_share
-                career["actualWins"] += actual_share
-                career["pointsFor"] += pts_for
-                career["pointsAgainst"] += pts_against
-                career["allPlayBeats"] += int(ap["beats"])
-                career["allPlayTies"] += int(ap["ties"])
-                career["allPlayRivals"] += int(ap["rivals"])
+            # Season aggregate.
+            key = (oid, season.season)
+            if key not in by_owner_season:
+                rid = _roster_id_for_owner(registry, season.league_id, oid)
+                by_owner_season[key] = {
+                    "ownerId": oid,
+                    "season": season.season,
+                    "leagueId": season.league_id,
+                    "displayName": metrics.display_name_for(snapshot, oid),
+                    "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                    "gamesPlayed": 0,
+                    "actualWins": 0.0,
+                    "expectedWins": 0.0,
+                    "pointsFor": 0.0,
+                    "pointsAgainst": 0.0,
+                    "allPlayBeats": 0,
+                    "allPlayTies": 0,
+                    "allPlayRivals": 0,
+                }
+            s = by_owner_season[key]
+            s["gamesPlayed"] += 1
+            s["actualWins"] += actual_share
+            s["expectedWins"] += expected_share
+            s["pointsFor"] += pts_for
+            s["pointsAgainst"] += pts_against
+            s["allPlayBeats"] += int(ap["beats"])
+            s["allPlayTies"] += int(ap["ties"])
+            s["allPlayRivals"] += int(ap["rivals"])
 
-                # Season aggregate.
-                key = (oid, season.season)
-                if key not in by_owner_season:
-                    rid = _roster_id_for_owner(registry, season.league_id, oid)
-                    by_owner_season[key] = {
-                        "ownerId": oid,
-                        "season": season.season,
-                        "leagueId": season.league_id,
-                        "displayName": metrics.display_name_for(snapshot, oid),
-                        "teamName": metrics.team_name(snapshot, season.league_id, rid),
-                        "gamesPlayed": 0,
-                        "actualWins": 0.0,
-                        "expectedWins": 0.0,
-                        "pointsFor": 0.0,
-                        "pointsAgainst": 0.0,
-                        "allPlayBeats": 0,
-                        "allPlayTies": 0,
-                        "allPlayRivals": 0,
-                    }
-                s = by_owner_season[key]
-                s["gamesPlayed"] += 1
-                s["actualWins"] += actual_share
-                s["expectedWins"] += expected_share
-                s["pointsFor"] += pts_for
-                s["pointsAgainst"] += pts_against
-                s["allPlayBeats"] += int(ap["beats"])
-                s["allPlayTies"] += int(ap["ties"])
-                s["allPlayRivals"] += int(ap["rivals"])
-
-                # Trail (owner-scoped cumulative).
-                t = trail_state[oid]
-                t["expected"] += expected_share
-                t["actual"] += actual_share
-                t["games"] += 1
-                weekly_trail.append(
-                    {
-                        "ownerId": oid,
-                        "season": season.season,
-                        "week": wk,
-                        "weekExpected": round(expected_share, 4),
-                        "weekActual": round(actual_share, 4),
-                        "weekLuckDelta": round(actual_share - expected_share, 4),
-                        "weekPoints": round(pts_for, 2),
-                        "cumExpected": round(t["expected"], 4),
-                        "cumActual": round(t["actual"], 4),
-                        "cumLuckDelta": round(t["actual"] - t["expected"], 4),
-                        "cumGames": int(t["games"]),
-                    }
-                )
+            # Trail (owner-scoped cumulative).
+            t = trail_state[oid]
+            t["expected"] += expected_share
+            t["actual"] += actual_share
+            t["games"] += 1
+            weekly_trail.append(
+                {
+                    "ownerId": oid,
+                    "season": season.season,
+                    "week": wk,
+                    "weekExpected": round(expected_share, 4),
+                    "weekActual": round(actual_share, 4),
+                    "weekLuckDelta": round(actual_share - expected_share, 4),
+                    "weekPoints": round(pts_for, 2),
+                    "cumExpected": round(t["expected"], 4),
+                    "cumActual": round(t["actual"], 4),
+                    "cumLuckDelta": round(t["actual"] - t["expected"], 4),
+                    "cumGames": int(t["games"]),
+                }
+            )
 
     # Finalize career rows.
     career_rows: list[dict[str, Any]] = []
@@ -406,7 +453,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "unluckiestCurrent": current_season_rows[-1] if current_season_rows else None,
         "methodology": (
             "Expected wins = sum of weekly all-play win share "
-            "((beats + ties*0.5) / (teams-1)). Luck delta = actual wins "
-            "minus expected wins. Regular season only."
+            "((beats + ties*0.5) / rivals, where rivals are every other team "
+            "that played a head-to-head game that week, ownerless rosters "
+            "included). Luck delta = actual wins minus expected wins, over the "
+            "same games. Regular season only."
         ),
     }

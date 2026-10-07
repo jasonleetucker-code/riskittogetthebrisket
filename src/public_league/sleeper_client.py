@@ -7,9 +7,11 @@ returns ``None`` / ``[]`` rather than raising, so the snapshot can
 still render with partial sections instead of failing the whole
 page.
 
-Exactly two dynasty seasons are supported right now: the current
-league and its direct ``previous_league_id``.  The chain walk is
-capped so a badly-configured league cannot recurse forever.
+History depth: the WHOLE ``previous_league_id`` chain.  The walk stops at
+Sleeper's terminator (``"0"`` / empty), at a link it cannot read, at a
+loop, or at a 25-season SAFETY cap -- and it says which
+(:func:`walk_league_chain_status`), so a truncated history can never pass
+for a complete one (C9-HIST-02).
 
 Network layer:
     Uses a module-level ``requests.Session`` with a pooled
@@ -33,16 +35,31 @@ log = logging.getLogger(__name__)
 
 SLEEPER_BASE = "https://api.sleeper.app/v1"
 
-# Max dynasty seasons the public pipeline surfaces.  Widened to 3
-# after the 2025 playoffs + 2026 offseason shipped — unlocks deeper
-# Hall of Fame + Best Rebuild signal.  Tunable via env override below
-# so ops can raise or lower without a code change.  Every section
-# module iterates ``snapshot.seasons`` so this constant is the single
-# knob that controls horizon.
+# SAFETY cap on the dynasty seasons the public pipeline walks -- not a
+# retention window.  "All-time" records, archives, Hall of Fame and every
+# other section iterate ``snapshot.seasons``, so this constant decides how
+# much league history exists for them.  It used to be 3, which made
+# "all-time" a rolling 3-season window that was correct only by coincidence
+# (dynasty_main's chain was exactly 3 seasons long) and would have silently
+# dropped 2024 at the 2027 rollover (C9-HIST-02 / W19-F017).  25 is a guard
+# against a malformed or cyclic chain, far past any real league's age; if a
+# chain ever reaches it the walk reports ``truncated`` instead of passing
+# the partial history off as complete.  Env override retained for ops.
+DEFAULT_PUBLIC_MAX_SEASONS = 25
 try:
-    PUBLIC_MAX_SEASONS = max(1, int(_os.getenv("PUBLIC_MAX_SEASONS", "3")))
+    PUBLIC_MAX_SEASONS = max(
+        1, int(_os.getenv("PUBLIC_MAX_SEASONS", str(DEFAULT_PUBLIC_MAX_SEASONS)))
+    )
 except ValueError:
-    PUBLIC_MAX_SEASONS = 3
+    PUBLIC_MAX_SEASONS = DEFAULT_PUBLIC_MAX_SEASONS
+
+#: Sleeper's ``previous_league_id`` for a league with no predecessor.
+_CHAIN_TERMINATORS = frozenset({"", "0"})
+
+#: :func:`walk_league_chain_status` outcomes.
+CHAIN_COMPLETE = "complete"  # reached the first season of the league
+CHAIN_TRUNCATED = "truncated"  # hit the safety cap with history still pending
+CHAIN_UNVERIFIED = "unverified"  # a link could not be read (or looped)
 
 _DEFAULT_TIMEOUT = 8.0
 
@@ -331,30 +348,68 @@ def reset_nfl_players_cache() -> None:
     _nfl_players_cache = None
 
 
-def walk_league_chain(
+def walk_league_chain_status(
     start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
-) -> list[dict[str, Any]]:
-    """Follow ``previous_league_id`` links up to ``max_seasons`` hops.
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Follow ``previous_league_id`` links to the league's first season.
 
-    Returns a list of league objects ordered current → previous.  When
-    the chain is shorter than ``max_seasons`` (e.g. league only has one
-    completed dynasty season), the returned list is simply shorter —
-    callers must handle the short case.
+    Returns ``(chain, coverage)``: league objects ordered current -> oldest,
+    and how the walk ended, so a consumer can tell full history from a
+    partial one:
 
-    Graceful fallback: any missing league object or broken link ends
-    the walk without raising.
+    * ``complete`` -- reached Sleeper's terminator (``"0"`` / empty): every
+      season of the league is in ``chain``;
+    * ``truncated`` -- stopped at ``max_seasons`` while an older season was
+      still linked.  Logged as a warning; never silent;
+    * ``unverified`` -- a linked league could not be fetched, or the chain
+      looped.  Whether older seasons exist is unknown, so it is not called
+      complete.
+
+    ``coverage`` = ``{"state", "seasonsWalked", "cap"}``.  No league id is
+    included (the public payload carries its own ``leagueIds``).
+    Network failures never raise.
     """
-    if max_seasons <= 0:
-        return []
     chain: list[dict[str, Any]] = []
+    if max_seasons <= 0:
+        return chain, {"state": CHAIN_TRUNCATED, "seasonsWalked": 0, "cap": max_seasons}
     seen: set[str] = set()
     cur = str(start_league_id or "").strip()
-    while cur and cur not in seen and len(chain) < max_seasons:
+    state = CHAIN_COMPLETE
+    while cur not in _CHAIN_TERMINATORS:
+        if cur in seen:
+            state = CHAIN_UNVERIFIED
+            log.warning("sleeper_client: previous_league_id chain loops at %s", cur)
+            break
+        if len(chain) >= max_seasons:
+            state = CHAIN_TRUNCATED
+            log.warning(
+                "sleeper_client: league history TRUNCATED at the %d-season safety cap "
+                "(older season %s still linked)",
+                max_seasons,
+                cur,
+            )
+            break
         seen.add(cur)
         league = fetch_league(cur)
         if not league:
+            state = CHAIN_UNVERIFIED
             break
         chain.append(league)
         nxt = league.get("previous_league_id") or league.get("previous_league") or ""
         cur = str(nxt or "").strip()
-    return chain
+    if not chain and state == CHAIN_COMPLETE:
+        # No start id at all: nothing was walked, so nothing is proven complete.
+        state = CHAIN_UNVERIFIED
+    return chain, {"state": state, "seasonsWalked": len(chain), "cap": max_seasons}
+
+
+def walk_league_chain(
+    start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
+) -> list[dict[str, Any]]:
+    """The chain alone, current -> oldest; see :func:`walk_league_chain_status`
+    for how the walk ended (complete / truncated / unverified).
+
+    Graceful fallback: any missing league object or broken link ends the
+    walk without raising -- callers must handle the short case.
+    """
+    return walk_league_chain_status(start_league_id, max_seasons)[0]

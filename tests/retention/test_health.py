@@ -142,9 +142,9 @@ def test_identity_reports_are_probed(data_dir):
     ident.mkdir()
     (ident / "identity_resolution_2026-04-20.json").write_text("{}", encoding="utf-8")
 
-    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
-    assert stream["newest"] == "identity_resolution_2026-04-20.json"
-    assert stream["stampSource"] == "filename"
+    legacy = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]["legacyArchive"]
+    assert legacy["newest"] == "identity_resolution_2026-04-20.json"
+    assert legacy["stampSource"] == "filename"
 
 
 def test_a_dated_filename_beats_mtime(data_dir):
@@ -157,9 +157,8 @@ def test_a_dated_filename_beats_mtime(data_dir):
     old = ident / "identity_report_20260420T194828Z.json"
     old.write_text("{}", encoding="utf-8")  # mtime = now
 
-    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
-    assert stream["state"] == health.STATE_STALE
-    assert stream["ageHours"] > 2000, "must reflect the filename date, not the fresh mtime"
+    legacy = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]["legacyArchive"]
+    assert legacy["ageHours"] > 2000, "must reflect the filename date, not the fresh mtime"
 
 
 def test_an_undated_artifact_falls_back_to_mtime_and_says_so(data_dir):
@@ -167,9 +166,9 @@ def test_an_undated_artifact_falls_back_to_mtime_and_says_so(data_dir):
     ident.mkdir()
     (ident / "identity_report_latest.json").write_text("{}", encoding="utf-8")
 
-    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
-    assert stream["stampSource"] == "mtime"
-    assert stream["state"] == health.STATE_OK
+    legacy = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]["legacyArchive"]
+    assert legacy["stampSource"] == "mtime"
+    assert legacy["ageHours"] < 1
 
 
 def test_newest_is_chosen_by_stamp_not_by_write_order(data_dir):
@@ -179,8 +178,8 @@ def test_newest_is_chosen_by_stamp_not_by_write_order(data_dir):
     (ident / "identity_report_20260420T000000Z.json").write_text("{}", encoding="utf-8")
     (ident / "identity_report_20260814T000000Z.json").write_text("{}", encoding="utf-8")
 
-    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
-    assert stream["newest"] == "identity_report_20260814T000000Z.json"
+    legacy = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]["legacyArchive"]
+    assert legacy["newest"] == "identity_report_20260814T000000Z.json"
 
 
 def test_a_probe_failure_does_not_blind_the_other_streams(data_dir, monkeypatch):
@@ -286,7 +285,90 @@ def test_an_undated_sibling_cannot_outrank_a_dated_artifact(data_dir):
     (ident / "identity_report_20260420T194828Z.json").write_text("{}", encoding="utf-8")
     (ident / "identity_report_latest.json").write_text("{}", encoding="utf-8")  # fresh mtime
 
+    legacy = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]["legacyArchive"]
+    assert legacy["stampSource"] == "filename"
+    assert legacy["ageHours"] > 2000
+
+
+# ── C1-RET-07 repointed to the live identity evidence (#1676) ────────
+
+
+def _dual_read(data_dir, *, hours_ago: float | None = 1.0, calls=2072):
+    sd = data_dir / "scrape_state"
+    sd.mkdir(exist_ok=True)
+    payload = {"servedBy": "src.identity.resolution", "servedPolicy": "scraper_sleeper_attach_v1"}
+    if hours_ago is not None:
+        payload["generatedAt"] = _iso(hours_ago)
+    if calls is not None:
+        payload["calls"] = calls
+    (sd / "identity_dual_read.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _frozen_legacy_archive(data_dir):
+    ident = data_dir / "identity"
+    ident.mkdir()
+    (ident / "identity_report_20260420T194828Z.json").write_text("{}", encoding="utf-8")
+
+
+def test_ret07_is_graded_on_the_live_dual_read_record_not_the_frozen_archive(data_dir):
+    """#1676: the retired data/identity/ producer made C1-RET-07 stale every
+    day although identity evidence IS written every scrape cycle."""
+    _frozen_legacy_archive(data_dir)
+    _dual_read(data_dir, hours_ago=1.0)
+
     stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
-    assert stream["stampSource"] == "filename"
+    assert stream["state"] == health.STATE_OK
+    assert stream["primaryStore"].endswith("identity_dual_read.json")
+    assert stream["stampSource"] == "generatedAt"
+    assert stream["calls"] == 2072
+
+
+def test_the_legacy_archive_is_frozen_retained_and_never_decides_state(data_dir):
+    _frozen_legacy_archive(data_dir)
+    _dual_read(data_dir, hours_ago=1.0)
+
+    legacy = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]["legacyArchive"]
+    assert legacy["state"] == "frozen"
+    assert legacy["artifacts"] == 1
+    assert legacy["retiredBy"] == "#173"
+    assert legacy["retention"] == "indefinite"
+    assert legacy["freshnessSla"] is None
+    assert legacy["ageHours"] > 2000
+
+
+def test_a_stale_live_record_is_stale_even_with_a_fresh_mtime(data_dir):
+    _dual_read(data_dir, hours_ago=health.SCRAPE_BUDGET_H + 5)  # file mtime = now
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
     assert stream["state"] == health.STATE_STALE
-    assert stream["ageHours"] > 2000
+
+
+def test_no_live_record_is_missing_even_when_the_archive_exists(data_dir):
+    _frozen_legacy_archive(data_dir)
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
+    assert stream["state"] == health.STATE_MISSING
+    assert stream["legacyArchive"]["state"] == "frozen"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"hours_ago": None},  # no generatedAt: age unmeasurable
+        {"calls": 0},  # zero decisions recorded is no evidence
+    ],
+)
+def test_an_unmeasurable_or_empty_live_record_is_unknown_never_ok(data_dir, kwargs):
+    _dual_read(data_dir, **kwargs)
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
+    assert stream["state"] == health.STATE_UNKNOWN
+
+
+def test_an_unreadable_live_record_is_unknown(data_dir):
+    sd = data_dir / "scrape_state"
+    sd.mkdir()
+    (sd / "identity_dual_read.json").write_text("{not json", encoding="utf-8")
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
+    assert stream["state"] == health.STATE_UNKNOWN
