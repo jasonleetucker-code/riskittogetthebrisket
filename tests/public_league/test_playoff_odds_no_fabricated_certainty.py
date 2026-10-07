@@ -136,6 +136,10 @@ def _snapshot_no_games(owner_ids, *, weeks=3):
         winners_bracket=[],
         losers_bracket=[],
         regular_season_weeks=list(range(1, weeks + 1)),
+        # Read by the canonical finished-week gate.  Its absence made all
+        # three end-to-end tests below SKIP ("snapshot shape drifted") —
+        # found and repaired in C5-PLAY-01.
+        num_teams=len(owner_ids),
     )
 
     managers = SimpleNamespace(
@@ -153,11 +157,28 @@ def _snapshot_no_games(owner_ids, *, weeks=3):
     )
 
 
+@pytest.fixture
+def offline_engine(monkeypatch):
+    """C5-PLAY-01: the public section is the canonical engine's forecast,
+    so these end-to-end tests drive the REAL engine — with no cache file, no
+    ROS strength and no best-ball roster reads, i.e. on the snapshot alone."""
+    from src.ros import playoff_sim
+
+    monkeypatch.setattr(playoff_sim, "_load_cached_payload", lambda *a, **k: None)
+    monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
+    monkeypatch.setattr(playoff_sim, "_load_team_depth_ratios", lambda *a, **k: {})
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
+    monkeypatch.setattr(
+        "src.public_league.draft_order.league_draft_order_rule", lambda *a, **k: None
+    )
+
+
+@pytest.mark.usefixtures("offline_engine")
 def test_no_games_played_does_not_publish_one_point_zero():
     """The headline defect: certainty before a single game."""
     ids = ["alpha", "bravo", "charlie", "xray", "yankee", "zulu"]
     try:
-        payload = _po.compute_playoff_odds(_snapshot_no_games(ids), num_sims=200)
+        payload = _po.compute_playoff_odds(_snapshot_no_games(ids))
     except Exception as exc:  # pragma: no cover - surfaces harness drift
         pytest.skip(f"snapshot shape drifted: {exc!r}")
 
@@ -168,10 +189,11 @@ def test_no_games_played_does_not_publish_one_point_zero():
     ), "published a 0% chance with zero games played — missing is not zero"
 
 
+@pytest.mark.usefixtures("offline_engine")
 def test_no_games_played_says_why_rather_than_guessing():
     ids = ["alpha", "bravo", "charlie", "xray", "yankee", "zulu"]
     try:
-        payload = _po.compute_playoff_odds(_snapshot_no_games(ids), num_sims=200)
+        payload = _po.compute_playoff_odds(_snapshot_no_games(ids))
     except Exception as exc:  # pragma: no cover
         pytest.skip(f"snapshot shape drifted: {exc!r}")
 
@@ -182,11 +204,12 @@ def test_no_games_played_says_why_rather_than_guessing():
     assert reason, "unsimulable needs a machine-readable reason"
 
 
+@pytest.mark.usefixtures("offline_engine")
 def test_simulated_is_stamped_on_every_path():
     """Absent and False must not read the same (the meta.valuationMode rule)."""
     ids = ["alpha", "bravo", "charlie", "xray", "yankee", "zulu"]
     try:
-        payload = _po.compute_playoff_odds(_snapshot_no_games(ids), num_sims=200)
+        payload = _po.compute_playoff_odds(_snapshot_no_games(ids))
     except Exception as exc:  # pragma: no cover
         pytest.skip(f"snapshot shape drifted: {exc!r}")
     assert "simulated" in payload
@@ -211,32 +234,37 @@ def test_the_recorded_production_output_is_the_alphabet():
     ), "the recorded 1.0 set is no longer the lexically-first N"
 
 
-def test_the_simulation_loop_passes_an_rng_to_the_tiebreak():
+def test_the_public_section_orders_no_standings_of_its_own():
     """Structural guard, in the repo's own idiom.
 
-    ``standings_from_sim`` keeps an ownerId fallback for callers that pass no
-    rng, so a future edit could silently drop the argument at the ONE call
-    site that matters and reinstate the defect with every test still green.
-    An AST check is how this repo pins that class of regression elsewhere
-    (see the lineup solver's no-fallback-greedy test).
+    This used to pin that the public module's simulation loop passed an
+    ``rng`` to ``standings_from_sim``.  Since C5-PLAY-01 the module has NO
+    simulation: it lays the canonical engine's forecast into its shape, and
+    the one simulation that orders standings is ``src/ros/playoff_sim.py``,
+    whose explicit ``rng=`` is pinned by ``tests/ros/test_standings_tiebreak``.
+    A call reappearing here means a second engine has reappeared.
     """
     import ast
     from pathlib import Path as _P
 
     src = _P(_po.__file__).read_text(encoding="utf-8")
     tree = ast.parse(src)
-    calls = [
-        n
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "standings_from_sim"
+    # ``standings_from_sim`` itself is the canonical standings ORDER (the
+    # engine imports it); every other function in the module is scanned.
+    scanned = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name != "standings_from_sim"
     ]
-    assert calls, "no call to standings_from_sim found — did it get renamed?"
-    for call in calls:
-        kwargs = {k.arg for k in call.keywords}
-        assert "rng" in kwargs, (
-            f"standings_from_sim called without an explicit rng= at line "
-            f"{call.lineno}. Every call site must STATE its tiebreak choice: a "
-            "simulation passes the rng so the ownerId cannot become the "
-            "answer; the final-standings path passes None because a completed "
-            "season is a fact. Inheriting the default hides which one you meant."
-        )
+    calls = [
+        n.lineno
+        for fn in scanned
+        for n in ast.walk(fn)
+        if isinstance(n, ast.Call)
+        and (getattr(n.func, "id", None) or getattr(n.func, "attr", None))
+        in {"standings_from_sim", "random", "choice", "gauss"}
+    ]
+    assert not calls, (
+        f"the public playoffOdds section draws or orders standings itself again "
+        f"(lines {calls}) — it must read src.ros.playoff_sim.canonical_forecast"
+    )

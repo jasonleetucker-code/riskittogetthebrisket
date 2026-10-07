@@ -168,40 +168,53 @@ class PublicLeagueRouteTests(unittest.TestCase):
         # Metrics endpoint should not be cached by clients.
         self.assertEqual(r.headers.get("cache-control"), "no-store")
 
-    def test_heavy_section_is_single_flight_cached(self) -> None:
-        """playoffOdds (a 10k-sim Monte Carlo) must be memoized per
-        snapshot: repeated requests reuse one build instead of each
-        launching an independent GIL-bound simulation in the threadpool.
+    def test_playoff_odds_and_ros_playoff_odds_publish_one_answer(self) -> None:
+        """C5-PLAY-01. ``playoffOdds`` used to be the original heavy section:
+        a 10k-sim Monte Carlo of its own, memoized per snapshot.  It is now
+        the canonical forecast in the public shape, so it must agree with
+        ``rosPlayoffOdds`` owner for owner, request after request — and it
+        is no longer memoized here, because a per-snapshot memo would pin
+        it to an older forecast than the ROS file ``rosPlayoffOdds`` reads.
         """
+        from unittest.mock import patch
+
         import server
+        from src.ros import playoff_sim
 
-        # Warm a single shared snapshot so both section calls key to it.
         self.client.get("/api/public/league?refresh=1")
-        server._heavy_section_cache.clear()
+        playoff_sim._LIVE_MEMO.clear()
+        self.addCleanup(playoff_sim._LIVE_MEMO.clear)
+        offline = [
+            patch.object(playoff_sim, "_load_cached_payload", lambda *a, **k: None),
+            patch.object(
+                playoff_sim,
+                "_load_ros_strength_map",
+                lambda *a, **k: {f"owner-{c}": 50.0 + i for i, c in enumerate("ABCD")},
+            ),
+            patch.object(playoff_sim, "_load_team_depth_ratios", lambda *a, **k: {}),
+            patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
+            patch(
+                "src.public_league.draft_order.league_draft_order_rule",
+                lambda *a, **k: None,
+            ),
+        ]
+        for p in offline:
+            p.start()
+            self.addCleanup(p.stop)
 
-        calls = {"n": 0}
-        real = server.build_section_payload
-
-        def _counting(snapshot, section, **kw):
-            if section == "playoffOdds":
-                calls["n"] += 1
-            return real(snapshot, section, **kw)
-
-        server.build_section_payload = _counting
-        try:
-            r1 = self.client.get("/api/public/league/playoffOdds")
-            r2 = self.client.get("/api/public/league/playoffOdds")
-        finally:
-            server.build_section_payload = real
-
-        self.assertEqual(r1.status_code, 200)
-        self.assertEqual(r2.status_code, 200)
-        self.assertEqual(r1.json()["section"], "playoffOdds")
-        # Single-flight: the expensive builder ran once; the second
-        # request was served from the per-snapshot cache.
-        self.assertEqual(calls["n"], 1)
-        # Both responses are identical (same cached payload).
+        self.assertNotIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        r1 = self.client.get("/api/public/league/playoffOdds")
+        r2 = self.client.get("/api/public/league/playoffOdds")
+        ros = self.client.get("/api/public/league/rosPlayoffOdds")
+        for r in (r1, r2, ros):
+            self.assertEqual(r.status_code, 200)
         self.assertEqual(r1.json()["data"], r2.json()["data"])
+        public = {o["ownerId"]: o["playoffProbability"] for o in r1.json()["data"]["owners"]}
+        canonical = {r["ownerId"]: r["playoffOdds"] for r in ros.json()["data"]["playoffOdds"]}
+        if canonical:
+            self.assertEqual(public, canonical)
+        else:
+            self.assertTrue(all(v is None for v in public.values()), public)
 
     def test_archives_section_is_single_flight_cached(self) -> None:
         """archives must be memoized per snapshot, same as playoffOdds.
@@ -289,14 +302,16 @@ class PublicLeagueRouteTests(unittest.TestCase):
 
     def test_only_snapshot_pure_sections_are_cached(self) -> None:
         """Only purely snapshot-derived sections are memoized by snapshot
-        identity: ``playoffOdds`` (always-simulate), ``archives`` and
-        ``awards`` (both deterministic functions of the snapshot).  The
-        file-backed ROS sections are intentionally NOT cached — caching
-        them by snapshot identity would hide fresh results the ROS
-        publisher writes between snapshot refreshes."""
+        identity: ``archives`` and ``awards`` (both deterministic functions
+        of the snapshot).  The file-backed playoff sections — since
+        C5-PLAY-01 that includes ``playoffOdds`` — are intentionally NOT
+        cached: caching them by snapshot identity would hide fresh results
+        the ROS publisher writes between snapshot refreshes, and would let
+        two of them disagree."""
         import server
 
-        self.assertIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertNotIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertIn("archives", server._HEAVY_SECTION_KEYS)
         self.assertIn("awards", server._HEAVY_SECTION_KEYS)
         # File-backed ROS sims read their artifact fresh each request.
         self.assertNotIn("rosPlayoffOdds", server._HEAVY_SECTION_KEYS)

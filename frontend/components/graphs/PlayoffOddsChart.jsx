@@ -2,17 +2,19 @@
 
 // ── Chart: playoff-odds Monte Carlo ──────────────────────────────────
 // Horizontal bar chart showing each franchise's probability of making
-// the playoffs, per the Monte Carlo simulator in
-// ``src/public_league/playoff_odds.py``.
+// the playoffs, per the ONE canonical playoff engine
+// (``src/ros/playoff_sim.py``), served in the public ``playoffOdds``
+// section's shape by ``src/public_league/playoff_odds.py`` (C5-PLAY-01).
+// These are the same numbers the Championship tab shows.
 //
 // The backend does the sampling (it has the raw matchup data); this
 // component is pure rendering.  Displayed probabilities come directly
-// from ``playoffProbability`` in the simulator's output.
+// from ``playoffProbability`` in the section's output.
 //
-// Schedule-certainty badge: the simulator annotates its output with
-// ``scheduleCertainty ∈ {posted, partial, inferred, final}``.  When
-// the remaining schedule is inferred via round-robin fallback the
-// chart shows a small caution label explaining the assumption.
+// Schedule-certainty badge: the section annotates its output with
+// ``scheduleCertainty ∈ {posted, posted_weeks_only, final, preseason,
+// unknown_bracket}``.  ``posted_weeks_only`` means some remaining week
+// has no posted matchups, and the engine simulates posted weeks only.
 //
 // Input:
 //   data = {
@@ -32,8 +34,7 @@ import {
 
 function certaintyLabel(kind) {
   if (kind === "posted") return { text: "Exact schedule", color: CHART_COLORS.success };
-  if (kind === "partial") return { text: "Partial schedule (round-robin for un-posted weeks)", color: CHART_COLORS.warn };
-  if (kind === "inferred") return { text: "Inferred round-robin schedule", color: CHART_COLORS.warn };
+  if (kind === "posted_weeks_only") return { text: "Posted weeks only (un-posted weeks not simulated)", color: CHART_COLORS.warn };
   if (kind === "final") return { text: "Season complete", color: CHART_COLORS.axisLabel };
   if (kind === "preseason") return { text: "Preseason — odds not yet simulated", color: CHART_COLORS.axisLabel };
   return { text: "Unknown schedule source", color: CHART_COLORS.axisLabel };
@@ -76,14 +77,26 @@ export default function PlayoffOddsChart({
   const isUnknownBracket =
     data?.scheduleCertainty === "unknown_bracket" ||
     (allNull && data?.playoffSpots == null && unsimulable);
-  const isPreseason = !isUnknownBracket && (data?.scheduleCertainty === "preseason" || allNull);
-  if (isUnknownBracket || isPreseason) {
+  // A mid-season refusal (e.g. the engine had no team evidence) is a third
+  // cause, and it is not preseason either: say what the backend said.
+  const isRefused =
+    !isUnknownBracket &&
+    allNull &&
+    !!unsimulable &&
+    data?.scheduleCertainty !== "preseason";
+  const isPreseason =
+    !isUnknownBracket && !isRefused && (data?.scheduleCertainty === "preseason" || allNull);
+  if (isUnknownBracket || isRefused || isPreseason) {
     const title = isUnknownBracket
       ? "Playoff format not published"
+      : isRefused
+      ? "Playoff odds unavailable"
       : "Preseason — odds not yet simulated";
     const detail = isUnknownBracket
       ? unsimulable?.detail ||
         "This league's settings do not say how many teams make the playoffs, so qualifying has no definition to simulate against."
+      : isRefused
+      ? unsimulable?.detail || "The playoff engine published no odds for this league."
       : "Playoff probabilities populate once Sleeper posts a schedule and Week 1 begins.";
     return (
       <div
@@ -171,7 +184,7 @@ export default function PlayoffOddsChart({
         {sorted.map((o, i) => {
           const y = i * (rowHeight + rowGap);
           // ``playoffProbability: null`` means "not yet computable"
-          // (preseason, sims disabled via num_sims=0).  Per Codex
+          // (preseason, or an owner the forecast does not cover).  Per Codex
           // PR #215 round 6: coercing null to 0 via ``|| 0`` made
           // preseason look like every team had zero odds instead of
           // "not yet computed."  ``rawP = null`` renders the row

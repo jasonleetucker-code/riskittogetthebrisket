@@ -273,10 +273,13 @@ def test_ros_engines_state_their_tiebreak_choice():
                 f"{rel}:{node.lineno}: standings_from_sim called without an "
                 "explicit rng= — that path falls back to the ownerId"
             )
-    assert total == len(_ROS_ENGINES), (
-        f"expected one canonical standings call per ROS engine, found {total}. "
-        "If an engine stopped ordering standings, say so here; if it was "
-        "renamed, this guard is now blind."
+    # ONE call: since C5-PLAY-01 ``championship.py`` is an adapter over
+    # ``playoff_sim``'s forecast and orders no standings of its own, so the
+    # only simulation that seeds a bracket is the canonical engine's.
+    assert total == 1, (
+        f"expected exactly one canonical standings call across the ROS "
+        f"modules (the one engine's), found {total}. A second call means a "
+        "second simulation has appeared; none means this guard is now blind."
     )
 
 

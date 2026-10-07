@@ -107,20 +107,14 @@ class TestSimulateBracket(unittest.TestCase):
         wins = 0
         for seed in range(50):
             rng = random.Random(seed)
-            out = championship._simulate_bracket(
-                list(distributions.keys()),
-                distributions,
-                bye_seeds=2,
-                # V1-51 follow-up: the field size is no longer a literal
-                # inside the function, and ``playoff_seeds`` has no
-                # default — a plausible default is how the six-team
-                # bracket survived for a seven-team league. All six of
-                # these owners qualify, which is what the bye_seeds=2
-                # above already assumed.
-                playoff_seeds=6,
-                rng=rng,
+            # C5-PLAY-01: the ONE bracket is ``playoff_sim``'s (the retired
+            # second bracket lived in ``championship.py``).  All six of
+            # these owners qualify, which is what bye_seeds=2 assumes.
+            placements: dict = {}
+            playoff_sim._simulate_bracket(
+                list(distributions.keys()), distributions, 2, rng, placements
             )
-            if out.get("o0") == 1:
+            if placements.get("o0", {}).get("place") == 1:
                 wins += 1
         self.assertGreater(wins, 25, "top seed should win majority of brackets")
 
