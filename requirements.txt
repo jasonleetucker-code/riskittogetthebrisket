@@ -101,5 +101,5 @@ tzdata~=2026.1; sys_platform == "win32"
 # scipy.optimize.milp.  BSD (scipy/numpy) + MIT (HiGHS).  Imported lazily
 # inside the solver so server startup never pays for it.  Decision record:
 # docs/dfs/DECISIONS.md ADR-DFS-001.
-numpy~=2.0
+numpy~=2.5
 scipy~=1.13
