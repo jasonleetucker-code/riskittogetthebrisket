@@ -757,6 +757,30 @@ It is **advisory**: a failure only warns
 (`VERIFY_SOURCE_WEIGHTING_REPORT=0` disables it), so it can never fail or
 skip a deploy.
 
+## A first observation is a lower bound, not a publication time (D1, 2026-10-07)
+
+The first time a board is seen, `dataset_state.observe` can only stamp the
+data clocks with the OBSERVATION (fetch) time, and marks the subset
+`firstObservationIsBaseline`. The content was published at some unknown time
+at or before that, so while the baseline is still the clock its age is a
+**lower bound**. `freshness.assess_subset` therefore:
+
+* keeps the factor that lower bound implies (it can prove a board is at least
+  so stale — no blend weight moves);
+* never reports it `ON_SCHEDULE`: a baseline that would read on schedule is
+  `UNMEASURED`, whose factor is the same neutral 1.0;
+* publishes `sourceDataAsOf: null`, `clockIsObservationBaseline: true`,
+  `observationBaselineAt`, `ageIsLowerBound: true`, and does not present the
+  baseline as a `lastBroadDatasetChangeAt` / `lastAnyMeaningfulChangeAt`.
+
+The first genuine broad change after the baseline restores the normal clock; a
+vendor-stated publication time (`EXPLICIT_UPSTREAM_TIMESTAMP`) is a real clock
+and never a baseline. Pinned by `tests/sources/test_first_observation_baseline.py`.
+
+The B11 confidence gate's FETCH flags (`data_contract._source_freshness_flags`)
+are likewise measured at the board's own as-of against its own `csv_root`, never
+the wall clock (D9) — `tests/api/test_confidence_freshness_as_of.py`.
+
 ## Relationship to `dynamic_source_weights`
 
 The existing `dynamic_source_weights` flag gates an accuracy-based
