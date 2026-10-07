@@ -463,6 +463,27 @@ class ModelRegistry:
         self._validate()
         return self.get(version)
 
+    def rollback_target(self, *, to_version: int | None = None) -> ModelVersion:
+        """The version :meth:`rollback` would reinstate — read-only, mutates nothing.
+
+        The single selection rule, shared by ``rollback`` and by readers that
+        need to NAME the rollback identity without performing it (the Model
+        Lab): with no ``to_version``, the most recently retired former
+        champion; otherwise ``to_version``, which must be a former champion.
+        Raises :class:`RegistryError` when there is no valid target.
+        """
+        former = [v for v in self._versions if v.status == "retired" and v.promoted_at]
+        if not former:
+            raise RegistryError(f"{self.model_id!r} has no former champion to roll back to")
+        if to_version is None:
+            return max(former, key=lambda v: (v.retired_at or "", v.version))
+        target = self.get(to_version)
+        if target.status != "retired" or not target.promoted_at:
+            raise RegistryError(
+                f"v{to_version} was never a champion; rollback targets former champions only"
+            )
+        return target
+
     def rollback(self, *, to_version: int | None = None, reason: str) -> ModelVersion:
         """Reinstate a previous champion — the single documented undo.
 
@@ -475,17 +496,7 @@ class ModelRegistry:
         if not reason.strip():
             raise RegistryError("rollback() requires a non-empty reason")
 
-        former = [v for v in self._versions if v.status == "retired" and v.promoted_at]
-        if not former:
-            raise RegistryError(f"{self.model_id!r} has no former champion to roll back to")
-        if to_version is None:
-            target = max(former, key=lambda v: (v.retired_at or "", v.version))
-        else:
-            target = self.get(to_version)
-            if target.status != "retired" or not target.promoted_at:
-                raise RegistryError(
-                    f"v{to_version} was never a champion; rollback targets former champions only"
-                )
+        target = self.rollback_target(to_version=to_version)
 
         now = _utcnow()
         out: list[ModelVersion] = []

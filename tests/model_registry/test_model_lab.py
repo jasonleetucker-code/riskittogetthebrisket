@@ -521,3 +521,94 @@ def test_consensus_edge_reports_the_newest_validation_per_horizon(live_payload):
     (model,) = ce["challengers"]
     names = {m["name"] for m in model["metrics"]}
     assert names == {f"medianExcessTop20[{h}d]" for h in horizons}
+
+
+# ── one verdict vocabulary: the Lab consumes AL-0's tables ───────────────────
+
+
+def test_lab_states_cover_exactly_the_al0_verdicts():
+    from src.model_registry.evaluation_receipt import VERDICTS
+
+    assert set(ml.VERDICT_TO_LAB_STATE) == set(VERDICTS)
+    assert set(ml.VERDICT_TO_LAB_STATE.values()) <= set(ml.LAB_STATES)
+
+
+@pytest.mark.parametrize(
+    "table_path",
+    [
+        ("src.model_registry.learning_adapters", "SQ_DISPOSITION_TO_VERDICT"),
+        ("src.model_registry.producer_receipts", "ROBUST_VERDICT_TO_VERDICT"),
+    ],
+)
+def test_evaluator_states_derive_from_the_producers_al0_table(table_path):
+    import importlib
+
+    module, name = table_path
+    table = getattr(importlib.import_module(module), name)
+    for native, verdict in table.items():
+        state, al0 = ml._state_from_native(native, table)
+        assert al0 == verdict
+        assert state == ml.VERDICT_TO_LAB_STATE[verdict]
+    state, al0 = ml._state_from_native("SOMETHING_NEW", table)
+    assert state == ml.LAB_INSUFFICIENT and al0["state"] == "unobserved"
+    assert "SOMETHING_NEW" in al0["reason"]
+
+
+def test_lab_tables_speak_only_al0_verdicts():
+    from src.model_registry.evaluation_receipt import VERDICTS
+
+    for table in (ml.SPARSE_VERDICT_TO_VERDICT, ml.CE_DECISION_TO_VERDICT):
+        assert set(table.values()) <= set(VERDICTS)
+
+
+def test_rollback_identity_is_the_owners_selection(hill_root):
+    from src.model_registry.versioning import ModelRegistry
+
+    registry = ModelRegistry.load("hill_scope_masters", hill_root / "config/model_registry")
+    named = ml.build_hill_family(hill_root, {"state": "unobserved", "reason": "x"})["rollback"]
+    assert named["version"] == registry.rollback_target().version
+    # ...and it is exactly what rollback() would reinstate (in memory only).
+    assert registry.rollback(reason="test").version == named["version"]
+
+
+def test_flags_are_read_through_the_registry_reporting_helper(monkeypatch):
+    from src.api import feature_flags
+
+    def refuse(name):  # a variable read would be invisible to the reachability scan
+        raise AssertionError(f"is_enabled({name!r}) read through a variable")
+
+    real = feature_flags.effective_flags()
+    monkeypatch.setattr(feature_flags, "effective_flags", lambda: real)
+    monkeypatch.setattr(feature_flags, "is_enabled", refuse)
+    row = ml._flag_state("consensus_edge")
+    assert row["enabled"] is real["consensus_edge"]["enabled"]
+    assert row["gateStatus"] == real["consensus_edge"]["gateStatus"]
+
+
+def test_receipt_counts_is_a_grouped_read(tmp_path, monkeypatch):
+    from src.model_registry import receipt_store
+    from src.model_registry.learning_receipt import Unobserved, build_receipt
+
+    monkeypatch.setattr(receipt_store, "EXTRA_ALLOWED_ROOTS", (tmp_path.resolve(),))
+    store = tmp_path / "r.sqlite"
+    assert receipt_store.receipt_counts(store) is None  # absent, not zero
+    receipt_store.append_receipts(
+        [
+            build_receipt(
+                kind=kind,
+                producer="p",
+                native_id=f"n{i}",
+                model_family="fam",
+                model_version_id=None,
+                slots={"inputs": Unobserved("test")},
+            )
+            for i, kind in enumerate(["OBSERVATION", "OBSERVATION", "FEATURES"])
+        ],
+        path=store,
+    )
+    counts = receipt_store.receipt_counts(store)
+    assert counts["corrections"] == 0
+    assert {(g["modelFamily"], g["kind"], g["count"]) for g in counts["groups"]} == {
+        ("fam", "FEATURES", 1),
+        ("fam", "OBSERVATION", 2),
+    }

@@ -36,8 +36,40 @@ Challenger lab states are a fixed vocabulary (:data:`LAB_STATES`):
 * ``INSUFFICIENT_EVIDENCE`` — cannot be judged from its own record yet;
 * ``RETIRED`` — a former champion.
 
-Each challenger also carries its family's NATIVE status verbatim (``nativeStatus``),
-so the mapping is auditable rather than a relabelling.
+Each challenger also carries its family's NATIVE status verbatim (``nativeStatus``)
+and the AL-0 verdict it maps through (``al0Verdict``), so the mapping is auditable
+rather than a relabelling.
+
+How a state is decided — one rule, two sources, in this order:
+
+1. **The family's own registry status, when the family has a registry.**  Hill:
+   ``champion`` -> CHAMPION, ``retired`` -> RETIRED, ``rejected`` -> REJECTED (an
+   explicit registry disposition).  A standing Hill ``challenger`` is HELD (it
+   competed in, or was excluded from, the latest RECORDED Autopilot tournament —
+   the reason says which) or INSUFFICIENT_EVIDENCE (no holdout, or no reproducible
+   pinned training run, so it cannot be judged from its own record).  Hill holdouts
+   emit no AL-0 EVALUATION verdict (``producer_receipts.HILL_EVALUATION_WITHHELD``).
+2. **Otherwise the evaluator's verdict, through AL-0's verdict vocabulary.**  The
+   producer's native verdict is translated by the producer's OWN AL-0 table
+   (``learning_adapters.SQ_DISPOSITION_TO_VERDICT``,
+   ``producer_receipts.ROBUST_VERDICT_TO_VERDICT``) and then by the single table
+   :data:`VERDICT_TO_LAB_STATE`:
+
+   * ``champion_retained`` -> REJECTED — the challenger failed its preregistered
+     gate; the champion stays.  (A gate FAILURE is a rejection; a gate that is
+     merely still pending is not.)
+   * ``challenger_better_pending_policy`` -> HELD — the evidence gate passed;
+     promotion waits on the family's policy (independent review, owner approval).
+   * ``inconclusive`` -> SHADOW — no decisive result; the candidate keeps running
+     beside the champion.
+   * ``insufficient_sample`` -> INSUFFICIENT_EVIDENCE.
+
+   Two evaluators have no AL-0 adapter yet (the sparse-evidence one-board
+   evaluation and the Consensus Edge ship gate emit no EVALUATION receipt); their
+   native verdicts are translated onto the AL-0 vocabulary here
+   (:data:`SPARSE_VERDICT_TO_VERDICT`, :data:`CE_DECISION_TO_VERDICT`) — the only
+   translation tables this module owns.  An unmapped native verdict is
+   INSUFFICIENT_EVIDENCE with the raw value in the reason, never guessed.
 
 Private: served only at ``GET /api/model-lab`` behind the session gate
 (``model_lab_api``).  Development metrics are not for ordinary league users (§33).
@@ -118,6 +150,7 @@ CHALLENGER_FIELDS: tuple[str, ...] = (
     "version",
     "state",
     "nativeStatus",
+    "al0Verdict",
     "createdAt",
     "metrics",
     "reason",
@@ -315,38 +348,46 @@ def _feature_manifest(family: str, features: Sequence[Mapping[str, Any]] | None)
 
 
 def _receipt_index(store_path: Path | None) -> dict[str, Any]:
-    """``family -> {kind: count}`` plus store state, via ``receipt_store.iter_receipts``.
+    """``family -> {kind: count}`` plus store state, via ``receipt_store.receipt_counts``
+    (one grouped, read-only query; no receipt is parsed).
 
     The store lives on the production box (``data/learning/``, gitignored); a
-    checkout without it reports ``unobserved``, never "zero receipts"."""
+    checkout without it reports ``unobserved``, never "zero receipts".  Counts are
+    STORED receipts, superseded revisions included; the store's correction count
+    is published beside them."""
     from src.model_registry import receipt_store
 
-    path = store_path or receipt_store.DEFAULT_STORE_PATH
-    if not Path(path).exists():
-        return {
-            "state": "unobserved",
-            "reason": f"learning-receipt store {_rel(REPO, Path(path))} is absent on this host",
-            "byFamily": {},
-        }
-    by_family: dict[str, dict[str, Any]] = {}
+    path = Path(store_path or receipt_store.DEFAULT_STORE_PATH)
     try:
-        for receipt in receipt_store.iter_receipts(Path(path), live_only=True):
-            fam = str(receipt.get("modelFamily") or "")
-            slot = by_family.setdefault(fam, {"byKind": {}, "latestCutoff": None, "total": 0})
-            kind = str(receipt.get("kind") or "")
-            slot["byKind"][kind] = slot["byKind"].get(kind, 0) + 1
-            slot["total"] += 1
-            cut = _parse_instant(receipt.get("cutoff"))
-            prev = _parse_instant(slot["latestCutoff"])
-            if cut is not None and (prev is None or cut > prev):
-                slot["latestCutoff"] = cut.isoformat()
+        counts = receipt_store.receipt_counts(path)
     except Exception as exc:  # noqa: BLE001
         return {
             "state": "unobserved",
             "reason": f"learning-receipt store unreadable: {type(exc).__name__}: {exc}",
             "byFamily": {},
         }
-    return {"state": "observed", "byFamily": by_family}
+    if counts is None:
+        return {
+            "state": "unobserved",
+            "reason": f"learning-receipt store {_rel(REPO, path)} is absent on this host",
+            "byFamily": {},
+        }
+    by_family: dict[str, dict[str, Any]] = {}
+    for group in counts["groups"]:
+        slot = by_family.setdefault(
+            str(group["modelFamily"]), {"byKind": {}, "latestCutoff": None, "total": 0}
+        )
+        slot["byKind"][str(group["kind"])] = group["count"]
+        slot["total"] += group["count"]
+        latest = group.get("latestCutoff")
+        if latest is not None and (slot["latestCutoff"] is None or latest > slot["latestCutoff"]):
+            slot["latestCutoff"] = latest
+    return {
+        "state": "observed",
+        "counts": "stored receipts, superseded revisions included",
+        "corrections": counts["corrections"],
+        "byFamily": by_family,
+    }
 
 
 def _family_receipts(index: Mapping[str, Any], family: str) -> dict[str, Any]:
@@ -375,6 +416,7 @@ def _challenger(
     created_at: Any,
     metrics: Any,
     reason: Any,
+    al0_verdict: Any = None,
 ) -> dict[str, Any]:
     if state not in LAB_STATES:
         raise ValueError(f"unknown lab state {state!r}")
@@ -382,10 +424,46 @@ def _challenger(
         "version": version,
         "state": state,
         "nativeStatus": native_status,
+        "al0Verdict": al0_verdict
+        if al0_verdict is not None
+        else not_applicable(
+            "no AL-0 verdict applies: this state comes from the family's own status "
+            "(registry disposition or served incumbent)"
+        ),
         "createdAt": created_at,
         "metrics": metrics,
         "reason": reason,
     }
+
+
+def _verdict_tables() -> dict[str, str]:
+    from src.model_registry.evaluation_receipt import (
+        VERDICT_CHALLENGER_BETTER,
+        VERDICT_CHAMPION_RETAINED,
+        VERDICT_INCONCLUSIVE,
+        VERDICT_INSUFFICIENT,
+    )
+
+    return {
+        VERDICT_CHAMPION_RETAINED: LAB_REJECTED,
+        VERDICT_CHALLENGER_BETTER: LAB_HELD,
+        VERDICT_INCONCLUSIVE: LAB_SHADOW,
+        VERDICT_INSUFFICIENT: LAB_INSUFFICIENT,
+    }
+
+
+#: AL-0 verdict (``evaluation_receipt.VERDICTS``) -> lab state.  The ONE table.
+VERDICT_TO_LAB_STATE: Mapping[str, str] = _verdict_tables()
+
+
+def _state_from_native(native: Any, to_verdict: Mapping[str, str]) -> tuple[str, Any]:
+    """``(lab state, AL-0 verdict | unobserved block)`` for an evaluator's native verdict."""
+    verdict = to_verdict.get(str(native)) if native is not None else None
+    if verdict is None:
+        return LAB_INSUFFICIENT, unobserved(
+            f"native verdict {native!r} has no AL-0 mapping: reported, never guessed"
+        )
+    return VERDICT_TO_LAB_STATE[verdict], verdict
 
 
 def _family(**fields: Any) -> dict[str, Any]:
@@ -405,10 +483,15 @@ def _flag_state(name: str) -> dict[str, Any]:
     try:
         from src.api import feature_flags
 
+        # The registry's reporting helper, never ``is_enabled(<variable>)``:
+        # a flag read through a variable is invisible to the gate-reachability
+        # scan (tests/api/test_feature_flag_reachability.py), and a literal
+        # ``is_enabled("...")`` here would register the Lab as a gate site.
+        row = feature_flags.effective_flags()[name]
         return {
             "flag": name,
-            "enabled": bool(feature_flags.is_enabled(name)),
-            "gateStatus": feature_flags.gate_status(name),
+            "enabled": bool(row["enabled"]),
+            "gateStatus": row["gateStatus"],
             "rollback": f"RISKIT_FEATURE_{name.upper()}=0 + restart",
         }
     except Exception as exc:  # noqa: BLE001
@@ -548,6 +631,36 @@ def _live_constants_match(root: Path, champ: Mapping[str, Any] | None) -> dict[s
         abs(float(params[k]) - float(live[k])) < 5e-4 for k in live
     )
     return {"liveConstants": live, "liveConstantsMatchChampion": match}
+
+
+def _hill_rollback(versions: Sequence[Mapping[str, Any]]) -> Any:
+    """The rollback identity, chosen by the registry owner's own rule
+    (``ModelRegistry.rollback_target`` — the selection ``rollback`` performs),
+    on an in-memory registry built from the parsed document.  Nothing is written."""
+    from src.model_registry.versioning import ModelRegistry, ModelVersion, RegistryError
+
+    if not versions:
+        return unobserved("the registry holds no versions")
+    try:
+        registry = ModelRegistry(HILL_FAMILY, [ModelVersion.from_dict(v) for v in versions])
+        target = registry.rollback_target()
+    except RegistryError as exc:
+        return unobserved(str(exc))
+    except Exception as exc:  # noqa: BLE001
+        return unobserved(f"registry unreadable: {type(exc).__name__}: {exc}")
+    return {
+        "version": target.version,
+        "retiredAt": target.retired_at,
+        "mechanism": "ModelRegistry.rollback reinstates this version "
+        "(ModelRegistry.rollback_target); apply then writes its constants",
+        "command": ROLLBACK_COMMAND,
+    }
+
+
+ROLLBACK_COMMAND = (
+    "python scripts/model_registry.py rollback --reason WHY"
+    " ; then python scripts/model_registry.py apply"
+)
 
 
 def build_hill_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, Any]:
@@ -728,19 +841,7 @@ def build_hill_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, Any]
         ),
         **_live_constants_match(root, champ),
     }
-    former = [v for v in versions if v.get("status") == "retired" and v.get("promotedAt")]
-    if former:
-        target = max(former, key=lambda v: (str(v.get("retiredAt") or ""), int(v["version"])))
-        rollback: Any = {
-            "version": target.get("version"),
-            "retiredAt": target.get("retiredAt"),
-            "mechanism": "ModelRegistry.rollback reinstates the most recently retired former "
-            "champion; apply then writes its constants",
-            "command": 'python scripts/model_registry.py rollback --reason "<why>" && '
-            "python scripts/model_registry.py apply",
-        }
-    else:
-        rollback = unobserved("the registry holds no former champion to roll back to")
+    rollback = _hill_rollback(versions)
 
     excluded = (run or {}).get("excludedFromTournament") or {}
     data_quality: dict[str, Any] = {
@@ -829,12 +930,6 @@ def _evidence_file(
 SQ_FAMILY = "source_quality_weights"
 SQ_RUNTIME_EVALS_REL = "data/source_quality/evaluations.jsonl"
 SQ_COMMITTED_DIR_REL = "docs/valuation/evidence/source-quality-2026-10-01"
-SQ_DISPOSITION_STATE = {
-    "DOES_NOT_MEET_PREREGISTERED_GATE": LAB_REJECTED,
-    "MEETS_PREREGISTERED_GATE": LAB_HELD,
-    "INSUFFICIENT_EVIDENCE": LAB_INSUFFICIENT,
-    "NOT_RUN": LAB_INSUFFICIENT,
-}
 
 
 def _ci_metric(name: str, blob: Any, *, higher_is_better: bool | None) -> dict[str, Any]:
@@ -857,7 +952,11 @@ def _ci_metric(name: str, blob: Any, *, higher_is_better: bool | None) -> dict[s
 
 
 def build_source_quality_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, Any]:
-    from src.model_registry.learning_adapters import SQ_CHAMPION, SQ_FEATURES
+    from src.model_registry.learning_adapters import (
+        SQ_CHAMPION,
+        SQ_DISPOSITION_TO_VERDICT,
+        SQ_FEATURES,
+    )
 
     origin = SQ_RUNTIME_EVALS_REL
     lines, note = _read_jsonl(root / SQ_RUNTIME_EVALS_REL)
@@ -943,13 +1042,14 @@ def build_source_quality_family(root: Path, receipts: Mapping[str, Any]) -> dict
     ]
     for ln in sorted(latest, key=lambda r: str(r.get("candidate"))):
         disp = str(ln.get("disposition") or "")
-        state = SQ_DISPOSITION_STATE.get(disp)
+        state, verdict = _state_from_native(disp or None, SQ_DISPOSITION_TO_VERDICT)
         reasons = [*(ln.get("failed") or []), *(ln.get("missingEvidence") or [])]
         challengers.append(
             _challenger(
                 version=ln.get("candidate"),
-                state=state or LAB_INSUFFICIENT,
+                state=state,
                 native_status=disp or None,
+                al0_verdict=verdict,
                 created_at=_instant(ln, "evaluatedAt", "unrecorded"),
                 metrics=[
                     _ci_metric("deltaMALE", ln.get("deltaMALE"), higher_is_better=True),
@@ -957,7 +1057,7 @@ def build_source_quality_family(root: Path, receipts: Mapping[str, Any]) -> dict
                 ],
                 reason="; ".join(str(r) for r in reasons)
                 if reasons
-                else (disp if state else f"unmapped disposition {disp!r}: reported, never guessed"),
+                else (disp if isinstance(verdict, str) else verdict["reason"]),
             )
         )
     last_eval: Any = (
@@ -1021,19 +1121,30 @@ def build_source_quality_family(root: Path, receipts: Mapping[str, Any]) -> dict
 # ── sparse-evidence estimator (Batch 3 Unit E, #1591) ────────────────────────
 
 SPARSE_FAMILY = "sparse_evidence_estimator"
-SPARSE_LEDGER_DIR_REL = "data/sparse_evidence_shadow"
 SPARSE_EVIDENCE_REL = "docs/valuation/evidence/sparse-evidence-2026-10-01"
-SPARSE_VERDICT_STATE = {"does not meet gate": LAB_REJECTED, "meets gate": LAB_HELD}
+#: The sparse-evidence one-board evaluation emits no AL-0 EVALUATION receipt, so
+#: its native verdict is translated onto the AL-0 vocabulary here.
+SPARSE_VERDICT_TO_VERDICT: Mapping[str, str] = {
+    "does not meet gate": "champion_retained",
+    "meets gate": "challenger_better_pending_policy",
+}
+
+
+def _sparse_dir_rel() -> str:
+    """The ledger directory, relative to the repo, from the ledger owner."""
+    from src.api.sparse_evidence_shadow import DEFAULT_DIR
+
+    return Path(DEFAULT_DIR).relative_to(REPO).as_posix()
 
 
 def _sparse_ledger(root: Path) -> dict[str, Any]:
     from src.api.sparse_evidence_shadow import LEGACY_LEDGER_NAME
     from src.utils.append_ledger import ledger_files
 
-    base = root / SPARSE_LEDGER_DIR_REL
+    base = root / _sparse_dir_rel()
     files = ledger_files(base, LEGACY_LEDGER_NAME) if base.is_dir() else []
     if not files:
-        return unobserved(f"{SPARSE_LEDGER_DIR_REL}/ is absent on this host (production-only)")
+        return unobserved(f"{_sparse_dir_rel()}/ is absent on this host (production-only)")
     latest = _tail(files[-1])
     return {
         "state": "observed",
@@ -1090,7 +1201,9 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         "sampleSize": {"boardRows": _value(results, "boardRows", no_eval)},
         "metrics": not_applicable("the incumbent is the reference the gates compare against"),
     }
-    challenger_state = SPARSE_VERDICT_STATE.get(str(verdict or "").strip().lower())
+    challenger_state, al0 = _state_from_native(
+        str(verdict).strip().lower() if verdict else None, SPARSE_VERDICT_TO_VERDICT
+    )
     failed = [
         k for k, g in (gates or {}).items() if isinstance(g, Mapping) and g.get("pass") is False
     ]
@@ -1105,8 +1218,9 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         ),
         _challenger(
             version=ids[1] if ids else ESTIMATOR_VERSION,
-            state=challenger_state or LAB_INSUFFICIENT,
+            state=challenger_state,
             native_status=verdict or unobserved(no_eval),
+            al0_verdict=al0,
             created_at=not_applicable("a deterministic estimator version"),
             metrics=gates if isinstance(gates, Mapping) else unobserved(no_eval),
             reason=(
@@ -1123,7 +1237,7 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         domain="dynasty valuation — single-source haircut",
         owners=["src/api/sparse_evidence.py", "src/api/sparse_evidence_shadow.py"],
         artifacts=[
-            _artifact(root, SPARSE_LEDGER_DIR_REL, "shadow ledger (production host)"),
+            _artifact(root, _sparse_dir_rel(), "shadow ledger (production host)"),
             _artifact(root, f"{SPARSE_EVIDENCE_REL}/results.json", "committed evaluation"),
             _artifact(root, f"{SPARSE_EVIDENCE_REL}/PREREGISTRATION.md", "preregistration"),
         ],
@@ -1180,26 +1294,29 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
 # ── joint robust filter (Batch 2 Unit C, #1590) ──────────────────────────────
 
 ROBUST_FAMILY = "joint_robust_filter"
-ROBUST_DIR_REL = "data/robust_filter_shadow"
 ROBUST_EVIDENCE_REL = "docs/valuation/evidence/joint-filter-shadow-2026-10-01"
-ROBUST_VERDICT_STATE = {
-    "PROMOTION_ELIGIBLE_PENDING_INDEPENDENT_REVIEW": LAB_HELD,
-    "NOT_BETTER": LAB_REJECTED,
-    "INCONCLUSIVE": LAB_SHADOW,
-    "INSUFFICIENT": LAB_INSUFFICIENT,
-}
 
 
 def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, Any]:
     from src.api.joint_robust_filter import CHALLENGER_VERSION
-    from src.model_registry.producer_receipts import ROBUST_FEATURES, robust_model_ids
+    from src.model_registry.producer_receipts import (
+        ROBUST_FEATURES,
+        ROBUST_LIVE_MODE,
+        ROBUST_VERDICT_TO_VERDICT,
+        robust_model_ids,
+    )
+    from src.robust_filter_shadow import ledger as robust_ledger
 
+    # Paths from the ledger owner, re-rooted (so a test root never reads the repo's).
+    base_rel = Path(robust_ledger.DEFAULT_DIR).relative_to(REPO)
+    ledger_file = robust_ledger.ledger_path(root / base_rel)
+    ledger_rel = _rel(root, ledger_file)
+    live_eval_rel = (base_rel / f"evaluation_{ROBUST_LIVE_MODE}.json").as_posix()
     evaluation, origin, err = _evidence_file(
         root,
-        f"{ROBUST_DIR_REL}/evaluation_live_shadow.json",
+        live_eval_rel,
         f"{ROBUST_EVIDENCE_REL}/evaluation_historical_replay.json",
     )
-    ledger_file = root / ROBUST_DIR_REL / "ledger.jsonl"
     latest = _tail(ledger_file) if ledger_file.is_file() else None
     ids: tuple[str, str] | None = None
     if latest:
@@ -1266,7 +1383,7 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         "sampleSize": decision.get("minimumSample") or unobserved(no_eval),
         "metrics": not_applicable("the incumbent is the reference the deltas compare against"),
     }
-    state = ROBUST_VERDICT_STATE.get(str(verdict or ""))
+    state, al0 = _state_from_native(verdict, ROBUST_VERDICT_TO_VERDICT)
     challengers = [
         _challenger(
             version=ids[0] if ids else "served Hampel incumbent",
@@ -1278,8 +1395,9 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         ),
         _challenger(
             version=ids[1] if ids else CHALLENGER_VERSION,
-            state=state or LAB_INSUFFICIENT,
+            state=state,
             native_status=verdict or unobserved(no_eval),
+            al0_verdict=al0,
             created_at=not_applicable("a deterministic filter version"),
             metrics=metrics,
             reason="; ".join(str(r) for r in (decision.get("reasons") or []))
@@ -1298,10 +1416,8 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         domain="dynasty valuation — per-player outlier filter",
         owners=["src/api/joint_robust_filter.py", "src/robust_filter_shadow/"],
         artifacts=[
-            _artifact(root, f"{ROBUST_DIR_REL}/ledger.jsonl", "shadow ledger (production host)"),
-            _artifact(
-                root, f"{ROBUST_DIR_REL}/evaluation_live_shadow.json", "live evaluation (host)"
-            ),
+            _artifact(root, ledger_rel, "shadow ledger (production host)"),
+            _artifact(root, live_eval_rel, "live evaluation (host)"),
             _artifact(
                 root,
                 f"{ROBUST_EVIDENCE_REL}/evaluation_historical_replay.json",
@@ -1418,12 +1534,24 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
         "sampleSize": unobserved(no_results),
         "metrics": unobserved(no_results),
     }
+    # Native statuses from the vote-hold owner (data_contract), never restated here.
+    try:
+        from src.api import data_contract as dc
+
+        holds = dict(dc.PRIVATE_SOURCE_VOTE_HOLDS)
+        hold_status: Any = {
+            "heldSources": sorted(holds),
+            "holdReasons": sorted(set(holds.values())),
+        }
+        vote_state: Any = dc.VOTE_STATE_ACTIVE if enabled else dc.VOTE_STATE_SHADOW
+    except Exception as exc:  # noqa: BLE001
+        hold_status = unobserved(f"vote holds unreadable: {type(exc).__name__}: {exc}")
+        vote_state = "unobserved"
     challengers = [
         _challenger(
             version="no Signals IDP vote (hold)",
             state=LAB_RETIRED if enabled else LAB_CHAMPION,
-            native_status="PRIVATE_SOURCE_VOTE_HOLDS: shared_market_crosswalk_in_shadow_pending_"
-            "promotion",
+            native_status=hold_status,
             created_at=not_applicable("a hold"),
             metrics=not_applicable("reference side"),
             reason="the incumbent board with no Signals IDP vote (section 10.3)",
@@ -1431,7 +1559,7 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
         _challenger(
             version="Candidate A: family rank to shared-market family ladder to GLOBAL curve",
             state=LAB_CHAMPION if enabled else LAB_SHADOW,
-            native_status="flag ON" if enabled else "shadow (flag OFF)",
+            native_status=f"voteState {vote_state}",
             created_at=not_applicable("preregistered rule, fits no parameter"),
             metrics=unobserved(no_results),
             reason=no_results,
@@ -1482,7 +1610,22 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
 CE_FAMILY = "consensus_edge"
 CE_MEASUREMENTS_REL = "docs/measurements"
 CE_PARAMS_REL = "config/consensus_edge/params_v1.json"
-CE_DECISION_STATE = {"ship it (flag on)": LAB_CHAMPION, "do not ship yet": LAB_REJECTED}
+#: The Consensus Edge ship gate emits no AL-0 EVALUATION receipt, so its decision
+#: vocabulary (``validate_consensus_edge_board._decide``) is translated onto the
+#: AL-0 vocabulary here.  "inconclusive — ..." carries a suffix and is matched by
+#: prefix in :func:`_ce_verdict_key`.
+CE_DECISION_TO_VERDICT: Mapping[str, str] = {
+    "ship it (flag on)": "challenger_better_pending_policy",
+    "do not ship yet": "champion_retained",
+    "inconclusive": "inconclusive",
+}
+
+
+def _ce_verdict_key(rec: Any) -> str | None:
+    if not rec:
+        return None
+    low = str(rec).strip().lower()
+    return "inconclusive" if low.startswith("inconclusive") else low
 
 
 def build_consensus_edge_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, Any]:
@@ -1538,14 +1681,13 @@ def build_consensus_edge_family(root: Path, receipts: Mapping[str, Any]) -> dict
         if latest
         else unobserved(no_eval)
     )
-    state = CE_DECISION_STATE.get(str(rec or "").lower()) if rec else None
-    if rec and state is None and rec.lower().startswith("inconclusive"):
-        state = LAB_INSUFFICIENT
+    state, al0 = _state_from_native(_ce_verdict_key(rec), CE_DECISION_TO_VERDICT)
     model = _challenger(
         version=f"{MODEL_VERSION} / params {current_param_id}"
         if isinstance(current_param_id, str)
         else MODEL_VERSION,
-        state=LAB_CHAMPION if enabled else (state or LAB_INSUFFICIENT),
+        state=LAB_CHAMPION if enabled else state,
+        al0_verdict=al0,
         native_status=rec
         or (" | ".join(recommendations) if recommendations else unobserved(no_eval)),
         created_at=not_applicable("a model version constant, not a fit time"),
