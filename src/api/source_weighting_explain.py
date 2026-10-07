@@ -46,7 +46,9 @@ def source_table(
         base = {
             "source": key,
             "role": entry.get("role"),
-            "measured": entry.get("measured", True),
+            # Unstated is UNKNOWN, not measured (the canonical producer
+            # always stamps it; an entry without it proves nothing).
+            "measured": entry.get("measured"),
             "lastFetchedAt": fetch.get("lastFetched") or fetch.get("mtime"),
             "health": entry.get("health"),
             "healthFactor": entry.get("healthFactor"),
@@ -63,14 +65,14 @@ def source_table(
             rows.append({**base, "subset": None, "state": "UNMEASURED"})
             continue
         for name, sub in subsets.items():
+            # Every factor must be published to state the product.  A
+            # missing coverage factor is unknown, never full coverage --
+            # and a published 0.0 is a real zero (``or 1.0`` turned a
+            # zero-coverage source back into a full-weight one here).
+            factors = (sub.get("freshness"), base["healthFactor"], base["coverageFactor"])
             factor = None
-            if sub.get("freshness") is not None and base["healthFactor"] is not None:
-                factor = round(
-                    float(sub["freshness"])
-                    * float(base["healthFactor"])
-                    * float(base["coverageFactor"] or 1.0),
-                    4,
-                )
+            if all(isinstance(f, (int, float)) and not isinstance(f, bool) for f in factors):
+                factor = round(float(factors[0]) * float(factors[1]) * float(factors[2]), 4)
             effective = (
                 None
                 if factor is None or base["baseWeight"] is None
