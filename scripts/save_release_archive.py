@@ -1,4 +1,18 @@
-"""Preserve a verified rollback archive without clobbering a prior release."""
+"""Preserve a verified rollback archive for the revision being deployed.
+
+One complete triplet (``<sha>.tar``, ``.sha256``, ``.json``) is kept per
+revision. An identical artifact is never rewritten. A *different* artifact for
+the same revision is expected rather than suspicious: Next stamps a random
+``BUILD_ID`` on every build, so re-running the deploy workflow for a revision
+(same-commit redeploy, or a dispatched rollback to a recent commit) always
+produces a new artifact ID from the same tested source. That archive is the one
+the deploy validated and actually serves, so it replaces the saved one once the
+deploy succeeds. Refusing it made every workflow rollback to a saved revision
+fail closed and auto-roll back onto the release being rolled away from.
+
+Incomplete, corrupt or non-regular saved files are still refused: they need an
+operator, not a silent overwrite.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +22,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -41,7 +56,8 @@ def _paths(release_dir: Path, commit: str) -> tuple[Path, Path, Path]:
     return tuple(release_dir / f"{commit}.{suffix}" for suffix in ("tar", "sha256", "json"))
 
 
-def _existing_manifest(release_dir: Path, commit: str, incoming_artifact_id: str) -> Path | None:
+def _existing_artifact_id(release_dir: Path, commit: str) -> str | None:
+    """Return the saved artifact ID for ``commit``, or None when nothing is saved."""
     archive, sidecar, manifest = _paths(release_dir, commit)
     present = [path.exists() or path.is_symlink() for path in (archive, sidecar, manifest)]
     if not any(present):
@@ -53,9 +69,7 @@ def _existing_manifest(release_dir: Path, commit: str, incoming_artifact_id: str
     expected = sidecar.read_text(encoding="utf-8").strip()
     if not _DIGEST.fullmatch(expected) or _file_digest(archive) != expected:
         raise ValueError("saved release archive checksum mismatch; refusing overwrite")
-    if _artifact_id(manifest, commit) != incoming_artifact_id:
-        raise ValueError("same revision has a different saved artifact; refusing overwrite")
-    return manifest
+    return _artifact_id(manifest, commit)
 
 
 def save_release_archive(
@@ -67,7 +81,12 @@ def save_release_archive(
     commit: str,
     check_only: bool = False,
 ) -> Path | None:
-    """Check or save one revision. Existing good bytes are never replaced."""
+    """Check or save one revision.
+
+    Returns the saved manifest path, or None for a ``check_only`` call that
+    would publish (no saved triplet yet, or a different artifact ID that the
+    successful deploy will replace).
+    """
     if not _SHA.fullmatch(commit) or not _DIGEST.fullmatch(expected_sha256):
         raise ValueError("release revision or archive digest is invalid")
     if release_dir.is_symlink() or not release_dir.is_dir():
@@ -77,9 +96,16 @@ def save_release_archive(
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("incoming release manifest is missing or unsafe")
     artifact_id = _artifact_id(manifest, commit)
-    existing = _existing_manifest(release_dir, commit, artifact_id)
-    if existing is not None or check_only:
-        return existing
+    existing_id = _existing_artifact_id(release_dir, commit)
+    if existing_id == artifact_id:
+        return _paths(release_dir, commit)[2]
+    if check_only:
+        return None
+    if existing_id is not None:
+        print(
+            f"replacing saved release {commit}: artifact {existing_id} -> {artifact_id}",
+            file=sys.stderr,
+        )
 
     target_archive, target_sidecar, target_manifest = _paths(release_dir, commit)
     with tempfile.TemporaryDirectory(prefix=f".{commit}.", dir=release_dir) as staging:
@@ -95,7 +121,11 @@ def save_release_archive(
         if _artifact_id(staged_manifest, commit) != artifact_id:
             raise ValueError("staged release manifest changed")
         # All three files are staged and checked before any final path is
-        # published. There is no existing complete triplet at this revision.
+        # published. When an older artifact of this revision is replaced, an
+        # interruption between renames leaves either a tar/checksum mismatch
+        # (refused for operator inspection) or a self-consistent new tar beside
+        # a stale .json, which the next save of this revision replaces.
+        # Rollback reads only the tar and its checksum.
         os.replace(staged_archive, target_archive)
         os.replace(staged_sidecar, target_sidecar)
         os.replace(staged_manifest, target_manifest)

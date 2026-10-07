@@ -45,20 +45,37 @@ with the validation job's output before transfer. On the VPS,
 Node major version, build ID and all frontend bytes before staging `.next.new`.
 `deploy/deploy.sh` installs frontend dependencies from `package-lock.json`
 with `npm ci`, then uses its existing atomic swap and probes. It archives a
-successful release under the deploy state directory. A saved-artifact rollback
-restores the tested frontend bytes without npm installation; historical
-revisions with
-no saved archive use the established rebuild path. Successful deploys retain
+successful release under the deploy state directory. Every artifact `npm ci`
+records the installed lock's SHA-256 inside `node_modules` (an install stamp
+that any later `npm ci` erases). A saved-artifact rollback restores the tested
+frontend bytes without rebuilding. When the stamp already matches the rollback
+target's `package-lock.json` it runs no npm at all, so it works with the
+registry unavailable; otherwise (the failed forward deploy installed its own
+packages, or the tree is unstamped) it runs `npm ci --prefer-offline` before
+staging and, if that is impossible, fails before the live `.next` is touched.
+Historical revisions with no saved archive use the established rebuild path. Successful deploys retain
 the eight newest complete archives plus the current and immediately previous
 revisions, leaving unknown/incomplete files for operator inspection.
 Before touching the live frontend, a same-revision redeploy checks any saved
-archive and manifest. It preserves a complete, checksum-valid rollback archive
-when the artifact ID matches and refuses a different artifact ID or incomplete
-archive for that SHA. A new archive is copied and checksummed in a temporary
-directory before its three saved files are published. An interrupted first save
-may leave an incomplete triplet for operator inspection. The preservation
-guarantee applies to the workflow's serialized deploy path; direct concurrent
-on-box deploy or rollback invocations must be serialized by the operator.
+archive and manifest. It keeps a complete, checksum-valid rollback archive
+byte for byte when the artifact ID matches. A different artifact ID for the
+same SHA is expected, not suspicious: Next stamps a random `BUILD_ID` on every
+build, so re-running the workflow for a revision (a same-commit redeploy, or a
+dispatched rollback to a recent commit) always yields a new ID from the same
+tested source. That newly validated archive is the one deployed and the one the
+served-identity checks compare against, so it replaces the saved triplet once
+the deploy succeeds. An incomplete, corrupt or non-regular saved triplet is
+still refused for operator inspection. A new archive is copied and checksummed
+in a temporary directory before its three saved files are published. An
+interrupted save may leave an incomplete or mismatched triplet for operator
+inspection. The preservation guarantee applies to the workflow's serialized
+deploy path; direct concurrent on-box deploy or rollback invocations must be
+serialized by the operator.
+
+The transferred archive under `<state>/incoming/` is deleted on every
+`deploy/deploy.sh` exit, success or failure, after any auto-rollback has
+finished; archives that earlier interrupted runs left there are pruned at the
+same time. Only `releases/` holds rollback bytes.
 
 The deploy script rechecks the live `.next` bytes before recording success,
 and the workflow independently compares their artifact ID with CI's output

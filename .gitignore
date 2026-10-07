@@ -22,6 +22,8 @@ frontend/.next.old/
 release-manifest.json
 .release-manifest.json
 .release-manifest.json.tmp
+# Offline backend install receipt written by deploy/rollback.
+.backend-artifact-receipt.json
 calculator-release.tar
 calculator-release.tar.sha256
 # Verification builds (NEXT_DIST_DIR=...) — hundreds of MB, never committed.

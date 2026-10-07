@@ -341,6 +341,18 @@ PY
 # .next/ the failed forward deploy left on disk, so HTML from the old
 # (rolled-back) commit would reference chunk hashes from the new build
 # — the exact failure mode we are trying to eliminate.
+# Install stamp: the SHA-256 of the package-lock.json a successful `npm ci`
+# installed, written INSIDE node_modules. `npm ci` deletes node_modules before
+# installing, so any later install by any script version erases the stamp; a
+# present stamp can only describe the tree that is actually on disk. deploy.sh
+# and rollback.sh both write it; rollback.sh reads it to decide whether a saved
+# artifact needs its packages reinstalled.
+FRONTEND_INSTALL_STAMP=".calculator-package-lock.sha256"
+
+frontend_lock_digest() {
+  sha256sum "$1" | cut -d ' ' -f1
+}
+
 maybe_rebuild_frontend_after_rollback() {
   local run_build
   run_build="$(lower "${RUN_FRONTEND_BUILD}")"
@@ -370,6 +382,36 @@ maybe_rebuild_frontend_after_rollback() {
   fi
 
   if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    # A failed forward deploy may already have run `npm ci` for ITS lockfile,
+    # leaving node_modules that belong to the release being rolled away from.
+    # The saved .next must run against the rollback target's own locked
+    # packages; stage_release_artifact compares only the checked-out lockfile
+    # digest and cannot see what is installed. Two properties hold together:
+    #   * already consistent (install stamp == target lock): no npm at all, so
+    #     a saved-artifact rollback still works with the registry unavailable;
+    #   * mismatched or unknown: reinstall BEFORE staging, preferring the local
+    #     npm cache (this box installed the target's lock when it deployed it),
+    #     and if that is impossible, fail before the live .next is touched.
+    # A target without a lock skips this; staging then refuses it, because the
+    # release manifest binds the checked-out frontend lock.
+    local target_lock="${frontend_dir}/package-lock.json"
+    local install_stamp="${frontend_dir}/node_modules/${FRONTEND_INSTALL_STAMP}"
+    if [[ ! -f "${target_lock}" ]]; then
+      warn "Rollback target has no frontend/package-lock.json; artifact staging verifies the lock."
+    elif [[ -f "${install_stamp}" &&
+          "$(tr -d '[:space:]' < "${install_stamp}")" == "$(frontend_lock_digest "${target_lock}")" ]]; then
+      log "Installed frontend packages already match the rollback target's lock; no reinstall."
+    else
+      log "Installed frontend packages do not match the rollback target's lock; reinstalling (local cache first)."
+      rm -f "${install_stamp}"
+      if ! npm ci --prefer-offline --prefix "${frontend_dir}"; then
+        error "Could not install the rollback target's frontend packages (registry and local cache unavailable?)."
+        error "Refusing to serve its saved .next on mismatched node_modules; the live frontend is untouched."
+        return 1
+      fi
+      frontend_lock_digest "${target_lock}" > "${install_stamp}" ||
+        warn "Could not record the frontend install stamp; the next rollback will reinstall."
+    fi
     log "Restoring verified CI release artifact for ${ROLLBACK_TARGET_REV}."
     if ! python3 -m scripts.stage_release_artifact \
       --archive "${ROLLBACK_ARTIFACT_ARCHIVE}" \
