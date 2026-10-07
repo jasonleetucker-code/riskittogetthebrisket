@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T01:52:27.147543",
+  "generatedAt": "2026-10-07T09:25:52.171035",
   "date": "2026-10-07",
   "files": [
     "dynasty_data.js",
@@ -10,7 +10,6 @@
   ],
   "siteRawCount": 10,
   "siteRawFresh": [
-    "idpTradeCalc.csv",
     "ktc.csv",
     "ktcCrowdSfTep.csv",
     "ktcCrowdTradesSfTep.csv",
@@ -21,7 +20,8 @@
     "draftSharksIdp.csv",
     "draftSharksRosIdp.csv",
     "draftSharksRosSf.csv",
-    "draftSharksSf.csv"
+    "draftSharksSf.csv",
+    "idpTradeCalc.csv"
   ],
   "siteRawMirrored": [
     "draftSharksIdp.csv",
