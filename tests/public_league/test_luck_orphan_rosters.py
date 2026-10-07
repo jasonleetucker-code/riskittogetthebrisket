@@ -114,5 +114,41 @@ class LuckOrphanRosterTests(unittest.TestCase):
         self.assertFalse(any(o is None or str(o).startswith("roster:") for o in owners))
 
 
+class LuckSeasonStateTests(unittest.TestCase):
+    """A season Luck cannot evaluate is NAMED with its reason, never silently
+    absent from the tables."""
+
+    def test_a_fully_evaluated_season_reports_complete(self) -> None:
+        section = luck.build_section(_dynasty_new_2024())
+        self.assertEqual(
+            section["seasonStates"],
+            [
+                {
+                    "season": "2024",
+                    "state": "complete",
+                    "reason": None,
+                    "issueCount": 0,
+                    "teamWeeks": 8 * 14,
+                }
+            ],
+        )
+
+    def test_an_unsupported_season_is_named_not_dropped(self) -> None:
+        snap = _dynasty_new_2024()
+        # A team in two games in one week: a format the canonical owner
+        # refuses to evaluate rather than simplify.
+        week1 = snap.seasons[0].matchups_by_week[1]
+        week1.append({"roster_id": week1[0]["roster_id"], "matchup_id": 99, "points": 1.0})
+        week1.append({"roster_id": week1[1]["roster_id"], "matchup_id": 99, "points": 2.0})
+        section = luck.build_section(snap)
+
+        self.assertEqual(section["byOwnerSeason"], [])
+        (state,) = section["seasonStates"]
+        self.assertEqual(state["state"], "unsupported")
+        self.assertEqual(state["reason"], "format_not_one_game_per_team_week")
+        self.assertEqual(state["teamWeeks"], 0)
+        self.assertGreater(state["issueCount"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

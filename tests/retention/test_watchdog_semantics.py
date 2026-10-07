@@ -41,9 +41,7 @@ EXIT_CANNOT_RUN = 1
 EXIT_UNHEALTHY = 2
 
 
-def _run(
-    data_dir: Path, *, event_name: str = "", require: str = "", stream: str = ""
-) -> subprocess.CompletedProcess:
+def _run(data_dir: Path, *, event_name: str = "", require: str = "") -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env.update(
         {
@@ -52,7 +50,6 @@ def _run(
             "DATA_DIR": str(data_dir),
             "EVENT_NAME": event_name,
             "REQUIRE": require,
-            "STREAM": stream,
         }
     )
     return subprocess.run(
@@ -287,62 +284,73 @@ def test_the_watchdog_does_not_share_a_concurrency_group_with_deploys(empty_data
     assert cfg["concurrency"]["cancel-in-progress"] is False
 
 
-# ── each stream alerts on its own (#1676) ────────────────────────────
+# ── every stream is reported on its own (#1676) ──────────────────────
 #
-# One exit code for eight streams let C1-RET-07's months-long red hide
-# C1-RET-08 going stale on 2026-09-23..27.  The workflow now runs one job
-# per stream; STREAM decides which stream a job's exit code answers for.
+# One red job for eight streams let C1-RET-07's months-long red hide
+# C1-RET-08 going stale on 2026-09-23..27.  One job and one SSH probe still
+# decide the verdict, but each failing stream gets its own annotation.
 
 
-def test_a_stream_job_is_red_only_for_its_own_stream(one_healthy_stream):
-    healthy = _run(one_healthy_stream, event_name="schedule", stream="C1-RET-01")
-    unhealthy = _run(one_healthy_stream, event_name="schedule", stream="C1-RET-04")
-
-    assert healthy.returncode == EXIT_OK, f"stdout:\n{healthy.stdout}\nstderr:\n{healthy.stderr}"
-    # The siblings' failures are still printed, not swallowed.
-    assert "alerted by their own jobs" in healthy.stderr
-    assert unhealthy.returncode == EXIT_UNHEALTHY
-    assert "C1-RET-04=missing" in unhealthy.stderr
+def _annotations(result) -> list[str]:
+    return [line for line in result.stdout.splitlines() if line.startswith("::error ")]
 
 
-def test_a_stream_job_still_requires_the_whole_tranche_on_a_schedule(one_healthy_stream):
-    # REQUIRE cannot narrow a scheduled run, with or without STREAM.
-    result = _run(
-        one_healthy_stream, event_name="schedule", require="C1-RET-01", stream="C1-RET-04"
-    )
+def test_each_failing_stream_gets_its_own_annotation(one_healthy_stream):
+    result = _run(one_healthy_stream, event_name="schedule")
 
     assert result.returncode == EXIT_UNHEALTHY
-    assert "ignoring REQUIRE" in result.stdout
+    notes = _annotations(result)
+    titled = sorted(line.split("::", 2)[1] for line in notes)
+    # Seven unhealthy streams, seven separate annotations; the healthy one
+    # has none, so a NEW failure is a new line beside a known one.
+    assert len(notes) == 7, result.stdout
+    assert not any("C1-RET-01" in t for t in titled)
+    assert any(t.startswith("error title=C1-RET-04 missing") for t in titled), titled
+    # And one stderr line per stream, not one ever-longer suffix.
+    assert "retention-health: C1-RET-08 missing:" in result.stderr
 
 
-def test_a_bad_stream_value_cannot_pass(empty_data):
-    for bad in ("C1-RET-99", "-h", "C1-RET-01 --json"):
-        result = _run(empty_data, event_name="schedule", stream=bad)
-        assert result.returncode == EXIT_CANNOT_RUN, bad
+def test_a_healthy_required_set_emits_no_annotations(one_healthy_stream):
+    result = _run(one_healthy_stream, event_name="workflow_dispatch", require="C1-RET-01")
+
+    assert result.returncode == EXIT_OK
+    assert _annotations(result) == []
 
 
-def test_a_require_typo_still_fails_inside_a_stream_job(one_healthy_stream):
-    result = _run(
-        one_healthy_stream,
-        event_name="workflow_dispatch",
-        require="C1-RET-01 C1-RET-99",
-        stream="C1-RET-01",
+def test_annotation_data_cannot_inject_a_second_workflow_command():
+    """Details are free text (file names, exception messages): a newline in
+    one must not start a fresh ``::`` command on the runner."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "retention_health_cli", REPO / "scripts" / "retention_health.py"
     )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    line = mod._annotation(
+        {
+            "id": "C1-RET-07",
+            "state": "unknown",
+            "title": "t",
+            "detail": "boom" + chr(10) + "::warning::injected",
+            "ageHours": None,
+        }
+    )
+    assert chr(10) not in line
+    assert line.startswith("::error title=C1-RET-07 unknown::")
 
-    assert result.returncode == EXIT_CANNOT_RUN
 
-
-def test_the_workflow_runs_exactly_one_job_per_declared_stream():
-    """A stream with no job would never alert -- the same silence as a
-    watchdog that cannot fail."""
+def test_the_watchdog_is_one_job_and_one_probe():
+    """Per-stream reporting must not cost eight concurrent SSH probes."""
     import yaml
 
-    from src.retention.health import STREAM_IDS
-
     cfg = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    job = cfg["jobs"]["probe"]
-    assert job["strategy"]["fail-fast"] is False
-    assert list(job["strategy"]["matrix"]["stream"]) == list(STREAM_IDS)
+    assert list(cfg["jobs"]) == ["probe"]
+    assert "strategy" not in cfg["jobs"]["probe"]
+    assert PROBE.read_text(encoding="utf-8").count("--github-annotations") >= 1
+
+
+def test_the_concurrency_comment_does_not_claim_deploys_leave_data_alone():
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "STREAM: ${{ matrix.stream }}" in text
-    assert "STREAM=$(printf %q" in text
+    assert "deploy never rewrites" not in text
+    assert "rewrite git-tracked files under `data/`" in text

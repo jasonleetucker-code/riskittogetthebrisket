@@ -337,7 +337,7 @@ def test_the_legacy_archive_is_frozen_retained_and_never_decides_state(data_dir)
 
 
 def test_a_stale_live_record_is_stale_even_with_a_fresh_mtime(data_dir):
-    _dual_read(data_dir, hours_ago=health.SCRAPE_BUDGET_H + 5)  # file mtime = now
+    _dual_read(data_dir, hours_ago=health.IDENTITY_EVIDENCE_BUDGET_H + 5)  # file mtime = now
 
     stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
     assert stream["state"] == health.STATE_STALE
@@ -372,3 +372,21 @@ def test_an_unreadable_live_record_is_unknown(data_dir):
 
     stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
     assert stream["state"] == health.STATE_UNKNOWN
+
+
+def test_a_deploy_restored_committed_copy_cannot_turn_a_healthy_system_red(data_dir):
+    """A code deploy puts back the COMMITTED record until the startup scrape
+    replaces it; measured on main the committed copy runs up to 9.3 h old
+    (36 of 97 gaps over 6 h).  A healthy system must stay green there."""
+    _dual_read(data_dir, hours_ago=9.3 + 1.0)
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
+    assert stream["state"] == health.STATE_OK
+    assert health.IDENTITY_EVIDENCE_BUDGET_H > 10.3
+
+
+def test_identity_evidence_older_than_two_daily_probes_is_stale(data_dir):
+    _dual_read(data_dir, hours_ago=health.DAILY_BUDGET_H + 1)
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
+    assert stream["state"] == health.STATE_STALE

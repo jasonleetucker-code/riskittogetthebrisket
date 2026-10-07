@@ -174,9 +174,16 @@ def _actual_week_results(
 def _season_team_weeks(
     season: SeasonSnapshot,
     registry: ManagerRegistry,
-) -> list[tuple[int, str, dict[str, float | int], float, float, float]]:
+) -> tuple[list[tuple[int, str, dict[str, float | int], float, float, float]], dict[str, Any]]:
     """Every owner's evaluable regular-season game as
-    ``(week, owner_id, all_play, actual_share, points_for, points_against)``.
+    ``(week, owner_id, all_play, actual_share, points_for, points_against)``,
+    plus the season's luck STATE.
+
+    The state is the canonical contract's own (``complete`` / ``partial`` /
+    ``unavailable`` / ``unsupported``) with its reason and issue count.  A
+    season that contributes no rows must say why: an ``unsupported`` format
+    and a season with no finished weeks yet are different statements, and
+    neither may read as a season silently absent from the tables.
 
     Consumed from the canonical schedule-impact owner
     (``schedule_impact.season_week_inputs`` + ``compute_schedule_impact``)
@@ -232,7 +239,15 @@ def _season_team_weeks(
             )
         )
     out.sort(key=lambda r: (r[0], r[1]))
-    return out
+    issues = core.get("issues") or []
+    state = {
+        "season": season.season,
+        "state": core.get("state"),
+        "reason": core.get("reason"),
+        "issueCount": len(issues),
+        "teamWeeks": len(out),
+    }
+    return out, state
 
 
 def _roster_id_for_owner(registry: ManagerRegistry, league_id: str, owner_id: str) -> int | None:
@@ -284,8 +299,11 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # match the final chronological sort of ``weekly_trail``.  If we
     # walked most-recent-first (the snapshot's natural order), cumGames
     # would decrease in the sorted output.
+    season_states: list[dict[str, Any]] = []
     for season in sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season)):
-        for wk, oid, ap, actual_share, pts_for, pts_against in _season_team_weeks(season, registry):
+        team_weeks, season_state = _season_team_weeks(season, registry)
+        season_states.append(season_state)
+        for wk, oid, ap, actual_share, pts_for, pts_against in team_weeks:
             expected_share = float(ap["expectedShare"])
 
             # Career aggregate.
@@ -442,6 +460,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return {
         "scheduleImpact": schedule_block,
         "seasonsCovered": [s.season for s in snapshot.seasons],
+        # Per-season luck state, newest first: a season with no luck rows
+        # (``unsupported`` format, ``unavailable`` = no finished weeks) is
+        # named here with its reason instead of silently missing.
+        "seasonStates": sorted(season_states, key=lambda r: -_season_sort_key(r["season"])),
         "currentSeason": current_season_year,
         "byOwnerCareer": career_rows,
         "byOwnerSeason": season_rows,

@@ -38,14 +38,6 @@
 #   REQUIRE     manual-dispatch only.  Space-separated stream ids that
 #               must be ok; "ALL" requires every stream; EMPTY means
 #               report-only (print the table, exit 0).
-#   STREAM      optional.  ONE stream id this run's exit code answers for
-#               (``retention_health.py --stream``), within the required
-#               set.  The workflow runs one job per stream so each stream
-#               alerts on its own: a single exit code let C1-RET-07's
-#               months-long red hide C1-RET-08 going stale (2026-09-23..27).
-#               It never widens what is checked and never relaxes the
-#               schedule rule: every stream is still REQUIRED, and the
-#               job set is pinned to STREAM_IDS by a test.
 #
 # Exit codes: 0 pass (or manual report-only) · 1 the probe could not run
 # · 2 a required stream is stale, missing or unreadable.
@@ -57,7 +49,6 @@ PYTHON_BIN="${PYTHON_BIN:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 DATA_DIR="${DATA_DIR:-}"
 EVENT_NAME="${EVENT_NAME:-}"
 REQUIRE="${REQUIRE:-}"
-STREAM="${STREAM:-}"
 
 log() { printf '[retention-health] %s\n' "$*"; }
 
@@ -106,17 +97,15 @@ for token in ${REQUIRE}; do
     fi
 done
 
-if [[ -n "${STREAM}" && ! "${STREAM}" =~ ^C1-RET-[0-9]+$ ]]; then
-    log "ERROR: refusing STREAM '${STREAM}' — expected one C1-RET-nn id"
-    exit 1
-fi
-
-ARGS=()
+# One ::error annotation per failing stream (scripts/retention_health.py):
+# the run lists every unhealthy stream separately, so a known-bad stream
+# cannot mask a newly failing one.  Printed to stdout, which ssh relays to
+# the runner, where Actions turns each line into its own annotation.
+ARGS=(--github-annotations)
 [[ -n "${DATA_DIR}" ]] && ARGS+=(--data-dir "${DATA_DIR}")
-[[ -n "${STREAM}" ]] && ARGS+=(--stream "${STREAM}")
 
 if [[ "${REQUIRE}" == "ALL" ]]; then
-    log "requiring every retention stream (event=${EVENT_NAME:-<none>}, alerting on ${STREAM:-all of them})"
+    log "requiring every retention stream (event=${EVENT_NAME:-<none>})"
     exec "${PYTHON_BIN}" scripts/retention_health.py "${ARGS[@]}"
 fi
 

@@ -72,40 +72,24 @@ concurrency:
   # changed.  A watchdog that can be cancelled into silence has the
   # same failure mode as one that cannot fail.
   #
-  # The deploy-overlap concern that motivated the shared group does not
-  # apply here: this probe reads files under gitignored `data/`, which a
-  # deploy never rewrites, so there is no restart-plus-startup-scrape
-  # window to measure across.
+  # The deploy-overlap concern that motivated the shared group is
+  # handled by the probes' budgets, not by serialising against deploys.
+  # Most stores are gitignored under `data/` and a deploy never touches
+  # them, but a deploy's `git checkout --force` / `reset --hard` DOES
+  # rewrite git-tracked files under `data/` -- including C1-RET-07's
+  # `data/scrape_state/identity_dual_read.json` -- with the committed copy,
+  # and the restart's startup scrape replaces it minutes later.  C1-RET-07's
+  # budget is sized so that window cannot turn a healthy system red (see
+  # `src/retention/health.py`).
   group: retention-health
   cancel-in-progress: false
 
 jobs:
   probe:
-    # ONE JOB PER STREAM, so each stream alerts on its own.  With a single
-    # job, C1-RET-07's months-long red hid C1-RET-08 going stale on
-    # 2026-09-23..27: the run was already failing, so a second failure did
-    # not change the signal.  Every job still probes and prints every
-    # stream and still REQUIRES the whole tranche on a schedule; ``STREAM``
-    # only decides which stream that job's exit code answers for.  The list
-    # is pinned to ``src.retention.health.STREAM_IDS`` by
-    # tests/retention/test_watchdog_semantics.py, so a new stream cannot be
-    # left without a job.
-    name: Probe ${{ matrix.stream }}
+    name: Probe retention streams
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
-    strategy:
-      fail-fast: false
-      matrix:
-        stream:
-          - C1-RET-01
-          - C1-RET-02
-          - C1-RET-03
-          - C1-RET-04
-          - C1-RET-05
-          - C1-RET-06
-          - C1-RET-07
-          - C1-RET-08
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -138,7 +122,6 @@ jobs:
           # so there is nothing to get wrong in an expression.
           EVENT_NAME: ${{ github.event_name }}
           REQUIRE: ${{ inputs.require || '' }}
-          STREAM: ${{ matrix.stream }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -151,5 +134,5 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EVENT_NAME=$(printf %q "$EVENT_NAME") REQUIRE=$(printf %q "$REQUIRE") STREAM=$(printf %q "$STREAM") bash -s" \
+            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EVENT_NAME=$(printf %q "$EVENT_NAME") REQUIRE=$(printf %q "$REQUIRE") bash -s" \
             < deploy/diagnostics/retention_health_probe.sh

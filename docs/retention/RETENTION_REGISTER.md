@@ -439,7 +439,7 @@ contracts, and only the live one is graded for freshness.
 | **Store** | `data/scrape_state/identity_dual_read.json` | `data/identity/identity_{resolution,report}_*.json` |
 | **Write owner** | `Dynasty Scraper.py` — the C1-ID-01 dual-read record, rewritten every scrape cycle by the canonical identity owner (`src/identity/resolution.py`) | **none** — `scripts/identity_resolve.py` (retired Jenkins pipeline) last ran 2026-04-20; retired by #173 |
 | **Freshness stamp** | the record's own `generatedAt` (never mtime — the file is git-tracked and a checkout rewrites mtime) | filename date, reported for information only |
-| **Freshness budget** | `SCRAPE_BUDGET_H` (6 h) — the scrape cadence rule, because the scrape writes it | **none** — no producer exists, so no SLA can be met |
+| **Freshness budget** | `IDENTITY_EVIDENCE_BUDGET_H` = `DAILY_BUDGET_H` (48 h). The box scrape rewrites the record every ~2 h, but a code deploy's `git checkout --force` restores the COMMITTED copy (measured median 5.5 h old, max 9.3 h) until the startup scrape replaces it, so a 6 h budget would false-alarm a healthy system. Scrape cadence itself is watched by `/api/status` `data_stale` | **none** — no producer exists, so no SLA can be met |
 | **Retention** | the newest record on the box; every refresh commit keeps its history in git | **indefinite**: git-tracked, backed up nightly, never deleted |
 | **Backup** | git history (`scheduled-refresh.yml` force-adds `data/scrape_state/`) | `riskit-state-backup.sh` → `dirs/identity.tar.gz` |
 | **Read owner** | `scripts/identity_parity.py`; this probe | `GET /api/scaffold/identity` (private-auth, age-labelled) |
@@ -454,8 +454,10 @@ reports nothing new: `C1-RET-08` went stale 2026-09-23..27 and nobody saw it,
 because the job was already failing. Identity evidence never stopped being
 produced; it moved to the dual-read record at the C1-ID-01 cut-over. The probe
 now grades that record (missing / unreadable / no `generatedAt` / zero
-`calls` are all *not ok*), and the workflow runs one job per stream so one
-known-bad stream can no longer mask another.
+`calls` are all *not ok*). The single watchdog job now emits one GitHub
+Actions `::error` annotation **per failing stream** (`--github-annotations`),
+plus one stderr line per stream, so one known-bad stream can no longer mask
+another — from one job and one SSH probe.
 
 **Why it was at risk.** HALTED 2026-04-20. Measured on the live checkout at
 2026-08-15: newest artifact `identity_report_20260420T194828Z.json`, **2,791.9

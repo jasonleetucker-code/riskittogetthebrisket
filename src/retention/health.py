@@ -579,8 +579,9 @@ def _probe_league_events(data_dir: Path) -> dict[str, Any]:
 #   (``calls``, ``v2WouldChange``, ``generatedAt``).  That is the identity
 #   evidence that is actually being produced, so freshness is graded HERE,
 #   on the record's own ``generatedAt`` -- never on mtime, which a checkout
-#   or deploy rewrites (the file is git-tracked).  Budget: the scrape
-#   cadence rule (``SCRAPE_BUDGET_H``), because the scrape writes it.
+#   or deploy rewrites (the file is git-tracked).  Budget:
+#   ``IDENTITY_EVIDENCE_BUDGET_H`` -- see its comment for why it is NOT the
+#   scrape-cadence budget.
 #
 # * LEGACY archive -- ``data/identity/identity_{resolution,report}_*.json``.
 #   Its producer (``scripts/identity_resolve.py`` on the retired Jenkins
@@ -592,6 +593,25 @@ def _probe_league_events(data_dir: Path) -> dict[str, Any]:
 #   job that was already failing.  It is reported (artifact count, newest,
 #   its own filename-derived age) and never deleted; it no longer decides
 #   the stream's state.
+
+# WHICH COPY THE PROBE READS, AND WHY THE BUDGET IS NOT 6 h.  On the
+# production host the probe reads ``APP_DIR/data/scrape_state/
+# identity_dual_read.json``.  The box's own scrape loop (``server.py``
+# ``schedule_loop``, every ``SCRAPE_INTERVAL_HOURS`` = 2 h, plus one at every
+# startup) rewrites it; data-only commits never deploy (``deploy.yml``
+# ignores ``data/**``).  But the file is git-TRACKED, so every CODE deploy's
+# ``git checkout --force`` / ``reset --hard`` puts back the COMMITTED copy
+# until the restart's startup scrape replaces it.  The committed copy is only
+# as fresh as the last data commit: measured on main (2026-10, 97 commits)
+# median 5.5 h, 36 gaps over 6 h, max 9.3 h.  A ``SCRAPE_BUDGET_H`` (6 h)
+# budget would therefore turn a HEALTHY system red whenever the daily probe
+# lands inside a post-deploy window -- a watchdog that cries wolf is one
+# nobody reads.  So the budget is the module's daily rule (two missed daily
+# probes), which no healthy post-deploy window can exceed.  The 2 h scrape
+# cadence itself is not left unwatched: ``/api/status`` flags ``data_stale``
+# at ``SCRAPE_INTERVAL_HOURS * 3``; this stream answers the different
+# question "is identity evidence still being produced at all".
+IDENTITY_EVIDENCE_BUDGET_H = DAILY_BUDGET_H
 
 LEGACY_IDENTITY_RETIRED = {
     "retiredBy": "#173",
@@ -641,7 +661,7 @@ def _probe_identity_reports(data_dir: Path) -> dict[str, Any]:
             "C1-RET-07",
             title,
             state=STATE_MISSING,
-            budget_h=SCRAPE_BUDGET_H,
+            budget_h=IDENTITY_EVIDENCE_BUDGET_H,
             primary_store=str(record),
             detail="no identity dual-read record on disk; the scraper has not written one."
             + legacy_note,
@@ -654,7 +674,7 @@ def _probe_identity_reports(data_dir: Path) -> dict[str, Any]:
             "C1-RET-07",
             title,
             state=STATE_UNKNOWN,
-            budget_h=SCRAPE_BUDGET_H,
+            budget_h=IDENTITY_EVIDENCE_BUDGET_H,
             primary_store=str(record),
             detail=f"dual-read record present but unreadable: {exc}." + legacy_note,
             extra=extra,
@@ -667,7 +687,9 @@ def _probe_identity_reports(data_dir: Path) -> dict[str, Any]:
     # running (``_grade`` reads rows <= 0 as unknown); a record with no
     # ``calls`` at all cannot say, which is not the same as zero.
     rows = calls if isinstance(calls, int) and not isinstance(calls, bool) else None
-    state, age = _grade(present=True, last_observed=generated, budget_h=SCRAPE_BUDGET_H, rows=rows)
+    state, age = _grade(
+        present=True, last_observed=generated, budget_h=IDENTITY_EVIDENCE_BUDGET_H, rows=rows
+    )
     extra.update(
         {
             "calls": calls,
@@ -680,7 +702,7 @@ def _probe_identity_reports(data_dir: Path) -> dict[str, Any]:
         "C1-RET-07",
         title,
         state=state,
-        budget_h=SCRAPE_BUDGET_H,
+        budget_h=IDENTITY_EVIDENCE_BUDGET_H,
         last_observed=generated,
         age_h=age,
         primary_store=str(record),

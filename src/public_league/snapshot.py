@@ -24,6 +24,7 @@ no global shared state.
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,7 +32,9 @@ from typing import Any
 
 from . import sleeper_client
 from .identity import ManagerRegistry, build_manager_registry
-from .sleeper_client import PUBLIC_MAX_SEASONS
+from .sleeper_client import CHAIN_UNVERIFIED, PUBLIC_MAX_SEASONS
+
+log = logging.getLogger(__name__)
 
 
 # Concurrency cap for the fetch pool.  Sleeper tolerates a reasonable
@@ -342,10 +345,50 @@ def _fetch_season(
     )
 
 
+def _recover_history_from_previous(
+    previous: PublicLeagueSnapshot | None, coverage: dict[str, Any]
+) -> tuple[list[SeasonSnapshot], dict[str, Any]] | None:
+    """The older seasons a transient failure dropped, from the last snapshot.
+
+    Only for ``predecessor_fetch_failed``: Sleeper could not answer for a
+    league the chain links to.  A finished past season does not change, so
+    the previous snapshot's copy of that league and everything older is
+    re-used rather than letting one failed GET shrink "all-time" history.
+    Matched by the exact league id the walk stopped at -- never by season
+    label -- so only history the previous snapshot actually held comes back.
+    The result says so (``recovered``); it is never silent.
+    """
+    if previous is None or coverage.get("reason") != "predecessor_fetch_failed":
+        return None
+    stopped = coverage.get("stoppedAtLeagueId")
+    ids = [s.league_id for s in previous.seasons]
+    if not stopped or stopped not in ids:
+        return None
+    reused = previous.seasons[ids.index(stopped) :]
+    prev_cov = previous.history_coverage or {}
+    prev_state = prev_cov.get("state")
+    recovered = {
+        **coverage,
+        # The tail's own walk ended where the previous snapshot's did.
+        "state": prev_state if prev_state else CHAIN_UNVERIFIED,
+        "reason": prev_cov.get("reason") if prev_state else "previous_coverage_unknown",
+        "recovered": {
+            "degraded": True,
+            "cause": "predecessor_fetch_failed",
+            "failedLeagueId": stopped,
+            "seasons": [s.season for s in reused],
+            "fromSnapshotGeneratedAt": previous.generated_at,
+        },
+    }
+    return reused, recovered
+
+
 def build_public_snapshot(
     root_league_id: str,
     max_seasons: int = PUBLIC_MAX_SEASONS,
     include_nfl_players: bool = True,
+    *,
+    previous: PublicLeagueSnapshot | None = None,
 ) -> PublicLeagueSnapshot:
     """Build a PublicLeagueSnapshot for every dynasty season of the league
     starting from ``root_league_id`` (``max_seasons`` is a safety cap).
@@ -354,6 +397,12 @@ def build_public_snapshot(
     league's first season; ``history_coverage`` records whether it got there
     (``complete``) or stopped early (``truncated`` at the cap, ``unverified``
     on an unreadable link).  Every section module handles a short chain.
+
+    ``previous`` (the last snapshot served for this league): when a
+    predecessor league cannot be fetched, its seasons -- and older ones --
+    are taken from ``previous`` instead of being dropped, and
+    ``history_coverage["recovered"]`` names them.  The current and newer
+    seasons are always freshly fetched.
 
     ``include_nfl_players`` controls whether we fetch the ~5 MB
     players/nfl dump.  Tests pass ``False``; production fetches it.
@@ -383,6 +432,18 @@ def build_public_snapshot(
             nfl_fut = pool.submit(sleeper_client.fetch_nfl_players)
         season_futs = [pool.submit(_fetch_season, league, pool) for league in chain]
         snapshot.seasons = [f.result() for f in season_futs]
+        recovery = _recover_history_from_previous(previous, coverage)
+        if recovery is not None:
+            reused, snapshot.history_coverage = recovery
+            snapshot.seasons = snapshot.seasons + list(reused)
+            log.warning(
+                "public_league: predecessor %s unreachable; reused %d season(s) %s "
+                "from the snapshot generated %s",
+                coverage.get("stoppedAtLeagueId"),
+                len(reused),
+                [s.season for s in reused],
+                previous.generated_at if previous else None,
+            )
         if nfl_fut is not None:
             try:
                 snapshot.nfl_players = nfl_fut.result() or {}

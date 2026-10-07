@@ -4,7 +4,6 @@
     python scripts/retention_health.py
     python scripts/retention_health.py --json
     python scripts/retention_health.py --require C1-RET-01 C1-RET-04
-    python scripts/retention_health.py --stream C1-RET-08
 
 Exit codes: 0 every required stream ok · 1 the check could not run as
 asked (including an unknown stream id in ``--require``) · 2 at least one
@@ -27,16 +26,15 @@ absence should FAIL a caller, so a stream that is legitimately not
 provisioned yet on a given host can be reported without turning the
 signal permanently red — a check nobody trusts is a check nobody reads.
 
-WHY ``--stream`` EXISTS
-──────────────────────
-One exit code for eight streams means one known-bad stream hides every
-other.  ``C1-RET-07`` was red every day for months, so when ``C1-RET-08``
-went stale on 2026-09-23..27 the watchdog's signal did not change and
-nobody noticed.  ``--stream ID`` makes this invocation's exit code answer
-for ONE stream (still within the ``--require`` set, still printing the
-whole table), and the scheduled workflow runs one job per stream, so each
-stream turns its own check red.  The set of jobs is pinned to
-``STREAM_IDS`` by a test, so a new stream cannot go unwatched.
+EVERY STREAM IS REPORTED ON ITS OWN
+───────────────────────────────────
+One red job for eight streams lets one known-bad stream hide the rest:
+``C1-RET-07`` was red every day for months, so when ``C1-RET-08`` went stale
+on 2026-09-23..27 the job's signal did not change.  The exit code stays a
+single verdict, but ``--github-annotations`` emits one GitHub Actions
+``::error`` annotation PER failing stream, titled with its id, so each
+failure is listed separately on the run (and a new one is visible beside a
+known one) from one job and one probe.
 """
 
 from __future__ import annotations
@@ -65,6 +63,24 @@ _GLYPH = {
 }
 
 
+_CR, _LF = chr(13), chr(10)
+
+
+def _escape(text: str) -> str:
+    """GitHub workflow-command escaping for annotation data."""
+    return str(text).replace("%", "%25").replace(_CR, "%0D").replace(_LF, "%0A")
+
+
+def _annotation(stream: dict) -> str:
+    title = f"{stream['id']} {stream['state']}".replace(",", "%2C").replace("::", ": :")
+    age = stream.get("ageHours")
+    age_txt = f" (age {age}h, budget {stream.get('budgetHours')}h)" if age is not None else ""
+    return (
+        f"::error title={_escape(title)}::{_escape(stream.get('title', ''))}{age_txt}: "
+        + _escape(stream.get("detail", ""))
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="emit the raw report")
@@ -85,13 +101,9 @@ def main() -> int:
         ),
     )
     ap.add_argument(
-        "--stream",
-        default=None,
-        metavar="STREAM_ID",
-        help=(
-            "decide the exit code on this ONE stream (within --require), so "
-            "each stream can alert independently of the others"
-        ),
+        "--github-annotations",
+        action="store_true",
+        help="also emit one GitHub Actions ::error annotation per failing stream",
     )
     args = ap.parse_args()
 
@@ -124,15 +136,6 @@ def main() -> int:
     # probe failure can never turn "this stream is unhealthy" (exit 2)
     # into "unknown stream id" (exit 1).
     known = set(STREAM_IDS) | {s.get("id") for s in report["streams"]}
-    if args.stream is not None and args.stream not in known:
-        # Same rule as an unknown --require id: a job that watches a stream
-        # nobody probes would be green forever.
-        print(
-            f"retention-health: unknown --stream id {args.stream}. "
-            f"Known: {', '.join(sorted(known))}",
-            file=sys.stderr,
-        )
-        return 1
     if args.require is None:
         failing = [s for s in report["streams"] if s.get("state") != STATE_OK]
     else:
@@ -154,19 +157,15 @@ def main() -> int:
             s for s in report["streams"] if s.get("id") in wanted and s.get("state") != STATE_OK
         ]
 
-    if args.stream is not None:
-        # Every --require id was validated above, so a typo still exits 1;
-        # only then is the verdict narrowed to this job's own stream.
-        others = [s for s in failing if s.get("id") != args.stream]
-        failing = [s for s in failing if s.get("id") == args.stream]
-        if others:
-            print(
-                "retention-health: also unhealthy (alerted by their own jobs): "
-                + ", ".join(f"{s['id']}={s['state']}" for s in others),
-                file=sys.stderr,
-            )
-
     if failing:
+        for s in failing:
+            # One line per stream, so a newly failing stream is its own
+            # line rather than a longer suffix on a line already red.
+            print(
+                f"retention-health: {s['id']} {s['state']}: {s.get('detail', '')}", file=sys.stderr
+            )
+            if args.github_annotations:
+                print(_annotation(s))
         ids = ", ".join(f"{s['id']}={s['state']}" for s in failing)
         print(f"retention-health: NOT OK — {ids}", file=sys.stderr)
         return 2

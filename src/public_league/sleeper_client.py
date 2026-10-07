@@ -59,7 +59,14 @@ _CHAIN_TERMINATORS = frozenset({"", "0"})
 #: :func:`walk_league_chain_status` outcomes.
 CHAIN_COMPLETE = "complete"  # reached the first season of the league
 CHAIN_TRUNCATED = "truncated"  # hit the safety cap with history still pending
-CHAIN_UNVERIFIED = "unverified"  # a link could not be read (or looped)
+CHAIN_UNVERIFIED = "unverified"  # a link could not be read, looped, or has no type
+# The predecessor is a real league but not a DYNASTY one (Sleeper
+# ``settings.type`` != 2): a redraft/keeper season is not this dynasty's
+# history, so the walk stops there rather than mixing it in.
+CHAIN_NON_DYNASTY = "non_dynasty_predecessor"
+
+#: Sleeper ``league.settings.type``: 0 redraft, 1 keeper, 2 dynasty.
+SLEEPER_DYNASTY_TYPE = 2
 
 _DEFAULT_TIMEOUT = 8.0
 
@@ -351,7 +358,7 @@ def reset_nfl_players_cache() -> None:
 def walk_league_chain_status(
     start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Follow ``previous_league_id`` links to the league's first season.
+    """Follow ``previous_league_id`` links to the league's first DYNASTY season.
 
     Returns ``(chain, coverage)``: league objects ordered current -> oldest,
     and how the walk ended, so a consumer can tell full history from a
@@ -361,46 +368,76 @@ def walk_league_chain_status(
       season of the league is in ``chain``;
     * ``truncated`` -- stopped at ``max_seasons`` while an older season was
       still linked.  Logged as a warning; never silent;
-    * ``unverified`` -- a linked league could not be fetched, or the chain
-      looped.  Whether older seasons exist is unknown, so it is not called
-      complete.
+    * ``non_dynasty_predecessor`` -- the next older league is not a dynasty
+      league (``settings.type`` != 2), so it is not this dynasty's history
+      and is left out;
+    * ``unverified`` -- a linked league could not be fetched
+      (``predecessor_fetch_failed``), the chain looped (``chain_loop``), or a
+      predecessor carries no league type (``predecessor_type_unknown`` --
+      unknown is not dynasty, so it fails closed).
 
-    ``coverage`` = ``{"state", "seasonsWalked", "cap"}``.  No league id is
-    included (the public payload carries its own ``leagueIds``).
-    Network failures never raise.
+    ``coverage`` = ``{"state", "reason", "seasonsWalked", "cap",
+    "stoppedAtLeagueId"}``; ``stoppedAtLeagueId`` is the league the walk did
+    NOT include (``None`` when it reached the terminator).  The starting
+    league is the current season and is included whatever its type; the
+    dynasty gate applies to predecessors.  Network failures never raise.
     """
     chain: list[dict[str, Any]] = []
-    if max_seasons <= 0:
-        return chain, {"state": CHAIN_TRUNCATED, "seasonsWalked": 0, "cap": max_seasons}
-    seen: set[str] = set()
+
+    def _cov(state: str, reason: str | None, stopped: str | None) -> dict[str, Any]:
+        return {
+            "state": state,
+            "reason": reason,
+            "seasonsWalked": len(chain),
+            "cap": max_seasons,
+            "stoppedAtLeagueId": stopped,
+        }
+
     cur = str(start_league_id or "").strip()
-    state = CHAIN_COMPLETE
+    if max_seasons <= 0:
+        return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur or None)
+    if cur in _CHAIN_TERMINATORS:
+        # No start id at all: nothing was walked, so nothing is proven complete.
+        return chain, _cov(CHAIN_UNVERIFIED, "no_start_league", None)
+    seen: set[str] = set()
     while cur not in _CHAIN_TERMINATORS:
         if cur in seen:
-            state = CHAIN_UNVERIFIED
             log.warning("sleeper_client: previous_league_id chain loops at %s", cur)
-            break
+            return chain, _cov(CHAIN_UNVERIFIED, "chain_loop", cur)
         if len(chain) >= max_seasons:
-            state = CHAIN_TRUNCATED
             log.warning(
                 "sleeper_client: league history TRUNCATED at the %d-season safety cap "
                 "(older season %s still linked)",
                 max_seasons,
                 cur,
             )
-            break
+            return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur)
         seen.add(cur)
         league = fetch_league(cur)
         if not league:
-            state = CHAIN_UNVERIFIED
-            break
+            reason = "predecessor_fetch_failed" if chain else "start_fetch_failed"
+            return chain, _cov(CHAIN_UNVERIFIED, reason, cur)
+        if chain:
+            raw_type = (league.get("settings") or {}).get("type")
+            try:
+                league_type = int(raw_type)
+            except (TypeError, ValueError):
+                league_type = None
+            if league_type is None:
+                log.warning("sleeper_client: predecessor league %s has no league type", cur)
+                return chain, _cov(CHAIN_UNVERIFIED, "predecessor_type_unknown", cur)
+            if league_type != SLEEPER_DYNASTY_TYPE:
+                log.warning(
+                    "sleeper_client: predecessor league %s is type %s, not dynasty; "
+                    "history stops before it",
+                    cur,
+                    league_type,
+                )
+                return chain, _cov(CHAIN_NON_DYNASTY, f"league_type_{league_type}", cur)
         chain.append(league)
         nxt = league.get("previous_league_id") or league.get("previous_league") or ""
         cur = str(nxt or "").strip()
-    if not chain and state == CHAIN_COMPLETE:
-        # No start id at all: nothing was walked, so nothing is proven complete.
-        state = CHAIN_UNVERIFIED
-    return chain, {"state": state, "seasonsWalked": len(chain), "cap": max_seasons}
+    return chain, _cov(CHAIN_COMPLETE, None, None)
 
 
 def walk_league_chain(

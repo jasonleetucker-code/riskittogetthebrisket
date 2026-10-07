@@ -137,5 +137,135 @@ class SnapshotAndContractTests(_Patched):
         self.assertIsNone(snapshot_store.snapshot_from_dict(d).history_coverage)
 
 
+class DynastyGateTests(_Patched):
+    """Only DYNASTY predecessors are this league's history (Sleeper
+    ``settings.type`` 2).  A redraft/keeper season before the dynasty began
+    is a different game type and must not enter "all-time" records."""
+
+    def test_a_non_dynasty_predecessor_stops_the_walk_and_says_why(self) -> None:
+        self.leagues["L2023"]["settings"]["type"] = 0  # redraft
+        chain, cov = sleeper_client.walk_league_chain_status("L2026")
+        self.assertEqual([lg["season"] for lg in chain], ["2026", "2025", "2024"])
+        self.assertEqual(cov["state"], sleeper_client.CHAIN_NON_DYNASTY)
+        self.assertEqual(cov["reason"], "league_type_0")
+        self.assertEqual(cov["stoppedAtLeagueId"], "L2023")
+
+    def test_an_untyped_predecessor_fails_closed(self) -> None:
+        # Unknown game type is not dynasty.
+        del self.leagues["L2024"]["settings"]["type"]
+        chain, cov = sleeper_client.walk_league_chain_status("L2026")
+        self.assertEqual(len(chain), 2)
+        self.assertEqual(cov["state"], sleeper_client.CHAIN_UNVERIFIED)
+        self.assertEqual(cov["reason"], "predecessor_type_unknown")
+
+    def test_the_current_league_is_included_whatever_its_type(self) -> None:
+        self.leagues["L2026"]["settings"]["type"] = 0
+        chain, cov = sleeper_client.walk_league_chain_status("L2026")
+        self.assertEqual(len(chain), 5)
+        self.assertEqual(cov["state"], sleeper_client.CHAIN_COMPLETE)
+
+    def test_the_snapshot_excludes_the_non_dynasty_season(self) -> None:
+        self.leagues["L2022"]["settings"]["type"] = 1  # keeper
+        snap = build_public_snapshot("L2026", include_nfl_players=False)
+        self.assertEqual(snap.season_ids, ["2026", "2025", "2024", "2023"])
+        self.assertEqual(snap.history_coverage["state"], "non_dynasty_predecessor")
+
+
+class TransientFailureRecoveryTests(_Patched):
+    """A Sleeper blip mid-chain must not replace a COMPLETE history with a
+    shorter one: the finished seasons come back from the last snapshot, and
+    the degradation is reported."""
+
+    def _previous(self):
+        prev = build_public_snapshot("L2026", include_nfl_players=False)
+        self.assertEqual(prev.history_coverage["state"], "complete")
+        return prev
+
+    def test_without_a_previous_snapshot_the_history_is_short_and_unverified(self) -> None:
+        self.leagues.pop("L2023")
+        snap = build_public_snapshot("L2026", include_nfl_players=False)
+        self.assertEqual(snap.season_ids, ["2026", "2025", "2024"])
+        self.assertEqual(snap.history_coverage["state"], "unverified")
+        self.assertEqual(snap.history_coverage["reason"], "predecessor_fetch_failed")
+
+    def test_the_last_complete_history_is_kept_and_the_degradation_named(self) -> None:
+        prev = self._previous()
+        self.leagues.pop("L2023")  # transient: Sleeper cannot answer for it now
+        snap = build_public_snapshot("L2026", include_nfl_players=False, previous=prev)
+
+        self.assertEqual(snap.season_ids, YEARS)
+        cov = snap.history_coverage
+        self.assertEqual(cov["state"], "complete")
+        self.assertEqual(cov["seasonsWalked"], 3)
+        rec = cov["recovered"]
+        self.assertTrue(rec["degraded"])
+        self.assertEqual(rec["cause"], "predecessor_fetch_failed")
+        self.assertEqual(rec["seasons"], ["2023", "2022"])
+        self.assertEqual(rec["fromSnapshotGeneratedAt"], prev.generated_at)
+        # The recovered seasons are the previous snapshot's own objects.
+        self.assertIs(snap.seasons[3], prev.seasons[3])
+        # The registry covers them, so their owners still resolve.
+        self.assertTrue(
+            any(lid == "L2023" for (lid, _rid) in snap.managers.roster_to_owner),
+        )
+        header = build_public_contract(snap)["league"]
+        self.assertEqual(header["seasonsCovered"], YEARS)
+        self.assertTrue(header["historyCoverage"]["recovered"]["degraded"])
+
+    def test_recovery_needs_the_previous_snapshot_to_hold_that_exact_league(self) -> None:
+        prev = build_public_snapshot("L2026", max_seasons=3, include_nfl_players=False)
+        self.leagues.pop("L2023")
+        snap = build_public_snapshot("L2026", include_nfl_players=False, previous=prev)
+        self.assertEqual(snap.season_ids, ["2026", "2025", "2024"])
+        self.assertEqual(snap.history_coverage["state"], "unverified")
+        self.assertNotIn("recovered", snap.history_coverage)
+
+    def test_a_non_dynasty_stop_is_never_papered_over_from_cache(self) -> None:
+        prev = self._previous()
+        self.leagues["L2023"]["settings"]["type"] = 0
+        snap = build_public_snapshot("L2026", include_nfl_players=False, previous=prev)
+        self.assertEqual(snap.season_ids, ["2026", "2025", "2024"])
+        self.assertNotIn("recovered", snap.history_coverage)
+
+
+class ServerPassesThePreviousSnapshotTests(unittest.TestCase):
+    def test_rebuild_hands_the_cached_snapshot_for_the_same_league(self) -> None:
+        import server
+
+        saved = dict(server._public_league_cache)
+        seen = {}
+        cached = object()
+
+        def builder(league_id, max_seasons=None, **kwargs):
+            seen.update(kwargs)
+            raise RuntimeError("stop after capturing the call")
+
+        try:
+            server._public_league_cache.update(
+                {
+                    "snapshot": cached,
+                    "snapshot_league_id": "SAME",
+                    "fetched_at": 0.0,
+                    "last_failure_at": 0.0,
+                    "last_failure_error": None,
+                }
+            )
+            with mock.patch.object(server, "build_public_snapshot", builder):
+                with self.assertRaises(RuntimeError):
+                    server._rebuild_public_snapshot("SAME", trigger="test")
+            self.assertIs(seen.get("previous"), cached)
+
+            seen.clear()
+            server._public_league_cache.update({"last_failure_at": 0.0})
+            with mock.patch.object(server, "build_public_snapshot", builder):
+                with self.assertRaises(RuntimeError):
+                    server._rebuild_public_snapshot("OTHER", trigger="test")
+            # Another league's snapshot is never offered as this one's history.
+            self.assertIsNone(seen.get("previous"))
+        finally:
+            server._public_league_cache.clear()
+            server._public_league_cache.update(saved)
+
+
 if __name__ == "__main__":
     unittest.main()
