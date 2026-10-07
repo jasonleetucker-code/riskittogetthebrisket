@@ -1,6 +1,6 @@
 {
   "_comment": "Analyze Trade decision packet (#792) parameters. Read by src/trade/analyze_trade.py. Every value here is a PRIOR: a declared, evidence-gated judgement, not a calibrated fit. There is no outcome data yet to calibrate a trade-recommendation threshold against; changing one is an owner-visible methodology change.",
-  "version": "analyze_trade_v2",
+  "version": "analyze_trade_v3",
   "rosterUtility": {
     "materialityPpg": 1.0,
     "materialityPpgClass": "PRIOR",
@@ -9,5 +9,21 @@
     "largeMultipleClass": "PRIOR",
     "depthNotableLossPpg": 0.5,
     "depthNotableLossPpgClass": "PRIOR"
+  },
+  "decision": {
+    "_comment": "v3 modifiers (#792 Batch 4). Every value is a PRIOR: declared, not fitted; there is no outcome data to calibrate a recommendation threshold against. Changing one is an owner-visible methodology change. See docs/trade/ANALYZE_TRADE_V3_METHODOLOGY.md.",
+    "lowConfidenceShareMedium": 0.25,
+    "lowConfidenceShareMediumRationale": "A quarter of the traded value resting on low-confidence canonical stamps caps the decision's confidence at MEDIUM.",
+    "lowConfidenceShareLow": 0.5,
+    "lowConfidenceShareLowRationale": "Half of the traded value low-confidence caps it at LOW.",
+    "benchmarkCoverageMin": 0.5,
+    "benchmarkCoverageMinRationale": "KTC Market disagreement caps confidence only when the benchmark prices at least half of the traded canonical value; thinner coverage is reported, not acted on.",
+    "agingAge": 28.0,
+    "agingAgeRationale": "Start of the canonical 28_30 age band (src/roster_intel/age_portfolio.AGE_BANDS).",
+    "agingShareMin": 0.5,
+    "agingShareMinRationale": "A REBUILD team taking on mostly aging value without a canonical-value edge is one step toward PASS.",
+    "titleDeltaMaterialPp": 2.0,
+    "titleDeltaMaterialPpRationale": "Title-odds change (percentage points) a PUSH team needs, significant under paired seeds, before the posture fit steps toward MAKE; below it, paying value steps toward PASS.",
+    "classes": "PRIOR"
   }
 }

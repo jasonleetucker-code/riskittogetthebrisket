@@ -902,8 +902,17 @@ def simulate_final_legal_roster(
     *,
     incoming_players: Sequence[str] = (),
     outgoing_players: Sequence[str] = (),
+    ranks: Any = None,
+    team_count: int | None = None,
+    ages: Mapping[str, float | None] | None = None,
+    youth: Any = None,
 ) -> dict[str, Any]:
     """Roster intelligence for the FINAL LEGAL roster, cleanup included.
+
+    ``ranks`` + ``team_count`` (both, or neither) add Team Weakness before /
+    after; ``ages`` (+ ``youth``) adds the age-value portfolio before / after
+    over the same meaningful cores.  Omitted ⇒ those halves are absent, never
+    invented.
 
     ``C3-CAP-01`` names the sequence and this is its last two steps:
 
@@ -944,6 +953,8 @@ def simulate_final_legal_roster(
         list(context.starter_slots),
         incoming=[p for p in _as_roster_players(rosters.incoming) if p.player_id not in acquired],
         outgoing_ids=list(rosters.removed_ids),
+        ranks=ranks,
+        team_count=team_count,
         slot_eligibility=context.slot_eligibility,
     )
 
@@ -956,6 +967,15 @@ def simulate_final_legal_roster(
         )
 
     payload = simulation.to_dict()
+    if ages is not None:
+        from src.roster_intel.age_portfolio import build_age_portfolio  # noqa: PLC0415
+
+        payload["agePortfolioBefore"] = build_age_portfolio(
+            simulation.core_before, ages, youth=youth
+        ).to_dict()
+        payload["agePortfolioAfter"] = build_age_portfolio(
+            simulation.core_after, ages, youth=youth
+        ).to_dict()
     payload["cleanupApplied"] = [d.to_dict() for d in capacity.forced_drops]
     payload["cleanupIsUpperBound"] = capacity.certainty != "exact"
     payload["notes"] = notes

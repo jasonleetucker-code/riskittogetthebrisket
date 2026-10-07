@@ -61,7 +61,16 @@
  },
  "analysis": {
   "basis": "single_lens:equity",
+  "competitivePosture": "PUSH",
   "confidence": "MEDIUM",
+  "confidenceDetail": {
+   "level": "MEDIUM",
+   "reasons": [
+    "one primary dimension unavailable"
+   ]
+  },
+  "decision": "MAKE",
+  "decisionLabel": "Make the trade",
   "dimensions": [
    {
     "available": true,
@@ -376,6 +385,7 @@
     "votes": false
    }
   ],
+  "keyUncertainty": "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero",
   "lenses": {
    "evidence": {
     "available": true,
@@ -696,6 +706,465 @@
    "Fits without a cut (1 open spot after)"
   ],
   "recommendation": "MAKE",
+  "sections": {
+   "ageWindow": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "agingAge": 28.0,
+     "coreAgeAfter": null,
+     "coreAgeBefore": null,
+     "coreAgeDelta": null,
+     "coreYouthAfter": null,
+     "coreYouthBefore": null,
+     "incomingAgingValueShare": null,
+     "incomingValueWeightedAge": null,
+     "note": "Canonical value already prices age; this is the window effect, never fed back into value.",
+     "outgoingAgingValueShare": null,
+     "outgoingValueWeightedAge": null,
+     "portfolioMeasured": true,
+     "role": "context"
+    },
+    "direction": "context",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "ageWindow",
+    "lineage": "canonical_age",
+    "magnitude": null,
+    "provenance": "src.roster_intel.age_portfolio",
+    "role": "context"
+   },
+   "canonicalEquity": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "hypotheticalPicksOut": [],
+     "magnitude": "stretch",
+     "notOwnedBySender": [],
+     "rawGap": 7000,
+     "receivingAdjusted": 7000.0,
+     "receivingValue": 7000,
+     "receivingValueAdjustment": 0.0,
+     "sendingAdjusted": 0,
+     "sendingValue": 0,
+     "sendingValueAdjustment": 0.0,
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 7000,
+     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+    },
+    "direction": "favors",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "canonicalEquity",
+    "lineage": "canonical_value",
+    "magnitude": "stretch",
+    "provenance": "src.api.data_contract (rankDerivedValue) + src.trade.ktc_va",
+    "role": "vote"
+   },
+   "competitivePosture": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "components": {
+      "directional": {
+       "PUSH": 0.9186,
+       "REBUILD": 0.0035,
+       "RETOOL": 0.0779
+      },
+      "labelStability": 1.0,
+      "ownFirstRoundPickHeld": true,
+      "timing": {
+       "phase": "offseason",
+       "progressToDeadline": 0.0,
+       "tradeDeadlineWeek": 13,
+       "week": null
+      },
+      "window": {
+       "championship_contender": 0.488,
+       "playoff_contender": 0.4306,
+       "productive_struggle": 0.0062,
+       "rebuild": 0.0004,
+       "retool": 0.0748
+      },
+      "windowInputs": {
+       "competitiveness": 0.85,
+       "competitivenessSource": "championshipOdds",
+       "trajectory": 0.5,
+       "trajectorySample": 8
+      },
+      "windowOverridden": false
+     },
+     "confidence": 0.9076,
+     "evidence": "measured",
+     "label": "PUSH",
+     "notes": [
+      "SYNTHETIC_FIXTURE_WINDOW (LABELLED)"
+     ],
+     "parameterStatus": "PRIOR",
+     "paramsVersion": "posture_v1_prior",
+     "probabilities": {
+      "HOLD": 0.0,
+      "PUSH": 0.9076,
+      "REBUILD": 0.0047,
+      "RETOOL": 0.0877
+     },
+     "role": "context_not_vote",
+     "windowFit": 0.0
+    },
+    "direction": "context",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "competitivePosture",
+    "lineage": "team_strategy_context",
+    "magnitude": null,
+    "provenance": "src.roster_intel.window.competitive_posture",
+    "role": "modifier",
+    "strategicFit": {
+     "reason": null,
+     "step": 0
+    }
+   },
+   "currentSeasonEquity": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "role": "context"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "currentSeasonEquity",
+    "lineage": "league_scored_projection",
+    "magnitude": null,
+    "provenance": "src.ros.playoff_sim.simulate_trade_impact",
+    "role": "context",
+    "unavailableReason": "counterfactual_not_wired"
+   },
+   "draftCapital": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "role": "context"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "draftCapital",
+    "lineage": "league_pick_ownership",
+    "magnitude": null,
+    "provenance": "src.identity.picks (ownership) + board pick grades",
+    "role": "context",
+    "unavailableReason": "no_picks_involved"
+   },
+   "feasibility": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": null,
+     "forcedDrops": [],
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 1,
+     "openSpotsBefore": 1,
+     "overLimitAfter": 0,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": false,
+     "rosterLimit": 8,
+     "sizeAfter": 7,
+     "sizeBefore": 7,
+     "state": "fits_cleanly",
+     "unpricedForcedDrops": 0
+    },
+    "direction": "neutral",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "feasibility",
+    "lineage": "league_roster_rules",
+    "magnitude": null,
+    "provenance": "src.trade.roster_capacity",
+    "role": "modifier"
+   },
+   "marketCorroboration": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "comparables": {
+      "reason": "comparables_not_wired",
+      "state": "unavailable"
+     },
+     "lineageAll": [
+      "ktc_market_benchmark",
+      "completed_trade_ledger"
+     ],
+     "role": "modifier"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "marketCorroboration",
+    "lineage": "ktc_market_benchmark",
+    "magnitude": null,
+    "provenance": "src.sources.ktc_market (benchmark) + src.trade.market_comparables",
+    "role": "modifier",
+    "unavailableReason": "no_market_benchmark_for_traded_assets"
+   },
+   "rosterImpact": {
+    "available": false,
+    "coverage": {
+     "state": "partial",
+     "tradedUnprojectedPlayerIds": [
+      "RB Unpriced"
+     ]
+    },
+    "detail": {
+     "after": {
+      "expectedLineupPpg": 69.42,
+      "projectedPlayers": 6,
+      "rawProjectedPpg": 79.0,
+      "redundantPpg": 9.58,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "ghost player"
+      ]
+     },
+     "assumptions": [
+      "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+      "injury / availability probabilities are not modelled",
+      "bye weeks are not modelled",
+      "the lineup is re-solved exactly for every simulated week (best ball)"
+     ],
+     "basis": {
+      "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+      "draws": 400,
+      "families": [
+       "synthetic"
+      ],
+      "horizon": "PRESEASON_FULL_SEASON",
+      "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+      "pointsModel": {
+       "cvByPosition": {
+        "CB": 0.55,
+        "DB": 0.5,
+        "DE": 0.55,
+        "DL": 0.55,
+        "DT": 0.55,
+        "EDGE": 0.55,
+        "LB": 0.45,
+        "QB": 0.32,
+        "RB": 0.55,
+        "S": 0.5,
+        "TE": 0.65,
+        "WR": 0.6
+       },
+       "defaultCv": 0.55,
+       "generatedAt": null,
+       "rosValuePerPoint": 2.7,
+       "sampleSize": 0,
+       "source": "fallback-constants"
+      },
+      "season": 2026,
+      "seed": 1173,
+      "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+      "state": "available"
+     },
+     "before": {
+      "expectedLineupPpg": 57.24,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 60.0,
+      "redundantPpg": 2.76,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "cleanup": {
+      "candidatesTied": false,
+      "forcedDropIds": [],
+      "isUpperBound": false,
+      "state": "none"
+     },
+     "coverage": {
+      "state": "partial",
+      "tradedUnprojectedPlayerIds": [
+       "RB Unpriced"
+      ]
+     },
+     "depth": {
+      "after": {
+       "expectedLineupPpg": 64.0,
+       "meanLossPpg": 11.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "before": {
+       "expectedLineupPpg": 54.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+      "meanLossDeltaPpg": 1.0,
+      "method": "single_starter_absence"
+     },
+     "magnitude": "abstain_partial_coverage",
+     "neutralBandPpg": 1.0,
+     "players": [
+      {
+       "lineupEntryPctAfter": 82.0,
+       "lineupEntryPctBefore": null,
+       "name": "WR Buf Star",
+       "playerId": "WR Buf Star",
+       "position": "WR",
+       "projectedPpg": 19.0,
+       "role": "incoming",
+       "usablePpgAfter": 19.29,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": null,
+       "lineupEntryPctBefore": null,
+       "name": "RB Unpriced",
+       "playerId": "RB Unpriced",
+       "position": "RB",
+       "projectedPpg": null,
+       "role": "outgoing",
+       "usablePpgAfter": null,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 37.2,
+       "lineupEntryPctBefore": 75.0,
+       "name": "WR Phi",
+       "playerId": "WR Phi",
+       "position": "WR",
+       "projectedPpg": 9.0,
+       "role": "displaced",
+       "usablePpgAfter": 4.66,
+       "usablePpgBefore": 8.31
+      },
+      {
+       "lineupEntryPctAfter": 13.2,
+       "lineupEntryPctBefore": 39.2,
+       "name": "TE Free",
+       "playerId": "TE Free",
+       "position": "TE",
+       "projectedPpg": 6.0,
+       "role": "displaced",
+       "usablePpgAfter": 1.22,
+       "usablePpgBefore": 3.27
+      },
+      {
+       "lineupEntryPctAfter": 67.5,
+       "lineupEntryPctBefore": 85.8,
+       "name": "WR Kc",
+       "playerId": "WR Kc",
+       "position": "WR",
+       "projectedPpg": 13.0,
+       "role": "displaced",
+       "usablePpgAfter": 11.63,
+       "usablePpgBefore": 13.05
+      }
+     ],
+     "ppg": 12.18,
+     "ppgBeforeCleanup": null,
+     "rosterSpot": {
+      "openSpotsGained": 0,
+      "reason": "not_yet_measured: the waiver-pool projection join is pending",
+      "shadowValuePpg": null
+     },
+     "shape": {
+      "label": "swap",
+      "playersIn": 1,
+      "playersOut": 1
+     },
+     "standardError": 0.492,
+     "teamStrength": {
+      "after": 22500.0,
+      "before": 15500.0,
+      "countedAsVote": false,
+      "delta": 7000.0,
+      "lineage": "canonical_value",
+      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
+     },
+     "unit": "expected best-ball points per week (exact league scoring)"
+    },
+    "direction": null,
+    "finalRoster": {
+     "cleanupApplied": [],
+     "cleanupIsUpperBound": false,
+     "displacements": [],
+     "needsCreated": [],
+     "needsFixed": [],
+     "promotions": [
+      {
+       "name": "WR Buf Star",
+       "position": "WR",
+       "slotAfter": "WR",
+       "slotBefore": null
+      }
+     ],
+     "unpricedIncoming": [],
+     "urgentAfter": [],
+     "urgentBefore": [],
+     "weaknessMeasured": true
+    },
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "rosterImpact",
+    "lineage": "league_scored_projection",
+    "magnitude": "abstain_partial_coverage",
+    "provenance": "src.roster_intel.best_ball_utility + src.trade.roster_capacity",
+    "role": "vote",
+    "unavailableReason": "partial_projection_coverage"
+   },
+   "valueUncertainty": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "confidenceCap": "MEDIUM",
+     "confidenceCapReason": "100% of traded value has no confidence stamp",
+     "lowConfidenceValueShare": 0.0,
+     "monteCarlo": "not counted: centred on the same canonical value",
+     "role": "modifier",
+     "sourceDisagreementValueShare": 0.0,
+     "unstampedValueShare": 1.0
+    },
+    "direction": "context",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "valueUncertainty",
+    "lineage": "canonical_value",
+    "magnitude": null,
+    "provenance": "src.api.confidence (per-asset confidenceBucket)",
+    "role": "modifier"
+   }
+  },
+  "strongestReasonsAgainst": [],
+  "strongestReasonsFor": [
+   "+7,000 package value after KTC Value Adjustment (stretch gap)",
+   "Fits without a cut (1 open spot after)"
+  ],
+  "summary": "Make the trade: +7,000 package value after KTC Value Adjustment (stretch gap)",
   "teamContext": {
    "applied": true,
    "mode": "team"
@@ -703,25 +1172,15 @@
   "topUncertainty": "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero",
   "unavailableDimensions": [
    {
-    "dimension": "marketCorroboration",
-    "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade matching) are ABSENT \u2014 there is no independent vendor/comp evidence to synthesize.",
-    "reason": "no_backing_ledger"
-   },
-   {
-    "dimension": "valueUncertainty",
-    "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
-    "reason": "unaudited_model"
-   },
-   {
     "dimension": "currentSeasonEquity",
-    "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+    "notes": "src.ros.playoff_sim.simulate_trade_impact (paired seeds) is not yet fed a roster counterfactual for this request; playoff / bye / title deltas are shown only once that wiring lands, never estimated here.",
     "reason": "counterfactual_not_wired"
    }
   ],
   "uncertainty": [
    "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero"
   ],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -766,6 +1225,7 @@
   },
   "totalValue": 19000
  },
+ "boardAsOf": null,
  "competitivePosture": {
   "available": true,
   "components": {
@@ -858,6 +1318,244 @@
  },
  "equity": 7000,
  "finalRosterSimulation": {
+  "agePortfolioAfter": {
+   "available": true,
+   "byPosition": [
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 1,
+      "totalValue": 6000.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "QB",
+     "value": 6000.0,
+     "valueShare": 0.2667,
+     "valueWeightedAge": null,
+     "youthScore": null
+    },
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 1,
+      "totalValue": 3000.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "RB",
+     "value": 3000.0,
+     "valueShare": 0.1333,
+     "valueWeightedAge": null,
+     "youthScore": null
+    },
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 3,
+      "totalValue": 13000.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "WR",
+     "value": 13000.0,
+     "valueShare": 0.5778,
+     "valueWeightedAge": null,
+     "youthScore": null
+    },
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 1,
+      "totalValue": 500.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "TE",
+     "value": 500.0,
+     "valueShare": 0.0222,
+     "valueWeightedAge": null,
+     "youthScore": null
+    }
+   ],
+   "coreYouthScore": null,
+   "coverage": {
+    "agedPlayers": 0,
+    "agedValue": 0.0,
+    "totalPlayers": 6,
+    "totalValue": 22500.0,
+    "valueShare": 0.0
+   },
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "unavailableReason": null,
+   "valueByAge": [],
+   "valueByBand": [
+    {
+     "band": "21_and_under",
+     "value": 0.0
+    },
+    {
+     "band": "22_24",
+     "value": 0.0
+    },
+    {
+     "band": "25_27",
+     "value": 0.0
+    },
+    {
+     "band": "28_30",
+     "value": 0.0
+    },
+    {
+     "band": "31_plus",
+     "value": 0.0
+    }
+   ],
+   "valueWeightedCoreAge": null,
+   "valueWeightedRosterAge": null,
+   "youngCoreIndex": null,
+   "youngCoreIndexStatus": "PRIOR"
+  },
+  "agePortfolioBefore": {
+   "available": true,
+   "byPosition": [
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 1,
+      "totalValue": 6000.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "QB",
+     "value": 6000.0,
+     "valueShare": 0.3871,
+     "valueWeightedAge": null,
+     "youthScore": null
+    },
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 1,
+      "totalValue": 3000.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "RB",
+     "value": 3000.0,
+     "valueShare": 0.1935,
+     "valueWeightedAge": null,
+     "youthScore": null
+    },
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 2,
+      "totalValue": 6000.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "WR",
+     "value": 6000.0,
+     "valueShare": 0.3871,
+     "valueWeightedAge": null,
+     "youthScore": null
+    },
+    {
+     "ageVsLeagueMedian": null,
+     "coverage": {
+      "agedPlayers": 0,
+      "agedValue": 0.0,
+      "totalPlayers": 1,
+      "totalValue": 500.0,
+      "valueShare": 0.0
+     },
+     "isOldForLeague": false,
+     "leagueMedianAge": null,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "position": "TE",
+     "value": 500.0,
+     "valueShare": 0.0323,
+     "valueWeightedAge": null,
+     "youthScore": null
+    }
+   ],
+   "coreYouthScore": null,
+   "coverage": {
+    "agedPlayers": 0,
+    "agedValue": 0.0,
+    "totalPlayers": 5,
+    "totalValue": 15500.0,
+    "valueShare": 0.0
+   },
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "unavailableReason": null,
+   "valueByAge": [],
+   "valueByBand": [
+    {
+     "band": "21_and_under",
+     "value": 0.0
+    },
+    {
+     "band": "22_24",
+     "value": 0.0
+    },
+    {
+     "band": "25_27",
+     "value": 0.0
+    },
+    {
+     "band": "28_30",
+     "value": 0.0
+    },
+    {
+     "band": "31_plus",
+     "value": 0.0
+    }
+   ],
+   "valueWeightedCoreAge": null,
+   "valueWeightedRosterAge": null,
+   "youngCoreIndex": null,
+   "youngCoreIndexStatus": "PRIOR"
+  },
   "available": true,
   "cleanupApplied": [],
   "cleanupIsUpperBound": false,
@@ -1279,8 +1977,154 @@
   "strengthDelta": 7000.0,
   "unavailableReason": null,
   "unpricedIncoming": [],
-  "weaknessAfter": null,
-  "weaknessBefore": null
+  "weaknessAfter": {
+   "available": true,
+   "needs": [
+    {
+     "level": "none",
+     "position": "QB",
+     "priority": 0.0,
+     "reasons": [],
+     "rungs": [
+      {
+       "label": "QB1",
+       "playerId": "QB Min",
+       "playerRank": 1,
+       "position": "QB",
+       "rung": 1,
+       "shortfall": null,
+       "status": "met",
+       "thresholdRank": 2
+      }
+     ],
+     "unfilledRungs": 0,
+     "unknownRungs": 0,
+     "unmetRungs": 0
+    },
+    {
+     "level": "none",
+     "position": "RB",
+     "priority": 0.0,
+     "reasons": [],
+     "rungs": [
+      {
+       "label": "RB1",
+       "playerId": "RB Min",
+       "playerRank": 1,
+       "position": "RB",
+       "rung": 1,
+       "shortfall": null,
+       "status": "met",
+       "thresholdRank": 2
+      }
+     ],
+     "unfilledRungs": 0,
+     "unknownRungs": 0,
+     "unmetRungs": 0
+    },
+    {
+     "level": "none",
+     "position": "WR",
+     "priority": 0.0,
+     "reasons": [],
+     "rungs": [
+      {
+       "label": "WR1",
+       "playerId": "WR Buf Star",
+       "playerRank": 1,
+       "position": "WR",
+       "rung": 1,
+       "shortfall": null,
+       "status": "met",
+       "thresholdRank": 2
+      }
+     ],
+     "unfilledRungs": 0,
+     "unknownRungs": 0,
+     "unmetRungs": 0
+    }
+   ],
+   "rankPopulation": "contract_board_priced_players",
+   "teamCount": 2,
+   "thresholdRule": "rung_index_times_team_count",
+   "thresholdStatus": "PRIOR",
+   "unavailableReason": null,
+   "urgentPositions": []
+  },
+  "weaknessBefore": {
+   "available": true,
+   "needs": [
+    {
+     "level": "none",
+     "position": "QB",
+     "priority": 0.0,
+     "reasons": [],
+     "rungs": [
+      {
+       "label": "QB1",
+       "playerId": "QB Min",
+       "playerRank": 1,
+       "position": "QB",
+       "rung": 1,
+       "shortfall": null,
+       "status": "met",
+       "thresholdRank": 2
+      }
+     ],
+     "unfilledRungs": 0,
+     "unknownRungs": 0,
+     "unmetRungs": 0
+    },
+    {
+     "level": "none",
+     "position": "RB",
+     "priority": 0.0,
+     "reasons": [],
+     "rungs": [
+      {
+       "label": "RB1",
+       "playerId": "RB Min",
+       "playerRank": 1,
+       "position": "RB",
+       "rung": 1,
+       "shortfall": null,
+       "status": "met",
+       "thresholdRank": 2
+      }
+     ],
+     "unfilledRungs": 0,
+     "unknownRungs": 0,
+     "unmetRungs": 0
+    },
+    {
+     "level": "none",
+     "position": "WR",
+     "priority": 0.0,
+     "reasons": [],
+     "rungs": [
+      {
+       "label": "WR1",
+       "playerId": "WR Kc",
+       "playerRank": 2,
+       "position": "WR",
+       "rung": 1,
+       "shortfall": null,
+       "status": "met",
+       "thresholdRank": 2
+      }
+     ],
+     "unfilledRungs": 0,
+     "unknownRungs": 0,
+     "unmetRungs": 0
+    }
+   ],
+   "rankPopulation": "contract_board_priced_players",
+   "teamCount": 2,
+   "thresholdRule": "rung_index_times_team_count",
+   "thresholdStatus": "PRIOR",
+   "unavailableReason": null,
+   "urgentPositions": []
+  }
  },
  "leagueKey": "main",
  "ownedPickChecks": {
@@ -1299,6 +2143,8 @@
    "basePos": "WR",
    "confidenceBucket": null,
    "hasSourceDisagreement": null,
+   "ktcMarketValue": null,
+   "marketGapDirection": null,
    "name": "WR Buf Star",
    "playerId": null,
    "pos": "WR",
@@ -1517,6 +2363,8 @@
    "basePos": "RB",
    "confidenceBucket": null,
    "hasSourceDisagreement": null,
+   "ktcMarketValue": null,
+   "marketGapDirection": null,
    "name": "RB Unpriced",
    "playerId": null,
    "pos": "RB",

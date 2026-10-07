@@ -80,9 +80,13 @@ def _capacity(
 
 
 def _sim(recv, send, *, utility=None, capacity=None, strength=None, context=None, assets=None):
+    # Real board rows always carry the confidence owner's stamp; an asset
+    # WITHOUT one is unknown confidence, which v3 treats as a cap (tested on
+    # its own below), so the default fixture is stamped.
+    stamp = {"confidenceBucket": "high", **(assets or {})}
     payload = {
-        "receiving": [{"name": f"in{i}", "value": v, **(assets or {})} for i, v in enumerate(recv)],
-        "sending": [{"name": f"out{i}", "value": v, **(assets or {})} for i, v in enumerate(send)],
+        "receiving": [{"name": f"in{i}", "value": v, **stamp} for i, v in enumerate(recv)],
+        "sending": [{"name": f"out{i}", "value": v, **stamp} for i, v in enumerate(send)],
     }
     if utility is not None:
         payload["rosterUtility"] = utility
@@ -328,11 +332,20 @@ class TestMissingIsNamed:
         assert a["confidence"] != "HIGH"
 
     def test_current_season_equity_is_named_absent(self):
+        # v3: market corroboration and value uncertainty are real sections now
+        # (unavailable WITH a reason when their evidence is absent); the season
+        # counterfactual is still named absent until it is wired.
         a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
         names = {d["dimension"] for d in a["unavailableDimensions"]}
-        assert {"marketCorroboration", "valueUncertainty", "currentSeasonEquity"} <= names
+        assert names == {"currentSeasonEquity"}
         for d in a["unavailableDimensions"]:
             assert d["reason"] and d["notes"]
+        corr = a["sections"]["marketCorroboration"]
+        assert corr["available"] is False
+        assert corr["unavailableReason"] == "no_market_benchmark_for_traded_assets"
+        assert a["sections"]["currentSeasonEquity"]["unavailableReason"] == (
+            "counterfactual_not_wired"
+        )
 
     def test_posture_without_its_owner_answer_is_named_unavailable_and_never_votes(self):
         # Wave B: posture has a canonical owner now (#840 / C7-POST-01).  A

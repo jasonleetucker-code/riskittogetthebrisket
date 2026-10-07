@@ -162,7 +162,7 @@ def test_analyze_defaults_to_team_context(two_league_registry, monkeypatch):  # 
         "unavailableReason": "starter_slots_unresolved",
     }
     assert body["analysis"]["lenses"]["roster"]["unavailableReason"] == "starter_slots_unresolved"
-    assert body["analysis"]["version"] == "analyze_trade_v2"
+    assert body["analysis"]["version"] == "analyze_trade_v3"
     assert body["analysis"]["lenses"]["roster"]["lineage"] == "league_scored_projection"
     assert body["leagueKey"] == "main"
 

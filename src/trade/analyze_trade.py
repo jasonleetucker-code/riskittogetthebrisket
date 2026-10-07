@@ -62,7 +62,15 @@ from src.trade.suggestions import _fairness_label
 
 #: The five product-facing verdicts (plan §C, "Product job").
 RECOMMENDATIONS = ("MAKE", "LEAN_MAKE", "TOO_CLOSE", "LEAN_PASS", "PASS")
-PACKET_VERSION = "analyze_trade_v2"
+PACKET_VERSION = "analyze_trade_v3"
+
+#: What each dimension may do to the decision (methodology:
+#: ``docs/trade/ANALYZE_TRADE_V3_METHODOLOGY.md``).  Only VOTE dimensions set
+#: the direction; a MODIFIER may step the decision or cap confidence on
+#: evidence the votes do not carry; CONTEXT explains and never moves it.
+ROLE_VOTE = "vote"
+ROLE_MODIFIER = "modifier"
+ROLE_CONTEXT = "context"
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "analyze_trade.json"
 _DEFAULTS = {"materialityPpg": 1.0, "largeMultiple": 3.0, "depthNotableLossPpg": 0.5}
@@ -74,28 +82,23 @@ LINEAGE_ROSTER_RULES = "league_roster_rules"
 #: Competitive Posture is an INTERPRETATION of evidence other lenses already
 #: carry (playoff odds, Team Strength, age-value) — context, never a vote.
 LINEAGE_TEAM_STRATEGY = "team_strategy_context"
+#: KTC's own published Crowd+Trades price (``src.sources.ktc_market``).  A
+#: BENCHMARK of two families that already vote inside canonical value, so it
+#: can only corroborate or dispute, never vote.
+LINEAGE_MARKET_BENCHMARK = "ktc_market_benchmark"
+LINEAGE_COMPLETED_TRADES = "completed_trade_ledger"
+LINEAGE_AGE = "canonical_age"
+LINEAGE_PICK_OWNERSHIP = "league_pick_ownership"
 
 #: Dimensions this depth deliberately does not compute, named so "not
 #: included" and "computed and found neutral" never look the same.
 _UNAVAILABLE_DIMENSIONS = (
     {
-        "dimension": "marketCorroboration",
-        "reason": "no_backing_ledger",
-        "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade "
-        "matching) are ABSENT — there is no independent vendor/comp evidence to synthesize.",
-    },
-    {
-        "dimension": "valueUncertainty",
-        "reason": "unaudited_model",
-        "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation "
-        "items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md §A) and are not "
-        "folded into this recommendation until that audit closes.",
-    },
-    {
         "dimension": "currentSeasonEquity",
         "reason": "counterfactual_not_wired",
-        "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only "
-        "and has no production caller; playoff/championship deltas wait for that owner.",
+        "notes": "src.ros.playoff_sim.simulate_trade_impact (paired seeds) is not yet fed "
+        "a roster counterfactual for this request; playoff / bye / title deltas are shown "
+        "only once that wiring lands, never estimated here.",
     },
 )
 
@@ -449,6 +452,439 @@ def _evidence_lens(simulation: dict[str, Any], roster: DimensionResult) -> Dimen
     )
 
 
+# ── v3 sections: modifiers and context (#792 Batch 4) ────────────────────
+#
+# Each reads a field the simulation already carries.  None of them computes a
+# canonical value, and none of them votes: a modifier may cap confidence or
+# step the decision once on evidence the two votes do not carry; context only
+# explains.  Methodology and lineage map:
+# ``docs/trade/ANALYZE_TRADE_V3_METHODOLOGY.md``.
+
+_V3_DEFAULTS = {
+    "lowConfidenceShareMedium": 0.25,
+    "lowConfidenceShareLow": 0.5,
+    "benchmarkCoverageMin": 0.5,
+    "agingAge": 28.0,
+    "agingShareMin": 0.5,
+    "titleDeltaMaterialPp": 2.0,
+}
+
+
+def _v3_config() -> dict[str, float]:
+    try:
+        raw = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
+        block = raw.get("decision") or {}
+        return {k: float(block.get(k, v)) for k, v in _V3_DEFAULTS.items()}
+    except (OSError, ValueError, TypeError):
+        return dict(_V3_DEFAULTS)
+
+
+def _num(x: Any) -> float | None:
+    return float(x) if isinstance(x, (int, float)) and not isinstance(x, bool) else None
+
+
+def _traded(simulation: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    return [("in", a) for a in simulation.get("receiving") or [] if isinstance(a, dict)] + [
+        ("out", a) for a in simulation.get("sending") or [] if isinstance(a, dict)
+    ]
+
+
+def _market_corroboration(simulation: dict[str, Any], equity: DimensionResult) -> DimensionResult:
+    """KTC Market benchmark + completed-trade comparables: do they agree with
+    the canonical direction?
+
+    Both are DESCENDANTS of evidence canonical value already counts (KTC Crowd
+    and KTC Trades vote inside it; comparables are what those markets did), so
+    this never votes.  Disagreement lowers confidence and is named; it never
+    flips the direction.  BROAD_CONTEXT comparables carry no price authority
+    (their owner zeroes it) and are shown only as context.
+    """
+    priced = [(side, a) for side, a in _traded(simulation) if _num(a.get("value")) is not None]
+    total = sum(float(a["value"]) for _, a in priced)
+    bench = [(side, a) for side, a in priced if _num(a.get("ktcMarketValue")) is not None]
+    covered = sum(float(a["value"]) for _, a in bench)
+    coverage = (covered / total) if total > 0 else None
+    comps = simulation.get("marketComparables")
+    comps_block = comps if isinstance(comps, dict) else None
+    lineage = [LINEAGE_MARKET_BENCHMARK, LINEAGE_COMPLETED_TRADES]
+    if not bench and not (comps_block and comps_block.get("state") == "ok"):
+        return DimensionResult(
+            name="marketCorroboration",
+            available=False,
+            unavailable_reason=(
+                "no_market_benchmark_for_traded_assets" if priced else "no_priced_assets"
+            ),
+            votes=False,
+            lineage=LINEAGE_MARKET_BENCHMARK,
+            detail={
+                "role": ROLE_MODIFIER,
+                "lineageAll": lineage,
+                "comparables": comps_block
+                or {"state": "unavailable", "reason": "comparables_not_wired"},
+            },
+        )
+    recv_b = sum(float(a["ktcMarketValue"]) for side, a in bench if side == "in")
+    send_b = sum(float(a["ktcMarketValue"]) for side, a in bench if side == "out")
+    bench_gap = recv_b - send_b
+    bench_mag = _fairness_label(int(round(bench_gap)))
+    bench_dir = "neutral" if bench_mag == "even" else _direction(bench_gap)
+    canon_dir = equity.direction if equity.available else None
+    if canon_dir is None or bench_dir == "neutral" or canon_dir == "neutral":
+        agreement = "inconclusive"
+    elif bench_dir == canon_dir:
+        agreement = "agrees"
+    else:
+        agreement = "disagrees"
+    comp_dir = (comps_block or {}).get("marketDirection")
+    return DimensionResult(
+        name="marketCorroboration",
+        available=True,
+        direction=agreement,
+        votes=False,
+        lineage=LINEAGE_MARKET_BENCHMARK,
+        detail={
+            "role": ROLE_MODIFIER,
+            "lineageAll": lineage,
+            "benchmark": "KTC Market (KTC's published Crowd+Trades) — benchmark only, never a vote",
+            "benchmarkReceiving": int(round(recv_b)),
+            "benchmarkSending": int(round(send_b)),
+            "benchmarkGap": int(round(bench_gap)),
+            "benchmarkMagnitude": bench_mag,
+            "benchmarkDirection": bench_dir,
+            "agreement": agreement,
+            "coverage": round(coverage, 3) if coverage is not None else None,
+            "assetsWithoutBenchmark": [
+                str(a.get("name")) for _, a in priced if _num(a.get("ktcMarketValue")) is None
+            ],
+            "comparables": comps_block
+            or {"state": "unavailable", "reason": "comparables_not_wired"},
+            "comparablesDirection": comp_dir,
+            "note": "Gap is raw benchmark value (no package adjustment); it corroborates or "
+            "disputes the canonical direction and cannot change it.",
+        },
+    )
+
+
+def _value_uncertainty(simulation: dict[str, Any], cfg3: dict[str, float]) -> DimensionResult:
+    """How sure is the VALUE conclusion?  From the canonical confidence owner's
+    per-asset stamps (``src/api/confidence.py``), weighted by traded value.
+
+    Monte Carlo is NOT read: its bands are centred on the same canonical p50,
+    so counting it would vote the value twice.
+    """
+    priced = [a for _, a in _traded(simulation) if _num(a.get("value")) is not None]
+    total = sum(float(a["value"]) for a in priced)
+    if total <= 0:
+        return DimensionResult(
+            name="valueUncertainty",
+            available=False,
+            unavailable_reason="no_priced_assets",
+            votes=False,
+            lineage=LINEAGE_CANONICAL_VALUE,
+            detail={"role": ROLE_MODIFIER},
+        )
+    low = sum(float(a["value"]) for a in priced if a.get("confidenceBucket") == "low")
+    unstamped = sum(float(a["value"]) for a in priced if a.get("confidenceBucket") is None)
+    disagree = sum(float(a["value"]) for a in priced if a.get("hasSourceDisagreement") is True)
+    low_share = low / total
+    unstamped_share = unstamped / total
+    if low_share >= cfg3["lowConfidenceShareLow"]:
+        cap, cap_reason = "LOW", f"{low_share:.0%} of traded value is low-confidence"
+    elif low_share >= cfg3["lowConfidenceShareMedium"]:
+        cap, cap_reason = "MEDIUM", f"{low_share:.0%} of traded value is low-confidence"
+    elif unstamped_share >= 0.5:
+        # An asset with no confidence stamp is UNKNOWN confidence, not high.
+        cap, cap_reason = "MEDIUM", f"{unstamped_share:.0%} of traded value has no confidence stamp"
+    else:
+        cap, cap_reason = None, None
+    return DimensionResult(
+        name="valueUncertainty",
+        available=True,
+        direction="context",
+        votes=False,
+        lineage=LINEAGE_CANONICAL_VALUE,
+        detail={
+            "role": ROLE_MODIFIER,
+            "lowConfidenceValueShare": round(low_share, 3),
+            "unstampedValueShare": round(unstamped_share, 3),
+            "sourceDisagreementValueShare": round(disagree / total, 3),
+            "confidenceCap": cap,
+            "confidenceCapReason": cap_reason,
+            "monteCarlo": "not counted: centred on the same canonical value",
+        },
+    )
+
+
+def _final_roster_section(simulation: dict[str, Any]) -> dict[str, Any] | None:
+    """What the FINAL LEGAL roster looks like (``finalRosterSimulation``):
+    needs fixed / created, promotions, displacements, cleanup.  Reported, not
+    voted — the roster vote is the best-ball utility on this same roster."""
+    frs = simulation.get("finalRosterSimulation")
+    if not isinstance(frs, dict) or frs.get("available", True) is not True:
+        return None
+
+    def _names(rows: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": r.get("canonicalName") or r.get("playerId"),
+                "position": r.get("position"),
+                "slotBefore": r.get("slotBefore"),
+                "slotAfter": r.get("slotAfter"),
+            }
+            for r in rows or []
+            if isinstance(r, dict)
+        ]
+
+    def _urgent(w: Any) -> list[str] | None:
+        if not isinstance(w, dict):
+            return None
+        urgent = w.get("urgentPositions")
+        return list(urgent) if isinstance(urgent, list) else None
+
+    return {
+        "needsFixed": list(frs.get("needsFixed") or []),
+        "needsCreated": list(frs.get("needsCreated") or []),
+        "weaknessMeasured": isinstance(frs.get("weaknessBefore"), dict)
+        and isinstance(frs.get("weaknessAfter"), dict),
+        "urgentBefore": _urgent(frs.get("weaknessBefore")),
+        "urgentAfter": _urgent(frs.get("weaknessAfter")),
+        "promotions": _names(frs.get("promotions")),
+        "displacements": _names(frs.get("displacements")),
+        "cleanupApplied": [
+            {"name": d.get("name"), "position": d.get("position")}
+            for d in frs.get("cleanupApplied") or []
+            if isinstance(d, dict)
+        ],
+        "cleanupIsUpperBound": bool(frs.get("cleanupIsUpperBound")),
+        "unpricedIncoming": list(frs.get("unpricedIncoming") or []),
+    }
+
+
+def _age_window(simulation: dict[str, Any], cfg3: dict[str, float]) -> DimensionResult:
+    """Age / dynasty window, from the canonical age-value owner
+    (``roster_intel.age_portfolio``) on the final legal core, plus the ages
+    of the traded assets.  CONTEXT: canonical value already prices age, so
+    this explains the window effect and never feeds value back."""
+    frs = simulation.get("finalRosterSimulation") or {}
+    before = frs.get("agePortfolioBefore") if isinstance(frs, dict) else None
+    after = frs.get("agePortfolioAfter") if isinstance(frs, dict) else None
+
+    def _vw_age(side: str) -> tuple[float | None, float]:
+        rows = [
+            a
+            for s_, a in _traded(simulation)
+            if s_ == side and _num(a.get("age")) is not None and _num(a.get("value")) is not None
+        ]
+        tot = sum(float(a["value"]) for a in rows)
+        if tot <= 0:
+            return None, 0.0
+        aging = sum(float(a["value"]) for a in rows if float(a["age"]) >= cfg3["agingAge"])
+        return sum(float(a["age"]) * float(a["value"]) for a in rows) / tot, aging / tot
+
+    in_age, in_aging = _vw_age("in")
+    out_age, out_aging = _vw_age("out")
+    have_portfolio = isinstance(before, dict) and isinstance(after, dict)
+    if not have_portfolio and in_age is None and out_age is None:
+        return DimensionResult(
+            name="ageWindow",
+            available=False,
+            unavailable_reason="no_age_evidence",
+            votes=False,
+            lineage=LINEAGE_AGE,
+            detail={"role": ROLE_CONTEXT},
+        )
+
+    def _pick(block: Any, key: str) -> Any:
+        return block.get(key) if isinstance(block, dict) else None
+
+    core_b = _num(_pick(before, "valueWeightedCoreAge"))
+    core_a = _num(_pick(after, "valueWeightedCoreAge"))
+    youth_b = _num(_pick(before, "coreYouthScore"))
+    youth_a = _num(_pick(after, "coreYouthScore"))
+    return DimensionResult(
+        name="ageWindow",
+        available=True,
+        direction="context",
+        votes=False,
+        lineage=LINEAGE_AGE,
+        detail={
+            "role": ROLE_CONTEXT,
+            "coreAgeBefore": core_b,
+            "coreAgeAfter": core_a,
+            "coreAgeDelta": round(core_a - core_b, 2)
+            if core_a is not None and core_b is not None
+            else None,
+            "coreYouthBefore": youth_b,
+            "coreYouthAfter": youth_a,
+            "incomingValueWeightedAge": round(in_age, 1) if in_age is not None else None,
+            "outgoingValueWeightedAge": round(out_age, 1) if out_age is not None else None,
+            "incomingAgingValueShare": round(in_aging, 3) if in_age is not None else None,
+            "outgoingAgingValueShare": round(out_aging, 3) if out_age is not None else None,
+            "agingAge": cfg3["agingAge"],
+            "portfolioMeasured": have_portfolio,
+            "note": "Canonical value already prices age; this is the window effect, "
+            "never fed back into value.",
+        },
+    )
+
+
+def _season_equity(simulation: dict[str, Any]) -> DimensionResult:
+    """Current-season marginal effect (playoffs / bye / title) from the playoff
+    simulator's paired-seed counterfactual.  CONTEXT for the posture fit only:
+    its weekly-strength input shares the projection lineage the roster vote
+    already carries."""
+    block = simulation.get("seasonImpact")
+    if not isinstance(block, dict) or block.get("available") is not True:
+        reason = (
+            str(block.get("unavailableReason") or "not_computed")
+            if isinstance(block, dict)
+            else "counterfactual_not_wired"
+        )
+        return DimensionResult(
+            name="currentSeasonEquity",
+            available=False,
+            unavailable_reason=reason,
+            votes=False,
+            lineage=LINEAGE_PROJECTION,
+            detail={"role": ROLE_CONTEXT},
+        )
+    return DimensionResult(
+        name="currentSeasonEquity",
+        available=True,
+        direction="context",
+        votes=False,
+        lineage=LINEAGE_PROJECTION,
+        detail={"role": ROLE_CONTEXT, **{k: v for k, v in block.items() if k != "available"}},
+    )
+
+
+def _draft_capital(simulation: dict[str, Any]) -> DimensionResult:
+    """Future draft capital before → after, from the simulation's own pick
+    accounting (Wave A ownership).  Slot projections are shown only when the
+    canonical Pick Projector supplied them; otherwise the board grade the pick
+    was priced at is all that is claimed."""
+    picks = [
+        (side, a)
+        for side, a in _traded(simulation)
+        if a.get("assetClass") == "pick" or str(a.get("pos") or "").upper() == "PICK"
+    ]
+    checks = simulation.get("ownedPickChecks") or {}
+    before = ((simulation.get("before") or {}).get("byPosition") or {}).get("PICK") or {}
+    after = ((simulation.get("after") or {}).get("byPosition") or {}).get("PICK") or {}
+    not_owned = [
+        {"label": c.get("label"), "actualOwnerName": c.get("actualOwnerName")}
+        for c in checks.get("notOwnedBySender") or []
+        if isinstance(c, dict)
+    ]
+    hypothetical = list(checks.get("hypotheticalPicksOut") or [])
+    if not picks and not not_owned and not hypothetical:
+        return DimensionResult(
+            name="draftCapital",
+            available=False,
+            unavailable_reason="no_picks_involved",
+            votes=False,
+            lineage=LINEAGE_PICK_OWNERSHIP,
+            detail={"role": ROLE_CONTEXT},
+        )
+    projection = simulation.get("pickProjection")
+    return DimensionResult(
+        name="draftCapital",
+        available=True,
+        direction="context",
+        votes=False,
+        lineage=LINEAGE_PICK_OWNERSHIP,
+        detail={
+            "role": ROLE_CONTEXT,
+            "acquired": [
+                {
+                    "label": a.get("sourceLabel") or a.get("name"),
+                    "boardGrade": a.get("name"),
+                    "value": a.get("value"),
+                }
+                for side, a in picks
+                if side == "in"
+            ],
+            "lost": [
+                {
+                    "label": a.get("sourceLabel") or a.get("name"),
+                    "boardGrade": a.get("name"),
+                    "value": a.get("value"),
+                }
+                for side, a in picks
+                if side == "out"
+            ],
+            "pickCountBefore": before.get("count"),
+            "pickCountAfter": after.get("count"),
+            "pickValueBefore": before.get("value"),
+            "pickValueAfter": after.get("value"),
+            "notOwnedBySender": not_owned,
+            "hypotheticalPicksOut": hypothetical,
+            "slotProjection": projection
+            if isinstance(projection, dict)
+            else {"state": "unvalidated", "reason": "pick_projector_not_consumed"},
+            "note": "Picks a team does not own are named, never counted; weakening another "
+            "roster helps this team only through picks it actually holds.",
+        },
+    )
+
+
+def _posture_label(posture: DimensionResult) -> str | None:
+    if not posture.available:
+        return None
+    label = (posture.detail or {}).get("label")
+    return str(label) if label in ("PUSH", "HOLD", "RETOOL", "REBUILD") else None
+
+
+def _strategic_fit(
+    posture: DimensionResult,
+    equity: DimensionResult,
+    age: DimensionResult,
+    season: DimensionResult,
+    cfg3: dict[str, float],
+) -> tuple[int, str | None]:
+    """Preregistered strategic-fit MODIFIER: ``(step, reason)``.
+
+    The posture LABEL alone never moves the decision.  A step needs the label
+    AND independent evidence for that label's concern, and is at most one:
+
+    * PUSH, giving up canonical value, season evidence present and no material
+      title-odds gain → one step toward PASS;
+    * PUSH, giving up at most a "lean" of canonical value for a material,
+      significant title-odds gain → one step toward MAKE;
+    * REBUILD, buying mostly aging value (incoming aging share at or above the
+      PRIOR) without a canonical-value edge → one step toward PASS.
+    """
+    label = _posture_label(posture)
+    if label is None:
+        return 0, None
+    eq_dir = equity.direction if equity.available else None
+    eq_mag = (equity.detail or {}).get("magnitude")
+    if label == "PUSH" and season.available:
+        title = (season.detail or {}).get("titleDeltaPp")
+        sig = (season.detail or {}).get("titleSignificant") is True
+        if isinstance(title, (int, float)):
+            material = sig and title >= cfg3["titleDeltaMaterialPp"]
+            if eq_dir == "opposes" and not material:
+                return -1, (
+                    "Push posture: gives up canonical value for no material title-odds gain "
+                    f"({title:+.1f} pp)"
+                )
+            if eq_dir == "opposes" and eq_mag == "lean" and material:
+                return 1, (f"Push posture: a modest value cost buys {title:+.1f} pp of title odds")
+    if label == "REBUILD" and age.available:
+        share = (age.detail or {}).get("incomingAgingValueShare")
+        if (
+            isinstance(share, (int, float))
+            and share >= cfg3["agingShareMin"]
+            and eq_dir in ("neutral", "opposes")
+        ):
+            return -1, (
+                f"Rebuild posture: {share:.0%} of incoming value is age "
+                f"{cfg3['agingAge']:.0f}+ without a value edge"
+            )
+    return 0, None
+
+
 # ── Synthesis ────────────────────────────────────────────────────────────
 
 
@@ -675,10 +1111,67 @@ def _uncertainty(
     return out
 
 
+#: Owner of each section's evidence, published as provenance.
+_PROVENANCE = {
+    "canonicalEquity": "src.api.data_contract (rankDerivedValue) + src.trade.ktc_va",
+    "marketCorroboration": "src.sources.ktc_market (benchmark) + src.trade.market_comparables",
+    "valueUncertainty": "src.api.confidence (per-asset confidenceBucket)",
+    "rosterImpact": "src.roster_intel.best_ball_utility + src.trade.roster_capacity",
+    "ageWindow": "src.roster_intel.age_portfolio",
+    "currentSeasonEquity": "src.ros.playoff_sim.simulate_trade_impact",
+    "competitivePosture": "src.roster_intel.window.competitive_posture",
+    "draftCapital": "src.identity.picks (ownership) + board pick grades",
+    "feasibility": "src.trade.roster_capacity",
+}
+
+_ROLE = {
+    "canonicalEquity": ROLE_VOTE,
+    "marketCorroboration": ROLE_MODIFIER,
+    "valueUncertainty": ROLE_MODIFIER,
+    "rosterImpact": ROLE_VOTE,
+    "ageWindow": ROLE_CONTEXT,
+    "currentSeasonEquity": ROLE_CONTEXT,
+    "competitivePosture": ROLE_MODIFIER,
+    "draftCapital": ROLE_CONTEXT,
+    "feasibility": ROLE_MODIFIER,
+}
+
+DECISION_LABELS = {
+    "MAKE": "Make the trade",
+    "LEAN_MAKE": "Lean make",
+    "TOO_CLOSE": "Too close / depends",
+    "LEAN_PASS": "Lean pass",
+    "PASS": "Pass",
+}
+
+
+def _section(key: str, d: DimensionResult, *, freshness: Any) -> dict[str, Any]:
+    """One uniform section: the same fields for every dimension, so "not
+    computed", "computed and neutral" and "context only" never look alike."""
+    detail = d.detail or {}
+    coverage = detail.get("coverage")
+    out: dict[str, Any] = {
+        "key": key,
+        "available": d.available,
+        "role": _ROLE[key],
+        "lineage": d.lineage,
+        "direction": d.direction if d.available else None,
+        "magnitude": detail.get("magnitude"),
+        "coverage": coverage,
+        "freshness": freshness,
+        "provenance": _PROVENANCE[key],
+        "detail": detail,
+    }
+    if not d.available:
+        out["unavailableReason"] = d.unavailable_reason
+    return out
+
+
 @dataclass
 class AnalyzeTradeResult:
     recommendation: str
     confidence: str
+    confidence_reasons: list[str]
     basis: str
     reasons_for: list[str]
     reasons_against: list[str]
@@ -686,11 +1179,25 @@ class AnalyzeTradeResult:
     dimensions: list[DimensionResult]
     unavailable_dimensions: list[dict[str, str]]
     team_context: dict[str, Any]
+    sections: dict[str, Any] = field(default_factory=dict)
+    posture_label: str | None = None
+    summary: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         by_name = {d.name: d.to_dict() for d in self.dimensions}
         return {
             "version": PACKET_VERSION,
+            # v3 headline (#792 Batch 4).
+            "decision": self.recommendation,
+            "decisionLabel": DECISION_LABELS[self.recommendation],
+            "confidenceDetail": {"level": self.confidence, "reasons": self.confidence_reasons},
+            "competitivePosture": self.posture_label,
+            "summary": self.summary,
+            "strongestReasonsFor": self.reasons_for[:5],
+            "strongestReasonsAgainst": self.reasons_against[:5],
+            "keyUncertainty": self.uncertainty[0] if self.uncertainty else None,
+            "sections": self.sections,
+            # v2 keys, unchanged, for existing consumers.
             "recommendation": self.recommendation,
             "confidence": self.confidence,
             "basis": self.basis,
@@ -768,15 +1275,36 @@ def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
     )
 
 
+def _cap(level: str, cap: str | None) -> str:
+    order = ("LOW", "MEDIUM", "HIGH")
+    if cap is None:
+        return level
+    return order[min(order.index(level), order.index(cap))]
+
+
+def _summary(rec: str, reasons_for: list[str], reasons_against: list[str]) -> str:
+    lead = DECISION_LABELS[rec]
+    if rec in ("MAKE", "LEAN_MAKE"):
+        first = reasons_for[:1] + reasons_against[:1]
+    elif rec in ("PASS", "LEAN_PASS"):
+        first = reasons_against[:1] + reasons_for[:1]
+    else:
+        first = reasons_for[:1] + reasons_against[:1]
+    return lead + (": " + "; ".join(first) if first else "")
+
+
 def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
     Pure composition over fields the simulation already carries
     (``receiving`` / ``sending`` / ``rosterCapacity`` / ``rosterUtility`` /
-    ``finalRosterSimulation`` / ``teamContext``).  Computes no canonical value
-    and calls no engine the simulation did not already call.
+    ``finalRosterSimulation`` / ``teamContext`` / ``competitivePosture`` /
+    ``ownedPickChecks`` and, when wired, ``marketComparables`` /
+    ``seasonImpact``).  Computes no canonical value and calls no engine the
+    simulation did not already call.
     """
     cfg = _config()
+    cfg3 = _v3_config()
     team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
     team_context = team_context_block.get("applied") is not False
 
@@ -785,32 +1313,103 @@ def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
         roster = _roster_lens(simulation, cfg)
         feasibility = _feasibility_lens(simulation)
         posture = _posture_lens(simulation)
+        age = _age_window(simulation, cfg3)
+        season = _season_equity(simulation)
     else:
         roster = _excluded_by_mode("rosterUtility", LINEAGE_PROJECTION)
         feasibility = _excluded_by_mode("feasibility", LINEAGE_ROSTER_RULES)
         posture = _excluded_by_mode("strategicPosture", LINEAGE_TEAM_STRATEGY)
         posture.votes = False
+        age = _excluded_by_mode("ageWindow", LINEAGE_AGE)
+        age.votes = False
+        season = _excluded_by_mode("currentSeasonEquity", LINEAGE_PROJECTION)
+        season.votes = False
     evidence = _evidence_lens(simulation, roster)
+    corroboration = _market_corroboration(simulation, market)
+    value_unc = _value_uncertainty(simulation, cfg3)
+    draft = _draft_capital(simulation)
 
     recommendation, confidence, basis = _recommend(market, roster, feasibility)
     reasons_for, reasons_against = _reasons(market, roster, feasibility, cfg)
     uncertainty = _uncertainty(market, roster, feasibility, evidence, team_context)
+    confidence_reasons: list[str] = []
+
+    # Strategic fit (preregistered MODIFIER): label + independent evidence,
+    # at most one step.  The label alone never moves anything.
+    step, fit_reason = (
+        _strategic_fit(posture, market, age, season, cfg3) if team_context else (0, None)
+    )
+    if step:
+        recommendation = _step(recommendation, step)
+        basis += f"+strategicFit:{'toward_make' if step > 0 else 'toward_pass'}"
+        (reasons_for if step > 0 else reasons_against).append(str(fit_reason))
+
     if confidence == "HIGH" and uncertainty:
         # Agreement between two lenses does not survive a named gap in the
         # evidence behind them.
         confidence = "MEDIUM"
+        confidence_reasons.append("named evidence gaps")
+
+    if (
+        corroboration.available
+        and corroboration.direction == "disagrees"
+        and isinstance((corroboration.detail or {}).get("coverage"), (int, float))
+        and corroboration.detail["coverage"] >= cfg3["benchmarkCoverageMin"]
+    ):
+        confidence = _cap(confidence, "MEDIUM")
+        confidence_reasons.append("market benchmark points the other way")
+        uncertainty.append(
+            "KTC Market benchmark leans the other way "
+            f"({corroboration.detail['benchmarkGap']:+,} raw) — shown, not counted"
+        )
+    vcap = (value_unc.detail or {}).get("confidenceCap") if value_unc.available else None
+    if vcap:
+        before_cap = confidence
+        confidence = _cap(confidence, vcap)
+        if confidence != before_cap:
+            confidence_reasons.append(str(value_unc.detail["confidenceCapReason"]))
+    if not roster.available or not market.available:
+        confidence_reasons.append("one primary dimension unavailable")
+    if not confidence_reasons:
+        confidence_reasons.append("both primary dimensions available and consistent")
+
+    freshness = {"boardAsOf": simulation.get("boardAsOf")}
+    roster_section = _section("rosterImpact", roster, freshness=freshness)
+    roster_section["finalRoster"] = _final_roster_section(simulation)
+    sections = {
+        "canonicalEquity": _section("canonicalEquity", market, freshness=freshness),
+        "marketCorroboration": _section("marketCorroboration", corroboration, freshness=freshness),
+        "valueUncertainty": _section("valueUncertainty", value_unc, freshness=freshness),
+        "rosterImpact": roster_section,
+        "ageWindow": _section("ageWindow", age, freshness=freshness),
+        "currentSeasonEquity": _section("currentSeasonEquity", season, freshness=freshness),
+        "competitivePosture": {
+            **_section("competitivePosture", posture, freshness=freshness),
+            "strategicFit": {"step": step, "reason": fit_reason},
+        },
+        "draftCapital": _section("draftCapital", draft, freshness=freshness),
+        "feasibility": _section("feasibility", feasibility, freshness=freshness),
+    }
 
     return AnalyzeTradeResult(
         recommendation=recommendation,
         confidence=confidence,
+        confidence_reasons=confidence_reasons,
         basis=basis,
         reasons_for=reasons_for,
         reasons_against=reasons_against,
         uncertainty=uncertainty,
         dimensions=[market, roster, feasibility, evidence, posture],
-        unavailable_dimensions=list(_UNAVAILABLE_DIMENSIONS),
+        unavailable_dimensions=[
+            d
+            for d in _UNAVAILABLE_DIMENSIONS
+            if not (season.available and d["dimension"] == "currentSeasonEquity")
+        ],
         team_context={
             "applied": team_context,
             "mode": "team" if team_context else "asset_only",
         },
+        sections=sections,
+        posture_label=_posture_label(posture) if team_context else None,
+        summary=_summary(recommendation, reasons_for, reasons_against),
     ).to_dict()

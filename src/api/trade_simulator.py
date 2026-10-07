@@ -347,6 +347,59 @@ def _resolve_asset(
         "playerId": str(row.get("playerId")) if row.get("playerId") else None,
         "confidenceBucket": row.get("confidenceBucket"),
         "hasSourceDisagreement": row.get("hasSourceDisagreement"),
+        # KTC Market BENCHMARK (``src.sources.ktc_market``), READ never
+        # computed: Analyze Trade's market-corroboration section compares it
+        # with the canonical direction and never counts it as a vote.  None
+        # when KTC publishes no price (IDP, deep rows) — missing, not 0.
+        "ktcMarketValue": _ktc_market_value(row),
+        "marketGapDirection": row.get("marketGapDirection"),
+    }
+
+
+def _ktc_market_value(row: dict[str, Any]) -> float | None:
+    market = row.get("ktcMarket")
+    if not isinstance(market, dict):
+        return None
+    value = market.get("normalizedValue")
+    return float(value) if isinstance(value, (int, float)) and value > 0 else None
+
+
+def roster_profile_inputs(contract: dict[str, Any] | None) -> dict[str, Any]:
+    """Board-derived inputs for Team Weakness and the age-value portfolio,
+    keyed the way ``RosterAsset.player_id`` is (Sleeper ``playerId``, else the
+    board name) so a rank or an age can never silently miss every player.
+
+    Positional ranks order canonical values the board already published;
+    nothing is computed here.  ``team_count`` is the league's own roster count
+    (``sleeper.teams``) — None when unknown, which leaves weakness unmeasured
+    rather than measured against an invented league size.
+    """
+    from src.roster_intel.age_portfolio import build_youth_curve  # noqa: PLC0415
+    from src.roster_intel.weakness import build_position_ranks  # noqa: PLC0415
+
+    rows = _players_array(contract or {})
+    board: list[tuple[str, str, float | None]] = []
+    ages: dict[str, float | None] = {}
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict) or row.get("assetClass") == "pick":
+            continue
+        position = str(row.get("position") or "").strip()
+        key = str(row.get("playerId") or row.get("canonicalName") or row.get("displayName") or "")
+        if not position or not key or key in seen:
+            continue
+        seen.add(key)
+        value = row.get("rankDerivedValue")
+        board.append((key, position, float(value) if isinstance(value, (int, float)) else None))
+        age = row.get("age")
+        if isinstance(age, (int, float)) and age > 0:
+            ages[key] = float(age)
+    teams = ((contract or {}).get("sleeper") or {}).get("teams") or []
+    return {
+        "ranks": build_position_ranks(board, population="contract_board_priced_players"),
+        "team_count": len(teams) if isinstance(teams, list) and len(teams) > 1 else None,
+        "ages": ages,
+        "youth": build_youth_curve([(pos, ages.get(pid)) for pid, pos, _ in board]),
     }
 
 
@@ -684,6 +737,9 @@ def simulate_trade(
         "unresolvedIn": unresolved_in,
         "unresolvedOut": unresolved_out,
         "equity": int(equity),
+        # When the board these values came from was produced, so every
+        # Analyze Trade section can state its freshness.
+        "boardAsOf": (contract or {}).get("scrapeTimestamp") or (contract or {}).get("date"),
         "ownedPickChecks": {
             "rule": "src/identity/picks.py::lookup_league_pick_owner",
             "notOwnedBySender": checks["notOwnedBySender"],
@@ -813,11 +869,17 @@ def simulate_trade(
                         simulate_final_legal_roster,
                     )
 
+                    # Analyze Trade only: Team Weakness and the age-value
+                    # portfolio before/after on the same final legal roster
+                    # (their canonical owners; ranks / ages / youth come from
+                    # the board).  Plain simulate keeps its existing shape.
+                    profile = roster_profile_inputs(contract) if include_roster_utility else {}
                     response["finalRosterSimulation"] = simulate_final_legal_roster(
                         capacity_context,
                         capacity,
                         incoming_players=players_in,
                         outgoing_players=players_out,
+                        **profile,
                     )
                 except Exception as exc:  # noqa: BLE001
                     response["finalRosterSimulation"] = {

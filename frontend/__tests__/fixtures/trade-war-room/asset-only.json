@@ -62,7 +62,16 @@
  },
  "analysis": {
   "basis": "single_lens:equity",
+  "competitivePosture": null,
   "confidence": "MEDIUM",
+  "confidenceDetail": {
+   "level": "MEDIUM",
+   "reasons": [
+    "one primary dimension unavailable"
+   ]
+  },
+  "decision": "MAKE",
+  "decisionLabel": "Make the trade",
   "dimensions": [
    {
     "available": true,
@@ -137,6 +146,7 @@
     "votes": false
    }
   ],
+  "keyUncertainty": null,
   "lenses": {
    "evidence": {
     "available": true,
@@ -216,6 +226,227 @@
    "+4,227 package value after KTC Value Adjustment (stretch gap)"
   ],
   "recommendation": "MAKE",
+  "sections": {
+   "ageWindow": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "ageWindow",
+    "lineage": "canonical_age",
+    "magnitude": null,
+    "provenance": "src.roster_intel.age_portfolio",
+    "role": "context",
+    "unavailableReason": "asset_only_mode"
+   },
+   "canonicalEquity": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "hypotheticalPicksOut": [],
+     "magnitude": "stretch",
+     "notOwnedBySender": [],
+     "rawGap": 1000,
+     "receivingAdjusted": 10227.0,
+     "receivingValue": 7000,
+     "receivingValueAdjustment": 3227.0,
+     "sendingAdjusted": 6000.0,
+     "sendingValue": 6000,
+     "sendingValueAdjustment": 0.0,
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 4227,
+     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+    },
+    "direction": "favors",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "canonicalEquity",
+    "lineage": "canonical_value",
+    "magnitude": "stretch",
+    "provenance": "src.api.data_contract (rankDerivedValue) + src.trade.ktc_va",
+    "role": "vote"
+   },
+   "competitivePosture": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "competitivePosture",
+    "lineage": "team_strategy_context",
+    "magnitude": null,
+    "provenance": "src.roster_intel.window.competitive_posture",
+    "role": "modifier",
+    "strategicFit": {
+     "reason": null,
+     "step": 0
+    },
+    "unavailableReason": "asset_only_mode"
+   },
+   "currentSeasonEquity": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "currentSeasonEquity",
+    "lineage": "league_scored_projection",
+    "magnitude": null,
+    "provenance": "src.ros.playoff_sim.simulate_trade_impact",
+    "role": "context",
+    "unavailableReason": "asset_only_mode"
+   },
+   "draftCapital": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "role": "context"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "draftCapital",
+    "lineage": "league_pick_ownership",
+    "magnitude": null,
+    "provenance": "src.identity.picks (ownership) + board pick grades",
+    "role": "context",
+    "unavailableReason": "no_picks_involved"
+   },
+   "feasibility": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "feasibility",
+    "lineage": "league_roster_rules",
+    "magnitude": null,
+    "provenance": "src.trade.roster_capacity",
+    "role": "modifier",
+    "unavailableReason": "asset_only_mode"
+   },
+   "marketCorroboration": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "comparables": {
+      "reason": "comparables_not_wired",
+      "state": "unavailable"
+     },
+     "lineageAll": [
+      "ktc_market_benchmark",
+      "completed_trade_ledger"
+     ],
+     "role": "modifier"
+    },
+    "direction": null,
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "marketCorroboration",
+    "lineage": "ktc_market_benchmark",
+    "magnitude": null,
+    "provenance": "src.sources.ktc_market (benchmark) + src.trade.market_comparables",
+    "role": "modifier",
+    "unavailableReason": "no_market_benchmark_for_traded_assets"
+   },
+   "rosterImpact": {
+    "available": false,
+    "coverage": null,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "direction": null,
+    "finalRoster": {
+     "cleanupApplied": [],
+     "cleanupIsUpperBound": false,
+     "displacements": [
+      {
+       "name": "WR Kc",
+       "position": "WR",
+       "slotAfter": null,
+       "slotBefore": "WR"
+      },
+      {
+       "name": "WR Phi",
+       "position": "WR",
+       "slotAfter": null,
+       "slotBefore": "FLEX"
+      }
+     ],
+     "needsCreated": [],
+     "needsFixed": [],
+     "promotions": [
+      {
+       "name": "WR Buf Star",
+       "position": "WR",
+       "slotAfter": "WR",
+       "slotBefore": null
+      }
+     ],
+     "unpricedIncoming": [],
+     "urgentAfter": null,
+     "urgentBefore": null,
+     "weaknessMeasured": false
+    },
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "rosterImpact",
+    "lineage": "league_scored_projection",
+    "magnitude": null,
+    "provenance": "src.roster_intel.best_ball_utility + src.trade.roster_capacity",
+    "role": "vote",
+    "unavailableReason": "asset_only_mode"
+   },
+   "valueUncertainty": {
+    "available": true,
+    "coverage": null,
+    "detail": {
+     "confidenceCap": "MEDIUM",
+     "confidenceCapReason": "100% of traded value has no confidence stamp",
+     "lowConfidenceValueShare": 0.0,
+     "monteCarlo": "not counted: centred on the same canonical value",
+     "role": "modifier",
+     "sourceDisagreementValueShare": 0.0,
+     "unstampedValueShare": 1.0
+    },
+    "direction": "context",
+    "freshness": {
+     "boardAsOf": null
+    },
+    "key": "valueUncertainty",
+    "lineage": "canonical_value",
+    "magnitude": null,
+    "provenance": "src.api.confidence (per-asset confidenceBucket)",
+    "role": "modifier"
+   }
+  },
+  "strongestReasonsAgainst": [],
+  "strongestReasonsFor": [
+   "+4,227 package value after KTC Value Adjustment (stretch gap)"
+  ],
+  "summary": "Make the trade: +4,227 package value after KTC Value Adjustment (stretch gap)",
   "teamContext": {
    "applied": false,
    "mode": "asset_only"
@@ -223,23 +454,13 @@
   "topUncertainty": null,
   "unavailableDimensions": [
    {
-    "dimension": "marketCorroboration",
-    "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade matching) are ABSENT \u2014 there is no independent vendor/comp evidence to synthesize.",
-    "reason": "no_backing_ledger"
-   },
-   {
-    "dimension": "valueUncertainty",
-    "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
-    "reason": "unaudited_model"
-   },
-   {
     "dimension": "currentSeasonEquity",
-    "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+    "notes": "src.ros.playoff_sim.simulate_trade_impact (paired seeds) is not yet fed a roster counterfactual for this request; playoff / bye / title deltas are shown only once that wiring lands, never estimated here.",
     "reason": "counterfactual_not_wired"
    }
   ],
   "uncertainty": [],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -284,6 +505,7 @@
   },
   "totalValue": 19000
  },
+ "boardAsOf": null,
  "competitivePosture": {
   "available": true,
   "components": {
@@ -836,6 +1058,8 @@
    "basePos": "WR",
    "confidenceBucket": null,
    "hasSourceDisagreement": null,
+   "ktcMarketValue": null,
+   "marketGapDirection": null,
    "name": "WR Buf Star",
    "playerId": null,
    "pos": "WR",
@@ -885,6 +1109,8 @@
    "basePos": "WR",
    "confidenceBucket": null,
    "hasSourceDisagreement": null,
+   "ktcMarketValue": null,
+   "marketGapDirection": null,
    "name": "WR Kc",
    "playerId": null,
    "pos": "WR",
@@ -899,6 +1125,8 @@
    "basePos": "WR",
    "confidenceBucket": null,
    "hasSourceDisagreement": null,
+   "ktcMarketValue": null,
+   "marketGapDirection": null,
    "name": "WR Phi",
    "playerId": null,
    "pos": "WR",
