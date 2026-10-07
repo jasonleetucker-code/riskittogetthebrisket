@@ -6120,7 +6120,15 @@ def _league_status_snapshot() -> list[dict]:
     return snapshot
 
 
-@app.api_route("/api/health", methods=["GET", "HEAD"])
+# GET and HEAD are registered as two single-method routes on one handler
+# (the HEAD registration follows the function).  A single
+# ``api_route(methods=["GET", "HEAD"])`` made FastAPI derive ONE
+# operationId from ``list(route.methods)[0]`` — the first element of a SET
+# of strings, whose order follows PYTHONHASHSEED — so the published id
+# flipped between ``…_get`` and ``…_head`` across processes, and both
+# operations carried the same id (audit W00-F005, "Duplicate Operation
+# ID" warning).  Same handler, same responses; deterministic, unique ids.
+@app.get("/api/health")
 async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
     status_payload = _scrape_status_payload()
@@ -6292,6 +6300,9 @@ async def get_health():
             "backup_health": backup_health,
         },
     )
+
+
+app.add_api_route("/api/health", get_health, methods=["HEAD"], name="head_health")
 
 
 @app.get("/api/uptime")
