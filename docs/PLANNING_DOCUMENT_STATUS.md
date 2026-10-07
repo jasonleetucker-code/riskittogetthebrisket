@@ -2,7 +2,7 @@
 
 **Status:** GOVERNANCE INDEX
 **Canonical front door:** `PRODUCT_PLAN.md` → `docs/MASTER_PRODUCT_PLAN.md`
-**Last reconciled:** 2026-08-18 (V1 completion contract registered; owner V1 sprint authorization)
+**Last reconciled:** 2026-10-07 (CLEANUP-1 truth reconciliation: #1173 status corrected; DFS / auction / Adaptive Learning / Signals / draft-order records indexed in §3). Earlier: 2026-09-30 (Schedule Intelligence spec registered), 2026-08-18 (V1 completion contract registered; owner V1 sprint authorization)
 
 This file exists so an assistant cannot reasonably mistake an old session capture, an audit roadmap, or a
 competitor TODO for the current product plan. **Every planning document in the repository must appear somewhere
@@ -80,12 +80,20 @@ Detailed owner-approved behaviour. Binding within their subject; they do not aut
   must never overwrite standalone canonical player value. Per the addendum's own §8, reconciliation into
   `docs/OWNER_REQUESTED_TODO.md`, `docs/OWNER_FEATURE_INVENTORY.md`, the scope manifest and
   `docs/EXECUTION_PLAN.md` is deliberately deferred until the normal planning/authorization workflow schedules
-  implementation — not yet done.
+  implementation. **Current (2026-10-07):** partly done — #1173 is in the intake ledger
+  (`docs/OWNER_REQUESTED_TODO.md`, "Planned trade intelligence" row), the 2026-09-24 Calculator completion
+  campaign in `docs/EXECUTION_PLAN.md` §0 authorizes "best-ball utility" in lane B, and the Trade War Room
+  foundation merged via #1459 / release train #1466 (`b4a97111d`, 2026-09-26). No #1173 row exists yet in
+  `docs/C_SERIES_SCOPE_MANIFEST.md` or `docs/OWNER_FEATURE_INVENTORY.md` (follow-up). *Previously: "— not yet
+  done."*
 - `docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md` — Best Trade to Send Each Team, persistent personal protection, LOCK/EXCLUDE, the shared constraint owner *(from PR #835)*
 - `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` — TC-01…TC-30, the mature-calculator end-state gate *(from PR #816)*
 - `docs/trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md` — three lenses, no-hindsight rule, fidelity taxonomy *(from PR #816)*
 - `docs/TRADE_HISTORY_AGING_SPEC.md` — Current Grade / At-the-Time Grade / How It Aged *(from PR #809)*
 - `docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` — CE-01; **carries the only third-party data-use permission record in the repository, at §19.2** *(from PR #809)*
+- `docs/picks/DRAFT_ORDER_RULE.md` — **locked owner rule (2026-10-04)**: canonical rookie-draft order (worst final
+  regular-season record picks first; ties broken by LOWER regular-season Points For); consumed by Wave B (#1642) and the Pick Projector (#1652).
+  Do not rewrite it as cleanup.
 - `docs/trade/ANALYZE_TRADE_TODO.md`, `docs/trade/MC_AUDIT_TODO.md`, `docs/trade/SECOND_OPINIONS_TODO.md`, `docs/trade/TRADE_DECISION_SYNTHESIS_PLAN.md` — partially resolved working records
 
 ### Later 2026-08-14 trade addenda — binding, and superseding
@@ -150,6 +158,17 @@ intent in the repository and win over anything older they contradict.
 - `docs/AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md` — Ask Brisket, Roster Path Optimizer, Edge Alerts, Trade Liquidity & Market Depth, Negotiation Coach, League Truth *(#809)*
 - `docs/SHARP_INSIDER_EXPERIENCE_PERFORMANCE_SPEC.md` *(#809)*
 - `docs/sharp-roster-percentage/METHODOLOGY.md`
+
+### Product-family records indexed 2026-10-07 (CLEANUP-1)
+Binding within their subject; implementation authority remains `docs/EXECUTION_PLAN.md` §0.
+- `docs/dfs/README.md`, `docs/dfs/ROADMAP.md`, `docs/dfs/TRACEABILITY.md`, `docs/dfs/HANDOFF.md` — DFS family
+  (owner directive 2026-09-30). HANDOFF is the resumable session state, not authority.
+- `docs/auction/ROOKIE_AUCTION_ROOM.md` — Rookie Auction Room (owner directive 2026-09-29; mock-first, official
+  launch owner-gated).
+- `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` — Adaptive Learning plan (owner directives 2026-10-01; Parts II–III
+  carry AL-* units and acceptance).
+- `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` — Signals integration (owner directive 2026-09-30, ACTIVE addendum
+  2026-10-03; IDP held behind its preregistered gate).
 
 ### Design, performance, policy
 - `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` — Direction A, the permanent visual direction *(#809)*
