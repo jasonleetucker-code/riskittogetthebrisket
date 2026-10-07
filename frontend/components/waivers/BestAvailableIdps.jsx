@@ -44,13 +44,21 @@ const POSITION_FILTER_OPTIONS = [
   { value: "DB", label: "DB" },
 ];
 
+// ``sourceFreshness`` is ``dataFreshness.sourceTimestamps`` — the age of the
+// last successful FETCH (``*_last_success`` stamp, else CSV mtime). A fetch
+// is not a vendor update: IDP Trade Calculator is the measured case of a
+// source fetched on time every cycle whose content did not change. So this
+// reports "fetched", and "(stale)" means the fetch itself is overdue.
 function formatFreshness(entry) {
   if (!entry || typeof entry !== "object") return "unknown";
   const hours = Number(entry.ageHours);
   const stale = entry.staleness;
-  const age = Number.isFinite(hours) ? `${hours < 1 ? "<1" : Math.round(hours)}h ago` : "unknown age";
-  if (stale === "stale") return `${age} (stale)`;
   if (stale === "missing") return "no data";
+  const age =
+    entry.ageHours != null && Number.isFinite(hours)
+      ? `${hours < 1 ? "<1" : Math.round(hours)}h ago`
+      : "at an unknown time";
+  if (stale === "stale") return `${age} (fetch overdue)`;
   return age;
 }
 
@@ -64,9 +72,13 @@ function SourceFormulaInfo({ sourceFreshness }) {
         neither source&apos;s raw scale can dominate the other.
       </p>
       <p>
-        IDP Trade Calculator updated: {formatFreshness(sourceFreshness?.idpTradeCalc)}
+        IDP Trade Calculator last fetched: {formatFreshness(sourceFreshness?.idpTradeCalc)}
         <br />
-        The IDP Show updated: {formatFreshness(sourceFreshness?.idpShowCombined)}
+        The IDP Show last fetched: {formatFreshness(sourceFreshness?.idpShowCombined)}
+      </p>
+      <p>
+        A fetch is not a vendor update — a source can be fetched on time while
+        its published content is older.
       </p>
     </InfoTip>
   );
