@@ -92,6 +92,27 @@ def test_workflow_change_is_high_risk_and_forces_both(repo: Path):
     assert scope.frontend is True
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "requirements.lock.txt",
+        "requirements-dev.lock.txt",
+        "config/python-lock.json",
+        "scripts/python_lock.py",
+    ],
+)
+def test_lock_only_change_forces_full_validation(repo: Path, path: str):
+    _git(repo, "checkout", "-q", "-b", "feature")
+    _commit_files(repo, {path: "changed\n"}, "lock change")
+
+    scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
+
+    assert scope.changed_paths == [path]
+    assert scope.high_risk is True
+    assert scope.python is True
+    assert scope.frontend is True
+
+
 def test_canonical_owner_change_is_high_risk(repo: Path):
     _git(repo, "checkout", "-q", "-b", "feature")
     _commit_files(repo, {"src/canonical/player_valuation.py": "X = 1\n"}, "canonical change")

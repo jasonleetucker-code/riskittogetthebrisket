@@ -74,6 +74,78 @@
     "audit-rank-form-drift.yml::audit::Set up Python": {
       "category": "blocking"
     },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Set up Python": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Verify lock and artifact logic": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Download locked Linux packages and test an offline wheel install": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Bind wheel bytes to the tested lock and runtime": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-linux-wheels::Upload measured backend artifact": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Checkout runtime proof without persisted credentials": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Set up Python for runtime proof": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Build and verify production runtime wheels offline": {
+      "category": "blocking"
+    },
+    "backend-wheelhouse-proof.yml::prove-runtime-wheels::Upload production runtime wheel proof": {
+      "category": "blocking"
+    },
+    "class-b-branch-pilot.yml::fixed-document-task::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-branch-pilot.yml::fixed-document-task::Run credential-free worker and independently verify exact output": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Set up Python": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Test model task and trusted publisher policy": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Download exact free model and runtime": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Run model in credential-free container": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Independently verify exact proposal and refusal evidence": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::propose::Upload verified proposal for trusted publisher": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Checkout trusted default branch": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Set up Python": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Download verified proposal": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Verify again and push only the fixed review branch": {
+      "category": "blocking"
+    },
+    "class-b-model-branch.yml::publish::Open review-only pull request": {
+      "category": "blocking"
+    },
     "c1a-closure-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
@@ -110,6 +182,12 @@
       "category": "blocking"
     },
     "c1a-run-playerctx-push.yml::push::Start the unit and report what it published": {
+      "category": "blocking"
+    },
+    "class-b-isolation.yml::isolation::Checkout without persisted credentials": {
+      "category": "blocking"
+    },
+    "class-b-isolation.yml::isolation::Exercise denied and allowed container actions": {
       "category": "blocking"
     },
     "claude.yml::claude::Checkout repository": {
@@ -166,6 +244,9 @@
     "deploy.yml::deploy::Checkout (full history for the deploy-skip guard)": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Download tested release artifact": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Guard against skipping or reversing a deploy": {
       "category": "blocking"
     },
@@ -184,7 +265,16 @@
     "deploy.yml::deploy::SSH preflight (connectivity + remote paths)": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Transfer tested release archive to production": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Validate known_hosts entry for target host": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify downloaded archive is the validated archive": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify live frontend matches the tested artifact": {
       "category": "blocking"
     },
     "deploy.yml::deploy::Validate live data contract": {
@@ -196,6 +286,9 @@
     "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
       "category": "blocking"
     },
+    "deploy.yml::resolve::Classify exact target release mode": {
+      "category": "blocking"
+    },
     "deploy.yml::resolve::Resolve the requested ref to one full commit SHA": {
       "category": "blocking"
     },
@@ -205,7 +298,13 @@
     "deploy.yml::validate::Assert the validated tree is the resolved target": {
       "category": "blocking"
     },
+    "deploy.yml::validate::Check generated leagues contract": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::Checkout": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Build and test offline backend runtime wheelhouse": {
       "category": "blocking"
     },
     "deploy.yml::validate::Deploy script syntax gate (existing scripts only)": {
@@ -215,6 +314,9 @@
       "category": "blocking"
     },
     "deploy.yml::validate::Install dependencies (requirements-dev.txt)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Package tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::validate::Preflight environment check": {
@@ -242,6 +344,9 @@
       "category": "blocking"
     },
     "deploy.yml::validate::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Upload tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::validate::Validate dependency graph (pip check)": {
@@ -445,6 +550,9 @@
     "pr-validation.yml::validate::Audit finding-status drift gate": {
       "category": "blocking"
     },
+    "pr-validation.yml::validate::Check generated leagues contract": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::Checkout": {
       "category": "blocking"
     },
@@ -458,6 +566,9 @@
       "category": "blocking"
     },
     "pr-validation.yml::validate::Frontend build + bundle-size budget": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Package and verify frontend release candidate": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Frontend unit tests (vitest)": {
@@ -740,6 +851,15 @@
       "category": "blocking"
     },
     "scoring-snapshot-diagnostics.yml::inventory::Configure production SSH": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Checkout proof code without persisted credentials": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Configure production SSH": {
+      "category": "blocking"
+    },
+    "scrape-source-lifecycle-proof.yml::source-lifecycle::Prove a recent source lifecycle without transferring raw telemetry": {
       "category": "blocking"
     },
     "scrape-telemetry-diagnostics.yml::fetch-telemetry::Configure production SSH": {

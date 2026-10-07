@@ -78,7 +78,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
-from src.api.build_identity import PROCESS_BUILD
+from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
@@ -91,6 +91,11 @@ from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
+from src.api.schemas.leagues import (
+    AuthenticatedLeaguesResponse,
+    LeaguesResponse,
+    PublicLeaguesResponse,
+)
 from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
@@ -4183,17 +4188,41 @@ async def _request_context_middleware(request: Request, call_next):
     from src.utils import request_context as _rc
 
     incoming = str(request.headers.get("x-request-id") or "").strip()
-    rid = incoming if (1 <= len(incoming) <= 64) else _rc.new_request_id()
+    rid = incoming if _rc.valid_request_id(incoming) else _rc.new_request_id()
+    incoming_trace = _rc.parse_traceparent(request.headers.get("traceparent"))
+    trace_id, parent_span_id, flags = incoming_trace or (_rc.new_trace_id(), None, "01")
     token = _rc.set_request_id(rid)
+    trace_tokens = _rc.set_trace_context(trace_id, _rc.new_span_id(), parent_span_id, flags)
+    start_ns = time.perf_counter_ns()
+    status_code = 500
+    failure_class = "exception"
     try:
         response = await call_next(request)
+        status_code = response.status_code
+        failure_class = (
+            "http_5xx" if status_code >= 500 else "http_4xx" if status_code >= 400 else None
+        )
+        try:
+            response.headers["X-Request-Id"] = rid
+            response.headers["X-Trace-Id"] = trace_id
+            response.headers["traceparent"] = _rc.current_traceparent()
+        except Exception:  # noqa: BLE001 — some response types reject mutations
+            pass
+        return response
     finally:
+        if request.url.path == "/api/leagues":
+            try:
+                _rc.emit_http_span(
+                    method=request.method,
+                    route="/api/leagues",
+                    status_code=status_code,
+                    duration_ms=(time.perf_counter_ns() - start_ns) / 1_000_000,
+                    failure_class=failure_class,
+                )
+            except Exception:  # noqa: BLE001 — telemetry is fail-open
+                pass
+        _rc.reset_trace_context(trace_tokens)
         _rc.reset_request_id(token)
-    try:
-        response.headers["X-Request-Id"] = rid
-    except Exception:  # noqa: BLE001 — some response types reject mutations
-        pass
-    return response
 
 
 def _client_ip_from_request(request: Request) -> str:
@@ -5652,8 +5681,8 @@ def _fetch_sleeper_user_team(
     return value
 
 
-@app.get("/api/leagues")
-async def get_leagues(request: Request):
+@app.get("/api/leagues", response_model=LeaguesResponse, response_model_exclude_unset=True)
+async def get_leagues(request: Request, response: Response):
     """List every configured league.
 
     Public endpoint — the response contains no secrets (no Sleeper
@@ -5736,7 +5765,10 @@ async def get_leagues(request: Request):
     if session:
         user_default = _league_registry.get_user_default_league(session.get("username") or "")
         body["userDefaultKey"] = user_default.key if user_default else None
-    return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
+    response.headers["Cache-Control"] = "no-store"
+    if session:
+        return AuthenticatedLeaguesResponse.model_validate(body)
+    return PublicLeaguesResponse.model_validate(body)
 
 
 # ── League Comparison ─────────────────────────────────────────────────
@@ -5841,7 +5873,7 @@ async def get_status():
             **status_payload,
             # Which commit this process is running, read once at import. Deploy
             # verification compares it with the commit the workflow shipped.
-            "build": dict(PROCESS_BUILD),
+            "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
             "contract": {
                 "version": API_DATA_CONTRACT_VERSION,
                 "health": contract_health,

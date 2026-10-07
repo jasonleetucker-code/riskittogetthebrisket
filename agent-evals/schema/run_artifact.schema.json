@@ -73,6 +73,16 @@
     "repo_head_end": {
       "type": ["string", "null"],
       "pattern": "^[0-9a-f]{40}$"
+    },
+    "source_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "sha256"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "description": "Optional digest of one private Steward evidence row; only verified when the grader is given --steward-state."
     }
   },
   "$defs": {

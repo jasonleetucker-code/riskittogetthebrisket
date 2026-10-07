@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import textwrap
@@ -260,6 +261,44 @@ class TestBothScriptsAgree:
     def test_the_rollback_build_status_is_read(self):
         text = ROLLBACK_SH.read_text()
         assert "build_rc" in text, "rollback.sh no longer captures its frontend build's exit status"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="production rollback shell runs on Linux")
+def test_saved_artifact_rollback_survives_unavailable_npm_registry(frontend, tmp_path):
+    staged = tmp_path / "saved-next"
+    _write_dist(staged, marker="saved-tested-artifact")
+    npm_called = tmp_path / "npm-called"
+    driver = textwrap.dedent(f"""\
+        set -Eeuo pipefail
+        APP_DIR={shlex.quote(str(frontend))}
+        SERVICE_NAME=fixture
+        source {shlex.quote(str(ROLLBACK_SH))}
+        ROLLBACK_ARTIFACT_ARCHIVE=saved-release.tar
+        ROLLBACK_ARTIFACT_SHA256=expected
+        ROLLBACK_TARGET_REV=expected
+        FIXTURE_DIST={shlex.quote(str(staged))}
+        resolve_node_toolchain() {{ return 0; }}
+        node() {{ echo v20.19.0; }}
+        npm() {{ touch {shlex.quote(str(npm_called))}; return 91; }}
+        sudo() {{ return 1; }}
+        verify_frontend_build_manifest() {{ test -f "$1/prerender-manifest.json"; }}
+        python3() {{
+          local staging=""
+          while (($#)); do
+            if [[ "$1" == "--staging" ]]; then staging="$2"; break; fi
+            shift
+          done
+          [[ -n "$staging" ]] || return 1
+          cp -a "$FIXTURE_DIST" "$staging"
+        }}
+        rc=0
+        if ! maybe_rebuild_frontend_after_rollback; then rc=1; fi
+        echo "FUNC_RC=$rc"
+        """)
+    result = subprocess.run(["bash", "-c", driver], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0 and "FUNC_RC=0" in result.stdout, result.stdout + result.stderr
+    assert _live_marker(frontend) == "saved-tested-artifact"
+    assert not npm_called.exists()
 
 
 @pytest.fixture(autouse=True)

@@ -186,19 +186,32 @@ cd frontend && npx vitest run                         # ~50 frontend tests
 npm run regression                                     # full E2E pipeline
 ```
 
-## Deploy model
+## Deploy and engineering evidence
 
-GitHub Actions workflow `.github/workflows/deploy.yml` on push to
-main:
+On a normal push to `main`, `.github/workflows/deploy.yml` runs the full
+backend/frontend gates and builds the frontend plus a locked Python wheelhouse
+in CI. Release manifest v2 binds the source SHA, both dependency locks,
+frontend bytes/BUILD_ID and backend wheelhouse digest. The deploy job verifies
+the transferred archive, stages the tested frontend, installs the CI wheels
+offline, and compares `/api/status` identities after restart. A saved v2
+archive is the rollback path for both frontend and backend. Historical release
+formats retain their explicit legacy path. See
+[`RELEASE_ARTIFACT.md`](engineering/RELEASE_ARTIFACT.md) and
+[`BACKEND_ARTIFACT_CUTOVER.md`](engineering/BACKEND_ARTIFACT_CUTOVER.md).
+This v2 path is an integration candidate until its merged production run and
+served fingerprints are verified.
 
-1. Validate build inputs (frontend build must pass).
-2. Deploy to the production VPS via SSH + systemd.
-3. Post-deploy smoke test hits `/api/health` + `/api/public/league`.
-
-Rollback: `git revert` the breaking commit and push; the deploy
-pipeline redeploys. For a flag-gated feature, setting
-`RISKIT_FEATURE_<NAME>=0` in the systemd unit + bouncing the
-service is faster.
+`GET /api/leagues` starts a progressive Pydantic/OpenAPI/frontend type ratchet;
+[`API_CONTRACT_RATCHET.md`](engineering/API_CONTRACT_RATCHET.md) owns the pattern.
+Request/trace IDs connect the browser bridge and API without a paid collector;
+[`REQUEST_TRACE_CORRELATION.md`](engineering/REQUEST_TRACE_CORRELATION.md)
+owns the privacy and failure behavior. Steward receipts feed deterministic
+`agent-evals` and retrospective routing scorecards; those results do not
+promote model choices or permissions. The fixed Class-B model pilot runs
+without credentials or network in Docker and can publish only a verified
+review-branch proposal through a separate job. General Class-B coding remains
+inactive. Current status and pending production gates live in
+[`AI_AGENT_ECOSYSTEM_CAMPAIGN_2026-10-03.md`](engineering/AI_AGENT_ECOSYSTEM_CAMPAIGN_2026-10-03.md).
 
 ## Deep-dive docs
 
