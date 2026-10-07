@@ -227,6 +227,12 @@ jobs:
           print("Runtime import gate passed.")
           PY
       - name: Check generated leagues contract
+        # Artifact-mode only, like every other step this train added to
+        # validate. A legacy target is by definition a pre-artifact commit,
+        # and scripts/generate_leagues_contract.py landed with the artifact
+        # contract, so it does not exist there; ungated, this step failed
+        # every legacy (historical rollback) validation.
+        if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"

@@ -23,8 +23,9 @@ install receipt. The runtime `/api/status` exposes the backend digest only
 when the manifest and receipt match the running commit. The post-deploy smoke checks that digest
 against the validation job's output.
 
-`deploy/rollback.sh` restores both the saved frontend build and v2 backend
-wheels without a package registry. Historical v1 releases continue their prior
+`deploy/rollback.sh` restores the v2 backend wheels without a package
+registry and the saved frontend build without rebuilding it; the frontend
+packages are reinstalled with `npm ci` from the rollback target's lock. Historical v1 releases continue their prior
 lock-based online install and report the backend artifact as unavailable. A
 failed install never writes a new success receipt; deployment's existing
 auto-rollback path remains armed.

@@ -291,6 +291,10 @@ maybe_build_frontend() {
       --node-version "$(node --version)" \
       --receipt "${STATE_DIR}/staged_release_manifest.json"
     mkdir -p "${STATE_DIR}/releases"
+    # Refuses only an incomplete, corrupt or non-regular saved triplet for this
+    # revision. A different artifact ID of the same revision (a redeploy or a
+    # dispatched rollback rebuilds Next with a new random BUILD_ID) is accepted
+    # here and replaces the saved one in record_success_state.
     python3 -m scripts.save_release_archive \
       --archive "${RELEASE_ARCHIVE}" \
       --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
@@ -1214,7 +1218,40 @@ on_error() {
   exit "${exit_code}"
 }
 
+# The workflow transfers each tested archive (~175 MB) to
+# <state>/incoming/<sha>-<run id>.tar. record_success_state copies it into
+# releases/, the bounded rollback window; the transferred copy is never read
+# again on success or failure, so it must not accumulate on the production disk.
+# This runs on EVERY exit, after on_error's auto-rollback has finished, and also
+# prunes archives that earlier interrupted runs left behind (the workflow
+# serializes deploys, so anything not newer than this run's archive is stale).
+# Only workflow-shaped names inside a real directory named "incoming" are
+# touched. Cleanup never changes the deploy's exit status.
+_INCOMING_ARCHIVE_NAME='^[0-9a-f]{40}-[0-9]+\.tar$'
+
+cleanup_incoming_release_archives() {
+  trap - ERR
+  [[ -n "${RELEASE_ARCHIVE}" ]] || return 0
+  local incoming_dir stale
+  incoming_dir="$(dirname -- "${RELEASE_ARCHIVE}")"
+  if [[ "$(basename -- "${incoming_dir}")" != "incoming" || ! -d "${incoming_dir}" ||
+        -L "${incoming_dir}" ]] ||
+     ! [[ "$(basename -- "${RELEASE_ARCHIVE}")" =~ ${_INCOMING_ARCHIVE_NAME} ]]; then
+    return 0
+  fi
+  if [[ -f "${RELEASE_ARCHIVE}" ]]; then
+    while IFS= read -r -d '' stale; do
+      [[ "$(basename -- "${stale}")" =~ ${_INCOMING_ARCHIVE_NAME} ]] || continue
+      rm -f -- "${stale}" || warn "Could not remove stale incoming release archive ${stale}"
+    done < <(find "${incoming_dir}" -maxdepth 1 -type f -name '*.tar' \
+      ! -newer "${RELEASE_ARCHIVE}" -print0 2>/dev/null || true)
+  fi
+  rm -f -- "${RELEASE_ARCHIVE}" || warn "Could not remove transferred release archive ${RELEASE_ARCHIVE}"
+  return 0
+}
+
 trap 'on_error $LINENO' ERR
+trap cleanup_incoming_release_archives EXIT
 
 main() {
   AUTO_ROLLBACK="$(lower "${AUTO_ROLLBACK}")"

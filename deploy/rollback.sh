@@ -370,6 +370,21 @@ maybe_rebuild_frontend_after_rollback() {
   fi
 
   if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    # The failed forward deploy already ran `npm ci` for ITS lockfile, so the
+    # node_modules on disk belong to the release being rolled away from. The
+    # saved .next must run against the rollback target's own locked packages,
+    # installed exactly as deploy.sh installs them before staging an artifact.
+    # stage_release_artifact compares only the checked-out lockfile digest; it
+    # cannot see what is installed.
+    if [[ ! -f "${frontend_dir}/package-lock.json" ]]; then
+      error "Frontend lock is required to restore a saved release artifact."
+      return 1
+    fi
+    log "Installing exact frontend dependencies for rollback target ${ROLLBACK_TARGET_REV}."
+    if ! npm ci --prefix "${frontend_dir}"; then
+      error "Rollback frontend dependency install failed."
+      return 1
+    fi
     log "Restoring verified CI release artifact for ${ROLLBACK_TARGET_REV}."
     if ! python3 -m scripts.stage_release_artifact \
       --archive "${ROLLBACK_ARTIFACT_ARCHIVE}" \
