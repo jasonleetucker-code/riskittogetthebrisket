@@ -82,16 +82,25 @@ def _stored(directory: Path) -> list[dict[str, Any]]:
     return out
 
 
-def _keep_if_changed(directory: Path, content: Any, *, dry_run: bool) -> dict[str, Any]:
-    """The stored copy whose bytes match ``content``, or a new one stamped now.
+def _keep_if_changed(
+    directory: Path,
+    content: Any,
+    *,
+    dry_run: bool,
+    identity: Any = None,
+    read_at: datetime | None = None,
+) -> dict[str, Any]:
+    """The stored copy with the same identity, or a new one stamped ``read_at``.
 
-    A re-read of unchanged content keeps its ORIGINAL ``readAt``, so the
-    scorecard's inputs (and receipts) stay byte-identical across runs."""
-    digest = _sha(content)
+    ``identity`` defaults to the content. A re-read with the same identity keeps
+    its ORIGINAL ``readAt``, so the scorecard's inputs (and receipts) stay
+    byte-identical across runs; an identity that includes the evidence STATE (e.g.
+    not-yet-final -> final) makes a state change a new record with a new read time."""
+    digest = _sha(content if identity is None else identity)
     for item in _stored(directory):
         if item.get("sha256") == digest:
             return item
-    read_at = _now()
+    read_at = read_at or _now()
     record = {"readAt": read_at.isoformat(), "sha256": digest, "content": content}
     if not dry_run:
         path = directory / f"{read_at.strftime('%Y%m%dT%H%M%SZ')}_{digest[:12]}.json"
@@ -100,6 +109,15 @@ def _keep_if_changed(directory: Path, content: Any, *, dry_run: bool) -> dict[st
     else:
         record["_path"] = "(dry-run, not stored)"
     return record
+
+
+def _host_state() -> tuple[dict[str, Any] | None, datetime]:
+    """Sleeper's own week state and when it was read (``None`` on failure)."""
+    from src.public_league.sleeper_client import fetch_nfl_state
+
+    at = _now()
+    state = fetch_nfl_state()
+    return (dict(state) if isinstance(state, dict) else None), at
 
 
 # ── WEEKLY ───────────────────────────────────────────────────────────────────
@@ -148,32 +166,81 @@ def weekly_archives(season: int) -> tuple[list[ps.WeeklyArchive], list[str]]:
     return out, notes
 
 
+def _week_record(item: dict[str, Any], season: int, week: int) -> ps.RealizedWeek | None:
+    content = item.get("content") or {}
+    if not isinstance(content, dict) or not isinstance(content.get("stats"), dict):
+        return None
+    observed = content.get("hostStateObservedAt")
+    return ps.RealizedWeek(
+        season=season,
+        week=week,
+        fetched_at=datetime.fromisoformat(item["readAt"]),
+        stats=content["stats"],
+        source_key=item["_path"],
+        host_state=content.get("hostState"),
+        host_state_observed_at=datetime.fromisoformat(observed) if observed else None,
+    )
+
+
 def realized_weeks(
-    season: int, weeks: list[int], *, fetch: bool, dry_run: bool
+    season: int,
+    last_kickoff: dict[int, datetime | None],
+    *,
+    fetch: bool,
+    dry_run: bool,
 ) -> tuple[list[ps.RealizedWeek], list[str]]:
+    """Stored realized dumps per week; with ``fetch``, read the host week state and
+    then the dump, and keep it when its stats OR its evidence state changed."""
     out: list[ps.RealizedWeek] = []
     notes: list[str] = []
-    for week in weeks:
+    for week in sorted(last_kickoff):
         directory = REALIZED_DIR / "sleeper_weekly_stats" / str(season) / f"week_{week}"
         if fetch:
             from src.league_comparison.sleeper_stats import fetch_week_stats_response
 
+            state, state_at = _host_state()
             response = fetch_week_stats_response(season, week)
+            read_at = _now()
             if response.error is None and isinstance(response.payload, dict) and response.payload:
-                _keep_if_changed(directory, response.payload, dry_run=dry_run)
+                content = {
+                    "stats": response.payload,
+                    "hostState": state,
+                    "hostStateObservedAt": state_at.isoformat() if state is not None else None,
+                }
+                trial = _week_record(
+                    {"readAt": read_at.isoformat(), "content": content, "_path": "trial"},
+                    season,
+                    week,
+                )
+                label = ps.realized_week_state(trial, last_kickoff[week])
+                _keep_if_changed(
+                    directory,
+                    content,
+                    dry_run=dry_run,
+                    identity={"stats": _sha(response.payload), "evidenceState": label},
+                    read_at=read_at,
+                )
             else:
                 notes.append(f"week {week}: realized fetch failed ({response.error})")
         for item in _stored(directory):
-            out.append(
-                ps.RealizedWeek(
-                    season=season,
-                    week=week,
-                    fetched_at=datetime.fromisoformat(item["readAt"]),
-                    stats=item["content"],
-                    source_key=item["_path"],
-                )
-            )
+            record = _week_record(item, season, week)
+            if record is None:
+                notes.append(f"week {week}: unreadable realized record {item.get('_path')}")
+                continue
+            out.append(record)
     return out, notes
+
+
+def _last_kickoffs(archives: list[ps.WeeklyArchive]) -> dict[int, datetime | None]:
+    out: dict[int, datetime | None] = {}
+    for arch in archives:
+        kicks = [
+            datetime.fromisoformat(str(e.get("kickoffAt")))
+            for e in (arch.payload.get("players") or {}).values()
+            if isinstance(e, dict) and e.get("kickoffAt")
+        ]
+        out[arch.week] = max(kicks) if kicks else None
+    return out
 
 
 # ── SEASON ───────────────────────────────────────────────────────────────────
@@ -206,33 +273,53 @@ def week_first_kickoffs(season: int) -> dict[int, datetime]:
 def realized_season(
     season: int, scoring: dict[str, Any], league_key: str, *, fetch: bool, dry_run: bool
 ) -> tuple[ps.RealizedSeason | None, list[str]]:
-    from src.bdvm.actuals import fetch_current_season_actuals
-    from src.utils.name_clean import normalize_player_name
+    """The latest stored season realized read; with ``fetch``, re-read the
+    nflverse weekly rows through ``bdvm.actuals`` together with the host week
+    state that proves which weeks are FINISHED, and keep it when either changed."""
+    directory = REALIZED_DIR / "nflverse_weekly_points" / str(season) / league_key
+    notes: list[str] = []
+    if fetch:
+        from src.bdvm.actuals import fetch_current_season_actuals
+        from src.utils.name_clean import normalize_player_name
 
-    try:
-        _current, points = fetch_current_season_actuals(
-            scoring, name_normalizer=normalize_player_name, season=season, cache_only=not fetch
-        )
-    except Exception as exc:  # noqa: BLE001 -- a fetch failure is reported, never zero
-        return None, [f"season realized unavailable: {type(exc).__name__}: {exc}"]
-    if not points:
-        return None, ["season realized: no weekly rows (cache empty; --fetch-realized fetches)"]
-    content = {k: [list(x) for x in v] for k, v in sorted(points.items())}
-    item = _keep_if_changed(
-        REALIZED_DIR / "nflverse_weekly_points" / str(season) / league_key, content, dry_run=dry_run
-    )
+        state, state_at = _host_state()
+        try:
+            _current, points = fetch_current_season_actuals(
+                scoring, name_normalizer=normalize_player_name, season=season
+            )
+        except Exception as exc:  # noqa: BLE001 -- a fetch failure is reported, never zero
+            points = None
+            notes.append(f"season realized unavailable: {type(exc).__name__}: {exc}")
+        if points:
+            final = sorted(w for w in range(1, 19) if ps.host_week_final(state, season, w))
+            _keep_if_changed(
+                directory,
+                {
+                    "points": {k: [list(x) for x in v] for k, v in sorted(points.items())},
+                    "finalWeeks": final,
+                    "hostState": state,
+                    "hostStateObservedAt": state_at.isoformat(),
+                },
+                dry_run=dry_run,
+            )
+    stored = sorted(_stored(directory), key=lambda i: i["readAt"])
+    if not stored:
+        return None, [*notes, "season realized: nothing stored (--fetch-realized reads it)"]
+    item = stored[-1]
+    content = item["content"]
     kicks = week_first_kickoffs(season)
     if not kicks:
-        return None, ["season realized: no cached schedule, week kickoffs unknown"]
+        return None, [*notes, "season realized: no cached schedule, week kickoffs unknown"]
     return (
         ps.RealizedSeason(
             season=season,
             known_at=datetime.fromisoformat(item["readAt"]),
-            points={k: [tuple(x) for x in v] for k, v in item["content"].items()},
+            points={k: [tuple(x) for x in v] for k, v in content["points"].items()},
             week_first_kickoff=kicks,
             source_key=item["_path"],
+            final_weeks=frozenset(int(w) for w in content.get("finalWeeks") or ()),
         ),
-        [],
+        notes,
     )
 
 
@@ -263,7 +350,7 @@ def main(argv: list[str] | None = None) -> int:
 
     archives, notes = weekly_archives(season)
     realized, more = realized_weeks(
-        season, [a.week for a in archives], fetch=args.fetch_realized, dry_run=args.dry_run
+        season, _last_kickoffs(archives), fetch=args.fetch_realized, dry_run=args.dry_run
     )
     notes += more
     snapshots = season_snapshots(season)

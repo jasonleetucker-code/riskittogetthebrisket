@@ -198,10 +198,12 @@ def test_a_week_without_a_final_generation_has_no_outcome_and_scores_nothing():
 
 
 def test_a_live_latest_generation_is_not_an_outcome():
+    # No final was ever published (the index holds no final row either).
     ev = _week(1)
     live = dict(_final_generation(1))
     live["resolved"] = {**live["resolved"], "mode": "live"}
-    ev = gdc.LeagueWeekEvidence(LEAGUE, SEASON, 1, ev.index_rows, live)
+    rows = [r for r in ev.index_rows if r["mode"] != "final"]
+    ev = gdc.LeagueWeekEvidence(LEAGUE, SEASON, 1, rows, live)
     result = gdc.evaluate([ev])
     assert result.scored == []
     assert result.summary["leagues"][LEAGUE]["weeks"][0]["outcome"]["reason"] == (
@@ -395,3 +397,63 @@ def test_script_collects_league_weeks_through_the_owner_readers(tmp_path, monkey
     assert gdc.evaluate(evidence).summary == gdc.evaluate([_week(1), _week(2)]).summary
     assert script.main(["--dry-run"]) == 0
     assert "scored-predictions=" in capsys.readouterr().out
+
+
+# ── review round 2 ───────────────────────────────────────────────────────────
+
+
+def test_a_prediction_exactly_at_the_outcome_instant_is_excluded():
+    """The guard is STRICT: a row whose inputs were fetched at the very instant the
+    first final generation's were is not 'before the outcome'."""
+    at_boundary = _row(1, "w1-boundary", hours=30, mode="live", banked=99.0)
+    result = gdc.evaluate([_week(1, extra_rows=[at_boundary])])
+    assert "w1-boundary" not in _ids(result)
+    week = result.summary["leagues"][LEAGUE]["weeks"][0]
+    assert week["predictionExclusions"]["at_or_after_outcome"] == 1
+    just_before = _row(1, "w1-before", hours=29.999, mode="live", banked=99.0)
+    assert "w1-before" in _ids(gdc.evaluate([_week(1, extra_rows=[just_before])]))
+
+
+def _final_index_row(week: int, *, hours: float = 30.0) -> dict:
+    gen = _final_generation(week, hours=hours)
+    row = _row(week, gen["generationId"], hours=hours, mode="final")
+    for rid, score in gen["resolved"]["hostScores"].items():
+        row["outcomes"][rid]["actualScore"] = score
+    row["medianRace"] = {
+        "state": "final",
+        "teams": {
+            t["rosterId"]: {"finalResult": t["finalResult"]}
+            for t in gen["render"]["medianRace"]["teams"]
+        },
+    }
+    return row
+
+
+def test_a_latest_generation_that_regressed_to_live_uses_the_latest_final_index_row():
+    ev = _week(1)
+    rows = [r for r in ev.index_rows if r["mode"] != "final"] + [_final_index_row(1)]
+    regressed = _final_generation(1, hours=40)
+    regressed["generationId"] = "w1-regressed"
+    regressed["resolved"] = {**regressed["resolved"], "mode": "live", "hostScores": {}}
+    regressed["render"] = {"medianRace": {"state": "forecast", "teams": []}}
+    result = gdc.evaluate([gdc.LeagueWeekEvidence(LEAGUE, SEASON, 1, rows, regressed)])
+    baseline = gdc.evaluate([_week(1)])
+    assert [(s.event, s.y) for s in result.scored] == [(s.event, s.y) for s in baseline.scored]
+    outcome = result.summary["leagues"][LEAGUE]["weeks"][0]["outcome"]
+    assert outcome["revisionGenerationId"] == "w1-final"
+    assert outcome["notes"]["latest_generation_regressed_to:live"] == 1
+
+
+def test_an_already_decided_live_event_is_its_own_cohort():
+    """A live row where the model published certainty, or nobody has production
+    left, is scored under live_decided -- never inside live_q4."""
+    certain = _row(1, "w1-certain", hours=3, mode="live", banked=90.0, win={"1": 100.0})
+    done = _row(1, "w1-done", hours=4, mode="live", banked=100.0)  # banked == expected
+    result = gdc.evaluate([_week(1, extra_rows=[certain, done])])
+    decided = [s for s in result.scored if s.state == gdc.STATE_LIVE_DECIDED]
+    q4 = [s for s in result.scored if s.state == "live_q4"]
+    assert decided and all(s.generation_id == "w1-done" for s in decided)
+    # w1-certain published p = 1.0 for 1v2 only: that event is decided, never q4.
+    assert any(s.event.endswith("|1v2") for s in decided)
+    assert not any(s.event.endswith("|1v2") for s in q4)
+    assert gdc.STATE_LIVE_DECIDED in gdc.STATES

@@ -56,7 +56,9 @@ ALLOWED_SRC_IMPORTS: dict[str, frozenset[str] | None] = {
     "src.bdvm.backtest": frozenset({"brier"}),
     "src.bdvm.projections": frozenset({"ProjectionRecord"}),
     "src.dfs.metrics": frozenset({"SMALL_SAMPLE", "point_forecast"}),
-    "src.nfl_data.realized_points": frozenset({"compute_weekly_points", "host_stat_line"}),
+    "src.bdvm.source_vocabulary": frozenset({"record_coverage"}),
+    "src.nfl_data.realized_points": frozenset({"compute_weekly_points"}),
+    "src.scoring.sleeper_ingest": frozenset({"KEY_ALIASES"}),
     "src.ros.projection_ensemble": frozenset(
         {"_DEFAULT_ROS_FULL_SEASON_SOURCES", "combine_ensemble"}
     ),

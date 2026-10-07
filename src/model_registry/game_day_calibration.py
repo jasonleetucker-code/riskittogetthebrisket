@@ -21,8 +21,11 @@ Inputs (both written by ``src.ros.game_day_live``, read here, never rewritten):
   a later stat correction publishes a NEWER generation, so the latest is the
   corrected answer), and ``render.medianRace`` carries each team's final
   BEAT / MISS / TIE under ``game_day_sim``'s own threshold rule. Nothing here
-  re-derives a median or re-scores a point. A week without a final generation
-  has NO outcome — it is reported, never guessed.
+  re-derives a median or re-scores a point. If the latest generation REGRESSED to
+  a non-final mode after a final was published, the latest FINAL row of the
+  append-only index (its host ``actualScore`` per roster and ``medianRace``
+  summary) is the outcome. A week that never published a final has NO outcome --
+  it is reported, never guessed.
 
 Rules (each pinned by ``tests/model_registry/test_game_day_calibration.py``):
 
@@ -53,7 +56,10 @@ Game state. ``pregame`` is the model's own mode. ``live`` is bucketed by a
 QUARTER-ISH PROXY, not the game clock (the index carries no clock): the share of
 the league's expected final best-ball points already banked in that generation
 (:data:`LIVE_PROGRESS_EDGES`). A generation missing any roster's banked or
-expected points is ``live_progress_unknown``.
+expected points is ``live_progress_unknown``. A live event that was already
+SETTLED when predicted -- the model published 0 % / 100 %, or no involved roster
+had expected production left -- is its own cohort, ``live_decided``, so solved
+games cannot flatter the late-live calibration.
 
 Privacy. Per-league aggregates of our own predictions are private decision
 intelligence (``docs/MASTER_PRODUCT_PLAN.md`` §5): the summary and receipts go to
@@ -106,7 +112,14 @@ STATE_LIVE_UNKNOWN = "live_progress_unknown"
 #: A labelled PROXY for "quarter", not a game clock.
 LIVE_PROGRESS_EDGES: tuple[float, ...] = (0.25, 0.5, 0.75)
 LIVE_STATES: tuple[str, ...] = ("live_q1", "live_q2", "live_q3", "live_q4")
-STATES: tuple[str, ...] = (STATE_PREGAME, *LIVE_STATES, STATE_LIVE_UNKNOWN)
+#: A live event whose result was already settled when the prediction was made:
+#: the model published a certainty (0 or 100 %), or no involved roster had any
+#: expected production left. Its own cohort, so a pile of solved games cannot
+#: flatter the live-q4 calibration.
+STATE_LIVE_DECIDED = "live_decided"
+STATES: tuple[str, ...] = (STATE_PREGAME, *LIVE_STATES, STATE_LIVE_UNKNOWN, STATE_LIVE_DECIDED)
+#: Points of expected production below which a roster has nothing left to play.
+NO_REMAINING_EPSILON: float = 0.005
 
 #: Minimum scored events for a cohort to carry a metric. Reuses the repo's
 #: existing declared small-sample rule (``src.dfs.metrics.SMALL_SAMPLE``) rather
@@ -238,10 +251,36 @@ def dedupe_index_rows(
     return out, census
 
 
+def _latest_final_row(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    best: tuple[Any, ...] | None = None
+    out = None
+    for r in rows:
+        if r.get("mode") != "final":
+            continue
+        at = _instant(r.get("inputsFetchedAt"))
+        if at is None:
+            continue
+        key = (at, str(r.get("generationId")))
+        if best is None or key > best:
+            best, out = key, r
+    return out
+
+
 def resolve_outcomes(
     ev: LeagueWeekEvidence, unique_rows: Sequence[Mapping[str, Any]]
 ) -> WeekOutcomes | str:
-    """The league-week's host finals, or the reason there are none."""
+    """The league-week's host finals, or the reason there are none.
+
+    Source of the finals, in order:
+
+    1. the latest ``generation.json`` when it is ``final`` (the corrected answer);
+    2. otherwise, when the latest generation REGRESSED to a non-final mode after a
+       final was published, the latest FINAL row of the append-only index —
+       its per-roster ``actualScore`` (the host score that generation used) and its
+       ``medianRace`` summary — with pairings from ``resolved.opponents`` (pairings
+       do not change within a week).
+
+    A week that never published a final has no outcome."""
     gen = ev.latest_generation
     if not isinstance(gen, Mapping):
         return "no_generation"
@@ -253,11 +292,34 @@ def resolve_outcomes(
         return "generation_identity_mismatch"
     resolved = gen.get("resolved") or {}
     mode = resolved.get("mode")
-    if mode != "final":
+    opponents = resolved.get("opponents") or {}
+    notes: dict[str, int] = {}
+    final_row = _latest_final_row(unique_rows)
+    if mode == "final":
+        revision_at = _instant(gen.get("inputsFetchedAt"))
+        if revision_at is None:
+            return "final_generation_instant_unproven"
+        revision_id = str(gen.get("generationId"))
+        host = dict(resolved.get("hostScores") or {})
+        race = (gen.get("render") or {}).get("medianRace") or {}
+        teams = (race.get("teams") or ()) if isinstance(race, Mapping) else ()
+        median_state = race.get("state") if isinstance(race, Mapping) else None
+    elif final_row is not None:
+        revision_at = _instant(final_row.get("inputsFetchedAt"))
+        revision_id = str(final_row.get("generationId"))
+        host = {
+            str(rid): (side or {}).get("actualScore")
+            for rid, side in (final_row.get("outcomes") or {}).items()
+        }
+        summary = final_row.get("medianRace") or {}
+        median_state = summary.get("state") if isinstance(summary, Mapping) else None
+        teams = [
+            {"rosterId": rid, "finalResult": (t or {}).get("finalResult")}
+            for rid, t in ((summary or {}).get("teams") or {}).items()
+        ]
+        _bump(notes, f"latest_generation_regressed_to:{mode}")
+    else:
         return f"latest_generation_not_final:{mode}"
-    revision_at = _instant(gen.get("inputsFetchedAt"))
-    if revision_at is None:
-        return "final_generation_instant_unproven"
     finals = [
         t
         for t in (
@@ -265,12 +327,8 @@ def resolve_outcomes(
         )
         if t is not None
     ]
-    known_at = min(finals) if finals else revision_at
-    known_at = min(known_at, revision_at)
+    known_at = min([*finals, revision_at])
 
-    notes: dict[str, int] = {}
-    opponents = resolved.get("opponents") or {}
-    host = resolved.get("hostScores") or {}
     matchups: dict[tuple[str, str], int | None] = {}
     for rid, opp in sorted(opponents.items(), key=lambda kv: _roster_order(kv[0])):
         if opp is None:
@@ -291,12 +349,10 @@ def resolve_outcomes(
         if sa == sb:
             _bump(notes, "matchup_tie")
 
-    race = (gen.get("render") or {}).get("medianRace") or {}
-    median_state = race.get("state") if isinstance(race, Mapping) else None
     median: dict[str, int | None] | None = None
     if median_state == "final":
         median = {}
-        for team in race.get("teams") or ():
+        for team in teams:
             if not isinstance(team, Mapping):
                 continue
             result = team.get("finalResult")
@@ -309,7 +365,7 @@ def resolve_outcomes(
     return WeekOutcomes(
         known_at=known_at,
         revision_at=revision_at,
-        revision_id=str(gen.get("generationId")),
+        revision_id=revision_id,
         matchups=matchups,
         median=median,
         median_state=median_state,
@@ -349,6 +405,21 @@ def game_state(row: Mapping[str, Any]) -> str | None:
         if share < edge:
             return state
     return LIVE_STATES[-1]
+
+
+def _decided(p: float, sides: Mapping[str, Any], involved: Sequence[str]) -> bool:
+    """Settled before the prediction: a published certainty, or no involved roster
+    with expected production left (both read off the same generation row)."""
+    if p in (0.0, 1.0):
+        return True
+    if not involved:
+        return False
+    for rid in involved:
+        side = sides.get(rid) or {}
+        banked, expected = _num(side.get("pointsBanked")), _num(side.get("expectedFinalBestBall"))
+        if banked is None or expected is None or expected - banked > NO_REMAINING_EPSILON:
+            return False
+    return True
 
 
 def _probability(value: Any) -> float | None | str:
@@ -450,16 +521,25 @@ def evaluate(evidence: Sequence[LeagueWeekEvidence]) -> ScorecardResult:
             version = str(version)
             gid = str(row["generationId"])
             sides = row.get("outcomes") or {}
-            targets: list[tuple[str, str, Any, int]] = []
-            for (a, _b), event in win_events.items():
-                y = outcome.matchups[(a, _b)]
-                targets.append((TARGET_WIN, event, (sides.get(a) or {}).get("winMatchupPct"), y))
+            targets: list[tuple[str, str, Any, int, tuple[str, ...]]] = []
+            for (a, b), event in win_events.items():
+                y = outcome.matchups[(a, b)]
+                targets.append(
+                    (TARGET_WIN, event, (sides.get(a) or {}).get("winMatchupPct"), y, (a, b))
+                )
+            league_rosters = tuple(str(r) for r in sides)
             for rid, event in median_events.items():
                 y = outcome.median[rid]  # type: ignore[index]
                 targets.append(
-                    (TARGET_MEDIAN, event, (sides.get(rid) or {}).get("beatMedianPct"), y)
+                    (
+                        TARGET_MEDIAN,
+                        event,
+                        (sides.get(rid) or {}).get("beatMedianPct"),
+                        y,
+                        league_rosters,
+                    )
                 )
-            for target, event, raw, y in targets:
+            for target, event, raw, y, involved in targets:
                 p = _probability(raw)
                 if p is None:
                     _bump(missing, f"{target}:withheld_or_absent")
@@ -467,11 +547,14 @@ def evaluate(evidence: Sequence[LeagueWeekEvidence]) -> ScorecardResult:
                 if p == "invalid":
                     _bump(exclusions, f"{target}:invalid_probability")
                     continue
+                event_state = state
+                if state != STATE_PREGAME and _decided(p, sides, involved):
+                    event_state = STATE_LIVE_DECIDED
                 scored = ScoredPrediction(
                     league_key=league,
                     model_version=version,
                     target=target,
-                    state=state,
+                    state=event_state,
                     event=event,
                     p=float(p),
                     y=int(y),
@@ -481,7 +564,7 @@ def evaluate(evidence: Sequence[LeagueWeekEvidence]) -> ScorecardResult:
                     outcome_revision_at=outcome.revision_at,
                     outcome_revision_id=outcome.revision_id,
                 )
-                key = (league, version, target, state, event)
+                key = (league, version, target, event_state, event)
                 rank = (at, gid)
                 if key not in best or rank > best[key][0]:
                     best[key] = (rank, scored)

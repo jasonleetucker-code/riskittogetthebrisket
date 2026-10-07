@@ -12,8 +12,10 @@ realized number from the realized-points owner:
   a row observed after its game's kickoff is never selectable) and scored with
   ``sleeper_weekly_projections.build_weekly_observations``. Realized points are
   Sleeper's own weekly stat dump scored by
-  ``src.nfl_data.realized_points.compute_weekly_points(source="sleeper")``;
-  per-stat realized values are ``realized_points.host_stat_line``.
+  ``src.nfl_data.realized_points.compute_weekly_points(source="sleeper")``.
+  Per-stat comparisons put both lines on ONE spelling through the alias map the
+  realized owner collapses with (``sleeper_ingest.KEY_ALIASES``: ``idp_pass_def``
+  and ``idp_pd`` are one rule) and use only stats BOTH lines published.
 * **SEASON** (``PRESEASON_FULL_SEASON``) — immutable BDVM snapshots
   (``data/bdvm/projections/``) rescored per record with
   ``projection_observations.rescore_projection_record`` (→ ``resolve_fpg``), the
@@ -25,17 +27,25 @@ realized number from the realized-points owner:
 Rules (each pinned by ``tests/model_registry/test_projection_scorecard.py``):
 
 * **Temporal guard.** Weekly: only a projection observed at or before its own
-  game's kickoff (the canonical lock rule) and a realized dump fetched after the
-  week's LAST kickoff. Season: only weeks that kicked off strictly after the
-  snapshot ``asOf`` (a date-only ``asOf`` is bounded conservatively at the END of
-  that UTC day).
+  game's kickoff (the canonical lock rule), and only a realized dump that is
+  PROVEN FINAL -- the host's own week state (Sleeper ``/state/nfl``, read before
+  the dump) shows the week finished -- and read at least
+  :data:`STAT_CORRECTION_SETTLE` after the week's last kickoff. A dump read
+  mid-game, or with no host evidence, scores nothing. Season: only weeks the host
+  state proved finished whose first kickoff is strictly after the snapshot
+  ``asOf`` (a date-only ``asOf`` is bounded conservatively at the END of that UTC
+  day).
 * **Missing is never zero.** A projected player with no realized row, or a row
-  that says he did not play (``gp`` = 0), is NOT scored as 0 points — he is
-  counted (``outcomeMissing`` / ``didNotPlay``). Inside a PRESENT host stat line
-  an absent stat is zero events: the host publishes only nonzero events
-  (``realized_points.sleeper_stat_line_from_row`` documents the convention).
-* **Duplicates are deduped**: a second archive for the same week, a repeated
-  (source, player) in one snapshot.
+  that says he did not play (``gp`` = 0), is NOT scored as 0 points -- he is
+  counted (``outcome_missing`` / ``did_not_play``). A stat the realized line does
+  not publish under any spelling is ``stat_actual_unpublished``, never an actual 0.
+  League-paid keys a projection cannot score are reported per key on both
+  horizons (``uncoveredLeaguePaidKeys``).
+* **Duplicates are deduped**: a second archive for the same week; within one
+  asOf day only the FINAL snapshot of the refresh chain (baseline -> ``_clay`` ->
+  ``_idpshow``, each carrying the earlier records) is the vintage, the same
+  "latest" ``bdvm.projections.latest_snapshot_path`` reads; a repeated (source,
+  player) inside it is dropped.
 * **Model versions are separate cohorts**: the provider model (``company`` on a
   weekly row) and the snapshot vintage (``asOf``) are cohort keys, never pooled.
 * **Small samples are flagged**: a cohort with fewer than :data:`MIN_N` scored
@@ -78,12 +88,14 @@ from src.model_registry.learning_receipt import (
     parse_instant,
     sha256_text,
 )
-from src.nfl_data.realized_points import compute_weekly_points, host_stat_line
+from src.bdvm.source_vocabulary import record_coverage
+from src.nfl_data.realized_points import compute_weekly_points
 from src.ros.projection_ensemble import _DEFAULT_ROS_FULL_SEASON_SOURCES, combine_ensemble
 from src.ros.projection_observations import (
     ProjectionObservationError,
     rescore_projection_record,
 )
+from src.scoring.sleeper_ingest import KEY_ALIASES
 from src.ros.sleeper_weekly_projections import (
     WeeklyProjectionError,
     build_weekly_observations,
@@ -109,10 +121,23 @@ SEASON_REALIZED_STORE = "nflverse_weekly_stats"
 #: declared small-sample rule (``src.dfs.metrics.SMALL_SAMPLE``). PRIOR.
 MIN_N: int = SMALL_SAMPLE
 
+#: How long after a week's LAST kickoff a realized stat dump must have been read
+#: before it is scored, so routine stat corrections have landed. PRIOR (NFL
+#: corrections are normally issued within the following days); the summary
+#: carries it.
+STAT_CORRECTION_SETTLE: timedelta = timedelta(days=3)
+
+#: Sleeper alias spelling -> canonical spelling, from the ONE alias map
+#: (``src.scoring.sleeper_ingest.KEY_ALIASES``) the realized owner also derives
+#: its collapse from. Used only to put both sides of a per-stat comparison on one
+#: spelling; it scores nothing.
+_ALIASES: dict[str, str] = {a: c for a, c in KEY_ALIASES.items() if a != c}
+
 WEEKLY_RULE = (
     "per player, the last observation at or before his own game's kickoff "
     "(sleeper_weekly_projections.lock_baseline_at_kickoff); realized from a stat dump fetched "
-    "after the week's last kickoff"
+    "after the host week state shows the week finished and at least the stat-correction "
+    "settle window after the week's last kickoff"
 )
 SEASON_RULE = (
     "a snapshot is scored only on weeks whose first kickoff is strictly after its asOf "
@@ -143,6 +168,11 @@ class RealizedWeek:
     #: sleeper player id -> the host's raw stat line
     stats: Mapping[str, Mapping[str, Any]]
     source_key: str
+    #: Sleeper ``/state/nfl`` as read just before the dump (season, week,
+    #: season_type) and when: the evidence that the week is FINISHED. ``None`` =
+    #: unproven, and an unproven week is never scored.
+    host_state: Mapping[str, Any] | None = None
+    host_state_observed_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -162,6 +192,9 @@ class RealizedSeason:
     #: week -> its first kickoff instant
     week_first_kickoff: Mapping[int, datetime]
     source_key: str
+    #: weeks the host week state proved FINISHED when the rows were read; a week
+    #: not in it is never scored (a mid-week read is partial, not final)
+    final_weeks: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -249,6 +282,61 @@ def _paid(scoring: Mapping[str, Any], key: str) -> bool:
     return rate is not None and rate != 0.0
 
 
+def _canon(key: str) -> str:
+    return _ALIASES.get(str(key), str(key))
+
+
+def _published(line: Mapping[str, Any], canonical: str) -> float | None:
+    """The stat as PUBLISHED on ``line`` under any spelling of ``canonical``; ``None``
+    when no spelling is on the line (unpublished is not zero)."""
+    for spelling in (canonical, *sorted(a for a, c in _ALIASES.items() if c == canonical)):
+        if spelling in line:
+            return _num(line[spelling])
+    return None
+
+
+def host_week_final(state: Mapping[str, Any] | None, season: int, week: int) -> bool:
+    """Does the host's own week state show ``season`` / ``week`` FINISHED?"""
+    if not isinstance(state, Mapping):
+        return False
+    try:
+        host_season = int(state.get("season"))
+    except (TypeError, ValueError):
+        return False
+    kind = str(state.get("season_type") or "")
+    if host_season != int(season):
+        return host_season > int(season)
+    if kind in ("post", "off"):
+        return True
+    if kind != "regular":
+        return False
+    try:
+        return int(state.get("week")) > int(week)
+    except (TypeError, ValueError):
+        return False
+
+
+def realized_week_state(rw: RealizedWeek, last_kickoff: datetime | None) -> str:
+    """``ok`` or why this realized dump may not be scored as the week's outcome."""
+    if last_kickoff is None:
+        return "week_kickoffs_unknown"
+    if rw.fetched_at < last_kickoff:
+        return "realized_fetched_before_last_kickoff"
+    if (
+        rw.host_state_observed_at is None
+        or rw.host_state_observed_at > rw.fetched_at
+        or not host_week_final(rw.host_state, rw.season, rw.week)
+    ):
+        return "realized_not_proven_final"
+    if rw.fetched_at < last_kickoff + STAT_CORRECTION_SETTLE:
+        return "realized_within_correction_window"
+    return "ok"
+
+
+def _basename(key: str) -> str:
+    return str(key).replace(chr(92), "/").rsplit("/", 1)[-1]
+
+
 def _token(text: str) -> str:
     out = "".join("_" if (c == ":" or c.isspace()) else c for c in str(text))
     return out or "unrecorded"
@@ -265,13 +353,9 @@ def _weekly_pairs(
     pairs: list[Pair] = []
     weeks_out: list[dict[str, Any]] = []
     lineage: dict[str, Any] = {}
-    realized_by_week: dict[tuple[int, int], RealizedWeek] = {}
+    realized_by_week: dict[tuple[int, int], list[RealizedWeek]] = {}
     for rw in realized:
-        key = (int(rw.season), int(rw.week))
-        prev = realized_by_week.get(key)
-        # The latest fetch is the corrected one; ties keep the first given.
-        if prev is None or rw.fetched_at > prev.fetched_at:
-            realized_by_week[key] = rw
+        realized_by_week.setdefault((int(rw.season), int(rw.week)), []).append(rw)
     seen: set[tuple[int, int]] = set()
     for arch in sorted(archives, key=lambda a: (int(a.season), int(a.week), a.source_key)):
         season, week = int(arch.season), int(arch.week)
@@ -334,7 +418,12 @@ def _weekly_pairs(
         if observations is None:
             continue
         max_kick = max((_instant(k) for k in kickoffs.values()), default=None)
-        rw = realized_by_week.get((season, week))
+        candidates = sorted(
+            realized_by_week.get((season, week), ()), key=lambda r: (r.fetched_at, r.source_key)
+        )
+        # The newest dump that is PROVEN final and settled; else report the newest's state.
+        usable = [r for r in candidates if realized_week_state(r, max_kick) == "ok"]
+        rw = usable[-1] if usable else None
         row_out["projected"] = len(observations)
         lineage[f"{season}-w{week}"] = {
             "archive": arch.source_key,
@@ -348,16 +437,18 @@ def _weekly_pairs(
             ),
         }
         if rw is None:
-            weeks_out.append({**row_out, "census": census, "state": "realized_unavailable"})
-            continue
-        if max_kick is None or rw.fetched_at < max_kick:
-            weeks_out.append(
-                {**row_out, "census": census, "state": "realized_fetched_before_last_kickoff"}
+            state = (
+                realized_week_state(candidates[-1], max_kick)
+                if candidates
+                else "realized_unavailable"
             )
+            weeks_out.append({**row_out, "census": census, "state": state})
             continue
         revision = sha256_text(canonical_json({str(k): dict(v) for k, v in rw.stats.items()}))[:16]
         lineage[f"{season}-w{week}"]["realized"] = {"source": rw.source_key, "sha256": revision}
         scored = 0
+        uncovered: dict[str, int] = {}
+        paid = {_canon(k) for k in scoring if _paid(scoring, k)}
         for obs in observations:
             stats = rw.stats.get(obs.sleeper_player_id)
             if not isinstance(stats, Mapping) or not stats:
@@ -376,6 +467,8 @@ def _weekly_pairs(
                 continue
             if obs.uncovered_scoring_keys:
                 _bump(census, "projection_uncovered_keys")
+                for key in obs.uncovered_scoring_keys:
+                    _bump(uncovered, key)
             if rp.unscored:
                 _bump(census, "realized_partial")
             kick = _instant(obs_kickoff(selected, obs.sleeper_player_id))
@@ -398,20 +491,29 @@ def _weekly_pairs(
                     **base,
                 )
             )
-            line = host_stat_line(dict(stats))
-            for key, value in sorted(obs.stat_line.items()):
-                if not _paid(scoring, key):
+            # Both lines on ONE spelling (the alias map the realized owner collapses
+            # with), compared only where BOTH sides published the stat: a stat the
+            # host line does not carry is unpublished, never an actual 0.
+            for key in sorted({_canon(k) for k in obs.stat_line} & paid):
+                projected = _published(obs.stat_line, key)
+                actual = _published(stats, key)
+                if projected is None:
                     continue
-                pairs.append(
-                    Pair(
-                        stat=key,
-                        projected=float(value),
-                        actual=float(line.get(key, 0.0)),
-                        **base,
-                    )
-                )
+                if actual is None:
+                    _bump(census, "stat_actual_unpublished")
+                    continue
+                pairs.append(Pair(stat=key, projected=projected, actual=actual, **base))
             scored += 1
-        weeks_out.append({**row_out, "census": census, "state": "scored", "scored": scored})
+        weeks_out.append(
+            {
+                **row_out,
+                "census": census,
+                "state": "scored",
+                "scored": scored,
+                "realizedSource": rw.source_key,
+                "uncoveredLeaguePaidKeys": dict(sorted(uncovered.items())),
+            }
+        )
     return pairs, weeks_out, lineage
 
 
@@ -433,6 +535,17 @@ def _season_pairs(
     out: list[dict[str, Any]] = []
     lineage: dict[str, Any] = {}
     seen: set[str] = set()
+    # A day's refresh writes a CHAIN of snapshots (baseline, then each real source
+    # merged over the latest one), each carrying the earlier records forward. Only
+    # the chain's final member is that day's vintage -- the same "latest" the BDVM
+    # owner itself reads (``latest_snapshot_path``: the last file name in sort
+    # order). Scoring every member would count one projection two or three times.
+    final_of_day: dict[str, str] = {}
+    for snap in snapshots:
+        day = str(snap.as_of)[:10]
+        name = _basename(snap.source_key)
+        if day not in final_of_day or name > final_of_day[day]:
+            final_of_day[day] = name
     for snap in sorted(snapshots, key=lambda s: (str(s.as_of), s.source_key)):
         census: dict[str, int] = {}
         row: dict[str, Any] = {"asOf": snap.as_of, "source": snap.source_key}
@@ -443,11 +556,15 @@ def _season_pairs(
         if snap.source_key in seen:
             out.append({**row, "state": "duplicate_skipped"})
             continue
+        if _basename(snap.source_key) != final_of_day.get(str(snap.as_of)[:10]):
+            out.append({**row, "state": "superseded_in_day_chain"})
+            continue
         seen.add(snap.source_key)
         as_of_at, exact = bound
         row["asOfExact"] = exact
         by_player: dict[str, list[Any]] = {}
         dedupe: set[tuple[str, str]] = set()
+        uncovered: dict[str, int] = {}
         for record in snap.records:
             if record.source not in sources:
                 _bump(census, "source_not_in_ensemble")
@@ -470,6 +587,13 @@ def _season_pairs(
             if obs.horizon != HORIZON_SEASON:
                 _bump(census, "other_horizon")
                 continue
+            _fpg, _native, engine_unscored = record.resolve_fpg_detailed(dict(scoring))
+            coverage = record_coverage(record, dict(scoring), engine_unscored=engine_unscored)
+            _bump(census, f"coverage:{coverage.status}")
+            if coverage.unscored_keys:
+                _bump(census, "projection_uncovered_keys")
+                for key in coverage.unscored_keys:
+                    _bump(uncovered, key)
             by_player.setdefault(obs.player_key, []).append(obs)
         lineage[snap.source_key] = sha256_text(
             canonical_json(
@@ -480,13 +604,14 @@ def _season_pairs(
                 )
             )
         )
+        row["uncoveredLeaguePaidKeys"] = dict(sorted(uncovered.items()))
         if realized is None:
             out.append({**row, "census": census, "state": "realized_unavailable"})
             continue
         weeks = sorted(
             w
             for w, k in realized.week_first_kickoff.items()
-            if k > as_of_at and k < realized.known_at
+            if k > as_of_at and k < realized.known_at and w in realized.final_weeks
         )
         row["eligibleWeeks"] = weeks
         if not weeks:
@@ -596,7 +721,11 @@ def _paired_comparison(pairs: Sequence[Pair]) -> list[dict[str, Any]]:
         if p.horizon != HORIZON_SEASON or p.stat != STAT_POINTS or p.families < 2:
             continue
         vintage = p.model.split("|")[0]
-        by_model.setdefault(vintage, {}).setdefault(p.player, {})[p.provider] = p
+        row = by_model.setdefault(vintage, {}).setdefault(p.player, {})
+        if p.provider in row:
+            # Impossible after the day-chain and record dedupe; refuse to pick one.
+            raise ValueError(f"duplicate {vintage}/{p.provider}/{p.player} reached the comparison")
+        row[p.provider] = p
     out = []
     for vintage, players in sorted(by_model.items()):
         providers = sorted({k for row in players.values() for k in row} - {CHAMPION})
@@ -654,6 +783,8 @@ def evaluate(
             "minN": MIN_N,
             "minNBasis": "src.dfs.metrics.SMALL_SAMPLE (declared small-sample rule; PRIOR)",
             "championMethod": CHAMPION_METHOD,
+            "statCorrectionSettleHours": STAT_CORRECTION_SETTLE.total_seconds() / 3600,
+            "statCorrectionSettleBasis": "PRIOR: after the week's last kickoff",
             "seasonSources": list(season_sources),
         },
         "pointInTimeRules": {HORIZON_WEEKLY: WEEKLY_RULE, HORIZON_SEASON: SEASON_RULE},
