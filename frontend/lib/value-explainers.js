@@ -234,6 +234,9 @@ export const SOURCE_FRESHNESS_STATE_LABELS = {
   STALE: "Stale",
   SEVERELY_STALE: "Severely stale",
   QUARANTINED: "Not voting — too stale",
+  // A first observation (or no dataset state) can prove staleness but never
+  // freshness: the publication time is unknown (freshness D1).
+  UNMEASURED: "Not yet measured",
 };
 
 export const ROW_WEIGHT_STATE_LABELS = {
