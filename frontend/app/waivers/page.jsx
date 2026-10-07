@@ -6,7 +6,6 @@ import {
   Banner,
   DataTable,
   EmptyState,
-  FailureState,
   Field,
   PageHeader,
   Panel,
@@ -357,6 +356,9 @@ function DroppablePanel({ rows, dropState }) {
         header: "Cut",
         numeric: true,
         align: "center",
+        // Rows are already in cut order, so phones lose no information
+        // by dropping the column and gain back its width.
+        hideBelow: "md",
         accessor: (d) => d.rung,
         headerInfo:
           "Your canonical cut ladder's order: 1 is the release that costs you least. Every player here can be released without leaving a starting slot unfilled — players your lineup needs never appear.",
@@ -660,20 +662,15 @@ export default function WaiversPage() {
     return (
       <>
         {analysis.dropState?.state !== "ok" ? (
-          // A classified failure, not an empty list: every add/drop pairing
-          // needs the cut ladder to know who may legally be released, so
+          // Stated, not an empty list: every add/drop pairing needs the
+          // canonical cut ladder to know who may legally be released, so
           // those lists stay empty rather than being guessed from raw values.
-          <FailureState
-            context="drop candidates"
-            failure={{
-              kind: "degraded",
-              code: analysis.dropState?.reason || null,
-              message: `Your cut ladder could not be read (${
-                analysis.dropState?.reasonText || "not loaded"
-              }). Add/drop pairings need it to know who you can legally release.`,
-              retryable: false,
-            }}
-          />
+          <Banner tone="warning" title="Drop candidates unavailable">
+            Your cut ladder could not be read
+            {analysis.dropState?.reasonText ? ` (${analysis.dropState.reasonText})` : ""}.
+            Add/drop pairings need it to know who you can legally release, so
+            they are not computed from raw values in its place.
+          </Banner>
         ) : null}
         <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />
         <BestMovesPanel moves={analysis.bestMoves} faabIndex={faabIndex} />

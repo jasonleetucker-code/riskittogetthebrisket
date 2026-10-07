@@ -109,7 +109,7 @@ const BUDGETS_KB = {
   // purpose until it can be measured truthfully.
   "/page": 90, // landing
   "/rankings/page": 75, // dense table + filter bar + popups; 65→75 (R6 reattribution)
-  "/trade/page": 93, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution); 92→93 for the owner-directed quantity control on every line + grouped market/owned search + bounded share-link decode (2026-10-03; main measured 91.9 KB, this change 92.5 KB)
+  "/trade/page": 95, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution); 92→93 for the owner-directed quantity control on every line + grouped market/owned search + bounded share-link decode (2026-10-03; main measured 91.9 KB, this change 92.5 KB); 93→95 with NO /trade source change (2026-10-07, C2-WEAK-01/C2-DROP-01): /waivers now consumes useRosterIntelligence, so webpack splitChunks regrouped the shared chunk that carried ds InfoTip (~2 KB) and inlined it into the /trade page chunk — measured 92.9→94.9 KB page chunk, while /trade's TOTAL route JS moved 808.0→808.8 KB (the same bytes, re-housed)
   "/draft/page": 150, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432); 128→150 (R6 reattribution)
   "/edge/page": 30,
   "/finder/page": 20,
