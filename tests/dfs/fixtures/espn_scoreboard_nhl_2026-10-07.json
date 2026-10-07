@@ -1,0 +1,108 @@
+{
+ "_recorded": {
+  "source": "ESPN public scoreboard (site.api.espn.com)",
+  "retrievedOn": "2026-10-07",
+  "trimmed": "only the fields league_schedule.parse reads (factual schedule data)"
+ },
+ "events": [
+  {
+   "id": "401891830",
+   "date": "2026-10-07T23:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "WSH"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "PIT"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401892455",
+   "date": "2026-10-07T23:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "WPG"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "COL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401892456",
+   "date": "2026-10-08T02:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "ANA"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "EDM"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

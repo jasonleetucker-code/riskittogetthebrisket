@@ -31,6 +31,15 @@ class PlatformIdsUnavailable(ValueError):
         self.detail = {"syntheticIds": ids[:20], "count": len(ids)}
 
 
+def auto_player_id(sport: str, source_player_id: str) -> str:
+    """``auto-<sport>-<source id>``: the synthetic id carries its SPORT (DFS-§9-03),
+    so one provider's NBA and NFL ids can never collide into one athlete.  The
+    sport-scoped token comes from the identity owner (``src.identity.athletes``)."""
+    from src.identity.athletes import sport_scoped_token
+
+    return AUTO_ID_PREFIX + sport_scoped_token(sport, source_player_id)
+
+
 def is_auto_id(player_id: str) -> bool:
     return str(player_id).startswith(AUTO_ID_PREFIX)
 

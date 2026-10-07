@@ -1,0 +1,372 @@
+{
+ "_recorded": {
+  "source": "ESPN public scoreboard (site.api.espn.com)",
+  "retrievedOn": "2026-10-07",
+  "trimmed": "only the fields league_schedule.parse reads (factual schedule data)"
+ },
+ "events": [
+  {
+   "id": "401909834",
+   "date": "2026-10-21T23:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "ORL"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "ATL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909835",
+   "date": "2026-10-21T23:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "WSH"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "MIL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909091",
+   "date": "2026-10-21T23:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "MIA"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "MIN"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909836",
+   "date": "2026-10-21T23:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "BKN"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "CHA"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909837",
+   "date": "2026-10-21T23:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "TOR"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "CHI"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909838",
+   "date": "2026-10-22T00:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "MEM"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "UTAH"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909839",
+   "date": "2026-10-22T00:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NO"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "IND"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909840",
+   "date": "2026-10-22T00:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "HOU"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "DAL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909092",
+   "date": "2026-10-22T02:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "LAL"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "GS"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909841",
+   "date": "2026-10-22T02:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "POR"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "PHX"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909842",
+   "date": "2026-10-22T02:30Z",
+   "season": {
+    "year": 2027,
+    "type": 2
+   },
+   "status": {
+    "type": {
+     "name": "STATUS_SCHEDULED",
+     "state": "pre"
+    }
+   },
+   "competitions": [
+    {
+     "timeValid": true,
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "LAC"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "SAC"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

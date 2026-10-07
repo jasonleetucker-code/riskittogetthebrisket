@@ -106,7 +106,7 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
   if (!data) {
     return (
       <p className={styles.note} aria-live="polite">
-        Loading this week&apos;s slates…
+        Loading automatic slates…
       </p>
     );
   }

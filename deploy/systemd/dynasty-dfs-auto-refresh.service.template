@@ -7,15 +7,19 @@ Wants=network-online.target
 # manual CSV imports).  One bounded tick of scripts/refresh_dfs_auto_slates.py
 # (owner: src/dfs/auto/refresh.py):
 #
-#   * nflverse schedule (cached owner), the owner-authorised Daily Fantasy Fuel
-#     DraftKings + FanDuel pool pages (15-minute page cache), Sleeper weekly
+#   * NFL: nflverse schedule (cached owner), the owner-authorised Daily Fantasy
+#     Fuel DraftKings + FanDuel pool pages (15-minute page cache), Sleeper weekly
 #     projections rescored per platform, the on-disk Sleeper directory;
+#   * NBA + NHL (DFS-AUTO-19): the same DFF pages per sport, timed by the ESPN
+#     public scoreboard (30-minute cache); each sport decides for itself
+#     whether it is due;
 #   * a new immutable slate snapshot ONLY when the content changed, stored under
 #     the system:auto namespace in data/dfs/ (gitignored) and recorded in the
 #     DFS point-in-time ledger.
 #
-# Exit codes: 0 refreshed, 1 a source failed (last good slates are kept and
-# labelled SOURCE_ERROR), 2 nothing due.
+# Exit codes: 0 refreshed, 1 a source failed for some sport (last good slates
+# are kept and labelled SOURCE_ERROR), 2 nothing due or nothing to build
+# (offseason, an off day, a page listing no slate yet).
 
 [Service]
 Type=oneshot
