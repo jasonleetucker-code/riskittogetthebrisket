@@ -12088,18 +12088,14 @@ class PublicSnapshotUnavailable(RuntimeError):
 
 
 # ── Heavy-section single-flight cache ────────────────────────────────
-# ``playoffOdds`` WAS the original member: it ran its own 10,000-run,
-# pure-Python Monte Carlo on every request.  Since C5-PLAY-01 it has no
-# simulator of its own — it is the ONE canonical forecast
-# (``src.ros.playoff_sim.canonical_forecast``) in the public section's
-# shape, file-backed exactly like ``rosPlayoffOdds`` / ``rosChampionship``,
-# with the live-run fallback single-flighted and memoized per snapshot
-# inside that accessor.  So it left this set: memoizing it here by
-# snapshot identity would freeze it on an older forecast while
-# ``rosPlayoffOdds`` read the newer file — two numbers for one league and
-# week, which is the defect the consolidation removed.
+# ``playoffOdds`` ALWAYS runs a 10,000-run, pure-Python (GIL-bound)
+# Monte Carlo — it has no precomputed artifact to fall back on (unlike
+# ``rosPlayoffOdds`` / ``rosChampionship``, which prefer a file written
+# by the scheduled ROS job and only simulate on a cache miss).  Offloaded
+# naively, a burst of concurrent ``playoffOdds`` requests would each
+# launch an independent simulation and saturate the shared threadpool.
 #
-# ``archives`` has the shape this cache exists for (added
+# ``archives`` has the same SHAPE for a different reason (added
 # 2026-07-30).  It is the single most expensive builder in the contract:
 # ``src/public_league/archives.py`` rebuilds four other sections
 # (history, activity, draft, awards) before its own five walks, and
@@ -12137,11 +12133,11 @@ class PublicSnapshotUnavailable(RuntimeError):
 #     Freshness is therefore unchanged by memoizing: the 300s SWR window
 #     on the snapshot still governs how old the data can be.
 #
-# One asymmetry worth knowing before adding another key: the JSON route
+# One asymmetry worth knowing before adding a third key: the JSON route
 # passes ``activity_valuation`` and the CSV route does not, while the
-# cache key includes neither.  That is safe for every current member —
-# ``archives`` and ``awards`` resolve through ``_SECTION_BUILDERS``, and
-# neither branch of
+# cache key includes neither.  That is safe for both current members —
+# ``playoffOdds`` resolves through ``_LAZY_SECTION_BUILDERS`` and
+# ``archives`` through ``_SECTION_BUILDERS``, and neither branch of
 # ``build_section_payload`` forwards the kwarg (only ``activity`` and
 # the aggregate walk do).  A section that DOES consume it must not be
 # added here without putting it in the cache key.
@@ -12150,7 +12146,7 @@ class PublicSnapshotUnavailable(RuntimeError):
 # cheap file reads in the common case, and caching them by snapshot
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
-_HEAVY_SECTION_KEYS = frozenset({"archives", "awards"})
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "archives", "awards"})
 _heavy_section_cache: dict = {}
 _heavy_section_async_locks: dict = {}
 
@@ -13268,7 +13264,7 @@ async def get_public_league_section(
             _get_public_snapshot, force_refresh=_authorized_force_refresh(request, refresh)
         )
         if section in _HEAVY_SECTION_KEYS:
-            # archives / awards: single-flight + memoize, coordinated on the loop
+            # playoffOdds: single-flight + memoize, coordinated on the loop
             # so concurrent waiters don't occupy threadpool workers.  Heavy
             # sections are never ``franchise``, so no owner-detail step.
             payload = await _get_heavy_section_payload(

@@ -169,12 +169,12 @@ class PublicLeagueRouteTests(unittest.TestCase):
         self.assertEqual(r.headers.get("cache-control"), "no-store")
 
     def test_playoff_odds_and_ros_playoff_odds_publish_one_answer(self) -> None:
-        """C5-PLAY-01. ``playoffOdds`` used to be the original heavy section:
-        a 10k-sim Monte Carlo of its own, memoized per snapshot.  It is now
-        the canonical forecast in the public shape, so it must agree with
-        ``rosPlayoffOdds`` owner for owner, request after request — and it
-        is no longer memoized here, because a per-snapshot memo would pin
-        it to an older forecast than the ROS file ``rosPlayoffOdds`` reads.
+        """C5-PLAY-01. ``playoffOdds`` used to run a 10k-sim Monte Carlo of
+        its own.  It is now the canonical forecast in the public shape, so it
+        must agree with ``rosPlayoffOdds`` owner for owner, request after
+        request.  (It is still in ``_HEAVY_SECTION_KEYS``: ``server.py`` is
+        under an open work claim, so taking it out of the per-snapshot memo
+        is a recorded follow-up — see the C5-PLAY-01 PR.)
         """
         from unittest.mock import patch
 
@@ -202,7 +202,7 @@ class PublicLeagueRouteTests(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-        self.assertNotIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        server._heavy_section_cache.clear()
         r1 = self.client.get("/api/public/league/playoffOdds")
         r2 = self.client.get("/api/public/league/playoffOdds")
         ros = self.client.get("/api/public/league/rosPlayoffOdds")
@@ -302,15 +302,13 @@ class PublicLeagueRouteTests(unittest.TestCase):
 
     def test_only_snapshot_pure_sections_are_cached(self) -> None:
         """Only purely snapshot-derived sections are memoized by snapshot
-        identity: ``archives`` and ``awards`` (both deterministic functions
-        of the snapshot).  The file-backed playoff sections — since
-        C5-PLAY-01 that includes ``playoffOdds`` — are intentionally NOT
-        cached: caching them by snapshot identity would hide fresh results
-        the ROS publisher writes between snapshot refreshes, and would let
-        two of them disagree."""
+        identity: ``playoffOdds``, ``archives`` and ``awards``.  The
+        file-backed ROS sections are intentionally NOT cached — caching
+        them by snapshot identity would hide fresh results the ROS
+        publisher writes between snapshot refreshes."""
         import server
 
-        self.assertNotIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertIn("playoffOdds", server._HEAVY_SECTION_KEYS)
         self.assertIn("archives", server._HEAVY_SECTION_KEYS)
         self.assertIn("awards", server._HEAVY_SECTION_KEYS)
         # File-backed ROS sims read their artifact fresh each request.
