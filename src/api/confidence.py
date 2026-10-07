@@ -100,6 +100,7 @@ __all__ = [
     "assess_confidence",
     "assess_pick_confidence",
     "degrade_for_quarantine",
+    "pick_evidence",
     "gate_parameter",
     "gate_parameters",
     "unassessed_defaults",
@@ -266,6 +267,7 @@ def assess_confidence(
     *,
     eligible_families: Iterable[str],
     consensus_value: float | None,
+    withheld: Sequence[FamilyEvidence] | Iterable[FamilyEvidence] = (),
 ) -> ConfidenceAssessment:
     """Grade the evidence behind one canonical value.
 
@@ -276,6 +278,22 @@ def assess_confidence(
         and the reason removing evidence cannot promote a row.
     :param consensus_value: the published ``rankDerivedValue``. ``None``
         means there is nothing to agree with, which is not agreement.
+    :param withheld: one entry per family that OBSERVED this row but whose
+        vote did not reach the published value, and that has no voting
+        member. Owner directive 2026-10-07 (IDP Trade Calculator's
+        quarantine cutoff): losing a source must never RAISE confidence.
+        **Lost evidence occupies a seat on the panel and earns nothing**:
+        each such family is in the denominator of every SHARE axis
+        (freshness, applicability, TE-basis, agreement) and in no
+        numerator. It is NOT a head: independence and coverage count
+        voting families only. Compared with the same family voting, every
+        axis can therefore only hold or fall — a voting head could earn a
+        numerator, a lost one cannot. Without this, dropping a stale,
+        disagreeing family shrank the freshness and agreement denominators
+        and promoted the row — the #833 pathology entering through the
+        quarantine door. The caller decides membership (see
+        ``data_contract._withheld_family_evidence_for_row``); only the
+        ``family`` and ``source_key`` of these entries are read.
     """
     heads = list(evidence)
     seen: set[str] = set()
@@ -287,9 +305,23 @@ def assess_confidence(
                 "so collapse the family before calling this"
             )
         seen.add(item.family)
+    lost = list(withheld)
+    lost_seen: set[str] = set()
+    for item in lost:
+        if item.family in seen or item.family in lost_seen:
+            raise ValueError(
+                f"withheld family {item.family!r} (source {item.source_key!r}) is "
+                "already represented: a family with a voting member is not withheld, "
+                "and a withheld family is ONE piece of lost evidence"
+            )
+        lost_seen.add(item.family)
 
     eligible = {str(f) for f in eligible_families}
     n = len(heads)
+    w = len(lost)
+    # Every SHARE axis is measured over the panel that should have spoken on
+    # this row: the voting heads plus the lost families, which earn nothing.
+    panel = n + w
 
     metrics: dict[str, Any] = {
         "independentFamilies": n,
@@ -306,6 +338,7 @@ def assess_confidence(
         "comparableFamilies": 0,
         "agreeingFamilies": 0,
         "agreementShare": None,
+        "withheldFamilies": w,
     }
 
     if n == 0:
@@ -354,7 +387,7 @@ def assess_confidence(
     unknown = sum(1 for e in heads if e.fresh is None)
     metrics["freshFamilies"] = fresh
     metrics["unknownFreshnessFamilies"] = unknown
-    metrics["freshnessShare"] = round(fresh / n, 4)
+    metrics["freshnessShare"] = round(fresh / panel, 4)
     freshness = _share_level(metrics["freshnessShare"])
     stale = n - fresh - unknown
     if stale:
@@ -367,7 +400,13 @@ def assess_confidence(
             f"{unknown} of {n} contributing families "
             f"{'has' if unknown == 1 else 'have'} unknown freshness"
         )
-    if not stale and not unknown:
+    if w:
+        reasons.append(
+            f"{w} observed famil{'y' if w == 1 else 'ies'} did not reach the value "
+            f"(withheld or rejected) and count against every share axis: "
+            f"{', '.join(sorted(lost_seen))}"
+        )
+    if not stale and not unknown and not w:
         reasons.append("All contributing evidence is current")
 
     # ── applicability ──
@@ -387,8 +426,8 @@ def assess_confidence(
     native = sum(1 for e in heads if e.format_native)
     metrics["directlyObservedFamilies"] = direct
     metrics["formatNativeFamilies"] = native
-    metrics["applicabilityShare"] = round(direct / n, 4)
-    metrics["formatNativeShare"] = round(native / n, 4)
+    metrics["applicabilityShare"] = round(direct / panel, 4)
+    metrics["formatNativeShare"] = round(native / panel, 4)
     applicability = _share_level(metrics["applicabilityShare"])
     if direct < n:
         reasons.append(
@@ -397,7 +436,8 @@ def assess_confidence(
         )
     if metrics["formatNativeShare"] < gate_parameter("EVIDENCE_SHARE_MEDIUM"):
         applicability = _weaken(applicability)
-        reasons.append(f"{n - native} of {n} families needed a TE-premium basis conversion")
+        if n - native:
+            reasons.append(f"{n - native} of {n} families needed a TE-premium basis conversion")
 
     # ── agreement ──
     tolerance = gate_parameter("AGREEMENT_VALUE_RATIO")
@@ -420,14 +460,18 @@ def assess_confidence(
         metrics["comparableFamilies"] = comparable
         metrics["agreeingFamilies"] = agreeing
         # Denominator is every head, not just the comparable ones: a
-        # family we cannot compare has not agreed with anything.
-        metrics["agreementShare"] = round(agreeing / n, 4)
+        # family we cannot compare has not agreed with anything.  A lost
+        # family did not price the published value, so it is in the
+        # denominator too.
+        metrics["agreementShare"] = round(agreeing / panel, 4)
         agreement = _share_level(metrics["agreementShare"])
         pct = int(round(tolerance * 100))
-        if agreeing == n:
+        if agreeing == panel:
             reasons.append(f"All {n} families price within {pct}% of the published value")
         else:
-            reasons.append(f"{agreeing} of {n} families price within {pct}% of the published value")
+            reasons.append(
+                f"{agreeing} of {panel} families price within {pct}% of the published value"
+            )
 
     axes = {
         "independence": independence,
@@ -455,28 +499,54 @@ def assess_confidence(
     )
 
 
-def assess_pick_confidence(
-    site_values: dict[str, Any],
-    *,
-    is_slot_specific: bool,
-) -> tuple[str, str]:
-    """Pick confidence, with one vote per provider family.
+#: The pick markets the coefficient-of-variation rule reads, in this order.
+#:
+#: The two KTC model inputs (owner directive 2026-09-23): Crowd and Trades
+#: are separate B10 families — but ONE provider (``keepTradeCut``, same
+#: per-player payload, one fetch; ``config/sources/source_lineage.json``
+#: relation ``ktc-crowd-trades-same-payload``).  KTC Market
+#: (``ktcCrowdTradesSfTep``, Crowd+Trades) is the benchmark and is derived
+#: from these two, so it is deliberately ABSENT: it can never count here.
+_PICK_CONFIDENCE_SOURCES: tuple[str, ...] = (
+    "ktcCrowdSfTep",
+    "ktcTradesSfTep",
+    "idpTradeCalc",
+    "dlfSf",
+    "dynastyNerdsSfTep",
+    "dlfIdp",
+    "fantasyProsIdp",
+)
 
-    Picks keep their own coefficient-of-variation statistic — rank
-    spread on picks is dominated by the flat-value regions in R3-R6 and
-    misleads a player-centric gate — but they must not keep raw-source
-    independence assumptions. The value list this reads names both
-    ``dlfSf`` and ``dlfIdp``, which are one declared family; two members
-    were being counted as two corroborating opinions.
+#: KTC slot values on slot-specific picks are SYNTHESIZED by the scraper's
+#: ``_estimate_slot_from_tier`` from KTC's 14 tier rows — partial
+#: information, so they count 0.5 rather than 1.0.
+_PICK_SLOT_SYNTH_SOURCES: frozenset[str] = frozenset({"ktcCrowdSfTep", "ktcTradesSfTep"})
 
-    Measured before changing it: **0 of 144 live pick rows** carry two
-    members of one family, so this closes the hole rather than moving a
-    number. It is here, and pinned, so it cannot open again quietly.
+#: ``pickEvidence.state`` vocabulary (closed).
+PICK_EVIDENCE_MULTI_PROVIDER = "multi_provider"
+PICK_EVIDENCE_SINGLE_PROVIDER = "single_provider"
+PICK_EVIDENCE_NO_PROVIDER = "no_provider"
+
+
+def _pick_provider(key: str) -> str:
+    """The PROVIDER behind a pick source — the unit of pick independence.
+
+    Read from the lineage registry's one owner.  A key the registry does not
+    name (a lineage gap) falls back to the key itself: that can only
+    OVERstate independence for a source nobody recorded, which is why
+    ``tests/api/test_idptc_cutoff_readiness.py`` pins every source in
+    :data:`_PICK_CONFIDENCE_SOURCES` to a recorded provider.
     """
+    from src.sources.source_census import provider_of  # noqa: PLC0415
+
+    return provider_of(key) or key
+
+
+def _collapse_pick_families(site_values: dict[str, Any]) -> dict[str, Any]:
+    """One value per B10 family (``dlfSf`` / ``dlfIdp`` are one family)."""
     # Imported lazily: ``data_contract`` imports this module, so a
     # top-level import would be circular. These two are SOURCE-REGISTRY
-    # concerns and legitimately live there; the pick RULE itself does not,
-    # and no longer does — see ``_pick_confidence_from_values`` below.
+    # concerns and legitimately live there; the pick RULE itself does not.
     from src.api.data_contract import _source_precedence, correlation_group_for
 
     by_family: dict[str, list[str]] = {}
@@ -494,52 +564,130 @@ def assess_pick_confidence(
     }
     if superseded:
         site_values = {k: v for k, v in site_values.items() if k not in superseded}
-    return _pick_confidence_from_values(site_values, is_slot_specific=is_slot_specific)
+    return site_values
+
+
+def assess_pick_confidence(
+    site_values: dict[str, Any],
+    *,
+    is_slot_specific: bool,
+    withheld_sources: Iterable[str] = (),
+) -> tuple[str, str]:
+    """Pick confidence, with one vote per independent PROVIDER.
+
+    Picks keep their own coefficient-of-variation statistic — rank
+    spread on picks is dominated by the flat-value regions in R3-R6 and
+    misleads a player-centric gate — but they must not keep raw-source
+    independence assumptions:
+
+    * two members of one B10 family (``dlfSf`` / ``dlfIdp``) cast one vote
+      (B11; measured 0 of 144 live rows carrying both, pinned anyway);
+    * two FAMILIES of one PROVIDER are not two markets (owner directive
+      2026-10-07).  KTC Crowd and KTC Trades are separate families with
+      their own value votes — the blend is untouched — but they are two
+      value modes of one KTC payload, so a pick priced by them alone rests
+      on ONE provider and cannot corroborate itself into ``high``.  Measured
+      on the 2026-10-07 board: the 12 vendor-priced 2029 tier rows read
+      ``high — picks agree within 15%`` on KTC alone;
+    * a source whose vote was WITHHELD on this row (``withheld_sources`` —
+      the row's ``freshnessExcludedSources``: freshness quarantine or a
+      FAILED source) is not evidence behind the published value, and losing
+      it can never RAISE confidence: the verdict is the weaker of the
+      voting panel's and the full observed panel's.  The second term is
+      exactly the pre-quarantine reading of the same values, so this is
+      monotone by construction (IDP Trade Calculator's 2026-10 cutoff).
+    """
+    collapsed = _collapse_pick_families(site_values)
+    withheld = {str(k) for k in withheld_sources}
+    observed = _pick_confidence_from_values(collapsed, is_slot_specific=is_slot_specific)
+    if not withheld & set(collapsed):
+        return observed
+    voting = _pick_confidence_from_values(
+        {k: v for k, v in collapsed.items() if k not in withheld},
+        is_slot_specific=is_slot_specific,
+    )
+    if _LEVEL_INDEX[voting[0]] <= _LEVEL_INDEX[observed[0]]:
+        return voting
+    return observed
+
+
+def pick_evidence(
+    site_values: dict[str, Any],
+    *,
+    withheld_sources: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Which independent PROVIDERS stand behind a pick's market confidence.
+
+    A diagnostic, published per pick row as ``pickEvidence`` — never a
+    value input.  Read over the same sources the pick rule reads (so KTC
+    Market can never appear) and grouped by PROVIDER, so KTC Crowd + KTC
+    Trades report as one provider however many families they are:
+
+    * ``votingProviders`` — providers with at least one voting value;
+    * ``withheldProviders`` — providers that observed the row but whose
+      every value was withheld (freshness quarantine / FAILED source);
+    * ``state`` — ``multi_provider`` / ``single_provider`` /
+      ``no_provider``, over VOTING providers;
+    * ``reducedCoverage`` — true when any provider was withheld: the value
+      rests on less market evidence than the row was observed with.
+    """
+    withheld = {str(k) for k in withheld_sources}
+    voting: dict[str, list[str]] = {}
+    lost: dict[str, list[str]] = {}
+    for key in _PICK_CONFIDENCE_SOURCES:
+        raw = site_values.get(key)
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or float(raw) <= 0:
+            continue
+        bucket = lost if key in withheld else voting
+        bucket.setdefault(_pick_provider(key), []).append(key)
+    withheld_providers = sorted(p for p in lost if p not in voting)
+    n = len(voting)
+    state = (
+        PICK_EVIDENCE_MULTI_PROVIDER
+        if n >= 2
+        else PICK_EVIDENCE_SINGLE_PROVIDER
+        if n == 1
+        else PICK_EVIDENCE_NO_PROVIDER
+    )
+    return {
+        "state": state,
+        "votingProviders": sorted(voting),
+        "votingSources": sorted(k for keys in voting.values() for k in keys),
+        "withheldProviders": withheld_providers,
+        "withheldSources": sorted(k for p in withheld_providers for k in lost[p]),
+        "reducedCoverage": bool(withheld_providers),
+    }
 
 
 def _pick_confidence_from_values(
     canonical_sites: dict[str, Any],
     is_slot_specific: bool,
 ) -> tuple[str, str]:
-    """The pick coefficient-of-variation rule. Moved here VERBATIM by C1-U5.
+    """The pick coefficient-of-variation rule.
 
-    It lived in ``src/api/data_contract.py`` and was imported back into
-    this module — the declared canonical owner reaching into its own
-    consumer to do its job. "One concept, one canonical owner" was being
-    violated *inside* the owner, which is the hardest place to notice it.
-
-    **The arithmetic is unchanged**, deliberately: C1-U5 is a naming and
-    ownership migration, and the calibration policy §7 preserves the
-    confidence architecture. Pinned by ``tests/api/test_confidence_gate.py``.
-
-    Picks keep their own dispersion statistic rather than the five-axis
-    gate because rank spread on picks is dominated by the flat-value
-    regions in R3-R6 and misleads a player-centric bucketing.
+    Moved here by C1-U5 from ``src/api/data_contract.py`` (one concept, one
+    owner).  Picks keep their own dispersion statistic rather than the
+    five-axis gate because rank spread on picks is dominated by the
+    flat-value regions in R3-R6 and misleads a player-centric bucketing.
 
     Rules:
-      * Effective source count: count raw values > 0. KTC slot values on
-        slot-specific picks are SYNTHESIZED by the scraper's
-        ``_estimate_slot_from_tier`` from KTC's 14 tier rows — partial
-        information, so they count 0.5 rather than 1.0. KTC tier rows
-        (e.g. "2026 Early 1st") are real KTC rows and count 1.0.
-      * cv = stdev(raw values) / mean.
+      * Independence is counted per PROVIDER (owner directive 2026-10-07):
+        each provider contributes the LARGEST weight among its values — a
+        real tier row 1.0, a KTC slot value synthesized from tier rows on a
+        slot-specific pick 0.5 — never one weight per value.  Before, KTC
+        Crowd + KTC Trades counted 1.0 + 1.0 as two corroborating markets.
+      * One provider is a single-provider pick: ``low``, whatever its own
+        values' spread (Crowd vs Trades agreeing is one vendor agreeing
+        with itself).
+      * cv = stdev(raw values) / mean over every contributing value
+        (unchanged arithmetic; a provider's two modes disagreeing still
+        widens it).
       * high   — effective count >= 1.5 AND cv <= 0.15
         medium — effective count >= 1.0 AND cv <= 0.30
         low    — otherwise
     """
     raw_values: list[tuple[str, float]] = []
-    for key in (
-        # The two KTC model inputs (owner directive 2026-09-23): Crowd and
-        # Trades are separate families.  KTC Market (Crowd+Trades) is the
-        # benchmark and is derived from these two — never counted here.
-        "ktcCrowdSfTep",
-        "ktcTradesSfTep",
-        "idpTradeCalc",
-        "dlfSf",
-        "dynastyNerdsSfTep",
-        "dlfIdp",
-        "fantasyProsIdp",
-    ):
+    for key in _PICK_CONFIDENCE_SOURCES:
         v = canonical_sites.get(key)
         if v is None:
             continue
@@ -553,12 +701,16 @@ def _pick_confidence_from_values(
     if not raw_values:
         return "none", "None — no pick source values"
 
-    effective_count = 0.0
+    provider_weight: dict[str, float] = {}
     for key, _v in raw_values:
-        if key in ("ktcCrowdSfTep", "ktcTradesSfTep") and is_slot_specific:
-            effective_count += 0.5
-        else:
-            effective_count += 1.0
+        weight = 0.5 if (key in _PICK_SLOT_SYNTH_SOURCES and is_slot_specific) else 1.0
+        provider = _pick_provider(key)
+        provider_weight[provider] = max(provider_weight.get(provider, 0.0), weight)
+    effective_count = sum(provider_weight.values())
+
+    if len(provider_weight) == 1 and len(raw_values) > 1:
+        # Several values, one provider: no independent agreement signal.
+        return "low", "Low — single pick provider"
 
     values = [v for _k, v in raw_values]
     mean = sum(values) / len(values)

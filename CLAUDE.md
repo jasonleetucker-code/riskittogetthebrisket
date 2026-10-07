@@ -1969,7 +1969,26 @@ Picks keep their own coefficient-of-variation rule
 (``assess_pick_confidence``) because rank spread on picks is dominated by
 the flat-value regions in R3-R6 — but it is family-aware, and its
 independence bar is 2 markets rather than 5 because the pick population
-only HAS 2-4 families (KTC + IDPTC).
+only HAS 2-4 families (KTC + IDPTC).  Since 2026-10-07 (owner directive,
+IDP Trade Calculator quarantine cutoff) it counts independent PROVIDERS from
+``config/sources/source_lineage.json`` (``source_census.provider_of``): KTC
+Crowd + KTC Trades stay two B10 families with their own value votes, but are
+ONE provider, so a pick priced by KTC alone is ``low — single pick
+provider``; KTC Market is never read.  A withheld
+(``freshnessExcludedSources``) market can only LOWER a pick's confidence, and
+``pickEvidence`` names the voting / withheld providers per pick.
+
+**Losing evidence never raises confidence** (same directive).  On a row with a
+withheld source, ``assess_confidence(withheld=…)`` seats each withheld family —
+and each Hampel-rejected family, since the quarantine changed the outlier panel
+— in every share axis' denominator and credits it nothing; independence and
+coverage count voting families only.  Exact at a fixed published value; the one
+residual is the agreement axis re-measured against a value that itself moved
+(measured: 1 of 1134 rows on the simulated cutoff).  Validator warnings
+``source_votes_withheld:*`` / ``pick_evidence_reduced_to_single_provider:*``
+plus status ``degraded`` (never an error, either lane) and the
+``content:<key>:votes_withheld`` alert report it.  Pinned by
+``tests/api/test_idptc_cutoff_readiness.py``.
 
 Per-row fields: ``confidenceBucket`` / ``confidenceLabel`` /
 ``confidenceAxes`` / ``confidenceReasons``. ``metrics`` stays on the

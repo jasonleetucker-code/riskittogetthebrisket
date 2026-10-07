@@ -356,6 +356,23 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
                     transition="stale",
                 )
             )
+        if entry.get("role") == "model_input" and _at_least(entry.get("excludedRows"), 1):
+            # Votes WITHHELD on some rows (freshness quarantine / FAILED
+            # health): the subset states above can miss this, because a
+            # board pricing several universes is quarantined per universe —
+            # IDP Trade Calculator's offense rows age out while its players
+            # subset stays ON_SCHEDULE on IDP-only publications.  Degraded
+            # evidence, not an outage (owner 2026-10-07): an alert, never an
+            # error.
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}:votes_withheld",
+                    last_seen_iso="",
+                    hours_stale=None,
+                    threshold_hours=None,
+                    transition="stale",
+                )
+            )
         if (
             entry.get("role") == "model_input"
             and key.startswith("ktc")

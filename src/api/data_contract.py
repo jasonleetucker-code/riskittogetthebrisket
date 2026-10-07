@@ -11,7 +11,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Collection, Iterable, Mapping
+from typing import Any, Collection, Iterable, Mapping, Sequence
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -46,6 +46,7 @@ from src.api.confidence import (  # noqa: E402  — grouped with its siblings
     FamilyEvidence,
     assess_confidence,
     assess_pick_confidence,
+    pick_evidence,
     degrade_for_quarantine,
     gate_parameter as _confidence_gate_parameter,
 )
@@ -4727,6 +4728,9 @@ _TRUST_MIRROR_FIELDS = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    # Which independent PROVIDERS stand behind a pick's market confidence
+    # (owner 2026-10-07) — degraded pick evidence stays visible too.
+    "pickEvidence",
     "identityConfidence",
     "identityMethod",
     "identityResolutionConfidence",
@@ -7290,9 +7294,67 @@ def _family_evidence_for_row(
     return [ev for ev in evidence if id(ev) in chosen]
 
 
+def _withheld_family_evidence_for_row(
+    *,
+    row: Mapping[str, Any],
+    voting: Sequence["FamilyEvidence"],
+    family_by_key: Mapping[str, str],
+) -> list["FamilyEvidence"]:
+    """The families that OBSERVED this row but whose vote did not reach it.
+
+    Owner directive 2026-10-07 (IDP Trade Calculator's freshness-quarantine
+    cutoff): a source that stops voting must never RAISE a row's
+    confidence.  ``assess_confidence(withheld=...)`` seats these families in
+    every share axis' denominator and credits them nothing; this assembles
+    them.  Decides no level.
+
+    Two memberships, and the second exists only because of the first:
+
+    * **withheld** — ``freshnessExcludedSources``: zero effective weight from
+      freshness quarantine or a FAILED source.
+    * **rejected on a row that lost a vote** — ``droppedSources`` (Hampel),
+      ONLY when the row also has a withheld source.  Measured on the
+      simulated IDP Trade Calculator cutoff (2026-10-07 board): withholding
+      it changes the row's outlier panel, and on 3 of 429 offense rows the
+      Hampel test then rejected ANOTHER disagreeing or TE-basis-converted
+      family (Trey McBride: The IDP Show; Parker Washington: Dynasty Nerds;
+      Colby Parkinson: Draft Sharks), removing it from every denominator and
+      promoting the row a level.  A rejection made by a panel a quarantine
+      shrank is not credited as consensus.  Rows that lost no vote are
+      untouched, so B11's treatment of outliers is otherwise unchanged.
+
+    A family that still has a voting member is represented and is never
+    listed; several members of one family are ONE seat (registry order picks
+    the representative).  Only ``family`` / ``source_key`` are meaningful on
+    the returned entries — a lost family earns nothing on any axis.
+    """
+    withheld_keys = list(row.get("freshnessExcludedSources") or ())
+    if not withheld_keys:
+        return []
+    voting_families = {e.family for e in voting}
+    members = withheld_keys + [k for k in row.get("droppedSources") or () if k not in withheld_keys]
+    chosen: dict[str, tuple[int, FamilyEvidence]] = {}
+    for skey in members:
+        family = family_by_key.get(skey, skey)
+        if family in voting_families:
+            continue
+        ev = FamilyEvidence(
+            family=family,
+            source_key=skey,
+            value_contribution=None,
+            fresh=False,
+            format_native=False,
+            directly_observed=False,
+        )
+        rank = _source_precedence(skey)
+        if family not in chosen or rank < chosen[family][0]:
+            chosen[family] = (rank, ev)
+    return [ev for _rank, ev in sorted(chosen.values(), key=lambda t: t[0])]
+
+
 def _restate_confidence_after_override(
     players_array: list[dict[str, Any]],
-    confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]],
+    confidence_inputs: Mapping[int, tuple[Any, ...]],
     pre_override_values: dict[int, Any],
 ) -> list[str]:
     """Re-run the confidence gate on rows a post-blend override moved.
@@ -7307,7 +7369,10 @@ def _restate_confidence_after_override(
     Returns the canonical names it re-stated, for the caller's log.
     """
     restated: list[str] = []
-    for row_idx, (evidence, eligible) in confidence_inputs.items():
+    for row_idx, inputs in confidence_inputs.items():
+        # ``(evidence, eligible)`` or ``(evidence, eligible, withheld)``.
+        evidence, eligible, *rest = inputs
+        withheld = rest[0] if rest else ()
         row = players_array[row_idx]
         current = row.get("rankDerivedValue")
         if current == pre_override_values.get(row_idx):
@@ -7316,6 +7381,7 @@ def _restate_confidence_after_override(
             evidence,
             eligible_families=eligible,
             consensus_value=current,
+            withheld=withheld,
         )
         row["confidenceBucket"] = assessment.overall
         row["confidenceLabel"] = assessment.label
@@ -10606,7 +10672,9 @@ def _compute_unified_rankings(
     row_eligible_families: dict[int, set[str]] = {}
     # The gate's inputs, kept per row so a post-blend override that moves
     # a value can re-state the confidence that describes it.
-    row_confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]] = {}
+    row_confidence_inputs: dict[
+        int, tuple[list[FamilyEvidence], set[str], list[FamilyEvidence]]
+    ] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     # The combined ladder from every usable bridge.  EMPTY means no bridge
@@ -12383,9 +12451,17 @@ def _compute_unified_rankings(
         if row.get("assetClass") == "pick":
             basis = "pick_dispersion"
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            # A withheld (freshness-quarantined) market is not evidence behind
+            # this value and cannot raise its confidence; ``pickEvidence``
+            # names the PROVIDERS that stand behind it (owner 2026-10-07).
+            withheld_sources = row.get("freshnessExcludedSources") or ()
             bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
                 is_slot_specific=is_slot_specific,
+                withheld_sources=withheld_sources,
+            )
+            row["pickEvidence"] = pick_evidence(
+                row.get("canonicalSiteValues") or {}, withheld_sources=withheld_sources
             )
             row["confidenceAxes"] = None
             row["confidenceReasons"] = None
@@ -12412,18 +12488,25 @@ def _compute_unified_rankings(
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
+            withheld = _withheld_family_evidence_for_row(
+                row=row,
+                voting=evidence,
+                family_by_key=family_by_key,
+            )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
             # actually shipped.  See ``_restate_confidence_after_override``.
             row_confidence_inputs[row_idx] = (
                 evidence,
                 row_eligible_families.get(row_idx, set()),
+                withheld,
             )
             basis = "evidence_gate"
             assessment = assess_confidence(
                 evidence,
                 eligible_families=row_eligible_families.get(row_idx, set()),
                 consensus_value=derived,
+                withheld=withheld,
             )
             bucket = assessment.overall
             label = assessment.label
@@ -12551,9 +12634,14 @@ def _compute_unified_rankings(
             row["rankDerivedValue"] = derived
             row["offCapPickValue"] = True
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            withheld_sources = row.get("freshnessExcludedSources") or ()
             bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
                 is_slot_specific=is_slot_specific,
+                withheld_sources=withheld_sources,
+            )
+            row["pickEvidence"] = pick_evidence(
+                row.get("canonicalSiteValues") or {}, withheld_sources=withheld_sources
             )
             row["confidenceBucket"] = bucket
             row["confidenceLabel"] = label
@@ -12603,17 +12691,24 @@ def _compute_unified_rankings(
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
+            withheld = _withheld_family_evidence_for_row(
+                row=row,
+                voting=evidence,
+                family_by_key=family_by_key,
+            )
             # Registered so a LATER post-blend override that moves this
             # row's value re-states its confidence against the number
             # that actually shipped, exactly as for a ranked row.
             row_confidence_inputs[row_idx] = (
                 evidence,
                 row_eligible_families.get(row_idx, set()),
+                withheld,
             )
             assessment = assess_confidence(
                 evidence,
                 eligible_families=row_eligible_families.get(row_idx, set()),
                 consensus_value=derived,
+                withheld=withheld,
             )
             row["confidenceBucket"] = assessment.overall
             row["confidenceLabel"] = assessment.label
@@ -13995,8 +14090,10 @@ def build_api_data_contract(
             "picks": (
                 "picks keep their own coefficient-of-variation rule "
                 "(assess_pick_confidence) because rank spread on picks is "
-                "dominated by the flat-value regions in R3-R6 — but it is "
-                "family-aware, so two members of one provider cast one vote"
+                "dominated by the flat-value regions in R3-R6 — but it counts "
+                "independent PROVIDERS (KTC Crowd + KTC Trades are one provider), "
+                "and a withheld (freshness-quarantined) market can only lower it; "
+                "pickEvidence names the providers behind each pick"
             ),
             "retired": (
                 "max(percentile) - min(percentile) bucketed at 0.08 / 0.20.  A "
@@ -14521,6 +14618,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    "pickEvidence",
     # Canonical KTC Market block — its ``normalizedValue`` is board-scale,
     # and the model-vs-market gap above is override-sensitive.
     "ktcMarket",
@@ -15419,6 +15517,42 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             warnings.append(
                 f"source_parse_error:{perr.get('source', '?')}:{perr.get('error', '?')}"
             )
+        degraded = True
+
+    # ── Withheld votes / reduced pick evidence (owner 2026-10-07) ────────
+    # A source whose content aged past the freshness quarantine (or whose
+    # health FAILED) casts no vote, and the board is still valid: the value
+    # rests on the remaining canonical evidence, every row names what was
+    # withheld (``freshnessExcludedSources``) and every assessed pick names
+    # its providers (``pickEvidence``).  That is DEGRADED EVIDENCE, not a
+    # broken board — SEASONAL / STALE is not BROKEN — so it is reported as
+    # warnings plus the soft ``degraded`` status, never as an error: no lane
+    # (structural or source-health) blocks on it and ``ok`` is untouched.
+    # Measured trigger: IDP Trade Calculator's offense + pick observations
+    # crossing ``quarantineBelow`` (513 rows on the 2026-10-07 board).
+    withheld_rows: dict[str, int] = {}
+    picks_single_after_withholding = 0
+    picks_no_provider_after_withholding = 0
+    for row in players_array:
+        if not isinstance(row, dict):
+            continue
+        for skey in row.get("freshnessExcludedSources") or ():
+            withheld_rows[str(skey)] = withheld_rows.get(str(skey), 0) + 1
+        pe = row.get("pickEvidence")
+        if isinstance(pe, dict) and pe.get("reducedCoverage"):
+            if pe.get("state") == "single_provider":
+                picks_single_after_withholding += 1
+            elif pe.get("state") == "no_provider":
+                picks_no_provider_after_withholding += 1
+    for skey in sorted(withheld_rows):
+        warnings.append(f"source_votes_withheld:{skey}:{withheld_rows[skey]}")
+    if picks_single_after_withholding:
+        warnings.append(
+            f"pick_evidence_reduced_to_single_provider:{picks_single_after_withholding}"
+        )
+    if picks_no_provider_after_withholding:
+        warnings.append(f"pick_evidence_no_voting_provider:{picks_no_provider_after_withholding}")
+    if withheld_rows:
         degraded = True
 
     # ── Cross-wire sourceRunSummary.partialRun into contractHealth ──────
