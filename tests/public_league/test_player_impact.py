@@ -522,3 +522,141 @@ def test_route_refuses_another_leagues_snapshot(impact_client):
     r = client.get("/api/league/player-impact")
     assert r.status_code == 503
     assert r.json()["reason"] == "league_snapshot_mismatch"
+
+
+# ── review round 1: settings contradictions fail closed ────────────────
+def _with_starters(weeks, fn):
+    out = copy.deepcopy(weeks)
+    for wk, entries in out.items():
+        for e in entries:
+            fn(wk, e)
+    return out
+
+
+def _managed_week_1(wk, e):
+    if wk == 1 and e["roster_id"] == 1:
+        e["starters"] = ["a"]
+        e["points"] = 20.0
+
+
+def test_starter_count_contradicting_the_league_object_fails_the_season_closed():
+    # The 2025 shape: the league object says 1 QB slot (its FINAL settings)
+    # while every matchup recorded TWO starters.  Nothing may be computed on
+    # the configured layout, and coverage may never read complete.
+    def two_starters(_wk, e):
+        bench = [p for p in e["players"] if p not in e["starters"] and p != "k"][0]
+        e["starters"] = e["starters"] + [bench]
+        e["points"] = round(sum(e["players_points"][p] for p in e["starters"]), 2)
+
+    snap, season = _snapshot({wk: WEEKS[wk] for wk in (1, 2)})
+    season.matchups_by_week = _with_starters(season.matchups_by_week, two_starters)
+    out = pi.compute_season(snap, season)
+    assert out["settings"]["state"] == pi.SETTINGS_CONTRADICTED
+    assert out["settings"]["contradictedWeeks"] == [
+        {"week": 1, "reasons": [pi.CONTRA_SLOT_COUNT]},
+        {"week": 2, "reasons": [pi.CONTRA_SLOT_COUNT]},
+    ]
+    assert out["replacement"]["QB"] == {
+        "replacementPerGame": None,
+        "reason": pi.REPL_CONTRADICTED,
+    }
+    for key in ("vorp", "war", "wab", "gameChangerPoints"):
+        cov = out["coverage"][key]
+        assert cov["known"] == 0
+        assert cov["unavailableReasons"] == {pi.R_CONTRADICTED_SETTINGS: 8}
+    assert all(r["vorp"]["coverage"] == "unavailable" for r in out["players"])
+
+
+def test_best_ball_flag_contradicted_by_host_lineups_fails_the_week_closed():
+    # The 2024 shape: best_ball=1, but in week 1 R1 counted a (20) while t
+    # (30) sat on its roster -- a managed lineup.  Week 1 is withheld; week
+    # 2 agrees with the flag and is computed, and the replacement level is
+    # measured from week 2 alone (cutoff 2 ; paces t 30, d 25, a 20, e 18,
+    # b 16, f 14, c 12, g 10 -> band 20,18,16,14,12 -> 16).
+    snap, season = _snapshot({wk: WEEKS[wk] for wk in (1, 2)})
+    season.matchups_by_week = _with_starters(season.matchups_by_week, _managed_week_1)
+    out = pi.compute_season(snap, season)
+    assert out["settings"]["contradictedWeeks"] == [{"week": 1, "reasons": [pi.CONTRA_BEST_BALL]}]
+    assert out["replacementTemporalScope"]["weeks"] == [2]
+    assert out["replacement"]["QB"]["replacementPerGame"] == 16.0
+    wk1 = [r for r in out["_records"] if r["week"] == 1]
+    assert wk1 and all(r["war"]["reason"] == pi.R_CONTRADICTED_SETTINGS for r in wk1)
+    t2 = next(r for r in out["_records"] if r["week"] == 2 and r["playerId"] == "t")
+    assert t2["vorp"]["value"] == 14.0
+
+
+def test_a_managed_league_is_not_contradicted_by_a_suboptimal_lineup():
+    snap, season = _snapshot({wk: WEEKS[wk] for wk in (1, 2)}, best_ball=0)
+    season.matchups_by_week = _with_starters(season.matchups_by_week, _managed_week_1)
+    out = pi.compute_season(snap, season)
+    assert out["settings"]["state"] == pi.SETTINGS_CONSISTENT
+    a1 = next(r for r in out["_records"] if r["week"] == 1 and r["playerId"] == "a")
+    assert a1["vorp"]["value"] == 4.0  # 20 - 16
+    assert a1["wab"]["reason"] == pi.R_NOT_BEST_BALL
+
+
+def test_replacement_pace_counts_games_played_not_zero_weeks():
+    # b scores 16 in week 1 and a literal 0.0 (bye/inactive) in week 2.  Per
+    # game played b is 16, the band stays 20,18,16,14,12 -> 16.  Counting the
+    # 0.0 as a game would make b 8 and the band 20,18,14,12,10 -> 14.8.
+    def b_bye(wk, e):
+        if wk == 2 and "b" in e["players_points"]:
+            e["players_points"]["b"] = 0.0
+
+    snap, season = _snapshot({wk: WEEKS[wk] for wk in (1, 2)})
+    season.matchups_by_week = _with_starters(season.matchups_by_week, b_bye)
+    assert pi.compute_season(snap, season)["replacement"]["QB"]["replacementPerGame"] == 16.0
+
+
+def _season_week(entries):
+    snap, season = _snapshot({1: entries})
+    snap.nfl_players = {
+        p: {"full_name": p, "position": "QB", "fantasy_positions": ["QB"]}
+        for e in entries
+        for p in e["players"]
+    }
+    season.league["total_rosters"] = 4
+    weeks, _excluded = pi.season_team_weeks(snap, season)
+    return weeks[1]
+
+
+def test_broken_matchup_group_is_unavailable_not_a_bye():
+    # T4's partner row is missing from matchup 2 (an unpaired group); T3 has
+    # no matchup_id at all and a score: a real bye.
+    week = [
+        _entry(1, 1, {"q1": 50.0, "b1": 3.0}, ["q1"]),
+        _entry(1, 2, {"q2": 45.0, "b2": 2.0}, ["q2"]),
+        _entry(None, 3, {"q3": 10.0, "b3": 1.0}, ["q3"]),
+        _entry(2, 4, {"q4": 20.0, "b4": 15.0}, ["q4"]),
+    ]
+    teams = {t.roster_id: t for t in _season_week(week)}
+    assert teams[4].matchup_issue == "unpaired" and teams[4].opponent is None
+    assert teams[3].matchup_issue is None and teams[3].opponent is None
+    players = _players({p: "QB" for t in teams.values() for p in t.points})
+    recs = pi.evaluate_league_week(1, list(teams.values()), QB_ONLY, players, {"QB": 5.0})
+    q4 = _rec(recs, "q4")
+    assert q4["war"]["value"] is None
+    assert q4["war"]["reason"] == pi.R_MATCHUP_STRUCTURE
+    q3 = _rec(recs, "q3")  # bye: median only, H2H delta a known 0
+    assert q3["war"]["h2hDelta"] == 0.0 and q3["war"]["value"] is not None
+
+
+def test_unknown_league_size_leaves_median_verification_unknown():
+    snap, season = _snapshot()
+    season.league["total_rosters"] = 0
+    season.rosters = []
+    assert pi.compute_season(snap, season)["rules"]["medianThreshold"]["hostVerified"] is None
+
+
+def test_route_never_echoes_exception_text(impact_client):
+    client, server, _league, mp = impact_client
+    mp.setattr(server, "_is_authenticated", lambda request: True)
+    mp.setattr(server, "_get_auth_session", lambda request: {"username": "t"})
+
+    def boom(*_a, **_k):
+        raise RuntimeError("C:/secret/path leaked")
+
+    mp.setattr(pi, "compute_season", boom)
+    r = client.get("/api/league/player-impact")
+    assert r.status_code == 503
+    assert "secret" not in r.text

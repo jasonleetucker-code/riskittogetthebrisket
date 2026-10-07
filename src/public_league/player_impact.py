@@ -16,10 +16,11 @@ concept                     canonical owner consumed
 "which weeks are finished"  ``metrics.final_weeks`` (in-progress weeks are
                             absent, never partially counted)
 median game on/off          ``metrics.median_game_enabled`` (tri-state)
-median threshold + its      ``ros.game_day_sim._threshold`` /
+median threshold + its      ``ros.game_day_sim.median_threshold`` /
 host-verification status    ``THRESHOLD_SEMANTICS`` /
                             ``THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES``
 H2H credit / tie credit     ``schedule_impact.comparison_credit``
+who played whom / byes      ``schedule_impact.week_matchup_structure``
 starter slots               ``ros.lineup.resolve_starter_slots``
 best-ball re-solve          ``ros.lineup.solve_optimal_assignment`` with
                             ``OBJECTIVE_REALIZED_POINTS`` (exact; negative
@@ -50,6 +51,11 @@ Definitions (spec wording, made executable)
 * credits = H2H credit (when the team had a game) + median credit (when the
   league runs one).  Ties are the canonical half credit.
 
+Settings that contradict the matchups fail closed.  Sleeper keeps one
+league object per season with its FINAL settings; a week whose starters
+count or lineups contradict it (``detect_contradictions``) is withheld
+entirely and the season is stamped ``contradicted_settings``.
+
 Missing is never zero.  Every unknowable quantity is ``None`` with a named
 reason; a season total sums only KNOWN weeks and publishes its coverage.
 
@@ -57,11 +63,14 @@ Labelled PRIORS (definitional choices the spec leaves open; see
 ``PRIORS`` — surfaced in every payload):
 
 * replacement is a SEASON-TO-DATE level per position over the window's
-  finished regular-season weeks (stamped ``asOfWeek``), not a per-week one;
+  finished regular-season weeks (stamped ``asOfWeek``), not a per-week one
+  -- it therefore uses LATER weeks (``replacementTemporalScope``);
 * the starter cutoff is the MEASURED league demand (players started per
   week, from the exact solver over real weekly scores); the band is the
   owner's default 5 just below it;
 * scope is regular-season weeks (standings credits); playoffs are excluded;
+* a 0.00 week is not a game in the replacement pace (the host does not
+  distinguish a bye/inactive week from a scoreless game);
 * positions/eligibility come from the host's current player directory;
 * odd-team median threshold semantics are unverified upstream (the
   canonical Game Day flag) and are stamped, not hidden.
@@ -82,8 +91,8 @@ from src.league_intel.replacement import measure_endogenous_starters
 from src.ros.game_day_sim import (
     THRESHOLD_SEMANTICS,
     THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES,
+    median_threshold,
 )
-from src.ros.game_day_sim import _threshold as _median_threshold
 from src.ros.lineup import (
     OBJECTIVE_REALIZED_POINTS,
     RosterPlayer,
@@ -94,7 +103,7 @@ from src.ros.lineup import (
 from src.scoring.replacement_level import replacement_per_game
 
 from . import metrics
-from .schedule_impact import comparison_credit
+from .schedule_impact import comparison_credit, week_matchup_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 CALC_VERSION = "player-impact-2026.10-c5war01-core-v1"
@@ -124,6 +133,15 @@ R_ROSTER_SCORES_INCOMPLETE = "roster_scores_incomplete"
 R_LINEUP_NOT_REPRODUCED = "host_lineup_not_reproduced"
 R_COUNTERFACTUAL_INFEASIBLE = "counterfactual_lineup_infeasible"
 R_INVARIANT_VIOLATED = "remove_and_reoptimize_invariant_violated"
+R_MATCHUP_STRUCTURE = "matchup_structure_unresolved"
+R_CONTRADICTED_SETTINGS = "contradicted_settings"
+
+#: Week-level contradictions between the season's league object (Sleeper
+#: stores the season's FINAL settings) and what its matchups actually show.
+CONTRA_SLOT_COUNT = "starter_count_differs_from_configured_slots"
+CONTRA_BEST_BALL = "best_ball_flag_contradicted_by_host_lineups"
+SETTINGS_CONSISTENT = "consistent"
+SETTINGS_CONTRADICTED = "contradicted_settings"
 
 _METRICS = ("vorp", "war", "wab", "gameChangerPoints")
 
@@ -132,6 +150,7 @@ REPL_INSUFFICIENT_BAND = "insufficient_replacement_band"
 REPL_NO_DEMAND = "position_not_started"
 REPL_NO_SLOTS = "starter_slots_unknown"
 REPL_NO_WEEKS = "no_finished_weeks"
+REPL_CONTRADICTED = "contradicted_settings"
 
 PRIORS: tuple[dict[str, str], ...] = (
     {
@@ -140,6 +159,14 @@ PRIORS: tuple[dict[str, str], ...] = (
         "regular-season weeks (asOfWeek stamped), not a per-week level.",
         "why": "Spec §1 allows 'the relevant week/season context'; a one-week band is "
         "dominated by noise.",
+        "temporalScope": "Uses LATER finished weeks of the same season: not a "
+        "no-lookahead value (spec §10/§12 temporal-leakage item stays open).",
+    },
+    {
+        "id": "zero_week_not_a_game",
+        "choice": "A 0.00 week is not counted as a game in the replacement pace.",
+        "why": "The host records NFL byes and inactive weeks as 0.0, indistinguishable "
+        "from a scoreless game; the owner defines pace per game played.",
     },
     {
         "id": "replacement_cutoff_measured_demand",
@@ -197,8 +224,14 @@ class TeamWeek:
     points: Mapping[str, float]
     #: Every rostered player id that week (counted or not).
     roster: tuple[str, ...]
-    #: H2H opponent's roster id; ``None`` = no head-to-head game (bye).
+    #: H2H opponent's roster id; ``None`` = no head-to-head game.
     opponent: int | None
+    #: Why the H2H game could not be established (``unpaired`` /
+    #: ``group_size`` / ``unscored``); ``None`` = a real game or a real bye.
+    matchup_issue: str | None = None
+    #: Length of the host's raw ``starters`` array (empty slots included);
+    #: ``None`` = not reported.  Compared with the configured slot count.
+    lineup_size: int | None = None
 
 
 @dataclass(frozen=True)
@@ -250,7 +283,7 @@ def team_outcome(
     if median_enabled is True:
         pool = dict(league_scores)
         pool[roster_id] = score
-        threshold = float(_median_threshold([_q(v) for v in pool.values()], THRESHOLD_SEMANTICS))
+        threshold = float(median_threshold([_q(v) for v in pool.values()]))
         median = comparison_credit(_q(score), threshold)
         threshold = threshold / _QUANTUM
     return Outcome(score=_r2(score), h2h=h2h, median=median, median_threshold=threshold)
@@ -302,7 +335,10 @@ def credit_delta(
     )
     reason: str | None = None
     h2h_delta: float | None
-    if team.opponent is None:
+    if team.matchup_issue is not None:
+        h2h_delta = None  # a broken matchup group is unknown, never a bye
+        reason = R_MATCHUP_STRUCTURE
+    elif team.opponent is None:
         h2h_delta = 0.0  # no game -> no H2H credit in either world (a bye)
     elif actual.h2h is None:
         h2h_delta = None
@@ -367,12 +403,38 @@ def evaluate_league_week(
     rules: WeekRules,
     players: Mapping[str, PlayerInfo],
     replacement: Mapping[str, float | None],
+    *,
+    contradictions: Sequence[str] = (),
 ) -> list[dict[str, Any]]:
     """Every rostered player-week's impact for one finished league-week.
 
     Returns one record per ``(player, roster)`` rostered that week.  Pure:
     same inputs, same output, in a deterministic order.
+
+    ``contradictions`` (from :func:`detect_contradictions`) FAILS THE WEEK
+    CLOSED: when the league object's settings disagree with what the week's
+    matchups show, no slot layout or lineup rule can be trusted, so every
+    metric is unavailable with ``contradicted_settings`` — never computed
+    on the wrong layout and never stamped complete.
     """
+    if contradictions:
+        return [
+            {
+                "week": week,
+                "playerId": pid,
+                "rosterId": team.roster_id,
+                "ownerId": team.owner_id,
+                "position": players[pid].position if pid in players else "",
+                "counted": pid in set(team.counted),
+                "points": team.points.get(pid),
+                "teamScore": team.score,
+                "opponentRosterId": team.opponent,
+                "contradictions": list(contradictions),
+                **{key: _unavailable(R_CONTRADICTED_SETTINGS) for key in _METRICS},
+            }
+            for team in sorted(teams, key=lambda t: t.roster_id)
+            for pid in sorted(set(team.roster) | set(team.counted))
+        ]
     league_scores = {t.roster_id: float(t.score) for t in teams if t.score is not None}
     league_week_complete = len(league_scores) == len(teams)
     slots = list(rules.starter_slots)
@@ -494,6 +556,56 @@ def evaluate_league_week(
     return out
 
 
+# ── settings contradictions (fail closed) ──────────────────────────────
+def detect_contradictions(
+    weeks: Mapping[int, Sequence[TeamWeek]],
+    rules: WeekRules,
+    players: Mapping[str, PlayerInfo],
+) -> dict[int, list[str]]:
+    """Weeks whose matchups contradict the season's league object.
+
+    Sleeper keeps ONE league object per season carrying its FINAL settings,
+    so a mid-season or off-season change makes it lie about earlier weeks.
+    Two observable contradictions, each enough to fail the week closed:
+
+    * ``starter_count_differs_from_configured_slots`` — a team's raw
+      ``starters`` array is not the configured slot count (measured on the
+      2025 ``dynasty_main`` season: 22 starters per team against a
+      17-slot league object);
+    * ``best_ball_flag_contradicted_by_host_lineups`` — the league says
+      best ball but a team's recorded lineup (whose points sum to its
+      score) is not the exact optimum of its own roster (2024: best_ball=1
+      with managed-looking lineups on every team-week).
+
+    Strict by design: one contradicting team-week marks the week, because
+    replacement demand, the slot layout and the median all span the whole
+    league-week.  A false positive costs availability, never correctness.
+    """
+    slots = list(rules.starter_slots)
+    out: dict[int, list[str]] = {}
+    for wk in sorted(weeks):
+        reasons: set[str] = set()
+        for team in sorted(weeks[wk], key=lambda t: t.roster_id):
+            if slots and team.lineup_size is not None and team.lineup_size != len(slots):
+                reasons.add(CONTRA_SLOT_COUNT)
+                continue
+            if rules.best_ball is not True or not slots or team.score is None:
+                continue
+            if not team.counted or any(pid not in team.points for pid in team.counted):
+                continue
+            if abs(sum(team.points[pid] for pid in team.counted) - float(team.score)) > 0.011:
+                continue
+            if any(pid not in team.points for pid in team.roster):
+                continue  # cannot prove the optimum without every score
+            pool = _pool(team, players)
+            score, _unfilled = _solve(pool, slots, precompute_slot_eligibility(pool, slots))
+            if abs(score - float(team.score)) > 0.011:
+                reasons.add(CONTRA_BEST_BALL)
+        if reasons:
+            out[wk] = sorted(reasons)
+    return out
+
+
 # ── replacement level (consumes the two replacement owners) ────────────
 def measure_replacement(
     weeks: Mapping[int, Sequence[TeamWeek]],
@@ -509,6 +621,13 @@ def measure_replacement(
     allocation"), averaged over weeks -> league starters per week at the
     position = the cutoff.  Level: ``replacement_per_game`` over every
     rostered player's season-to-date pace, ``require_full_band=True``.
+
+    Pace is PER GAME PLAYED, as the owner's docstring defines it ("80
+    points in 6 games").  The host records an NFL bye or an inactive week
+    as a literal ``0.0`` it does not distinguish from a scoreless game, so
+    a ``0.0`` week is not counted as a game (labelled PRIOR
+    ``zero_week_not_a_game``); counting it would deflate every pace, most
+    of all for the injured starters the band exists to look past.
     """
     positions = sorted({info.position for info in players.values() if info.position})
     if not weeks:
@@ -537,7 +656,8 @@ def measure_replacement(
                 )
                 rec = totals.setdefault(pid, {"position": info.position, "points": 0.0, "games": 0})
                 rec["points"] += float(pts)
-                rec["games"] += 1
+                if float(pts) != 0.0:
+                    rec["games"] += 1
             week_teams.append({"players": rows})
         measured = measure_endogenous_starters(week_teams, list(starter_slots))
         for pos, per_team in measured.starters_per_team.items():
@@ -619,7 +739,7 @@ def aggregate(records: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     rows.sort(
         key=lambda r: (
             r["vorp"]["total"] is None,
-            -(r["vorp"]["total"] or 0.0),
+            -(r["vorp"]["total"] if r["vorp"]["total"] is not None else 0.0),
             r["playerId"],
             r["rosterId"],
         )
@@ -682,12 +802,20 @@ def season_team_weeks(
     out: dict[int, list[TeamWeek]] = {}
     for wk in included:
         entries = season.matchups_by_week.get(wk) or []
+        # THE grouping rule (schedule_impact): a malformed group is a named
+        # structural issue, never silently a bye.
+        pairs, _byes, structural = week_matchup_structure(entries, metrics.roster_id_of)
         opponent: dict[int, int] = {}
-        for a, b in metrics.matchup_pairs(list(entries)):
-            ra, rb = metrics.roster_id_of(a), metrics.roster_id_of(b)
-            if ra is not None and rb is not None:
-                opponent[ra] = rb
-                opponent[rb] = ra
+        for ra, rb in pairs:
+            opponent[ra] = rb
+            opponent[rb] = ra
+        issue_of: dict[int, str] = {}
+        for issue in structural:
+            kind, _sep, rest = issue.partition(":")
+            members = rest.split(":", 1)[1] if kind == "group_size" else rest
+            for member in members.split(","):
+                if member.strip().lstrip("-").isdigit():
+                    issue_of[int(member)] = kind
         teams: list[TeamWeek] = []
         seen: set[int] = set()
         for entry in entries:
@@ -698,6 +826,7 @@ def season_team_weeks(
             points = _parse_points(entry)
             counted = tuple(str(s) for s in (entry.get("starters") or []) if s and str(s) != "0")
             roster = tuple(str(p) for p in (entry.get("players") or []) if p) or tuple(points)
+            raw_starters = entry.get("starters")
             teams.append(
                 TeamWeek(
                     roster_id=rid,
@@ -707,6 +836,8 @@ def season_team_weeks(
                     points=points,
                     roster=roster,
                     opponent=opponent.get(rid),
+                    matchup_issue=issue_of.get(rid),
+                    lineup_size=len(raw_starters) if isinstance(raw_starters, list) else None,
                 )
             )
         out[wk] = teams
@@ -737,12 +868,27 @@ def compute_season(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> di
     )
     pids = sorted({p for teams in weeks.values() for t in teams for p in (*t.roster, *t.counted)})
     players = {pid: _player_info(snapshot, pid) for pid in pids}
-    replacement = measure_replacement(weeks, players, rules.starter_slots)
+    contradicted = detect_contradictions(weeks, rules, players)
+    # Replacement demand is measured ONLY over weeks whose matchups agree
+    # with the configured slots and lineup rule; a contradicted week would
+    # feed the wrong layout into the cutoff.
+    consistent = {wk: teams for wk, teams in weeks.items() if wk not in contradicted}
+    if weeks and not consistent:
+        positions = sorted({info.position for info in players.values() if info.position})
+        replacement = {
+            pos: {"replacementPerGame": None, "reason": REPL_CONTRADICTED} for pos in positions
+        }
+    else:
+        replacement = measure_replacement(consistent, players, rules.starter_slots)
     level = {pos: r["replacementPerGame"] for pos, r in replacement.items()}
 
     records: list[dict[str, Any]] = []
     for wk in sorted(weeks):
-        records.extend(evaluate_league_week(wk, weeks[wk], rules, players, level))
+        records.extend(
+            evaluate_league_week(
+                wk, weeks[wk], rules, players, level, contradictions=contradicted.get(wk, ())
+            )
+        )
 
     rows = aggregate(records)
     # League-wide coverage over COUNTED player-weeks, so "this season's WAB
@@ -765,7 +911,14 @@ def compute_season(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> di
         row["displayName"] = (
             metrics.display_name_for(snapshot, row["ownerId"]) if row["ownerId"] else ""
         )
-    team_count = season.num_teams or 0
+    # ``num_teams`` reads 0 when the host states no size: that is UNKNOWN,
+    # and an unknown size can be neither verified nor refuted.
+    team_count: int | None = season.num_teams if season.num_teams > 0 else None
+    host_verified: bool | None = (
+        None
+        if team_count is None
+        else bool(THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES and team_count % 2 == 0)
+    )
     return {
         "contractVersion": CONTRACT_VERSION,
         "calcVersion": CALC_VERSION,
@@ -783,17 +936,33 @@ def compute_season(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> di
             "medianGame": rules.median_enabled,
             "medianThreshold": {
                 "semantics": THRESHOLD_SEMANTICS,
-                "hostVerified": bool(
-                    THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES
-                    and team_count > 0
-                    and team_count % 2 == 0
-                ),
+                "hostVerified": host_verified,
             },
             "starterSlots": list(rules.starter_slots),
             "starterSlotsSource": slots_source,
             "tieCredit": comparison_credit(0, 0),
         },
+        "settings": {
+            "state": SETTINGS_CONTRADICTED if contradicted else SETTINGS_CONSISTENT,
+            "configuredStarterSlotCount": len(rules.starter_slots),
+            "contradictedWeeks": [
+                {"week": wk, "reasons": reasons} for wk, reasons in sorted(contradicted.items())
+            ],
+            "note": "Sleeper stores one league object per season with its FINAL settings; "
+            "weeks whose matchups contradict it are withheld, never computed on the "
+            "wrong layout.",
+        },
         "replacement": replacement,
+        "replacementTemporalScope": {
+            "kind": "season_to_date",
+            "weeks": sorted(consistent) if weeks else [],
+            "usesLaterWeeks": True,
+            "prior": "replacement_season_to_date",
+            "note": "One level per position over every consistent finished week, so a "
+            "week's VORP/WAR reads replacement evidence from LATER weeks too.  Not a "
+            "no-lookahead (as-of) value; a published value is reproducible only with "
+            "this asOfWeek and calcVersion (spec §10/§12).",
+        },
         "coverage": coverage,
         "xWar": {"state": "unavailable", "reason": "no_archived_no_lookahead_distribution"},
         "priors": [dict(p) for p in PRIORS],

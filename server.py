@@ -13120,11 +13120,9 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
     try:
         status, content = await run_in_threadpool(_build)
     except Exception as exc:  # noqa: BLE001
+        # Logged, never echoed: raw exception text can carry paths/internals.
         logging.error("Player impact build failed: %s", exc)
-        return JSONResponse(
-            status_code=503,
-            content={"error": "player_impact_unavailable", "detail": str(exc)},
-        )
+        return JSONResponse(status_code=503, content={"error": "player_impact_unavailable"})
     return JSONResponse(
         status_code=status,
         content=content,
