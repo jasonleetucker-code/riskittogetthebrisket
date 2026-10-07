@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
   VALUE_MODES,
@@ -104,7 +103,17 @@ const TradeMeter = SharedTradeMeter;
 // `mountCollapsedChildren={false}` on that panel: `hidden` still MOUNTS
 // children, so without it these dynamic imports would fetch on page load
 // and the split would buy nothing.
-const dyn = (loader) => dynamic(loader, { ssr: false });
+//
+// React.lazy, not next/dynamic — the same choice and the same measured
+// reason as the Perfect Draft panel on /draft (CLAUDE.md): next/dynamic
+// pulls Next's loadable runtime (~1.6 KB) into THIS page's chunk, and
+// /trade has no headroom for it.  These still mount client-side only,
+// when "Second opinions" is opened (the panel starts collapsed and does
+// not mount collapsed children, so SSR never reaches them), with a null
+// fallback like next/dynamic's.  One difference: they share a Suspense
+// boundary, so the block appears once its chunks have loaded rather than
+// piece by piece.
+const dyn = (loader) => lazy(loader);
 const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
 const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
@@ -2174,6 +2183,7 @@ export default function TradePage() {
             defaultCollapsed
             mountCollapsedChildren={false}
           >
+          <Suspense fallback={null}>
           {/* No valueMode: Second Opinions owns its own comparison
               basis and must not inherit a display toggle. */}
           <TradeSourceBreakdown sides={sides} settings={settings} />
@@ -2207,6 +2217,7 @@ export default function TradePage() {
               settings={settings}
             />
           ) : null}
+          </Suspense>
 
           </CollapsiblePanel>
 
