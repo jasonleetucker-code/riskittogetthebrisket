@@ -1,0 +1,254 @@
+{
+ "family": "Z — coordinator reconciliation (manifest residue + post-audit status changes)",
+ "auditedAt": "2026-10-07T21:45:00Z",
+ "mainSha": "37ccfbb68",
+ "rows": [
+  {
+   "id": "X-02",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Out of scope",
+   "capability": "Money / dues / Constitution / League Media",
+   "disposition": "REJECTED",
+   "userVisibleOutcome": "Not built (owner-rejected).",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Manifest X-02: OWNER-REJECTED (inventory §0). No code exists.",
+   "prOrBranch": null,
+   "evidence": "docs/C_SERIES_SCOPE_MANIFEST.md line 449",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  }
+ ],
+ "overrides": [
+  {
+   "id": "CLEANUP-1",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy of 37ccfbb68; then the campaign row closes with production identity recorded."
+  },
+  {
+   "id": "R-STAB-CLEANUP-1",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy of 37ccfbb68."
+  },
+  {
+   "id": "CLEANUP-3",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy; then #1684 + #1685 (source-state display/backend follow-ups) through the next train."
+  },
+  {
+   "id": "R-STAB-CLEANUP-5",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy; ruleset application remains the owner decision R-STAB-RULESET."
+  },
+  {
+   "id": "PICK-PROJECTOR-1652",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
+  },
+  {
+   "id": "#1652",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
+  },
+  {
+   "id": "CLEANUP-4",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1679 extraction); the tracked-data inventory record shipped in #1677",
+   "disposition": "INTEGRATED_NOT_DEPLOYED",
+   "nextAction": "Verify deploy; further extractions only under the characterization-first rule."
+  },
+  {
+   "id": "#1505",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (docs-only intent now on main)",
+   "nextAction": "C5-WAR-01 core (deterministic VORP/WAR/WAB) unblocks the MVP win-impact build."
+  },
+  {
+   "id": "C1-PICK-03",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1652)",
+   "nextAction": "Verify deploy + authenticated pick-projections; slot-probability calibration waits on realized 2027 slots."
+  },
+  {
+   "id": "SIG-IDP-GATE-2026-10-03",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1654)",
+   "nextAction": "After deploy: dispatch signals-onbox-verification.yml with collect:true, append §10.8 results, independent review; verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
+  },
+  {
+   "id": "C8-A11Y-01",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1682 fixes the /waivers scroll-region failure; E2E green on the train head)",
+   "nextAction": "Extend the axe route list to every route family (lane in flight: claude/player-destination-and-axe-coverage)."
+  },
+  {
+   "id": "C10-CLOSE-03",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1678 + #1682)",
+   "nextAction": "After deploy: the scheduled V1 authenticated verification should go green; then fix #1473 startup-window timing and extend prod-auth specs."
+  },
+  {
+   "id": "C10-CLOSE-04",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1680 tracker dedupe)",
+   "nextAction": "C1-RET-07 probe re-point (#1676; lane claude/league-correctness-wave1 in flight); re-verify #1409 units."
+  },
+  {
+   "id": "C4-SRC-02",
+   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1675)",
+   "nextAction": "Integrate #1684 + #1685 (reviewed) via the next train."
+  },
+  {
+   "id": "AL-12",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Re-evaluate when the Wave-3 candidate exists; nothing to build before then."
+  },
+  {
+   "id": "IC-9/GOVERNANCE",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Build the Model Lab backend (AL-0b / IC-5) so non-Hill families have a registry disposition surface."
+  },
+  {
+   "id": "IC-9/PROJECTION",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "AL-3b projection scorecard (lane claude/learning-scorecards-al4a-al3b in flight), then challengers."
+  },
+  {
+   "id": "IC-9/TRADE",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "AL-2 ops: run the accumulated trade census on the box, then the per-axis translation-readiness table (AL-2b0)."
+  },
+  {
+   "id": "DFS-ADD-05",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Owner-provided official DK/FD entry templates (OWNER: DFS-§5-02) then verify the export round-trip."
+  },
+  {
+   "id": "DFS-ADD-11",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Implement the field/payout-aware objective (DFS-§6-02) on the existing contest presets."
+  },
+  {
+   "id": "DFS-ADD-15",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Wire odds/ownership/news freshness rows as their sources exist; keep 'unavailable' until then."
+  },
+  {
+   "id": "DFS-ADD-16",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Populate independence groups from measured source overlap once >1 family exists per sport."
+  },
+  {
+   "id": "DFS-ADD-18",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Game context stays DFF/nflverse; sportsbook markets wait on the owner's licensed-feed decision (DFS-§14-01)."
+  },
+  {
+   "id": "DFS-ADD-20",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Import the first real contest results (needs owner contest-standings exports, DFS-MOD-09)."
+  },
+  {
+   "id": "DFS-AUTO-03",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "NBA/NHL automatic slates (DFS-AUTO-19) — seasons start October; MMA stays external (DFS-AUTO-20)."
+  },
+  {
+   "id": "DFS-AUTO-09",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Verify DK/FD scoring cards against official rules (owner confirmation DFS-§5-02) and drop the UNVERIFIED label."
+  },
+  {
+   "id": "DFS-MOD-03",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Calibrate the marginal priors against archived slate outcomes once results accumulate."
+  },
+  {
+   "id": "DFS-MOD-05",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Compare against a real observed field once contest-standings data exists (DFS-MOD-09)."
+  },
+  {
+   "id": "DFS-MOD-06",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Fit on real contests once standings data exists (DFS-MOD-09); keep synthetic-recovery tests."
+  },
+  {
+   "id": "DFS-MOD-08",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Historical evaluation once archived slates + results accumulate."
+  },
+  {
+   "id": "DFS-§12-02",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Fold the modelled distributions (DFS-MOD-03) into the outcome percentiles; keep owner-imported overrides."
+  },
+  {
+   "id": "DFS-§13-02",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Add a permitted NBA projection/slate source (with DFS-AUTO-19)."
+  },
+  {
+   "id": "DFS-§13-03",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Add permitted NHL projections + line assignments (DFS-AUTO-22 candidate) with DFS-AUTO-19."
+  },
+  {
+   "id": "DFS-§20-02",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Run replay/champion-challenger once real contest results exist (DFS-MOD-09)."
+  },
+  {
+   "id": "DFS-§28-01..14",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Close the remaining user stories in dependency order after AUTO-19 and the live/rooting view (DFS-§20-01)."
+  },
+  {
+   "id": "DFS-§8-05",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "NHL line stacks after line assignments land (DFS-AUTO-22)."
+  },
+  {
+   "id": "DFS-§9-04",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Measure DFF vs RotoWire independence once a second NFL family exists; keep one vote per family."
+  },
+  {
+   "id": "R-DEPLOY-SHA-PIN",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Observe a manual (workflow_dispatch) deploy end-to-end and record the resolved SHA used by every stage."
+  },
+  {
+   "id": "R-ER-P10",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Backlog item (not product authorization): add an import-boundary check when a canonical-owner leak is next found."
+  },
+  {
+   "id": "R-G6",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "On-box read-only count of the Sharp + own-league per-season format captures."
+  },
+  {
+   "id": "R-PSI-LANE6",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Tracked per route in C8-PSI-03/*; next: /waivers family migration."
+  },
+  {
+   "id": "AL-10/11",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Manager tendency module (C6-MGR-01) over acquisition + waiver + trade ledgers (Wave 3)."
+  },
+  {
+   "id": "AL-2a",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Run the accumulated census on the box (AL-2 ops) and commit public counts only."
+  },
+  {
+   "id": "AL-8",
+   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+   "nextAction": "Re-evaluate after AL-2b0 readiness table exists."
+  }
+ ]
+}

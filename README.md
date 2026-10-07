@@ -150,7 +150,7 @@ This repo is now wired so both sides can work together:
   - CI check via `scripts/validate_api_contract.py`
 
 ## One-click helpers
-- `start_dynasty.bat` → starts Python server
+- `python server.py` → starts the Python server (`start_stack.bat` starts backend + frontend)
 - `start_frontend.bat` → starts Next dev server
 - `start_stack.bat` → starts backend + frontend together (separate terminal windows)
 - `sync.bat` → git add + commit + push on current branch (no-op safe if nothing changed)

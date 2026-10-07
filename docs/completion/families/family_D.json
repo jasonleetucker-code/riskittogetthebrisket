@@ -1,0 +1,2293 @@
+{
+ "family": "D — Decision products, Player File, explainability, BDVM, Premium UI migration, site-wide closure",
+ "auditedAt": "2026-10-07T21:05:00Z",
+ "mainSha": "911411cb4211ed69bf37b62b279fad0b82e130a1",
+ "rows": [
+  {
+   "id": "C7-BEST-TRADE",
+   "aliases": [
+    "#835 §1",
+    "ledger 102",
+    "#841/#842 topology supersession"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Trade",
+   "capability": "Best Trade to Send Each Team — one mutually defensible offer per opponent",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Per opponent: one recommended offer (WIN for us, opponent EVEN-or-better on KTC or IDPTC with whole-package native coverage) or an honest no-result.",
+   "backendOwner": "new consumer over src/packages/construction.py + src/trade/constraints.py + src/league_intel/cross_market.py + src/roster_intel/window.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C3-PKG-01",
+    "C3-CON-01",
+    "C3-XMKT-01",
+    "C7-POST-01",
+    "C7-PICKGEN-01",
+    "C1-PICK-01"
+   ],
+   "reality": "Zero implementation: the only 'best trade' hits are the public awards 'best trade' (src/public_league/awards.py). Every dependency now exists on main: constraints owner src/trade/constraints.py, cross_market wired, posture + posture-aware picks shipped in #1642 (0fbd5d472). IDPTC authorization (F-EXT-02) is covered by the owner source-access attestation 2026-09-25.",
+   "prOrBranch": null,
+   "evidence": "git grep best[_ -]?trade on origin/main 911411cb4",
+   "nextAction": "Claim a lane; build a per-opponent generator consuming enumerate_packages + constraints predicates + cross_market native coverage + posture context, with the #841/#842 topology tests (abs(A-B)<=1 players, picks only when posture-beneficial) and an honest no-result state; surface on /trade or /angle in PSI.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-POST-01",
+   "aliases": [
+    "#840",
+    "Wave B B3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Roster",
+   "capability": "Competitive Posture — PUSH / HOLD / RETOOL / REBUILD as an explained probabilistic classification",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Each team carries an explained posture with confidence; Analyze Trade shows it as context (never a vote/veto).",
+   "backendOwner": "src/roster_intel/window.py::competitive_posture",
+   "frontendOwner": "frontend/components/trade/TradeWarRoom.jsx",
+   "dependsOn": [
+    "C2-STR-01",
+    "C2-AGE-02",
+    "C5-PLAY-01"
+   ],
+   "reality": "Merged in Wave B #1642 (0fbd5d472, 2026-10-04); Deploy Production 37197655484 green and prod build.commit was 0fbd5d47. WORK_CLAIMS records anonymous public endpoints carry no posture leak, but an authenticated engine-output check was not observed. Posture map is an owner-chosen PRIOR (2026-10-03).",
+   "prOrBranch": "#1642",
+   "evidence": "tests/roster_intel/*, WORK_CLAIMS Wave B row; prod /api/status build.commit=14774f789 (main minus data-only commits) on 2026-10-07",
+   "nextAction": "Authenticated production probe of /api/trade/analyze strategicPosture on a real dynasty_main trade (via the v1-authenticated guest-pass path once #1678 lands).",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-PICKGEN-01",
+   "aliases": [
+    "#841",
+    "Wave B B5"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Trade",
+   "capability": "Posture-aware draft-pick generation in generated trades (never filler)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Generated offers include owned picks only when both teams' posture makes them mutually beneficial; unknown-slot picks priced by the labelled generic/forecast market prior.",
+   "backendOwner": "src/trade/finder.py + src/trade/pick_market.py + src/public_league/draft_order.py",
+   "frontendOwner": "frontend/app/arbitrage/page.jsx",
+   "dependsOn": [
+    "C7-POST-01",
+    "C1-PICK-01",
+    "C1-PICK-03",
+    "C3-PKG-01"
+   ],
+   "reality": "Shipped in #1642 (0fbd5d472) with the 2026-10-04 draft-order rule + forecast-weighted tier pricing; deployed. Follow-up PR #1652 (Pick Projector slots from the season sim) is open. Authenticated finder output on production not observed.",
+   "prOrBranch": "#1642, #1652 (open)",
+   "evidence": "tests/trade/*pick_market*, WORK_CLAIMS Wave B row",
+   "nextAction": "Merge #1652; then authenticated production probe of /api/trade/finder showing marketDerivation on a pick-inclusive package.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-GOLD-01",
+   "aliases": [
+    "inv 2.5",
+    "Golden Upgrades"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Trade",
+   "capability": "Golden Upgrades — owned→target swaps our model prefers while the market prefers what you own",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "A distinct surface listing owned-player → target pairs with model gain and market extraction, as a consumer of the finder (no second engine).",
+   "backendOwner": "src/trade/finder.py (consumer)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C3-PKG-01",
+    "C3-CON-01"
+   ],
+   "reality": "No 'golden' surface or code anywhere in src/ or frontend/. Owner decision 2026-08-11: KEEP as a distinct surface but never a second trade/arbitrage engine. /arbitrage computes player-level market inversion that a Golden Upgrades view can consume.",
+   "prOrBranch": null,
+   "evidence": "git grep -i golden on origin/main",
+   "nextAction": "Build a PSI view (tab on /arbitrage or its own route) that filters finder output to owned→target 1-for-1 swaps; add consumer-only guard test.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-PKGB-01",
+   "aliases": [
+    "inv 2.6",
+    "Package Builder",
+    "/angle"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Trade",
+   "capability": "Package Builder with return-position constraints applied during generation",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "/angle ('Package Builder' in nav) builds return packages with a position filter.",
+   "backendOwner": "src/trade/angle.py (position_filter in candidate generation) + src/trade/constraints.py",
+   "frontendOwner": "frontend/app/angle/page.jsx",
+   "dependsOn": [
+    "C3-PKG-01",
+    "C3-CON-01"
+   ],
+   "reality": "Manifest says ABSENT but /angle is titled Package Builder and angle.py applies position_filter while collecting candidates (lines ~873-907, ~1443-1465) and consumes the constraints owner. Not PSI-scoped; spec acceptance (multi-position incl. PICKS, exclusions, unpriced state, roster impact) never audited.",
+   "prOrBranch": null,
+   "evidence": "origin/main frontend/app/angle/page.jsx:465, src/trade/angle.py:873",
+   "nextAction": "Audit /angle against inventory 2.6 acceptance (QB/RB/WR/TE/DL/LB/DB/PICKS multi-select honoured during generation, exclusions, unpriced), close gaps, migrate to PSI.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-DESK-01/analyze-trade",
+   "aliases": [
+    "#792",
+    "V1-43",
+    "CE-05 (Analyze half)",
+    "#1173",
+    "#842",
+    "#843"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Trade",
+   "capability": "Analyze Trade — MAKE / LEAN MAKE / TOO CLOSE / LEAN PASS / PASS synthesized by unique information",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "On /trade the War Room returns one recommendation with confidence, lens reasons, posture context and Team Context toggle.",
+   "backendOwner": "src/trade/analyze_trade.py (POST /api/trade/analyze)",
+   "frontendOwner": "frontend/components/trade/TradeWarRoom.jsx",
+   "dependsOn": [
+    "C3-CALC-01",
+    "C2-SIM-01",
+    "C7-POST-01"
+   ],
+   "reality": "analyze_trade_v2 packet with market/roster/feasibility/evidence lenses and lineage no-double-count; War Room UI #1459 (692179f44) and Wave B #1642 deployed. V1-43 VERIFIED only at L1 (backend). /api/trade/analyze is 401 anonymously; no authenticated production observation of the rendered verdict. currentSeasonEquity is explicitly UNAVAILABLE.",
+   "prOrBranch": "#1459, #1642",
+   "evidence": "frontend/__tests__/components/trade-war-room.test.jsx (real payloads), tests/trade/test_analyze_trade*",
+   "nextAction": "Authenticated production verification (desktop + phone) of the War Room verdict on a real trade; wire playoff_sim.simulate_trade_impact for currentSeasonEquity when ready.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-DESK-01/trade-desk",
+   "aliases": [
+    "CE-05 Trade Desk"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Trade",
+   "capability": "Trade Desk — unified Incoming / Outgoing / Past / Completed trade workflow",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "One desk listing trades by state, each opened in the same Analyze Trade packet.",
+   "backendOwner": "src/trade/analyze_trade.py (one packet) + transaction history",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C7-DESK-01/analyze-trade",
+    "C4-MTL-01"
+   ],
+   "reality": "No Trade Desk surface exists; /trades is history only. Inventory §12 gates EXECUTION (send/respond) on CE-11, but the read-only desk (past/completed + saved analyses) has no owner gate.",
+   "prOrBranch": null,
+   "evidence": "docs/OWNER_FEATURE_INVENTORY.md CE-05 row",
+   "nextAction": "Build the read-only desk (completed/past from transaction history, saved analyses) on the analyze packet; leave incoming/respond to C7-GATE-01.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-GATE-01",
+   "aliases": [
+    "CE-11",
+    "OD-02"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Execution",
+   "capability": "Sleeper Action Gateway — authenticated, previewed, confirmed, idempotent, audited league mutations",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Ability to send/respond to trades, set lineups, waivers from the site.",
+   "backendOwner": "(new) action gateway",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C7-DESK-01/analyze-trade"
+   ],
+   "reality": "Zero write paths; Sleeper integration is read-only (no action[_ -]gateway code). OD-02 (is execution required for completion?) is still open, and real league changes / autonomous trades are owner-only gates.",
+   "prOrBranch": null,
+   "evidence": "git grep action.?gateway: no hits",
+   "nextAction": null,
+   "blocker": {
+    "what": "OD-02 decision: whether authenticated Sleeper mutations are in scope",
+    "whyReal": "Real league changes and executed trades/waivers are an explicit owner-only gate in the 2026-10-07 directive",
+    "doneAround": "All recommendation surfaces proceed recommendation-only",
+    "ownerOrExternalAction": "Owner answers OD-02 (in scope now / later capability) and, if in scope, how Sleeper credentials are provided",
+    "afterUnblock": "Design preview/confirm/idempotency/audit gateway; Trade Desk respond + Lineup IQ execution wire through it"
+   },
+   "weight": 3
+  },
+  {
+   "id": "C7-WAIV-01",
+   "aliases": [
+    "inv 3.3",
+    "inv 3.4",
+    "Perfect Waivers"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Waivers",
+   "capability": "Perfect Waivers — best combination of adds and drops (matching problem), not best free agent",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "/waivers recommends a jointly optimal add/drop set with a stop rule.",
+   "backendOwner": "(new) waiver optimizer over src/roster_intel/droppability.py + src/trade/faab_engine.py",
+   "frontendOwner": "frontend/app/waivers/page.jsx",
+   "dependsOn": [
+    "C2-DROP-01",
+    "C4-FAAB-01",
+    "C3-CON-01"
+   ],
+   "reality": "Only /api/waiver/suggestions (value-ranked free agents), best-available-idp and faab-recommend exist; droppability.py docstring names Perfect Waivers as a future consumer. Draft optimizer's k-decomposition/ECC ladder are reusable.",
+   "prOrBranch": null,
+   "evidence": "server.py:6597 post_waiver_suggestions",
+   "nextAction": "Implement the add/drop matching optimizer reusing src/draft/displacement + lineup solver; matching test; PSI on /waivers.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-DRAFT-01",
+   "aliases": [
+    "Perfect Draft consolidation"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Draft",
+   "capability": "Perfect Draft becomes a consumer of canonical pick identity/valuation; backtest unblocked",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Perfect Draft plan on /draft and inside the auction room.",
+   "backendOwner": "src/draft/ + frontend/lib/perfect-draft.js",
+   "frontendOwner": "frontend/app/draft/page.jsx",
+   "dependsOn": [
+    "C1-PICK-01",
+    "C7-DRAFT-02"
+   ],
+   "reality": "Complete for declared scope (flag perfect_draft LIVE); integrated into the auction room (#1526). src/draft and perfect-draft.js do not import src/identity/picks or pick_value_resolution; backtest still exits 2 (no pre-draft snapshot).",
+   "prOrBranch": "#1526",
+   "evidence": "git grep identity.picks in src/draft: none",
+   "nextAction": "Route Perfect Draft's pick references through src/identity/picks + pick_value_resolution; parity test.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-DRAFT-02",
+   "aliases": [
+    "appendix C1",
+    "A-5 (V1)",
+    "RET flag"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Draft",
+   "capability": "Pre-auction immutable snapshot captured automatically",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Before each rookie auction the board, roster contexts and recommendations are frozen for later backtest.",
+   "backendOwner": "scripts/backtest_perfect_draft.py --record-snapshot / src/auction preflight",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01",
+    "C7-DRAFT-03"
+   ],
+   "reality": "Capture is still a manual script flag; no automatic hook in src/auction. The temporal ledger records the board every 2h, but roster contexts/recommendations are not captured. 2026 auction is past (class retired #1442); next opportunity is the 2027 auction.",
+   "prOrBranch": null,
+   "evidence": "git grep record-snapshot: only scripts/backtest_perfect_draft.py",
+   "nextAction": "Call the snapshot writer from the auction room preflight/opening transition (and a dated timer before the draft), first-write-wins, backed up via AL-P2.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C7-DRAFT-03",
+   "aliases": [
+    "C7-U12",
+    "W10-F001",
+    "AUC milestones A-E",
+    "#1533"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Draft",
+   "capability": "Live Rookie Auction — shared slow auction room with live bid tracking and roster-aware budget optimization",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Mock rooms with bots, invitations, Web Push/inbox, Perfect Draft in the room; official room gated.",
+   "backendOwner": "src/auction/",
+   "frontendOwner": "frontend/app/auction/*",
+   "dependsOn": [
+    "C7-DRAFT-01",
+    "C1-PICK-01",
+    "C2-DROP-01"
+   ],
+   "reality": "Milestones A-E merged (#1523/#1524/#1526/#1528) and deployed (rookie_auction LIVE). PR #1533 (independent audit fixes, rehearsal reports, bid p95 1.15s->0.61s) is open. Official launch is owner-gated.",
+   "prOrBranch": "#1523 #1524 #1526 #1528; #1533 open",
+   "evidence": "docs/auction/LAUNCH_CHECKLIST.md",
+   "nextAction": "Merge #1533 through normal gates; complete the 20 §13 acceptance scenarios on a rehearsal room; hand the owner the launch checklist.",
+   "blocker": {
+    "what": "Official room launch / live official bidding",
+    "whyReal": "Explicitly reserved to the owner (EXECUTION_PLAN 2026-09-29)",
+    "doneAround": "Mock/rehearsal rooms fully usable",
+    "ownerOrExternalAction": "Owner approves OFFICIAL launch when ready",
+    "afterUnblock": "Open official room, distribute invitations"
+   },
+   "weight": 3
+  },
+  {
+   "id": "C7-ALERT-01",
+   "aliases": [
+    "AI Front Office §4",
+    "Edge Alerts"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Intelligence",
+   "capability": "Edge Alerts — material, deduped, fresh, actionable alerts",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Users get alerts only for material, validated edges.",
+   "backendOwner": "C6-SIG-01 reconciler (absent) + src/api/bdvm_signal_alerts.py / terminal signal sweep",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C6-SIG-01",
+    "C6-EDGE-01"
+   ],
+   "reality": "Signal-alert sweeps exist (terminal + BDVM), but no central Buy/Sell reconciler exists and consensus_edge is OFF in production because its preregistered ship gate returned 'do not ship' (feature_flags.py:440-464, ADR-023; prod featureFlags consensus_edge enabled=false).",
+   "prOrBranch": null,
+   "evidence": "prod /api/status featureFlags; src/api/feature_flags.py",
+   "nextAction": null,
+   "blocker": {
+    "what": "No validated edge signal to alert on",
+    "whyReal": "Activating Consensus Edge before its preregistered gate passes is an owner-only gate; C6-SIG-01 reconciler absent",
+    "doneAround": "Build the alert delivery/materiality/cooldown layer against BDVM signals in shadow",
+    "ownerOrExternalAction": "None from owner unless choosing to activate without evidence; engineering must pass validate_consensus_edge_board.py or deliver C6-SIG-01",
+    "afterUnblock": "Wire alerts to the reconciled, validated signal"
+   },
+   "weight": 2
+  },
+  {
+   "id": "C7-AI-01",
+   "aliases": [
+    "Ask Brisket",
+    "OD-03 (AI cost)",
+    "src/api/chat.py orphan"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / AI",
+   "capability": "Ask Brisket — natural-language front office grounded in canonical evidence",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Ask league-specific questions answered from canonical data.",
+   "backendOwner": "src/api/chat.py (unwired) + canonical services",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C7-DESK-01/analyze-trade",
+    "C6-ANA-01"
+   ],
+   "reality": "Only orphan src/api/chat.py (Anthropic streaming over a board dump) exists, unwired (stabilization record §7). Spec §9-10: activation is cost-gated (paid inference) and security/privacy-gated.",
+   "prOrBranch": null,
+   "evidence": "docs/AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md §9-10",
+   "nextAction": "Meanwhile build the retrieval/orchestration grounding layer (no paid calls) with a grounding test.",
+   "blocker": {
+    "what": "Paid LLM inference activation",
+    "whyReal": "Spending/paid services are owner-only under the 2026-10-07 directive",
+    "doneAround": "Retrieval/orchestration layer can be built and tested without API spend",
+    "ownerOrExternalAction": "Owner approves model/API spend posture and key provisioning",
+    "afterUnblock": "Wire chat to the retrieval layer, ship behind a flag"
+   },
+   "weight": 3
+  },
+  {
+   "id": "C7-AI-02",
+   "aliases": [
+    "Roster Path Optimizer"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / AI",
+   "capability": "Roster Path Optimizer — sequences of actions toward an explicit objective",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Shows a sequence of moves toward a stated goal (e.g. maximize 2027 title odds).",
+   "backendOwner": "(new) consumer of canonical services",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C7-DESK-01/analyze-trade",
+    "C5-PLAY-01"
+   ],
+   "reality": "Absent (no code). Spec: objective/search methodology requires validation — engineering-validatable, not an open owner choice.",
+   "prOrBranch": null,
+   "evidence": "git grep roster.?path: none",
+   "nextAction": "Write the objective/search design with a validation plan, then implement over analyze_trade + playoff_sim.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-AI-03",
+   "aliases": [
+    "Trade Liquidity & Market Depth"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / AI",
+   "capability": "Trade Liquidity & Market Depth (advisory; never changes canonical value)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Per asset: how liquid its market is, with provenance.",
+   "backendOwner": "src/trade/market_trade_ledger.py (CE-01)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C4-MTL-01",
+    "C6-MGR-01"
+   ],
+   "reality": "No liquidity metric; the completed-trade ledger (#1586, 22974490f) exists but KTC trade DB production capture (AL-P1) was still at risk per BRISKET_IDEAS §13.4.",
+   "prOrBranch": null,
+   "evidence": "src/trade/market_trade_ledger.py",
+   "nextAction": "Define the liquidity metric from ledger counts/recency with a non-influence test; advisory UI on Player File Market tab.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-AI-04",
+   "aliases": [
+    "Negotiation Coach"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / AI",
+   "capability": "Negotiation Coach — opening offer, walk-away, likely counters (no auto offers)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Offer/counter strategy for a desirable trade.",
+   "backendOwner": "C7-DESK-01 packet + Manager Scout",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C7-DESK-01/analyze-trade",
+    "C6-MGR-01",
+    "C7-AI-03"
+   ],
+   "reality": "Absent. Manager Scout (C6-MGR-01) is still absent, so manager-tendency inputs are missing.",
+   "prOrBranch": null,
+   "evidence": "spec §6",
+   "nextAction": "After Manager Scout, implement on the analyze packet with factual-vs-inferred labelling.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-AI-05",
+   "aliases": [
+    "League Truth",
+    "SI-A",
+    "SI-B",
+    "SI-C",
+    "C9-TRUTH-01 (public view)"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / League",
+   "capability": "League Truth — record vs underlying performance without collapsing metrics",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Luck/schedule impact, schedule multiverse, power context on /league.",
+   "backendOwner": "src/public_league/schedule_impact.py + power/playoff engines",
+   "frontendOwner": "frontend/components/league/ScheduleImpact.jsx, ScheduleMultiverse.jsx",
+   "dependsOn": [
+    "C5-POW-01",
+    "C5-PLAY-01"
+   ],
+   "reality": "Schedule Intelligence A/C1/B merged (#1531 72eee1cb1, #1540, #1541 52a3059f8) giving record-under-other-schedules and timing-only distributions; no unified League Truth view (expected wins, all-play, consistency, close games) and no private interpretation layer.",
+   "prOrBranch": "#1531 #1540 #1541",
+   "evidence": "public /api/public/league/luck 200 0.48s",
+   "nextAction": "Compose a League Truth panel from existing luck/power/playoff outputs (separate metrics, no single score); private interpretation layer.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-AGE-01",
+   "aliases": [
+    "#838",
+    "T-NEW-18",
+    "CE-23 roster-age windows"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Roster",
+   "capability": "Age & Value / Roster Window module on every team profile",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Young Core Index, value-weighted core age, age-value chart, position percentiles on each team.",
+   "backendOwner": "src/roster_intel/age_portfolio.py via /api/roster/intelligence",
+   "frontendOwner": "frontend/components/TeamPhasePanel.jsx",
+   "dependsOn": [
+    "C2-AGE-02"
+   ],
+   "reality": "age_portfolio is computed and returned (youngCoreIndex, valueWeightedCoreAge, league ranks) but rendered only inside TeamPhasePanel on /phases; not on /rosters team profiles or franchise pages, no compact age-value chart / position-percentile flags.",
+   "prOrBranch": null,
+   "evidence": "src/api/roster_intelligence.py:242-382; TeamPhasePanel only consumer",
+   "nextAction": "Add the compact module to /rosters team view (and expansion view), mobile-parity, a11y.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CMD-01/CE-04",
+   "aliases": [
+    "Dynasty Command Center"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Home",
+   "capability": "Dynasty Command Center — action-ranked home of what needs attention now",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Signed-in home shows the terminal (movers, ticker, signals).",
+   "backendOwner": "src/api/terminal.py",
+   "frontendOwner": "frontend/components/terminal/TerminalLayout.jsx",
+   "dependsOn": [
+    "C2-STR-01",
+    "C7-DESK-01/analyze-trade",
+    "C7-ALERT-01"
+   ],
+   "reality": "Home is the market terminal (TerminalLayout), not an action-ranked queue of offers/waivers/lineup issues.",
+   "prOrBranch": null,
+   "evidence": "frontend/app/page.jsx",
+   "nextAction": "Add an action queue fed by canonical actionable events (waiver, lineup, posture, pick movement) on the terminal.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-CMD-01/CE-06",
+   "aliases": [
+    "Dynasty Portfolio / Exposure"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+   "productFamily": "Decision products / Portfolio",
+   "capability": "Dynasty Portfolio / Exposure across leagues",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Cross-league player/NFL-team/position/age/pick exposure with drilldowns.",
+   "backendOwner": "(new) consumer; leagueKey-isolated",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-STR-01",
+    "C2-EXP-01"
+   ],
+   "reality": "Absent; per-trade NFL exposure exists (#1439) but no portfolio view.",
+   "prOrBranch": null,
+   "evidence": "inventory CE-06",
+   "nextAction": "Build descriptive exposure view stamped per league (no cross-scoring merge).",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-07",
+   "aliases": [
+    "CE-07"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Market ADP",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Market ADP surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "No ADP surface (only ADP-sourced ROS adapters).",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Define ADP source(s) and a Market ADP table.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-08",
+   "aliases": [
+    "CE-08"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Projections & Stats Hub",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Projections & Stats Hub surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "No hub; projections live in Game Day/ROS/BDVM internals.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Build hub over C5-ROS-01 ensemble + realized points.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-12",
+   "aliases": [
+    "CE-12"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Lineup Intelligence (Lineup IQ)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Lineup Intelligence (Lineup IQ) surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Exact solver src/ros/lineup.py and contract optimalLineup exist; no Lineup IQ metric/surface.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Lineup IQ realized-vs-optimal metric per team-week (best-ball exact).",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-13",
+   "aliases": [
+    "CE-13"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Draft Room",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Draft Room surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "The auction room composes Perfect Draft + board + budgets for auction drafts (#1526); no snake/startup draft room.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Fold remaining Draft Room spec into the auction room; decide snake support only if a league needs it.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-14",
+   "aliases": [
+    "CE-14"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Market Pulse",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Market Pulse surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Pieces exist (/trending Sleeper adds, terminal MoversPanel, rankChange from ledger) but no lineage-aware 'what is moving and why' surface.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Compose Market Pulse from ledger moves + source movement with lineage labels.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-14A",
+   "aliases": [
+    "CE-14A"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Personal Rankings Overlay",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Personal Rankings Overlay surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Absent; /settings source weights is a different feature.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Per-user overlay stored in user_kv, canonical rank always visible.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-15",
+   "aliases": [
+    "CE-15"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Portfolio Trade Campaign",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "Portfolio Trade Campaign surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Inventory marks KEEP — FUTURE; requires multi-league portfolio, Manager Intelligence and CE-11.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C7-CE-01/CE-16",
+   "aliases": [
+    "CE-16"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Trade Polls",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "Trade Polls surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Registry: optional/future.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C7-CE-01/CE-17",
+   "aliases": [
+    "CE-17"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "League Format / Utilization Lab",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "League Format / Utilization Lab surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "/league-comparison scoring comparison exists; #1399 (2026 live evidence) closed unmerged; utilization lab absent.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Re-land live-2026 evidence consumer on current main; add utilization views.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-22",
+   "aliases": [
+    "CE-22"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Starter-relevance filter",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Starter-relevance filter surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Absent.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "View-only relevance classification from lineup demand/replacement; never zeroes value.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C7-CE-01/CE-24",
+   "aliases": [
+    "CE-24"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "League longevity / history",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "League longevity / history surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Public /league history, franchise and rivalry pages exist (history section 200, 0.46s); 'notable eras' / long-term performance views absent.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Add longevity/era summaries on franchise pages.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C7-CE-01/CE-25",
+   "aliases": [
+    "CE-25"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Compare multi-select",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Compare multi-select surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "/players/compare is pairwise (p1/p2) only.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Extend to bounded N-player compare with mobile stacking.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C7-CE-01/CE-26",
+   "aliases": [
+    "CE-26"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "Cross-league trade / portfolio view",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Cross-league trade / portfolio view surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Absent; two leagues registered, scoring identity fails closed (B6).",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "League-switch view stamped per league; share CE-06 foundation.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C7-CE-01/CE-27",
+   "aliases": [
+    "CE-27"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md + docs/C_SERIES_SCOPE_MANIFEST.md#C7 (C7-CE-01)",
+   "productFamily": "Competitive expansion",
+   "capability": "League keeper / privacy mechanics",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "League keeper / privacy mechanics surface per docs/OWNER_FEATURE_SPEC_APPENDIX_2026-08-13.md",
+   "backendOwner": "per CE spec (consumer of canonical owners)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "B8 public/private boundary holds; taxi occupancy bracketed in roster_capacity; no keeper-rule support.",
+   "prOrBranch": null,
+   "evidence": "git grep on origin/main 911411cb4",
+   "nextAction": "Add keeper/IR/draft constraint handling where leagues use them.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C7-CE-01/CE-29",
+   "aliases": [
+    "CE-29",
+    "AUC-002 push"
+   ],
+   "sourceDoc": "docs/CE_REGISTRY.md",
+   "productFamily": "Competitive expansion",
+   "capability": "Push notifications (Web Push)",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Phone notifications from Chase Upside (site + auction).",
+   "backendOwner": "src/api/push_delivery.py",
+   "frontendOwner": "frontend/components/PushNotificationToggle.jsx, frontend/lib/push-subscription.js",
+   "dependsOn": [],
+   "reality": "Code is complete and deployed, but production /api/push/public-key returns 503 push_not_configured (probed 2026-10-07): VAPID keys are not installed (docs/auction/LAUNCH_CHECKLIST.md:48).",
+   "prOrBranch": null,
+   "evidence": "curl https://chaseupside.com/api/push/public-key -> 503",
+   "nextAction": null,
+   "blocker": {
+    "what": "Production VAPID keys missing",
+    "whyReal": "Credentials are owner-only; agents never handle secrets",
+    "doneAround": "Inbox/email notifications still work",
+    "ownerOrExternalAction": "Owner generates VAPID key pair and sets VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_CONTACT in the box .env, restart",
+    "afterUnblock": "Verify a real subscription receives a push; mark CE-29 complete"
+   },
+   "weight": 1
+  },
+  {
+   "id": "OD-06",
+   "aliases": [
+    "CE-28 user feedback/polling"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#6",
+   "productFamily": "Competitive expansion",
+   "capability": "CE-28 user feedback/polling — approve as scope or drop",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "None until approved.",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "CE_REGISTRY: NOT owner-approved; must not be built on the strength of the row.",
+   "prOrBranch": null,
+   "evidence": "docs/CE_REGISTRY.md",
+   "nextAction": null,
+   "blocker": {
+    "what": "Scope decision",
+    "whyReal": "Unapproved scope cannot be built",
+    "doneAround": "Nothing depends on it",
+    "ownerOrExternalAction": "Owner approves or drops CE-28 (OD-06)",
+    "afterUnblock": "If approved: spec + build"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-01",
+   "aliases": [
+    "V1-110",
+    "OD-05 (resolved 2026-08-18)",
+    "C8-U2 foundation"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Premium UI",
+   "capability": "Design primitives, tokens, shell, breakpoints, focus states",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "PSI editorial tokens + ds primitives + restyled shell across every route.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/tokens.css, frontend/components/ds/*, components/shell/*",
+   "dependsOn": [],
+   "reality": "V1-110 VERIFIED (L2): 241 tokens, contrast ladder independently recomputed, OD-05 resolved. Residual gallery/docs drift is tracked separately (#1422) and is not this row's final state.",
+   "prOrBranch": "#984",
+   "evidence": "V1 contract V1-110; frontend/__tests__/components/ds/tokens-contract.test.js",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-02",
+   "aliases": [
+    "V1-111",
+    "R-PREMIUM",
+    "C8-U2 reference routes"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Premium UI",
+   "capability": "Reference route migration (Rankings + Player File) behind a rollback boundary",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Rankings and Universal Player Profile on the PSI scope.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/rankings/page.jsx, frontend/app/players/[playerId]/page.jsx",
+   "dependsOn": [
+    "C8-PSI-01"
+   ],
+   "reality": "V1-111 VERIFIED at L4 (production consumer). Later full-contract certification and legacy retirement of these routes are tracked in C8-PSI-03/rankings-player-file.",
+   "prOrBranch": "#984",
+   "evidence": "V1 contract V1-111",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/home-login",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/",
+    "/login"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /, /login",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/page.jsx, frontend/app/login/page.jsx",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Both page roots carry .psi-editorial (page.jsx, login/page.jsx); home is the terminal for signed-in users; no production screenshots/a11y re-cert in the UI ledger.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Production desktop+phone screenshots and axe of /login (anonymous) and / (authenticated); re-cert focus/error states.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-03/rankings-player-file",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/rankings",
+    "/rankings/[position] (redirect)",
+    "/players/[playerId]"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /rankings, /rankings/[position] (redirect), /players/[playerId]",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/rankings/, frontend/app/players/[playerId]/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "FEATURE_GREEN fixes merged #1520 (20d1d3c0d) and value-explain v2 panel #1578 (2baaafb5f); axe 0 locally on populated states (#1438); production re-certification and legacy source-audit CSS retirement pending; DataTable row aria-expanded missing.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Authenticated production screenshots + axe on populated Rankings/Player File; retire orphan globals.css selectors; DataTable aria-expanded.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/trade",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/trade"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /trade",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/trade/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "PSI-scoped (#1294), War Room + quantity tiers (#1619) + Team Context (#1642) + single <main> (#1624) deployed; no production screenshots in the ledger.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Authenticated desktop+phone production screenshots/axe of populated /trade incl. War Room.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/trades-family",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/angle",
+    "/arbitrage",
+    "/trades",
+    "/finder (redirect)"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /angle, /arbitrage, /trades, /finder (redirect)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/{angle,arbitrage,trades,finder}/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Not PSI-scoped (no .psi-editorial); mixed DS/legacy per UI ledger.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Migrate /angle (Package Builder) and /arbitrage to PSI tables/primitives with mobile stacking; audit /trades.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/my-team",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/rosters",
+    "/phases",
+    "/waivers",
+    "/draft"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /rosters, /phases, /waivers, /draft",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/{rosters,phases,waivers,draft}/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "DS-backed partial migration, not PSI-scoped; /waivers mobile a11y scrollable-region-focusable failing (#1673; fix PR #1682 open).",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Land #1682; migrate /waivers (coordinated panes / mobile tabs) then /rosters, /draft, /phases.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C8-PSI-03/game-day",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/game-day"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /game-day",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/game-day/, frontend/components/game-day/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "PSI hierarchy shipped (Game Day UI stacked on #1445) with team switcher #1452 and median race #1461; local axe 0; live-game production screenshots/WebKit/owner visual review pending.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Capture production phone+desktop screenshots during a live window; WebKit run.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/market-sharp",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/edge",
+    "/consensus-edge",
+    "/market/sharp-tracker",
+    "/market/sharp-roster-percentage",
+    "/market/sharp-people",
+    "/market/sharp-people/[personId]"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /edge, /consensus-edge, /market/sharp-tracker, /market/sharp-roster-percentage, /market/sharp-people, /market/sharp-people/[personId]",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/{edge,consensus-edge,market}/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Partial DS/PSI, not PSI-scoped; /consensus-edge behind consensus_edge=OFF (feature_disabled).",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Migrate Sharp tracker/roster % first (stable contracts); keep /consensus-edge refusal state honest.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/research",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/trending",
+    "/idptc-rookies",
+    "/bdvm",
+    "/news",
+    "/players/compare"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /trending, /idptc-rookies, /bdvm, /news, /players/compare",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/{trending,idptc-rookies,bdvm,news,players/compare}/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "DS-backed partial; not PSI-scoped.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Migrate /bdvm (Fundamental Values) and /news; then /trending, /idptc-rookies, /players/compare.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PSI-03/public-league",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/league",
+    "/league/activity",
+    "/league/insider-trading",
+    "/intel (redirect)",
+    "/league/franchise/[owner]",
+    "/league/player/[playerId]",
+    "/league/rivalry/[pair]",
+    "/league/week/[season]/[week]",
+    "/league/weekly/[season]/[week]/[matchup]",
+    "/league/articles/[season]/[week]",
+    "/league/articles/[season]/[week]/[matchupId]/[mode]"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /league, /league/activity, /league/insider-trading, /intel (redirect), /league/franchise/[owner], /league/player/[playerId], /league/rivalry/[pair], /league/week/[season]/[week], /league/weekly/[season]/[week]/[matchup], /league/articles/[season]/[week], /league/articles/[season]/[week]/[matchupId]/[mode]",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/league/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Mixed DS/legacy; PSI tables added only for Schedule Intelligence and draft-capital year selector; legacy Luck cards / gradient draft-capital bar remain.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Per-hub PSI migration with anonymous production screenshots (public routes are verifiable without credentials).",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C8-PSI-03/league-comparison",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/league-comparison"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /league-comparison",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/league-comparison/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Existing UI, no PSI proof; #1399 closed unmerged so the contract is stable again.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Migrate to PSI with CE-17 work.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-03/dfs",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/dfs"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /dfs",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/dfs/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "PSI scope + ds from first commit (#1534..#1561), axe 0 in 3 populated states, mobile E2E green locally; flag dfs_workspace LIVE; no production screenshots.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Authenticated production screenshots desktop+phone.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-03/auction",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/auction",
+    "/auction/[roomId]",
+    "/auction/join",
+    "/auction/notifications",
+    "/auction/reset"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /auction, /auction/[roomId], /auction/join, /auction/notifications, /auction/reset",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/auction/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "All five pages carry .psi-editorial; /auction is self-authed and 200 anonymously in production; no recorded production visual/a11y proof.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Production screenshots + axe of the anonymous /auction landing and a rehearsal room.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-03/settings-more",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/settings",
+    "/more"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /settings, /more",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/{settings,more}/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "DS-backed partial; not PSI-scoped.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Migrate; verify one IA/context and ON/OFF clarity.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-03/admin-tools",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/admin",
+    "/admin/sharp-identities",
+    "/tools/source-health",
+    "/tools/ros-data-health",
+    "/tools/trade-coverage"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /admin, /admin/sharp-identities, /tools/source-health, /tools/ros-data-health, /tools/trade-coverage",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/{admin,tools}/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Mixed DS/legacy; admin-only.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Migrate with honest source-state semantics (#1675).",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PSI-03/design-reference",
+   "aliases": [
+    "C8-U2",
+    "UI_PARALLEL_LEDGER row",
+    "/design",
+    "#1422"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8 + docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI route matrix",
+   "capability": "PSI / Direction A migration of route family: /design, #1422",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Route family renders in locked PSI with mobile parity, a11y and proof.",
+   "backendOwner": "canonical route owners (unchanged)",
+   "frontendOwner": "frontend/app/design/",
+   "dependsOn": [
+    "C8-PSI-01",
+    "C8-PSI-02"
+   ],
+   "reality": "Gallery foundation merged #1429 (8cafe9cb6) with 10 committed PNGs + axe; charts gated pending #1428; issue #1422 open; no production proof.",
+   "prOrBranch": null,
+   "evidence": "git grep psi-editorial on origin/main (PSI-scoped page roots: /, /login, /rankings, /players/[id], /trade, /game-day, /dfs, /auction/*, /design)",
+   "nextAction": "Authenticated production check of /design; close #1422 non-chart scope.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-U2/lane6-program",
+   "aliases": [
+    "Lane 6",
+    "#1421",
+    "C8-U1/U2/U3",
+    "UI_PARALLEL_LEDGER"
+   ],
+   "sourceDoc": "docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md §1, docs/ui/UI_PARALLEL_LEDGER.md",
+   "productFamily": "Premium UI",
+   "capability": "Lane 6 kept continuously active until every route is PSI_VERIFIED / legacy retired",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Steady PSI progress every batch.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/",
+   "dependsOn": [
+    "C8-PSI-03/*"
+   ],
+   "reality": "9 of 52 page files (plus shell) are PSI-scoped; 0 route families PSI_VERIFIED in production. UI ledger is stale (cites closed PRs/branch-only proof; reconciled in open #1674). Only active Lane 6 writer visible: #1682 (DataTable a11y).",
+   "prOrBranch": "#1674 (ledger reconcile), #1682",
+   "evidence": "UI_PARALLEL_LEDGER.md; open PR list 2026-10-07",
+   "nextAction": "Merge #1674 ledger reconciliation; dispatch the my-team family (/waivers first) as the next Lane 6 unit.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-U2/mobile-parity",
+   "aliases": [
+    "UI contract §6",
+    "V1-131",
+    "#1153"
+   ],
+   "sourceDoc": "docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md §6",
+   "productFamily": "Premium UI",
+   "capability": "Full mobile functional parity with unambiguous identity on every route",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every workflow usable on a phone.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/components/shell/MobileChrome.jsx + route pages",
+   "dependsOn": [
+    "C8-PSI-03/*"
+   ],
+   "reality": "Mobile E2E specs exist (mobile-smoke, touch-targets, type-floor, trade-quantity, pinned-overlap); /waivers mobile a11y fails (#1673); #1153 (V1-131 mobile drawer) still open though V1-131 verified via test hardening. No per-route phone proof for non-PSI families.",
+   "prOrBranch": "#1682",
+   "evidence": "tests/e2e/specs/mobile-*.spec.js",
+   "nextAction": "Add a mobile project pass over every route family as it migrates; close #1153 with evidence.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PERF-01",
+   "aliases": [
+    "V1-107",
+    "W26-F001"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Performance",
+   "capability": "Mobile payload smaller than desktop",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Mobile gets the compact board.",
+   "backendOwner": "src/api/compact_view.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "V1-107 VERIFIED (compact 492.9 KB vs array 635.2 KB gz, -22.4%); #1499 later moved desktop Rankings/Trade onto compact too (-24.5% gz).",
+   "prOrBranch": "#912, #1499",
+   "evidence": "V1 contract V1-107",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PERF-02",
+   "aliases": [
+    "V1-108",
+    "#759"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Performance",
+   "capability": "Non-data routes stop fetching the contract",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "/login, /more, /design, /admin, /tools/*, /dfs skip the multi-MB contract.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/components/AppShell.jsx NO_PLAYER_DATA_ROUTE_PREFIXES",
+   "dependsOn": [],
+   "reality": "V1-108 VERIFIED; gate list on main includes /dfs.",
+   "prOrBranch": "#912",
+   "evidence": "frontend/__tests__/app-shell-route-gates.test.js",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PERF-03",
+   "aliases": [
+    "V1-106"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Performance",
+   "capability": "Rankings board windowing",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Rankings scrolls smoothly.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/rankings/",
+   "dependsOn": [],
+   "reality": "V1-106 VERIFIED (a9136e13e).",
+   "prOrBranch": "#760/#1003",
+   "evidence": "V1 contract V1-106",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-PERF-04",
+   "aliases": [
+    "Sharp Tracker load time",
+    "V1-62",
+    "V1-61",
+    "#951",
+    "#1157"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Performance",
+   "capability": "Sharp Tracker / Sharp pages within budget",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Sharp pages load within the global budget.",
+   "backendOwner": "src/sharp/market.py, src/sharp/roster_percentage.py",
+   "frontendOwner": "frontend/app/market/*",
+   "dependsOn": [],
+   "reality": "V1-62 fixed /api/sharp/market cost (#1129); V1-61 roster-percentage >60s read was the open blocker (#1157 open). The scheduled Sharp production smoke (data/ops/sharp-production-smoke.json, 2026-10-07) is status unverifiable_unauthenticated (401 on /api/sharp/cohort) — #951.",
+   "prOrBranch": null,
+   "evidence": "data/ops/sharp-production-smoke.json",
+   "nextAction": "Route the Sharp smoke through the existing v1-authenticated guest-pass session path and measure /api/sharp/* and /market/* useful state; fix roster_percentage.build_board if still >2s.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C8-PERF-05",
+   "aliases": [
+    "audit 1 §5",
+    "#1515",
+    "#1623"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Performance",
+   "capability": "Public league payload paginated/materialized",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "/league sections load fast anonymously.",
+   "backendOwner": "src/public_league/ (per-section, memoized per generation)",
+   "frontendOwner": "frontend/lib/public-league-data.js",
+   "dependsOn": [],
+   "reality": "/league fetches per-section endpoints; anonymous production probes 2026-10-07: overview 0.49s (3.6 KB gz), luck 0.48s, awards 0.92s, history 0.46s, activity 0.54-0.63s (15 KB gz) — vs 2.1 MB / 14.8 s originally.",
+   "prOrBranch": "#1515 #1522 #1623",
+   "evidence": "curl probes 2026-10-07; #1622 before/after comment",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1622",
+   "aliases": [
+    "activity performance lane",
+    "owner directive 2026-10-03"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md (Added 2026-10-03)",
+   "productFamily": "Performance",
+   "capability": "/league?tab=activity prepared trimmed payload within budget",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Activity tab loads <1s.",
+   "backendOwner": "src/public_league activity section",
+   "frontendOwner": "frontend/app/league/",
+   "dependsOn": [],
+   "reality": "#1623 (632fff395) deployed: API p50 0.69 / p95 0.72 s, 421 KB -> 174 KB, no other-tab regression (issue comment). Open item: V1 desktop+mobile browser coverage of the tab; issue still OPEN.",
+   "prOrBranch": "#1623",
+   "evidence": "#1622 production before/after table; probe 2026-10-07 0.54-0.63s",
+   "nextAction": "Run browser useful-state measurement (desktop+mobile) of /league?tab=activity and close #1622.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C8-A11Y-01",
+   "aliases": [
+    "C8-U3",
+    "V1-113",
+    "#1624",
+    "#1673",
+    "#1682"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C8",
+   "productFamily": "Accessibility",
+   "capability": "Automated a11y (axe) checks per route + landmarks",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every route passes WCAG A/AA in populated states.",
+   "backendOwner": null,
+   "frontendOwner": "tests/e2e/specs/a11y-axe.spec.js (+ psi-rankings-player-a11y, psi-gallery, game-day, dfs specs)",
+   "dependsOn": [
+    "C8-PSI-03/*"
+   ],
+   "reality": "axe covers 10 routes (/, /rankings, /trade, /waivers, /rosters, /trades, /settings, /admin, /login, /league) plus populated Rankings/Player File, gallery, Game Day, DFS; ~40 routes unscanned. One-<main> fix merged #1624 (d397ba839). E2E safety net red on /waivers mobile scrollable-region-focusable (#1673; fix #1682 open).",
+   "prOrBranch": "#1624, #1682",
+   "evidence": "a11y-axe.spec.js ROUTES list",
+   "nextAction": "Merge #1682; extend ROUTES to every route family with populated states; keep baseline ratchet.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "inv-6.6",
+   "aliases": [
+    "Universal Player Profile",
+    "Player File",
+    "C8-PSI-02 PR B",
+    "#783 (intel feed)"
+   ],
+   "sourceDoc": "docs/OWNER_FEATURE_INVENTORY.md 6.6 + UI contract §12",
+   "productFamily": "Player File",
+   "capability": "One canonical page per player: identity, value, history, BDVM, projections/PAR, roster context, acquisition, Sharp, manager/Insider, analyst intel, news",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "/players/[id] with Overview / Market / Trades / Performance / Intel tabs.",
+   "backendOwner": "canonical contract rows + value-explain + realized points + news",
+   "frontendOwner": "frontend/app/players/[playerId]/page.jsx",
+   "dependsOn": [
+    "#1337",
+    "C6-ANA-01",
+    "C1-ACQ-01",
+    "C5-BDVM-01"
+   ],
+   "reality": "Route ships PSI with five tabs (value chain, KTC Market benchmark, confidence axes, freshness, ROS/realized points, intel context, news). Missing from the §12 hierarchy: BDVM/fundamentals, projections/PAR, acquisition/holding history (C1-ACQ private ledger), Sharp roster %, manager/Insider, unified analyst feed (#783).",
+   "prOrBranch": "#984, #1520, #1578",
+   "evidence": "frontend/__tests__/components/player-file-populated.test.jsx",
+   "nextAction": "Add BDVM fundamentals + Sharp roster % sections via disclosure (owners exist); then acquisition history and #783 feed.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "#1337",
+   "aliases": [
+    "Player File linking",
+    "every player name links to Player File"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md (2026-09-10 recovery bridge)",
+   "productFamily": "Player File",
+   "capability": "Every actionable player name site-wide resolves through one shared player-link primitive",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Click any player name anywhere -> Player File (or public-safe counterpart).",
+   "backendOwner": null,
+   "frontendOwner": "frontend/components/ds/PlayerNameButton.jsx",
+   "dependsOn": [
+    "inv-6.6"
+   ],
+   "reality": "First slice #1458 (3fadefbc7): PlayerNameButton is a real link on rankings, edge, trending, idptc-rookies, rosters, award standings, Game Day, terminal movers. Not yet on /trade, /waivers, /draft, /angle, /arbitrage, /trades, /bdvm, /news, /consensus-edge, sharp pages, /players/compare, public league player mentions, auction.",
+   "prOrBranch": "#1458",
+   "evidence": "frontend/__tests__/components/player-name-link.test.jsx; git grep PlayerNameButton",
+   "nextAction": "Adopt PlayerNameButton on the remaining surfaces (public routes -> /league/player/[id]); add a guard test that bare player-name text is not rendered on migrated tables.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "#1555-V1/discrepancy-diagnostic",
+   "aliases": [
+    "value-explain/v2",
+    "#1576",
+    "#1578",
+    "#1562 value replay",
+    "Coker evidence"
+   ],
+   "sourceDoc": "docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md §C V1 + #1555",
+   "productFamily": "Explainability",
+   "capability": "Internal discrepancy diagnostic — why is Calculator higher/lower than source X for player Y",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Player File Market tab 'How this value was computed': per-source raw/normalized, as-of/fetch clocks, weights, exclusion reasons, exact-vs-approximate attribution, non-additive leave-one-out, KTC Market benchmark.",
+   "backendOwner": "src/api/source_weighting_explain.py (GET /api/players/{player}/value-explain) + src/api/value_replay.py + scripts/value_replay.py",
+   "frontendOwner": "frontend/components/ValueExplainDetail.jsx (Player File Market tab)",
+   "dependsOn": [
+    "C1-HIST-01"
+   ],
+   "reality": "Contract #1576 (149b5b250) and UI #1578 (2baaafb5f) merged and deployed; replay tooling #1562 merged. Endpoint is 401 anonymously, so served-response capture needs an authenticated session (map: 'live served response capture needs owner auth').",
+   "prOrBranch": "#1562 #1576 #1578",
+   "evidence": "tests for value-explain v2; prod 401 probe",
+   "nextAction": "Authenticated production capture of value-explain for 3 contrast players (offense, IDP, pick) via the guest-pass verification path.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "UI-contract§10/value-movement",
+   "aliases": [
+    "why did this value move",
+    "movement reasons",
+    "CE-14 (Market Pulse) overlap",
+    "#1555 V1"
+   ],
+   "sourceDoc": "docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md §10",
+   "productFamily": "Explainability",
+   "capability": "'Why did this value move' explanation per player",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "On Rankings/Player File a movement shows its causes (which sources moved, freshness/weight changes, methodology flags).",
+   "backendOwner": "src/history/ (canonical_board + source_value lanes) + source_weighting_explain",
+   "frontendOwner": "frontend/app/players/[playerId]/page.jsx",
+   "dependsOn": [
+    "C1-HIST-01",
+    "#1555-V1/discrepancy-diagnostic"
+   ],
+   "reality": "rankChange is derived from the temporal ledger (ledger_rank_change LIVE) and value-explain explains the CURRENT value only; no code attributes a value change between two board generations (no change-attribution symbols on main).",
+   "prOrBranch": null,
+   "evidence": "git grep change_attribution/whyMoved: none",
+   "nextAction": "Implement a two-generation attribution read over src/history (per-source value deltas + weight/freshness deltas + flags), non-additive labelled, exposed in value-explain and a Player File 'Why it moved' disclosure.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-3d/BDVM-labels",
+   "aliases": [
+    "BDVM scope MEASURED/MECHANICAL/PRIOR",
+    "Batch 3 J2",
+    "C5-BDVM-01 (labels half)"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md §0 Adaptive Learning (AL-3c/AL-3d) + docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md",
+   "productFamily": "BDVM",
+   "capability": "Every BDVM parameter labelled MEASURED / MECHANICAL / PRIOR, then calibrated on outcomes",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "BDVM surfaces state which parameters are priors vs measured.",
+   "backendOwner": "config/bdvm/params_v1.json + src/bdvm/",
+   "frontendOwner": "frontend/app/bdvm/page.jsx",
+   "dependsOn": [
+    "AL-3b"
+   ],
+   "reality": "params_v1.json carries one blanket 'every number is a STARTING PRIOR' comment (1 label hit); no per-parameter taxonomy. Truthful UI labels (#1564) and scoring-coverage census (#1574) shipped; AL-3d is NEXT behind AL-3b scorecard.",
+   "prOrBranch": null,
+   "evidence": "config/bdvm/params_v1.json",
+   "nextAction": "Write the per-parameter label table now (all PRIOR unless mechanically required); calibration half after AL-3b.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C10-CLOSE-01",
+   "aliases": [
+    "contract §13.1",
+    "2026-10-07 completion directive ledger"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10",
+   "productFamily": "Site-wide closure",
+   "capability": "Zero-loss re-audit — every row closed or explicitly owner-accepted",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "A single completion ledger with one disposition per requirement.",
+   "backendOwner": "this ledger + docs/C_SERIES_SCOPE_MANIFEST.md",
+   "frontendOwner": null,
+   "dependsOn": [
+    "*"
+   ],
+   "reality": "In progress under the 2026-10-07 'finish the Calculator site' directive (this family audit); manifest rows still carry 2026-08 status text in places.",
+   "prOrBranch": null,
+   "evidence": "this file",
+   "nextAction": "Merge the family ledgers, reconcile manifest status columns, owner-accept residuals.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C10-CLOSE-02",
+   "aliases": [
+    "contract §13.2",
+    "#1214 V1-125",
+    "IDP_POSITIONS x13"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10 + §2",
+   "productFamily": "Site-wide closure",
+   "capability": "Every DUPLICATED canonical owner retired",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "One owner per concept.",
+   "backendOwner": "§2 owner map",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-REPL-01",
+    "C2-WEAK-01",
+    "C5-POW-01",
+    "C5-PLAY-01",
+    "C6-SIG-01",
+    "C9-SHARE-01"
+   ],
+   "reality": "Retired: lineup (C2-LINE-01), VA (C3-VA-01), identity, pick identity. Still duplicated per §2: replacement/PAR (5), need definitions (>=5), power rankings (2), playoff (2), Buy/Sell (>=6 emitters), share rendering (4 opengraph routes); IDP_POSITIONS defined ~13 times (stabilization §7).",
+   "prOrBranch": null,
+   "evidence": "manifest §2; docs/audit/STABILIZATION_2026-10-07.md §7",
+   "nextAction": "Re-run the W30 duplicate census on current main (#1214), then retire in owner order starting with replacement/PAR.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C10-CLOSE-03",
+   "aliases": [
+    "contract §13.3",
+    "production E2E journeys",
+    "#1673",
+    "#1678",
+    "#1473",
+    "#1647",
+    "V1 authenticated verification"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10",
+   "productFamily": "Site-wide closure",
+   "capability": "Browser / workflow matrix and production E2E journeys green",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every key journey verified in a real browser on production.",
+   "backendOwner": ".github/workflows/v1-authenticated-verification.yml, prod-e2e-smoke.yml, e2e.yml",
+   "frontendOwner": "tests/e2e/specs/journey-*.spec.js, prod-auth/*",
+   "dependsOn": [],
+   "reality": "Journey specs exist (rankings, trade, news, settings, perfect-draft, tools). V1 authenticated verification red on every run since 2026-10-03 (stale stack-note spec; fix #1678 open); e2e red (/waivers a11y #1673, fix #1682); prod-e2e-smoke failed 15:33Z 2026-10-07; #1473 (verification fires inside startup window) open; structured journey evidence #1647 draft.",
+   "prOrBranch": "#1678 #1682 #1647",
+   "evidence": "gh run list 2026-10-07",
+   "nextAction": "Merge #1678 + #1682, fix #1473 timing, then extend prod-auth specs to Analyze Trade, posture, value-explain, Player File tabs.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C10-CLOSE-04",
+   "aliases": [
+    "contract §13.4",
+    "#1676",
+    "#1409",
+    "smoke-test cancelled"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10",
+   "productFamily": "Site-wide closure",
+   "capability": "Background jobs and data proven on production",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every timer/collector produces its artifact.",
+   "backendOwner": "deploy/systemd + .github/workflows",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-P2"
+   ],
+   "reality": "Scheduled refresh, health check, deploy green. Red: retention-health (#1676: C1-RET-07 identity-report stream no producer since 2026-04-20 — methodology/owner disposition), smoke-test 'Validate Code Quality' cancelled daily (60-min suite under 10-min timeout), consensus-edge-revalidate crash, #1409 failing dynasty-* refresh units.",
+   "prOrBranch": "#1680",
+   "evidence": "STABILIZATION_2026-10-07 §4",
+   "nextAction": "Merge #1680; owner/methodology disposition of C1-RET-07 stream (#1676); re-verify #1409 units.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C10-CLOSE-05",
+   "aliases": [
+    "contract §13.5",
+    "#1338 (closed)",
+    "C8-U1",
+    "useful-state measurements",
+    "GLOBAL_PERFORMANCE_STANDARD"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10 + docs/performance/CURRENT_ARCHITECTURE.md",
+   "productFamily": "Site-wide closure",
+   "capability": "Performance gates met everywhere (useful-state budgets on every important route)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Warm <=1s, p95 <=2s, cold <=3s useful state across routes.",
+   "backendOwner": "performance/CURRENT_ARCHITECTURE.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "#1338 closed 2026-09-26 but its own ledger says no route family accepted; desktop Rankings warm still at the 1s edge (200-row first render ~400-500ms) after #1512/#1516; remaining-route denominator sweep and the independent adversarial hunt are NOT STARTED.",
+   "prOrBranch": "#1499 #1510 #1512 #1514 #1516",
+   "evidence": "CURRENT_ARCHITECTURE.md (Sept 29 remeasurement)",
+   "nextAction": "Open a successor issue to #1338; fix desktop Rankings first-render, then measure every route family desktop+mobile and run the adversarial hunt.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C10-CLOSE-06/app-security",
+   "aliases": [
+    "contract §13.6",
+    "V1-103",
+    "F-PRIV-01",
+    "#1467",
+    "dependabot"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10",
+   "productFamily": "Security",
+   "capability": "Security / privacy / auth pass — application and dependencies",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "No exploitable auth/privacy defects; supported runtime.",
+   "backendOwner": "server.py auth, frontend/middleware.js + frontend/lib/public-routes.js",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "V1-103 security repairs VERIFIED; hardcoded login fallback removed (JASON_LOGIN_PASSWORD now required). Anonymous probes: private pages 307 to /login, private APIs 401, /api/test/create-session not POSTable. Open: Node 20 EOL vs jest-dom@7 (#1467, engines >=20 <21), 2 open medium Dependabot alerts (vitest), ~8 open dependency PRs.",
+   "prOrBranch": "#1467, #1659-#1663",
+   "evidence": "curl probes 2026-10-07; gh dependabot alerts",
+   "nextAction": "Node 22 migration (#1467) as its own deploy-attributable PR; merge vitest bump #1660.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C10-CLOSE-06/branch-protection",
+   "aliases": [
+    "CLEANUP-5",
+    "#1677",
+    "ruleset 19976839"
+   ],
+   "sourceDoc": "docs/audit/STABILIZATION_2026-10-07.md §3 (branch claude/cleanup-stabilization-record)",
+   "productFamily": "Security / Governance",
+   "capability": "main protected by PR + required Validate PR check without freezing automation",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Agents cannot push directly to main; automation keeps pushing.",
+   "backendOwner": "deploy/github/main-protection-ruleset.json",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Live ruleset only blocks deletion + non-fast-forward; any write account can push to main and deploy.yml ships it. Corrected payload + apply script + test are in PR #1677.",
+   "prOrBranch": "#1677",
+   "evidence": "STABILIZATION_2026-10-07 §3",
+   "nextAction": null,
+   "blocker": {
+    "what": "Apply ruleset; admin bypass pull_request vs always; retire unused write deploy keys 145025388/148579683",
+    "whyReal": "Repository protection/credential changes are owner decisions (admin token)",
+    "doneAround": "Everything else proceeds; PR-only practice by convention",
+    "ownerOrExternalAction": "Owner runs deploy/github/apply-branch-protection.sh with an admin token after merging #1677, and deletes/read-onlys the two unused deploy keys",
+    "afterUnblock": "Verify next box push and github-actions[bot] push show bypass"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C10-CLOSE-06/credential-rotation",
+   "aliases": [
+    "exposed login literal"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md C10-CLOSE-06 (security pass)",
+   "productFamily": "Security",
+   "capability": "App login password that once existed as a literal in public history is rotated",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "The public-history literal no longer authenticates.",
+   "backendOwner": "server.py (env-only now)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Repo is public; commits ae8384ec5 / 2d27a0da0 / 82e8d43cd carried a literal JASON_LOGIN_PASSWORD fallback; current main requires the env var. Rotation is not recorded anywhere in the repo.",
+   "prOrBranch": null,
+   "evidence": "git log -S on server.py",
+   "nextAction": null,
+   "blocker": {
+    "what": "Confirm/perform password rotation",
+    "whyReal": "Credentials are owner-only",
+    "doneAround": "No code change needed",
+    "ownerOrExternalAction": "Owner rotates JASON_LOGIN_PASSWORD in the box .env (if not already) and confirms",
+    "afterUnblock": "Record rotation date in the security record"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C10-CLOSE-07",
+   "aliases": [
+    "contract §13.7"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10",
+   "productFamily": "Site-wide closure",
+   "capability": "Final regression",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Whole-site regression green at completion.",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [
+    "C10-CLOSE-01",
+    "C10-CLOSE-02",
+    "C10-CLOSE-03",
+    "C10-CLOSE-05",
+    "C10-CLOSE-06/app-security"
+   ],
+   "reality": "Terminal gate by definition; cannot meaningfully run before the other closure rows land.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": {
+    "what": "Upstream closure rows incomplete",
+    "whyReal": "Final regression certifies the finished tree",
+    "doneAround": "All other work",
+    "ownerOrExternalAction": "None (internal ordering)",
+    "afterUnblock": "Run full L3 + production journey matrix"
+   },
+   "weight": 2
+  },
+  {
+   "id": "C10-ML-01",
+   "aliases": [
+    "Adaptive Learning governance",
+    "AL-0",
+    "AL-1a"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C10",
+   "productFamily": "Model governance",
+   "capability": "Champion/challenger + shared learning receipts for every eligible model family",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every model change is evidence-gated and receipted.",
+   "backendOwner": "src/model_registry/ + learning receipts",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "AL-0 shared receipt/feature dictionary merged #1597; AL-1a receipts #1612/#1614; Hill Autopilot independent-target gate #1608. Other families' receipts/policies pending (AL-family ledger owns detail).",
+   "prOrBranch": "#1597 #1612 #1614 #1608",
+   "evidence": "EXECUTION_PLAN AL status",
+   "nextAction": "Continue AL Wave 1 per the AL family ledger.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "served-build-identity",
+   "aliases": [
+    "EXECUTION_PLAN §0 2026-09-30",
+    "engineering-reliability P3",
+    "#1543",
+    "#1570 deploy SHA pinning"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md §0 (Served build identity)",
+   "productFamily": "CI / Deploy",
+   "capability": "/api/status reports the running commit; deploy smoke fails on mismatch; deploy resolves one target SHA",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Operators can see exactly what production runs.",
+   "backendOwner": "src/api/build_identity.py, .github/workflows/deploy.yml",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Probe 2026-10-07: /api/status build.commit = 14774f789 (commit_source detached_head); Deploy Production runs green with the identity smoke; #1570 (3f48a9ece) resolves the deploy target once.",
+   "prOrBranch": "#1543 #1570",
+   "evidence": "curl /api/status",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1667-ai-architecture-train",
+   "aliases": [
+    "#1629-#1647",
+    "#1665",
+    "#1666",
+    "#1669",
+    "#1670",
+    "#1671",
+    "#1681",
+    "artifact deploy",
+    "lock files",
+    "typed leagues API",
+    "trace correlation",
+    "Steward evals",
+    "Class-B pilot"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md §0 (AI-architecture campaign, recorded in #1674)",
+   "productFamily": "CI / Deploy",
+   "capability": "CI-built frontend/backend artifacts with offline rollback, dependency locks, typed API pilot, trace correlation, Steward/eval and bounded Class-B pilot",
+   "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+   "userVisibleOutcome": "Deploys ship the exact tested artifact and can roll back offline.",
+   "backendOwner": "deploy/, .github/workflows/deploy.yml, src/steward/",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "All component PRs merged into the draft integration train #1667 (not main: d06f06a87/7dd0b8d4f/f356200bc not ancestors of main). Independent review found blocking deploy/rollback defects B1-B4 (legacy rollback validation, same-revision redeploy, stale node_modules on rollback, unbounded incoming archives); fix PR #1681 open.",
+   "prOrBranch": "#1667 (draft), #1681",
+   "evidence": "#1681 body; git merge-base",
+   "nextAction": "Land #1681 into the train, re-run exact-head Validate PR/E2E/isolation, strict Release Candidate, merge, deploy with artifact identity + rollback evidence.",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "CLEANUP-3",
+   "aliases": [
+    "CI reliability",
+    "#1680",
+    "#1678",
+    "#1682",
+    "#1675",
+    "#1683"
+   ],
+   "sourceDoc": "docs/audit/STABILIZATION_2026-10-07.md §4 + EXECUTION_PLAN 2026-10-07 stabilization",
+   "productFamily": "CI / Deploy",
+   "capability": "CI tells the truth: one failure one incident, red scheduled workflows fixed, source-state reporting honest",
+   "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+   "userVisibleOutcome": "Green means green; red means a real defect.",
+   "backendOwner": ".github/workflows/*, scripts/*",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Open PRs: #1680 incident dedupe + smoke-test timeout + consensus-edge-revalidate crash; #1678 V1 auth verification stale spec; #1682 DataTable scroll-region a11y; #1675 source-state reporting; #1683 deterministic OpenAPI operationIds.",
+   "prOrBranch": "#1675 #1678 #1680 #1682 #1683",
+   "evidence": "gh pr list 2026-10-07",
+   "nextAction": "Integrate the CLEANUP-3 PRs through normal gates.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "CLEANUP-1",
+   "aliases": [
+    "work claims",
+    "status/authority reconciliation",
+    "#1674",
+    "EXECUTION_PLAN §0 2026-10-03/2026-10-07 directives"
+   ],
+   "sourceDoc": "docs/audit/STABILIZATION_2026-10-07.md §2",
+   "productFamily": "Governance",
+   "capability": "Work claims, status docs and the authorization record match GitHub reality",
+   "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+   "userVisibleOutcome": "Agents see true live editors and current authority.",
+   "backendOwner": "docs/WORK_CLAIMS.md + scripts/check_work_claims.py + docs/EXECUTION_PLAN.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "69 stale claim rows, checker blind to 'active'/'in progress' statuses, and missing 2026-10-03/2026-10-07 directives in §0 — all fixed in open PR #1674.",
+   "prOrBranch": "#1674",
+   "evidence": "STABILIZATION_2026-10-07 §2",
+   "nextAction": "Merge #1674.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "CLEANUP-4",
+   "aliases": [
+    "monolith extraction",
+    "#1679"
+   ],
+   "sourceDoc": "docs/audit/STABILIZATION_2026-10-07.md §7",
+   "productFamily": "Governance",
+   "capability": "Behavior-preserving extraction of high-confidence server.py seams",
+   "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+   "userVisibleOutcome": "None (maintainability).",
+   "backendOwner": "server.py league articles routes",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "PR #1679 extracts league narrative-articles routes; other seams documented only.",
+   "prOrBranch": "#1679",
+   "evidence": "gh pr list",
+   "nextAction": "Integrate #1679.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "AL-P2",
+   "aliases": [
+    "G7",
+    "backup/restore of irreplaceable stores",
+    "#1611",
+    "#1615"
+   ],
+   "sourceDoc": "docs/BRISKET_IDEAS.md §13.4",
+   "productFamily": "Data durability",
+   "capability": "Every irreplaceable evidence store backed up nightly with a restore proof",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "A box loss does not erase ledgers/archives.",
+   "backendOwner": "deploy/backup/riskit-state-backup.sh + retention_backup_restore_proof.sh",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "#1611 (6e6cc96b3) added temporal_ledger, market_trades, consensus_edge, source_archive, bdvm, dfs, shadow stores and refreshes the stale root copy at deploy; #1615 pins the proof to the deployed SHA. Not yet observed: a nightly root generation containing the AL-P2 artifacts (/var/backups unreadable by deploy user) and restore-verify of the new artifacts (named follow-up). /api/status backup_health shows only the fallback dir (dbCount 4, newest 18.9h).",
+   "prOrBranch": "#1611 #1615",
+   "evidence": "/api/status backup_health 2026-10-07",
+   "nextAction": "After the next nightly, confirm root copy cmp + generation listing (c1a-install-state-backup.yml / operator), extend the restore proof to AL-P2 artifacts.",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AGENT-OS",
+   "aliases": [
+    "Bounded Agent OS consolidation 2026-09-10",
+    "Steward Phase 1 report-only",
+    "#1377"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md §0 (Bounded Agent OS consolidation)",
+   "productFamily": "Governance",
+   "capability": "Shared model-neutral Agent OS with receipts and a report-only Steward",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every agent session loads the same rules with a provenance receipt.",
+   "backendOwner": "scripts/agent_session_start.sh, scripts/agent_os_receipt.py, src/steward/",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Agent OS receipt emitted at session start (this session loaded it); Steward report-only controller merged #1377 (fa1517ffe); evidence validation #1536, agent-evals #1537/#1542. Further Steward/Class-B work lives in the #1667 train row.",
+   "prOrBranch": "#1377 #1536 #1537 #1542",
+   "evidence": "session receipt; python -m src.steward brief",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1336",
+   "aliases": [
+    "owner-intent zero-loss recovery"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md (2026-09-10 recovery bridge)",
+   "productFamily": "Governance",
+   "capability": "Two months of chat-derived owner intent reconciled into the live intake",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Nothing the owner asked for is lost.",
+   "backendOwner": "docs/OWNER_REQUESTED_TODO.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Recovery bridge merged #1339 (86d20e6ca); issue open with ambiguous candidates preserved for owner review (docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md).",
+   "prOrBranch": "#1339",
+   "evidence": "#1336 comments",
+   "nextAction": "Present the ambiguous-candidate list to the owner and close #1336.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1428",
+   "aliases": [
+    "C8-U2/U3 chart contrast",
+    "OWNER UI DECISION REQUIRED"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md §0 (Owner gates still open)",
+   "productFamily": "Premium UI",
+   "capability": "Categorical chart contrast/palette on approved PSI surfaces",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Charts on PSI surfaces use an owner-approved categorical treatment.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/design/DesignGallery.jsx (charts gated)",
+   "dependsOn": [],
+   "reality": "Chart previews are gated in /design (#1429); no palette invented. Owner UI decision explicitly reserved.",
+   "prOrBranch": "#1429",
+   "evidence": "#1428 comments",
+   "nextAction": null,
+   "blocker": {
+    "what": "Categorical chart contrast decision",
+    "whyReal": "Agents may not choose palettes (UI contract §2)",
+    "doneAround": "All non-chart UI proceeds",
+    "ownerOrExternalAction": "Owner picks the categorical chart treatment",
+    "afterUnblock": "Ship chart primitives + ungate /design charts"
+   },
+   "weight": 1
+  },
+  {
+   "id": "#730",
+   "aliases": [
+    "streaming SSR duplicate markup"
+   ],
+   "sourceDoc": "GitHub issue #730",
+   "productFamily": "Premium UI",
+   "capability": "Streaming SSR never leaves its staging copy in the DOM",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Pages never render twice.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/layout.jsx (streaming)",
+   "dependsOn": [],
+   "reality": "Open since 2026-08-18, no reproduction recorded since Next upgrades (now 16.3.6).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Reproduce on current main with a DOM-duplication probe; fix or close with evidence.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1166",
+   "aliases": [
+    "public /league OpenGraph"
+   ],
+   "sourceDoc": "GitHub issue #1166",
+   "productFamily": "Public league",
+   "capability": "Public /league SSR carries OpenGraph title/description",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Shared /league links preview correctly.",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/league/page.jsx (generateMetadata)",
+   "dependsOn": [],
+   "reality": "Anonymous production probe 2026-10-07: og:title 'Risk It To Get The Brisket · 2024–2026' and og:description present; issue is stale.",
+   "prOrBranch": null,
+   "evidence": "curl https://chaseupside.com/league",
+   "nextAction": "Close #1166 with the probe.",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-PRIV-01",
+   "aliases": [
+    "B8",
+    "public/private boundary"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Security",
+   "capability": "Public/private boundary enforced on both channels",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Anonymous users see only /league + public APIs.",
+   "backendOwner": "B8 exposure policy + server auth",
+   "frontendOwner": "frontend/middleware.js + frontend/lib/public-routes.js",
+   "dependsOn": [],
+   "reality": "Probes 2026-10-07: /rankings,/trade,/players/x,/design,/game-day,/dfs,/admin,/phases,/settings,/league/insider-trading -> 307 /login; /api/data,/api/trade/analyze,/api/bdvm/values,/api/sharp/market,/api/scaffold/status -> 401; /league + /api/public/league 200; Wave B confirmed no posture/marketDerivation on public endpoints.",
+   "prOrBranch": null,
+   "evidence": "curl probes",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "F-MISS-01",
+   "aliases": [
+    "#836"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Premium UI",
+   "capability": "Missing is never zero on display",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Unknown values render as unknown, not 0.",
+   "backendOwner": null,
+   "frontendOwner": "display owners",
+   "dependsOn": [],
+   "reality": "Foundation shipped #836 with tests; later surfaces (unpriced picks '—', BDVM unpriced, value-explain explicit unknowns) follow it.",
+   "prOrBranch": "#836",
+   "evidence": "#836 tests",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "X-07",
+   "aliases": [
+    "OD-07",
+    "link any Sleeper account onboarding"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Auth / onboarding",
+   "capability": "General 'link any Sleeper account' onboarding",
+   "disposition": "NOT_ACTUALLY_REQUIRED",
+   "userVisibleOutcome": "None.",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Manifest: NOT-PRODUCT-SCOPE today; never owner-approved (OD-07 open only as an optional promotion).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "V1-CONTRACT",
+   "aliases": [
+    "docs/VERSION_1_COMPLETION_CONTRACT.md"
+   ],
+   "sourceDoc": "docs/VERSION_1_COMPLETION_CONTRACT.md",
+   "productFamily": "Contracts",
+   "capability": "Version 1 completion contract",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "V1 product complete.",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Contract records 'V1 completion: 132 / 132 = 100%' (line ~376). Not re-opened.",
+   "prOrBranch": null,
+   "evidence": "V1 contract tally",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "W1-LAUNCH-CONTRACT",
+   "aliases": [
+    "docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md"
+   ],
+   "sourceDoc": "docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md",
+   "productFamily": "Contracts",
+   "capability": "Week 1 launch contract",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Season launched.",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "COMPLETION 30/30 = 100.0% (closed by #1375).",
+   "prOrBranch": "#1375",
+   "evidence": "contract tally",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  }
+ ]
+}
