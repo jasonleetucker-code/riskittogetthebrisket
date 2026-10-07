@@ -1571,3 +1571,64 @@ authorizes, and `docs/EXECUTION_PLAN.md` remains the authorization record.
 | **C7-PICKGEN-01 market side of an unknown-slot owned pick (owner decision 2026-10-03, Wave B).** For generated-trade comparability ONLY — never the canonical standalone pick value, never a second pick-value owner. Now: the plain average of KTC's native Early/Mid/Late values for that exact year + round, labelled a derived PRIOR "generic unknown-slot market value", never KTC's native price for that pick. Later (when owned-pick forecasting exists AND the league's real draft-order rule is resolved — reverse standings is NOT yet established vs Max PF / points): forecast P(Early/Mid/Late), shrink toward thirds by calibrated confidence `P_used = c x P_forecast + (1-c)/3`, `V_market = sum P_used x KTC_tier`; never hard-switch to the modal tier; confidence 0 = exactly the plain average; calibrate c empirically from historical forecasts vs realized slots, conservative and labelled provisional until then. Provenance keeps KTC tier values, forecast probabilities, confidence, generic average, forecast-weighted value and final value. One interface so the forecast plugs into the same formula without a methodology rewrite | IMPLEMENTED (fallback half, #1642) — forecast half: see the 2026-10-04 row below (the draft-order clause in this row is SUPERSEDED by it) |
 | **Canonical rookie-draft order + probability-weighted Pick Forecast (owner decision 2026-10-04; supersedes the 2026-10-03 "reverse standings not established" clause).** Our league's draft order is reverse final REGULAR-SEASON record; teams tied on record ordered by LOWER total Points For, recursively. Not Max PF, all-play, Team Strength rank or any other method; Team Strength / projections / schedule / injuries / roster quality / Game Day / season simulation may FORECAST final record + PF but never decide order. The forecast estimates distributions of final records, PF and resulting slots under that rule, converts slots to Early/Mid/Late probabilities, and prices the generated-trade market side as `P_used = c x P_forecast + (1-c)/3`, `V = sum P_used x KTC_tier` (no forecast = plain average; weak = near average; never hard-switch to the modal tier); calibrate `c` against realized slots under the real rule as history accumulates. Explainability per pick: KTC Early/Mid/Late, generic average, record / PF-tiebreak / slot distributions, tier probabilities, confidence, final value, method version. Never replaces another canonical pick-value owner | IMPLEMENTED — `claude/clever-cori-avckkk` (#1642): `src/public_league/draft_order.py` + `config/leagues/draft_order_rules.json` (dynasty_main), playoff_sim slot/record/PF distributions, `src/trade/pick_market.py` forecast + provisional/calibrated confidence; record `docs/picks/DRAFT_ORDER_RULE.md`. Follow-ups: Pick Projector still orders by Team Strength (display) → migrate to the slot distribution; AL-P4 capture of slot/tier forecasts for calibration |
 | **Signals addendum:** Signals moves from non-voting second opinion to an ACTIVE validated source for OFFENSE (QB/RB/WR/TE) and IDP, visible in the Rankings source column. Selection order: authenticated native value on the exact league configuration, then the closest Dynasty / Superflex / TEP preset, then authenticated rank, then public rank; values first, ranks as an explicit per-asset fallback, missing never zero; public positional ranks never manufactured into cross-position values | CAPTURED — supersedes the second-opinion-only state; sequencing in `docs/EXECUTION_PLAN.md` |
+
+## Added 2026-10-07 — Repository stabilization / truth-reconciliation campaign (owner directive)
+
+Owner directive received in chat 2026-10-07: "This prompt is explicit owner authorization for the bounded
+cleanup/stabilization work described below through the repository's normal protected branch, test, review,
+integration, deployment, and verification path." Not a feature campaign. Summarized here (verbatim text preserved
+off-repo by the coordinating session); authorization is recorded in `docs/EXECUTION_PLAN.md` §0 ("Repository
+stabilization / truth-reconciliation campaign — owner directive, 2026-10-07").
+
+| Item | Disposition |
+|---|---|
+| Know exactly what is on `main` and what is deployed | AUTHORIZED NOW — CLEANUP-1..5 |
+| Every open PR gets a truthful disposition: A ACTIVE_AND_NEEDED, B READY_FOR_INTEGRATION, C SUPERSEDED_BY_MAIN, D ABSORBED_INTO_INTEGRATION_TRAIN, E VALIDATION_ONLY_DO_NOT_MERGE, F BLOCKED_WITH_SPECIFIC_UNBLOCK, G STALE_CLOSE_CANDIDATE, H OWNER_DECISION_REQUIRED | AUTHORIZED NOW — dispositions recorded in `docs/WORK_CLAIMS.md` (CLEANUP-1) |
+| Every active work claim actually active; planning / status / handoff records reflect reality (WORK_CLAIMS, DFS handoff/roadmap, UI ledger, PRODUCT_PLAN current position, REPO_INVENTORY, HANDOFF.md, PLANNING_DOCUMENT_STATUS) | AUTHORIZED NOW — CLEANUP-1 |
+| #1667 AI-architecture release train: do not blindly merge; classify main movement as BENIGN_AUTOMATION_MOVE / RELEVANT_BASE_MOVE, reconcile only what must, preserve component ancestry, exact-head RC gates, independent review; integrate only if policy is satisfied, else report a precise blocker. #1648 is validation-only and MUST NOT merge | AUTHORIZED NOW — CLEANUP-2 |
+| Inspect #1656, #1654, #1652 (preserve the owner's canonical draft-order rule — worst final regular-season record first, ties by lower regular-season Points For, `docs/picks/DRAFT_ORDER_RULE.md`; do not rewrite), #1533, #1513, #1505 | AUTHORIZED NOW — dispositions in `docs/WORK_CLAIMS.md` |
+| CI and production health trustworthy; machine-issue dedupe: ONE LIVE FAILURE → ONE ACTIONABLE INCIDENT | AUTHORIZED NOW — CLEANUP-3 |
+| Main ruleset: smallest protection that preserves legitimate automation commits, no refresh deadlock, requires the reviewed path for human/agent code, emergency bypass with explicit actors — or an owner-ready decision if not safely applicable | AUTHORIZED NOW — CLEANUP-3 (owner decision if not safely applicable) |
+| Source-state audit: MISSING ≠ ZERO; FETCHED RECENTLY ≠ CONTENT FRESH; PRIVATE ABSENT ≠ FAILED PUBLIC; SEASONALLY INACTIVE ≠ BROKEN; zero eligible rows ≠ authority mismatch | AUTHORIZED NOW — CLEANUP-3 |
+| Tracked-data inventory (classes A–J) + growth recommendation; prune only provably safe artifacts; Git LFS / external storage only as an evaluated option, no paid infrastructure | AUTHORIZED NOW — CLEANUP-4 |
+| Legacy-surfaces audit; at most a FEW behaviour-preserving extractions from `server.py` / `data_contract.py` | AUTHORIZED NOW — CLEANUP-4 |
+| Canonical docs + production verification | AUTHORIZED NOW — CLEANUP-5 |
+| NOT authorized: deleting irreplaceable evidence; changing canonical player values as cleanup; changing source weights or Hill methodology; promoting challengers; activating Signals IDP; purchasing data/services; launching the official rookie auction; entering DFS contests; changing league rules; weakening tests; hiding failures; autonomous trade/waiver actions; broad speculative rewrites | RECORDED — binding boundary |
+
+## Added 2026-10-07 — Calculator continuous-improvement / learning-loop intelligence batch (owner directive)
+
+Owner directive received in chat 2026-10-07: "This prompt is an explicit owner directive to capture and execute the
+dependency-ready work described below through normal repository governance. Record it in the live owner-intake
+ledger and reconcile it into the canonical plan/manifest/execution records without duplicating existing
+requirements." **PRECONDITION: begins only after the stabilization campaign above has completed or left explicit,
+non-conflicting blockers.** Start from current `main`.
+
+**Status: CAPTURED — begins after the stabilization campaign; capture is not authorization beyond
+`docs/EXECUTION_PLAN.md` §0** ("Calculator continuous-improvement learning-loop batch (IC-1..IC-9) — owner directive,
+2026-10-07"). Unit labels IC-* are plan-local, not new manifest IDs; governance owner `C10-ML-01` + P6, extending the
+2026-10-01 Adaptive Learning entries above rather than duplicating them.
+
+Mission: turn existing source evidence, point-in-time history, trade-market evidence, projection outcomes,
+recommendation receipts, champion/challenger evaluation, drift, explainability and the Model Lab into ONE closed,
+evidence-driven learning loop. Reuse existing owners (Adaptive Learning, Batch 3, model registry, source census,
+completed-trade ledger, temporal ledger, learning receipts, BDVM, Model Lab) — no second feature store / registry /
+receipt DB / point-in-time abstraction / census / trade ledger / DFS-specific learning platform / parallel "AI
+service".
+
+| Item | Disposition |
+|---|---|
+| IC-1 evidence closure — point-in-time source / Signals / projection / recommendation gaps, backup, retention | CAPTURED |
+| IC-2 Source Intelligence evaluator + target-lineage matrix + incremental information — no single universal quality number; evaluation families; chronological walk-forward; dependent targets labelled and never used alone for promotion | CAPTURED |
+| IC-3 trade learning — accumulated census; translation readiness states READY_FOR_PREREGISTERED_TEST / PROMISING_BUT_CONFOUNDED / INSUFFICIENT_SAMPLE / NOT_IDENTIFIABLE; at most one preregistered shadow translator at a time | CAPTURED |
+| IC-4 projection / BDVM scorecards — exact league scoring; MEASURED / MECHANICAL / PRIOR labels | CAPTURED |
+| IC-5 Model Lab backend — read-only unified contract; challenger states CHAMPION / SHADOW / HELD / REJECTED / INSUFFICIENT_EVIDENCE / RETIRED; rejected challengers retained | CAPTURED |
+| IC-6 Model Lab Premium UI — PSI Direction A, Lane 6 | CAPTURED |
+| IC-7 explainability — "why it moved" = CONTRIBUTING EVIDENCE, not cause; player discrepancy diagnostic generated from actual pipeline state | CAPTURED |
+| IC-8 cadence / freshness shadow challengers — hard freshness floors stay authoritative; no automatic production cadence change | CAPTURED |
+| IC-9 integration / production closure — SOURCE, TRADE, PROJECTION and MODEL GOVERNANCE loops each closed end to end on real point-in-time data | CAPTURED |
+| Signals IDP stays HELD until the preregistered shared-market evaluation passes (PROMOTE / HOLD / REJECT / INSUFFICIENT_EVIDENCE; thresholds never moved after results) | RECORDED — binding |
+| Sharp: a transaction visible in multiple windows is one observation for display, never multiple independent observations; freshness / accuracy-utility / health / coverage / independence remain distinct | RECORDED — binding |
+| Required leakage / robustness test classes: temporal, target and source-family leakage; missing-as-zero; duplicates; outage; stale; seasonal; private absent; unresolved identity; format mismatch; small / confounded sample; model / feature version change; rejected-challenger retention; drift without promotion; replay reproducibility | RECORDED — acceptance |
+| Authorizes (once begun): point-in-time capture; evaluation; scorecards; learning receipts; shadow challengers; drift measurement; source-value measurement; trade-evidence evaluation; projection evaluation; explainability; internal Model Lab UX; bounded performance/refactor work for these surfaces; promotion ONLY through an already-authorized model-specific mechanism with every pre-existing gate satisfied | CAPTURED — begins after stabilization |
+| NOT authorized: lowering a promotion gate; any shortcut around P6 / model-registry governance; automatic retraining on drift; self-promotion; autonomous trades/waivers; DFS entry; buying data; Signals IDP activation without its preregistered gate; treating user edits as independent evidence; treating dependent sources as independent; learning facts/rules; optimizing for agreement with the current Calculator | RECORDED — binding boundary |
+| Success definition: for any important player / source / model, Calculator answers "WHY DO WE BELIEVE THIS?" from stored evidence — what we knew, when, from where, freshness, independence, coverage, model, prediction, performance, challengers, failed challengers, what would change the champion, and why the user sees today's result | RECORDED — acceptance |
