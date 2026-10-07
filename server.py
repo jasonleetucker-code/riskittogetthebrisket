@@ -11702,6 +11702,8 @@ from src.public_league.public_contract import (  # noqa: E402 — grouped with p
     assert_public_payload_safe,
     build_activity_serving_payload,
     is_private_intelligence_section,
+    public_envelope,
+    public_league_key,
 )
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
 from src.public_league.snapshot import (  # noqa: E402 — grouped with public-league block
@@ -11864,8 +11866,7 @@ def _overview_payload_from_contract(contract: dict) -> dict:
     """The ``build_section_payload(snapshot, "overview")`` shape, taken
     from an already-built full contract."""
     payload = {
-        "contractVersion": contract["contractVersion"],
-        "league": contract["league"],
+        **public_envelope(contract["contractVersion"], contract["league"]),
         "section": "overview",
         "data": contract["sections"]["overview"],
     }
@@ -12912,6 +12913,7 @@ async def get_public_league_matchup(
             return None
         payload = {
             "contractVersion": "public-league-matchup/2026-04-17.v1",
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "league": {
                 "rootLeagueId": snapshot.root_league_id,
                 "currentLeagueId": snapshot.current_season.league_id
@@ -12964,6 +12966,7 @@ async def list_public_league_matchups(request: Request, refresh: str = ""):
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         payload = {
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "seasonsCovered": snapshot.season_ids,
             "matchups": public_matchup_recap.list_matchups(snapshot),
             "generatedAt": snapshot.generated_at,
@@ -12997,6 +13000,7 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
             return None
         payload = {
             "contractVersion": "public-league-player/2026-04-17.v1",
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "league": {
                 "rootLeagueId": snapshot.root_league_id,
                 "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
