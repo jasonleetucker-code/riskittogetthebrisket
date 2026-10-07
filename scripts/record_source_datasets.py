@@ -137,6 +137,33 @@ def _track_rows(prior: dict | None) -> bool:
     return style != STYLE_SNAPSHOT
 
 
+def _private_markers() -> dict[str, str]:
+    """``{source_key: private_marker}`` for every PRIVATE box-local source."""
+    from src.api.data_contract import _SOURCE_CSV_PATHS  # noqa: PLC0415
+
+    return {
+        str(key): str(cfg["private_marker"])
+        for key, cfg in _SOURCE_CSV_PATHS.items()
+        if isinstance(cfg, dict) and cfg.get("private_marker")
+    }
+
+
+def _private_provisioned(
+    key: str, marker: str, csv_path: Path, state_dir: Path, repo_root: Path
+) -> bool:
+    """The same provisioning evidence ``private_source_availability`` reads:
+    the board CSV, the collector's marker, or a freshness trace it left.
+    A provisioned host that lost its CSV still records (a real FAILED
+    observation, reported as ``missing``)."""
+    state_dir = Path(state_dir)
+    return (
+        Path(csv_path).is_file()
+        or (Path(repo_root) / marker).is_file()
+        or (state_dir / f"{key}_last_success").is_file()
+        or state_path(state_dir, key).is_file()
+    )
+
+
 def record_all(
     *,
     state_dir: Path,
@@ -144,14 +171,29 @@ def record_all(
     only: set[str] | None = None,
     skip: set[str] | None = None,
     upstream: dict[str, tuple[str | None, str | None]] | None = None,
+    repo_root: Path = REPO_ROOT,
 ) -> tuple[list[str], list[str]]:
     written: list[str] = []
     failed: list[str] = []
     policy = broad_policy()
-    for key, csv_path, signal in recorded_sources():
+    private_markers = _private_markers()
+    for key, csv_path, signal in recorded_sources(repo_root):
         if only and key not in only:
             continue
         if skip and key in skip:
+            continue
+        if key in private_markers and not _private_provisioned(
+            key, private_markers[key], csv_path, state_dir, repo_root
+        ):
+            # PRIVATE SOURCE NOT PRESENT != FAILED.  A FAILED observation
+            # here would write ``<key>_dataset.json``, which
+            # ``private_source_availability`` reads as proof the host IS
+            # provisioned — flipping ``not_provisioned`` to ``missing`` and
+            # manufacturing a ``source_missing`` error on a host that was
+            # never meant to carry the source.  Absent by design records
+            # nothing; the hand-kept ``--skip`` list is no longer the only
+            # guard.
+            print(f"  {key}: private source not provisioned on this host — not recorded")
             continue
         prior = load_state(state_path(state_dir, key))
         published, version = (upstream or {}).get(key, (None, None)) or (None, None)

@@ -198,11 +198,6 @@ export default function SourceHealthStrip({ variant = "inline" }) {
     const health = status.source_health || {};
     const runtime = health.source_runtime || {};
     const finishedAt = runtime.finished_at;
-    const finishedMs = finishedAt ? Date.parse(finishedAt) : null;
-    const ageHours =
-      Number.isFinite(finishedMs) && finishedMs > 0
-        ? (Date.now() - finishedMs) / (60 * 60 * 1000)
-        : null;
     // The row list is the population we are ENTITLED TO EXPECT — the
     // ranking-source registry — not the sources one scrape happened to
     // enable.  ``runtime.enabled_sources`` carries the scraper's own
@@ -231,20 +226,41 @@ export default function SourceHealthStrip({ variant = "inline" }) {
     const perSource = (health.sources && typeof health.sources === "object")
       ? health.sources
       : {};
+    // Sources the SERVED board declares absent by design: seasonally
+    // inactive (SEASONALLY INACTIVE != BROKEN) and private sources this
+    // host carries no vote from (PRIVATE SOURCE NOT PRESENT != FAILED).
+    // Their CSV age is not a health signal — a rookie board out of season
+    // is old on purpose — so they render neutral and are labelled, never
+    // painted red by the age fallback below.
+    const listOf = (v) => (Array.isArray(v) ? v : []);
+    const seasonal = new Set([
+      ...listOf(status.served_seasonal_inactive),
+      ...listOf(health.seasonally_inactive_sources),
+    ]);
+    const privateAbsent = new Set([
+      ...listOf(status.served_private_absent_by_design),
+      ...listOf(health.absent_by_design_sources),
+    ]);
     const entries = enabled.map((src) => {
       const meta = perSource[src] || {};
-      const srcAgeHours = Number.isFinite(meta.ageHours)
-        ? Number(meta.ageHours)
-        : ageHours;
-      // Per-source age trumps the aggregate when available — gives a
-      // truer per-source health signal.
-      const tone = toneFor(src, runtime, srcAgeHours);
+      // A source with no per-source age has NO age.  It used to borrow
+      // the whole run's age, so a source we know nothing about could
+      // render green off another source's fetch (missing is not the
+      // run's value either).
+      const srcAgeHours = Number.isFinite(meta.ageHours) ? Number(meta.ageHours) : null;
+      const declaredAbsence = privateAbsent.has(src)
+        ? "not provisioned"
+        : seasonal.has(src)
+          ? "seasonally inactive"
+          : null;
+      const tone = declaredAbsence ? "flat" : toneFor(src, runtime, srcAgeHours);
       const ageLbl = meta.lastFetched ? ageLabel(meta.lastFetched) : null;
       const rawCount = counts[src] ?? counts[src.toLowerCase()];
       return {
         source: src,
         count: rawCount == null ? null : Number(rawCount),
         unmeasured: unmeasured.has(src),
+        declaredAbsence,
         tone,
         ageLabel: ageLbl,
         ageHours: srcAgeHours,
@@ -265,7 +281,13 @@ export default function SourceHealthStrip({ variant = "inline" }) {
       ageLabel: ageLabel(finishedAt),
       overall: runtime.overall_status || "unknown",
       failures: (health.source_failures || []).length,
-      missing: health.missing_sources || [],
+      // Defence in depth for an older backend that still lists declared
+      // absences under ``missing_sources``: a declared source is never
+      // "Missing".
+      missing: listOf(health.missing_sources).filter(
+        (s) => !seasonal.has(s) && !privateAbsent.has(s),
+      ),
+      absentByDesign: enabled.filter((s) => seasonal.has(s) || privateAbsent.has(s)),
       unattributed: attributionSplit(health, runtime, enabled),
     };
   }, [status]);
@@ -365,6 +387,14 @@ export default function SourceHealthStrip({ variant = "inline" }) {
                   {e.ageLabel} ago
                 </span>
               )}
+              {e.declaredAbsence && (
+                <span
+                  className="source-health-reason source-health-declared"
+                  title="absent by design on the served board, not a failure"
+                >
+                  {e.declaredAbsence}
+                </span>
+              )}
               {e.failedReason && (
                 <span className="source-health-reason" title={e.failedReason}>
                   {e.failedReason}
@@ -418,6 +448,11 @@ export default function SourceHealthStrip({ variant = "inline" }) {
           {summary.missing.length > 0 && (
             <div className="source-health-missing">
               Missing: {summary.missing.join(", ")}
+            </div>
+          )}
+          {summary.absentByDesign.length > 0 && (
+            <div className="source-health-absent-by-design">
+              Absent by design: {summary.absentByDesign.join(", ")}
             </div>
           )}
         </div>

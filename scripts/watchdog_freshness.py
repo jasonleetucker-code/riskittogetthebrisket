@@ -189,7 +189,11 @@ def classify_freshness(
     soft_stale: list[tuple[str, float, float, str]] = []
     fresh: list[tuple[str, float, float]] = []
     for src, info in sorted(freshness.items()):
-        age = float(info.get("ageHours", 0.0))
+        # An entry with no numeric age has NO known age.  Defaulting it to
+        # 0h read "unknown" as "fetched just now" (missing is never zero);
+        # fail closed instead: an unknowable age is past every threshold.
+        raw_age = info.get("ageHours")
+        age = float(raw_age) if isinstance(raw_age, (int, float)) else float("inf")
         threshold = resolve_threshold(src, thresholds)
         if age > threshold:
             row = (src, age, threshold, str(info.get("lastFetched", "")))
