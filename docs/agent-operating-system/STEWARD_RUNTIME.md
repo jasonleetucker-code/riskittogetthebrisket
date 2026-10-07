@@ -148,6 +148,14 @@ evidence. Live inventory coverage is not a claim that the entire site was audite
 
 ## Routing and Learning
 
+The live `python -m src.steward context <paths>` command reports its own
+selection budget: requested, selected and complete document counts, UTF-8
+bytes actually returned, and omissions due to the character cap. Input token
+and exposed-tool-definition counts stay null because this CLI does not observe
+them. These are per-command observations; `brief --save` inventories document
+revisions but does not select context through this command, so its receipt must
+not be credited with these measurements.
+
 `config/steward/routing.json` is configurable capability metadata, observed
 from the current interactive harness. ROUTINE, STANDARD, COMPLEX and CRITICAL
 select sufficient available configurations, with reasoning chosen separately.
@@ -166,11 +174,57 @@ it cannot claim automatic switching of its own active model.
 Route receipts preserve task, profile, reason, model, effort, context references,
 acceptance and measurements. Unexposed token/cache/time/cost/allowance fields
 stay null, never zero. Report generation is not model execution.
-`retrospective` groups comparable task classes, exposes measurement coverage
-and proposes challengers without promoting them. `diagnose_failures` records
-specific rule references when repeated independent failures suggest an
-instruction/specification problem. Investigate the spec, test and architecture
-before repeating the same failing prompt.
+Saved `brief` receipts also carry a trace ID and bounded execution spans for
+GitHub observation (when requested) and brief construction. Each span records
+the actual duration, exact repository head, authority class and evidence refs.
+Provider/model are recorded only when explicitly attributed by the caller;
+token and cost measurements stay null because these operations do not expose
+them. Spans live in the existing private receipt evidence, not a new store.
+They establish report execution timing, not agent-turn or tool-executor
+coverage. No eval grade or model routing decision is inferred from them.
+The private receipt can be projected into a bounded `agent-evals` artifact with
+`python agent-evals/steward_adapter.py --state <private-state.sqlite3> --run-id
+<observed-id> --output <artifact.json>`. The grader verifies that projection
+against the source row only when supplied `--steward-state`; use
+`--require-verified-steward-receipt` and `--require-verified-diff` for the
+report-only case. The source check proves mapping to the persisted receipt,
+not the truth of every observation inside it.
+The separate `Phase1Controller.run` path commits its report-only receipt to
+private SQLite before appending a daily JSONL mirror. SQLite is canonical. If
+the append fails, a retry with the same run ID checks the mirror and repairs a
+missing row from SQLite; a conflicting, malformed, duplicated or truncated
+mirror fails closed for operator inspection. Mirror check and append share a
+SQLite immediate transaction across cooperating controller processes; the
+write loop handles short OS writes and a line-size guard runs before the
+canonical commit. This is crash recovery for the mirror, not tamper-proof
+storage or a cross-sink atomic transaction. A hash chain stored in
+the same locally writable state would not add an independent trust anchor, so
+this unit does not add one. Git/CI revision evidence remains separate from
+the local receipt's observations.
+`retrospective` groups comparable task class, profile, model and reasoning.
+Only executed rows with an acceptance result, artifact-evidence marker, eval
+case and ending repository head contribute to acceptance rates. A claimed
+marker is input to this report-only scorecard, not independent verification
+by itself. Fewer than five evaluated rows cannot propose a challenger.
+Latency, token, context, tool and cost coverage is explicit; unavailable
+measurements remain null, never zero. The router neither dispatches nor
+promotes a model. `diagnose_failures` records specific rule references when
+repeated independent failures suggest an instruction/specification problem.
+An engineering layer (HARNESS, LOOP, GRAPH, DATA, MODEL or INFRA) is reported
+only when all failed events consistently provide that layer and nonempty
+evidence references; otherwise it is UNKNOWN. Investigate the spec, test and
+architecture before repeating the same failing prompt.
+
+The optional `python -m src.steward.decision_advisor --task <json>
+--advisor-answer <json>` command is an **offline shadow replay** of one
+low-authority `task_profile` CHOICE question. Its baseline is the existing
+deterministic `classify` rule; the answer is read from a bounded file, never
+fetched from a provider. An explicit `needs_system2` label permits abstention.
+Unknown labels, permission questions, extra authority fields, malformed
+probabilities and claimed calibration fail closed. The output contains no task
+goal/context, has `effect: NONE`, and cannot modify the live route. It is a
+port for later measured comparison, not a calibrated advisor, model benchmark,
+or production dependency.
 
 ## Moving Main and Generated Data
 

@@ -73,7 +73,8 @@ jobs:
           # suite.  No ``|| true``: a genuine install failure must
           # surface as a red workflow, not a green-but-useless run.
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
           pip check
 
       - name: Locate latest snapshot

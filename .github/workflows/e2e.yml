@@ -154,7 +154,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements.lock.txt
 
       - name: Use Node 20
         uses: actions/setup-node@v7
@@ -178,7 +179,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs
+          node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs tests/e2e/structured-journey-reporter.test.js
 
       - name: Preflight (compile checks, contract validation, data seed)
         shell: bash
@@ -370,6 +371,7 @@ jobs:
           # so pixel comparisons are skipped; the visual specs still
           # run their structural chart/render assertions.
           SKIP_VISUAL_REGRESSION: "1"
+          E2E_JOURNEY_EVIDENCE: "1"
         run: |
           set -Eeuo pipefail
           # Chromium desktop + chromium mobile viewport.  The webkit

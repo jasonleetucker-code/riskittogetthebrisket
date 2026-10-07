@@ -1,9 +1,8 @@
 # ── Development / test dependencies ───────────────────────────────────
 #
-# Installed on top of the runtime manifest.  Local developers and CI
-# test jobs install via ``pip install -r requirements-dev.txt`` which
-# pulls in ``requirements.txt`` transitively — guaranteeing local dev
-# and CI run against the same runtime + test toolchain.
+# Declares test tools on top of the runtime manifest. Install from the exact
+# requirements-dev.lock.txt in local development and CI; the lock constrains
+# every runtime package to the same version as requirements.lock.txt.
 #
 # Anything that is ONLY needed for running the test suite (pytest,
 # TestClient HTTP shim, fixtures, linters) goes here.  Production

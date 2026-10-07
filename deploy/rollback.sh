@@ -19,6 +19,9 @@ FRONTEND_STAGING_DIR_NAME="${FRONTEND_STAGING_DIR_NAME:-.next.new}"
 FRONTEND_PROBE_MAX_ATTEMPTS="${FRONTEND_PROBE_MAX_ATTEMPTS:-15}"
 FRONTEND_PROBE_SLEEP_SECONDS="${FRONTEND_PROBE_SLEEP_SECONDS:-2}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"
+ROLLBACK_ARTIFACT_ARCHIVE=""
+ROLLBACK_ARTIFACT_SHA256=""
+ROLLBACK_TARGET_REV=""
 PUBLIC_URL="${PUBLIC_URL:-}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ROLLBACK_REF="${1:-${ROLLBACK_REF:-}}"
@@ -92,7 +95,12 @@ resolve_git_ref() {
 }
 
 canonical_requirements_file() {
-  printf '%s\n' "requirements.txt"
+  if [[ -f "requirements.lock.txt" ]]; then
+    printf '%s\n' "requirements.lock.txt"
+  else
+    # Revisions predating the lock must remain recoverable.
+    printf '%s\n' "requirements.txt"
+  fi
 }
 
 ensure_venv_site_packages_writable() {
@@ -333,10 +341,22 @@ PY
 # .next/ the failed forward deploy left on disk, so HTML from the old
 # (rolled-back) commit would reference chunk hashes from the new build
 # — the exact failure mode we are trying to eliminate.
+# Install stamp: the SHA-256 of the package-lock.json a successful `npm ci`
+# installed, written INSIDE node_modules. `npm ci` deletes node_modules before
+# installing, so any later install by any script version erases the stamp; a
+# present stamp can only describe the tree that is actually on disk. deploy.sh
+# and rollback.sh both write it; rollback.sh reads it to decide whether a saved
+# artifact needs its packages reinstalled.
+FRONTEND_INSTALL_STAMP=".calculator-package-lock.sha256"
+
+frontend_lock_digest() {
+  sha256sum "$1" | cut -d ' ' -f1
+}
+
 maybe_rebuild_frontend_after_rollback() {
   local run_build
   run_build="$(lower "${RUN_FRONTEND_BUILD}")"
-  if [[ "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
+  if [[ -z "${ROLLBACK_ARTIFACT_ARCHIVE}" && "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
     log "Frontend build disabled (RUN_FRONTEND_BUILD=${RUN_FRONTEND_BUILD}); skipping rollback frontend rebuild."
     return 0
   fi
@@ -361,14 +381,64 @@ maybe_rebuild_frontend_after_rollback() {
     rm -rf "${staging_dir}"
   fi
 
-  log "Installing frontend dependencies in ${frontend_dir} (rollback)"
-  if [[ -f "${frontend_dir}/package-lock.json" ]]; then
-    npm ci --prefix "${frontend_dir}"
+  if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    # A failed forward deploy may already have run `npm ci` for ITS lockfile,
+    # leaving node_modules that belong to the release being rolled away from.
+    # The saved .next must run against the rollback target's own locked
+    # packages; stage_release_artifact compares only the checked-out lockfile
+    # digest and cannot see what is installed. Two properties hold together:
+    #   * already consistent (install stamp == target lock): no npm at all, so
+    #     a saved-artifact rollback still works with the registry unavailable;
+    #   * mismatched or unknown: reinstall BEFORE staging, preferring the local
+    #     npm cache (this box installed the target's lock when it deployed it),
+    #     and if that is impossible, fail before the live .next is touched.
+    # A target without a lock skips this; staging then refuses it, because the
+    # release manifest binds the checked-out frontend lock.
+    local target_lock="${frontend_dir}/package-lock.json"
+    local install_stamp="${frontend_dir}/node_modules/${FRONTEND_INSTALL_STAMP}"
+    if [[ ! -f "${target_lock}" ]]; then
+      warn "Rollback target has no frontend/package-lock.json; artifact staging verifies the lock."
+    elif [[ -f "${install_stamp}" &&
+          "$(tr -d '[:space:]' < "${install_stamp}")" == "$(frontend_lock_digest "${target_lock}")" ]]; then
+      log "Installed frontend packages already match the rollback target's lock; no reinstall."
+    else
+      log "Installed frontend packages do not match the rollback target's lock; reinstalling (local cache first)."
+      rm -f "${install_stamp}"
+      if ! npm ci --prefer-offline --prefix "${frontend_dir}"; then
+        error "Could not install the rollback target's frontend packages (registry and local cache unavailable?)."
+        error "Refusing to serve its saved .next on mismatched node_modules; the live frontend is untouched."
+        return 1
+      fi
+      frontend_lock_digest "${target_lock}" > "${install_stamp}" ||
+        warn "Could not record the frontend install stamp; the next rollback will reinstall."
+    fi
+    log "Restoring verified CI release artifact for ${ROLLBACK_TARGET_REV}."
+    if ! python3 -m scripts.stage_release_artifact \
+      --archive "${ROLLBACK_ARTIFACT_ARCHIVE}" \
+      --archive-sha256 "${ROLLBACK_ARTIFACT_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${ROLLBACK_TARGET_REV}" \
+      --staging "${staging_dir}" \
+      --node-version "$(node --version)" \
+      --receipt "${DEPLOY_STATE_DIR}/staged_release_manifest.json"; then
+      error "Rollback release artifact verification failed; refusing a rebuild that changes tested bytes."
+      return 1
+    fi
   else
-    npm install --prefix "${frontend_dir}"
-  fi
-
-  log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
+    log "No saved release artifact for rollback target; rebuilding the legacy frontend."
+    log "Installing frontend dependencies in ${frontend_dir} (legacy rollback)"
+    if [[ -f "${frontend_dir}/package-lock.json" ]]; then
+      if ! npm ci --prefix "${frontend_dir}"; then
+        error "Rollback frontend dependency install failed."
+        return 1
+      fi
+    else
+      if ! npm install --prefix "${frontend_dir}"; then
+        error "Rollback frontend dependency install failed."
+        return 1
+      fi
+    fi
+    log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
   # The exit status is captured EXPLICITLY, and that is the whole fix for
   # the 2026-08-12 swap-a-broken-build defect.
   #
@@ -403,6 +473,7 @@ maybe_rebuild_frontend_after_rollback() {
     error "Staging dir ${staging_dir} is incomplete and will NOT be swapped in."
     rm -rf "${staging_dir}"
     return 1
+  fi
   fi
 
   verify_frontend_build_manifest "${staging_dir}" || return 1
@@ -546,13 +617,42 @@ prepare_python_runtime() {
   fi
   log "Python dependency manifest detected: ${req_file}"
   require_command python3
+  if [[ "${req_file}" == "requirements.lock.txt" ]]; then
+    python3 scripts/python_lock.py check
+  else
+    warn "Rollback target predates the Python lock; restoring its legacy dependency manifest."
+  fi
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
   fi
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
-  "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  local release_schema=""
+  if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    release_schema="$(tar -xOf "${ROLLBACK_ARTIFACT_ARCHIVE}" release-manifest.json | \
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["schema_version"])')"
+  fi
+  if [[ "${release_schema}" == "calculator-release/v2" ]]; then
+    log "Restoring exact CI backend wheels offline from the saved release archive."
+    python3 -m scripts.stage_backend_artifact \
+      --release-archive "${ROLLBACK_ARTIFACT_ARCHIVE}" \
+      --archive-sha256 "${ROLLBACK_ARTIFACT_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${ROLLBACK_TARGET_REV}" \
+      --venv-python "${VENV_DIR}/bin/python" \
+      --receipt "${APP_DIR}/.backend-artifact-receipt.json"
+  elif [[ -z "${release_schema}" || "${release_schema}" == "calculator-release/v1" ]]; then
+    "${VENV_DIR}/bin/python" -m pip install --upgrade pip
+    if [[ "${req_file}" == "requirements.lock.txt" ]]; then
+      "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+    else
+      "${VENV_DIR}/bin/pip" install -r "${req_file}"
+    fi
+    rm -f "${APP_DIR}/.backend-artifact-receipt.json"
+  else
+    error "Unsupported rollback artifact schema: ${release_schema}"
+    exit 1
+  fi
 }
 
 main() {
@@ -610,14 +710,33 @@ main() {
   git checkout --force "${rollback_target}"
   git reset --hard "${rollback_target}"
 
+  ROLLBACK_TARGET_REV="${rollback_target}"
+  if [[ -f "${state_dir}/releases/${rollback_target}.tar" ]]; then
+    [[ -f "${state_dir}/releases/${rollback_target}.sha256" ]] || {
+      error "Saved release artifact has no checksum: ${rollback_target}"
+      exit 1
+    }
+    ROLLBACK_ARTIFACT_ARCHIVE="${state_dir}/releases/${rollback_target}.tar"
+    ROLLBACK_ARTIFACT_SHA256="$(tr -d '[:space:]' < "${state_dir}/releases/${rollback_target}.sha256")"
+  fi
+
   prepare_python_runtime
 
   # Rebuild the frontend from the rolled-back source tree before
   # restarting the backend.  A failure here should still fall through
   # to the backend restart, but we log the failure loudly so operators
   # know the frontend is potentially inconsistent.
+  local rollback_frontend_ok="true"
   if ! maybe_rebuild_frontend_after_rollback; then
     error "Rollback frontend rebuild failed; backend will still be restarted but frontend state is suspect."
+    rollback_frontend_ok="false"
+  fi
+
+  if [[ "${rollback_frontend_ok}" == "true" && -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    cp "${state_dir}/staged_release_manifest.json" "${APP_DIR}/.release-manifest.json.tmp"
+    mv -f "${APP_DIR}/.release-manifest.json.tmp" "${APP_DIR}/.release-manifest.json"
+  else
+    rm -f "${APP_DIR}/.release-manifest.json"
   fi
 
   reconcile_runtime_state_for_rollback
@@ -649,6 +768,21 @@ main() {
     PUBLIC_URL="${PUBLIC_URL}" \
     STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH}" \
     bash "${APP_DIR}/deploy/verify-deploy.sh"
+  fi
+
+  if [[ "${rollback_frontend_ok}" != "true" ]]; then
+    error "Rollback frontend was not restored; refusing to record this revision as successful."
+    exit 1
+  fi
+
+  if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
+    python3 -m scripts.release_artifact verify \
+      --root "${APP_DIR}" \
+      --manifest "${state_dir}/staged_release_manifest.json" \
+      --commit "${rollback_target}"
+    cp "${state_dir}/staged_release_manifest.json" "${state_dir}/last_successful_release_manifest.json"
+  else
+    rm -f "${state_dir}/last_successful_release_manifest.json"
   fi
 
   printf '%s\n' "${rollback_target}" > "${state_dir}/last_successful_rev"
