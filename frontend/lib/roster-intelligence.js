@@ -241,3 +241,176 @@ export function formatStrengthValue(value) {
   if (value === null || value === undefined) return "—";
   return Math.round(value).toLocaleString();
 }
+
+// ── Team Weakness / Need Priority (C2-WEAK-01) ──────────────────────────
+//
+// The canonical owner is `src/roster_intel/weakness.py` (inventory row
+// 1.2), served as `team.weakness` and — projected — as each
+// `leagueContext[].needLevelByPosition` / `urgentPositions`. Nothing below
+// classifies a position: levels, priorities, reasons and the worst-first
+// order are read verbatim. `/rosters`' Trade Targets card used to rank
+// "Weakest / Strongest" itself from raw full-roster `byGroup` sums against
+// the league average — a page-local need rule that could name a room weak
+// while the lineup solve says it starts two top-12 players.
+
+/** Display words for the owner's need levels. A label, not a threshold. */
+export const NEED_LEVEL_LABELS = Object.freeze({
+  critical: "Critical need",
+  high: "High need",
+  moderate: "Moderate need",
+  none: "No need",
+});
+
+/** Human sentence for a backend `unavailableReason` code. Unknown codes
+ *  are shown as-is rather than hidden. */
+function describeUnavailable(reason) {
+  const text = {
+    team_not_in_contract: "this team has no roster in the loaded league data",
+    no_rosters_loaded: "no league rosters are loaded yet",
+    unknown_team_count: "the league's team count is unknown",
+    team_mismatch: "the loaded answer is for a different team",
+    not_loaded: "roster intelligence has not loaded",
+    droppability_not_requested: "the cut ladder was not requested",
+    droppability_missing: "the response carried no cut ladder for this team",
+  }[reason];
+  return text || (reason ? String(reason) : "not measured");
+}
+
+/**
+ * The requested team's canonical need answer, reshaped for render.
+ *
+ * Always returns an object with `state`:
+ *   "ok"          — `needs` (worst-first, verbatim), `needPositions`
+ *                   (positions whose served level is not "none", in the
+ *                   owner's order), `strongest` (served positional
+ *                   strength ranks, best first)
+ *   "unavailable" — `reason` / `reasonText`. Never accompanied by a
+ *                   fallback answer: an unmeasured need is not "no need".
+ *
+ * `ownerId`, when given, must match the payload's team — the hook keeps
+ * the previous team's payload while a new one loads, and rendering one
+ * team's needs under another team's name is worse than rendering none.
+ */
+export function teamNeedDetail(payload, { ownerId = "" } = {}) {
+  const team = payload?.team;
+  const unavailable = (reason) => ({
+    state: "unavailable",
+    reason,
+    reasonText: describeUnavailable(reason),
+    needs: [],
+    needPositions: [],
+    strongest: [],
+  });
+  if (!team || typeof team !== "object") return unavailable("not_loaded");
+  if (ownerId && String(team.ownerId ?? "") !== String(ownerId)) {
+    return unavailable("team_mismatch");
+  }
+  const weakness = team.weakness;
+  if (!weakness || typeof weakness !== "object") return unavailable("not_loaded");
+  if (weakness.available === false) {
+    return unavailable(weakness.unavailableReason || "not_measured");
+  }
+  const needs = (Array.isArray(weakness.needs) ? weakness.needs : [])
+    .filter((n) => n && typeof n === "object" && n.position)
+    .map((n) => ({
+      position: String(n.position),
+      level: String(n.level || ""),
+      label: NEED_LEVEL_LABELS[n.level] || String(n.level || ""),
+      priority: num(n.priority),
+      reasons: Array.isArray(n.reasons) ? n.reasons.map(String) : [],
+      unknownRungs: num(n.unknownRungs),
+    }));
+  // The served order IS the priority order (`ordered_needs`); a
+  // position the owner rates "none" is not a need however it compares.
+  const needPositions = needs.filter((n) => n.level && n.level !== "none");
+  const strength = teamStrengthDetail(payload);
+  const strongest = (strength?.positions || [])
+    .filter((p) => p.rank !== null)
+    .sort((a, b) => a.rank - b.rank || a.position.localeCompare(b.position))
+    .map((p) => ({ position: p.position, rank: p.rank, rankLabel: p.rankLabel }));
+  return {
+    state: "ok",
+    reason: "",
+    reasonText: "",
+    needs,
+    needPositions,
+    urgentPositions: Array.isArray(weakness.urgentPositions)
+      ? weakness.urgentPositions.map(String)
+      : [],
+    strongest,
+  };
+}
+
+/**
+ * `Map<ownerId, { needLevelByPosition, urgentPositions, measured }>` from
+ * the payload's `leagueContext` — every OTHER team's canonical need answer.
+ * `measured: false` when the backend stamped `null` (that team's weakness
+ * was not measured); a consumer must skip such a team, not guess.
+ */
+export function leagueNeedIndex(payload) {
+  const out = new Map();
+  const context = Array.isArray(payload?.leagueContext) ? payload.leagueContext : [];
+  for (const row of context) {
+    const ownerId = String(row?.ownerId ?? "");
+    if (!ownerId) continue;
+    const levels = row?.needLevelByPosition;
+    const measured = Boolean(levels) && typeof levels === "object";
+    out.set(ownerId, {
+      measured,
+      needLevelByPosition: measured ? { ...levels } : null,
+      urgentPositions:
+        measured && Array.isArray(row?.urgentPositions) ? row.urgentPositions.map(String) : [],
+    });
+  }
+  return out;
+}
+
+// ── Droppability (C2-DROP-01) ───────────────────────────────────────────
+
+/**
+ * The requested team's canonical cut ladder, from
+ * `GET /api/roster/intelligence?droppability=1` — owner
+ * `src/draft/displacement.py` via `src/roster_intel/droppability.py`.
+ *
+ * Every rung is a release the exact lineup solver has validated, in the
+ * owner's cheapest-first order; players the lineup needs are NOT rungs.
+ * Returns `{ state: "ok", rungs, undroppableCount }` or
+ * `{ state: "unavailable", reason, reasonText }`. No fallback ranking of
+ * the roster by raw value exists — that was the shape #1017 deleted from
+ * the backend, and /waivers carried a copy of it.
+ */
+export function teamCutLadder(payload, { ownerId = "" } = {}) {
+  const unavailable = (reason) => ({
+    state: "unavailable",
+    reason,
+    reasonText: describeUnavailable(reason),
+    rungs: [],
+    undroppableCount: null,
+  });
+  const team = payload?.team;
+  if (!team || typeof team !== "object") return unavailable("not_loaded");
+  if (ownerId && String(team.ownerId ?? "") !== String(ownerId)) {
+    return unavailable("team_mismatch");
+  }
+  if (payload?.droppabilityIncluded !== true) return unavailable("droppability_not_requested");
+  const ladder = team.droppability?.cutLadder;
+  if (!ladder || !Array.isArray(ladder.rungs)) return unavailable("droppability_missing");
+  const rungs = ladder.rungs
+    .filter((r) => r && typeof r === "object" && r.name)
+    .map((r) => ({
+      rung: num(r.rung),
+      playerId: String(r.playerId ?? ""),
+      name: String(r.name),
+      position: String(r.position || "").toUpperCase(),
+      baseValue: num(r.baseValue),
+      valueBasis: String(r.valueBasis || ""),
+      effectiveCutCost: num(r.effectiveCutCost),
+    }));
+  return {
+    state: "ok",
+    reason: "",
+    reasonText: "",
+    rungs,
+    undroppableCount: Array.isArray(ladder.undroppable) ? ladder.undroppable.length : null,
+  };
+}

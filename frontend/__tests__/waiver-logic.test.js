@@ -8,8 +8,42 @@ import {
   classifyDropConfidence,
   computeBestMoves,
   computeBestUniqueUpgradeSet,
-  computeWaiverAnalysis,
+  computeWaiverAnalysis as computeWaiverAnalysisServed,
 } from "@/lib/waiver-logic";
+
+/**
+ * A PERMISSIVE canonical cut ladder: every roster player the rows price is
+ * a legal release, cheapest (lowest value) first.  Since C2-DROP-01 the
+ * drop side comes ONLY from the served ladder, so the value-comparison
+ * cases below — written before that, against a roster where nobody is
+ * lineup-protected — run against this stand-in for "the owner says
+ * everyone is releasable".  The legality cases at the bottom of the file
+ * pass a real, restrictive ladder instead.
+ */
+function permissiveLadder({ rows = [], myRosterNames = [] } = {}) {
+  const byName = new Map(rows.map((r) => [String(r.name).trim().toLowerCase(), r]));
+  const rungs = myRosterNames
+    .map((n) => byName.get(String(n).trim().toLowerCase()))
+    .filter((r) => r && r.assetClass !== "pick" && Number(r.rankDerivedValue) > 0)
+    .sort((a, b) => a.rankDerivedValue - b.rankDerivedValue || a.name.localeCompare(b.name))
+    .map((r, i) => ({
+      rung: i + 1,
+      playerId: "",
+      name: r.name,
+      position: r.pos,
+      baseValue: r.rankDerivedValue,
+      valueBasis: "board",
+      effectiveCutCost: r.rankDerivedValue,
+    }));
+  return { state: "ok", rungs, undroppableCount: 0 };
+}
+
+function computeWaiverAnalysis(args = {}) {
+  return computeWaiverAnalysisServed({
+    ...args,
+    cutLadder: args.cutLadder !== undefined ? args.cutLadder : permissiveLadder(args),
+  });
+}
 
 // ── Fixture helpers ────────────────────────────────────────────────────
 
@@ -611,5 +645,118 @@ describe("computeBestUniqueUpgradeSet (direct)", () => {
     expect(computeBestUniqueUpgradeSet(null, [])).toEqual([]);
     expect(computeBestUniqueUpgradeSet([], null)).toEqual([]);
     expect(computeBestUniqueUpgradeSet(null, null)).toEqual([]);
+  });
+});
+
+// ── C2-DROP-01: the drop side is the canonical cut ladder, nothing else ──
+//
+// Every case here FAILS on the pre-C2-DROP-01 waiver-logic.js, which
+// ignored the ladder and ranked the roster by raw value: it would offer the
+// lineup-protected player (the cheapest one on the roster) as the drop.
+
+function rung(n, r, extra = {}) {
+  return {
+    rung: n,
+    playerId: "",
+    name: r.name,
+    position: r.pos,
+    baseValue: r.rankDerivedValue,
+    valueBasis: "board",
+    effectiveCutCost: r.rankDerivedValue,
+    ...extra,
+  };
+}
+
+describe("computeWaiverAnalysis — canonical cut ladder (C2-DROP-01)", () => {
+  // "Only TE" is the CHEAPEST player on the roster but the lineup needs
+  // him, so the owner leaves him off the ladder.  A raw-value ranking
+  // would make him the first drop for every add.
+  const onlyTe = row("Only TE", 300, { pos: "TE" });
+  const benchA = row("Bench A", 800);
+  const benchB = row("Bench B", 600);
+  const star = row("Star WR", 7000);
+  const fa1 = row("FA One", 2000);
+  const fa2 = row("FA Two", 1500);
+  const rows = [onlyTe, benchA, benchB, star, fa1, fa2];
+  const myRosterNames = [onlyTe.name, benchA.name, benchB.name, star.name];
+  const sleeperTeams = [team("Mine", myRosterNames)];
+  // Owner's cut order deliberately NOT value order (scarcity can do this).
+  const ladder = {
+    state: "ok",
+    rungs: [rung(1, benchA), rung(2, benchB)],
+    undroppableCount: 1,
+  };
+
+  it("never offers a lineup-protected player as a drop anywhere", () => {
+    const r = computeWaiverAnalysisServed({ rows, myRosterNames, sleeperTeams, cutLadder: ladder });
+    const dropNames = [
+      ...r.droppable.map((d) => d.row.name),
+      ...r.bestMoves.map((m) => m.drop.name),
+      ...r.bestUniqueUpgradeSet.map((m) => m.drop.name),
+      ...r.addable.map((a) => a.bestDrop.name),
+    ];
+    expect(dropNames.length).toBeGreaterThan(0);
+    expect(dropNames).not.toContain("Only TE");
+    expect(r.dropState.state).toBe("ok");
+  });
+
+  it("lists droppable players in the owner's cut order, not by value", () => {
+    const r = computeWaiverAnalysisServed({ rows, myRosterNames, sleeperTeams, cutLadder: ladder });
+    expect(r.droppable.map((d) => [d.rung, d.row.name])).toEqual([
+      [1, "Bench A"],
+      [2, "Bench B"],
+    ]);
+    // Each add pairs with the FIRST legal release it beats (rung 1).
+    expect(r.bestMoves[0].drop.name).toBe("Bench A");
+    // Unique set takes releases in cut order — a legal SET.
+    expect(r.bestUniqueUpgradeSet.map((m) => m.drop.name)).toEqual(["Bench A", "Bench B"]);
+  });
+
+  it("an unavailable ladder empties every drop-dependent list and says why", () => {
+    const r = computeWaiverAnalysisServed({
+      rows,
+      myRosterNames,
+      sleeperTeams,
+      cutLadder: { state: "unavailable", reason: "not_ready", reasonText: "data not ready" },
+    });
+    expect(r.dropState).toMatchObject({ state: "unavailable", reason: "not_ready", reasonText: "data not ready" });
+    expect(r.droppable).toEqual([]);
+    expect(r.addable).toEqual([]);
+    expect(r.bestMoves).toEqual([]);
+    expect(r.bestUniqueUpgradeSet).toEqual([]);
+  });
+
+  it("a missing ladder is unavailable, never a raw-value fallback", () => {
+    const r = computeWaiverAnalysisServed({ rows, myRosterNames, sleeperTeams });
+    expect(r.dropState.state).toBe("unavailable");
+    expect(r.droppable).toEqual([]);
+    expect(r.bestMoves).toEqual([]);
+  });
+
+  it("an unpriced rung keeps the owner's assumed waiver level — never 0, never skipped", () => {
+    const ghostLadder = {
+      state: "ok",
+      rungs: [
+        { rung: 1, playerId: "g1", name: "Ghost Player", position: "WR", baseValue: 450, valueBasis: "assumedWaiver", effectiveCutCost: 0 },
+      ],
+    };
+    const r = computeWaiverAnalysisServed({
+      rows,
+      myRosterNames: [...myRosterNames, "Ghost Player"],
+      sleeperTeams,
+      cutLadder: ghostLadder,
+    });
+    expect(r.droppable).toHaveLength(1);
+    expect(r.droppable[0]).toMatchObject({ value: 450, valueBasis: "assumedWaiver" });
+    expect(r.droppable[0].row.name).toBe("Ghost Player");
+    expect(r.droppable[0].netGain).toBe(2000 - 450);
+  });
+
+  it("the drop side is valued on the page's own board when the rung joins", () => {
+    const shifted = { ...ladder, rungs: [rung(1, benchA, { baseValue: 9999 })] };
+    const r = computeWaiverAnalysisServed({ rows, myRosterNames, sleeperTeams, cutLadder: shifted });
+    // Same board as the add side (the user's overrides included), not the
+    // served default-board number.
+    expect(r.droppable[0].value).toBe(800);
   });
 });

@@ -7,12 +7,25 @@
  * DOM/contexts.
  *
  * Mental model: we compare every UNROSTERED player (the "free agent
- * pool") against every player on the SELECTED team's roster, ranked by
+ * pool") against the SELECTED team's LEGAL RELEASES, ranked by
  * canonical ``rankDerivedValue``.  An addable FA beats at least one
- * roster player on raw value; a droppable roster player is beaten by
- * at least one addable FA.  Picks (``assetClass === "pick"``) are
- * never addable, never droppable — they belong to the rookie-draft
+ * legal release on value; a droppable roster player is a legal release
+ * beaten by at least one addable FA.  Picks (``assetClass === "pick"``)
+ * are never addable, never droppable — they belong to the rookie-draft
  * pipeline, not waivers.
+ *
+ * WHO CAN BE RELEASED IS NOT DECIDED HERE (C2-DROP-01).  It comes from
+ * the canonical cut ladder — ``src/draft/displacement.py`` via
+ * ``src/roster_intel/droppability.py``, served by
+ * ``GET /api/roster/intelligence?droppability=1`` and reshaped by
+ * ``lib/roster-intelligence.js::teamCutLadder``.  Every rung there has
+ * been re-checked by the exact lineup solver, so a player the lineup
+ * needs (your only TE, your QB2 in Superflex) is never offered as a
+ * drop, and the rungs come in the owner's cheapest-first order.  This
+ * module used to rank the roster by raw value with no lineup legality
+ * at all — the same shape #1017 deleted from ``src/trade/waiver.py``.
+ * When the ladder is unavailable the drop side is UNAVAILABLE (stated
+ * in ``dropState``), never recomputed from raw values.
  *
  * Rookie toggle handling:
  *   off — pool = unrostered AND not rookie-flagged
@@ -278,21 +291,16 @@ export function classifyDropConfidence(netGain) {
 }
 
 /**
- * Find the LOWEST-value roster player still beaten by ``addValue``.
- * That's the realistic drop — we don't drop a starter if we have a
- * benchwarmer that's also worse.  Returns null if no roster player is
- * beaten.
- *
- * ``rosterValuesSorted`` must be ascending by value with stable
- * tiebreakers; the first row whose value is < addValue is the answer.
+ * The first legal release, in the owner's cut order, that ``addValue``
+ * still beats.  Rung order IS the canonical cheapest-first order, so this
+ * is "the release you would actually make" for one add.  Any single rung
+ * is a legal release on its own (legal cut-sets are downward closed — see
+ * ``src/draft/displacement.py``).  Returns null if no release is beaten.
  */
-function findBestDropMatch(addValue, rosterValuesSorted) {
-  if (!Array.isArray(rosterValuesSorted) || rosterValuesSorted.length === 0) {
-    return null;
-  }
-  // First-from-the-bottom whose value < addValue.
-  for (const r of rosterValuesSorted) {
-    if (rowValue(r) < addValue) return r;
+function firstBeatenRelease(addValue, releases) {
+  if (!Array.isArray(releases)) return null;
+  for (const d of releases) {
+    if (d.value < addValue) return d;
   }
   return null;
 }
@@ -378,13 +386,11 @@ function byValueDescThenName(a, b) {
   return na.localeCompare(nb);
 }
 
-function byValueAscThenName(a, b) {
-  const va = rowValue(a.row != null ? a.row : a);
-  const vb = rowValue(b.row != null ? b.row : b);
-  if (va !== vb) return va - vb;
-  const na = rowName(a.row != null ? a.row : a);
-  const nb = rowName(b.row != null ? b.row : b);
-  return na.localeCompare(nb);
+function byRungThenName(a, b) {
+  const ra = Number.isFinite(a?.rung) ? a.rung : Infinity;
+  const rb = Number.isFinite(b?.rung) ? b.rung : Infinity;
+  if (ra !== rb) return ra - rb;
+  return rowName(a.row).localeCompare(rowName(b.row));
 }
 
 // ── Best Moves + Best Unique Upgrade Set ───────────────────────────────
@@ -396,7 +402,8 @@ function byValueAscThenName(a, b) {
  * Egbuka, drop Boyd" / "Add Egbuka, drop Pollard" / "Add Egbuka,
  * drop Cleveland" — same FA three times because every drop sits
  * below his value.  Showing each add ONCE (with its best drop, the
- * lowest-value roster player still beaten) collapses the noise.
+ * first legal release in the canonical cut order that he still beats)
+ * collapses the noise.
  *
  * ``addable`` is the enriched addable list (with bestDrop, netGain
  * already attached).  We filter ``rosteredBy != null`` because those
@@ -412,7 +419,7 @@ export function computeBestMoves(addable, { limit = 20 } = {}) {
     drop: a.bestDrop,
     netGain: a.netGain,
     addValue: rowValue(a.row),
-    dropValue: rowValue(a.bestDrop),
+    dropValue: Number.isFinite(a.dropValue) ? a.dropValue : rowValue(a.bestDrop),
     upgradeTier: a.upgradeTier,
     position: rowPosition(a.row),
     isRookie: a.isRookie,
@@ -420,9 +427,13 @@ export function computeBestMoves(addable, { limit = 20 } = {}) {
 }
 
 /**
- * Greedy unique pair-up.  Sort addable desc, droppable asc; pair
- * 1↔1, 2↔2, … while ``add.value > drop.value``.  Stop when no add
- * still beats its corresponding drop.
+ * Greedy unique pair-up.  Sort addable desc; take droppable in the
+ * canonical CUT ORDER (``rung`` ascending); pair 1↔1, 2↔2, … while
+ * ``add.value > drop.value``.  Stop when no add still beats its
+ * corresponding drop.  Cut order matters for legality, not taste: the
+ * ladder validated rung k with rungs 1..k-1 already released, so the
+ * first n rungs are a legal SET of releases — n players sorted by raw
+ * value are not.
  *
  * Filters out ``rosteredBy != null`` adds since they aren't real
  * adds.  This is the "if I had unlimited claims, what's the optimal
@@ -435,12 +446,14 @@ export function computeBestUniqueUpgradeSet(addable, droppable) {
     .filter((a) => !a.rosteredBy)
     .slice()
     .sort(byValueDescThenName);
-  const drops = droppable.slice().sort(byValueAscThenName);
+  const drops = droppable.slice().sort(byRungThenName);
   const out = [];
   const n = Math.min(adds.length, drops.length);
   for (let i = 0; i < n; i++) {
     const av = rowValue(adds[i].row);
-    const dv = rowValue(drops[i].row);
+    // The release's value as the droppable list carries it — an
+    // unpriced rung is costed at its assumed waiver level, never 0.
+    const dv = Number.isFinite(drops[i].value) ? drops[i].value : rowValue(drops[i].row);
     if (av <= dv) break;
     out.push({
       add: adds[i].row,
@@ -496,6 +509,10 @@ function applyDroppableFilters(list, filters) {
  *   includeRookies  — boolean rookie toggle
  *   idpEnabled      — selectedLeague.idpEnabled
  *   filters         — { position, minGain, upgradeStrength }
+ *   cutLadder       — ``teamCutLadder(...)`` from lib/roster-intelligence.js:
+ *                     ``{ state: "ok", rungs }`` or ``{ state: "unavailable",
+ *                     reason, reasonText }``.  Absent => unavailable.  It is
+ *                     the ONLY source of who may be dropped.
  *
  * Output shape — see file header for field meanings:
  *   {
@@ -511,7 +528,13 @@ function applyDroppableFilters(list, filters) {
  *     summary:               { bestAddable, bestGain, addableCount,
  *                              droppableCount, rookieAddCount,
  *                              rosterSize, freeAgentPoolSize }
+ *     dropState:             { state: "ok" | "unavailable", reason,
+ *                              reasonText, undroppableCount }
  *   }
+ *
+ * With ``dropState.state === "unavailable"`` every drop-dependent list
+ * (addable, droppable, bestMoves, bestUniqueUpgradeSet) is EMPTY and the
+ * page says why — nothing is ranked from raw values in the ladder's place.
  */
 export function computeWaiverAnalysis({
   rows,
@@ -520,6 +543,7 @@ export function computeWaiverAnalysis({
   includeRookies = false,
   idpEnabled = true,
   filters = {},
+  cutLadder = null,
 } = {}) {
   // Guard: the validated empty-state path.  Empty inputs return a
   // fully-shaped empty result so the page can always destructure.
@@ -552,13 +576,12 @@ export function computeWaiverAnalysis({
     if (rowValue(r) <= 0) continue;                // unranked / unfit
     rosterRows.push(r);
   }
-  const rosterSortedAsc = rosterRows.slice().sort((a, b) => {
-    const av = rowValue(a);
-    const bv = rowValue(b);
-    if (av !== bv) return av - bv;
-    return rowName(a).localeCompare(rowName(b));
-  });
-  const rosterMin = rosterSortedAsc.length ? rowValue(rosterSortedAsc[0]) : 0;
+
+  // Legal releases, from the canonical cut ladder ONLY, in its cut order.
+  const dropState = normalizeDropState(cutLadder);
+  const releases = dropState.state === "ok"
+    ? releasesFromLadder(cutLadder.rungs, safeRows, rowByName)
+    : [];
 
   // Candidate pool (rookie toggle + idp gate + ownership).
   const pool = buildCandidatePool({
@@ -570,41 +593,33 @@ export function computeWaiverAnalysis({
     idpEnabled: Boolean(idpEnabled),
   });
 
-  // Addable list: pool entries whose value beats AT LEAST ONE roster
-  // player.  When the roster is empty (rosterMin === 0), every
-  // positive-value pool entry technically qualifies — but with no
-  // roster to compare against there's no "drop" so the list is
-  // pointless.  Return an empty list in that case.
+  // Addable list: pool entries whose value beats AT LEAST ONE legal
+  // release.  With no legal release (empty ladder, or unavailable) there
+  // is no "drop" to pair with, so the list is empty — never a comparison
+  // against players the lineup cannot lose.
   const enrichedAddable = [];
-  if (rosterRows.length > 0) {
-    for (const c of pool) {
-      const v = rowValue(c.row);
-      if (v <= rosterMin) continue;
-      // Lowest-value roster player still beaten = realistic drop.
-      const bestDrop = findBestDropMatch(v, rosterSortedAsc);
-      if (!bestDrop) continue;  // shouldn't happen given v > rosterMin, but defensive
-      const dropValue = rowValue(bestDrop);
-      const netGain = v - dropValue;
-      const betterCount = rosterRows.reduce(
-        (acc, r) => acc + (rowValue(r) < v ? 1 : 0),
-        0,
-      );
-      enrichedAddable.push({
-        row: c.row,
-        value: v,
-        isRookie: c.isRookie,
-        rosteredBy: c.rosteredBy,
-        bestDrop,
-        dropValue,
-        netGain,
-        betterCount,
-        upgradeTier: classifyUpgradeTier(netGain),
-      });
-    }
+  for (const c of pool) {
+    const v = rowValue(c.row);
+    // The cheapest legal release this add still beats = the realistic drop.
+    const best = firstBeatenRelease(v, releases);
+    if (!best) continue;
+    const netGain = v - best.value;
+    const betterCount = releases.reduce((acc, d) => acc + (d.value < v ? 1 : 0), 0);
+    enrichedAddable.push({
+      row: c.row,
+      value: v,
+      isRookie: c.isRookie,
+      rosteredBy: c.rosteredBy,
+      bestDrop: best.row,
+      dropValue: best.value,
+      netGain,
+      betterCount,
+      upgradeTier: classifyUpgradeTier(netGain),
+    });
   }
   enrichedAddable.sort((a, b) => {
     if (b.netGain !== a.netGain) return b.netGain - a.netGain;
-    // Secondary: by upgrade-tier ranking (smash > strong > …).
+    // Secondary: by upgrade-tier ranking (smash > strong > ...).
     const ra = UPGRADE_TIER_RANK[a.upgradeTier] || 0;
     const rb = UPGRADE_TIER_RANK[b.upgradeTier] || 0;
     if (rb !== ra) return rb - ra;
@@ -615,28 +630,28 @@ export function computeWaiverAnalysis({
   // is still available for summary stats.
   const filteredAddable = applyAddableFilters(enrichedAddable, safeFilters);
 
-  // Droppable list: roster players beaten by any (truly-addable) FA.
-  // Read-only rookies (``rosteredBy != null``) cannot actually drop
-  // anything — exclude them from the threshold.
+  // Droppable list: legal releases beaten by any (truly-addable) FA, in
+  // the owner's cut order.  Read-only rookies (``rosteredBy != null``)
+  // cannot actually drop anything — exclude them from the threshold.
   const realAdds = filteredAddable.filter((a) => !a.rosteredBy);
   const realAddsDesc = realAdds.slice().sort((a, b) => b.value - a.value);
-  const addableMax = realAdds.length ? realAdds[0].value : 0;
 
   const enrichedDroppable = [];
-  for (const r of rosterSortedAsc) {
-    const v = rowValue(r);
-    if (v >= addableMax) continue;       // nothing beats this player
-    const bestReplacement = findBestReplacement(v, realAddsDesc.map((a) => a.row));
-    if (!bestReplacement) continue;
+  for (const d of releases) {
+    const bestReplacement = findBestReplacement(d.value, realAddsDesc.map((a) => a.row));
+    if (!bestReplacement) continue;      // nothing available beats this release
     const replacementValue = rowValue(bestReplacement);
-    const netGain = replacementValue - v;
+    const netGain = replacementValue - d.value;
     const betterAvailableCount = realAdds.reduce(
-      (acc, a) => acc + (a.value > v ? 1 : 0),
+      (acc, a) => acc + (a.value > d.value ? 1 : 0),
       0,
     );
     enrichedDroppable.push({
-      row: r,
-      value: v,
+      row: d.row,
+      value: d.value,
+      rung: d.rung,
+      valueBasis: d.valueBasis,
+      effectiveCutCost: d.effectiveCutCost,
       bestReplacement,
       replacementValue,
       netGain,
@@ -644,12 +659,8 @@ export function computeWaiverAnalysis({
       dropConfidence: classifyDropConfidence(netGain),
     });
   }
-  // Drop confidence sorts naturally with netGain desc — biggest gain
-  // = most obvious drop.
-  enrichedDroppable.sort((a, b) => {
-    if (b.netGain !== a.netGain) return b.netGain - a.netGain;
-    return rowName(a.row).localeCompare(rowName(b.row));
-  });
+  // Kept in CUT ORDER (rung ascending) — the owner's order, not a page
+  // re-ranking.  ``releases`` already arrives that way.
   const filteredDroppable = applyDroppableFilters(enrichedDroppable, safeFilters);
 
   // Best moves + unique set are computed off the FILTERED lists so
@@ -676,7 +687,68 @@ export function computeWaiverAnalysis({
     bestMoves,
     bestUniqueUpgradeSet,
     summary,
+    dropState,
   };
+}
+
+/** ``{ state, reason, reasonText, undroppableCount }`` — never throws. */
+function normalizeDropState(cutLadder) {
+  if (cutLadder && cutLadder.state === "ok" && Array.isArray(cutLadder.rungs)) {
+    return {
+      state: "ok",
+      reason: "",
+      reasonText: "",
+      undroppableCount: Number.isFinite(cutLadder.undroppableCount)
+        ? cutLadder.undroppableCount
+        : null,
+    };
+  }
+  return {
+    state: "unavailable",
+    reason: cutLadder?.reason || "not_loaded",
+    reasonText: cutLadder?.reasonText || "the canonical cut ladder has not loaded",
+    undroppableCount: null,
+  };
+}
+
+/**
+ * Served ladder rungs -> release entries ``{ row, value, rung, valueBasis,
+ * effectiveCutCost }`` in rung order.
+ *
+ * ``row`` is the page's own contract row (playerId first, then name) so the
+ * drop side is valued on the SAME board as the add side — the user's
+ * source overrides included.  A rung the page cannot join, or one the
+ * board did not price, keeps its served ``baseValue`` (for an unpriced
+ * player that is the owner's assumed WAIVER LEVEL, stamped
+ * ``valueBasis: "assumedWaiver"``) — never 0, and never silently a free
+ * release, because a join miss is not a worthless player.
+ */
+function releasesFromLadder(rungs, rows, rowByName) {
+  const byId = new Map();
+  for (const r of rows) {
+    const id = String(r?.playerId ?? "").trim();
+    if (id && !byId.has(id)) byId.set(id, r);
+  }
+  const out = [];
+  for (const rung of Array.isArray(rungs) ? rungs : []) {
+    const matched =
+      byId.get(String(rung.playerId || "")) || rowByName.get(normalizeName(rung.name)) || null;
+    const boardValue = matched ? rowValue(matched) : 0;
+    const served = Number.isFinite(rung.baseValue) && rung.baseValue > 0 ? rung.baseValue : null;
+    const value = boardValue > 0 ? boardValue : served;
+    // The owner priced nothing at all (no board value, no waiver level):
+    // there is no number to compare against, so it is not listed — and
+    // it is certainly not listed at 0.
+    if (value === null) continue;
+    out.push({
+      row: matched || { name: rung.name, pos: rung.position || "?", unjoined: true },
+      value,
+      rung: Number.isFinite(rung.rung) ? rung.rung : null,
+      valueBasis: boardValue > 0 ? "board" : rung.valueBasis || "assumedWaiver",
+      effectiveCutCost: Number.isFinite(rung.effectiveCutCost) ? rung.effectiveCutCost : null,
+    });
+  }
+  return out;
 }
 
 // ── Top-N waiver pool with position minimums ───────────────────────────

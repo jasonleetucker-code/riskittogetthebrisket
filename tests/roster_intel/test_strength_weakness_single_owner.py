@@ -172,3 +172,42 @@ def test_engine_py_renamed_rather_than_redefined_position_need():
         "PositionNeed" not in defined
     ), "engine.py redefines PositionNeed — collides with weakness.PositionNeed"
     assert "PositionDeficit" in defined
+
+
+# ══ C2-WEAK-01 — the gameplan-only second need rule stays retired ══
+
+
+def test_no_second_position_need_function_is_defined():
+    """``engine.position_needs`` was a second need rule: it published
+    ``urgent = profile.urgent_need or deficit > 0`` on the ROS 0-100
+    index, a different scale and population from ``weakness.py``'s rung
+    ladder.  It is now ``position_deficits`` and carries no verdict.  A
+    function by the old name anywhere in production code is that rule
+    coming back."""
+    assert definition_sites({"position_needs"}) == {}
+
+
+def test_the_deficit_measurement_carries_no_need_verdict():
+    """BEHAVIOUR, not a name: the deficit dataclass and its payload have
+    no field that answers "is this a need".  Re-adding ``urgent`` (or a
+    ``level``) under any function name fails here."""
+    from src.roster_intel.engine import PositionDeficit
+
+    fields = set(PositionDeficit.__dataclass_fields__)
+    assert not fields & {"urgent", "level", "priority", "need"}
+    blob = PositionDeficit(
+        position="RB",
+        deficit=1.0,
+        concentration_risk=0.5,
+        replacement_baseline=2.0,
+        actual_contribution=1.0,
+    ).to_dict()
+    assert not set(blob) & {"urgent", "level", "priority", "need"}
+
+
+def test_gameplan_reads_need_from_the_canonical_owner():
+    """``/api/gameplan`` must source its need block from the roster
+    intelligence owner, not from anything computed off its own bundle."""
+    src = (REPO / "src" / "api" / "gameplan.py").read_text(encoding="utf-8")
+    assert "team_weakness_for(" in src
+    assert "position_needs" not in src

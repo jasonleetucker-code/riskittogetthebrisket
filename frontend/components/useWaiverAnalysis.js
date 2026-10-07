@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
+import { useRosterIntelligence } from "@/components/useRosterIntelligence";
 import { useTeam } from "@/components/useTeam";
+import { teamCutLadder } from "@/lib/roster-intelligence";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildWaiverBidIndex } from "@/lib/waiver-faab";
 import { computeWaiverAnalysis } from "@/lib/waiver-logic";
@@ -39,6 +41,13 @@ import { computeWaiverAnalysis } from "@/lib/waiver-logic";
  *     own rows at render time (``lib/waiver-faab.js``), exactly like
  *     the BDVM "Fund gap" column on /rankings, rather than letting a
  *     bid become a contract field.
+ *
+ *   • WHO MAY BE DROPPED is fetched too, never computed (C2-DROP-01):
+ *     the team's canonical cut ladder from
+ *     ``GET /api/roster/intelligence?droppability=1``.  Unlike the bids
+ *     it is NOT optional enrichment — every drop on the page comes from
+ *     it — so it gates ``loading`` and, when it fails, the analysis
+ *     carries ``dropState.state === "unavailable"`` and the page says so.
  */
 export function useWaiverAnalysis({
   includeRookies = false,
@@ -64,6 +73,29 @@ export function useWaiverAnalysis({
     [position, minGain, upgradeStrength],
   );
 
+  const ownerId = selectedTeam?.ownerId ? String(selectedTeam.ownerId) : "";
+  const ladderEnabled = Boolean(ownerId) && !leagueMismatch;
+  const {
+    loading: ladderLoading,
+    data: ladderPayload,
+    failure: ladderFailure,
+  } = useRosterIntelligence({ ownerId, enabled: ladderEnabled, droppability: true });
+  const cutLadder = useMemo(() => {
+    if (!ladderEnabled) {
+      return { state: "unavailable", reason: "team_required", reasonText: "no team is selected" };
+    }
+    if (ladderFailure) {
+      return {
+        state: "unavailable",
+        reason: ladderFailure.kind || "error",
+        reasonText: ladderFailure.message || "roster intelligence could not be loaded",
+      };
+    }
+    // ownerId-checked: the previous team's payload is kept while the next
+    // one loads, and its ladder must never be read as this team's.
+    return teamCutLadder(ladderPayload, { ownerId });
+  }, [ladderEnabled, ladderFailure, ladderPayload, ownerId]);
+
   const analysis = useMemo(() => {
     if (leagueMismatch) return null;
     if (!selectedTeam) return null;
@@ -75,6 +107,7 @@ export function useWaiverAnalysis({
       includeRookies,
       idpEnabled,
       filters: stableFilters,
+      cutLadder,
     });
   }, [
     rows,
@@ -85,7 +118,14 @@ export function useWaiverAnalysis({
     stableFilters,
     leagueMismatch,
     selectedTeam,
+    cutLadder,
   ]);
+  // Still fetching THIS team's ladder: the page keeps its skeleton rather
+  // than flashing an "unavailable" state that is about to resolve.
+  const ladderPending =
+    ladderEnabled &&
+    !ladderFailure &&
+    (ladderLoading || !ladderPayload || cutLadder.reason === "team_mismatch");
 
   // ── Backend FAAB bids (optional enrichment) ─────────────────────
   //
@@ -175,7 +215,7 @@ export function useWaiverAnalysis({
   return {
     analysis,
     faabIndex,
-    loading,
+    loading: Boolean(loading) || ladderPending,
     error,
     leagueMismatch,
     hasTeam: Boolean(selectedTeam),
