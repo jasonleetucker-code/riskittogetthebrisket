@@ -197,17 +197,21 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
 async def get_pick_projections(request: Request, leagueKey: str | None = None) -> JSONResponse:
     """Projected rookie-draft slots for every owned FUTURE pick.
 
-    Pick Projector (Phase 7.1): reverse-standings draft order
-    projected from the ROS team-strength composite, joined against
-    the sleeper overlay's live pick ownership (``pickDetails``).
-    Projection/context only — blended pick values are untouched.
+    Pick Projector: slots come from the league's SEASON SIMULATION under the
+    canonical draft-order rule (``src/public_league/draft_order.py`` — worst
+    final record first, ties by lower Points For), joined against the sleeper
+    overlay's live pick ownership (``pickDetails``).  Reads the persisted,
+    fresh simulation only — never runs one on this request.  Team Strength
+    no longer decides order.  Projection/context only — blended pick values
+    are untouched.
 
-    League resolution mirrors ``/team-strength``.  Degraded states
-    follow this router's convention (200 + ``error`` field):
-    ``no_snapshot`` when team strength hasn't been built for the
-    league, ``no_teams`` when the Sleeper overlay is unreachable,
-    ``pick_ownership_unavailable`` (``picks: null``) when the overlay's
-    ``/traded_picks`` fetch failed and ownership is unknown.
+    League resolution mirrors ``/team-strength``.  Degraded states follow this
+    router's convention (200 + ``error`` field): ``no_teams`` when the Sleeper
+    overlay is unreachable, ``pick_ownership_unavailable`` (``picks: null``)
+    when the overlay's ``/traded_picks`` fetch failed.  No slot forecast (no
+    recorded rule, no fresh simulation, a class past the simulated season) is
+    NOT an error: the picks are listed with ``projectedSlot: null`` and the
+    reason in ``meta.slotForecastUnavailableReason`` / per pick.
     """
     resolved_key = leagueKey
     sleeper_league_id: str | None = None
@@ -223,12 +227,6 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
             sleeper_league_id = cfg.sleeper_league_id
     except Exception:  # noqa: BLE001
         pass
-
-    strength_rows = load_or_compute_team_strength(resolved_key)
-    if not strength_rows:
-        return JSONResponse(
-            {"picks": [], "projectedOrder": [], "leagueKey": resolved_key, "error": "no_snapshot"},
-        )
 
     teams: list[dict] = []
     if sleeper_league_id:
@@ -248,8 +246,13 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
         )
 
     from src.ros.pick_projection import build_pick_projections  # noqa: PLC0415
+    from src.ros.playoff_sim import _load_cached_payload  # noqa: PLC0415
 
-    payload = build_pick_projections(teams, strength_rows)
+    try:
+        sim_payload = _load_cached_payload(resolved_key)
+    except Exception:  # noqa: BLE001 — no simulation is "no slot forecast", not a 500
+        sim_payload = None
+    payload = build_pick_projections(teams, sim_payload, league_key=resolved_key)
     payload["leagueKey"] = resolved_key
     if payload.get("picks") is None:
         # Pick ownership unknown (failed /traded_picks): refused, not zero
