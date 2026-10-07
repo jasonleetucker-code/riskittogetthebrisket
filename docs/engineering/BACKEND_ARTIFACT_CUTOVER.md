@@ -24,8 +24,9 @@ when the manifest and receipt match the running commit. The post-deploy smoke ch
 against the validation job's output.
 
 `deploy/rollback.sh` restores the v2 backend wheels without a package
-registry and the saved frontend build without rebuilding it; the frontend
-packages are reinstalled with `npm ci` from the rollback target's lock. Historical v1 releases continue their prior
+registry and the saved frontend build without rebuilding it; frontend
+packages are reinstalled from the rollback target's lock only when the
+recorded install stamp does not match it. Historical v1 releases continue their prior
 lock-based online install and report the backend artifact as unavailable. A
 failed install never writes a new success receipt; deployment's existing
 auto-rollback path remains armed.

@@ -268,6 +268,18 @@ prepare_python_runtime() {
   fi
 }
 
+# Install stamp: the SHA-256 of the package-lock.json a successful `npm ci`
+# installed, written INSIDE node_modules. `npm ci` deletes node_modules before
+# installing, so any later install by any script version erases the stamp; a
+# present stamp can only describe the tree that is actually on disk. deploy.sh
+# and rollback.sh both write it; rollback.sh reads it to decide whether a saved
+# artifact needs its packages reinstalled.
+FRONTEND_INSTALL_STAMP=".calculator-package-lock.sha256"
+
+frontend_lock_digest() {
+  sha256sum "$1" | cut -d ' ' -f1
+}
+
 maybe_build_frontend() {
   if [[ -n "${RELEASE_ARCHIVE}" || -n "${RELEASE_ARCHIVE_SHA256}" ]]; then
     [[ -n "${RELEASE_ARCHIVE}" && -n "${RELEASE_ARCHIVE_SHA256}" ]] || {
@@ -281,6 +293,9 @@ maybe_build_frontend() {
     resolve_node_toolchain || { error "Node and npm are required for artifact deployment."; exit 1; }
     log "Installing exact frontend dependencies for tested release artifact."
     npm ci --prefix "${APP_DIR}/frontend"
+    frontend_lock_digest "${APP_DIR}/frontend/package-lock.json" \
+      > "${APP_DIR}/frontend/node_modules/${FRONTEND_INSTALL_STAMP}" ||
+      warn "Could not record the frontend install stamp; a rollback will reinstall."
     log "Verifying and staging CI release artifact: ${RELEASE_ARCHIVE}"
     python3 -m scripts.stage_release_artifact \
       --archive "${RELEASE_ARCHIVE}" \

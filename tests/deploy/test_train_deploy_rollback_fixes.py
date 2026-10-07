@@ -2,9 +2,11 @@
 
 * B1 — a legacy (pre-artifact) rollback target cannot pass validation if an
   ungated validate step runs a script that only exists in artifact-era trees.
-* B3 — restoring a saved artifact on rollback must reinstall the rollback
-  target's own locked frontend packages first; the failed forward deploy left
-  ITS ``node_modules`` behind.
+* B3 — restoring a saved artifact on rollback must not run the target's .next
+  on the failed forward deploy's ``node_modules``: a mismatched (or unknown)
+  install is reinstalled before staging, while an install already matching the
+  target's lock needs no npm at all (the registry-unavailable property pinned in
+  ``test_rollback_frontend_atomicity.py`` stays intact).
 * B4 — the archive the workflow transfers to ``<state>/incoming/`` must not
   accumulate on the production disk.
 
@@ -17,6 +19,7 @@ The bash tests drive the SHIPPED function text from ``deploy/rollback.sh`` and
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -120,12 +123,23 @@ def _write_stub(path: Path, body: str) -> None:
     path.chmod(0o755)
 
 
-def _artifact_rollback_fixture(tmp_path: Path, *, npm_exit: int = 0):
+STAMP = ".calculator-package-lock.sha256"
+TARGET_LOCK = json.dumps({"lockfileVersion": 3, "name": "rollback-target"})
+
+
+def _artifact_rollback_fixture(tmp_path: Path, *, npm_exit: int = 0, stamp: str = "absent"):
+    """``stamp``: absent | mismatch (the failed deploy's lock) | match (target's)."""
     app_dir = tmp_path / "app"
     frontend = app_dir / "frontend"
     frontend.mkdir(parents=True)
     (frontend / "package.json").write_text(json.dumps({"name": "fixture"}))
-    (frontend / "package-lock.json").write_text(json.dumps({"lockfileVersion": 3}))
+    (frontend / "package-lock.json").write_text(TARGET_LOCK, newline="\n")
+    node_modules = frontend / "node_modules"
+    node_modules.mkdir()
+    if stamp == "match":
+        (node_modules / STAMP).write_text(hashlib.sha256(TARGET_LOCK.encode()).hexdigest())
+    elif stamp == "mismatch":
+        (node_modules / STAMP).write_text(hashlib.sha256(b"failed deploy lock").hexdigest())
     _write_dist(frontend / ".next", "live-build-of-the-failed-deploy")
     state = tmp_path / "state"
     state.mkdir()
@@ -191,27 +205,49 @@ def _run_artifact_rollback(app_dir: Path, state: Path, archive: Path, bin_dir: P
 
 
 @requires_bash
-def test_saved_artifact_rollback_reinstalls_the_targets_locked_packages_first(tmp_path):
-    app_dir, state, archive, bin_dir, log, marker = _artifact_rollback_fixture(tmp_path)
+@pytest.mark.parametrize("stamp", ["absent", "mismatch"])
+def test_mismatched_install_is_reinstalled_before_staging(tmp_path, stamp):
+    app_dir, state, archive, bin_dir, log, marker = _artifact_rollback_fixture(
+        tmp_path, stamp=stamp
+    )
 
     result = _run_artifact_rollback(app_dir, state, archive, bin_dir)
 
     assert "FUNC_RC=0" in result.stdout, result.stdout + result.stderr
     calls = log.read_text().splitlines()
-    npm_ci = [i for i, line in enumerate(calls) if line.startswith("npm ci --prefix ")]
+    npm_ci = [i for i, line in enumerate(calls) if line.startswith("npm ci ")]
     stage = [i for i, line in enumerate(calls) if "scripts.stage_release_artifact" in line]
     assert npm_ci, (
-        "the saved .next was restored against the failed deploy's node_modules; "
-        f"no `npm ci` ran. Calls: {calls}"
+        "the saved .next was restored against node_modules that do not match the "
+        f"rollback target's lock; no `npm ci` ran. Calls: {calls}"
     )
-    assert calls[npm_ci[0]].endswith("/frontend")
+    assert "--prefer-offline" in calls[npm_ci[0]]
+    assert calls[npm_ci[0]].endswith("--prefix " + _bash_path(app_dir / "frontend"))
     assert stage and npm_ci[0] < stage[0], f"npm ci must precede staging: {calls}"
+    assert (app_dir / "frontend" / ".next" / "MARKER").read_text().strip() == marker
+    recorded = (app_dir / "frontend" / "node_modules" / STAMP).read_text().strip()
+    assert recorded == hashlib.sha256(TARGET_LOCK.encode()).hexdigest()
+
+
+@requires_bash
+def test_consistent_install_restores_without_npm(tmp_path):
+    """Stamp already matches the target lock: no npm, so no registry needed."""
+    app_dir, state, archive, bin_dir, log, marker = _artifact_rollback_fixture(
+        tmp_path, npm_exit=91, stamp="match"
+    )
+
+    result = _run_artifact_rollback(app_dir, state, archive, bin_dir)
+
+    assert "FUNC_RC=0" in result.stdout, result.stdout + result.stderr
+    assert not any(line.startswith("npm ") for line in log.read_text().splitlines())
     assert (app_dir / "frontend" / ".next" / "MARKER").read_text().strip() == marker
 
 
 @requires_bash
-def test_failed_rollback_install_does_not_swap_the_saved_artifact(tmp_path):
-    app_dir, state, archive, bin_dir, log, _ = _artifact_rollback_fixture(tmp_path, npm_exit=1)
+def test_impossible_reinstall_fails_before_the_live_next_is_touched(tmp_path):
+    app_dir, state, archive, bin_dir, log, _ = _artifact_rollback_fixture(
+        tmp_path, npm_exit=1, stamp="mismatch"
+    )
 
     result = _run_artifact_rollback(app_dir, state, archive, bin_dir)
 
@@ -219,6 +255,17 @@ def test_failed_rollback_install_does_not_swap_the_saved_artifact(tmp_path):
     assert "scripts.stage_release_artifact" not in log.read_text()
     live = (app_dir / "frontend" / ".next" / "MARKER").read_text().strip()
     assert live == "live-build-of-the-failed-deploy"
+    assert not (
+        app_dir / "frontend" / "node_modules" / STAMP
+    ).exists(), "a stale stamp survived a failed reinstall and would vouch for the wrong tree"
+
+
+def test_deploy_records_the_install_stamp_after_npm_ci():
+    body = DEPLOY_SH.read_text(encoding="utf-8")
+    install = body.index('npm ci --prefix "${APP_DIR}/frontend"')
+    stamp = body.index("${FRONTEND_INSTALL_STAMP}", install)
+    stage = body.index("python3 -m scripts.stage_release_artifact", install)
+    assert install < stamp < stage
 
 
 # ── B4 ───────────────────────────────────────────────────────────────

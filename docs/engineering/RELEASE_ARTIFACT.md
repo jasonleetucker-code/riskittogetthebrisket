@@ -45,11 +45,15 @@ with the validation job's output before transfer. On the VPS,
 Node major version, build ID and all frontend bytes before staging `.next.new`.
 `deploy/deploy.sh` installs frontend dependencies from `package-lock.json`
 with `npm ci`, then uses its existing atomic swap and probes. It archives a
-successful release under the deploy state directory. A saved-artifact rollback
-first runs `npm ci` for the rollback target's own `package-lock.json` (the
-failed forward deploy left its own packages installed), then restores the
-tested frontend bytes without rebuilding; historical revisions with no saved
-archive use the established rebuild path. Successful deploys retain
+successful release under the deploy state directory. Every artifact `npm ci`
+records the installed lock's SHA-256 inside `node_modules` (an install stamp
+that any later `npm ci` erases). A saved-artifact rollback restores the tested
+frontend bytes without rebuilding. When the stamp already matches the rollback
+target's `package-lock.json` it runs no npm at all, so it works with the
+registry unavailable; otherwise (the failed forward deploy installed its own
+packages, or the tree is unstamped) it runs `npm ci --prefer-offline` before
+staging and, if that is impossible, fails before the live `.next` is touched.
+Historical revisions with no saved archive use the established rebuild path. Successful deploys retain
 the eight newest complete archives plus the current and immediately previous
 revisions, leaving unknown/incomplete files for operator inspection.
 Before touching the live frontend, a same-revision redeploy checks any saved
