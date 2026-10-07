@@ -363,6 +363,45 @@ def _canonical_forecast(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return playoff_sim.canonical_forecast(snapshot)
 
 
+def _simulation_count(forecast: dict[str, Any]) -> int | None:
+    """The canonical forecast's simulation count, or ``None`` — the engine's
+    own reader, so both adapter surfaces agree on it."""
+    from src.ros.playoff_sim import simulation_count  # noqa: PLC0415
+
+    return simulation_count(forecast)
+
+
+def _why_not_simulated(n_sims: int | None, by_owner: dict[str, Any]) -> dict[str, str]:
+    """The exact reason a forecast with no ``unsimulable`` block still yields
+    no published probability — each state named, none folded into another."""
+    from src.ros.playoff_sim import SIM_COUNT_MISSING  # noqa: PLC0415
+
+    if n_sims is None:
+        return {
+            "reason": SIM_COUNT_MISSING,
+            "detail": (
+                "the playoff forecast does not say how many simulations it ran, so "
+                "its odds cannot be presented as a measurement. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
+    if n_sims == 0:
+        return {
+            "reason": "canonical_forecast_ran_no_simulations",
+            "detail": (
+                "the playoff forecast reports zero simulations, so there are no "
+                "odds to publish. This is not a 0% chance for anyone."
+            ),
+        }
+    return {
+        "reason": "canonical_forecast_has_no_team_rows",
+        "detail": (
+            f"the playoff forecast reports {n_sims} simulations but no team rows, "
+            "so no team's odds can be published. This is not a 0% chance for anyone."
+        ),
+    }
+
+
 def _probability(row: dict[str, Any] | None) -> float | None:
     value = (row or {}).get("playoffOdds")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -492,8 +531,8 @@ def compute_playoff_odds(
         for r in forecast.get("playoffOdds") or []
         if isinstance(r, dict) and r.get("ownerId")
     }
-    n_sims = forecast.get("n_simulations") or 0
-    simulated = bool(by_owner) and not unsimulable and n_sims > 0
+    n_sims = _simulation_count(forecast)
+    simulated = bool(by_owner) and not unsimulable and bool(n_sims)
 
     owners: list[dict[str, Any]] = []
     for o in owners_in_league:
@@ -505,7 +544,9 @@ def compute_playoff_odds(
 
     out: dict[str, Any] = {
         "season": season.season,
-        "numSims": n_sims if simulated else 0,
+        # The canonical run's own count: a real 0 when it refused, ``None``
+        # (reason in ``unsimulable``) when the forecast reported none.
+        "numSims": n_sims if (simulated or n_sims == 0) else None,
         "playoffSpots": spots,
         "weeksPlayed": len(played_weeks),
         "weeksRemaining": len(remaining_weeks),
@@ -522,13 +563,7 @@ def compute_playoff_odds(
     if unsimulable:
         out["unsimulable"] = unsimulable
     elif not simulated:
-        out["unsimulable"] = {
-            "reason": "canonical_forecast_empty",
-            "detail": (
-                "the playoff engine returned no odds for this league, so none are "
-                "published. This is not a 0% chance for anyone."
-            ),
-        }
+        out["unsimulable"] = _why_not_simulated(n_sims, by_owner)
     if forecast.get("computedAt") is not None:
         out["forecastComputedAt"] = forecast["computedAt"]
     if "cached" in forecast:

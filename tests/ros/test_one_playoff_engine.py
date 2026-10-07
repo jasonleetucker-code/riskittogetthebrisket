@@ -72,6 +72,7 @@ def _league(
     finished_weeks: int = 4,
     weeks: int = 14,
     playoff_teams: int = 7,
+    seed_type: int | None = 1,
     root: str = "LPARITY",
     generated_at: str = "2026-10-07T17:39:18+00:00",
     seed: int = 11,
@@ -99,6 +100,8 @@ def _league(
                 "last_scored_leg": finished_weeks,
                 "playoff_teams": playoff_teams,
                 "playoff_week_start": weeks + 1,
+                # dynasty_main's own value (re-seed); ``None`` omits it.
+                **({} if seed_type is None else {"playoff_seed_type": seed_type}),
             }
         },
         num_teams=n_teams,
@@ -448,7 +451,8 @@ def test_a_championship_field_the_forecast_lacks_is_missing_not_zero():
 
 # ── the canonical engine did not move ─────────────────────────────────
 
-#: ``simulate_playoff_odds`` on ``_league()`` with ``_STRENGTH``, seed 20261007,
+#: ``simulate_playoff_odds`` on ``_league()`` (re-seed, dynasty_main's
+#: ``playoff_seed_type: 1``; no recorded ties) with ``_STRENGTH``, seed 20261007,
 #: 3,000 simulations — computed by the engine as it stood on ``origin/main``
 #: BEFORE C5-PLAY-01 (``37ccfbb68``).  Recording bracket depth draws nothing
 #: from the RNG, so every published number must be byte-identical.
@@ -528,3 +532,191 @@ def test_adapter_surfaces_draw_no_randomness_and_seed_no_standings(rel):
                 }:
                     offenders.append(f"{rel}:{node.lineno} {fn.name} calls {name}")
     assert not offenders, "a second playoff simulator is back:\n" + "\n".join(offenders)
+
+
+# ── exact league rules (C5-PLAY-01 review B2 / B3) ────────────────────
+
+
+def _dists(means):
+    """Near-deterministic teams: ``means[i]`` is seed i+1's weekly mean."""
+    return {
+        f"s{i + 1}": playoff_sim._TeamDist(owner_id=f"s{i + 1}", mean=m, sd=0.01, pf_to_date=0)
+        for i, m in enumerate(means)
+    }
+
+
+#: Six teams, two byes.  Round one: 6 beats 3, 5 beats 4.  Then the
+#: pairings decide everything: 1 (100) beats 5 (60) and loses to 6 (200).
+_SIX = [100.0, 50.0, 10.0, 10.0, 60.0, 200.0]
+
+
+def test_a_fixed_bracket_pairs_one_with_the_four_five_winner():
+    """``playoff_seed_type: 0`` (dynasty_new): 1 vs winner(4/5) and 2 vs
+    winner(3/6) — the pairing Sleeper generated for that league in 2025 and
+    2026 — so seed 1 reaches the final and seeds 2 and 5 go out in the semis."""
+    dists = _dists(_SIX)
+    placements: dict = {}
+    champ = playoff_sim._simulate_bracket(
+        list(dists), dists, 2, random.Random(1), placements, reseed=False
+    )
+    semis_losers = sorted(o for o, p in placements.items() if p["place"] == 3)
+    assert champ == "s6"
+    assert semis_losers == ["s2", "s5"]
+    assert placements["s1"]["place"] == 2
+
+
+def test_a_reseeded_bracket_pairs_one_with_the_lowest_survivor():
+    """``playoff_seed_type: 1`` (dynasty_main): the same field re-seeds, so
+    seed 1 meets the lowest survivor (6) in the semis and goes out there."""
+    dists = _dists(_SIX)
+    placements: dict = {}
+    champ = playoff_sim._simulate_bracket(list(dists), dists, 2, random.Random(1), placements)
+    semis_losers = sorted(o for o, p in placements.items() if p["place"] == 3)
+    assert champ == "s6"
+    assert semis_losers == ["s1", "s2"]
+
+
+@pytest.mark.parametrize(
+    "slots,order", [(2, [1, 2]), (4, [1, 4, 2, 3]), (8, [1, 8, 4, 5, 2, 7, 3, 6])]
+)
+def test_the_fixed_bracket_order_is_the_standard_one(slots, order):
+    assert playoff_sim._bracket_order(slots) == order
+
+
+def test_a_fixed_five_team_bracket_matches_the_host():
+    """``dynasty_main`` 2025 (5 teams, fixed): Sleeper played 4 v 5 in round
+    one, then 1 vs that winner and 2 vs 3."""
+    dists = _dists([100.0, 50.0, 40.0, 10.0, 60.0])
+    placements: dict = {}
+    playoff_sim._simulate_bracket(list(dists), dists, 3, random.Random(1), placements, reseed=False)
+    # 5 beats 4; 1 beats 5; 2 beats 3; 1 beats 2.
+    assert {o: p["place"] for o, p in placements.items()} == {
+        "s1": 1,
+        "s2": 2,
+        "s3": 3,
+        "s5": 3,
+        "s4": 5,
+    }
+
+
+def test_the_fixed_bracket_reaches_the_published_forecast(engine):
+    """End to end: a ``playoff_seed_type: 0`` league is simulated on a fixed
+    bracket, and its payload says which rule it played."""
+    snap, owners = _league(n_teams=10, playoff_teams=6, seed_type=0)
+    _with_strength(engine, owners)
+    seen: list = []
+    real = playoff_sim._simulate_bracket
+
+    def _spy(*a, **k):
+        seen.append(k.get("reseed"))
+        return real(*a, **k)
+
+    with patch.object(playoff_sim, "_simulate_bracket", _spy):
+        out = playoff_sim.simulate_playoff_odds(snap, n_simulations=200, rng=random.Random(2))
+    assert set(seen) == {False}
+    assert out["playoffStructure"]["seedType"] == "fixed"
+    assert abs(sum(r["championshipOdds"] for r in out["playoffOdds"]) - 1.0) < 1e-6
+
+
+def test_an_unknown_seeding_rule_fails_closed_on_title_odds_only(engine):
+    """No ``playoff_seed_type``: the bracket cannot be played as the host
+    plays it.  Qualifying does not depend on pairings and is still
+    published; title / finals / semifinal / finish odds are missing — never
+    0 — and every surface says why."""
+    snap, owners = _league(seed_type=None)
+    _with_strength(engine, owners)
+    public, ros, champ = _served(snap)
+    reason = "league_settings_omit_playoff_seed_type"
+    assert ros["championshipUnavailable"]["reason"] == reason
+    assert all(isinstance(r["playoffOdds"], float) for r in ros["playoffOdds"])
+    for r in ros["playoffOdds"]:
+        for field in ("championshipOdds", "finalsOdds", "semifinalOdds", "expectedFinish"):
+            assert r[field] is None
+    assert champ["championshipUnavailable"]["reason"] == reason
+    for row in champ["championshipOdds"]:
+        assert row["championshipOdds"] is None and row["contenderTier"] is None
+        assert "championshipOdds" in row["unavailableFields"]
+    assert {o["ownerId"]: o["playoffProbability"] for o in public["owners"]} == {
+        r["ownerId"]: r["playoffOdds"] for r in ros["playoffOdds"]
+    }
+
+
+def test_a_recorded_tie_is_half_a_win_in_seeding_and_counted_once(engine, monkeypatch):
+    """B3.  ``a`` is 2-1-1 (2.5) and ``b`` is 2-2-0 (2.0) with MORE points:
+    the host seeds ``a`` ahead.  Seeding on wins alone put ``b`` ahead on
+    points; and the draft order, which used to add the half-win back on its
+    own, must not now count it twice (``finalWins`` is 2.5, not 3.0)."""
+    from src.public_league import draft_order
+
+    snap, owners = _league(n_teams=4, playoff_teams=2, seed_type=1)
+    a, b, c, d = owners
+    record = {
+        a: {"wins": 2, "losses": 1, "ties": 1, "pointsFor": 400.0},
+        b: {"wins": 2, "losses": 2, "ties": 0, "pointsFor": 500.0},
+        c: {"wins": 1, "losses": 3, "ties": 0, "pointsFor": 300.0},
+        d: {"wins": 0, "losses": 3, "ties": 1, "pointsFor": 250.0},
+    }
+    dists = {
+        o: playoff_sim._TeamDist(owner_id=o, mean=100.0, sd=10.0, pf_to_date=0, basis="empirical")
+        for o in owners
+    }
+    pf = {o: r["pointsFor"] for o, r in record.items()}
+    monkeypatch.setattr(playoff_sim, "_current_record", lambda *a_, **k: record)
+    monkeypatch.setattr(playoff_sim, "_remaining_schedule", lambda *a_, **k: [])
+    monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a_, **k: (dists, pf))
+    monkeypatch.setattr(
+        draft_order, "league_draft_order_rule", lambda *a_, **k: "reverse_record_lower_pf"
+    )
+    _with_strength(engine, owners)
+    out = playoff_sim.simulate_playoff_odds(snap, n_simulations=50, rng=random.Random(4))
+    rows = {r["ownerId"]: r for r in out["playoffOdds"]}
+    assert rows[a]["topSeedOdds"] == 1.0, "a recorded tie did not count as half a win"
+    assert rows[b]["topSeedOdds"] == 0.0
+    assert rows[a]["expectedWins"] == 2.5
+    assert rows[a]["finalWins"]["mean"] == 2.5, "the tie was counted twice on the draft path"
+    assert rows[d]["finalWins"]["mean"] == 0.5
+
+
+# ── B1: a missing count / odd is missing, in both adapters ────────────
+
+
+def test_a_missing_simulation_count_is_none_with_a_reason_not_zero(engine):
+    snap, owners = _league()
+    rows = [{"ownerId": o, "playoffOdds": 0.5, "championshipOdds": 0.1} for o in owners]
+    champ = championship.championship_from_forecast({"playoffOdds": rows})
+    assert champ["n_simulations"] is None
+    assert champ["nSimulationsUnavailable"] == playoff_sim.SIM_COUNT_MISSING
+    public = public_odds.compute_playoff_odds(snap, forecast={"playoffOdds": rows})
+    assert public["numSims"] is None and public["simulated"] is False
+    assert public["unsimulable"]["reason"] == playoff_sim.SIM_COUNT_MISSING
+    assert all(o["playoffProbability"] is None for o in public["owners"])
+
+
+@pytest.mark.parametrize(
+    "forecast,reason",
+    [
+        (
+            {"n_simulations": 0, "playoffOdds": [{"ownerId": "x", "playoffOdds": 0.4}]},
+            "canonical_forecast_ran_no_simulations",
+        ),
+        ({"n_simulations": 900, "playoffOdds": []}, "canonical_forecast_has_no_team_rows"),
+    ],
+)
+def test_each_non_simulated_state_has_its_own_reason(engine, forecast, reason):
+    snap, _ = _league()
+    out = public_odds.compute_playoff_odds(snap, forecast=forecast)
+    assert out["unsimulable"]["reason"] == reason
+
+
+def test_a_missing_title_odd_sorts_last_not_as_zero():
+    out = championship.championship_from_forecast(
+        {
+            "n_simulations": 10,
+            "playoffOdds": [
+                {"ownerId": "none", "playoffOdds": 0.9},
+                {"ownerId": "zero", "playoffOdds": 0.1, "championshipOdds": 0.0},
+                {"ownerId": "some", "playoffOdds": 0.5, "championshipOdds": 0.2},
+            ],
+        }
+    )
+    assert [r["ownerId"] for r in out["championshipOdds"]] == ["some", "zero", "none"]

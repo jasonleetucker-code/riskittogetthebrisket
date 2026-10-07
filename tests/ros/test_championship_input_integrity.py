@@ -88,6 +88,7 @@ def _league(
             "settings": {
                 "last_scored_leg": finished_weeks,
                 "playoff_teams": 4,
+                "playoff_seed_type": 1,
                 "playoff_week_start": weeks + 1,
             }
         },

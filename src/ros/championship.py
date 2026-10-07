@@ -66,6 +66,11 @@ _ROW_FIELDS = (
 )
 
 
+def _desc_missing_last(value: float | None) -> tuple[int, float]:
+    """Sort key: highest first, a missing value after every real one."""
+    return (1, 0.0) if value is None else (0, -value)
+
+
 def championship_from_forecast(forecast: dict[str, Any]) -> dict[str, Any]:
     """Reshape the ONE canonical forecast into this section's shape.
 
@@ -89,12 +94,17 @@ def championship_from_forecast(forecast: dict[str, Any]) -> dict[str, Any]:
         "rosStrengthAvailable": forecast.get("rosStrengthAvailable"),
         "engine": ENGINE,
     }
-    for key in ("computedAt", "cached", "season"):
+    for key in ("computedAt", "cached", "season", "championshipUnavailable"):
         if key in forecast:
             header[key] = forecast[key]
+    n_sims = playoff_sim.simulation_count(forecast)
+    if n_sims is None:
+        header["nSimulationsUnavailable"] = playoff_sim.SIM_COUNT_MISSING
     rows_in = forecast.get("playoffOdds") or []
     if forecast.get("unsimulable") or not rows_in:
-        out = {"championshipOdds": [], "n_simulations": 0, **header}
+        # The canonical engine's own count (its refusals publish 0) — or None
+        # with the reason above; never a substituted number.
+        out = {"championshipOdds": [], "n_simulations": n_sims, **header}
         if forecast.get("unsimulable"):
             out["unsimulable"] = forecast["unsimulable"]
         return out
@@ -119,10 +129,10 @@ def championship_from_forecast(forecast: dict[str, Any]) -> dict[str, Any]:
         if missing:
             row["unavailableFields"] = missing
         rows.append(row)
-    rows.sort(key=lambda r: -(r["championshipOdds"] or 0.0))
+    rows.sort(key=lambda r: _desc_missing_last(r["championshipOdds"]))
     return {
         "championshipOdds": rows,
-        "n_simulations": forecast.get("n_simulations") or 0,
+        "n_simulations": n_sims,
         **header,
     }
 

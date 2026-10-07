@@ -108,7 +108,7 @@ def test_the_week_start_survives_an_unknown_bracket():
 
 
 def _snapshot(playoff_teams=None):
-    settings = {"playoff_week_start": 15}
+    settings = {"playoff_week_start": 15, "playoff_seed_type": 1}
     if playoff_teams is not None:
         settings["playoff_teams"] = playoff_teams
     season = SimpleNamespace(
@@ -417,9 +417,9 @@ def test_the_championship_engine_receives_the_leagues_field_size(monkeypatch):
     seen: dict[str, int] = {}
     real = playoff_sim._simulate_bracket
 
-    def _spy(seeded, distributions, bye_seeds, rng, placements=None):
-        seen.update(playoff_seeds=len(seeded), bye_seeds=bye_seeds)
-        return real(seeded, distributions, bye_seeds, rng, placements)
+    def _spy(seeded, distributions, bye_seeds, rng, placements=None, *, reseed=True):
+        seen.update(playoff_seeds=len(seeded), bye_seeds=bye_seeds, reseed=reseed)
+        return real(seeded, distributions, bye_seeds, rng, placements, reseed=reseed)
 
     monkeypatch.setattr(playoff_sim, "_simulate_bracket", _spy)
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
@@ -435,7 +435,8 @@ def test_the_championship_engine_receives_the_leagues_field_size(monkeypatch):
     monkeypatch.setattr(playoff_sim, "_remaining_schedule", lambda *a, **k: [])
 
     out = championship.simulate_championship_odds(_snapshot(playoff_teams=7), n_simulations=5)
-    assert seen == {"playoff_seeds": 7, "bye_seeds": 1}
+    # ``playoff_seed_type: 1`` in the fixture — the league's re-seed rule.
+    assert seen == {"playoff_seeds": 7, "bye_seeds": 1, "reseed": True}
     assert (out["playoffSeeds"], out["byeSeeds"]) == (7, 1)
 
 
@@ -475,3 +476,36 @@ def test_no_bracket_function_sizes_its_field_from_a_literal():
         "a bracket field size is hardcoded again — take it from the "
         "resolved structure instead:\n" + "\n".join(offenders)
     )
+
+
+# ── Re-seed vs fixed bracket is READ (C5-PLAY-01 review B2) ──────────
+
+
+@pytest.mark.parametrize(
+    "raw,seed_type,reason",
+    [
+        (1, "reseed", ""),
+        (0, "fixed", ""),
+        ("0", "fixed", ""),
+        (None, None, "league_settings_omit_playoff_seed_type"),
+        (2, None, "playoff_seed_type_not_recognised"),
+        (True, None, "playoff_seed_type_not_recognised"),
+        ("x", None, "playoff_seed_type_not_recognised"),
+    ],
+)
+def test_the_seed_type_is_read_and_unknown_fails_closed(raw, seed_type, reason):
+    settings = {"playoff_teams": 6}
+    if raw is not None:
+        settings["playoff_seed_type"] = raw
+    got = resolve_playoff_structure(_season(**settings))
+    assert got.known, "qualifying does not depend on the seeding rule"
+    assert (got.seed_type, got.seed_type_reason) == (seed_type, reason)
+    assert got.bracket_known is (seed_type is not None)
+    assert got.to_dict()["seedType"] == seed_type
+
+
+def test_the_live_leagues_seeding_rules():
+    """Measured 2026-10-07: dynasty_main re-seeds, dynasty_new is fixed."""
+    main = resolve_playoff_structure(_season(playoff_teams=7, playoff_seed_type=1))
+    new = resolve_playoff_structure(_season(playoff_teams=6, playoff_seed_type=0))
+    assert (main.seed_type, new.seed_type) == ("reseed", "fixed")

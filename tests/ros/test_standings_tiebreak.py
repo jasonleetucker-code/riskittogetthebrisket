@@ -71,7 +71,13 @@ def _snapshot(playoff_teams: int):
     season = SimpleNamespace(
         season="2026",
         league_id="L1",
-        league={"settings": {"playoff_teams": playoff_teams, "playoff_week_start": 15}},
+        league={
+            "settings": {
+                "playoff_teams": playoff_teams,
+                "playoff_week_start": 15,
+                "playoff_seed_type": 1,
+            }
+        },
         rosters=[],
         matchups_by_week={},
         regular_season_weeks=[],

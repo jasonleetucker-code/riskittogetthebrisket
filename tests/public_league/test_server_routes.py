@@ -172,9 +172,8 @@ class PublicLeagueRouteTests(unittest.TestCase):
         """C5-PLAY-01. ``playoffOdds`` used to run a 10k-sim Monte Carlo of
         its own.  It is now the canonical forecast in the public shape, so it
         must agree with ``rosPlayoffOdds`` owner for owner, request after
-        request.  (It is still in ``_HEAVY_SECTION_KEYS``: ``server.py`` is
-        under an open work claim, so taking it out of the per-snapshot memo
-        is a recorded follow-up — see the C5-PLAY-01 PR.)
+        request — and it is no longer memoized per snapshot, which would pin
+        it to an older forecast than the ROS file ``rosPlayoffOdds`` reads.
         """
         from unittest.mock import patch
 
@@ -202,7 +201,7 @@ class PublicLeagueRouteTests(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-        server._heavy_section_cache.clear()
+        self.assertNotIn("playoffOdds", server._HEAVY_SECTION_KEYS)
         r1 = self.client.get("/api/public/league/playoffOdds")
         r2 = self.client.get("/api/public/league/playoffOdds")
         ros = self.client.get("/api/public/league/rosPlayoffOdds")
@@ -211,10 +210,10 @@ class PublicLeagueRouteTests(unittest.TestCase):
         self.assertEqual(r1.json()["data"], r2.json()["data"])
         public = {o["ownerId"]: o["playoffProbability"] for o in r1.json()["data"]["owners"]}
         canonical = {r["ownerId"]: r["playoffOdds"] for r in ros.json()["data"]["playoffOdds"]}
-        if canonical:
-            self.assertEqual(public, canonical)
-        else:
-            self.assertTrue(all(v is None for v in public.values()), public)
+        # Agreement on REAL numbers: an all-None pair would agree trivially.
+        self.assertTrue(canonical, "the canonical forecast published no rows")
+        self.assertTrue(all(isinstance(v, float) for v in canonical.values()), canonical)
+        self.assertEqual(public, canonical)
 
     def test_archives_section_is_single_flight_cached(self) -> None:
         """archives must be memoized per snapshot, same as playoffOdds.
@@ -302,13 +301,14 @@ class PublicLeagueRouteTests(unittest.TestCase):
 
     def test_only_snapshot_pure_sections_are_cached(self) -> None:
         """Only purely snapshot-derived sections are memoized by snapshot
-        identity: ``playoffOdds``, ``archives`` and ``awards``.  The
-        file-backed ROS sections are intentionally NOT cached — caching
-        them by snapshot identity would hide fresh results the ROS
-        publisher writes between snapshot refreshes."""
+        identity: ``archives`` and ``awards``.  The file-backed playoff
+        sections — since C5-PLAY-01 that includes ``playoffOdds`` — are
+        intentionally NOT cached: caching them by snapshot identity would
+        hide fresh results the ROS publisher writes between snapshot
+        refreshes, and would let two of them disagree."""
         import server
 
-        self.assertIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertNotIn("playoffOdds", server._HEAVY_SECTION_KEYS)
         self.assertIn("archives", server._HEAVY_SECTION_KEYS)
         self.assertIn("awards", server._HEAVY_SECTION_KEYS)
         # File-backed ROS sims read their artifact fresh each request.
