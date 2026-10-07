@@ -58,9 +58,17 @@ jobs:
           # 30s: a cold /api/public/league snapshot takes longer than 15s
           # even with the threadpool fix; the hourly warmup keeps it warm in
           # steady state but the preflight must not flap on the cold case.
-          code=$(curl --silent --show-error --max-time 30 \
+          # --compressed: the snapshot is ~2.5 MB as identity and ~0.24 MB gzipped.
+          # Runner->box throughput is the bottleneck (2026-10-07: 327 KB in 30 s from
+          # a runner vs 1.3 s for the full body from elsewhere), so an uncompressed
+          # liveness probe timed out against a healthy site. On a curl failure keep
+          # ONLY the fallback code: `$(curl -w ... || echo 000)` printed "HTTP 200000"
+          # (curl had already written 200 before timing out mid-body).
+          if ! code=$(curl --silent --show-error --compressed --max-time 60 \
             --output /dev/null --write-out '%{http_code}' \
-            "${URL}/api/public/league" || echo 000)
+            "${URL}/api/public/league"); then
+            code=000
+          fi
           if [[ "${code}" != "200" ]]; then
             echo "::error title=Prod unreachable::${URL}/api/public/league returned HTTP ${code}"
             exit 1

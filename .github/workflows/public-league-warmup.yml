@@ -133,7 +133,7 @@ jobs:
           for attempt in 1 2 3; do
             code="$(curl --silent --show-error --globoff --max-time "${BUDGET}" \
               --output "${body_file}" --write-out '%{http_code}' \
-              "${TARGET}" || echo 000)"
+              "${TARGET}")" || code=000
             size=$(wc -c < "${body_file}" 2>/dev/null || echo 0)
             echo "attempt ${attempt}: status=${code} size=${size}"
             [[ "${code}" == "200" ]] && break
