@@ -1134,6 +1134,18 @@ async def auto_slates(request: Request):
         )
     if platform is not None and platform not in ("draftkings", "fanduel"):
         return _err("INVALID_QUERY", "platform must be draftkings or fanduel.", 400)
+    if not auto_live.sport_approved(sport):
+        from src.dfs.auto import approval
+
+        return _ok(
+            {
+                "sport": sport,
+                "state": "AWAITING_APPROVAL",
+                "slates": [],
+                "reason": approval.awaiting_reason(sport),
+                "pendingDecision": approval.sport_status(sport),
+            }
+        )
     refresh_job = None
     if await run_in_threadpool(auto_refresh.is_due, sport):
         try:
@@ -1168,6 +1180,10 @@ async def auto_slate_select(request: Request):
     row = await run_in_threadpool(auto_refresh.get_row, str(body.get("autoSlateId") or ""))
     if row is None:
         return _err("NOT_FOUND", "No such automatic slate.", 404)
+    if not auto_live.sport_approved(row["sport"]):
+        from src.dfs.auto import approval
+
+        return _err("AWAITING_OWNER_APPROVAL", approval.awaiting_reason(row["sport"]), 409)
     src_snap = await run_in_threadpool(store.get_snapshot, SYSTEM_OWNER, row["snapshotId"])
     if src_snap is None:
         return _err("NOT_FOUND", "The automatic slate's data is missing; refresh again.", 404)

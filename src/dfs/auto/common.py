@@ -28,8 +28,11 @@ class PoolReport:
     withheld_for_status: list[str] = field(default_factory=list)
     disagreements: int = 0
     notes: list[str] = field(default_factory=list)
+    #: Every refusal counted by reason (uncapped; ``rejected`` keeps a sample).
+    rejected_by_reason: dict[str, int] = field(default_factory=dict)
 
     def reject(self, row: Mapping[str, Any], reason: str) -> None:
+        self.rejected_by_reason[reason] = self.rejected_by_reason.get(reason, 0) + 1
         if len(self.rejected) < 200:
             self.rejected.append(
                 {"name": str(row.get("name") or "")[:60], "team": row.get("team"), "reason": reason}
@@ -40,6 +43,7 @@ class PoolReport:
             "rowsRead": self.rows_read,
             "rowsUsed": self.used,
             "rejected": self.rejected,
+            "rejectedByReason": dict(sorted(self.rejected_by_reason.items())),
             "identity": dict(sorted(self.identity.items())),
             "quarantinedIdentity": self.quarantined_identity[:50],
             "projectionFamilies": dict(sorted(self.families.items())),

@@ -57,6 +57,38 @@ describe("AutoSlates — daily sports (DFS-AUTO-19)", () => {
     expect(screen.getByText(/Daily Fantasy Fuel lists/)).toBeInTheDocument();
   });
 
+  it("shows a source error as an error, never as an off day", async () => {
+    fetch.mockImplementation(async () =>
+      jsonResponse(200, {
+        sport: "nhl",
+        state: "SOURCE_ERROR",
+        slates: [],
+        reason: "Daily Fantasy Fuel listed 22 NHL players for a day with 3 scheduled games, but none matched the schedule (team_unknown_for_sport x11). This is a data error, not an off day.",
+      }),
+    );
+    render(<AutoSlates sport="nhl" platform="draftkings" selectedHash={null} onSelected={() => {}} />);
+    expect(await screen.findByText("Automatic slates: source error")).toBeInTheDocument();
+    expect(screen.getByText(/not an off day/)).toBeInTheDocument();
+  });
+
+  it("says NBA/NHL await owner approval of the schedule source", async () => {
+    const calls = [];
+    fetch.mockImplementation(async (url) => {
+      calls.push(String(url));
+      return jsonResponse(200, {
+        sport: "nba",
+        state: "AWAITING_APPROVAL",
+        slates: [],
+        reason: "Automatic NBA slates are built and waiting for the owner to approve their schedule source.",
+      });
+    });
+    const onSelected = vi.fn();
+    render(<AutoSlates sport="nba" platform="fanduel" selectedHash={null} onSelected={onSelected} />);
+    expect(await screen.findByText("Awaiting owner approval of the schedule source")).toBeInTheDocument();
+    expect(onSelected).not.toHaveBeenCalled();
+    expect(calls.some((u) => u.endsWith("/auto/slates/select"))).toBe(false);
+  });
+
   it("says plainly when a sport has no automatic path", async () => {
     fetch.mockImplementation(async () =>
       jsonResponse(200, {

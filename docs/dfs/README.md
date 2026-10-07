@@ -24,7 +24,7 @@ not a second backlog.
 | Contests: editor, payout-ladder validation, exact tie payouts, rake/overlay states, hard entry cap, versioned saves (branch `claude/dfs-contests`) | implemented + tested | `src/dfs/contests.py`, `frontend/components/dfs/ContestPanel.jsx` |
 | Strategy presets (H2H … 150-max, single-game) — objectives + required models, all `unsupported` until P4 | registered | `config/dfs/presets.json` |
 | Canonical slate model + platform-file auto-detection (platform · sport · format), wrong-platform refusal, eligibility + salary-cap cross-checks, per-class freshness (branch `claude/dfs-contests`) | implemented + tested | `src/dfs/slate.py` |
-| Automatic slates (zero upload): NFL weekly windows (#1561) and NBA + NHL listed daily slates, DK + FD; sport-aware athlete identity (`src/identity/athletes.py`) | implemented + tested; rule sets / scoring **unverified**; production unobserved | `src/dfs/auto/`, ADR-DFS-024/025 |
+| Automatic slates (zero upload): NFL weekly windows (#1561) and NBA + NHL listed daily slates, DK + FD; sport-aware athlete identity (`src/identity/athletes.py`) | implemented + tested; NBA/NHL **await owner approval** of their schedule source (`config/dfs/auto_sources.json`); rule sets / scoring **unverified**; production unobserved | `src/dfs/auto/`, ADR-DFS-024/025 |
 | Licensed slate feed: SportsDataIO `DfsSlatesByDate` adapter (flag `dfs_sportsdataio_slates`, OFF; no key) + provider capability / cost matrix | documented, **not verified** | `src/dfs/providers.py`, `config/dfs/providers.json` |
 | Source seed registry — all 74 + 6 + 29 supplied names | registered, all `unverified` | `config/dfs/source_seeds.json` |
 

@@ -212,29 +212,47 @@ def list_slates(
         "asOf": _iso(now),
     }
     if not slates:
-        reason = _nothing_built_reason(sport, runs)
+        state, reason = _nothing_built(sport, runs)
+        out["state"] = state
         if reason:
             out["reason"] = reason
     return out
 
 
-def _nothing_built_reason(sport: str, runs: Mapping[str, Any]) -> str | None:
-    """Why a sport has no slate, in words, from the last runs (None = no run yet)."""
-    outcomes = {(r or {}).get("outcome") for r in runs.values() if r}
-    if not outcomes:
-        return None
+def _nothing_built(sport: str, runs: Mapping[str, Any]) -> tuple[str, str | None]:
+    """The list state + why a sport has no slate, in words, from the last runs.
+
+    A failed source — including listed rows that matched none of the day's
+    scheduled games — is ``SOURCE_ERROR``, never "an off day".  Only a run that
+    found nothing to build is ``UNAVAILABLE`` with the off-day wording."""
+    last = [r for r in runs.values() if r]
+    if not last:
+        return "UNAVAILABLE", None
     label = sport.upper()
-    if outcomes == {"unavailable"}:
-        return (
-            f"No {label} slate is listed right now (an off day, the offseason or preseason). "
-            "Checked again hourly; the platform file still works under Advanced."
-        )
-    if "source_error" in outcomes:
-        return (
+    errors = [r for r in last if r.get("outcome") == "source_error"]
+    if errors:
+        unmatched = [
+            r for r in errors if (r.get("detail") or {}).get("error") == "listed_rows_unmatched"
+        ]
+        if unmatched:
+            d = unmatched[0]["detail"]
+            reasons = ", ".join(f"{k} x{v}" for k, v in (d.get("rejectedByReason") or {}).items())
+            return "SOURCE_ERROR", (
+                f"Daily Fantasy Fuel listed {d.get('rowsListed')} {label} players for a day with "
+                f"{d.get('scheduledGames')} scheduled games, but none matched the schedule "
+                f"({reasons}). This is a data error, not an off day; it retries within 10 "
+                "minutes. The platform file still works under Advanced."
+            )
+        return "SOURCE_ERROR", (
             f"The last {label} refresh could not reach a source; it retries within 10 minutes. "
             "The platform file still works under Advanced."
         )
-    return None
+    if all(r.get("outcome") == "unavailable" for r in last):
+        return "UNAVAILABLE", (
+            f"No {label} slate is listed right now (an off day, the offseason or preseason). "
+            "Checked again hourly; the platform file still works under Advanced."
+        )
+    return "UNAVAILABLE", None
 
 
 def _period_date(period: Any) -> str | None:
@@ -547,6 +565,17 @@ def _daily_sources(
     }
 
 
+def _unmatched_detail(rows: list[Any], games: list[Any], report: Any) -> dict[str, Any]:
+    return {
+        "stage": "pool",
+        "error": "listed_rows_unmatched",
+        "rowsListed": len(rows),
+        "scheduledGames": len(games),
+        "rejectedByReason": dict(sorted(report.rejected_by_reason.items())),
+        "sample": report.rejected[:5],
+    }
+
+
 def refresh_daily(
     sport: str,
     *,
@@ -595,13 +624,24 @@ def refresh_daily(
             continue
         pool, report = daily.build_pool(sport, platform, rows, games)
         if not pool:
-            # Every listed row was refused (e.g. a preseason page: those games are
-            # not on the regular-season schedule) — nothing to build, not a crash.
-            detail = {"stage": "pool", "reason": "no_listed_game_on_schedule"}
-            done(platform, "unavailable", {**detail, "report": report.to_dict()})
+            if games:
+                # The schedule HAS games on the listed day(s) and still nothing
+                # matched: a mapping / source defect (e.g. team-code drift), never
+                # an off day.  Named, counted, and surfaced as an error.
+                done(platform, "source_error", _unmatched_detail(rows, games, report))
+            else:
+                # No regular-season game on the listed day(s) (a preseason page):
+                # nothing to build, not a defect.
+                detail = {"stage": "pool", "reason": "no_scheduled_game_on_listed_day"}
+                done(platform, "unavailable", {**detail, "report": report.to_dict()})
             continue
         sources = _daily_sources(at, page, sched_meta)
         degraded = ["schedule_partial"] if sched_errors else []
+        unmapped = report.rejected_by_reason.get("team_unknown_for_sport", 0)
+        if unmapped:
+            # Some listed rows carry a team code the sport's table does not know:
+            # the slate may be missing whole games, so it says so (DEGRADED).
+            degraded.append(f"listed_rows_unmatched:team_unknown_for_sport={unmapped}")
         built: dict[str, str] = {}
         for day, slate_games in daily.slates(pool, games):
             that_day = sum(1 for g in games if g.date_et == day)

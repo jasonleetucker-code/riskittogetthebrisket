@@ -454,12 +454,26 @@ untouched) and an `athleteKey`.
 * **Start times / lock** from the ESPN public scoreboard (`src/dfs/auto/league_schedule.py`). ESPN is
   already an owner-attested Calculator provider (`docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`)
   whose scoreboard is read for NFL; reading the same endpoint family for NBA/NHL schedules is
-  recorded here as an **expansion of that integration**, as that record requires. It is not a new
-  provider, not a DK/FD endpoint, unauthenticated and free. Paced: 30-minute cache, descriptive UA,
-  bounded timeout + size, shared circuit breaker, no retry loop. Rollback: the `dfs_auto_slates`
-  flag (no new flag; the registry is the only gate).
+  recorded here as an **expansion of that integration**. It is not a new provider, not a DK/FD
+  endpoint, unauthenticated and free. Paced: 30-minute cache, descriptive UA, bounded timeout +
+  size, shared circuit breaker, no retry loop.
+* **Owner gate (review of #1695).** That record requires a new owner decision for a use
+  "materially outside the intended integration", which this plausibly is. So NBA/NHL are gated
+  per sport on a recorded decision in `config/dfs/auto_sources.json` (`src/dfs/auto/approval.py`):
+  approved only with `approval: "approved"` + `approvedOn` + `evidence`, otherwise fail closed —
+  nothing is fetched or built, and `/dfs` shows "awaiting owner approval of the schedule source"
+  (`AWAITING_APPROVAL`; selecting a stored NBA/NHL slate answers 409 `AWAITING_OWNER_APPROVAL`).
+  The pending decision is cross-referenced in the access-evidence record. NFL never reads it. An
+  approval RECORD rather than a new feature flag: the decision is evidence the owner records (like
+  `source_seeds.json` access states), and a new registry flag would also force flag-count edits in
+  `README.md` / `docs/ARCHITECTURE.md`, which an open work claim holds. Rollout lever for all
+  automatic slates stays `dfs_auto_slates`.
 * Every listed row must match a scheduled game that Eastern day (team, opponent, home/away); a
-  row that does not is refused with a reason. Preseason, postponed, invalid-time and unknown-team
+  row that does not is refused with a reason (counted per reason). If the day HAS scheduled games
+  and no row matches (e.g. team-code drift — DFF writing "PGH"), that is `SOURCE_ERROR`
+  (`listed_rows_unmatched`, with counts and a sample), shown as an error in `/dfs` — never "off
+  day"; partial drift builds the slate but marks it DEGRADED. Only a day with no scheduled
+  regular-season game is `unavailable`. Preseason, postponed, invalid-time and unknown-team
   events are dropped; nothing is timed by a guess. Fewer than two games is not a classic slate.
 * **Projection**: one family (DFF). No second permitted NBA/NHL projection source is connected, so
   there is no ensemble; a 0.0 line is excluded (not a forecast of 0); DFF `O`/`IR`/`SUSP`… withheld.

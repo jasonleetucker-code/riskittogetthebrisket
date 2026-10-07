@@ -109,6 +109,16 @@ def enabled() -> bool:
         return False
 
 
+def sport_approved(sport: str) -> bool:
+    """NBA / NHL automatic slates need the owner's recorded approval of their
+    schedule source (``config/dfs/auto_sources.json``); NFL does not read it."""
+    if sport == "nfl":
+        return True
+    from src.dfs.auto import approval
+
+    return approval.sport_status(sport)["approved"]
+
+
 def refresh_nfl_live(force: bool = False) -> dict[str, Any]:
     from src.dfs.auto import refresh
 
@@ -136,6 +146,10 @@ def refresh_live(sport: str, force: bool = False) -> dict[str, Any]:
             "sport": sport,
             "reason": "feature flag dfs_auto_slates is off",
         }
+    if not sport_approved(sport):
+        # Built and ready, but the schedule source awaits the owner's decision
+        # (ADR-DFS-025): nothing is fetched, nothing is built.
+        return {"outcome": "awaiting_approval", "sport": sport, "reason": "schedule_source_pending"}
     return refresh.refresh_daily(
         sport, get_dff=get_daily_dff, get_schedule=get_daily_schedule, force=force
     )

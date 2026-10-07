@@ -126,8 +126,8 @@ endpoints bar it).
 |---|---|---|---|---|
 | NFL schedule, kickoff, lock | nflverse (`nfl_data.ingest`) | ALREADY AVAILABLE | yes | per-season file 404s, the combined `games.csv` rung answers (pre-existing `url_stale` warning) |
 | NFL DK/FD pool, salary, position | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | yes | week pool; slate windows derived; no platform ids |
-| NBA/NHL DK/FD pool, salary, position(s) | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | yes (DFS-AUTO-19, 2026-10-07) | the one dated slate each page lists; robots re-checked 2026-10-07 (`/lineup/*` only) |
-| NBA/NHL schedule, start time, lock | ESPN public scoreboard (`src/dfs/auto/league_schedule.py`) | ALREADY AVAILABLE (expansion of the owner-attested ESPN integration, ADR-DFS-025) | yes | no key; 30-min cache; preseason / postponed / invalid-time events dropped |
+| NBA/NHL DK/FD pool, salary, position(s) | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | built (DFS-AUTO-19); waits on the schedule-source decision | the one dated slate each page lists; robots re-checked 2026-10-07 (`/lineup/*` only) |
+| NBA/NHL schedule, start time, lock | ESPN public scoreboard (`src/dfs/auto/league_schedule.py`) | PENDING OWNER DECISION (possible expansion of the owner-attested ESPN integration; ADR-DFS-025, `config/dfs/auto_sources.json`) | built, gated off | no key; 30-min cache; preseason / postponed / invalid-time events dropped |
 | NHL projected lines (EV / PP), goalie starter flag | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | evidence only | carried on the athlete; not yet a stack constraint or correlation input |
 | NBA/NHL player directory (cross-provider identity) | — | UNKNOWN | no | athletes are provider-scoped (`athlete:<sport>:dailyfantasyfuel:<id>`, DFS-§9-03) |
 | NBA/NHL second projection family | — | UNKNOWN / PAID | no | DFF is the only family; no ensemble |

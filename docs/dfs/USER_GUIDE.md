@@ -18,7 +18,10 @@ Open **DFS → DFS Workspace** (`/dfs`). Sign-in required.
    ruled Out / IR are left unprojected so no lineup can include them; nobody is ever scored 0 for
    missing data. **One limit:** automatic slates use our own player IDs, so they build, simulate and
    late-swap normally but cannot produce a DraftKings / FanDuel upload file.
-   **NBA and NHL** work the same way with one difference: each platform's slate is the dated
+   **NBA and NHL** are built but wait for your approval of their schedule source (ESPN's public
+   scoreboard — see `config/dfs/auto_sources.json`); until then the panel says "awaiting owner
+   approval of the schedule source" and the platform file under *Advanced* is the path. Once
+   approved they work the same way with one difference: each platform's slate is the dated
    slate Daily Fantasy Fuel lists (usually that night's main slate), timed from the league
    schedule — other same-day slates are not available to us. NHL slates also carry each skater's
    projected line and power-play unit, and say how many goalies are not yet confirmed starters

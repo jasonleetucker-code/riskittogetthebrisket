@@ -359,7 +359,49 @@ def test_an_empty_or_preseason_page_is_unavailable_and_backs_off():
 
     out = run("nhl", get_schedule=preseason)
     assert out["outcome"] == "unavailable"
-    assert out["platforms"]["draftkings"]["reason"] == "no_listed_game_on_schedule"
+    assert out["platforms"]["draftkings"]["reason"] == "no_scheduled_game_on_listed_day"
+
+
+def _pgh(html):
+    """DFF team-code drift: Pittsburgh written "PGH", which the NHL table does not know."""
+    return html.replace('data-team="PIT"', 'data-team="PGH"').replace(
+        'data-opp="PIT"', 'data-opp="PGH"'
+    )
+
+
+def test_listed_rows_matching_no_scheduled_game_are_a_source_error_not_an_off_day():
+    """Review blocker on #1695 (PGH repro): the schedule HAS games that day, every
+    listed row is refused, and that must read as a data error — never 'off day'."""
+    rows = ["<tr" + r for r in pool_html("nhl", "draftkings").split("<tr")[1:]]
+    pit_wsh = "".join(r for r in rows if 'data-team="PIT"' in r or 'data-team="WSH"' in r)
+    out = run("nhl", get_dff=lambda s, p: dff_page(s, p, _pgh(pit_wsh)))
+    assert out["outcome"] == "source_error"
+    dk = out["platforms"]["draftkings"]
+    assert dk["outcome"] == "source_error" and dk["error"] == "listed_rows_unmatched"
+    assert dk["scheduledGames"] == 3 and dk["rowsListed"] == 22
+    # PGH rows: unknown code; WSH rows: their opponent "PGH" contradicts the schedule.
+    assert dk["rejectedByReason"] == {
+        "opponent_disagrees_with_schedule": 11,
+        "team_unknown_for_sport": 11,
+    }
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert listing["state"] == "SOURCE_ERROR"
+    assert (
+        "not an off day" in listing["reason"] and "off day, the offseason" not in listing["reason"]
+    )
+    # A failure retries on the short cadence, not the one-hour off-day backoff.
+    assert refresh.is_due("nhl", NHL_NOW + timedelta(minutes=11))
+
+
+def test_partial_team_code_drift_builds_but_marks_the_slate_degraded():
+    out = run("nhl", get_dff=lambda s, p: dff_page(s, p, _pgh(pool_html(s, p))))
+    assert out["outcome"] == "ok"
+    s = next(
+        x for x in refresh.list_slates("nhl", now=NHL_NOW)["slates"]
+        if x["platform"] == "draftkings"
+    )  # fmt: skip
+    assert s["freshness"]["state"] == "DEGRADED"
+    assert "listed_rows_unmatched:team_unknown_for_sport=11" in s["freshness"]["degraded"]
 
 
 def test_a_single_listed_game_is_not_a_classic_slate():
@@ -413,3 +455,52 @@ def test_the_timer_script_exit_codes():
     assert mod.exit_code({"nfl": {"outcome": "not_due"}, "nba": {"outcome": "unavailable"}}) == 2
     assert mod.exit_code({"nfl": {"outcome": "ok"}, "nhl": {"outcome": "not_due"}}) == 0
     assert mod.exit_code({"nfl": {"outcome": "ok"}, "nhl": {"outcome": "partial"}}) == 1
+    assert (
+        mod.exit_code({"nfl": {"outcome": "not_due"}, "nba": {"outcome": "awaiting_approval"}}) == 2
+    )
+
+
+# ── owner approval of the NBA / NHL schedule source (ADR-DFS-025) ────────
+
+
+def _approval_file(tmp_path, **entry):
+    p = tmp_path / "auto_sources.json"
+    p.write_text(json.dumps({"sports": {"nba": entry, "nhl": entry}}), encoding="utf-8")
+    return p
+
+
+def test_nba_nhl_are_pending_owner_approval_today_and_fail_closed(tmp_path):
+    from src.dfs.auto import approval
+
+    for sport in ("nba", "nhl"):
+        st = approval.sport_status(sport)
+        assert st["approved"] is False and st["approval"] == "pending_owner_decision"
+        assert st["decisionRecord"] == "docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md"
+    # "approved" without a date and evidence is NOT approved.
+    bare = _approval_file(tmp_path, approval="approved")
+    assert approval.sport_status("nba", bare)["approved"] is False
+    assert approval.sport_status("nba", bare)["approval"] == "approved_without_evidence"
+    ok = _approval_file(
+        tmp_path, approval="approved", approvedOn="2026-10-08", evidence="owner chat 2026-10-08"
+    )
+    assert approval.sport_status("nhl", ok)["approved"] is True
+    assert approval.sport_status("nhl", tmp_path / "missing.json")["approved"] is False
+    assert approval.sport_status("mma", ok)["approved"] is False
+
+
+def test_pending_approval_fetches_and_builds_nothing(monkeypatch):
+    from src.dfs.auto import live
+
+    def never(*a, **k):
+        raise AssertionError("no source may be fetched while approval is pending")
+
+    monkeypatch.setattr(live, "get_daily_dff", never)
+    monkeypatch.setattr(live, "get_daily_schedule", never)
+    for sport in ("nba", "nhl"):
+        out = live.refresh_live(sport, force=True)
+        assert out == {
+            "outcome": "awaiting_approval",
+            "sport": sport,
+            "reason": "schedule_source_pending",
+        }
+    assert live.sport_approved("nfl") is True  # NFL never reads the approval record

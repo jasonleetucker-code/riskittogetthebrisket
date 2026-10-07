@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 
 import pytest
@@ -114,15 +115,33 @@ def test_flag_off_switches_the_automatic_path_off_and_leaves_manual_import(clien
     assert client.get("/api/dfs/capabilities", headers=H).status_code == 200
 
 
-def test_nhl_slate_opens_and_builds_through_the_same_endpoints(client, monkeypatch):
+def test_nhl_slate_opens_and_builds_through_the_same_endpoints(
+    client, monkeypatch, tmp_path_factory
+):
     """DFS-AUTO-19: a daily sport uses the SAME list / select / build path as NFL."""
     from tests.dfs import test_auto_daily as daily_fx
 
+    from src.dfs.auto import approval
+
     monkeypatch.setattr(refresh, "_now", lambda: daily_fx.NHL_NOW + timedelta(minutes=5))
+    # Today the schedule source awaits the owner: nothing queued, nothing selectable.
+    waiting = client.get("/api/dfs/auto/slates?sport=nhl&platform=draftkings", headers=H).json()
+    assert waiting["state"] == "AWAITING_APPROVAL" and waiting["slates"] == []
+    assert "approve" in waiting["reason"] and "off day" not in waiting["reason"]
+    assert client.submitted == []
+    daily_fx.run("nhl")  # (built directly, as an approved refresh would)
+    pending_id = "draftkings:nhl:2026:d20261007:listed"
+    r = client.post("/api/dfs/auto/slates/select", json={"autoSlateId": pending_id}, headers=H)
+    assert r.status_code == 409 and r.json()["error"] == "AWAITING_OWNER_APPROVAL"
+    # Owner approves (recorded with date + evidence) → the same endpoints serve it.
+    approved = tmp_path_factory.mktemp("approval") / "auto_sources.json"
+    entry = {"approval": "approved", "approvedOn": "2026-10-08", "evidence": "test"}
+    approved.write_text(json.dumps({"sports": {"nhl": entry}}), encoding="utf-8")
+    monkeypatch.setattr(approval, "PATH", approved)
+    monkeypatch.setattr(refresh, "_now", lambda: daily_fx.NHL_NOW + timedelta(hours=3))
     first = client.get("/api/dfs/auto/slates?sport=nhl&platform=draftkings", headers=H).json()
-    assert first["state"] == "UNAVAILABLE" and first["refreshQueued"] == "queued"
+    assert first["state"] == "AVAILABLE" and first["refreshQueued"] == "queued"
     assert client.params_seen[-1] == {"sport": "nhl"}  # the job refreshes THIS sport
-    daily_fx.run("nhl")
     listing = client.get("/api/dfs/auto/slates?sport=nhl&platform=draftkings", headers=H).json()
     assert listing["state"] == "AVAILABLE" and listing["sport"] == "nhl"
     (slate,) = listing["slates"]
