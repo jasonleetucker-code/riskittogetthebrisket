@@ -33,6 +33,8 @@ LEARNING_MODULES = (
     "src/model_registry/receipt_store.py",
     "src/model_registry/learning_adapters.py",
     "src/model_registry/producer_receipts.py",
+    "src/model_registry/game_day_calibration.py",
+    "src/model_registry/projection_scorecard.py",
 )
 
 #: module -> names it may import (None = the module is learning-internal).
@@ -49,12 +51,29 @@ ALLOWED_SRC_IMPORTS: dict[str, frozenset[str] | None] = {
     "src.history.store": frozenset({"has_time_component"}),
     "src.model_registry.training_run": frozenset({"pins_hash"}),
     "src.source_quality.panel": frozenset({"day_end"}),
+    # AL-4a / AL-3b scorecards READ the projection, realized-points and metric
+    # owners; they write nothing (rule 2 below still applies to them).
+    "src.bdvm.backtest": frozenset({"brier"}),
+    "src.bdvm.projections": frozenset({"ProjectionRecord"}),
+    "src.dfs.metrics": frozenset({"SMALL_SAMPLE", "point_forecast"}),
+    "src.nfl_data.realized_points": frozenset({"compute_weekly_points", "host_stat_line"}),
+    "src.ros.projection_ensemble": frozenset(
+        {"_DEFAULT_ROS_FULL_SEASON_SOURCES", "combine_ensemble"}
+    ),
+    "src.ros.projection_observations": frozenset(
+        {"ProjectionObservationError", "rescore_projection_record"}
+    ),
+    "src.ros.sleeper_weekly_projections": frozenset(
+        {"WeeklyProjectionError", "build_weekly_observations", "lock_baseline_at_kickoff"}
+    ),
     "src.model_registry.learning_receipt": None,
     "src.model_registry.evaluation_receipt": None,
     "src.model_registry.feature_dictionary": None,
     "src.model_registry.receipt_store": None,
     "src.model_registry.learning_adapters": None,
     "src.model_registry.producer_receipts": None,
+    "src.model_registry.game_day_calibration": None,
+    "src.model_registry.projection_scorecard": None,
 }
 
 #: Contract stamps, league config and identity-mapping fields a learning module
