@@ -374,6 +374,13 @@ def summarize(rows: list[dict]) -> dict:
     }
 
 
+def _owner_asks(family_dir: Path | None = None) -> list[dict]:
+    out: list[dict] = []
+    for path in sorted((family_dir or FAMILY_DIR).glob("*.json")):
+        out.extend(json.loads(path.read_text(encoding="utf-8")).get("ownerAsks") or [])
+    return out
+
+
 def render(meta: list[dict], rows: list[dict], summary: dict) -> str:
     L: list[str] = []
     L.append("# Calculator completion dashboard")
@@ -431,11 +438,32 @@ def render(meta: list[dict], rows: list[dict], summary: dict) -> str:
     for d in DISPOSITIONS:
         L.append(f"- `{d}`: {summary['byDisposition'].get(d, 0)}")
     L.append("")
-    L.append("## Owner actions (true owner-only gates)")
+    asks = _owner_asks()
+    L.append("## Owner actions (true owner-only gates), grouped by urgency")
     L.append("")
-    for r in sorted((r for r in rows if r["disposition"] in OWNER), key=lambda r: r["id"]):
-        b = r.get("blocker") or {}
-        L.append(f"- **{r['id']}** — {b.get('ownerOrExternalAction') or b.get('what')}")
+    if asks:
+        L.append(
+            "Distinct owner asks (duplicate rows merged; criteria: a spend, b credential/account/consent, "
+            "c official launch, d new product behavior with no owner preference, e methodology evidence "
+            "cannot resolve, f explicit owner-only gate)."
+        )
+        L.append("")
+        for urgency in ("URGENT", "SEASON", "WHENEVER"):
+            group = [a for a in asks if a.get("urgency") == urgency]
+            if not group:
+                continue
+            L.append(f"### {urgency}")
+            L.append("")
+            for a in group:
+                due = f" (due {a['dueBy']})" if a.get("dueBy") else ""
+                also = f" — also covers {', '.join(a['alsoCovers'])}" if a.get("alsoCovers") else ""
+                L.append(f"- **{a['id']}** [{a.get('criterion')}]{due}: {a.get('ask')}{also}")
+            L.append("")
+    owner_rows = sorted((r for r in rows if r["disposition"] in OWNER), key=lambda r: r["id"])
+    L.append(
+        f"Rows in OWNER_ACTION_REQUIRED: {len(owner_rows)} — "
+        + ", ".join(r["id"] for r in owner_rows)
+    )
     L.append("")
     L.append("## External waits")
     L.append("")
