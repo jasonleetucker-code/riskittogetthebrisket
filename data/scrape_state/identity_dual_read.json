@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-10-05T22:58:03.506273+00:00",
+ "generatedAt": "2026-10-07T17:36:09.049061+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2074,
+ "calls": 2072,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2051,
- "v2WouldChange": 23,
+ "v2Same": 2048,
+ "v2WouldChange": 24,
  "v2Examples": [
   {
    "name": "Andru Phillips",
@@ -53,9 +53,9 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "Elijah Mitchell",
+   "name": "Devin Neal",
    "pos": "",
-   "served": "7561",
+   "served": "12476",
    "engineV2": null,
    "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
@@ -75,6 +75,14 @@
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Jaylon Jones",
+   "pos": "",
+   "served": "8702",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
   },
   {
    "name": "Johnny Newton",

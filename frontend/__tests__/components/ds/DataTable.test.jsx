@@ -570,3 +570,46 @@ describe("DataTable width observer lifecycle", () => {
     }
   });
 });
+
+// ── Scrolling wrapper keyboard reachability (#1673) ──────────────────
+// axe `scrollable-region-focusable`: a scrolling region with no focusable
+// content cannot be scrolled from the keyboard. The wrapper becomes a named,
+// focusable region ONLY while it overflows (jsdom has no layout, so the
+// overflow is simulated on the element's scroll metrics).
+describe("DataTable scroll region", () => {
+  function withMetrics({ scrollWidth, clientWidth }, fn) {
+    const sw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollWidth");
+    const cw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => scrollWidth });
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => clientWidth });
+    try {
+      return fn();
+    } finally {
+      if (sw) Object.defineProperty(HTMLElement.prototype, "scrollWidth", sw);
+      else delete HTMLElement.prototype.scrollWidth;
+      if (cw) Object.defineProperty(HTMLElement.prototype, "clientWidth", cw);
+      else delete HTMLElement.prototype.clientWidth;
+    }
+  }
+
+  it("an overflowing wrapper is a focusable, named region", () => {
+    withMetrics({ scrollWidth: 900, clientWidth: 375 }, () => {
+      const { container } = render(
+        <DataTable columns={COLUMNS} rows={ROWS} caption="Best available IDPs" />,
+      );
+      const wrap = container.querySelector(".ds-table-wrap");
+      expect(wrap.getAttribute("tabindex")).toBe("0");
+      expect(wrap.getAttribute("role")).toBe("region");
+      expect(wrap.getAttribute("aria-label")).toBe("Best available IDPs");
+    });
+  });
+
+  it("a table that fits gains no extra tab stop", () => {
+    withMetrics({ scrollWidth: 375, clientWidth: 375 }, () => {
+      const { container } = render(<DataTable columns={COLUMNS} rows={ROWS} caption="Board" />);
+      const wrap = container.querySelector(".ds-table-wrap");
+      expect(wrap.hasAttribute("tabindex")).toBe(false);
+      expect(wrap.hasAttribute("role")).toBe(false);
+    });
+  });
+});

@@ -87,9 +87,9 @@ def compute_team_strength(
     # ROS source, which is the state ``unmapped`` exists to report.
     #
     # This matters beyond the roster page: an unmapped player scores
-    # ZERO toward ``teamRosStrength``, which sets the projected
-    # reverse-standings draft order behind the Pick Projector. Eight
-    # phantom zeroes biased that order.
+    # ZERO toward ``teamRosStrength``, which feeds the season simulation's
+    # forecast of final record and Points For (and, until 2026-10-04, set
+    # the Pick Projector's order directly). Eight phantom zeroes biased it.
     #
     # Note ``.lower()`` alone would fix only 14 of the 16 stored names.
     # "Greg Rousseau" and "Chig Okonkwo" need the alias map, which is
@@ -454,7 +454,7 @@ def compute_team_strength_live(
     nfl_players: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """SECOND-TIER fallback for callers with no ``PublicLeagueSnapshot`` in
-    hand (e.g. ``/api/ros/pick-projections``).  Fetches the Sleeper
+    hand (e.g. ``/api/ros/team-strength``).  Fetches the Sleeper
     overlay (cached, ``force_refresh=False`` — 15-min TTL + stale-serve +
     per-league single-flight lock, so this rarely hits the network cold)
     and hydrates it the same way the scheduled scrape does.  ``nfl_players``

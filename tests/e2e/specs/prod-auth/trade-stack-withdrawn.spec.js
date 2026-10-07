@@ -14,7 +14,13 @@
  *   - switching the selected teams (which changes the stack context) moves
  *     NEITHER the totals, NOR the gap/verdict, NOR the balancer list;
  *   - no side total is negative for this shape (nothing is clamped either:
- *     the check reads the unrounded model number, not the display).
+ *     the check reads the unrounded model number, not the display);
+ *   - Wave A (#1626) team attribution: a GENERIC market pick ("2027 Mid 1st",
+ *     no ``assetId``) is hypothetical and moves no team's stack, so it shows
+ *     no note; an OWNED first-round pick the sending side's team actually
+ *     holds does move a stack, so the note is shown.  (Before Wave A any pick
+ *     moved a stack, and this spec used the generic pick as its "sure to
+ *     price" case -- red from 2026-10-03 on, against correct behaviour.)
  *
  * Everything observed is annotated, so the run is its own evidence.
  */
@@ -36,15 +42,26 @@ async function plan(page) {
     }
   }
   const playable = (t) => (t.players || []).filter((n) => n && !PICK_TOKEN.test(n) && board.has(n));
+  // A real first-round pick the team holds (canonical ``assetId``), earliest
+  // class first.  Only such a pick, sent by the team that holds it, moves a
+  // stack (lib/pick-stack ``stackPickMoves``, Wave A).
+  const ownedFirst = (t) =>
+    (t.pickDetails || [])
+      .filter((d) => d && Number(d.round) === 1 && d.assetId && d.label)
+      .sort((x, y) => Number(x.season) - Number(y.season))[0] || null;
   const eligible = teams.filter((t) => playable(t).length >= 1);
   expect(eligible.length, "need at least three teams with a board-resolvable player").toBeGreaterThanOrEqual(3);
-  const [teamA, teamB, teamC] = eligible;
+  // Side B sends the picks, so Side B's team must hold an owned first.
+  const teamB = eligible.find((t) => ownedFirst(t));
+  expect(teamB, "need a team that holds an owned first-round pick (pickDetails with assetId)").toBeTruthy();
+  const [teamA, teamC] = eligible.filter((t) => t !== teamB);
   return {
     teamA,
     teamB,
     teamC,
     give: playable(teamA)[0],
     receive: [playable(teamB)[0], ...PICKS],
+    ownedFirst: ownedFirst(teamB),
   };
 }
 
@@ -158,22 +175,34 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
       noteAfter = (await note.locator("xpath=ancestor-or-self::p[1]").innerText()).trim();
     }
 
-    // 3b. A shape the stack model is SURE to price: add a first-round pick.
-    //     The note must now be visible, and a team switch that changes the
-    //     note must still move nothing that decides.
+    // 3b. A GENERIC first-round pick is hypothetical (no assetId): it never
+    //     debits a team's real inventory, so it moves no stack and shows no
+    //     note (Wave A, #1626).  Then a shape the stack model is SURE to
+    //     price: an OWNED first-round pick held by Side B's team.  The note
+    //     must now be visible, and a team switch that changes the note must
+    //     still move nothing that decides.
     await setTeam(page, 0, p.teamA.name);
-    {
+    const addToB = async (label, { owned }) => {
       const input = page.getByLabel("Search to add a player to Side B");
       await input.click();
-      await input.fill(FIRST);
-      const hit = page
+      await input.fill(label);
+      const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      let hit = page
         .locator(".trade-side-search-result")
-        .filter({ has: page.locator(".trade-side-search-result-name", { hasText: new RegExp(`^${FIRST}$`) }) })
-        .first();
-      await expect(hit, `search offers ${FIRST}`).toBeVisible({ timeout: 15_000 });
-      await hit.click();
-    }
-    await expect(note, "the stack note is shown for a first-round pick").toBeVisible({ timeout: 30_000 });
+        .filter({ has: page.locator(".trade-side-search-result-name", { hasText: new RegExp(`^${esc}$`) }) });
+      // The market reference and an owned pick can share a board row; the
+      // "Owned pick" badge is what distinguishes the owned line.
+      hit = owned ? hit.filter({ hasText: "Owned pick" }) : hit.filter({ hasNotText: "Owned pick" });
+      await expect(hit.first(), `search offers ${label}`).toBeVisible({ timeout: 15_000 });
+      await hit.first().click();
+    };
+    await addToB(FIRST, { owned: false });
+    await page.waitForTimeout(1_500);
+    await expect(note, "a generic (hypothetical) first-round pick moves no stack, so no note").toHaveCount(0);
+    await addToB(p.ownedFirst.label, { owned: true });
+    await expect(note, "the stack note is shown for an owned first-round pick its team sends").toBeVisible({
+      timeout: 30_000,
+    });
     const firstNote = (await note.locator("xpath=ancestor-or-self::p[1]").innerText()).trim();
     expect(firstNote).toMatch(/experimental, not calibrated/i);
     expect(firstNote).toMatch(/Not included in the totals or verdict/);
@@ -209,6 +238,7 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
         `balancers=${before.balancers.length}`,
         `note=${noteText ?? "absent"}`,
         `noteAfterTeamChange=${noteAfter ?? "absent"}`,
+        `ownedFirst=${p.ownedFirst.label} (${p.ownedFirst.assetId})`,
         `withFirst: ${withFirst.sides.map((x) => x.total).join("/")} gap=${withFirst.gap.gap}`,
         `firstNote=${firstNote}`,
         `switchedNote=${switchedNote ?? "absent"}`,

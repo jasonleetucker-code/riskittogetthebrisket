@@ -238,10 +238,16 @@ jobs:
             --color 5319E7 \
             --description "Model-calibration work items opened by the weekly Hill refit and drift audits" \
             2>/dev/null || true
-          EXISTING=$(gh issue list --state open --limit 50 \
-                       --json number,title \
-                       --jq ".[] | select(.title == \"${TITLE}\") | .number" \
-                     2>/dev/null | head -n 1 || true)
+          # `--limit 1000`, not 50, and OLDEST wins — the window defect that
+          # filed #1672 beside #898 in audit-rank-form-drift.yml applies here
+          # identically (no label filter, so the window is the whole open
+          # backlog).  Pinned by tests/deploy/test_sharp_tracker_dedup.py.
+          if ! EXISTING=$(gh issue list --state open --limit 1000 \
+                            --json number,title \
+                            --jq "[.[] | select(.title == \"${TITLE}\") | .number] | min // empty"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
           if [[ -n "${EXISTING}" ]]; then
             gh issue comment "${EXISTING}" --body "${BODY}"
           else

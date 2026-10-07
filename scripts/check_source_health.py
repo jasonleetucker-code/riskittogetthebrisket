@@ -575,6 +575,29 @@ def _load_contract_source_health(repo_root: Path) -> tuple[list[str], list[str],
     )
 
 
+def severe_content_freshness(
+    content_freshness: list[dict], seasonal_inactive: dict | set | list
+) -> list[dict]:
+    """Severely stale / quarantined content rows, EXCLUDING verified
+    seasonally inactive sources.
+
+    SEASONALLY INACTIVE != BROKEN.  A source in a declared, re-verified
+    seasonal window casts no vote, so its dataset age is expected and the
+    "blend weight is reduced accordingly" warning would be false for it.
+    Such rows are tagged ``seasonallyInactive`` (kept in the report, never
+    dropped) and left out of the warning list.
+    """
+    inactive = set(seasonal_inactive or ())
+    severe: list[dict] = []
+    for row in content_freshness:
+        if row.get("source") in inactive:
+            row["seasonallyInactive"] = True
+            continue
+        if row.get("state") in ("SEVERELY_STALE", "QUARANTINED"):
+            severe.append(row)
+    return severe
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", default=".", help="Repository root (default: current directory)")
@@ -678,8 +701,9 @@ def main() -> int:
                 content_freshness.append({"source": key, **d, "health": sw.health_state})
     except Exception as exc:  # noqa: BLE001 — advisory section
         content_freshness = [{"error": str(exc)}]
-    severe_content = [
-        c for c in content_freshness if c.get("state") in ("SEVERELY_STALE", "QUARANTINED")
+    severe_content = severe_content_freshness(content_freshness, seasonal_inactive)
+    content_stale = [
+        row for row in content_stale if row[0].split(" ", 1)[0] not in seasonal_inactive
     ]
 
     report = {

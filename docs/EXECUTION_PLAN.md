@@ -20,7 +20,7 @@ globally defer UI under this newer instruction. Backend complete / UI incomplete
 product incomplete. First safe unit: #1422 `/design`, on its own branch/claim.
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-10-07 (CLEANUP-1 reconciliation only: the two 2026-10-07 owner directives recorded at the top of §0 — repository stabilization AUTHORIZED NOW, learning-loop batch IC-1..IC-9 sequenced after it — plus a pointer to the 2026-10-03 directive, the #1338 closure note and AL merge evidence; no other authorization changed). Earlier: 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -61,6 +61,57 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 ---
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
+
+## Repository stabilization / truth-reconciliation campaign — owner directive, 2026-10-07
+
+**AUTHORIZED NOW.** Bounded cleanup/stabilization through the normal protected branch, test, review,
+integration, deployment and verification path — not a feature campaign. Goals: know exactly what is on
+`main` and deployed; give every open PR a truthful disposition (ACTIVE_AND_NEEDED, READY_FOR_INTEGRATION,
+SUPERSEDED_BY_MAIN, ABSORBED_INTO_INTEGRATION_TRAIN, VALIDATION_ONLY_DO_NOT_MERGE,
+BLOCKED_WITH_SPECIFIC_UNBLOCK, STALE_CLOSE_CANDIDATE, OWNER_DECISION_REQUIRED); make every active work
+claim actually active and every planning/status/handoff record match reality; make CI and production
+health trustworthy (one live failure → one actionable incident); make repository data retention
+intentional; correct dangerous direct-main/deploy behaviour or present it to the owner as one explicit
+bounded decision (main ruleset: smallest protection that keeps legitimate automation commits, no refresh
+deadlock, reviewed path for human/agent code, explicit emergency-bypass actors). Source-state audit keeps
+MISSING ≠ ZERO, FETCHED RECENTLY ≠ CONTENT FRESH, PRIVATE ABSENT ≠ FAILED PUBLIC, SEASONALLY INACTIVE ≠
+BROKEN. #1667 (AI-architecture train) is integrated only if the BENIGN/RELEVANT main-movement policy,
+exact-head RC gates and independent review are satisfied, otherwise reported with a precise blocker;
+#1648 is validation-only and must not merge; #1652 must preserve the locked draft-order rule
+(`docs/picks/DRAFT_ORDER_RULE.md`). Suggested units CLEANUP-1..5 (claims/status + red-main fixes; #1667
+train; CI/source-state/incident reliability; footprint + legacy, at most a few behaviour-preserving
+extractions from `server.py` / `data_contract.py`; canonical docs + production verification).
+**Not authorized:** deleting irreplaceable evidence; changing canonical player values, source weights or
+Hill methodology as cleanup; promoting challengers; activating Signals IDP; purchasing data/services;
+launching the official rookie auction; entering DFS contests; changing league rules; weakening tests;
+hiding failures; autonomous trade/waiver actions; broad speculative rewrites. Intake:
+`docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07").
+
+## Calculator continuous-improvement learning-loop batch (IC-1..IC-9) — owner directive, 2026-10-07
+
+**Authorized to begin ONLY after the stabilization campaign above completes or leaves explicit,
+non-conflicting blockers**, from current `main`. Mission: close ONE evidence-driven learning loop across
+source evidence, point-in-time history, trade-market evidence, projection outcomes, recommendation receipts,
+champion/challenger evaluation, drift, explainability and the Model Lab — reusing the existing owners
+(Adaptive Learning / `C10-ML-01`, Batch 3, model registry, source census, completed-trade ledger, temporal
+ledger, learning receipts, BDVM, Model Lab); no second feature store, registry, receipt DB, point-in-time
+abstraction, census, trade ledger, DFS-specific learning platform or parallel "AI service". Units
+(plan-local labels, adjusted from live evidence): IC-1 evidence closure; IC-2 Source Intelligence evaluator
++ target-lineage matrix; IC-3 trade learning (readiness states, at most one preregistered shadow translator);
+IC-4 projection / BDVM scorecards; IC-5 Model Lab backend; IC-6 Model Lab Premium UI (Lane 6); IC-7
+explainability; IC-8 cadence/freshness shadow challengers; IC-9 integration / production closure of the
+SOURCE, TRADE, PROJECTION and MODEL GOVERNANCE loops. Authorizes capture, evaluation, scorecards, receipts,
+shadow challengers, drift measurement, explainability, internal Model Lab UX and bounded performance work
+for these surfaces; promotion ONLY through an already-authorized model-specific mechanism with every
+pre-existing gate satisfied. **Not authorized:** lowering a promotion gate or bypassing P6 / model-registry
+governance; automatic retraining or promotion on drift; self-promotion; autonomous trades/waivers; DFS entry;
+buying data; Signals IDP activation without its preregistered gate; treating user edits or dependent sources
+as independent evidence; learning facts/rules; optimizing for agreement with the current Calculator. Detail,
+test classes and success definition: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07").
+
+*Pointer (2026-10-07 reconciliation):* the 2026-10-03 owner directive — Waves A/B, the Signals ACTIVE
+addendum and the 2026-10-04 canonical draft-order decision — is recorded in `docs/OWNER_REQUESTED_TODO.md`
+("Added 2026-10-03"); its work merged as #1626 (Wave A), #1642 (Wave B) and #1627 (Signals offense active).
 
 ## Schedule Intelligence — owner directive, 2026-09-29 (#1530)
 
@@ -163,7 +214,7 @@ and Trade work, and the permanent parallel PSI UI lane. No infrastructure, signi
 system or new valuation owner is presumed necessary. Deliver small dependency-aware
 PRs, with current measurements and independent review; production claims require the
 actual deployed identity and Linux/resource/browser evidence. #1338 stays open until
-the complete current-product acceptance requirements are met. Execution/evidence:
+the complete current-product acceptance requirements are met. *Status (2026-10-07): issue #1338 was closed (COMPLETED) 2026-09-26; later follow-ups (e.g. the activity-section lane, #1623) treat it as closed — open a successor issue rather than treating #1338 as live.* Execution/evidence:
 `performance/CURRENT_ARCHITECTURE.md`; intake: `OWNER_REQUESTED_TODO.md`.
 
 ### Expanded performance search and terminal hunt — owner, 2026-09-26
@@ -228,9 +279,9 @@ in directive sections 9+, which were truncated in delivery and are pending owner
 
 | unit | scope | priority | depends on |
 |---|---|---|---|
-| **AL-0** | shared learning receipt contract (12 kinds, references into native stores) + evaluation receipt + versioned feature dictionary + two producer adapters (Hill `trainingRun`; one non-Hill shadow/evaluation producer) | **NOW — first foundation unit** | #1588 merged (claims `src/model_registry/`; AL-0 consumes its pins) |
-| AL-1a–d | Valuation Trust / source learning: Batch 3 outputs as receipts + accumulation; evidence-based base-authority challenger shrunk toward equal-family; utility-decay challenger; cohort reliability | NOW (highest roadmap priority) | AL-0; #1589, #1591, #1592 |
-| AL-2a | target-format evidence census over the completed-trade ledger (report-only) | NOW | #1586 merged |
+| **AL-0** | shared learning receipt contract (12 kinds, references into native stores) + evaluation receipt + versioned feature dictionary + two producer adapters (Hill `trainingRun`; one non-Hill shadow/evaluation producer) | **MERGED** #1597 (`9ce3ea04c`, 2026-10-01) — was NOW, first foundation unit | #1588 merged (claims `src/model_registry/`; AL-0 consumes its pins) |
+| AL-1a–d | Valuation Trust / source learning: Batch 3 outputs as receipts + accumulation; evidence-based base-authority challenger shrunk toward equal-family; utility-decay challenger; cohort reliability | AL-1a MERGED #1612 (`f6d5c135e`) + #1614 (`3464ae0ef`), 2026-10-02; AL-1b–d NOW (highest roadmap priority) | AL-0; #1589, #1591, #1592 |
+| AL-2a | target-format evidence census over the completed-trade ledger (report-only) | MERGED #1595 (`73c345b40`, 2026-10-01) — was NOW | #1586 merged |
 | AL-2b → AL-2c | format translator challengers, then the shadow format-aware latent transaction-price model for `dynasty_main` | NOW → NEXT | AL-2a; paired-format evidence |
 | AL-3a | projection archive completeness (every usable pregame/ROS projection captured pre-event; `data/bdvm/` into the backup set) | NOW | none (own claim on `deploy/backup/`; serial owner — AL-0's A9 backup line lands through or after it) |
 | AL-3b | projection scorecard (raw stats + exact league scoring) vs the equal-family champion | NOW | AL-0 |
@@ -289,6 +340,8 @@ Hill champion; the current outlier filter; the current 0.30 sparse retention.
 | AL-2b | **at most one** preregistered shadow translator, only on an identifiable axis | AL-2b0 | A exclude / B naive / C candidate scored on real held-out target-like trades, never against current Calculator values; BDVM ratio only as a tested structural prior |
 | AL-2c | shadow latent transaction-price model | AL-2b | shadow only; native dominates translated |
 | AL-3a / AL-3b | projection archive completeness; scorecard vs the equal-family champion | AL-3a none; AL-3b AL-0 | per plan §24 |
+
+**Status (2026-10-07 reconciliation):** merged — AL-0 #1597; AL-1a #1612 + #1614; AL-2a #1595; AL-2a′ #1610; AL-P2 #1611; AL-P3 #1603; AL-P6 #1602; AL-P4 delivered via release train #1602 (its own PR #1604 closed unmerged); the Wave 1 league-format capture gap via #1607 (#1606 closed into it). Units not named here keep their stated state.
 
 **Campaign sequencing (continuation instructions — current order):** (1) deploy verification — served SHA,
 health, ledger / KTC / sparse-shadow timers from actual `systemctl` state; (2) first KTC production capture;

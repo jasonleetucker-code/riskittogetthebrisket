@@ -96,15 +96,24 @@ Every value keeps its explanation (`marketDerivation`):
 
 ## Known follow-ups
 
-* **Pick Projector.** `src/ros/pick_projection.py` still orders its *projected
-  slot* directly by Team Strength rank.  That is a display-only point estimate,
-  but this rule says Team Strength must not determine order.  It should read the
-  simulation's slot distribution instead.
-* **Forecast capture.** Calibration needs the forecasts recorded at the time,
-  with their season-progress bucket.  The weekly pick-forecast snapshot (AL-P4)
-  should capture `draftSlotDistribution`, the tier probabilities and
-  `regularSeasonProgress` alongside its existing fields.  Until it does, no
-  calibration history exists and every forecast runs on the provisional `c`.
+* **Pick Projector — DONE (2026-10-04, `pick_projector_v2_draft_order_rule`).**
+  `src/ros/pick_projection.py` no longer orders teams by Team Strength rank.  It
+  reads the league's fresh cached season simulation (never runs one on a
+  request): teams are ordered by EXPECTED rule slot, each carrying its
+  `draftSlotDistribution`, and a pick's projected slot follows its ORIGINAL
+  team.  Only the class drafted after the simulated season is forecast; every
+  later class, a league with no recorded rule, and a missing or stale
+  simulation get `projectedSlot: null` with a named
+  `slotForecastUnavailableReason` — never a Team-Strength guess, never slot 0.
+  Confidence is the simulated probability of landing within one slot of the
+  projected one (cut-offs 0.8 / 0.5, a stated PRIOR), still capped by horizon.
+* **Forecast capture — partly done.** The weekly pick-forecast snapshot (AL-P4)
+  copies the projector output verbatim, so since v2 every capture records each
+  pick's `slotDistribution`, the simulation's `regularSeasonProgress`, the
+  simulated season and the recorded rule (`rules.draftOrderRule`, no longer an
+  "unowned" placeholder).  Still missing: the tier probabilities and `c` that
+  `pick_market` used at the time, and a realized-order join.  Until enough
+  pairs exist every forecast runs on the provisional `c`.
 * **Between rollover and the draft.** Once Sleeper rolls the league to the next
   season, the snapshot holds no games, so the simulation publishes no slot
   forecast, and the upcoming class stays at the plain average.  The previous
