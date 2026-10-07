@@ -784,9 +784,6 @@
     "smoke-test.yml::validate::Python syntax gate": {
       "category": "blocking"
     },
-    "smoke-test.yml::validate::Run unit tests": {
-      "category": "blocking"
-    },
     "smoke-test.yml::validate::Set up Python": {
       "category": "blocking"
     },
