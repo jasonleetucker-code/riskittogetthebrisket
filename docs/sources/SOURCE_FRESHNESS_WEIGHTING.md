@@ -326,6 +326,32 @@ clock.
   ≥ `freshForConfidence` (0.5). Under the rollback flag it reverts to the
   fetch-only answer.
 
+### Owner decision 2026-10-07: the quarantine line stays; no stale-authority floor
+
+The integrity sweep (`docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md` §8.1) asked whether
+`quarantineBelow 0.02` conflicts with "stale valid evidence keeps voting at reduced authority".
+**Owner decision (final unless new empirical evidence materially changes the situation):** the line stays
+exactly as configured. Stale evidence is not current truth and is not entitled to permanent authority;
+missing is not zero, and stale is not current. In production there is **no minimum voting floor**, including
+when quarantining a source (first case: IDP Trade Calculator offense + pick rows, projected ~2026-10-09
+13:10Z) leaves pick values resting on one provider (KTC). Consequences, all binding:
+
+* the quarantined observation is **preserved as historical evidence** (dataset state, temporal ledger,
+  archives) — never deleted, never zero;
+* canonical pick values stay **finite** where the existing architecture prices them honestly;
+* the reduced evidence is **stamped**, not hidden: single current provider, reduced coverage, and the
+  existing confidence penalty — **confidence may never rise** because a source aged out;
+* no second "independent" vote is manufactured from another KTC-derived signal; KTC Crowd, KTC Trades and
+  KTC Market are not counted as independent providers for evidence/confidence reporting where they share
+  lineage (Crowd and Trades remain separate value families per the 2026-09-23 directive; Market never votes);
+* the degraded state is **alerted/reported**, but is not a production outage while the remaining canonical
+  value is valid;
+* restoring or replacing independent IDP / pick evidence continues through the authorized source path.
+
+A small stale-source floor may be evaluated **only as a shadow challenger** through the normal evidence and
+promotion gates; it never affects production unless it passes them. Intake:
+`docs/OWNER_REQUESTED_TODO.md` ("2026-10-07 — IDP Trade Calculator freshness cutoff").
+
 ### Rollback
 
 Set `RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0` and restart. Every

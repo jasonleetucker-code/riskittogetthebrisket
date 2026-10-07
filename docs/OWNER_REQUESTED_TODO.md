@@ -1649,3 +1649,19 @@ is COMPLETE. The repository (not the directive's prose) defines the denominator;
 | Keep MARKET / SHARP / MANAGER / ANALYST / CANONICAL distinct; missing ≠ zero; no frontend engines; no second owners; no evidence deletion; no paid storage | RECORDED — binding |
 | Owner-only gates (spend, credentials, contest entry, autonomous trades/waivers, real messages, official auction launch, real league changes, gate-bypassing activations, weakening validation, provider-terms violations, silent methodology change) | RECORDED — remain owner-gated; work completes up to the gate |
 | Final deliverable: CALCULATOR COMPLETION REPORT (main/deployed SHA, weighted completion, family table, PR/issue dispositions, source/model/data/performance/mobile/a11y/security/E2E state, owner actions, external blockers, limitations; the completion statement only if evidence supports it) | CAPTURED |
+
+## Added 2026-10-07 — IDP Trade Calculator freshness cutoff (owner decision, final)
+
+Resolves integrity-sweep §8.1 (ledger rows SRC-STALEPRES / OD-STALE-QUAR). Recorded in
+`docs/sources/SOURCE_FRESHNESS_WEIGHTING.md` §G ("Owner decision 2026-10-07").
+
+| Item | Disposition |
+|---|---|
+| Keep `quarantineBelow 0.02` exactly as-is in production; no minimum voting floor to avoid a single-provider (KTC) pick state | DECIDED — binding |
+| Preserve the quarantined IDPTC observation as historical evidence; never delete or zero it | DECIDED — binding |
+| After the cutoff: finite canonical pick values where the architecture supports it honestly; stamp single current provider, reduced coverage and the existing confidence penalty; confidence must never rise because IDPTC disappeared | DECIDED — verify (lane `claude/idptc-cutoff-readiness`) |
+| No manufactured second independent vote from KTC-derived signals; Crowd / Trades / Market not counted as independent providers where they share lineage | DECIDED — binding |
+| Alert/report the degraded evidence state; not a production outage while the remaining value is valid | DECIDED — verify |
+| Keep trying to restore/replace independent IDP / pick evidence through the authorized source path | ONGOING |
+| Optional shadow-only challenger testing a small stale-source floor (no production effect unless it passes the normal gates) | AUTHORIZED — shadow only |
+
