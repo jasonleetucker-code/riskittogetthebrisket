@@ -396,6 +396,33 @@ export function DataTable({
     hasAfter,
   });
 
+  // ── Keyboard reachability of a scrolling wrapper (WCAG 2.1.1) ──────
+  //
+  // ``.ds-table-wrap`` is the table's scroll boundary (horizontal on
+  // narrow screens, vertical under ``maxHeight``).  A scrolling region
+  // with no focusable content cannot be scrolled from the keyboard —
+  // axe ``scrollable-region-focusable`` (#1673, /waivers on mobile, where
+  // the rows carry no links or buttons).  The wrapper therefore becomes a
+  // named, focusable region ONLY while it actually overflows: a table
+  // that fits gains no extra tab stop.  Measured, not assumed, and
+  // re-measured when the wrapper or the table resizes.
+  const [scrolls, setScrolls] = useState(false);
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return undefined;
+    const measure = () => {
+      const next =
+        wrap.scrollWidth > wrap.clientWidth + 1 || wrap.scrollHeight > wrap.clientHeight + 1;
+      setScrolls((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap);
+    if (tableRef.current) ro.observe(tableRef.current);
+    return () => ro.disconnect();
+  }, [rows, columns, maxHeight]);
+
   if (!rows || rows.length === 0) return emptyState;
 
   const activeCol = sort ? columns.find((c) => c.key === sort.key) : null;
@@ -409,6 +436,11 @@ export function DataTable({
       ref={wrapRef}
       className="ds-table-wrap"
       style={maxHeight ? { maxHeight, overflowY: "auto" } : undefined}
+      tabIndex={scrolls ? 0 : undefined}
+      role={scrolls ? "region" : undefined}
+      aria-label={
+        scrolls ? (typeof caption === "string" && caption ? caption : "Scrollable table") : undefined
+      }
     >
       <table
         ref={tableRef}

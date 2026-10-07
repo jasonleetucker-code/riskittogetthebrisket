@@ -28,14 +28,40 @@
     "and requiring 1 approval means never being able to merge your own PR.",
     "Zero still forces the PR path and still runs the check.",
     "",
-    "Admins are in the bypass list so a hotfix is always possible."
+    "",
+    "BYPASS ACTORS (stabilization audit 2026-10-07).  Applied as originally",
+    "written, this payload would have BLOCKED every legitimate automated",
+    "pusher to main and frozen production: the box timers",
+    "(deploy/dlf_fetch_and_push.sh, idpshow_fetch_and_push.sh,",
+    "playerctx_history_push.sh) push with the write deploy key, and",
+    "scheduled-refresh / refit-hill-curves / verify-sharp-production /",
+    "weekly-narratives push with GITHUB_TOKEN (GitHub Actions app 15368).",
+    "Deploy dispatch keys on those commits (CLAUDE.md W31-F001).  Both",
+    "credentials are therefore bypass actors.  Pinned by",
+    "tests/deploy/test_main_protection_ruleset.py, which fails if a new",
+    "direct-to-main pusher appears without a matching bypass actor.",
+    "",
+    "ADMIN bypass_mode is `pull_request`, not `always`: the owner and every",
+    "AI agent session push as the SAME admin account, so `always` would give",
+    "any agent session direct-main authority.  `pull_request` blocks direct",
+    "pushes but still lets the admin merge a PR whose checks are red (the",
+    "emergency path: `gh pr merge --admin`).  Switching it to `always`",
+    "restores the owner's direct-push habit at the cost of the same power",
+    "for agents — an OWNER DECISION recorded in",
+    "docs/audit/STABILIZATION_2026-10-07.md (branch protection).",
+    "",
+    "Residual risk: the Actions bypass covers ANY workflow with",
+    "`contents: write`.  Hardening follow-up: give the four bot pushers a",
+    "dedicated deploy-key secret and drop the Integration bypass."
   ],
   "name": "main-protection",
   "target": "branch",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["~DEFAULT_BRANCH"],
+      "include": [
+        "~DEFAULT_BRANCH"
+      ],
       "exclude": []
     }
   },
@@ -43,12 +69,26 @@
     {
       "actor_id": 5,
       "actor_type": "RepositoryRole",
+      "bypass_mode": "pull_request"
+    },
+    {
+      "actor_id": null,
+      "actor_type": "DeployKey",
+      "bypass_mode": "always"
+    },
+    {
+      "actor_id": 15368,
+      "actor_type": "Integration",
       "bypass_mode": "always"
     }
   ],
   "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
     {
       "type": "pull_request",
       "parameters": {
@@ -63,7 +103,13 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [{ "context": "Validate PR" }]
+        "required_status_checks": [
+          {
+            "context": "Validate PR",
+            "integration_id": 15368
+          }
+        ],
+        "do_not_enforce_on_create": false
       }
     }
   ]

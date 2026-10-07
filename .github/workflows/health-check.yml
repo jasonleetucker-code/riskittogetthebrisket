@@ -326,20 +326,32 @@ jobs:
           # treats any issue wearing it as this workflow's own tracker.
           # `e2e.yml` learned that the hard way on #753 — a hand-filed defect
           # carrying the label, which the alert step hijacked and a green run
-          # would have closed with a "resolved" comment.  `production-health`
-          # is a new label so nothing wears it yet; this closes the door before
-          # anyone does, rather than after.
+          # would have closed with a "resolved" comment.
           #
-          # Identify the tracker by what this step actually CREATES: author AND
-          # title.  The `[bot]` suffix is normalised away because `gh` reports a
-          # bot's login differently depending on which API answers — that
-          # mismatch is F-23 itself, and pinning either spelling is a bet.
+          # Identity is LABEL + exact TITLE — the #958 rule e2e.yml and
+          # verify-sharp-production.yml already use.  This step used to carry
+          # an AUTHOR clause that normalised a `[bot]` suffix away, but `gh`
+          # reports this bot as `app/github-actions` in `--json author`, which
+          # that clause rejects.  So every failing run took the `create`
+          # branch and every green run found nothing to close: 18 open
+          # "Production health check failing" issues on 2026-10-07 with zero
+          # comments between them (#1655 filed beside an open #1653).
+          #
+          # OLDEST wins (min-by-number), not `.[0]`: gh sorts newest-first.
+          # `--limit` is explicit because gh's default is 30, and a tracker
+          # that falls outside the window is a tracker that gets duplicated.
+          # Proven against a gh stub + real jq for all three login spellings
+          # by tests/deploy/test_sharp_tracker_dedup.py.
           TRACKER_TITLE="Production health check failing"
-          if ! EXISTING=$(gh issue list --state open --label production-health \
-                            --json number,title,author \
-                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
-                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+          if ! ROWS=$(gh issue list --state open --label production-health \
+                        --limit 1000 --json number,title); then
             echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            ROWS=""
+          fi
+          if [[ -n "$ROWS" ]]; then
+            EXISTING=$(printf '%s' "$ROWS" \
+              | jq -r "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty")
+          else
             EXISTING=""
           fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
@@ -366,17 +378,24 @@ jobs:
           set -Eeuo pipefail
           # Same identification as the alert step, and it must stay identical —
           # this is the direction where getting it wrong CLOSES a real open
-          # issue rather than merely filing a wrong one (F-23).
+          # issue rather than merely filing a wrong one (F-23).  LABEL + exact
+          # TITLE (#958), and EVERY match is closed rather than `.[0]`: the
+          # retired author clause let duplicates accumulate, and one green run
+          # must drain all of them.
           TRACKER_TITLE="Production health check failing"
-          if ! EXISTING=$(gh issue list --state open --label production-health \
-                            --json number,title,author \
-                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
-                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if ! OPEN=$(gh issue list --state open --label production-health \
+                        --limit 1000 --json number,title \
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
             echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open tracker is still open"
             exit 1
           fi
-          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
-            gh issue comment "$EXISTING" \
-              --body "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing."
-            gh issue close "$EXISTING"
+          if [[ -z "$OPEN" ]]; then
+            echo "no open production-health tracker; nothing to close"
+            exit 0
           fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing. Workflow run: ${RUN_URL}"
+          done

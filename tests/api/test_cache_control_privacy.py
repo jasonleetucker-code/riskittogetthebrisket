@@ -15,6 +15,12 @@ stamps, attributes each to the nearest preceding route decorator, and
 asserts that route is public per the gate's own allowlist — so a new
 endpoint that copies a public header onto a gated route fails here at
 PR time.
+
+Routes extracted from ``server.py`` into an ``APIRouter`` module keep this
+coverage: the module is listed in ``SCANNED_SOURCES`` and its
+``@router.<verb>(...)`` decorators are attributed the same way
+(CLEANUP-4 moved the league narrative-article routes, whose public
+stamps the scanner sanity check below depends on).
 """
 
 from __future__ import annotations
@@ -25,22 +31,30 @@ from pathlib import Path
 import server
 
 SERVER_PY = Path(server.__file__)
+ARTICLES_API_PY = SERVER_PY.parent / "src" / "public_league" / "articles_api.py"
 
-_ROUTE_RE = re.compile(r"@app\.(?:get|post|put|delete)\(\s*[\"']([^\"']+)[\"']")
+#: Files whose route handlers are scanned: ``server.py`` plus each router
+#: module extracted from it whose decorators spell the full served path
+#: (no ``APIRouter(prefix=...)``).
+SCANNED_SOURCES = (SERVER_PY, ARTICLES_API_PY)
+
+_ROUTE_RE = re.compile(r"@(?:app|router)\.(?:get|post|put|delete)\(\s*[\"']([^\"']+)[\"']")
 _PUBLIC_STAMP_RE = re.compile(r"\"Cache-Control\":\s*\"public")
 
 
 def _routes_with_public_stamps() -> list[tuple[int, str]]:
     """(line_number, route_path) for every literal public Cache-Control
-    stamp in server.py, attributed to the nearest preceding route."""
+    stamp in the scanned sources, attributed to the nearest preceding
+    route in the same file."""
     hits: list[tuple[int, str]] = []
-    current_route = "<module level>"
-    for lineno, line in enumerate(SERVER_PY.read_text().split("\n"), start=1):
-        m = _ROUTE_RE.search(line)
-        if m:
-            current_route = m.group(1)
-        if _PUBLIC_STAMP_RE.search(line):
-            hits.append((lineno, current_route))
+    for source in SCANNED_SOURCES:
+        current_route = "<module level>"
+        for lineno, line in enumerate(source.read_text().split("\n"), start=1):
+            m = _ROUTE_RE.search(line)
+            if m:
+                current_route = m.group(1)
+            if _PUBLIC_STAMP_RE.search(line):
+                hits.append((lineno, current_route))
     return hits
 
 

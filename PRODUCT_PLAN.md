@@ -12,10 +12,15 @@ For current authorized execution order — **the only record that says what may 
 
 ## Current position, in one line
 
-**The B-Series is complete and the B→C gate is CLEARED by explicit owner approval.** C1A units 1–4 are
-CLOSED at their owner checkpoints. The current authorization is exactly what
-`docs/EXECUTION_PLAN.md` §0 names (today: `C1-U6`, with `C1-U5` deliberately deferred); that file is
-the only record that authorizes implementation.
+**The current authorization is exactly the set of dated owner directives in `docs/EXECUTION_PLAN.md`
+§0 — read it; that file is the only record that authorizes implementation.** As of 2026-10-07 that set
+leads with the repository stabilization / truth-reconciliation campaign and otherwise covers the
+Calculator completion campaign with the always-parallel Premium UI lane, Schedule Intelligence, DFS, the
+Rookie Auction Room (mock-first), Adaptive Learning / Valuation Trust, Signals and performance work.
+
+*Historical (kept for traceability):* the B-Series is complete and the B→C gate was CLEARED by explicit
+owner approval; C1A units 1–6 are closed (C1-U6 closed at its owner checkpoint 2026-08-16; C1-U5 merged
+as #876 on 2026-08-17). This line previously read "today: `C1-U6`, with `C1-U5` deliberately deferred".
 
 ## The canonical set, in reading order
 

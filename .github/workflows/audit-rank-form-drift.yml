@@ -190,10 +190,22 @@ jobs:
           # `--search` is fuzzy and would match refit-hill-curves.yml's
           # issues, which is the hazard the close step already avoids, so
           # filter client-side on the exact title here too.
-          EXISTING=$(gh issue list --state open --limit 50 \
-                       --json number,title \
-                       --jq ".[] | select(.title == \"${TITLE}\") | .number" \
-                     2>/dev/null | head -n 1 || true)
+          #
+          # THE WINDOW MUST COVER THE BACKLOG.  This read `--limit 50`, and gh
+          # returns the 50 NEWEST open issues — with no label filter that is
+          # every open issue in the repo.  At 89 open, #898 (this tracker,
+          # filed 2026-08-18) sat outside the window, so run 37479152470
+          # filed #1672 beside it and the close step below could never have
+          # found #898 either.  OLDEST wins (min), not `head -n 1` over gh's
+          # newest-first order.  A FAILED lookup is said out loud and the
+          # alert is still filed — losing the alert is worse than a duplicate.
+          # Pinned by tests/deploy/test_sharp_tracker_dedup.py.
+          if ! EXISTING=$(gh issue list --state open --limit 1000 \
+                            --json number,title \
+                            --jq "[.[] | select(.title == \"${TITLE}\") | .number] | min // empty"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
           if [[ -n "${EXISTING}" ]]; then
             gh issue comment "${EXISTING}" --body "${BODY}"
           else
@@ -238,10 +250,17 @@ jobs:
           # --search on the exact title, then filter client-side: GitHub's
           # search is fuzzy and would otherwise match the refit issues,
           # which is the whole hazard this step is avoiding.
-          OPEN=$(gh issue list --state open --limit 50 \
-                   --json number,title \
-                   --jq ".[] | select(.title == \"${TITLE}\") | .number" \
-                 2>/dev/null || echo "")
+          #
+          # `--limit 1000`, not 50: see the open step — a 50-issue window
+          # cannot see a tracker older than the 50 newest open issues.  And a
+          # failed lookup FAILS the step: `2>/dev/null || echo ""` used to
+          # turn "could not ask" into "nothing to close", a silent all-clear.
+          if ! OPEN=$(gh issue list --state open --limit 1000 \
+                        --json number,title \
+                        --jq "[.[] | select(.title == \"${TITLE}\") | .number] | sort | .[]"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open drift tracker is still open"
+            exit 1
+          fi
           if [[ -z "$OPEN" ]]; then
             echo "no open drift issue; nothing to close"
             exit 0

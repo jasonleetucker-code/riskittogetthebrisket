@@ -7,15 +7,15 @@
  * every player, always, and nothing noticed because nothing called it.
  *
  * So the interesting cases here are the quiet ones. This panel returns
- * null for four different reasons, and three of them are legitimate
+ * null for three different reasons, and two of them are legitimate
  * steady states rather than faults:
  *
- *   no_snapshot   team strength not built for this league yet
  *   no_teams      Sleeper unreachable
  *   empty picks   no FUTURE picks (normal late in a draft cycle)
  *   fetch failure the only genuine error
  *
- * A panel that rendered an alarming card for the first three would
+ * (No slot forecast is not one of them: the picks are listed with the
+ * reason.) A panel that rendered an alarming card for the first two would
  * train the reader to ignore it; one that rendered an empty table
  * would read as breakage. Both are worse than nothing.
  */
