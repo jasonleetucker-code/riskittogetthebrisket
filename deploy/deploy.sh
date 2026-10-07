@@ -20,6 +20,8 @@ FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"
+RELEASE_ARCHIVE="${RELEASE_ARCHIVE:-}"
+RELEASE_ARCHIVE_SHA256="${RELEASE_ARCHIVE_SHA256:-}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ALLOW_DIRTY_DEPLOY="${ALLOW_DIRTY_DEPLOY:-false}"
 # Where next build stages its output before the atomic swap.  Relative
@@ -191,7 +193,7 @@ is_full_commit_sha() {
 }
 
 canonical_requirements_file() {
-  printf '%s\n' "requirements.txt"
+  printf '%s\n' "requirements.lock.txt"
 }
 
 ensure_venv_site_packages_writable() {
@@ -235,17 +237,90 @@ prepare_python_runtime() {
   log "Python dependency manifest detected: ${req_file}"
 
   require_command python3
+  python3 scripts/python_lock.py check
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
   fi
 
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
-  "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  local release_schema=""
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    release_schema="$(tar -xOf "${RELEASE_ARCHIVE}" release-manifest.json | \
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["schema_version"])')"
+  fi
+  if [[ "${release_schema}" == "calculator-release/v2" ]]; then
+    log "Installing exact CI backend wheels offline from the verified release archive."
+    python3 -m scripts.stage_backend_artifact \
+      --release-archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${TARGET_REV}" \
+      --venv-python "${VENV_DIR}/bin/python" \
+      --receipt "${APP_DIR}/.backend-artifact-receipt.json"
+  elif [[ -z "${release_schema}" || "${release_schema}" == "calculator-release/v1" ]]; then
+    "${VENV_DIR}/bin/python" -m pip install --upgrade pip
+    "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+    rm -f "${APP_DIR}/.backend-artifact-receipt.json"
+  else
+    error "Unsupported release artifact schema: ${release_schema}"
+    exit 1
+  fi
+}
+
+# Install stamp: the SHA-256 of the package-lock.json a successful `npm ci`
+# installed, written INSIDE node_modules. `npm ci` deletes node_modules before
+# installing, so any later install by any script version erases the stamp; a
+# present stamp can only describe the tree that is actually on disk. deploy.sh
+# and rollback.sh both write it; rollback.sh reads it to decide whether a saved
+# artifact needs its packages reinstalled.
+FRONTEND_INSTALL_STAMP=".calculator-package-lock.sha256"
+
+frontend_lock_digest() {
+  sha256sum "$1" | cut -d ' ' -f1
 }
 
 maybe_build_frontend() {
+  if [[ -n "${RELEASE_ARCHIVE}" || -n "${RELEASE_ARCHIVE_SHA256}" ]]; then
+    [[ -n "${RELEASE_ARCHIVE}" && -n "${RELEASE_ARCHIVE_SHA256}" ]] || {
+      error "Both RELEASE_ARCHIVE and RELEASE_ARCHIVE_SHA256 are required."
+      exit 1
+    }
+    [[ -f "${APP_DIR}/frontend/package-lock.json" ]] || {
+      error "Frontend lock is required for artifact deployment."
+      exit 1
+    }
+    resolve_node_toolchain || { error "Node and npm are required for artifact deployment."; exit 1; }
+    log "Installing exact frontend dependencies for tested release artifact."
+    npm ci --prefix "${APP_DIR}/frontend"
+    frontend_lock_digest "${APP_DIR}/frontend/package-lock.json" \
+      > "${APP_DIR}/frontend/node_modules/${FRONTEND_INSTALL_STAMP}" ||
+      warn "Could not record the frontend install stamp; a rollback will reinstall."
+    log "Verifying and staging CI release artifact: ${RELEASE_ARCHIVE}"
+    python3 -m scripts.stage_release_artifact \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${TARGET_REV}" \
+      --staging "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}" \
+      --node-version "$(node --version)" \
+      --receipt "${STATE_DIR}/staged_release_manifest.json"
+    mkdir -p "${STATE_DIR}/releases"
+    # Refuses only an incomplete, corrupt or non-regular saved triplet for this
+    # revision. A different artifact ID of the same revision (a redeploy or a
+    # dispatched rollback rebuilds Next with a new random BUILD_ID) is accepted
+    # here and replaces the saved one in record_success_state.
+    python3 -m scripts.save_release_archive \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --release-dir "${STATE_DIR}/releases" \
+      --commit "${TARGET_REV}" \
+      --check-only
+    verify_frontend_build_manifest "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}"
+    return 0
+  fi
+
   # RUN_FRONTEND_BUILD used to be an opt-out via env var, but the
   # production server had it set to a non-true value in its login
   # environment, which silently short-circuited every frontend rebuild
@@ -1076,11 +1151,35 @@ verify_deploy() {
 
 record_success_state() {
   mkdir -p "${STATE_DIR}"
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    local release_dir="${STATE_DIR}/releases"
+    local saved_manifest=""
+    mkdir -p "${release_dir}"
+    saved_manifest="$(python3 -m scripts.save_release_archive \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --release-dir "${release_dir}" \
+      --commit "${TARGET_REV}")"
+    [[ -n "${saved_manifest}" ]] || { error "Saved release manifest was not returned."; return 1; }
+    cp "${saved_manifest}" "${STATE_DIR}/last_successful_release_manifest.json"
+  fi
   printf '%s\n' "${TARGET_REV}" > "${STATE_DIR}/last_successful_rev"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATE_DIR}/last_successful_at_utc"
   if [[ -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]]; then
     mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
     printf '%s\n' "${TARGET_REV}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
+  fi
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    # Keep a bounded rollback window. This is after success is recorded;
+    # retention failure cannot roll back a healthy running deployment.
+    if ! python3 scripts/release_retention.py \
+      --release-dir "${STATE_DIR}/releases" \
+      --current "${TARGET_REV}" \
+      --previous "${PRE_DEPLOY_REV}" \
+      --keep 8; then
+      warn "Saved release archive retention failed; inspect ${STATE_DIR}/releases"
+    fi
   fi
 }
 
@@ -1134,7 +1233,40 @@ on_error() {
   exit "${exit_code}"
 }
 
+# The workflow transfers each tested archive (~175 MB) to
+# <state>/incoming/<sha>-<run id>.tar. record_success_state copies it into
+# releases/, the bounded rollback window; the transferred copy is never read
+# again on success or failure, so it must not accumulate on the production disk.
+# This runs on EVERY exit, after on_error's auto-rollback has finished, and also
+# prunes archives that earlier interrupted runs left behind (the workflow
+# serializes deploys, so anything not newer than this run's archive is stale).
+# Only workflow-shaped names inside a real directory named "incoming" are
+# touched. Cleanup never changes the deploy's exit status.
+_INCOMING_ARCHIVE_NAME='^[0-9a-f]{40}-[0-9]+\.tar$'
+
+cleanup_incoming_release_archives() {
+  trap - ERR
+  [[ -n "${RELEASE_ARCHIVE}" ]] || return 0
+  local incoming_dir stale
+  incoming_dir="$(dirname -- "${RELEASE_ARCHIVE}")"
+  if [[ "$(basename -- "${incoming_dir}")" != "incoming" || ! -d "${incoming_dir}" ||
+        -L "${incoming_dir}" ]] ||
+     ! [[ "$(basename -- "${RELEASE_ARCHIVE}")" =~ ${_INCOMING_ARCHIVE_NAME} ]]; then
+    return 0
+  fi
+  if [[ -f "${RELEASE_ARCHIVE}" ]]; then
+    while IFS= read -r -d '' stale; do
+      [[ "$(basename -- "${stale}")" =~ ${_INCOMING_ARCHIVE_NAME} ]] || continue
+      rm -f -- "${stale}" || warn "Could not remove stale incoming release archive ${stale}"
+    done < <(find "${incoming_dir}" -maxdepth 1 -type f -name '*.tar' \
+      ! -newer "${RELEASE_ARCHIVE}" -print0 2>/dev/null || true)
+  fi
+  rm -f -- "${RELEASE_ARCHIVE}" || warn "Could not remove transferred release archive ${RELEASE_ARCHIVE}"
+  return 0
+}
+
 trap 'on_error $LINENO' ERR
+trap cleanup_incoming_release_archives EXIT
 
 main() {
   AUTO_ROLLBACK="$(lower "${AUTO_ROLLBACK}")"
@@ -1302,6 +1434,16 @@ main() {
   ensure_systemd_service
   reconcile_runtime_state
   deploy_frontend_atomic
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    python3 -m scripts.release_artifact verify \
+      --root "${APP_DIR}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --commit "${TARGET_REV}"
+    cp "${STATE_DIR}/staged_release_manifest.json" "${APP_DIR}/.release-manifest.json.tmp"
+    mv -f "${APP_DIR}/.release-manifest.json.tmp" "${APP_DIR}/.release-manifest.json"
+  else
+    rm -f "${APP_DIR}/.release-manifest.json"
+  fi
   restart_service
   verify_runtime_state
   reconcile_source_history
