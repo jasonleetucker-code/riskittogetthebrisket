@@ -40,7 +40,14 @@ export default function SourceHealthPage() {
               <strong>Amber</strong> — refreshed 4–12h ago.
             </p>
             <p>
-              <strong>Red</strong> — refreshed over 12h ago, or never.
+              <strong>Red</strong> — refreshed over 12h ago.
+            </p>
+            <p>
+              <strong>Grey</strong> — no per-source refresh time is known, or
+              the served board declares the source absent by design
+              (seasonally inactive, or a private source this host does not
+              carry). Unknown is not fresh, and absent by design is not a
+              failure.
             </p>
             <p>
               Run failures are listed separately at the foot of the detail

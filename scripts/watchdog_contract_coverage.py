@@ -231,7 +231,10 @@ def evaluate_coverage_map(
     for key in sorted(k for k in registered if k):
         info = freshness.get(key)
         threshold = resolve_threshold(key, thresholds)
-        is_fresh = info is not None and float(info.get("ageHours", 0.0)) <= threshold
+        # No numeric age = unknown age, never "0h old" (missing is never
+        # zero).  Unknown is not fresh, so the freshness watchdog owns it.
+        raw_age = info.get("ageHours") if info is not None else None
+        is_fresh = isinstance(raw_age, (int, float)) and float(raw_age) <= threshold
         if not is_fresh or not _csv_nonempty(key) or key in inactive:
             # Stale → freshness watchdog already owns it.
             # Empty/missing CSV → nothing to land; not a coverage bug.

@@ -1899,7 +1899,11 @@ def _live_by_name_from_contract(contract: dict | None) -> dict[str, int]:
 
 
 def _build_source_health_snapshot(
-    data: dict | None, coverage: dict[str, int] | None = None
+    data: dict | None,
+    coverage: dict[str, int] | None = None,
+    *,
+    seasonal_inactive: list[str] | None = None,
+    private_absent_by_design: list[str] | None = None,
 ) -> dict:
     """Source health over the population we are ENTITLED TO EXPECT.
 
@@ -1935,6 +1939,16 @@ def _build_source_health_snapshot(
     NOT ``coverageAudit.expectedSites``: that block is an anchor-loss
     detector and 2 is correct for it.  Different question, different
     owner.
+
+    ``seasonal_inactive`` / ``private_absent_by_design`` are the SERVED
+    board's own declarations (``served_seasonal_inactive`` /
+    ``served_private_absent_by_design``) — the same two lists the
+    coverage gate already excuses.  A declared source that voted on zero
+    rows is absent BY DESIGN, not missing: SEASONALLY INACTIVE != BROKEN
+    and PRIVATE SOURCE NOT PRESENT != FAILED PUBLIC SOURCE.  It is named
+    in its own list so the absence stays legible, never dropped.  A
+    declared source that DID vote counts normally; an undeclared source
+    on zero rows stays ``missing``.
     """
     payload = data or {}
     sites = payload.get("sites")
@@ -1975,8 +1989,13 @@ def _build_source_health_snapshot(
     # is built FROM the sources.
     measured = bool(coverage)
 
+    declared_seasonal = {str(k) for k in (seasonal_inactive or []) if k}
+    declared_private = {str(k) for k in (private_absent_by_design or []) if k}
+
     source_counts: dict[str, int | None] = {}
     missing: list[str] = []
+    seasonal_absent: list[str] = []
+    private_absent: list[str] = []
     unmeasured: list[str] = []
     available = 0
     for key in registered:
@@ -1995,6 +2014,10 @@ def _build_source_health_snapshot(
         source_counts[key] = count
         if count > 0:
             available += 1
+        elif key in declared_private:
+            private_absent.append(key)
+        elif key in declared_seasonal:
+            seasonal_absent.append(key)
         else:
             missing.append(key)
 
@@ -2180,6 +2203,12 @@ def _build_source_health_snapshot(
         # ``unmeasured_sources``, which is "we were not given the
         # served board and therefore cannot say".
         "missing_sources": sorted(missing),
+        # Zero rows on the served board, but the board DECLARES the
+        # absence: a seasonally inactive source, or a private source this
+        # host does not carry a vote from.  Absent by design — reported,
+        # never folded into ``missing_sources``.
+        "seasonally_inactive_sources": sorted(seasonal_absent),
+        "absent_by_design_sources": sorted(private_absent),
         "unmeasured_sources": sorted(unmeasured),
         # The scraper's own anchor row counts, kept under a name that
         # says what they are.  A different quantity from board
@@ -5792,7 +5821,10 @@ async def get_status():
     # from it plus the registry population (F-7).  Owner and input, not
     # two competing surfaces.
     source_health = _build_source_health_snapshot(
-        latest_data or latest_contract_data, coverage=served_source_coverage
+        latest_data or latest_contract_data,
+        coverage=served_source_coverage,
+        seasonal_inactive=served_seasonal_inactive,
+        private_absent_by_design=served_private_absent_by_design,
     )
     full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
     runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
