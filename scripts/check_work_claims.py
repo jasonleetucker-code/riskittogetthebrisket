@@ -279,6 +279,13 @@ def branches_touching(paths: list[str], *, exclude: str | None) -> dict[str, lis
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Claim rows carry non-ASCII (arrows, em dashes); a Windows cp1252
+    # console must degrade the glyph, never crash the checker.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
