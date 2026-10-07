@@ -121,11 +121,13 @@ export function useWaiverAnalysis({
     cutLadder,
   ]);
   // Still fetching THIS team's ladder: the page keeps its skeleton rather
-  // than flashing an "unavailable" state that is about to resolve.
-  const ladderPending =
-    ladderEnabled &&
-    !ladderFailure &&
-    (ladderLoading || !ladderPayload || cutLadder.reason === "team_mismatch");
+  // than flashing an "unavailable" state that is about to resolve.  ONLY
+  // while a request is in flight — a fetch that SETTLED without data and
+  // without a failure is not "pending", it is an answer with nothing in
+  // it, and ``teamCutLadder`` already states it as unavailable
+  // (``not_loaded`` / ``team_mismatch``).  Waiting on ``!ladderPayload``
+  // here held the skeleton forever in exactly that case.
+  const ladderPending = ladderEnabled && !ladderFailure && Boolean(ladderLoading);
 
   // ── Backend FAAB bids (optional enrichment) ─────────────────────
   //

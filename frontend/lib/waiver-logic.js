@@ -386,6 +386,17 @@ function byValueDescThenName(a, b) {
   return na.localeCompare(nb);
 }
 
+function dropValueOf(d) {
+  return Number.isFinite(d?.value) ? d.value : rowValue(d?.row);
+}
+
+function byDropValueAscThenRung(a, b) {
+  const va = dropValueOf(a);
+  const vb = dropValueOf(b);
+  if (va !== vb) return va - vb;
+  return byRungThenName(a, b);
+}
+
 function byRungThenName(a, b) {
   const ra = Number.isFinite(a?.rung) ? a.rung : Infinity;
   const rb = Number.isFinite(b?.rung) ? b.rung : Infinity;
@@ -427,13 +438,18 @@ export function computeBestMoves(addable, { limit = 20 } = {}) {
 }
 
 /**
- * Greedy unique pair-up.  Sort addable desc; take droppable in the
- * canonical CUT ORDER (``rung`` ascending); pair 1↔1, 2↔2, … while
- * ``add.value > drop.value``.  Stop when no add still beats its
- * corresponding drop.  Cut order matters for legality, not taste: the
- * ladder validated rung k with rungs 1..k-1 already released, so the
- * first n rungs are a legal SET of releases — n players sorted by raw
- * value are not.
+ * Greedy unique pair-up.  Sort addable desc, droppable asc by value;
+ * pair 1↔1, 2↔2, … while ``add.value > drop.value``.  Stop when no add
+ * still beats its corresponding drop.
+ *
+ * Re-sorting the drops by value is LEGAL here because every drop is a
+ * rung of the canonical cut ladder: the ladder validated rung k with
+ * rungs 1..k-1 already released, so the whole ladder is one legal set of
+ * releases, and any subset of a legal set is legal (legal cut-sets are
+ * downward closed — ``src/draft/displacement.py``).  Pairing in cut order
+ * instead stopped at the first add that did not beat its paired rung and
+ * under-counted the slate.  Value order is NOT legal over raw roster
+ * rows — only over ladder-derived drops, which is all this receives.
  *
  * Filters out ``rosteredBy != null`` adds since they aren't real
  * adds.  This is the "if I had unlimited claims, what's the optimal
@@ -446,14 +462,14 @@ export function computeBestUniqueUpgradeSet(addable, droppable) {
     .filter((a) => !a.rosteredBy)
     .slice()
     .sort(byValueDescThenName);
-  const drops = droppable.slice().sort(byRungThenName);
+  const drops = droppable.slice().sort(byDropValueAscThenRung);
   const out = [];
   const n = Math.min(adds.length, drops.length);
   for (let i = 0; i < n; i++) {
     const av = rowValue(adds[i].row);
     // The release's value as the droppable list carries it — an
     // unpriced rung is costed at its assumed waiver level, never 0.
-    const dv = Number.isFinite(drops[i].value) ? drops[i].value : rowValue(drops[i].row);
+    const dv = dropValueOf(drops[i]);
     if (av <= dv) break;
     out.push({
       add: adds[i].row,

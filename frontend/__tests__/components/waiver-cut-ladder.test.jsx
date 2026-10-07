@@ -140,4 +140,21 @@ describe("useWaiverAnalysis — canonical cut ladder", () => {
     render(<Probe />);
     expect(screen.getByTestId("state")).toHaveTextContent("loading");
   });
+
+  it("a fetch that settles with no data and no failure is unavailable, not a permanent skeleton", () => {
+    mockUseRosterIntelligence.mockReturnValue({ loading: false, data: null, failure: null });
+    render(<Probe />);
+    expect(screen.getByTestId("state")).toHaveTextContent("unavailable");
+    expect(screen.getByTestId("droppable")).toBeEmptyDOMElement();
+  });
+
+  it("a settled answer for another team is unavailable, never read as this team's", () => {
+    const stale = JSON.parse(JSON.stringify(LADDER_PAYLOAD));
+    stale.team.ownerId = "someone_else";
+    mockUseRosterIntelligence.mockReturnValue({ loading: false, data: stale, failure: null });
+    render(<Probe />);
+    expect(screen.getByTestId("state")).toHaveTextContent("unavailable");
+    expect(screen.getByTestId("reason")).toHaveTextContent("different team");
+    expect(screen.getByTestId("droppable")).toBeEmptyDOMElement();
+  });
 });

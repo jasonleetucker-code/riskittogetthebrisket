@@ -708,8 +708,9 @@ describe("computeWaiverAnalysis — canonical cut ladder (C2-DROP-01)", () => {
     ]);
     // Each add pairs with the FIRST legal release it beats (rung 1).
     expect(r.bestMoves[0].drop.name).toBe("Bench A");
-    // Unique set takes releases in cut order — a legal SET.
-    expect(r.bestUniqueUpgradeSet.map((m) => m.drop.name)).toEqual(["Bench A", "Bench B"]);
+    // Unique set pairs ladder releases by VALUE (cheapest first): every
+    // rung is in one legal set, so any subset of them is legal too.
+    expect(r.bestUniqueUpgradeSet.map((m) => m.drop.name)).toEqual(["Bench B", "Bench A"]);
   });
 
   it("an unavailable ladder empties every drop-dependent list and says why", () => {
@@ -758,5 +759,45 @@ describe("computeWaiverAnalysis — canonical cut ladder (C2-DROP-01)", () => {
     // Same board as the add side (the user's overrides included), not the
     // served default-board number.
     expect(r.droppable[0].value).toBe(800);
+  });
+});
+
+describe("computeBestUniqueUpgradeSet — full pairing over ladder releases", () => {
+  it("does not stop at the first add that fails to beat its CUT-ORDER rung", () => {
+    // Review repro: adds [600, 300, 250] vs rungs 1-3 valued [100, 500, 200].
+    // Pairing in cut order: 600>100, then 300<500 -> stop, ONE pair.
+    // The rungs form one legal set, so pairing by value is legal:
+    // 600>100, 300>200, then 250<500 stops — the two pairs below.
+    const adds = [row("Add 600", 600), row("Add 300", 300), row("Add 250", 250)].map((r) => ({
+      row: r,
+      value: r.rankDerivedValue,
+      isRookie: false,
+      rosteredBy: null,
+    }));
+    const drops = [
+      { row: row("Rung1", 100), value: 100, rung: 1 },
+      { row: row("Rung2", 500), value: 500, rung: 2 },
+      { row: row("Rung3", 200), value: 200, rung: 3 },
+    ];
+    const set = computeBestUniqueUpgradeSet(adds, drops);
+    expect(set.map((m) => [m.add.name, m.drop.name])).toEqual([
+      ["Add 600", "Rung1"],
+      ["Add 300", "Rung3"],
+    ]);
+  });
+
+  it("pairs every add when each beats some distinct release", () => {
+    const adds = [row("A9", 900), row("A8", 800), row("A7", 700)].map((r) => ({
+      row: r,
+      value: r.rankDerivedValue,
+      isRookie: false,
+      rosteredBy: null,
+    }));
+    const drops = [
+      { row: row("R1", 100), value: 100, rung: 1 },
+      { row: row("R2", 500), value: 500, rung: 2 },
+      { row: row("R3", 200), value: 200, rung: 3 },
+    ];
+    expect(computeBestUniqueUpgradeSet(adds, drops)).toHaveLength(3);
   });
 });
