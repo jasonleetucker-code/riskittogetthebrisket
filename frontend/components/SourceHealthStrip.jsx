@@ -248,12 +248,16 @@ export default function SourceHealthStrip({ variant = "inline" }) {
       // render green off another source's fetch (missing is not the
       // run's value either).
       const srcAgeHours = Number.isFinite(meta.ageHours) ? Number(meta.ageHours) : null;
+      // "absent by design", not "not provisioned": the private set also
+      // covers flag rollback and held-from-vote sources (Signals IDP shadow).
       const declaredAbsence = privateAbsent.has(src)
-        ? "not provisioned"
+        ? "absent by design"
         : seasonal.has(src)
           ? "seasonally inactive"
           : null;
-      const tone = declaredAbsence ? "flat" : toneFor(src, runtime, srcAgeHours);
+      // A declaration excuses only the AGE signal.  A run that actually
+      // reported this source failed / partial / timed out still wins.
+      const tone = toneFor(src, runtime, declaredAbsence ? null : srcAgeHours);
       const ageLbl = meta.lastFetched ? ageLabel(meta.lastFetched) : null;
       const rawCount = counts[src] ?? counts[src.toLowerCase()];
       return {

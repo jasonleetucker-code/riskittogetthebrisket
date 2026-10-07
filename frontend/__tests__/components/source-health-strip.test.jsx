@@ -529,7 +529,7 @@ describe("SourceHealthStrip · declared absence", () => {
 
   it("labels a private absent-by-design source instead of calling it missing", async () => {
     const c = await renderExpanded();
-    expect(rowFor(c, "signalsIdpDb").textContent).toMatch(/not provisioned/);
+    expect(rowFor(c, "signalsIdpDb").textContent).toMatch(/absent by design/);
     expect(c.querySelector(".source-health-missing")).toBeNull();
     expect(c.querySelector(".source-health-absent-by-design").textContent).toMatch(
       /flockFantasySfRookies.*signalsIdpDb/,
@@ -546,5 +546,18 @@ describe("SourceHealthStrip · declared absence", () => {
   it("keeps a genuinely fresh source green", async () => {
     const c = await renderExpanded();
     expect(rowFor(c, "ktcSfTep").className).toMatch(/--up/);
+  });
+
+  it("a declared source whose run actually failed still renders as a failure", async () => {
+    const body = JSON.parse(JSON.stringify(BODY));
+    body.source_health.source_runtime.failed_source_keys = ["flockFantasySfRookies"];
+    mockStatus({ body });
+    const utils = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+    await waitFor(() =>
+      expect(utils.container.querySelectorAll(".source-health-row").length).toBe(4),
+    );
+    expect(rowFor(utils.container, "flockFantasySfRookies").className).toMatch(/--down/);
   });
 });
