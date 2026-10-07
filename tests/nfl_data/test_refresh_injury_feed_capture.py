@@ -144,3 +144,44 @@ def test_archive_failure_does_not_fail_the_refresh(env):
     _fetch_writes_cache(env, [_entry("1", "Alpha Player", "OUT")])
 
     assert env["mod"].main([]) == 0
+
+
+# ── shape drift through the REAL fetch_injuries (G4 review) ──────────────
+
+
+def _real_fetch_with_body(env, body: bytes):
+    import io
+
+    from src.nfl_data import injury_feed
+    from src.utils import circuit_breaker
+
+    circuit_breaker.reset_all_for_tests()
+    env["monkeypatch"].setattr(
+        env["mod"],
+        "fetch_injuries",
+        lambda: injury_feed.fetch_injuries(_url_opener=lambda req, timeout=None: io.BytesIO(body)),
+    )
+
+
+def test_shape_drift_is_a_failed_fetch_and_changes_nothing(env):
+    injured = [_entry("1", "Alpha Player", "OUT"), _entry("2", "Beta Player", "IR")]
+    env["prior"].write_text(json.dumps([e.to_dict() for e in injured]), encoding="utf-8")
+    before = env["prior"].read_text(encoding="utf-8")
+    _real_fetch_with_body(env, b'{"teams": "renamed upstream"}')
+
+    assert env["mod"].main([]) == 1
+    assert env["merged"] == []
+    assert env["prior"].read_text(encoding="utf-8") == before
+    assert list(al.iter_all_records(env["history"])) == []
+
+
+def test_genuine_empty_report_through_real_fetch_is_recorded(env):
+    env["prior"].write_text(
+        json.dumps([_entry("1", "Alpha Player", "OUT").to_dict()]), encoding="utf-8"
+    )
+    _real_fetch_with_body(env, b'{"injuries": []}')
+
+    assert env["mod"].main([]) == 0
+    assert [e["eventType"] for e in env["merged"]] == ["ACTIVATED_RETURN"]
+    [rec] = list(al.iter_all_records(env["history"]))
+    assert rec["entryCount"] == 0

@@ -928,9 +928,12 @@ injuries" and for "the fetch failed". The refresh used to treat a failure as an
 empty report: it emitted an `ACTIVATED_RETURN` for every injured player and
 overwrote the prior with `[]`, so the next good fetch re-emitted every injury as
 new (reproduced on the pre-change script: 2 injured → 2 `ACTIVATED_RETURN`,
-prior `[]`). The refresh now proceeds only when the response cache proves the
-returned list was fetched, and otherwise changes nothing and exits 1 — the exit
-code its own docstring already promised.
+prior `[]`). The refresh now proceeds only when the response cache proves ESPN
+answered with an injuries-shaped body and the returned list is that body; a 200
+with an unexpected shape is never cached (`injury_feed.payload_shape_error`), so
+shape drift is a failed fetch, distinct from a genuine `{"injuries": []}`.
+Otherwise it changes nothing and exits 1 — the exit code its own docstring
+already promised. A well-shaped report with wrong content is not detectable.
 
 **Evidence status: NONE MEASURED.** No production generation has been observed
 containing either artifact; the rows are pinned by

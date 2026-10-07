@@ -24,8 +24,12 @@ Wants=network-online.target
 #
 # Exit codes (scripts/refresh_injury_feed.py):
 #   0 - ok (including "flag off, no-op" and "no injuries")
-#   1 - fetch not proven (ESPN failure: no events, no history row) or event
-#       merge failed; prior snapshot untouched either way
+#   1 - fetch not proven (ESPN network failure, open breaker, or an
+#       unexpected payload shape: no events, no history row) or event merge
+#       failed; prior snapshot untouched either way.  A failed write of the
+#       response cache (data/nfl_data_cache/, e.g. disk full) ALSO exits
+#       non-zero even when ESPN answered: the cache entry is the fetch proof,
+#       so without it nothing is recorded or diffed.
 #
 # Also appends each proven fetch to the as-known history log
 # data/nfl_data/injury_history/ (src/nfl_data/injury_history.py; backed up

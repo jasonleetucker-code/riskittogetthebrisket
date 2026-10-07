@@ -3,6 +3,10 @@ append-only / idempotent semantics (it is now the single implementation)."""
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
 from src.utils import append_ledger as al
 
 
@@ -50,3 +54,64 @@ def test_single_record_api_is_unchanged(tmp_path):
 def test_empty_batch_writes_nothing(tmp_path):
     assert al.append_records(tmp_path, []) == 0
     assert not al.index_path(tmp_path).exists()
+
+
+# ── crash between a batch's data append and its index append (G4 review) ──
+
+
+def _simulate_crash_after_data(tmp_path, records):
+    """Lines durable in the ledger, keys never reached the index."""
+    path = al.ledger_path(tmp_path, records[0]["recordedAt"])
+    with path.open("a", encoding="utf-8") as fh:
+        for r in records:
+            fh.write(json.dumps(r, sort_keys=True, separators=(",", ":")) + "\n")
+
+
+def test_a_crashed_batch_is_recovered_in_full_not_just_its_last_line(tmp_path):
+    al.append_records(tmp_path, [_rec("a")])
+    _simulate_crash_after_data(tmp_path, [_rec("b"), _rec("c"), _rec("d")])
+    assert al.recorded_keys(tmp_path) == {"a", "b", "c", "d"}
+    # The next refresh re-offers the same batch plus one new record.
+    assert al.append_records(tmp_path, [_rec("b"), _rec("c"), _rec("d"), _rec("e")]) == 1
+    keys = [r["key"] for r in al.iter_all_records(tmp_path)]
+    assert keys == ["a", "b", "c", "d", "e"]
+    # The recovered keys are now IN the index, so later writes cannot strand them.
+    index = set(al.index_path(tmp_path).read_text(encoding="utf-8").split())
+    assert index == {"a", "b", "c", "d", "e"}
+    al.append_records(tmp_path, [_rec("f")])
+    assert al.append_records(tmp_path, [_rec("b"), _rec("c")]) == 0
+    assert len(list(al.iter_all_records(tmp_path))) == 6
+
+
+def test_crash_injected_inside_append_records(tmp_path, monkeypatch):
+    al.append_records(tmp_path, [_rec("a")])
+    real = al._append_index
+
+    def crash(*_a, **_k):
+        raise OSError("power loss between data fsync and index append")
+
+    monkeypatch.setattr(al, "_append_index", crash)
+    with pytest.raises(OSError):
+        al.append_records(tmp_path, [_rec("b"), _rec("c"), _rec("d")])
+    monkeypatch.setattr(al, "_append_index", real)
+    assert al.append_records(tmp_path, [_rec("b"), _rec("c"), _rec("d")]) == 0
+    assert [r["key"] for r in al.iter_all_records(tmp_path)] == ["a", "b", "c", "d"]
+
+
+def test_crashed_batch_spanning_two_month_files_is_recovered(tmp_path):
+    al.append_records(tmp_path, [_rec("a", "2026-09"), _rec("b", "2026-10")])
+    _simulate_crash_after_data(tmp_path, [_rec("x", "2026-09")])
+    _simulate_crash_after_data(tmp_path, [_rec("y", "2026-10")])
+    assert al.append_records(tmp_path, [_rec("x", "2026-09"), _rec("y", "2026-10")]) == 0
+    assert len(list(al.iter_all_records(tmp_path))) == 4
+
+
+def test_recovery_skips_a_torn_tail_line(tmp_path):
+    al.append_records(tmp_path, [_rec("a")])
+    _simulate_crash_after_data(tmp_path, [_rec("b")])
+    path = al.ledger_files(tmp_path)[-1]
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write('{"key":"tor')
+    assert al.recorded_keys(tmp_path) == {"a", "b"}
+    assert al.append_records(tmp_path, [_rec("b"), _rec("c")]) == 1
+    assert [r["key"] for r in al.iter_all_records(tmp_path)] == ["a", "b", "c"]

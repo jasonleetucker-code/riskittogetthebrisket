@@ -272,6 +272,8 @@ then restore to the live path:
 | `dirs/market_trades_reports.tar.gz` | `data/market_trades/reports/` | — |
 | `dirs/playerctx_history.tar.gz` | `data/playerctx/history/` | — |
 | `dirs/bdvm.tar.gz`, `forecast_archive`, `pick_forecast_snapshots`, `sparse_evidence_shadow`, `robust_filter_shadow` | `data/<name>/` | — |
+| `dirs/injury_history.tar.gz` | `data/nfl_data/injury_history/` (extract with `-C data/nfl_data/`) | `dynasty-injury-feed-refresh.timer` |
+| `dirs/news_archive.tar.gz` | `data/news_archive/` | `dynasty` (the news refresh hook writes it) |
 
 ```bash
 # A labelled SQLite artifact — remove the old WAL/SHM first, or SQLite will

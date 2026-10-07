@@ -40,8 +40,13 @@ Fetch proof: ``fetch_injuries`` returns ``[]`` for "no injuries" AND for "the
 fetch failed".  Treating a failure as an empty report emitted an
 ACTIVATED_RETURN for every injured player and overwrote the prior with ``[]``
 (then the next good fetch re-emitted every injury as new).  The run now proceeds
-only when the response cache proves the returned list was fetched
-(``injury_history.proven_fetch_time``); otherwise it changes nothing and exits 1.
+only when the response cache proves ESPN answered with an injuries-SHAPED body
+and the returned list is that body (``injury_history.proven_fetch_time``;
+``injury_feed.payload_shape_error`` keeps shape drift out of the cache).
+Otherwise -- network error, open breaker, shape drift -- it changes nothing and
+exits 1.  A well-shaped report with wrong CONTENT is not detectable here.  A
+cache-write failure on a real fetch raises out of ``fetch_injuries`` and also
+exits non-zero with nothing changed.
 
 Usage
 -----

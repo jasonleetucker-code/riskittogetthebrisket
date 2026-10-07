@@ -32,8 +32,13 @@ the third state.
 **Fetch proof.**  ``fetch_injuries`` returns ``[]`` both for "no injuries" and
 for "the fetch failed".  A snapshot is recorded only when the response cache
 proves a fetch: an entry whose content equals what was returned and whose
-``fetched_at`` is inside the TTL measured from BEFORE the call.  Anything else
-records nothing -- a failed fetch is never logged as a healthy league.
+``fetched_at`` is inside the TTL measured from BEFORE the call.  What that
+establishes is narrow and stated exactly: ESPN answered, with a body of the
+injuries SHAPE (``injury_feed.payload_shape_error`` refuses to cache anything
+else), and this is what it said.  It cannot detect a well-shaped report whose
+CONTENT is wrong.  A network error, an open breaker, shape drift, or a failed
+cache write (``cache.put`` raises, so the refresh exits non-zero) records
+nothing.
 
 **Identity.**  ESPN athlete id -> Sleeper id by EXACT external id only, through
 the canonical owner ``src.identity.resolution.resolve_canonical_v2`` called with
