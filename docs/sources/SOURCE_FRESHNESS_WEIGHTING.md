@@ -779,7 +779,11 @@ and never a baseline. Pinned by `tests/sources/test_first_observation_baseline.p
 
 The B11 confidence gate's FETCH flags (`data_contract._source_freshness_flags`)
 are likewise measured at the board's own as-of against its own `csv_root`, never
-the wall clock (D9) — `tests/api/test_confidence_freshness_as_of.py`.
+the wall clock (D9) — `tests/api/test_confidence_freshness_as_of.py`. The
+reference time is published as `dataFreshness.sourceTimestampsAsOf`, so every
+`sourceTimestamps[*].ageHours` reads as "fetch age at the board's scrape time".
+A seasonal-inactivity excuse in the contract validator (D8) is honoured only for
+keys with a DECLARED policy in `config/sources/seasonal_policy_v1.json`.
 
 ## Relationship to `dynamic_source_weights`
 

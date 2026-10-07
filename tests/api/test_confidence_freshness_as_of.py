@@ -93,3 +93,55 @@ def test_no_as_of_is_unknown_never_fresh(tmp_path):
     assert entry["staleness"] == "unknown"
     assert entry["ageHours"] is None
     assert dc._source_freshness_flags(None, root)[KEY] is None
+
+
+# ── Wiring: the production build really threads as-of and csv_root ───────
+
+
+def _synthetic_raw(scrape_ts: str | None) -> dict:
+    from tests.api.test_contract_health_lanes import _healthy_payload
+
+    raw = _healthy_payload()
+    if scrape_ts is None:
+        raw.pop("scrapeTimestamp", None)
+    else:
+        raw["scrapeTimestamp"] = scrape_ts
+    return raw
+
+
+def test_build_threads_the_boards_as_of_and_csv_root_to_both_consumers(tmp_path, monkeypatch):
+    """Dropping ``freshness_as_of=`` / ``csv_root=`` from either call site in
+    ``build_api_data_contract`` (the B11 flags or the published block) must
+    fail here — a default of None would silently mean "unknown"."""
+    flag_calls: list[tuple] = []
+    block_calls: list[dict] = []
+    real_flags, real_block = dc._source_freshness_flags, dc._build_source_timestamps
+
+    def spy_flags(as_of=None, csv_root=None):
+        flag_calls.append((as_of, csv_root))
+        return real_flags(as_of, csv_root)
+
+    def spy_block(*, as_of=None, csv_root=None):
+        block_calls.append({"as_of": as_of, "csv_root": csv_root})
+        return real_block(as_of=as_of, csv_root=csv_root)
+
+    monkeypatch.setattr(dc, "_source_freshness_flags", spy_flags)
+    monkeypatch.setattr(dc, "_build_source_timestamps", spy_block)
+    contract = dc.build_api_data_contract(
+        _synthetic_raw("2026-09-01T12:00:00+00:00"), csv_root=tmp_path
+    )
+    assert flag_calls, "the B11 freshness flags were never resolved"
+    assert all(c == (AS_OF, tmp_path) for c in flag_calls), flag_calls
+    # The published block is built at the same as-of and tree (the flags
+    # call reaches it too — every call must carry both).
+    assert block_calls and all(
+        c == {"as_of": AS_OF, "csv_root": tmp_path} for c in block_calls
+    ), block_calls
+    assert contract["dataFreshness"]["sourceTimestampsAsOf"] == "2026-09-01T12:00:00Z"
+
+
+def test_published_block_names_no_reference_time_without_an_as_of(tmp_path):
+    contract = dc.build_api_data_contract(_synthetic_raw(None), csv_root=tmp_path)
+    fresh = contract["dataFreshness"]
+    assert fresh["sourceTimestampsAsOf"] is None
+    assert all(v.get("ageHours") is None for v in fresh["sourceTimestamps"].values())
