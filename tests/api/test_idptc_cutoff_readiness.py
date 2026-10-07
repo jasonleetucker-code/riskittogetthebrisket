@@ -200,6 +200,95 @@ def test_a_withheld_family_must_not_also_vote() -> None:
         assess_confidence([head], eligible_families={"f"}, consensus_value=1.0, withheld=[head])
 
 
+# ── fail CLOSED on unknown provider identity (review of #1697) ──────────────
+
+
+def test_unreadable_lineage_fails_closed_not_open(monkeypatch) -> None:
+    """With the registry unreadable, KTC Crowd + Trades must NOT become two
+    providers again (falling back to the source key would)."""
+    import src.sources.source_census as census
+
+    monkeypatch.setattr(census, "LINEAGE_PATH", census.LINEAGE_PATH.with_name("missing.json"))
+    census._PROVIDER_CACHE.clear()
+    try:
+        assert provider_of("ktcCrowdSfTep") is None
+        bucket, label = assess_pick_confidence(
+            {"ktcCrowdSfTep": 5000.0, "ktcTradesSfTep": 5010.0}, is_slot_specific=False
+        )
+        assert (bucket, label) == ("low", "Low — pick provider identity unknown")
+        bucket, _ = assess_pick_confidence(
+            {"ktcCrowdSfTep": 5000.0, "idpTradeCalc": 5010.0}, is_slot_specific=False
+        )
+        assert bucket == "low"
+        ev = pick_evidence({"ktcCrowdSfTep": 5000.0, "ktcTradesSfTep": 5010.0})
+        assert ev["state"] == "provider_unknown"
+        assert ev["unknownProviderSources"] == ["ktcCrowdSfTep", "ktcTradesSfTep"]
+        assert ev["votingProviders"] == []
+    finally:
+        census._PROVIDER_CACHE.clear()
+
+
+def test_unrecorded_source_fails_closed(monkeypatch) -> None:
+    import src.api.confidence as conf
+
+    real = conf._pick_provider
+    monkeypatch.setattr(conf, "_pick_provider", lambda k: None if k == "dlfSf" else real(k))
+    bucket, label = assess_pick_confidence(
+        {"ktcCrowdSfTep": 5000.0, "dlfSf": 5010.0}, is_slot_specific=False
+    )
+    assert (bucket, label) == ("low", "Low — pick provider identity unknown")
+
+
+# ── lost-evidence seats: only losses the withheld vote CAUSED ──────────────
+
+
+def test_seats_only_new_rejections_and_kept_withheld_sources() -> None:
+    from src.api.data_contract import _lost_evidence_seats
+
+    # Observed panel: tight cluster at ~1000, one long-standing outlier "old"
+    # (rejected with or without the withheld source) and the withheld "w".
+    cluster = [(f"s{i}", 1000.0 + 10 * i) for i in range(6)]
+    seats = _lost_evidence_seats(
+        voting_pairs=cluster + [("old", 9000.0)],
+        withheld_pairs=[("w", 1020.0)],
+        dropped_now=["old"],
+        outlier_test_applies=True,
+    )
+    assert seats == ["w"], "an outlier the observed panel rejects too is not a new loss"
+
+    # The withheld source was ITSELF an outlier on the observed panel: it was
+    # never part of the evidence, so losing it is not a loss.
+    seats = _lost_evidence_seats(
+        voting_pairs=cluster,
+        withheld_pairs=[("w", 9000.0)],
+        dropped_now=[],
+        outlier_test_applies=True,
+    )
+    assert seats == []
+
+    # A rejection CAUSED by the lost vote is seated: with "w" present the
+    # panel is wide enough to keep "x"; without it, "x" is rejected.
+    voting = [(k, 3000.0 + 100 * i) for i, k in enumerate("abcde")] + [("x", 4300.0)]
+    _kept, observed_dropped = dc._hampel_filter_per_player(voting + [("w", 4000.0)], k=dc._HAMPEL_K)
+    _kept, now_dropped = dc._hampel_filter_per_player(voting, k=dc._HAMPEL_K)
+    assert "x" not in observed_dropped and "x" in now_dropped  # the fixture's premise
+    seats = _lost_evidence_seats(
+        voting_pairs=voting,
+        withheld_pairs=[("w", 4000.0)],
+        dropped_now=now_dropped,
+        outlier_test_applies=True,
+    )
+    assert "w" in seats and "x" in seats
+
+    # Picks bypass the outlier test: every withheld source is a seat.
+    assert _lost_evidence_seats(
+        voting_pairs=cluster,
+        withheld_pairs=[("w", 9000.0)],
+        dropped_now=[],
+        outlier_test_applies=False,
+    ) == ["w"]
+
+
 # ── 6: alerting surface ─────────────────────────────────────────────────────
 
 
@@ -300,16 +389,39 @@ def _simulation(tmp_root: Path) -> dict[str, Any]:
     (cut_dir / f"{_IDPTC}_dataset.json").write_text(
         json.dumps(_aged(state, delta)), encoding="utf-8"
     )
+    state_files = {
+        "committed": state_path(_STATE_DIR, _IDPTC),
+        "base": state_path(base_dir, _IDPTC),
+        "cut": state_path(cut_dir, _IDPTC),
+    }
+    state_bytes_before = {k: f.read_bytes() for k, f in state_files.items()}
+
+    class _AtBoardTime(datetime):
+        """The build's wall clock frozen at the board's own as-of.
+
+        The B11 gate's FETCH freshness is still read against the wall clock
+        on this base (fixed separately by #1685, D9), so without this the
+        same archive grades every row ``low`` once its fetch stamps are a
+        day old and the before/after comparison below goes vacuous."""
+
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            return as_of.astimezone(tz) if tz else as_of.replace(tzinfo=None)
 
     original = dc._source_weighting_state_dir
+    original_datetime = dc.datetime
     try:
+        dc.datetime = _AtBoardTime
         dc._source_weighting_state_dir = lambda csv_root=None: base_dir  # noqa: ARG005
         before = dc.build_api_data_contract(copy.deepcopy(raw))
         dc._source_weighting_state_dir = lambda csv_root=None: cut_dir  # noqa: ARG005
         after = dc.build_api_data_contract(copy.deepcopy(raw))
     finally:
         dc._source_weighting_state_dir = original
+        dc.datetime = original_datetime
     _SIM.update(
+        state_bytes_before=state_bytes_before,
+        state_bytes_after={k: f.read_bytes() for k, f in state_files.items()},
         archive=archive,
         delta=delta,
         cutoff=as_of + delay,
@@ -403,6 +515,74 @@ def test_2_withheld_picks_are_stamped_single_provider_and_reduced(sim) -> None:
         ), row.get("canonicalName")
 
 
+def test_2b_tethered_pick_keeps_its_evidence_stamp_when_every_market_is_withheld() -> None:
+    """At the cutoff 48 current-year slot picks lose their only voting market
+    (IDPTC) and are priced by the rookie tether; the ranked pass never reaches
+    them, so the tether pass itself must stamp ``pickEvidence`` — naming the
+    withheld market and saying the value is tether-priced.  Synthetic, because
+    the test environment has no league to tether against."""
+    rookies = [
+        {
+            "canonicalName": f"Rookie {i}",
+            "assetClass": "offense",
+            "rookie": True,
+            "canonicalConsensusRank": i,
+            "rankDerivedValue": 9000 - 50 * i,
+        }
+        for i in range(1, 13)
+    ]
+    pick = {
+        "canonicalName": "2026 Pick 1.01",
+        "assetClass": "pick",
+        "rookie": False,
+        "canonicalSiteValues": {"idpTradeCalc": 7000, "ktc": 6900},
+        "freshnessExcludedSources": ["idpTradeCalc"],
+        "confidenceBasis": "unpriced",
+    }
+    dc._anchor_current_year_picks_to_rookies([*rookies, pick], 2026)
+    ev = pick["pickEvidence"]
+    assert ev["valueBasis"] == "rookie_pool_tether"
+    assert ev["state"] == "no_provider"
+    assert ev["withheldProviders"] == ["idpTradeCalculator"]
+    assert ev["reducedCoverage"] is True
+    report = dc.validate_api_data_contract({"playersArray": [*rookies, pick]})
+    assert "pick_evidence_reduced_tether_priced:1" in report["warnings"]
+    assert not any(w.startswith("pick_evidence_no_voting_provider") for w in report["warnings"])
+
+
+def test_2c_tethered_picks_on_the_board_are_stamped(sim) -> None:
+    rows = [
+        r
+        for c in (sim["before"], sim["after"])
+        for r in c["playersArray"]
+        if (r.get("pickValueProvenance") or {}).get("class") == "rookie_pool_tether"
+    ]
+    if not rows:
+        pytest.skip("no tethered pick on this board in the test environment (no league)")
+    for row in rows:
+        assert (row.get("pickEvidence") or {}).get("valueBasis") == "rookie_pool_tether"
+
+
+def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
+    """A row whose confidence fell must not have fallen for a seated source
+    the pre-cutoff board had ALREADY rejected (review of #1697: 15 of 16
+    high→medium rows were exactly that, e.g. Bijan Robinson, Brock Purdy)."""
+    before, after = _rows(sim["before"]), _rows(sim["after"])
+    for key, a in after.items():
+        if not a.get("freshnessExcludedSources"):
+            continue
+        already = set(before[key].get("droppedSources") or [])
+        seat_line = [r for r in a.get("confidenceReasons") or [] if "did not reach" in r]
+        if not seat_line:
+            continue
+        seated = {name.strip() for name in seat_line[0].split(":", 1)[1].split(",")}
+        families = {dc.correlation_group_for(k) for k in already}
+        voting_before = {
+            dc.correlation_group_for(k) for k in (before[key].get("effectiveSourceRanks") or {})
+        }
+        assert not (seated & (families - voting_before)), (key, seated, already)
+
+
 def test_3_4_ktc_crowd_and_trades_never_two_providers_on_the_board(sim) -> None:
     for contract in (sim["before"], sim["after"]):
         for row in contract["playersArray"]:
@@ -479,6 +659,16 @@ def test_7_idptc_observations_stay_on_the_record(sim) -> None:
         assert meta.get("contributedToBlend") is False
         assert meta.get("excludedReason") == "freshness_or_health_zero_weight"
         assert isinstance(meta.get("valueContribution"), (int, float))
-    # The committed dataset state is never rewritten by a build.
-    assert load_state(state_path(_STATE_DIR, _IDPTC)) == load_state(state_path(_STATE_DIR, _IDPTC))
+    # A build reads IDPTC's dataset state and never rewrites it: the
+    # committed file and both simulation copies are byte-identical after the
+    # two builds, and the aged copy still carries every clock and the full
+    # change history (the stale evidence is kept, only its authority ended).
+    assert sim["state_bytes_after"] == sim["state_bytes_before"]
+    cut_state = load_state(state_path(sim["state_dir"], _IDPTC))
+    committed = load_state(state_path(_STATE_DIR, _IDPTC))
+    for subset in ("players", "picks"):
+        assert (cut_state["subsets"][subset].get("changeHistory") or []) == (
+            committed["subsets"][subset].get("changeHistory") or []
+        )
+        assert cut_state["subsets"][subset].get("lastBroadDatasetChangeAt")
     assert any(_IDPTC in (r.get("canonicalSiteValues") or {}) for r in after.values())

@@ -45,6 +45,7 @@ from src.api.confidence import (  # noqa: E402  — grouped with its siblings
     CONFIDENCE_BASES,
     FamilyEvidence,
     assess_confidence,
+    PICK_VALUE_BASIS_TETHER,
     assess_pick_confidence,
     pick_evidence,
     degrade_for_quarantine,
@@ -7294,47 +7295,77 @@ def _family_evidence_for_row(
     return [ev for ev in evidence if id(ev) in chosen]
 
 
+def _lost_evidence_seats(
+    *,
+    voting_pairs: list[tuple[str, float]],
+    withheld_pairs: list[tuple[str, float]],
+    dropped_now: Sequence[str],
+    outlier_test_applies: bool,
+    exact_replay: bool = True,
+) -> list[str]:
+    """The sources a row's confidence must seat because a vote was withheld.
+
+    Owner directive 2026-10-07 (IDP Trade Calculator's quarantine cutoff):
+    losing a vote must never RAISE confidence.  The seat answers "what did
+    this row's evidence look like while the withheld source still voted?" —
+    and the outlier test can be asked that EXACTLY, with no second blend:
+    ``_hampel_filter_per_player`` is unweighted, so re-running it on the
+    OBSERVED panel (voting + withheld values) reproduces the verdict the
+    panel reached while the withheld source was still voting.  Seated:
+
+    * each withheld source the observed panel would have KEPT — it was a
+      voting head and now is not.  One the observed panel itself rejects
+      was already absent from the evidence, so it is not a new loss;
+    * each source rejected NOW that the observed panel would have kept —
+      a rejection CAUSED by the lost vote (measured on the simulated
+      cutoff: The IDP Show on Trey McBride, Draft Sharks on Colby
+      Parkinson).  A source the observed panel rejects too (rejected
+      before the cutoff as well, e.g. on Bijan Robinson) is not seated:
+      seating it would penalise a verdict nothing changed.
+
+    Picks bypass the outlier test in the blend, so for them every withheld
+    source is seated and no rejection exists.  Under the (default-off)
+    weighted joint challenger the replay is not exact, so the seat falls
+    back to the conservative superset: every withheld and every rejected
+    source.
+    """
+    withheld = [k for k, _v in withheld_pairs]
+    if not outlier_test_applies:
+        return withheld
+    if not exact_replay:
+        return withheld + [k for k in dropped_now if k not in withheld]
+    observed = list(voting_pairs) + list(withheld_pairs)
+    if len(observed) >= _HAMPEL_MIN_N:
+        _kept, observed_dropped = _hampel_filter_per_player(observed, k=_HAMPEL_K)
+    else:
+        observed_dropped = []
+    already = set(observed_dropped)
+    return [k for k in withheld if k not in already] + [
+        k for k in dropped_now if k not in already and k not in withheld
+    ]
+
+
 def _withheld_family_evidence_for_row(
     *,
-    row: Mapping[str, Any],
+    seats: Sequence[str],
     voting: Sequence["FamilyEvidence"],
     family_by_key: Mapping[str, str],
 ) -> list["FamilyEvidence"]:
-    """The families that OBSERVED this row but whose vote did not reach it.
+    """One lost-evidence seat per FAMILY for the confidence gate.
 
-    Owner directive 2026-10-07 (IDP Trade Calculator's freshness-quarantine
-    cutoff): a source that stops voting must never RAISE a row's
-    confidence.  ``assess_confidence(withheld=...)`` seats these families in
-    every share axis' denominator and credits them nothing; this assembles
-    them.  Decides no level.
-
-    Two memberships, and the second exists only because of the first:
-
-    * **withheld** — ``freshnessExcludedSources``: zero effective weight from
-      freshness quarantine or a FAILED source.
-    * **rejected on a row that lost a vote** — ``droppedSources`` (Hampel),
-      ONLY when the row also has a withheld source.  Measured on the
-      simulated IDP Trade Calculator cutoff (2026-10-07 board): withholding
-      it changes the row's outlier panel, and on 3 of 429 offense rows the
-      Hampel test then rejected ANOTHER disagreeing or TE-basis-converted
-      family (Trey McBride: The IDP Show; Parker Washington: Dynasty Nerds;
-      Colby Parkinson: Draft Sharks), removing it from every denominator and
-      promoting the row a level.  A rejection made by a panel a quarantine
-      shrank is not credited as consensus.  Rows that lost no vote are
-      untouched, so B11's treatment of outliers is otherwise unchanged.
-
-    A family that still has a voting member is represented and is never
-    listed; several members of one family are ONE seat (registry order picks
-    the representative).  Only ``family`` / ``source_key`` are meaningful on
-    the returned entries — a lost family earns nothing on any axis.
+    ``seats`` comes from :func:`_lost_evidence_seats` (which sources).  This
+    collapses them to families: a family that still has a voting member is
+    represented and gets no seat; several seated members of one family are
+    ONE seat (registry order picks the representative).  Only ``family`` /
+    ``source_key`` are meaningful on the returned entries — a lost family
+    earns nothing on any axis (``assess_confidence(withheld=...)``).
+    Decides no level.
     """
-    withheld_keys = list(row.get("freshnessExcludedSources") or ())
-    if not withheld_keys:
+    if not seats:
         return []
     voting_families = {e.family for e in voting}
-    members = withheld_keys + [k for k in row.get("droppedSources") or () if k not in withheld_keys]
     chosen: dict[str, tuple[int, FamilyEvidence]] = {}
-    for skey in members:
+    for skey in seats:
         family = family_by_key.get(skey, skey)
         if family in voting_families:
             continue
@@ -9203,6 +9234,17 @@ def _anchor_current_year_picks_to_rookies(
         # the cutoff, squeezing tail R4 picks off the bottom.
         row["rankDerivedValue"] = anchor_val
         row["pickRookieAnchor"] = anchor.get("canonicalName")
+        # The pick's VALUE now comes from the rookie at its slot, whatever
+        # the pick markets said; ``pickEvidence`` still names those markets
+        # (voting / withheld providers) and says the value is tether-priced,
+        # so a tethered pick never silently loses its evidence stamp — e.g.
+        # when every market on it is withheld and the ranked pass never
+        # reaches it (owner 2026-10-07, IDP Trade Calculator cutoff).
+        row["pickEvidence"] = pick_evidence(
+            row.get("canonicalSiteValues") or {},
+            withheld_sources=row.get("freshnessExcludedSources") or (),
+            value_basis=PICK_VALUE_BASIS_TETHER,
+        )
         # C1-U5: when this pass prices a row that neither assessment pass
         # reached, it owns the confidence statement too — otherwise the row
         # keeps the constructor's placeholder and reads as "unranked and
@@ -10675,6 +10717,11 @@ def _compute_unified_rankings(
     row_confidence_inputs: dict[
         int, tuple[list[FamilyEvidence], set[str], list[FamilyEvidence]]
     ] = {}
+    # Per row that lost a vote to withholding: the sources whose absence from
+    # the value is LOST evidence the confidence gate must seat (see
+    # ``_withheld_family_evidence_for_row``).  Decided in the blend loop, where
+    # the exact observed values exist.
+    row_lost_seats: dict[int, list[str]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     # The combined ladder from every usable bridge.  EMPTY means no bridge
@@ -11560,6 +11607,9 @@ def _compute_unified_rankings(
         # Per-row EFFECTIVE weight of each voting source (base × dynamic).
         row_weight: dict[str, float] = {}
         freshness_excluded: list[str] = []
+        # ``(source, value)`` of each withheld observation — the would-be vote,
+        # kept so the outlier test can be re-asked of the OBSERVED panel.
+        withheld_pairs: list[tuple[str, float]] = []
 
         canonical_site_values = players_array[row_idx].get("canonicalSiteValues") or {}
         if not isinstance(canonical_site_values, dict):
@@ -11731,6 +11781,7 @@ def _compute_unified_rankings(
                 meta_dyn["contributedToBlend"] = False
                 meta_dyn["excludedReason"] = "freshness_or_health_zero_weight"
                 freshness_excluded.append(source_key)
+                withheld_pairs.append((source_key, float(value)))
                 continue
             row_weight[source_key] = src_blend_weight
             all_values.append(value)
@@ -11858,6 +11909,14 @@ def _compute_unified_rankings(
                     meta = row_source_meta[row_idx].get(sk, {})
                     meta["hampelDropped"] = True
         players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
+        if withheld_pairs:
+            row_lost_seats[row_idx] = _lost_evidence_seats(
+                voting_pairs=[(k, v) for k, v, _ in all_value_pairs],
+                withheld_pairs=withheld_pairs,
+                dropped_now=hampel_dropped_keys,
+                outlier_test_applies=not row_is_pick,
+                exact_replay=not _joint_challenger,
+            )
         # Observations present but not voting because their effective weight
         # is 0 (quarantined staleness or FAILED health) — named separately
         # from Hampel drops, because "stale" and "outlier" are different facts.
@@ -12489,7 +12548,7 @@ def _compute_unified_rankings(
                 content_freshness_applies=_freshness_applied,
             )
             withheld = _withheld_family_evidence_for_row(
-                row=row,
+                seats=row_lost_seats.get(row_idx, ()),
                 voting=evidence,
                 family_by_key=family_by_key,
             )
@@ -12692,7 +12751,7 @@ def _compute_unified_rankings(
                 content_freshness_applies=_freshness_applied,
             )
             withheld = _withheld_family_evidence_for_row(
-                row=row,
+                seats=row_lost_seats.get(row_idx, ()),
                 voting=evidence,
                 family_by_key=family_by_key,
             )
@@ -15533,17 +15592,28 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     withheld_rows: dict[str, int] = {}
     picks_single_after_withholding = 0
     picks_no_provider_after_withholding = 0
+    picks_tethered_after_withholding = 0
+    picks_provider_unknown = 0
     for row in players_array:
         if not isinstance(row, dict):
             continue
         for skey in row.get("freshnessExcludedSources") or ():
             withheld_rows[str(skey)] = withheld_rows.get(str(skey), 0) + 1
         pe = row.get("pickEvidence")
-        if isinstance(pe, dict) and pe.get("reducedCoverage"):
-            if pe.get("state") == "single_provider":
-                picks_single_after_withholding += 1
-            elif pe.get("state") == "no_provider":
-                picks_no_provider_after_withholding += 1
+        if not isinstance(pe, dict):
+            continue
+        if pe.get("state") == "provider_unknown":
+            picks_provider_unknown += 1
+        if not pe.get("reducedCoverage"):
+            continue
+        if pe.get("valueBasis") == PICK_VALUE_BASIS_TETHER:
+            # Tether-priced: the value is the rookie at the slot; its pick
+            # markets lost a provider, which is reported, not re-counted.
+            picks_tethered_after_withholding += 1
+        elif pe.get("state") == "single_provider":
+            picks_single_after_withholding += 1
+        elif pe.get("state") == "no_provider":
+            picks_no_provider_after_withholding += 1
     for skey in sorted(withheld_rows):
         warnings.append(f"source_votes_withheld:{skey}:{withheld_rows[skey]}")
     if picks_single_after_withholding:
@@ -15552,6 +15622,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         )
     if picks_no_provider_after_withholding:
         warnings.append(f"pick_evidence_no_voting_provider:{picks_no_provider_after_withholding}")
+    if picks_tethered_after_withholding:
+        warnings.append(f"pick_evidence_reduced_tether_priced:{picks_tethered_after_withholding}")
+    if picks_provider_unknown:
+        warnings.append(f"pick_evidence_provider_unknown:{picks_provider_unknown}")
     if withheld_rows:
         degraded = True
 

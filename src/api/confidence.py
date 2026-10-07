@@ -526,20 +526,29 @@ _PICK_SLOT_SYNTH_SOURCES: frozenset[str] = frozenset({"ktcCrowdSfTep", "ktcTrade
 PICK_EVIDENCE_MULTI_PROVIDER = "multi_provider"
 PICK_EVIDENCE_SINGLE_PROVIDER = "single_provider"
 PICK_EVIDENCE_NO_PROVIDER = "no_provider"
+#: A voting source's provider is not recorded (lineage gap, or the lineage
+#: registry could not be read): independence cannot be proven.
+PICK_EVIDENCE_PROVIDER_UNKNOWN = "provider_unknown"
+
+#: ``pickEvidence.valueBasis``: what actually produced the pick's VALUE.  The
+#: market providers are reported either way; a tethered pick's value comes
+#: from the rookie at its slot, not from those providers.
+PICK_VALUE_BASIS_MARKET = "market_blend"
+PICK_VALUE_BASIS_TETHER = "rookie_pool_tether"
 
 
-def _pick_provider(key: str) -> str:
+def _pick_provider(key: str) -> str | None:
     """The PROVIDER behind a pick source — the unit of pick independence.
 
-    Read from the lineage registry's one owner.  A key the registry does not
-    name (a lineage gap) falls back to the key itself: that can only
-    OVERstate independence for a source nobody recorded, which is why
-    ``tests/api/test_idptc_cutoff_readiness.py`` pins every source in
-    :data:`_PICK_CONFIDENCE_SOURCES` to a recorded provider.
+    Read from the lineage registry's one owner.  ``None`` when the registry
+    does not name the key or cannot be read — and that FAILS CLOSED in every
+    caller: an unknown provider cannot be counted as independent (falling
+    back to the source key would turn KTC Crowd + KTC Trades back into two
+    providers the moment the registry was unreadable).
     """
     from src.sources.source_census import provider_of  # noqa: PLC0415
 
-    return provider_of(key) or key
+    return provider_of(key)
 
 
 def _collapse_pick_families(site_values: dict[str, Any]) -> dict[str, Any]:
@@ -615,6 +624,7 @@ def pick_evidence(
     site_values: dict[str, Any],
     *,
     withheld_sources: Iterable[str] = (),
+    value_basis: str = PICK_VALUE_BASIS_MARKET,
 ) -> dict[str, Any]:
     """Which independent PROVIDERS stand behind a pick's market confidence.
 
@@ -629,21 +639,34 @@ def pick_evidence(
     * ``state`` — ``multi_provider`` / ``single_provider`` /
       ``no_provider``, over VOTING providers;
     * ``reducedCoverage`` — true when any provider was withheld: the value
-      rests on less market evidence than the row was observed with.
+      rests on less market evidence than the row was observed with;
+    * ``unknownProviderSources`` — sources whose provider is not recorded;
+      any VOTING one makes the state ``provider_unknown`` (fail closed);
+    * ``valueBasis`` — ``market_blend``, or ``rookie_pool_tether`` for a
+      current-year slot pick whose value is the rookie at its slot.
     """
     withheld = {str(k) for k in withheld_sources}
     voting: dict[str, list[str]] = {}
     lost: dict[str, list[str]] = {}
+    unknown: list[str] = []
+    unknown_voting = False
     for key in _PICK_CONFIDENCE_SOURCES:
         raw = site_values.get(key)
         if isinstance(raw, bool) or not isinstance(raw, (int, float)) or float(raw) <= 0:
             continue
+        provider = _pick_provider(key)
+        if provider is None:
+            unknown.append(key)
+            unknown_voting = unknown_voting or key not in withheld
+            continue
         bucket = lost if key in withheld else voting
-        bucket.setdefault(_pick_provider(key), []).append(key)
+        bucket.setdefault(provider, []).append(key)
     withheld_providers = sorted(p for p in lost if p not in voting)
     n = len(voting)
     state = (
-        PICK_EVIDENCE_MULTI_PROVIDER
+        PICK_EVIDENCE_PROVIDER_UNKNOWN
+        if unknown_voting
+        else PICK_EVIDENCE_MULTI_PROVIDER
         if n >= 2
         else PICK_EVIDENCE_SINGLE_PROVIDER
         if n == 1
@@ -651,10 +674,12 @@ def pick_evidence(
     )
     return {
         "state": state,
+        "valueBasis": value_basis,
         "votingProviders": sorted(voting),
         "votingSources": sorted(k for keys in voting.values() for k in keys),
         "withheldProviders": withheld_providers,
         "withheldSources": sorted(k for p in withheld_providers for k in lost[p]),
+        "unknownProviderSources": sorted(unknown),
         "reducedCoverage": bool(withheld_providers),
     }
 
@@ -676,6 +701,8 @@ def _pick_confidence_from_values(
         real tier row 1.0, a KTC slot value synthesized from tier rows on a
         slot-specific pick 0.5 — never one weight per value.  Before, KTC
         Crowd + KTC Trades counted 1.0 + 1.0 as two corroborating markets.
+      * A source whose provider is not recorded (or an unreadable lineage
+        registry) fails closed: ``low — pick provider identity unknown``.
       * One provider is a single-provider pick: ``low``, whatever its own
         values' spread (Crowd vs Trades agreeing is one vendor agreeing
         with itself).
@@ -705,6 +732,11 @@ def _pick_confidence_from_values(
     for key, _v in raw_values:
         weight = 0.5 if (key in _PICK_SLOT_SYNTH_SOURCES and is_slot_specific) else 1.0
         provider = _pick_provider(key)
+        if provider is None:
+            # Fail closed: independence that cannot be proven is not
+            # credited (an unreadable lineage registry must not turn KTC
+            # Crowd + KTC Trades back into two corroborating markets).
+            return "low", "Low — pick provider identity unknown"
         provider_weight[provider] = max(provider_weight.get(provider, 0.0), weight)
     effective_count = sum(provider_weight.values())
 
