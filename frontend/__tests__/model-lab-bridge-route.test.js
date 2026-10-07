@@ -11,7 +11,11 @@ vi.mock("@/lib/backend-proxy", () => ({ proxyGet: proxy }));
 import { GET as getLab } from "@/app/api/model-lab/route";
 import { GET as getFamily } from "@/app/api/model-lab/[family]/route";
 
-beforeEach(() => proxy.mockReset());
+// Block body on purpose: a function RETURNED from beforeEach runs as the test's
+// teardown, and mockReset() returns the mock itself.
+beforeEach(() => {
+  proxy.mockReset();
+});
 
 describe("model-lab bridge", () => {
   it("forwards the cookie and preserves the backend refusal", async () => {
