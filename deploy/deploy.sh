@@ -707,7 +707,7 @@ PY
     # with the square brackets preserved on disk — without --globoff,
     # curl errors out with "bad range in URL" for every such asset.
     while (( attempts < FRONTEND_PROBE_MAX_ATTEMPTS )); do
-      code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}" || echo 000)"
+      code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}")" || code=000
       if [[ "${code}" == "200" ]]; then
         log "Frontend _next probe OK: ${asset}"
         break

@@ -95,7 +95,7 @@ jobs:
           echo "Waiting for ${URL}/api/health …"
           for _i in $(seq 1 40); do
             _hc=$(curl --silent --globoff --output /dev/null --max-time 10 \
-              --write-out '%{http_code}' "${URL}/api/health" || echo "000")
+              --write-out '%{http_code}' "${URL}/api/health") || _hc=000
             if [[ "${_hc}" == "200" ]]; then
               echo "  health ready after ~$(( _i * 5 ))s"
               exit 0

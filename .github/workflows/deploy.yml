@@ -986,7 +986,7 @@ jobs:
           _ready=""
           for _i in $(seq 1 30); do
             _hc=$(curl --silent --globoff --output /dev/null --max-time 10 \
-              --write-out '%{http_code}' "${URL}/api/health" || echo "000")
+              --write-out '%{http_code}' "${URL}/api/health") || _hc=000
             if [[ "${_hc}" == "200" || "${_hc}" == "503" ]]; then
               echo "  health answering after ~$(( _i * 3 ))s (HTTP ${_hc})"
               [[ "${_hc}" == "503" ]] && echo "  note: 503 = degraded (mid-scrape or source health); the live-contract step adjudicates"
@@ -1015,8 +1015,10 @@ jobs:
           echo "Waiting for ${URL}/api/public/league snapshot to come warm…"
           _warm=""
           for _i in $(seq 1 24); do
-            _plc=$(curl --silent --globoff --output /dev/null --max-time 20 \
-              --write-out '%{http_code}' "${URL}/api/public/league" || echo "000")
+            # --compressed: ~2.5 MB identity vs ~0.24 MB gzipped; runner->box
+            # throughput made the uncompressed probe time out on a healthy box.
+            _plc=$(curl --silent --globoff --compressed --output /dev/null --max-time 20 \
+              --write-out '%{http_code}' "${URL}/api/public/league") || _plc=000
             if [[ "${_plc}" == "200" ]]; then
               echo "  public-league snapshot warm after ~$(( _i * 15 ))s"
               _warm="1"
