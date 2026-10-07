@@ -15150,11 +15150,23 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         absent_by_design = private_sources_absent_by_design(
             payload.get("privateSourceAvailability")
         )
+        # A DECLARED seasonal source the board itself records as inactive at
+        # its own time (``sourceSeasonalState``; owner decision 2026-10-03)
+        # casts no current vote by design — its absence is the declared
+        # phase, not a lost source (D8, 2026-10-07 audit).  Read through the
+        # one owner the served-board coverage gate also uses, from the
+        # payload's own stamp: no stamp or a malformed one excuses nothing.
+        from src.sources.seasonal_policy import contract_inactive_sources  # noqa: PLC0415
+
+        seasonally_inactive_keys = contract_inactive_sources(payload)
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)
             if count == 0 and src_key in absent_by_design:
                 warnings.append(f"private_source_absent_by_design:{src_key}")
+                continue
+            if count == 0 and src_key in seasonally_inactive_keys:
+                warnings.append(f"source_seasonally_inactive:{src_key}")
                 continue
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
