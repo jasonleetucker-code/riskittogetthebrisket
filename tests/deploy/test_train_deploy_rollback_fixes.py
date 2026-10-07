@@ -352,3 +352,37 @@ def test_cleanup_only_touches_a_directory_named_incoming(tmp_path):
 
     assert result.returncode == 0
     assert archive.exists()
+
+
+# ── Single auto-rollback (re-review follow-up 1) ──────────────────────
+# `set -E` makes the ERR trap fire inside $(...) command substitutions. The
+# rollback then ran inside the subshell (its log captured into the variable)
+# and, because ROLLBACK_ATTEMPTED cannot leave a subshell, the parent ran it a
+# second time: a doubled outage window and lost log lines.
+
+
+@requires_bash
+def test_a_failure_inside_command_substitution_rolls_back_exactly_once(tmp_path):
+    log = tmp_path / "rollbacks.log"
+    driver = (
+        textwrap.dedent(f"""\
+        set -Eeuo pipefail
+        error() {{ printf '[error] %s\n' "$*" >&2; }}
+        ROLLBACK_ATTEMPTED="false"
+        attempt_auto_rollback() {{
+          [[ "${{ROLLBACK_ATTEMPTED}}" == "true" ]] && return 0
+          ROLLBACK_ATTEMPTED="true"
+          echo "rollback pid=${{BASHPID}}" >> {shlex.quote(_bash_path(log))}
+        }}
+        """)
+        + _deploy_function("on_error")
+        + "trap 'on_error $LINENO' ERR\n"
+        + 'captured="$(false; echo unreachable)"\n'
+        + "echo not-reached\n"
+    )
+    proc = subprocess.run(["bash", "-c", driver], capture_output=True, text=True, timeout=60)
+    assert proc.returncode != 0
+    assert "not-reached" not in proc.stdout
+    lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+    assert len(lines) == 1, f"expected exactly one auto-rollback, got {lines}"
+    assert "Deployment failed" in proc.stderr
