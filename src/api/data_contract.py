@@ -13847,6 +13847,11 @@ def build_api_data_contract(
     data_freshness: dict[str, Any] = {
         "generatedAt": generated_at,
         "sourceTimestamps": source_timestamps,
+        # The reference time every ``sourceTimestamps[*].ageHours`` is measured
+        # from: the board's OWN as-of (its scrape time), never the build's
+        # wall clock (D9).  ``None`` when the payload carries no as-of — every
+        # age is then ``None`` / ``unknown``.
+        "sourceTimestampsAsOf": _iso_or_none(freshness_as_of),
         "staleness": _overall_staleness,
     }
 
@@ -15179,9 +15184,17 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         # phase, not a lost source (D8, 2026-10-07 audit).  Read through the
         # one owner the served-board coverage gate also uses, from the
         # payload's own stamp: no stamp or a malformed one excuses nothing.
-        from src.sources.seasonal_policy import contract_inactive_sources  # noqa: PLC0415
+        # The stamp is DATA, so it is intersected with the DECLARED policies:
+        # a corrupted or hand-edited payload naming an undeclared source (say
+        # ``ktcCrowdSfTep``) cannot turn ``source_missing`` into a warning,
+        # and an unreadable policy file excuses nothing.
+        from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
 
-        seasonally_inactive_keys = contract_inactive_sources(payload)
+        try:
+            declared_seasonal = frozenset(_seasonal.load_policies())
+        except _seasonal.SeasonalPolicyError:
+            declared_seasonal = frozenset()
+        seasonally_inactive_keys = _seasonal.contract_inactive_sources(payload) & declared_seasonal
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)

@@ -235,3 +235,30 @@ def test_a_missing_or_malformed_seasonal_stamp_fails_closed(stamp) -> None:
     if stamp is not None:
         payload["sourceSeasonalState"] = stamp
     assert f"source_missing:{_SEASONAL_KEY}" in _lane(payload)
+
+
+def test_an_undeclared_key_in_the_seasonal_stamp_excuses_nothing() -> None:
+    """The stamp is payload DATA.  A corrupted or hand-edited payload naming a
+    source with no declared seasonal policy (here a KTC market input) must not
+    turn its ``source_missing`` into a warning."""
+    from src.sources.seasonal_policy import load_policies
+
+    key = "ktcCrowdSfTep"
+    assert key in _REGISTERED and key not in load_policies()
+    payload = _payload(silent=key)
+    payload["sourceSeasonalState"] = _seasonal_stamp(key)
+    health = validate_api_data_contract(payload)
+    assert f"source_missing:{key}" in (health.get("sourceHealthErrors") or [])
+    assert f"source_seasonally_inactive:{key}" not in (health.get("warnings") or [])
+
+
+def test_an_unreadable_seasonal_policy_excuses_nothing(monkeypatch) -> None:
+    from src.sources import seasonal_policy as sp
+
+    def broken(path=None):
+        raise sp.SeasonalPolicyError("malformed")
+
+    monkeypatch.setattr(sp, "load_policies", broken)
+    payload = _payload(silent=_SEASONAL_KEY)
+    payload["sourceSeasonalState"] = _seasonal_stamp(_SEASONAL_KEY)
+    assert f"source_missing:{_SEASONAL_KEY}" in _lane(payload)
