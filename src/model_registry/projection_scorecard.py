@@ -37,8 +37,14 @@ Rules (each pinned by ``tests/model_registry/test_projection_scorecard.py``):
   day).
 * **Missing is never zero.** A projected player with no realized row, or a row
   that says he did not play (``gp`` = 0), is NOT scored as 0 points -- he is
-  counted (``outcome_missing`` / ``did_not_play``). A stat the realized line does
-  not publish under any spelling is ``stat_actual_unpublished``, never an actual 0.
+  counted (``outcome_missing`` / ``did_not_play``). Per stat, the host publishes
+  only NONZERO events, so a stat absent from a PRESENT line of a player who played
+  (``gp`` > 0) is a MEASURED zero -- but only when that week's dump publishes the
+  category at all (some spelling of it appears for some player). A category the
+  dump never publishes is ``stat_category_unpublished`` (missing, not zero), and an
+  absence on a line whose ``gp`` is unstated is ``stat_absent_gp_unknown``. Never
+  scoring the absences would condition per-stat error on the outcome (only the
+  players who recorded the event would be paired).
   League-paid keys a projection cannot score are reported per key on both
   horizons (``uncoveredLeaguePaidKeys``).
 * **Duplicates are deduped**: a second archive for the same week; within one
@@ -448,6 +454,11 @@ def _weekly_pairs(
         lineage[f"{season}-w{week}"]["realized"] = {"source": rw.source_key, "sha256": revision}
         scored = 0
         uncovered: dict[str, int] = {}
+        #: every stat category (canonical spelling) this week's dump publishes for
+        #: anyone: the evidence that an absence on one played line is a real zero
+        week_categories = {
+            _canon(k) for line in rw.stats.values() if isinstance(line, Mapping) for k in line
+        }
         paid = {_canon(k) for k in scoring if _paid(scoring, k)}
         for obs in observations:
             stats = rw.stats.get(obs.sleeper_player_id)
@@ -492,16 +503,25 @@ def _weekly_pairs(
                 )
             )
             # Both lines on ONE spelling (the alias map the realized owner collapses
-            # with), compared only where BOTH sides published the stat: a stat the
-            # host line does not carry is unpublished, never an actual 0.
+            # with). The host publishes only nonzero events, so on a played line an
+            # absent stat of a category this dump publishes is a measured 0 -- dropping
+            # it would pair only the players who recorded the event (outcome
+            # selection). A category the dump never publishes stays missing.
+            gp = _num(stats.get("gp"))
             for key in sorted({_canon(k) for k in obs.stat_line} & paid):
                 projected = _published(obs.stat_line, key)
-                actual = _published(stats, key)
                 if projected is None:
                     continue
+                actual = _published(stats, key)
                 if actual is None:
-                    _bump(census, "stat_actual_unpublished")
-                    continue
+                    if key not in week_categories:
+                        _bump(census, "stat_category_unpublished")
+                        continue
+                    if gp is None:
+                        _bump(census, "stat_absent_gp_unknown")
+                        continue
+                    actual = 0.0
+                    _bump(census, "stat_zero_by_absence")
                 pairs.append(Pair(stat=key, projected=projected, actual=actual, **base))
             scored += 1
         weeks_out.append(

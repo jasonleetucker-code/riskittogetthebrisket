@@ -230,14 +230,54 @@ def test_a_week_with_no_realized_dump_scores_nothing():
     assert result.summary["weekly"]["weeks"][0]["state"] == "realized_unavailable"
 
 
-def test_a_stat_the_realized_line_does_not_publish_is_unpublished_never_zero():
-    """B1: no default-to-zero. A stat absent from the host line is unavailable."""
+def test_a_stat_category_the_dump_never_publishes_is_unpublished_never_zero():
+    """No spelling of rec_yd appears anywhere in the week's dump: missing, not 0."""
     players = {"100": _entry("100", observed=KICK - timedelta(hours=1))}
-    realized = _realized([], **{"100": {"rec": 3.0, "gp": 1.0}})  # rec_yd not published
+    realized = _realized([], **{"100": {"rec": 3.0, "gp": 1.0}})
     result = _weekly([_archive(players)], [realized])
     assert not [p for p in result.pairs if p.stat == "rec_yd"]
     assert [p.actual for p in result.pairs if p.stat == "rec"] == [3.0]
-    assert result.summary["weekly"]["weeks"][0]["census"]["stat_actual_unpublished"] == 1
+    assert result.summary["weekly"]["weeks"][0]["census"]["stat_category_unpublished"] == 1
+
+
+def test_an_absent_stat_on_a_played_line_is_a_measured_zero():
+    """The dump publishes rec_yd for others, so its absence on a played line is 0 events."""
+    players = {pid: _entry(pid, observed=KICK - timedelta(hours=1)) for pid in ("100", "101")}
+    realized = _realized(
+        [], **{"100": {"rec": 3.0, "gp": 1.0}, "101": {"rec": 2.0, "rec_yd": 30.0, "gp": 1.0}}
+    )
+    result = _weekly([_archive(players)], [realized])
+    rec_yd = {p.player.split(":")[1]: p.actual for p in result.pairs if p.stat == "rec_yd"}
+    assert rec_yd == {"100": 0.0, "101": 30.0}
+    assert result.summary["weekly"]["weeks"][0]["census"]["stat_zero_by_absence"] == 1
+
+
+def test_per_stat_error_is_not_conditioned_on_the_outcome():
+    """Repro of the round-2 blocker: 7 projected rec_td, only 2 scored. All 7 must be
+    paired -- pairing only the scorers would compute bias on the outcome."""
+    players = {}
+    stats = {}
+    for i in range(7):
+        pid = str(300 + i)
+        entry = _entry(pid, observed=KICK - timedelta(hours=1))
+        entry["row"]["stats"]["rec_td"] = 0.4
+        players[pid] = entry
+        stats[pid] = {"rec": 4.0, "rec_yd": 50.0, "gp": 1.0, **({"rec_td": 1.0} if i < 2 else {})}
+    result = _weekly([_archive(players)], [_realized([], **stats)])
+    rec_td = sorted(p.actual for p in result.pairs if p.stat == "rec_td")
+    assert rec_td == [0.0] * 5 + [1.0, 1.0]
+    bias = sum(0.4 - a for a in rec_td) / 7
+    assert bias == pytest.approx(0.4 - 2 / 7)
+
+
+def test_an_absence_on_a_line_with_unstated_gp_is_not_zero():
+    players = {pid: _entry(pid, observed=KICK - timedelta(hours=1)) for pid in ("100", "101")}
+    realized = _realized(
+        [], **{"100": {"rec": 3.0}, "101": {"rec": 2.0, "rec_yd": 30.0, "gp": 1.0}}
+    )
+    result = _weekly([_archive(players)], [realized])
+    assert {p.player.split(":")[1] for p in result.pairs if p.stat == "rec_yd"} == {"101"}
+    assert result.summary["weekly"]["weeks"][0]["census"]["stat_absent_gp_unknown"] == 1
 
 
 def test_alias_spellings_are_one_rule_on_both_sides():
@@ -559,3 +599,20 @@ def test_season_uncovered_league_paid_keys_are_reported():
     row = result.summary["season"]["snapshots"][0]
     assert row["uncoveredLeaguePaidKeys"].get("fum_lost") == 1
     assert row["census"]["projection_uncovered_keys"] == 1
+
+
+def test_script_evicts_a_weekly_stats_cache_written_before_the_host_state(monkeypatch):
+    """A pre-final 24h nflverse cache must not be stamped with newer final evidence."""
+    from scripts import projection_scorecard as script
+    from src.nfl_data import cache as nfl_cache
+
+    evicted = []
+    monkeypatch.setattr(nfl_cache, "evict", lambda key, **_: evicted.append(key))
+    now = datetime(2026, 10, 8, 12, tzinfo=timezone.utc)
+    monkeypatch.setattr(script, "_now", lambda: now)
+    monkeypatch.setattr(nfl_cache, "entry_age_seconds", lambda key, **_: 6 * 3600.0)
+    script._drop_prefinal_cache(2026, now - timedelta(minutes=1))  # cache 6h old: pre-state
+    assert len(evicted) == 1
+    monkeypatch.setattr(nfl_cache, "entry_age_seconds", lambda key, **_: 0.0)
+    script._drop_prefinal_cache(2026, now - timedelta(minutes=1))  # written after the state
+    assert len(evicted) == 1

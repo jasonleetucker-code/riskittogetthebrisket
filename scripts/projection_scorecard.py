@@ -270,6 +270,19 @@ def week_first_kickoffs(season: int) -> dict[int, datetime]:
     return out
 
 
+def _drop_prefinal_cache(season: int, state_at: datetime) -> None:
+    """The nflverse weekly rows sit in a 24h cache. A cache entry written before the
+    host state was read cannot be shown to postdate the week's finality, so it is
+    evicted and re-read rather than stamped with the newer final-week evidence."""
+    from src.nfl_data import cache as nfl_cache
+    from src.nfl_data import ingest
+
+    key = ingest.cache_key("weekly_stats", [int(season)])
+    age = nfl_cache.entry_age_seconds(key)
+    if age is not None and _now().timestamp() - age < state_at.timestamp():
+        nfl_cache.evict(key)
+
+
 def realized_season(
     season: int, scoring: dict[str, Any], league_key: str, *, fetch: bool, dry_run: bool
 ) -> tuple[ps.RealizedSeason | None, list[str]]:
@@ -283,6 +296,7 @@ def realized_season(
         from src.utils.name_clean import normalize_player_name
 
         state, state_at = _host_state()
+        _drop_prefinal_cache(season, state_at)
         try:
             _current, points = fetch_current_season_actuals(
                 scoring, name_normalizer=normalize_player_name, season=season
