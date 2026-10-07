@@ -386,3 +386,5 @@ def test_a_failure_inside_command_substitution_rolls_back_exactly_once(tmp_path)
     lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
     assert len(lines) == 1, f"expected exactly one auto-rollback, got {lines}"
     assert "Deployment failed" in proc.stderr
+    # The subshell names its failing line too, on stderr (not the captured value).
+    assert "Command substitution failed" in proc.stderr
