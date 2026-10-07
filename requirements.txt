@@ -74,7 +74,7 @@ pywebpush~=2.5
 #
 # The environment marker keeps it off Linux/macOS installs, so the
 # production dependency graph is unchanged.
-tzdata~=2026.1; sys_platform == "win32"
+tzdata~=2026.4; sys_platform == "win32"
 
 # nfl_data_py: deliberately NOT in this manifest.
 #
