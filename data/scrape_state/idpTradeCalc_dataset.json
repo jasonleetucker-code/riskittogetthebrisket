@@ -576,13 +576,21 @@
      "rowsChanged": 206,
      "rowsRemoved": 0,
      "rowsTotal": 816
+    },
+    {
+     "at": "2026-10-08T20:15:57Z",
+     "broad": false,
+     "rowsAdded": 1,
+     "rowsChanged": 2,
+     "rowsRemoved": 1,
+     "rowsTotal": 816
     }
    ],
-   "contentSince": "2026-10-05T15:24:15Z",
-   "fingerprint": "8e5b1b8ba659687d3c312941",
+   "contentSince": "2026-10-08T20:15:57Z",
+   "fingerprint": "0439c9e912d6d985073844ed",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-16T14:34:45Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-05T15:24:15Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-08T20:15:57Z",
    "lastBroadDatasetChangeAt": "2026-10-05T15:24:15Z",
    "rowChangedAt": {
     "a'shawn robinson": "2026-09-23T08:04:05Z",
@@ -602,7 +610,7 @@
     "alex highsmith": "2026-10-05T15:24:15Z",
     "alex singleton": "2026-09-15T05:29:00Z",
     "alex wright": "2026-10-05T15:24:15Z",
-    "alim mcneil": "2026-08-20T19:25:39Z",
+    "alim mcneill": "2026-10-08T20:15:57Z",
     "alohi gilman": "2026-08-20T07:32:46Z",
     "alontae taylor": "2026-08-20T07:32:46Z",
     "alvin kamara": "2026-08-28T01:13:39Z",
@@ -1453,7 +1461,7 @@
     "alex highsmith": "06e628f49f",
     "alex singleton": "6633317708",
     "alex wright": "295d8c0007",
-    "alim mcneil": "395f5f0447",
+    "alim mcneill": "395f5f0447",
     "alohi gilman": "1e434173d6",
     "alontae taylor": "c2b3526e23",
     "alvin kamara": "2035a7b6a6",

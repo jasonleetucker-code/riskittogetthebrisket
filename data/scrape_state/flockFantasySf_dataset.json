@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-04-17T19:48:23Z",
-     "broad": false,
-     "rowsAdded": 0,
-     "rowsChanged": 5,
-     "rowsRemoved": 0,
-     "rowsTotal": 368
-    },
-    {
      "at": "2026-04-19T16:23:20Z",
      "broad": false,
      "rowsAdded": 1,
@@ -1936,19 +1928,26 @@
      "rowsChanged": 8,
      "rowsRemoved": 0,
      "rowsTotal": 436
+    },
+    {
+     "at": "2026-10-08T20:15:57Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
     }
    ],
-   "contentSince": "2026-10-08T06:46:31Z",
-   "fingerprint": "b07814ff6700fcca4739ac2d",
+   "contentSince": "2026-10-08T20:15:57Z",
+   "fingerprint": "b4f031e6e1900280d2f74860",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-17T01:36:34Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-08T06:46:31Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-08T20:15:57Z",
    "lastBroadDatasetChangeAt": "2026-10-07T17:39:36Z",
    "rowChangedAt": {},
    "rowCount": 436,
    "rowCountHistory": [
     438,
-    438,
     437,
     437,
     437,
@@ -1966,6 +1965,7 @@
     437,
     437,
     437,
+    436,
     436,
     436,
     436,
@@ -2044,7 +2044,7 @@
     "chris brazzell ii": "c41da01986",
     "chris godwin": "ef20316548",
     "chris manhertz": "ba955e806b",
-    "chris olave": "386cd47a39",
+    "chris olave": "bc9b97da0f",
     "chris rodriguez": "e3898f14f9",
     "christian kirk": "43de0354a0",
     "christian mccaffrey": "3536a3292d",
@@ -2060,7 +2060,7 @@
     "curtis samuel": "0bc40b17bb",
     "cyrus allen": "37c270d6a5",
     "d'andre swift": "9fd6718119",
-    "dak prescott": "8304399312",
+    "dak prescott": "7cb3265aa4",
     "dallas goedert": "e4cf21fd71",
     "dalton kincaid": "cead8548fe",
     "dalton schultz": "521e48c2b9",
@@ -2101,7 +2101,7 @@
     "dk metcalf": "53563b7148",
     "dont'e thornton jr.": "35bb318a3e",
     "dontayvion wicks": "02cac657e8",
-    "drake london": "da9a7712a2",
+    "drake london": "815934dfe4",
     "drake maye": "8bdbcb32c9",
     "drew allar": "c44c246ae6",
     "drew lock": "34b6f71a85",
@@ -2165,7 +2165,7 @@
     "jakobi meyers": "b49dc728d4",
     "jaleel mclaughlin": "7da740068a",
     "jalen coker": "c874e8b6d8",
-    "jalen hurts": "7e5f8d774e",
+    "jalen hurts": "734d5a493b",
     "jalen mcmillan": "01f1cd451e",
     "jalen milroe": "c0bef99194",
     "jalen nailor": "ff43af7ea6",
@@ -2175,7 +2175,7 @@
     "jalon daniels": "359de4c049",
     "jameis winston": "2dc657c968",
     "james conner": "85d2ba0131",
-    "james cook": "f0ad68f067",
+    "james cook": "6ad5933e6a",
     "jameson williams": "989ee9ab2f",
     "jared goff": "c6adf333dd",
     "jared wiley": "f7ffa91d6b",
@@ -2412,7 +2412,7 @@
     "zachariah branch": "0c77fdf611",
     "zack moss": "9189fcfcce",
     "zavion thomas": "43d42a92f9",
-    "zay flowers": "fc0b52e14f",
+    "zay flowers": "799b3a4a88",
     "zay jones": "1ce855ac59",
     "zonovan knight": "79b21c8b65"
    }
