@@ -28,6 +28,26 @@ the rest of ``data/``).  No prior file -> every current entry is treated
 as new (first run seeds silently rather than back-dating events for
 injuries that existed before this script ever ran).
 
+As-known history (Adaptive Learning G4): every PROVEN fetch is also appended to
+the point-in-time log ``data/nfl_data/injury_history/`` via
+``src/nfl_data/injury_history.py`` -- the prior file above is overwritten every
+run, and ESPN serves the current report only, so without that log "what did the
+report say at kickoff" is unrecoverable.  An identical re-fetch is a small
+re-observation row, never a second copy.  A failure to archive never fails the
+refresh.
+
+Fetch proof: ``fetch_injuries`` returns ``[]`` for "no injuries" AND for "the
+fetch failed".  Treating a failure as an empty report emitted an
+ACTIVATED_RETURN for every injured player and overwrote the prior with ``[]``
+(then the next good fetch re-emitted every injury as new).  The run now proceeds
+only when the response cache proves ESPN answered with an injuries-SHAPED body
+and the returned list is that body (``injury_history.proven_fetch_time``;
+``injury_feed.payload_shape_error`` keeps shape drift out of the cache).
+Otherwise -- network error, open breaker, shape drift -- it changes nothing and
+exits 1.  A well-shaped report with wrong CONTENT is not detectable here.  A
+cache-write failure on a real fetch raises out of ``fetch_injuries`` and also
+exits non-zero with nothing changed.
+
 Usage
 -----
     python3 scripts/refresh_injury_feed.py
@@ -35,7 +55,7 @@ Usage
 Exit codes
 ----------
     0  ok (including "flag off, no-op" and "no injuries")
-    1  fetch or merge failed
+    1  fetch not proven (nothing recorded, prior untouched) or merge failed
 """
 
 from __future__ import annotations
@@ -53,6 +73,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.api import feature_flags  # noqa: E402
 from src.bdvm.events import EVENTS_DIR  # noqa: E402
+from src.nfl_data import injury_feed, injury_history  # noqa: E402
 from src.nfl_data.injury_feed import InjuryEntry, diff_for_signals, fetch_injuries  # noqa: E402
 from src.utils.name_clean import normalize_player_name  # noqa: E402
 
@@ -160,14 +181,28 @@ def main(argv: list[str] | None = None) -> int:
         _LOGGER.info("espn_injury_feed flag OFF — skipping refresh")
         return 0
 
+    started_at = time.time()
     current = fetch_injuries()
-    if not current and feature_flags.is_enabled("espn_injury_feed"):
-        # An empty CURRENT list on a flag that's ON could mean "the whole
-        # league is healthy" or "the fetch failed silently" — the module
-        # itself already logs the distinction; here it's a soft no-op
-        # rather than an error, since a genuinely empty league-wide
-        # injury report is a real (if rare) state.
-        _LOGGER.info("no active injuries returned")
+    fetched_at, unproven = injury_history.proven_fetch_time(
+        [e.to_dict() for e in current],
+        started_at=started_at,
+        ttl_seconds=injury_feed.TTL_IN_SEASON_SECONDS,
+    )
+    if fetched_at is None:
+        # MISSING IS NEVER ZERO: an unproven empty list is "we do not know",
+        # not "everyone recovered".  No events, no history row, prior kept.
+        _LOGGER.error(
+            "injury fetch not proven (%s) — no events, no history row, prior snapshot untouched",
+            unproven,
+        )
+        return 1
+
+    injury_history.capture_safely([e.to_dict() for e in current], fetched_at=fetched_at)
+
+    if not current:
+        # Proven above to be a real fetch, so an empty list here IS a
+        # league-wide report with no active injuries (rare, but real).
+        _LOGGER.info("no active injuries returned (fetch proven)")
 
     prior = _load_prior()
     transitions = diff_for_signals(prior, current)

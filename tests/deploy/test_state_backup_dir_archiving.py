@@ -218,6 +218,34 @@ def test_al_p2_store_is_in_the_backup_list(line):
     assert line in SCRIPT.read_text(encoding="utf-8"), f"missing from the backup list: {line}"
 
 
+# ── Adaptive Learning G4: the as-known capture stores ─────────────────────
+#
+# The register's "As-known injury + news capture" addendum.  Their writers
+# (src/nfl_data/injury_history.py, src/news/archive.py) default to exactly
+# these directories; a rename on either side without the other would leave the
+# store outside every generation.
+
+G4_LINES = (
+    'optional backup_dir "${DATA_DIR}/nfl_data/injury_history"',
+    'optional backup_dir "${DATA_DIR}/news_archive"',
+)
+
+
+@pytest.mark.parametrize("line", G4_LINES)
+def test_g4_capture_store_is_in_the_backup_list(line):
+    assert line in SCRIPT.read_text(encoding="utf-8"), f"missing from the backup list: {line}"
+
+
+def test_g4_backup_paths_match_the_writers_default_dirs():
+    from src.news import archive as news_archive
+    from src.nfl_data import injury_history
+
+    body = SCRIPT.read_text(encoding="utf-8")
+    for module in (injury_history, news_archive):
+        rel = module.DEFAULT_DIR.relative_to(REPO / "data").as_posix()
+        assert f'backup_dir "${{DATA_DIR}}/{rel}"' in body, rel
+
+
 def _classified_backup_calls() -> list[tuple[str, str, list[str]]]:
     """Every backup_* call as (class, function, args); `optional` is the
     wrapper that makes a store OPTIONAL, everything else is CORE."""
@@ -395,6 +423,10 @@ AL_P2_OPTIONAL = {
     "robust_filter_shadow",
     # Signals Fantasy private store: vendor serves current values only.
     "signals_sources",
+    # Adaptive Learning G4 as-known capture stores (2026-10-07): ESPN serves the
+    # current injury report only; news feeds roll forward.
+    "injury_history",
+    "news_archive",
 }
 
 

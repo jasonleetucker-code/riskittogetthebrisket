@@ -37,6 +37,18 @@ os.environ.setdefault(
     "RISKIT_RETENTION_DIR",
     os.path.join(tempfile.gettempdir(), f"riskit-retention-test-{os.getpid()}"),
 )
+# Same reason for the two as-known capture stores (Adaptive Learning G4): a
+# suite that refreshes the news service or runs the injury refresh must never
+# append fixture rows to the box-local evidence logs.  Both modules read the
+# variable at call time.
+os.environ.setdefault(
+    "RISKIT_NEWS_ARCHIVE_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-news-archive-test-{os.getpid()}"),
+)
+os.environ.setdefault(
+    "RISKIT_INJURY_HISTORY_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-injury-history-test-{os.getpid()}"),
+)
 
 # ── The suite does not depend on the live site being up ───────────────
 # ``server`` reads UPTIME_CHECK_ENABLED at import (production default

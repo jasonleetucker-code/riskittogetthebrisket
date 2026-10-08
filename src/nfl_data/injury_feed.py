@@ -14,8 +14,11 @@ Degradation
 -----------
 * Feature flag ``espn_injury_feed`` OFF → returns [].
 * HTTP error / timeout → cached None, next retry after TTL.
-* Schema drift (unknown response shape) → empty list + warning
-  log.
+* Schema drift (unknown response shape, ``payload_shape_error``) → empty
+  list + warning log, NOT cached and reported to the breaker as a failure, so
+  a caller that checks the cache (``injury_history.proven_fetch_time``) sees a
+  failed fetch rather than an empty report.  A genuine ``{"injuries": []}`` is
+  cached like any other report.
 
 The caller (signal engine) is responsible for fanning out
 BUY/SELL transitions across rosters — this module only fetches +
@@ -37,8 +40,14 @@ from src.nfl_data import cache as _cache
 _LOGGER = logging.getLogger(__name__)
 
 _ESPN_INJURIES_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries"
+#: The response-cache key.  Public so a capture can read the cache entry's own
+#: ``fetched_at`` (``src.nfl_data.cache.entry_fetched_at``) and tell a fetch
+#: that happened from one that failed and returned ``[]``.
+CACHE_KEY = "espn_injuries:v1"
+ENDPOINT_URL = _ESPN_INJURIES_URL
 _UA = "riskit-injury-feed/1.0"
 _TTL_IN_SEASON = 30 * 60  # 30 min
+TTL_IN_SEASON_SECONDS = _TTL_IN_SEASON
 _TIMEOUT_SEC = 8.0
 
 
@@ -117,7 +126,7 @@ def fetch_injuries(
     """
     if not feature_flags.is_enabled("espn_injury_feed"):
         return []
-    key = "espn_injuries:v1"
+    key = CACHE_KEY
     cached = _cache.get(key, ttl_seconds=ttl_seconds, cache_dir=cache_dir)
     if cached is not None:
         return [_from_cached_dict(d) for d in cached]
@@ -159,11 +168,40 @@ def fetch_injuries(
             bp.report_failure(exc)
         return []
 
+    drift = payload_shape_error(raw)
+    if drift is not None:
+        # A 200 whose body is not the injuries shape is a FAILED fetch, not an
+        # empty report: caching ``[]`` here would let a schema change read as
+        # "every injured player recovered" downstream.  Nothing is cached.
+        _LOGGER.warning("espn injuries: unexpected payload shape (%s); not cached", drift)
+        if bp is not None:
+            bp.report_failure(ValueError(drift))
+        return []
     parsed = _parse_espn_payload(raw)
     if bp is not None:
         bp.report_success()
     _cache.put(key, [e.to_dict() for e in parsed], cache_dir=cache_dir)
     return parsed
+
+
+def payload_shape_error(payload: Any) -> str | None:
+    """Why ``payload`` is not an ESPN injuries response, or None when it is.
+
+    ``{"injuries": []}`` is a VALID (empty) report.  A non-object body, a
+    missing / non-list ``injuries`` key, or a non-empty list in which no team
+    block carries an ``injuries`` list is shape drift -- the parser would turn
+    any of those into ``[]``, indistinguishable from a healthy league.
+    """
+    if not isinstance(payload, dict):
+        return f"body_not_an_object:{type(payload).__name__}"
+    teams = payload.get("injuries")
+    if not isinstance(teams, list):
+        return "no_injuries_list"
+    if teams and not any(
+        isinstance(block, dict) and isinstance(block.get("injuries"), list) for block in teams
+    ):
+        return "no_team_block_has_an_injuries_list"
+    return None
 
 
 def _parse_espn_payload(payload: Any) -> list[InjuryEntry]:
