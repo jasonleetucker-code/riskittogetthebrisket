@@ -91,7 +91,7 @@ function normName(name) {
 
 /**
  * Replicas of the two display formatters SimulationPanel uses
- * (frontend/app/trade/trade-sections.jsx).  Replicated so the spec can
+ * (frontend/app/trade/trade-simulation-panel.jsx).  Replicated so the spec can
  * state the EXPECTED rendering from the backend response — the
  * assertion is "the page shows the backend's number under the backend's
  * formatting", so the formatter must match character-for-character
