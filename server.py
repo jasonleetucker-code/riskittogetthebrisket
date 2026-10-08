@@ -14776,6 +14776,129 @@ async def get_terminal(request: Request):
     )
 
 
+# ── CENTRAL BUY/SELL RECONCILER (C6-SIG-01) ─────────────────────────────
+#
+# One private read of every live Buy/Sell emitter, side by side, deduped by
+# lineage.  The synthesis owner is ``src/signals/reconciler.py`` (no numeric
+# blend, no cross-emitter weight); ``src/signals/collect.py`` reads each
+# emitter through its own owner.  Private by default via
+# ``_private_api_gate`` — no public allowlist entry.
+
+
+@app.get("/api/signals/reconciled")
+async def get_reconciled_signals(request: Request):
+    """Every emitter's labelled verdict per player, one body of evidence once.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver
+        team / ownerId / teamName
+                    optional — selects the roster (else the signed-in
+                    user's Sleeper team, as ``/api/terminal`` does)
+        scope       ``auto`` (default) | ``roster`` | ``league``
+        player      optional — one player (Sleeper id or display name)
+
+    Responses::
+
+        200  reconciled payload (``players``, ``emitters``, ``unresolved``)
+        400  unknown/inactive league, or bad ``scope``
+        503  data_not_ready — no contract, or the loaded contract is for a
+             different league (the roster-scoped emitters need its rosters)
+    """
+    from src.signals.collect import build_reconciled_signals  # noqa: PLC0415
+
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    params = request.query_params
+    scope = (params.get("scope") or "auto").strip().lower()
+    if scope not in ("auto", "roster", "league"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "scope must be auto|roster|league"},
+        )
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    loaded_league = ((contract.get("meta") or {}) if isinstance(contract, dict) else {}).get(
+        "leagueKey"
+    )
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
+    team_name = (params.get("teamName") or "").strip()
+    team_request = (
+        {"ownerId": team_owner_id or None, "teamName": team_name or None}
+        if team_owner_id or team_name
+        else None
+    )
+    resolved_team = _terminal.resolve_team(contract, owner_id=team_owner_id, name=team_name)
+    team_source = "explicit" if resolved_team is not None else None
+    if resolved_team is None and team_request is None:
+        session_sleeper_id = str(session.get("sleeper_user_id") or "").strip()
+        if session_sleeper_id:
+            resolved_team = _terminal.resolve_team(contract, owner_id=session_sleeper_id, name=None)
+            team_source = "session" if resolved_team is not None else None
+    player = (params.get("player") or "").strip() or None
+
+    def _build():
+        news_items = None
+        if resolved_team is not None:
+            try:
+                news_items = _terminal.gather_news_items(
+                    lambda: _get_news_service(),
+                    _live_player_names(),
+                    resolved_team.get("name"),
+                    player_meta=_live_player_meta(),
+                )
+            except Exception as exc:  # noqa: BLE001 — reported as unavailable news
+                log.warning("/api/signals/reconciled news gather failed: %s", exc)
+        return build_reconciled_signals(
+            contract,
+            league_key=league_cfg.key,
+            resolved_team=resolved_team,
+            news_items=news_items,
+            scope=scope,
+            player=player,
+            team_request=team_request,
+            team_source=team_source,
+        )
+
+    try:
+        payload = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("/api/signals/reconciled build failed: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"reconcile_failed: {type(exc).__name__}"},
+        )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
 async def _build_trade_simulation(
     request: Request,
     *,
