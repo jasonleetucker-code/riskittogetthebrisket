@@ -370,23 +370,26 @@ def read_only_pass_states(
     db_path: Path | None = None,
 ) -> dict[int, str] | None:
     """``{pass_id: "active" | "revoked" | "expired"}`` for every requested id
-    the store holds — read-only, never creating or migrating anything.
+    the store holds — content read-only (sqlite ``mode=ro``; may create
+    ``-wal``/``-shm``), never creating the store or migrating its schema.
 
     For the verification census (``session_store.guest_session_census``),
-    which must observe production without writing to it.  An id the store
+    which must observe production without changing it.  An id the store
     does not hold is ABSENT from the result (purged or never minted) —
     never defaulted to a state.  Returns ``None`` when the store cannot be
-    read at all: an unreadable authority is unknown, not "no passes".
+    read at all: an unreadable authority is unknown, not "no passes".  The
+    store is read even for an empty id list, so ``{}`` means "readable,
+    nothing asked" and ``None`` always means "unreadable".
     Revocation wins over expiry, matching ``GuestPass.is_active``.
     """
+    from src.api.session_store import ro_sqlite_uri  # noqa: PLC0415 — no import cycle
+
     ids = sorted({int(i) for i in pass_ids if isinstance(i, int) and not isinstance(i, bool)})
     path = db_path or _DEFAULT_DB_PATH
-    if not ids:
-        return {}
     if not path.exists():
         return None
     try:
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        conn = sqlite3.connect(ro_sqlite_uri(path), uri=True)
         try:
             marks = ",".join("?" for _ in ids)
             rows = conn.execute(

@@ -26,8 +26,10 @@ Two subcommands carry the 2026-10-08 security-incident acceptance
 evidence (every workflow run, whatever the suite):
 
 * ``security-probe --origin O --cookie-file F --out P`` — status codes and
-  booleans for the session, run once before and once after the revoke;
-* ``security-summary --pre P --post P --census C --revoke-ok B --out S`` —
+  booleans for the session: after login, IMMEDIATELY before the revoke
+  (the control the verdict depends on) and after the revoke;
+* ``security-summary --login-control P --pre-revoke-control P --post P
+  --census C --revoke-ok B --out S`` —
   the allowlisted public report plus the job-summary table; exit 2 unless
   every security check passed.
 """
@@ -706,11 +708,21 @@ def _probe_text(p: dict | None) -> str:
     )
 
 
-def check_revocation(revoke_ok: bool | None, pre: dict | None, post: dict | None) -> list[Check]:
-    """(b): the SAME session, accepted before the revoke, is rejected after it.
+def check_revocation(
+    revoke_ok: bool | None,
+    control: dict | None,
+    post: dict | None,
+) -> list[Check]:
+    """(b): the SAME session, accepted IMMEDIATELY before the revoke, is
+    rejected after it.
 
-    The control matters: a rejection after the revoke proves nothing about
-    revocation if the session was never accepted in the first place."""
+    ``control`` must be the probe taken in the step directly before the
+    revoke.  A rejection after the revoke proves nothing about revocation if
+    the session had already stopped working for another reason (a short
+    pass, an eviction, a restart) — so a control that was not accepted makes
+    the result ``inconclusive``, which fails the run exactly like ``fail``:
+    absence of proof is not proof.  The post-login probe is reported in the
+    summary but cannot stand in for this control."""
     rev = _check("SEC-REVOKE", "security-2026-10-08", "on-box revoke succeeded")
     if revoke_ok is True:
         rev.record("pass", "guest_passes.revoke marked the pass and it is no longer authoritative")
@@ -722,21 +734,25 @@ def check_revocation(revoke_ok: bool | None, pre: dict | None, post: dict | None
         "security-2026-10-08",
         "a revoked pass's already-created session is rejected on its next request",
     )
-    if not _probe_accepted(pre):
+    if not _probe_accepted(control):
         probe.record(
-            "fail",
-            "control probe did not show the session accepted before the revoke "
-            f"({_probe_text(pre)}) — a later rejection would prove nothing",
+            "inconclusive",
+            "the control probe immediately before the revoke did not show the session "
+            f"accepted ({_probe_text(control)}) — a later rejection cannot be attributed "
+            "to the revoke",
         )
     elif revoke_ok is not True:
         probe.record("fail", "revoke failed, so the post-revocation probe is not evidence")
     elif _probe_rejected(post):
-        probe.record("pass", f"before: {_probe_text(pre)}; after: {_probe_text(post)}")
+        probe.record(
+            "pass",
+            f"immediately before revoke: {_probe_text(control)}; after: {_probe_text(post)}",
+        )
     else:
         probe.record(
             "fail",
-            f"session still answered after the revoke — before: {_probe_text(pre)}; "
-            f"after: {_probe_text(post)}",
+            f"session still answered after the revoke — immediately before: "
+            f"{_probe_text(control)}; after: {_probe_text(post)}",
         )
     return [rev, probe]
 
@@ -784,20 +800,26 @@ def check_session_census(census: dict | None) -> list[Check]:
 def build_security_summary(
     *,
     revoke_ok: bool | None,
-    pre: Any,
+    login_control: Any,
+    pre_revoke_control: Any,
     post: Any,
     census: Any,
 ) -> dict[str, Any]:
-    """The public artifact: fixed keys, ints/bools/None, our own detail text."""
-    pre_s = _allowlisted(pre, _PROBE_KEYS)
+    """The public artifact: fixed keys, ints/bools/None, our own detail text.
+
+    The verdict is ``pass`` only when every check passed; ``fail`` and
+    ``inconclusive`` both fail it."""
+    login_s = _allowlisted(login_control, _PROBE_KEYS)
+    control_s = _allowlisted(pre_revoke_control, _PROBE_KEYS)
     post_s = _allowlisted(post, _PROBE_KEYS)
     census_s = _allowlisted(census, _CENSUS_KEYS)
-    checks = check_revocation(revoke_ok, pre_s, post_s) + check_session_census(census_s)
+    checks = check_revocation(revoke_ok, control_s, post_s) + check_session_census(census_s)
     return {
         "incident": SECURITY_INCIDENT,
         "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "revokeSucceeded": revoke_ok,
-        "preRevocationProbe": pre_s,
+        "postLoginControlProbe": login_s,
+        "preRevokeControlProbe": control_s,
         "postRevocationProbe": post_s,
         "sessionStoreCensus": census_s,
         "checks": [{"id": k.check_id, "status": k.status, "detail": k.detail} for k in checks],
@@ -855,8 +877,11 @@ def _security_probe_main(argv: list[str]) -> int:
 
 def _security_summary_main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="verify_v1_authenticated.py security-summary")
-    parser.add_argument("--pre", default=None)
-    parser.add_argument("--post", default=None)
+    parser.add_argument("--login-control", default=None, help="probe right after login")
+    parser.add_argument(
+        "--pre-revoke-control", default=None, help="probe in the step directly before the revoke"
+    )
+    parser.add_argument("--post", default=None, help="probe after the revoke")
     parser.add_argument("--census", default=None)
     parser.add_argument("--revoke-ok", default="", help="'true' / 'false' / '' (unknown)")
     parser.add_argument("--out", required=True)
@@ -865,7 +890,8 @@ def _security_summary_main(argv: list[str]) -> int:
     revoke_ok = {"true": True, "false": False}.get(args.revoke_ok.strip().lower())
     summary = build_security_summary(
         revoke_ok=revoke_ok,
-        pre=_read_json(args.pre),
+        login_control=_read_json(args.login_control),
+        pre_revoke_control=_read_json(args.pre_revoke_control),
         post=_read_json(args.post),
         census=_read_json(args.census),
     )

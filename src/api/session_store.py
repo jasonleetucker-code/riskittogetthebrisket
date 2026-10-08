@@ -371,6 +371,16 @@ def evict_guest_pass(pass_id: int, *, db_path: Path | None = None) -> int:
         return 0
 
 
+def ro_sqlite_uri(path: Path) -> str:
+    """A sqlite ``mode=ro`` URI with the path properly escaped.
+
+    ``f"file:{path}?mode=ro"`` breaks on a path holding ``?``, ``#`` or
+    ``%`` (the remainder would be parsed as URI query/fragment); ``as_uri``
+    percent-encodes it.  Content read-only: sqlite may still create the
+    ``-wal``/``-shm`` side files of a WAL database."""
+    return Path(path).resolve().as_uri() + "?mode=ro"
+
+
 #: The two columns a guest-pass session needs to be bounded and revocable.
 _GUEST_IDENTITY_COLUMNS = ("expires_at_epoch", "guest_pass_id")
 
@@ -380,8 +390,9 @@ def guest_session_census(
     db_path: Path | None = None,
     guest_pass_db_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Count-only, READ-ONLY census of the persisted sessions — the
-    production acceptance evidence for the 2026-10-08 guest-session fix.
+    """Count-only census of the persisted sessions — the production
+    acceptance evidence for the 2026-10-08 guest-session fix.  Content
+    read-only (sqlite ``mode=ro``; may create ``-wal``/``-shm``).
 
     Never calls ``_setup``: migrating here would make
     ``schemaHasGuestColumns`` true by construction and so prove nothing.
@@ -420,7 +431,7 @@ def guest_session_census(
     if not unknown["storePresent"]:
         return unknown
     try:
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        conn = sqlite3.connect(ro_sqlite_uri(path), uri=True)
         try:
             columns = {r[1] for r in conn.execute(f"PRAGMA table_info({_TABLE})").fetchall()}
             if not columns:
@@ -454,20 +465,23 @@ def guest_session_census(
         guestSessions=len(guest_rows),
         guestSessionsMissingPassIdentity=missing,
     )
+    from src.api import guest_passes  # noqa: PLC0415 — guest_passes imports us lazily
+
+    # Always read (even with nothing to classify) so ``passStoreReadable``
+    # is a real true/false observation whenever the session store was read.
+    states = guest_passes.read_only_pass_states(
+        [pid for _, pid in bounded], db_path=guest_pass_db_path
+    )
+    out["passStoreReadable"] = states is not None
     if not bounded:
+        # Nothing to classify: these zeros are observed, whatever the pass
+        # store's state.
         out.update(
             guestSessionsPassRevoked=0,
             guestSessionsLiveWithInactivePass=0,
             guestSessionsExpiredAwaitingCleanup=0,
         )
         return out
-
-    from src.api import guest_passes  # noqa: PLC0415 — guest_passes imports us lazily
-
-    states = guest_passes.read_only_pass_states(
-        [pid for _, pid in bounded], db_path=guest_pass_db_path
-    )
-    out["passStoreReadable"] = states is not None
     if states is None:
         return out
     now = time.time()

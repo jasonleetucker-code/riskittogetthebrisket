@@ -70,7 +70,7 @@ on:
         default: core
         options: [core, league-game-day]
       pass_hours:
-        description: Guest-pass duration in hours (non-default on purpose — 12 is the UI default)
+        description: Guest-pass duration in hours, at least 1 (non-default on purpose — 12 is the UI default)
         required: false
         default: "2"
         type: string
@@ -166,6 +166,14 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # The pass must outlive the run: one that expires mid-run would
+          # kill the session before the revoke, and the security probes
+          # could no longer attribute a rejection to the revoke.  Refused
+          # before anything is minted.
+          if ! python3 -c 'import math, sys; v = float(sys.argv[1]); sys.exit(0 if math.isfinite(v) and v >= 1 else 1)' "$PASS_HOURS" 2>/dev/null; then
+            echo "::error::pass_hours must be a number >= 1 (got '${PASS_HOURS}')"
+            exit 1
+          fi
           # Captured by command substitution ONLY — the raw output is never
           # echoed or teed, so the token cannot reach the log before the
           # mask below.
@@ -317,13 +325,13 @@ jobs:
       # rejection then is only evidence if it was accepted now.  Status
       # codes and booleans only (scripts/verify_v1_authenticated.py
       # security-probe); the cookie stays in its 600-mode file.
-      - name: Security probe before revocation (control)
+      - name: Security probe after login (control)
         shell: bash
         run: |
           set -Eeuo pipefail
           python3 scripts/verify_v1_authenticated.py security-probe \
             --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
-            --out "$RUNNER_TEMP/security_probe_pre.json"
+            --out "$RUNNER_TEMP/security_probe_login.json"
 
       - name: API verification suite
         # The temporary post-deploy Week 1 bridge needs the prod-auth browser
@@ -423,6 +431,21 @@ jobs:
           echo "baseline_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Baseline collection exit: $rc (bounded observations, not campaign acceptance)"
 
+      # The control the security verdict depends on: the SAME session,
+      # probed in the step directly before the revoke.  The post-login probe
+      # above ran before every suite; if the session died in between (a
+      # short pass, an eviction, a restart) a post-revoke rejection would be
+      # misattributed to the revoke.  Not accepted here => the verdict is
+      # ``inconclusive``, which fails the run.
+      - name: Security probe immediately before revocation (control)
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/verify_v1_authenticated.py security-probe \
+            --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
+            --out "$RUNNER_TEMP/security_probe_pre_revoke.json"
+
       - name: Revoke the pass (always)
         id: revoke
         if: ${{ always() && steps.mint.outputs.pass_id != '' }}
@@ -483,7 +506,7 @@ jobs:
             --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
             --out "$RUNNER_TEMP/security_probe_post.json"
 
-      - name: On-box guest-session census (count-only, read-only)
+      - name: On-box guest-session census (count-only, content read-only)
         if: ${{ always() && steps.mint.outputs.pass_id != '' }}
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -492,8 +515,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          # src/api/session_store.py::guest_session_census opens both stores
-          # mode=ro and returns counts/booleans only — no session id,
+          # src/api/session_store.py::guest_session_census reads both stores
+          # content read-only (sqlite mode=ro; may create -wal/-shm) and
+          # returns counts/booleans only — no session id,
           # username, cookie or pass id.  A failure leaves no census file,
           # which the summary records as unknown (never as 0).
           rc=0
@@ -536,14 +560,15 @@ jobs:
           set -Eeuo pipefail
           rc=0
           python3 scripts/verify_v1_authenticated.py security-summary \
-            --pre "$RUNNER_TEMP/security_probe_pre.json" \
+            --login-control "$RUNNER_TEMP/security_probe_login.json" \
+            --pre-revoke-control "$RUNNER_TEMP/security_probe_pre_revoke.json" \
             --post "$RUNNER_TEMP/security_probe_post.json" \
             --census "$RUNNER_TEMP/session_census.json" \
             --revoke-ok "$REVOKE_OK" \
             --out security-acceptance.json \
             --step-summary "$GITHUB_STEP_SUMMARY" || rc=$?
           echo "security_exit=$rc" >> "$GITHUB_OUTPUT"
-          echo "Security acceptance exit: $rc (0 pass · 2 fail)"
+          echo "Security acceptance exit: $rc (0 pass · 2 fail or inconclusive)"
 
       - name: Fail the job on API/lane4/browser verdicts
         shell: bash

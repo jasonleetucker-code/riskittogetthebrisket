@@ -16,6 +16,7 @@ No network, no box: temp SQLite stores and a urlopen test double.
 from __future__ import annotations
 
 import io
+import sys
 import json
 import sqlite3
 import time
@@ -279,7 +280,68 @@ def test_revocation_pass_requires_control_then_rejection():
     ],
 )
 def test_revocation_failures(revoke_ok, pre, post, failing):
-    assert _statuses(auth.check_revocation(revoke_ok, pre, post))[failing] == "fail"
+    assert _statuses(auth.check_revocation(revoke_ok, pre, post))[failing] in {
+        "fail",
+        "inconclusive",
+    }
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        _REJECTED,  # session already dead before the revoke (short pass, eviction, restart)
+        None,  # control step never produced a result
+        {**_ACCEPTED, "privateRouteHttp": 401},  # half-alive is not accepted
+        {k: (True if k == "probeError" else None) for k in _ACCEPTED},  # probe raised
+    ],
+)
+def test_control_not_accepted_immediately_before_revoke_is_inconclusive(control):
+    """F1: a post-revoke rejection is only revoke evidence if the session was
+    alive in the step directly before the revoke."""
+    checks = auth.check_revocation(True, control, _REJECTED)
+    assert _statuses(checks)["SEC-POST-REVOKE"] == "inconclusive"
+    summary = auth.build_security_summary(
+        revoke_ok=True,
+        login_control=_ACCEPTED,  # alive at login does NOT rescue it
+        pre_revoke_control=control,
+        post=_REJECTED,
+        census=_clean_census(),
+    )
+    assert summary["verdict"] == "fail"
+
+
+def test_verdict_rests_on_the_immediate_control_not_the_login_probe():
+    summary = auth.build_security_summary(
+        revoke_ok=True,
+        login_control=None,
+        pre_revoke_control=_ACCEPTED,
+        post=_REJECTED,
+        census=_clean_census(),
+    )
+    assert summary["verdict"] == "pass"
+    assert summary["postLoginControlProbe"] is None
+    assert summary["preRevokeControlProbe"] == _ACCEPTED
+
+
+def test_inconclusive_summary_exits_nonzero(tmp_path):
+    rc = auth.main(
+        [
+            "security-summary",
+            "--login-control",
+            _write(tmp_path, "login.json", _ACCEPTED),
+            "--pre-revoke-control",
+            _write(tmp_path, "control.json", _REJECTED),
+            "--post",
+            _write(tmp_path, "post.json", _REJECTED),
+            "--census",
+            _write(tmp_path, "census.json", _clean_census()),
+            "--revoke-ok",
+            "true",
+            "--out",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    assert rc == 2
 
 
 class _Resp:
@@ -396,7 +458,7 @@ def _clean_census():
         "guestSessionsPassRevoked": 0,
         "guestSessionsLiveWithInactivePass": 0,
         "guestSessionsExpiredAwaitingCleanup": 0,
-        "passStoreReadable": None,
+        "passStoreReadable": True,
     }
 
 
@@ -406,8 +468,10 @@ def test_summary_passes_and_writes_job_summary(tmp_path, capsys):
     rc = auth.main(
         [
             "security-summary",
-            "--pre",
-            _write(tmp_path, "pre.json", _ACCEPTED),
+            "--login-control",
+            _write(tmp_path, "login.json", _ACCEPTED),
+            "--pre-revoke-control",
+            _write(tmp_path, "control.json", _ACCEPTED),
             "--post",
             _write(tmp_path, "post.json", _REJECTED),
             "--census",
@@ -432,8 +496,8 @@ def test_summary_allowlists_and_fails_on_missing_evidence(tmp_path, capsys):
     rc = auth.main(
         [
             "security-summary",
-            "--pre",
-            _write(tmp_path, "pre.json", {**_ACCEPTED, "cookie": COOKIE}),
+            "--pre-revoke-control",
+            _write(tmp_path, "control.json", {**_ACCEPTED, "cookie": COOKIE}),
             "--post",
             str(tmp_path / "never-written.json"),
             "--census",
@@ -465,23 +529,27 @@ def test_workflow_orders_control_revoke_probe_census_summary():
     names = [s.get("name") for s in _steps()]
     order = [
         "Log in through the real auth path",
-        "Security probe before revocation (control)",
+        "Security probe after login (control)",
+        "Security probe immediately before revocation (control)",
         "Revoke the pass (always)",
         "Security probe after revocation (same session)",
-        "On-box guest-session census (count-only, read-only)",
+        "On-box guest-session census (count-only, content read-only)",
         "Security acceptance summary (incident 2026-10-08)",
         "Fail the job on API/lane4/browser verdicts",
         "Upload the reports",
     ]
     idx = [names.index(n) for n in order]
     assert idx == sorted(idx)
+    # Nothing may run between the immediate control and the revoke.
+    assert names.index("Revoke the pass (always)") == names.index(order[2]) + 1
 
 
 def test_workflow_keeps_the_cookie_until_the_post_probe_then_deletes_it():
     steps = {s.get("name"): s for s in _steps()}
     revoke = steps["Revoke the pass (always)"]["run"]
     post = steps["Security probe after revocation (same session)"]
-    census = steps["On-box guest-session census (count-only, read-only)"]
+    census = steps["On-box guest-session census (count-only, content read-only)"]
+    control = steps["Security probe immediately before revocation (control)"]
     summary = steps["Security acceptance summary (incident 2026-10-08)"]
     trap = [ln for ln in revoke.splitlines() if ln.strip().startswith("trap ")]
     assert trap and "session_cookie" not in trap[0]
@@ -489,8 +557,62 @@ def test_workflow_keeps_the_cookie_until_the_post_probe_then_deletes_it():
     assert "session_cookie" in post["run"].split("python3", 1)[0]  # trap deletes it
     assert "security-probe" in post["run"]
     assert "guest_session_census()" in census["run"]
-    for step in (post, census, summary):
+    for step in (control, post, census, summary):
         assert step["if"] == "${{ always() && steps.mint.outputs.pass_id != '' }}"
+    assert "security_probe_pre_revoke.json" in control["run"]
+    assert (
+        "--pre-revoke-control" in summary["run"] and "security_probe_pre_revoke" in summary["run"]
+    )
     upload = steps["Upload the reports"]["with"]["path"]
     assert "security-acceptance.json" in upload
     assert "RUNNER_TEMP" not in upload and "census" not in upload
+
+
+def test_mint_refuses_a_pass_shorter_than_one_hour_before_minting():
+    """F1: a pass that can expire mid-run would kill the session before the
+    revoke.  The floor is checked in the mint step, ahead of the SSH mint."""
+    import subprocess
+
+    mint = {s.get("name"): s for s in _steps()}[
+        "Mint an ephemeral verification guest pass (on-box, canonical implementation)"
+    ]["run"]
+    floor, rest = mint.split("pass_hours must be a number >= 1", 1)
+    assert "ssh " not in floor and "MINT_JSON=$(" in rest
+    snippet = floor.split("python3 -c '", 1)[1].split("'", 1)[0]
+    for value, ok in [
+        ("2", True),
+        ("1", True),
+        ("0.5", False),
+        ("0", False),
+        ("nan", False),
+        ("inf", False),
+        ("abc", False),
+        ("", False),
+    ]:
+        rc = subprocess.run([sys.executable, "-c", snippet, value], capture_output=True).returncode
+        assert (rc == 0) is ok, value
+
+
+def test_pass_store_readable_is_observed_even_with_nothing_to_classify(stores, tmp_path):
+    sess, _ = stores
+    _insert_session(sess, "s-owner", auth_method="password")
+    assert _census(stores)["passStoreReadable"] is True
+    census = session_store.guest_session_census(
+        db_path=sess, guest_pass_db_path=tmp_path / "absent_passes.sqlite"
+    )
+    assert census["passStoreReadable"] is False
+    # Nothing to classify: the zeros are observed and the checks still pass.
+    assert set(_statuses(auth.check_session_census(census)).values()) == {"pass"}
+
+
+def test_ro_uri_escapes_awkward_paths(tmp_path):
+    odd = tmp_path / "a #b %c" / "store.sqlite"
+    odd.parent.mkdir()
+    session_store._setup(odd)
+    _insert_session(odd, "s-1", auth_method="password")
+    uri = session_store.ro_sqlite_uri(odd)
+    assert uri.startswith("file:") and uri.endswith("?mode=ro") and "#" not in uri
+    census = session_store.guest_session_census(
+        db_path=odd, guest_pass_db_path=tmp_path / "absent.sqlite"
+    )
+    assert census["totalSessions"] == 1

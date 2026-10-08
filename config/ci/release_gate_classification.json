@@ -973,13 +973,16 @@
     "v1-authenticated-verification.yml::v1-authenticated::Revoke the pass (always)": {
       "category": "blocking"
     },
-    "v1-authenticated-verification.yml::v1-authenticated::Security probe before revocation (control)": {
+    "v1-authenticated-verification.yml::v1-authenticated::Security probe after login (control)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Security probe immediately before revocation (control)": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Security probe after revocation (same session)": {
       "category": "blocking"
     },
-    "v1-authenticated-verification.yml::v1-authenticated::On-box guest-session census (count-only, read-only)": {
+    "v1-authenticated-verification.yml::v1-authenticated::On-box guest-session census (count-only, content read-only)": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Security acceptance summary (incident 2026-10-08)": {
