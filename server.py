@@ -14207,17 +14207,17 @@ async def post_push_subscribe(request: Request):
         body = None
     if not isinstance(body, dict):
         return JSONResponse(status_code=400, content={"error": "invalid_body"})
+
+    # Read-modify-write under ONE lock: reading with get_user_state and then
+    # rewriting the whole list discarded a concurrently added device.
+    def _upsert(entry: dict) -> None:
+        entry["pushSubscriptions"] = _push_delivery.upsert_subscription(entry, body)
+
     try:
-        state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
-        new_subs = _push_delivery.upsert_subscription(state, body)
-    except ValueError as exc:
+        state = await run_in_threadpool(_user_kv.mutate_user_state, username, _upsert)
+    except ValueError as exc:  # invalid subscription: the mutation rolled back
         return JSONResponse(status_code=400, content={"error": str(exc)})
-    await run_in_threadpool(
-        _user_kv.set_user_field,
-        username,
-        "pushSubscriptions",
-        new_subs,
-    )
+    new_subs = _push_delivery.list_subscriptions(state)
     return JSONResponse(
         content={"ok": True, "count": len(new_subs)},
         headers={"Cache-Control": "no-store"},
@@ -14239,14 +14239,12 @@ async def post_push_unsubscribe(request: Request):
         endpoint = str(body.get("endpoint") or "").strip()
     if not endpoint:
         return JSONResponse(status_code=400, content={"error": "endpoint_required"})
-    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
-    new_subs = _push_delivery.remove_subscription(state, endpoint)
-    await run_in_threadpool(
-        _user_kv.set_user_field,
-        username,
-        "pushSubscriptions",
-        new_subs,
-    )
+
+    def _remove(entry: dict) -> None:
+        entry["pushSubscriptions"] = _push_delivery.remove_subscription(entry, endpoint)
+
+    state = await run_in_threadpool(_user_kv.mutate_user_state, username, _remove)
+    new_subs = _push_delivery.list_subscriptions(state)
     return JSONResponse(
         content={"ok": True, "count": len(new_subs)},
         headers={"Cache-Control": "no-store"},
@@ -14298,26 +14296,60 @@ async def put_custom_alerts(request: Request):
                 content={"error": "invalid_rule", "detail": str(exc)},
             )
 
-    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
-    prior_state = state.get("customAlertsState") or {}
-    if not isinstance(prior_state, dict):
-        prior_state = {}
     new_ids = {r["id"] for r in cleaned}
-    pruned_state = {
-        k: v
-        for k, v in prior_state.items()
-        if isinstance(k, str) and k.split("::", 1)[0] in new_ids
-    }
 
-    await run_in_threadpool(
-        _user_kv.merge_user_state,
-        username,
-        {"customAlerts": cleaned, "customAlertsState": pruned_state},
-    )
+    # Prune the cooldowns of removed rules from the CURRENT state, under the
+    # lock: pruning a copy read earlier dropped a cooldown the sweep recorded
+    # in between, and the alert fired again.
+    def _replace_rules(entry: dict) -> None:
+        prior_state = entry.get("customAlertsState") or {}
+        if not isinstance(prior_state, dict):
+            prior_state = {}
+        entry["customAlerts"] = cleaned
+        entry["customAlertsState"] = {
+            k: v
+            for k, v in prior_state.items()
+            if isinstance(k, str) and k.split("::", 1)[0] in new_ids
+        }
+
+    await run_in_threadpool(_user_kv.mutate_user_state, username, _replace_rules)
     return JSONResponse(
         content={"rules": cleaned, "count": len(cleaned)},
         headers={"Cache-Control": "no-store"},
     )
+
+
+def _apply_custom_alert_sweep(
+    entry: dict, *, fired: dict[str, object], dead_endpoints: set[str]
+) -> None:
+    """Apply one user's custom-alert sweep to the CURRENT state (under the lock).
+
+    The sweep evaluates and delivers from a snapshot taken before delivery,
+    which can take seconds.  Writing that snapshot's fields back whole would
+    discard anything written meanwhile -- a device subscribed mid-sweep, or a
+    rule (and its cooldowns) the user deleted mid-sweep.  So only this sweep's
+    own changes are applied: the cooldowns it fired, for rules that still
+    exist, and the removal of the endpoints the push service reported dead.
+    """
+    if fired:
+        rules = entry.get("customAlerts")
+        live_ids = {
+            str(r.get("id"))
+            for r in (rules if isinstance(rules, list) else [])
+            if isinstance(r, dict)
+        }
+        current = entry.get("customAlertsState")
+        current = dict(current) if isinstance(current, dict) else {}
+        for key, value in fired.items():
+            if isinstance(key, str) and key.split("::", 1)[0] in live_ids:
+                current[key] = value
+        entry["customAlertsState"] = current
+    if dead_endpoints:
+        entry["pushSubscriptions"] = [
+            s
+            for s in _push_delivery.list_subscriptions(entry)
+            if s.get("endpoint") not in dead_endpoints
+        ]
 
 
 @app.post("/api/custom-alerts/run")
@@ -14411,18 +14443,14 @@ async def run_custom_alerts(request: Request):
             if email_ok or push_ok:
                 new_state = _custom_alerts.mark_fired(new_state, hit)
 
-        patch: dict[str, object] = {}
-        if new_state != cooldown_state:
-            patch["customAlertsState"] = new_state
-        if endpoints_to_prune:
-            kept = [
-                s
-                for s in _push_delivery.list_subscriptions(state)
-                if s.get("endpoint") not in set(endpoints_to_prune)
-            ]
-            patch["pushSubscriptions"] = kept
-        if patch:
-            await run_in_threadpool(_user_kv.merge_user_state, username, patch)
+        fired = {k: v for k, v in new_state.items() if cooldown_state.get(k) != v}
+        dead = set(endpoints_to_prune)
+        if fired or dead:
+            await run_in_threadpool(
+                _user_kv.mutate_user_state,
+                username,
+                lambda entry: _apply_custom_alert_sweep(entry, fired=fired, dead_endpoints=dead),
+            )
 
         summary[username] = {
             "hits": len(hits),
