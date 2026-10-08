@@ -35,12 +35,22 @@ def _row() -> dict:
             "ktcCrowdSfTep": 6500,
             "dlfSf": 6200,
             "fantasyCalc": 0,
+            "yahooBoone": 5900,
+            "fantasyNavigatorSf": 6000,
+        },
+        "sourceRankMeta": {
+            "dlfSf": {"contributedToBlend": True},
+            "yahooBoone": {"contributedToBlend": False},
         },
     }
 
 
 def _contract() -> dict:
-    return {"date": "2026-09-02", "playersArray": [_row()]}
+    return {
+        "date": "2026-09-02",
+        "scrapeTimestamp": "2026-09-02T11:00:00+00:00",
+        "playersArray": [_row()],
+    }
 
 
 def _obs(date: str, *, lane: str, source_key: str = "", value: float, rank: int | None = None):
@@ -105,8 +115,11 @@ def test_movement_payload(client, ledger, monkeypatch):
     assert body["additive"] is False
     assert body["change"]["value"] == 400
     assert body["currentGenerationIsLiveBoard"] is True
+    assert body["currentGenerationIsLiveBoardBasis"] == "instant"
+    assert body["currentSelection"] == "known_before_served_instant"
     assert body["liveBoard"] == {
         "boardDate": "2026-09-02",
+        "scrapeTimestamp": "2026-09-02T11:00:00+00:00",
         "value": 6400.0,
         "rank": 31,
         "rankChange": 9,
@@ -116,8 +129,13 @@ def test_movement_payload(client, ledger, monkeypatch):
     assert roles["ktcCrowdTradesSfTep"] == value_movement.ROLE_BENCHMARK
     ctx = body["currentContext"]
     assert ctx["scope"] == "current_board_only"
-    # A zero site value is missing, not a source that voted today.
-    assert ctx["sourcesNotRecordedInLedger"] == ["dlfSf"]
+    # A zero site value is missing, not a source that voted today; each
+    # unrecorded source carries its role TODAY, never a blanket "priced by".
+    assert ctx["sourcesNotRecordedInLedger"] == [
+        {"source": "dlfSf", "role": value_movement.TODAY_VOTED},
+        {"source": "fantasyNavigatorSf", "role": value_movement.TODAY_VOTE_UNPUBLISHED},
+        {"source": "yahooBoone", "role": value_movement.TODAY_NOT_VOTING},
+    ]
 
 
 def test_by_display_name(client, ledger, monkeypatch):
@@ -152,3 +170,12 @@ def test_unkeyable_row_reports_unkeyed_not_an_empty_movement():
     got = value_movement.player_value_movement({"date": "2026-09-02"}, row)
     assert got["status"] == "unkeyed"
     assert got["additive"] is False
+
+
+def test_later_unrecorded_scrape_reads_behind_on_the_instant(ledger, monkeypatch):
+    """Same date, but the served scrape is not in the ledger yet: compared on
+    the instant, not the date (review F2)."""
+    contract = {**_contract(), "scrapeTimestamp": "2026-09-02T21:00:00+00:00"}
+    got = value_movement.player_value_movement(contract, _row())
+    assert got["currentGenerationIsLiveBoard"] is False
+    assert got["currentGenerationIsLiveBoardBasis"] == "instant"

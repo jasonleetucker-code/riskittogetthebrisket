@@ -667,6 +667,90 @@ def series(
     }
 
 
+GENERATION_MATCH_INSTANT = "instant"
+GENERATION_MATCH_DATE = "date"
+
+
+def parse_instant_utc(stamp: Any) -> datetime | None:
+    """A PROVEN instant as UTC (naive = UTC, the ledger's legacy rule —
+    see :func:`_instant_at_or_before`), else ``None``."""
+    s = str(stamp or "").strip()
+    if not store.has_time_component(s):
+        return None
+    try:
+        parsed = datetime.fromisoformat(s[:-1] + "+00:00" if s.endswith("Z") else s)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def value_at_generation(
+    asset_key: str,
+    *,
+    observed_date: str,
+    observed_at: Any,
+    lane: str,
+    source_key: str = "",
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """The observation recorded IN one board generation — not merely on its
+    date.
+
+    A generation is one recorded scrape: ``(observed_date, observed_at)``.
+    Production records every scrape, so several generations share a date,
+    and a row from an EARLIER scrape that day is not evidence about a later
+    one (a source that failed at 22:00 is absent from the 22:00 generation
+    even though it answered at 08:00).  So:
+
+    * the generation carries a proven instant → a row matching that instant
+      exactly is ``present`` with ``match: "instant"``; failing that, rows on
+      the date with NO instant (legacy / backfill records, whose scrape is
+      unknown) answer at ``match: "date"`` — labelled, never passed off as
+      instant-exact; rows at a different proven instant never qualify;
+    * the generation has no instant → the best row on the date (standard tie
+      rule) at ``match: "date"``.
+
+    Returns ``{"present": False, "match": None}`` when nothing qualifies.
+    Read-only; superseded observations are skipped.
+    """
+    absent: dict[str, Any] = {"present": False, "match": None, "value": None}
+    conn = _connect_readonly(path)
+    if conn is None:
+        return absent
+    try:
+        rows = conn.execute(
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)",
+            (asset_key, lane, source_key, observed_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return absent
+
+    gen_instant = parse_instant_utc(observed_at)
+    match = GENERATION_MATCH_DATE
+    if gen_instant is not None:
+        exact = [r for r in rows if parse_instant_utc(r["observed_at"]) == gen_instant]
+        if exact:
+            rows, match = exact, GENERATION_MATCH_INSTANT
+        else:
+            rows = [r for r in rows if parse_instant_utc(r["observed_at"]) is None]
+    best = _select_best(rows)
+    if best is None:
+        return absent
+    return {
+        "present": True,
+        "match": match,
+        "value": best["value"],
+        "observedDate": str(best["observed_date"]),
+        "observedAt": best["observed_at"],
+    }
+
+
 def _previous_board_date(conn: sqlite3.Connection, before_date: Any) -> str | None:
     """The latest canonical board date STRICTLY BEFORE ``before_date`` —
     the one comparator rule :func:`previous_board_ranks` (``rankChange``)

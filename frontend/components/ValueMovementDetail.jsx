@@ -23,7 +23,12 @@
  */
 import React, { useEffect, useState } from "react";
 import { Banner, Button, DataTable, Movement, SkeletonText } from "@/components/ds";
-import { formatSignedValue, formatValue, valueMovementView } from "@/lib/value-movement";
+import {
+  formatGeneration,
+  formatSignedValue,
+  formatValue,
+  valueMovementView,
+} from "@/lib/value-movement";
 import styles from "./value-explain.module.css";
 
 export function valueMovementUrl(playerKey) {
@@ -50,12 +55,19 @@ function NotRecorded({ children = "not recorded" }) {
 }
 
 function SourceEnd({ end }) {
-  if (end.present) return formatValue(end.value) ?? <NotRecorded />;
-  return (
-    <span className={styles.unknown}>
-      absent{end.lastObservedDate ? ` (last seen ${end.lastObservedDate})` : ""}
-    </span>
-  );
+  if (end.present) {
+    const shown = formatValue(end.value) ?? <NotRecorded />;
+    return end.generationMatchNote ? (
+      <span title={end.generationMatchNote}>
+        {shown}
+        <span className={styles.qualifier}> (by date)</span>
+      </span>
+    ) : (
+      shown
+    );
+  }
+  const seen = formatGeneration(end.lastObservedDate, end.lastObservedAt);
+  return <span className={styles.unknown}>absent{seen ? ` (last seen ${seen})` : ""}</span>;
 }
 
 const SOURCE_COLUMNS = [
@@ -151,8 +163,9 @@ export function ValueMovementDetailView({ payload, customMix = false }) {
       {v.currentIsLiveBoard === false ? (
         <Banner tone="info" title="History is behind the live board">
           <p className={styles.muted}>
-            The latest board the ledger recorded is {cur.date}; the board on screen is{" "}
-            {v.liveBoardDate || "undated"}. The comparison below is between recorded boards.
+            The latest board the ledger recorded is {formatGeneration(cur.date, cur.at)}; the
+            board on screen is {formatGeneration(v.liveBoardDate, v.liveBoardAt) || "undated"}.
+            The comparison below is between recorded boards.
           </p>
         </Banner>
       ) : null}
@@ -165,12 +178,21 @@ export function ValueMovementDetailView({ payload, customMix = false }) {
           <div className={styles.fact}>
             <dt>Boards compared</dt>
             <dd>
-              {prev.date} → {cur.date}
+              {formatGeneration(prev.date, prev.at)} → {formatGeneration(cur.date, cur.at)}
               {prev.fidelity === "nearest-prior" && v.comparatorBoardDate
                 ? ` (not on the ${v.comparatorBoardDate} board — ${prev.fidelityLabel})`
                 : ""}
             </dd>
           </div>
+          {v.alignment && !v.alignment.sameBoards ? (
+            <div className={styles.fact}>
+              <dt>Rank change shown elsewhere</dt>
+              <dd>
+                compares different boards
+                {v.alignment.reasons.length > 0 ? ` — ${v.alignment.reasons.join("; ")}` : ""}
+              </dd>
+            </div>
+          ) : null}
           <div className={styles.fact}>
             <dt>Value</dt>
             <dd>
@@ -265,8 +287,8 @@ export function ValueMovementDetailView({ payload, customMix = false }) {
         </dl>
         {v.unrecordedToday.length > 0 ? (
           <p className={styles.muted}>
-            On today&rsquo;s board only, also priced by: {v.unrecordedToday.join(", ")} — no
-            per-board history is kept for these.
+            On today&rsquo;s board, with no per-board history kept:{" "}
+            {v.unrecordedToday.map((u) => `${u.label} (${u.roleLabel})`).join(", ")}.
           </p>
         ) : null}
         {v.currentQuarantined || v.currentFlags.length > 0 ? (

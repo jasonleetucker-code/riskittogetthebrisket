@@ -53,6 +53,26 @@ export const FIDELITY_LABELS = {
   unavailable: "not recorded",
 };
 
+/** What an unrecorded source is doing on TODAY's board (backend-stamped). */
+export const TODAY_ROLE_LABELS = {
+  voted_today: "voted today",
+  not_voting_today: "not voting today",
+  vote_state_unpublished: "vote state not published",
+  benchmark_not_a_vote: "benchmark — not a vote",
+  held_from_voting: "held from voting",
+};
+
+export const ALIGNMENT_REASON_LABELS = {
+  ledger_behind_served_board: "the history ledger has not recorded the board on screen yet",
+  asset_absent_from_comparator_board:
+    "this asset was not on the previous board, so the earlier value is its last recorded one before it",
+};
+
+export const GENERATION_MATCH_LABELS = {
+  instant: null,
+  date: "matched by date — the record carries no scrape time",
+};
+
 export const UNOBSERVED_LABELS = {
   sourceWeights: "Source weights",
   sourceFreshness: "Source freshness",
@@ -69,6 +89,7 @@ function end(e) {
   if (!e || typeof e !== "object") return null;
   return {
     date: e.observedDate || null,
+    at: e.observedAt || null,
     fidelity: e.fidelity || null,
     fidelityLabel: e.fidelity ? FIDELITY_LABELS[e.fidelity] || String(e.fidelity) : null,
     value: finiteOrNull(e.value),
@@ -81,10 +102,14 @@ function end(e) {
 
 function sourceEnd(e) {
   const x = e && typeof e === "object" ? e : {};
+  const match = x.present === true && x.generationMatch ? String(x.generationMatch) : null;
   return {
     present: x.present === true,
     value: x.present === true ? finiteOrNull(x.value) : null,
+    generationMatch: match,
+    generationMatchNote: match ? (GENERATION_MATCH_LABELS[match] ?? match) : null,
     lastObservedDate: x.lastObservedDate || null,
+    lastObservedAt: x.lastObservedAt || null,
   };
 }
 
@@ -97,9 +122,38 @@ export function formatSignedValue(n) {
   return "0";
 }
 
+/**
+ * A recorded generation as "YYYY-MM-DD HH:MM UTC" when it carries a scrape
+ * instant, else just its date. Formatting only; null stays null.
+ */
+export function formatGeneration(date, at) {
+  if (at && typeof at === "string" && at.length >= 16) {
+    const zoned = /([zZ]|[+-]\d\d:?\d\d)$/.test(at);
+    if (zoned) {
+      const t = new Date(at);
+      if (!Number.isNaN(t.getTime())) {
+        const iso = t.toISOString();
+        return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+      }
+    }
+    return `${at.slice(0, 10)} ${at.slice(11, 16)}`;
+  }
+  return date || null;
+}
+
 export function formatValue(n) {
   if (n == null || !Number.isFinite(n)) return null;
   return Math.round(n).toLocaleString("en-US");
+}
+
+function alignmentView(a) {
+  if (!a || typeof a !== "object") return null;
+  const reasons = Array.isArray(a.reasons) ? a.reasons.map(String) : [];
+  return {
+    sameBoards: a.sameBoardsAsRankChange === true,
+    rankChangeComparatorDate: a.rankChangeComparatorDate || null,
+    reasons: reasons.map((r) => ALIGNMENT_REASON_LABELS[r] || r),
+  };
 }
 
 /**
@@ -156,12 +210,25 @@ export function valueMovementView(payload) {
       reason: u?.reason ? String(u.reason) : null,
     })),
     liveBoardDate: live?.boardDate || null,
+    liveBoardAt: live?.scrapeTimestamp || null,
     currentIsLiveBoard: p.currentGenerationIsLiveBoard ?? null,
+    currentIsLiveBoardBasis: p.currentGenerationIsLiveBoardBasis || null,
+    alignment: alignmentView(p.rankChangeAlignment),
     currentFlags: Array.isArray(ctx?.anomalyFlags) ? ctx.anomalyFlags.map(String) : [],
     currentQuarantined: ctx?.quarantined === true,
     unrecordedToday: (Array.isArray(ctx?.sourcesNotRecordedInLedger)
       ? ctx.sourcesNotRecordedInLedger
       : []
-    ).map((k) => sourceLabel(k)),
+    ).map((u) => {
+      // Older payloads listed bare keys; their role was never published.
+      const key = typeof u === "string" ? u : String(u?.source || "");
+      const role = typeof u === "string" ? "vote_state_unpublished" : String(u?.role || "");
+      return {
+        key,
+        label: sourceLabel(key),
+        role,
+        roleLabel: TODAY_ROLE_LABELS[role] || role || "vote state not published",
+      };
+    }),
   };
 }

@@ -273,3 +273,126 @@ def test_missing_ledger_is_unavailable_and_is_not_created_by_the_read(ledger):
     assert got["missingReason"] == asof.REASON_NO_PRIOR
     assert not ledger.exists()
     assert asof.previous_board_date(before_date="2026-09-02", path=ledger) is None
+
+
+# ── Generation identity: several scrapes share a date (review D2 / F1 / F3) ──
+
+
+def _two_scrapes_one_date_ledger(path: Path) -> None:
+    """The reviewer's repro: production records every 2h scrape, so two
+    generations on 09-02; ktcCrowd answered at 08:00 and FAILED at 22:00."""
+    d1_20 = "2026-09-01T20:00:00+00:00"
+    d2_08 = "2026-09-02T08:00:00+00:00"
+    d2_22 = "2026-09-02T22:00:00+00:00"
+    _write(
+        path,
+        [
+            _obs(ASSET, "2026-09-01", value=6000, rank=40, observed_at=d1_20),
+            {**_src(ASSET, "2026-09-01", "ktcCrowdSfTep", 6100), "observed_at": d1_20},
+            _obs(ASSET, "2026-09-02", value=6050, rank=39, observed_at=d2_08),
+            {**_src(ASSET, "2026-09-02", "ktcCrowdSfTep", 6150), "observed_at": d2_08},
+            _obs(ASSET, "2026-09-02", value=5200, rank=60, observed_at=d2_22),
+            # no ktcCrowd row at 22:00 — the source failed that scrape
+        ],
+    )
+
+
+def test_source_must_come_from_the_canonical_ends_own_scrape(ledger):
+    """REGRESSION (review D2): the 08:00 ktcCrowd row is not evidence about
+    the 22:00 generation.  On the first head this reported ktcCrowd present
+    at 6150 (+50); it must be ``disappeared``."""
+    _two_scrapes_one_date_ledger(ledger)
+    got = movement.value_movement(ASSET, as_of="2026-09-02", path=ledger)
+
+    assert got["current"]["value"] == 5200
+    assert got["current"]["observedAt"] == "2026-09-02T22:00:00+00:00"
+    assert got["change"]["value"] == -800
+    crowd = _by_source(got)["ktcCrowdSfTep"]
+    assert crowd["status"] == movement.SOURCE_DISAPPEARED
+    assert crowd["delta"] is None
+    assert crowd["current"]["present"] is False
+    assert crowd["current"]["lastObservedAt"] == "2026-09-02T08:00:00+00:00"
+    assert crowd["previous"]["generationMatch"] == asof.GENERATION_MATCH_INSTANT
+
+
+def test_served_instant_pins_never_future_within_the_day(ledger):
+    """Review F3: a board served at 08:00 cannot be explained with the 22:00
+    scrape recorded later the same day."""
+    _two_scrapes_one_date_ledger(ledger)
+    got = movement.value_movement(
+        ASSET, as_of="2026-09-02", served_instant="2026-09-02T08:00:00+00:00", path=ledger
+    )
+    assert got["currentSelection"] == movement.SELECTION_KNOWN_BEFORE_INSTANT
+    assert got["current"]["value"] == 6050
+    assert got["currentIsServedGeneration"] is True
+    assert got["currentIsServedGenerationBasis"] == asof.GENERATION_MATCH_INSTANT
+    crowd = _by_source(got)["ktcCrowdSfTep"]
+    assert crowd["status"] == movement.SOURCE_MOVED
+    assert crowd["delta"] == 50
+
+
+def test_ledger_behind_the_served_scrape_is_detected_on_the_instant(ledger):
+    """Review F2: same date, but the served scrape (23:30) was never recorded —
+    the date matches, the generation does not."""
+    _two_scrapes_one_date_ledger(ledger)
+    got = movement.value_movement(
+        ASSET, as_of="2026-09-02", served_instant="2026-09-02T23:30:00+00:00", path=ledger
+    )
+    assert got["current"]["observedAt"] == "2026-09-02T22:00:00+00:00"
+    assert got["currentIsServedGeneration"] is False
+    assert got["currentIsServedGenerationBasis"] == asof.GENERATION_MATCH_INSTANT
+    # A served instant that IS recorded matches.
+    same = movement.value_movement(
+        ASSET, as_of="2026-09-02", served_instant="2026-09-02T22:00:00+00:00", path=ledger
+    )
+    assert same["currentIsServedGeneration"] is True
+
+
+def test_instant_less_legacy_source_rows_match_by_date_and_say_so(ledger):
+    _write(
+        ledger,
+        [
+            _obs(ASSET, "2026-09-01", value=6000, rank=40),
+            {**_src(ASSET, "2026-09-01", "ktcCrowdSfTep", 6100), "observed_at": None},
+            _obs(ASSET, "2026-09-02", value=6400, rank=31),
+            _src(ASSET, "2026-09-02", "ktcCrowdSfTep", 6500),
+        ],
+    )
+    crowd = _by_source(movement.value_movement(ASSET, as_of="2026-09-02", path=ledger))[
+        "ktcCrowdSfTep"
+    ]
+    assert crowd["previous"]["present"] is True
+    assert crowd["previous"]["generationMatch"] == asof.GENERATION_MATCH_DATE
+    assert crowd["current"]["generationMatch"] == asof.GENERATION_MATCH_INSTANT
+    assert crowd["delta"] == 400
+
+
+def test_rank_change_alignment_is_stated(ledger):
+    """Review F1: the movement diffs the same boards as rankChange only when
+    the asset is on both; otherwise the payload says why it diverges."""
+    _two_generation_ledger(ledger)
+    ok = movement.value_movement(ASSET, as_of="2026-09-02", path=ledger)
+    assert ok["rankChangeAlignment"] == {
+        "sameBoardsAsRankChange": True,
+        "rankChangeComparatorDate": "2026-09-01",
+        "reasons": [],
+    }
+
+    _write(
+        ledger,
+        [
+            _obs(OTHER, "2026-09-03", value=120, rank=680),
+            _obs(ASSET, "2026-09-04", value=6600, rank=25),
+            _obs(OTHER, "2026-09-04", value=130, rank=670),
+        ],
+    )
+    gap = movement.value_movement(ASSET, as_of="2026-09-04", path=ledger)
+    assert gap["comparatorBoardDate"] == "2026-09-03"
+    assert gap["previous"]["observedDate"] == "2026-09-02"
+    align = gap["rankChangeAlignment"]
+    assert align["sameBoardsAsRankChange"] is False
+    assert movement.ALIGN_ABSENT_FROM_COMPARATOR_BOARD in align["reasons"]
+
+    behind = movement.value_movement(ASSET, as_of="2026-09-05", path=ledger)
+    assert movement.ALIGN_LEDGER_BEHIND_SERVED_BOARD in (behind["rankChangeAlignment"]["reasons"])
+    assert behind["rankChangeAlignment"]["sameBoardsAsRankChange"] is False

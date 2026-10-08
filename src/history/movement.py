@@ -10,22 +10,32 @@ labels are inherited rather than reimplemented.
 
 What one answer contains:
 
-* **Generations.**  The CURRENT generation is the asset's latest
-  ``canonical_board`` observation at or before the requested board date; the
-  COMPARATOR is the latest canonical board date strictly before the current
-  one — the same rule ``rankChange`` derives from
-  (:func:`asof.previous_board_date`), so the movement and the published rank
-  change always diff the same two boards.  Generations are UTC board dates;
-  within a date the as-of tie rule picks the latest recorded scrape.
+* **Generations.**  A generation is ONE recorded scrape — production records
+  every scrape, so several generations share a date.  The CURRENT end is the
+  asset's latest ``canonical_board`` observation known at or before the
+  SERVED scrape instant (instant-strict, :func:`asof.value_known_before`;
+  day-granular :func:`asof.value_as_of` only when the served board carries no
+  instant, labelled ``currentSelection``).  The COMPARATOR is the latest
+  canonical board date strictly before the current end's date
+  (:func:`asof.previous_board_date`, the rule ``rankChange`` uses), and the
+  previous end is the latest scrape on it.  ``rankChangeAlignment`` says
+  whether this diffs the same two boards the published ``rankChange`` does,
+  and if not, why (ledger behind the served board; asset absent from the
+  comparator board, so the previous end fell back to an older observation).
 * **Canonical change.**  Value / rank / tier / confidence at both ends, with
-  each end's own observed date and fidelity.  A missing end makes the change
-  ``None`` — "no comparator" is not ``0``.
+  each end's own observed date, instant and fidelity.  A missing end makes the
+  change ``None`` — "no comparator" is not ``0``.
 * **Per-source deltas** from the ``source_value`` lane (vendor-published
   numbers only — what :mod:`src.history.record` admits).  A source counts as
-  PRESENT at a generation only when it was recorded ON that generation's date;
-  a nearest-prior carry is not presence.  A source present at one end only is
-  ``appeared`` / ``disappeared`` with ``delta: None`` — absent is never a zero
-  delta.
+  PRESENT at a generation only when it was recorded IN that generation — the
+  canonical end's own scrape instant (:func:`asof.value_at_generation`;
+  ``record.observations_from_contract`` stamps both lanes with the same
+  ``scrapeTimestamp``).  Instant-less legacy / backfill rows match by date and
+  are labelled ``generationMatch: "date"``.  An earlier scrape the same day is
+  not presence: a source that failed at 22:00 is ``disappeared`` from the 22:00
+  generation however it answered at 08:00.  A source present at one end only
+  is ``appeared`` / ``disappeared`` with ``delta: None`` — absent is never a
+  zero delta.
 * **Methodology evidence** — ``pipelineVersion`` at both ends (contract shape
   + Hill-curve content hash).  A change there is evidence the valuation
   constants moved between the generations; it covers ONLY what that version
@@ -59,6 +69,12 @@ STATUS_NO_CURRENT = "no_current_generation"
 STATUS_NO_COMPARATOR = "no_comparator"
 
 REASON_NO_PRIOR_BOARD = "no_prior_board_generation"
+
+SELECTION_KNOWN_BEFORE_INSTANT = "known_before_served_instant"
+SELECTION_AS_OF_DATE = "as_of_date"
+
+ALIGN_LEDGER_BEHIND_SERVED_BOARD = "ledger_behind_served_board"
+ALIGN_ABSENT_FROM_COMPARATOR_BOARD = "asset_absent_from_comparator_board"
 
 SOURCE_MOVED = "moved"
 SOURCE_UNCHANGED = "unchanged"
@@ -143,32 +159,68 @@ def _changed(a: Any, b: Any) -> bool | None:
     return a != b
 
 
-def _source_at(asset_key: str, source_key: str, on: str, path: Path | None) -> dict[str, Any]:
-    """A source's recorded value AT one generation date.
+def _source_at(
+    asset_key: str, source_key: str, end: dict[str, Any], path: Path | None
+) -> dict[str, Any]:
+    """A source's recorded value IN one generation (the canonical end's own
+    scrape), via :func:`asof.value_at_generation`.
 
-    Present only when recorded on that exact date (fidelity ``exact``); a
-    nearest-prior hit is reported as ``lastObservedDate`` context, never as a
-    value at this generation.
+    Present only when recorded in that generation: the same scrape instant as
+    the canonical end (``generationMatch: "instant"``), or — for instant-less
+    legacy / backfill rows — the same date, labelled ``"date"``.  A row from an
+    earlier scrape that day, or an earlier day, is reported as ``lastObserved*``
+    context, never as a value at this generation.
     """
-    got = asof.value_as_of(asset_key, on, lane=store.LANE_SOURCE, source_key=source_key, path=path)
-    if got.get("fidelity") == asof.FIDELITY_EXACT and got.get("value") is not None:
-        return {"present": True, "value": got["value"], "observedDate": got["observedDate"]}
-    last = got.get("observedDate") if got.get("fidelity") == asof.FIDELITY_NEAREST_PRIOR else None
-    return {"present": False, "value": None, "lastObservedDate": last}
+    gen = asof.value_at_generation(
+        asset_key,
+        observed_date=str(end["observedDate"]),
+        observed_at=end.get("observedAt"),
+        lane=store.LANE_SOURCE,
+        source_key=source_key,
+        path=path,
+    )
+    if gen["present"] and gen.get("value") is not None:
+        return {
+            "present": True,
+            "value": gen["value"],
+            "observedDate": gen["observedDate"],
+            "observedAt": gen["observedAt"],
+            "generationMatch": gen["match"],
+        }
+    instant = asof.parse_instant_utc(end.get("observedAt"))
+    if instant is not None:
+        last = asof.value_known_before(
+            asset_key, instant, lane=store.LANE_SOURCE, source_key=source_key, path=path
+        )
+    else:
+        last = asof.value_as_of(
+            asset_key,
+            str(end["observedDate"]),
+            lane=store.LANE_SOURCE,
+            source_key=source_key,
+            path=path,
+        )
+    seen = last.get("fidelity") in (asof.FIDELITY_EXACT, asof.FIDELITY_NEAREST_PRIOR)
+    return {
+        "present": False,
+        "value": None,
+        "lastObservedDate": last.get("observedDate") if seen else None,
+        "lastObservedAt": last.get("observedAt") if seen else None,
+    }
 
 
 def _source_rows(
     asset_key: str,
-    previous_date: str,
-    current_date: str,
+    previous: dict[str, Any],
+    current: dict[str, Any],
     source_keys: Iterable[str],
     path: Path | None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     rows: list[dict[str, Any]] = []
     neither: list[str] = []
     for skey in source_keys:
-        prev = _source_at(asset_key, skey, previous_date, path)
-        cur = _source_at(asset_key, skey, current_date, path)
+        prev = _source_at(asset_key, skey, previous, path)
+        cur = _source_at(asset_key, skey, current, path)
         if not prev["present"] and not cur["present"]:
             neither.append(skey)
             continue
@@ -191,23 +243,45 @@ def _source_rows(
     return rows, neither
 
 
+def _same_generation(
+    end: dict[str, Any], served_date: str, served_instant: datetime | None
+) -> tuple[bool, str]:
+    """Is the ledger's current end the generation being served?  Compared on
+    the scrape instant when both sides carry one, else on the date — and the
+    basis is returned so a date-only answer is never read as instant-exact."""
+    end_instant = asof.parse_instant_utc(end.get("observedAt"))
+    if served_instant is not None and end_instant is not None:
+        return end_instant == served_instant, asof.GENERATION_MATCH_INSTANT
+    return end.get("observedDate") == served_date, asof.GENERATION_MATCH_DATE
+
+
 def value_movement(
     asset_key: str,
     *,
     as_of: date | datetime | str | None = None,
+    served_instant: Any = None,
     source_keys: Iterable[str] = LEDGER_SOURCE_KEYS,
     path: Path | None = None,
 ) -> dict[str, Any]:
     """Two-generation movement evidence for one asset.  Read-only.
 
-    ``as_of`` is the board date the reader is looking at (default today UTC).
-    Never selects an observation after it.
+    ``as_of`` is the board date the reader is looking at (default today UTC);
+    ``served_instant`` is that board's scrape instant when known.  With an
+    instant, the current end is selected INSTANT-STRICT
+    (:func:`asof.value_known_before`) — nothing recorded after the served
+    scrape can answer, not even later the same day.  Without one, selection is
+    day-granular (:func:`asof.value_as_of`) and labelled so.
     """
     requested = store.as_of_date(as_of if as_of is not None else _today_utc())
+    instant = asof.parse_instant_utc(served_instant)
     out: dict[str, Any] = {
         "schema": MOVEMENT_SCHEMA,
         "assetKey": asset_key,
         "requestedDate": requested,
+        "servedInstant": instant.isoformat() if instant is not None else None,
+        "currentSelection": (
+            SELECTION_KNOWN_BEFORE_INSTANT if instant is not None else SELECTION_AS_OF_DATE
+        ),
         "historyFloor": store.HISTORY_FLOOR,
         "additive": False,
         "nonAdditiveNote": NON_ADDITIVE_NOTE,
@@ -215,27 +289,39 @@ def value_movement(
         "unobserved": [dict(u) for u in UNOBSERVED],
         "recordedSourceKeys": list(LEDGER_SOURCE_KEYS),
         "granularity": (
-            "generations are UTC board dates; within a date the latest recorded "
-            "scrape is selected by the as-of tie rule"
+            "a generation is one recorded scrape; source values are matched to the "
+            "canonical end's own scrape instant (generationMatch 'instant'), or by "
+            "date only for instant-less legacy rows (generationMatch 'date'); the "
+            "previous end is the latest scrape on the comparator board date"
         ),
         "status": None,
         "missingReason": None,
         "current": None,
         "previous": None,
         "comparatorBoardDate": None,
+        "currentIsServedGeneration": None,
+        "currentIsServedGenerationBasis": None,
+        "rankChangeAlignment": None,
         "change": None,
         "methodology": None,
         "sources": [],
         "sourcesNotObservedAtEitherGeneration": [],
     }
 
-    current = asof.value_as_of(asset_key, requested, path=path)
+    if instant is not None:
+        current = asof.value_known_before(asset_key, instant, path=path)
+    else:
+        current = asof.value_as_of(asset_key, requested, path=path)
     if current.get("fidelity") == asof.FIDELITY_UNAVAILABLE:
         out["status"] = STATUS_NO_CURRENT
         out["missingReason"] = current.get("missingReason")
         return out
     out["current"] = _end(current)
+    cur_end = out["current"]
     current_date = str(current["observedDate"])
+    same, basis = _same_generation(cur_end, requested, instant)
+    out["currentIsServedGeneration"] = same
+    out["currentIsServedGenerationBasis"] = basis
 
     comparator = asof.previous_board_date(before_date=current_date, path=path)
     if comparator is None:
@@ -251,7 +337,23 @@ def value_movement(
         return out
     prev_end = _end(previous)
     out["previous"] = prev_end
-    cur_end = out["current"]
+
+    # Does this diff the same two boards the published ``rankChange`` does?
+    # rankChange compares the SERVED board date against the latest board date
+    # strictly before it, and is None for an asset absent from that board.
+    rank_change_comparator = asof.previous_board_date(before_date=requested, path=path)
+    reasons: list[str] = []
+    if cur_end["observedDate"] != requested:
+        reasons.append(ALIGN_LEDGER_BEHIND_SERVED_BOARD)
+    if prev_end["observedDate"] != comparator:
+        reasons.append(ALIGN_ABSENT_FROM_COMPARATOR_BOARD)
+    out["rankChangeAlignment"] = {
+        "sameBoardsAsRankChange": (
+            not reasons and prev_end["observedDate"] == rank_change_comparator
+        ),
+        "rankChangeComparatorDate": rank_change_comparator,
+        "reasons": reasons,
+    }
 
     prev_rank, cur_rank = prev_end["rank"], cur_end["rank"]
     out["change"] = {
@@ -272,9 +374,7 @@ def value_movement(
         "pipelineVersionChanged": _changed(prev_end["pipelineVersion"], cur_end["pipelineVersion"]),
         "covers": "contract shape version + Hill-curve constants (content hash)",
     }
-    sources, neither = _source_rows(
-        asset_key, str(prev_end["observedDate"]), current_date, source_keys, path
-    )
+    sources, neither = _source_rows(asset_key, prev_end, cur_end, source_keys, path)
     out["sources"] = sources
     out["sourcesNotObservedAtEitherGeneration"] = neither
     out["status"] = STATUS_OK

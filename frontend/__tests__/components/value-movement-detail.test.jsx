@@ -67,7 +67,12 @@ function payload(overrides = {}) {
         status: "disappeared",
         role: "model_input",
         previous: { present: true, value: 6200 },
-        current: { present: false, value: null, lastObservedDate: "2026-09-01" },
+        current: {
+          present: false,
+          value: null,
+          lastObservedDate: "2026-09-02",
+          lastObservedAt: "2026-09-02T08:00:00+00:00",
+        },
         delta: null,
       },
       {
@@ -91,7 +96,10 @@ function payload(overrides = {}) {
       scope: "current_board_only",
       anomalyFlags: [],
       quarantined: false,
-      sourcesNotRecordedInLedger: ["dlfSf"],
+      sourcesNotRecordedInLedger: [
+        { source: "dlfSf", role: "voted_today" },
+        { source: "yahooBoone", role: "not_voting_today" },
+      ],
     },
     ...overrides,
   };
@@ -127,7 +135,8 @@ describe("ValueMovementDetailView", () => {
     render(<ValueMovementDetailView payload={payload()} />);
     const table = screen.getByRole("table");
     const gone = within(table).getByText("Disappeared").closest("tr");
-    expect(within(gone).getByText("absent (last seen 2026-09-01)")).toBeTruthy();
+    // Last seen at an EARLIER scrape the same day — named with its time.
+    expect(within(gone).getByText("absent (last seen 2026-09-02 08:00 UTC)")).toBeTruthy();
     expect(within(gone).getByText("no change computed — absent at one board")).toBeTruthy();
     expect(gone.textContent).not.toMatch(/(^|[^0-9,])0($|[^0-9,])/);
     const fresh = within(table).getByText("Appeared").closest("tr");
@@ -141,7 +150,10 @@ describe("ValueMovementDetailView", () => {
     expect(screen.getByText("Source freshness")).toBeTruthy();
     expect(screen.getAllByText("not recorded").length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText(/Not recorded at either board/)).toBeTruthy();
-    expect(screen.getByText(/On today’s board only, also priced by/).textContent).toMatch(/DLF SF/);
+    const today = screen.getByText(/On today’s board, with no per-board history kept/).textContent;
+    expect(today).toMatch(/DLF SF \(voted today\)/);
+    expect(today).toMatch(/\(not voting today\)/);
+    expect(today).not.toMatch(/also priced by/);
   });
 
   it("explains a missing comparator instead of showing a zero move", () => {
@@ -200,6 +212,57 @@ describe("ValueMovementDetailView", () => {
     const dt = screen.getByText("Valuation constants");
     expect(dt.parentElement.textContent).toMatch(/not recorded/);
     expect(dt.parentElement.textContent).not.toMatch(/unchanged/);
+  });
+});
+
+describe("ValueMovementDetailView — generations (review F1/F2)", () => {
+  it("says when the rank change shown elsewhere compares different boards", () => {
+    render(
+      <ValueMovementDetailView
+        payload={payload({
+          rankChangeAlignment: {
+            sameBoardsAsRankChange: false,
+            rankChangeComparatorDate: "2026-09-03",
+            reasons: ["asset_absent_from_comparator_board"],
+          },
+        })}
+      />,
+    );
+    const dt = screen.getByText("Rank change shown elsewhere");
+    expect(dt.parentElement.textContent).toMatch(/compares different boards/);
+    expect(dt.parentElement.textContent).toMatch(/not on the previous board/);
+  });
+
+  it("stays quiet when both compare the same boards", () => {
+    render(
+      <ValueMovementDetailView
+        payload={payload({
+          rankChangeAlignment: { sameBoardsAsRankChange: true, reasons: [] },
+        })}
+      />,
+    );
+    expect(screen.queryByText("Rank change shown elsewhere")).toBeNull();
+  });
+
+  it("names scrape times when the ledger is behind the board on screen", () => {
+    render(
+      <ValueMovementDetailView
+        payload={payload({
+          current: { ...payload().current, observedAt: "2026-09-02T08:00:00+00:00" },
+          currentGenerationIsLiveBoard: false,
+          currentGenerationIsLiveBoardBasis: "instant",
+          liveBoard: { boardDate: "2026-09-02", scrapeTimestamp: "2026-09-02T22:00:00+00:00" },
+        })}
+      />,
+    );
+    expect(screen.getByText(/2026-09-02 08:00 UTC; the board on screen is 2026-09-02 22:00 UTC/)).toBeTruthy();
+  });
+
+  it("labels a source value matched only by date", () => {
+    const p = payload();
+    p.sources[0].previous = { present: true, value: 6100, generationMatch: "date" };
+    render(<ValueMovementDetailView payload={p} />);
+    expect(screen.getByText("(by date)")).toBeTruthy();
   });
 });
 
