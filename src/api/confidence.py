@@ -89,7 +89,7 @@ import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = [
     "AXES",
@@ -535,6 +535,10 @@ PICK_EVIDENCE_PROVIDER_UNKNOWN = "provider_unknown"
 #: from the rookie at its slot, not from those providers.
 PICK_VALUE_BASIS_MARKET = "market_blend"
 PICK_VALUE_BASIS_TETHER = "rookie_pool_tether"
+#: The value is DERIVED from other pick rows (year-step / round-step /
+#: uniform-tier EV); ``pickEvidence.derivedFrom`` names them and the evidence
+#: is inherited from them, never stronger than the weakest.
+PICK_VALUE_BASIS_DERIVED = "derived"
 
 
 def _pick_provider(key: str) -> str | None:
@@ -682,6 +686,85 @@ def pick_evidence(
         "unknownProviderSources": sorted(unknown),
         "reducedCoverage": bool(withheld_providers),
     }
+
+
+def derived_pick_evidence(
+    parents: Sequence[Mapping[str, Any] | None],
+    *,
+    derived_from: Sequence[str],
+    own: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """``pickEvidence`` for a pick whose VALUE is derived from other pick rows.
+
+    A derived pick (``derived_year_step`` / ``derived_round_step`` /
+    ``derived_uniform_tier_ev``) moves whenever a parent loses a provider, so
+    it must say so -- inheriting the parents' evidence, NEVER stronger:
+
+    * ``votingProviders`` -- providers voting on EVERY parent (the
+      intersection), so ``state`` can only match or fall below the weakest
+      parent's; it can never be upgraded by combining parents;
+    * ``withheldProviders`` / ``withheldSources`` / ``unknownProviderSources``
+      -- the union over the parents and the row's ``own`` observations;
+    * ``reducedCoverage`` -- true when any parent's (or the row's own) was;
+    * a parent with no ``pickEvidence`` is unknown evidence and fails closed
+      to ``provider_unknown`` (named in ``parentsWithoutEvidence``);
+    * ``valueBasis`` -- ``derived``, with ``derivedFrom`` naming the parents.
+
+    A diagnostic only; it never feeds a value or a confidence bucket.
+    """
+    names = [str(n) for n in derived_from]
+    missing = [
+        names[i] if i < len(names) else str(i)
+        for i, p in enumerate(parents)
+        if not isinstance(p, Mapping)
+    ]
+    evidences = [p for p in parents if isinstance(p, Mapping)]
+    voting: set[str] | None = None
+    for ev in evidences:
+        provs = {str(x) for x in ev.get("votingProviders") or ()}
+        voting = provs if voting is None else voting & provs
+    voting = voting if (voting is not None and not missing) else set()
+    sources = {
+        str(s)
+        for ev in evidences
+        for s in ev.get("votingSources") or ()
+        if _pick_provider(str(s)) in voting
+    }
+    observed = [*evidences, *([own] if isinstance(own, Mapping) else [])]
+    withheld = {str(x) for ev in observed for x in ev.get("withheldProviders") or ()} - voting
+    withheld_sources = {
+        str(s)
+        for ev in observed
+        for s in ev.get("withheldSources") or ()
+        if _pick_provider(str(s)) in withheld
+    }
+    unknown = sorted({str(s) for ev in observed for s in ev.get("unknownProviderSources") or ()})
+    parent_unknown = any(ev.get("state") == PICK_EVIDENCE_PROVIDER_UNKNOWN for ev in evidences)
+    n = len(voting)
+    state = (
+        PICK_EVIDENCE_PROVIDER_UNKNOWN
+        if missing or parent_unknown
+        else PICK_EVIDENCE_MULTI_PROVIDER
+        if n >= 2
+        else PICK_EVIDENCE_SINGLE_PROVIDER
+        if n == 1
+        else PICK_EVIDENCE_NO_PROVIDER
+    )
+    out: dict[str, Any] = {
+        "state": state,
+        "valueBasis": PICK_VALUE_BASIS_DERIVED,
+        "derivedFrom": names,
+        "votingProviders": sorted(voting),
+        "votingSources": sorted(sources),
+        "withheldProviders": sorted(withheld),
+        "withheldSources": sorted(withheld_sources),
+        "unknownProviderSources": unknown,
+        "reducedCoverage": bool(withheld)
+        or any(bool(ev.get("reducedCoverage")) for ev in observed),
+    }
+    if missing:
+        out["parentsWithoutEvidence"] = missing
+    return out
 
 
 def _pick_confidence_from_values(
