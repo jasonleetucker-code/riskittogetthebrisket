@@ -331,6 +331,10 @@ class SubsetFreshness:
     curve: str = "C4"
     quarantine_below: float = 0.02
     state_bands: tuple[tuple[float, str], ...] = ()
+    # The clock is the FIRST OBSERVATION of the board (a fetch time), not a
+    # dataset change: the content was published at or before it, so the age
+    # measured from it is only a LOWER bound.  See :func:`assess_subset`.
+    clock_is_baseline: bool = False
     # universe -> clock, computed once per build for one key->universe map
     # (the map is fixed within a build; ~7,700 row lookups would otherwise each
     # re-parse every row clock).
@@ -406,14 +410,27 @@ class SubsetFreshness:
         return f, age
 
     def to_dict(self) -> dict[str, Any]:
+        baseline = self.clock_is_baseline
+
+        def _change(dt: datetime | None) -> str | None:
+            # A data clock that IS the first-observation baseline is a fetch
+            # time, not a dataset change, and is not published as one.
+            if baseline and dt is not None and dt == self.clock_at:
+                return None
+            return _iso(dt)
+
         return {
             "subset": self.subset,
             "publicationStyle": self.style,
             "styleEvidence": self.style_evidence,
             "freshnessClock": self.clock,
-            "sourceDataAsOf": _iso(self.clock_at),
-            "lastAnyMeaningfulChangeAt": _iso(self.last_any_change_at),
-            "lastBroadDatasetChangeAt": _iso(self.last_broad_change_at),
+            # Never a fetch time presented as the data's as-of (D1).
+            "sourceDataAsOf": None if baseline else _iso(self.clock_at),
+            "clockIsObservationBaseline": baseline,
+            "observationBaselineAt": _iso(self.clock_at) if baseline else None,
+            "ageIsLowerBound": baseline,
+            "lastAnyMeaningfulChangeAt": _change(self.last_any_change_at),
+            "lastBroadDatasetChangeAt": _change(self.last_broad_change_at),
             "ageHours": None if self.age_hours is None else round(self.age_hours, 1),
             "expectedCadenceHours": round(self.expected_hours, 1),
             "cadenceSource": self.cadence_source,
@@ -498,6 +515,24 @@ def assess_subset(
             if last_broad is None or published <= last_broad:
                 clock_name = "upstreamPublishedAt"
                 clock_at = published
+    # D1 (2026-10-07): FETCHED RECENTLY is not CONTENT FRESH.  On the first
+    # observation of a board ``dataset_state.observe`` stamps the data clocks
+    # with the observation (fetch) time and declares the subset
+    # ``firstObservationIsBaseline``.  While that baseline is still the clock,
+    # the content was published at some unknown time AT OR BEFORE it, so the
+    # age measured from it is a LOWER bound: it can prove a board is at least
+    # so stale (that decay is evidence and is kept unchanged — no blend weight
+    # moves), but it can never prove one fresh, and the fetch time is never
+    # published as ``sourceDataAsOf``.  A vendor-stated publication time is a
+    # real clock and is not a baseline.
+    first_observed = parse_iso(st.get("firstObservedAt"))
+    clock_is_baseline = bool(
+        st.get("firstObservationIsBaseline") is True
+        and clock_name == "lastBroadDatasetChangeAt"
+        and clock_at is not None
+        and first_observed is not None
+        and clock_at == first_observed
+    )
     base = SubsetFreshness(
         source_key=source_key,
         subset=subset,
@@ -518,13 +553,20 @@ def assess_subset(
         curve=cfg.curve,
         quarantine_below=cfg.quarantine_below,
         state_bands=cfg.state_bands,
+        clock_is_baseline=clock_is_baseline,
     )
     if clock_at is None:
         return base
     f, age = base.row_freshness(None)
     base.age_hours = age
     base.freshness = f
-    base.state = state_for(f, cfg)
+    state = state_for(f, cfg)
+    if clock_is_baseline and state == STATE_ON_SCHEDULE:
+        # A lower-bound age cannot prove the board is on schedule.  The
+        # factor stays exactly as computed (no blend weight moves) — only
+        # the claim is withdrawn.
+        state = STATE_UNMEASURED
+    base.state = state
     return base
 
 

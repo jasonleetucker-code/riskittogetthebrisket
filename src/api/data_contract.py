@@ -1524,8 +1524,19 @@ def registry_keys_for_run_source(run_source: str) -> list[str]:
     return out
 
 
-def _build_source_timestamps() -> dict[str, dict[str, Any]]:
+def _build_source_timestamps(
+    *, as_of: "datetime | None" = None, csv_root: "Path | None" = None
+) -> dict[str, dict[str, Any]]:
     """Return per-source freshness block with mtimes + staleness flags.
+
+    Measured at the BOARD'S OWN as-of (``_payload_as_of``) against the tree
+    the board was built from (``csv_root``) — never the wall clock and never
+    a different checkout (D9, 2026-10-07 audit): the same snapshot must
+    produce the same block, and the B11 confidence gate reads it through
+    :func:`_source_freshness_flags`.  With no as-of there is no fetch age at
+    the board's time, so every entry that found its CSV is ``unknown`` (age
+    ``None``) — never fresh.  A fetch stamped AFTER the as-of (a later fetch
+    whose CSV this build read) is age 0, not a negative age.
 
     Iterates every entry in :data:`_SOURCE_CSV_PATHS`, stats the CSV, and
     computes an ISO8601 mtime, an age in hours, and a ``fresh``/``stale``
@@ -1544,9 +1555,8 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
     (Codex review on PR #532).  The CSV must still exist — a stamp
     without data is reported ``missing``.
     """
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
     state_dir = repo_root / "data" / "scrape_state"
-    now = datetime.now(timezone.utc)
     out: dict[str, dict[str, Any]] = {}
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
@@ -1578,10 +1588,11 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
                 except (OSError, ValueError):
                     pass
                 mtime_dt = datetime.fromtimestamp(last_epoch, tz=timezone.utc)
-                age_hours = (now - mtime_dt).total_seconds() / 3600.0
                 entry["mtime"] = mtime_dt.isoformat()
-                entry["ageHours"] = round(age_hours, 3)
-                entry["staleness"] = "fresh" if age_hours < max_age else "stale"
+                if as_of is not None:
+                    age_hours = max(0.0, (as_of - mtime_dt).total_seconds() / 3600.0)
+                    entry["ageHours"] = round(age_hours, 3)
+                    entry["staleness"] = "fresh" if age_hours < max_age else "stale"
         out[source_key] = entry
     return out
 
@@ -2976,8 +2987,15 @@ def _scope_eligible(pos: str, scope: str, position_group: str | None) -> bool:
     return False
 
 
-def _source_freshness_flags() -> dict[str, bool | None]:
+def _source_freshness_flags(
+    as_of: "datetime | None" = None, csv_root: "Path | None" = None
+) -> dict[str, bool | None]:
     """Per-source ``fresh?`` for the B11 confidence gate.
+
+    Evaluated at the board's own ``as_of`` against its ``csv_root`` (see
+    :func:`_build_source_timestamps`) — never the wall clock, so a stored
+    confidence stamp is a property of the snapshot, not of when it was
+    built.  No as-of → every flag ``None`` (unknown), never ``True``.
 
     Tri-state, reduced from the same ``staleness`` string the payload's
     ``dataFreshness.sourceTimestamps`` block publishes, so confidence and
@@ -2998,7 +3016,7 @@ def _source_freshness_flags() -> dict[str, bool | None]:
     ONCE per build and pass the map down — never per row.
     """
     flags: dict[str, bool | None] = {}
-    for key, entry in _build_source_timestamps().items():
+    for key, entry in _build_source_timestamps(as_of=as_of, csv_root=csv_root).items():
         staleness = str((entry or {}).get("staleness") or "")
         if staleness == "fresh":
             flags[key] = True
@@ -10174,6 +10192,8 @@ def _compute_unified_rankings(
     seasonally_inactive_sources: Iterable[str] | None = None,
     absent_private_sources: Iterable[str] | None = None,
     shadow_private_sources: Iterable[str] | None = None,
+    freshness_as_of: "datetime | None" = None,
+    csv_root: "Path | None" = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -12274,8 +12294,9 @@ def _compute_unified_rankings(
     # the denominator of a row's consensus percentile.
     total_ranked = min(len(row_normalized), OVERALL_RANK_LIMIT)
 
-    # One stat pass for the whole board.  The B11 gate asks per row.
-    fresh_by_source = _source_freshness_flags()
+    # One stat pass for the whole board.  The B11 gate asks per row.  At the
+    # board's OWN as-of and tree (D9): never the wall clock.
+    fresh_by_source = _source_freshness_flags(freshness_as_of, csv_root)
 
     for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
@@ -13737,6 +13758,8 @@ def build_api_data_contract(
         seasonally_inactive_sources=frozenset(seasonally_inactive),
         absent_private_sources=absent_private,
         shadow_private_sources=shadow_private,
+        freshness_as_of=freshness_as_of,
+        csv_root=csv_root,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -13787,7 +13810,7 @@ def build_api_data_contract(
     # {ktc: "", idpTradeCalc: ""} was reading dead fields on data_source
     # that the scraper bridge never writes; this replaces it with real,
     # source-by-source freshness data that covers all 5 active sources.
-    source_timestamps = _build_source_timestamps()
+    source_timestamps = _build_source_timestamps(as_of=freshness_as_of, csv_root=csv_root)
     # A declared seasonally inactive source is not a stale source: its fetch
     # stamp is old because there is legitimately no board to fetch.  Named
     # explicitly so "inactive by declaration" and "stale" never read alike.
@@ -13824,6 +13847,11 @@ def build_api_data_contract(
     data_freshness: dict[str, Any] = {
         "generatedAt": generated_at,
         "sourceTimestamps": source_timestamps,
+        # The reference time every ``sourceTimestamps[*].ageHours`` is measured
+        # from: the board's OWN as-of (its scrape time), never the build's
+        # wall clock (D9).  ``None`` when the payload carries no as-of — every
+        # age is then ``None`` / ``unknown``.
+        "sourceTimestampsAsOf": _iso_or_none(freshness_as_of),
         "staleness": _overall_staleness,
     }
 
@@ -15150,11 +15178,31 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         absent_by_design = private_sources_absent_by_design(
             payload.get("privateSourceAvailability")
         )
+        # A DECLARED seasonal source the board itself records as inactive at
+        # its own time (``sourceSeasonalState``; owner decision 2026-10-03)
+        # casts no current vote by design — its absence is the declared
+        # phase, not a lost source (D8, 2026-10-07 audit).  Read through the
+        # one owner the served-board coverage gate also uses, from the
+        # payload's own stamp: no stamp or a malformed one excuses nothing.
+        # The stamp is DATA, so it is intersected with the DECLARED policies:
+        # a corrupted or hand-edited payload naming an undeclared source (say
+        # ``ktcCrowdSfTep``) cannot turn ``source_missing`` into a warning,
+        # and an unreadable policy file excuses nothing.
+        from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+        try:
+            declared_seasonal = frozenset(_seasonal.load_policies())
+        except _seasonal.SeasonalPolicyError:
+            declared_seasonal = frozenset()
+        seasonally_inactive_keys = _seasonal.contract_inactive_sources(payload) & declared_seasonal
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)
             if count == 0 and src_key in absent_by_design:
                 warnings.append(f"private_source_absent_by_design:{src_key}")
+                continue
+            if count == 0 and src_key in seasonally_inactive_keys:
+                warnings.append(f"source_seasonally_inactive:{src_key}")
                 continue
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
