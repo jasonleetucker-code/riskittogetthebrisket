@@ -12,8 +12,7 @@
 #   * Creates ``.venv/`` if it does not exist (virtualenv isolation so
 #     nothing leaks into / relies on a globally-installed package).
 #   * Upgrades pip inside the venv.
-#   * Installs ``requirements-dev.txt`` — which chains ``requirements.txt``
-#     via ``-r`` — so runtime AND test deps always install together.
+#   * Installs the exact hash-pinned development resolution.
 #   * Runs ``pip check`` to fail fast on conflicting pins.
 #   * Runs ``scripts/check_env.py`` to confirm every expected module
 #     imports.  This is the same preflight CI uses, so a green local
@@ -49,12 +48,12 @@ require_cmd "${PYTHON_BIN}"
 
 cd "${REPO_ROOT}"
 
-if [[ ! -f requirements.txt ]]; then
-  err "requirements.txt missing — are you running from the repo root?"
+if [[ ! -f requirements.lock.txt ]]; then
+  err "requirements.lock.txt missing — are you running from the repo root?"
   exit 1
 fi
-if [[ ! -f requirements-dev.txt ]]; then
-  err "requirements-dev.txt missing — aborting setup to avoid partial install."
+if [[ ! -f requirements-dev.lock.txt ]]; then
+  err "requirements-dev.lock.txt missing — aborting setup to avoid partial install."
   exit 1
 fi
 
@@ -71,8 +70,9 @@ VENV_PIP="${VENV_DIR}/bin/pip"
 log "Upgrading pip inside venv"
 "${VENV_PY}" -m pip install --upgrade pip
 
-log "Installing runtime + dev deps from requirements-dev.txt"
-"${VENV_PIP}" install -r requirements-dev.txt
+"${VENV_PY}" scripts/python_lock.py check
+log "Installing runtime + dev deps from requirements-dev.lock.txt"
+"${VENV_PIP}" install --require-hashes -r requirements-dev.lock.txt
 
 log "Running ``pip check`` to detect conflicting dependency pins"
 "${VENV_PIP}" check

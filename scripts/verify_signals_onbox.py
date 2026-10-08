@@ -725,7 +725,16 @@ def _watch_outcomes(watch: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def public_projection(report: Mapping[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
-        k: report.get(k) for k in ("utc", "deployedCommit", "timer", "collector", "payload")
+        k: report.get(k)
+        for k in (
+            "utc",
+            "deployedCommit",
+            "deployedCommitAtEnd",
+            "deployIntervened",
+            "timer",
+            "collector",
+            "payload",
+        )
     }
     sess = report.get("session") or {}
     out["session"] = {k: sess.get(k) for k in ("state", "acquisitionState", "error") if k in sess}
@@ -832,6 +841,17 @@ def main() -> int:
         names = [r.get("displayName") for r in shipped.get("playersArray") or []]
     else:
         names = []
+    # A deploy that lands mid-run swaps the checkout under the in-process
+    # builds, so the measurement could mix two code revisions.  The workflow
+    # no longer shares the deploy concurrency group (a queued deploy would
+    # cancel a pending run into silence), so this is checked, not assumed:
+    # a changed HEAD makes the run unusable and it exits non-zero.
+    rc_end, sha_end = _run(["git", "-C", str(app_dir), "rev-parse", "HEAD"])
+    report["deployedCommitAtEnd"] = sha_end.strip() if rc_end == 0 else None
+    report["deployIntervened"] = (
+        report["deployedCommit"] is None
+        or report["deployedCommitAtEnd"] != report["deployedCommit"]
+    )
     public = public_projection(report)
     try:
         private_path = _write_private_report(app_dir, report)
@@ -842,7 +862,7 @@ def main() -> int:
         public["privateReportError"] = type(exc).__name__
     assert_public_safe(public, names)
     print(json.dumps(public, indent=2, sort_keys=True, default=str))
-    return 0
+    return 3 if report["deployIntervened"] else 0
 
 
 if __name__ == "__main__":

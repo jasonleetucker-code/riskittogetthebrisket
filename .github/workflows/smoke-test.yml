@@ -34,9 +34,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          # Single manifest for runtime + dev deps keeps smoke-test,
-          # pr-validation, refit-hill-curves, and deploy gates in lockstep.
-          pip install -r requirements-dev.txt
+          # The development lock includes the exact runtime resolution.
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
 
       - name: Validate dependency graph (pip check)
         shell: bash
@@ -71,26 +71,34 @@ jobs:
           import server
           print("Runtime import gate passed.")
           PY
-      - name: Run unit tests
-        shell: bash
-        env:
-          ALLOW_DEFAULT_LOGIN_DEV: "1"
-          # Same policy as pr-validation.yml / deploy.yml.  This job has
-          # the tightest budget (10 minutes) and its whole purpose is to
-          # notice breakage, so it must not be the thing an outage
-          # silences: ``server`` enables its uptime watchdog by default,
-          # every TestClient then probes the live site, and its shutdown
-          # joins that thread.  ``tests/conftest.py`` sets the same
-          # default; stated here so the policy is visible.
-          UPTIME_CHECK_ENABLED: "0"
-        run: |
-          set -Eeuo pipefail
-          # Hard-gate on code tests only, matching pr-validation.yml.
-          # Data-coupled (livedata) tests red this DAILY smoke on routine
-          # source dips (e.g. the July yahooBoone row-count drift) that
-          # are not code defects — the freshness watchdog + served-board
-          # coverage gate are the real data guards.
-          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+      # NO full unit suite here, deliberately (CLEANUP-3, 2026-10-07).
+      #
+      # This job used to run `python -m pytest tests/ -x -q --tb=short
+      # -m "not livedata"` inside `timeout-minutes: 10`.  The suite outgrew
+      # that budget in mid-August: the last green run of this job was
+      # 2026-08-13 (7 min), and of the 60 runs since, 48 were CANCELLED at
+      # the 10-minute wall and none passed — so for ~50 days this step
+      # measured nothing while showing as a grey "cancelled", not a red.
+      # Measured 2026-10-07: the identical command takes 3,353 s (56 min)
+      # in deploy.yml's "Run unit tests (hard gate — pure logic)" step.
+      #
+      # It is also a pure DUPLICATE of a gate that already runs on `main`
+      # more often than this one does: deploy.yml's "Validate Build Inputs"
+      # job runs the byte-identical pytest command, with the same
+      # requirements-dev.txt and Python 3.12, against the exact SHA being
+      # deployed — on every code push to main AND on every post-refresh
+      # deploy dispatch (4-44 deploy runs per day, 2026-09-30..10-07), under
+      # an 80-minute budget it actually fits in.  pr-validation.yml and
+      # release-candidate.yml run it again on the PR and the frozen
+      # candidate.  Raising this budget to ~70 minutes would buy one more
+      # daily copy of that run and no coverage the deploy gate lacks.
+      #
+      # What this job keeps is what is cheap and scheduled: the install +
+      # `pip check` + import gates below catch dependency drift on days
+      # nothing was pushed, which is the part a push-triggered gate cannot.
+      # tests/deploy/test_full_suite_budgets.py pins both halves: the
+      # deploy gate still runs the command, and no job runs the full suite
+      # under a budget it is measured not to fit in.
 
       - name: API contract check
         shell: bash

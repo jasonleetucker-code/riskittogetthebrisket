@@ -69,6 +69,8 @@ _PYTHON_EXACT_FILES = (
     "Dynasty Scraper.py",
     "requirements.txt",
     "requirements-dev.txt",
+    "requirements.lock.txt",
+    "requirements-dev.lock.txt",
     "pyproject.toml",
 )
 
@@ -83,6 +85,10 @@ _HIGH_RISK_PATTERNS = (
     ".github/workflows/*",
     "requirements.txt",
     "requirements-dev.txt",
+    "requirements.lock.txt",
+    "requirements-dev.lock.txt",
+    "config/python-lock.json",
+    "scripts/python_lock.py",
     "pyproject.toml",
     "frontend/package.json",
     "frontend/package-lock.json",

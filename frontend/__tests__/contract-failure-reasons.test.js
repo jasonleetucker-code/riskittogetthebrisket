@@ -85,4 +85,3 @@ describe("a 503 always carries a reason", () => {
     expect(normalizeFailureBody({ error: "A sentence." })).toEqual({ code: "", message: "A sentence." });
   });
 });
-

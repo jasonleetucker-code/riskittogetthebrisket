@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 642,
+ "count": 636,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -457,12 +457,6 @@
   "src/ros/direction.py::strength_pct = team_ros_strength_percentile or 0.0",
   "src/ros/lineup.py::confidence=float(row.get(\"confidence\") or 0.0),",
   "src/ros/parse.py::base = float(src.get(\"base_weight\") or 0.0)",
-  "src/ros/pick_projection.py::original = int(pd.get(\"original_roster_id\") or 0)",
-  "src/ros/pick_projection.py::owner = int(pd.get(\"owner_roster_id\") or 0)",
-  "src/ros/pick_projection.py::rid = int(row.get(\"rosterId\") or 0)",
-  "src/ros/pick_projection.py::rid = int(t.get(\"roster_id\") or 0)",
-  "src/ros/pick_projection.py::rnd = int(pd.get(\"round\") or 0)",
-  "src/ros/pick_projection.py::season = int(str(pd.get(\"season\") or 0))",
   "src/ros/playoff_sim.py::\"rosValue\": float(p.get(\"rosValue\") or 0.0),",
   "src/ros/playoff_sim.py::a = float(a_row.get(metric) or 0.0)",
   "src/ros/playoff_sim.py::b = float(b_row.get(metric) or 0.0)",

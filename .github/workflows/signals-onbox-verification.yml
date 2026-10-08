@@ -41,8 +41,12 @@ permissions:
   contents: read
 
 concurrency:
-  # Never overlap a deploy (or the other on-box diagnostics).
-  group: production-deploy
+  # Its own group. Not `production-deploy`: GitHub keeps only the newest
+  # PENDING run per group, so a refresh deploy queued behind a running one
+  # cancelled this run into silence (2026-10-04, run 37228171975: 0 jobs).
+  # Overlap with a deploy is detected instead of prevented: the script
+  # re-reads the deployed commit at the end and exits non-zero when it moved.
+  group: signals-onbox-verification
   cancel-in-progress: false
 
 jobs:

@@ -257,13 +257,26 @@ jobs:
             --color B60205 \
             --description "Auto-opened when the daily intel refresh fails" \
             2>/dev/null || true
-          EXISTING=$(gh issue list --state open --label intel-stale \
-                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          # A lookup that FAILS must not read like one that found nothing:
+          # say so, then still file — losing the alert is worse than a
+          # duplicate.  `2>/dev/null || echo ""` erased that difference.
+          # OLDEST wins (min), not `.[0]` over gh's newest-first order.
+          #
+          # Identity is LABEL + exact TITLE (#958, as e2e.yml and
+          # verify-sharp-production.yml do), so a human issue that happens to
+          # wear `intel-stale` is neither commented on nor closed.
+          TRACKER_TITLE="Daily intel refresh failing"
+          if ! EXISTING=$(gh issue list --state open --label intel-stale \
+                            --limit 1000 --json number,title \
+                            --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
             gh issue create \
-              --title "Daily intel refresh failing" \
+              --title "$TRACKER_TITLE" \
               --body "$BODY" \
               --label intel-stale
           fi
@@ -281,13 +294,27 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # REQUIRED, for the reason the alert step's note gives: this job
+          # never checks out the repository, so without it `gh` dies with
+          # "not a git repository".  It was missing HERE, and the error was
+          # swallowed below, so every green run since 2026-09-21 logged
+          # "nothing to close" while #737 sat open (run 37491346018).
+          # Pinned by tests/deploy/test_workflow_gh_repo_context.py.
+          GH_REPO: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          # Close EVERY open one: the alert step reads `.[0].number`, so
-          # duplicates would otherwise be orphaned forever.
-          OPEN=$(gh issue list --state open --label intel-stale \
-                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          # Close EVERY open tracker (duplicates would otherwise be orphaned),
+          # keyed on the same LABEL + exact TITLE as the alert step.  A lookup
+          # that FAILS fails the step: reading "could not ask" as "nothing to
+          # close" is a silent all-clear, which is exactly how #737 survived.
+          TRACKER_TITLE="Daily intel refresh failing"
+          if ! OPEN=$(gh issue list --state open --label intel-stale \
+                        --limit 1000 --json number,title \
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open intel-stale tracker is still open"
+            exit 1
+          fi
           if [[ -z "$OPEN" ]]; then
             echo "no open intel-stale issue; nothing to close"
             exit 0
