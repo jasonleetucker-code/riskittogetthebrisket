@@ -343,3 +343,119 @@ def test_route_is_private(monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda request: False)
     resp = TestClient(server.app).get("/api/signals/reconciled")
     assert resp.status_code == 401
+
+
+# ── review follow-ups: placement basis, scope, owner refusals ───────────
+
+
+def test_roster_resolves_by_player_id_and_reports_ids_off_the_board():
+    contract = _contract()
+    team = {
+        **contract["sleeper"]["teams"][0],
+        # Names deliberately disagree with the ids: ids must win.
+        "players": ["Wrong Name One", "Wrong Name Two"],
+        "playerIds": ["90001", "90002", "77777"],
+    }
+    keys, missed, basis = collect.roster_keys(collect.build_identity_index(contract), team)
+    assert basis == "player_id"
+    assert keys == ["player:90001", "player:90002"]
+    assert missed == [
+        {
+            "emitter": None,
+            "playerId": "77777",
+            "name": None,
+            "reason": "not_on_canonical_board",
+            "scope": "roster",
+        }
+    ]
+
+
+def test_roster_without_ids_falls_back_to_names_and_says_so():
+    contract = _contract()
+    _keys, _missed, basis = collect.roster_keys(
+        collect.build_identity_index(contract), contract["sleeper"]["teams"][0]
+    )
+    assert basis == "name_fallback"
+
+
+def test_consensus_edge_rows_are_placed_by_player_key_with_name_as_labelled_fallback():
+    _flags(consensus_edge=True, bdvm=False)
+    contract = _contract()
+    by_key = {**_ce_row("Abbrev Z.", "QB", "Buy"), "playerKey": "Zed Sigalpha"}
+    by_name = {**_ce_row("Yan Sigbravo", "WR", "Sell"), "playerKey": "not-a-board-name"}
+    with mock.patch(
+        "src.consensus_edge.api.board_for_contract", return_value=_ce_board([by_key, by_name])
+    ):
+        run, missed = collect.collect_consensus_edge(
+            contract, collect.build_identity_index(contract), freshness={"state": "fresh"}
+        )
+    placed = {obs.player_key: obs.placement for obs in run.observations}
+    assert placed == {
+        "player:90001": "emitter_key",
+        "player:90002": "name_fallback:exact_name",
+    }
+    assert missed == []
+
+
+def test_bdvm_unpriced_rows_carry_the_owners_reason():
+    _flags(consensus_edge=False, bdvm=True)
+    contract = _contract()
+    values = {
+        "status": "ok",
+        "meta": {"asOf": "2026-10-06"},
+        "players": [],
+        "unpriced": [
+            {"name": "Yan Sigbravo", "reason": "no_projection", "position": "WR"},
+            {"name": "Nobody Real", "reason": "missing_age", "position": "RB"},
+        ],
+    }
+    with mock.patch("src.api.bdvm_api.get_bdvm_values", return_value=values):
+        payload = _build(
+            contract,
+            resolved_team=contract["sleeper"]["teams"][0],
+            news_items=[],
+            collectors=("bdvm_market_signal",),
+        )
+    yan = [p for p in payload["players"] if p["playerKey"] == "player:90002"][0]
+    assert yan["emittersDeclined"] == [{"emitter": "bdvm_market_signal", "reason": "no_projection"}]
+    assert "bdvm_market_signal" not in yan["emittersSilent"]
+    assert any(
+        u.get("emitterUnpricedReason") == "missing_age" and u["reason"] == "unresolved"
+        for u in payload["unresolved"]
+    )
+
+
+def test_league_scope_marks_off_roster_players_out_of_scope_for_the_terminal_engine():
+    _flags(consensus_edge=True, bdvm=False)
+    contract = _contract()
+    board = _ce_board([_ce_row("Sam Twin", "LB", "Buy")])
+    with mock.patch("src.consensus_edge.api.board_for_contract", return_value=board):
+        payload = _build(
+            contract,
+            resolved_team=contract["sleeper"]["teams"][0],
+            news_items=[],
+            scope="league",
+        )
+    sam = [p for p in payload["players"] if p["playerKey"] == "player:90005"][0]
+    assert sam["emittersOutOfScope"] == ["terminal_signal"]
+    assert "terminal_signal" not in sam["emittersSilent"]
+
+
+@pytest.mark.parametrize("limit, expect_truncated", [(1, True), (5, False)])
+def test_sharp_beyond_its_asset_limit_is_out_of_scope(monkeypatch, limit, expect_truncated):
+    contract = _contract()
+    monkeypatch.setattr(collect, "_SHARP_ASSET_LIMIT", limit)
+    sharp = {
+        "status": "ok",
+        "query": {"window": "30d"},
+        "assets": [{"assetId": "90001", "displayName": "Zed Sigalpha", "net": 3}],
+        "coverage": {"platforms": {}},
+    }
+    with mock.patch("src.sharp.market.market_payload", return_value=sharp):
+        run, _ = collect.collect_sharp(collect.build_identity_index(contract))
+    payload = rec.reconcile([run], player_keys=["player:90001", "player:90002"])
+    yan = [p for p in payload["players"] if p["playerKey"] == "player:90002"][0]
+    if expect_truncated:
+        assert yan["emittersOutOfScope"] == ["sharp_market"]
+    else:
+        assert yan["emittersSilent"] == ["sharp_market"]

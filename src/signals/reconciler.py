@@ -22,17 +22,21 @@ the point of it:
   alert sweep re-sending the terminal engine's verdict).  Every collapse
   is listed with its reason and the observation it collapsed into.
 * **Agreement is not independence.**  Two agreeing verdicts from
-  DIFFERENT lineages that share an ancestor (the terminal engine and
-  Consensus Edge both descend from the canonical board) are kept — they
-  are different questions — but the shared ancestry is published beside
-  the agreement so it cannot read as two independent opinions.
+  DIFFERENT lineages that share an ancestor are kept — they are different
+  questions — but the shared ancestry is published beside the agreement so
+  it cannot read as two independent opinions.  Ancestry is the transitive
+  closure over ONE declared lineage DAG (:data:`LINEAGE_PARENTS`): the
+  terminal engine, Consensus Edge and BDVM's gap all descend from the
+  value-signal market (KTC Crowd / Trades / Market, idpTradeCalc).
 * **Withheld wins.**  A quarantined canonical row, or a Consensus Edge
   ``Withheld`` verdict, makes the player ``withheld``.  Nothing is
   dropped: the other emitters' verdicts stay listed underneath.
 * **Missing is never zero.**  An emitter that did not run is
-  ``unobserved`` (with its reason) — never a neutral or a HOLD.  An
-  emitter that ran but said nothing about this player is ``silent``,
-  which is a different statement again.
+  ``unobserved`` (with its reason) — never a neutral or a HOLD.  A player
+  outside what an emitter evaluated is ``out_of_scope`` for it; one the
+  emitter explicitly refused to price is ``declined`` with the owner's
+  reason; only an emitter that evaluated the player and said nothing is
+  ``silent``.
 * **Conflict is labelled, never averaged.**  A BUY and a SELL on one
   player produce state ``conflict`` naming both sides, their domains and
   lineages.
@@ -93,21 +97,82 @@ class EmitterSpec:
 
     ``lineage_group`` is the correlation group of the evidence that DRIVES
     the verdict; two emitters in one group restate one body of evidence.
-    ``ancestors`` names upstream evidence the verdict descends from without
-    being a restatement of it (so agreement can be reported as
-    non-independent rather than collapsed).
+    Its ``ancestors`` are NOT declared per emitter: they are the transitive
+    closure of ``lineage_group`` over the one declared DAG,
+    :data:`LINEAGE_PARENTS`, so a shared upstream declared once reaches
+    every descendant (agreement is then reported as non-independent rather
+    than collapsed).
     """
 
     emitter_id: str
     owner: str
     domain: str
     lineage_group: str
-    ancestors: tuple[str, ...]
     scope: str
     label_directions: Mapping[str, str]
     disposition: str
     restates: str | None = None
     note: str = ""
+
+    @property
+    def ancestors(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                node for node in lineage_closure(self.lineage_group) if node != self.lineage_group
+            )
+        )
+
+
+#: The ONE declared lineage DAG: correlation group -> the groups its
+#: evidence is derived from.  Ancestry everywhere in this module is the
+#: transitive closure over this table (:func:`lineage_closure`).
+#:
+#: ``value_market_sources`` is one correlation family: KTC Crowd, KTC Trades,
+#: KTC Market (KTC's own Crowd+Trades, derived from the other two) and
+#: idpTradeCalc.  The canonical board votes on KTC Crowd / KTC Trades /
+#: idpTradeCalc; Consensus Edge's mispricing compares fair value against KTC
+#: Market (offense) / idpTradeCalc (IDP); BDVM's market layer reads the same
+#: value-signal sources.  So value drift, Consensus Edge and the BDVM gap are
+#: NOT independent votes (lane-4 inventory section 3.3).
+LINEAGE_PARENTS: dict[str, tuple[str, ...]] = {
+    # roots
+    "value_market_sources": (),
+    "expert_rank_sources": (),
+    "news_feed": (),
+    "bdvm_projections": (),
+    "sharp_cohort_movements": (),
+    "player_context": (),
+    "ros_projection": (),
+    "intel_ledger": (),
+    # derived
+    "canonical_board": ("value_market_sources", "expert_rank_sources"),
+    "canonical_board_history": ("canonical_board", "news_feed"),
+    # BDVM fundamentals take no market input, but the GAP that sets its
+    # direction is fundamentals against the value-signal market.
+    "bdvm_fundamental_vs_market": ("bdvm_projections", "value_market_sources"),
+    "consensus_edge_composite": (
+        "canonical_board",
+        "value_market_sources",
+        "sharp_cohort_movements",
+        "player_context",
+    ),
+    "canonical_board_vs_retail_market": ("canonical_board", "value_market_sources"),
+}
+
+
+def lineage_closure(group: str) -> frozenset[str]:
+    """``group`` plus every lineage group it descends from, transitively."""
+    if group not in LINEAGE_PARENTS:
+        raise ValueError(f"undeclared lineage group: {group!r}")
+    seen: set[str] = set()
+    stack = [group]
+    while stack:
+        node = stack.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        stack.extend(LINEAGE_PARENTS[node])
+    return frozenset(seen)
 
 
 _TERMINAL_LABELS = {
@@ -148,7 +213,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/api/terminal.py::_evaluate_signal (via build_terminal_payload)",
         domain="market_momentum",
         lineage_group="canonical_board_history",
-        ancestors=("canonical_board", "news_feed"),
         scope="roster",
         label_directions=_TERMINAL_LABELS,
         disposition=COLLECTED,
@@ -159,29 +223,33 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/bdvm/market.py::buy_hold_sell (via src/api/bdvm_api.get_bdvm_values)",
         domain="fundamental",
         lineage_group="bdvm_fundamental_vs_market",
-        ancestors=("bdvm_projections", "value_market_sources"),
         scope="league",
         label_directions=_BDVM_LABELS,
         disposition=COLLECTED,
-        note="Projection-driven fundamental value against the value-signal market.",
+        note=(
+            "Projection-driven fundamental value against the value-signal market. "
+            "Fundamentals take no market input, but the gap that sets the direction "
+            "does, so the verdict is partly market-derived."
+        ),
     ),
     EmitterSpec(
         emitter_id="consensus_edge",
         owner="src/consensus_edge/service.py::build_board (via api.board_for_contract)",
         domain="consensus",
         lineage_group="consensus_edge_composite",
-        ancestors=("canonical_board", "sharp_cohort_movements", "player_context"),
         scope="scoring_profile",
         label_directions=_CONSENSUS_EDGE_LABELS,
         disposition=COLLECTED,
-        note="Composite of mispricing, sharp flow and opportunity; flag-gated.",
+        note=(
+            "Composite of mispricing (fair value vs KTC Market / idpTradeCalc), "
+            "sharp flow and opportunity; flag-gated."
+        ),
     ),
     EmitterSpec(
         emitter_id="sharp_market",
         owner="src/sharp/market.py::market_payload",
         domain="sharp",
         lineage_group="sharp_cohort_movements",
-        ancestors=(),
         scope="global",
         label_directions={},
         disposition=COLLECTED,
@@ -196,7 +264,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/api/signal_alerts.py::process_user_alerts",
         domain="market_momentum",
         lineage_group="canonical_board_history",
-        ancestors=("canonical_board", "news_feed"),
         scope="roster",
         label_directions=_TERMINAL_LABELS,
         disposition=RESTATEMENT,
@@ -208,7 +275,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="frontend/lib/signal-engine.js::evaluateRoster",
         domain="market_momentum",
         lineage_group="canonical_board_history",
-        ancestors=("canonical_board", "news_feed"),
         scope="roster",
         label_directions=_TERMINAL_LABELS,
         disposition=RESTATEMENT,
@@ -220,7 +286,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/api/bdvm_signal_alerts.py",
         domain="fundamental",
         lineage_group="bdvm_fundamental_vs_market",
-        ancestors=("bdvm_projections", "value_market_sources"),
         scope="roster",
         label_directions=_BDVM_LABELS,
         disposition=RESTATEMENT,
@@ -232,7 +297,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/ros/tags.py::tags_for_player",
         domain="seasonal",
         lineage_group="ros_projection",
-        ancestors=(),
         scope="league",
         label_directions={},
         disposition=OUT_OF_SCOPE,
@@ -243,7 +307,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/intel/leads.py::score_lead",
         domain="manager",
         lineage_group="intel_ledger",
-        ancestors=(),
         scope="league",
         label_directions={},
         disposition=OUT_OF_SCOPE,
@@ -254,7 +317,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/trade/suggestions.py",
         domain="trade",
         lineage_group="canonical_board",
-        ancestors=(),
         scope="roster",
         label_directions={},
         disposition=OUT_OF_SCOPE,
@@ -265,7 +327,6 @@ EMITTERS: tuple[EmitterSpec, ...] = (
         owner="src/trade/finder.py",
         domain="trade",
         lineage_group="canonical_board_vs_retail_market",
-        ancestors=("canonical_board", "value_market_sources"),
         scope="roster",
         label_directions={},
         disposition=OUT_OF_SCOPE,
@@ -275,6 +336,18 @@ EMITTERS: tuple[EmitterSpec, ...] = (
 
 _SPEC_BY_ID: dict[str, EmitterSpec] = {spec.emitter_id: spec for spec in EMITTERS}
 _REGISTRY_ORDER: dict[str, int] = {spec.emitter_id: i for i, spec in enumerate(EMITTERS)}
+
+
+def _validate_lineage() -> None:
+    """Every emitter's group and every declared parent must be in the DAG."""
+    for spec in EMITTERS:
+        lineage_closure(spec.lineage_group)
+    for parents in LINEAGE_PARENTS.values():
+        for parent in parents:
+            lineage_closure(parent)
+
+
+_validate_lineage()
 
 
 def spec_for(emitter_id: str) -> EmitterSpec:
@@ -302,6 +375,9 @@ class Observation:
     display_name: str | None = None
     reason: str | None = None
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    #: How the identity join placed this row (``player_id`` /
+    #: ``emitter_key`` / ``exact_name`` / ``name_fallback:*`` ...).
+    placement: str | None = None
 
 
 @dataclass(frozen=True)
@@ -311,6 +387,13 @@ class EmitterRun:
     ``state`` is ``observed`` or ``unobserved``; an unobserved run carries
     a ``reason`` and no observations.  ``freshness`` is the emitter's own
     data-age verdict (``fresh`` / ``stale`` / ``unknown`` plus its basis).
+
+    ``covered_keys`` is the set of players the emitter actually EVALUATED
+    (a roster-scoped emitter, or a board truncated at a row limit); ``None``
+    means it evaluated the whole universe.  A player outside it is
+    ``out_of_scope`` for that emitter — never ``silent``.  ``declined`` maps
+    players the emitter explicitly refused to price to the owner's own
+    reason (e.g. BDVM ``no_projection``).
     """
 
     emitter_id: str
@@ -320,6 +403,8 @@ class EmitterRun:
     freshness: Mapping[str, Any] = field(default_factory=dict)
     observations: tuple[Observation, ...] = ()
     notes: tuple[str, ...] = ()
+    covered_keys: frozenset[str] | None = None
+    declined: Mapping[str, str] = field(default_factory=dict)
 
 
 def unobserved(emitter_id: str, reason: str, *, notes: Sequence[str] = ()) -> EmitterRun:
@@ -360,6 +445,7 @@ def _signal_entry(obs: Observation, run: EmitterRun) -> dict[str, Any]:
         "nativeLabel": obs.native_label,
         "direction": direction_for(obs.emitter_id, obs.native_label),
         "reason": obs.reason,
+        "placement": obs.placement,
         "asOf": run.as_of,
         "freshness": dict(run.freshness) if run.freshness else {"state": "unknown"},
         "evidence": dict(obs.evidence),
@@ -543,8 +629,24 @@ def reconcile(
                     SELL: _agreement(sells),
                 },
                 "emittersUnobserved": unobserved_ids,
+                "emittersOutOfScope": sorted(
+                    run.emitter_id
+                    for run in observed_runs
+                    if run.emitter_id not in spoke
+                    and run.covered_keys is not None
+                    and key not in run.covered_keys
+                ),
+                "emittersDeclined": [
+                    {"emitter": run.emitter_id, "reason": run.declined[key]}
+                    for run in observed_runs
+                    if run.emitter_id not in spoke and key in run.declined
+                ],
                 "emittersSilent": sorted(
-                    run.emitter_id for run in observed_runs if run.emitter_id not in spoke
+                    run.emitter_id
+                    for run in observed_runs
+                    if run.emitter_id not in spoke
+                    and key not in run.declined
+                    and (run.covered_keys is None or key in run.covered_keys)
                 ),
             }
         )

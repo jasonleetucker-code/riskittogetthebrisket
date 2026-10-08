@@ -40,6 +40,7 @@ class IdentityIndex:
     """Contract-row asset keys, reachable by id and by name."""
 
     by_id: dict[str, str] = field(default_factory=dict)
+    by_display_name: dict[str, set[str]] = field(default_factory=dict)
     by_exact_name: dict[str, set[str]] = field(default_factory=dict)
     by_canonical_name: dict[str, set[str]] = field(default_factory=dict)
     group_by_key: dict[str, str] = field(default_factory=dict)
@@ -52,28 +53,56 @@ class IdentityIndex:
         player_id: Any = None,
         name: Any = None,
         position: Any = None,
+        emitter_key: Any = None,
     ) -> tuple[str | None, str | None]:
         """``(asset_key, None)`` or ``(None, "unresolved" | "ambiguous")``."""
+        key, failure, _basis = self.resolve_with_basis(
+            player_id=player_id, name=name, position=position, emitter_key=emitter_key
+        )
+        return key, failure
+
+    def resolve_with_basis(
+        self,
+        *,
+        player_id: Any = None,
+        name: Any = None,
+        position: Any = None,
+        emitter_key: Any = None,
+    ) -> tuple[str | None, str | None, str | None]:
+        """``(asset_key, failure, basis)`` — basis says HOW it was placed.
+
+        ``emitter_key`` is an emitter's own join key when that key IS the
+        contract's exact ``displayName`` (Consensus Edge's ``playerKey``,
+        ``fair_value._row_key``).  Name matching after it is a labelled
+        fallback (``name_fallback:*``), never silently equivalent.
+        """
         pid = str(player_id or "").strip()
         if pid and pid in self.by_id:
-            return self.by_id[pid], None
+            return self.by_id[pid], None, "player_id"
+        ekey = str(emitter_key or "").strip()
+        fallback = ""
+        if ekey:
+            candidates = self.by_display_name.get(ekey)
+            if candidates and len(candidates) == 1:
+                return next(iter(candidates)), None, "emitter_key"
+            fallback = "name_fallback:"
         raw = str(name or "").strip()
         if not raw:
-            return None, "unresolved"
-        for candidates in (
-            self.by_exact_name.get(raw.casefold()),
-            self.by_canonical_name.get(resolve_canonical_name(raw)),
+            return None, "unresolved", None
+        for basis, candidates in (
+            ("exact_name", self.by_exact_name.get(raw.casefold())),
+            ("canonical_name", self.by_canonical_name.get(resolve_canonical_name(raw))),
         ):
             if not candidates:
                 continue
             if len(candidates) == 1:
-                return next(iter(candidates)), None
+                return next(iter(candidates)), None, f"{fallback}{basis}"
             group = canonical_position_group(str(position)) if position else None
             narrowed = {key for key in candidates if group and self.group_by_key.get(key) == group}
             if len(narrowed) == 1:
-                return next(iter(narrowed)), None
-            return None, "ambiguous"
-        return None, "unresolved"
+                return next(iter(narrowed)), None, f"{fallback}{basis}+position"
+            return None, "ambiguous", None
+        return None, "unresolved", None
 
 
 def _contract_rows(contract: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -97,6 +126,8 @@ def build_identity_index(contract: Mapping[str, Any]) -> IdentityIndex:
             pid_s = str(pid or "").strip()
             if pid_s:
                 index.by_id.setdefault(pid_s, key)
+        if str(row.get("displayName") or "").strip():
+            index.by_display_name.setdefault(str(row.get("displayName")).strip(), set()).add(key)
         for name in {row.get("displayName"), row.get("canonicalName")}:
             name_s = str(name or "").strip()
             if not name_s:
@@ -128,8 +159,11 @@ class _Placement:
         native_label: str | None,
         reason: str | None,
         evidence: Mapping[str, Any],
+        emitter_key: Any = None,
     ) -> None:
-        key, failure = index.resolve(player_id=player_id, name=name, position=position)
+        key, failure, basis = index.resolve_with_basis(
+            player_id=player_id, name=name, position=position, emitter_key=emitter_key
+        )
         if key is None:
             self.unresolved.append(
                 {
@@ -148,6 +182,7 @@ class _Placement:
                 native_label=native_label,
                 display_name=index.display_by_key.get(key) or (str(name) if name else None),
                 reason=reason,
+                placement=basis,
                 evidence=dict(evidence),
             )
         )
@@ -258,6 +293,9 @@ def collect_terminal(
                     "newsCount": signal.get("newsCount"),
                 },
             )
+        # Roster-scoped: a player off this roster was never evaluated, so he
+        # is out_of_scope for this emitter, not silent.
+        covered, _missed, _basis = roster_keys(index, resolved_team)
         run = rec.EmitterRun(
             emitter_id=emitter,
             state=rec.OBSERVED,
@@ -265,6 +303,7 @@ def collect_terminal(
             freshness=dict(freshness),
             observations=tuple(placement.observations),
             notes=tuple(notes),
+            covered_keys=frozenset(covered),
         )
         return run, placement.unresolved
 
@@ -312,6 +351,26 @@ def collect_bdvm(
                 reason=signal.get("reason"),
                 evidence={"gap": market.get("gap"), "marketValue": market.get("marketValue")},
             )
+        # BDVM's own per-player refusals (no_projection, missing_age, ...):
+        # carried with the owner's reason, never left to read as silence.
+        declined: dict[str, str] = {}
+        for row in payload.get("unpriced") or []:
+            if not isinstance(row, Mapping):
+                continue
+            key, failure = index.resolve(name=row.get("name"), position=row.get("position"))
+            if key is None:
+                placement.unresolved.append(
+                    {
+                        "emitter": emitter,
+                        "name": row.get("name"),
+                        "playerId": None,
+                        "nativeLabel": None,
+                        "reason": failure,
+                        "emitterUnpricedReason": row.get("reason"),
+                    }
+                )
+                continue
+            declined.setdefault(key, str(row.get("reason") or "unpriced"))
         meta = payload.get("meta") if isinstance(payload.get("meta"), Mapping) else {}
         # The verdict compares a projection-driven value against the market.
         # The market leg's age is measurable; the projection snapshot has no
@@ -333,6 +392,7 @@ def collect_bdvm(
             freshness=bdvm_freshness,
             observations=tuple(placement.observations),
             notes=tuple(notes),
+            declined=declined,
         )
         return run, placement.unresolved
 
@@ -372,6 +432,9 @@ def collect_consensus_edge(
                 index,
                 emitter_id=emitter,
                 player_id=None,
+                # CE's playerKey IS the contract's exact displayName
+                # (fair_value._row_key); name matching is a labelled fallback.
+                emitter_key=row.get("playerKey"),
                 name=row.get("displayName"),
                 position=row.get("position"),
                 native_label=row.get("label"),
@@ -400,6 +463,10 @@ def collect_consensus_edge(
     return _guarded(emitter, _run)
 
 
+#: ``market_payload``'s own maximum ``limit``.
+_SHARP_ASSET_LIMIT = 500
+
+
 def collect_sharp(index: IdentityIndex) -> tuple[rec.EmitterRun, list[dict[str, Any]]]:
     """Sharp-cohort movement evidence.  The owner publishes no verdict."""
     emitter = "sharp_market"
@@ -407,7 +474,7 @@ def collect_sharp(index: IdentityIndex) -> tuple[rec.EmitterRun, list[dict[str, 
     def _run():
         from src.sharp import market as sharp_market  # noqa: PLC0415
 
-        payload = sharp_market.market_payload(asset_type="player", limit=500)
+        payload = sharp_market.market_payload(asset_type="player", limit=_SHARP_ASSET_LIMIT)
         if payload.get("status") != "ok":
             return rec.unobserved(emitter, f"status:{payload.get('status')}"), []
         placement = _Placement()
@@ -434,6 +501,12 @@ def collect_sharp(index: IdentityIndex) -> tuple[rec.EmitterRun, list[dict[str, 
                     "lastMovementAt": _iso_from_ms(row.get("lastTs")),
                 },
             )
+        assets = [row for row in payload.get("assets") or [] if isinstance(row, Mapping)]
+        # Below the limit the board listed every asset with movement, so an
+        # absent player genuinely had none (silent).  AT the limit it was
+        # truncated: anyone not listed was never evaluated (out_of_scope).
+        truncated = len(assets) >= _SHARP_ASSET_LIMIT
+        covered = frozenset(obs.player_key for obs in placement.observations) if truncated else None
         platforms = ((payload.get("coverage") or {}).get("platforms")) or {}
         updated = sorted(
             str(meta.get("lastUpdatedAt"))
@@ -447,9 +520,10 @@ def collect_sharp(index: IdentityIndex) -> tuple[rec.EmitterRun, list[dict[str, 
             freshness={"state": "unknown", "basis": "no_declared_budget_for_sharp_crawl"},
             observations=tuple(placement.observations),
             notes=(
-                "owner default window and strength sort; at most 500 assets, so a "
-                "player outside them is silent, not neutral",
+                "owner default window and strength sort; at most "
+                f"{_SHARP_ASSET_LIMIT} assets (truncated={truncated})",
             ),
+            covered_keys=covered,
         )
         return run, placement.unresolved
 
@@ -461,16 +535,39 @@ def collect_sharp(index: IdentityIndex) -> tuple[rec.EmitterRun, list[dict[str, 
 
 def roster_keys(
     index: IdentityIndex, resolved_team: Mapping[str, Any]
-) -> tuple[list[str], list[dict[str, Any]]]:
+) -> tuple[list[str], list[dict[str, Any]], str]:
+    """The roster's asset keys, by roster PLAYER ID whenever the team has them.
+
+    Both team producers (scraper and Sleeper overlay) publish ``playerIds``;
+    display names are a labelled fallback for a team that carries none.  A
+    rostered id the canonical board does not carry is reported, not dropped.
+    """
     keys: list[str] = []
     unresolved: list[dict[str, Any]] = []
+    ids = resolved_team.get("playerIds")
+    if isinstance(ids, list) and ids:
+        for pid in ids:
+            key, failure = index.resolve(player_id=pid)
+            if key is None:
+                unresolved.append(
+                    {
+                        "emitter": None,
+                        "playerId": str(pid),
+                        "name": None,
+                        "reason": "not_on_canonical_board",
+                        "scope": "roster",
+                    }
+                )
+            else:
+                keys.append(key)
+        return list(dict.fromkeys(keys)), unresolved, "player_id"
     for name in resolved_team.get("players") or []:
         key, failure = index.resolve(name=name)
         if key is None:
             unresolved.append({"emitter": None, "name": name, "reason": failure, "scope": "roster"})
         else:
             keys.append(key)
-    return keys, unresolved
+    return list(dict.fromkeys(keys)), unresolved, "name_fallback"
 
 
 def build_reconciled_signals(
@@ -534,9 +631,10 @@ def build_reconciled_signals(
     if scope == "auto":
         effective_scope = "roster" if resolved_team else "league"
     universe: list[str] | None = None
+    roster_basis: str | None = None
     if effective_scope == "roster":
         if resolved_team:
-            universe, roster_missed = roster_keys(index, resolved_team)
+            universe, roster_missed, roster_basis = roster_keys(index, resolved_team)
             unresolved.extend(roster_missed)
         else:
             universe = []
@@ -572,6 +670,7 @@ def build_reconciled_signals(
                 else None
             ),
             "playerFilter": player_filter,
+            "rosterPlacement": roster_basis,
             "contract": {
                 "scrapeTimestamp": contract.get("scrapeTimestamp"),
                 "generatedAt": contract.get("generatedAt"),

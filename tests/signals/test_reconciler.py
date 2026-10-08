@@ -78,7 +78,14 @@ def test_exact_duplicate_from_one_emitter_is_listed_once_and_recorded():
     assert player["collapsed"][0]["collapsedInto"] == "bdvm_market_signal"
 
 
-def test_different_lineages_are_not_collapsed_even_when_they_agree():
+def test_terminal_and_bdvm_agreement_is_not_independent():
+    """Both descend from the value-signal market (D1, review of #1705).
+
+    The canonical board the terminal engine drifts on is built partly from
+    KTC Crowd / KTC Trades / idpTradeCalc, and BDVM's verdict is the gap
+    between its fundamentals and those same value markets.  Kept as two
+    signals (different questions), but never published as independent.
+    """
     payload = rec.reconcile(
         [
             _run("terminal_signal", _obs("terminal_signal", "player:1", "BUY")),
@@ -88,8 +95,36 @@ def test_different_lineages_are_not_collapsed_even_when_they_agree():
     player = _player(payload, "player:1")
     assert {s["emitter"] for s in player["signals"]} == {"terminal_signal", "bdvm_market_signal"}
     assert player["collapsed"] == []
-    assert player["agreement"]["buy"]["independent"] is True
-    assert player["agreement"]["buy"]["sharedAncestry"] == []
+    assert player["agreement"]["buy"]["independent"] is False
+    assert "value_market_sources" in player["agreement"]["buy"]["sharedAncestry"]
+
+
+def test_consensus_edge_and_bdvm_agreement_is_not_independent():
+    """CE's mispricing and BDVM's gap both read KTC Market / idpTradeCalc."""
+    payload = rec.reconcile(
+        [
+            _run("consensus_edge", _obs("consensus_edge", "player:1", "Buy")),
+            _run("bdvm_market_signal", _obs("bdvm_market_signal", "player:1", "BUY")),
+        ]
+    )
+    agreement = _player(payload, "player:1")["agreement"]["buy"]
+    assert agreement["independent"] is False
+    assert "value_market_sources" in agreement["sharedAncestry"]
+
+
+def test_lineage_ancestry_is_transitive_over_the_declared_dag():
+    """Ancestry is computed from ONE declared DAG, not per-emitter lists."""
+    terminal = rec.lineage_closure(rec.spec_for("terminal_signal").lineage_group)
+    assert {"canonical_board", "value_market_sources", "news_feed"} <= terminal
+    for spec in rec.EMITTERS:
+        assert spec.lineage_group in rec.LINEAGE_PARENTS, spec.emitter_id
+    for parents in rec.LINEAGE_PARENTS.values():
+        for parent in parents:
+            assert parent in rec.LINEAGE_PARENTS, parent
+    # Sharp cohort movements share nothing with BDVM's lineage.
+    assert rec.lineage_closure("sharp_cohort_movements").isdisjoint(
+        rec.lineage_closure("bdvm_fundamental_vs_market")
+    )
 
 
 def test_agreement_with_shared_ancestry_is_published_as_not_independent():
@@ -367,3 +402,34 @@ def test_reconciled_player_carries_no_number_of_its_own():
         return []
 
     assert _numbers(player, "player") == []
+
+
+# ── scope and owner refusals are not silence ─────────────────────────────
+
+
+def test_a_player_outside_an_emitters_evaluated_scope_is_out_of_scope_not_silent():
+    run = rec.EmitterRun(
+        emitter_id="terminal_signal",
+        state=rec.OBSERVED,
+        observations=(_obs("terminal_signal", "player:1", "BUY"),),
+        covered_keys=frozenset({"player:1"}),
+    )
+    payload = rec.reconcile([run], player_keys=["player:1", "player:2"])
+    off_roster = _player(payload, "player:2")
+    assert off_roster["emittersOutOfScope"] == ["terminal_signal"]
+    assert off_roster["emittersSilent"] == []
+
+
+def test_an_owner_refusal_is_declined_with_the_owners_reason():
+    run = rec.EmitterRun(
+        emitter_id="bdvm_market_signal",
+        state=rec.OBSERVED,
+        declined={"player:2": "no_projection"},
+    )
+    payload = rec.reconcile([run], player_keys=["player:2", "player:3"])
+    assert _player(payload, "player:2")["emittersDeclined"] == [
+        {"emitter": "bdvm_market_signal", "reason": "no_projection"}
+    ]
+    assert _player(payload, "player:2")["emittersSilent"] == []
+    # Evaluated, not refused, said nothing: that one IS silent.
+    assert _player(payload, "player:3")["emittersSilent"] == ["bdvm_market_signal"]
