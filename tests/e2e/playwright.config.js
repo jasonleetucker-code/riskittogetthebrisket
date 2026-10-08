@@ -277,6 +277,12 @@ module.exports = defineConfig({
       // Used for the public /league page suite which doesn't depend on
       // Safari-specific behavior.
       name: "mobile-chromium",
+      // a11y-axe.spec.js scans every route family on desktop-1366 and only
+      // a declared subset on mobile (CI time budget). The rest are tagged
+      // and filtered OUT here rather than test.skip()ped, so they never
+      // count against stack-death-reporter's skip ceiling — a skip there
+      // means "a layer stopped running", which these are not.
+      grepInvert: /@a11y-desktop-only/,
       use: {
         browserName: "chromium",
         viewport: { width: 390, height: 844 },
@@ -286,6 +292,7 @@ module.exports = defineConfig({
     },
     {
       name: "mobile-390",
+      grepInvert: /@a11y-desktop-only/,
       use: {
         ...devices["iPhone 13"],
         viewport: { width: 390, height: 844 },
@@ -293,6 +300,7 @@ module.exports = defineConfig({
     },
     {
       name: "mobile-430",
+      grepInvert: /@a11y-desktop-only/,
       use: {
         ...devices["iPhone 14 Pro Max"],
         viewport: { width: 430, height: 932 },

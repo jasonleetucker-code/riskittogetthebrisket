@@ -18,8 +18,7 @@
 // race right now".
 
 import { useId, useState } from "react";
-
-import { PlayerNameButton } from "@/components/ds/PlayerNameButton";
+import Link from "next/link";
 
 import styles from "./awards.module.css";
 
@@ -43,13 +42,27 @@ function RowIdentity({ entity, row, onNavigate }) {
     const meta = [v.position, v.team, row.displayName ? `rostered by ${row.displayName}` : ""]
       .filter(Boolean)
       .join(" · ");
+    // PUBLIC/PRIVATE BOUNDARY (#1337).  /league is public, and the
+    // canonical Player File (`/players/[playerId]`) is private — an
+    // anonymous visitor following that link meets the login wall.  A
+    // public page therefore links to the public-safe player journey,
+    // `/league/player/[playerId]`, which the rest of this hub already
+    // uses (archives, weekly recaps).  No id → plain text, never a guess.
+    const name = v.playerName || "Unknown player";
+    const id = v.playerId == null ? "" : String(v.playerId).trim();
     return (
       <span className={styles.standingsIdentity}>
-        <PlayerNameButton
-          name={v.playerName || "Unknown player"}
-          playerId={v.playerId || undefined}
-          className={styles.standingsName}
-        />
+        {id ? (
+          <Link
+            href={`/league/player/${encodeURIComponent(id)}`}
+            prefetch={false}
+            className={`ds-player-name ${styles.standingsName}`}
+          >
+            {name}
+          </Link>
+        ) : (
+          <span className={styles.standingsName}>{name}</span>
+        )}
         {meta && <span className={styles.standingsMeta}>{meta}</span>}
       </span>
     );

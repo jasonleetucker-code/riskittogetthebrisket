@@ -12,10 +12,12 @@ import {
   Field,
   PageHeader,
   Panel,
+  PlayerNameButton,
   SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
+  canonicalPlayerId,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
@@ -112,7 +114,9 @@ function PlayerEdgeTable({ opportunities }) {
           {opportunities.map(({ row, edge }) => (
             <tr key={row.playerId || `${row.name}-${row.pos}`}>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>
-                <strong>{row.name}</strong>
+                <strong>
+                  <PlayerNameButton name={row.name} playerId={canonicalPlayerId(row)} />
+                </strong>
               </td>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.pos}</td>
               <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.rank ?? "—"}</td>

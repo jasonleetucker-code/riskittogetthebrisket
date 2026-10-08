@@ -19,7 +19,7 @@ import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
 import { useSettings } from "@/components/useSettings";
 import { PlayerImage } from "@/components/ui";
-import { Badge, Button, Drawer, Icon, Movement, StatTile } from "@/components/ds";
+import { Badge, Button, Drawer, Icon, Movement, StatTile, playerProfileHref } from "@/components/ds";
 import styles from "./player-card.module.css";
 
 // ── PLAYER PROFILE DRAWER (Redesign R2) ──────────────────────────────
@@ -1019,19 +1019,24 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                 PR B) — this popup stays the quick-view; the full page
                 reuses its exact data plumbing (computeOwnership/
                 computeSiteDetails/computeValueChain/the section
-                components below) rather than duplicating it. Sleeper
-                playerId first (matches the page's own lookup order),
-                name fallback for a row with no id. */}
-            <Button
-              as={Link}
-              href={`/players/${encodeURIComponent(String(row.raw?.playerId || row.playerId || row.name))}`}
-              size="sm"
-              variant="ghost"
-              onClick={() => onClose?.()}
-              aria-label={`Open full profile for ${row.name}`}
-            >
-              Full profile
-            </Button>
+                components below) rather than duplicating it.
+                IDENTITY RULE (#1337): the destination is built ONLY from a
+                canonical Sleeper id, through the primitive's own href
+                builder. A row without one (a pick, an unmatched name) gets
+                no launcher — a display name is never an id, and a link to
+                the wrong player is worse than no link. */}
+            {playerProfileHref(row) ? (
+              <Button
+                as={Link}
+                href={playerProfileHref(row)}
+                size="sm"
+                variant="ghost"
+                onClick={() => onClose?.()}
+                aria-label={`Open full profile for ${row.name}`}
+              >
+                Full profile
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant={onWatchlist ? "secondary" : "ghost"}

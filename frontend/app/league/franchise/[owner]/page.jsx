@@ -221,7 +221,15 @@ export default async function FranchisePage({ params }) {
       )}
 
       <Card title="Season results">
-        <div className="table-wrap">
+        {/* Sideways-scrolling on narrow viewports: a keyboard tab stop
+            (axe scrollable-region-focusable), named so it is not an
+            unlabelled stop — the /rosters pattern. */}
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="group"
+          aria-label="Season results table, scrolls horizontally"
+        >
           <table>
             <thead>
               <tr>
