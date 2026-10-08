@@ -269,7 +269,7 @@ jobs:
             sleep 2
           done
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login || echo 000)
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login) || code=000
             if [[ "$code" == "200" ]]; then
               echo "frontend ready (attempt $i)"; break
             fi
@@ -331,12 +331,12 @@ jobs:
             # ingestion now, whatever the verdict; the poll below is what
             # actually gates the suite.
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 900 -b "$jar" \
-              "http://127.0.0.1:8000/api/bdvm/values?leagueKey=$key" || echo 000)
+              "http://127.0.0.1:8000/api/bdvm/values?leagueKey=$key") || code=000
             echo "bdvm warm leagueKey=$key -> $code"
           done
           for i in $(seq 1 90); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 120 -b "$jar" \
-              "http://127.0.0.1:3000/api/dynasty-data?view=app" || echo 000)
+              "http://127.0.0.1:3000/api/dynasty-data?view=app") || code=000
             if [[ "$code" == "200" ]]; then
               echo "data bridge serves the contract (attempt $i)"; break
             fi

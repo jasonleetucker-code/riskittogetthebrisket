@@ -85,7 +85,7 @@ jobs:
           DEGRADED_COUNT=0
           for attempt in $(seq 1 "${HEALTH_PROBES}"); do
             HTTP_CODE=$(curl --silent --show-error --output /tmp/health.json \
-              --write-out '%{http_code}' --max-time 15 "${HEALTH_URL}" || echo "000")
+              --write-out '%{http_code}' --max-time 15 "${HEALTH_URL}") || HTTP_CODE=000
             echo "probe ${attempt}/${HEALTH_PROBES}: HTTP ${HTTP_CODE}"
 
             if [[ "${HTTP_CODE}" == "200" ]]; then
@@ -134,7 +134,7 @@ jobs:
           echo "Checking: ${STATUS_URL}"
 
           HTTP_CODE=$(curl --silent --show-error --output /tmp/status.json \
-            --write-out '%{http_code}' --max-time 15 "${STATUS_URL}" || echo "000")
+            --write-out '%{http_code}' --max-time 15 "${STATUS_URL}") || HTTP_CODE=000
 
           if [[ "${HTTP_CODE}" != "200" ]]; then
             # AUDIT F-21: an assertion that could not run is UNKNOWN,
@@ -186,7 +186,7 @@ jobs:
           URL="${{ vars.PROD_PUBLIC_URL }}"
           URL="${URL%/}"
           HTTP_CODE=$(curl --silent --show-error --output /tmp/status_cov.json \
-            --write-out '%{http_code}' --max-time 20 "${URL}/api/status" || echo "000")
+            --write-out '%{http_code}' --max-time 20 "${URL}/api/status") || HTTP_CODE=000
           if [[ "${HTTP_CODE}" != "200" ]]; then
             # AUDIT F-21: an assertion that could not run is UNKNOWN,
             # not a pass.  Reported as its own state so "we could not
@@ -228,7 +228,7 @@ jobs:
           URL="${{ vars.PROD_PUBLIC_URL }}"
           URL="${URL%/}"
           HTTP_CODE=$(curl --silent --show-error --output /tmp/status_bkp.json \
-            --write-out '%{http_code}' --max-time 20 "${URL}/api/status" || echo "000")
+            --write-out '%{http_code}' --max-time 20 "${URL}/api/status") || HTTP_CODE=000
           if [[ "${HTTP_CODE}" != "200" ]]; then
             # AUDIT F-21: an assertion that could not run is UNKNOWN,
             # not a pass.  Reported as its own state so "we could not
