@@ -8334,14 +8334,7 @@ async def get_roster_intelligence(request: Request):
 
     # The league's DECLARED size, not the roster count: a snapshot
     # missing one roster must not shrink every weakness threshold.
-    declared_teams = None
-    try:
-        settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
-        raw = settings.get("teamCount")
-        if isinstance(raw, int) and raw > 0:
-            declared_teams = raw
-    except Exception:  # noqa: BLE001 — the registry is optional here
-        declared_teams = None
+    declared_teams = _roster_intelligence.declared_team_count(league_cfg.key)
 
     want_drops = (request.query_params.get("droppability") or "").strip().lower() in {
         "1",

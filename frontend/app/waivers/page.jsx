@@ -44,6 +44,11 @@ import styles from "./waivers.module.css";
 //   • Best Unique Upgrade Set   — multi-transaction greedy slate
 //   • Droppable / Addable       — the two sides of the pool
 //
+// Every DROP on this page is a rung of the canonical cut ladder
+// (src/draft/displacement.py via GET /api/roster/intelligence?droppability=1)
+// — a release the exact lineup solver has validated.  Nothing here or in
+// waiver-logic.js decides who may be released (C2-DROP-01).
+//
 // All comparison logic lives in ``frontend/lib/waiver-logic.js``; the hook
 // in ``frontend/components/useWaiverAnalysis.js`` wires the pure logic to
 // the app context.  This file is layout only — it does no value math.
@@ -148,7 +153,7 @@ function SummaryTiles({ summary, includeRookies }) {
     {
       label: "Droppable players",
       value: summary.droppableCount.toLocaleString(),
-      meta: "beaten by at least one FA",
+      meta: "legal releases an FA beats",
     },
   ];
   if (includeRookies) {
@@ -269,7 +274,7 @@ function BestMovesPanel({ moves, faabIndex }) {
     <Panel
       flush
       title="Best add/drop moves"
-      subtitle="Each add appears once, paired with its lowest-value beaten roster player."
+      subtitle="Each add appears once, paired with the first legal release in your cut ladder that it beats."
     >
       <DataTable
         caption="Top single-transaction add/drop upgrades, best net gain first"
@@ -343,9 +348,21 @@ function UniqueUpgradePanel({ set }) {
   );
 }
 
-function DroppablePanel({ rows }) {
+function DroppablePanel({ rows, dropState }) {
   const columns = useMemo(
     () => [
+      {
+        key: "rung",
+        header: "Cut",
+        numeric: true,
+        align: "center",
+        // Rows are already in cut order, so phones lose no information
+        // by dropping the column and gain back its width.
+        hideBelow: "md",
+        accessor: (d) => d.rung,
+        headerInfo:
+          "Your canonical cut ladder's order: 1 is the release that costs you least. Every player here can be released without leaving a starting slot unfilled — players your lineup needs never appear.",
+      },
       {
         key: "player",
         header: "Player",
@@ -358,7 +375,16 @@ function DroppablePanel({ rows }) {
         numeric: true,
         sortable: true,
         accessor: (d) => d.value,
-        render: (d) => fmtVal(d.value),
+        // An unpriced player is costed at his position's waiver level by
+        // the owner — shown as that, never as 0 and never as a board value.
+        render: (d) =>
+          d.valueBasis === "assumedWaiver" ? (
+            <span title="No board value — costed at the waiver level for his position, never as zero">
+              ≈{fmtVal(d.value)}
+            </span>
+          ) : (
+            fmtVal(d.value)
+          ),
       },
       {
         key: "betterAvailableCount",
@@ -398,24 +424,32 @@ function DroppablePanel({ rows }) {
     [],
   );
 
+  const unavailable = dropState?.state !== "ok";
   return (
     <Panel
       flush
       title="Droppable"
-      subtitle="Bottom of your roster, sorted by replacement gain."
+      subtitle="Legal releases from your cut ladder that the pool beats, cheapest cut first."
     >
       <DataTable
-        caption="Roster players beaten by the available pool"
+        caption="Legal releases beaten by the available pool, in cut order"
         columns={columns}
         rows={rows}
         rowKey={(d) => d.row?.name}
         density="compact"
         presorted
         emptyState={
-          <EmptyState
-            title="No drop candidates"
-            description="Every player on your roster outranks the available pool."
-          />
+          unavailable ? (
+            <EmptyState
+              title="No drop candidates shown"
+              description="Your cut ladder could not be read (see the notice above). Nothing is ranked from raw values in its place."
+            />
+          ) : (
+            <EmptyState
+              title="No drop candidates"
+              description="Every player you can legally release outranks the available pool."
+            />
+          )
         }
       />
     </Panel>
@@ -491,7 +525,7 @@ function AddablePanel({ rows }) {
     <Panel
       flush
       title="Addable"
-      subtitle="Every available player ranked above at least one of yours."
+      subtitle="Every available player ranked above at least one player you can legally release."
     >
       <DataTable
         caption="Available players that beat someone on your roster"
@@ -627,11 +661,22 @@ export default function WaiversPage() {
     // above owns the no-team case.
     return (
       <>
+        {analysis.dropState?.state !== "ok" ? (
+          // Stated, not an empty list: every add/drop pairing needs the
+          // canonical cut ladder to know who may legally be released, so
+          // those lists stay empty rather than being guessed from raw values.
+          <Banner tone="warning" title="Drop candidates unavailable">
+            Your cut ladder could not be read
+            {analysis.dropState?.reasonText ? ` (${analysis.dropState.reasonText})` : ""}.
+            Add/drop pairings need it to know who you can legally release, so
+            they are not computed from raw values in its place.
+          </Banner>
+        ) : null}
         <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />
         <BestMovesPanel moves={analysis.bestMoves} faabIndex={faabIndex} />
         <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />
         <div className={styles.split}>
-          <DroppablePanel rows={analysis.droppable} />
+          <DroppablePanel rows={analysis.droppable} dropState={analysis.dropState} />
           <AddablePanel rows={analysis.addable} />
         </div>
       </>
