@@ -405,27 +405,24 @@ const MOBILE_ROUTES = new Set([
   "/game-day",
 ]);
 
-function skipIfDesktopOnly(label, testInfo) {
-  test.skip(
-    isMobileProject(testInfo) && !MOBILE_ROUTES.has(label),
-    `${label} is scanned on desktop-1366 only (same component tree as mobile; see MOBILE_ROUTES)`,
-  );
+// Desktop-only families carry this tag; the mobile projects filter it out
+// with `grepInvert` (playwright.config.js) instead of skipping, so they are
+// not run there at all and never inflate the suite's skip count.
+const DESKTOP_ONLY_TAG = "@a11y-desktop-only";
+
+function titleFor(label) {
+  const tag = MOBILE_ROUTES.has(label) ? "" : ` ${DESKTOP_ONLY_TAG}`;
+  return `a11y: ${label} has no new WCAG A/AA violations${tag}`;
 }
 
 for (const route of ROUTES) {
-  test(`a11y: ${route} has no new WCAG A/AA violations`, async ({
-    authedPage: page,
-  }, testInfo) => {
-    skipIfDesktopOnly(route, testInfo);
+  test(titleFor(route), async ({ authedPage: page }, testInfo) => {
     await scanRoute(page, testInfo, route, route);
   });
 }
 
 for (const { family, resolve } of DYNAMIC_ROUTES) {
-  test(`a11y: ${family} has no new WCAG A/AA violations`, async ({
-    authedPage: page,
-  }, testInfo) => {
-    skipIfDesktopOnly(family, testInfo);
+  test(titleFor(family), async ({ authedPage: page }, testInfo) => {
     const url = await resolve(page);
     await scanRoute(page, testInfo, family, url);
   });
@@ -468,6 +465,13 @@ test("a11y coverage: every page route family under frontend/app is scanned", () 
   expect(notListed, "MOBILE_ROUTES names a route that is not scanned").toEqual([]);
   // An allowance on a viewport that never scans that route is dead: it
   // can neither fail nor go stale.
+  // The mobile projects must actually filter the tag (else the desktop-only
+  // families would run there with no mobile allowances, or vice versa).
+  const config = fs.readFileSync(path.resolve(__dirname, "../playwright.config.js"), "utf8");
+  expect(
+    (config.match(/grepInvert: \/@a11y-desktop-only\//g) || []).length,
+    "every mobile project must grepInvert the desktop-only tag",
+  ).toBe(3);
   const dead = Object.keys(BASELINE).filter((key) => {
     const [route, viewport] = key.split("|");
     return !listed.has(route) || (viewport === "mobile" && !MOBILE_ROUTES.has(route));
