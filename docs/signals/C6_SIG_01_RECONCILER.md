@@ -2,8 +2,9 @@
 
 **Manifest row:** `C6-SIG-01` (`docs/C_SERIES_SCOPE_MANIFEST.md` §C6).
 **Evidence base:** `docs/lane4/LANE4_SIGNAL_EMITTER_INVENTORY.md`.
-**Status:** backend owner + private endpoint implemented; UI consumption is a
-named follow-up (`C6-SIG-02` homepage ticker, `C7-ALERT-01` Edge Alerts).
+**Status:** backend owner + private endpoint implemented; the homepage ticker
+(`C6-SIG-02`) consumes it; remaining UI consumption is a
+named follow-up (`C7-ALERT-01` Edge Alerts).
 
 ## What it is
 
@@ -96,6 +97,30 @@ C6-SIG-02's "BUY may be global; **SELL only for the selected team's roster**"
 is a presentation rule and is the CONSUMER's job. The reconciler publishes
 every verdict it observed for every player in scope, SELLs on other teams'
 players included, and filters nothing by direction.
+
+What the adapter (`collect.py`) publishes so a consumer can apply that rule
+without a second identity join, both attached AFTER reconciliation so neither
+can influence a state:
+
+* `roster` — the resolved team's roster as canonical asset keys
+  (`playerKeys`, `placement`, `unresolvedCount`) in **every** scope, through
+  the same `roster_keys` join the roster scope uses; `null` when no team
+  resolved (unknown, never empty).
+* `players[].board` — the contract row's own `canonicalConsensusRank`
+  (`null` when rank-less, never 0), `position` and `assetClass`, verbatim;
+  presentation context only.
+
+The consumer is the homepage ticker (C6-SIG-02):
+`frontend/components/terminal/MarketTicker.jsx` over
+`frontend/lib/signal-ticker.js` (the rules) and
+`frontend/components/useReconciledSignals.js` (one `scope=league` request for
+the selected team, module-cached, fail-closed on 401). BUY =
+`directional_buy_only`, league-wide; SELL = `directional_sell_only` whose key
+is in `roster.playerKeys` AND whose payload `team` is the selected team, never
+a pick; `conflict` renders as CONFLICT and only for a rostered player (its
+SELL half is a sell call); `withheld` never renders. Lineage text reads
+`agreement.<dir>.independent` / `conflict.sharedAncestry`; nothing is
+re-derived. Order is the backend rank stamp; no score is computed.
 
 ## Emitters
 
