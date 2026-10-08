@@ -35,11 +35,13 @@ WHY ``playoff_sim`` IS THE CANONICAL ENGINE (the evidence, all in code):
 * the league's exact lineup solve for best-ball weeks.
 
 Exact league rules: both read the bracket from ``playoff_structure`` and the
-record from ``playoff_odds._regular_season_record_to_date``; NEITHER counted
-median games (owner decision D3) — so consolidating moves no league rule.
-D2 (the ``ROS_BLEND`` multiplier on top of a ROS-drawn pre-sim) and D3 stay
-exactly as the canonical engine has them, and every surface now inherits
-them (``docs/OWNER_REQUESTED_TODO.md``).
+record from ``playoff_odds._regular_season_record_to_date``; at consolidation
+NEITHER counted median games — so consolidating moved no league rule.  D2
+(the ``ROS_BLEND`` multiplier on top of a ROS-drawn pre-sim) stays exactly as
+the canonical engine has it (``docs/OWNER_REQUESTED_TODO.md``).  D3 was later
+closed as a factual defect: median games now count as the host counts them
+(``tests/ros/test_median_game_standings.py``); this file's fixture states no
+``league_average_match``, so its pinned numbers are unchanged.
 
 WHAT THIS FILE PINS: the three surfaces publish IDENTICAL numbers for one
 league and week (the parity test fails the moment any of them simulates on

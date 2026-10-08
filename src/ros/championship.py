@@ -94,7 +94,7 @@ def championship_from_forecast(forecast: dict[str, Any]) -> dict[str, Any]:
         "rosStrengthAvailable": forecast.get("rosStrengthAvailable"),
         "engine": ENGINE,
     }
-    for key in ("computedAt", "cached", "season", "championshipUnavailable"):
+    for key in ("computedAt", "cached", "season", "championshipUnavailable", "standingsRule"):
         if key in forecast:
             header[key] = forecast[key]
     n_sims = playoff_sim.simulation_count(forecast)

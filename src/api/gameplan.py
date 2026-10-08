@@ -251,6 +251,9 @@ class LeagueInputs:
     source_stamp: str
     notes: tuple[str, ...] = ()
     roster_limit: int | None = None
+    #: The same forecast's ``championshipUnavailable`` block (``{reason,
+    #: detail}``) when it withheld title odds; cited by the roster engine.
+    championship_unavailable: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -421,6 +424,7 @@ def load_league_inputs(
         )
 
     playoff_odds: tuple[Mapping[str, Any], ...] | None = None
+    championship_unavailable: Mapping[str, Any] | None = None
     sim_path = _sim_playoff_path(league_key)
     try:
         if sim_path.exists():
@@ -428,6 +432,9 @@ def load_league_inputs(
             raw = payload.get("playoffOdds") if isinstance(payload, Mapping) else None
             if isinstance(raw, list) and raw:
                 playoff_odds = tuple(r for r in raw if isinstance(r, Mapping))
+                withheld = payload.get("championshipUnavailable")
+                if isinstance(withheld, Mapping):
+                    championship_unavailable = dict(withheld)
     except (OSError, json.JSONDecodeError) as exc:
         notes.append(f"playoff-sim cache unreadable ({exc.__class__.__name__}); odds omitted")
 
@@ -468,6 +475,7 @@ def load_league_inputs(
         source_stamp=stamp,
         notes=tuple(notes),
         roster_limit=roster_limit,
+        championship_unavailable=championship_unavailable,
     )
 
 
@@ -522,6 +530,7 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
             player_meta=inputs.player_meta,
             playoff_odds=odds_rows,
             lineup_scores=lineup_scores,
+            championship_unavailable=inputs.championship_unavailable,
         )
 
     starter_levels = {
