@@ -126,6 +126,12 @@ module.exports = defineConfig({
     },
     {
       name: "prod-mobile",
+      // `@desktop-only` in a test title = an API-contract or desktop-layout
+      // check that a 390px viewport cannot add evidence to. Filtered here,
+      // at collection, rather than collected-then-skipped: a skip inflates
+      // the run's skip count without saying anything about production.
+      // (Older specs still gate with helpers.js::desktopOnly; both work.)
+      grepInvert: /@desktop-only/,
       use: {
         browserName: "chromium",
         viewport: { width: 390, height: 844 },
