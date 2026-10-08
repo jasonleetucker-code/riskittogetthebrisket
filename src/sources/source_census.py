@@ -531,18 +531,22 @@ def provider_of(source_key: str) -> str | None:
         mtime = LINEAGE_PATH.stat().st_mtime_ns
     except OSError:
         return None
-    if _PROVIDER_CACHE.get("mtime") != mtime:
+    cached = _PROVIDER_CACHE.get("entry")
+    if cached is None or cached[0] != mtime:
         try:
             sources = load_lineage().get("sources") or {}
         except (OSError, ValueError):
             return None
-        _PROVIDER_CACHE["mtime"] = mtime
-        _PROVIDER_CACHE["map"] = {
+        provider_map = {
             str(k): str(v["provider"])
             for k, v in sources.items()
             if isinstance(v, Mapping) and v.get("provider")
         }
-    return _PROVIDER_CACHE["map"].get(str(source_key))
+        # One assignment publishes mtime and map together: a concurrent first
+        # call can never see a matching mtime without its map.
+        cached = (mtime, provider_map)
+        _PROVIDER_CACHE["entry"] = cached
+    return cached[1].get(str(source_key))
 
 
 def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) -> list[str]:

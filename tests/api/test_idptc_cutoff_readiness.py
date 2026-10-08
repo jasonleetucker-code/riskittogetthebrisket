@@ -672,3 +672,31 @@ def test_7_idptc_observations_stay_on_the_record(sim) -> None:
         )
         assert cut_state["subsets"][subset].get("lastBroadDatasetChangeAt")
     assert any(_IDPTC in (r.get("canonicalSiteValues") or {}) for r in after.values())
+
+
+def test_provider_cache_first_call_is_safe_under_concurrency():
+    """The cache publishes (mtime, map) in one assignment: a racing first call
+    can never observe the new mtime without its map (it used to KeyError)."""
+    import threading
+
+    from src.sources import source_census as census
+
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(16)
+
+    def call() -> None:
+        try:
+            barrier.wait()
+            census.provider_of("ktcCrowdSfTep")
+        except BaseException as exc:  # pragma: no cover - the failure mode
+            errors.append(exc)
+
+    for _ in range(25):
+        census._PROVIDER_CACHE.clear()
+        threads = [threading.Thread(target=call) for _ in range(16)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert errors == []
+    assert census.provider_of("ktcCrowdSfTep") == census.provider_of("ktcTradesSfTep")
