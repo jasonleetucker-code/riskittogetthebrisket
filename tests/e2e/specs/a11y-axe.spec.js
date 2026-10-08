@@ -54,6 +54,8 @@
  * entry says so, and it is never presented as a populated scan.
  * `/players/[playerId]` is additionally scanned section by section in
  * psi-rankings-player-a11y.spec.js; this is its whole-page landing.
+ * Every family runs on desktop-1366; the mobile project runs the subset
+ * in MOBILE_ROUTES (CI time budget — see the note there).
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -282,13 +284,9 @@ const VISUAL_FIX_REQUIRED = {
 
 const BASELINE = {
   "/draft|desktop": VISUAL_FIX_REQUIRED["/draft"],
-  "/draft|mobile": VISUAL_FIX_REQUIRED["/draft"],
   "/league-comparison|desktop": VISUAL_FIX_REQUIRED["/league-comparison"],
-  "/league-comparison|mobile": VISUAL_FIX_REQUIRED["/league-comparison"],
   "/auction/notifications|desktop": VISUAL_FIX_REQUIRED["/auction/notifications"],
-  "/auction/notifications|mobile": VISUAL_FIX_REQUIRED["/auction/notifications"],
   "/league/franchise/[owner]|desktop": VISUAL_FIX_REQUIRED["/league/franchise/[owner]"],
-  "/league/franchise/[owner]|mobile": VISUAL_FIX_REQUIRED["/league/franchise/[owner]"],
 };
 
 function keyFor(route, testInfo) {
@@ -301,9 +299,19 @@ function keyFor(route, testInfo) {
  * (bounded — a live page that polls never goes idle), and no skeleton or
  * busy marker left. Scanning a skeleton would pass by measuring nothing.
  */
-async function settle(page) {
+/**
+ * Routes whose explicit loading state legitimately outlasts the default
+ * wait: /league-comparison's first build downloads historical NFL stats
+ * and takes 30 s+ ("first hit may take 30+ seconds"), and a scan taken
+ * mid-load measured a different page from one taken after it.
+ */
+const SLOW_LOADING_MS = { "/league-comparison": 60_000 };
+
+async function settle(page, label) {
   await awaitStreamSettled(page, { timeout: 20_000 });
-  await page.waitForLoadState("networkidle", { timeout: 12_000 }).catch(() => {});
+  // Most authed pages poll, so they never reach network idle; this is a
+  // short bounded quiet window, not a readiness signal on its own.
+  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => {});
   await page
     .waitForFunction(
       () => !document.querySelector('.ds-skeleton, [aria-busy="true"]'),
@@ -312,15 +320,13 @@ async function settle(page) {
     )
     .catch(() => {});
   // Explicit loading states (ui/LoadingState, `.loading-spinner`) can
-  // outlast network idle — /league-comparison's first build takes 30 s+ —
-  // and a scan taken mid-load measures a different page from one taken
-  // after it, which made the result timing-dependent. Wait them out
-  // (bounded): the page then shows its data or its honest error state.
+  // outlast network idle; wait them out (bounded) so the page shows its
+  // data or its honest error state rather than a timing-dependent mix.
   await page
     .waitForFunction(
       () => !document.querySelector(".loading-state, .loading-spinner"),
       null,
-      { timeout: 45_000 },
+      { timeout: SLOW_LOADING_MS[label] ?? 15_000 },
     )
     .catch(() => {});
   // A beat of grace for post-data layout (charts measure after paint).
@@ -329,7 +335,7 @@ async function settle(page) {
 
 async function scanRoute(page, testInfo, label, url) {
   await page.goto(pageUrl(url), { waitUntil: "domcontentloaded" });
-  await settle(page);
+  await settle(page, label);
 
   const results = await new AxeBuilder({ page }).withTags(WCAG).analyze();
   const found = {};
@@ -369,10 +375,48 @@ async function scanRoute(page, testInfo, label, url) {
   ).toEqual([]);
 }
 
+/**
+ * Which route families ALSO run on the mobile project.
+ *
+ * Every family runs on desktop-1366. Scanning all 52 on both projects took
+ * the E2E job's Playwright step from 10.7 to 32.6 min (34.7 of its 45-min
+ * timeout), so the 2026-10-07 extension is desktop-only EXCEPT where the
+ * mobile layout is a different tree, not the same components reflowed:
+ * the original ten (the high-use surfaces, mobile-scanned since the first
+ * cut) plus `/more` (the mobile navigation page) and `/game-day` (its own
+ * phone layout and mobile journeys). The coverage test below requires
+ * every family on at least one project and every allowance on a viewport
+ * that actually runs.
+ */
+const MOBILE_ROUTES = new Set([
+  // the original ten
+  "/",
+  "/rankings",
+  "/trade",
+  "/waivers",
+  "/rosters",
+  "/trades",
+  "/settings",
+  "/admin",
+  "/login",
+  "/league",
+  // distinct mobile layouts
+  "/more",
+  "/game-day",
+]);
+
+function skipIfDesktopOnly(label, testInfo) {
+  test.skip(
+    isMobileProject(testInfo) && !MOBILE_ROUTES.has(label),
+    `${label} is scanned on desktop-1366 only (same component tree as mobile; see MOBILE_ROUTES)`,
+  );
+}
+
 for (const route of ROUTES) {
   test(`a11y: ${route} has no new WCAG A/AA violations`, async ({
     authedPage: page,
   }, testInfo) => {
+    skipIfDesktopOnly(route, testInfo);
     await scanRoute(page, testInfo, route, route);
   });
 }
@@ -381,6 +425,7 @@ for (const { family, resolve } of DYNAMIC_ROUTES) {
   test(`a11y: ${family} has no new WCAG A/AA violations`, async ({
     authedPage: page,
   }, testInfo) => {
+    skipIfDesktopOnly(family, testInfo);
     const url = await resolve(page);
     await scanRoute(page, testInfo, family, url);
   });
@@ -417,4 +462,15 @@ test("a11y coverage: every page route family under frontend/app is scanned", () 
   expect(missing, "page routes with no axe scan — add them to ROUTES / DYNAMIC_ROUTES").toEqual([]);
   const phantom = [...listed].filter((f) => !families.includes(f));
   expect(phantom, "scanned routes with no page under frontend/app — remove them").toEqual([]);
+  // Every family runs on desktop (no desktop skip exists); mobile runs a
+  // declared subset that must itself be real families.
+  const notListed = [...MOBILE_ROUTES].filter((f) => !listed.has(f));
+  expect(notListed, "MOBILE_ROUTES names a route that is not scanned").toEqual([]);
+  // An allowance on a viewport that never scans that route is dead: it
+  // can neither fail nor go stale.
+  const dead = Object.keys(BASELINE).filter((key) => {
+    const [route, viewport] = key.split("|");
+    return !listed.has(route) || (viewport === "mobile" && !MOBILE_ROUTES.has(route));
+  });
+  expect(dead, "BASELINE entries for a route/viewport that is never scanned").toEqual([]);
 });

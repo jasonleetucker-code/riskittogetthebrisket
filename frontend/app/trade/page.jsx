@@ -109,11 +109,20 @@ const TradeMeter = SharedTradeMeter;
 // pulls Next's loadable runtime (~1.6 KB) into THIS page's chunk, and
 // /trade has no headroom for it.  These still mount client-side only,
 // when "Second opinions" is opened (the panel starts collapsed and does
-// not mount collapsed children, so SSR never reaches them), with a null
-// fallback like next/dynamic's.  One difference: they share a Suspense
-// boundary, so the block appears once its chunks have loaded rather than
-// piece by piece.
-const dyn = (loader) => lazy(loader);
+// not mount collapsed children, so SSR never reaches them), each inside
+// its OWN Suspense boundary with a null fallback — exactly next/dynamic's
+// per-component behaviour, so a panel that mounts later (e.g. the
+// multi-team flow when a third side is added) never blanks the others.
+const dyn = (loader) => {
+  const LazyPanel = lazy(loader);
+  return function SecondOpinionPanel(props) {
+    return (
+      <Suspense fallback={null}>
+        <LazyPanel {...props} />
+      </Suspense>
+    );
+  };
+};
 const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
 const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
@@ -2183,7 +2192,6 @@ export default function TradePage() {
             defaultCollapsed
             mountCollapsedChildren={false}
           >
-          <Suspense fallback={null}>
           {/* No valueMode: Second Opinions owns its own comparison
               basis and must not inherit a display toggle. */}
           <TradeSourceBreakdown sides={sides} settings={settings} />
@@ -2217,7 +2225,6 @@ export default function TradePage() {
               settings={settings}
             />
           ) : null}
-          </Suspense>
 
           </CollapsiblePanel>
 

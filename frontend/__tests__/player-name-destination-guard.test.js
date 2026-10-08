@@ -56,12 +56,17 @@ function stripComments(src) {
 // A JSX child expression that is ONLY a member access ending in a name-ish
 // field.  The lookbehind excludes attributes (`key={p.name}`), template
 // literals (`${p.name}`) and string contexts.
-const RAW_NAME = /(?<![=\w$"'`])\{\s*([A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\??\.(?:name|playerName|displayName|player))\s*\}/g;
+//
+// The optional tail also catches a FALLBACK render — `{x.name || "—"}`,
+// `{row.displayName ?? row.assetId}` — which is still a raw name on
+// screen. Those are keyed with a trailing ` ||` so an allowance says
+// which form it covers.
+const RAW_NAME = /(?<![=\w$"'`])\{\s*([A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\??\.(?:name|playerName|displayName|player))\s*((?:\|\||\?\?)(?:[^{}]|\$\{[^{}]*\})*)?\}/g;
 
 function rawNameCounts(rel) {
   const counts = {};
   for (const m of stripComments(read(rel)).matchAll(RAW_NAME)) {
-    const expr = m[1].replace(/\?\./g, ".");
+    const expr = m[1].replace(/\?\./g, ".") + (m[2] ? " ||" : "");
     counts[expr] = (counts[expr] || 0) + 1;
   }
   return counts;
@@ -105,6 +110,7 @@ const ALLOWED_RAW = {
     "review.worstOverpay.playerName": [1, NO_CANONICAL_ID, "auction review: pick playerId is the draft slug"],
     "r.playerName": [1, NO_CANONICAL_ID, "auction review table: pick playerId is the draft slug"],
     "t.name": [1, NOT_A_PLAYER, "draft team"],
+    "t.name ||": [3, NOT_A_PLAYER, "draft team name with a `Team N` fallback"],
   },
   "components/draft/PerfectDraftPanel.jsx": {
     "r.name": [3, NO_CANONICAL_ID, "rookie pool rows are draft-slug keyed; roster-context playerId falls back to the name (src/draft/context.py `playerId or name`)"],
@@ -162,6 +168,21 @@ describe("#1337 player-name destination ratchet", () => {
       ).toEqual(expected);
     });
   }
+
+  it("only the primitive builds a Player File URL (one owner, never from a name)", () => {
+    // PlayerPopup's "Full profile" launcher used to build
+    // `/players/${playerId || name}` itself — a second URL owner that
+    // fell back to the display name. Every caller now goes through
+    // playerProfileHref, which reads id fields only.
+    const builders = [];
+    for (const dir of ["app", "components", "lib"]) {
+      for (const rel of listFiles(dir)) {
+        const src = stripComments(read(rel));
+        if (/`\/players\/\$\{|["']\/players\/["']\s*\+/.test(src)) builders.push(rel);
+      }
+    }
+    expect(builders).toEqual(["components/ds/PlayerNameButton.jsx"]);
+  });
 
   it("every allowance names a kind and a reason", () => {
     for (const [rel, allowed] of Object.entries(ALLOWED_RAW)) {
