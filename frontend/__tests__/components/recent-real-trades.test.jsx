@@ -40,6 +40,7 @@ const OK_BODY = {
   ledger: { builtAt: "2026-10-08T08:52:00Z", targetLeague: "dynasty_main" },
   query: { players: ["6794"], picks: [], pickAssetIds: [], unresolved: [] },
   samplingBiases: ["KTC Trade Database: a rolling window."],
+  withheld: { game_type_not_verified_dynasty: 2, sharp_trade_without_cohort_manager: 1 },
   truncated: false,
   matchingTrades: 2,
   trades: [
@@ -51,7 +52,12 @@ const OK_BODY = {
       sides: [
         [
           { kind: "player", label: "Justin Jefferson", match: "exact" },
-          { kind: "pick", label: "2027 Round 1", match: "round" },
+          {
+            kind: "pick",
+            label: "2027 Round 1",
+            match: "round",
+            pick: { year: 2027, round: 1, grade: "generic", gradeNote: "ktc_mid_is_vendor_default" },
+          },
         ],
         [{ kind: "unresolved", label: "J. Smith", match: null }],
       ],
@@ -81,6 +87,11 @@ const OK_BODY = {
       formatTiming: "post_trade",
       formatMatch: { appliesToThisLeague: false, disposition: null },
       possibleOverlap: true,
+      caveats: [
+        "sleeper_trade_faab_component_not_recorded",
+        "released_in_trade:2",
+        "partial_record_adds_without_sender:1",
+      ],
     },
   ],
 };
@@ -170,6 +181,20 @@ describe("RecentRealTrades", () => {
     expect(screen.queryByText("No recorded trades")).toBeNull();
   });
 
+  it("request error (4xx): says the request was rejected, not that evidence is missing", async () => {
+    mockFetch(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "bad_request" }),
+    }));
+    render(<RecentRealTrades sides={SIDES} leagueKey="dynasty_main" />);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    await waitFor(() => expect(screen.getByText("Request not understood")).toBeTruthy());
+    expect(screen.queryByText("Real-trade evidence unavailable")).toBeNull();
+  });
+
   it("ok with no trades: an explicit empty state", async () => {
     mockFetch(async () => ({ ok: true, json: async () => ({ ...OK_BODY, trades: [] }) }));
     render(<RecentRealTrades sides={SIDES} leagueKey="dynasty_main" />);
@@ -210,6 +235,16 @@ describe("RecentRealTrades", () => {
     ).toBeTruthy();
     expect(screen.getByText(/May duplicate another listed trade/)).toBeTruthy();
     expect(screen.getByText(/Reference evidence, not a valuation/)).toBeTruthy();
+    // KTC's default "Mid" never reads as a stated tier.
+    expect(screen.getByText(/2027 Round 1 \(KTC "Mid" — tier not stated\)/)).toBeTruthy();
+    // Caveats in words.
+    expect(screen.getByText(/FAAB in the trade not recorded/)).toBeTruthy();
+    expect(screen.getByText(/2 players released in the trade \(not exchanged\)/)).toBeTruthy();
+    expect(screen.getByText(/Partial record — part of the trade was not captured/)).toBeTruthy();
+    // Game-type withholding is stated, privacy withholding only counted.
+    expect(
+      screen.getByText(/2 not shown because the league was not verified as dynasty; 1 not shown for privacy/),
+    ).toBeTruthy();
   });
 });
 
@@ -223,12 +258,12 @@ describe("/trade wiring", () => {
     );
   });
 
-  it("sits in its own collapsed panel that does not mount collapsed children", () => {
+  it("is mounted only while its panel is open (no fetch, no refetch while folded)", () => {
     const at = page.indexOf('title="Recent real trades"');
     expect(at).toBeGreaterThan(-1);
-    const block = page.slice(at, page.indexOf("</CollapsiblePanel>", at));
-    expect(block).toMatch(/defaultCollapsed/);
-    expect(block).toMatch(/mountCollapsedChildren=\{false\}/);
-    expect(block).toMatch(/<RecentRealTrades\b/);
+    const block = page.slice(at, page.indexOf("</Panel>", at));
+    expect(block).toMatch(/collapsed=\{!realTradesOpen\}/);
+    expect(block).toMatch(/\{realTradesOpen \? \(\s*<RecentRealTrades\b/);
+    expect(page).toMatch(/const \[realTradesOpen, setRealTradesOpen\] = useState\(false\)/);
   });
 });

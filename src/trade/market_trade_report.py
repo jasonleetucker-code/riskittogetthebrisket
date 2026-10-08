@@ -206,6 +206,14 @@ def _write_ledger_db(
             CREATE TABLE formats (fingerprint TEXT PRIMARY KEY, format_json TEXT NOT NULL);
             CREATE INDEX idx_ut_date ON underlying_trades(occurred_date);
             CREATE INDEX idx_ut_disp ON underlying_trades(disposition);
+            -- Asset index: every canonical id and cross-source match key on
+            -- any side, so a reader can select the trades that touch an asset
+            -- without parsing every record (read_ledger_trades).
+            CREATE TABLE trade_assets (
+                asset_key TEXT NOT NULL,
+                underlying_trade_id TEXT NOT NULL,
+                PRIMARY KEY (asset_key, underlying_trade_id)
+            ) WITHOUT ROWID;
             """
         )
         for g in groups:
@@ -238,6 +246,17 @@ def _write_ledger_db(
             )
             for m in g["members"]:
                 conn.execute("INSERT INTO trade_members VALUES (?, ?)", (g["underlyingTradeId"], m))
+            asset_keys = {
+                str(k)
+                for side in g.get("sides") or []
+                for a in side
+                for k in (a.get("canonicalId"), a.get("matchKey"))
+                if k
+            }
+            conn.executemany(
+                "INSERT OR IGNORE INTO trade_assets VALUES (?, ?)",
+                [(k, g["underlyingTradeId"]) for k in sorted(asset_keys)],
+            )
         meta = {"builtAt": built_at or datetime.now(timezone.utc).isoformat(), **(extra_meta or {})}
         for k, v in meta.items():
             conn.execute("INSERT INTO meta VALUES (?, ?)", (k, json.dumps(v, default=str)))
@@ -251,48 +270,106 @@ def ledger_file_path(root: Path | None = None) -> Path:
     return _ledger_path(root)
 
 
-def read_canonical_ledger(
-    *,
-    root: Path | None = None,
-    since_date: str | None = None,
-) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, Any] | None]]] | None:
-    """Read the persisted canonical ledger back — the one reader of the file
-    :func:`persist_canonical_ledger` writes.
-
-    Returns ``(meta, [(group_record, full_format_or_None), ...])`` or ``None``
-    when no ledger has been built on this host (absence is a state, never an
-    empty ledger).  ``since_date`` (``YYYY-MM-DD``) keeps only trades dated on
-    or after it; UNDATED trades are excluded by that filter because "recent"
-    cannot be claimed for a trade with no date.  Opened ``mode=ro`` — a reader
-    never migrates or locks the store the daily rebuild replaces.
-    """
+def open_canonical_ledger(root: Path | None = None) -> sqlite3.Connection | None:
+    """A READ-ONLY connection to the persisted ledger, or ``None`` when no
+    ledger has been built on this host (absence is a state, never an empty
+    ledger).  ``mode=ro``: a reader never migrates or locks the store the
+    daily rebuild replaces.  The caller closes it."""
     target = _ledger_path(root)
     if not target.exists():
         return None
-    conn = sqlite3.connect(f"file:{target.as_posix()}?mode=ro", uri=True)
-    try:
-        meta: dict[str, Any] = {}
-        for key, value in conn.execute("SELECT key, value FROM meta").fetchall():
-            try:
-                meta[str(key)] = json.loads(value)
-            except (TypeError, ValueError):
-                meta[str(key)] = None
-        sql = (
-            "SELECT u.record_json, f.format_json FROM underlying_trades u "
-            "LEFT JOIN formats f ON f.fingerprint = u.format_fingerprint"
+    return sqlite3.connect(f"file:{target.as_posix()}?mode=ro", uri=True)
+
+
+def read_ledger_meta(conn: sqlite3.Connection) -> dict[str, Any]:
+    meta: dict[str, Any] = {}
+    for key, value in conn.execute("SELECT key, value FROM meta").fetchall():
+        try:
+            meta[str(key)] = json.loads(value)
+        except (TypeError, ValueError):
+            meta[str(key)] = None
+    return meta
+
+
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone()
+    return row is not None
+
+
+#: Above this many asset-index hits, ``read_ledger_trades`` walks the date
+#: index instead of sorting every touching trade (a planning threshold only).
+_SELECTIVE_ASSET_HITS = 2000
+
+
+def read_ledger_trades(
+    conn: sqlite3.Connection,
+    *,
+    asset_keys: Sequence[str],
+    since_date: str,
+):
+    """Yield ``(group_record, full_format_or_None)`` for the trades dated on or
+    after ``since_date`` that have an asset whose canonical id or match key is
+    in ``asset_keys`` — NEWEST FIRST (date, then trade id), lazily, so a
+    caller can stop after the rows it needs.  UNDATED trades are never
+    yielded: "recent" cannot be claimed for a trade with no date.
+
+    Uses the ``trade_assets`` index when the ledger has it; a ledger built
+    before that table existed is answered by a JSON scan in SQLite (slower,
+    same rows) until the next daily rebuild.
+    """
+    keys = sorted({str(k) for k in asset_keys if k})
+    if not keys:
+        return
+    marks = ",".join("?" for _ in keys)
+    order = " ORDER BY u.occurred_date DESC, u.underlying_trade_id DESC"
+    dated = "u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
+    if _has_table(conn, "trade_assets"):
+        (hits,) = conn.execute(
+            f"SELECT COUNT(*) FROM trade_assets WHERE asset_key IN ({marks})", keys
+        ).fetchone()
+        if hits <= _SELECTIVE_ASSET_HITS:
+            # Rare assets: select the few touching trades, then sort them.
+            where = (
+                "u.underlying_trade_id IN (SELECT underlying_trade_id FROM trade_assets "
+                f"WHERE asset_key IN ({marks}))"
+            )
+        else:
+            # Common assets (a 2027 1st touches most trades): walk the date
+            # index newest-first and probe the asset index per trade, so the
+            # caller's early stop ends the scan after a handful of rows.
+            where = (
+                "EXISTS (SELECT 1 FROM trade_assets ta WHERE "
+                "ta.underlying_trade_id = u.underlying_trade_id "
+                f"AND ta.asset_key IN ({marks}))"
+            )
+        params: list[Any] = list(keys)
+    else:
+        where = (
+            "EXISTS (SELECT 1 FROM json_each(u.record_json, '$.sides') s, json_each(s.value) a "
+            f"WHERE json_extract(a.value, '$.canonicalId') IN ({marks}) "
+            f"OR json_extract(a.value, '$.matchKey') IN ({marks}))"
         )
-        params: tuple[Any, ...] = ()
-        if since_date is not None:
-            sql += " WHERE u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
-            params = (since_date,)
-        rows: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
-        for record_json, format_json in conn.execute(sql, params):
-            rec = json.loads(record_json)
-            full = json.loads(format_json) if format_json else None
-            rows.append((rec, full))
-    finally:
-        conn.close()
-    return meta, rows
+        params = list(keys) + list(keys)
+    # Order on the narrow (date, id) columns and fetch each record only when
+    # the caller asks for it: sorting with ``record_json`` in the row would
+    # copy every matching record through SQLite's sorter.
+    ids = conn.cursor().execute(
+        f"SELECT u.underlying_trade_id FROM underlying_trades u WHERE {dated} AND {where}{order}",
+        [since_date, *params],
+    )
+    fetch = (
+        "SELECT u.record_json, f.format_json FROM underlying_trades u "
+        "LEFT JOIN formats f ON f.fingerprint = u.format_fingerprint "
+        "WHERE u.underlying_trade_id = ?"
+    )
+    for (trade_id,) in ids:
+        row = conn.execute(fetch, (trade_id,)).fetchone()
+        if row is None:  # pragma: no cover - the file is replaced atomically
+            continue
+        record_json, format_json = row
+        yield json.loads(record_json), (json.loads(format_json) if format_json else None)
 
 
 def _date_range(dates: Sequence[str | None]) -> dict[str, Any]:

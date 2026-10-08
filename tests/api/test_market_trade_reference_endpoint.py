@@ -92,9 +92,7 @@ def env(tmp_path, monkeypatch):
             ]
         },
     )
-    ref._reset_cache_for_tests()
     yield tmp_path
-    ref._reset_cache_for_tests()
     league_registry.reload_registry()
 
 

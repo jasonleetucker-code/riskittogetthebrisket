@@ -139,7 +139,14 @@ export function sourceText(trade) {
 
 export function assetText(asset) {
   if (!asset) return "";
-  if (asset.label) return asset.label;
+  if (asset.label) {
+    // KTC files its default "Mid" tier at the generic grade: the vendor
+    // never said which tier, so the label must not claim one.
+    if (asset.pick?.gradeNote === "ktc_mid_is_vendor_default") {
+      return `${asset.label} (KTC "Mid" — tier not stated)`;
+    }
+    return asset.label;
+  }
   if (asset.kind === "player") return "Player not on board";
   if (asset.kind === "pick") return "Unresolved pick";
   return "Unresolved asset";
@@ -148,4 +155,51 @@ export function assetText(asset) {
 export function sideHeading(trade, idx) {
   if (trade?.sidesSemantics === "received_per_roster") return `Team ${idx + 1} received`;
   return `Package ${String.fromCharCode(65 + idx)}`;
+}
+
+/**
+ * Plain-language caveats for one trade, from the ledger's own caveat codes.
+ * An unrecognised code is still shown (as itself) rather than dropped.
+ */
+export function caveatTexts(trade) {
+  const out = [];
+  for (const code of trade?.caveats || []) {
+    const [kind, n] = String(code).split(":");
+    if (kind === "sleeper_trade_faab_component_not_recorded") {
+      out.push("FAAB in the trade not recorded");
+    } else if (kind === "released_in_trade") {
+      out.push(`${n || "Some"} player${n === "1" ? "" : "s"} released in the trade (not exchanged)`);
+    } else if (kind.startsWith("partial_record")) {
+      out.push("Partial record — part of the trade was not captured");
+    } else {
+      out.push(String(code));
+    }
+  }
+  if (trade?.possibleOverlap) out.push("May duplicate another listed trade");
+  return out;
+}
+
+/** Withheld-row counts in words; privacy reasons are summed, never itemised. */
+export function withheldText(withheld) {
+  if (!withheld) return null;
+  let gameType = 0;
+  let other = 0;
+  for (const [reason, n] of Object.entries(withheld)) {
+    if (reason === "game_type_not_verified_dynasty") gameType += n;
+    else other += n;
+  }
+  const parts = [];
+  if (gameType) parts.push(`${gameType} not shown because the league was not verified as dynasty`);
+  if (other) parts.push(`${other} not shown for privacy or source reasons`);
+  return parts.length ? `${parts.join("; ")}.` : null;
+}
+
+/**
+ * Classify a non-ok response.  A 4xx the user's request caused is not the
+ * same statement as "the server has no ledger", and must not read like it.
+ */
+export function referenceFailureKind(status) {
+  if (status === 401 || status === 403) return "auth";
+  if (status >= 400 && status < 500) return "request_error";
+  return "unavailable";
 }

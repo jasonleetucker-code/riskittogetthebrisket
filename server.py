@@ -7779,8 +7779,10 @@ async def get_market_trade_reference(request: Request):
     Read-only display projection of the canonical underlying-trade ledger
     (``src.trade.market_trade_reference``).  Facts only — no grade, no market
     price, no canonical value is read or computed.  Private (the global API
-    gate) and league-scoped: this league's own trades are shown, other
-    registry leagues' own trades are withheld.
+    gate) and league-scoped: only verified-dynasty trades; this league's own
+    trades are shown, other registry leagues' trades are withheld however
+    they reached the ledger; Sharp-lane trades only with a cohort manager on
+    them.  Withheld rows are counted by reason, never listed.
 
     Query parameters::
 

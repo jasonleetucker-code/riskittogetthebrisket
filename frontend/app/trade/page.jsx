@@ -199,6 +199,7 @@ export default function TradePage() {
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
   const [activeSide, setActiveSide] = useState(0); // index into sides
+  const [realTradesOpen, setRealTradesOpen] = useState(false);
   // Per-side inline search: each side renders its own search input, so
   // adding a player is one tap away — no overlay, no "+ Add" button.
   // ``sideQueries[i]`` holds side i's current input string;
@@ -2296,14 +2297,20 @@ export default function TradePage() {
 
           </CollapsiblePanel>
 
-          <CollapsiblePanel
+          {/* Controlled, and the section is mounted ONLY while open: a
+              mounted-but-folded section would refetch on every trade edit. */}
+          <Panel
             title="Recent real trades"
-            subtitle="Recorded dynasty trades that moved these assets, with each league's format"
-            defaultCollapsed
-            mountCollapsedChildren={false}
+            subtitle="Recorded verified-dynasty trades that moved these assets, with each league's format"
+            collapsible
+            collapsed={!realTradesOpen}
+            onToggleCollapsed={() => setRealTradesOpen((v) => !v)}
+            bodyId="trade-recent-real-trades"
           >
-            <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
-          </CollapsiblePanel>
+            {realTradesOpen ? (
+              <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
+            ) : null}
+          </Panel>
 
           <SuggestionsDesk
             sleeperTeams={sleeperTeams}

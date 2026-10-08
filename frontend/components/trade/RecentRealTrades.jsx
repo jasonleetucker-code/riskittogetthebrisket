@@ -11,12 +11,18 @@
  * underlying-trade ledger); identity matching happens on the backend
  * through src/identity — this component only sends ids / board row names.
  *
- * Four states, never collapsed into one another:
- *   no assets    — nothing on the calculator yet
+ * States, never collapsed into one another:
+ *   no assets      — nothing on the calculator yet
  *   loading
- *   unavailable  — no ledger on the server / request failed
- *                  ("we have no evidence", which is not "no trades")
- *   ok           — trades, or an explicit "none recorded" empty state
+ *   unavailable    — no ledger on the server / server failure
+ *                    ("we have no evidence", which is not "no trades")
+ *   request_error  — a 4xx the request itself caused
+ *   auth           — signed out
+ *   ok             — trades, or an explicit "none recorded" empty state
+ *
+ * Only verified-dynasty trades arrive (the backend withholds unverified game
+ * types and says how many); the panel is mounted only while open, so it
+ * never refetches while collapsed.
  *
  * Loaded on demand from /trade (React.lazy inside a collapsed panel), so
  * none of this is in the page's first-load chunk.
@@ -26,14 +32,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Banner, EmptyState, SkeletonTable } from "@/components/ds";
 import {
   assetText,
+  caveatTexts,
   formatMatchText,
   formatTagList,
   formatTimingText,
   referenceQueryFromSides,
   referenceQueryIsEmpty,
+  referenceFailureKind,
   referenceQueryString,
   sideHeading,
   sourceText,
+  withheldText,
 } from "@/lib/recent-real-trades";
 import styles from "./recent-real-trades.module.css";
 
@@ -86,8 +95,7 @@ function TradeRow({ trade }) {
         ))}
       </p>
       <p className={styles.meta}>
-        {formatTimingText(trade)} · {formatMatchText(trade)}
-        {trade.possibleOverlap ? " · May duplicate another listed trade" : ""}
+        {[formatTimingText(trade), formatMatchText(trade), ...caveatTexts(trade)].join(" · ")}
       </p>
     </li>
   );
@@ -111,7 +119,11 @@ export default function RecentRealTrades({ sides, leagueKey }) {
         });
         const body = await res.json().catch(() => null);
         if (!res.ok || !body || body.state !== "ok") {
-          setState({ status: "unavailable", body, qs });
+          setState({
+            status: res.ok ? "unavailable" : referenceFailureKind(res.status),
+            body,
+            qs,
+          });
           return;
         }
         setState({ status: "ok", body, qs });
@@ -134,11 +146,26 @@ export default function RecentRealTrades({ sides, leagueKey }) {
       />
     );
   }
-  if (state.status !== "ok" && state.status !== "unavailable") {
+  if (state.status === "idle" || state.status === "loading") {
     return (
       <div aria-busy="true" aria-label="Loading recent real trades">
         <SkeletonTable rows={3} columns={3} />
       </div>
+    );
+  }
+  if (state.status === "request_error") {
+    return (
+      <Banner tone="warning" title="Request not understood">
+        The server rejected this lookup ({state.body?.error || "bad request"}). The trades on
+        the calculator were not searched.
+      </Banner>
+    );
+  }
+  if (state.status === "auth") {
+    return (
+      <Banner tone="warning" title="Sign in to see real trades">
+        Recorded trades are only shown to signed-in members.
+      </Banner>
     );
   }
   if (state.status === "unavailable") {
@@ -157,7 +184,7 @@ export default function RecentRealTrades({ sides, leagueKey }) {
     <div className={styles.root}>
       <p className={styles.lede}>
         Reference evidence, not a valuation — these trades do not change the totals or verdict
-        above. Trades since {body.since}
+        above. Verified-dynasty trades since {body.since}
         {ledger.builtAt ? `; ledger rebuilt ${String(ledger.builtAt).slice(0, 10)}` : ""}.
       </p>
       {trades.length === 0 ? (
@@ -172,9 +199,12 @@ export default function RecentRealTrades({ sides, leagueKey }) {
           ))}
         </ol>
       )}
+      {withheldText(body.withheld) ? (
+        <p className={styles.meta}>{withheldText(body.withheld)}</p>
+      ) : null}
       {body.truncated ? (
         <p className={styles.meta}>
-          Showing the {trades.length} most recent of {body.matchingTrades} matching trades.
+          Showing the {trades.length} most recent matching trades; older ones are not listed.
         </p>
       ) : null}
       {(body.query?.unresolved || []).length ? (
