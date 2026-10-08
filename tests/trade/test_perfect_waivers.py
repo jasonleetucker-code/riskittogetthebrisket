@@ -18,13 +18,18 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 import random
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
 from src.draft.displacement import RosterAsset, build_cut_ladder
 from src.ros.lineup import RosterPlayer, solve_optimal_assignment
 from src.trade.constraints import UNRESOLVED, resolve_constraints
+from src.trade import perfect_waivers as pw_module
 from src.trade.perfect_waivers import (
     FreeAgentCandidate,
     RosterCandidate,
@@ -33,7 +38,7 @@ from src.trade.perfect_waivers import (
     solve_perfect_waivers,
 )
 
-T = 0.15  # the confidence gate's AGREEMENT_VALUE_RATIO
+T = 0.15  # config/trade/perfect_waivers.json::stopBand (a declared PRIOR)
 RHO = materiality_multiplier(T)
 
 
@@ -468,7 +473,8 @@ def test_payload_plans_the_matching_and_reports_unpriced():
     # An unpriced free agent is reported, never valued at zero.
     assert out["unpriced"]["freeAgents"] >= 1
     assert "Nobody Knows" in out["unpriced"]["freeAgentSample"]
-    assert out["stopRule"]["source"].endswith("AGREEMENT_VALUE_RATIO")
+    assert out["stopRule"]["source"] == "config/trade/perfect_waivers.json::stopBand"
+    assert out["stopRule"]["stopBandClass"] == "PRIOR"
     json.dumps(out)  # serialisable as-is
 
 
@@ -533,3 +539,213 @@ def test_payload_unknown_team_raises():
         build_perfect_waivers(
             _contract(), league_key="pw", owner_id="nobody", waiver_targets={}, roster_settings={}
         )
+
+
+# ── R2: the stop band is this feature's own declared PRIOR ──────────
+
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+def test_stop_band_is_read_from_the_features_own_config():
+    doc = json.loads((REPO / "config/trade/perfect_waivers.json").read_text(encoding="utf-8"))
+    assert doc["stopBandClass"] == "PRIOR"
+    assert "not calibrated" in doc["stopBandRationale"]
+    assert pw_module.load_stop_band() == doc["stopBand"]
+    # Not the confidence gate: the module never reads it.
+    src = (REPO / "src/trade/perfect_waivers.py").read_text(encoding="utf-8")
+    assert "gate_parameter" not in src
+
+
+def test_stop_band_value_reaches_the_plan(monkeypatch, tmp_path):
+    cfg = tmp_path / "pw.json"
+    cfg.write_text(json.dumps({"stopBand": 0.5, "stopBandClass": "PRIOR"}), encoding="utf-8")
+    monkeypatch.setattr(pw_module, "_CONFIG_PATH", cfg)
+    out = _build(_contract())
+    assert out["stopRule"]["agreementRatio"] == 0.5
+    assert out["stopRule"]["swapMultiplier"] == pytest.approx(materiality_multiplier(0.5))
+
+
+@pytest.mark.parametrize(
+    "content",
+    [None, "{not json", json.dumps({"stopBandClass": "PRIOR"}), json.dumps({"stopBand": 0.15})],
+)
+def test_missing_or_undeclared_stop_band_refuses(monkeypatch, tmp_path, content):
+    cfg = tmp_path / "pw.json"
+    if content is not None:
+        cfg.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(pw_module, "_CONFIG_PATH", cfg)
+    with pytest.raises(pw_module.PerfectWaiversConfigError):
+        _build(_contract())
+
+
+# ── R3: pairs are legal in BOTH directions, deterministically ───────
+
+
+def test_pair_must_also_be_legal_when_only_this_claim_wins():
+    """Fail-on-old: the previous pairing checked only "this claim alone
+    fails" and paired the QB add with the WR release.  If only the QB claim
+    wins, the roster loses a FLEX-capable body — a QB cannot play FLEX — and
+    fills one slot fewer.  The WR release must ride with a TE add."""
+    roster = [
+        R("r0", "WR", 2197),
+        R("r1", "QB", 3059, locked="protected_individual"),
+        R("r2", "WR", 2418),
+        R("r3", "TE", 3646, locked="protected_individual"),
+    ]
+    fas = [
+        F("f0", "TE", 4163),
+        F("f1", "RB", 3168),
+        F("f2", "RB", 2007),
+        F("f3", "WR", 2793),
+        F("f4", "QB", 4498),
+        F("f5", "TE", 4119),
+    ]
+    res = solve(roster, fas, ["QB", "WR", "FLEX", "FLEX"], open_spots=2)
+    by_release = {p["release"]: p["add"].split(":", 2)[2] for p in res.pairs}
+    assert by_release["r:0:r0"] in {"f0", "f5"}, by_release
+    assert all(p["failsAloneLegal"] and p["winsAloneLegal"] for p in res.pairs)
+
+
+@pytest.mark.parametrize("seed", range(150))
+def test_a_both_directions_pairing_exists_and_is_returned(seed):
+    """Brute force: for the plan returned, a bijection legal in both
+    directions exists (strong base orderability), and the solver returns one."""
+    rng = random.Random(1000 + seed)
+    positions = ["QB", "RB", "WR", "TE"]
+    slots = rng.choice(
+        [["QB", "WR", "FLEX"], ["QB", "WR", "FLEX", "FLEX"], ["RB", "TE", "SUPER_FLEX"]]
+    )
+    roster = [
+        R(
+            f"r{i}",
+            rng.choice(positions),
+            float(rng.randint(200, 4000)),
+            locked="protected_individual" if rng.random() < 0.2 else None,
+        )
+        for i in range(rng.randint(3, 6))
+    ]
+    fas = [
+        F(f"f{i}", rng.choice(positions), float(rng.randint(300, 4500)))
+        for i in range(rng.randint(1, 5))
+    ]
+    res = solve(roster, fas, slots, open_spots=rng.choice([0, 1, 2]))
+    if not res.pairs:
+        return
+    base = _fill(roster, slots)
+    adds = list(res.adds)
+    releases = list(res.drops) + [None] * res.open_spots_used
+
+    def fails_alone(a, d):
+        kept = [r for r in roster if r not in res.drops or r is d]
+        others = [x for x in adds if x is not a]
+        return _fill(kept + [R(x.player_id, x.position, x.value) for x in others], slots) >= base
+
+    def wins_alone(a, d):
+        kept = [r for r in roster if r is not d]
+        return _fill(kept + [R(a.player_id, a.position, a.value)], slots) >= base
+
+    exists = any(
+        all(fails_alone(a, d) and wins_alone(a, d) for a, d in zip(adds, perm))
+        for perm in itertools.permutations(releases)
+    )
+    assert exists
+    assert all(p["standsAlone"] for p in res.pairs)
+
+
+def _repro_case():
+    """Reviewer's repro: QB/WR/FLEX, the WR the only droppable player, the RBs
+    protected; the plan adds three QBs and a TE."""
+    roster = [
+        R("wr", "WR", 300),
+        R("rb1", "RB", 3000, locked="protected_individual"),
+        R("rb2", "RB", 2800, locked="protected_individual"),
+    ]
+    fas = [F("qb1", "QB", 4000), F("qb2", "QB", 3900), F("qb3", "QB", 3800), F("te", "TE", 3500)]
+    return roster, fas, ["QB", "WR", "FLEX"], 3
+
+
+def test_reviewer_repro_pairs_are_legal_both_ways():
+    roster, fas, slots, open_spots = _repro_case()
+    res = solve(roster, fas, slots, open_spots=open_spots)
+    assert sorted(a.player_id for a in res.adds) == ["qb1", "qb2", "qb3", "te"]
+    assert [d.player_id for d in res.drops] == ["wr"]
+    assert all(p["standsAlone"] for p in res.pairs)
+
+
+_SUBPROCESS = (
+    "import json, sys\n"
+    "sys.path.insert(0, ROOT)\n"
+    "from tests.trade.test_perfect_waivers import _repro_case, solve\n"
+    "roster, fas, slots, open_spots = _repro_case()\n"
+    "res = solve(roster, fas, slots, open_spots=open_spots)\n"
+    "print(json.dumps([[p['add'], p['release']] for p in res.pairs]))\n"
+)
+
+
+def test_pairing_does_not_depend_on_pythonhashseed():
+    outputs = set()
+    for seed in ("0", "1", "2", "3", "12345"):
+        env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONUTF8="1")
+        proc = subprocess.run(
+            [sys.executable, "-c", f"ROOT = {str(REPO)!r}\n" + _SUBPROCESS],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(REPO),
+            timeout=120,
+            check=True,
+        )
+        outputs.add(proc.stdout.strip().splitlines()[-1])
+    assert len(outputs) == 1, outputs
+
+
+# ── F4 / F5: identity join and the waiver pool's own filters ────────
+
+
+def test_fa_join_requires_name_and_position():
+    contract = _contract()
+    # A same-named DIFFERENT player at another position sits first on the board.
+    contract["playersArray"].insert(0, _row("dup1", "Free TE", "LB", 9000))
+    out = _build(contract)
+    by_pos = {
+        m["add"]["position"]: m["add"]["playerId"]
+        for m in out["plan"]["moves"]
+        if m["add"]["name"] == "Free TE"
+    }
+    # Each candidate joins to the board row with ITS position — never to
+    # whichever same-named row came first.
+    assert by_pos["TE"] == "fa1"
+    assert by_pos.get("LB", "dup1") == "dup1"
+
+
+def test_fa_join_with_two_same_name_same_position_players_is_ambiguous():
+    contract = _contract()
+    contract["playersArray"].append(_row("fa1b", "Free TE", "TE", 1000))
+    out = _build(contract)
+    assert "Free TE" not in {m["add"]["name"] for m in out["plan"]["moves"]}
+    # The pool emits one candidate per board row; both are refused.
+    assert out["freeAgentExclusions"]["planJoin"]["identity_ambiguous"] == 2
+    assert out["freeAgentExclusions"]["identityAmbiguous"] == ["Free TE"]
+
+
+def test_waiver_pool_filters_are_disclosed_by_reason():
+    contract = _contract()
+    contract["playersArray"] += [
+        _row("lo", "Low Guy", "WR", 300),
+        _row("one", "One Source", "WR", 2000, sources=1),
+        _row("k1", "Kicker", "K", 900),
+    ]
+    out = _build(contract)
+    pool = out["freeAgentExclusions"]["waiverPool"]
+    assert pool["below_min_value"] == 1
+    assert pool["single_source"] == 1
+    assert pool["kicker_def_excluded"] == 1
+    assert pool["unpriced"] >= 1
+
+
+def test_partial_baseline_fill_is_disclosed():
+    roster, fas, slots, open_spots = _repro_case()
+    res = solve(roster, fas, slots, open_spots=open_spots)
+    assert res.baseline_fill < len(slots)
+    assert any("not necessarily the same slots" in n for n in res.notes)

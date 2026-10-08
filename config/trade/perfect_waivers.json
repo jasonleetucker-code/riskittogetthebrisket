@@ -1,0 +1,8 @@
+{
+  "_comment": "Perfect Waivers (C7-WAIV-01) parameters. Read by src/trade/perfect_waivers.py, which refuses to plan when this file or a required entry is missing — there is no code default. Every value here is a PRIOR: a declared, evidence-gated judgement, not a calibrated fit. Changing one is an owner-visible methodology change.",
+  "version": "perfect_waivers_v1",
+  "stopBand": 0.15,
+  "stopBandClass": "PRIOR",
+  "stopBandUnit": "relativeValueRatio — |V_add - V_release| / mean(V_add, V_release), the board's symmetric-mean gap convention",
+  "stopBandRationale": "Initialised from confidence AGREEMENT_VALUE_RATIO on 2026-10-08; owner-tunable; not calibrated. Deliberately its own entry rather than a read of config/confidence/gate_v1.json, whose entry exists so confidence and other surfaces can diverge on purpose. A swap whose add and release are within this band of each other is not proposed; an add into an open roster spot is unaffected. Open owner question: keep a relative band, use per-pair uncertainty, or no band."
+}

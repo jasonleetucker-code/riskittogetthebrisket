@@ -117,6 +117,7 @@ def env(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_teams_overlay", lambda **_kw: None)
     contract = _contract()
     monkeypatch.setattr(server, "latest_contract_data", contract)
+    server._PERFECT_WAIVERS_CACHE.clear()
     # No ``with``: the lifespan would load the real board over this fixture.
     client = TestClient(server.app, raise_server_exceptions=True)
     yield SimpleNamespace(client=client, contract=contract)
@@ -196,3 +197,48 @@ def test_saved_protection_is_never_proposed_as_a_drop(env):
         URL, json={"leagueKey": "main", "teamOwnerId": "me"}, headers={"x-test-user": "bob"}
     )
     assert res.json()["constraints"]["protectedOnRoster"] == []
+
+
+def test_missing_stop_band_config_refuses_with_json(env, monkeypatch, tmp_path):
+    from src.trade import perfect_waivers
+
+    monkeypatch.setattr(perfect_waivers, "_CONFIG_PATH", tmp_path / "absent.json")
+    res = env.client.post(URL, json={"leagueKey": "main", "teamOwnerId": "me"}, headers=AS)
+    assert res.status_code == 503
+    assert res.json()["error"] == "perfect_waivers_unavailable"
+
+
+def test_identical_request_is_served_from_cache_and_roster_change_busts_it(env, monkeypatch):
+    from src.trade import perfect_waivers
+
+    calls = {"n": 0}
+    real = perfect_waivers.build_perfect_waivers
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(perfect_waivers, "build_perfect_waivers", counting)
+    body = {"leagueKey": "main", "teamOwnerId": "me"}
+    first = env.client.post(URL, json=body, headers=AS).json()
+    second = env.client.post(URL, json=body, headers=AS).json()
+    assert calls["n"] == 1 and first == second
+    env.contract["sleeper"]["teams"][0]["faabRemaining"] = 59
+    env.client.post(URL, json=body, headers=AS)
+    assert calls["n"] == 2
+
+
+@pytest.mark.parametrize("bad", [{"teamCount": "twelve"}, {"starters": {"QB": "one"}}])
+def test_malformed_registry_answers_json_on_both_waiver_routes(env, monkeypatch, bad):
+    settings = {"teamCount": 2, "rosterSize": 4, **bad}
+    monkeypatch.setattr(
+        server._league_registry, "get_league_roster_settings", lambda _key: dict(settings)
+    )
+    res = env.client.post(URL, json={"leagueKey": "main", "teamOwnerId": "me"}, headers=AS)
+    assert res.status_code == 503
+    assert res.json()["error"] == "perfect_waivers_unavailable"
+    res = env.client.post(
+        "/api/waiver/suggestions", json={"leagueKey": "main", "teamOwnerId": "me"}, headers=AS
+    )
+    assert res.status_code == 500
+    assert res.json()["error"].startswith("failed:")

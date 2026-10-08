@@ -6816,6 +6816,9 @@ async def post_waiver_suggestions(request: Request):
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
     inputs = await _waiver_engine_inputs(league_cfg, team_owner_id)
+    if inputs["input_error"] is not None:
+        log.error(f"Waiver suggestions failed: {inputs['input_error']}")
+        return JSONResponse(status_code=500, content={"error": f"failed: {inputs['input_error']}"})
 
     try:
         result = await run_in_threadpool(
@@ -6908,18 +6911,35 @@ async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> d
     except Exception as exc:  # noqa: BLE001 — aggression just falls back to neutral
         log.warning("waiver suggestions bid history load failed for %s: %s", league_cfg.key, exc)
 
+    # The two integer conversions used to run inside the suggestions
+    # handler's try, so a malformed registry value answered with that
+    # handler's JSON error.  They still do: a failure is RETURNED, and each
+    # route answers it in its own error shape rather than raising here.
+    _team_count = _starters_per_team = None
+    _input_error: Exception | None = None
+    try:
+        _team_count = int(_roster_settings.get("teamCount") or len(sleeper_teams) or 12)
+        # An absent slot count contributes nothing; it is skipped, not
+        # coerced (the result is identical — 0 added either way).
+        _starter_counts = [
+            int(v) for k, v in _starters.items() if str(k).upper() != "K" and v is not None
+        ]
+        _starters_per_team = sum(_starter_counts) or 20
+    except (TypeError, ValueError) as exc:
+        _input_error = exc
+
     return {
         "teams": _suggestions_teams,
         "rosters_from_overlay": _suggestions_teams is not sleeper_teams,
         "rosters_as_of": _rosters_as_of,
         "roster_settings": _roster_settings,
         "league_budget": _league_budget,
-        "team_count": int(_roster_settings.get("teamCount") or len(sleeper_teams) or 12),
-        "starters_per_team": sum(int(v or 0) for k, v in _starters.items() if str(k).upper() != "K")
-        or 20,
+        "team_count": _team_count,
+        "starters_per_team": _starters_per_team,
         "starters": _starters,
         "roster_size": _roster_size,
         "market_priors": _market_priors,
+        "input_error": _input_error,
     }
 
 
@@ -6978,6 +6998,15 @@ async def post_waiver_perfect(request: Request):
         request, body, league_cfg
     )
     inputs = await _waiver_engine_inputs(league_cfg, team_owner_id)
+    if inputs["input_error"] is not None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "perfect_waivers_unavailable",
+                "message": f"league settings unreadable: {inputs['input_error']}",
+                "leagueKey": league_cfg.key,
+            },
+        )
     base = contract if isinstance(contract, dict) else {}
     sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
     # One roster snapshot for every question the plan asks: the live teams
@@ -6990,6 +7019,13 @@ async def post_waiver_perfect(request: Request):
 
     from src.trade import perfect_waivers as _perfect  # noqa: PLC0415
     from src.trade import waiver as _waiver  # noqa: PLC0415
+
+    cache_key = _perfect_waivers_cache_key(
+        league_cfg.key, team_owner_id, base, inputs["teams"], constraints
+    )
+    cached = _perfect_waivers_cache_get(cache_key)
+    if cached is not None:
+        return JSONResponse(content=cached)
 
     def _compute() -> dict[str, Any]:
         targets = _waiver.find_waiver_targets(
@@ -7037,7 +7073,82 @@ async def post_waiver_perfect(request: Request):
     payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
     payload["rostersAsOf"] = inputs["rosters_as_of"]
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    _perfect_waivers_cache_put(cache_key, payload)
     return JSONResponse(content=payload)
+
+
+# Perfect Waivers result cache.  Every input the plan reads is in the key —
+# league, team, the board generation, the exact roster snapshot (players and
+# FAAB balances for every team, since rivals price the bids) and the user's
+# resolved protections — so a hit can only ever be the same answer.  The TTL
+# bounds how long a bid-history refresh (the one input outside the key) can
+# lag.
+# A plain dict is insertion-ordered; re-inserting on a hit keeps it LRU.
+_PERFECT_WAIVERS_CACHE: dict[str, tuple[float, dict]] = {}
+_PERFECT_WAIVERS_CACHE_TTL_SEC = 120.0
+_PERFECT_WAIVERS_CACHE_MAX = 32
+_PERFECT_WAIVERS_CACHE_LOCK = threading.Lock()
+
+
+def _perfect_waivers_cache_key(
+    league_key: str, owner_id: str, contract: dict, teams: list, constraints: Any
+) -> str:
+    roster_snapshot = [
+        (
+            str(t.get("ownerId") or ""),
+            sorted(str(n) for n in (t.get("players") or [])),
+            sorted(str(i) for i in (t.get("playerIds") or [])),
+            t.get("faabRemaining"),
+            t.get("faabBudget"),
+        )
+        for t in (teams or [])
+        if isinstance(t, dict)
+    ]
+    try:
+        protections = constraints.to_dict() if constraints is not None else None
+    except Exception:  # noqa: BLE001 — an unhashable rule is simply never cached
+        return ""
+    blob = json.dumps(
+        {
+            "league": league_key,
+            "team": owner_id,
+            "board": [
+                id(latest_contract_data),
+                (contract or {}).get("generatedAt"),
+                (contract or {}).get("scrapeTimestamp"),
+            ],
+            "rosters": sorted(roster_snapshot),
+            "protections": protections,
+        },
+        sort_keys=True,
+        default=str,
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _perfect_waivers_cache_get(key: str) -> dict | None:
+    if not key:
+        return None
+    with _PERFECT_WAIVERS_CACHE_LOCK:
+        hit = _PERFECT_WAIVERS_CACHE.get(key)
+        if hit is None:
+            return None
+        stored_at, payload = hit
+        if time.time() - stored_at > _PERFECT_WAIVERS_CACHE_TTL_SEC:
+            _PERFECT_WAIVERS_CACHE.pop(key, None)
+            return None
+        _PERFECT_WAIVERS_CACHE[key] = _PERFECT_WAIVERS_CACHE.pop(key)
+        return payload
+
+
+def _perfect_waivers_cache_put(key: str, payload: dict) -> None:
+    if not key:
+        return
+    with _PERFECT_WAIVERS_CACHE_LOCK:
+        _PERFECT_WAIVERS_CACHE.pop(key, None)
+        _PERFECT_WAIVERS_CACHE[key] = (time.time(), payload)
+        while len(_PERFECT_WAIVERS_CACHE) > _PERFECT_WAIVERS_CACHE_MAX:
+            _PERFECT_WAIVERS_CACHE.pop(next(iter(_PERFECT_WAIVERS_CACHE)))
 
 
 @app.post("/api/waiver/best-available-idp")

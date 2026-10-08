@@ -69,6 +69,11 @@ function plan(overrides = {}) {
     budget: { state: "known", balance: 60 },
     constraints: { resolutionFailed: false, protectedOnRoster: [{ name: "Fav WR" }] },
     unpriced: { rosterPlayers: [{ name: "Ghost" }], freeAgents: 3, freeAgentSample: [] },
+    freeAgentExclusions: {
+      waiverPool: { below_min_value: 4, single_source: 2, kicker_def_excluded: 0 },
+      planJoin: { identity_ambiguous: 1 },
+      identityAmbiguous: ["Twin Name"],
+    },
     notes: [],
     ...overrides,
   };
@@ -119,7 +124,7 @@ describe("PerfectWaiversPanel — the plan", () => {
     render(<PerfectWaiversPanel leagueKey="main" ownerId="me" />);
     expect(
       await screen.findByText(/next best move — add Close WR for Bench WR — gains \+100/),
-    ).toHaveTextContent("4.9% apart, inside the 15% band");
+    ).toHaveTextContent("4.9% apart, inside the 15% stop band");
   });
 
   it("discloses protected and unpriced players instead of hiding them", async () => {
@@ -129,6 +134,27 @@ describe("PerfectWaiversPanel — the plan", () => {
     expect(screen.getByText(/never proposed as drops:\s*Ghost/)).toBeInTheDocument();
     expect(screen.getByText(/3 free agents the board has not priced/)).toBeInTheDocument();
     expect(screen.getByText(/Advice only — no claim is submitted/)).toBeInTheDocument();
+  });
+
+  it("states the exact pairing guarantee and the waiver pool's filters", async () => {
+    mockFetch(200, plan());
+    render(<PerfectWaiversPanel leagueKey="main" ownerId="me" />);
+    expect(
+      await screen.findByText(/if only that claim fails, or only that claim wins/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/4 below the value floor, 2 single-source/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/more than one player: Twin Name/)).toBeInTheDocument();
+  });
+
+  it("does not claim the guarantee for a pair the server could not match", async () => {
+    const base = plan();
+    base.plan.moves[0].standsAlone = false;
+    mockFetch(200, base);
+    render(<PerfectWaiversPanel leagueKey="main" ownerId="me" />);
+    expect(await screen.findByText(/1 pair could not be matched/)).toBeInTheDocument();
+    expect(screen.queryByText(/if only that claim fails/)).not.toBeInTheDocument();
   });
 
   it("states an unknown balance rather than showing $0", async () => {

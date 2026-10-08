@@ -40,8 +40,11 @@ Every number this module combines is produced elsewhere and consumed as is:
 * **protections** — ``src/trade/constraints.py`` (C3-CON-01/02): a player
   the user protects is never proposed as a drop.
 * **the uncertainty band of the stop rule** —
-  ``config/confidence/gate_v1.json::AGREEMENT_VALUE_RATIO``: the confidence
-  owner's declared relative gap below which two valuations AGREE.
+  ``config/trade/perfect_waivers.json::stopBand``, a declared PRIOR of this
+  feature's own (initialised 2026-10-08 from the confidence gate's
+  ``AGREEMENT_VALUE_RATIO``, deliberately NOT read from it: that gate keeps
+  its own entry so confidence and other surfaces can diverge on purpose).
+  Missing or malformed config refuses — there is no code default.
 
 The problem, exactly
 ====================
@@ -115,11 +118,18 @@ player has value.  Reported totals use the raw values; ``rho`` only decides.
 
 The pairing is the matching
 ===========================
-The pairs shown are that bijection, found with an assignment solve over the
-edges ``(a, d)`` for which ``K − a + d`` is legal.  The property this buys
-is the one a waiver claim needs: **each pair can fail on its own** — if the
-claim for ``a`` loses, keeping ``d`` still leaves a legal lineup.  Pairing
-every add with "my lowest-valued player" has no such guarantee.
+Waiver claims succeed and fail independently, so a pair must be legal in
+BOTH directions: if only this claim fails (``K − a + d``) and if only this
+claim wins (``K0 − d + a``).  An edge ``(a, d)`` requires both, and the
+assignment solve picks a perfect matching on those edges.  One always exists
+here: the matroid is a gammoid (a transversal matroid, truncated and
+elongated, plus loops), gammoids are strongly base orderable, and a strongly
+base orderable matroid has a bijection valid for EVERY subset of exchanges —
+in particular for "only this one fails" and "only this one wins".  The
+tests verify existence by brute force; if the solve ever returned an edge
+that fails either check, the pair is labelled ``standsAlone: false`` rather
+than claimed.  Pairing every add with "my lowest-valued player" guarantees
+neither direction.
 
 Missing is never zero
 =====================
@@ -141,9 +151,11 @@ from __future__ import annotations
 
 import heapq
 import itertools
+import json
 import math
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from src.ros.lineup import RosterPlayer, precompute_slot_eligibility, solve_optimal_assignment
@@ -155,6 +167,9 @@ __all__ = [
     "RosterCandidate",
     "SolveResult",
     "build_perfect_waivers",
+    "PerfectWaiversConfigError",
+    "STOP_BAND_SOURCE",
+    "load_stop_band",
     "materiality_multiplier",
     "solve_perfect_waivers",
 ]
@@ -170,6 +185,36 @@ _EPS = 1e-9
 #: How many of the best unplanned free agents ``_next_move`` examines.  It is
 #: an EXPLANATION of the stop, not part of the optimization.
 _NEXT_MOVE_CANDIDATES = 40
+
+_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "perfect_waivers.json"
+#: Where the stop band comes from, stamped on every payload.
+STOP_BAND_SOURCE = "config/trade/perfect_waivers.json::stopBand"
+
+
+class PerfectWaiversConfigError(RuntimeError):
+    """The feature's declared parameters are missing or malformed.
+
+    Raised rather than defaulted: a stop band nobody declared is a decision
+    nobody made.
+    """
+
+
+def load_stop_band(path: Path | None = None) -> float:
+    """``stopBand`` from ``config/trade/perfect_waivers.json`` — or refuse."""
+    target = Path(path) if path is not None else _CONFIG_PATH
+    try:
+        doc = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise PerfectWaiversConfigError(f"{target}: unreadable ({exc})") from exc
+    if not isinstance(doc, dict):
+        raise PerfectWaiversConfigError(f"{target}: not an object")
+    band = doc.get("stopBand")
+    if isinstance(band, bool) or not isinstance(band, (int, float)) or not 0.0 <= band < 2.0:
+        raise PerfectWaiversConfigError(f"{target}: stopBand missing or out of range: {band!r}")
+    if doc.get("stopBandClass") != "PRIOR":
+        raise PerfectWaiversConfigError(f"{target}: stopBand must be declared stopBandClass PRIOR")
+    return float(band)
+
 
 #: Bisection steps for the root Lagrangian multiplier.  Any multiplier gives a
 #: valid bound; more steps only tighten it.
@@ -577,6 +622,12 @@ def solve_perfect_waivers(
         rho=rho,
     )
 
+    if slots and problem.baseline_fill < len(slots):
+        notes.append(
+            f"your roster fills {problem.baseline_fill} of {len(slots)} starting slots today; "
+            f"the plan keeps at least {problem.baseline_fill} filled — not necessarily the same "
+            "slots (the cut ladder's legality rule counts filled slots)"
+        )
     pruned_keys = frozenset(
         f"f:{i}:{fa.player_id}" for i, fa in enumerate(free_agents) if i not in keep
     )
@@ -606,11 +657,16 @@ def solve_perfect_waivers(
         )
 
     kept = best[0]
+    # (−value, key): never frozenset iteration order, which follows
+    # PYTHONHASHSEED and made the pairing differ between processes.
     adds = sorted(
         (k for k in kept if problem.elements[k].kind == _KIND_FA),
-        key=lambda k: -problem.elements[k].raw,
+        key=lambda k: (-problem.elements[k].raw, k),
     )
-    released = [k for k in problem.k0 if k not in kept]
+    released = sorted(
+        (k for k in problem.k0 if k not in kept),
+        key=lambda k: (-problem.elements[k].raw, k),
+    )
     drops = [k for k in released if problem.elements[k].kind == _KIND_ROSTER]
     opens = [k for k in released if problem.elements[k].kind == _KIND_OPEN]
 
@@ -770,13 +826,13 @@ def _pair_moves(
     adds: Sequence[str],
     released: Sequence[str],
 ) -> list[dict[str, Any]]:
-    """The Brualdi pairing: each add against the release it displaces.
+    """Pair each add with the release it displaces, legal in both directions.
 
-    An edge ``(a, d)`` exists when ``kept − a + d`` is still a legal roster,
-    i.e. when the claim for ``a`` can fail on its own and leave a legal
-    lineup.  A perfect matching on those edges exists for any two bases
-    (Brualdi, 1969); the assignment solve finds one, preferring same-position
-    pairs so the list reads naturally.
+    Edge ``(a, d)``: ``kept − a + d`` is legal (this claim alone fails) AND
+    ``K0 − d + a`` is legal (this claim alone wins).  See the module
+    docstring for why a perfect matching on those edges always exists.  The
+    assignment prefers same-position pairs so the list reads naturally; ties
+    resolve by the caller's deterministic order.
     """
     from scipy.optimize import linear_sum_assignment  # noqa: PLC0415
 
@@ -785,14 +841,21 @@ def _pair_moves(
     n = len(adds)
     if n == 0:
         return []
-    legal = [[True] * len(released) for _ in range(n)]
+    fails_alone = [[True] * len(released) for _ in range(n)]
+    wins_alone = [[True] * len(released) for _ in range(n)]
     if problem.slots:
         for i, a in enumerate(adds):
             without = kept - {a}
             if problem.legal(without):
                 continue
             for j, d in enumerate(released):
-                legal[i][j] = problem.legal(without | {d})
+                fails_alone[i][j] = problem.legal(without | {d})
+        for j, d in enumerate(released):
+            reduced = problem.k0 - {d}
+            if problem.legal(reduced):
+                continue
+            for i, a in enumerate(adds):
+                wins_alone[i][j] = problem.legal(reduced | {a})
 
     big = 1_000_000.0
     cost = []
@@ -805,7 +868,8 @@ def _pair_moves(
                 el.kind == _KIND_ROSTER
                 and (problem.roster_by_key[d].position or "").upper() == a_pos
             )
-            row.append((0.0 if legal[i][j] else big) + (0.0 if same else 1.0))
+            ok = fails_alone[i][j] and wins_alone[i][j]
+            row.append((0.0 if ok else big) + (0.0 if same else 1.0))
         cost.append(row)
     rows, cols = linear_sum_assignment(cost)
 
@@ -827,10 +891,12 @@ def _pair_moves(
             "material": float(fa.value) > problem.rho * drop_value + _EPS
             if el.kind == _KIND_ROSTER
             else float(fa.value) > 0,
-            "standsAlone": bool(legal[i][j]),
+            "failsAloneLegal": bool(fails_alone[i][j]),
+            "winsAloneLegal": bool(wins_alone[i][j]),
+            "standsAlone": bool(fails_alone[i][j] and wins_alone[i][j]),
         }
         pairs.append(pair)
-    pairs.sort(key=lambda p: -p["gain"])
+    pairs.sort(key=lambda p: (-p["gain"], p["add"]))
     return pairs
 
 
@@ -860,7 +926,7 @@ def _next_move(
             and k not in kept
             and (e.bid == 0 or (remaining is not None and e.bid <= remaining))
         ),
-        key=lambda k: -problem.elements[k].raw,
+        key=lambda k: (-problem.elements[k].raw, k),
     )[:_NEXT_MOVE_CANDIDATES]
     for a in candidates:
         grown = kept | {a}
@@ -915,7 +981,6 @@ def build_perfect_waivers(
     ``ValueError("no_rosters_loaded")`` rather than optimizing for some other
     team: every number in the payload is roster-specific.
     """
-    from src.api.confidence import gate_parameter  # noqa: PLC0415
     from src.api.data_contract import contract_slot_eligibility  # noqa: PLC0415
     from src.draft.context import (  # noqa: PLC0415
         build_roster_assets,
@@ -930,6 +995,10 @@ def build_perfect_waivers(
         assess_roster_capacity,
         build_capacity_context,
     )
+    from src.trade.waiver import waiver_pool_exclusion_census  # noqa: PLC0415
+
+    # Refuses (raises) before any work when the feature's band is undeclared.
+    ratio = load_stop_band()
 
     teams = contract_teams(contract)
     if not teams:
@@ -962,17 +1031,26 @@ def build_perfect_waivers(
             "roster size limit is unknown — no capacity claim is made, so only "
             "capacity-neutral swaps are planned (no add without a matching drop)"
         )
+    elif capacity.over_limit_before is None or capacity.open_spots_before is None:
+        # A known cap with an unanswered count is still no capacity claim.
+        capacity_state = "unknown"
+        open_spots = 0
+        notes.append(
+            "roster capacity could not be determined — only capacity-neutral swaps are planned"
+        )
     else:
-        over = int(capacity.over_limit_before or 0)
-        open_spots = 0 if over > 0 else int(capacity.open_spots_before or 0)
+        over = capacity.over_limit_before
+        open_spots = 0 if over > 0 else capacity.open_spots_before
         # The owner's no-trade answer is "exact" whenever the roster is legal
         # under every taxi assignment — true, but the OPEN-SPOT count is still
-        # a range while taxi membership is unknown.  The bracket says so.
-        taxi_lo = capacity.taxi_occupied_min or 0
-        taxi_hi = capacity.taxi_occupied_max or 0
-        capacity_state = (
-            "partial" if capacity.certainty != "exact" or taxi_hi > taxi_lo else "exact"
+        # a range while taxi membership is unknown.  The bracket says so; an
+        # unanswered bracket end is itself a reason for "partial".
+        taxi_lo = capacity.taxi_occupied_min
+        taxi_hi = capacity.taxi_occupied_max
+        taxi_ranged = (
+            taxi_lo is None or taxi_hi is None or taxi_hi > taxi_lo if capacity.taxi_size else False
         )
+        capacity_state = "partial" if capacity.certainty != "exact" or taxi_ranged else "exact"
         if over > 0:
             notes.append(
                 f"roster is already {over} over its {roster_limit}-man limit — the plan is "
@@ -1041,17 +1119,44 @@ def build_perfect_waivers(
     fa_excluded: dict[str, int] = {}
     seen: set[str] = set()
 
+    ambiguous_names: list[str] = []
+
     def _exclude(reason: str) -> None:
         fa_excluded[reason] = fa_excluded.get(reason, 0) + 1
+
+    # The waiver pool hands back NAMES.  A name alone is not an identity: two
+    # players can share one, and ``index_contract_rows`` keeps whichever row
+    # came first.  So the join needs the name AND the position to single out
+    # exactly one board player; anything else is reported, never guessed.
+    rows_by_name: dict[str, list[Mapping[str, Any]]] = {}
+    for brow in (contract or {}).get("playersArray") or []:
+        if not isinstance(brow, Mapping) or str(brow.get("assetClass") or "").lower() == "pick":
+            continue
+        for f in ("displayName", "canonicalName", "legacyRef"):
+            key = _norm(brow.get(f))
+            if key:
+                bucket = rows_by_name.setdefault(key, [])
+                if not any(b is brow for b in bucket):
+                    bucket.append(brow)
 
     for items in (targets.get("by_position") or {}).values():
         for cand in items or []:
             if not isinstance(cand, Mapping):
                 continue
-            row = by_name.get(_norm(cand.get("name")))
-            if row is None:
+            named = rows_by_name.get(_norm(cand.get("name"))) or []
+            if not named:
                 _exclude("not_on_board")
                 continue
+            cand_pos = str(cand.get("position") or "").strip().upper()
+            matches = [b for b in named if str(b.get("position") or "").strip().upper() == cand_pos]
+            identities = {str(b.get("playerId") or id(b)) for b in matches}
+            if len(identities) != 1:
+                _exclude("identity_ambiguous")
+                amb = str(cand.get("name") or "")
+                if amb not in ambiguous_names and len(ambiguous_names) < 25:
+                    ambiguous_names.append(amb)
+                continue
+            row = matches[0]
             keys = {
                 _norm(row.get(f)) for f in ("playerId", "legacyRef", "canonicalName", "displayName")
             } - {""}
@@ -1091,6 +1196,23 @@ def build_perfect_waivers(
                 )
             )
 
+    # Who the waiver pool's own rules filtered before any of the above, by
+    # reason, from the pool's own predicate (``waiver.waiver_candidate_exclusion``)
+    # — so a player outside the pool is counted, not invisible.
+    unrostered_rows = [
+        dict(r)
+        for r in (contract or {}).get("playersArray") or []
+        if isinstance(r, Mapping)
+        and str(r.get("assetClass") or "").lower() != "pick"
+        and str(r.get("position") or "").strip().upper() not in {"", "PICK"}
+        and not (
+            {_norm(r.get(f)) for f in ("playerId", "legacyRef", "canonicalName", "displayName")}
+            - {""}
+        )
+        & rostered
+    ]
+    pool_census = waiver_pool_exclusion_census(unrostered_rows)
+
     # Unpriced free agents: reported, never valued at zero.
     unpriced_fa = 0
     unpriced_fa_names: list[str] = []
@@ -1116,7 +1238,6 @@ def build_perfect_waivers(
     raw_balance = team.get("faabRemaining")
     budget = int(raw_balance) if isinstance(raw_balance, int) and raw_balance >= 0 else None
 
-    ratio = float(gate_parameter("AGREEMENT_VALUE_RATIO"))
     result = solve_perfect_waivers(
         roster,
         free_agents,
@@ -1201,9 +1322,9 @@ def build_perfect_waivers(
         }
 
     total_bid = sum(fa.bid for fa in result.adds)
-    net_gain = sum(fa.value for fa in result.adds) - sum(
-        float(rc.value or 0.0) for rc in result.drops
-    )
+    # Every drop is priced: an unpriced roster player is locked and can never
+    # be released, so ``rc.value`` is a number here by construction.
+    net_gain = sum(fa.value for fa in result.adds) - sum(float(rc.value) for rc in result.drops)
 
     return {
         "version": PERFECT_WAIVERS_VERSION,
@@ -1229,10 +1350,11 @@ def build_perfect_waivers(
         "stopRule": {
             "rule": (
                 "stop when the next move's gain is <= 0 or the add and the release it "
-                "displaces are within the confidence owner's agreement ratio"
+                "displaces are within the declared stop band"
             ),
             "agreementRatio": ratio,
-            "source": "config/confidence/gate_v1.json::AGREEMENT_VALUE_RATIO",
+            "stopBandClass": "PRIOR",
+            "source": STOP_BAND_SOURCE,
             "swapMultiplier": round(materiality_multiplier(ratio), 6),
             "nextBestMove": next_move,
         },
@@ -1276,6 +1398,10 @@ def build_perfect_waivers(
             "freeAgents": unpriced_fa,
             "freeAgentSample": unpriced_fa_names,
         },
-        "freeAgentExclusions": dict(sorted(fa_excluded.items())),
+        "freeAgentExclusions": {
+            "waiverPool": dict(sorted(pool_census.items())),
+            "planJoin": dict(sorted(fa_excluded.items())),
+            "identityAmbiguous": ambiguous_names,
+        },
         "notes": notes,
     }

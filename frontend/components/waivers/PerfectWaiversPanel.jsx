@@ -28,6 +28,15 @@ import styles from "@/app/waivers/waivers.module.css";
 
 const ENDPOINT = "/api/waiver/perfect";
 
+const POOL_REASON_LABEL = {
+  below_min_value: "below the value floor",
+  single_source: "single-source",
+  kicker_def_excluded: "K/DEF",
+  rookie_gate: "pre-draft rookies",
+  unpriced: "unpriced",
+  position_not_offered: "other positions",
+};
+
 const FAILURE_COPY = {
   data_not_ready: "This league's rosters haven't loaded yet.",
   unknown_team: "That team isn't in this league's rosters.",
@@ -139,7 +148,7 @@ function ReleaseCell({ release }) {
 
 function stopSentence(stopRule) {
   const ratio = Number(stopRule?.agreementRatio);
-  const band = Number.isFinite(ratio) ? `${Math.round(ratio * 100)}%` : "agreement";
+  const band = Number.isFinite(ratio) ? `${Math.round(ratio * 100)}%` : "declared";
   const next = stopRule?.nextBestMove;
   if (!next) return `Stopped: no free agent left that improves the roster.`;
   const release =
@@ -148,7 +157,7 @@ function stopSentence(stopRule) {
     return (
       `Stopped: the next best move — add ${next.add?.name} for ${release} — gains ` +
       `${fmtGain(next.gain)}, but the two are ${fmtPct(next.relativeGap)} apart, inside the ` +
-      `${band} band where two values agree.`
+      `${band} stop band, where the two values are too close to call.`
     );
   }
   return (
@@ -205,7 +214,7 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
         accessor: (m) => m.relativeGap,
         render: (m) => (m.relativeGap == null ? "—" : fmtPct(m.relativeGap)),
         headerInfo:
-          "How far apart the add and the release are in value. Every move clears the agreement band; an add into an open spot has nothing to compare.",
+          "How far apart the add and the release are in value. Every move clears the declared stop band; an add into an open spot has nothing to compare.",
       },
     ],
     [],
@@ -223,6 +232,10 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
     const unpricedRoster = Array.isArray(unpriced.rosterPlayers) ? unpriced.rosterPlayers : [];
     const notes = Array.isArray(payload.notes) ? payload.notes : [];
     const protectedRows = payload.constraints?.protectedOnRoster || [];
+    const poolFilters = payload.freeAgentExclusions?.waiverPool || {};
+    const poolFiltered = Object.entries(poolFilters).filter(([, n]) => Number(n) > 0);
+    const ambiguous = payload.freeAgentExclusions?.identityAmbiguous || [];
+    const unpaired = moves.filter((m) => m.standsAlone === false).length;
 
     const budgetText =
       budget.state === "known"
@@ -252,7 +265,7 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
             Net gain <strong className="ds-mono">{fmtGain(plan.netValueGain)}</strong>
           </span>
           <span>
-            {plan.addCount || 0} add{plan.addCount === 1 ? "" : "s"} · {plan.dropCount || 0} drop
+            {fmtValue(plan.addCount)} add{plan.addCount === 1 ? "" : "s"} · {fmtValue(plan.dropCount)} drop
             {plan.dropCount === 1 ? "" : "s"}
           </span>
           <span>{budgetText}</span>
@@ -272,7 +285,7 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
           emptyState={
             <EmptyState
               title="No move clears the bar"
-              description="Nothing on the wire beats a roster spot by more than the values' agreement band."
+              description="Nothing on the wire beats a roster spot by more than the declared stop band."
             />
           }
         />
@@ -289,6 +302,20 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
               {unpricedRoster.map((r) => r.name).join(", ")}.
             </li>
           ) : null}
+          {poolFiltered.length > 0 ? (
+            <li className={styles.note}>
+              Outside the waiver pool&apos;s rules (not considered):{" "}
+              {poolFiltered
+                .map(([reason, n]) => `${n} ${POOL_REASON_LABEL[reason] || reason}`)
+                .join(", ")}
+              .
+            </li>
+          ) : null}
+          {ambiguous.length > 0 ? (
+            <li className={styles.note}>
+              Not considered — name matches more than one player: {ambiguous.join(", ")}.
+            </li>
+          ) : null}
           {Number(unpriced.freeAgents) > 0 ? (
             <li className={styles.note}>
               {unpriced.freeAgents} free agent{Number(unpriced.freeAgents) === 1 ? "" : "s"} the
@@ -296,8 +323,10 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
             </li>
           ) : null}
           <li className={styles.note}>
-            Each pair can fail on its own and still leave a legal lineup. Advice only — no claim
-            is submitted.
+            {unpaired > 0
+              ? `${unpaired} pair${unpaired === 1 ? "" : "s"} could not be matched so that each claim stands alone — submit those together.`
+              : "Each pair is matched so that if only that claim fails, or only that claim wins, your lineup still fills as many starting slots."}{" "}
+            Advice only — no claim is submitted.
           </li>
         </ul>
       </>
