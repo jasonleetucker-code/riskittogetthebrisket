@@ -304,6 +304,9 @@ export const SYSTEM_MODEL = {
     { href: "/tools/ros-data-health", label: "ROS Data Health", hint: "Rest-of-season pipeline health", section: "Ops", adminOnly: true },
     { href: "/tools/trade-coverage", label: "Trade Coverage", hint: "Per-team coverage audit", section: "Ops", adminOnly: true },
     { href: "/admin", label: "Admin", hint: "Operator flags + actions", section: "Ops", adminOnly: true },
+    // Read-only champion/challenger evidence for every model family (IC-6).
+    // Admin-only twice over: hidden here, and 403 from /api/model-lab.
+    { href: "/admin/model-lab", label: "Model Lab", hint: "Champion vs challenger evidence (read-only)", section: "Ops", adminOnly: true, keywords: ["challenger", "champion", "hill", "models", "promotion"] },
   ],
 };
 

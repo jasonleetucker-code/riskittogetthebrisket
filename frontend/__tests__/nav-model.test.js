@@ -52,6 +52,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/settings",
   "/more",
   "/admin",
+  "/admin/model-lab",
   "/tools/source-health",
   "/tools/ros-data-health",
   "/tools/trade-coverage",
@@ -70,6 +71,7 @@ describe("IA coverage", () => {
     const hrefs = SYSTEM_MODEL.items.map((i) => i.href);
     for (const orphan of [
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
@@ -212,6 +214,7 @@ describe("system menu", () => {
     expect(hrefs).toContain("/more");
     for (const ops of [
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",

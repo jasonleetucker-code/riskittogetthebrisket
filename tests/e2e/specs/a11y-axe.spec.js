@@ -87,6 +87,7 @@ const ROUTES = [
   "/login",
   "/league",
   // C8-A11Y-01 extension — the rest of the private surface …
+  "/admin/model-lab",
   "/admin/sharp-identities",
   "/angle",
   "/arbitrage",
