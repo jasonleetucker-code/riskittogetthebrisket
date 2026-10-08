@@ -88,6 +88,7 @@ def _league(
             "settings": {
                 "last_scored_leg": finished_weeks,
                 "playoff_teams": 4,
+                "playoff_seed_type": 1,
                 "playoff_week_start": weeks + 1,
             }
         },
@@ -117,7 +118,9 @@ class _TmpRosDir(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        for mod in (scrape, team_strength, playoff_sim, championship):
+        # ``championship`` no longer reads a directory of its own
+        # (C5-PLAY-01): it reshapes ``playoff_sim``'s forecast.
+        for mod in (scrape, team_strength, playoff_sim):
             p = patch.object(mod, "ROS_DATA_DIR", self.root)
             p.start()
             self.addCleanup(p.stop)
@@ -525,15 +528,18 @@ class TestPerLeagueIsolation(_TmpRosDir):
             self.assertEqual(leader["ownerId"], strong)
 
     def test_lazy_section_reads_its_own_leagues_cache(self) -> None:
+        """Each league's Championship tab reads ITS league's canonical
+        forecast (C5-PLAY-01: the playoff forecast file, reshaped — the
+        championship file is no longer read by any section)."""
         sims = self.root / "sims"
         sims.mkdir(parents=True)
-        (sims / "latest_championship.json").write_text(json.dumps({"league": "main"}))
-        (sims / "dynasty_new_championship.json").write_text(json.dumps({"league": "new"}))
+        (sims / "latest_playoff.json").write_text(json.dumps({"computedAt": "main"}))
+        (sims / "dynasty_new_playoff.json").write_text(json.dumps({"computedAt": "new"}))
         with patch.object(league_registry, "default_league_key", return_value="dynasty_main"):
             new = championship.build_section(self.snaps["dynasty_new"])
             main = championship.build_section(self.snaps["dynasty_main"])
-        self.assertEqual((new["league"], new["cached"]), ("new", True))
-        self.assertEqual((main["league"], main["cached"]), ("main", True))
+        self.assertEqual((new["computedAt"], new["cached"]), ("new", True))
+        self.assertEqual((main["computedAt"], main["cached"]), ("main", True))
 
     def test_best_ball_flag_is_read_for_the_requested_league(self) -> None:
         cfgs = {

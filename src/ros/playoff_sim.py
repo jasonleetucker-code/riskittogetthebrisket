@@ -1,15 +1,34 @@
-"""ROS-driven playoff Monte Carlo.
+"""THE playoff / title probability engine (C5-PLAY-01 / V1-51).
 
-Coexists with ``src.public_league.playoff_odds``; this version uses
-ROS team-strength as the per-team weekly score MEAN, blended with the
-team's empirical scoring distribution from the season snapshot.  The
-v1 module uses purely empirical distributions — when ROS data is
-available it provides a forward-looking signal that pure history
-can't capture (rosters that just got stronger via trades, breakout
-players, etc.).
+ONE canonical owner.  Every surface that publishes a playoff, bye, seed,
+championship, finals or semifinal probability reads :func:`canonical_forecast`
+(or, for a hypothetical such as a trade arm, :func:`simulate_playoff_odds`):
 
-Outputs match the v1 schema so the frontend can swap data sources
-without a contract fork.
+* ``/api/public/league/rosPlayoffOdds`` — this payload as-is;
+* ``/api/public/league/playoffOdds`` — the same forecast in the public
+  section's historical shape (``src.public_league.playoff_odds``, now an
+  adapter with no simulation of its own);
+* ``/api/public/league/rosChampionship`` — the same forecast reshaped
+  (``src.ros.championship``, likewise an adapter).
+
+Until C5-PLAY-01 the public section ran its own empirical-resampling Monte
+Carlo and ``championship.py`` ran a third loop with its own bracket; on the
+2026-10-07 week-5 state the public engine said 99.0% for a team this engine
+put at 77.2%.  Why THIS engine is the canonical one (model identity and
+point-in-time capture via ``src.ros.forecast_archive`` / AL-P6 sidecars,
+``draftSlotDistribution`` for the pick projector, adaptive convergence with
+Wilson intervals, the league's exact lineup solve) is recorded in
+``tests/ros/test_one_playoff_engine.py``.
+
+Methodology is UNCHANGED by that consolidation, including the two open owner
+decisions every surface now inherits: D2 (the ``× (1 + ROS_BLEND·z)`` mean
+multiplier on top of a ROS-drawn best-ball pre-sim) and D3 (median games
+excluded from the record and seeding) — ``docs/OWNER_REQUESTED_TODO.md``.
+
+This engine uses ROS team-strength as the per-team weekly score MEAN,
+blended with the team's empirical scoring distribution from the season
+snapshot — a forward-looking signal that pure history can't capture
+(rosters that just got stronger via trades, breakout players, etc.).
 
 Inputs:
     snapshot         : PublicLeagueSnapshot
@@ -36,11 +55,13 @@ Implementation overview:
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import math
 import random
 import statistics
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -56,7 +77,7 @@ from src.ros.lineup import (
     solve_optimal_assignment,
 )
 from src.public_league import luck, metrics, playoff_odds
-from src.public_league.playoff_structure import resolve_playoff_structure
+from src.public_league.playoff_structure import SEED_TYPE_RESEED, resolve_playoff_structure
 from src.public_league.snapshot import PublicLeagueSnapshot
 
 LOG = logging.getLogger("ros.playoff_sim")
@@ -739,18 +760,83 @@ def _summary(samples: list[float]) -> dict[str, float] | None:
     }
 
 
+#: Placement given to every loser of the round that leaves two teams standing
+#: (the semifinal), and the size of the field from which a team counts as a
+#: semifinalist / finalist.  These are the definitions the retired second
+#: championship loop (``src/ros/championship.py`` before C5-PLAY-01) published
+#: ``semifinalOdds`` / ``finalsOdds`` / ``expectedFinish`` under; they are
+#: RECORDED here off this engine's own bracket so the surfaces that show those
+#: columns keep their meaning while reading the one canonical simulation.
+_SEMIFINAL_TEAMS_LEFT = 4
+_FINAL_TEAMS_LEFT = 2
+_SEMIFINAL_LOSER_PLACEMENT = 3
+
+
+def _record_round(
+    placements: dict[str, dict[str, int]],
+    entrants: list[str],
+    losers: list[str],
+    survivors_after: int,
+) -> None:
+    """Record one bracket round into ``placements`` (no randomness).
+
+    ``entrants`` reached a round of ``len(entrants)`` teams; ``losers`` (in
+    game order) went out in it.  Placement convention, unchanged from the
+    retired championship loop: the final's loser is 2nd, BOTH semifinal losers
+    are 3rd, and losers of any earlier round take the next places in game order
+    (round-one losers of a 7-team bracket are 5th, 6th, 7th).
+    """
+    size = len(entrants)
+    for owner in entrants:
+        slot = placements.setdefault(owner, {})
+        slot["field"] = min(slot.get("field", size), size)
+    for k, owner in enumerate(losers):
+        if survivors_after == 1:
+            place = 2
+        elif survivors_after == _FINAL_TEAMS_LEFT:
+            place = _SEMIFINAL_LOSER_PLACEMENT
+        else:
+            place = survivors_after + 1 + k
+        placements[owner]["place"] = place
+
+
+def _bracket_order(slots: int) -> list[int]:
+    """Seeds 1..``slots`` in standard single-elimination bracket order.
+
+    ``[1, 4, 2, 3]`` for four, ``[1, 8, 4, 5, 2, 7, 3, 6]`` for eight:
+    adjacent entries meet, and the winners keep the order.  This is the
+    fixed bracket Sleeper generates when ``playoff_seed_type`` is ``0``
+    (see ``src/public_league/playoff_structure.py``).  ``slots`` must be a
+    power of two — a fixed bracket is padded to one by its byes.
+    """
+    if slots < 1 or slots & (slots - 1):
+        raise ValueError(f"a fixed bracket needs a power-of-two field, got {slots}")
+    order = [1]
+    while len(order) < slots:
+        size = len(order) * 2
+        order = [x for s in order for x in (s, size + 1 - s)]
+    return order
+
+
 def _simulate_bracket(
     seeded: list[str],
     distributions: dict[str, _TeamDist],
     bye_seeds: int,
     rng: random.Random,
+    placements: dict[str, dict[str, int]] | None = None,
+    *,
+    reseed: bool = True,
 ) -> str | None:
     """Play a seeded single-elimination bracket; return the champion.
 
     Standard fantasy structure: the top ``bye_seeds`` teams sit out
-    round one, the rest play highest-vs-lowest, and re-seeding applies
-    each round (the surviving top seed always faces the surviving
-    bottom seed).  Each game is one draw from each team's weekly
+    round one and the rest play highest-vs-lowest.  After round one the
+    league's own ``playoff_seed_type`` decides the pairings (C5-PLAY-01
+    review B2): ``reseed=True`` — the surviving top seed always faces the
+    surviving bottom seed, every round; ``reseed=False`` — a FIXED bracket
+    (:func:`_bracket_order`), where a round-one winner takes its higher
+    seed's slot and pairings are never redrawn (six teams: 1 vs
+    winner(4/5), 2 vs winner(3/6)).  Each game is one draw from each team's weekly
     distribution — the same distribution the regular-season loop uses,
     so a team's playoff strength and its regular-season strength cannot
     disagree.
@@ -759,11 +845,19 @@ def _simulate_bracket(
     by the host's own tiebreakers, and a coin flip would inject variance
     the seeding already resolved.  Capped to avoid a pathological loop
     on degenerate (zero-variance) distributions.
+
+    ``placements`` (optional) is filled with each bracket team's smallest
+    field reached (``"field"``) and final placement (``"place"``) — see
+    :func:`_record_round`.  Recording draws NOTHING from ``rng``: the champion
+    and every game are identical with or without it (pinned by
+    ``tests/ros/test_one_playoff_engine.py``).
     """
     alive = [o for o in seeded if o in distributions]
     if not alive:
         return None
     if len(alive) == 1:
+        if placements is not None:
+            placements[alive[0]] = {"field": 1, "place": 1}
         return alive[0]
 
     def _play(a: str, b: str) -> str:
@@ -783,22 +877,61 @@ def _simulate_bracket(
     byes = alive[:bye_seeds]
     contenders = alive[bye_seeds:]
     survivors = list(byes)
+    losers: list[str] = []
     while len(contenders) >= 2:
-        survivors.append(_play(contenders[0], contenders[-1]))
+        winner = _play(contenders[0], contenders[-1])
+        survivors.append(winner)
+        losers.append(contenders[-1] if winner == contenders[0] else contenders[0])
         contenders = contenders[1:-1]
     survivors.extend(contenders)  # odd bracket: the middle team advances
+    if placements is not None:
+        _record_round(placements, alive, losers, len(survivors))
+
+    if not reseed:
+        # Fixed bracket.  ``survivors`` is in slot order already: the byes
+        # (slots 1..bye_seeds), then each round-one winner in the slot of
+        # the higher seed it played (game k of round one is seed
+        # bye_seeds + 1 + k).  Every later round pairs bracket neighbours
+        # and the winner keeps the smaller slot.
+        slotted = {i + 1: o for i, o in enumerate(survivors)}
+        while len(slotted) > 1:
+            order = _bracket_order(len(slotted))
+            entrants = [slotted[s] for s in order]
+            nxt_slots: dict[int, str] = {}
+            losers = []
+            for k in range(0, len(order), 2):
+                a, b = slotted[order[k]], slotted[order[k + 1]]
+                winner = _play(a, b)
+                nxt_slots[min(order[k], order[k + 1])] = winner
+                losers.append(b if winner == a else a)
+            slotted = nxt_slots
+            if placements is not None:
+                _record_round(placements, entrants, losers, len(slotted))
+        champion = next(iter(slotted.values()), None)
+        if placements is not None and champion is not None:
+            placements[champion] = {"field": 1, "place": 1}
+        return champion
 
     # Re-seed and play down to one.
     seed_rank = {o: i for i, o in enumerate(alive)}
     while len(survivors) > 1:
         survivors.sort(key=lambda o: seed_rank.get(o, len(alive)))
+        entrants = list(survivors)
         nxt: list[str] = []
+        losers = []
         while len(survivors) >= 2:
-            nxt.append(_play(survivors[0], survivors[-1]))
+            winner = _play(survivors[0], survivors[-1])
+            nxt.append(winner)
+            losers.append(survivors[-1] if winner == survivors[0] else survivors[0])
             survivors = survivors[1:-1]
         nxt.extend(survivors)
         survivors = nxt
-    return survivors[0] if survivors else None
+        if placements is not None:
+            _record_round(placements, entrants, losers, len(survivors))
+    champion = survivors[0] if survivors else None
+    if placements is not None and champion is not None:
+        placements[champion] = {"field": 1, "place": 1}
+    return champion
 
 
 def simulate_playoff_odds(
@@ -809,6 +942,7 @@ def simulate_playoff_odds(
     bye_seeds: int | None = None,
     best_ball: bool | None = None,
     rng: random.Random | None = None,
+    reseed: bool | None = None,
     min_simulations: int = MIN_SIMULATIONS,
     max_simulations: int = MAX_SIMULATIONS,
     odds_se_tolerance: float = ODDS_SE_TOLERANCE,
@@ -847,6 +981,15 @@ def simulate_playoff_odds(
         playoff_seeds = structure.teams
     if bye_seeds is None:
         bye_seeds = structure.byes if structure.known else None
+    # How the bracket is paired after round one is the LEAGUE'S rule
+    # (``playoff_seed_type``, C5-PLAY-01 review B2).  Unknown fails closed:
+    # qualifying, byes and seeds are still simulated (pairings do not affect
+    # them); title / finals / semifinal / finish odds are not published.
+    # An explicit ``reseed`` wins, exactly as an explicit ``playoff_seeds``
+    # does — for hypotheticals that state their own bracket.
+    if reseed is None and structure.seed_type is not None:
+        reseed = structure.seed_type == SEED_TYPE_RESEED
+    bracket_playable = reseed is not None
     model = points_model or load_points_model()
     # Team-strength rows are roster-derived and therefore leagueKey-scoped
     # (see team_strength.resolve_snapshot_league_key's docstring); without
@@ -999,6 +1142,9 @@ def simulate_playoff_odds(
     wins_total: dict[str, float] = {o: 0.0 for o in owners}
 
     champ_count: dict[str, int] = {o: 0 for o in owners}
+    finals_count: dict[str, int] = {o: 0 for o in owners}
+    semis_count: dict[str, int] = {o: 0 for o in owners}
+    finish_total: dict[str, float] = {o: 0.0 for o in owners}
     completed = 0
 
     # Rookie-draft slot distribution under the league's CANONICAL draft-order
@@ -1015,11 +1161,14 @@ def simulate_playoff_odds(
     # so publishing slots leaves every playoff/championship draw unchanged.
     draft_rng = random.Random()
     draft_rng.setstate(rng.getstate())
-    # Draft order ranks on RECORD, where a tied game is half a win (the
-    # ``wins + 0.5 * ties`` key ``_regular_season_record_to_date`` documents).
-    # ``sim_wins`` is seeded from wins alone — the playoff seeding reads it
-    # that way today, and changing it would move every published odd — so the
-    # draft order adds the half-wins from ties already on the books here.
+    # A recorded tie is half a win — the ``wins + 0.5 * ties`` key
+    # ``_regular_season_record_to_date`` documents and the host's standings
+    # use (C5-PLAY-01 review B3; spec §5 lists ties as an input).  It now
+    # starts ``sim_wins``, so SEEDING, the bracket and the draft order all
+    # read one record.  Until this review it was added only on the
+    # draft-order path, so a 3-0-1 team was seeded as 3-1 — and the draft
+    # order's separate add-back is removed with it, or the tie would count
+    # twice there.
     tie_credit: dict[str, float] = {}
     for o in owners:
         ties = (record.get(o) or {}).get("ties")
@@ -1034,7 +1183,9 @@ def simulate_playoff_odds(
 
     for sim_i in range(max_simulations):
         completed = sim_i + 1
-        sim_wins: dict[str, float] = {o: float(record.get(o, {}).get("wins", 0)) for o in owners}
+        sim_wins: dict[str, float] = {
+            o: float(record.get(o, {}).get("wins", 0)) + tie_credit[o] for o in owners
+        }
         sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
         for week, owner_a, owner_b in schedule:
             dist_a = distributions.get(owner_a)
@@ -1062,7 +1213,8 @@ def simulate_playoff_odds(
         # tests/ros/test_standings_tiebreak.py.
         ranked = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
         if draft_rule is not None:
-            record_wins = {o: sim_wins.get(o, 0.0) + tie_credit[o] for o in owners}
+            # ``sim_wins`` already carries the recorded half-wins (B3).
+            record_wins = sim_wins
             for slot_i, owner in enumerate(
                 draft_order(record_wins, sim_pf, owners, rng=draft_rng).order
             ):
@@ -1086,9 +1238,38 @@ def simulate_playoff_odds(
         # distributions.  Previously the module reported seeding odds
         # only and no championship probability existed anywhere — the
         # trade-delta contract (§17.3) requires one.
-        champion = _simulate_bracket(ranked[:playoff_seeds], distributions, bye_seeds, rng)
+        # An unknown host seeding rule (B2) plays no bracket: no title /
+        # finals / semifinal / finish odds exist for this run.
+        placements: dict[str, dict[str, int]] = {}
+        champion = (
+            _simulate_bracket(
+                ranked[:playoff_seeds],
+                distributions,
+                bye_seeds,
+                rng,
+                placements,
+                reseed=bool(reseed),
+            )
+            if bracket_playable
+            else None
+        )
         if champion:
             champ_count[champion] += 1
+        # Bracket depth + final placement, recorded off THIS draw's bracket
+        # (C5-PLAY-01): the /league Championship tab's finals / semifinal /
+        # expected-finish columns used to come from a second, independent
+        # Monte Carlo in ``championship.py``.  A team outside the bracket
+        # finishes at its regular-season seed.
+        for i, owner in enumerate(ranked):
+            slot = placements.get(owner)
+            if slot is None:
+                finish_total[owner] += i + 1
+                continue
+            finish_total[owner] += slot["place"]
+            if slot["field"] <= _FINAL_TEAMS_LEFT:
+                finals_count[owner] += 1
+            if slot["field"] <= _SEMIFINAL_TEAMS_LEFT:
+                semis_count[owner] += 1
 
         # Convergence: stop once every team's playoff-odds standard
         # error is inside tolerance.  Checked on a cadence and never
@@ -1114,14 +1295,34 @@ def simulate_playoff_odds(
         most_likely_seed = seed_dist.index(max(seed_dist)) + 1
         po_lo, po_hi = _wilson_interval(playoff_count[owner], n_safe)
         ch_lo, ch_hi = _wilson_interval(champ_count[owner], n_safe)
+        bracket_fields: dict[str, Any] = (
+            {
+                "championshipOdds": round(champ_count[owner] / n_safe, 4),
+                "championshipOddsCi": [round(ch_lo, 4), round(ch_hi, 4)],
+                "finalsOdds": round(finals_count[owner] / n_safe, 4),
+                "semifinalOdds": round(semis_count[owner] / n_safe, 4),
+                "expectedFinish": round(finish_total[owner] / n_safe, 2),
+            }
+            if bracket_playable
+            # Missing, never 0: no bracket was played (see
+            # ``championshipUnavailable`` on the payload).
+            else dict.fromkeys(
+                (
+                    "championshipOdds",
+                    "championshipOddsCi",
+                    "finalsOdds",
+                    "semifinalOdds",
+                    "expectedFinish",
+                )
+            )
+        )
         out.append(
             {
                 "ownerId": owner,
                 "displayName": metrics.display_name_for(snapshot, owner),
                 "playoffOdds": round(playoff_count[owner] / n_safe, 4),
                 "playoffOddsCi": [round(po_lo, 4), round(po_hi, 4)],
-                "championshipOdds": round(champ_count[owner] / n_safe, 4),
-                "championshipOddsCi": [round(ch_lo, 4), round(ch_hi, 4)],
+                **bracket_fields,
                 "byeOdds": round(bye_count[owner] / n_safe, 4),
                 "topSeedOdds": round(top_seed_count[owner] / n_safe, 4),
                 "missPlayoffsOdds": round(miss_count[owner] / n_safe, 4),
@@ -1146,8 +1347,25 @@ def simulate_playoff_odds(
         if owners
         else 0.0
     )
+    unavailable_bracket = (
+        {}
+        if bracket_playable
+        else {
+            "championshipUnavailable": {
+                "reason": structure.seed_type_reason or "playoff_seed_type_unknown",
+                "detail": (
+                    "this league's settings do not say whether its playoff bracket "
+                    "re-seeds each round or is fixed, so the bracket cannot be played "
+                    "as the host plays it. Playoff, bye and seed odds are unaffected; "
+                    "championship, finals and semifinal odds are not published. This "
+                    "is not a 0% chance for anyone."
+                ),
+            }
+        }
+    )
     return {
         "playoffOdds": out,
+        **unavailable_bracket,
         "n_simulations": completed,
         "converged": worst_se <= odds_se_tolerance,
         "worstPlayoffOddsSe": round(worst_se, 5),
@@ -1306,6 +1524,7 @@ def simulate_trade_impact(
     best_ball: bool | None = None,
     seed: int = 20260726,
     points_model: PointsModel | None = None,
+    reseed: bool | None = None,
 ) -> dict[str, Any]:
     """Playoff/championship odds movement from a proposed trade.
 
@@ -1424,6 +1643,7 @@ def simulate_trade_impact(
         rng=random.Random(seed),
         points_model=model,
         distributions=base_dists,
+        reseed=reseed,
     )
     after = simulate_playoff_odds(
         snapshot,
@@ -1434,6 +1654,7 @@ def simulate_trade_impact(
         rng=random.Random(seed),
         points_model=model,
         distributions=after_dists,
+        reseed=reseed,
     )
 
     before_by_owner = {r["ownerId"]: r for r in before.get("playoffOdds") or []}
@@ -1465,12 +1686,17 @@ def simulate_trade_impact(
         return rows
 
     playoff_rows = _deltas("playoffOdds")
-    champ_rows = _deltas("championshipOdds")
+    # No bracket was played when the league's seeding rule is unknown (B2):
+    # there is no championship delta to report, and a missing title odd must
+    # not enter ``_deltas`` as 0.
+    champ_unavailable = before.get("championshipUnavailable")
+    champ_rows = [] if champ_unavailable else _deltas("championshipOdds")
     meaningful = sum(1 for r in playoff_rows + champ_rows if r.significant)
 
     return {
         "playoff": [r.to_dict() for r in playoff_rows],
         "championship": [r.to_dict() for r in champ_rows],
+        **({"championshipUnavailable": champ_unavailable} if champ_unavailable else {}),
         "meaningfulDeltas": meaningful,
         "nSimulations": n,
         "sharedSeed": seed,
@@ -1479,18 +1705,116 @@ def simulate_trade_impact(
     }
 
 
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """Lazy-section builder for /api/public/league/rosPlayoffOdds.
+#: Reason published beside ``n_simulations: None`` when the canonical
+#: forecast carries no usable simulation count.  Shared by both adapter
+#: surfaces (``championship``, public ``playoffOdds``) so one state has one word.
+SIM_COUNT_MISSING = "canonical_forecast_simulation_count_missing"
 
-    Prefers the cached output written by the scheduled scrape; falls
-    back to a live Monte Carlo when the cache is missing or stale.
+
+def simulation_count(forecast: dict[str, Any]) -> int | None:
+    """The canonical forecast's simulation count, or ``None`` when it does not
+    carry a real non-negative integer.  Never coerced to ``0``: a count is a
+    claim about work done (#943), and "no count was reported" is not
+    "nothing was simulated"."""
+    value = forecast.get("n_simulations")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+#: Row fields every current forecast carries for the Championship surface.
+_BRACKET_ROW_FIELDS = ("championshipOdds", "finalsOdds", "semifinalOdds", "expectedFinish")
+
+
+def cached_forecast_matches_snapshot(cached: dict[str, Any], snapshot: Any) -> bool:
+    """Does a fresh-by-mtime cached forecast describe THIS snapshot's state?
+
+    Fetched recently is not content fresh: the file's age says when it was
+    written, not which finished week it simulated.  Every surface reads one
+    forecast and lays the snapshot's own record beside it, so a forecast taken
+    before the latest week finalised would sit next to a record that already
+    counts that week.  Compared on the fields the forecast itself carries —
+    season, finished regular-season weeks, bracket — each only when present
+    (a refusal payload carries none of them and is accepted as before).
+    """
+    rows = cached.get("playoffOdds")
+    if isinstance(rows, list) and any(
+        not isinstance(r, dict) or any(f not in r for f in _BRACKET_ROW_FIELDS) for r in rows
+    ):
+        # Written before this engine recorded bracket depth: the
+        # Championship surface would have to publish those columns as
+        # missing, so the file is not this engine's current output.
+        return False
+    season = cached.get("season")
+    if season is not None and season != _season_year(snapshot):
+        return False
+    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    cached_structure = cached.get("playoffStructure")
+    if isinstance(cached_structure, dict) and cached_structure != structure.to_dict():
+        return False
+    progress = cached.get("regularSeasonProgress")
+    if isinstance(progress, dict) and "weeksFinal" in progress:
+        live = _regular_season_progress(snapshot, structure)
+        if progress.get("weeksFinal") != live.get("weeksFinal"):
+            return False
+    return True
+
+
+#: Live-run memo shared by every surface: ``(leagueKey, root id, snapshot
+#: generated_at) -> payload``.  Without it, two sections asked about the same
+#: snapshot on a cache miss would each draw their own Monte Carlo and publish
+#: two different sets of numbers for one league and week — the defect this
+#: module's consolidation exists to remove.  Bounded: one entry per league.
+_LIVE_MEMO: dict[str | None, tuple[tuple[Any, Any], dict[str, Any]]] = {}
+_LIVE_LOCKS: dict[str | None, threading.Lock] = {}
+_LIVE_LOCKS_GUARD = threading.Lock()
+
+
+def _live_lock(league_key: str | None) -> threading.Lock:
+    """One lock per league, so one league's live run never queues another's."""
+    with _LIVE_LOCKS_GUARD:
+        return _LIVE_LOCKS.setdefault(league_key, threading.Lock())
+
+
+def canonical_forecast(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """The ONE published playoff/title forecast for ``snapshot``'s league.
+
+    The scheduled scrape's file when it is fresh AND describes this
+    snapshot's state (:func:`cached_forecast_matches_snapshot`); otherwise a
+    live :func:`simulate_playoff_odds` run, computed once per snapshot and
+    shared by every caller (single-flight).  Always returns a private copy, so
+    a surface reshaping it cannot alter what another surface reads.
     """
     from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
 
-    cached = _load_cached_payload(resolve_snapshot_league_key(snapshot))
-    if cached is not None:
+    league_key = resolve_snapshot_league_key(snapshot)
+    cached = _load_cached_payload(league_key)
+    if cached is not None and cached_forecast_matches_snapshot(cached, snapshot):
         cached["cached"] = True
         return cached
-    payload = simulate_playoff_odds(snapshot)
-    payload["cached"] = False
-    return payload
+    identity = (
+        getattr(snapshot, "root_league_id", None),
+        getattr(snapshot, "generated_at", None),
+    )
+    if not identity[1]:
+        # No snapshot identity, nothing to key a shared result on: a memo
+        # here could hand one snapshot's forecast to another.
+        payload = simulate_playoff_odds(snapshot)
+        payload["cached"] = False
+        return payload
+    with _live_lock(league_key):
+        hit = _LIVE_MEMO.get(league_key)
+        if hit is None or hit[0] != identity:
+            payload = simulate_playoff_odds(snapshot)
+            payload["cached"] = False
+            hit = (identity, payload)
+            _LIVE_MEMO[league_key] = hit
+    return copy.deepcopy(hit[1])
+
+
+def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Lazy-section builder for /api/public/league/rosPlayoffOdds.
+
+    The canonical forecast as-is — see :func:`canonical_forecast`.
+    """
+    return canonical_forecast(snapshot)

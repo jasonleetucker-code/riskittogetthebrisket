@@ -805,12 +805,6 @@ export default function SettingsPage() {
           hint="Master switch.  Off hides every ROS-driven surface (Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags).  Does not affect the Power tab — it has no v1 fallback to fall back to (V1-52 retired it)."
         />
         <ToggleRow
-          label="Use ROS-driven Playoff Odds"
-          checked={!!settings.useRosPlayoffOdds}
-          onChange={(v) => update("useRosPlayoffOdds", v)}
-          hint="When enabled, the playoff Monte Carlo uses ROS-blended weekly score distributions instead of empirical-only.  PR-future toggle for the playoff-odds section swap; ROS Championship tab uses ROS by default."
-        />
-        <ToggleRow
           label="Show ROS Fit panel on Trade Calculator"
           checked={settings.showRosTradePanel !== false}
           onChange={(v) => update("showRosTradePanel", v)}

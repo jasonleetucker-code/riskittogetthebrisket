@@ -245,20 +245,35 @@ def _run_refresh(ros_tmp, monkeypatch):
     stamps = iter([COMPUTED_AT, "2026-10-01T12:00:05+00:00"])
     monkeypatch.setattr(scrape, "_now", lambda: next(stamps))
     cfg = SimpleNamespace(key="dynasty_main", sleeper_league_id="L2026", best_ball=True)
+
+    # C5-PLAY-01: ONE simulation per refresh.  The championship file is the
+    # playoff forecast reshaped, so a second simulator is never called — the
+    # guard below fails the refresh if anything tries.
+    def _no_second_simulation(*args, **kwargs):
+        raise AssertionError("the refresh ran a second, independent simulation")
+
     with (
         patch("src.public_league.snapshot.build_public_snapshot", return_value=_snapshot()),
         patch.object(playoff_sim, "simulate_playoff_odds", return_value=dict(PLAYOFF_PAYLOAD)),
-        patch.object(championship, "simulate_championship_odds", return_value=dict(CHAMP_PAYLOAD)),
+        patch.object(championship, "simulate_championship_odds", _no_second_simulation),
     ):
         out = scrape._refresh_sim_caches_for_league(cfg, "dynasty_main")
     return out
 
 
 def _expected_served_bytes():
-    """The served files exactly as the pre-archive writer produced them."""
+    """The served files exactly as the writer produces them: the playoff
+    forecast, and (C5-PLAY-01) the SAME forecast reshaped for the
+    championship file, stamped with the forecast's own ``computedAt``."""
     return (
         json.dumps({"computedAt": COMPUTED_AT, **PLAYOFF_PAYLOAD}, indent=2),
-        json.dumps({"computedAt": "2026-10-01T12:00:05+00:00", **CHAMP_PAYLOAD}, indent=2),
+        json.dumps(
+            {
+                "computedAt": COMPUTED_AT,
+                **championship.championship_from_forecast(dict(PLAYOFF_PAYLOAD)),
+            },
+            indent=2,
+        ),
     )
 
 
