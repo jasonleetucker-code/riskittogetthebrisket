@@ -1,49 +1,39 @@
-"""ROS-driven championship Monte Carlo.
+"""Championship / title odds — an ADAPTER over the one canonical engine.
 
-Extends ``src.ros.playoff_sim`` through the playoff bracket + finals.
-Outputs per-team championship odds, finals odds, semifinal odds, and
-expected-finish.
+C5-PLAY-01: this module no longer simulates.  It reshapes the canonical
+forecast from :mod:`src.ros.playoff_sim` (playoff, championship, finals,
+semifinal odds and expected finish, all recorded off ONE simulation's
+seeding and bracket) into the ``/api/public/league/rosChampionship`` shape
+and adds the presentation-only ``contenderTier`` label.
 
-For PR3 the bracket model is intentionally simple:
+Shape (unchanged)::
 
-  * Single-elimination 6-team bracket (2 byes + 4 wild-card matchups
-    in round 1; 4 in semis; finals).  Configurable per league.
-  * Each playoff matchup uses the same per-team weekly score
-    distribution as the regular-season simulator (mean from blended
-    ROS strength, sd bumped for best-ball variance).
-  * The full sim runs ``n_simulations`` times; for each run we
-    simulate the regular season → seed → bracket → champion.
-
-The frontend can render this directly as a "ROS Championship Odds"
-section.  PR4 wires it into the buyer/seller direction logic.
-
-Returns:
     {
         "championshipOdds": [{ownerId, displayName,
                               championshipOdds, finalsOdds,
-                              semifinalOdds, expectedFinish,
+                              semifinalOdds, playoffOdds, expectedFinish,
                               contenderTier}],
         "n_simulations": int,
         "playoffSeeds": int,
         "byeSeeds": int,
+        "playoffStructure": {...},
         "rosStrengthAvailable": bool,
+        "unsimulable": {...},   # only when the canonical engine refused
     }
+
+The retired second loop (fixed-pairing bracket, coin-flip playoff ties, fixed
+10,000 draws, its own ``*_championship.json`` read) is deleted rather than
+deprecated: a complete second simulator beside the live one is how this
+surface came to publish different odds from ``rosPlayoffOdds``.
 """
 
 from __future__ import annotations
 
-import json
-import logging
 import random
 from typing import Any
 
-from src.league_intel.sim_calibration import load_points_model
-from src.public_league import metrics, playoff_odds
-from src.public_league.playoff_structure import resolve_playoff_structure
 from src.public_league.snapshot import PublicLeagueSnapshot
-from src.ros import ROS_DATA_DIR, playoff_sim
-
-LOG = logging.getLogger("ros.championship")
+from src.ros import playoff_sim
 
 
 # Contender-tier thresholds (per spec).
@@ -62,373 +52,130 @@ def _contender_tier(championship_odds: float, playoff_odds_pct: float) -> str:
     return "Rebuilder / Seller"
 
 
-def _simulate_bracket(
-    seeded_owners: list[str],
-    distributions: dict[str, playoff_sim._TeamDist],
-    *,
-    bye_seeds: int,
-    playoff_seeds: int,
-    rng: random.Random,
-) -> dict[str, int]:
-    """Simulate one playoff bracket.  Returns finish placement per
-    owner: 1 (champion), 2 (runner-up), 3-4 (semifinal exits), 5-N
-    (early/missed playoffs).
+#: Where every number on this surface comes from.
+ENGINE = "src.ros.playoff_sim"
+
+#: The row fields this surface publishes, each read from the canonical
+#: forecast row of the same name.  ``contenderTier`` is the one derived field.
+_ROW_FIELDS = (
+    "championshipOdds",
+    "finalsOdds",
+    "semifinalOdds",
+    "playoffOdds",
+    "expectedFinish",
+)
+
+
+def _desc_missing_last(value: float | None) -> tuple[int, float]:
+    """Sort key: highest first, a missing value after every real one."""
+    return (1, 0.0) if value is None else (0, -value)
+
+
+def championship_from_forecast(forecast: dict[str, Any]) -> dict[str, Any]:
+    """Reshape the ONE canonical forecast into this section's shape.
+
+    No simulation happens here (C5-PLAY-01).  This module used to run a
+    second Monte Carlo over the same team distributions with its own bracket
+    (fixed pairings, coin-flip ties, a fixed 10,000 draws), so the
+    Championship tab's playoff and title odds were a different random sample
+    — and on brackets with byes a different bracket — from the numbers
+    ``rosPlayoffOdds`` published for the same league and week.  Every number
+    below is the canonical engine's, field for field.
+
+    A refusal passes through with its own ``unsimulable`` block and
+    ``n_simulations: 0``.  A canonical row missing one of :data:`_ROW_FIELDS`
+    publishes ``None`` for it and names the field in
+    ``unavailableFields`` — never ``0``.
     """
-    finishes: dict[str, int] = {}
-    if not seeded_owners:
-        return finishes
+    header = {
+        "playoffSeeds": forecast.get("playoffSeeds"),
+        "byeSeeds": forecast.get("byeSeeds"),
+        "playoffStructure": forecast.get("playoffStructure"),
+        "rosStrengthAvailable": forecast.get("rosStrengthAvailable"),
+        "engine": ENGINE,
+    }
+    for key in ("computedAt", "cached", "season", "championshipUnavailable"):
+        if key in forecast:
+            header[key] = forecast[key]
+    n_sims = playoff_sim.simulation_count(forecast)
+    if n_sims is None:
+        header["nSimulationsUnavailable"] = playoff_sim.SIM_COUNT_MISSING
+    rows_in = forecast.get("playoffOdds") or []
+    if forecast.get("unsimulable") or not rows_in:
+        # The canonical engine's own count (its refusals publish 0) — or None
+        # with the reason above; never a substituted number.
+        out = {"championshipOdds": [], "n_simulations": n_sims, **header}
+        if forecast.get("unsimulable"):
+            out["unsimulable"] = forecast["unsimulable"]
+        return out
 
-    # Mark anyone outside the playoff field with a finish equal to
-    # their seed (they're "out" in seeding order).
-    playoff_field_size = min(playoff_seeds, len(seeded_owners))
-    for i, owner in enumerate(seeded_owners):
-        if i >= playoff_field_size:
-            finishes[owner] = i + 1
-
-    field = seeded_owners[:playoff_field_size]
-    if len(field) < 4:
-        # Tiny league fallback: champion is the top seed by record.
-        if field:
-            finishes[field[0]] = 1
-            for i, owner in enumerate(field[1:], start=2):
-                finishes[owner] = i
-        return finishes
-
-    # Round 1: byes auto-advance; remaining seeds play in
-    # higher-seed-vs-lower-seed pairs.
-    advancing_to_semis: list[str] = list(field[:bye_seeds])
-    wildcard = [s for s in field[bye_seeds:]]
-    # Pair top remaining vs bottom remaining.
-    while len(wildcard) >= 2:
-        high = wildcard.pop(0)
-        low = wildcard.pop(-1)
-        winner = _simulate_matchup(high, low, distributions, rng)
-        advancing_to_semis.append(winner)
-        # The loser is eliminated at this round.
-        loser = low if winner == high else high
-        finishes.setdefault(loser, 5 + len(finishes) - (len(seeded_owners) - playoff_field_size))
-
-    # Semifinals: pair higher seed vs lower seed in advancing list.
-    semis_advance: list[str] = []
-    while len(advancing_to_semis) >= 2:
-        high = advancing_to_semis.pop(0)
-        low = advancing_to_semis.pop(-1)
-        winner = _simulate_matchup(high, low, distributions, rng)
-        semis_advance.append(winner)
-        loser = low if winner == high else high
-        finishes.setdefault(loser, 3)
-
-    # Finals.
-    if len(semis_advance) >= 2:
-        high = semis_advance[0]
-        low = semis_advance[1]
-        champion = _simulate_matchup(high, low, distributions, rng)
-        runner_up = low if champion == high else high
-        finishes[champion] = 1
-        finishes[runner_up] = 2
-
-    # Anyone unplaced gets the next available finish (defensive).
-    placed_finishes = set(finishes.values())
-    next_finish = 1
-    for owner in seeded_owners:
-        if owner in finishes:
-            continue
-        while next_finish in placed_finishes:
-            next_finish += 1
-        finishes[owner] = next_finish
-        placed_finishes.add(next_finish)
-
-    return finishes
-
-
-def _simulate_matchup(
-    owner_a: str,
-    owner_b: str,
-    distributions: dict[str, playoff_sim._TeamDist],
-    rng: random.Random,
-) -> str:
-    """Single-week head-to-head from per-team distributions."""
-    a = distributions.get(owner_a)
-    b = distributions.get(owner_b)
-    if a is None or b is None:
-        return owner_a if rng.random() < 0.5 else owner_b
-    score_a = max(0.0, rng.gauss(a.mean, a.sd))
-    score_b = max(0.0, rng.gauss(b.mean, b.sd))
-    if score_a > score_b:
-        return owner_a
-    if score_b > score_a:
-        return owner_b
-    return owner_a if rng.random() < 0.5 else owner_b
+    rows: list[dict[str, Any]] = []
+    for r in rows_in:
+        row: dict[str, Any] = {
+            "ownerId": r.get("ownerId"),
+            "displayName": r.get("displayName"),
+        }
+        missing: list[str] = []
+        for field in _ROW_FIELDS:
+            value = r.get(field)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                value = None
+                missing.append(field)
+            row[field] = value
+        champ, playoff = row["championshipOdds"], row["playoffOdds"]
+        row["contenderTier"] = (
+            _contender_tier(champ, playoff) if champ is not None and playoff is not None else None
+        )
+        if missing:
+            row["unavailableFields"] = missing
+        rows.append(row)
+    rows.sort(key=lambda r: _desc_missing_last(r["championshipOdds"]))
+    return {
+        "championshipOdds": rows,
+        "n_simulations": n_sims,
+        **header,
+    }
 
 
 def simulate_championship_odds(
     snapshot: PublicLeagueSnapshot,
     *,
-    n_simulations: int = playoff_sim.DEFAULT_SIMULATIONS,
+    n_simulations: int | None = None,
     playoff_seeds: int | None = None,
     bye_seeds: int | None = None,
     best_ball: bool | None = None,
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
-    """Run the full regular-season + bracket simulation.
+    """Championship odds for ``snapshot`` from ONE canonical simulation.
 
-    Pulls per-team distributions through ``playoff_sim`` so the
-    ROS-blended means + per-team variance multiplier are reused.
-
-    ``playoff_seeds`` / ``bye_seeds`` default to the LEAGUE'S OWN bracket
-    (V1-51).  They were hardcoded ``6``/``2`` and its only production
-    caller (``ros/scrape.py``) passes neither, so this simulated a
-    six-seed bracket for a league that takes seven — and a championship
-    simulation is more sensitive to that than playoff odds are, because
-    the bye count decides who skips a round.
+    Runs :func:`src.ros.playoff_sim.simulate_playoff_odds` with the same
+    arguments and reshapes it.  ``n_simulations=None`` is the canonical
+    engine's adaptive count (it used to default to a fixed 10,000 here, which
+    is itself a second answer).  Production does not call this: the scheduled
+    scrape reshapes the playoff forecast it already ran
+    (:func:`championship_from_forecast`), and the lazy section reads
+    :func:`src.ros.playoff_sim.canonical_forecast`.
     """
-    rng = rng or random.Random()
-    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
-    if playoff_seeds is None:
-        playoff_seeds = structure.teams
-    if bye_seeds is None:
-        bye_seeds = structure.byes if structure.known else None
-    # ONE league key, resolved once and passed to every roster-derived read
-    # (D5).  This engine used to pass none, so a non-default league's
-    # championship odds were drawn from the DEFAULT league's team strength,
-    # rosters and starter slots — measured 2026-09-26: dynasty_new's
-    # simulation read dynasty_main's twelve strengths, of which only the
-    # owners who happen to play in both leagues matched at all.
-    # ``playoff_sim.simulate_playoff_odds`` already resolved it this way.
-    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
-
-    league_key = resolve_snapshot_league_key(snapshot)
-    if playoff_seeds is None:
-        # No bracket, no champion to simulate. Same refusal as
-        # ``playoff_sim.simulate_playoff_odds`` — never a default.
-        return {
-            "championshipOdds": [],
-            "n_simulations": 0,
-            "playoffSeeds": None,
-            "byeSeeds": None,
-            "rosStrengthAvailable": playoff_sim.ros_strength_available(
-                playoff_sim._load_ros_strength_map(league_key)
-            ),
-            "playoffStructure": structure.to_dict(),
-            "unsimulable": {
-                "reason": structure.reason or "playoff_bracket_unknown",
-                "detail": (
-                    "this league's settings do not say how many teams make the "
-                    "playoffs, so there is no bracket to simulate a champion "
-                    "through. This is not a 0% chance for anyone."
-                ),
-            },
-        }
-    if best_ball is None:
-        best_ball = playoff_sim._league_best_ball(league_key)
-    ros_map = playoff_sim._load_ros_strength_map(league_key)
-    # The same calibrated points model the playoff engine draws through;
-    # omitting it silently fell back to ``DEFAULT_POINTS_MODEL`` here while
-    # ``simulate_playoff_odds`` used the calibrated one — two surfaces, one
-    # league, two presim scales.
-    distributions, pf_by_owner = playoff_sim._build_team_distributions(
-        snapshot,
-        ros_map,
-        league_key=league_key,
-        best_ball=best_ball,
-        points_model=load_points_model(),
-    )
-    if not distributions:
-        # No team has a scored regular-season week, so there is no weekly
-        # distribution to draw from and the loop below never runs.
-        #
-        # ``n_simulations`` used to be echoed back here UNCONDITIONALLY, so
-        # this branch published the caller's ARGUMENT as if it were a count of
-        # work done.  Measured in production on 2026-08-20 (#943):
-        # ``championshipOdds: []`` beside ``n_simulations: 10000``, with
-        # ``rosStrengthAvailable: true`` and a fully resolved 7-team
-        # ``playoffStructure`` — every other signal saying the inputs were
-        # fine.  A consumer could not tell it from "we simulated ten thousand
-        # seasons and nobody won one", which is MISSING IS NEVER ZERO
-        # inverted: absence of evidence published as a completed measurement.
-        #
-        # The reason string is NOT a new coinage.  ``playoff_odds.py`` already
-        # refuses this exact state under ``no_scored_weeks_in_league``, under a
-        # comment stating that two engines must not invent different words for
-        # one state — an invariant this file was breaching.  It is deliberately
-        # DISTINCT from the bracket-unknown refusal above, because the two need
-        # different responses: that one is a league-settings problem, this one
-        # resolves itself once games are played.
-        return {
-            "championshipOdds": [],
-            "n_simulations": 0,
-            "playoffSeeds": playoff_seeds,
-            "byeSeeds": bye_seeds,
-            "playoffStructure": structure.to_dict(),
-            "rosStrengthAvailable": playoff_sim.ros_strength_available(ros_map),
-            "unsimulable": {
-                "reason": "no_scored_weeks_in_league",
-                "detail": (
-                    "no regular-season week has been scored for any team, so "
-                    "there is no distribution to draw from and a champion "
-                    "cannot be simulated. This is not a 0% chance for anyone."
-                ),
-            },
-        }
-
-    refusal = playoff_sim.team_evidence_refusal(distributions, ros_map)
-    if refusal is not None:
-        # D1 (2026-09-26): the refresh that lost the NFL player dump published
-        # ~13/12/10% "odds" for every team, stamped rosStrengthAvailable=true.
-        # They were the league-average distribution drawn twelve times.  Same
-        # refusal, same words, as ``playoff_sim.simulate_playoff_odds``.
-        return {
-            "championshipOdds": [],
-            "n_simulations": 0,
-            "playoffSeeds": playoff_seeds,
-            "byeSeeds": bye_seeds,
-            "playoffStructure": structure.to_dict(),
-            "rosStrengthAvailable": False,
-            "unsimulable": refusal,
-        }
-
-    record = playoff_sim._current_record(snapshot)
-    schedule = playoff_sim._remaining_schedule(snapshot)
-    owners = sorted(distributions.keys())
-
-    champion_count: dict[str, int] = {o: 0 for o in owners}
-    finals_count: dict[str, int] = {o: 0 for o in owners}
-    semifinal_count: dict[str, int] = {o: 0 for o in owners}
-    finish_total: dict[str, float] = {o: 0.0 for o in owners}
-    playoff_count: dict[str, int] = {o: 0 for o in owners}
-
-    for _ in range(n_simulations):
-        sim_wins: dict[str, float] = {o: float(record.get(o, {}).get("wins", 0)) for o in owners}
-        sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
-        for week, owner_a, owner_b in schedule:
-            dist_a = distributions.get(owner_a)
-            dist_b = distributions.get(owner_b)
-            if dist_a is None or dist_b is None:
-                continue
-            score_a = max(0.0, rng.gauss(dist_a.mean, dist_a.sd))
-            score_b = max(0.0, rng.gauss(dist_b.mean, dist_b.sd))
-            sim_pf[owner_a] = sim_pf.get(owner_a, 0.0) + score_a
-            sim_pf[owner_b] = sim_pf.get(owner_b, 0.0) + score_b
-            if score_a > score_b:
-                sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 1
-            elif score_b > score_a:
-                sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 1
-            else:
-                sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 0.5
-                sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 0.5
-
-        # Seeding order comes from the CANONICAL owner — same rule the public
-        # engine and playoff_sim use, so three surfaces cannot disagree about
-        # who the 4-seed is.  The retired local sort resolved exact ties in
-        # alphabetical ownerId order (stable sort over a sorted owner list),
-        # which on a level league handed one owner 100% of championships.
-        seeded = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
-        finishes = _simulate_bracket(
-            seeded,
-            distributions,
-            bye_seeds=bye_seeds,
+    return championship_from_forecast(
+        playoff_sim.simulate_playoff_odds(
+            snapshot,
+            n_simulations=n_simulations,
             playoff_seeds=playoff_seeds,
+            bye_seeds=bye_seeds,
+            best_ball=best_ball,
             rng=rng,
         )
-        for owner, finish in finishes.items():
-            finish_total[owner] += finish
-            if finish == 1:
-                champion_count[owner] += 1
-            if finish <= 2:
-                finals_count[owner] += 1
-            if finish <= 4:
-                semifinal_count[owner] += 1
-            if finish <= playoff_seeds:
-                playoff_count[owner] += 1
-
-    out: list[dict[str, Any]] = []
-    n_safe = max(1, n_simulations)
-    for owner in owners:
-        championship_odds = champion_count[owner] / n_safe
-        playoff_odds_pct = playoff_count[owner] / n_safe
-        out.append(
-            {
-                "ownerId": owner,
-                "displayName": metrics.display_name_for(snapshot, owner),
-                "championshipOdds": round(championship_odds, 4),
-                "finalsOdds": round(finals_count[owner] / n_safe, 4),
-                "semifinalOdds": round(semifinal_count[owner] / n_safe, 4),
-                "playoffOdds": round(playoff_odds_pct, 4),
-                "expectedFinish": round(finish_total[owner] / n_safe, 2),
-                "contenderTier": _contender_tier(championship_odds, playoff_odds_pct),
-            }
-        )
-    out.sort(key=lambda r: -r["championshipOdds"])
-    return {
-        "championshipOdds": out,
-        "n_simulations": n_simulations,
-        "playoffSeeds": playoff_seeds,
-        "byeSeeds": bye_seeds,
-        "playoffStructure": structure.to_dict(),
-        "rosStrengthAvailable": playoff_sim.ros_strength_available(ros_map),
-    }
-
-
-_SIM_CACHE_TTL_SEC = 6 * 3600
-
-
-def _cached_payload_path(league_key: str | None) -> Any:
-    """The championship cache file for ``league_key``.
-
-    The file NAMES are owned by ``src.ros.scrape._sim_paths`` (the writer);
-    this reuses its naming rule rather than restating it, but resolves the
-    directory from this module's ``ROS_DATA_DIR`` so the reader and the
-    tests that relocate it agree.  ``None`` (unresolvable league) is the
-    default league's historical ``latest_championship.json``.
-    """
-    from src.api.league_registry import default_league_key  # noqa: PLC0415
-    from src.ros.scrape import _sim_paths  # noqa: PLC0415
-
-    try:
-        default_key = default_league_key()
-    except Exception:  # noqa: BLE001 — registry trouble reads the default file
-        default_key = None
-    _, champ_path = _sim_paths(league_key, default_key)
-    return ROS_DATA_DIR / "sims" / champ_path.name
-
-
-def _load_cached_payload(league_key: str | None = None) -> dict[str, Any] | None:
-    """Read this league's cached championship sim if fresh; else None.
-
-    Used to read ``latest_championship.json`` for EVERY league, so a
-    non-default league's /league Championship tab was served the default
-    league's odds whenever that file was fresh (D5).
-    """
-    import os
-    import time
-
-    path = _cached_payload_path(league_key)
-    if not path.exists():
-        return None
-    try:
-        if (time.time() - os.path.getmtime(path)) > _SIM_CACHE_TTL_SEC:
-            return None
-    except OSError:
-        return None
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError) as exc:
-        LOG.warning("[ros] championship cache unreadable (%s); rerunning sim", exc)
-        return None
+    )
 
 
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Lazy-section builder for /api/public/league/rosChampionship.
 
-    Prefers the cached output written by the scheduled scrape; falls
-    back to a live Monte Carlo when the cache is missing or stale.
+    The canonical forecast (the scheduled scrape's playoff file when it is
+    fresh and describes this snapshot, else one shared live run), reshaped.
+    It no longer reads ``*_championship.json``: that file is still written
+    for the trade-deadline rollup and the AL-P6 forecast archive, from the
+    same run, but reading the playoff forecast directly is what makes this
+    surface and ``rosPlayoffOdds`` one answer by construction.
     """
-    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
-
-    cached = _load_cached_payload(resolve_snapshot_league_key(snapshot))
-    if cached is not None:
-        cached["cached"] = True
-        return cached
-    payload = simulate_championship_odds(snapshot)
-    payload["cached"] = False
-    return payload
+    return championship_from_forecast(playoff_sim.canonical_forecast(snapshot))

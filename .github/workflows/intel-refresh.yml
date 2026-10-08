@@ -83,7 +83,7 @@ jobs:
               --request POST \
               --header "Authorization: Bearer ${TOKEN}" \
               --output "${body_file}" --write-out '%{http_code}' \
-              "${URL}/api/intel/refresh?leagueKey=all" || echo 000)"
+              "${URL}/api/intel/refresh?leagueKey=all")" || code=000
             echo "trigger attempt ${attempt}: status=${code}"
             cat "${body_file}" || true
             if [[ "${code}" == "202" ]]; then
@@ -151,7 +151,7 @@ jobs:
             code="$(curl --silent --show-error --globoff --max-time 20 \
               --header "Authorization: Bearer ${TOKEN}" \
               --output "${body_file}" --write-out '%{http_code}' \
-              "${URL}/api/intel/refresh/status" || echo 000)"
+              "${URL}/api/intel/refresh/status")" || code=000
             if [[ "${code}" != "200" ]]; then
               echo "attempt ${attempt}: status endpoint HTTP ${code} — retrying"
               continue

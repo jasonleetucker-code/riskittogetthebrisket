@@ -1,8 +1,9 @@
 """Append-only, monthly-rotated JSONL ledger with a sidecar key index.
 
-One neutral owner for the mechanics two capture stores share (the
-sparse-evidence shadow, ``src/api/sparse_evidence_shadow.py``, and the AL-P4
-pick-forecast snapshot, ``src/ros/pick_forecast_snapshot.py``). It knows
+One neutral owner for the mechanics the capture stores share (the
+sparse-evidence shadow, ``src/api/sparse_evidence_shadow.py``, the AL-P4
+pick-forecast snapshot, ``src/ros/pick_forecast_snapshot.py``, and the G4
+as-known stores ``src/nfl_data/injury_history.py`` / ``src/news/archive.py``). It knows
 nothing about what a record MEANS -- only that every record carries a ``key``
 and a ``recordedAt``:
 
@@ -12,8 +13,9 @@ and a ``recordedAt``:
   is left in place and the next record starts on a fresh line;
 * idempotency is decided from ``ledger.keys`` (one key per line) instead of
   re-parsing every record. A missing index is rebuilt from the files once, and
-  the newest file's final record is always merged in, so a crash between the
-  ledger append and the index append cannot become a duplicate line.
+  every record after each file's last indexed record is merged in (and indexed
+  on the next write), so a crash between a batch's ledger append and its index
+  append -- one record or many -- cannot become a duplicate line.
 
 A store may also carry ONE pre-rotation single file (``legacy_name``): it is
 read first and its keys count, but it is never written again.
@@ -23,7 +25,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -102,20 +104,83 @@ def last_record(path: Path) -> dict[str, Any] | None:
     return None
 
 
-def recorded_keys(base: Path, legacy_name: str | None = None) -> set[str]:
-    """Every recorded key, from the sidecar index (rebuilt from the files if absent)."""
+def _lines_reversed(path: Path) -> Iterator[bytes]:
+    """Every non-blank line of ``path``, last first, read from the tail in chunks."""
+    with path.open("rb") as fh:
+        pos = fh.seek(0, os.SEEK_END)
+        buf = b""
+        while pos > 0:
+            step = min(65536, pos)
+            pos -= step
+            fh.seek(pos)
+            buf = fh.read(step) + buf
+            parts = buf.split(b"\n")
+            buf = parts[0]
+            for line in reversed(parts[1:]):
+                if line.strip():
+                    yield line
+        if buf.strip():
+            yield buf
+
+
+def _unindexed_tail_keys(path: Path, indexed: set[str]) -> list[str]:
+    """Keys of the records after ``path``'s last INDEXED record.
+
+    Lines are appended (and fsynced) before their keys reach the index, and a
+    later write re-indexes whatever an earlier recovery found, so the records
+    whose keys the index lacks are always a suffix of each file.  Walking back
+    to the first indexed key therefore finds every one of them -- a whole batch
+    that crashed between its data write and its index write, not just the last
+    line.  Torn / unparseable lines are skipped.
+    """
+    out: list[str] = []
+    if not path.exists():
+        return out
+    for raw in _lines_reversed(path):
+        try:
+            record = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            continue
+        if not isinstance(record, dict) or not record.get("key"):
+            continue
+        key = str(record["key"])
+        if key in indexed:
+            break
+        out.append(key)
+    return out
+
+
+def _key_state(base: Path, legacy_name: str | None = None) -> tuple[set[str], set[str], bool]:
+    """``(indexed, recovered, index_missing)``.
+
+    ``indexed`` is what the sidecar index holds.  ``recovered`` is every key in
+    the files the index does not hold: with an index, the unindexed suffix of
+    each file (a crash between a data append and its index append); without
+    one, every key in every file (a full rebuild).
+    """
     index = index_path(base)
+    files = ledger_files(base, legacy_name)
     if index.exists():
         with index.open("r", encoding="utf-8") as fh:
-            keys = {line.strip() for line in fh if line.strip()}
-    else:
-        keys = {str(r["key"]) for r in iter_all_records(base, legacy_name) if r.get("key")}
-    files = ledger_files(base, legacy_name)
-    if files:
-        tail = last_record(files[-1])
-        if tail and tail.get("key"):
-            keys.add(str(tail["key"]))
-    return keys
+            indexed = {line.strip() for line in fh if line.strip()}
+        recovered: set[str] = set()
+        for path in files:
+            recovered.update(_unindexed_tail_keys(path, indexed))
+        return indexed, recovered, False
+    every = {str(r["key"]) for r in iter_all_records(base, legacy_name) if r.get("key")}
+    return set(), every, True
+
+
+def recorded_keys(base: Path, legacy_name: str | None = None) -> set[str]:
+    """Every recorded key: the sidecar index plus every record it is missing.
+
+    With no index the keys are rebuilt from the files.  With one, each file's
+    records after its last indexed record are added -- so a crash anywhere
+    between a batch's data append and its index append (one record or many)
+    can never become duplicate lines on the next write.
+    """
+    indexed, recovered, _missing = _key_state(base, legacy_name)
+    return indexed | recovered
 
 
 def ends_with_newline(path: Path) -> bool:
@@ -131,32 +196,71 @@ def append_record(base: Path, record: Mapping[str, Any], legacy_name: str | None
     a missing index is first seeded with every key already in the files, so it
     never forgets a record.
     """
-    key = record.get("key")
-    if not key:
-        raise ValueError("record has no key")
+    return append_records(base, [record], legacy_name) == 1
+
+
+def append_records(
+    base: Path, records: Iterable[Mapping[str, Any]], legacy_name: str | None = None
+) -> int:
+    """Append every record whose key is not yet recorded; return how many were written.
+
+    The batch form of :func:`append_record`, with identical semantics: the index
+    is read ONCE, a key repeated inside the batch is written once, every line is
+    durable (fsync) before its key enters the index, and nothing already in a
+    file is ever rewritten. Records are grouped by their ``recordedAt`` month and
+    keep their input order inside a month.
+    """
+    batch = list(records)
+    for record in batch:
+        if not record.get("key"):
+            raise ValueError("record has no key")
     base = Path(base)
     index = index_path(base)
-    seed = not index.exists()
-    known = recorded_keys(base, legacy_name)
-    if key in known:
-        return False
+    indexed, recovered, _missing = _key_state(base, legacy_name)
+    known = indexed | recovered
+    fresh: list[Mapping[str, Any]] = []
+    taken: set[str] = set()
+    for record in batch:
+        key = str(record["key"])
+        if key in known or key in taken:
+            continue
+        taken.add(key)
+        fresh.append(record)
+    if not fresh:
+        if recovered and index.exists():
+            _append_index(index, sorted(recovered))
+        return 0
     base.mkdir(parents=True, exist_ok=True)
-    path = ledger_path(base, record.get("recordedAt"))
-    line = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
-    torn = path.exists() and path.stat().st_size > 0 and not ends_with_newline(path)
-    with path.open("a", encoding="utf-8") as fh:
-        if torn:  # a crash mid-append: start fresh, never rewrite what is there
-            fh.write("\n")
-        fh.write(line + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
+    by_path: dict[Path, list[str]] = {}
+    for record in fresh:
+        path = ledger_path(base, record.get("recordedAt"))
+        line = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
+        by_path.setdefault(path, []).append(line)
+    for path, lines in by_path.items():
+        torn = path.exists() and path.stat().st_size > 0 and not ends_with_newline(path)
+        with path.open("a", encoding="utf-8") as fh:
+            if torn:  # a crash mid-append: start fresh, never rewrite what is there
+                fh.write("\n")
+            for line in lines:
+                fh.write(line + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+    # Keys the index was missing (a full rebuild, or a crashed earlier batch)
+    # are written first: they were already durable, and indexing them keeps
+    # every file's unindexed records a suffix.
+    _append_index(index, sorted(recovered) + [str(r["key"]) for r in fresh])
+    return len(fresh)
+
+
+def _append_index(index: Path, keys: list[str]) -> None:
+    """Append ``keys`` to the sidecar index, durably, never gluing onto a torn line."""
+    if not keys:
+        return
     index_torn = index.exists() and index.stat().st_size > 0 and not ends_with_newline(index)
     with index.open("a", encoding="utf-8") as fh:
         if index_torn:  # a crash mid-append: never glue the next key onto a partial one
             fh.write("\n")
-        for k in sorted(known) if seed else ():
+        for k in keys:
             fh.write(k + "\n")
-        fh.write(str(key) + "\n")
         fh.flush()
         os.fsync(fh.fileno())
-    return True

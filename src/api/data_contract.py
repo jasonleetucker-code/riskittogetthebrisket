@@ -11,7 +11,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Collection, Iterable, Mapping
+from typing import Any, Collection, Iterable, Mapping, Sequence
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -45,7 +45,9 @@ from src.api.confidence import (  # noqa: E402  — grouped with its siblings
     CONFIDENCE_BASES,
     FamilyEvidence,
     assess_confidence,
+    PICK_VALUE_BASIS_TETHER,
     assess_pick_confidence,
+    pick_evidence,
     degrade_for_quarantine,
     gate_parameter as _confidence_gate_parameter,
 )
@@ -1524,8 +1526,19 @@ def registry_keys_for_run_source(run_source: str) -> list[str]:
     return out
 
 
-def _build_source_timestamps() -> dict[str, dict[str, Any]]:
+def _build_source_timestamps(
+    *, as_of: "datetime | None" = None, csv_root: "Path | None" = None
+) -> dict[str, dict[str, Any]]:
     """Return per-source freshness block with mtimes + staleness flags.
+
+    Measured at the BOARD'S OWN as-of (``_payload_as_of``) against the tree
+    the board was built from (``csv_root``) — never the wall clock and never
+    a different checkout (D9, 2026-10-07 audit): the same snapshot must
+    produce the same block, and the B11 confidence gate reads it through
+    :func:`_source_freshness_flags`.  With no as-of there is no fetch age at
+    the board's time, so every entry that found its CSV is ``unknown`` (age
+    ``None``) — never fresh.  A fetch stamped AFTER the as-of (a later fetch
+    whose CSV this build read) is age 0, not a negative age.
 
     Iterates every entry in :data:`_SOURCE_CSV_PATHS`, stats the CSV, and
     computes an ISO8601 mtime, an age in hours, and a ``fresh``/``stale``
@@ -1544,9 +1557,8 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
     (Codex review on PR #532).  The CSV must still exist — a stamp
     without data is reported ``missing``.
     """
-    repo_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
     state_dir = repo_root / "data" / "scrape_state"
-    now = datetime.now(timezone.utc)
     out: dict[str, dict[str, Any]] = {}
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
@@ -1578,10 +1590,11 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
                 except (OSError, ValueError):
                     pass
                 mtime_dt = datetime.fromtimestamp(last_epoch, tz=timezone.utc)
-                age_hours = (now - mtime_dt).total_seconds() / 3600.0
                 entry["mtime"] = mtime_dt.isoformat()
-                entry["ageHours"] = round(age_hours, 3)
-                entry["staleness"] = "fresh" if age_hours < max_age else "stale"
+                if as_of is not None:
+                    age_hours = max(0.0, (as_of - mtime_dt).total_seconds() / 3600.0)
+                    entry["ageHours"] = round(age_hours, 3)
+                    entry["staleness"] = "fresh" if age_hours < max_age else "stale"
         out[source_key] = entry
     return out
 
@@ -2976,8 +2989,15 @@ def _scope_eligible(pos: str, scope: str, position_group: str | None) -> bool:
     return False
 
 
-def _source_freshness_flags() -> dict[str, bool | None]:
+def _source_freshness_flags(
+    as_of: "datetime | None" = None, csv_root: "Path | None" = None
+) -> dict[str, bool | None]:
     """Per-source ``fresh?`` for the B11 confidence gate.
+
+    Evaluated at the board's own ``as_of`` against its ``csv_root`` (see
+    :func:`_build_source_timestamps`) — never the wall clock, so a stored
+    confidence stamp is a property of the snapshot, not of when it was
+    built.  No as-of → every flag ``None`` (unknown), never ``True``.
 
     Tri-state, reduced from the same ``staleness`` string the payload's
     ``dataFreshness.sourceTimestamps`` block publishes, so confidence and
@@ -2998,7 +3018,7 @@ def _source_freshness_flags() -> dict[str, bool | None]:
     ONCE per build and pass the map down — never per row.
     """
     flags: dict[str, bool | None] = {}
-    for key, entry in _build_source_timestamps().items():
+    for key, entry in _build_source_timestamps(as_of=as_of, csv_root=csv_root).items():
         staleness = str((entry or {}).get("staleness") or "")
         if staleness == "fresh":
             flags[key] = True
@@ -4727,6 +4747,9 @@ _TRUST_MIRROR_FIELDS = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    # Which independent PROVIDERS stand behind a pick's market confidence
+    # (owner 2026-10-07) — degraded pick evidence stays visible too.
+    "pickEvidence",
     "identityConfidence",
     "identityMethod",
     "identityResolutionConfidence",
@@ -7290,9 +7313,97 @@ def _family_evidence_for_row(
     return [ev for ev in evidence if id(ev) in chosen]
 
 
+def _lost_evidence_seats(
+    *,
+    voting_pairs: list[tuple[str, float]],
+    withheld_pairs: list[tuple[str, float]],
+    dropped_now: Sequence[str],
+    outlier_test_applies: bool,
+    exact_replay: bool = True,
+) -> list[str]:
+    """The sources a row's confidence must seat because a vote was withheld.
+
+    Owner directive 2026-10-07 (IDP Trade Calculator's quarantine cutoff):
+    losing a vote must never RAISE confidence.  The seat answers "what did
+    this row's evidence look like while the withheld source still voted?" —
+    and the outlier test can be asked that EXACTLY, with no second blend:
+    ``_hampel_filter_per_player`` is unweighted, so re-running it on the
+    OBSERVED panel (voting + withheld values) reproduces the verdict the
+    panel reached while the withheld source was still voting.  Seated:
+
+    * each withheld source the observed panel would have KEPT — it was a
+      voting head and now is not.  One the observed panel itself rejects
+      was already absent from the evidence, so it is not a new loss;
+    * each source rejected NOW that the observed panel would have kept —
+      a rejection CAUSED by the lost vote (measured on the simulated
+      cutoff: The IDP Show on Trey McBride, Draft Sharks on Colby
+      Parkinson).  A source the observed panel rejects too (rejected
+      before the cutoff as well, e.g. on Bijan Robinson) is not seated:
+      seating it would penalise a verdict nothing changed.
+
+    Picks bypass the outlier test in the blend, so for them every withheld
+    source is seated and no rejection exists.  Under the (default-off)
+    weighted joint challenger the replay is not exact, so the seat falls
+    back to the conservative superset: every withheld and every rejected
+    source.
+    """
+    withheld = [k for k, _v in withheld_pairs]
+    if not outlier_test_applies:
+        return withheld
+    if not exact_replay:
+        return withheld + [k for k in dropped_now if k not in withheld]
+    observed = list(voting_pairs) + list(withheld_pairs)
+    if len(observed) >= _HAMPEL_MIN_N:
+        _kept, observed_dropped = _hampel_filter_per_player(observed, k=_HAMPEL_K)
+    else:
+        observed_dropped = []
+    already = set(observed_dropped)
+    return [k for k in withheld if k not in already] + [
+        k for k in dropped_now if k not in already and k not in withheld
+    ]
+
+
+def _withheld_family_evidence_for_row(
+    *,
+    seats: Sequence[str],
+    voting: Sequence["FamilyEvidence"],
+    family_by_key: Mapping[str, str],
+) -> list["FamilyEvidence"]:
+    """One lost-evidence seat per FAMILY for the confidence gate.
+
+    ``seats`` comes from :func:`_lost_evidence_seats` (which sources).  This
+    collapses them to families: a family that still has a voting member is
+    represented and gets no seat; several seated members of one family are
+    ONE seat (registry order picks the representative).  Only ``family`` /
+    ``source_key`` are meaningful on the returned entries — a lost family
+    earns nothing on any axis (``assess_confidence(withheld=...)``).
+    Decides no level.
+    """
+    if not seats:
+        return []
+    voting_families = {e.family for e in voting}
+    chosen: dict[str, tuple[int, FamilyEvidence]] = {}
+    for skey in seats:
+        family = family_by_key.get(skey, skey)
+        if family in voting_families:
+            continue
+        ev = FamilyEvidence(
+            family=family,
+            source_key=skey,
+            value_contribution=None,
+            fresh=False,
+            format_native=False,
+            directly_observed=False,
+        )
+        rank = _source_precedence(skey)
+        if family not in chosen or rank < chosen[family][0]:
+            chosen[family] = (rank, ev)
+    return [ev for _rank, ev in sorted(chosen.values(), key=lambda t: t[0])]
+
+
 def _restate_confidence_after_override(
     players_array: list[dict[str, Any]],
-    confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]],
+    confidence_inputs: Mapping[int, tuple[Any, ...]],
     pre_override_values: dict[int, Any],
 ) -> list[str]:
     """Re-run the confidence gate on rows a post-blend override moved.
@@ -7307,7 +7418,10 @@ def _restate_confidence_after_override(
     Returns the canonical names it re-stated, for the caller's log.
     """
     restated: list[str] = []
-    for row_idx, (evidence, eligible) in confidence_inputs.items():
+    for row_idx, inputs in confidence_inputs.items():
+        # ``(evidence, eligible)`` or ``(evidence, eligible, withheld)``.
+        evidence, eligible, *rest = inputs
+        withheld = rest[0] if rest else ()
         row = players_array[row_idx]
         current = row.get("rankDerivedValue")
         if current == pre_override_values.get(row_idx):
@@ -7316,6 +7430,7 @@ def _restate_confidence_after_override(
             evidence,
             eligible_families=eligible,
             consensus_value=current,
+            withheld=withheld,
         )
         row["confidenceBucket"] = assessment.overall
         row["confidenceLabel"] = assessment.label
@@ -9137,6 +9252,17 @@ def _anchor_current_year_picks_to_rookies(
         # the cutoff, squeezing tail R4 picks off the bottom.
         row["rankDerivedValue"] = anchor_val
         row["pickRookieAnchor"] = anchor.get("canonicalName")
+        # The pick's VALUE now comes from the rookie at its slot, whatever
+        # the pick markets said; ``pickEvidence`` still names those markets
+        # (voting / withheld providers) and says the value is tether-priced,
+        # so a tethered pick never silently loses its evidence stamp — e.g.
+        # when every market on it is withheld and the ranked pass never
+        # reaches it (owner 2026-10-07, IDP Trade Calculator cutoff).
+        row["pickEvidence"] = pick_evidence(
+            row.get("canonicalSiteValues") or {},
+            withheld_sources=row.get("freshnessExcludedSources") or (),
+            value_basis=PICK_VALUE_BASIS_TETHER,
+        )
         # C1-U5: when this pass prices a row that neither assessment pass
         # reached, it owns the confidence statement too — otherwise the row
         # keeps the constructor's placeholder and reads as "unranked and
@@ -10174,6 +10300,8 @@ def _compute_unified_rankings(
     seasonally_inactive_sources: Iterable[str] | None = None,
     absent_private_sources: Iterable[str] | None = None,
     shadow_private_sources: Iterable[str] | None = None,
+    freshness_as_of: "datetime | None" = None,
+    csv_root: "Path | None" = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -10606,7 +10734,14 @@ def _compute_unified_rankings(
     row_eligible_families: dict[int, set[str]] = {}
     # The gate's inputs, kept per row so a post-blend override that moves
     # a value can re-state the confidence that describes it.
-    row_confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]] = {}
+    row_confidence_inputs: dict[
+        int, tuple[list[FamilyEvidence], set[str], list[FamilyEvidence]]
+    ] = {}
+    # Per row that lost a vote to withholding: the sources whose absence from
+    # the value is LOST evidence the confidence gate must seat (see
+    # ``_withheld_family_evidence_for_row``).  Decided in the blend loop, where
+    # the exact observed values exist.
+    row_lost_seats: dict[int, list[str]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     # The combined ladder from every usable bridge.  EMPTY means no bridge
@@ -11492,6 +11627,9 @@ def _compute_unified_rankings(
         # Per-row EFFECTIVE weight of each voting source (base × dynamic).
         row_weight: dict[str, float] = {}
         freshness_excluded: list[str] = []
+        # ``(source, value)`` of each withheld observation — the would-be vote,
+        # kept so the outlier test can be re-asked of the OBSERVED panel.
+        withheld_pairs: list[tuple[str, float]] = []
 
         canonical_site_values = players_array[row_idx].get("canonicalSiteValues") or {}
         if not isinstance(canonical_site_values, dict):
@@ -11663,6 +11801,7 @@ def _compute_unified_rankings(
                 meta_dyn["contributedToBlend"] = False
                 meta_dyn["excludedReason"] = "freshness_or_health_zero_weight"
                 freshness_excluded.append(source_key)
+                withheld_pairs.append((source_key, float(value)))
                 continue
             row_weight[source_key] = src_blend_weight
             all_values.append(value)
@@ -11790,6 +11929,14 @@ def _compute_unified_rankings(
                     meta = row_source_meta[row_idx].get(sk, {})
                     meta["hampelDropped"] = True
         players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
+        if withheld_pairs:
+            row_lost_seats[row_idx] = _lost_evidence_seats(
+                voting_pairs=[(k, v) for k, v, _ in all_value_pairs],
+                withheld_pairs=withheld_pairs,
+                dropped_now=hampel_dropped_keys,
+                outlier_test_applies=not row_is_pick,
+                exact_replay=not _joint_challenger,
+            )
         # Observations present but not voting because their effective weight
         # is 0 (quarantined staleness or FAILED health) — named separately
         # from Hampel drops, because "stale" and "outlier" are different facts.
@@ -12274,8 +12421,9 @@ def _compute_unified_rankings(
     # the denominator of a row's consensus percentile.
     total_ranked = min(len(row_normalized), OVERALL_RANK_LIMIT)
 
-    # One stat pass for the whole board.  The B11 gate asks per row.
-    fresh_by_source = _source_freshness_flags()
+    # One stat pass for the whole board.  The B11 gate asks per row.  At the
+    # board's OWN as-of and tree (D9): never the wall clock.
+    fresh_by_source = _source_freshness_flags(freshness_as_of, csv_root)
 
     for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
@@ -12383,9 +12531,17 @@ def _compute_unified_rankings(
         if row.get("assetClass") == "pick":
             basis = "pick_dispersion"
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            # A withheld (freshness-quarantined) market is not evidence behind
+            # this value and cannot raise its confidence; ``pickEvidence``
+            # names the PROVIDERS that stand behind it (owner 2026-10-07).
+            withheld_sources = row.get("freshnessExcludedSources") or ()
             bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
                 is_slot_specific=is_slot_specific,
+                withheld_sources=withheld_sources,
+            )
+            row["pickEvidence"] = pick_evidence(
+                row.get("canonicalSiteValues") or {}, withheld_sources=withheld_sources
             )
             row["confidenceAxes"] = None
             row["confidenceReasons"] = None
@@ -12412,18 +12568,25 @@ def _compute_unified_rankings(
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
+            withheld = _withheld_family_evidence_for_row(
+                seats=row_lost_seats.get(row_idx, ()),
+                voting=evidence,
+                family_by_key=family_by_key,
+            )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
             # actually shipped.  See ``_restate_confidence_after_override``.
             row_confidence_inputs[row_idx] = (
                 evidence,
                 row_eligible_families.get(row_idx, set()),
+                withheld,
             )
             basis = "evidence_gate"
             assessment = assess_confidence(
                 evidence,
                 eligible_families=row_eligible_families.get(row_idx, set()),
                 consensus_value=derived,
+                withheld=withheld,
             )
             bucket = assessment.overall
             label = assessment.label
@@ -12551,9 +12714,14 @@ def _compute_unified_rankings(
             row["rankDerivedValue"] = derived
             row["offCapPickValue"] = True
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            withheld_sources = row.get("freshnessExcludedSources") or ()
             bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
                 is_slot_specific=is_slot_specific,
+                withheld_sources=withheld_sources,
+            )
+            row["pickEvidence"] = pick_evidence(
+                row.get("canonicalSiteValues") or {}, withheld_sources=withheld_sources
             )
             row["confidenceBucket"] = bucket
             row["confidenceLabel"] = label
@@ -12603,17 +12771,24 @@ def _compute_unified_rankings(
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
+            withheld = _withheld_family_evidence_for_row(
+                seats=row_lost_seats.get(row_idx, ()),
+                voting=evidence,
+                family_by_key=family_by_key,
+            )
             # Registered so a LATER post-blend override that moves this
             # row's value re-states its confidence against the number
             # that actually shipped, exactly as for a ranked row.
             row_confidence_inputs[row_idx] = (
                 evidence,
                 row_eligible_families.get(row_idx, set()),
+                withheld,
             )
             assessment = assess_confidence(
                 evidence,
                 eligible_families=row_eligible_families.get(row_idx, set()),
                 consensus_value=derived,
+                withheld=withheld,
             )
             row["confidenceBucket"] = assessment.overall
             row["confidenceLabel"] = assessment.label
@@ -13737,6 +13912,8 @@ def build_api_data_contract(
         seasonally_inactive_sources=frozenset(seasonally_inactive),
         absent_private_sources=absent_private,
         shadow_private_sources=shadow_private,
+        freshness_as_of=freshness_as_of,
+        csv_root=csv_root,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -13787,7 +13964,7 @@ def build_api_data_contract(
     # {ktc: "", idpTradeCalc: ""} was reading dead fields on data_source
     # that the scraper bridge never writes; this replaces it with real,
     # source-by-source freshness data that covers all 5 active sources.
-    source_timestamps = _build_source_timestamps()
+    source_timestamps = _build_source_timestamps(as_of=freshness_as_of, csv_root=csv_root)
     # A declared seasonally inactive source is not a stale source: its fetch
     # stamp is old because there is legitimately no board to fetch.  Named
     # explicitly so "inactive by declaration" and "stale" never read alike.
@@ -13824,6 +14001,11 @@ def build_api_data_contract(
     data_freshness: dict[str, Any] = {
         "generatedAt": generated_at,
         "sourceTimestamps": source_timestamps,
+        # The reference time every ``sourceTimestamps[*].ageHours`` is measured
+        # from: the board's OWN as-of (its scrape time), never the build's
+        # wall clock (D9).  ``None`` when the payload carries no as-of — every
+        # age is then ``None`` / ``unknown``.
+        "sourceTimestampsAsOf": _iso_or_none(freshness_as_of),
         "staleness": _overall_staleness,
     }
 
@@ -13995,8 +14177,10 @@ def build_api_data_contract(
             "picks": (
                 "picks keep their own coefficient-of-variation rule "
                 "(assess_pick_confidence) because rank spread on picks is "
-                "dominated by the flat-value regions in R3-R6 — but it is "
-                "family-aware, so two members of one provider cast one vote"
+                "dominated by the flat-value regions in R3-R6 — but it counts "
+                "independent PROVIDERS (KTC Crowd + KTC Trades are one provider), "
+                "and a withheld (freshness-quarantined) market can only lower it; "
+                "pickEvidence names the providers behind each pick"
             ),
             "retired": (
                 "max(percentile) - min(percentile) bucketed at 0.08 / 0.20.  A "
@@ -14521,6 +14705,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    "pickEvidence",
     # Canonical KTC Market block — its ``normalizedValue`` is board-scale,
     # and the model-vs-market gap above is override-sensitive.
     "ktcMarket",
@@ -15150,11 +15335,31 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         absent_by_design = private_sources_absent_by_design(
             payload.get("privateSourceAvailability")
         )
+        # A DECLARED seasonal source the board itself records as inactive at
+        # its own time (``sourceSeasonalState``; owner decision 2026-10-03)
+        # casts no current vote by design — its absence is the declared
+        # phase, not a lost source (D8, 2026-10-07 audit).  Read through the
+        # one owner the served-board coverage gate also uses, from the
+        # payload's own stamp: no stamp or a malformed one excuses nothing.
+        # The stamp is DATA, so it is intersected with the DECLARED policies:
+        # a corrupted or hand-edited payload naming an undeclared source (say
+        # ``ktcCrowdSfTep``) cannot turn ``source_missing`` into a warning,
+        # and an unreadable policy file excuses nothing.
+        from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+        try:
+            declared_seasonal = frozenset(_seasonal.load_policies())
+        except _seasonal.SeasonalPolicyError:
+            declared_seasonal = frozenset()
+        seasonally_inactive_keys = _seasonal.contract_inactive_sources(payload) & declared_seasonal
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)
             if count == 0 and src_key in absent_by_design:
                 warnings.append(f"private_source_absent_by_design:{src_key}")
+                continue
+            if count == 0 and src_key in seasonally_inactive_keys:
+                warnings.append(f"source_seasonally_inactive:{src_key}")
                 continue
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
@@ -15419,6 +15624,57 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             warnings.append(
                 f"source_parse_error:{perr.get('source', '?')}:{perr.get('error', '?')}"
             )
+        degraded = True
+
+    # ── Withheld votes / reduced pick evidence (owner 2026-10-07) ────────
+    # A source whose content aged past the freshness quarantine (or whose
+    # health FAILED) casts no vote, and the board is still valid: the value
+    # rests on the remaining canonical evidence, every row names what was
+    # withheld (``freshnessExcludedSources``) and every assessed pick names
+    # its providers (``pickEvidence``).  That is DEGRADED EVIDENCE, not a
+    # broken board — SEASONAL / STALE is not BROKEN — so it is reported as
+    # warnings plus the soft ``degraded`` status, never as an error: no lane
+    # (structural or source-health) blocks on it and ``ok`` is untouched.
+    # Measured trigger: IDP Trade Calculator's offense + pick observations
+    # crossing ``quarantineBelow`` (513 rows on the 2026-10-07 board).
+    withheld_rows: dict[str, int] = {}
+    picks_single_after_withholding = 0
+    picks_no_provider_after_withholding = 0
+    picks_tethered_after_withholding = 0
+    picks_provider_unknown = 0
+    for row in players_array:
+        if not isinstance(row, dict):
+            continue
+        for skey in row.get("freshnessExcludedSources") or ():
+            withheld_rows[str(skey)] = withheld_rows.get(str(skey), 0) + 1
+        pe = row.get("pickEvidence")
+        if not isinstance(pe, dict):
+            continue
+        if pe.get("state") == "provider_unknown":
+            picks_provider_unknown += 1
+        if not pe.get("reducedCoverage"):
+            continue
+        if pe.get("valueBasis") == PICK_VALUE_BASIS_TETHER:
+            # Tether-priced: the value is the rookie at the slot; its pick
+            # markets lost a provider, which is reported, not re-counted.
+            picks_tethered_after_withholding += 1
+        elif pe.get("state") == "single_provider":
+            picks_single_after_withholding += 1
+        elif pe.get("state") == "no_provider":
+            picks_no_provider_after_withholding += 1
+    for skey in sorted(withheld_rows):
+        warnings.append(f"source_votes_withheld:{skey}:{withheld_rows[skey]}")
+    if picks_single_after_withholding:
+        warnings.append(
+            f"pick_evidence_reduced_to_single_provider:{picks_single_after_withholding}"
+        )
+    if picks_no_provider_after_withholding:
+        warnings.append(f"pick_evidence_no_voting_provider:{picks_no_provider_after_withholding}")
+    if picks_tethered_after_withholding:
+        warnings.append(f"pick_evidence_reduced_tether_priced:{picks_tethered_after_withholding}")
+    if picks_provider_unknown:
+        warnings.append(f"pick_evidence_provider_unknown:{picks_provider_unknown}")
+    if withheld_rows:
         degraded = True
 
     # ── Cross-wire sourceRunSummary.partialRun into contractHealth ──────

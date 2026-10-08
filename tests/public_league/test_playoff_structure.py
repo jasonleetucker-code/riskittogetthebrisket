@@ -108,7 +108,7 @@ def test_the_week_start_survives_an_unknown_bracket():
 
 
 def _snapshot(playoff_teams=None):
-    settings = {"playoff_week_start": 15}
+    settings = {"playoff_week_start": 15, "playoff_seed_type": 1}
     if playoff_teams is not None:
         settings["playoff_teams"] = playoff_teams
     season = SimpleNamespace(
@@ -167,7 +167,7 @@ def test_the_public_engine_refuses_an_unknown_bracket_rather_than_defaulting():
     """It used to publish probabilities computed under
     ``DEFAULT_PLAYOFF_SPOTS``. Every owner is still listed — the rows are
     real — but the certainty is withheld."""
-    out = playoff_odds.compute_playoff_odds(_snapshot(), num_sims=50, rng=random.Random(1))
+    out = playoff_odds.compute_playoff_odds(_snapshot())
     assert out["playoffSpots"] is None
     assert out["simulated"] is False
     assert out["scheduleCertainty"] == "unknown_bracket"
@@ -176,9 +176,7 @@ def test_the_public_engine_refuses_an_unknown_bracket_rather_than_defaulting():
 
 
 def test_the_public_engine_uses_the_leagues_bracket_when_it_has_one():
-    out = playoff_odds.compute_playoff_odds(
-        _snapshot(playoff_teams=7), num_sims=50, rng=random.Random(1)
-    )
+    out = playoff_odds.compute_playoff_odds(_snapshot(playoff_teams=7))
     assert out["playoffSpots"] == 7
 
 
@@ -190,7 +188,7 @@ def test_both_engines_agree_on_the_bracket_for_one_league(monkeypatch):
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
     for teams in (4, 6, 7, 8):
         snap = _snapshot(playoff_teams=teams)
-        public = playoff_odds.compute_playoff_odds(snap, num_sims=10, rng=random.Random(1))
+        public = playoff_odds.compute_playoff_odds(snap)
         private = playoff_sim.simulate_playoff_odds(snap, n_simulations=10)
         assert public["playoffSpots"] == private["playoffSeeds"] == teams
 
@@ -302,22 +300,26 @@ def _identical_field(n_owners: int):
     return owners, dists
 
 
+def _play_bracket(owners, dists, *, playoff_seeds: int, bye_seeds: int, rng):
+    """One bracket on THE bracket (C5-PLAY-01: ``playoff_sim``'s — the
+    retired second one in ``championship.py`` is deleted).  The engine is
+    handed the top ``playoff_seeds`` of the standings, exactly as
+    ``simulate_playoff_odds`` does; returns each bracket team's placement."""
+    placements: dict = {}
+    playoff_sim._simulate_bracket(list(owners)[:playoff_seeds], dists, bye_seeds, rng, placements)
+    return {o: slot["place"] for o, slot in placements.items()}
+
+
 def _championship_counts(
     *, playoff_seeds: int, bye_seeds: int, n_owners: int = 12, runs: int = 600
 ):
-    from src.ros import championship
-
     owners, dists = _identical_field(n_owners)
     rng = random.Random(7)
     champions: dict[str, int] = {o: 0 for o in owners}
     runners_up = 0
     for _ in range(runs):
-        finishes = championship._simulate_bracket(
-            list(owners),
-            dists,
-            bye_seeds=bye_seeds,
-            playoff_seeds=playoff_seeds,
-            rng=rng,
+        finishes = _play_bracket(
+            owners, dists, playoff_seeds=playoff_seeds, bye_seeds=bye_seeds, rng=rng
         )
         won = [o for o, place in finishes.items() if place == 1]
         assert len(won) == 1, f"a bracket produced {len(won)} champions: {finishes}"
@@ -357,24 +359,27 @@ def test_the_bracket_plays_every_game_it_owes(monkeypatch, seeds, byes):
     A single-elimination bracket of N qualifiers plays exactly N-1
     games, whatever the bye count. Under the defect the live 7/1 bracket
     played 3 of its 6: an odd wildcard round strands a team, three reach
-    the semis, one survives, and ``len(semis_advance) >= 2`` is False."""
-    from src.ros import championship
+    the semis, one survives, and ``len(semis_advance) >= 2`` is False.
 
-    played = []
-    real = championship._simulate_matchup
-    monkeypatch.setattr(
-        championship,
-        "_simulate_matchup",
-        lambda a, b, d, r: played.append((a, b)) or real(a, b, d, r),
-    )
+    Games are counted as score DRAWS on the canonical bracket (its game is a
+    closure, so there is nothing to monkeypatch): every game draws exactly
+    two scores from these continuous distributions."""
+
+    class _CountingRandom(random.Random):
+        draws = 0
+
+        def gauss(self, mu=0.0, sigma=1.0):
+            type(self).draws += 1
+            return super().gauss(mu, sigma)
 
     owners, dists = _identical_field(12)
-    championship._simulate_bracket(
-        list(owners), dists, bye_seeds=byes, playoff_seeds=seeds, rng=random.Random(7)
-    )
-    assert (
-        len(played) == seeds - 1
-    ), f"a {seeds}-team bracket played {len(played)} games, not {seeds - 1}: {played}"
+    rng = _CountingRandom(7)
+    finishes = _play_bracket(owners, dists, playoff_seeds=seeds, bye_seeds=byes, rng=rng)
+    played = rng.draws // 2
+    assert played == seeds - 1, f"a {seeds}-team bracket played {played} games, not {seeds - 1}"
+    assert sorted(finishes) == sorted(owners[:seeds]), "a qualifier was never placed"
+    assert sum(1 for p in finishes.values() if p == 1) == 1
+    assert sum(1 for p in finishes.values() if p == 2) == 1
 
 
 def test_the_top_seed_does_not_absorb_the_stranded_teams_odds():
@@ -403,27 +408,35 @@ def test_the_six_seed_bracket_is_unchanged():
 
 def test_the_championship_engine_receives_the_leagues_field_size(monkeypatch):
     """The wiring, not the arithmetic. ``playoff_seeds`` was in scope at
-    the call site — used two lines later — and simply was not passed."""
+    the call site — used two lines later — and simply was not passed.
+
+    C5-PLAY-01: the championship surface is the canonical forecast
+    reshaped, so the bracket it reports is the one ``playoff_sim`` plays."""
     from src.ros import championship
 
     seen: dict[str, int] = {}
-    real = championship._simulate_bracket
+    real = playoff_sim._simulate_bracket
 
-    def _spy(seeded_owners, distributions, **kwargs):
-        seen.update(playoff_seeds=kwargs["playoff_seeds"], bye_seeds=kwargs["bye_seeds"])
-        return real(seeded_owners, distributions, **kwargs)
+    def _spy(seeded, distributions, bye_seeds, rng, placements=None, *, reseed=True):
+        seen.update(playoff_seeds=len(seeded), bye_seeds=bye_seeds, reseed=reseed)
+        return real(seeded, distributions, bye_seeds, rng, placements, reseed=reseed)
 
-    monkeypatch.setattr(championship, "_simulate_bracket", _spy)
+    monkeypatch.setattr(playoff_sim, "_simulate_bracket", _spy)
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
     monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
 
     owners, dists = _identical_field(12)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: (dists, {}))
-    monkeypatch.setattr(playoff_sim, "_current_record", lambda *a, **k: {})
+    # A finished season (games played, nothing left): the canonical engine
+    # refuses only when NOTHING has been played (audit N-1).
+    monkeypatch.setattr(
+        playoff_sim, "_current_record", lambda *a, **k: {o: {"wins": 1} for o in owners}
+    )
     monkeypatch.setattr(playoff_sim, "_remaining_schedule", lambda *a, **k: [])
 
     out = championship.simulate_championship_odds(_snapshot(playoff_teams=7), n_simulations=5)
-    assert seen == {"playoff_seeds": 7, "bye_seeds": 1}
+    # ``playoff_seed_type: 1`` in the fixture — the league's re-seed rule.
+    assert seen == {"playoff_seeds": 7, "bye_seeds": 1, "reseed": True}
     assert (out["playoffSeeds"], out["byeSeeds"]) == (7, 1)
 
 
@@ -463,3 +476,36 @@ def test_no_bracket_function_sizes_its_field_from_a_literal():
         "a bracket field size is hardcoded again — take it from the "
         "resolved structure instead:\n" + "\n".join(offenders)
     )
+
+
+# ── Re-seed vs fixed bracket is READ (C5-PLAY-01 review B2) ──────────
+
+
+@pytest.mark.parametrize(
+    "raw,seed_type,reason",
+    [
+        (1, "reseed", ""),
+        (0, "fixed", ""),
+        ("0", "fixed", ""),
+        (None, None, "league_settings_omit_playoff_seed_type"),
+        (2, None, "playoff_seed_type_not_recognised"),
+        (True, None, "playoff_seed_type_not_recognised"),
+        ("x", None, "playoff_seed_type_not_recognised"),
+    ],
+)
+def test_the_seed_type_is_read_and_unknown_fails_closed(raw, seed_type, reason):
+    settings = {"playoff_teams": 6}
+    if raw is not None:
+        settings["playoff_seed_type"] = raw
+    got = resolve_playoff_structure(_season(**settings))
+    assert got.known, "qualifying does not depend on the seeding rule"
+    assert (got.seed_type, got.seed_type_reason) == (seed_type, reason)
+    assert got.bracket_known is (seed_type is not None)
+    assert got.to_dict()["seedType"] == seed_type
+
+
+def test_the_live_leagues_seeding_rules():
+    """Measured 2026-10-07: dynasty_main re-seeds, dynasty_new is fixed."""
+    main = resolve_playoff_structure(_season(playoff_teams=7, playoff_seed_type=1))
+    new = resolve_playoff_structure(_season(playoff_teams=6, playoff_seed_type=0))
+    assert (main.seed_type, new.seed_type) == ("reseed", "fixed")

@@ -167,6 +167,13 @@ class TestRoleCannotDodgeTheGuard:
             "board_snapshot",
             "source_quality_panel",
             "dataset_state",
+            # AL-4a / AL-3b scorecard evidence: another producer's output or a
+            # realized observation -- an input or an outcome, never an artifact.
+            "game_day_generations",
+            "game_day_pregame_projections",
+            "sleeper_weekly_stats",
+            "nflverse_weekly_stats",
+            "bdvm_projection_snapshot",
         }
         with pytest.raises(lr.ReceiptError, match="cannot be an 'artifact'"):
             lr.StoreRef(

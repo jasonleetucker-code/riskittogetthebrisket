@@ -126,6 +126,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from src.api import roster_intelligence as _roster_intelligence
 from src.league_intel.cross_market import DEFAULT_GATE_PCT
 from src.league_intel.replacement import (
     PositionReplacement,
@@ -880,7 +881,7 @@ FIELD_POLICY: dict[str, Any] = {
                 "targetPositions[].winNowWeight",
                 "targetPositions[].marketEfficiency",
                 "targetPlayers[].marketEdge",
-                "needs[].replacementBaseline",
+                "roster.positionDeficits[].replacementBaseline",
             ],
             "reason": (
                 "null means the quantity was not measured. It is never collapsed "
@@ -1062,6 +1063,7 @@ def build_gameplan(
     bundle: LeagueBundle,
     owner_id: str,
     *,
+    weakness: Mapping[str, Any],
     partner_owner_id: str | None = None,
     cache_hit: bool = False,
 ) -> dict[str, Any]:
@@ -1070,6 +1072,12 @@ def build_gameplan(
     Engine ``to_dict()`` output is passed through unchanged rather than
     re-projected field by field — a hand-rolled projection is how a
     caveat gets dropped in a refactor.
+
+    ``weakness`` is the canonical need block for this team, from
+    ``roster_intelligence.team_weakness_for`` — the same answer
+    ``GET /api/roster/intelligence`` serves.  Required, not defaulted:
+    a gameplan with no need answer must say so explicitly (the helper
+    returns ``available: false`` with a reason), never omit the section.
     """
     t0 = time.perf_counter()
     team = bundle.team(owner_id)
@@ -1132,7 +1140,12 @@ def build_gameplan(
         "leagueKey": bundle.inputs.league_key,
         "scoringProfile": bundle.inputs.scoring_profile,
         "team": {"ownerId": team.owner_id, "teamName": team.team_name},
-        "roster": ri.to_dict(),
+        # The canonical need answer rides inside ``roster`` beside the
+        # engine's deficit MEASUREMENTS (``positionDeficits``), which no
+        # longer carry a verdict of their own (C2-WEAK-01, 2026-10-07).
+        # ``roster.needs`` was retired with that change — it was a second
+        # need rule ("urgent") on a different scale and population.
+        "roster": {**ri.to_dict(), "weakness": dict(weakness)},
         "partners": [p.to_dict() for p in partners],
         "targetPositions": [t.to_dict() for t in target_positions],
         "targetPlayers": [t.to_dict() for t in target_players],
@@ -1276,8 +1289,19 @@ def get_team_gameplan(
             if epoch == _CACHE_EPOCH and cached is not None and cached[0] == stamp:
                 _TEAM_CACHE.move_to_end(cache_key)
                 return cached[1], True
+        # The canonical need block, from the owner the roster-intelligence
+        # route serves — never re-derived from the bundle's ROS snapshot.
+        weakness = _roster_intelligence.team_weakness_for(
+            contract,
+            owner_id,
+            team_count=_roster_intelligence.declared_team_count(league_key),
+        )
         payload = build_gameplan(
-            bundle, owner_id, partner_owner_id=partner_owner_id, cache_hit=cache_hit
+            bundle,
+            owner_id,
+            weakness=weakness,
+            partner_owner_id=partner_owner_id,
+            cache_hit=cache_hit,
         )
         with _CACHE_LOCK:
             if epoch == _CACHE_EPOCH:

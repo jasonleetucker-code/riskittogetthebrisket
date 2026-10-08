@@ -1,0 +1,2779 @@
+{
+ "family": "A — Rankings, valuation, sources, identity, picks, roster foundations",
+ "auditedAt": "2026-10-07T21:28:55+00:00",
+ "mainSha": "911411cb4211ed69bf37b62b279fad0b82e130a1",
+ "rows": [
+  {
+   "id": "C0-GOV-01",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "One authorization record that matches merged reality",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "A fresh session can tell what is authorized now",
+   "backendOwner": "docs/EXECUTION_PLAN.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "EXECUTION_PLAN.md is the single authorization record (planning-integrity check 'exactly one authorization record' OK on main), but the 2026-10-07 'FINISH THE CALCULATOR SITE' completion directive is not recorded in it or in OWNER_REQUESTED_TODO.md (git grep '2026-10-07' finds nothing), and §0 still carries long superseded/freeze sections.",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": "Record the 2026-10-07 completion directive (scope + owner-only gates) in EXECUTION_PLAN.md §0 and OWNER_REQUESTED_TODO.md",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-02",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "One CE identifier namespace",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "CE ids mean one thing",
+   "backendOwner": "docs/CE_REGISTRY.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "docs/CE_REGISTRY.md exists on main; check_planning_integrity 'CE identifiers unique and mirrored consistently' passes and runs in CI.",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-03",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#1.1",
+   "productFamily": "Governance / planning",
+   "capability": "Zero-loss scope census",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every requirement has a manifest row",
+   "backendOwner": "docs/C_SERIES_SCOPE_MANIFEST.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Manifest declares 164 rows; integrity check 'declared manifest row count agrees with the measured one' passes on main. Post-manifest owner intake (2026-09-23..10-04) is not in the manifest by design (EXECUTION_PLAN §0 labels them plan-local).",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-04",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md",
+   "productFamily": "Governance / planning",
+   "capability": "Source->manifest traceability proof",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every source entry resolves",
+   "backendOwner": "docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C0-GOV-03"
+   ],
+   "reality": "Traceability doc on main; integrity check 'every traceability destination resolves; unexplained unmapped is 0' passes.",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-05",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "One intake mechanism for new owner instructions",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Owner instructions land in one live ledger",
+   "backendOwner": "docs/OWNER_REQUESTED_TODO.md + docs/PLANNING_DOCUMENT_STATUS.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "PLANNING_DOCUMENT_STATUS.md line 32/46 names OWNER_REQUESTED_TODO.md THE LIVE OWNER INTAKE LEDGER with a reconciliation workflow; integrity check 'exactly one live owner intake ledger' passes.",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-06",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "Governance index names every planning document",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every planning doc classified",
+   "backendOwner": "docs/PLANNING_DOCUMENT_STATUS.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Integrity check 'every planning document is classified' passes on main.",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-07",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "Planning-integrity validation in CI",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Planning drift fails CI",
+   "backendOwner": "scripts/check_planning_integrity.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C0-GOV-03"
+   ],
+   "reality": "Script exists, exits 0 on main, and is invoked by pr-validation.yml:237 and release-candidate.yml:110.",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-08",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "Operating-doc status prose stops contradicting the plan",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Handoff docs do not mislead a new session",
+   "backendOwner": "docs/ARCHITECTURE_HANDOFF.md, CLAUDE.md, PRODUCT_PLAN.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "ARCHITECTURE_HANDOFF.md carries a 2026-08-14 STALE banner, but the banner itself now states superseded facts (lineup '6 competing implementations', 'Team Strength has no owner', VA has 5) that C2-LINE-01/C2-STR-01/C3-VA-01 since consolidated, and line 100 still reads 'Phase B is NOT started'.",
+   "prOrBranch": null,
+   "evidence": "git show origin/main:docs/ARCHITECTURE_HANDOFF.md lines 1-16, 100",
+   "nextAction": "Refresh the ARCHITECTURE_HANDOFF.md banner to point at manifest §2 owner map instead of restating 2026-08-14 counts",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-GOV-09",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Governance / planning",
+   "capability": "Durable owner intent promoted off unmerged branches",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Owner specs live on main",
+   "backendOwner": "promoted specs under docs/",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "The 25 promoted specs landed with the post-B reconciliation (docs/POST_B_RECONCILIATION_2026-08-14.md on main) and are classified (integrity check passes).",
+   "prOrBranch": null,
+   "evidence": "scripts/check_planning_integrity.py run on main 911411cb4 -> PLANNING INTEGRITY: OK (all 14 checks); wired in pr-validation.yml:237 and release-candidate.yml:110",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-VAL-01",
+   "aliases": [
+    "V1-06"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Valuation",
+   "capability": "One canonical player value, 1-9999, enforced",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every value on the scale",
+   "backendOwner": "src/api/data_contract.py::_compute_unified_rankings",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Scale is a structural contract check; production /api/status contract.health structurallyOk=true, errorCount 0 (2026-10-07 20:03Z build 14774f789); tests/api/test_canonical_value_scale_contract.py on main; V1-06 VERIFIED.",
+   "prOrBranch": "B9a",
+   "evidence": "test_canonical_value_scale_contract.py; prod /api/status contract.health",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "F-VAL-02",
+   "aliases": [
+    "V1-07"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Valuation",
+   "capability": "No second canonical board",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "One number per player per session",
+   "backendOwner": "src/api/data_contract.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "offenseOnlyRankDerivedValue survives only as a comment (data_contract.py:13674); tests/api/test_one_canonical_value_per_asset.py on main; V1-07 VERIFIED.",
+   "prOrBranch": "B9a",
+   "evidence": "test_one_canonical_value_per_asset.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-VAL-03",
+   "aliases": [
+    "V1-08"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Valuation",
+   "capability": "valuation_mode withdrawn, ignored, stamped",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Stored leagueAdjusted converges to canonical",
+   "backendOwner": "server.py::_valuation_scoped_contract",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "server.py:5361/9522 stamp 'league_adjusted_withdrawn: not_canonical'; tests/api/test_canonical_value_invariance.py on main; V1-08 VERIFIED.",
+   "prOrBranch": "#822",
+   "evidence": "test_canonical_value_invariance.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-CONF-01",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Valuation",
+   "capability": "Five-axis confidence, weakest axis wins",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Honest confidence bucket per value",
+   "backendOwner": "src/api/confidence.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "src/api/confidence.py is the only bucket owner; tests/api/test_confidence_gate.py on main; deployed in prod build 14774f789.",
+   "prOrBranch": "B11",
+   "evidence": "test_confidence_gate.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-SRC-01",
+   "aliases": [
+    "SRC-FAMCAP (semantics evolved)"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Sources",
+   "capability": "Provider families, one authority each",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "A provider cannot multiply its influence",
+   "backendOwner": "_RANKING_SOURCES correlation groups + cap_family_weights",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Public prod /api/rankings/sources (200) lists 26 sources across 14 correlationGroups with gameType DYNASTY; 'one vote each' evolved into family-capped authority (flag source_family_cap LIVE in prod /api/status).",
+   "prOrBranch": "B10, #1427",
+   "evidence": "prod /api/rankings/sources + /api/status featureFlags",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "F-SCORE-01",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Scoring identity",
+   "capability": "Factual scoring identity, fails closed",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Leagues share rankings only when scoring is proven identical",
+   "backendOwner": "src/api/league_registry.py::leagues_share_scoring",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "scoring_fingerprint (src/league_comparison/sleeper_scoring.py:114) and leagues_share_scoring (league_registry.py:814) on main; B6/W18-F001 merged #810 5c699af; deployed.",
+   "prOrBranch": "#810 5c699af",
+   "evidence": "B6 tests",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "F-SCORE-02",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Scoring",
+   "capability": "Realized scoring",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Realized fantasy points under exact league scoring",
+   "backendOwner": "src/nfl_data/realized_points.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Module on main; prod /api/status featureFlags realized_points_api enabled LIVE, nfl_data_ingest LIVE; special teams tracked separately as C5-ST-01.",
+   "prOrBranch": "B7",
+   "evidence": "prod featureFlags",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-MISS-01",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Valuation display",
+   "capability": "Missing is never zero, on display",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Missing data shows as missing",
+   "backendOwner": "display owners",
+   "frontendOwner": "frontend display owners",
+   "dependsOn": [],
+   "reality": "Shipped #836 with tests; invariant re-asserted across later units (pick provenance 'unavailable', off-cap values, unpriced picks).",
+   "prOrBranch": "#836",
+   "evidence": "#836 tests",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-EXT-01",
+   "aliases": [
+    "OD-01 (KTC part)"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Sources",
+   "capability": "KTC data-use permission record",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "KTC use is authorized on record",
+   "backendOwner": "docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md §19.2",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Owner decision 2026-09-30 (#1555) recorded as owner-reported authorization; manifest row COMPLETE.",
+   "prOrBranch": "#1555",
+   "evidence": "manifest F-EXT-01",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-EXT-02",
+   "aliases": [
+    "OD-01 (IDPTC part)"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Sources",
+   "capability": "IDPTC authorization",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "IDP market anchor use is authorized on record",
+   "backendOwner": "docs (none)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "No record of any kind on main (manifest still ABSENT); idpTradeCalc is the sole IDP market anchor and serves 830 rows in production.",
+   "prOrBranch": null,
+   "evidence": "manifest F-EXT-02, §6 OD-01",
+   "nextAction": null,
+   "blocker": {
+    "what": "OD-01: record (or forgo) authorization for IdpTradeCalc data use",
+    "whyReal": "Provider-terms/authorization is an owner-only gate",
+    "doneAround": "Source keeps voting; nothing else blocked",
+    "ownerOrExternalAction": "Owner states the IDPTC authorization posture (as done for KTC on 2026-09-30)",
+    "afterUnblock": "Record it in §19.2 like F-EXT-01; mark COMPLETE"
+   },
+   "weight": 1
+  },
+  {
+   "id": "F-EXT-03",
+   "aliases": [
+    "OD-01 (credentialed part)"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Sources",
+   "capability": "Credentialed / paywall-adjacent source posture (DLF, DraftSharks, IDP Show, Flock)",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "One recorded posture for credentialed sources",
+   "backendOwner": "docs (none)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Still PARTIAL on main: credentialed sources (dlf_session/idpshow_session present on prod per /api/health) with no recorded authorization posture; Signals was resolved by owner attestation 2026-10-01, the others were not.",
+   "prOrBranch": null,
+   "evidence": "manifest F-EXT-03; prod /api/health session_cookies",
+   "nextAction": null,
+   "blocker": {
+    "what": "OD-01: set one authorization posture for credentialed sources",
+    "whyReal": "Provider-terms posture is owner-only",
+    "doneAround": "Sources keep running",
+    "ownerOrExternalAction": "Owner attests posture for DLF / DraftSharks / IDP Show / Flock",
+    "afterUnblock": "Record in one place; mark COMPLETE"
+   },
+   "weight": 1
+  },
+  {
+   "id": "X-03",
+   "aliases": [
+    "decision 42",
+    "#801"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Sources",
+   "capability": "Establish The Run paid source",
+   "disposition": "NOT_ACTUALLY_REQUIRED",
+   "userVisibleOutcome": "None (paused)",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "OWNER-PAUSED: do not purchase or implement until the owner resumes; paid source is an owner-only gate and not part of Calculator completion.",
+   "prOrBranch": "#801",
+   "evidence": "manifest X-03",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "X-04",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Valuation",
+   "capability": "Canonical Data Mode offline build",
+   "disposition": "SUPERSEDED",
+   "userVisibleOutcome": "None",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Retired: scripts/canonical_build.py and src/canonical/transform.py absent on origin/main; live contract is the single source of truth.",
+   "prOrBranch": null,
+   "evidence": "git cat-file on origin/main",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "X-05",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Valuation",
+   "capability": "League-aware valuation overlay as canonical",
+   "disposition": "REJECTED",
+   "userVisibleOutcome": "None",
+   "backendOwner": "src/league_intel/overlay.py (experimental fields only)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "OWNER-REJECTED (seven measured defects) per docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md; overlay writes only experimental* fields.",
+   "prOrBranch": "#822",
+   "evidence": "test_canonical_value_invariance.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "X-06",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Sources",
+   "capability": "src/api/opportunity_stats.py usage-signal engine",
+   "disposition": "SUPERSEDED",
+   "userVisibleOutcome": "None",
+   "backendOwner": "src/consensus_edge/opportunity.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "src/api/opportunity_stats.py absent on main; replacement src/consensus_edge/opportunity.py present.",
+   "prOrBranch": null,
+   "evidence": "git cat-file on origin/main",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C1-RET-01",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "KTC crowd-FAAB rolling window durably retained",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Crowd FAAB evidence is never lost",
+   "backendOwner": "scripts/fetch_crowd_faab.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Production retention probe reports ok (1.5h old); merge 47d7d243; V1-18 VERIFIED L3.",
+   "prOrBranch": "47d7d243",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-RET-02",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "Canonical board history provably recording",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Board history accumulates daily",
+   "backendOwner": "src/snapshots/board_store.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Production retention probe ok (13.9h); observable off-host via Scoring Snapshot Diagnostics workflow.",
+   "prOrBranch": "47d7d243",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-RET-03",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "rank_history.jsonl stall is detectable",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Rank history gaps alarm",
+   "backendOwner": "src/api/rank_history.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Probe ok; public /api/status rankHistoryCoverage 80 snapshots 2026-07-20..2026-10-07, missingDays 0, staleDays 0.",
+   "prOrBranch": "47d7d243",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07); /api/status",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-RET-04",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "Scoring card at a date (append-only)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "League scoring history preserved",
+   "backendOwner": "src/api/league_registry.py::write_scoring_snapshot",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01"
+   ],
+   "reality": "Probe ok (0.2h).",
+   "prOrBranch": "47d7d243",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-RET-05",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "Sleeper trending adds recorded",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Trending time series retained",
+   "backendOwner": "src/adapters/sleeper_trending.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01"
+   ],
+   "reality": "Probe ok (0.2h).",
+   "prOrBranch": "47d7d243",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C1-RET-06",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "Own-league trade/waiver/FA events captured before the window drops them",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "League transaction ledger complete",
+   "backendOwner": "src/api/sleeper_overlay.py::_flush_transaction_ledger",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ACQ-01"
+   ],
+   "reality": "Probe ok; on-box run 32919655291 found 744 waiver / 492 free_agent / 294 trade rows.",
+   "prOrBranch": "47d7d243 + C1-U8",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07); run 32919655291",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-RET-07",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "Per-source raw ingest + identity reports resume (or are honestly labelled)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Identity evidence freshness is truthful and alarms are not masked",
+   "backendOwner": "scripts/identity_resolve.py / src/retention/health.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Still STALE at 4,074h (newest identity_report 2026-04-20; its raw_source_snapshot input lost its producer in #173 f8cb1009e). Honestly labelled, but the permanently red stream masked C1-RET-08 going stale 2026-09-23..27 with no new alert. Live identity evidence now lands every cycle in data/scrape_state/identity_dual_read.json.",
+   "prOrBranch": null,
+   "evidence": "retention_health probe run 37632085170 (2026-10-07)",
+   "nextAction": "Re-point the RET-07 probe at identity_dual_read.json generatedAt and record the legacy identity_report stream as retired by #173 (or alert per stream so a known-stale stream cannot mask a new one)",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C1-RET-08",
+   "aliases": [
+    "V1-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Evidence retention",
+   "capability": "playerctx history actually lands",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Player-context snapshots retained",
+   "backendOwner": "scripts/refresh_playerctx.py + deploy/playerctx_history_push.sh",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Probe ok (37.9h); 17 weekly snapshots committed, newest 2026-10-06. /api/status missingDays 46 counts calendar days on a weekly stream; the real gap was the missed 2026-09-15/09-22 windows (alert masked by RET-07).",
+   "prOrBranch": "47d7d243",
+   "evidence": "retention_health probe run 37632085170 (2026-10-07); /api/status playerctxHistoryCoverage",
+   "nextAction": "Optional: cadence-aware missed-window metric next to missingDays",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C1-ID-01",
+   "aliases": [
+    "V1-01",
+    "C1-U2"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Identity",
+   "capability": "One player-identity owner",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every source row maps to the right player",
+   "backendOwner": "src/identity/resolution.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "V1-01 VERIFIED L3 (prod gate 2,016/2,016 and 24,024/24,024; board 0/1,092 moved); 2026-10-07 identity_dual_read.json v1Diverge=0 over 2,072 calls; prod idMappingCoverage 1.0.",
+   "prOrBranch": "b0c2f36 (deploy 31921280237)",
+   "evidence": "identity_dual_read.json; /api/status idMappingCoverage",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C1-ID-01/CANONICAL_V2",
+   "aliases": [
+    "C1-ID-01 follow-up"
+   ],
+   "sourceDoc": "docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md#9",
+   "productFamily": "Identity",
+   "capability": "CANONICAL_V2 identity policy served (first-name-variant rung + no-position tiebreak)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Fewer refusals/misidentifications (e.g. Justin Madubuike unresolved under V1)",
+   "backendOwner": "src/identity/resolution.py::resolve_canonical_v2",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-01"
+   ],
+   "reality": "Not served. 2026-10-07 dual-read: v2Same 2,048 vs v2WouldChange 24; name_clean.is_first_name_variant exists but resolution.py never calls it; no no-position tiebreak. Two diffs suggest V2 already beats V1 (Madubuike, Andru Phillips).",
+   "prOrBranch": null,
+   "evidence": "identity_dual_read.json",
+   "nextAction": "Add first-name-variant rung + no-position tiebreak to V2; cut over only when dual-read diffs are strictly improving",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-ID-02",
+   "aliases": [
+    "V1-02",
+    "C1-U3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Identity",
+   "capability": "One pick identity, end to end",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "A pick is one asset across trade, ownership and history",
+   "backendOwner": "src/identity/picks.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-01"
+   ],
+   "reality": "Public /api/draft-capital probe 2026-10-07: 72/72 (dynasty_main) and 80/80 (dynasty_new) picks carry unique pick:<league>:<season>:r<N>:o<rid> assetIds; on-box run 33597371684 resolved 214 pick trades into lineage hops. Intel-ledger re-key and frontend grammar migration deferred with a parity test.",
+   "prOrBranch": "#867 22ce424f",
+   "evidence": "public /api/draft-capital probe; run 33597371684",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C1-PICK-01",
+   "aliases": [
+    "V1-12",
+    "MFB-89",
+    "T-NEW-15"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Picks",
+   "capability": "Every valid pick through 2029 has a finite canonical value",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every pick shows a real value with provenance",
+   "backendOwner": "src/api/data_contract.py pick passes + src/api/pick_value_resolution.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-02"
+   ],
+   "reality": "Pick completeness census is a structural build error; production /api/status contract.health ok, structuralErrors [] on the 2026-10-07 build 14774f789. V1-12 restored to VERIFIED L3 after #910.",
+   "prOrBranch": "#871 ce8a8341a, #910",
+   "evidence": "/api/status contract.health",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C1-PICK-02",
+   "aliases": [
+    "PICK-RETIRE",
+    "V1-13",
+    "T-NEW-20",
+    "#1414"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1; docs/OWNER_REQUESTED_TODO.md#2026-09-24",
+   "productFamily": "Picks",
+   "capability": "Pick lifecycle: generic -> exact slot -> retired after draft completion, one asset",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Completed 2026 class leaves current selectors; history still resolves",
+   "backendOwner": "src/identity/pick_lifecycle.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-02"
+   ],
+   "reality": "Lifecycle #1442 bfdb238d8; prod-auth spec pick-lifecycle-horizon.spec.js ('2026 retired, 2027-2029 present, no 2030') passed in runs 36233825688 and 37678996634; live dynasty_new draft-capital shows retiredSeasons [2026]. Manifest status text is stale (still PARTIAL).",
+   "prOrBranch": "#1442 bfdb238d8",
+   "evidence": "prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": "Update manifest C1-PICK-02 status cell",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-PICK-03",
+   "aliases": [
+    "CE-02",
+    "AL-6"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Picks",
+   "capability": "Owned-pick outcome distribution, not a point estimate",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Pick Projector shows slot/tier probabilities under the real draft-order rule",
+   "backendOwner": "src/ros/pick_projection.py + src/public_league/draft_order.py + src/ros/playoff_sim.py + src/trade/pick_market.py",
+   "frontendOwner": "frontend/app/league/sections/_pick-projector.jsx",
+   "dependsOn": [
+    "C2-STR-01",
+    "DRAFT-ORDER-2026-10-04",
+    "PICK-PROJECTOR-1652"
+   ],
+   "reality": "#1642 publishes draftSlotDistribution under the owner rule for dynasty_main and shrinks toward thirds with provisional c, but the Pick Projector on main still orders by Team Strength (fix is open #1652) and slot distributions are not yet captured for calibration (c needs realized 2027 slots).",
+   "prOrBranch": "#1642 0fbd5d47; #1652 open",
+   "evidence": "tests in #1642/#1652",
+   "nextAction": "Integrate #1652 (rebase on main, regenerate coercion_baseline from that tree, merge, observe panel + capture line on box)",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C1-HIST-01",
+   "aliases": [
+    "V1-03",
+    "C1-U4"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "History",
+   "capability": "One immutable as-of value/provenance ledger",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "As-of values are honest and never future",
+   "backendOwner": "src/history/",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-01"
+   ],
+   "reality": "Production diagnostics run 31960075629: 169,896 observations over 34/34 dates, live recorder active; V1-03 VERIFIED L3.",
+   "prOrBranch": "#869 8b6a9987",
+   "evidence": "run 31960075629",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-HIST-02",
+   "aliases": [
+    "V1-04"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "History",
+   "capability": "Historical pick values first-class",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Old pick values are retrievable",
+   "backendOwner": "src/history/",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01",
+    "C1-ID-02"
+   ],
+   "reality": "On production mpick:2026:r1:s1 as-of 2026-08-16 resolves exact 7,779 with NULL rank (run 31960075629).",
+   "prOrBranch": "#869 8b6a9987",
+   "evidence": "run 31960075629",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-HIST-03",
+   "aliases": [
+    "V1-05"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "History",
+   "capability": "Board-history rankChange deterministic",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Rank movement arrows are stable and truthful",
+   "backendOwner": "src/api/data_contract.py::_stamp_rank_changes",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01"
+   ],
+   "reality": "Flag ledger_rank_change LIVE in prod /api/status; back-to-back determinism test green; no comparator -> None.",
+   "prOrBranch": "#869 8b6a9987",
+   "evidence": "/api/status featureFlags; determinism test",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-ACQ-01",
+   "aliases": [
+    "V1-15",
+    "C1-U8"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "History",
+   "capability": "Acquisition history / cost basis ledger",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Private per-league holding periods and cost basis",
+   "backendOwner": "src/acquisition/ + scripts/build_acquisition_ledger.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-01",
+    "C1-HIST-01"
+   ],
+   "reality": "V1-15 VERIFIED L3 2026-09-02 (on-box runs 33597260912/33597371684: inserted 1067 then 0, conflicts 0, 3,377 events). Residuals: no timer schedules the builder; backup item 6 unverifiable (root 0700).",
+   "prOrBranch": "#878",
+   "evidence": "runs 33597260912, 33597371684",
+   "nextAction": "Optional: schedule build_acquisition_ledger after the transaction-ledger flush",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-ACQ-02",
+   "aliases": [
+    "V1-16"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "History",
+   "capability": "Historical roster reconstruction",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Roster at a date with fidelity labels",
+   "backendOwner": "src/acquisition/roster.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ACQ-01"
+   ],
+   "reality": "V1-16 VERIFIED L3 (on-box run 32919655291 item 5; mutation-proof run 32943730840).",
+   "prOrBranch": "#878 af4dad9b5",
+   "evidence": "runs 32919655291, 32943730840",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-ACQ-03",
+   "aliases": [
+    "V1-17",
+    "CE-18"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "History",
+   "capability": "Pick lineage / trade trees",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Full pick hop chain",
+   "backendOwner": "src/acquisition/holdings.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-02",
+    "C1-ACQ-01"
+   ],
+   "reality": "V1-17 VERIFIED L3: run 33597371684, 214 pick trades -> 214 hops (427 hops / 234 picks).",
+   "prOrBranch": "#878",
+   "evidence": "run 33597371684",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-CONF-01",
+   "aliases": [
+    "V1-11",
+    "C1-U5"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Valuation",
+   "capability": "Confidence naming defects renamed",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Confidence labels mean what they say",
+   "backendOwner": "src/api/confidence.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "V1-11 VERIFIED L3; a priced row without confidenceBasis is a build error and production contract.health is ok on 2026-10-07.",
+   "prOrBranch": "#876",
+   "evidence": "/api/status contract.health",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C1-SRC-01",
+   "aliases": [
+    "V1-19",
+    "C1-U9",
+    "AL-P3",
+    "G3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Sources",
+   "capability": "Multi-format dynasty source archive (KTC TEP states as one family)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Source-native format variants preserved without voting",
+   "backendOwner": "src/source_archive/ + src/sources/ktc_format_archive.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01"
+   ],
+   "reality": "Store + gate VERIFIED L3 (V1-19). The variant producer arrived only with AL-P3 #1603 2b7113c41 (8 KTC boards per run_id); its §7b production observation is unrecorded.",
+   "prOrBranch": "#879; #1603 2b7113c41",
+   "evidence": "docs/sources C1_U9 §7a/§7b",
+   "nextAction": "On-box read-only count of data/source_archive (8 boards per run_id, provider_family ktc, PRODUCTION_ELIGIBLE empty); record it in §7b",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C1-SRC-02",
+   "aliases": [
+    "V1-20"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C1",
+   "productFamily": "Sources",
+   "capability": "Game type proven per feed, fails closed on UNKNOWN",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Only verified dynasty boards vote",
+   "backendOwner": "_RANKING_SOURCES game_type invariant",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Public prod /api/rankings/sources 2026-10-07: 26/26 sources gameType DYNASTY with evidence; import-time invariant; V1-20 VERIFIED L3. Residual: integrity sweep P4 (idpShowCombined evidence cites a URL path).",
+   "prOrBranch": "C1-U9 #879",
+   "evidence": "prod /api/rankings/sources",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "PICK-HORIZON",
+   "aliases": [
+    "C1-U6 step 12",
+    "2027-2029 horizon"
+   ],
+   "sourceDoc": "CLAUDE.md#Live Value Pipeline step 12; docs/OWNER_REQUESTED_TODO.md",
+   "productFamily": "Picks",
+   "capability": "Self-rolling pick horizon current+3 (2027-2029 now)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "2027-2029 picks priced, no 2030, retired 2026 hidden",
+   "backendOwner": "src/identity/pick_lifecycle.py + data_contract horizon",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-PICK-02"
+   ],
+   "reality": "Prod-auth spec run 37678996634: 2027-2029 present, no 2030; retirement does not move the horizon anchor.",
+   "prOrBranch": "#1442",
+   "evidence": "prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "DRAFTCAP-YEARSEL-2026-10-01",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Draft Capital year selector",
+   "productFamily": "Picks / League",
+   "capability": "Draft Capital All Years | <year> selector",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Filter draft capital by year without re-valuing",
+   "backendOwner": "src/api/draft_capital_years.py",
+   "frontendOwner": "league draft-capital tab",
+   "dependsOn": [],
+   "reality": "Live public /api/draft-capital carries availableYears/teamTotalsByYear/yearSummaries (dynasty_main [2027]; dynasty_new [2027,2028]); the selector UI and ?year= URL state are not exercised by any production spec.",
+   "prOrBranch": "#1579 77a15a33d",
+   "evidence": "public /api/draft-capital probe",
+   "nextAction": "Add/run a production browser check of the ?year= selector",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "DRAFTCAP-2029-INVENTORY",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Draft Capital year selector (OWNER DECISION NEEDED row)",
+   "productFamily": "Picks",
+   "capability": "Extend draft-capital pick inventory to 2029",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "2029 picks counted in team capital",
+   "backendOwner": "draft capital workbook / Sleeper fallback",
+   "frontendOwner": null,
+   "dependsOn": [
+    "PICK-HORIZON"
+   ],
+   "reality": "Live: dynasty_new ownedPickSeasons [2027,2028,2029] but covers [2027,2028]; dynasty_main covers [2027] only.",
+   "prOrBranch": null,
+   "evidence": "public /api/draft-capital probe",
+   "nextAction": null,
+   "blocker": {
+    "what": "Whether to extend either league's draft-capital inventory to 2029",
+    "whyReal": "Extending re-spreads the $1200 pool and moves All Years totals; recorded as OWNER DECISION NEEDED",
+    "doneAround": "2029 shown as not-in-inventory; canonical board prices 2029 generic rows",
+    "ownerOrExternalAction": "Owner decides extend vs keep",
+    "afterUnblock": "Extend inventory and re-measure team totals"
+   },
+   "weight": 2
+  },
+  {
+   "id": "PICK-TIERS-2026-10-03",
+   "aliases": [
+    "T-NEW-02 (superseded in part)",
+    "#1415"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-03 Trade Calculator unlimited quantity + Early/Mid/Late",
+   "productFamily": "Picks / Trade Calculator",
+   "capability": "Early/Mid/Late future market picks discoverable; every asset repeatable",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Searching a year shows Early/Mid/Late picks first; any asset addable repeatedly",
+   "backendOwner": "board tier rows (rankDerivedValue)",
+   "frontendOwner": "frontend searchCalculatorAssets (/trade)",
+   "dependsOn": [],
+   "reality": "Prod run 37678996634 (desktop + mobile) passed 'search offers 2027 Mid 1st' (market row found and added). Repeatable quantity is unit-tested, not separately asserted in production.",
+   "prOrBranch": "#1619 bf326ed92",
+   "evidence": "prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "WAVE-A-2026-10-03",
+   "aliases": [
+    "#1529 prerequisites S1-S3"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-03 Calculator batch Wave A",
+   "productFamily": "Picks / Draft capital",
+   "capability": "Draft-capital correctness: one pick season, no double-counted 2027 picks, no sending unowned picks",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Stacks and trades never double-count or send unowned picks",
+   "backendOwner": "pick_lifecycle.league_draft_years + picks.lookup_league_pick_owner",
+   "frontendOwner": "frontend/lib/pick-stack.js, trade-war-room.js",
+   "dependsOn": [
+    "C1-ID-02"
+   ],
+   "reality": "Public probe confirms defects 1-2 fixed in prod (one upcomingDraftYear 2027 on both leagues, unique assetIds, no duplicate 2027 picks). Defect 3 refusal needs auth and is unobserved; the V1 auth workflow is red since this deploy only because of a stale stack-note spec (open PR #1678).",
+   "prOrBranch": "#1626 acb1da9c4; #1678 open",
+   "evidence": "public /api/draft-capital probe; runs 37152552682/37159597521",
+   "nextAction": "Merge #1678, run an authenticated simulate with a non-held pick and record the refusal, update the WORK_CLAIMS row",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "DRAFT-ORDER-2026-10-04",
+   "aliases": [
+    "C7-PICKGEN-01 forecast half"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-03 batch (2026-10-04 draft-order row)",
+   "productFamily": "Picks",
+   "capability": "Canonical rookie-draft order (reverse record, lower-PF tiebreak) + probability-weighted pick market",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Generated-trade pick market uses forecast tier probabilities",
+   "backendOwner": "src/public_league/draft_order.py, config/leagues/draft_order_rules.json, src/ros/playoff_sim.py, src/trade/pick_market.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Deployed (prod build carried 0fbd5d47, deploy 37197655484); anonymous check found no draftSlotDistribution leak; authenticated engine output (marketDerivation provenance) unobserved.",
+   "prOrBranch": "#1642 0fbd5d47",
+   "evidence": "WORK_CLAIMS #1642 row",
+   "nextAction": "Authenticated /api/trade/finder run recording marketDerivation provenance for one owned pick",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "PICK-PROJECTOR-1652",
+   "aliases": [
+    "AL-P4 slot capture"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-04 follow-ups",
+   "productFamily": "Picks",
+   "capability": "Pick Projector slots from the season simulation under the canonical draft-order rule",
+   "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+   "userVisibleOutcome": "Pick Projector shows real slot probabilities",
+   "backendOwner": "src/ros/pick_projection.py, src/ros/pick_forecast_snapshot.py",
+   "frontendOwner": "frontend/app/league/sections/_pick-projector.jsx",
+   "dependsOn": [
+    "DRAFT-ORDER-2026-10-04"
+   ],
+   "reality": "Open PR #1652 (head 53b3c859) deletes Team-Strength ordering and adds slot capture to AL-P4; green 2026-10-05, now behind main; edits config/coercion_baseline.json.",
+   "prOrBranch": "#1652 (open)",
+   "evidence": "PR checks",
+   "nextAction": "Freeze, rebase on main, regenerate coercion_baseline from that tree, merge",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "DRAFT-ORDER-DYNASTY-NEW",
+   "aliases": [],
+   "sourceDoc": "config/leagues/draft_order_rules.json",
+   "productFamily": "Picks",
+   "capability": "dynasty_new rookie-draft order rule",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "dynasty_new pick forecasts",
+   "backendOwner": "config/leagues/draft_order_rules.json",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-PICK-03"
+   ],
+   "reality": "dynasty_new is absent from the rule config, so it fails closed (no slot forecast, plain tier average).",
+   "prOrBranch": null,
+   "evidence": "config on main",
+   "nextAction": null,
+   "blocker": {
+    "what": "dynasty_new's real rookie-draft order rule",
+    "whyReal": "Inventing a league rule is forbidden; only the owner knows it",
+    "doneAround": "Plain Early/Mid/Late average used",
+    "ownerOrExternalAction": "Owner states the rule",
+    "afterUnblock": "Add rule entry; forecasts activate"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C2-LINE-01",
+   "aliases": [
+    "V1-27",
+    "C2-U1"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "One lineup/slot assignment",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every surface shows the same optimal lineup",
+   "backendOwner": "src/ros/lineup.py",
+   "frontendOwner": "frontend/lib/starter-slots.js (renders stamped optimalLineup)",
+   "dependsOn": [],
+   "reality": "Three competing fills retired; exact solver 10/10 vs Sleeper awarded lineups; V1-27 VERIFIED L3 (docs/lineup/evidence/V1_27_AUTHENTICATED_PROD_2026-08-26.md); v1-27-lineup-render passed on production desktop today (mobile skipped by design). Manifest cell still says CLOSED-PENDING-PROD.",
+   "prOrBranch": "#880 f4d7e458f",
+   "evidence": "prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z); tests/lineup/test_single_owner.py",
+   "nextAction": "Update the manifest status cell",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-REPL-01",
+   "aliases": [
+    "V1-29",
+    "C2-U2",
+    "CE-09"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "One replacement level / PAR per quantity",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Replacement level means one thing per unit",
+   "backendOwner": "src/league_intel/replacement.py + src/scoring/replacement_level.py; census scripts/replacement_census.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-LINE-01"
+   ],
+   "reality": "Resolved as one owner per quantity (V1-29/V1-125 VERIFIED L2): remaining implementations classified OWNER/ADAPTER/DISTINCT, vorp_table retired, a discovery rule fails on any new undeclared definition; L2 board diff 0 values moved. Manifest text ('One service', DUPLICATED) is stale.",
+   "prOrBranch": "#933 6eb847c39, #987 faa50ba9a, #1223 cd78d0328",
+   "evidence": "tests/roster_intel/test_replacement_owner.py (mutation-proven)",
+   "nextAction": "Reconcile manifest row text with the V1-125 disposition",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-STR-01",
+   "aliases": [
+    "V1-31",
+    "C2-U4",
+    "Lane A Team Strength"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Canonical Team Strength",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "One Team Strength on /rosters, /phases and trade tiles",
+   "backendOwner": "src/roster_intel/strength.py via GET /api/roster/intelligence",
+   "frontendOwner": "components/TeamStrengthCard.jsx (/rosters); TeamPhasePanel (/phases); trade SimulationPanel tiles",
+   "dependsOn": [
+    "C2-CORE-01"
+   ],
+   "reality": "Single guarded owner (V1-31 VERIFIED L2); frontend duplicates retired. Production run today checks trade-surface strength before/after vs /api/trade/simulate (desktop pass), but the /rosters card has no production observation and no cross-surface parity check.",
+   "prOrBranch": "#914 37d4c5f3d, #935 c2eb9a79f, #1004 25ec0826a",
+   "evidence": "tests/roster_intel/test_strength.py; team-strength-card.test.jsx; prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": "Add a prod-auth spec comparing /rosters TeamStrengthCard to /api/roster/intelligence and to simulate strengthBefore",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C2-WEAK-01",
+   "aliases": [
+    "V1-32",
+    "C2-U5",
+    "Lane A Need Priority / lineup demand"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Canonical Team Weakness / Need Priority",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "One need answer on every surface",
+   "backendOwner": "src/roster_intel/weakness.py + src/ros/lineup.py::resolve_league_slot_demand",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-STR-01"
+   ],
+   "reality": "Backend consumers (suggestions.analyze_roster, FAAB classify_need, team_impact) delegate to the canonical owners (#1436 5ff4bafcd), but /rosters TradeTargetsCard (frontend/app/rosters/page.jsx:509-571) still derives Weakest/Strongest from raw full-roster sums, roster_intel/engine.position_needs survives for /api/gameplan, and the served weakness block is rendered nowhere.",
+   "prOrBranch": "#914, #1004, #1436 5ff4bafcd",
+   "evidence": "tests/roster_intel/test_weakness.py; scripts/verify_roster_intelligence.py (216 rungs PASS)",
+   "nextAction": "Replace TradeTargetsCard need math with the served team.weakness and add a frontend absence guard for page-local need logic",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C2-CORE-01",
+   "aliases": [
+    "V1-30",
+    "V1-28",
+    "C2-U6",
+    "#839",
+    "#899",
+    "T-NEW-19",
+    "Lane A Meaningful Roster Core"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Canonical Meaningful Roster Core (ceil(1.5 x real starter demand), FLEX assignment first)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every whole-team strength claim uses the same meaningful core",
+   "backendOwner": "src/roster_intel/core.py::build_meaningful_core",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-LINE-01"
+   ],
+   "reality": "Selector built with #899 ordering and challenger-tested (M=1.5 PRIOR, docs/roster-intelligence/evidence/C2_CORE_M_CHALLENGER_2026-08-18); consumed by strength, weakness, age, exposure, simulation. Not yet every whole-team claim: /rosters TradeTargetsCard still uses raw full-roster sums.",
+   "prOrBranch": "#900, #914, #922 b3739f095",
+   "evidence": "tests/roster_intel/test_core.py; test_core_multiplier_challenger.py",
+   "nextAction": "Same TradeTargetsCard replacement as C2-WEAK-01",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C2-SIM-01",
+   "aliases": [
+    "V1-42",
+    "C2-U3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Exact before->apply->re-solve->after roster simulation",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Trade shows promotions, displacements and need changes",
+   "backendOwner": "src/roster_intel/simulation.py (composed by src/trade/roster_capacity.py::simulate_final_legal_roster)",
+   "frontendOwner": "frontend/app/trade/trade-sections.jsx",
+   "dependsOn": [
+    "C2-LINE-01",
+    "C2-STR-01"
+   ],
+   "reality": "V1-42 VERIFIED L2; v1-45-trade-surface passed on production desktop today checking promotions, displacements, strength and forced drops field-for-field (mobile skipped).",
+   "prOrBranch": "#914, #913 25bb6b4bd, #1459 692179f44",
+   "evidence": "tests/trade/test_trade_consumes_roster.py (P1-P9); prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-DROP-01",
+   "aliases": [
+    "V1-40",
+    "C2-U8",
+    "Lane A droppability"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Dropability / cut candidates from one owner",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Waivers and trades recommend the same cuts",
+   "backendOwner": "src/draft/displacement.py (+ src/roster_intel/droppability.py adapter)",
+   "frontendOwner": "/waivers Droppable panel (not consuming it)",
+   "dependsOn": [
+    "C2-REPL-01"
+   ],
+   "reality": "Backend duplicate find_drop_candidates deleted (V1-40 VERIFIED L2); trade forced drops observed in production today. /waivers 'Droppable' (frontend/lib/waiver-logic.js) still ranks by raw value with no lineup legality.",
+   "prOrBranch": "#1017 55daf1e58, #914",
+   "evidence": "tests/roster_intel/test_droppability.py",
+   "nextAction": "Feed /waivers Droppable from team_droppability (/api/roster/intelligence?droppability=1)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-GP-01",
+   "aliases": [
+    "W20-F001",
+    "Lane A duplicate-owner retirement"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "roster_intel / /api/gameplan reaches a user or is retired",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "No disconnected second roster engine",
+   "backendOwner": "src/api/gameplan.py + src/roster_intel/{engine,targets,partner,packages,window,profiles}",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-WEAK-01",
+    "C3-PKG-01"
+   ],
+   "reality": "Pieces absorbed (postures feed finder, window used by analyze_trade/finder, packages by simulator/suggestions), but engine.analyze_roster/position_needs (second need rule), targets/partner and packages._check_legality remain gameplan-only with zero frontend callers.",
+   "prOrBranch": "#574 8d60936ab, #1488 1de2bd5d9",
+   "evidence": "tests/api/test_gameplan_endpoint.py",
+   "nextAction": "Absorb engine.position_needs into weakness (or delete), then retire GET /api/gameplan or give it a consumer",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-AGE-01",
+   "aliases": [
+    "V1-33",
+    "#838",
+    "inventory 1.6"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Roster age-value portfolio over the meaningful core",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Value-weighted core age per team, missing age never zero",
+   "backendOwner": "src/roster_intel/age_portfolio.py",
+   "frontendOwner": "partial: valueWeightedCoreAge on /phases (full portfolio UI is C7-AGE-01)",
+   "dependsOn": [
+    "C2-CORE-01"
+   ],
+   "reality": "Served as teams[].agePortfolio; missing age excluded with coverage reported, picks excluded; V1-33 VERIFIED L1; no production observation of the payload.",
+   "prOrBranch": "#914",
+   "evidence": "tests/roster_intel/test_age_portfolio.py; scripts/validate_young_core.py",
+   "nextAction": "Production probe of agePortfolio on /api/roster/intelligence",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-AGE-02",
+   "aliases": [
+    "V1-33",
+    "#838 §5-6"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Young Core Index (0-100, league-relative, position-normalized)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Youngest valuable room leaderboards",
+   "backendOwner": "src/roster_intel/age_portfolio.py::young_core_index",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-AGE-01"
+   ],
+   "reality": "Implemented with components exposed and validated on a real league board (scripts/validate_young_core.py, 16/66 inversions); youngCoreIndex parsed in lib/roster-intelligence.js but not rendered; weighting still a PRIOR; no production observation.",
+   "prOrBranch": "#914",
+   "evidence": "scripts/validate_young_core.py",
+   "nextAction": "Production probe, then render it (C7-AGE-01)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C2-AGE-03",
+   "aliases": [
+    "#838 future extension"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Age/value history and trend views (before/after trade, YCI trend)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Roster window movement over time",
+   "backendOwner": "none yet (src/roster_intel/simulation.py + src/history)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01",
+    "C2-AGE-01"
+   ],
+   "reality": "Nothing exists: no agePortfolio before/after in simulation, no YCI trend, no per-team age snapshots.",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": "Add agePortfolio before/after to simulation.py; start daily per-team YCI/age snapshots for trends",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C2-EXP-01",
+   "aliases": [
+    "CE-06",
+    "#786",
+    "decision 12"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C2",
+   "productFamily": "Roster foundations",
+   "capability": "Value-weighted NFL-team exposure before/after (descriptive only)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Trade shows NFL-team concentration without affecting the grade",
+   "backendOwner": "src/roster_intel/exposure.py; roster_intelligence.trade_nfl_exposure",
+   "frontendOwner": "frontend/app/trade/trade-sections.jsx NflExposureSection",
+   "dependsOn": [
+    "C2-SIM-01"
+   ],
+   "reality": "Tests prove value/grade outputs byte-identical with and without exposure and analyze ignores it; no production spec covers the section.",
+   "prOrBranch": "#1439 439d03850",
+   "evidence": "tests/api/test_trade_nfl_exposure.py; tests/roster_intel/test_exposure.py",
+   "nextAction": "Add an exposure assertion to the v1-45-trade-surface prod spec",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "LANE-A-1340",
+   "aliases": [
+    "#1340",
+    "W1-30"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24 Calculator completion campaign Lane A",
+   "productFamily": "Roster foundations",
+   "capability": "ROS Team Strength section re-verification/repair (no 60s hang)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "League ROS Team Strength tab loads or shows explicit not-ready",
+   "backendOwner": "src/ros/team_strength.py (ROS composite)",
+   "frontendOwner": "frontend/app/league/sections/ros-team-strength.jsx",
+   "dependsOn": [],
+   "reality": "Bounded section deadline (#1500 836f9f628); v1-123-team-strength passed on production desktop (3.0s) and mobile today. Issue #1340 still OPEN.",
+   "prOrBranch": "#1500 836f9f628",
+   "evidence": "prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": "Comment the run evidence on #1340 and close it",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "LANE-A-CLASSIFY-NEED",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24 Calculator completion campaign Lane A",
+   "productFamily": "Roster foundations",
+   "capability": "FAAB classify_need delegates to canonical need/demand",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "FAAB need reading matches roster need",
+   "backendOwner": "src/trade/faab_engine.py::classify_need",
+   "frontendOwner": "/waivers (bid figures)",
+   "dependsOn": [
+    "C2-WEAK-01"
+   ],
+   "reality": "Delegation done (#1436): demand from lineup.resolve_league_slot_demand, depth from weakness.position_depth. Residual: faab_contention.need_level_for still classifies rival need through suggestions.analyze_roster (the reading classify_need's own docstring rejects).",
+   "prOrBranch": "#1436 5ff4bafcd",
+   "evidence": "test_strength_weakness_single_owner.py; FAAB tests",
+   "nextAction": "Route need_level_for through classify_need (or record why rival need uses the trade reading)",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-PERF-01",
+   "aliases": [
+    "V1-105",
+    "C0-U2"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Performance",
+   "capability": "Performance baselines captured before feature work",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Measured p95 baselines exist",
+   "backendOwner": "docs/GLOBAL_PERFORMANCE_STANDARD.md, docs/performance/BROWSER_BASELINES.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Authenticated production browser baselines recorded 2026-09-26; owner accepted 2026-08-25 that the pre-feature /rankings baseline is irrecoverable (packet B option A); V1-105 VERIFIED L2. Manifest cell still says ABSENT.",
+   "prOrBranch": null,
+   "evidence": "docs/performance/BROWSER_BASELINES.md",
+   "nextAction": "Correct the manifest cell",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C0-PSI-01",
+   "aliases": [
+    "OD-05",
+    "V1-110"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C0",
+   "productFamily": "Premium UI",
+   "capability": "PSI token direction conflict resolved",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "One design-token direction",
+   "backendOwner": "frontend/app/tokens.css; docs/DESIGN-SYSTEM.md:14",
+   "frontendOwner": "psi-editorial scope",
+   "dependsOn": [],
+   "reality": "OD-05 RESOLVED 2026-08-18 (docs/DESIGN-SYSTEM.md); V1-110 VERIFIED L2. Manifest cell still says CONFLICT.",
+   "prOrBranch": null,
+   "evidence": "V1-110",
+   "nextAction": "Correct the manifest cell",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C4-KTC-01",
+   "aliases": [
+    "V1-26"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C4",
+   "productFamily": "Sources / valuation",
+   "capability": "KTC playerID -> identity, one owner",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "KTC values join to the right players",
+   "backendOwner": "src/sources/ktc_identity.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-01"
+   ],
+   "reality": "V1-26 VERIFIED L2 (join 200/200, board inert); KTC Crowd and Trades serve 497 rows each in production today. Included here because KTC identity is a family-A source concern; C4 owner may dedupe.",
+   "prOrBranch": "2026-08-18 repair",
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C4-SRC-01",
+   "aliases": [
+    "V1-89",
+    "OD-04"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C4",
+   "productFamily": "Sources / valuation",
+   "capability": "DraftSharks staleness resolved",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "DraftSharks votes only when current",
+   "backendOwner": "scripts/fetch_draftsharks.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "OD-04 resolved by owner 2026-08-25 (ACCEPT HEALTHY_CURRENT); V1-89 VERIFIED L3; production draftSharks lastFetched 2026-10-07 17:38Z, 367 rows served. Manifest cell ('BROKEN') is stale.",
+   "prOrBranch": null,
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C4-SRC-02",
+   "aliases": [
+    "V1-71",
+    "V1-91"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C4",
+   "productFamily": "Sources / valuation",
+   "capability": "Partial source runs stop reporting healthy",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Source health counts the real voter population",
+   "backendOwner": "server.py source health snapshot + data_contract",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Production /api/status: total_sources 26, sources_with_data 22, missing/private-absent/seasonal listed separately, partial_run false; V1-71/V1-91 VERIFIED.",
+   "prOrBranch": "#905",
+   "evidence": "tests/api/test_source_health_population.py; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C4-SRC-03",
+   "aliases": [
+    "V1-90"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C4",
+   "productFamily": "Sources / valuation",
+   "capability": "FootballGuys ghost stamps removed",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "No phantom sources",
+   "backendOwner": "registry / data/scrape_state",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "V1-90 VERIFIED: zero FootballGuys references; production registered_sources contains none.",
+   "prOrBranch": null,
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SRC-FRESH-2026-09-23",
+   "aliases": [
+    "V2-1 predecessor"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-23; docs/sources/SOURCE_FRESHNESS_WEIGHTING.md",
+   "productFamily": "Sources / valuation",
+   "capability": "Freshness-aware source weighting (three clocks, cadence-relative, base x freshness x health x coverage)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "A stale source loses influence automatically and recovers on update",
+   "backendOwner": "src/sources/dataset_state.py, src/sources/freshness.py, config/sources/freshness_v1.json, data_contract blend",
+   "frontendOwner": "frontend explain / source column",
+   "dependsOn": [],
+   "reality": "PR #1402 recorded production verification (deploy run 35987335800 on-box effective-weight table: IDPTC picks 0.121, IDP Show 0.114, DLF quarantined); flag source_freshness_weighting LIVE in prod today. Per-player explain is login-gated.",
+   "prOrBranch": "#1402 cfd55c322",
+   "evidence": "tests/sources/test_freshness.py, test_dataset_state.py, tests/api/test_freshness_weighted_blend.py; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "SRC-KTC-SPLIT-2026-09-23",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-23",
+   "productFamily": "Sources / valuation",
+   "capability": "KTC Crowd and KTC Trades vote separately; KTC Market benchmark-only",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "KTC gets exactly two votes; KTC Market is a benchmark",
+   "backendOwner": "src/sources/ktc_market.py + _NON_VOTING_SOURCE_CSV_KEYS",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Public /api/rankings/sources: ktcCrowdSfTep (ktcCrowd), ktcTradesSfTep (ktcTrades), fantasyNavigatorSf inside ktcCrowd; ktcCrowdTradesSfTep not a voter; 497/497 served.",
+   "prOrBranch": "#1402 cfd55c322",
+   "evidence": "tests/sources/test_ktc_signal_architecture.py; prod /api/rankings/sources",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SRC-ROOTCAUSE-2026-09-23",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-23",
+   "productFamily": "Sources / valuation",
+   "capability": "IDPTC / IDP Show / DLF staleness root-caused; stale sources lose authority without removal",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Stale providers are explained and auto-demoted, never deleted",
+   "backendOwner": "scripts/fetch_dlf.py, deploy/dlf_fetch_and_push.sh, freshness owner",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-FRESH-2026-09-23"
+   ],
+   "reality": "DLF root cause fixed and production-confirmed (dlfSf 285 rows today); IDP Show = upstream non-publication; IDPTC pick/offense staleness = vendor non-publication (#1592: live feed matches all 84 pick rows).",
+   "prOrBranch": "#1408 1fe3e83aa, #1411 6dde82ae4, #1424 fa97d08af, #1592 fc130ed88",
+   "evidence": "INTEGRITY_SWEEP_2026-10-01 §0/§6; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SRC-STALEPRES-2026-10-01",
+   "aliases": [
+    "OD-STALE-QUAR",
+    "INTEGRITY_SWEEP §8 rec 1"
+   ],
+   "sourceDoc": "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md#8",
+   "productFamily": "Sources / valuation",
+   "capability": "Stale-evidence preservation vs quarantineBelow 0.02",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Picks keep more than one market when IDPTC goes stale",
+   "backendOwner": "config/sources/freshness_v1.json::quarantineBelow + src/sources/freshness.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-FRESH-2026-09-23"
+   ],
+   "reality": "quarantineBelow 0.02 conflicts with the owner rule that stale valid evidence keeps voting at reduced authority. Projected: IDPTC picks+offense drop at 2026-10-09 13:10Z (picks then rest on two modes of one KTC payload), idpShowCombined 2026-10-11 07:38Z. No owner decision recorded.",
+   "prOrBranch": "#1592 fc130ed88",
+   "evidence": "Sweep §0/§8",
+   "nextAction": null,
+   "blocker": {
+    "what": "Restate the rule as 'dropped below 0.02' or replace the quarantine with an authority floor",
+    "whyReal": "Methodology choice that conflicts with a recorded owner rule; sweep lists it as an owner decision",
+    "doneAround": "Measured and dated; current behaviour continues",
+    "ownerOrExternalAction": "Owner decides before 2026-10-09 13:10Z",
+    "afterUnblock": "One-line config or freshness.py change plus tests"
+   },
+   "weight": 2
+  },
+  {
+   "id": "OD-IDPTC-CAP",
+   "aliases": [
+    "INTEGRITY_SWEEP §8 rec 2-3"
+   ],
+   "sourceDoc": "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md#8",
+   "productFamily": "Sources / valuation",
+   "capability": "IDPTC lineage caps (offense vs ktcCrowd; IDP vs IDP Show) and PFK/FantasyCalc holdout status",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "No hidden extra KTC/IDP Show vote",
+   "backendOwner": "config/sources/source_lineage.json + cap_family_weights",
+   "frontendOwner": null,
+   "dependsOn": [
+    "B3-G"
+   ],
+   "reality": "Sweep measured IDPTC offense as a lagged KTC Crowd copy outside the ktcCrowd cap and IDPTC IDP following IDP Show (+0.992); caps undecided.",
+   "prOrBranch": "#1592 fc130ed88",
+   "evidence": "Sweep §8",
+   "nextAction": null,
+   "blocker": {
+    "what": "Whether IDPTC offense shares the ktcCrowd cap and IDPTC IDP shares a cap with IDP Show",
+    "whyReal": "Changing family membership is a methodology choice listed for the owner",
+    "doneAround": "Current families keep voting",
+    "ownerOrExternalAction": "Owner decides",
+    "afterUnblock": "Lineage config change + board diff"
+   },
+   "weight": 2
+  },
+  {
+   "id": "SRC-FAMCAP-2026-09-24",
+   "aliases": [
+    "F-SRC-01 evolution"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24",
+   "productFamily": "Sources / valuation",
+   "capability": "Family-capped weighting replaces family-head-wins",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every legitimate signal votes, providers cannot multiply influence",
+   "backendOwner": "src/api/data_contract.py::cap_family_weights",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-FRESH-2026-09-23"
+   ],
+   "reality": "Production verified at deploy 36072774748 (2026-09-25) with flag LIVE; source_family_cap LIVE today.",
+   "prOrBranch": "#1427 70a20d0dd",
+   "evidence": "tests/api/test_family_cap_weighting.py; scripts/backtest_family_cap.py; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "SRC-DLFVAL-2026-09-24/acquire-display-gate",
+   "aliases": [
+    "DLF Values normalization decision 2026-09-24"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24",
+   "productFamily": "Sources / valuation",
+   "capability": "DLF Trade Analyzer Values acquired, measured, shown as DLF second opinion",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Trade page DLF second opinion shows DLF's raw native Value",
+   "backendOwner": "scripts/fetch_dlf.py, scripts/dlf_values_gate.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Acquired non-voting as dlfValuesSfTep (15 content versions since 2026-09-25); the one-capture gate found raw/max pathological (91% Hampel rejection), rank->Hill the only viable candidate. Zero references in src/, frontend/, server.py, so the required raw-Value DLF second opinion is not built.",
+   "prOrBranch": "#1424 fa97d08af, #1430 b24781e2d, #1444 1ca492abb",
+   "evidence": "DLF_VALUES_GATE_2026-09-25.md",
+   "nextAction": "Re-run dlf_values_gate.py across the 15 captures (stability), build the raw-Value DLF second-opinion display",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SRC-DLFVAL-2026-09-24/vote",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24; docs/EXECUTION_PLAN.md#0 Calculator completion campaign (owner gates still open)",
+   "productFamily": "Sources / valuation",
+   "capability": "DLF Values become a voting DLF family member",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "DLF value spacing influences canonical values",
+   "backendOwner": "data_contract _RANKING_SOURCES",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-DLFVAL-2026-09-24/acquire-display-gate"
+   ],
+   "reality": "No dlfValues key registered in production; EXECUTION_PLAN lists 'the DLF Values vote' as an open owner gate.",
+   "prOrBranch": null,
+   "evidence": "prod /api/rankings/sources (no DLF Values key)",
+   "nextAction": null,
+   "blocker": {
+    "what": "Approve (or decline) DLF Values voting after the gate",
+    "whyReal": "Owner explicitly reserved the vote; activating a source before its gate is owner-only",
+    "doneAround": "Values acquired and measured; DLF Rank keeps voting",
+    "ownerOrExternalAction": "Owner decides after the stability re-run",
+    "afterUnblock": "Register the source with its normalization; board diff"
+   },
+   "weight": 2
+  },
+  {
+   "id": "SRC-DLFROOKIE-2026-09-24",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24",
+   "productFamily": "Sources / valuation",
+   "capability": "DLF rookie-board audit (signal, family member or mirror; seasonal applicability)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "DLF rookie boards vote only while applicable",
+   "backendOwner": "src/sources/seasonal_policy.py + DLF registry",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Sweep measured DLF rookie vs regular as separate rankings in one family (residual +0.607, n=40); no recorded seasonal-applicability verdict and SOURCE_FRESHNESS_WEIGHTING.md still says 'until the rookie-board audit decides'.",
+   "prOrBranch": "#1592 fc130ed88",
+   "evidence": "INTEGRITY_SWEEP_2026-10-01 §6",
+   "nextAction": "Record the audit verdict and decide from evidence whether dlfRookieSf/dlfRookieIdp need a seasonal_policy_v1 entry after the 2026 class graduates",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SRC-PARTICIPATION-2026-09-24",
+   "aliases": [
+    "#1411"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-09-24",
+   "productFamily": "Sources / valuation",
+   "capability": "Participation invariant + DLF rank/Value split + unslotted 2027 class priced from tiers",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every applicable observation votes or names its reason",
+   "backendOwner": "src/api/data_contract.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Per-row invariant over the newest complete archive; #1411 production-verified per WORK_CLAIMS.",
+   "prOrBranch": "#1411 6dde82ae4",
+   "evidence": "tests/api/test_source_participation.py, test_unslotted_draft_class.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SRC-WMEDIAN-2026-09-26",
+   "aliases": [
+    "#1434"
+   ],
+   "sourceDoc": "docs/sources/SOURCE_FRESHNESS_WEIGHTING.md#G",
+   "productFamily": "Sources / valuation",
+   "capability": "Weighted window-median (continuous, monotone) with refresh/revalidation",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Values do not flip on knife-edge weights",
+   "backendOwner": "data_contract._weighted_median_sorted, _trim_one_observation_mass",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-FAMCAP-2026-09-24"
+   ],
+   "reality": "Owner-approved refresh recorded in SOURCE_FRESHNESS_WEIGHTING.md §G (20,000-case property re-proof, 0 violations; pinned board impact 554/1,038). #1434 window-median board passed the production rankings run today.",
+   "prOrBranch": "#1434 cd832a5c6",
+   "evidence": "tests/api/test_weighted_blend.py; prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SRC-1425",
+   "aliases": [
+    "T-NEW-21",
+    "#1423",
+    "proposed C4-SRC-04"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Calculator completion campaign lane C",
+   "productFamily": "Sources / valuation",
+   "capability": "Per-source staggered adaptive acquisition orchestration (#1425 reconciliation)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Each source refreshes on its own cadence, isolated from others",
+   "backendOwner": "to be built on dataset_state + freshness",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-FRESH-2026-09-23"
+   ],
+   "reality": "#1425 was a planning PR closed unmerged; issue #1423 OPEN; no implementation.",
+   "prOrBranch": "#1425 closed; #1423 open",
+   "evidence": "none",
+   "nextAction": "Mint C4-SRC-04; first slice: split the 2-hourly monolithic refresh into isolated per-source jobs reusing the dataset_state clocks",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "SRC-KTC-MEM-2026-09-17",
+   "aliases": [
+    "#1391"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#KTC scrape memory-pressure repair 2026-09-17",
+   "productFamily": "Sources / valuation",
+   "capability": "KTC scrape memory-pressure repair",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "KTC scrape completes reliably",
+   "backendOwner": "src/sources/ktc_value_sources.py, Dynasty Scraper.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Intake DONE 2026-09-19; prod run_events today: KTC completed, 497 rows served ('4 mapped values' counts only the console PLAYERS list).",
+   "prOrBranch": "#1386 d14804d35, #1388 b90e126cf, #1394 4e5c7a4c7",
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "FLOCK-SEASONAL-2026-10-03",
+   "aliases": [
+    "#1552"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-03 Flock rookie board",
+   "productFamily": "Sources / valuation",
+   "capability": "Flock rookie board declared seasonal window",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Graduated rookie board stops voting without fake freshness",
+   "backendOwner": "src/sources/seasonal_policy.py, config/sources/seasonal_policy_v1.json",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Production served_seasonal_inactive [flockFantasySfRookies], count 0, lastFetched held at 2026-09-30 (no fabricated stamp).",
+   "prOrBranch": "#1620 7da2871a4; #1625 7db6c40e8",
+   "evidence": "tests/sources/test_seasonal_policy.py; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "ROOKIE-TREAT",
+   "aliases": [],
+   "sourceDoc": "brief: rookie treatment",
+   "productFamily": "Rankings",
+   "capability": "Rookie treatment (rookie ladder translation, DLF/Flock rookie sources, ROOKIE master carried)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Rookies priced from applicable rookie evidence only",
+   "backendOwner": "data_contract rookie ladder + seasonal policy",
+   "frontendOwner": null,
+   "dependsOn": [
+    "FLOCK-SEASONAL-2026-10-03"
+   ],
+   "reality": "Production: flock rookies seasonal-inactive, dlfRookieSf 57 and dlfRookieIdp 29 served; ROOKIE Hill master carried by design (HILL_AUTOPILOT_V2).",
+   "prOrBranch": "#1620",
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SIG-A-2026-10-01",
+   "aliases": [
+    "V4",
+    "Batch 2 Unit A"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Batch 2; docs/sources/SIGNALS_FANTASY_INTEGRATION.md",
+   "productFamily": "Sources / valuation",
+   "capability": "Signals real collection, identity, private archive, #791 second opinion",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Signals values collected privately and shown as second opinion",
+   "backendOwner": "src/sources/signals.py + private store data/sources/signals/",
+   "frontendOwner": "/trade second-opinion line (#791)",
+   "dependsOn": [],
+   "reality": "Collection/identity/archive deployed; non-voting stage superseded by SIG-ACTIVE-OFF for authenticated values. /trade second-opinion rendering unobserved in production; box backup of data/sources/signals/ unverified.",
+   "prOrBranch": "#1572 a1933e596, #1582 03d9ffb84",
+   "evidence": "tests/sources Signals suites",
+   "nextAction": "Authenticated browser check of the /trade Signals second opinion and confirm the nightly backup contains data/sources/signals/",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SIG-ACTIVE-OFF-2026-10-03",
+   "aliases": [
+    "#1627"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-03 Signals ACTIVE; docs/sources/SIGNALS_FANTASY_INTEGRATION.md#9",
+   "productFamily": "Sources / valuation",
+   "capability": "Signals votes for offense (value-ordered rank, fantasyCalc family)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Signals contributes to offense values and shows in the Rankings source column",
+   "backendOwner": "data_contract signalsSf + scripts/fetch_signals_values.py",
+   "frontendOwner": "Rankings source column (desktop, mobile chip, audit card)",
+   "dependsOn": [
+    "SIG-CONN-2026-10-01"
+   ],
+   "reality": "Prod: signals_active_source LIVE, signalsSf 502 served, fetched 19:25Z today. It caused a 2026-10-05 Rankings outage fixed by #1657/#1664. Acceptance item 17 (post-deploy) unrecorded; on-box verification runs 37228171975 (cancelled) and 37282869391 (IndexError) failed.",
+   "prOrBranch": "#1627 7bb4ed2e7; hotfixes #1657 c44575ac5, #1664 7e670d9b9",
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": "Dispatch v1-authenticated-verification SIG-OFF + /rankings checks, merge #1654 and re-dispatch signals-onbox-verification (collect: true), record acceptance 17",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "SIG-IDP-GATE-2026-10-03",
+   "aliases": [],
+   "sourceDoc": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md#10.6",
+   "productFamily": "Sources / valuation",
+   "capability": "Signals IDP vote via preregistered shared-market gate (Candidate A)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Signals IDP contributes to IDP values once the gate passes",
+   "backendOwner": "src/bridges/ladder.py family slice + data_contract Candidate A shadow + PRIVATE_SOURCE_VOTE_HOLDS",
+   "frontendOwner": "Rankings column shows 'collected, NOT voting'",
+   "dependsOn": [
+    "SIG-ACTIVE-OFF-2026-10-03"
+   ],
+   "reality": "Preregistered 9-criterion gate (§10.6, amended #1651); flag signals_idp_shared_market OFF in prod; §10.8 Results empty because the only on-box run crashed on the bug fixed by #1657. Promotion on pass is authorized by Batch 3 §N with independent review.",
+   "prOrBranch": "#1627, #1651 7065504f4; #1654 open",
+   "evidence": "runs 37228171975, 37282869391",
+   "nextAction": "Merge #1654, re-dispatch signals-onbox-verification.yml (collect: true), append §10.8 results, independent review",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SIG-CONN-2026-10-01",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Signals account connection",
+   "productFamily": "Sources / valuation",
+   "capability": "Owner-controlled passwordless Signals connection with unattended renewal",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Signals authenticated collection keeps working without the owner",
+   "backendOwner": "src/sources/signals_auth.py + dynasty-signals-auth-renew timer",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Merged; installer reports signals-auth-renew and signals-values timers installed (deploy 37667007753); authenticated signalsSf fetched 2026-10-07 19:25Z, implying sign-in, provisioning and renewal happened. Reconnect-notice path unexercised. Intake row ('not merged ... OWNER-PENDING') is stale.",
+   "prOrBranch": "#1577 abdcf2064",
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": "Correct the stale intake row",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SIG-H-BATCH3",
+   "aliases": [
+    "Batch 3 H"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Signals authenticated inventory + dependence measurement",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Know what Signals surfaces exist and how dependent they are",
+   "backendOwner": "src/sources/signals.py; lineage pair-signals-market-families",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SIG-CONN-2026-10-01"
+   ],
+   "reality": "The owner session now exists, so the access condition is met; census/sweep still say UNKNOWN pending Unit H.",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": "Run an authenticated inventory of Signals surfaces; measure FantasyCalc<->Signals dependence as point-in-time history accrues",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SIG-PRODUCT-V4P",
+   "aliases": [
+    "V4-P"
+   ],
+   "sourceDoc": "docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md#C",
+   "productFamily": "Sources / valuation",
+   "capability": "Signals product capabilities (per owning lane)",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "Signals-powered product features",
+   "backendOwner": "per owning lane",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SIG-H-BATCH3"
+   ],
+   "reality": "Map marks V4-P NEXT/LATER as per-capability units; only the capability matrix exists.",
+   "prOrBranch": null,
+   "evidence": "SIGNALS doc §5",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "VAM-V1",
+   "aliases": [
+    "#1555 V1"
+   ],
+   "sourceDoc": "docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md#C",
+   "productFamily": "Sources / valuation",
+   "capability": "Reproducible current-value evidence (Coker + contrasts)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Any value change can be replayed from pinned inputs",
+   "backendOwner": "src/api/value_replay.py, scripts/value_replay.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Deployed in 7db3f3144 (run 36795430875 smoke PASS build.commit); pinned evidence committed.",
+   "prOrBranch": "#1562 5385a6907",
+   "evidence": "docs/valuation/evidence/value-replay-2026-09-30/",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "VAM-V2-1",
+   "aliases": [],
+   "sourceDoc": "docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md#C",
+   "productFamily": "Sources / valuation",
+   "capability": "Cross-subset (universe) freshness",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "An IDP-only edit cannot refresh offense",
+   "backendOwner": "src/sources/freshness.py::universe_clock",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-FRESH-2026-09-23"
+   ],
+   "reality": "Flag source_universe_freshness LIVE in production today; review APPROVE.",
+   "prOrBranch": "#1565 0c7830a55",
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "VAM-V2-2",
+   "aliases": [],
+   "sourceDoc": "docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md#C",
+   "productFamily": "Sources / valuation",
+   "capability": "Season-event-aware information age (cadence vs information age)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Pre-season boards lose authority once the season changes facts",
+   "backendOwner": "src/sources/freshness.py",
+   "frontendOwner": "info-age UI (#1578)",
+   "dependsOn": [
+    "SRC-FRESH-2026-09-23"
+   ],
+   "reality": "Verified (Coker: three voters carry pre-season data); no challenger exists.",
+   "prOrBranch": null,
+   "evidence": "VAM §D",
+   "nextAction": "Preregister and build a shadow information-age challenger (must not teach outages as normal)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "BATCH2-C",
+   "aliases": [
+    "#1571",
+    "Batch 2 Unit C"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Batch 2",
+   "productFamily": "Sources / valuation",
+   "capability": "Joint outlier + sparse-source challenger, disabled/shadow, legacy reproducible",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Challenger runs in shadow without moving values",
+   "backendOwner": "data_contract behind joint_outlier_sparse_challenger",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Merged; flag OFF in production as required; joint-filter-shadow timer installed (deploy 37667007753); promotion halves tracked as B3-E and B3-F.",
+   "prOrBranch": "#1571 f778b559e",
+   "evidence": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "B3-A",
+   "aliases": [
+    "SRC-INVENTORY-2026-09-24",
+    "AL-1 input"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Source trust census + authoritative source inventory (generated, no subjective score)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "One generated inventory of every source and its state",
+   "backendOwner": "src/sources/source_census.py, scripts/source_census.py, scripts/source_inventory.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "CENSUS_2026-10-01 (32 sources: 22 voting in 14 families, 10 non-voting) and SOURCE_INVENTORY_2026-09-25 generated from live registries; both predate Signals ACTIVE and Flock seasonal (refresh tracked in B3-O).",
+   "prOrBranch": "#1584 1576a6e5d; #1447 34d51744f",
+   "evidence": "tests/sources/test_source_census.py (20 tests)",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "B3-D",
+   "aliases": [
+    "HILL trainer repair",
+    "C10-ML-01"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Hill / model governance",
+   "capability": "Hill trainer / Autopilot substrate repair (one manifest, full pins, family-aware holdouts)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Hill refits are reproducible and leakage-safe",
+   "backendOwner": "src/model_registry/training_manifest.py, training_run.py, scripts/auto_refit_hill_curves.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Pinned training_runs committed by the 2-hourly refit on real data: 18 'Hill two-hour refit evidence' commits 2026-10-03..10-07 (latest e728432ba); stale challengers v172-v181 correctly excluded.",
+   "prOrBranch": "#1588 9a921c372; #1601 177547f17",
+   "evidence": "config/model_registry/training_runs/*.json; 656 tests",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "MD-1",
+   "aliases": [
+    "owner decision 1 (2026-10-01)"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Owner methodology decisions",
+   "productFamily": "Hill / model governance",
+   "capability": "Hill Autopilot requires an independent validation target",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "No automatic Hill promotion without independent validation",
+   "backendOwner": "src/model_registry/independent_validation.py, autopilot.py, scripts/hill_autopilot.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "B3-D"
+   ],
+   "reality": "All 20 autopilot runs since 2026-10-02 in hill_autopilot_runs.jsonl (produced by the live refit workflow on real data) record independentValidation.reason=no_independent_validation_target, gatesPromotion:true; board gates unchanged; no constant moved.",
+   "prOrBranch": "#1608 2e42c74fa",
+   "evidence": "tests/model_registry/test_autopilot.py, test_independent_validation_gate.py; committed run log",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "HILL-AUTOPILOT-V2",
+   "aliases": [
+    "#1315",
+    "CLAUDE.md Hill Autopilot canonical rule"
+   ],
+   "sourceDoc": "docs/valuation/HILL_AUTOPILOT_V2.md",
+   "productFamily": "Hill / model governance",
+   "capability": "Fail-closed Hill Autopilot governance (OFFENSE only, others carried)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Hill constants change only through gated, recorded promotion",
+   "backendOwner": "src/model_registry/*, config/model_registry/hill_scope_masters.json",
+   "frontendOwner": null,
+   "dependsOn": [
+    "B3-D",
+    "MD-1"
+   ],
+   "reality": "Running on real data: refits every ~2h with recorded verdicts; champion v2 unchanged since 2026-07-29; GLOBAL/IDP/ROOKIE carried. Pre-MD-1 runs logging ready:true for v141 without promotion are unexplained in the log (not investigated).",
+   "prOrBranch": "#1315, #1588, #1608",
+   "evidence": "committed refit evidence + run log",
+   "nextAction": "Optional: explain the pre-MD-1 ready:true/no-promotion runs in the run log",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "HILL-INDEP-TARGET",
+   "aliases": [
+    "MD-1 follow-through 2"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Owner methodology decisions",
+   "productFamily": "Hill / model governance",
+   "capability": "A preregistered genuinely independent Hill validation target exists",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Automatic OFFENSE Hill promotion becomes possible again",
+   "backendOwner": "src/model_registry/independent_validation.py (INDEPENDENT_VALIDATION_TARGETS empty)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "MD-1"
+   ],
+   "reality": "Registry empty; OTC excluded (#1599), PFK/FantasyCalc dependent; the leading candidate is format-qualified completed-trade evidence, which needs the AL-2 accumulated census. Owner forbade a fake target.",
+   "prOrBranch": null,
+   "evidence": "independent_validation.py",
+   "nextAction": null,
+   "blocker": {
+    "what": "No independent target with enough evidence",
+    "whyReal": "Owner decision 1: target must be preregistered and independent; completed-trade evidence must accumulate",
+    "doneAround": "Fitting, evaluation and shadow evidence continue",
+    "ownerOrExternalAction": "Time/data accumulation (AL-2 accumulated census after window turnover)",
+    "afterUnblock": "Preregister the target; autopilot can promote OFFENSE on pass"
+   },
+   "weight": 2
+  },
+  {
+   "id": "B3-D2",
+   "aliases": [
+    "AL-1"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Hill / model governance",
+   "capability": "Clean preregistered Hill/KTC/DLF rerun",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "KTC c3 / DLF spacing promoted only on clean evidence",
+   "backendOwner": "docs/valuation/evidence/hill-d2-2026-10-01/run_d2.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "HILL-INDEP-TARGET"
+   ],
+   "reality": "Preregistered rerun done (636/636 fits replayed); KTC c3 and M1 better, DLF native arm blocked (7 days history); #1599 found OTC not ancestry-safe so nothing can promote from D2.",
+   "prOrBranch": "#1598 98c2bdc1d",
+   "evidence": "D2 evidence",
+   "nextAction": null,
+   "blocker": {
+    "what": "No independent validation target; DLF Values history too short",
+    "whyReal": "Owner decision 1 and decision 3",
+    "doneAround": "Evidence recorded",
+    "ownerOrExternalAction": "Data accumulation",
+    "afterUnblock": "Rerun D2 incl. DLF native arm against the target"
+   },
+   "weight": 2
+  },
+  {
+   "id": "B2-B",
+   "aliases": [
+    "#1555 Batch 2 Unit B",
+    "VAM-V2-5"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Batch 2",
+   "productFamily": "Hill / model governance",
+   "capability": "Hill / native-source alignment audit (read-only) with one recommendation",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Know whether Hill training matches live source semantics",
+   "backendOwner": "src/api/value_replay.py fix; docs/valuation/evidence/hill-alignment-2026-10-01/",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Pinned audit (c605eddae) with one recommendation (KTC player rows vote order through OFFENSE master; picks value-direct); fixed IDPTC contamination in the replay (980->598 rows).",
+   "prOrBranch": "#1573 762a281ae",
+   "evidence": "26 tests",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "B2-B-REC",
+   "aliases": [],
+   "sourceDoc": "docs/valuation/evidence/hill-alignment-2026-10-01/",
+   "productFamily": "Hill / model governance",
+   "capability": "Adopt the alignment recommendation (KTC player rows vote through the OFFENSE master)",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Native-value vs rank scale reconciled",
+   "backendOwner": "data_contract _VALUE_BASED_SOURCES",
+   "frontendOwner": null,
+   "dependsOn": [
+    "HILL-INDEP-TARGET"
+   ],
+   "reality": "Methodology candidate; under Batch 3 §N it needs a preregistered gate and, for Hill-scale effects, an independent target.",
+   "prOrBranch": null,
+   "evidence": "audit evidence",
+   "nextAction": null,
+   "blocker": {
+    "what": "Needs a preregistered gate + independent target",
+    "whyReal": "Batch 3 §N and owner decision 1",
+    "doneAround": "Recommendation recorded",
+    "ownerOrExternalAction": "Data accumulation for a target",
+    "afterUnblock": "Preregister and evaluate as challenger"
+   },
+   "weight": 2
+  },
+  {
+   "id": "B3-J1",
+   "aliases": [
+    "C5-BDVM-01"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "BDVM",
+   "capability": "BDVM correctness: fumble recovery own/opp, source vocabulary, unscoredKeys",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "BDVM scores match the host exactly and report unscored rules",
+   "backendOwner": "src/bdvm/realized_points.py, idpshow_projections.py, source_vocabulary.py, service.py",
+   "frontendOwner": "frontend/components/BdvmScoringNotice.jsx, lib/bdvm.js",
+   "dependsOn": [],
+   "reality": "Engine matches 92/92 Sleeper awarded scores (was 1/92); bdvm_engine LIVE; /api/bdvm/* login-gated and new fields unobserved in production.",
+   "prOrBranch": "#1585 f595f2d7f (+#1566, #1574)",
+   "evidence": "tests/bdvm (1,279 passed)",
+   "nextAction": "Authenticated production read of /api/bdvm/values confirming scoringCoverage/unscoredKeys",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "B3-G",
+   "aliases": [
+    "VAM-V2-7",
+    "lineage integrity sweep"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Ingestion / lineage integrity sweep across every voting family",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Every vote's lineage and parser integrity is known",
+   "backendOwner": "config/sources/source_lineage.json, scripts/audit/lineage_integrity_sweep.py, scripts/source_inventory.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Sweep done (INTEGRITY_SWEEP_2026-10-01); open: patch P3 (xfail test_source_inventory_does_not_call_idpshow_a_cut_of_the_combined_board), FantasyPros IDP dual-listing dedupe (strict xfail), P5 comment patches, live parser checks for session-gated sources; owner items split into SRC-STALEPRES/OD-IDPTC-CAP.",
+   "prOrBranch": "#1592 fc130ed88, #1599 a404c8798, #1601, #1609",
+   "evidence": "tests/sources/test_lineage_integrity_sweep.py",
+   "nextAction": "Apply P3 in scripts/source_inventory.py:72 and remove the xfail; then build the representation-change marker and land the FantasyPros IDP dedupe",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "B3-G-INSTR",
+   "aliases": [
+    "MD-3 follow-through 5-6"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Owner methodology decisions (MD-3)",
+   "productFamily": "Sources / valuation",
+   "capability": "lineage-policy/v1 instrument + category vocabulary",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Future dependence classifications follow the preregistered policy",
+   "backendOwner": "src/sources/source_census.py + sweep instrument",
+   "frontendOwner": null,
+   "dependsOn": [
+    "MD-3"
+   ],
+   "reality": "MD-3 says instrument/vocabulary is a separate unit, not started; only the hash-pin test references lineage-policy/v1.",
+   "prOrBranch": null,
+   "evidence": "git grep lineage-policy/v1",
+   "nextAction": "Implement the v1 vocabulary in the validator and sweep instrument",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "MD-3",
+   "aliases": [
+    "owner decision 3"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Owner methodology decisions",
+   "productFamily": "Sources / valuation",
+   "capability": "Prospective lineage-dependence policy preregistered",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Lineage thresholds are preregistered, not post hoc",
+   "backendOwner": "docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Preregistration commit 94e16c4f1 on main; normative block hash-pinned.",
+   "prOrBranch": "#1609 e9ba0c8c1",
+   "evidence": "tests/sources/test_lineage_policy_v1_preregistration.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "B3-BC",
+   "aliases": [
+    "AL-1b input"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Leakage-safe source-quality evaluator + weight challengers",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Source weights earn authority through evidence",
+   "backendOwner": "src/source_quality/, scripts/source_quality_eval.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "B3-A"
+   ],
+   "reality": "Evaluator built and preregistered (857180934); C1-C3 all missed the 0.00215 gate, equal-family champion kept. Transaction fit, fundamental foresight, picks, rookie boards, in-season unanswerable yet; three post-run caveats need a v2 preregistration.",
+   "prOrBranch": "#1589 ed48d54ab",
+   "evidence": "29 tests; docs/valuation/evidence/source-quality-2026-10-01/",
+   "nextAction": "Preregister the corrected v2 evaluation (production-blend replay, cadence control)",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "B3-E",
+   "aliases": [
+    "VAM-V2-6",
+    "#1571 sparse half",
+    "BATCH2-C sparse half"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Sparse-evidence estimator (central estimate vs uncertainty; solves 4600->1380)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Thin coverage shown as uncertainty, not a 0.30 value haircut",
+   "backendOwner": "src/api/data_contract.py (flag), src/api/sparse_evidence_shadow.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Candidate C passes 7/8 gates but fails G2c (median x3.335 vs <=2.0); flag OFF in prod, 0.30 haircut live; candidate B unbuilt (no independent prior).",
+   "prOrBranch": "#1591 207f8caa6",
+   "evidence": "docs/valuation/evidence/sparse-evidence-2026-10-01/",
+   "nextAction": "Preregister a candidate bounding the deep-board ratio (e.g. C with per-tier censoring) and score on the same pinned archive",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "B3-F",
+   "aliases": [
+    "VAM-V2-3",
+    "#1571 filter half",
+    "BATCH2-C filter half"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Joint robust-filter shadow ledger",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Outlier filter changes only on prospective evidence",
+   "backendOwner": "src/robust_filter_shadow/, scripts/joint_filter_shadow.py, dynasty-joint-filter-shadow timer",
+   "frontendOwner": null,
+   "dependsOn": [
+    "BATCH2-C"
+   ],
+   "reality": "Replay over 133 boards INCONCLUSIVE (delta 0.0044, CI [-0.0091, 0.0133]); incumbent Hampel kept; flag OFF in prod; timer installed, production firing not recorded.",
+   "prOrBranch": "#1590 13870a6d4",
+   "evidence": "preregistration bfcf2e423",
+   "nextAction": "Record a systemctl list-timers observation of the shadow timer",
+   "blocker": {
+    "what": "Prospective live-shadow §9 sample",
+    "whyReal": "Only accumulated boards can resolve it",
+    "doneAround": "Replay done; shadow running",
+    "ownerOrExternalAction": "Time",
+    "afterUnblock": "Apply §5 verdict, then Batch 3 §N"
+   },
+   "weight": 2
+  },
+  {
+   "id": "B3-J2",
+   "aliases": [
+    "AL-3d"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "BDVM",
+   "capability": "BDVM projection challengers (reception distance, first downs, calibration)",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "BDVM components measured, not assumed",
+   "backendOwner": "src/bdvm/, config/bdvm/params_v1.json",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-3b"
+   ],
+   "reality": "Nothing built; defined as AL-3d after the AL-3b projection scorecard, which has not started (AL-3b is ready, owner-free).",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": "Start AL-3b",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "B3-KL",
+   "aliases": [],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Market-vs-fundamental disagreement matrix + source trust scorecard",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "See where sources and BDVM disagree, no magic number",
+   "backendOwner": "none",
+   "frontendOwner": null,
+   "dependsOn": [
+    "B3-A",
+    "B3-BC"
+   ],
+   "reality": "No code or doc exists; inputs available.",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": "Build a read-only scorecard over census + evaluator outputs, no blended number",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "B3-O",
+   "aliases": [
+    "AL-1a"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Valuation Trust Program - Batch 3",
+   "productFamily": "Sources / valuation",
+   "capability": "Recurring evidence accumulation",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Evidence artifacts refresh automatically",
+   "backendOwner": "timers: Hill refit, sparse/joint shadow; one-shot: census, evaluator, sweep",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-0"
+   ],
+   "reality": "Hill refit and two shadow timers recur; census, evaluator and sweep are single 2026-10-01 snapshots.",
+   "prOrBranch": "#1590, #1591, #1612, #1614",
+   "evidence": "committed evidence",
+   "nextAction": "Schedule source_census.py and source_quality_eval.py with receipts",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-0",
+   "aliases": [
+    "#1597",
+    "C10-ML-01"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Adaptive Learning",
+   "productFamily": "Hill / model governance",
+   "capability": "Shared learning receipt + evaluation receipt + feature dictionary",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Every model decision leaves a receipt",
+   "backendOwner": "src/model_registry/{learning_receipt,evaluation_receipt,feature_dictionary,receipt_store,learning_adapters}.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Merged and deployed; backup via AL-P2 #1611; production receipts.sqlite writes unobserved; RETENTION_REGISTER line 712 stale.",
+   "prOrBranch": "#1597 9ce3ea04c",
+   "evidence": "tests/model_registry",
+   "nextAction": "On the box, count receipts by kind and confirm the nightly backup contains them",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-1a",
+   "aliases": [],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Adaptive Learning Wave 1",
+   "productFamily": "Hill / model governance",
+   "capability": "Prospective receipts for valuation producers",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Source/valuation experiments accumulate comparable evidence",
+   "backendOwner": "src/model_registry/producer_receipts.py, scripts/hill_learning_receipts.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-0"
+   ],
+   "reality": "Done for sparse shadow, robust-filter shadow, source-quality evaluator and Hill refits; translator/latent-price/projection/Game Day producers missing; production rows unobserved.",
+   "prOrBranch": "#1612 f6d5c135e, #1614 3464ae0ef",
+   "evidence": "tests",
+   "nextAction": "Box observation of receipts; add projection-family producer when AL-3b lands",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-1b",
+   "aliases": [],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Adaptive Learning",
+   "productFamily": "Hill / model governance",
+   "capability": "Evidence-based base-authority challenger shrunk toward equal-family",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Source authority learned from evidence",
+   "backendOwner": "none",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-1a"
+   ],
+   "reality": "Not started; #1589 C1 is the nearest prototype.",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": "Preregister a leave-family-out base-authority challenger",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "AL-1c",
+   "aliases": [],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Adaptive Learning",
+   "productFamily": "Hill / model governance",
+   "capability": "Utility-decay challenger (shadow)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Information decay measured per task/horizon",
+   "backendOwner": "none",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-1a"
+   ],
+   "reality": "Not started.",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": "Measure decay by task and horizon after ancestry and coverage controls",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-1d",
+   "aliases": [],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#0 Adaptive Learning",
+   "productFamily": "Hill / model governance",
+   "capability": "Cohort reliability",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Source reliability by cohort",
+   "backendOwner": "none",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-1b"
+   ],
+   "reality": "Not started; plan marks it sample-gated and the pick target must be re-specified.",
+   "prOrBranch": null,
+   "evidence": "none",
+   "nextAction": null,
+   "blocker": {
+    "what": "Cohort sample size",
+    "whyReal": "Needs AL-1b panel and accumulated samples",
+    "doneAround": "None",
+    "ownerOrExternalAction": "Time/data",
+    "afterUnblock": "Compute cohort counts and test sufficiency"
+   },
+   "weight": 1
+  },
+  {
+   "id": "RANK-HIST",
+   "aliases": [
+    "V1-05",
+    "C1-HIST-03"
+   ],
+   "sourceDoc": "brief: rank history / movement",
+   "productFamily": "Rankings",
+   "capability": "Rank history and movement on Rankings",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Movement arrows and player rank-history chart",
+   "backendOwner": "src/history/, server.py /api/data/rank-history + /api/data/player-source-history, src/api/rank_history.py",
+   "frontendOwner": "frontend/app/rankings/{page,board-sections}.jsx, components/graphs/RankChangeGlyph.jsx, PlayerRankHistoryChart.jsx",
+   "dependsOn": [
+    "C1-HIST-03"
+   ],
+   "reality": "Backend proven in production (80 snapshots, missingDays 0); window-median movers sentinel passed in today's prod run, but rankChange glyphs and the history chart are not asserted by any production spec.",
+   "prOrBranch": "#869 8b6a9987",
+   "evidence": "frontend movers tests; prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z)",
+   "nextAction": "Add a prod-auth assertion for the rankChange glyph and the player-source-history chart",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "RANK-SRC-UI",
+   "aliases": [
+    "#1555 Batch 2 Lane 6 (D)"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#2026-10-01 Batch 2 (D)",
+   "productFamily": "Rankings",
+   "capability": "Rankings/Player File source explanation (contributions, freshness, information age, Signals)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Users see why a value is what it is",
+   "backendOwner": "src/api/source_weighting_explain.py (value-explain/v2)",
+   "frontendOwner": "components/ValueExplainDetail.jsx, ValueExplain.jsx, app/players/[playerId]/page.jsx, app/rankings/board-sections.jsx",
+   "dependsOn": [],
+   "reality": "Per-source contributions, clocks, freshness, exclusion reasons and leave-one-out ship on the Player File; Signals shows in the Rankings source column. secondOpinion prop is passed by no caller (empty slot); no axe scan of the panel; no production observation of the panel (player-popup source breakdown passed in prod today).",
+   "prOrBranch": "#1576 149b5b250, #1578 2baaafb5f, #1627",
+   "evidence": "value-explain-detail.test.jsx; tests/api/test_value_explain_v2.py",
+   "nextAction": "Wire or retire the secondOpinion slot, add an axe check on the panel and a prod-auth spec",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "TE-PREM",
+   "aliases": [
+    "#785",
+    "ADR-015",
+    "LI-7"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-08-11 (#785)",
+   "productFamily": "Rankings",
+   "capability": "TE premium / 2TE treatment",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "TE values match the league's real TE premium",
+   "backendOwner": "src/league_intel/te_premium.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "base->TE++ conversion live (te_basis_conversion LIVE); board target basis is a constant TE++ while dynasty_main's card grants TEs no premium; league TE demand belongs to the withdrawn overlay. Issue #785 (2-TE/TEP deep audit) OPEN and untouched since 2026-08-11.",
+   "prOrBranch": null,
+   "evidence": "public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": "Run the #785 read-only audit (TE-basis inventory, KTC uplift remeasure, stale 1.15 scan, realized-scoring range check)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "IDP-TARGET",
+   "aliases": [],
+   "sourceDoc": "brief: IDP target-league treatment",
+   "productFamily": "Rankings",
+   "capability": "IDP treatment for the target league",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "IDP values rest on independent, current evidence",
+   "backendOwner": "IDP Hill scope (carried), IDPTC backbone, idp_scoring_fit",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SRC-STALEPRES-2026-10-01",
+    "OD-IDPTC-CAP",
+    "SIG-IDP-GATE-2026-10-03"
+   ],
+   "reality": "IDPTC IDP follows IDP Show (+0.992) outside any shared cap; IDP Show's only vote quarantines ~2026-10-11; Signals IDP held in shadow; no IDP-scoped Hill evidence.",
+   "prOrBranch": "#1627",
+   "evidence": "sweep; public /api/status 2026-10-07 20:45Z (build 14774f789)",
+   "nextAction": "Resolve the owner decisions, then run the Signals IDP gate",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "RANKINGS-ACCEPT",
+   "aliases": [
+    "V1-106",
+    "V1-111",
+    "V1-109",
+    "V1-113",
+    "C8-PSI-02",
+    "C8-PERF-03"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#3 P1",
+   "productFamily": "Rankings",
+   "capability": "/rankings P1 acceptance (performance, mobile, a11y, production)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Rankings is fast, accessible and correct on phone and desktop",
+   "backendOwner": "/api/dynasty-data?view=compact + overlay ETag",
+   "frontendOwner": "frontend/app/rankings/",
+   "dependsOn": [],
+   "reality": "Mobile + production browser: prod run 37678996634 passed premium rankings, V1-109 mobile usability and sort/filter/search/popup journeys on desktop and mobile. a11y: axe in CI only. Performance NOT accepted: docs/performance/CURRENT_ARCHITECTURE.md (09-29) desktop warm [2357, 900, 1004, 2279, 1100] ms vs 1 s warm budget. Production outage 2026-10-05 00:52-09:10Z (Signals).",
+   "prOrBranch": "#1500/#1501/#1510/#1512",
+   "evidence": "prod-auth V1 Authenticated Production Verification run 37678996634 (2026-10-07 20:02Z); docs/performance/CURRENT_ARCHITECTURE.md",
+   "nextAction": "Reduce desktop Rankings first-render cost (smaller initial window), remeasure in production with the existing runner, add a production axe pass",
+   "blocker": null,
+   "weight": 3
+  }
+ ]
+}

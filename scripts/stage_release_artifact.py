@@ -10,7 +10,11 @@ import tarfile
 import tempfile
 from pathlib import Path, PurePosixPath
 
-from src.api.build_identity import resolve_build_identity, verify_release_manifest
+from src.api.build_identity import (
+    NEXT_ROUTE_CACHE_DIRECTORY,
+    resolve_build_identity,
+    verify_release_manifest,
+)
 
 
 def _digest(path: Path) -> str:
@@ -80,6 +84,10 @@ def stage(
         _extract_checked(archive, root)
         manifest = json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))
         verify_release_manifest(manifest, root, root / "frontend/.next", expected_commit=commit)
+        if (root / "frontend/.next/server" / NEXT_ROUTE_CACHE_DIRECTORY).exists():
+            # The digest ignores Next's runtime response cache because the LIVE
+            # tree grows one; a tested archive never carries it.
+            raise ValueError("release archive carries a runtime route cache")
         identity = manifest["identity"]
         for relative, key in (
             ("requirements.lock.txt", "python_lock_sha256"),

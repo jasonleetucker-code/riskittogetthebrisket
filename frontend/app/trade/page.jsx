@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
   VALUE_MODES,
@@ -104,7 +103,26 @@ const TradeMeter = SharedTradeMeter;
 // `mountCollapsedChildren={false}` on that panel: `hidden` still MOUNTS
 // children, so without it these dynamic imports would fetch on page load
 // and the split would buy nothing.
-const dyn = (loader) => dynamic(loader, { ssr: false });
+//
+// React.lazy, not next/dynamic — the same choice and the same measured
+// reason as the Perfect Draft panel on /draft (CLAUDE.md): next/dynamic
+// pulls Next's loadable runtime (~1.6 KB) into THIS page's chunk, and
+// /trade has no headroom for it.  These still mount client-side only,
+// when "Second opinions" is opened (the panel starts collapsed and does
+// not mount collapsed children, so SSR never reaches them), each inside
+// its OWN Suspense boundary with a null fallback — exactly next/dynamic's
+// per-component behaviour, so a panel that mounts later (e.g. the
+// multi-team flow when a third side is added) never blanks the others.
+const dyn = (loader) => {
+  const LazyPanel = lazy(loader);
+  return function SecondOpinionPanel(props) {
+    return (
+      <Suspense fallback={null}>
+        <LazyPanel {...props} />
+      </Suspense>
+    );
+  };
+};
 const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
 const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));

@@ -8,6 +8,7 @@
 //
 //   {
 //     contractVersion: "public-league/YYYY-MM-DD.vN",
+//     leagueKey: "<registry key>" | null,   // which league answered (never a Sleeper id)
 //     league: {
 //       rootLeagueId, leagueName, seasonsCovered, leagueIds,
 //       currentLeagueId, generatedAt, managers: [ ... ]
@@ -21,7 +22,7 @@
 //
 // Or for a single section request:
 //
-//   { contractVersion, league, section, data }
+//   { contractVersion, leagueKey, league, section, data }
 //
 // Any caller importing anything from frontend/lib/dynasty-data.js or
 // frontend/components/useDynastyData is a privacy leak in the public

@@ -307,26 +307,26 @@ def test_needs_vary_and_are_not_all_zero(intel):
     """Contribution must vary everywhere; deficit must be positive
     SOMEWHERE. A board where nobody is ever below replacement means the
     baseline is not being applied."""
-    positions = sorted({p for t in intel for p in t.needs})
+    positions = sorted({p for t in intel for p in t.deficits})
     assert len(positions) >= 6
 
     for pos in positions:
-        contribs = [t.needs[pos].actual_contribution for t in intel if pos in t.needs]
-        risks = [t.needs[pos].concentration_risk for t in intel if pos in t.needs]
+        contribs = [t.deficits[pos].actual_contribution for t in intel if pos in t.deficits]
+        risks = [t.deficits[pos].concentration_risk for t in intel if pos in t.deficits]
         if len(contribs) < 10:
             continue
         assert (
             len(set(round(v, 3) for v in contribs)) > 1
-        ), f"needs[{pos}].actualContribution is constant across 12 real rosters"
+        ), f"positionDeficits[{pos}].actualContribution is constant across 12 real rosters"
         assert (
             len(set(round(v, 4) for v in risks)) > 1
-        ), f"needs[{pos}].concentrationRisk is constant across 12 real rosters"
+        ), f"positionDeficits[{pos}].concentrationRisk is constant across 12 real rosters"
 
-    positive = [(t.owner_id, p) for t in intel for p, n in t.needs.items() if n.deficit > 0]
+    positive = [(t.owner_id, p) for t in intel for p, n in t.deficits.items() if n.deficit > 0]
     assert positive, "no roster is below replacement anywhere — baseline not applied"
     # ...and not EVERY roster/position, which would mean the baseline is
     # scaled wrong rather than applied.
-    total = sum(len(t.needs) for t in intel)
+    total = sum(len(t.deficits) for t in intel)
     assert len(positive) < total * 0.5, f"{len(positive)}/{total} positions in deficit"
 
 
@@ -338,10 +338,10 @@ def test_deficit_does_not_follow_concentration_on_the_real_league(intel):
     definition. Measured here: the naive formula names QB the top need
     for the team with the highest QB contribution in the league.
 
-    This fails if ``position_needs`` is ever reimplemented in terms of
+    This fails if ``position_deficits`` is ever reimplemented in terms of
     fragility.
     """
-    qb = [(t.owner_id, t.needs["QB"]) for t in intel if "QB" in t.needs]
+    qb = [(t.owner_id, t.deficits["QB"]) for t in intel if "QB" in t.deficits]
     assert len(qb) == 12
 
     naive_top = max(qb, key=lambda kv: kv[1].concentration_risk * kv[1].actual_contribution)
@@ -353,17 +353,17 @@ def test_deficit_does_not_follow_concentration_on_the_real_league(intel):
     # The engine must NOT agree with it.
     assert naive_top[1].deficit == 0.0, (
         "engine reports a deficit at the league's strongest QB room — "
-        "position_needs has been rewired to fragility"
+        "position_deficits has been rewired to fragility"
     )
 
     # And the engine's own top need must differ from the naive pick on
     # most rosters, or it is tracking concentration by accident.
     disagreements = 0
     for t in intel:
-        if not t.needs:
+        if not t.deficits:
             continue
-        engine_top = max(t.needs.values(), key=lambda n: n.deficit)
-        naive = max(t.needs.values(), key=lambda n: n.concentration_risk * n.actual_contribution)
+        engine_top = max(t.deficits.values(), key=lambda n: n.deficit)
+        naive = max(t.deficits.values(), key=lambda n: n.concentration_risk * n.actual_contribution)
         if engine_top.position != naive.position:
             disagreements += 1
     assert disagreements >= 9, f"engine agreed with the naive ranking on {12 - disagreements}/12"
@@ -439,7 +439,7 @@ def test_eligibility_join_is_complete_on_the_real_league(intel, league):
     assert sum(t["report"].hybrids_found for t in league) > 0
 
     for pos in ("DL", "LB", "DB"):
-        vals = [t.needs[pos].actual_contribution for t in intel if pos in t.needs]
+        vals = [t.deficits[pos].actual_contribution for t in intel if pos in t.deficits]
         assert len(vals) == 12
         assert len(set(round(v, 3) for v in vals)) == 12, f"{pos} contribution has ties"
 

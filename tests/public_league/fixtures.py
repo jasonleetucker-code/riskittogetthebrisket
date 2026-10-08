@@ -279,7 +279,7 @@ LEAGUE_2025 = {
     "status": "complete",
     "total_rosters": 4,
     "previous_league_id": "L2024",
-    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6},
+    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6, "type": 2},
 }
 LEAGUE_2024 = {
     "league_id": "L2024",
@@ -289,7 +289,7 @@ LEAGUE_2024 = {
     "status": "complete",
     "total_rosters": 4,
     "previous_league_id": None,
-    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6},
+    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6, "type": 2},
 }
 
 WINNERS_BRACKET_2025 = [
@@ -344,11 +344,101 @@ def build_stub_client():
     }
 
 
+#: ``sleeper_client`` attributes ``install_stubs`` has replaced, mapped to
+#: what they were before the FIRST replacement.  Consumed by
+#: ``restore_stubs``, which ``tests/conftest.py`` calls at the end of every
+#: test module.
+_STUBBED_ORIGINALS: dict[str, Any] = {}
+
+
 def install_stubs(stubs):
+    """Replace ``sleeper_client`` entry points with ``stubs``.
+
+    Process-global by necessity — the route tests install in
+    ``setUpClass`` and every test in the class reads through them — but
+    NOT permanent.  This used to be a bare ``setattr`` that nothing ever
+    undid, so every module that ran afterwards in the same process saw
+    the stubbed Sleeper league (measured 2026-10-07:
+    ``tests/api/test_public_league_privacy_boundary.py`` passed or failed
+    depending on whether ``test_server_routes.py`` ran first).  The
+    originals are recorded here and ``restore_stubs`` puts them back; the
+    module-scoped ``_public_league_process_state`` fixture in
+    ``tests/conftest.py`` guarantees it runs at the end of the module.
+    """
     from src.public_league import sleeper_client
 
     for name, fn in stubs.items():
+        # First replacement only: a second install must not record the
+        # first install's stub as the "original".
+        _STUBBED_ORIGINALS.setdefault(name, getattr(sleeper_client, name))
         setattr(sleeper_client, name, fn)
+
+
+def restore_stubs() -> list[str]:
+    """Undo every ``install_stubs`` since the last restore; return the names."""
+    from src.public_league import sleeper_client
+
+    restored = sorted(_STUBBED_ORIGINALS)
+    for name, original in _STUBBED_ORIGINALS.items():
+        setattr(sleeper_client, name, original)
+    _STUBBED_ORIGINALS.clear()
+    return restored
+
+
+#: The ``server`` module memos that hold a value derived from the public
+#: snapshot.  Restoring the snapshot without clearing these would leave a
+#: response built from the previous one being served.
+PUBLIC_SERVER_MEMOS = (
+    "_PUBLIC_CONTRACT_BYTES_CACHE",
+    "_PUBLIC_OVERVIEW_CACHE",
+    "_PUBLIC_ACTIVITY_CACHE",
+    "_heavy_section_cache",
+)
+
+
+def capture_public_league_process_state():
+    """Record the process-global state public-league tests mutate.
+
+    Returns a zero-argument ``restore`` callable.  Covers what the
+    route tests change outside ``monkeypatch``: the ``sleeper_client``
+    stubs (via ``restore_stubs``), ``SLEEPER_LEAGUE_ID`` (which the
+    registry re-reads on every call, so a leaked value re-points every
+    later test at the fixture league — and ``data_contract`` then tried
+    to reach Sleeper for it), and ``server``'s public snapshot cache and
+    the response memos derived from it.
+    """
+    import os
+    import sys
+
+    env_before = os.environ.get("SLEEPER_LEAGUE_ID")
+    srv = sys.modules.get("server")
+    cache_before = dict(srv._public_league_cache) if srv is not None else None
+
+    def restore() -> None:
+        restore_stubs()
+        if env_before is None:
+            os.environ.pop("SLEEPER_LEAGUE_ID", None)
+        else:
+            os.environ["SLEEPER_LEAGUE_ID"] = env_before
+        srv_now = sys.modules.get("server")
+        if srv_now is None:
+            return
+        cache = srv_now._public_league_cache
+        if cache_before is not None:
+            target = cache_before
+        else:
+            # ``server`` was first imported inside the module: its import
+            # state is the cold cache.
+            target = {**cache, "snapshot": None, "snapshot_league_id": None, "fetched_at": 0.0}
+        if cache.get("snapshot") is not target.get("snapshot"):
+            for name in PUBLIC_SERVER_MEMOS:
+                memo = getattr(srv_now, name, None)
+                if isinstance(memo, dict):
+                    memo.clear()
+        cache.clear()
+        cache.update(target)
+
+    return restore
 
 
 def build_test_snapshot():

@@ -84,10 +84,10 @@ async function _fetchRosPower() {
 // Module-level cache of the playoff-odds fetch, ported unchanged from the
 // retired power.jsx. ``RosPowerSection`` is conditionally mounted by tab
 // selection, so without caching, every tab-switch back to Power refetches
-// /api/public/league/playoffOdds — which runs a 10,000-simulation Monte
-// Carlo on the backend and makes probabilities visibly jitter between
-// visits. Same v1 data source as before: retiring the power-RANKING
-// engine does not touch playoff-odds methodology.
+// /api/public/league/playoffOdds. Since C5-PLAY-01 that section is the ONE
+// canonical playoff forecast (src/ros/playoff_sim.py) in the public shape —
+// the same numbers the Championship tab shows — read from the scheduled
+// forecast file, with a single shared live run only on a cache miss.
 const ODDS_CACHE_TTL_MS = 30 * 60 * 1000;
 const _oddsCache = {
   data: null,

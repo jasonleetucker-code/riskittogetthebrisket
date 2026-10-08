@@ -1,20 +1,39 @@
 """Unit tests for ``src/public_league/playoff_odds.py``.
 
+Since C5-PLAY-01 this module is the public ``playoffOdds`` section laid over
+the ONE canonical engine (``src.ros.playoff_sim``): it simulates nothing.
 Covers:
-* Deterministic output when a seeded RNG is supplied.
-* Probability collapse to 0/1 when the season is already complete.
-* Round-robin fallback when Sleeper hasn't posted future matchups.
-* Fallback to league-wide scoring pool for owners with too-few
-  sampled weeks.
+* the section's shape, filled from the canonical forecast;
+* probability collapse to 0/1 when the season is already complete;
+* un-posted weeks are LABELLED (``posted_weeks_only``), never invented;
+* the shared fact helpers (record, finished weeks, posted schedule, ties)
+  the canonical engine itself reads.
+
+The retired loop's own tests (round-robin and cycle-inferred schedules,
+``MIN_SAMPLED_WEEKS``, ``num_sims`` guards, seeded determinism of the
+empirical resampler) are deleted with it.
 """
 
 from __future__ import annotations
 
-import random
 import unittest
+from unittest.mock import patch
 
 from src.public_league import playoff_odds
+from src.ros import playoff_sim
 from tests.public_league.fixtures import build_test_snapshot
+
+
+def _offline_engine():
+    """Patch the canonical engine's file/ROS reads so it runs on the snapshot
+    alone: no cache file, no ROS strength, no best-ball roster reads."""
+    return [
+        patch.object(playoff_sim, "_load_cached_payload", lambda *a, **k: None),
+        patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
+        patch.object(playoff_sim, "_load_team_depth_ratios", lambda *a, **k: {}),
+        patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
+        patch("src.public_league.draft_order.league_draft_order_rule", lambda *a, **k: None),
+    ]
 
 
 class _Base(unittest.TestCase):
@@ -22,11 +41,19 @@ class _Base(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.snapshot = build_test_snapshot()
 
+    def setUp(self) -> None:
+        for p in _offline_engine():
+            p.start()
+            self.addCleanup(p.stop)
+        # The live-run memo is keyed by snapshot identity, and every fixture
+        # snapshot shares one; start each test from an empty memo.
+        playoff_sim._LIVE_MEMO.clear()
+        self.addCleanup(playoff_sim._LIVE_MEMO.clear)
+
 
 class ShapeAndDeterminism(_Base):
     def test_output_shape(self) -> None:
-        rng = random.Random(1234)
-        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=200, rng=rng)
+        result = playoff_odds.compute_playoff_odds(self.snapshot)
         self.assertIn("season", result)
         self.assertIn("numSims", result)
         self.assertIn("playoffSpots", result)
@@ -44,13 +71,18 @@ class ShapeAndDeterminism(_Base):
                 "playoffProbability",
             ):
                 self.assertIn(key, owner)
-            # Probability is a float in [0, 1].
-            self.assertGreaterEqual(owner["playoffProbability"], 0.0)
-            self.assertLessEqual(owner["playoffProbability"], 1.0)
+            # Probability is a float in [0, 1], or None (never computed).
+            p = owner["playoffProbability"]
+            if p is not None:
+                self.assertGreaterEqual(p, 0.0)
+                self.assertLessEqual(p, 1.0)
+        self.assertEqual(result["engine"], "src.ros.playoff_sim")
 
-    def test_seeded_run_is_deterministic(self) -> None:
-        r1 = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=400, rng=random.Random(42))
-        r2 = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=400, rng=random.Random(42))
+    def test_two_reads_of_one_snapshot_publish_one_answer(self) -> None:
+        """The live fallback is computed once per snapshot and shared, so
+        two reads (or two surfaces) cannot draw two Monte Carlos."""
+        r1 = playoff_odds.compute_playoff_odds(self.snapshot)
+        r2 = playoff_odds.compute_playoff_odds(self.snapshot)
         self.assertEqual(r1["owners"], r2["owners"])
 
 
@@ -59,7 +91,16 @@ class CompletedSeasonCollapse(_Base):
         # The fixture's season-0 is marked completed.  When every
         # regular-season week is played, ``remainingWeeks == 0`` and
         # the simulator returns 0/1 probabilities deterministically.
-        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=0, rng=random.Random(0))
+        # The fixture's season has only two finished weeks, so without ROS
+        # evidence the canonical engine refuses (team_strength_unavailable)
+        # rather than replay a standings table it cannot tell apart.  Give
+        # it real (positive) strength so the finished-season path is what is
+        # exercised.
+        owners = playoff_odds._owners_in_league(self.snapshot, self.snapshot.current_season)
+        strengths = {o: 50.0 + i for i, o in enumerate(owners)}
+        with patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: strengths):
+            result = playoff_odds.compute_playoff_odds(self.snapshot)
+        self.assertTrue(result["simulated"], result.get("unsimulable"))
         # The fixture's current season is 2025; check that the
         # simulator either collapses (weeksRemaining=0) or keeps
         # probabilities in [0,1].  The strictly-collapsed case:
@@ -74,48 +115,7 @@ class CompletedSeasonCollapse(_Base):
             self.assertEqual(len(made), expected_made)
 
 
-class RoundRobinFallback(unittest.TestCase):
-    def test_round_robin_pairs_everyone_across_cycle(self) -> None:
-        owners = [f"o{i}" for i in range(4)]
-        weeks = list(range(1, 4))  # n-1 weeks for even n = full round robin
-        schedule = playoff_odds._round_robin_schedule(owners, weeks)
-        pairs_seen = set()
-        for wk, pairs in schedule.items():
-            self.assertEqual(len(pairs), 2)  # 4 owners → 2 matches per week
-            for a, b in pairs:
-                key = tuple(sorted([a, b]))
-                self.assertNotIn(key, pairs_seen, f"duplicate pair {key}")
-                pairs_seen.add(key)
-        # Every unique pair of owners plays exactly once.
-        expected = (len(owners) * (len(owners) - 1)) // 2
-        self.assertEqual(len(pairs_seen), expected)
-
-    def test_odd_owner_count_gets_bye(self) -> None:
-        # With 5 owners one sits out each week; no "__BYE__" token
-        # should leak into the schedule.
-        owners = [f"o{i}" for i in range(5)]
-        weeks = list(range(1, 6))
-        schedule = playoff_odds._round_robin_schedule(owners, weeks)
-        for pairs in schedule.values():
-            for a, b in pairs:
-                self.assertNotEqual(a, "__BYE__")
-                self.assertNotEqual(b, "__BYE__")
-
-    def test_no_weeks_returns_empty_week_map(self) -> None:
-        owners = ["a", "b", "c", "d"]
-        self.assertEqual(playoff_odds._round_robin_schedule(owners, []), {})
-
-    def test_no_owners_returns_empty_per_week(self) -> None:
-        schedule = playoff_odds._round_robin_schedule([], [1, 2, 3])
-        self.assertEqual(schedule, {1: [], 2: [], 3: []})
-
-
 class Thresholds(unittest.TestCase):
-    def test_min_sampled_weeks_is_a_sensible_positive_integer(self) -> None:
-        # Sanity: if this constant ever changes, the tests above need
-        # revisiting.  Assertion is deliberately loose.
-        self.assertGreaterEqual(playoff_odds.MIN_SAMPLED_WEEKS, 1)
-
     def test_there_is_no_default_playoff_spot_count_any_more(self) -> None:
         """V1-51. ``DEFAULT_PLAYOFF_SPOTS = 6`` stood in for the league's
         own ``playoff_teams``, and the live league takes SEVEN — so the
@@ -123,7 +123,19 @@ class Thresholds(unittest.TestCase):
         asserted rather than assumed, because a plausible default back in
         scope is how a guess gets re-adopted."""
         self.assertFalse(hasattr(playoff_odds, "DEFAULT_PLAYOFF_SPOTS"))
-        self.assertGreaterEqual(playoff_odds.DEFAULT_SIMS, 1000)
+
+    def test_the_retired_engine_stays_retired(self) -> None:
+        """C5-PLAY-01. Every piece of the second simulator is gone, so it
+        cannot be wired back in without someone deciding to."""
+        for name in (
+            "DEFAULT_SIMS",
+            "MIN_SAMPLED_WEEKS",
+            "_round_robin_schedule",
+            "_infer_schedule_from_posted",
+            "_detect_cycle_length",
+            "_all_posted_pair_lists",
+        ):
+            self.assertFalse(hasattr(playoff_odds, name), name)
 
 
 class LiveWeekRecordCounting(unittest.TestCase):
@@ -424,11 +436,7 @@ class PreseasonState(unittest.TestCase):
             lambda snapshot, owner_id: owner_id
         )
         try:
-            result = playoff_odds.compute_playoff_odds(
-                self._make_preseason_snapshot(),
-                num_sims=100,
-                rng=random.Random(0),
-            )
+            result = playoff_odds.compute_playoff_odds(self._make_preseason_snapshot())
         finally:
             playoff_odds.metrics.resolve_owner = original  # type: ignore[attr-defined]
             playoff_odds.metrics.display_name_for = original_display  # type: ignore[attr-defined]
@@ -513,211 +521,18 @@ class LazySectionRouting(unittest.TestCase):
         self.assertIn("playoffOdds", public_contract.PUBLIC_SECTION_KEYS)
 
 
-class NumSimsGuard(_Base):
-    """Regression for Codex PR #215 P2: ``num_sims <= 0`` must not
-    raise a ZeroDivisionError when the season has remaining weeks.
-    """
-
-    def test_zero_sims_returns_null_probabilities_not_exception(self) -> None:
-        # Pass num_sims=0 explicitly.  Either the season has no
-        # remaining weeks (collapse path, probabilities are 0/1) or
-        # we hit the new guard and every probability is None.
-        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=0, rng=random.Random(0))
-        self.assertEqual(result["numSims"], 0)
-        for owner in result["owners"]:
-            self.assertIn(
-                owner["playoffProbability"],
-                (None, 0.0, 1.0),
-                f"unexpected probability for {owner['ownerId']}: {owner['playoffProbability']}",
-            )
-
-    def test_negative_sims_normalised_to_zero(self) -> None:
-        result = playoff_odds.compute_playoff_odds(self.snapshot, num_sims=-5, rng=random.Random(0))
-        self.assertEqual(result["numSims"], 0)
-
-    def test_non_integer_sims_normalised_to_zero(self) -> None:
-        result = playoff_odds.compute_playoff_odds(
-            self.snapshot,
-            num_sims="bogus",
-            rng=random.Random(0),  # type: ignore[arg-type]
-        )
-        self.assertEqual(result["numSims"], 0)
-
-
-class ScheduleInferenceFromPosted(unittest.TestCase):
-    """Regression for the round-robin fallback gap: when the league
-    has posted enough weeks to reveal the rotation pattern, subsequent
-    un-posted weeks should inherit the observed pairings rather than
-    being filled in by a synthetic circle-method round-robin.
+class UnpostedWeeksAreLabelledNotInvented(unittest.TestCase):
+    """The retired engine filled un-posted weeks with a cycle-inferred or
+    round-robin schedule. The canonical engine simulates POSTED weeks only,
+    so the section must say so (``posted_weeks_only`` + ``unpostedWeeks``)
+    rather than keep the old labels for work nobody does any more.
     """
 
     @staticmethod
     def _pair_row(matchup_id: int, roster_id: int, points: float = 0.0) -> dict:
         return {"roster_id": roster_id, "matchup_id": matchup_id, "points": points}
 
-    def _make_season(
-        self,
-        entries_by_week: dict[int, list[dict]],
-        *,
-        playoff_week_start: int = 15,
-    ):
-        entries = entries_by_week
-        cutoff = playoff_week_start
-
-        class _Season:
-            league_id = "L1"
-            league = {"settings": {"playoff_week_start": cutoff, "playoff_teams": 6}}
-            matchups_by_week = entries
-
-            @property
-            def regular_season_weeks(self):
-                return sorted(w for w in entries if w < cutoff)
-
-        return _Season()
-
-    def setUp(self) -> None:
-        self._orig_resolve = playoff_odds.metrics.resolve_owner
-        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
-            lambda reg, league_id, rid: f"owner-{rid}"
-        )
-
-    def tearDown(self) -> None:
-        playoff_odds.metrics.resolve_owner = self._orig_resolve  # type: ignore[attr-defined]
-
-    def test_detects_four_team_three_week_cycle(self) -> None:
-        # 4 teams → round-robin cycle length 3.  Weeks 1-5 posted with
-        # week 4 == week 1 and week 5 == week 2.  Un-posted week 6
-        # should inherit week 3's pairing (same residue mod 3).
-        # Week 1: (1v2, 3v4); Week 2: (1v3, 2v4); Week 3: (1v4, 2v3).
-        entries = {
-            1: [
-                self._pair_row(10, 1, 120.0),
-                self._pair_row(10, 2, 110.0),
-                self._pair_row(11, 3, 95.0),
-                self._pair_row(11, 4, 105.0),
-            ],
-            2: [
-                self._pair_row(20, 1, 130.0),
-                self._pair_row(20, 3, 115.0),
-                self._pair_row(21, 2, 140.0),
-                self._pair_row(21, 4, 98.0),
-            ],
-            3: [
-                self._pair_row(30, 1, 125.0),
-                self._pair_row(30, 4, 108.0),
-                self._pair_row(31, 2, 133.0),
-                self._pair_row(31, 3, 112.0),
-            ],
-            4: [
-                self._pair_row(40, 1, 0.0),
-                self._pair_row(40, 2, 0.0),
-                self._pair_row(41, 3, 0.0),
-                self._pair_row(41, 4, 0.0),
-            ],
-            5: [
-                self._pair_row(50, 1, 0.0),
-                self._pair_row(50, 3, 0.0),
-                self._pair_row(51, 2, 0.0),
-                self._pair_row(51, 4, 0.0),
-            ],
-            # Weeks 6..14 intentionally absent — inference must fill them.
-        }
-        # Regular season weeks 1..14, playoffs week 15+.  Note the
-        # helper only inspects weeks present in ``matchups_by_week``,
-        # so expand that to include empty entries for the missing
-        # weeks so regular_season_weeks returns the full range.
-        for wk in range(6, 15):
-            entries[wk] = []
-        season = self._make_season(entries, playoff_week_start=15)
-        schedule = playoff_odds._infer_schedule_from_posted(season, None)
-        self.assertIsNotNone(schedule)
-
-        def _pair_set(week_pairs):
-            return frozenset(frozenset(p) for p in week_pairs)
-
-        # Verify cycle propagation: week 6 ≡ week 3, week 7 ≡ week 1,
-        # week 8 ≡ week 2, and so on through the rest of the season.
-        self.assertEqual(_pair_set(schedule[6]), _pair_set(schedule[3]))
-        self.assertEqual(_pair_set(schedule[7]), _pair_set(schedule[1]))
-        self.assertEqual(_pair_set(schedule[8]), _pair_set(schedule[2]))
-        self.assertEqual(_pair_set(schedule[14]), _pair_set(schedule[2]))
-        # And posted weeks survive verbatim.
-        self.assertEqual(
-            _pair_set(schedule[1]), _pair_set([("owner-1", "owner-2"), ("owner-3", "owner-4")])
-        )
-
-    def test_odd_team_count_league_cycle_propagates(self) -> None:
-        # 5 teams, 2 pairs posted per week (one roster sits out each
-        # week — Sleeper encodes byes by simply not listing that
-        # roster in the week's matchups).  Weeks 1-6 posted with a
-        # 5-week cycle (week 6 == week 1).  Inference must carry that
-        # pattern into weeks 7+, preserving the bye rotation.
-        weekly_pairs = {
-            1: [(1, 2), (3, 4)],  # roster 5 on bye
-            2: [(1, 3), (2, 5)],  # roster 4 on bye
-            3: [(1, 4), (3, 5)],  # roster 2 on bye
-            4: [(1, 5), (2, 4)],  # roster 3 on bye
-            5: [(2, 3), (4, 5)],  # roster 1 on bye
-        }
-        # Week 6 repeats week 1 to give the detector something to
-        # latch onto.
-        weekly_pairs[6] = list(weekly_pairs[1])
-
-        entries: dict[int, list[dict]] = {}
-        for wk, pairs in weekly_pairs.items():
-            rows: list[dict] = []
-            for idx, (a, b) in enumerate(pairs):
-                rows.append(self._pair_row(wk * 100 + idx, a, 100.0))
-                rows.append(self._pair_row(wk * 100 + idx, b, 90.0))
-            entries[wk] = rows
-        for wk in range(7, 15):
-            entries[wk] = []
-        season = self._make_season(entries, playoff_week_start=15)
-        schedule = playoff_odds._infer_schedule_from_posted(season, None)
-        self.assertIsNotNone(schedule)
-
-        def _pair_set(week_pairs):
-            return frozenset(frozenset(p) for p in week_pairs)
-
-        # Cycle length must be 5 because week 6 ≡ week 1.
-        self.assertEqual(_pair_set(schedule[7]), _pair_set(schedule[2]))
-        self.assertEqual(_pair_set(schedule[11]), _pair_set(schedule[1]))
-        # Every propagated week still has exactly 2 pairs (5 teams → 1
-        # bye per week, never 3 pairs).
-        for wk in range(7, 15):
-            self.assertEqual(len(schedule[wk]), 2)
-            # No roster sits in two games in the same week.
-            owners_this_week = [o for pair in schedule[wk] for o in pair]
-            self.assertEqual(len(owners_this_week), len(set(owners_this_week)))
-
-    def test_single_posted_week_falls_back_to_round_robin(self) -> None:
-        # Only week 1 posted — under 2 weeks means we can't detect any
-        # repetition, so the helper returns None and the simulator
-        # falls through to _round_robin_schedule.  scheduleCertainty
-        # stays "partial" (some posted + round-robin fallback) or
-        # "inferred" (no posted at all).  Either way, NOT
-        # "inferred_from_posted".
-        entries = {
-            1: [
-                self._pair_row(10, 1, 120.0),
-                self._pair_row(10, 2, 110.0),
-                self._pair_row(11, 3, 95.0),
-                self._pair_row(11, 4, 105.0),
-            ],
-        }
-        for wk in range(2, 15):
-            entries[wk] = []
-        season = self._make_season(entries, playoff_week_start=15)
-        schedule = playoff_odds._infer_schedule_from_posted(season, None)
-        self.assertIsNone(schedule)
-
-    def test_zero_posted_weeks_returns_none(self) -> None:
-        season = self._make_season({wk: [] for wk in range(1, 15)}, playoff_week_start=15)
-        self.assertIsNone(playoff_odds._infer_schedule_from_posted(season, None))
-
-    def test_compute_playoff_odds_reports_inferred_from_posted(self) -> None:
-        # Integration: the new certainty value reaches the public
-        # payload when inference drives the missing-week schedule.
+    def test_unposted_weeks_are_reported_and_odds_are_the_engines(self) -> None:
         entries = {
             1: [
                 self._pair_row(10, 1, 120.0),
@@ -778,16 +593,29 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
         playoff_odds.metrics.display_name_for = (  # type: ignore[attr-defined]
             lambda snapshot, owner_id: owner_id
         )
+        orig_resolve = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+        forecast = {
+            "n_simulations": 4000,
+            "playoffOdds": [
+                {"ownerId": f"owner-{r}", "playoffOdds": p}
+                for r, p in ((1, 0.91), (2, 0.62), (3, 0.08), (4, 0.39))
+            ],
+        }
         try:
-            result = playoff_odds.compute_playoff_odds(
-                _Snapshot(), num_sims=50, rng=random.Random(7)
-            )
+            result = playoff_odds.compute_playoff_odds(_Snapshot(), forecast=forecast)
         finally:
             playoff_odds.metrics.display_name_for = orig_display  # type: ignore[attr-defined]
+            playoff_odds.metrics.resolve_owner = orig_resolve  # type: ignore[attr-defined]
 
-        self.assertEqual(result["scheduleCertainty"], "inferred_from_posted")
-        # Every owner gets a probability (none skipped by empty
-        # schedule gaps).
-        self.assertEqual(len(result["owners"]), 4)
-        for owner in result["owners"]:
-            self.assertIsNotNone(owner["playoffProbability"])
+        self.assertEqual(result["scheduleCertainty"], playoff_odds.CERTAINTY_POSTED_WEEKS_ONLY)
+        self.assertEqual(result["unpostedWeeks"], list(range(5, 15)))
+        self.assertEqual(result["weeksPlayed"], 4)
+        self.assertEqual(result["numSims"], 4000)
+        # The numbers are the engine's, owner for owner.
+        self.assertEqual(
+            {o["ownerId"]: o["playoffProbability"] for o in result["owners"]},
+            {f"owner-{r}": p for r, p in ((1, 0.91), (2, 0.62), (3, 0.08), (4, 0.39))},
+        )

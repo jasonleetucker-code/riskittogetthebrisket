@@ -37,6 +37,18 @@ os.environ.setdefault(
     "RISKIT_RETENTION_DIR",
     os.path.join(tempfile.gettempdir(), f"riskit-retention-test-{os.getpid()}"),
 )
+# Same reason for the two as-known capture stores (Adaptive Learning G4): a
+# suite that refreshes the news service or runs the injury refresh must never
+# append fixture rows to the box-local evidence logs.  Both modules read the
+# variable at call time.
+os.environ.setdefault(
+    "RISKIT_NEWS_ARCHIVE_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-news-archive-test-{os.getpid()}"),
+)
+os.environ.setdefault(
+    "RISKIT_INJURY_HISTORY_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-injury-history-test-{os.getpid()}"),
+)
 
 # ── The suite does not depend on the live site being up ───────────────
 # ``server`` reads UPTIME_CHECK_ENABLED at import (production default
@@ -363,3 +375,62 @@ def _reset_overlay_content_memos():
             if isinstance(memo, dict):
                 memo.clear()
     yield
+
+
+# ── Public-league process state is restored per MODULE ────────────────
+# ``tests/public_league/fixtures.install_stubs`` replaces ``sleeper_client``
+# entry points process-wide, and the route tests also set
+# ``SLEEPER_LEAGUE_ID`` and seed ``server``'s public snapshot cache, all in
+# ``setUpClass``.  Nothing undid any of it, so every later module in the
+# process ran against the stubbed fixture league: measured 2026-10-07,
+# ``tests/api/test_public_league_privacy_boundary.py`` skipped in isolation
+# and FAILED after ``tests/public_league/test_server_routes.py`` — and the
+# leaked league id sent ``data_contract`` to the real Sleeper API.
+#
+# Module scope, not function scope: a class installs once in
+# ``setUpClass`` and all of its tests read through the stubs.  A module
+# fixture wraps that class fixture, so it restores after the last class.
+#
+# The pristine ``sleeper_client`` callables are captured HERE, at conftest
+# import, before any test module can touch them.  A drift that did NOT go
+# through ``install_stubs`` (e.g. a bare ``sleeper_client.fetch_x = ...``)
+# is restored too, and the module is failed so the leak gets fixed rather
+# than silently absorbed.
+def _sleeper_client_callables() -> dict:
+    from src.public_league import sleeper_client as _sc
+
+    return {
+        name: value
+        for name, value in vars(_sc).items()
+        if callable(value)
+        and not name.startswith("__")
+        and getattr(value, "__module__", None) == _sc.__name__
+    }
+
+
+_PRISTINE_SLEEPER_CLIENT = _sleeper_client_callables()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _public_league_process_state(request):
+    from src.public_league import sleeper_client as _sc
+    from tests.public_league import fixtures as _pl_fixtures
+
+    restore = _pl_fixtures.capture_public_league_process_state()
+    yield
+    sanctioned = set(_pl_fixtures._STUBBED_ORIGINALS)
+    restore()
+    unsanctioned = []
+    for name, original in _PRISTINE_SLEEPER_CLIENT.items():
+        if getattr(_sc, name, None) is not original:
+            setattr(_sc, name, original)
+            if name not in sanctioned:
+                unsanctioned.append(name)
+    if unsanctioned:
+        pytest.fail(
+            f"{request.node.nodeid} replaced sleeper_client.{', '.join(sorted(unsanctioned))} "
+            "without restoring it; later modules would have run against the "
+            "replacement.  Use monkeypatch, or tests.public_league.fixtures."
+            "install_stubs (restored at module end).",
+            pytrace=False,
+        )

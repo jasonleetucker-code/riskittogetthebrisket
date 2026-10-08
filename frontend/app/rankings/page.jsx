@@ -88,7 +88,12 @@ import { useNews } from "@/components/useNews";
 import { lookupPlayerNews } from "@/lib/player-name-match";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { formatSourceCell, exportSourceCells } from "./board-utils";
-import { VALUE_EXPLAINERS, confidenceDisplay } from "@/lib/value-explainers";
+import {
+  VALUE_EXPLAINERS,
+  boardClocks,
+  confidenceDisplay,
+  formatAgo,
+} from "@/lib/value-explainers";
 import { BoardClocks, ExplainTip, ValueExplainHelp } from "@/components/ValueExplain";
 import {
   MethodologySection,
@@ -907,24 +912,18 @@ export default function RankingsPage() {
   }
 
   // ── Freshness timestamp ─────────────────────────────────────────
-  const freshness = rawData?.dataFreshness;
-  const timestamp = freshness?.generatedAt || rawData?.date || null;
-  const relativeUpdated = useMemo(() => {
-    if (!timestamp) return null;
-    try {
-      const then = new Date(timestamp);
-      const now = new Date();
-      const secs = Math.round((now.getTime() - then.getTime()) / 1000);
-      if (!Number.isFinite(secs)) return null;
-      if (secs < 60) return `${secs}s ago`;
-      if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-      if (secs < 86_400) return `${Math.round(secs / 3600)}h ago`;
-      const days = Math.round(secs / 86_400);
-      return `${days}d ago`;
-    } catch {
-      return null;
-    }
-  }, [timestamp]);
+  // The hero used to read "Updated {generatedAt}". generatedAt is when the
+  // BOARD was assembled — a restart rebuilds it from an old scrape and the
+  // header then claimed a fresh update. Name the clock that is shown: the
+  // scrape the board was built from when published, else the build time,
+  // labelled as such (the same two clocks BoardClocks shows below).
+  const { builtAt, scrapedAt } = boardClocks(rawData);
+  const headerClock = useMemo(() => {
+    const scraped = formatAgo(scrapedAt);
+    if (scraped) return `Scraped ${scraped}`;
+    const built = formatAgo(builtAt || rawData?.date || null);
+    return built ? `Board built ${built}` : null;
+  }, [scrapedAt, builtAt, rawData?.date]);
 
   // ── Tier separator logic ────────────────────────────────────────
   const tierGroupingActive =
@@ -1383,8 +1382,8 @@ export default function RankingsPage() {
       <PageHeader
         className={styles.hero}
         eyebrow={
-          relativeUpdated
-            ? `Chase Upside Consensus / Updated ${relativeUpdated}`
+          headerClock
+            ? `Chase Upside Consensus / ${headerClock}`
             : "Chase Upside Consensus"
         }
         title="Rankings"

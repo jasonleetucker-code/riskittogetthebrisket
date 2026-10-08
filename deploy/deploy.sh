@@ -508,6 +508,14 @@ deploy_frontend_atomic() {
     exit 1
   fi
 
+  # Pre-start byte-exact guarantee (#1707), first half: refuse a staging dir
+  # that carries a runtime route cache BEFORE stopping anything, so a refusal
+  # leaves the old frontend serving.  Re-checked on the live dir after the swap.
+  if [[ -e "${staging_dir}/server/route-cache" || -L "${staging_dir}/server/route-cache" ]]; then
+    error "Frontend staging build carries a runtime route cache: ${staging_dir}/server/route-cache"
+    exit 1
+  fi
+
   log "Stopping frontend service for atomic swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" stop "${frontend_name}" || true
 
@@ -531,6 +539,15 @@ deploy_frontend_atomic() {
   fi
   mv "${staging_dir}" "${live_dir}"
   log "Frontend build swapped into place: ${live_dir}"
+
+  # Pre-start byte-exact guarantee (#1707), second half: the release digest tolerates
+  # Next's runtime response cache because a SERVING tree grows one.  Before
+  # Next starts, the tree must have none -- so the live tree is exactly the
+  # verified build at the moment it begins serving.
+  if [[ -e "${live_dir}/server/route-cache" || -L "${live_dir}/server/route-cache" ]]; then
+    error "Frontend build already carries a runtime route cache before start: ${live_dir}/server/route-cache"
+    exit 1
+  fi
 
   log "Starting frontend service after swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
@@ -707,7 +724,7 @@ PY
     # with the square brackets preserved on disk — without --globoff,
     # curl errors out with "bad range in URL" for every such asset.
     while (( attempts < FRONTEND_PROBE_MAX_ATTEMPTS )); do
-      code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}" || echo 000)"
+      code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}")" || code=000
       if [[ "${code}" == "200" ]]; then
         log "Frontend _next probe OK: ${asset}"
         break
@@ -1228,6 +1245,17 @@ attempt_auto_rollback() {
 on_error() {
   local exit_code="$?"
   local line_no="${1:-unknown}"
+  # `set -E` makes this trap fire inside $(...) command substitutions too. A
+  # rollback there would run with its output captured into the variable and,
+  # because ROLLBACK_ATTEMPTED cannot propagate out of a subshell, the parent
+  # would then roll back a second time. In a subshell, only propagate the
+  # failure; the parent's assignment fails and its own ERR trap does the one
+  # rollback, with its log visible. error() writes to stderr, so the failing
+  # line still reaches the log rather than the captured variable.
+  if [[ "${BASHPID}" != "$$" ]]; then
+    error "Command substitution failed at line ${line_no} (exit code ${exit_code})."
+    exit "${exit_code}"
+  fi
   error "Deployment failed at line ${line_no} (exit code ${exit_code})."
   attempt_auto_rollback || true
   exit "${exit_code}"

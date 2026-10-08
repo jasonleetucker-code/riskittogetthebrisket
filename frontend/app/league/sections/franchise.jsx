@@ -167,7 +167,13 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
           </div>
 
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Season results</div>
-          <div className="table-wrap">
+          {/* Keyboard-reachable sideways scroll — same as the franchise page. */}
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="group"
+            aria-label="Season results table, scrolls horizontally"
+          >
             <table>
               <thead>
                 <tr>

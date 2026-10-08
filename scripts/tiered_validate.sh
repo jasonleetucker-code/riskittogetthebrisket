@@ -66,7 +66,12 @@ run_l0() {
   # files that changed, without paying for the full backend test suite.
   local paths
   paths="$(changed_paths)"
-  mapfile -t PY_FILES < <(printf '%s\n' "$paths" | grep -E '\.py$' || true)
+  local changed_py f
+  mapfile -t changed_py < <(printf '%s\n' "$paths" | grep -E '\.py$' || true)
+  # Deleted paths are in the change scope (they matter for risk
+  # classification), but a deleted file has nothing to compile.
+  PY_FILES=()
+  for f in "${changed_py[@]}"; do if [[ -f "$f" ]]; then PY_FILES+=("$f"); fi; done
   if ((${#PY_FILES[@]} > 0)); then
     echo "Syntax-checking ${#PY_FILES[@]} changed Python file(s):"
     printf '  %s\n' "${PY_FILES[@]}"

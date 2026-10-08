@@ -63,6 +63,9 @@
 #     temporal ledger, the DFS workspace, an ONLINE copy of the intel ledger,
 #     and the bdvm / forecast_archive / pick_forecast_snapshots / shadow
 #     ledger directories.
+#   * As-known capture stores (Adaptive Learning G4, 2026-10-07):
+#     data/nfl_data/injury_history/ (ESPN injury snapshots as fetched) and
+#     data/news_archive/ (news item metadata, no bodies).  OPTIONAL, small.
 #   * data/playerctx/history/    — dated playerctx snapshots
 #     (C1-RET-08).  The directory ONLY: data/playerctx/ next door holds
 #     a 38 MB depth-chart CSV and a 14 MB Sleeper dump, both
@@ -854,6 +857,15 @@ optional backup_dir "${DATA_DIR}/pick_forecast_snapshots"
 #     Shadow-evaluation ledgers (monthly JSONL) — what each shadow run saw.
 optional backup_dir "${DATA_DIR}/sparse_evidence_shadow"
 optional backup_dir "${DATA_DIR}/robust_filter_shadow"
+#   * As-known capture stores (Adaptive Learning G4, 2026-10-07; register
+#     addendum "As-known injury + news capture").  PERISHABLE: ESPN serves the
+#     current injury report only and the news providers' feeds roll forward, so
+#     a week not captured is lost for good.  Append-only monthly JSONL; small.
+#     ESPN injury snapshots as fetched (src/nfl_data/injury_history.py).
+optional backup_dir "${DATA_DIR}/nfl_data/injury_history"
+#     News item METADATA at each aggregator refresh -- no article bodies
+#     (src/news/archive.py).
+optional backup_dir "${DATA_DIR}/news_archive"
 #   * Signals Fantasy private store (docs/sources/SIGNALS_FANTASY_INTEGRATION.md):
 #     validated value releases, board CSVs, fetch/collector state and raw
 #     gzip payloads.  Box-local by design (never committed, never in CI) and

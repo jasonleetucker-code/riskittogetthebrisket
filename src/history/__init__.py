@@ -13,7 +13,10 @@ It decides, for the whole platform:
   pre-2026-07-14 coverage boundary);
 * how history is INGESTED (``record.py`` for the live board,
   ``backfill.py`` for the retained archive, ``migrate.py`` for the
-  legacy production stores).
+  legacy production stores);
+* what moved between two board generations (``movement.py`` — a
+  read-only, explicitly non-additive evidence diff over the as-of
+  contract; IC-7 "why it moved").
 
 Consumers may not independently interpret the raw stores
 (``data/rank_history.jsonl``, ``data/source_value_history.jsonl``,

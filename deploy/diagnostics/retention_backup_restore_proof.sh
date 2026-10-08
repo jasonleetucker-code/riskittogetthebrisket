@@ -387,7 +387,7 @@ optional_status() {
 # row naming user_kv.sqlite must still fail, not pass as a recorded skip.
 # Lockstep with the `optional backup_*` calls in riskit-state-backup.sh is
 # pinned by tests/deploy/test_state_backup_optional_stores.py.
-KNOWN_OPTIONAL_STORES=" intel_ledger.sqlite3 market_trades_archive.sqlite market_trades_reports own_league_format_captures.sqlite source_archive_boards.sqlite bdvm forecast_archive pick_forecast_snapshots sparse_evidence_shadow robust_filter_shadow signals_sources consensus_edge.sqlite dfs_workspace.sqlite temporal_ledger.sqlite "
+KNOWN_OPTIONAL_STORES=" intel_ledger.sqlite3 market_trades_archive.sqlite market_trades_reports own_league_format_captures.sqlite source_archive_boards.sqlite bdvm forecast_archive pick_forecast_snapshots sparse_evidence_shadow robust_filter_shadow signals_sources consensus_edge.sqlite dfs_workspace.sqlite temporal_ledger.sqlite injury_history news_archive "
 optional_absence_explained() {
     local name="$1" label="$2" status
     if [[ "${KNOWN_OPTIONAL_STORES}" != *" ${name} "* ]]; then
@@ -649,6 +649,8 @@ prove_dir "${DATA_DIR}/pick_forecast_snapshots" "pick_forecast_snapshots" "AL-P2
 prove_dir "${DATA_DIR}/sparse_evidence_shadow"  "sparse_evidence_shadow"  "AL-P2 sparse_evidence_shadow/"
 prove_dir "${DATA_DIR}/robust_filter_shadow"    "robust_filter_shadow"    "AL-P2 robust_filter_shadow/"
 prove_dir "${DATA_DIR}/sources/signals"         "signals_sources"         "Signals private store sources/signals/"
+prove_dir "${DATA_DIR}/nfl_data/injury_history" "injury_history"          "G4 as-known injury history"
+prove_dir "${DATA_DIR}/news_archive"            "news_archive"            "G4 as-known news metadata"
 
 log "─────────────────────────────────────────────────────────────────"
 if (( FAILURES > 0 )); then

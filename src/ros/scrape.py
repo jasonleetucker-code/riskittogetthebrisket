@@ -586,8 +586,12 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # refresh (``_archive_forecast`` catches everything).
         _archive_forecast(cfg.key, snap, bb, "playoff", playoff_doc, playoff_path)
 
-        championship_payload = championship.simulate_championship_odds(snap, best_ball=bb)
-        champ_doc = {"computedAt": _now(), **championship_payload}
+        # ONE simulation (C5-PLAY-01): the championship file is the playoff
+        # forecast above, reshaped — not a second Monte Carlo.  It carries
+        # that forecast's ``computedAt`` because that is when its numbers
+        # were produced.
+        championship_payload = championship.championship_from_forecast(playoff_payload)
+        champ_doc = {"computedAt": playoff_doc["computedAt"], **championship_payload}
         champ_path.write_text(json.dumps(champ_doc, indent=2))
         out["championship"] = champ_path
         _archive_forecast(cfg.key, snap, bb, "championship", champ_doc, champ_path)

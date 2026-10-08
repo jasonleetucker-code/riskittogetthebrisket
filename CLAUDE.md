@@ -244,7 +244,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ### Starting the Stack
 
 ```powershell
-.\start_dynasty.bat          # Start Python backend (port 8000)
+python server.py            # Start Python backend (port 8000; there is no start_dynasty.bat)
 .\start_frontend.bat         # Start Next.js dev server (port 3000)
 .\start_stack.bat            # Start both in separate windows
 ```
@@ -1967,9 +1967,36 @@ confidence. Do not reintroduce a range as the deciding statistic.
 
 Picks keep their own coefficient-of-variation rule
 (``assess_pick_confidence``) because rank spread on picks is dominated by
-the flat-value regions in R3-R6 — but it is family-aware, and its
-independence bar is 2 markets rather than 5 because the pick population
-only HAS 2-4 families (KTC + IDPTC).
+the flat-value regions in R3-R6.  Its independence unit is the PROVIDER, not
+the family (owner directive 2026-10-07, IDP Trade Calculator quarantine
+cutoff): providers come from ``config/sources/source_lineage.json`` via
+``source_census.provider_of``, and the pick markets are only two providers —
+KeepTradeCut and IDP Trade Calculator.  KTC Crowd + KTC Trades stay two B10
+families with their own value votes, but are ONE provider, so a pick priced by
+KTC alone is ``low — single pick provider``; KTC Market is never read.  An
+unrecorded provider, or an unreadable registry, FAILS CLOSED (``low — pick
+provider identity unknown``), never back to per-key counting.  The bar is 2
+providers rather than 5.  A withheld (``freshnessExcludedSources``) market
+can only LOWER a pick's confidence, and ``pickEvidence`` names the voting /
+withheld providers per pick — on tether-priced current-year slots too
+(``valueBasis: rookie_pool_tether``).
+
+**Losing evidence never raises confidence** (same directive).  On a row with a
+withheld source, ``assess_confidence(withheld=…)`` seats the lost families in
+every share axis' denominator and credits them nothing; independence and
+coverage count voting families only.  The seats are decided exactly, with no
+second blend (``_lost_evidence_seats``): the unweighted outlier test is re-run
+on the OBSERVED panel (voting + withheld values), which reproduces the verdict
+from while the source still voted — so a withheld source the panel would have
+rejected anyway is not a loss, and a Hampel rejection is seated only when the
+lost vote CAUSED it.  Exact at a fixed published value; the one accepted
+residual (coordinator, 2026-10-07) is the agreement axis re-measured against a
+value that itself moved (1 row on the simulated cutoff).  Validator warnings
+``source_votes_withheld:*`` / ``pick_evidence_reduced_to_single_provider:*`` /
+``pick_evidence_reduced_tether_priced:*`` / ``pick_evidence_provider_unknown:*``
+plus status ``degraded`` (never an error, either lane) and the
+``content:<key>:votes_withheld`` alert report it.  Pinned by
+``tests/api/test_idptc_cutoff_readiness.py``.
 
 Per-row fields: ``confidenceBucket`` / ``confidenceLabel`` /
 ``confidenceAxes`` / ``confidenceReasons``. ``metrics`` stays on the

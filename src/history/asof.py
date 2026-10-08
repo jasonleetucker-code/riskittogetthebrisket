@@ -667,6 +667,158 @@ def series(
     }
 
 
+GENERATION_MATCH_INSTANT = "instant"
+GENERATION_MATCH_DATE = "date"
+
+
+def parse_instant_utc(stamp: Any) -> datetime | None:
+    """A PROVEN instant as UTC (naive = UTC, the ledger's legacy rule —
+    see :func:`_instant_at_or_before`), else ``None``."""
+    s = str(stamp or "").strip()
+    if not store.has_time_component(s):
+        return None
+    try:
+        parsed = datetime.fromisoformat(s[:-1] + "+00:00" if s.endswith("Z") else s)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def value_at_generation(
+    asset_key: str,
+    *,
+    observed_date: str,
+    observed_at: Any,
+    lane: str,
+    source_key: str = "",
+    allow_date_fallback: bool = True,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """The observation recorded IN one board generation — not merely on its
+    date.
+
+    A generation is one recorded scrape: ``(observed_date, observed_at)``.
+    Production records every scrape, so several generations share a date,
+    and a row from an EARLIER scrape that day is not evidence about a later
+    one (a source that failed at 22:00 is absent from the 22:00 generation
+    even though it answered at 08:00).  So:
+
+    * the generation carries a proven instant → a row matching that instant
+      exactly is ``present`` with ``match: "instant"``; failing that, rows on
+      the date with NO instant (legacy / backfill records, whose scrape is
+      unknown) answer at ``match: "date"`` — labelled, never passed off as
+      instant-exact; rows at a different proven instant never qualify;
+    * the generation has no instant → the best row on the date (standard tie
+      rule) at ``match: "date"``.
+
+    ``allow_date_fallback=False`` restricts a generation WITH an instant to
+    the exact-instant match (the date fallback is for generations whose
+    scrape time was never recorded, not a substitute for a recorded one).
+
+    A present answer carries the full point-lookup shape
+    (:func:`_result_from_row` — value, rank, tier, confidence, provenance)
+    plus ``present`` / ``match``.  ``{"present": False, "match": None}``
+    when nothing qualifies.  Read-only; superseded observations are skipped.
+    """
+    absent: dict[str, Any] = {"present": False, "match": None, "value": None}
+    conn = _connect_readonly(path)
+    if conn is None:
+        return absent
+    try:
+        rows = conn.execute(
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)",
+            (asset_key, lane, source_key, observed_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return absent
+
+    gen_instant = parse_instant_utc(observed_at)
+    match = GENERATION_MATCH_DATE
+    if gen_instant is not None:
+        exact = [r for r in rows if parse_instant_utc(r["observed_at"]) == gen_instant]
+        if exact:
+            rows, match = exact, GENERATION_MATCH_INSTANT
+        elif not allow_date_fallback:
+            return absent
+        else:
+            rows = [r for r in rows if parse_instant_utc(r["observed_at"]) is None]
+    best = _select_best(rows)
+    if best is None:
+        return absent
+    return {**_result_from_row(best, observed_date), "present": True, "match": match}
+
+
+def generation_has_instant_rows(
+    asset_key: str,
+    *,
+    observed_date: str,
+    observed_at: Any,
+    lane: str,
+    path: Path | None = None,
+) -> bool:
+    """Did this generation (``observed_date`` + a proven ``observed_at``)
+    record ANY row in ``lane`` for the asset, under any source key?
+
+    When it did, that scrape stamped its rows with its instant, so an
+    instant-less row on the same date is NOT this generation's record and
+    must not stand in for one by date.  ``False`` for a generation with no
+    proven instant, or no ledger.
+    """
+    gen_instant = parse_instant_utc(observed_at)
+    if gen_instant is None:
+        return False
+    conn = _connect_readonly(path)
+    if conn is None:
+        return False
+    try:
+        rows = conn.execute(
+            "SELECT observed_at FROM observations "
+            "WHERE asset_key=? AND lane=? AND observed_date=? AND observed_at IS NOT NULL "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)",
+            (asset_key, lane, observed_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    return any(parse_instant_utc(r["observed_at"]) == gen_instant for r in rows)
+
+
+def _previous_board_date(conn: sqlite3.Connection, before_date: Any) -> str | None:
+    """The latest canonical board date STRICTLY BEFORE ``before_date`` —
+    the one comparator rule :func:`previous_board_ranks` (``rankChange``)
+    and :func:`previous_board_date` (value-movement attribution) share."""
+    boundary = store.as_of_date(before_date)
+    row = conn.execute(
+        "SELECT MAX(observed_date) FROM observations WHERE lane=? AND observed_date<?",
+        (LANE_CANONICAL, boundary),
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def previous_board_date(
+    *,
+    before_date: date | datetime | str,
+    path: Path | None = None,
+) -> str | None:
+    """The comparator board generation for ``before_date``: the latest
+    canonical board date strictly before it, or ``None`` when no earlier
+    generation exists (or no ledger does) — "no comparator", never a
+    guessed date.  Same rule ``rankChange`` derives from."""
+    boundary = store.as_of_date(before_date)
+    conn = _connect_readonly(path)
+    if conn is None:
+        return None
+    try:
+        return _previous_board_date(conn, boundary)
+    finally:
+        conn.close()
+
+
 def previous_board_ranks(
     *,
     before_date: date | datetime | str,
@@ -692,11 +844,7 @@ def previous_board_ranks(
     if conn is None:
         return {}
     try:
-        prev_date_row = conn.execute(
-            "SELECT MAX(observed_date) FROM observations WHERE lane=? AND observed_date<?",
-            (LANE_CANONICAL, boundary),
-        ).fetchone()
-        prev_date = prev_date_row[0] if prev_date_row else None
+        prev_date = _previous_board_date(conn, boundary)
         if not prev_date:
             return {}
         rows = conn.execute(

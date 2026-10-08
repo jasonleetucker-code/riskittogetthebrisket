@@ -18,10 +18,19 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banner, DataTable, Panel, PageHeader, Select, StatTile } from "@/components/ds";
+import {
+  Banner,
+  DataTable,
+  Panel,
+  PageHeader,
+  PlayerNameButton,
+  Select,
+  StatTile,
+} from "@/components/ds";
 import { LoadingState } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api-error";
 import {
+  sharpAssetPlayerId,
   buildExclusionRows,
   buildTransparencyTiles,
   classifyEmptyState,
@@ -226,6 +235,9 @@ export default function SharpRosterPercentagePage() {
         key: "displayName",
         header: "Player",
         accessor: (row) => row.displayName,
+        render: (row) => (
+          <PlayerNameButton name={row.displayName} playerId={sharpAssetPlayerId(row)} />
+        ),
       },
       { key: "position", header: "Pos", accessor: (row) => row.position || "—" },
       { key: "nflTeam", header: "Team", accessor: (row) => row.nflTeam || "—" },

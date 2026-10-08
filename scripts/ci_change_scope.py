@@ -114,6 +114,13 @@ _HIGH_RISK_PATTERNS = (
     "scripts/ci_change_scope.py",
     "scripts/ci_gate_classification.py",
     "config/ci/release_gate_classification.json",
+    # Release-artifact identity: these decide whether the tested frontend bytes
+    # are the deployed ones, so a change here must run the frontend lane's
+    # "Package and verify frontend release candidate" against a REAL Next build
+    # (#1707 skipped it as backend-only).
+    "src/api/build_identity.py",
+    "scripts/release_artifact.py",
+    "scripts/stage_release_artifact.py",
 )
 
 

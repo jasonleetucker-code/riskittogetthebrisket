@@ -69,6 +69,10 @@ class StaleSourceAlert:
     hours_stale: float | None  # None: a state alert with no age (health, coverage)
     threshold_hours: float | None
     transition: str  # "stale" | "recovered"
+    # The age is measured from a FIRST OBSERVATION (a fetch time), so it is a
+    # lower bound and ``last_seen_iso`` is when we first saw the content, not
+    # when the vendor published it (freshness D1).
+    age_is_lower_bound: bool = False
 
 
 def load_thresholds(path: Path | None = None) -> dict[str, float]:
@@ -327,13 +331,19 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
         for subset, sub in (entry.get("subsets") or {}).items():
             if not isinstance(sub, dict) or sub.get("state") not in _CONTENT_ALERT_STATES:
                 continue
+            baseline = sub.get("clockIsObservationBaseline") is True
             out.append(
                 StaleSourceAlert(
                     source=f"content:{key}/{subset}",
-                    last_seen_iso=str(sub.get("sourceDataAsOf") or ""),
+                    last_seen_iso=str(
+                        (sub.get("observationBaselineAt") if baseline else None)
+                        or sub.get("sourceDataAsOf")
+                        or ""
+                    ),
                     hours_stale=_number(sub.get("ageHours")),
                     threshold_hours=_number(sub.get("expectedCadenceHours")),
                     transition="stale",
+                    age_is_lower_bound=baseline,
                 )
             )
         if entry.get("health") not in (None, "HEALTHY"):
@@ -350,6 +360,23 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
             out.append(
                 StaleSourceAlert(
                     source=f"coverage:{key}",
+                    last_seen_iso="",
+                    hours_stale=None,
+                    threshold_hours=None,
+                    transition="stale",
+                )
+            )
+        if entry.get("role") == "model_input" and _at_least(entry.get("excludedRows"), 1):
+            # Votes WITHHELD on some rows (freshness quarantine / FAILED
+            # health): the subset states above can miss this, because a
+            # board pricing several universes is quarantined per universe —
+            # IDP Trade Calculator's offense rows age out while its players
+            # subset stays ON_SCHEDULE on IDP-only publications.  Degraded
+            # evidence, not an outage (owner 2026-10-07): an alert, never an
+            # error.
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}:votes_withheld",
                     last_seen_iso="",
                     hours_stale=None,
                     threshold_hours=None,
@@ -538,6 +565,13 @@ def _format_body(alerts: list[StaleSourceAlert]) -> str:
                 lines.append(f"  • {a.source}")
                 continue
             threshold = "unknown" if a.threshold_hours is None else f"{a.threshold_hours:.0f}h"
+            if a.age_is_lower_bound:
+                lines.append(
+                    f"  • {a.source}: at least {a.hours_stale:.1f}h stale "
+                    f"(threshold {threshold}) — first observed {a.last_seen_iso}, "
+                    "publication time unknown"
+                )
+                continue
             lines.append(
                 f"  • {a.source}: {a.hours_stale:.1f}h stale "
                 f"(threshold {threshold}) — last seen {a.last_seen_iso}"

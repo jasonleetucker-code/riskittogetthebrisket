@@ -27,6 +27,7 @@ import {
   EmptyState,
   PlayerImage,
 } from "@/components/ui";
+import { PlayerNameButton, canonicalPlayerId } from "@/components/ds";
 import {
   fmtNumber,
   fmtPoints,
@@ -93,7 +94,9 @@ function PlayerColumn({ row, settings, valueMode = "full" }) {
           size={56}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{row.name}</h2>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>
+            <PlayerNameButton name={row.name} playerId={canonicalPlayerId(row)} />
+          </h2>
           <div style={{ fontSize: "0.74rem", color: "var(--subtext)", display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
             <span className={posBadgeClass(row)}>{row.pos}</span>
             {row.team && <span>{row.team}</span>}

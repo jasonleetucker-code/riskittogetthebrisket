@@ -23,9 +23,11 @@ import {
   Input,
   Movement,
   Panel,
+  PlayerNameButton,
   Select,
   SkeletonText,
   StatTile,
+  canonicalPlayerId,
 } from "@/components/ds";
 import { PlayerImage } from "@/components/ui";
 import {
@@ -1020,13 +1022,15 @@ function AssetRow({
         />
         <div className={styles.assetBody}>
           <span className={styles.assetName}>
-            <button
-              type="button"
+            {/* #1337: a player with a canonical id opens his Player File;
+                a pick (no id) keeps the quick-view popup. */}
+            <PlayerNameButton
+              name={label}
+              row={row}
+              playerId={canonicalPlayerId(row)}
+              onOpen={onOpenPlayer}
               className={styles.assetNameButton}
-              onClick={() => onOpenPlayer?.(row)}
-            >
-              {label}
-            </button>
+            />
             {count > 1 ? (
               <Badge tone="outline" title={`${count} copies, each counted in the totals`}>
                 ×{count}
@@ -1178,13 +1182,13 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
         />
         <div className={styles.assetBody}>
           <span className={styles.assetName}>
-            <button
-              type="button"
+            <PlayerNameButton
+              name={tradeEntryLabel(asset)}
+              row={asset}
+              playerId={canonicalPlayerId(asset)}
+              onOpen={onOpenPlayer}
               className={styles.assetNameButton}
-              onClick={() => onOpenPlayer?.(asset)}
-            >
-              {tradeEntryLabel(asset)}
-            </button>
+            />
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%

@@ -106,10 +106,125 @@ def _sha256_text(path: Path) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
-def _frontend_tree_digest(build_dir: Path) -> str:
-    """Content-address the served Next output, excluding its build cache."""
+# --- Frontend tree digest -------------------------------------------------------
+#
+# Two algorithms, selected by ``identity["frontend_tree_digest_version"]``:
+#
+# * absent (every manifest produced before this field existed) -- LEGACY: every
+#   file under ``.next`` except the top-level ``cache/`` build cache AND the
+#   declared runtime route-cache entries described below.  On any tree WITHOUT a
+#   ``server/route-cache/`` directory -- every tree CI ever packaged, since CI
+#   never starts Next before packaging -- this is byte-identical to the original
+#   function, so a saved manifest's digest and artifact ID never change.  The
+#   route-cache exclusion applies to legacy manifests too (coordinator decision
+#   on #1707, F3): otherwise a pre-fix release in the rollback window could never
+#   pass a post-traffic verify.  It is sound for the same reasons as below, and
+#   ``deploy.sh`` / ``rollback.sh`` assert the directory is absent immediately
+#   before Next starts, which restores the byte-exact pre-start guarantee.
+# * ``FRONTEND_TREE_DIGEST_VERSION`` -- the same exclusion, and the two route
+#   manifests are required even when no route cache exists yet.
+#
+# Why the exclusion exists (deploy run 37700964086, 2026-10-07): ``next start``
+# writes response-cache entries into the served build tree.  Measured on this
+# repo's own build (Next 16.3.8): the FIRST request to ANY prerendered route --
+# static ones included, not only ``revalidate`` routes -- promotes the build seed
+# into ``server/route-cache/<KIND>/<sha256(source route)>/$<path>.{html,rsc,meta,
+# body,segments/...}``, and ISR regeneration writes there too.  So a digest of the
+# live tree taken after any traffic could never match the CI digest, and the
+# deploy's post-start "live frontend matches the tested artifact" check failed on
+# a correct deploy.  The compiled seeds under ``server/app/`` are never rewritten.
+#
+# The exclusion is DERIVED, never a free-form glob, and fails closed:
+#   - ``ROUTE_CACHE_DIRECTORY`` is Next's own constant
+#     (``next/dist/server/lib/route-cache-key.js``); the Next version is pinned by
+#     ``frontend_lock_sha256``.
+#   - an excluded file must sit at ``<KIND>/<sha256(source)>/$/...`` where
+#     ``source`` is a route the IMMUTABLE build declares -- a key of
+#     ``server/app-paths-manifest.json`` (``.../page`` -> APP_PAGE,
+#     ``.../route`` -> APP_ROUTE) or ``server/pages-manifest.json`` (PAGES) --
+#     and carry a response-cache suffix -- optionally followed by the in-flight
+#     temp suffix of Next's ``writeFileAtomic``
+#     (``next/dist/server/lib/node-fs-methods.js``: ``${f}.${randomUUID()}.tmp``;
+#     a crash can leave one behind, and it is still only response data).
+#     Anything else under the directory (a ``.js`` chunk, an unknown route hash,
+#     a symlink) refuses verification.
+#   - both route manifests are themselves covered by the digest, so the excluded
+#     set cannot be widened without changing the identity; a missing or
+#     malformed manifest refuses.
+#   - the tested artifact must contain NO route cache at all (``create`` refuses),
+#     so the exclusion can only ever hide runtime-generated response data, never
+#     a byte CI tested.
+FRONTEND_TREE_DIGEST_VERSION = "next-build-output-excluding-route-cache/v1"
+NEXT_ROUTE_CACHE_DIRECTORY = "route-cache"
+_ROUTE_CACHE_RESPONSE_FILE = re.compile(
+    r".+\.(?:html|rsc|meta|body|json)"
+    r"(?:\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp)?"
+)
+_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+
+
+def _load_route_manifest(build_dir: Path, relative: str) -> dict:
+    path = build_dir / relative
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"frontend route manifest missing or unreadable: {relative}") from exc
+    if not isinstance(loaded, dict) or not all(
+        isinstance(key, str) and key.startswith("/") for key in loaded
+    ):
+        raise ValueError(f"frontend route manifest is malformed: {relative}")
+    return loaded
+
+
+def _route_cache_owners(build_dir: Path) -> dict[str, frozenset[str]]:
+    """``{kind: {sha256(source route)}}`` declared by the immutable build."""
+    owners: dict[str, set[str]] = {"APP_PAGE": set(), "APP_ROUTE": set(), "PAGES": set()}
+    for source in _load_route_manifest(build_dir, "server/app-paths-manifest.json"):
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        if source.endswith("/page"):
+            owners["APP_PAGE"].add(digest)
+        elif source.endswith("/route"):
+            owners["APP_ROUTE"].add(digest)
+    for source in _load_route_manifest(build_dir, "server/pages-manifest.json"):
+        owners["PAGES"].add(hashlib.sha256(source.encode("utf-8")).hexdigest())
+    return {kind: frozenset(values) for kind, values in owners.items()}
+
+
+def _is_runtime_route_cache_entry(relative: Path, owners: dict[str, frozenset[str]]) -> bool:
+    """True for a response-cache file Next writes at runtime; refuse anything odd."""
+    parts = relative.parts
+    if len(parts) < 2 or parts[0] != "server" or parts[1] != NEXT_ROUTE_CACHE_DIRECTORY:
+        return False
+    entry = parts[2:]
+    if (
+        len(entry) < 4
+        or entry[0] not in owners
+        or not _SHA256_HEX.fullmatch(entry[1])
+        or entry[1] not in owners[entry[0]]
+        or entry[2] != "$"
+        or not _ROUTE_CACHE_RESPONSE_FILE.fullmatch(entry[-1])
+    ):
+        raise ValueError(
+            f"frontend runtime route cache holds an undeclared entry: {relative.as_posix()}"
+        )
+    return True
+
+
+def _frontend_tree_digest(build_dir: Path, version: str | None = None) -> str:
+    """Content-address the served Next output, excluding its build cache.
+
+    ``version=None`` is the legacy algorithm; see the block comment above.
+    """
+    if version not in (None, FRONTEND_TREE_DIGEST_VERSION):
+        raise ValueError("unsupported frontend tree digest version")
     if not build_dir.is_dir():
         raise ValueError(f"frontend build directory is missing: {build_dir}")
+    route_cache = build_dir / "server" / NEXT_ROUTE_CACHE_DIRECTORY
+    owners = (
+        _route_cache_owners(build_dir)
+        if version is not None or route_cache.exists() or route_cache.is_symlink()
+        else None
+    )
     files: list[tuple[str, str]] = []
     for path in sorted(build_dir.rglob("*")):
         relative = path.relative_to(build_dir)
@@ -119,6 +234,8 @@ def _frontend_tree_digest(build_dir: Path) -> str:
             raise ValueError(f"frontend artifact contains a symlink: {path}")
         if not path.is_file():
             continue
+        if owners is not None and _is_runtime_route_cache_entry(relative, owners):
+            continue
         files.append((relative.as_posix(), _sha256_file(path)))
     if not files:
         raise ValueError("frontend artifact is empty")
@@ -126,20 +243,24 @@ def _frontend_tree_digest(build_dir: Path) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+_ARTIFACT_ID_KEYS = (
+    "commit",
+    "python_lock_sha256",
+    "frontend_lock_sha256",
+    "python_abi",
+    "node_version",
+    "next_build_id",
+    "frontend_tree_sha256",
+    "backend_artifact_sha256",
+)
+
+
 def _artifact_id(identity: dict) -> str:
-    content = {
-        key: identity[key]
-        for key in (
-            "commit",
-            "python_lock_sha256",
-            "frontend_lock_sha256",
-            "python_abi",
-            "node_version",
-            "next_build_id",
-            "frontend_tree_sha256",
-            "backend_artifact_sha256",
-        )
-    }
+    content = {key: identity[key] for key in _ARTIFACT_ID_KEYS}
+    # Bound only when present, so every pre-existing manifest keeps the exact
+    # artifact ID it was published under.
+    if "frontend_tree_digest_version" in identity:
+        content["frontend_tree_digest_version"] = identity["frontend_tree_digest_version"]
     encoded = json.dumps(content, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
@@ -174,6 +295,10 @@ def create_release_manifest(
     ):
         raise ValueError("backend artifact must be a regular file")
     backend_digest = _sha256_file(backend_archive) if backend_archive is not None else None
+    if (build_dir / "server" / NEXT_ROUTE_CACHE_DIRECTORY).exists():
+        # The tested artifact must carry no runtime response cache, so the
+        # digest's exclusion can never hide a byte CI tested.
+        raise ValueError("frontend build already contains a runtime route cache")
     identity = {
         "commit": commit,
         "python_lock_sha256": _sha256_text(repo_root / "requirements.lock.txt"),
@@ -181,7 +306,8 @@ def create_release_manifest(
         "python_abi": f"{sys.implementation.name}-{sys.version_info.major}.{sys.version_info.minor}",
         "node_version": node_version.strip(),
         "next_build_id": build_id,
-        "frontend_tree_sha256": _frontend_tree_digest(build_dir),
+        "frontend_tree_sha256": _frontend_tree_digest(build_dir, FRONTEND_TREE_DIGEST_VERSION),
+        "frontend_tree_digest_version": FRONTEND_TREE_DIGEST_VERSION,
         "backend_artifact_sha256": backend_digest,
     }
     manifest = {
@@ -260,7 +386,14 @@ def verify_release_manifest(
         != (build_dir / "BUILD_ID").read_text(encoding="utf-8").strip()
     ):
         raise ValueError("release artifact Next BUILD_ID mismatch")
-    if identity.get("frontend_tree_sha256") != _frontend_tree_digest(build_dir):
+    # Absent = a manifest written before the field existed: verify it with the
+    # algorithm it was written under.  Any other unknown value refuses.
+    digest_version = identity.get("frontend_tree_digest_version")
+    if "frontend_tree_digest_version" in identity and digest_version != (
+        FRONTEND_TREE_DIGEST_VERSION
+    ):
+        raise ValueError("release artifact frontend digest version is unsupported")
+    if identity.get("frontend_tree_sha256") != _frontend_tree_digest(build_dir, digest_version):
         raise ValueError("release artifact frontend bytes mismatch")
     if manifest.get("artifact_id") != _artifact_id(identity):
         raise ValueError("release artifact identity mismatch")
@@ -292,6 +425,7 @@ def resolve_runtime_release_identity(repo_root: Path, *, commit: str | None) -> 
         "frontend_artifact_id": None,
         "frontend_build_id": None,
         "frontend_tree_sha256": None,
+        "frontend_tree_digest_version": None,
         "frontend_artifact_unavailable_reason": "manifest_missing",
         "backend_artifact_sha256": None,
         "backend_artifact_unavailable_reason": "backend_artifact_not_built_in_this_phase",
@@ -316,6 +450,7 @@ def resolve_runtime_release_identity(repo_root: Path, *, commit: str | None) -> 
         frontend_artifact_id=manifest["artifact_id"],
         frontend_build_id=identity["next_build_id"],
         frontend_tree_sha256=identity["frontend_tree_sha256"],
+        frontend_tree_digest_version=identity.get("frontend_tree_digest_version", "legacy"),
         frontend_artifact_unavailable_reason=None,
         backend_artifact_sha256=identity["backend_artifact_sha256"],
         backend_artifact_unavailable_reason=(

@@ -23,6 +23,12 @@ const mockUseTeam = vi.fn();
 vi.mock("@/components/AppShell", () => ({ useApp: () => mockUseApp() }));
 vi.mock("@/components/useLeague", () => ({ useLeague: () => mockUseLeague() }));
 vi.mock("@/components/useTeam", () => ({ useTeam: () => mockUseTeam() }));
+// The cut-ladder fetch (C2-DROP-01) is its own hook with its own tests
+// (waiver-cut-ladder.test.jsx); stubbed settled here so the ONLY fetch
+// these tests observe is the bid POST they are about.
+vi.mock("@/components/useRosterIntelligence", () => ({
+  useRosterIntelligence: () => ({ loading: false, data: null, failure: { kind: "error", message: "stub" } }),
+}));
 
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { waiverBidForRow } from "@/lib/waiver-faab";

@@ -222,3 +222,62 @@ def test_diff_recovered_does_not_fire_sell_signal():
     current: list[injury_feed.InjuryEntry] = []
     signals = injury_feed.diff_for_signals(prior, current)
     assert signals == []
+
+
+# ── shape drift is a FAILED fetch, not an empty report (G4 review) ─────────
+
+
+@pytest.fixture
+def _fresh_breaker():
+    from src.utils import circuit_breaker
+
+    circuit_breaker.reset_all_for_tests()
+    yield
+    circuit_breaker.reset_all_for_tests()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"not": "expected shape"}',
+        b'{"injuries": {"oops": 1}}',
+        b"[1, 2, 3]",
+        b'{"injuries": [{"team": {"abbreviation": "BUF"}, "athletes": []}]}',
+    ],
+)
+def test_shape_drift_is_not_cached(monkeypatch, tmp_path, body, _fresh_breaker):
+    from src.nfl_data import cache as nfl_cache
+
+    monkeypatch.setenv("RISKIT_FEATURE_ESPN_INJURY_FEED", "1")
+    feature_flags.reload()
+    out = injury_feed.fetch_injuries(
+        _url_opener=lambda req, timeout=None: io.BytesIO(body), cache_dir=tmp_path
+    )
+    assert out == []
+    # Nothing cached: a caller checking the cache sees a failed fetch.
+    assert nfl_cache.entry_fetched_at(injury_feed.CACHE_KEY, cache_dir=tmp_path) is None
+
+
+def test_genuine_empty_report_is_cached(monkeypatch, tmp_path, _fresh_breaker):
+    from src.nfl_data import cache as nfl_cache
+
+    monkeypatch.setenv("RISKIT_FEATURE_ESPN_INJURY_FEED", "1")
+    feature_flags.reload()
+    out = injury_feed.fetch_injuries(
+        _url_opener=lambda req, timeout=None: io.BytesIO(b'{"injuries": []}'),
+        cache_dir=tmp_path,
+    )
+    assert out == []
+    assert nfl_cache.entry_fetched_at(injury_feed.CACHE_KEY, cache_dir=tmp_path) is not None
+    assert nfl_cache.get(injury_feed.CACHE_KEY, ttl_seconds=60, cache_dir=tmp_path) == []
+
+
+def test_payload_shape_error_vocabulary():
+    assert injury_feed.payload_shape_error({"injuries": []}) is None
+    assert injury_feed.payload_shape_error(_sample_payload()) is None
+    assert injury_feed.payload_shape_error({}) == "no_injuries_list"
+    assert injury_feed.payload_shape_error([]) == "body_not_an_object:list"
+    assert (
+        injury_feed.payload_shape_error({"injuries": [{"team": {}}]})
+        == "no_team_block_has_an_injuries_list"
+    )

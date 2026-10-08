@@ -1,56 +1,36 @@
-"""Playoff-odds Monte Carlo simulator for the current season.
+"""Public ``playoffOdds`` section — an ADAPTER over the one canonical engine.
 
-Emits, per franchise, a probability that they finish the regular
-season inside the playoff cutoff (top-N by standings).  The simulator
-is deliberately self-contained — no external modelling library, no
-hidden state.  Every input is explicit so the caller can reproduce a
-run.
+C5-PLAY-01 / V1-51.  This module no longer simulates anything.  Every
+probability it publishes is :func:`src.ros.playoff_sim.canonical_forecast`'s
+``playoffOdds`` for the same league and snapshot — the number
+``/api/public/league/rosPlayoffOdds`` and ``rosChampionship`` publish — laid
+into this section's historical shape (``owners[].playoffProbability``) beside
+facts read straight off the snapshot: each owner's record to date, finished
+and remaining regular-season weeks, and whether the remaining schedule is
+posted.
 
-Algorithm
-─────────
-For the *current* season only:
+Why it had to stop simulating: until C5-PLAY-01 this module ran its own
+empirical-resampling Monte Carlo, and two engines served the same league
+different answers.  On the 2026-10-07 week-5 state it published 99.0% for a
+``dynasty_main`` team the canonical engine put at 77.2%, and 85.1% for one it
+put at 99.4% — on two tabs of the same /league page.  Bracket rules had
+already been unified (``playoff_structure``) and both read finished weeks the
+same way; what differed was the model itself.  The retired loop (empirical
+score resampling, round-robin / cycle-inferred schedules for un-posted weeks,
+``DEFAULT_SIMS``, ``MIN_SAMPLED_WEEKS``) is deleted rather than deprecated.
 
-1. Walk every FINISHED regular-season week in this season's snapshot to
-   build an empirical per-owner weekly score distribution (points
-   scored in each past week).  This is the sampling pool for future
-   weeks — it's the owner's *actual* scoring history, so unusual
-   roster construction / matchup luck is naturally encoded.
+The section therefore INHERITS the canonical engine's methodology exactly,
+including two open owner decisions recorded in
+``docs/OWNER_REQUESTED_TODO.md``: D2 (the ROS multiplier on top of a
+ROS-drawn best-ball pre-sim) and D3 (median games excluded from the record
+and from seeding).
 
-2. Determine the remaining schedule.  Sleeper exposes matchups only
-   for weeks that have been posted (usually current + a couple of
-   future weeks).  For posted-but-not-played weeks we honour the
-   exact matchup pairs.  For further-out weeks we first try to infer
-   the pairings from the observed posted-week pattern — detecting the
-   cycle length by looking for pair-set repetition across posted
-   weeks and propagating forward.  Only when fewer than 2 posted
-   weeks are available (or the observed block leaves residues
-   uncovered) do we fall back to a synthetic single round-robin
-   rotation.
-
-3. Run N Monte Carlo simulations.  In each run, for every remaining
-   week, sample each owner's score from their empirical distribution
-   and award W/L based on the week's pairing.  At season end, compute
-   final regular-season standings (wins, PF tiebreak) and check
-   whether each owner sits inside the top ``playoff_spots``.
-
-4. Return ``{owner_id: probability}`` plus structured diagnostics for
-   the frontend (current wins, current PF, weeks remaining, schedule
-   certainty flag).
-
-The simulator degrades gracefully:
-
-* ``remaining_weeks == 0`` → probabilities collapse to 0/1 (the
-  season is over; the team either made it or didn't).
-* An owner with <2 scored weeks in the current season → fall back
-  to the league-wide empirical distribution so a hot streak from a
-  handful of weeks doesn't get amplified.
-* No schedule information at all → assume a random-opponent model
-  (every remaining week each owner gets a random opponent).  The
-  output includes ``scheduleCertainty = "inferred"`` so the
-  frontend can warn.
-
-Constants live at the top of the module so audits can see them in
-one place.
+What stays here, because other owners import it and it is FACT rather than
+model: the finished-week gate (``_final_week_set``), the record to date
+(``_regular_season_record_to_date``), the posted remaining schedule
+(``_posted_future_matchups``), the per-owner completed-score lists
+(``_season_weekly_scores``) and the canonical standings order
+(``standings_from_sim``).  The canonical engine itself reads all five.
 """
 
 from __future__ import annotations
@@ -62,13 +42,15 @@ from . import luck, metrics
 from .playoff_structure import PlayoffStructure, resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
-# Number of MC runs per invocation.  10_000 is plenty for a 12-team
-# league: standard error on each owner's probability is < 0.5%.
-DEFAULT_SIMS: int = 10_000
+#: Where every probability in this section comes from.
+ENGINE = "src.ros.playoff_sim"
 
-# Minimum per-owner sampled weeks before we trust their empirical
-# distribution.  Below this, fall back to the league-wide pool.
-MIN_SAMPLED_WEEKS: int = 2
+#: ``scheduleCertainty`` when some remaining regular-season week has no posted
+#: matchups.  The canonical engine simulates POSTED weeks only — it does not
+#: invent pairings — so the label says exactly that, rather than the retired
+#: ``partial`` / ``inferred`` / ``inferred_from_posted`` values, which described
+#: a round-robin this section no longer runs.
+CERTAINTY_POSTED_WEEKS_ONLY = "posted_weeks_only"
 
 # DELETED 2026-08-19 (V1-51): ``DEFAULT_PLAYOFF_SPOTS = 6``.
 #
@@ -210,126 +192,6 @@ def _regular_season_record_to_date(
     return out
 
 
-def _all_posted_pair_lists(
-    season: SeasonSnapshot,
-    registry,
-) -> dict[int, list[tuple[str, str]]]:
-    """Owner-id pairs for every regular-season week Sleeper has posted
-    matchup assignments for — regardless of whether the games are
-    already scored.
-
-    Differs from ``_posted_future_matchups`` in that this helper does
-    not filter out fully-scored matchups.  Cycle detection in
-    ``_infer_schedule_from_posted`` needs the authoritative pairings
-    from already-played weeks, not just the live/future un-played ones.
-    """
-    out: dict[int, list[tuple[str, str]]] = {}
-    for wk in season.regular_season_weeks:
-        entries = season.matchups_by_week.get(wk) or []
-        pairs: list[tuple[str, str]] = []
-        for a, b in metrics.matchup_pairs(entries):
-            rid_a = metrics.roster_id_of(a)
-            rid_b = metrics.roster_id_of(b)
-            if rid_a is None or rid_b is None:
-                continue
-            oa = metrics.resolve_owner(registry, season.league_id, rid_a)
-            ob = metrics.resolve_owner(registry, season.league_id, rid_b)
-            if oa and ob:
-                pairs.append((oa, ob))
-        if pairs:
-            out[wk] = pairs
-    return out
-
-
-def _detect_cycle_length(
-    posted_weeks: list[int],
-    canonical: dict[int, frozenset],
-) -> int | None:
-    """Return the smallest ``L ≥ 1`` such that every pair of posted
-    weeks sharing a residue ``(w - anchor) mod L`` has the same
-    canonical pair-set, AND at least one such overlap exists.
-
-    Returns ``None`` when no cycle can be confirmed — e.g. all posted
-    weeks carry distinct pair-sets and no ``L`` within the span lines
-    two of them up.
-    """
-    if len(posted_weeks) < 2:
-        return None
-    anchor = posted_weeks[0]
-    span = posted_weeks[-1] - anchor
-    for L in range(1, span + 1):
-        residues: dict[int, frozenset] = {}
-        has_overlap = False
-        ok = True
-        for w in posted_weeks:
-            r = (w - anchor) % L
-            if r in residues:
-                has_overlap = True
-                if residues[r] != canonical[w]:
-                    ok = False
-                    break
-            else:
-                residues[r] = canonical[w]
-        if ok and has_overlap:
-            return L
-    return None
-
-
-def _infer_schedule_from_posted(
-    season: SeasonSnapshot,
-    registry,
-) -> dict[int, list[tuple[str, str]]] | None:
-    """Infer per-week owner pairs for every regular-season week from
-    the pattern of posted weeks.
-
-    Returns a full schedule dict when inference succeeds, or ``None``
-    when fewer than 2 posted weeks are available (caller should fall
-    back to ``_round_robin_schedule``) or when at least one regular-
-    season week has no matching residue in the observed pattern.
-
-    Algorithm:
-      1. Gather all posted weeks with their canonical pair-sets.
-      2. Detect the cycle length ``L`` via pair-set repetition across
-         posted weeks.  If no cycle is confirmed, fall back to
-         ``L = span + 1`` — treats the contiguous observed block as a
-         single cycle and propagates it forward.
-      3. For each regular-season week, reuse the posted pairs from the
-         observed week with the same residue ``(wk - anchor) mod L``.
-    """
-    posted_pairs = _all_posted_pair_lists(season, registry)
-    if len(posted_pairs) < 2:
-        return None
-    posted_weeks = sorted(posted_pairs.keys())
-    canonical = {w: frozenset(frozenset(p) for p in posted_pairs[w]) for w in posted_weeks}
-    anchor = posted_weeks[0]
-
-    cycle_length = _detect_cycle_length(posted_weeks, canonical)
-    if cycle_length is None:
-        # No confirmed repetition — treat the posted block itself as
-        # the cycle.  Works for the common case of weeks [1..k] posted
-        # with distinct pairings: week k+1 inherits week 1's pairs.
-        cycle_length = posted_weeks[-1] - anchor + 1
-
-    residue_to_week: dict[int, int] = {}
-    for w in posted_weeks:
-        r = (w - anchor) % cycle_length
-        residue_to_week.setdefault(r, w)
-
-    schedule: dict[int, list[tuple[str, str]]] = {}
-    for wk in season.regular_season_weeks:
-        if wk in posted_pairs:
-            schedule[wk] = posted_pairs[wk]
-            continue
-        residue = (wk - anchor) % cycle_length
-        src_week = residue_to_week.get(residue)
-        if src_week is None:
-            # Posted block has a gap at this residue — inference
-            # can't cover every missing week; caller falls back.
-            return None
-        schedule[wk] = posted_pairs[src_week]
-    return schedule
-
-
 def _posted_future_matchups(
     season: SeasonSnapshot,
     registry,
@@ -374,45 +236,6 @@ def _posted_future_matchups(
     return out
 
 
-def _round_robin_schedule(
-    owners: list[str],
-    weeks: list[int],
-) -> dict[int, list[tuple[str, str]]]:
-    """Standard circle-method round robin over ``owners`` for ``weeks``.
-
-    Used as a fallback when Sleeper hasn't posted future matchups yet.
-    If ``len(owners)`` is odd we add a bye placeholder; the owner paired
-    with the bye gets a free week (no score generated).
-
-    The pairing is deterministic for a given owners list + weeks range
-    so two subsequent simulator runs on the same data produce the same
-    schedule.
-    """
-    if not owners:
-        return {week: [] for week in weeks}
-    ring = list(owners)
-    if len(ring) % 2 == 1:
-        ring.append("__BYE__")
-    n = len(ring)
-    schedule: dict[int, list[tuple[str, str]]] = {}
-    # Fix the first owner in place; rotate the rest.  Standard circle
-    # method, identical to NFL-style round-robin generation.
-    fixed = ring[0]
-    rotators = ring[1:]
-    for i, wk in enumerate(weeks):
-        pairs: list[tuple[str, str]] = []
-        rot = rotators[-i % len(rotators) :] + rotators[: -i % len(rotators)]
-        # Pair fixed vs rot[0]; then pair rot[1..] inward.
-        half = [fixed] + rot
-        for j in range(n // 2):
-            a, b = half[j], half[n - 1 - j]
-            if a == "__BYE__" or b == "__BYE__":
-                continue
-            pairs.append((a, b))
-        schedule[wk] = pairs
-    return schedule
-
-
 def standings_from_sim(
     wins: dict[str, float],
     points: dict[str, float],
@@ -439,8 +262,8 @@ def standings_from_sim(
     tiebreak washes out.  It stops washing out the moment the draws STOP
     varying, and a placeholder pool upstream made every draw identical.  The
     lexicographic key then decided every simulation the same way and published
-    the alphabet as certainty (see the removed placeholder in
-    :func:`compute_playoff_odds`).
+    the alphabet as certainty (W19-F008, in this module's retired Monte
+    Carlo, itself deleted by C5-PLAY-01).
 
     A per-simulation ``rng`` draw keeps the tiebreak deterministic under a
     seed and reproducible, while making it impossible for the ORDER OF THE IDS
@@ -487,16 +310,7 @@ def _unknown_bracket(
     computed under an assumed bracket. Same shape as the other refusals
     in this module: the rows are still there, the certainty is not.
     """
-    registry = snapshot.managers
-    owners_in_league: list[str] = []
-    for roster in season.rosters:
-        try:
-            rid = int(roster.get("roster_id"))
-        except (TypeError, ValueError):
-            continue
-        oid = metrics.resolve_owner(registry, season.league_id, rid)
-        if oid and oid not in owners_in_league:
-            owners_in_league.append(oid)
+    owners_in_league = _owners_in_league(snapshot, season)
     return {
         "season": season.season,
         "numSims": 0,
@@ -527,38 +341,109 @@ def _unknown_bracket(
     }
 
 
+def _owners_in_league(snapshot: PublicLeagueSnapshot, season: Any) -> list[str]:
+    """Every owner with a roster in ``season``, in roster order."""
+    registry = snapshot.managers
+    owners: list[str] = []
+    for roster in season.rosters:
+        try:
+            rid = int(roster.get("roster_id"))
+        except (TypeError, ValueError):
+            continue
+        oid = metrics.resolve_owner(registry, season.league_id, rid)
+        if oid and oid not in owners:
+            owners.append(oid)
+    return owners
+
+
+def _canonical_forecast(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """The one engine's forecast (lazy import: the engine imports this module)."""
+    from src.ros import playoff_sim  # noqa: PLC0415
+
+    return playoff_sim.canonical_forecast(snapshot)
+
+
+def _simulation_count(forecast: dict[str, Any]) -> int | None:
+    """The canonical forecast's simulation count, or ``None`` — the engine's
+    own reader, so both adapter surfaces agree on it."""
+    from src.ros.playoff_sim import simulation_count  # noqa: PLC0415
+
+    return simulation_count(forecast)
+
+
+def _why_not_simulated(n_sims: int | None, by_owner: dict[str, Any]) -> dict[str, str]:
+    """The exact reason a forecast with no ``unsimulable`` block still yields
+    no published probability — each state named, none folded into another."""
+    from src.ros.playoff_sim import SIM_COUNT_MISSING  # noqa: PLC0415
+
+    if n_sims is None:
+        return {
+            "reason": SIM_COUNT_MISSING,
+            "detail": (
+                "the playoff forecast does not say how many simulations it ran, so "
+                "its odds cannot be presented as a measurement. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
+    if n_sims == 0:
+        return {
+            "reason": "canonical_forecast_ran_no_simulations",
+            "detail": (
+                "the playoff forecast reports zero simulations, so there are no "
+                "odds to publish. This is not a 0% chance for anyone."
+            ),
+        }
+    return {
+        "reason": "canonical_forecast_has_no_team_rows",
+        "detail": (
+            f"the playoff forecast reports {n_sims} simulations but no team rows, "
+            "so no team's odds can be published. This is not a 0% chance for anyone."
+        ),
+    }
+
+
+def _probability(row: dict[str, Any] | None) -> float | None:
+    value = (row or {}).get("playoffOdds")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
 def compute_playoff_odds(
     snapshot: PublicLeagueSnapshot,
     *,
-    num_sims: int = DEFAULT_SIMS,
-    playoff_spots: int | None = None,
-    rng: random.Random | None = None,
+    forecast: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Simulate the current season's remaining weeks and return
-    per-owner playoff probabilities.
+    """The public section: canonical playoff odds in the historical shape.
 
-    Returns a dict of shape::
+    Returns::
 
         {
           "season": "2026",
-          "numSims": 10000,
-          "playoffSpots": 6,
-          "weeksPlayed": 8,
-          "weeksRemaining": 5,
-          "scheduleCertainty": "posted" | "inferred_from_posted" | "partial" | "inferred",
-          "owners": [
-            {
-              "ownerId": "...",
-              "displayName": "...",
-              "currentWins": 5,
-              "currentPointsFor": 1234.5,
-              "playoffProbability": 0.82,
-            },
-            ...
-          ],
+          "numSims": 8000,                 # the canonical run's own count
+          "playoffSpots": 7,
+          "weeksPlayed": 4,
+          "weeksRemaining": 10,
+          "scheduleCertainty": "posted" | "posted_weeks_only" | "final"
+                               | "preseason" | "unknown_bracket" | "none",
+          "simulated": bool,
+          "engine": "src.ros.playoff_sim",
+          "playoffStructure": {...},
+          "owners": [{ownerId, displayName, currentWins, currentPointsFor,
+                      playoffProbability}],
+          # only when they apply:
+          "unsimulable": {...}, "unpostedWeeks": [...],
+          "forecastComputedAt": "...", "forecastCached": bool,
         }
+
+    ``forecast`` is the canonical engine's payload; ``None`` reads
+    :func:`src.ros.playoff_sim.canonical_forecast`.  States decided by FACT
+    alone (no current season, unknown bracket, no owners, preseason) answer
+    without consulting the engine and publish no probability.  A canonical
+    refusal passes through as ``unsimulable`` with every probability ``None``;
+    an owner the forecast does not cover is ``None`` with ``unavailableReason``
+    — never ``0``.
     """
-    rng = rng or random.Random()
     season = snapshot.current_season
     if season is None:
         return {
@@ -573,47 +458,12 @@ def compute_playoff_odds(
         }
 
     registry = snapshot.managers
-
-    # Guard against non-positive simulation counts.  The remaining-
-    # weeks code path divides probabilities by ``num_sims`` — a zero
-    # value would raise ``ZeroDivisionError`` mid-response.  Callers
-    # asking for "just tell me the current snapshot" (``num_sims=0``)
-    # on a season with remaining weeks still get a well-formed reply:
-    # every owner reports ``playoffProbability=None`` and the header
-    # surfaces ``numSims=0`` so the frontend can render a "season in
-    # progress, simulations disabled" state without crashing.
-    try:
-        num_sims = int(num_sims)
-    except (TypeError, ValueError):
-        num_sims = 0
-    if num_sims < 0:
-        num_sims = 0
-
-    # Playoff spot count — the league's OWN bracket, resolved by the one
-    # owner both simulators share (V1-51).  This used to fall back to
-    # DEFAULT_PLAYOFF_SPOTS when the setting was absent, which published
-    # probabilities computed under a format nobody verified.  An explicit
-    # ``playoff_spots`` still wins, for callers asking a hypothetical.
     structure = resolve_playoff_structure(season)
-    if playoff_spots is not None:
-        try:
-            spots = max(1, int(playoff_spots))
-        except (TypeError, ValueError):
-            spots = None
-    else:
-        spots = structure.teams
+    spots = structure.teams
     if spots is None:
         return _unknown_bracket(snapshot, season, structure)
 
-    owners_in_league: list[str] = []
-    for roster in season.rosters:
-        try:
-            rid = int(roster.get("roster_id"))
-        except (TypeError, ValueError):
-            continue
-        oid = metrics.resolve_owner(registry, season.league_id, rid)
-        if oid and oid not in owners_in_league:
-            owners_in_league.append(oid)
+    owners_in_league = _owners_in_league(snapshot, season)
     if not owners_in_league:
         return {
             "season": season.season,
@@ -626,259 +476,104 @@ def compute_playoff_odds(
             "owners": [],
         }
 
-    per_owner_scores, league_pool = _season_weekly_scores(season, registry)
     current_record = _regular_season_record_to_date(season, registry)
 
-    # Determine played vs remaining regular-season weeks.  A week is
-    # "played" only when it is in the canonical finished-week set — the
-    # same gate ``_regular_season_record_to_date`` and
-    # ``_posted_future_matchups`` use, so a live week (even one where
-    # every roster has posted Thursday/Sunday points) stays in
-    # ``remaining_weeks`` and is simulated rather than counted.
+    # Played vs remaining regular-season weeks: the canonical finished-week
+    # gate — the same one the record and the engine's schedule use — so a
+    # live week is remaining (simulated by the engine), never counted.
     latest_played = _latest_played_week(season)
     final_weeks = _final_week_set(season)
-
-    def _week_is_complete(wk: int) -> bool:
-        entries = season.matchups_by_week.get(wk) or []
-        return bool(entries) and wk in final_weeks
-
-    played_weeks = [wk for wk in season.regular_season_weeks if _week_is_complete(wk)]
+    played_weeks = [
+        wk
+        for wk in season.regular_season_weeks
+        if season.matchups_by_week.get(wk) and wk in final_weeks
+    ]
     remaining_weeks = [wk for wk in season.regular_season_weeks if wk not in played_weeks]
 
-    # Early exit: both played and remaining are empty.  Two very
-    # different states collapse to this shape and must be handled
-    # distinctly (per Codex PR #215 round 4):
-    #
-    #   * Preseason — ``regular_season_weeks`` is empty because the
-    #     snapshot only stores weeks with real matchup rows and no
-    #     week has been published yet.  Before: reported
-    #     ``scheduleCertainty: "final"`` and handed out arbitrary 0/1
-    #     probabilities from whatever owner order the loop produced.
-    #     Now: emits a ``preseason`` state with all probabilities
-    #     null so the frontend can render "season hasn't started".
-    #
-    #   * Finished — at least one week has been played AND nothing
-    #     remains.  Everyone either made the playoffs (1.0) or didn't
-    #     (0.0) based on their actual current record.
-    if not remaining_weeks:
-        is_preseason = len(played_weeks) == 0 and latest_played is None
-        if is_preseason:
-            return {
-                "season": season.season,
-                "numSims": 0,
-                "playoffSpots": spots,
-                "weeksPlayed": 0,
-                "weeksRemaining": 0,
-                "scheduleCertainty": "preseason",
-                "simulated": False,
-                "owners": [
-                    {
-                        "ownerId": o,
-                        "displayName": metrics.display_name_for(snapshot, o),
-                        "currentWins": 0,
-                        "currentPointsFor": 0.0,
-                        "playoffProbability": None,
-                    }
-                    for o in owners_in_league
-                ],
-            }
-        wins_snapshot = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
-        ties_snapshot = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
-        pf_snapshot = {
-            o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league
+    def _row(owner: str, probability: float | None) -> dict[str, Any]:
+        rec = current_record.get(owner, {})
+        return {
+            "ownerId": owner,
+            "displayName": metrics.display_name_for(snapshot, owner),
+            "currentWins": int(rec.get("wins", 0)),
+            "currentPointsFor": round(float(rec.get("pointsFor", 0.0)), 2),
+            "playoffProbability": probability,
         }
-        # rng=None DELIBERATELY. This is the FINAL-standings path: the season
-        # is over and the ordering is a recorded fact, not a draw, so it must
-        # be deterministic and reproducible. A random tiebreak belongs in the
-        # simulation (where it prevents the ownerId from becoming the answer)
-        # and nowhere near a completed season. Passed explicitly so the choice
-        # is visible at the call site rather than inherited from a default.
-        ordered = standings_from_sim(
-            wins_snapshot, pf_snapshot, owners_in_league, ties=ties_snapshot, rng=None
-        )
-        made = set(ordered[:spots])
+
+    if not remaining_weeks and not played_weeks and latest_played is None:
+        # Preseason: nothing posted, nothing played, nothing for any engine to
+        # simulate.  Not a 0% or a 100% chance for anyone.
         return {
             "season": season.season,
             "numSims": 0,
             "playoffSpots": spots,
-            "weeksPlayed": len(played_weeks),
+            "weeksPlayed": 0,
             "weeksRemaining": 0,
-            "scheduleCertainty": "final",
+            "scheduleCertainty": "preseason",
             "simulated": False,
-            "owners": [
-                {
-                    "ownerId": o,
-                    "displayName": metrics.display_name_for(snapshot, o),
-                    "currentWins": wins_snapshot[o],
-                    "currentPointsFor": round(pf_snapshot[o], 2),
-                    "playoffProbability": 1.0 if o in made else 0.0,
-                }
-                for o in owners_in_league
-            ],
+            "owners": [_row(o, None) for o in owners_in_league],
         }
 
     posted = _posted_future_matchups(season, registry)
-    missing_weeks = [wk for wk in remaining_weeks if wk not in posted]
-    # For missing future weeks, prefer inference from the observed
-    # posted-week pattern over a synthetic round-robin — the latter
-    # ignores Sleeper's actual pairings and can invent opponents the
-    # league will never face.  Fall back to round-robin only when
-    # fewer than 2 posted weeks exist (helper returns ``None``) or
-    # when the observed block has gaps that block inference.
-    inferred_full = _infer_schedule_from_posted(season, registry) if missing_weeks else None
-    if missing_weeks and inferred_full is not None:
-        inferred = {wk: inferred_full.get(wk, []) for wk in missing_weeks}
-        used_posted_inference = True
+    unposted = [wk for wk in remaining_weeks if wk not in posted]
+    if not remaining_weeks:
+        certainty = "final"
+    elif unposted:
+        certainty = CERTAINTY_POSTED_WEEKS_ONLY
     else:
-        inferred = _round_robin_schedule(owners_in_league, missing_weeks)
-        used_posted_inference = False
+        certainty = "posted"
 
-    if not missing_weeks:
-        schedule_certainty = "posted"
-    elif used_posted_inference:
-        schedule_certainty = "inferred_from_posted"
-    elif any(wk in posted for wk in remaining_weeks):
-        schedule_certainty = "partial"
-    else:
-        schedule_certainty = "inferred"
-    full_schedule = {**inferred, **posted}
+    if forecast is None:
+        forecast = _canonical_forecast(snapshot)
+    unsimulable = forecast.get("unsimulable")
+    by_owner = {
+        str(r.get("ownerId")): r
+        for r in forecast.get("playoffOdds") or []
+        if isinstance(r, dict) and r.get("ownerId")
+    }
+    n_sims = _simulation_count(forecast)
+    simulated = bool(by_owner) and not unsimulable and bool(n_sims)
 
-    owner_pool: dict[str, list[float]] = {}
+    owners: list[dict[str, Any]] = []
     for o in owners_in_league:
-        scores = per_owner_scores.get(o, [])
-        owner_pool[o] = scores if len(scores) >= MIN_SAMPLED_WEEKS else (scores + league_pool)
+        probability = _probability(by_owner.get(o)) if simulated else None
+        row = _row(o, probability)
+        if simulated and probability is None:
+            row["unavailableReason"] = "owner_absent_from_canonical_forecast"
+        owners.append(row)
 
-    # REMOVED 2026-08-18 (W19-F008 / W30-F002): a flat ``[100.0]`` placeholder
-    # for owners with no sampled scores at all.
-    #
-    # ``_season_weekly_scores`` appends to ``per_owner`` and ``pool`` in the
-    # same pass (:87-102), so an owner's pool is empty IFF the league-wide pool
-    # is empty — the placeholder fired for every owner or for none.  Firing for
-    # every owner made each matchup 100.0 vs 100.0, an exact tie, so every
-    # simulation ended with identical wins, ties and points-for.
-    #
-    # ``standings_from_sim`` then broke that tie on its third key, the ownerId
-    # STRING.  Its docstring justifies that crude key on the grounds that
-    # advanced tiebreakers "don't matter for probability at num_sims >= 10_000
-    # when integrated over many draws" — true, but the placeholder destroys the
-    # variation being integrated over.  With every draw identical the tiebreak
-    # stops being noise and becomes the answer: the alphabetically-first N
-    # ownerIds got ``playoffProbability: 1.0`` and the rest 0.0, stamped
-    # ``scheduleCertainty: "posted"`` with no null and no warning.
-    #
-    # Measured on the committed production artifact
-    # docs/master-site-audit/evidence/W30/playoff-odds-two-engines.json: the
-    # seven 1.0s are EXACTLY the lexically-first seven Sleeper user ids, and
-    # the probabilities sum to 7.0.
-    #
-    # MISSING IS NEVER ZERO, and it is never 1.0 either.  With no scoring
-    # evidence anywhere in the league there is nothing to simulate, so the
-    # engine says so rather than publishing the alphabet.  Same posture, and
-    # deliberately the same vocabulary, as
-    # ``src/ros/playoff_sim.py``'s ``unsimulable`` block — two engines must not
-    # invent different words for the same state.
-    if not league_pool:
-        return {
-            "season": season.season,
-            "numSims": 0,
-            "playoffSpots": spots,
-            "weeksPlayed": len(played_weeks),
-            "weeksRemaining": len(remaining_weeks),
-            "scheduleCertainty": schedule_certainty,
-            "simulated": False,
-            "unsimulable": {
-                "reason": "no_scored_weeks_in_league",
-                "detail": (
-                    "no regular-season week has been scored for any team, so "
-                    "there is no distribution to draw from and playoff odds "
-                    "cannot be projected. This is not a 0% chance, and it is "
-                    "not a 100% chance."
-                ),
-            },
-            "owners": [
-                {
-                    "ownerId": o,
-                    "displayName": metrics.display_name_for(snapshot, o),
-                    "currentWins": int(current_record.get(o, {}).get("wins", 0)),
-                    "currentPointsFor": round(
-                        float(current_record.get(o, {}).get("pointsFor", 0.0)), 2
-                    ),
-                    "playoffProbability": None,
-                }
-                for o in owners_in_league
-            ],
-        }
-
-    # Pre-snapshot current state — wins, ties, PF all carry over.
-    base_wins = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
-    base_ties = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
-    base_pf = {o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league}
-
-    made_counter: dict[str, int] = {o: 0 for o in owners_in_league}
-
-    for _ in range(num_sims):
-        sim_wins = dict(base_wins)
-        sim_ties = dict(base_ties)
-        sim_pf = dict(base_pf)
-        for wk in remaining_weeks:
-            pairs = full_schedule.get(wk, [])
-            for a, b in pairs:
-                pa = rng.choice(owner_pool[a])
-                pb = rng.choice(owner_pool[b])
-                sim_pf[a] = sim_pf.get(a, 0.0) + pa
-                sim_pf[b] = sim_pf.get(b, 0.0) + pb
-                if pa > pb:
-                    sim_wins[a] = sim_wins.get(a, 0) + 1
-                elif pb > pa:
-                    sim_wins[b] = sim_wins.get(b, 0) + 1
-                else:
-                    # Exact-tie simulation branch.  Both sides get a
-                    # tie credited so downstream standings correctly
-                    # rank (0-0-1) above (0-1-0) via the ``wins +
-                    # 0.5 * ties`` key in ``standings_from_sim``.
-                    sim_ties[a] = sim_ties.get(a, 0) + 1
-                    sim_ties[b] = sim_ties.get(b, 0) + 1
-        ordered = standings_from_sim(sim_wins, sim_pf, owners_in_league, ties=sim_ties, rng=rng)
-        for o in ordered[:spots]:
-            made_counter[o] += 1
-
-    def _probability(owner: str) -> float | None:
-        if num_sims <= 0:
-            return None
-        return round(made_counter[owner] / num_sims, 4)
-
-    return {
+    out: dict[str, Any] = {
         "season": season.season,
-        "numSims": num_sims,
+        # The canonical run's own count: a real 0 when it refused, ``None``
+        # (reason in ``unsimulable``) when the forecast reported none.
+        "numSims": n_sims if (simulated or n_sims == 0) else None,
         "playoffSpots": spots,
         "weeksPlayed": len(played_weeks),
         "weeksRemaining": len(remaining_weeks),
-        "scheduleCertainty": schedule_certainty,
-        # Stamped on EVERY return path, not just the refusing ones: absent and
-        # False must not read the same, the rule ``meta.valuationMode`` already
-        # applies elsewhere in this repo.
-        "simulated": True,
-        "owners": [
-            {
-                "ownerId": o,
-                "displayName": metrics.display_name_for(snapshot, o),
-                "currentWins": base_wins[o],
-                "currentPointsFor": round(base_pf[o], 2),
-                "playoffProbability": _probability(o),
-            }
-            for o in owners_in_league
-        ],
+        "scheduleCertainty": certainty,
+        # Stamped on every return path that reaches the engine: absent and
+        # False must not read the same.
+        "simulated": simulated,
+        "engine": ENGINE,
+        "playoffStructure": structure.to_dict(),
+        "owners": owners,
     }
+    if unposted:
+        out["unpostedWeeks"] = unposted
+    if unsimulable:
+        out["unsimulable"] = unsimulable
+    elif not simulated:
+        out["unsimulable"] = _why_not_simulated(n_sims, by_owner)
+    if forecast.get("computedAt") is not None:
+        out["forecastComputedAt"] = forecast["computedAt"]
+    if "cached" in forecast:
+        out["forecastCached"] = bool(forecast["cached"])
+    return out
 
 
-def build_section(
-    snapshot: PublicLeagueSnapshot,
-    *,
-    num_sims: int = DEFAULT_SIMS,
-    rng: random.Random | None = None,
-) -> dict[str, Any]:
+def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Public-league section builder — matches the shape the
     `/api/public/league/*` handlers expect from every other builder
     in this package (activity, awards, power, luck, …).
     """
-    return compute_playoff_odds(snapshot, num_sims=num_sims, rng=rng)
+    return compute_playoff_odds(snapshot)

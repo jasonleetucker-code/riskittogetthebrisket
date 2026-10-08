@@ -144,6 +144,7 @@ def snapshot_to_dict(
         "generatedAt": snapshot.generated_at,
         "seasons": [_season_to_dict(s) for s in snapshot.seasons],
         "managers": _registry_to_dict(snapshot.managers),
+        "historyCoverage": snapshot.history_coverage,
     }
     if include_nfl_players:
         out["nflPlayers"] = snapshot.nfl_players
@@ -157,6 +158,8 @@ def snapshot_from_dict(d: dict[str, Any]) -> PublicLeagueSnapshot:
     )
     snapshot.seasons = [_season_from_dict(s) for s in d.get("seasons") or []]
     snapshot.managers = _registry_from_dict(d.get("managers") or {})
+    coverage = d.get("historyCoverage")
+    snapshot.history_coverage = coverage if isinstance(coverage, dict) else None
     nfl = d.get("nflPlayers")
     if isinstance(nfl, dict):
         snapshot.nfl_players = nfl

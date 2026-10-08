@@ -484,12 +484,14 @@ function TeamPanel({
                 <input
                   type="radio"
                   name="myTeam"
+                  aria-label={`My team: ${workspace.teams[t.idx]?.name || `Team ${t.idx + 1}`}`}
                   checked={t.isMine}
                   onChange={() => onSettings({ myTeamIdx: t.idx })}
                 />
               </label>
               <input
                 className="draft-inline-input"
+                aria-label={`Team ${t.idx + 1} name`}
                 value={workspace.teams[t.idx]?.name ?? ""}
                 onChange={(e) => onTeam(t.idx, { name: e.target.value })}
                 placeholder={`Team ${t.idx + 1}`}
@@ -498,6 +500,7 @@ function TeamPanel({
                 className="draft-inline-input draft-money-input"
                 type="number"
                 min="0"
+                aria-label={`${workspace.teams[t.idx]?.name || `Team ${t.idx + 1}`} starting budget`}
                 value={workspace.teams[t.idx]?.initialBudget ?? 0}
                 onChange={(e) =>
                   onTeam(t.idx, {
@@ -1532,6 +1535,7 @@ export function RookieBoard({
                         type="number"
                         className="draft-inline-input draft-money-input"
                         min="0"
+                        aria-label={`${p.name} PreDraft price`}
                         value={p.preDraft}
                         onChange={(e) =>
                           onEditPreDraft(p.id, Number(e.target.value) || 0)
@@ -2088,6 +2092,7 @@ function ParSheet({
                     <input
                       type="number"
                       className="input draft-money-input"
+                      aria-label={`${row.name} fair value`}
                       autoFocus
                       value={editingValue}
                       min="0"

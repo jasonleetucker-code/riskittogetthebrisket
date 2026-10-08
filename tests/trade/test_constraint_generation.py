@@ -508,3 +508,143 @@ def test_a_roster_analysis_built_without_constraints_says_so():
     assert protected.constraints_applied is True
     assert not protected.can_send(PlayerAsset("QB1", "QB", 9000, 9000))
     assert protected.by_position["QB"], "the ANALYSIS still counts him"
+
+
+def test_a_dict_pool_is_constrained_like_an_object_pool():
+    """Angle's acquire pool is plain dicts.  ``adapt_assets``' attribute-only
+    defaults projected every entry to the name ``""``, so the exclusion set was
+    ``{"name:"}`` and a saved protection was silently ignored (#1704 review D1).
+    """
+    from src.trade.angle import _angle_pool_assets, _angle_sides
+
+    pool = [
+        {"name": "Justin Jefferson", "position": "WR", "my_value": 9000.0},
+        {"name": "Ja'Marr Chase", "position": "WR", "my_value": 8800.0},
+        {"name": "Josh Allen", "position": "QB", "my_value": 8500.0},
+    ]
+    c = resolve_constraints(persistent={"untouchables": ["Justin Jefferson"]})
+    policy = outgoing_eligibility(pool, c)
+
+    assert "name:justin jefferson" in policy.excluded_keys
+    assert "name:" not in policy.excluded_keys
+
+    sides = list(_angle_sides(_angle_pool_assets(pool), [1, 2], side=SEND, outgoing_policy=policy))
+    assert sides, "fixture must enumerate something"
+    sent = {entry["name"] for side in sides for entry in side}
+    assert "Justin Jefferson" not in sent
+    assert {"Ja'Marr Chase", "Josh Allen"} <= sent
+
+
+def _ns(name, asset_id, team, position="QB", value=5000.0):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(name=name, asset_id=asset_id, team=team, position=position, value=value)
+
+
+def test_a_shared_name_never_resolves_a_team_from_the_namesake():
+    """#1704 re-review: the board index was first-row-wins by NAME.  With QB
+    Josh Allen (BUF) listed before DL Josh Allen (JAX), a team-less DL resolved
+    to BUF and was offered outgoing despite a JAX rule.  A shared name is now
+    ambiguous: UNKNOWN team, which fails closed while a team rule is active."""
+    board = {
+        "playersArray": [
+            {
+                "displayName": "Josh Allen",
+                "canonicalName": "Josh Allen",
+                "team": "BUF",
+                "position": "QB",
+            },
+            {
+                "displayName": "Josh Allen",
+                "canonicalName": "Josh Allen",
+                "team": "JAX",
+                "position": "DL",
+            },
+            {
+                "displayName": "Travon Walker",
+                "canonicalName": "Travon Walker",
+                "team": "JAX",
+                "position": "DL",
+            },
+        ]
+    }
+    c = resolve_constraints(contract=board, persistent={"nflTeams": ["JAX"]})
+    assert c.block_reason({"name": "Josh Allen", "position": "DL"}) == "protected_nfl_team_unknown"
+    # An unshared name still resolves its team dynamically from the board.
+    assert c.block_reason({"name": "Travon Walker", "position": "DL"}) == "protected_nfl_team"
+    # An asset that STATES its team is judged on it.
+    assert c.block_reason({"name": "Josh Allen", "team": "BUF"}) is None
+
+
+def test_angle_acquire_does_not_offer_a_protected_namesake():
+    from src.trade.angle import find_acquisition_packages
+
+    def _row(name, my_val, ktc_val, team, position="WR"):
+        return {
+            "canonicalName": name,
+            "displayName": name,
+            "position": position,
+            "team": team,
+            "rankDerivedValue": my_val,
+            "canonicalSiteValues": {"ktc": ktc_val},
+        }
+
+    rows = [
+        _row("Josh Allen", 2400, 2050, "BUF", "QB"),  # listed first: the namesake
+        _row("Josh Allen", 2400, 2050, "JAX", "DL"),  # the one the roster holds
+        _row("My Star", 3000, 3000, "CIN"),
+    ]
+    rows += [_row(f"B{i}", 2300 + 40 * i, 2000 + 10 * i, "CIN") for i in range(8)]
+    teams = [
+        {"name": "Mine", "ownerId": "me", "players": ["My Star", "Josh Allen", "B0", "B1"]},
+        {"name": "Them", "ownerId": "them", "players": ["B7"]},
+    ]
+
+    def _sent(constraints):
+        result = find_acquisition_packages(
+            rows,
+            ["B7"],
+            "me",
+            teams,
+            min_my_gain_pct=-100,
+            max_market_gain_pct=100,
+            include_idp=True,
+            constraints=constraints,
+        )
+        return {p["name"] for cand in result["candidates"] for p in cand["players"]}
+
+    assert "Josh Allen" in _sent(None), "fixture must offer Josh Allen when unprotected"
+    after = _sent(
+        resolve_constraints(contract={"playersArray": rows}, persistent={"nflTeams": ["JAX"]})
+    )
+    assert after, "other assets must still be offered"
+    assert "Josh Allen" not in after
+
+
+def test_a_team_block_does_not_spill_onto_a_same_name_id_less_asset():
+    """The NAME form is excluded only when the rule matched the name.
+
+    A team-rule block on an id-bearing asset must not also block an id-less
+    namesake the owner would let through — otherwise ``blocked_outgoing`` and
+    the enforced policy disagree about the same pool.
+    """
+    protected = _ns("Josh Allen", "ja-dl", "JAX", position="DL")
+    namesake = _ns("Josh Allen", "", "BUF")
+    c = resolve_constraints(persistent={"nflTeams": ["JAX"]})
+    pool = [protected, namesake]
+
+    policy = outgoing_eligibility(pool, c)
+    assert "id:ja-dl" in policy.excluded_keys
+    assert "name:josh allen" not in policy.excluded_keys
+    assert [a for a, _r in blocked_outgoing(pool, c)] == [protected]
+
+    sides, _report = enumerate_sides(pool, [1], side=SEND, outgoing_policy=policy)
+    sent = [a.source for side in sides for a in side]
+    assert namesake in sent and protected not in sent
+
+
+def test_an_individual_block_by_name_excludes_the_name_form():
+    asset = _ns("Josh Allen", "ja-qb", "BUF")
+    c = resolve_constraints(persistent={"untouchables": ["Josh Allen"]})
+    policy = outgoing_eligibility([asset], c)
+    assert {"id:ja-qb", "name:josh allen"} <= set(policy.excluded_keys)

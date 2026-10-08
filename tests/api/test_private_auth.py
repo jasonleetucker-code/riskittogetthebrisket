@@ -45,12 +45,16 @@ PRIVATE_API_PATHS = [
     # census found no anonymous consumer.
     "/api/scaffold/status",
     "/api/user/state",
+    "/api/user/trade-protections",
     "/api/player/12345/realized",  # Phase 11 follow-on — realized points
     "/api/admin/nfl-data/flush",
     "/api/admin/sessions/force-logout-all",
     "/api/admin/signal-state/migrate",
     # Signals Fantasy second opinion (#1555): authenticated surfaces only.
     "/api/second-opinion/signals",
+    # Model Lab (AL-0b / IC-5): private + admin-only development metrics.
+    "/api/model-lab",
+    "/api/model-lab/hill_scope_masters",
 ]
 PRIVATE_POST_PATHS = {
     "/api/trade/suggestions",

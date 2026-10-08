@@ -292,6 +292,9 @@ class TestSimulateTradeImpact:
             n_simulations=2000,
             playoff_seeds=4,
             bye_seeds=2,
+            # A no-snapshot hypothetical states its own bracket rule, just as
+            # it states its seeds (C5-PLAY-01 review B2).
+            reseed=True,
         )
         assert out["championship"], "championship deltas must be present"
         champ_total = sum(r["after"] for r in out["championship"])
