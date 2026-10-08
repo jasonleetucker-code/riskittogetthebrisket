@@ -915,7 +915,19 @@ def _fixed_bracket_refusal(field: int, byes: int | None) -> dict[str, Any] | Non
     """
     if field <= 1:
         return None
-    byes = max(0, min(int(byes or 0), field))
+    if byes is None:
+        # Without the league's bye count there is no bracket to fill.
+        return {
+            "reason": "fixed_bracket_byes_unknown",
+            "fieldTeams": field,
+            "byeSeeds": None,
+            "detail": (
+                "this league's playoff bracket is fixed, but its settings do not say "
+                "how many seeds get a bye, so the bracket cannot be played as the "
+                "host plays it. This is not a 0% chance for anyone."
+            ),
+        }
+    byes = max(0, min(byes, field))
     after_round_one = byes + (field - byes + 1) // 2
     if after_round_one & (after_round_one - 1) == 0:
         return None

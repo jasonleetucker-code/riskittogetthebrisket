@@ -165,12 +165,11 @@ MEDIAN_RULE_SOURCE = (
 
 def _league_team_count(season: Any) -> int | None:
     """The league's team count, or ``None`` when the host states none."""
-    try:
-        n = int(getattr(season, "num_teams", 0) or 0)
-    except (TypeError, ValueError):
-        n = 0
-    if n <= 0:
-        n = len(getattr(season, "rosters", None) or [])
+    stated = getattr(season, "num_teams", None)
+    if isinstance(stated, int) and not isinstance(stated, bool) and stated > 0:
+        return stated
+    rosters = getattr(season, "rosters", None)
+    n = len(rosters) if isinstance(rosters, (list, tuple)) else 0
     return n if n > 0 else None
 
 
