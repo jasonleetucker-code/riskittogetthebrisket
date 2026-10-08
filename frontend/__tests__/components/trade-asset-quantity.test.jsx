@@ -271,8 +271,10 @@ describe("/trade KTC import", () => {
       }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Import KTC" }));
+    // The import row is loaded on demand (React.lazy), so it lands a tick
+    // after the click.
     await userEvent.type(
-      screen.getByLabelText("KeepTradeCut trade-calculator URL"),
+      await screen.findByLabelText("KeepTradeCut trade-calculator URL"),
       "https://keeptradecut.com/trade-calculator?teamOne=1&teamTwo=2",
     );
     await userEvent.click(screen.getByRole("button", { name: "Load trade" }));

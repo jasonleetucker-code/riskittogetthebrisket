@@ -27,7 +27,9 @@ import {
 } from "@/components/help/GameDayHelp";
 import { AwardsHowItWorks } from "@/components/help/AwardsHelp";
 import { _renderPlainSummary } from "@/components/ui/MonteCarloButton";
-import { SimulationPanel, confidenceMeta, SUGGESTION_RAIL_LABELS } from "@/app/trade/trade-sections";
+import { SUGGESTION_RAIL_LABELS } from "@/app/trade/trade-sections";
+import { SimulationPanel } from "@/app/trade/trade-simulation-panel";
+import { confidenceMeta } from "@/app/trade/trade-suggestions-desk";
 
 async function openHelp(user, buttonName, dialogName) {
   await user.click(screen.getByRole("button", { name: buttonName }));
