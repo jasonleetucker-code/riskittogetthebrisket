@@ -693,6 +693,7 @@ def value_at_generation(
     observed_at: Any,
     lane: str,
     source_key: str = "",
+    allow_date_fallback: bool = True,
     path: Path | None = None,
 ) -> dict[str, Any]:
     """The observation recorded IN one board generation — not merely on its
@@ -712,8 +713,14 @@ def value_at_generation(
     * the generation has no instant → the best row on the date (standard tie
       rule) at ``match: "date"``.
 
-    Returns ``{"present": False, "match": None}`` when nothing qualifies.
-    Read-only; superseded observations are skipped.
+    ``allow_date_fallback=False`` restricts a generation WITH an instant to
+    the exact-instant match (the date fallback is for generations whose
+    scrape time was never recorded, not a substitute for a recorded one).
+
+    A present answer carries the full point-lookup shape
+    (:func:`_result_from_row` — value, rank, tier, confidence, provenance)
+    plus ``present`` / ``match``.  ``{"present": False, "match": None}``
+    when nothing qualifies.  Read-only; superseded observations are skipped.
     """
     absent: dict[str, Any] = {"present": False, "match": None, "value": None}
     conn = _connect_readonly(path)
@@ -737,18 +744,48 @@ def value_at_generation(
         exact = [r for r in rows if parse_instant_utc(r["observed_at"]) == gen_instant]
         if exact:
             rows, match = exact, GENERATION_MATCH_INSTANT
+        elif not allow_date_fallback:
+            return absent
         else:
             rows = [r for r in rows if parse_instant_utc(r["observed_at"]) is None]
     best = _select_best(rows)
     if best is None:
         return absent
-    return {
-        "present": True,
-        "match": match,
-        "value": best["value"],
-        "observedDate": str(best["observed_date"]),
-        "observedAt": best["observed_at"],
-    }
+    return {**_result_from_row(best, observed_date), "present": True, "match": match}
+
+
+def generation_has_instant_rows(
+    asset_key: str,
+    *,
+    observed_date: str,
+    observed_at: Any,
+    lane: str,
+    path: Path | None = None,
+) -> bool:
+    """Did this generation (``observed_date`` + a proven ``observed_at``)
+    record ANY row in ``lane`` for the asset, under any source key?
+
+    When it did, that scrape stamped its rows with its instant, so an
+    instant-less row on the same date is NOT this generation's record and
+    must not stand in for one by date.  ``False`` for a generation with no
+    proven instant, or no ledger.
+    """
+    gen_instant = parse_instant_utc(observed_at)
+    if gen_instant is None:
+        return False
+    conn = _connect_readonly(path)
+    if conn is None:
+        return False
+    try:
+        rows = conn.execute(
+            "SELECT observed_at FROM observations "
+            "WHERE asset_key=? AND lane=? AND observed_date=? AND observed_at IS NOT NULL "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)",
+            (asset_key, lane, observed_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    return any(parse_instant_utc(r["observed_at"]) == gen_instant for r in rows)
 
 
 def _previous_board_date(conn: sqlite3.Connection, before_date: Any) -> str | None:

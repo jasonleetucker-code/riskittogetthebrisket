@@ -116,7 +116,7 @@ def test_movement_payload(client, ledger, monkeypatch):
     assert body["change"]["value"] == 400
     assert body["currentGenerationIsLiveBoard"] is True
     assert body["currentGenerationIsLiveBoardBasis"] == "instant"
-    assert body["currentSelection"] == "known_before_served_instant"
+    assert body["currentSelection"] == "served_generation_exact"
     assert body["liveBoard"] == {
         "boardDate": "2026-09-02",
         "scrapeTimestamp": "2026-09-02T11:00:00+00:00",

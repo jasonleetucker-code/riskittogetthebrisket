@@ -70,6 +70,7 @@ STATUS_NO_COMPARATOR = "no_comparator"
 
 REASON_NO_PRIOR_BOARD = "no_prior_board_generation"
 
+SELECTION_SERVED_GENERATION = "served_generation_exact"
 SELECTION_KNOWN_BEFORE_INSTANT = "known_before_served_instant"
 SELECTION_AS_OF_DATE = "as_of_date"
 
@@ -160,7 +161,12 @@ def _changed(a: Any, b: Any) -> bool | None:
 
 
 def _source_at(
-    asset_key: str, source_key: str, end: dict[str, Any], path: Path | None
+    asset_key: str,
+    source_key: str,
+    end: dict[str, Any],
+    path: Path | None,
+    *,
+    allow_date_fallback: bool = True,
 ) -> dict[str, Any]:
     """A source's recorded value IN one generation (the canonical end's own
     scrape), via :func:`asof.value_at_generation`.
@@ -177,6 +183,7 @@ def _source_at(
         observed_at=end.get("observedAt"),
         lane=store.LANE_SOURCE,
         source_key=source_key,
+        allow_date_fallback=allow_date_fallback,
         path=path,
     )
     if gen["present"] and gen.get("value") is not None:
@@ -218,9 +225,24 @@ def _source_rows(
 ) -> tuple[list[dict[str, Any]], list[str]]:
     rows: list[dict[str, Any]] = []
     neither: list[str] = []
+
+    # A date-granular source match is admissible only when the end's own
+    # scrape recorded no instant-stamped source rows for this asset: if it
+    # did, that scrape's evidence is instant-tracked, and an instant-less
+    # row the same day is some other record, not this generation's.
+    def _date_ok(end: dict[str, Any]) -> bool:
+        return not asof.generation_has_instant_rows(
+            asset_key,
+            observed_date=str(end["observedDate"]),
+            observed_at=end.get("observedAt"),
+            lane=store.LANE_SOURCE,
+            path=path,
+        )
+
+    prev_date_ok, cur_date_ok = _date_ok(previous), _date_ok(current)
     for skey in source_keys:
-        prev = _source_at(asset_key, skey, previous, path)
-        cur = _source_at(asset_key, skey, current, path)
+        prev = _source_at(asset_key, skey, previous, path, allow_date_fallback=prev_date_ok)
+        cur = _source_at(asset_key, skey, current, path, allow_date_fallback=cur_date_ok)
         if not prev["present"] and not cur["present"]:
             neither.append(skey)
             continue
@@ -309,7 +331,26 @@ def value_movement(
     }
 
     if instant is not None:
-        current = asof.value_known_before(asset_key, instant, path=path)
+        # The served generation itself, matched exactly on (board date,
+        # scrape instant).  ``observed_date`` is the producer's board-date
+        # claim, which can sit on the next UTC date from its instant (a
+        # host clock ahead of UTC), so an instant-bounded search alone can
+        # miss a board the ledger HAS.  An exact match is the served scrape
+        # — never a future one.  Only when it is absent fall back to the
+        # instant-strict lookup.
+        served = asof.value_at_generation(
+            asset_key,
+            observed_date=requested,
+            observed_at=instant.isoformat(),
+            lane=store.LANE_CANONICAL,
+            allow_date_fallback=False,
+            path=path,
+        )
+        if served["present"]:
+            current = served
+            out["currentSelection"] = SELECTION_SERVED_GENERATION
+        else:
+            current = asof.value_known_before(asset_key, instant, path=path)
     else:
         current = asof.value_as_of(asset_key, requested, path=path)
     if current.get("fidelity") == asof.FIDELITY_UNAVAILABLE:

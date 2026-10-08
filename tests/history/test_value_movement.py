@@ -322,7 +322,7 @@ def test_served_instant_pins_never_future_within_the_day(ledger):
     got = movement.value_movement(
         ASSET, as_of="2026-09-02", served_instant="2026-09-02T08:00:00+00:00", path=ledger
     )
-    assert got["currentSelection"] == movement.SELECTION_KNOWN_BEFORE_INSTANT
+    assert got["currentSelection"] == movement.SELECTION_SERVED_GENERATION
     assert got["current"]["value"] == 6050
     assert got["currentIsServedGeneration"] is True
     assert got["currentIsServedGenerationBasis"] == asof.GENERATION_MATCH_INSTANT
@@ -338,6 +338,7 @@ def test_ledger_behind_the_served_scrape_is_detected_on_the_instant(ledger):
     got = movement.value_movement(
         ASSET, as_of="2026-09-02", served_instant="2026-09-02T23:30:00+00:00", path=ledger
     )
+    assert got["currentSelection"] == movement.SELECTION_KNOWN_BEFORE_INSTANT
     assert got["current"]["observedAt"] == "2026-09-02T22:00:00+00:00"
     assert got["currentIsServedGeneration"] is False
     assert got["currentIsServedGenerationBasis"] == asof.GENERATION_MATCH_INSTANT
@@ -396,3 +397,71 @@ def test_rank_change_alignment_is_stated(ledger):
     behind = movement.value_movement(ASSET, as_of="2026-09-05", path=ledger)
     assert movement.ALIGN_LEDGER_BEHIND_SERVED_BOARD in (behind["rankChangeAlignment"]["reasons"])
     assert behind["rankChangeAlignment"]["sameBoardsAsRankChange"] is False
+
+
+def test_board_dated_after_its_utc_instant_is_found_not_reported_behind(ledger):
+    """REGRESSION (re-review follow-up 1, Repro H): ``observed_date`` is the
+    producer's board date (box-local, ~2h ahead of UTC), so a board dated
+    09-03 can carry the instant 09-02T23:00Z.  An instant-bounded search
+    looks at dates <= 09-02 and answered the 22:00 generation as "ledger
+    behind"; the ledger HAS the served board and must select it."""
+    d2_22 = "2026-09-02T22:00:00+00:00"
+    d3_board = "2026-09-02T23:00:00+00:00"
+    _write(
+        ledger,
+        [
+            _obs(ASSET, "2026-09-02", value=6000, rank=40, observed_at=d2_22),
+            {**_src(ASSET, "2026-09-02", "ktcCrowdSfTep", 6100), "observed_at": d2_22},
+            _obs(ASSET, "2026-09-03", value=6400, rank=31, observed_at=d3_board),
+            {**_src(ASSET, "2026-09-03", "ktcCrowdSfTep", 6450), "observed_at": d3_board},
+        ],
+    )
+    got = movement.value_movement(ASSET, as_of="2026-09-03", served_instant=d3_board, path=ledger)
+    assert got["currentSelection"] == movement.SELECTION_SERVED_GENERATION
+    assert got["current"]["observedDate"] == "2026-09-03"
+    assert got["current"]["value"] == 6400
+    assert got["currentIsServedGeneration"] is True
+    assert got["rankChangeAlignment"]["reasons"] == []
+    assert got["rankChangeAlignment"]["sameBoardsAsRankChange"] is True
+    assert got["previous"]["observedDate"] == "2026-09-02"
+    assert got["change"]["value"] == 400
+    assert _by_source(got)["ktcCrowdSfTep"]["delta"] == 350
+
+
+def test_exact_served_match_never_selects_a_later_scrape(ledger):
+    """The exact match is the served instant only: a later scrape on the same
+    board date is never chosen, and a served instant the ledger lacks falls
+    back to instant-strict selection (nothing after it)."""
+    _write(
+        ledger,
+        [
+            _obs(ASSET, "2026-09-02", value=6000, rank=40, observed_at="2026-09-02T08:00:00+00:00"),
+            _obs(ASSET, "2026-09-02", value=9000, rank=2, observed_at="2026-09-02T22:00:00+00:00"),
+        ],
+    )
+    got = movement.value_movement(
+        ASSET, as_of="2026-09-02", served_instant="2026-09-02T09:00:00+00:00", path=ledger
+    )
+    assert got["currentSelection"] == movement.SELECTION_KNOWN_BEFORE_INSTANT
+    assert got["current"]["value"] == 6000
+
+
+def test_date_match_refused_when_the_generation_stamped_its_source_rows(ledger):
+    """Re-review follow-up 2: the 09-02 11:00 scrape recorded ktcTrades with
+    its instant, so an instant-less ktcCrowd row that day is not that
+    scrape's evidence — ktcCrowd is absent from it, not date-matched."""
+    _write(
+        ledger,
+        [
+            _obs(ASSET, "2026-09-01", value=6000, rank=40),
+            _src(ASSET, "2026-09-01", "ktcCrowdSfTep", 6100),
+            _src(ASSET, "2026-09-01", "ktcTradesSfTep", 5900),
+            _obs(ASSET, "2026-09-02", value=6400, rank=31),
+            _src(ASSET, "2026-09-02", "ktcTradesSfTep", 6000),
+            {**_src(ASSET, "2026-09-02", "ktcCrowdSfTep", 6600), "observed_at": None},
+        ],
+    )
+    src = _by_source(movement.value_movement(ASSET, as_of="2026-09-02", path=ledger))
+    assert src["ktcCrowdSfTep"]["status"] == movement.SOURCE_DISAPPEARED
+    assert src["ktcCrowdSfTep"]["current"]["present"] is False
+    assert src["ktcTradesSfTep"]["status"] == movement.SOURCE_MOVED
