@@ -944,16 +944,20 @@ def _get_auth_session(request: Request) -> dict | None:
     expires_at = session.get("expires_at_epoch")
     if isinstance(expires_at, (int, float)) and expires_at > 0:
         if time.time() >= float(expires_at):
-            auth_sessions.pop(session_id, None)
-            try:
-                from src.api import session_store as _ss
-
-                _ss.evict(session_id)
-            except Exception as exc:  # noqa: BLE001
-                log.warning(
-                    "session_store evict on expiry failed: %s",
-                    exc,
-                )
+            _drop_auth_session(session_id, "expiry")
+            return None
+    # A guest-pass session is only as good as the pass that minted it.
+    # Revocation used to only stop NEW logins, so a leaked guest cookie
+    # stayed valid until the pass's own expiry.  The pass row is asked on
+    # every guest request — a revoke made by ANOTHER process (the
+    # verification workflow revokes over SSH, never through this server)
+    # takes effect on the very next request, whatever this cache holds.
+    # Fails closed: no expiry, no pass id, an unknown/purged pass or an
+    # unreadable pass store all end the session.
+    if str(session.get("auth_method") or "") == "guest_pass":
+        bounded = isinstance(expires_at, (int, float)) and expires_at > 0
+        if not bounded or not _guest_passes.session_authority(session.get("guest_pass_id")):
+            _drop_auth_session(session_id, "guest_pass_not_authoritative")
             return None
     # Sliding TTL heartbeat.  Bump ``last_seen_at`` at most once per
     # SESSION_TOUCH_INTERVAL_SECONDS so an actively-used session never
@@ -978,6 +982,33 @@ def _get_auth_session(request: Request) -> dict | None:
         except Exception as exc:  # noqa: BLE001
             log.warning("session_store touch failed: %s", exc)
     return session
+
+
+def _drop_auth_session(session_id: str, reason: str) -> None:
+    """Evict one session from the in-memory cache AND the persistent store."""
+    auth_sessions.pop(session_id, None)
+    try:
+        from src.api import session_store as _ss
+
+        _ss.evict(session_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("session_store evict (%s) failed: %s", reason, exc)
+
+
+def _drop_guest_pass_sessions(pass_id: int) -> int:
+    """Evict every in-memory session minted from guest pass ``pass_id``.
+
+    ``guest_passes.revoke`` already deletes the persisted rows; this
+    clears this process's cache so a revoked session is gone rather than
+    merely refused on its next request."""
+    doomed = [
+        sid
+        for sid, sess in list(auth_sessions.items())
+        if isinstance(sess, dict) and sess.get("guest_pass_id") == pass_id
+    ]
+    for sid in doomed:
+        auth_sessions.pop(sid, None)
+    return len(doomed)
 
 
 def _is_authenticated(request: Request) -> bool:
@@ -1005,9 +1036,10 @@ def _create_auth_session(
     ``expires_at_epoch`` (optional) bounds the session's authority.
     Guest-pass logins set this to the pass's expiry so the session
     silently dies when the pass does — see ``_get_auth_session``.
-    ``guest_pass_id`` records which pass minted the session, so a
-    revoked pass can be cross-referenced if needed (audit + future
-    bulk-revoke-on-pass-revoke if we want it).
+    ``guest_pass_id`` records which pass minted the session (persisted
+    with it).  Revoking the pass ends every session it minted:
+    ``_get_auth_session`` re-checks the pass on each guest request and
+    ``guest_passes.revoke`` deletes the persisted rows.
     """
     session_id = uuid.uuid4().hex
     payload: dict[str, Any] = {
@@ -15527,24 +15559,26 @@ async def get_admin_guest_passes(request: Request):
 
 @app.post("/api/admin/guest-pass/{pass_id:int}/revoke")
 async def post_admin_guest_pass_revoke(pass_id: int, request: Request):
-    """Mark a guest pass revoked.  Active sessions minted from the
-    pass remain valid until their next request hits
-    ``_get_auth_session`` and finds the pass's per-session
-    ``expires_at_epoch`` already past — but a revoke specifically
-    flips the ``validate`` gate False, so NO new sessions can be
-    minted.  For an immediate boot, follow with
-    ``POST /api/admin/sessions/force-logout-all``.
+    """Revoke a guest pass and end every session it minted.
+
+    ``guest_passes.revoke`` marks the pass (no new logins) and deletes
+    the persisted sessions; this process's in-memory sessions from the
+    pass are dropped here too.  Independently, ``_get_auth_session``
+    refuses any guest session whose pass is no longer active, so a
+    session cached anywhere else dies on its next request.
     """
     session_or_err = _require_admin_session(request)
     if isinstance(session_or_err, JSONResponse):
         return session_or_err
     session = session_or_err
     ok = await run_in_threadpool(_guest_passes.revoke, pass_id)
+    dropped = _drop_guest_pass_sessions(pass_id)
     log.info(
-        "admin action: guest_pass revoke id=%d by %s ok=%s",
+        "admin action: guest_pass revoke id=%d by %s ok=%s sessions_dropped=%d",
         pass_id,
         session.get("username"),
         ok,
+        dropped,
     )
     return JSONResponse(content={"ok": ok, "id": pass_id})
 

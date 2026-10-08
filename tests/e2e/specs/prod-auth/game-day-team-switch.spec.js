@@ -132,8 +132,6 @@ test.describe("Game Day team switcher (production)", () => {
     expect(new URL(page.url()).searchParams.get("leagueKey") || league).toBe(league);
     await noPageOverflow(page);
 
-    const file = testInfo.outputPath("team-switch-C.png");
-    await page.screenshot({ path: file, fullPage: false });
-    await testInfo.attach("team-switch-C", { path: file, contentType: "image/png" });
+    // No screenshot: production pages are never captured into files (security S3).
   });
 });

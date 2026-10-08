@@ -89,8 +89,6 @@ test.describe("League MVP team-success gate (production)", () => {
       v: document.documentElement.clientWidth,
     }));
     expect(s.d, "no sideways page scroll").toBeLessThanOrEqual(s.v + 1);
-    const shot = testInfo.outputPath("league-mvp-gate.png");
-    await mvpCard.screenshot({ path: shot });
-    await testInfo.attach("league-mvp-gate", { path: shot, contentType: "image/png" });
+    // No screenshot: production pages are never captured into files (security S3).
   });
 });

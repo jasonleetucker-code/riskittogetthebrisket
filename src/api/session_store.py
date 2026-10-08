@@ -94,6 +94,21 @@ def _setup(path: Path) -> None:
             conn.execute(
                 f"CREATE INDEX IF NOT EXISTS idx_{_TABLE}_created " f"ON {_TABLE}(created_at)"
             )
+            # Additive migration: a time-bounded (guest-pass) session's own
+            # expiry and the pass that minted it.  Rows written before these
+            # columns existed read back NULL; ``hydrate`` refuses a guest
+            # row without them rather than resurrecting it unbounded.
+            have = {r[1] for r in conn.execute(f"PRAGMA table_info({_TABLE})").fetchall()}
+            for column, decl in (("expires_at_epoch", "REAL"), ("guest_pass_id", "INTEGER")):
+                if column in have:
+                    continue
+                try:
+                    conn.execute(f"ALTER TABLE {_TABLE} ADD COLUMN {column} {decl}")
+                except sqlite3.OperationalError as exc:
+                    # Another process (the revoke CLI, a second worker)
+                    # migrated between our PRAGMA and our ALTER.
+                    if "duplicate column" not in str(exc).lower():
+                        raise
         finally:
             conn.close()
     _setup_done.set()
@@ -116,6 +131,18 @@ def _allowlist_set(allowlist: Iterable[str] | None) -> set[str] | None:
     """
     items = {s.strip().lower() for s in (allowlist or []) if s and s.strip()}
     return items or None
+
+
+def _positive_float(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        return None
+    return float(value)
+
+
+def _positive_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return int(value)
 
 
 def persist(
@@ -145,6 +172,8 @@ def persist(
         _allowlist_version(allowlist),
         float(payload.get("created_at_epoch") or now),
         now,
+        _positive_float(payload.get("expires_at_epoch")),
+        _positive_int(payload.get("guest_pass_id")),
     )
     try:
         with _db_lock:
@@ -153,8 +182,9 @@ def persist(
                 conn.execute(
                     f"INSERT INTO {_TABLE} "
                     f"(session_id, username, sleeper_user_id, display_name, "
-                    f"avatar, auth_method, allowlist_version, created_at, last_seen_at) "
-                    f"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                    f"avatar, auth_method, allowlist_version, created_at, last_seen_at, "
+                    f"expires_at_epoch, guest_pass_id) "
+                    f"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                     f"ON CONFLICT(session_id) DO UPDATE SET "
                     f"last_seen_at=excluded.last_seen_at, "
                     f"allowlist_version=excluded.allowlist_version",
@@ -248,12 +278,26 @@ def hydrate(
             try:
                 rows = conn.execute(
                     f"SELECT session_id, username, sleeper_user_id, display_name, "
-                    f"avatar, auth_method, allowlist_version, created_at, last_seen_at "
+                    f"avatar, auth_method, allowlist_version, created_at, last_seen_at, "
+                    f"expires_at_epoch, guest_pass_id "
                     f"FROM {_TABLE}"
                 ).fetchall()
             finally:
                 conn.close()
-        for sid, user, sluid, dn, av, am, ver, created, last in rows:
+        now = time.time()
+        for sid, user, sluid, dn, av, am, ver, created, last, expires, pass_id in rows:
+            # A time-bounded session never outlives its own expiry.
+            if expires is not None and float(expires) <= now:
+                expired_ids.append(sid)
+                continue
+            # A guest-pass session is only as good as the pass that minted
+            # it: without its expiry AND pass id it cannot be bounded or
+            # revoked, so it is dropped (fail closed).  Rows persisted
+            # before these columns existed are exactly this case — they
+            # used to hydrate as unbounded 30-day sessions.
+            if str(am or "") == "guest_pass" and (expires is None or pass_id is None):
+                expired_ids.append(sid)
+                continue
             # Sliding TTL — expire on idle time, not age.  Fall back
             # to created_at for legacy rows written before touch().
             last_active = last if last and last > 0 else created
@@ -276,6 +320,10 @@ def hydrate(
                 "created_at_epoch": created,
                 "last_seen_epoch": last_active,
             }
+            if expires is not None:
+                out[sid]["expires_at_epoch"] = float(expires)
+            if pass_id is not None:
+                out[sid]["guest_pass_id"] = int(pass_id)
         if expired_ids:
             with _db_lock:
                 conn = _connect(path)
@@ -290,6 +338,36 @@ def hydrate(
         _LOGGER.warning("session_store hydrate failed: %s", exc)
         return {}
     return out
+
+
+def evict_guest_pass(pass_id: int, *, db_path: Path | None = None) -> int:
+    """Remove every persisted session minted from guest pass ``pass_id``.
+
+    Called by ``guest_passes.revoke``.  Returns the number of rows
+    removed (0 on any error — the pass row stays the authority, and
+    ``server._get_auth_session`` refuses a revoked pass's session on its
+    next request regardless)."""
+    path = db_path or _DEFAULT_DB_PATH
+    if not _setup_done.is_set():
+        try:
+            _setup(path)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("session_store evict_guest_pass setup failed: %s", exc)
+            return 0
+    try:
+        with _db_lock:
+            conn = _connect(path)
+            try:
+                cur = conn.execute(
+                    f"DELETE FROM {_TABLE} WHERE guest_pass_id = ?",
+                    (int(pass_id),),
+                )
+                return cur.rowcount or 0
+            finally:
+                conn.close()
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("session_store evict_guest_pass failed: %s", exc)
+        return 0
 
 
 def force_clear_all(*, db_path: Path | None = None) -> int:
