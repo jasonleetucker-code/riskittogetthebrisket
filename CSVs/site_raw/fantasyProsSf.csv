@@ -24,8 +24,8 @@ Drake London,22,WR,ATL
 Brock Bowers,23,TE,LV
 Justin Herbert,24,QB,LAC
 James Cook III,25,RB,BUF
-Bo Nix,26,QB,DEN
-Kenneth Walker III,27,RB,KC
+Kenneth Walker III,26,RB,KC
+Bo Nix,27,QB,DEN
 Trey McBride,28,TE,ARI
 Chris Olave,29,WR,NO
 Jonathan Taylor,30,RB,IND
@@ -35,11 +35,11 @@ Jaxson Dart,33,QB,NYG
 George Pickens,34,WR,DAL
 Nico Collins,35,WR,HOU
 Jordan Love,36,QB,GB
-Omarion Hampton,37,RB,LAC
-Tyler Shough,38,QB,NO
-Dak Prescott,39,QB,DAL
-Emeka Egbuka,40,WR,TB
-Carnell Tate,41,WR,TEN
+Tyler Shough,37,QB,NO
+Dak Prescott,38,QB,DAL
+Emeka Egbuka,39,WR,TB
+Carnell Tate,40,WR,TEN
+Omarion Hampton,41,RB,LAC
 De'Von Achane,42,RB,MIA
 Garrett Wilson,43,WR,NYJ
 DeVonta Smith,44,WR,PHI
@@ -62,11 +62,11 @@ Christian McCaffrey,60,RB,SF
 Rashee Rice,61,WR,KC
 Jameson Williams,62,WR,DET
 Harold Fannin Jr.,63,TE,CLE
-TreVeyon Henderson,64,RB,NE
-Bryce Young,65,QB,CAR
+Bryce Young,64,QB,CAR
+TreVeyon Henderson,65,RB,NE
 Makai Lemon,66,WR,PHI
-Tucker Kraft,67,TE,GB
-Kyren Williams,68,RB,LAR
+Kyren Williams,67,RB,LAR
+Tucker Kraft,68,TE,GB
 Quinshon Judkins,69,RB,CLE
 Baker Mayfield,70,QB,TB
 Saquon Barkley,71,RB,PHI
@@ -192,19 +192,19 @@ Nicholas Singleton,190,RB,TEN
 Cade Otton,191,TE,TB
 Eli Raridon,192,TE,NE
 Tyjae Spears,193,RB,TEN
-Kaelon Black,194,RB,SF
-Brian Robinson Jr.,195,RB,ATL
+Brian Robinson Jr.,194,RB,ATL
+Kaelon Black,195,RB,SF
 Tank Bigsby,196,RB,PHI
-Tyrone Tracy Jr.,197,RB,NYG
-Aaron Rodgers,198,QB,PIT
-Kaleb Johnson,199,RB,GB
-Pat Freiermuth,200,TE,PIT
+Aaron Rodgers,197,QB,PIT
+Tyrone Tracy Jr.,198,RB,NYG
+Pat Freiermuth,199,TE,PIT
+Kaleb Johnson,200,RB,GB
 Ryan Flournoy,201,WR,DAL
 Jauan Jennings,202,WR,MIN
 Devaughn Vele,203,WR,NO
 Elijah Sarratt,204,WR,BAL
-Isaac TeSlaa,205,WR,DET
-Alvin Kamara,206,RB,NO
+Alvin Kamara,205,RB,NO
+Isaac TeSlaa,206,WR,DET
 Jerry Jeudy,207,WR,CLE
 Tua Tagovailoa,208,QB,ATL
 MarShawn Lloyd,209,RB,GB
@@ -238,8 +238,8 @@ Demond Claiborne,236,RB,MIN
 Kimani Vidal,237,RB,LAC
 Ray Davis,238,RB,BUF
 Bryce Lance,239,WR,NO
-Isiah Pacheco,240,RB,DET
-Emanuel Wilson,241,RB,SEA
+Emanuel Wilson,240,RB,SEA
+Isiah Pacheco,241,RB,DET
 Tank Dell,242,WR,HOU
 Marvin Mims Jr.,243,WR,DEN
 Sean Tucker,244,RB,TB
