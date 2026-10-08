@@ -326,6 +326,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           rc=0
+          # PUBLIC log + artifact: the script prints and writes ONLY its
+          # allowlisted summary (scripts/public_verification_report.py) --
+          # ids, statuses, counts, booleans; never detail text or bodies.
           python3 scripts/verify_v1_authenticated.py \
             --origin "$ORIGIN" --league "$LEAGUE" \
             --cookie-file "$RUNNER_TEMP/session_cookie" \
@@ -348,14 +351,18 @@ jobs:
           ADD_PLAYER_ARGS=()
           if [ -s "$RUNNER_TEMP/free_agent.txt" ]; then
             ADD_PLAYER_ARGS=(--add-player "$(cat "$RUNNER_TEMP/free_agent.txt")")
-            echo "C8/C9 free agent: $(cat "$RUNNER_TEMP/free_agent.txt") (picked from the deployed board)"
+            echo "C8/C9 free agent picked from the deployed board (name not logged)"
           else
             echo "No free agent picked — C8/C9 will record BLOCKED (never invented)"
           fi
           rc=0
+          # PUBLIC log + artifact: --public-report makes stdout and the file
+          # the allowlisted summary only.  No tee of the full report, and no
+          # --out here (the full report is for a private host).
           python3 scripts/verify_lane4_production.py \
             --mode remote --origin "$ORIGIN" --league "$LEAGUE" \
-            "${ADD_PLAYER_ARGS[@]}" 2>&1 | tee lane4-remote.txt || rc=$?
+            --public-report lane4-remote.json \
+            "${ADD_PLAYER_ARGS[@]}" || rc=$?
           echo "lane4_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Lane 4 remote exit: $rc"
 
@@ -481,8 +488,11 @@ jobs:
             esac
           done
 
-      # PUBLIC repo => public artifacts (security S3).  The browser suite
-      # contributes ONLY its sanitized report (tests/e2e/prod-auth.config.js
+      # PUBLIC repo => public artifacts (security S3).  v1-auth-report.json
+      # and lane4-remote.json are allowlisted summaries
+      # (scripts/public_verification_report.py); production-route-baselines.json
+      # is fixed-enum timings.  The browser suite contributes ONLY its sanitized
+      # report (tests/e2e/prod-auth.config.js
       # runs prod-auth-safe-reporter.js; trace/screenshot/video are off).
       # NEVER add tests/e2e/test-results-prod-auth/, a Playwright html
       # report, a trace, a video or a screenshot here: a failed run's
@@ -496,7 +506,7 @@ jobs:
           path: |
             production-route-baselines.json
             v1-auth-report.json
-            lane4-remote.txt
+            lane4-remote.json
             tests/e2e/prod-auth-results.json
           if-no-files-found: warn
           retention-days: 30

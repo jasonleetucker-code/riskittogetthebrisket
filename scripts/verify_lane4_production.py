@@ -67,6 +67,16 @@ USAGE
         --origin https://chaseupside.com --league dynasty_main \
         --add-player 'Some Free Agent'
 
+PUBLIC OUTPUT
+-------------
+``--public-report PATH`` is the mode for anywhere the output is PUBLISHED (the
+GitHub Actions runner of this public repository).  Stdout and PATH then carry
+only the allowlisted summary from ``scripts/public_verification_report.py``
+(ids, statuses, denominators, counts, booleans, reason codes) -- never check
+``detail`` text, asset ids, manager-quality values, FAAB bid amounts or raw
+response bodies.  The full report is then printed nowhere; ``--out`` remains
+for a private host (the on-box run).
+
 EXIT CODES
 ----------
     0  every applicable check passed, and at least one was applicable
@@ -94,6 +104,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from scripts import public_verification_report as pvr  # noqa: E402
 
 # ── Result vocabulary ──────────────────────────────────────────────
 
@@ -229,6 +241,98 @@ class Report:
         if not any(c.status == PASS for c in self.checks):
             return 3
         return 0
+
+
+# ── Public output (see PUBLIC OUTPUT in the module docstring) ──────
+#
+# Per check id, the evidence keys that may be PUBLISHED and their kinds.
+# Deliberately absent: C1/C3 ``offenders`` and C2 ``nulledDespiteVoters``
+# (Sharp asset ids + manager-quality values), C9's ``standard`` /
+# ``conservative`` / ``aggressive`` / ``max`` / ``clearing`` (private FAAB
+# recommendations), C8's ``excludedCounts`` / ``tierCounts`` (keyed by
+# free-form reasons), and every on-box-only check (its full report stays on
+# the box via ``--out``).  A check absent from this table publishes no
+# evidence; its id, status and denominator still do.
+
+PUBLIC_EVIDENCE: dict[str, dict[str, object]] = {
+    "R0": {"routesDiscovered": pvr.COUNT},
+    "R1": {"checked": pvr.COUNT},
+    "C1": {
+        "rowsWithPersonConsensus": pvr.COUNT,
+        "zeroVoterRows": pvr.COUNT,
+        "offenderCount": pvr.COUNT,
+    },
+    "C2": {
+        "rowsWithPersonConsensus": pvr.COUNT,
+        "rowsWithVoters": pvr.COUNT,
+        "nulledCount": pvr.COUNT,
+        "measuredZeroRows": pvr.COUNT,
+    },
+    "C3": {
+        "rowsWithPersonConsensus": pvr.COUNT,
+        "zeroVolumeRows": pvr.COUNT,
+        "offenderCount": pvr.COUNT,
+    },
+    "C8": {
+        "state": pvr.REASON,
+        "refusalReason": pvr.REASON,
+        "targetFormatUnknown": pvr.reason_list(),
+        "rowsTotal": pvr.COUNT,
+        "rowsUsed": pvr.COUNT,
+        "playerHasEvidence": pvr.BOOL,
+        "pricesIdp": pvr.BOOL,
+    },
+    "C9": {
+        "crowdState": pvr.REASON,
+        "playerHasEvidence": pvr.BOOL,
+        "refusalReason": pvr.REASON,
+        "rowsUsed": pvr.COUNT,
+        "crowdFactorRows": pvr.COUNT,
+    },
+}
+
+#: ``report.deployed`` keys that may be published (all from public /api/status).
+PUBLIC_DEPLOYED: dict[str, object] = {
+    "headSha": pvr.SHA,
+    "headShaSource": pvr.REASON,
+    "contractVersion": pvr.VERSION,
+    "contractHealthy": pvr.BOOL,
+    "lastDataRefreshAt": pvr.TIMESTAMP,
+    "lastPayloadLoadedAt": pvr.TIMESTAMP,
+}
+
+
+def public_report(report: Report, exit_code: int, secrets: tuple[str, ...] = ()) -> dict[str, Any]:
+    """The only document ``--public-report`` prints or writes."""
+    checks = [
+        pvr.public_check(
+            c.id,
+            c.row,
+            c.title,
+            c.status,
+            c.evidence,
+            PUBLIC_EVIDENCE.get(c.id, {}),
+            denominator=c.denominator,
+            secrets=secrets,
+        )
+        for c in report.checks
+    ]
+    deployed = pvr.public_check(
+        "deployed", "-", "deployment identity", "pass", report.deployed, PUBLIC_DEPLOYED
+    )
+    return pvr.public_report(
+        producer="verify_lane4_production",
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        origin=report.origin,
+        league=report.league,
+        checks=checks,
+        exit_code=exit_code,
+        extra={
+            "mode": report.mode if report.mode in ("remote", "onbox") else None,
+            "deployed": deployed["evidence"],
+            "applicableChecks": sum(1 for c in checks if c["status"] not in _PROVES_NOTHING),
+        },
+    )
 
 
 # ── HTTP (remote mode) ─────────────────────────────────────────────
@@ -2175,7 +2279,16 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="display name of a REAL free agent to price. Never invented by this script.",
     )
-    parser.add_argument("--out", default="", help="write the JSON report here as well as stdout")
+    parser.add_argument(
+        "--out",
+        default="",
+        help="write the FULL JSON report here (private hosts only -- it carries detail text)",
+    )
+    parser.add_argument(
+        "--public-report",
+        default="",
+        help="PUBLISHED output: stdout and this file carry only the allowlisted summary",
+    )
     args = parser.parse_args(argv)
 
     if args.mode == "remote" and not args.origin:
@@ -2193,13 +2306,23 @@ def main(argv: list[str] | None = None) -> int:
     report.finalize()
     payload = report.to_dict()
     text = json.dumps(payload, indent=2, sort_keys=True, default=str)
-    print(text)
+    code = report.exit_code()
+    if args.public_report:
+        # PUBLISHED: the allowlisted summary only; the full report goes nowhere
+        # unless --out names a private path.
+        cookie = os.environ.get("RISKIT_SESSION_COOKIE") or ""
+        public = public_report(report, code, secrets=(cookie, cookie.split("=", 1)[-1]))
+        print("\n".join(pvr.summary_lines(public)))
+        public_out = Path(args.public_report)
+        public_out.parent.mkdir(parents=True, exist_ok=True)
+        public_out.write_text(json.dumps(public, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    else:
+        print(text)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text + "\n", encoding="utf-8")
 
-    code = report.exit_code()
     summary = " ".join(f"{k}={v}" for k, v in sorted(payload["counts"].items()))
     print(f"\n[lane4-verify] {summary} -> exit {code}", file=sys.stderr)
     if code == 3:
