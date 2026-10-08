@@ -145,7 +145,12 @@ METHODOLOGY_VERSION = "canonical-power-2026.09-v2"
 #: owner enumeration and never reaches ``_score_state``.
 _EMPTY_SEASON_STATE: dict[str, float | int] = {
     "points": 0.0,
+    # Scored weeks: the denominator for PPG and all-play.
     "games": 0,
+    # Weeks with an actual head-to-head RESULT: the denominator for the W/L
+    # record and luck.  Smaller than ``games`` only for an unpaired (bye)
+    # week, which is a real scored week but no game (#1530 finding B).
+    "decided": 0,
     "wins": 0.0,
     "losses": 0.0,
 }
@@ -652,13 +657,14 @@ def _score_state(
         ppg = points / games if games else None
         rb = state["recent"].get(oid, [])
         recent = sum(rb) / len(rb) if rb else None
-        computed_wl = float(s.get("wins", 0.0)) / games if games else None
+        decided = int(s.get("decided", games))
+        computed_wl = float(s.get("wins", 0.0)) / decided if decided else None
         wl = official_record.get(oid, computed_wl)
         all_play = state["allplay"].get(oid)
         outcomes = (state.get("outcomes") or {}).get(oid, [])
         streak = _streak_score_from_outcomes(outcomes)
         expected_total = float((state.get("expected") or {}).get(oid, 0.0))
-        luck_delta = (float(s.get("wins", 0.0)) - expected_total) / games if games else 0.0
+        luck_delta = (float(s.get("wins", 0.0)) - expected_total) / decided if decided else 0.0
         luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
             "games_used": games,
@@ -1045,10 +1051,10 @@ def build_section(
     # Historical presence remains separate from the season-scoped scoring
     # state. A manager who rejoined after missing a season must not disappear.
     career_state: dict[str, dict[str, float | int]] = defaultdict(
-        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
+        lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
     )
     season_state: dict[str, dict[str, float | int]] = defaultdict(
-        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
+        lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
     )
     recent_window: dict[str, list[float]] = defaultdict(list)
     last_season_allplay_share: dict[str, float] = {}
@@ -1076,7 +1082,9 @@ def build_section(
         partial_weeks = []
         state_season_label = str(season.season)
 
-        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
+        season_state = defaultdict(
+            lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
+        )
         recent_window = defaultdict(list)
         last_season_allplay_share = {}
         allplay_share_total = defaultdict(float)
@@ -1114,20 +1122,29 @@ def build_section(
                 )
 
             for oid, pts in scores:
-                actual_share = actuals.get(oid, 0.0)
+                # Scored but never PAIRED -- a bye (odd team count) or a
+                # matchup row Sleeper did not group -- is a real scored week
+                # (PPG, recent form, all-play) but NOT a game: it has no
+                # result.  ``actuals.get(oid, 0.0)`` charged it a phantom
+                # 0-point LOSS in wins/losses, the W/L record, the streak and
+                # the luck input (#1530 finding B).  MISSING IS NEVER ZERO:
+                # ``None`` here records no result, and every result-based
+                # quantity divides by ``decided``, not by ``games``.
+                actual_share = actuals.get(oid)
 
                 career = career_state[oid]
                 career["points"] += pts
                 career["games"] += 1
-                career["wins"] += actual_share
-                career["losses"] += 1.0 - actual_share
 
                 current = season_state[oid]
                 current["points"] += pts
                 current["games"] += 1
-                current["wins"] += actual_share
-                current["losses"] += 1.0 - actual_share
-                season_outcomes[oid].append(actual_share)
+                if actual_share is not None:
+                    for acc in (career, current):
+                        acc["decided"] += 1
+                        acc["wins"] += actual_share
+                        acc["losses"] += 1.0 - actual_share
+                    season_outcomes[oid].append(actual_share)
 
                 recent = recent_buffer[oid]
                 recent.append(pts)
@@ -1137,7 +1154,9 @@ def build_section(
 
                 expected_share = float((all_play.get(oid) or {}).get("expectedShare", 0.0))
                 allplay_share_total[oid] += expected_share
-                expected_share_total[oid] += expected_share
+                if actual_share is not None:
+                    # Luck compares expected with ACTUAL over the same games.
+                    expected_share_total[oid] += expected_share
                 # Season-to-date all-play, not "last week" wearing a broad
                 # label. This is the schedule-independent earned-performance
                 # signal named by the canonical spec.
@@ -1216,7 +1235,9 @@ def build_section(
         and current_label is not None
         and state_season_label != current_label
     ):
-        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
+        season_state = defaultdict(
+            lambda: {"points": 0.0, "games": 0, "decided": 0, "wins": 0.0, "losses": 0.0}
+        )
         recent_window = defaultdict(list)
         last_season_allplay_share = {}
         season_outcomes = defaultdict(list)
@@ -1307,7 +1328,8 @@ def build_section(
         else:
             current = season_state.get(row["ownerId"], _EMPTY_SEASON_STATE)
             wins = round(float(current.get("wins", 0.0)))
-            games = int(current.get("games", 0))
+            # A bye week is not a game: the record counts decided games only.
+            games = int(current.get("decided", current.get("games", 0)))
             row["record"] = f"{wins}-{games - wins}" if games else "0-0"
             row["recordSource"] = "matchups"
 

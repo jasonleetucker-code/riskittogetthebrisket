@@ -12562,7 +12562,15 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         started = time.time()
         snapshot = None
         try:
-            snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
+            # The last snapshot served for THIS league: if a predecessor
+            # league's fetch fails mid-chain, its finished seasons are reused
+            # from here (and stamped ``historyCoverage.recovered``) instead of
+            # a transient Sleeper miss shrinking "all-time" history.
+            snapshot = build_public_snapshot(
+                league_id,
+                max_seasons=PUBLIC_MAX_SEASONS,
+                previous=cached if cached is not None and cached_id == league_id else None,
+            )
         except Exception as exc:  # noqa: BLE001
             _public_league_metrics["rebuild_failures"] += 1
             _public_league_cache["last_failure_at"] = time.time()

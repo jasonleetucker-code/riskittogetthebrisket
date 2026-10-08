@@ -393,6 +393,9 @@ def _league_header(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "rootLeagueId": snapshot.root_league_id,
         "leagueName": name,
         "seasonsCovered": snapshot.season_ids,
+        # Whether ``seasonsCovered`` is the league's WHOLE history (C9-HIST-02):
+        # ``complete`` / ``truncated`` / ``unverified``, or ``None`` = unknown.
+        "historyCoverage": getattr(snapshot, "history_coverage", None),
         "leagueIds": snapshot.league_ids,
         "currentLeagueId": current.league_id if current else "",
         "generatedAt": snapshot.generated_at,
