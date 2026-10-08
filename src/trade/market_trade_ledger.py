@@ -119,21 +119,39 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
 
     trades: list[dict[str, Any]] = []
     for source_ref, group in groups.items():
-        teams: dict[int, dict[str, list[dict[str, Any]]]] = {}
+        teams: dict[int, dict[str, Any]] = {}
+        # Which Sleeper USER held each roster in this trade, as the events
+        # recorded it.  A roster id means nothing outside one season's league
+        # (Sleeper re-mints league ids yearly), so a cross-season consumer
+        # such as Manager Scout needs the human, not the roster.
+        users_by_rid: dict[int, set[str]] = {}
 
-        def _side(rid: Any) -> dict[str, list[dict[str, Any]]]:
+        def _side(rid: Any) -> dict[str, Any]:
             if rid is None:
                 return {}
             return teams.setdefault(int(rid), {"received": [], "sent": []})
+
+        def _note_user(rid: Any, user_id: Any) -> None:
+            if rid is not None and user_id:
+                users_by_rid.setdefault(int(rid), set()).add(str(user_id))
 
         for e in group:
             asset = _asset_ref(e)
             recv = _side(e["after_owner_rid"])
             if recv:
                 recv["received"].append(asset)
+                _note_user(e["after_owner_rid"], e.get("after_owner_user_id"))
             sent = _side(e["before_owner_rid"])
             if sent:
                 sent["sent"].append(asset)
+                _note_user(e["before_owner_rid"], e.get("before_owner_user_id"))
+
+        for rid, side in teams.items():
+            found = users_by_rid.get(rid) or set()
+            # Exactly one recorded user, or UNATTRIBUTED (None).  Two
+            # different users for one roster inside one transaction is a
+            # contradiction in the evidence, and picking one would be a guess.
+            side["ownerUserId"] = next(iter(found)) if len(found) == 1 else None
 
         primary = group[0]
         trades.append(
@@ -160,6 +178,21 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
 
     trades.sort(key=lambda t: oldest_first_key(t["occurredAtMs"], t["sourceRef"]))
     return trades
+
+
+def acquisition_store_present(path: Path | None = None) -> bool:
+    """Whether the canonical acquisition ledger exists on this host.
+
+    Asked BEFORE reading, because ``src.acquisition.store.connect`` creates
+    an empty database on first touch — and an empty ledger reads as "this
+    league never traded", which is a claim, where "no ledger on this host"
+    is an absence.  Consumers outside the authorized acquisition readers
+    (``tests/acquisition/test_board_inertness.py``) ask here rather than
+    importing the store themselves.
+    """
+    from src.acquisition import store as _acquisition_store  # noqa: PLC0415
+
+    return Path(path or _acquisition_store.DB_PATH).exists()
 
 
 def market_ledger_summary(league_key: str, *, path: Path | None = None) -> dict[str, Any]:
