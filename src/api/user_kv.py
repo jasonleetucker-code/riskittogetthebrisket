@@ -58,7 +58,7 @@ import time
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 USER_KV_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "user_kv.sqlite"
 _LEGACY_JSON_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "user_kv.json"
@@ -106,6 +106,10 @@ KNOWN_KEYS = frozenset(
         # — listed here so new readers know the schema includes them.
         "notificationsEmail",
         "notificationsEnabled",
+        # Persistent per-league trade protections (C3-CON-02).  Shape owned
+        # by ``src/trade/constraints.py``; written only through
+        # ``PUT /api/user/trade-protections`` via ``set_league_scoped_entry``.
+        "tradeConstraintsByLeague",
     }
 )
 
@@ -300,13 +304,46 @@ def _write_row(conn: sqlite3.Connection, username: str, entry: dict[str, Any]) -
     conn.commit()
 
 
+def _begin_write(conn: sqlite3.Connection) -> None:
+    """Take the database write lock BEFORE reading the row to be rewritten.
+
+    Every writer here is read-modify-write over one JSON blob per user.  Under
+    the default (deferred) transaction mode the SELECT runs outside any write
+    transaction, so two concurrent writers both read the old blob and the
+    second commit silently discards the first's change -- measured on #1704 at
+    137/200 trials losing a league entry with three concurrent writers.
+    ``BEGIN IMMEDIATE`` serialises the read with the write (0/200), waiting up
+    to the connection's busy timeout for a competing writer.
+    """
+    conn.execute("BEGIN IMMEDIATE")
+
+
+def _mutate_user_state(
+    username: str,
+    mutate: Callable[[dict[str, Any]], None],
+    *,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Apply ``mutate`` to ``username``'s blob inside ONE write transaction."""
+    conn = _connect(path)
+    try:
+        _begin_write(conn)
+        entry = _read_row(conn, username)
+        mutate(entry)
+        _prune_expired_dismissals(entry)
+        _write_row(conn, username, entry)  # commits, releasing the lock
+        return dict(entry)
+    finally:
+        conn.close()  # an uncommitted transaction (mutate raised) rolls back
+
+
 def get_user_state(username: str, *, path: Path | None = None) -> dict[str, Any]:
     """Return the full state blob for ``username``.
 
     Expired dismissals are pruned on read.  The pruned state is
     persisted back so future reads are cheap.
 
-    Always returns a dict — missing users surface as ``{}`` rather
+    Always returns a dict -- missing users surface as ``{}`` rather
     than raising, because the caller (frontend hook) expects a
     durable defaults path.
     """
@@ -318,8 +355,16 @@ def get_user_state(username: str, *, path: Path | None = None) -> dict[str, Any]
         if not entry:
             return {}
         if _prune_expired_dismissals(entry):
+            # Persist the prune from a FRESH read under the write lock, never
+            # from the copy read above: writing that copy back would clobber
+            # any write that committed in between.
             try:
-                _write_row(conn, username, entry)
+                _begin_write(conn)
+                fresh = _read_row(conn, username)
+                if _prune_expired_dismissals(fresh):
+                    _write_row(conn, username, fresh)
+                else:
+                    conn.rollback()
             except sqlite3.Error:
                 # Non-fatal: the read path returns the pruned in-
                 # memory view; the next successful write persists.
@@ -340,19 +385,43 @@ def set_user_field(
 
     Returns the post-write state blob so callers can echo the server
     view back to the client.  Unknown keys are accepted and preserved
-    verbatim — future clients may rely on them.
+    verbatim -- future clients may rely on them.
     """
     if not username:
         return {}
-    conn = _connect(path)
-    try:
-        entry = _read_row(conn, username)
+
+    def _set(entry: dict[str, Any]) -> None:
         entry[str(field)] = value
-        _prune_expired_dismissals(entry)
-        _write_row(conn, username, entry)
-        return dict(entry)
-    finally:
-        conn.close()
+
+    return _mutate_user_state(username, _set, path=path)
+
+
+def _apply_patch(entry: dict[str, Any], patch: dict[str, Any]) -> None:
+    """``merge_user_state``'s field semantics, applied in place."""
+    for field, value in patch.items():
+        if value is None:
+            entry.pop(str(field), None)
+            continue
+        if field == "dismissedSignals" and isinstance(value, dict):
+            current = entry.get("dismissedSignals")
+            current = current if isinstance(current, dict) else {}
+            for k, v in value.items():
+                try:
+                    current[str(k)] = int(v)
+                except (TypeError, ValueError):
+                    continue
+            entry["dismissedSignals"] = current
+        elif field == "dismissalAliases" and isinstance(value, dict):
+            current = entry.get("dismissalAliases")
+            current = current if isinstance(current, dict) else {}
+            for k, v in value.items():
+                if v is None:
+                    current.pop(str(k), None)
+                else:
+                    current[str(k)] = str(v)
+            entry["dismissalAliases"] = current
+        else:
+            entry[str(field)] = value
 
 
 def merge_user_state(
@@ -370,38 +439,46 @@ def merge_user_state(
     """
     if not username or not isinstance(patch, dict):
         return get_user_state(username, path=path)
-    conn = _connect(path)
-    try:
-        entry = _read_row(conn, username)
-        for field, value in patch.items():
-            if value is None:
-                entry.pop(str(field), None)
-                continue
-            if field == "dismissedSignals" and isinstance(value, dict):
-                current = entry.get("dismissedSignals")
-                current = current if isinstance(current, dict) else {}
-                for k, v in value.items():
-                    try:
-                        current[str(k)] = int(v)
-                    except (TypeError, ValueError):
-                        continue
-                entry["dismissedSignals"] = current
-            elif field == "dismissalAliases" and isinstance(value, dict):
-                current = entry.get("dismissalAliases")
-                current = current if isinstance(current, dict) else {}
-                for k, v in value.items():
-                    if v is None:
-                        current.pop(str(k), None)
-                    else:
-                        current[str(k)] = str(v)
-                entry["dismissalAliases"] = current
-            else:
-                entry[str(field)] = value
-        _prune_expired_dismissals(entry)
-        _write_row(conn, username, entry)
-        return dict(entry)
-    finally:
-        conn.close()
+    return _mutate_user_state(username, lambda entry: _apply_patch(entry, patch), path=path)
+
+
+def set_league_scoped_entry(
+    username: str,
+    field: str,
+    league_key: str,
+    value: Any,
+    *,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Replace ONE league's entry under a ``{leagueKey: ...}`` map field.
+
+    Every other league's entry -- and every other field -- is preserved: the
+    read, the edit and the write happen inside one ``BEGIN IMMEDIATE``
+    transaction (see :func:`_begin_write`), so a concurrent writer can neither
+    be overwritten by nor overwrite this one.  ``None`` removes that league's
+    entry; an empty map removes the field entirely, so "nothing stored" stays
+    distinguishable from "an empty map".
+
+    Callers own validation and canonicalisation of ``league_key`` (it must
+    already be a registry key) and of ``value``.
+    """
+    key = str(league_key or "").strip()
+    if not username or not key or not field:
+        return get_user_state(username, path=path)
+
+    def _replace(entry: dict[str, Any]) -> None:
+        current = entry.get(str(field))
+        by_league = dict(current) if isinstance(current, dict) else {}
+        if value is None:
+            by_league.pop(key, None)
+        else:
+            by_league[key] = value
+        if by_league:
+            entry[str(field)] = by_league
+        else:
+            entry.pop(str(field), None)
+
+    return _mutate_user_state(username, _replace, path=path)
 
 
 def _merge_per_league_dismissals(
@@ -466,20 +543,26 @@ def dismiss_signal(
     if not username or not signal_key:
         return get_user_state(username, path=path)
     expires_at = _now_ms() + max(1_000, int(ttl_ms))
-    patch: dict[str, Any] = {}
     key = str(league_key or "").strip()
-    if key:
-        existing = get_user_state(username, path=path).get("dismissedSignalsByLeague")
-        patch["dismissedSignalsByLeague"] = _merge_per_league_dismissals(
-            existing,
-            key,
-            add={str(signal_key): expires_at},
-        )
-    else:
-        patch["dismissedSignals"] = {str(signal_key): expires_at}
-    if alias_sleeper_id and alias_display_name:
-        patch["dismissalAliases"] = {str(alias_display_name): str(alias_sleeper_id)}
-    return merge_user_state(username, patch, path=path)
+
+    def _dismiss(entry: dict[str, Any]) -> None:
+        # The per-league merge reads the CURRENT map inside the write
+        # transaction; a separate read beforehand would rebuild the map from a
+        # stale copy and drop a concurrent dismissal.
+        patch: dict[str, Any] = {}
+        if key:
+            patch["dismissedSignalsByLeague"] = _merge_per_league_dismissals(
+                entry.get("dismissedSignalsByLeague"),
+                key,
+                add={str(signal_key): expires_at},
+            )
+        else:
+            patch["dismissedSignals"] = {str(signal_key): expires_at}
+        if alias_sleeper_id and alias_display_name:
+            patch["dismissalAliases"] = {str(alias_display_name): str(alias_sleeper_id)}
+        _apply_patch(entry, patch)
+
+    return _mutate_user_state(username, _dismiss, path=path)
 
 
 def undismiss_signal(
@@ -498,6 +581,7 @@ def undismiss_signal(
         return get_user_state(username, path=path)
     conn = _connect(path)
     try:
+        _begin_write(conn)
         entry = _read_row(conn, username)
         changed = False
         key = str(league_key or "").strip()

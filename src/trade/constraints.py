@@ -62,13 +62,18 @@ from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = [
     "ConstraintResolutionError",
+    "MAX_PERSISTENT_PROTECTED_NFL_TEAMS",
+    "MAX_PERSISTENT_PROTECTED_PLAYERS",
     "TradeConstraints",
     "UNRESOLVED",
     "blocked_outgoing",
     "constraint_key",
     "outgoing_eligibility",
     "partition_sendable",
+    "protectable_nfl_teams",
     "resolve_constraints",
+    "unresolved_protected_players",
+    "validate_persistent_protection",
 ]
 
 
@@ -221,21 +226,228 @@ def _team_index(contract: Mapping[str, Any] | None) -> dict[str, str]:
     rule, which is what makes §2.2's dynamic requirement hold: a player who
     joins the protected team becomes protected, and one who leaves stops being
     protected by the TEAM rule, with no stored state to migrate.
+
+    A key carried by rows on DIFFERENT teams (or by a row with no team) is
+    ambiguous — e.g. a QB and a DL who share a display name.  It maps to ``""``,
+    which :meth:`TradeConstraints._keys_for` skips, so a name-only asset
+    resolves to an UNKNOWN team and fails closed while a team rule is active.
+    The retired first-row-wins rule picked whichever row came first and could
+    clear a protected player under his namesake's team.
     """
 
     rows = (contract or {}).get("playersArray") if isinstance(contract, Mapping) else None
-    out: dict[str, str] = {}
+    teams_by_key: dict[str, set[str]] = {}
     for row in rows or []:
         if not isinstance(row, Mapping):
             continue
         team = str(row.get("team") or "").strip().upper()
-        if not team:
+        keys = {
+            constraint_key(candidate)
+            for candidate in (row.get("displayName"), row.get("canonicalName"), row.get("playerId"))
+        }
+        for key in keys:
+            if key:
+                teams_by_key.setdefault(key, set()).add(team)
+    out: dict[str, str] = {}
+    for key, teams in teams_by_key.items():
+        if len(teams) == 1:
+            (team,) = teams
+            if team:
+                out[key] = team
+        else:
+            out[key] = ""  # ambiguous: never resolve a team from this key
+    return out
+
+
+# ── Persistent protection: the WRITE-side shape (C3-CON-02) ───────────────
+#
+# ``resolve_constraints`` reads a stored ``{"untouchables": [...],
+# "nflTeams": [...]}`` block.  What may be STORED in it is decided here too,
+# so the reader and the writer cannot disagree about vocabulary: a stored
+# value either resolves to something this owner will later match, or it is
+# refused at write time.  Two facts make that strict rather than permissive:
+#
+# * An untouchable is matched by :func:`constraint_key` against the board's
+#   own ``displayName`` / ``canonicalName``.  So a name is accepted only when it
+#   IS a board player row under that exact key — no fuzzy matching here (a
+#   fuzzy guess is an identity decision, and identity has its own owner).  The
+#   board's own spelling is what gets stored.
+# * An NFL-team rule is matched against the board row's ``team`` string.  A
+#   code the board never carries ("JAC" when the board says "JAX") would be
+#   stored, look configured, and protect nobody — so only codes the canonical
+#   board actually carries are accepted.  ``FA`` is not an NFL team.
+
+#: Upper bound on individually protected players per (user, league).
+MAX_PERSISTENT_PROTECTED_PLAYERS = 100
+#: Upper bound on the submitted NFL-team list (32 teams, plus slack for
+#: duplicates); anything longer is refused before it is examined.
+MAX_PERSISTENT_PROTECTED_NFL_TEAMS = 40
+
+_NOT_AN_NFL_TEAM = frozenset({"FA", ""})
+
+
+def _board_rows(contract: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    rows = contract.get("playersArray") if isinstance(contract, Mapping) else None
+    return [r for r in (rows or []) if isinstance(r, Mapping)]
+
+
+def _row_is_pick(row: Mapping[str, Any]) -> bool:
+    position = row.get("position") or row.get("pos") or row.get("basePos")
+    return str(position or "").strip().upper() == "PICK" or (
+        str(row.get("assetClass") or "").strip().lower() == "pick"
+    )
+
+
+def protectable_nfl_teams(contract: Mapping[str, Any] | None) -> frozenset[str]:
+    """NFL team codes an outgoing team rule can actually match on this board.
+
+    Read from the canonical board's player rows — the same ``team`` field
+    :func:`_team_index` resolves against — so the write vocabulary is exactly
+    the read vocabulary.  Empty when no board is available, which callers must
+    treat as UNKNOWN (refuse to validate), never as "no teams exist".
+    """
+
+    out: set[str] = set()
+    for row in _board_rows(contract):
+        if _row_is_pick(row):
             continue
-        for candidate in (row.get("displayName"), row.get("canonicalName"), row.get("playerId")):
+        team = str(row.get("team") or "").strip().upper()
+        if team not in _NOT_AN_NFL_TEAM:
+            out.add(team)
+    return frozenset(out)
+
+
+def _player_index(contract: Mapping[str, Any] | None) -> dict[str, str]:
+    """``constraint_key -> board displayName`` for every non-pick board row."""
+
+    out: dict[str, str] = {}
+    for row in _board_rows(contract):
+        if _row_is_pick(row):
+            continue
+        display = str(row.get("displayName") or row.get("canonicalName") or "").strip()
+        if not display:
+            continue
+        for candidate in (row.get("displayName"), row.get("canonicalName")):
             key = constraint_key(candidate)
             if key:
-                out.setdefault(key, team)
+                out.setdefault(key, display)
     return out
+
+
+def _pick_keys(contract: Mapping[str, Any] | None) -> frozenset[str]:
+    keys: set[str] = set()
+    for row in _board_rows(contract):
+        if _row_is_pick(row):
+            for candidate in (row.get("displayName"), row.get("canonicalName")):
+                key = constraint_key(candidate)
+                if key:
+                    keys.add(key)
+    return frozenset(keys)
+
+
+def validate_persistent_protection(
+    raw: Mapping[str, Any] | None,
+    *,
+    contract: Mapping[str, Any] | None,
+) -> tuple[dict[str, list[str]] | None, list[dict[str, Any]]]:
+    """Validate a proposed persistent block; ``(clean_block, errors)``.
+
+    ``clean_block`` is ``None`` whenever ``errors`` is non-empty — the write is
+    all-or-nothing, because storing the valid half of a rejected request would
+    leave the user believing a protection exists that they never saw saved.
+
+    The clean block is canonical and order-free (board spellings, upper-case
+    team codes, de-duplicated, sorted), so writing the same request twice
+    stores the same bytes.  An entirely empty block is a legitimate answer —
+    "nothing protected" — and comes back as ``{"untouchables": [],
+    "nflTeams": []}``; the caller decides whether that clears storage.
+    """
+
+    errors: list[dict[str, Any]] = []
+    if not isinstance(raw, Mapping):
+        return None, [{"field": None, "value": None, "reason": "not_an_object"}]
+
+    untouchables_raw = raw.get("untouchables")
+    teams_raw = raw.get("nflTeams")
+    for field_name, value in (("untouchables", untouchables_raw), ("nflTeams", teams_raw)):
+        if not isinstance(value, list):
+            errors.append({"field": field_name, "value": None, "reason": "not_a_list"})
+    if errors:
+        return None, errors
+
+    for field_name, values, cap in (
+        ("untouchables", untouchables_raw, MAX_PERSISTENT_PROTECTED_PLAYERS),
+        ("nflTeams", teams_raw, MAX_PERSISTENT_PROTECTED_NFL_TEAMS),
+    ):
+        if len(values) > cap:
+            errors.append({"field": field_name, "value": len(values), "reason": "too_many"})
+    if errors:
+        return None, errors
+
+    for field_name, values in (("untouchables", untouchables_raw), ("nflTeams", teams_raw)):
+        for value in values:
+            if not isinstance(value, str) or not value.strip():
+                errors.append({"field": field_name, "value": value, "reason": "not_a_string"})
+    if errors:
+        return None, errors
+
+    if not untouchables_raw and not teams_raw:
+        return {"untouchables": [], "nflTeams": []}, []
+
+    players = _player_index(contract)
+    teams_known = protectable_nfl_teams(contract)
+    if not players and not teams_known:
+        # No board to check against.  Refuse rather than store something we
+        # cannot prove this owner will ever match.
+        return None, [{"field": None, "value": None, "reason": "board_unavailable"}]
+
+    picks = _pick_keys(contract)
+    clean_players: dict[str, str] = {}
+    for value in untouchables_raw:
+        key = constraint_key(value)
+        display = players.get(key)
+        if display is not None:
+            clean_players.setdefault(constraint_key(display), display)
+        elif key in picks:
+            errors.append({"field": "untouchables", "value": value, "reason": "not_a_player"})
+        else:
+            errors.append({"field": "untouchables", "value": value, "reason": "unknown_player"})
+
+    clean_teams: set[str] = set()
+    for value in teams_raw:
+        code = value.strip().upper()
+        if code in teams_known:
+            clean_teams.add(code)
+        else:
+            errors.append({"field": "nflTeams", "value": value, "reason": "unknown_nfl_team"})
+
+    if errors:
+        return None, errors
+    return {
+        "untouchables": sorted(clean_players.values(), key=constraint_key),
+        "nflTeams": sorted(clean_teams),
+    }, []
+
+
+def unresolved_protected_players(
+    persistent: Mapping[str, Any] | None,
+    contract: Mapping[str, Any] | None,
+) -> list[str] | None:
+    """Stored untouchables the current board no longer carries.
+
+    Reported, never dropped: the rule still blocks that name if he reappears,
+    and silently deleting a user's protection because one scrape missed him
+    would be the opposite of fail-closed.  ``None`` when there is no board to
+    compare against — unknown, not "all resolved".
+    """
+
+    players = _player_index(contract)
+    if not players:
+        return None
+    stored = (persistent or {}).get("untouchables") or []
+    return [
+        str(name) for name in stored if constraint_key(name) and constraint_key(name) not in players
+    ]
 
 
 def _as_key_set(values: Iterable[Any] | None) -> frozenset[str]:
@@ -350,6 +562,25 @@ def blocked_outgoing(
     return out
 
 
+def _first_field(asset: Any, names: Sequence[str]) -> str:
+    """First non-empty field, from a mapping (``.get``) or an object (attribute)."""
+    for name in names:
+        got = asset.get(name) if isinstance(asset, Mapping) else getattr(asset, name, None)
+        if got:
+            return str(got)
+    return ""
+
+
+def _blocked_by_name(constraints: TradeConstraints, reason: str, name: str) -> bool:
+    """Whether ``reason`` was decided by the asset's NAME (not its id or team)."""
+    key = constraint_key(name)
+    if reason == "protected_individual":
+        return key in constraints.protected_outgoing
+    if reason == "excluded_temporary":
+        return key in constraints.excluded_outgoing
+    return False
+
+
 def outgoing_eligibility(
     pool: Sequence[Any],
     constraints: TradeConstraints | None,
@@ -384,15 +615,42 @@ def outgoing_eligibility(
     if constraints is None or not constraints.active:
         return UNCONSTRAINED_OUTGOING
 
-    adapted = adapt_assets(pool)
+    # Pools arrive as attribute objects (finder's Asset) OR plain mappings
+    # (angle's acquire pool).  ``adapt_assets``' defaults read attributes only,
+    # so a mapping projected to name "" and key "name:" — the exclusion set
+    # named nothing the generator enumerates and a saved protection was silently
+    # ignored.  Read both shapes here, at the owner, rather than in each caller.
+    adapted = adapt_assets(
+        pool,
+        id_of=lambda a: _first_field(
+            a, ("asset_id", "assetId", "player_id", "playerId", "canonical_asset_id")
+        ),
+        name_of=lambda a: _first_field(a, ("name", "displayName", "canonicalName")),
+        position_of=lambda a: _first_field(a, ("position", "pos")),
+    )
     excluded: set[str] = set()
     for view in adapted:
         # Decide on the CALLER's object where there is one: it carries the NFL
         # team, and the substrate's projection deliberately does not.  The
         # owner's key resolution accepts either.
         subject = view.source if view.source is not None else view
-        if constraints.block_reason(subject) is not None:
+        reason = constraints.block_reason(subject)
+        if reason is not None:
             excluded.add(view.key)
+            # A caller may project the same object differently (angle keys its
+            # dict entries by NAME even when an id exists), so also exclude the
+            # other identity forms — but only the forms the owner's decision
+            # actually rests on.  An id names exactly this asset, so its form is
+            # always safe.  A NAME form is added only when the rule matched the
+            # name itself: a team-rule or id-keyed block must not spill onto a
+            # same-name, id-less namesake the owner would let through, or
+            # ``blocked_outgoing`` and enforcement would disagree.
+            aid = (view.asset_id or "").strip().lower()
+            if aid:
+                excluded.add(f"id:{aid}")
+            name = (view.name or "").strip().lower()
+            if name and _blocked_by_name(constraints, reason, name):
+                excluded.add(f"name:{name}")
 
     policy = base if isinstance(base, EligibilityPolicy) else EligibilityPolicy()
     return replace(policy, excluded_keys=frozenset(policy.excluded_keys) | excluded)

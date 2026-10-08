@@ -9694,12 +9694,13 @@ def _constraints_for_request(
     ``src/trade/constraints``; this only resolves its inputs.
 
     **Read-only plumbing.**  It reads a stored per-(user, league) protection
-    block if one exists and never writes one — the storage service and the UI
-    that would populate it are ``C3-CON-02`` / ``C3-CON-03``, separate rows.
-    Until those land this resolves to "nothing configured" for every user, which
-    is a legitimate answer and NOT a failure: §7 acceptance 12 and the owner's
-    own ``test_no_configured_preference_is_not_a_failure`` both turn on that
-    distinction.
+    block if one exists and never writes one.  The writer is
+    ``PUT /api/user/trade-protections`` (C3-CON-02), which stores only what
+    ``constraints.validate_persistent_protection`` accepts.  A user who never
+    saved anything resolves to "nothing configured", which is a legitimate
+    answer and NOT a failure: §7 acceptance 12 and the owner's own
+    ``test_no_configured_preference_is_not_a_failure`` both turn on that
+    distinction.  Temporary LOCK/EXCLUDE refinement is ``C3-CON-03``.
 
     Fail-closed is reserved for genuinely not knowing.  An anonymous request has
     no protections, which is knowable; a store that RAISES is not, and returns
@@ -9716,7 +9717,7 @@ def _constraints_for_request(
             username = str(session.get("username") or "").strip()
             if username:
                 state = _user_kv.get_user_state(username) or {}
-                by_league = state.get("tradeConstraintsByLeague") or {}
+                by_league = state.get(_TRADE_PROTECTIONS_FIELD) or {}
                 if isinstance(by_league, dict) and league_key:
                     block = by_league.get(league_key)
                     if isinstance(block, dict):
@@ -14019,6 +14020,159 @@ async def put_user_state_api(request: Request):
     state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
     return JSONResponse(
         content={"username": username, "state": state},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+# ── Persistent trade protections (C3-CON-02) ──────────────────────
+# The WRITER for ``user_kv.tradeConstraintsByLeague[leagueKey]``, which
+# ``_constraints_for_request`` reads for every generated-trade surface.
+# Shape, vocabulary and canonicalisation are decided by the constraint owner
+# (``src/trade/constraints.validate_persistent_protection``); this only
+# authenticates, resolves the league and stores.
+#
+# Scope is (user, leagueKey) — never scoringProfile, never a Sleeper id.  The
+# league must be NAMED: a write that silently landed on the user's active or
+# the registry's default league would protect players in a league the user did
+# not mean, and a read the same way would show them the wrong league's rules.
+
+#
+# Validation runs against the LOADED board (``latest_contract_data``) even when
+# the request names a different league than the one whose contract is loaded.
+# That is deliberate, not a leak: the two things validated — player identity
+# and NFL-team codes — are NFL-wide, not league- or scoring-scoped, so every
+# league's board carries the same players and teams.  Only the STORAGE key is
+# league-scoped.
+
+_TRADE_PROTECTIONS_FIELD = "tradeConstraintsByLeague"
+_TRADE_PROTECTIONS_BODY_KEYS = frozenset({"leagueKey", "untouchables", "nflTeams"})
+#: A rejected request echoes at most this many per-item errors (the rest are
+#: counted in ``errorsTruncated``), so a hostile body cannot amplify a reply.
+_TRADE_PROTECTIONS_MAX_ECHOED_ERRORS = 20
+
+
+def _trade_protections_payload(league_key: str, block: Any) -> dict:
+    from src.trade.constraints import protectable_nfl_teams, unresolved_protected_players
+
+    stored = block if isinstance(block, dict) else None
+    contract = latest_contract_data if isinstance(latest_contract_data, dict) else None
+    team_options = sorted(protectable_nfl_teams(contract))
+    return {
+        "leagueKey": league_key,
+        "configured": stored is not None,
+        "untouchables": list((stored or {}).get("untouchables") or []),
+        "nflTeams": list((stored or {}).get("nflTeams") or []),
+        # The vocabulary a write is validated against; ``None`` means no board
+        # is loaded, so a write naming anything will be refused (503).
+        "nflTeamOptions": team_options or None,
+        "unresolvedUntouchables": unresolved_protected_players(stored, contract),
+    }
+
+
+def _trade_protections_league(request: Request, body: dict | None = None):
+    """``(league_cfg, None)`` or ``(None, error JSONResponse)``."""
+    explicit = (request.query_params.get("leagueKey") or "").strip()
+    if not explicit and isinstance(body, dict):
+        explicit = str(body.get("leagueKey") or "").strip()
+    if not explicit:
+        return None, JSONResponse(
+            status_code=400,
+            content={
+                "error": "league_key_required",
+                "message": "Trade protections are per league; name the leagueKey.",
+            },
+        )
+    try:
+        return _resolve_league_for_request(request, body=body), None
+    except LeagueResolutionError as err:
+        return None, err.json_response()
+
+
+@app.get("/api/user/trade-protections")
+async def get_trade_protections(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    league_cfg, err = _trade_protections_league(request)
+    if err is not None:
+        return err
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    by_league = state.get(_TRADE_PROTECTIONS_FIELD)
+    block = by_league.get(league_cfg.key) if isinstance(by_league, dict) else None
+    return JSONResponse(
+        content=_trade_protections_payload(league_cfg.key, block),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.put("/api/user/trade-protections")
+async def put_trade_protections(request: Request):
+    """Replace this user's protections for ONE league (idempotent).
+
+    Body: ``{"leagueKey", "untouchables": [player name], "nflTeams": [code]}``.
+    Both lists are required; two empty lists clear the league's entry.  Other
+    leagues' entries are never touched.
+    """
+    from src.trade.constraints import validate_persistent_protection
+
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if session.get("auth_method") == "guest_pass":
+        # Every guest-pass session shares the literal username "guest", so a
+        # guest's protections would silently become every other guest's.
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "guest_read_only",
+                "message": "Guest passes cannot save personal trade protections.",
+            },
+        )
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    unknown = sorted(str(k) for k in body if k not in _TRADE_PROTECTIONS_BODY_KEYS)
+    if unknown:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_body", "unknownFields": unknown},
+        )
+    league_cfg, err = _trade_protections_league(request, body)
+    if err is not None:
+        return err
+
+    contract = latest_contract_data if isinstance(latest_contract_data, dict) else None
+    clean, errors = validate_persistent_protection(body, contract=contract)
+    if errors:
+        if any(e.get("reason") == "board_unavailable" for e in errors):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": "No board is loaded to validate protections against.",
+                },
+            )
+        shown = errors[:_TRADE_PROTECTIONS_MAX_ECHOED_ERRORS]
+        content: dict = {"error": "invalid_protection", "errors": shown}
+        if len(errors) > len(shown):
+            content["errorsTruncated"] = len(errors) - len(shown)
+        return JSONResponse(status_code=400, content=content)
+
+    stored = clean if (clean["untouchables"] or clean["nflTeams"]) else None
+    await run_in_threadpool(
+        _user_kv.set_league_scoped_entry,
+        username,
+        _TRADE_PROTECTIONS_FIELD,
+        league_cfg.key,
+        stored,
+    )
+    return JSONResponse(
+        content=_trade_protections_payload(league_cfg.key, stored),
         headers={"Cache-Control": "no-store"},
     )
 
