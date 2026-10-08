@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from src.api import league_registry
+
 from . import (
     activity,
     archives,
@@ -403,6 +405,36 @@ def _league_header(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     }
 
 
+def public_league_key(root_league_id: str | None) -> str | None:
+    """The stable registry ``key`` of the league a snapshot describes.
+
+    Every league-aware endpoint names the league it answered for
+    (CLAUDE.md "League-aware routing"); the public-league responses did
+    not, so a caller served another league's payload could not tell.
+    The answer is the REGISTRY key, resolved by the registry's own
+    reverse lookup — never the raw Sleeper id, which changes every season
+    as Sleeper chains leagues.  ``None`` when the registry cannot name
+    the snapshot's league: unknown is published as unknown, never as the
+    default league's key and never as a best guess.
+    """
+    return league_registry.league_key_for_sleeper_id(root_league_id)
+
+
+def public_envelope(contract_version: str, league_header: dict[str, Any]) -> dict[str, Any]:
+    """The head every public-league JSON response starts with.
+
+    The ONE place ``leagueKey`` is stamped onto the full contract, every
+    section payload and the activity serving body, derived from the same
+    ``league`` header the response already carries so the two cannot
+    disagree.
+    """
+    return {
+        "contractVersion": contract_version,
+        "leagueKey": public_league_key(league_header.get("rootLeagueId")),
+        "league": league_header,
+    }
+
+
 def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) -> dict[str, Any]:
     # The landing card reads the CANONICAL power engine (V1-52 item D).
     # The legacy engine (``src/public_league/power.py``) this used to read
@@ -465,8 +497,7 @@ def activity_serving_payload(
     served.
     """
     payload = {
-        "contractVersion": contract_version,
-        "league": league_header,
+        **public_envelope(contract_version, league_header),
         "section": "activity",
         "data": activity.serving_view(section_body),
     }
@@ -544,10 +575,8 @@ def build_section_payload(
         section_body = _LAZY_SECTION_BUILDERS[section](snapshot)
     else:
         raise KeyError(f"Unknown public-league section: {section!r}")
-    header = _league_header(snapshot)
     payload = {
-        "contractVersion": PUBLIC_CONTRACT_VERSION,
-        "league": header,
+        **public_envelope(PUBLIC_CONTRACT_VERSION, _league_header(snapshot)),
         "section": section,
         "data": section_body,
     }
@@ -578,8 +607,7 @@ def build_public_contract(
             sections[key] = builder(snapshot)
     sections[OVERVIEW_SECTION] = _build_overview(snapshot, sections)
     payload = {
-        "contractVersion": PUBLIC_CONTRACT_VERSION,
-        "league": header,
+        **public_envelope(PUBLIC_CONTRACT_VERSION, header),
         "sections": sections,
         "sectionKeys": list(PUBLIC_SECTION_KEYS),
     }
