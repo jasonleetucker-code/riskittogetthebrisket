@@ -470,6 +470,12 @@ def test_deploy_and_rollback_assert_no_route_cache_before_next_starts():
     deploy = _shell_function(
         (repo / "deploy/deploy.sh").read_text(encoding="utf-8"), "deploy_frontend_atomic"
     )
+    stop = deploy.index('"${SYSTEMCTL_BIN}" stop "${frontend_name}"')
+    # Staging is refused BEFORE the stop, so a refusal leaves the old frontend serving.
+    staged = deploy.index('if [[ -e "${staging_dir}/server/route-cache"')
+    assert staged < stop
+    assert "exit 1" in deploy[staged:stop]
+    # ...and the live dir is re-checked between the swap and the start.
     guard = deploy.index('if [[ -e "${live_dir}/server/route-cache"')
     assert deploy.index('mv "${staging_dir}" "${live_dir}"') < guard
     assert guard < deploy.index('"${SYSTEMCTL_BIN}" start "${frontend_name}"')
@@ -477,6 +483,7 @@ def test_deploy_and_rollback_assert_no_route_cache_before_next_starts():
 
     rollback = (repo / "deploy/rollback.sh").read_text(encoding="utf-8")
     guard = rollback.index('if [[ -e "${staging_dir}/server/route-cache"')
+    assert guard < rollback.index('"${SYSTEMCTL_BIN}" stop "${frontend_name}"')
     assert guard < rollback.index('mv "${staging_dir}" "${live_dir}"')
     assert guard < rollback.index('"${SYSTEMCTL_BIN}" start "${frontend_name}"')
     assert "return 1" in rollback[guard : rollback.index('mv "${staging_dir}" "${live_dir}"')]
