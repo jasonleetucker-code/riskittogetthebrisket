@@ -601,6 +601,18 @@
       "id": "SIG-IDP-GATE-2026-10-03",
       "reason": "Signals On-Box Verification (collect) run 37732469435 on deployed bc51e7e2d SUCCESS: collector healthy (consecutiveFailures 0), offense voteState active (votes true), IDP families present but held in shadow (shared_market_crosswalk_in_shadow_pending_promotion; votesWhenPromoted DL 147 / LB 101 reported).",
       "nextAction": "Append that run's results to SIGNALS_FANTASY_INTEGRATION.md §10.8, independent review, verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
+    },
+    {
+      "id": "PICK-PROJECTOR-1652",
+      "reason": "train 1 (#1686, merge 37ccfbb68) deployed by deploy run 37689853189 SUCCESS (2026-10-07) and served (/api/status build.commit 37ccfbb68 recorded in the CLEANUP-1 override); its code remains served in train 2's bc51e7e2d (deploy run 37726496110). Not production-verified: no authenticated read of /api/ros/pick-projections has been recorded (the V1 prod-auth specs do not cover it).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "nextAction": "Authenticated production GET /api/ros/pick-projections?leagueKey=dynasty_main shows meta.source == season_simulation."
+    },
+    {
+      "id": "#1652",
+      "reason": "train 1 (#1686, merge 37ccfbb68) deployed by deploy run 37689853189 SUCCESS (2026-10-07) and served (/api/status build.commit 37ccfbb68 recorded in the CLEANUP-1 override); its code remains served in train 2's bc51e7e2d (deploy run 37726496110). Not production-verified: no authenticated read of /api/ros/pick-projections has been recorded (the V1 prod-auth specs do not cover it).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "nextAction": "Authenticated production GET /api/ros/pick-projections?leagueKey=dynasty_main shows meta.source == season_simulation."
     }
   ],
   "ownerAsks": [
