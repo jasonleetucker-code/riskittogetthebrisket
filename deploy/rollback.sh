@@ -863,9 +863,13 @@ verify_live_release_with_preserved_verifier() {
     return 1
   fi
   log "Verifying the live frontend with the pre-rollback revision's release verifier."
+  # -E: ignore every PYTHON* variable (PYTHONPATH, PYTHONSAFEPATH, PYTHONSTARTUP,
+  # ...); -s/-S: no user or system site-packages, so no installed `scripts` or
+  # `src` package can shadow the copy -- safe because the closure is stdlib-only.
+  # NOT -I: `-m` must keep the copy's directory (cwd) first on sys.path.
   (
     cd "${RELEASE_VERIFIER_DIR}" &&
-      env -u PYTHONPATH python3 -s -m scripts.release_artifact verify \
+      python3 -E -s -S -m scripts.release_artifact verify \
         --root "${APP_DIR}" --manifest "${manifest}" --commit "${commit}"
   )
 }

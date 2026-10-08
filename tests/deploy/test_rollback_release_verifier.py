@@ -22,12 +22,17 @@ from pathlib import Path
 
 import pytest
 
-from src.api.build_identity import _ARTIFACT_ID_KEYS, _frontend_tree_digest
+from src.api.build_identity import _artifact_id, _frontend_tree_digest
 
 REPO = Path(__file__).resolve().parents[2]
 ROLLBACK_SH = REPO / "deploy/rollback.sh"
 SHA = "c" * 40
 TARGET_VERIFIER_MARKER = "TARGET REVISION VERIFIER WAS USED"
+HOSTILE_MARKER = "HOSTILE PYTHON ENVIRONMENT CODE RAN"
+# Produced by the PRE-#1707 src/api/build_identity.py (origin/main 1d0438520)
+# for the tree _legacy_release builds -- i.e. what a saved pre-fix manifest says.
+GOLDEN_LEGACY_TREE_DIGEST = "891b189d6b38ce487321829a74759d89b37371ea3da471709717f0580cb45a87"
+GOLDEN_LEGACY_ARTIFACT_ID = "33603033b905a3a1c87e47b16e529c1fd9204b1741c2f7336e23029af685d82c"
 
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
 
@@ -90,13 +95,13 @@ def _legacy_release(app_dir: Path) -> tuple[Path, str]:
         "python_abi": "cpython-3.12",
         "node_version": "v20.19.0",
         "next_build_id": "legacy-build",
-        "frontend_tree_sha256": _frontend_tree_digest(build),
+        # GOLDEN, not computed with this PR's own legacy mode: the value the
+        # pre-#1707 build_identity.py (origin/main at 1d0438520) produces for
+        # exactly this tree.
+        "frontend_tree_sha256": GOLDEN_LEGACY_TREE_DIGEST,
         "backend_artifact_sha256": None,
     }
-    encoded = json.dumps(
-        {key: identity[key] for key in _ARTIFACT_ID_KEYS}, sort_keys=True, separators=(",", ":")
-    ).encode()
-    artifact_id = hashlib.sha256(encoded).hexdigest()
+    artifact_id = GOLDEN_LEGACY_ARTIFACT_ID
     manifest = app_dir / "state/staged_release_manifest.json"
     manifest.parent.mkdir()
     manifest.write_text(
@@ -120,7 +125,47 @@ def _serve_traffic(app_dir: Path, name: str = "login.html") -> None:
     (cache / name).write_bytes(b"runtime response")
 
 
-def _run(app_dir: Path, tmp_path: Path, manifest: Path, *, preserve: bool):
+def _hostile_python_environment(tmp_path: Path) -> str:
+    """Exports that would hijack an unisolated `python3 -m scripts...`.
+
+    * PYTHONPATH -> a directory holding a hostile ``scripts`` package;
+    * PYTHONSAFEPATH=1 -> would drop the copy's directory from sys.path;
+    * PYTHONHOME -> nonexistent, would break the interpreter outright;
+    * PYTHONUSERBASE -> a user site-packages holding a hostile ``scripts``
+      package AND a ``.pth`` file whose ``import`` line runs at startup.
+    """
+    hostile = tmp_path / "hostile"
+    package = hostile / "path/scripts"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    payload = f"import sys; print({HOSTILE_MARKER!r}); sys.exit(0)\n"
+    (package / "release_artifact.py").write_text(payload, encoding="utf-8")
+    userbase = hostile / "userbase"
+    usersite = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"PYTHONUSERBASE={userbase.as_posix()} python3 -c "
+            "'import site; print(site.getusersitepackages())'",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    site_dir = Path(usersite)
+    (site_dir / "scripts").mkdir(parents=True)
+    (site_dir / "scripts/__init__.py").write_text("", encoding="utf-8")
+    (site_dir / "scripts/release_artifact.py").write_text(payload, encoding="utf-8")
+    (site_dir / "hostile.pth").write_text(payload, encoding="utf-8")
+    return textwrap.dedent(f"""\
+        export PYTHONPATH={(hostile / "path").as_posix()}
+        export PYTHONSAFEPATH=1
+        export PYTHONHOME={(hostile / "no-such-home").as_posix()}
+        export PYTHONUSERBASE={userbase.as_posix()}
+        """)
+
+
+def _run(app_dir: Path, tmp_path: Path, manifest: Path, *, preserve: bool, hostile_env: str = ""):
     """Preserve (or not), then check out the target, then run the post-start verify."""
     target_copy = tmp_path / "target_build_identity.py"
     target_copy.write_text(f"raise SystemExit({TARGET_VERIFIER_MARKER!r})", encoding="utf-8")
@@ -129,6 +174,9 @@ def _run(app_dir: Path, tmp_path: Path, manifest: Path, *, preserve: bool):
         export APP_DIR={app_dir.as_posix()}
         export TMPDIR={tmp_path.as_posix()}
         source {ROLLBACK_SH.as_posix()}
+        """)
+    driver += hostile_env
+    driver += textwrap.dedent(f"""\
         {"preserve_release_verifier" if preserve else ":"}
         cp {target_copy.as_posix()} {(app_dir / "src/api/build_identity.py").as_posix()}
         rc=0
@@ -171,3 +219,26 @@ def test_the_preserved_verifier_still_refuses_an_undeclared_route_cache_entry(ta
     result = _run(app_dir, tmp_path, manifest, preserve=True)
     assert "FUNC_RC=1" in result.stdout, result.stdout + result.stderr
     assert "undeclared entry" in result.stderr
+
+
+def test_a_hostile_python_environment_cannot_hijack_the_preserved_verifier(target, tmp_path):
+    """-E -s -S: no PYTHON* variable, user site or .pth file reaches the verify."""
+    app_dir, manifest, artifact_id = target
+    result = _run(
+        app_dir,
+        tmp_path,
+        manifest,
+        preserve=True,
+        hostile_env=_hostile_python_environment(tmp_path),
+    )
+    assert HOSTILE_MARKER not in result.stdout + result.stderr
+    assert "FUNC_RC=0" in result.stdout, result.stdout + result.stderr
+    assert artifact_id in result.stdout
+
+
+def test_golden_legacy_values_match_the_live_legacy_mode(tmp_path):
+    """The golden pins and this PR's legacy algorithm agree on a cache-free tree."""
+    manifest, artifact_id = _legacy_release(tmp_path / "app")
+    identity = json.loads(manifest.read_text(encoding="utf-8"))["identity"]
+    assert _frontend_tree_digest(tmp_path / "app/frontend/.next") == GOLDEN_LEGACY_TREE_DIGEST
+    assert _artifact_id(identity) == GOLDEN_LEGACY_ARTIFACT_ID == artifact_id
