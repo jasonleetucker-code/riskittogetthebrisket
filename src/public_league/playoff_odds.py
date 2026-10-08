@@ -23,9 +23,11 @@ The section therefore INHERITS the canonical engine's methodology exactly,
 including the open owner decision D2 (the ROS multiplier on top of a ROS-drawn
 best-ball pre-sim, ``docs/OWNER_REQUESTED_TODO.md``).  D3 is CLOSED as a
 factual defect (TODO-2026-09-26-D3): when the league counts a weekly median
-game (``league_average_match``), the record to date, every simulated week,
-seeding and draft order count it exactly as the host does
-(:func:`median_game_rule`, :func:`regular_season_standings_to_date`).
+game (``league_average_match``), the record to date, every simulated week and
+seeding count it exactly as the host does (:func:`median_game_rule`,
+:func:`regular_season_standings_to_date`).  The draft-slot forecast keeps the
+head-to-head record until the owner says the draft rule counts median games
+(``playoff_sim.DRAFT_ORDER_RECORD_BASIS``).
 
 What stays here, because other owners import it and it is FACT rather than
 model: the finished-week gate (``_final_week_set``), the record to date
@@ -191,8 +193,9 @@ def median_game_rule(season: Any) -> dict[str, Any]:
                            (``median_setting_unknown``), or the median is on in
                            a league whose size the host's documentation does
                            not cover (``median_threshold_unverified_for_league_size``).
-                           The median is NOT counted, and the reason travels
-                           with every standings-dependent output — never silently.
+                           The median is NOT counted in the record, which is
+                           labelled with the reason; the canonical engine
+                           refuses every standings-dependent forecast.
     """
     from src.ros.game_day_sim import (  # noqa: PLC0415
         THRESHOLD_SEMANTICS,
@@ -209,9 +212,9 @@ def median_game_rule(season: Any) -> dict[str, Any]:
             "reason": "median_setting_unknown",
             "detail": (
                 "this league's settings do not say whether a weekly median game "
-                "counts in the standings (league_average_match), so records, "
-                "seeding and draft order are computed from head-to-head games "
-                "only and may not match the host's standings."
+                "counts in the standings (league_average_match), so this record "
+                "counts head-to-head games only and may not match the host's "
+                "standings; seeding, playoff and draft-slot odds are withheld."
             ),
         }
     teams = _league_team_count(season)

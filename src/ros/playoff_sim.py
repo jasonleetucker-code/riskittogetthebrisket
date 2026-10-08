@@ -31,10 +31,14 @@ methodology change: when the league counts a weekly median game
 (``playoff_odds.regular_season_standings_to_date``) and every simulated week
 awards each team a median W/L/T from that week's own drawn scores, decided by
 Game Day's host-verified threshold (``game_day_sim.median_threshold``: the
-average of the middle two scores; exactly on it is a TIE, half a win).  Seeding
-and draft order read that one record.  The rule travels on every payload as
-``standingsRule``; a league whose median rule cannot be verified is refused or
-labelled, never silently scored head-to-head only.
+average of the middle two scores; exactly on it is a TIE, half a win).  Seeding,
+the bracket and expected wins read that record.  DRAFT ORDER does not: the
+owner's draft-order rule does not say whether median results count, so it keeps
+the head-to-head record (``DRAFT_ORDER_RECORD_BASIS``, stamped as
+``draftOrderRecordBasis``) until the owner decides.  The rule travels on every
+payload as ``standingsRule``; a league whose median rule cannot be verified —
+including an unstated setting — is refused, never silently scored head-to-head
+only.
 
 This engine uses ROS team-strength as the per-team weekly score MEAN,
 blended with the team's empirical scoring distribution from the season
@@ -94,6 +98,14 @@ from src.public_league.snapshot import PublicLeagueSnapshot
 
 LOG = logging.getLogger("ros.playoff_sim")
 
+
+#: The record the rookie-draft order ranks on in a simulated season: the
+#: head-to-head results plus half a win per tied game — the pre-D3 record.
+#: Deliberately NOT the host's official standings when the league counts a
+#: weekly median game: the owner's draft-order rule does not say whether those
+#: count, and the league's draft history does not settle it
+#: (docs/picks/DRAFT_ORDER_RULE.md).  Changing it is an owner decision.
+DRAFT_ORDER_RECORD_BASIS = "head_to_head_with_half_win_ties"
 
 # Magnitude of ROS-strength influence on per-team weekly mean.  Chosen
 # small so empirical history still dominates; tunable via settings.
@@ -705,10 +717,24 @@ def _median_week_refusal(
 
     Seeding without the median would publish a record the host does not keep
     (half the games), so each is a refusal — never a silent H2H-only answer.
-    An UNKNOWN setting (``medianGame: None``) is not refused: whether the
-    median counts is itself unknown, so the forecast is published with the
-    unverified ``standingsRule`` beside it.
+
+    An UNKNOWN setting (``medianGame: None``) is refused too (#1712 review B):
+    whether each week is one game or two is the record's definition, so
+    seeding, playoff, title and draft-slot odds computed on either guess are
+    unverified.  The record to date still publishes, labelled unverified, on
+    the public section (``playoff_odds.compute_playoff_odds``).
     """
+    if rule.get("medianGame") is None:
+        return {
+            "reason": rule.get("reason") or "median_setting_unknown",
+            "detail": (
+                "this league's settings do not say whether a weekly median game "
+                "counts in the standings (league_average_match), so the record "
+                "seeding and draft order rank on is undefined. Playoff, seed, "
+                "title and draft-slot odds are not published. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
     if rule.get("medianGame") is not True:
         return None
     if rule.get("state") != playoff_odds.MEDIAN_COUNTED:
@@ -1225,8 +1251,7 @@ def simulate_playoff_odds(
 
     # The record as the HOST keeps it — median games included when the league
     # counts them (D3) — and the rule that says so, which every payload carries.
-    record = _current_record(snapshot)
-    standings_rule = _current_standings(snapshot)[1]
+    record, standings_rule = _current_standings(snapshot)
     schedule = _remaining_schedule(snapshot)
     owners = sorted(distributions.keys())
     median_counted = standings_rule.get("state") == playoff_odds.MEDIAN_COUNTED
@@ -1343,22 +1368,40 @@ def simulate_playoff_odds(
     final_wins_samples: dict[str, list[float]] = {o: [] for o in owners}
     final_pf_samples: dict[str, list[float]] = {o: [] for o in owners}
 
-    # The schedule grouped by week IN ITS OWN ORDER, so the draws happen in
-    # exactly the sequence they always have: with the median game off the RNG
-    # stream — and therefore every published number — is unchanged.
-    schedule_weeks: list[tuple[int, list[tuple[str, str]]]] = []
+    # DRAFT ORDER keeps its own record basis (#1712 review A).  The owner's
+    # rule (docs/picks/DRAFT_ORDER_RULE.md) is "reverse final regular-season
+    # record, ties half a win"; it does not say whether median-game results
+    # count, and the league's own draft history does not settle it (the 2025
+    # rookie draft matches reverse record neither with nor without them — see
+    # that document).  So seeding and the published record use the host's
+    # official standings (median included), while draft order stays on the
+    # pre-D3 basis — head-to-head results with half-win ties — and says so in
+    # ``draftOrderRecordBasis``.  With the median off the two are identical.
+    draft_base: dict[str, float] = {}
+    for o in owners:
+        row = record.get(o) or {}
+        median_w = row.get("medianWins", 0)
+        median_t = row.get("medianTies", 0)
+        draft_base[o] = (
+            float(row.get("wins", 0)) - float(median_w) + tie_credit[o] - 0.5 * float(median_t)
+        )
+
+    # The schedule grouped by week, weeks and pairs in their own order, so the
+    # draws happen in exactly the sequence they always have: with the median
+    # game off the RNG stream — and therefore every published number — is
+    # unchanged.
+    schedule_by_week: dict[int, list[tuple[str, str]]] = {}
     for week, owner_a, owner_b in schedule:
-        if not schedule_weeks or schedule_weeks[-1][0] != week:
-            schedule_weeks.append((week, []))
-        schedule_weeks[-1][1].append((owner_a, owner_b))
+        schedule_by_week.setdefault(week, []).append((owner_a, owner_b))
 
     for sim_i in range(max_simulations):
         completed = sim_i + 1
         sim_wins: dict[str, float] = {
             o: float(record.get(o, {}).get("wins", 0)) + tie_credit[o] for o in owners
         }
+        draft_wins: dict[str, float] = dict(draft_base)
         sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
-        for _week, pairs in schedule_weeks:
+        for _week, pairs in schedule_by_week.items():
             week_scores: dict[str, float] = {}
             for owner_a, owner_b in pairs:
                 dist_a = distributions.get(owner_a)
@@ -1371,11 +1414,15 @@ def simulate_playoff_odds(
                 sim_pf[owner_b] = sim_pf.get(owner_b, 0.0) + score_b
                 if score_a > score_b:
                     sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 1
+                    draft_wins[owner_a] = draft_wins.get(owner_a, 0.0) + 1
                 elif score_b > score_a:
                     sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 1
+                    draft_wins[owner_b] = draft_wins.get(owner_b, 0.0) + 1
                 else:
                     sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 0.5
                     sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 0.5
+                    draft_wins[owner_a] = draft_wins.get(owner_a, 0.0) + 0.5
+                    draft_wins[owner_b] = draft_wins.get(owner_b, 0.0) + 0.5
                 week_scores[owner_a] = score_a
                 week_scores[owner_b] = score_b
             if median_counted and week_scores:
@@ -1398,8 +1445,9 @@ def simulate_playoff_odds(
         # tests/ros/test_standings_tiebreak.py.
         ranked = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
         if draft_rule is not None:
-            # ``sim_wins`` already carries the recorded half-wins (B3).
-            record_wins = sim_wins
+            # ``draft_wins`` carries the recorded half-wins (B3) and the
+            # head-to-head results only — ``draftOrderRecordBasis`` (#1712 A).
+            record_wins = draft_wins
             for slot_i, owner in enumerate(
                 draft_order(record_wins, sim_pf, owners, rng=draft_rng).order
             ):
@@ -1570,6 +1618,10 @@ def simulate_playoff_odds(
         # Which draft-order rule produced ``draftSlotDistribution`` (None =
         # the league has no recorded rule, so no slot distribution exists).
         "draftOrderRule": draft_rule,
+        # Which record ``draftSlotDistribution`` / ``finalWins`` rank on
+        # (#1712 review A): head-to-head results with half-win ties, never the
+        # median game, until the owner says the draft rule counts it.
+        "draftOrderRecordBasis": DRAFT_ORDER_RECORD_BASIS if draft_rule is not None else None,
         "season": _season_year(snapshot),
         # Season progress in the league's own regular-season WEEKS — see
         # ``_regular_season_progress``.  ``None`` = unknown, never zero.

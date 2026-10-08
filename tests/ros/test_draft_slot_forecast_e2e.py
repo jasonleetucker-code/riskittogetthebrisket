@@ -47,7 +47,11 @@ def _simulate(*, record, schedule, final_weeks, pf=None, means=None, sd=10.0, si
         o: playoff_sim._TeamDist(owner_id=o, mean=means[o], sd=sd, pf_to_date=pf[o]) for o in _NAMES
     }
     with (
-        mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: record),
+        mock.patch.object(
+            playoff_sim,
+            "_current_standings",
+            lambda *a, **k: (record, {"medianGame": False, "state": "not_applicable"}),
+        ),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
         mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),

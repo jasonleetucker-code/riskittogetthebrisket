@@ -215,8 +215,10 @@ def _simulate(settings, *, means, record=None, schedule=None, sims=50, final_wee
         record if record is not None else {o: {"wins": 0, "losses": 1, "ties": 0} for o in _FOUR}
     )
     schedule = schedule if schedule is not None else [(14, "aa", "dd"), (14, "bb", "cc")]
+    snap = _sim_snapshot(settings)
+    rule = playoff_odds.median_game_rule(snap.current_season)
     with (
-        mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: record),
+        mock.patch.object(playoff_sim, "_current_standings", lambda *a, **k: (record, rule)),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
         mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
@@ -227,7 +229,7 @@ def _simulate(settings, *, means, record=None, schedule=None, sims=50, final_wee
         ),
     ):
         return playoff_sim.simulate_playoff_odds(
-            _sim_snapshot(settings),
+            snap,
             n_simulations=sims,
             rng=random.Random(7),
         )
@@ -277,23 +279,63 @@ def test_median_wins_decide_seeding():
     assert seed(on)["dd"] == 1 and seed(on)["bb"] > 1
 
 
-def test_simulated_median_wins_reach_the_draft_order_record():
+def test_draft_order_keeps_the_head_to_head_record_and_says_so():
+    """#1712 review A: the owner's draft-order rule does not say whether median
+    results count, and dynasty_main's own draft history does not settle it
+    (docs/picks/DRAFT_ORDER_RULE.md).  Seeding counts the median game; the
+    draft-slot forecast ranks on H2H + half-win ties and names that basis."""
+    means = {"aa": 80.0, "bb": 95.0, "cc": 110.0, "dd": 125.0}
+    # Recorded median results must come OFF the draft record: bb is 1-1 H2H
+    # with two median wins on the books (official 3-1), cc 1-1 H2H, 0-2 median;
+    # dd's one recorded tie is a MEDIAN tie, so its H2H record is 1-1.
+    record = {
+        "aa": {"wins": 0, "losses": 4, "ties": 0, "medianWins": 0, "medianTies": 0},
+        "bb": {"wins": 3, "losses": 1, "ties": 0, "medianWins": 2, "medianTies": 0},
+        "cc": {"wins": 1, "losses": 3, "ties": 0, "medianWins": 0, "medianTies": 0},
+        "dd": {"wins": 2, "losses": 1, "ties": 1, "medianWins": 1, "medianTies": 1},
+    }
+    with mock.patch(
+        "src.public_league.draft_order.league_draft_order_rule",
+        lambda *a, **k: "reverse_record_lower_pf",
+    ):
+        out = _simulate({"league_average_match": 1}, means=means, record=record)
+    assert out["draftOrderRecordBasis"] == playoff_sim.DRAFT_ORDER_RECORD_BASIS
+    final = {r["ownerId"]: r["finalWins"]["mean"] for r in out["playoffOdds"]}
+    # H2H base (aa 0, bb 1, cc 1, dd 1) + this week's H2H (cc, dd win).
+    assert final == {"aa": 0.0, "bb": 1.0, "cc": 2.0, "dd": 2.0}
+    seeding = {r["ownerId"]: r["expectedWins"] for r in out["playoffOdds"]}
+    # Official record (incl. median, ties half) + H2H + median this week.
+    assert seeding == {"aa": 0.0, "bb": 3.0, "cc": 3.0, "dd": 4.5}
+
+
+def test_draft_order_basis_is_identical_when_the_median_is_off():
     means = {"aa": 80.0, "bb": 95.0, "cc": 110.0, "dd": 125.0}
     with mock.patch(
         "src.public_league.draft_order.league_draft_order_rule",
-        lambda *a, **k: "reverse_record_then_lower_pf",
+        lambda *a, **k: "reverse_record_lower_pf",
     ):
-        out = _simulate({"league_average_match": 1}, means=means, record={})
-    final = {r["ownerId"]: r["finalWins"]["mean"] for r in out["playoffOdds"]}
-    assert final == {"aa": 0.0, "bb": 0.0, "cc": 2.0, "dd": 2.0}
+        out = _simulate({"league_average_match": 0}, means=means, record={})
+    rows = {r["ownerId"]: r for r in out["playoffOdds"]}
+    assert {o: r["finalWins"]["mean"] for o, r in rows.items()} == {
+        o: r["expectedWins"] for o, r in rows.items()
+    }
 
 
-def test_an_unknown_median_setting_is_published_with_its_reason():
+def test_an_unknown_median_setting_refuses_standings_dependent_odds():
+    """#1712 review B: an unstated ``league_average_match`` leaves the record's
+    definition (one game a week or two) unknown, so seeding, playoff, title
+    and draft-slot odds are refused with a named reason, never published
+    head-to-head only."""
     means = {"aa": 80.0, "bb": 95.0, "cc": 110.0, "dd": 125.0}
-    out = _simulate({}, means=means)
-    assert out["playoffOdds"], "an unknown setting labels the forecast, it does not refuse it"
+    with mock.patch(
+        "src.public_league.draft_order.league_draft_order_rule",
+        lambda *a, **k: "reverse_record_lower_pf",
+    ):
+        out = _simulate({}, means=means)
+    assert out["playoffOdds"] == []
+    assert out["n_simulations"] == 0
+    assert out["unsimulable"]["reason"] == "median_setting_unknown"
     assert out["standingsRule"]["state"] == playoff_odds.MEDIAN_UNVERIFIED
-    assert out["standingsRule"]["reason"] == "median_setting_unknown"
 
 
 def test_a_median_league_with_an_incomplete_remaining_week_refuses():
@@ -315,15 +357,12 @@ def test_an_odd_sized_median_league_refuses_rather_than_drop_the_median():
 # ── golden numbers, median off ────────────────────────────────────────
 
 
-@pytest.mark.parametrize("median", [0, None])
-def test_the_golden_forecast_is_byte_identical_when_the_median_is_off(engine, median):
+def test_the_golden_forecast_is_byte_identical_when_the_median_is_off(engine):
     """The pre-consolidation pin (``test_one_playoff_engine``), re-run with the
-    setting stated OFF and absent: grouping the schedule by week for the median
-    game must not move a single draw."""
+    setting stated OFF: grouping the schedule by week for the median game and
+    the separate draft-order record must not move a single draw."""
     pinned = json.loads(_PRE_CONSOLIDATION_PATH.read_text(encoding="utf-8"))
-    snap, owners = _league()
-    if median is not None:
-        snap.current_season.league["settings"]["league_average_match"] = median
+    snap, owners = _league(league_average_match=0)
     _with_strength(engine, owners)
     out = playoff_sim.simulate_playoff_odds(snap, n_simulations=3000, rng=random.Random(20261007))
     got = {r["ownerId"]: {k: r[k] for k in pinned["fields"]} for r in out["playoffOdds"]}
@@ -334,8 +373,7 @@ def test_the_median_moves_the_golden_forecast_when_it_is_on(engine):
     """Non-vacuity for the test above: the same league with the median on
     publishes twice the games and different numbers."""
     pinned = json.loads(_PRE_CONSOLIDATION_PATH.read_text(encoding="utf-8"))
-    snap, owners = _league()
-    snap.current_season.league["settings"]["league_average_match"] = 1
+    snap, owners = _league(league_average_match=1)
     _with_strength(engine, owners)
     out = playoff_sim.simulate_playoff_odds(snap, n_simulations=3000, rng=random.Random(20261007))
     assert out["standingsRule"]["state"] == playoff_odds.MEDIAN_COUNTED
@@ -355,6 +393,21 @@ def test_a_cached_forecast_without_a_standings_rule_is_not_current(engine):
     assert not playoff_sim.cached_forecast_matches_snapshot(legacy, snap)
     snap.current_season.league["settings"]["league_average_match"] = 0
     assert not playoff_sim.cached_forecast_matches_snapshot(out, snap)
+
+
+def test_the_golden_league_with_no_median_setting_is_refused(engine):
+    """#1712 review B on the realistic league: the same fixture with the
+    setting omitted publishes no odds (named reason)."""
+    snap, owners = _league(league_average_match=None)
+    _with_strength(engine, owners)
+    out = playoff_sim.simulate_playoff_odds(snap, n_simulations=2000, rng=random.Random(1))
+    assert out["playoffOdds"] == []
+    assert out["unsimulable"]["reason"] == "median_setting_unknown"
+    section = playoff_odds.compute_playoff_odds(snap, forecast=out)
+    # The record to date still publishes, labelled unverified.
+    assert section["standingsRule"]["state"] == playoff_odds.MEDIAN_UNVERIFIED
+    assert all(o["playoffProbability"] is None for o in section["owners"])
+    assert sum(o["currentWins"] for o in section["owners"]) == 24
 
 
 def test_the_public_section_publishes_the_hosts_record(engine):

@@ -40,8 +40,8 @@ NEITHER counted median games — so consolidating moved no league rule.  D2
 (the ``ROS_BLEND`` multiplier on top of a ROS-drawn pre-sim) stays exactly as
 the canonical engine has it (``docs/OWNER_REQUESTED_TODO.md``).  D3 was later
 closed as a factual defect: median games now count as the host counts them
-(``tests/ros/test_median_game_standings.py``); this file's fixture states no
-``league_average_match``, so its pinned numbers are unchanged.
+(``tests/ros/test_median_game_standings.py``); this file's fixture states
+``league_average_match: 0``, so its pinned numbers are unchanged.
 
 WHAT THIS FILE PINS: the three surfaces publish IDENTICAL numbers for one
 league and week (the parity test fails the moment any of them simulates on
@@ -78,6 +78,7 @@ def _league(
     root: str = "LPARITY",
     generated_at: str = "2026-10-07T17:39:18+00:00",
     seed: int = 11,
+    league_average_match: int | None = 0,
 ):
     """``finished_weeks`` scored weeks (host clock agrees), the rest of the
     regular season POSTED with ``0.0`` stubs, exactly as Sleeper serves it."""
@@ -104,6 +105,14 @@ def _league(
                 "playoff_week_start": weeks + 1,
                 # dynasty_main's own value (re-seed); ``None`` omits it.
                 **({} if seed_type is None else {"playoff_seed_type": seed_type}),
+                # dynasty_main runs the median game (1); this parity league
+                # states it OFF so the pinned numbers predate D3.  ``None``
+                # omits the setting (the engine then refuses — #1712 B).
+                **(
+                    {}
+                    if league_average_match is None
+                    else {"league_average_match": league_average_match}
+                ),
             }
         },
         num_teams=n_teams,
@@ -663,7 +672,11 @@ def test_a_recorded_tie_is_half_a_win_in_seeding_and_counted_once(engine, monkey
         for o in owners
     }
     pf = {o: r["pointsFor"] for o, r in record.items()}
-    monkeypatch.setattr(playoff_sim, "_current_record", lambda *a_, **k: record)
+    monkeypatch.setattr(
+        playoff_sim,
+        "_current_standings",
+        lambda *a_, **k: (record, {"medianGame": False, "state": "not_applicable"}),
+    )
     monkeypatch.setattr(playoff_sim, "_remaining_schedule", lambda *a_, **k: [])
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a_, **k: (dists, pf))
     monkeypatch.setattr(
