@@ -20,10 +20,14 @@ score resampling, round-robin / cycle-inferred schedules for un-posted weeks,
 ``DEFAULT_SIMS``, ``MIN_SAMPLED_WEEKS``) is deleted rather than deprecated.
 
 The section therefore INHERITS the canonical engine's methodology exactly,
-including two open owner decisions recorded in
-``docs/OWNER_REQUESTED_TODO.md``: D2 (the ROS multiplier on top of a
-ROS-drawn best-ball pre-sim) and D3 (median games excluded from the record
-and from seeding).
+including the open owner decision D2 (the ROS multiplier on top of a ROS-drawn
+best-ball pre-sim, ``docs/OWNER_REQUESTED_TODO.md``).  D3 is CLOSED as a
+factual defect (TODO-2026-09-26-D3): when the league counts a weekly median
+game (``league_average_match``), the record to date, every simulated week and
+seeding count it exactly as the host does (:func:`median_game_rule`,
+:func:`regular_season_standings_to_date`).  The draft-slot forecast keeps the
+head-to-head record until the owner says the draft rule counts median games
+(``playoff_sim.DRAFT_ORDER_RECORD_BASIS``).
 
 What stays here, because other owners import it and it is FACT rather than
 model: the finished-week gate (``_final_week_set``), the record to date
@@ -144,25 +148,143 @@ def _matchup_is_final(a: dict, b: dict, week_is_final: bool) -> bool:
     return a.get("points") is not None and b.get("points") is not None
 
 
-def _regular_season_record_to_date(
+#: ``standingsRule.state`` values — whether the league's weekly median game
+#: (``settings.league_average_match``) is part of the record.
+MEDIAN_COUNTED = "counted"
+MEDIAN_NOT_APPLICABLE = "not_applicable"
+MEDIAN_UNVERIFIED = "unverified"
+
+#: Primary host evidence for the median game's semantics (threshold = the
+#: average of the two middle scores; an exact-median score is a TIE), recorded
+#: in ``docs/game-day/MEDIAN_SEMANTICS_VERIFICATION.md``.  The RECORD rule was
+#: re-verified against Sleeper's own roster records on 2026-10-08: dynasty_main
+#: (median on), four finished weeks, host W-L-T == H2H + median for 12 of 12
+#: rosters; dynasty_new (median off), host == H2H for 10 of 10.
+MEDIAN_RULE_SOURCE = (
+    "https://support.sleeper.com/en/articles/3971690-extra-game-each-week-against-league-median"
+)
+
+
+def _league_team_count(season: Any) -> int | None:
+    """The league's team count, or ``None`` when the host states none."""
+    stated = getattr(season, "num_teams", None)
+    if isinstance(stated, int) and not isinstance(stated, bool) and stated > 0:
+        return stated
+    rosters = getattr(season, "rosters", None)
+    n = len(rosters) if isinstance(rosters, (list, tuple)) else 0
+    return n if n > 0 else None
+
+
+def median_game_rule(season: Any) -> dict[str, Any]:
+    """Does this league's official record count a weekly median game, and is
+    the host's rule for it verified?  (TODO-2026-09-26-D3.)
+
+    The setting is the league's OWN ``settings.league_average_match``, read
+    through the one reader (``metrics.median_game_enabled``) — never assumed.
+    The threshold and tie semantics are Game Day's canonical, host-verified
+    ones (``game_day_sim.median_threshold`` /
+    ``THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES``), so a realized record,
+    a simulated week and a live Game Day median decide the median game one way.
+
+    * ``counted``        — median on, even-sized league: every finished week is
+                           two games (H2H + median), exactly as the host records.
+    * ``not_applicable`` — the league states the median game is off.
+    * ``unverified``     — the setting is absent or unparseable
+                           (``median_setting_unknown``), or the median is on in
+                           a league whose size the host's documentation does
+                           not cover (``median_threshold_unverified_for_league_size``).
+                           The median is NOT counted in the record, which is
+                           labelled with the reason; the canonical engine
+                           refuses every standings-dependent forecast.
+    """
+    from src.ros.game_day_sim import (  # noqa: PLC0415
+        THRESHOLD_SEMANTICS,
+        THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES,
+    )
+
+    enabled = metrics.median_game_enabled(season) if season is not None else None
+    if enabled is False:
+        return {"medianGame": False, "state": MEDIAN_NOT_APPLICABLE}
+    if enabled is None:
+        return {
+            "medianGame": None,
+            "state": MEDIAN_UNVERIFIED,
+            "reason": "median_setting_unknown",
+            "detail": (
+                "this league's settings do not say whether a weekly median game "
+                "counts in the standings (league_average_match), so this record "
+                "counts head-to-head games only and may not match the host's "
+                "standings; seeding, playoff and draft-slot odds are withheld."
+            ),
+        }
+    teams = _league_team_count(season)
+    if teams is None or teams % 2 or not THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES:
+        return {
+            "medianGame": True,
+            "state": MEDIAN_UNVERIFIED,
+            "reason": "median_threshold_unverified_for_league_size",
+            "teams": teams,
+            "detail": (
+                "this league counts a weekly median game, but the host documents "
+                "the median threshold only for leagues with an even number of "
+                "teams, so the median game cannot be decided the way the host "
+                "decides it."
+            ),
+        }
+    return {
+        "medianGame": True,
+        "state": MEDIAN_COUNTED,
+        "threshold": THRESHOLD_SEMANTICS,
+        "tieRule": "exact_median_is_tie",
+        "source": MEDIAN_RULE_SOURCE,
+    }
+
+
+def _week_median_threshold(
+    entries: list[dict[str, Any]],
+    team_count: int | None,
+) -> float | None:
+    """The league median of one FINISHED week's scores, or ``None`` when the
+    week does not carry a score for every team: the threshold is a statistic
+    of the whole league's week, and a partial week cannot decide it."""
+    from src.ros.game_day_sim import median_threshold  # noqa: PLC0415
+
+    scores: dict[int, float] = {}
+    for e in entries:
+        rid = metrics.roster_id_of(e)
+        pts = e.get("points")
+        if rid is None or pts is None or isinstance(pts, bool):
+            return None
+        try:
+            scores[rid] = float(pts)
+        except (TypeError, ValueError):
+            return None
+    if not scores or (team_count is not None and len(scores) != team_count):
+        return None
+    return median_threshold(list(scores.values()))
+
+
+def regular_season_standings_to_date(
     season: SeasonSnapshot,
     registry,
-) -> dict[str, dict[str, float | int]]:
-    """Current wins / PF / ties per owner from already-played weeks.
+) -> tuple[dict[str, dict[str, float | int]], dict[str, Any]]:
+    """``(records, rule)`` — the record to date as the HOST counts it.
 
-    A matchup counts toward current record when ``_matchup_is_final``
-    returns True: its week is in the canonical finished-week set and both
-    sides carry a score (a genuine zero included — the Codex P2 review on
-    PR #215).  A live week counts toward nobody's record; its matchups are
-    simulated instead (``_posted_future_matchups``).
-
-    Tie outcomes (both sides with identical non-zero points) are
-    counted into the ``ties`` bucket so downstream standings sort
-    with ``wins + 0.5 * ties`` as the primary key — matches Sleeper's
-    default regular-season tiebreak and keeps 0-1-0 vs 0-0-1 teams
-    ordered correctly in the simulator.
+    ``records`` has :func:`_regular_season_record_to_date`'s shape.  When the
+    league's median game is ``counted`` (:func:`median_game_rule`), each
+    finished week adds one median result per team — a win above the league
+    median, a loss below it, a TIE exactly on it — into ``wins`` / ``losses``
+    / ``ties``, and the median half is also published on its own
+    (``medianWins`` / ``medianLosses`` / ``medianTies``).  ``rule`` is the
+    median rule, plus ``unresolvedWeeks`` when a finished week could not
+    decide its median (a team without a score): that week's median game is
+    not counted, and the canonical engine refuses rather than seed on it.
     """
+    rule = median_game_rule(season)
     final_weeks = _final_week_set(season)
+    count_median = rule["state"] == MEDIAN_COUNTED
+    team_count = _league_team_count(season)
+    unresolved: list[int] = []
     out: dict[str, dict[str, float | int]] = {}
     for wk in season.regular_season_weeks:
         entries = season.matchups_by_week.get(wk) or []
@@ -189,7 +311,54 @@ def _regular_season_record_to_date(
                     rec["losses"] += 1
                 else:
                     rec["ties"] += 1
-    return out
+        if not (count_median and week_is_final and entries):
+            continue
+        threshold = _week_median_threshold(entries, team_count)
+        if threshold is None:
+            unresolved.append(wk)
+            continue
+        for e in entries:
+            owner_id = metrics.resolve_owner(registry, season.league_id, metrics.roster_id_of(e))
+            if not owner_id:
+                continue
+            pts = float(e["points"])
+            rec = out.setdefault(owner_id, {"wins": 0, "losses": 0, "ties": 0, "pointsFor": 0.0})
+            outcome = "wins" if pts > threshold else "losses" if pts < threshold else "ties"
+            rec[outcome] += 1
+            median_key = "median" + outcome.capitalize()
+            rec[median_key] = rec.get(median_key, 0) + 1
+    if count_median:
+        for rec in out.values():
+            for key in ("medianWins", "medianLosses", "medianTies"):
+                rec.setdefault(key, 0)
+    if unresolved:
+        rule = {**rule, "unresolvedWeeks": unresolved}
+    return out, rule
+
+
+def _regular_season_record_to_date(
+    season: SeasonSnapshot,
+    registry,
+) -> dict[str, dict[str, float | int]]:
+    """Current wins / PF / ties per owner from already-played weeks.
+
+    A matchup counts toward current record when ``_matchup_is_final``
+    returns True: its week is in the canonical finished-week set and both
+    sides carry a score (a genuine zero included — the Codex P2 review on
+    PR #215).  A live week counts toward nobody's record; its matchups are
+    simulated instead (``_posted_future_matchups``).
+
+    Tie outcomes (both sides with identical non-zero points) are
+    counted into the ``ties`` bucket so downstream standings sort
+    with ``wins + 0.5 * ties`` as the primary key — matches Sleeper's
+    default regular-season tiebreak and keeps 0-1-0 vs 0-0-1 teams
+    ordered correctly in the simulator.
+
+    MEDIAN GAMES (TODO-2026-09-26-D3): when the league counts a weekly
+    median game the record includes it, exactly as the host's standings do —
+    see :func:`regular_season_standings_to_date`, which also returns the rule.
+    """
+    return regular_season_standings_to_date(season, registry)[0]
 
 
 def _posted_future_matchups(
@@ -476,7 +645,7 @@ def compute_playoff_odds(
             "owners": [],
         }
 
-    current_record = _regular_season_record_to_date(season, registry)
+    current_record, standings_rule = regular_season_standings_to_date(season, registry)
 
     # Played vs remaining regular-season weeks: the canonical finished-week
     # gate — the same one the record and the engine's schedule use — so a
@@ -556,6 +725,9 @@ def compute_playoff_odds(
         "simulated": simulated,
         "engine": ENGINE,
         "playoffStructure": structure.to_dict(),
+        # Whether ``currentWins`` counts the weekly median game (D3), and, when
+        # the rule is unverified, why — beside the record it describes.
+        "standingsRule": standings_rule,
         "owners": owners,
     }
     if unposted:

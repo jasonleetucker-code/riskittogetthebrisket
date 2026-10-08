@@ -20,10 +20,25 @@ point-in-time capture via ``src.ros.forecast_archive`` / AL-P6 sidecars,
 Wilson intervals, the league's exact lineup solve) is recorded in
 ``tests/ros/test_one_playoff_engine.py``.
 
-Methodology is UNCHANGED by that consolidation, including the two open owner
-decisions every surface now inherits: D2 (the ``× (1 + ROS_BLEND·z)`` mean
-multiplier on top of a ROS-drawn best-ball pre-sim) and D3 (median games
-excluded from the record and seeding) — ``docs/OWNER_REQUESTED_TODO.md``.
+Methodology is UNCHANGED by that consolidation, including the open owner
+decision every surface now inherits: D2 (the ``× (1 + ROS_BLEND·z)`` mean
+multiplier on top of a ROS-drawn best-ball pre-sim) —
+``docs/OWNER_REQUESTED_TODO.md``.
+
+D3 (TODO-2026-09-26-D3) is CLOSED as an exact-league-rule fact, not a
+methodology change: when the league counts a weekly median game
+(``league_average_match``), the record to date includes it
+(``playoff_odds.regular_season_standings_to_date``) and every simulated week
+awards each team a median W/L/T from that week's own drawn scores, decided by
+Game Day's host-verified threshold (``game_day_sim.median_threshold``: the
+average of the middle two scores; exactly on it is a TIE, half a win).  Seeding,
+the bracket and expected wins read that record.  DRAFT ORDER does not: the
+owner's draft-order rule does not say whether median results count, so it keeps
+the head-to-head record (``DRAFT_ORDER_RECORD_BASIS``, stamped as
+``draftOrderRecordBasis``) until the owner decides.  The rule travels on every
+payload as ``standingsRule``; a league whose median rule cannot be verified —
+including an unstated setting — is refused, never silently scored head-to-head
+only.
 
 This engine uses ROS team-strength as the per-team weekly score MEAN,
 blended with the team's empirical scoring distribution from the season
@@ -71,6 +86,7 @@ from src.league_intel.sim_calibration import (
     load_points_model,
 )
 from src.ros import ROS_DATA_DIR
+from src.ros.game_day_sim import median_threshold
 from src.ros.lineup import (
     RosterPlayer,
     load_league_starter_slots,
@@ -82,6 +98,14 @@ from src.public_league.snapshot import PublicLeagueSnapshot
 
 LOG = logging.getLogger("ros.playoff_sim")
 
+
+#: The record the rookie-draft order ranks on in a simulated season: the
+#: head-to-head results plus half a win per tied game — the pre-D3 record.
+#: Deliberately NOT the host's official standings when the league counts a
+#: weekly median game: the owner's draft-order rule does not say whether those
+#: count, and the league's draft history does not settle it
+#: (docs/picks/DRAFT_ORDER_RULE.md).  Changing it is an owner decision.
+DRAFT_ORDER_RECORD_BASIS = "head_to_head_with_half_win_ties"
 
 # Magnitude of ROS-strength influence on per-team weekly mean.  Chosen
 # small so empirical history still dominates; tunable via settings.
@@ -657,12 +681,98 @@ remaining_schedule = _remaining_schedule
 def _current_record(
     snapshot: PublicLeagueSnapshot,
 ) -> dict[str, dict[str, float]]:
-    """Wins/losses to date per owner."""
-    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
-    if not seasons_sorted:
-        return {}
-    current = seasons_sorted[-1]
-    return playoff_odds._regular_season_record_to_date(current, snapshot.managers)
+    """Wins/losses to date per owner — the HOST's record, median games
+    included when the league counts them (D3)."""
+    return _current_standings(snapshot)[0]
+
+
+def _current_standings(
+    snapshot: PublicLeagueSnapshot,
+) -> tuple[dict[str, dict[str, float]], dict[str, Any]]:
+    """``(record, standingsRule)`` for the simulated season — see
+    :func:`src.public_league.playoff_odds.regular_season_standings_to_date`."""
+    season = _simulated_season(snapshot)
+    if season is None:
+        return {}, playoff_odds.median_game_rule(None)
+    return playoff_odds.regular_season_standings_to_date(season, snapshot.managers)
+
+
+def _median_week_refusal(
+    snapshot: PublicLeagueSnapshot,
+    rule: dict[str, Any],
+    schedule: list[tuple[int, str, str]],
+    owners: list[str],
+) -> dict[str, Any] | None:
+    """Why the league's median game cannot be counted as the host counts it,
+    or ``None`` when it can (or does not apply).
+
+    A median game is a statistic of the WHOLE league's week, so it needs every
+    team's score.  Three ways that fails, each named:
+
+    * the median is ON but its threshold is unverified for this league's size
+      (the host documents even-sized leagues only);
+    * a FINISHED week lacks a score for some team (``unresolvedWeeks``);
+    * a REMAINING posted week does not pair every team in the league with a
+      score distribution, so its simulated median would be taken over a subset.
+
+    Seeding without the median would publish a record the host does not keep
+    (half the games), so each is a refusal — never a silent H2H-only answer.
+
+    An UNKNOWN setting (``medianGame: None``) is refused too (#1712 review B):
+    whether each week is one game or two is the record's definition, so
+    seeding, playoff, title and draft-slot odds computed on either guess are
+    unverified.  The record to date still publishes, labelled unverified, on
+    the public section (``playoff_odds.compute_playoff_odds``).
+    """
+    if rule.get("medianGame") is None:
+        return {
+            "reason": rule.get("reason") or "median_setting_unknown",
+            "detail": (
+                "this league's settings do not say whether a weekly median game "
+                "counts in the standings (league_average_match), so the record "
+                "seeding and draft order rank on is undefined. Playoff, seed, "
+                "title and draft-slot odds are not published. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
+    if rule.get("medianGame") is not True:
+        return None
+    if rule.get("state") != playoff_odds.MEDIAN_COUNTED:
+        return {"reason": rule.get("reason"), "detail": rule.get("detail")}
+    if rule.get("unresolvedWeeks"):
+        return {
+            "reason": "median_game_week_unresolved",
+            "weeks": list(rule["unresolvedWeeks"]),
+            "detail": (
+                "this league counts a weekly median game, but a finished week does "
+                "not carry a score for every team, so that week's median result "
+                "cannot be decided the way the host decided it. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
+    season = _simulated_season(snapshot)
+    team_count = playoff_odds._league_team_count(season)
+    owner_set = set(owners)
+    by_week: dict[int, set[str]] = {}
+    for week, owner_a, owner_b in schedule:
+        by_week.setdefault(week, set()).update((owner_a, owner_b))
+    short = sorted(
+        wk
+        for wk, teams in by_week.items()
+        if not teams <= owner_set or (team_count is not None and len(teams) != team_count)
+    )
+    if short:
+        return {
+            "reason": "median_game_week_unsimulable",
+            "weeks": short,
+            "detail": (
+                "this league counts a weekly median game, but a remaining week does "
+                "not pair every team with a score distribution, so its median "
+                "cannot be simulated over the whole league. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
+    return None
 
 
 def _completed_games(row: Any) -> float:
@@ -818,6 +928,49 @@ def _bracket_order(slots: int) -> list[int]:
     return order
 
 
+def _fixed_bracket_refusal(field: int, byes: int | None) -> dict[str, Any] | None:
+    """Why a FIXED bracket of ``field`` teams with ``byes`` byes cannot be
+    played as the host plays it, or ``None`` when it can.
+
+    After round one a fixed bracket must hold a power-of-two field
+    (:func:`_bracket_order`).  A host-valid bracket always does; one that does
+    not is missing teams (fewer seeded teams have a score distribution than
+    the bracket has slots — #1699 review F1: four owners in a six-team, two-bye
+    bracket) or is a shape the host does not generate.  Either way the answer
+    is a named refusal, never an exception from inside the Monte Carlo.
+    """
+    if field <= 1:
+        return None
+    if byes is None:
+        # Without the league's bye count there is no bracket to fill.
+        return {
+            "reason": "fixed_bracket_byes_unknown",
+            "fieldTeams": field,
+            "byeSeeds": None,
+            "detail": (
+                "this league's playoff bracket is fixed, but its settings do not say "
+                "how many seeds get a bye, so the bracket cannot be played as the "
+                "host plays it. This is not a 0% chance for anyone."
+            ),
+        }
+    byes = max(0, min(byes, field))
+    after_round_one = byes + (field - byes + 1) // 2
+    if after_round_one & (after_round_one - 1) == 0:
+        return None
+    return {
+        "reason": "fixed_bracket_field_unplayable",
+        "fieldTeams": field,
+        "byeSeeds": byes,
+        "detail": (
+            f"this league's playoff bracket is fixed (it does not re-seed), and "
+            f"{field} seeded team(s) with {byes} bye(s) do not fill it the way the "
+            "host builds it, so the bracket cannot be played as the host plays it. "
+            "Playoff, bye and seed odds are unaffected; championship, finals and "
+            "semifinal odds are not published. This is not a 0% chance for anyone."
+        ),
+    }
+
+
 def _simulate_bracket(
     seeded: list[str],
     distributions: dict[str, _TeamDist],
@@ -859,6 +1012,12 @@ def _simulate_bracket(
         if placements is not None:
             placements[alive[0]] = {"field": 1, "place": 1}
         return alive[0]
+    if not reseed and _fixed_bracket_refusal(len(alive), bye_seeds) is not None:
+        # #1699 review F1: an unfillable fixed bracket is not playable as the
+        # host plays it.  ``simulate_playoff_odds`` checks this BEFORE drawing
+        # and publishes the named refusal; a direct caller gets no champion
+        # (and no draws) rather than a ``ValueError`` from ``_bracket_order``.
+        return None
 
     def _play(a: str, b: str) -> str:
         da, db = distributions[a], distributions[b]
@@ -1090,9 +1249,37 @@ def simulate_playoff_odds(
             "unsimulable": refusal,
         }
 
-    record = _current_record(snapshot)
+    # The record as the HOST keeps it — median games included when the league
+    # counts them (D3) — and the rule that says so, which every payload carries.
+    record, standings_rule = _current_standings(snapshot)
     schedule = _remaining_schedule(snapshot)
     owners = sorted(distributions.keys())
+    median_counted = standings_rule.get("state") == playoff_odds.MEDIAN_COUNTED
+
+    median_refusal = _median_week_refusal(snapshot, standings_rule, schedule, owners)
+    if median_refusal is not None:
+        return {
+            "playoffOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": playoff_seeds,
+            "byeSeeds": bye_seeds,
+            "playoffStructure": structure.to_dict(),
+            "standingsRule": standings_rule,
+            "rosStrengthAvailable": ros_strength_available(ros_map),
+            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+            "pointsModelSource": model.source,
+            "unsimulable": median_refusal,
+        }
+
+    # #1699 review F1: a FIXED bracket the seeded field cannot fill is not
+    # played (named reason), rather than raising inside the Monte Carlo.
+    fixed_refusal = (
+        _fixed_bracket_refusal(min(playoff_seeds, len(owners)), bye_seeds)
+        if bracket_playable and not reseed
+        else None
+    )
+    if fixed_refusal is not None:
+        bracket_playable = False
 
     # AUDIT N-1 — with no remaining schedule the loop below draws no
     # games, so every "simulation" replays the current standings and
@@ -1181,28 +1368,73 @@ def simulate_playoff_odds(
     final_wins_samples: dict[str, list[float]] = {o: [] for o in owners}
     final_pf_samples: dict[str, list[float]] = {o: [] for o in owners}
 
+    # DRAFT ORDER keeps its own record basis (#1712 review A).  The owner's
+    # rule (docs/picks/DRAFT_ORDER_RULE.md) is "reverse final regular-season
+    # record, ties half a win"; it does not say whether median-game results
+    # count, and the league's own draft history does not settle it (the 2025
+    # rookie draft matches reverse record neither with nor without them — see
+    # that document).  So seeding and the published record use the host's
+    # official standings (median included), while draft order stays on the
+    # pre-D3 basis — head-to-head results with half-win ties — and says so in
+    # ``draftOrderRecordBasis``.  With the median off the two are identical.
+    draft_base: dict[str, float] = {}
+    for o in owners:
+        row = record.get(o) or {}
+        median_w = row.get("medianWins", 0)
+        median_t = row.get("medianTies", 0)
+        draft_base[o] = (
+            float(row.get("wins", 0)) - float(median_w) + tie_credit[o] - 0.5 * float(median_t)
+        )
+
+    # The schedule grouped by week, weeks and pairs in their own order, so the
+    # draws happen in exactly the sequence they always have: with the median
+    # game off the RNG stream — and therefore every published number — is
+    # unchanged.
+    schedule_by_week: dict[int, list[tuple[str, str]]] = {}
+    for week, owner_a, owner_b in schedule:
+        schedule_by_week.setdefault(week, []).append((owner_a, owner_b))
+
     for sim_i in range(max_simulations):
         completed = sim_i + 1
         sim_wins: dict[str, float] = {
             o: float(record.get(o, {}).get("wins", 0)) + tie_credit[o] for o in owners
         }
+        draft_wins: dict[str, float] = dict(draft_base)
         sim_pf: dict[str, float] = {o: float(pf_by_owner.get(o, 0.0)) for o in owners}
-        for week, owner_a, owner_b in schedule:
-            dist_a = distributions.get(owner_a)
-            dist_b = distributions.get(owner_b)
-            if dist_a is None or dist_b is None:
-                continue
-            score_a = max(0.0, rng.gauss(dist_a.mean, dist_a.sd))
-            score_b = max(0.0, rng.gauss(dist_b.mean, dist_b.sd))
-            sim_pf[owner_a] = sim_pf.get(owner_a, 0.0) + score_a
-            sim_pf[owner_b] = sim_pf.get(owner_b, 0.0) + score_b
-            if score_a > score_b:
-                sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 1
-            elif score_b > score_a:
-                sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 1
-            else:
-                sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 0.5
-                sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 0.5
+        for _week, pairs in schedule_by_week.items():
+            week_scores: dict[str, float] = {}
+            for owner_a, owner_b in pairs:
+                dist_a = distributions.get(owner_a)
+                dist_b = distributions.get(owner_b)
+                if dist_a is None or dist_b is None:
+                    continue
+                score_a = max(0.0, rng.gauss(dist_a.mean, dist_a.sd))
+                score_b = max(0.0, rng.gauss(dist_b.mean, dist_b.sd))
+                sim_pf[owner_a] = sim_pf.get(owner_a, 0.0) + score_a
+                sim_pf[owner_b] = sim_pf.get(owner_b, 0.0) + score_b
+                if score_a > score_b:
+                    sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 1
+                    draft_wins[owner_a] = draft_wins.get(owner_a, 0.0) + 1
+                elif score_b > score_a:
+                    sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 1
+                    draft_wins[owner_b] = draft_wins.get(owner_b, 0.0) + 1
+                else:
+                    sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 0.5
+                    sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 0.5
+                    draft_wins[owner_a] = draft_wins.get(owner_a, 0.0) + 0.5
+                    draft_wins[owner_b] = draft_wins.get(owner_b, 0.0) + 0.5
+                week_scores[owner_a] = score_a
+                week_scores[owner_b] = score_b
+            if median_counted and week_scores:
+                # D3: the week's second game, against the league median of THIS
+                # draw's scores — Game Day's host-verified threshold, no extra
+                # randomness.  Exactly on the median is a tie (half a win).
+                threshold = median_threshold(list(week_scores.values()))
+                for owner, score in week_scores.items():
+                    if score > threshold:
+                        sim_wins[owner] = sim_wins.get(owner, 0.0) + 1
+                    elif score == threshold:
+                        sim_wins[owner] = sim_wins.get(owner, 0.0) + 0.5
 
         # Standings order comes from the CANONICAL owner, not a local sort.
         # This used to be a two-key ``sorted(owners, key=(-wins, -pf))``, and
@@ -1213,8 +1445,9 @@ def simulate_playoff_odds(
         # tests/ros/test_standings_tiebreak.py.
         ranked = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
         if draft_rule is not None:
-            # ``sim_wins`` already carries the recorded half-wins (B3).
-            record_wins = sim_wins
+            # ``draft_wins`` carries the recorded half-wins (B3) and the
+            # head-to-head results only — ``draftOrderRecordBasis`` (#1712 A).
+            record_wins = draft_wins
             for slot_i, owner in enumerate(
                 draft_order(record_wins, sim_pf, owners, rng=draft_rng).order
             ):
@@ -1347,10 +1580,11 @@ def simulate_playoff_odds(
         if owners
         else 0.0
     )
-    unavailable_bracket = (
-        {}
-        if bracket_playable
-        else {
+    unavailable_bracket: dict[str, Any] = {}
+    if fixed_refusal is not None:
+        unavailable_bracket = {"championshipUnavailable": fixed_refusal}
+    elif not bracket_playable:
+        unavailable_bracket = {
             "championshipUnavailable": {
                 "reason": structure.seed_type_reason or "playoff_seed_type_unknown",
                 "detail": (
@@ -1362,7 +1596,6 @@ def simulate_playoff_odds(
                 ),
             }
         }
-    )
     return {
         "playoffOdds": out,
         **unavailable_bracket,
@@ -1373,6 +1606,9 @@ def simulate_playoff_odds(
         "playoffSeeds": playoff_seeds,
         "byeSeeds": bye_seeds,
         "playoffStructure": structure.to_dict(),
+        # Whether the record, every simulated week, seeding and draft order
+        # count the league's weekly median game (D3) — and why not, when not.
+        "standingsRule": standings_rule,
         "rosStrengthAvailable": ros_strength_available(ros_map),
         "rosBlend": ROS_BLEND,
         "bestBallVarianceBump": BEST_BALL_VARIANCE_BUMP,
@@ -1382,6 +1618,10 @@ def simulate_playoff_odds(
         # Which draft-order rule produced ``draftSlotDistribution`` (None =
         # the league has no recorded rule, so no slot distribution exists).
         "draftOrderRule": draft_rule,
+        # Which record ``draftSlotDistribution`` / ``finalWins`` rank on
+        # (#1712 review A): head-to-head results with half-win ties, never the
+        # median game, until the owner says the draft rule counts it.
+        "draftOrderRecordBasis": DRAFT_ORDER_RECORD_BASIS if draft_rule is not None else None,
         "season": _season_year(snapshot),
         # Season progress in the league's own regular-season WEEKS — see
         # ``_regular_season_progress``.  ``None`` = unknown, never zero.
@@ -1745,6 +1985,17 @@ def cached_forecast_matches_snapshot(cached: dict[str, Any], snapshot: Any) -> b
         # Championship surface would have to publish those columns as
         # missing, so the file is not this engine's current output.
         return False
+    if isinstance(rows, list) and rows:
+        # D3: a forecast that does not state its standings rule was simulated
+        # before median games counted, and one whose rule differs from the
+        # league's current settings describes a different record.  Either way
+        # its odds would sit beside a record they were not computed from.
+        cached_rule = cached.get("standingsRule")
+        if not isinstance(cached_rule, dict):
+            return False
+        live_rule = playoff_odds.median_game_rule(_simulated_season(snapshot))
+        if {k: v for k, v in cached_rule.items() if k != "unresolvedWeeks"} != live_rule:
+            return False
     season = cached.get("season")
     if season is not None and season != _season_year(snapshot):
         return False

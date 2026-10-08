@@ -334,19 +334,22 @@ class _Odds:
 def _odds_for(
     owner_id: str,
     playoff_odds: Sequence[Mapping[str, Any]] | None,
+    championship_unavailable: Mapping[str, Any] | None = None,
 ) -> _Odds:
     """Pull this owner's row out of playoff_sim output.
 
-    The simulator's row schema is NOT fixed.  ``simulate_playoff_odds``
-    on main emits ``playoffOdds`` / ``byeOdds`` / ``topSeedOdds`` /
-    ``seedDistribution`` and NOTHING else — no championship odds and no
-    confidence intervals.  The bracket run and the Wilson intervals
-    come from the LI-8 work, which is a separate unmerged branch.
+    ``simulate_playoff_odds`` (the one playoff engine, C5-PLAY-01) runs the
+    bracket and publishes ``championshipOdds`` with Wilson intervals — UNLESS
+    it cannot play the bracket as the host plays it, in which case every
+    row's title fields are ``None`` and the payload says why in
+    ``championshipUnavailable`` (``{reason, detail}``).  The caller hands
+    that block in, and a missing title odd cites it (#1699 review F2) rather
+    than guessing at a cause.
 
-    So the fields are read defensively AND their absence is reported.
-    Missing intervals stay None rather than collapsing to zero width: a
-    point estimate presented without an interval reads as a certainty,
-    and 0.61 from 2,000 sims is +/- 2 points.
+    Fields are still read defensively and their absence reported.  Missing
+    intervals stay None rather than collapsing to zero width: a point
+    estimate presented without an interval reads as a certainty, and 0.61
+    from 2,000 sims is +/- 2 points.
     """
     if not playoff_odds:
         return _Odds()
@@ -367,11 +370,18 @@ def _odds_for(
 
     notes: list[str] = []
     if ch is None:
-        notes.append(
-            "simulator supplied no championshipOdds; this build of "
-            "src/ros/playoff_sim.py stops at playoff qualification and does "
-            "not run the bracket"
-        )
+        reason = (championship_unavailable or {}).get("reason")
+        if reason:
+            detail = (championship_unavailable or {}).get("detail")
+            notes.append(
+                f"championship odds withheld by the playoff simulator "
+                f"(championshipUnavailable: {reason})" + (f": {detail}" if detail else "")
+            )
+        else:
+            notes.append(
+                "simulator supplied no championshipOdds for this owner and the "
+                "forecast carried no championshipUnavailable reason"
+            )
     if po is not None and playoff_ci is None:
         notes.append(
             "playoff odds carry no confidence interval; treat the point "
@@ -403,6 +413,7 @@ def analyze_roster(
     lineup_scores: Mapping[str, float] | None = None,
     override_state: str | None = None,
     override_reason: str | None = None,
+    championship_unavailable: Mapping[str, Any] | None = None,
 ) -> RosterIntel:
     """Full WS-J analysis for one roster.
 
@@ -410,6 +421,8 @@ def analyze_roster(
     from ``src/ros/playoff_sim.py``.  Supplying it upgrades the
     competitive window's competitiveness axis from a structural proxy
     to simulated odds AND attaches the probabilities directly.
+    ``championship_unavailable`` is that payload's ``championshipUnavailable``
+    block, cited when title odds are missing.
     """
     pool_list = list(pool)
     slots_list = list(slots)
@@ -435,7 +448,7 @@ def analyze_roster(
         override_state=override_state,
         override_reason=override_reason,
     )
-    odds = _odds_for(owner_id, playoff_odds)
+    odds = _odds_for(owner_id, playoff_odds, championship_unavailable)
 
     notes: list[str] = []
     if odds.source == "unavailable":
