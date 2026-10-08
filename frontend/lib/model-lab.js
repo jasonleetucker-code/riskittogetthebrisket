@@ -123,46 +123,62 @@ export function flagWord(flag) {
 
 /**
  * The flags a family's `productionState` names, in the backend's order.
- * Handles both shapes on `main`: a single top-level `flag` (+ `enabled`) and
- * the `flags: [...]` list (#1708 adds both side by side; the list wins, so a
- * flag is never listed twice).
+ *
+ * The backend SPREADS `_flag_state()` into `productionState`, so a flag that
+ * could not be read makes the whole record look like a state block —
+ * `{flag, state: "unobserved", reason, ...siblings}`.  That record is still
+ * a flag record with siblings, so the `flags` list (the #1708 shape) and the
+ * single top-level `flag` (the shape on main) are read BEFORE any state-block
+ * test; only a bare block with no flag at all yields no flags.  The list
+ * wins over the top-level flag, so a flag is never listed twice.
  */
 export function productionFlags(productionState) {
-  if (!productionState || typeof productionState !== "object" || isStateBlock(productionState)) {
+  if (!productionState || typeof productionState !== "object" || Array.isArray(productionState)) {
     return [];
   }
+  const asFlag = (f) => ({
+    flag: String(f.flag),
+    word: flagWord(f),
+    reason: isStateBlock(f) ? String(f.reason) : null,
+  });
   if (Array.isArray(productionState.flags)) {
-    return productionState.flags
-      .filter((f) => f && typeof f === "object" && f.flag)
-      .map((f) => ({ flag: String(f.flag), word: flagWord(f), reason: isStateBlock(f) ? f.reason : null }));
+    return productionState.flags.filter((f) => f && typeof f === "object" && f.flag).map(asFlag);
   }
-  if (productionState.flag) {
-    return [
-      {
-        flag: String(productionState.flag),
-        word: flagWord(productionState),
-        reason: isStateBlock(productionState) ? productionState.reason : null,
-      },
-    ];
-  }
+  if (productionState.flag) return [asFlag(productionState)];
   return [];
 }
 
 /**
  * What is served now, as the backend states it: the first of `servedNote`,
  * `served`, `servedPath`, `servedSide` that is present (string or state
- * block).  `null` when the family states none of them (the flags then carry
- * the answer).
+ * block).  Read before any state-block test, for the same reason as
+ * `productionFlags`.  A bare state block with no flag (e.g. a failed
+ * builder) is returned as itself; otherwise `null` means the flags carry
+ * the answer.
  */
 export function servedStatement(productionState) {
   if (!productionState || typeof productionState !== "object") return null;
-  if (isStateBlock(productionState)) return productionState;
   for (const key of ["servedNote", "served", "servedPath", "servedSide"]) {
     const v = productionState[key];
     if (typeof v === "string" && v.trim()) return v;
     if (isStateBlock(v)) return v;
   }
+  if (isStateBlock(productionState) && !productionState.flag) return productionState;
   return null;
+}
+
+/**
+ * A state block's sibling fields — everything but `state` / `reason` — or
+ * `null` when it has none.  A spread record such as
+ * `{flag, state: "unobserved", reason, modelVersion, ...}` is a state PLUS
+ * evidence; the evidence must stay visible beside the badge.
+ */
+export function stateBlockExtras(value) {
+  if (!isStateBlock(value)) return null;
+  const extras = Object.fromEntries(
+    Object.entries(value).filter(([k]) => k !== "state" && k !== "reason"),
+  );
+  return Object.keys(extras).length ? extras : null;
 }
 
 /** `champion.version`, or the state block that stands in for it. */

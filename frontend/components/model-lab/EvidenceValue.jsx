@@ -31,6 +31,7 @@ import {
   humanizeKey,
   isInstantString,
   isStateBlock,
+  stateBlockExtras,
   stateBlockLabel,
 } from "@/lib/model-lab";
 import styles from "./model-lab.module.css";
@@ -138,7 +139,19 @@ export function EvidenceList({ value, depth = 0, keys }) {
 }
 
 export function EvidenceValue({ value, depth = 0 }) {
-  if (isStateBlock(value)) return <StateMark block={value} />;
+  if (isStateBlock(value)) {
+    // A state block with siblings (the backend spreads `_flag_state()` into
+    // productionState) is a state PLUS evidence: badge + reason, then the
+    // remaining fields — never the badge alone.
+    const extras = stateBlockExtras(value);
+    if (!extras) return <StateMark block={value} />;
+    return (
+      <div className={styles.cellStack}>
+        <StateMark block={value} />
+        <EvidenceList value={extras} depth={depth} />
+      </div>
+    );
+  }
   if (Array.isArray(value)) return <ArrayValue value={value} depth={depth} />;
   if (value && typeof value === "object") return <EvidenceList value={value} depth={depth} />;
   return <Primitive value={value} />;

@@ -183,7 +183,8 @@ const BUDGETS_KB = {
   "/more/page": 10,
   // /dfs (2026-09-30): 28.9 KB at introduction, pinned with ~15% headroom.
   "/dfs/page": 34,
-  // /admin/model-lab (2026-10-08, IC-6): 25.7 KB at introduction (list view:
+  // /admin/model-lab (2026-10-08, IC-6): 25.9 KB at introduction, 26.3 KB
+  // after the #1723 review follow-ups (state blocks keep their siblings) (list view:
   // DataTable + the evidence renderer), pinned with ~15% headroom. The family
   // detail view is a React.lazy chunk (6.2 KB) and is not counted here.
   "/admin/model-lab/page": 30,

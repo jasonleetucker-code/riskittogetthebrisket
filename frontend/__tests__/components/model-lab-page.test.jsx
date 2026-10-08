@@ -36,6 +36,34 @@ function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
 
+
+const UNREAD = "served side unobserved: the sparse_evidence_estimator flag could not be read (boom)";
+const FLAG_UNREAD = "flag unreadable: RuntimeError: boom";
+
+/** The #1708 productionState: `_flag_state()` spread (unreadable) + a flags list. */
+function withSparse1708(data) {
+  const sparse = data.families.find((f) => f.family === "sparse_evidence_estimator");
+  sparse.champion = { state: "unobserved", reason: UNREAD };
+  sparse.decisionReason = { state: "unobserved", reason: UNREAD };
+  sparse.productionState = {
+    flag: "sparse_evidence_estimator",
+    state: "unobserved",
+    reason: FLAG_UNREAD,
+    servedPath: { state: "unobserved", reason: UNREAD },
+    servedNote: UNREAD,
+    flags: [
+      { flag: "sparse_evidence_estimator", state: "unobserved", reason: FLAG_UNREAD },
+      { flag: "joint_sparse_limited_evidence", enabled: false, gateStatus: "LIVE" },
+    ],
+  };
+  return sparse;
+}
+
+/** The ds Panel (a <section>) whose heading is `title`. */
+function panelFor(title) {
+  return screen.getByRole("heading", { name: title }).closest("section");
+}
+
 let fetchMock;
 
 function serve(...responses) {
@@ -226,30 +254,76 @@ describe("family detail", () => {
   it("renders the #1708 shape: flags list, served note, unobserved champion and decision", async () => {
     at("family=sparse_evidence_estimator");
     const data = clone(payload);
-    const sparse = data.families.find((f) => f.family === "sparse_evidence_estimator");
-    const unread = "served side unobserved: the sparse_evidence_estimator flag could not be read (boom)";
-    sparse.champion = { state: "unobserved", reason: unread };
-    sparse.decisionReason = { state: "unobserved", reason: unread };
-    sparse.productionState = {
-      flag: "sparse_evidence_estimator",
-      state: "unobserved",
-      reason: "flag unreadable: RuntimeError: boom",
-      servedPath: { state: "unobserved", reason: unread },
-      servedNote: unread,
-      flags: [
-        { flag: "sparse_evidence_estimator", state: "unobserved", reason: "flag unreadable: RuntimeError: boom" },
-        { flag: "joint_sparse_limited_evidence", enabled: false, gateStatus: "LIVE" },
-      ],
-    };
+    const sparse = withSparse1708(data);
     serve(jsonResponse(200, data));
     render(<ModelLabWorkspace />);
     expect(await screen.findByRole("heading", { name: sparse.name }, LAZY)).toBeInTheDocument();
     // The unreadable flag's reason is shown; nothing claims it is OFF.
-    expect(screen.getAllByText(unread).length).toBeGreaterThan(1);
-    expect(screen.getAllByText("flag unreadable: RuntimeError: boom").length).toBeGreaterThan(0);
-    // Every "Champion" fact that is unobserved renders the block, not "0" / "".
+    expect(screen.getAllByText(UNREAD).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(FLAG_UNREAD).length).toBeGreaterThan(0);
     const blocks = screen.getAllByTestId("state-block");
-    expect(blocks.some((b) => b.textContent.includes(unread))).toBe(true);
+    expect(blocks.some((b) => b.textContent.includes(UNREAD))).toBe(true);
+    // "Served now" keeps every sibling of the spread, unreadable flag record:
+    // the served note, the flags list and the SECOND, readable flag.
+    const served = within(panelFor("Served now and rollback"));
+    expect(served.getAllByText(UNREAD).length).toBeGreaterThan(0);
+    expect(served.getAllByText("joint_sparse_limited_evidence").length).toBeGreaterThan(0);
+    expect(served.getAllByText("Flags").length).toBeGreaterThan(0);
+    expect(served.getAllByText("Served note").length).toBeGreaterThan(0);
+  });
+
+  it("#1708 shape in the list: both flags, the unreadable one Unobserved with its reason", async () => {
+    const data = clone(payload);
+    const sparse = withSparse1708(data);
+    serve(jsonResponse(200, data));
+    render(<ModelLabWorkspace />);
+    const table = await screen.findByRole("table", { name: /model families/i });
+    const row = within(within(table).getByRole("link", { name: sparse.name }).closest("tr"));
+    const items = row.getAllByRole("listitem").map((li) => li.textContent);
+    expect(items.some((t) => t.includes("sparse_evidence_estimator") && t.includes("Unobserved"))).toBe(true);
+    expect(items.some((t) => t.includes("joint_sparse_limited_evidence") && t.includes("OFF"))).toBe(true);
+    expect(row.getAllByText(FLAG_UNREAD).length).toBeGreaterThan(0);
+    // nothing reads the unreadable flag as OFF
+    expect(items.some((t) => t.includes("sparse_evidence_estimator") && /OFF/.test(t))).toBe(false);
+  });
+
+  it("an unreadable flag with siblings (shape on main) keeps the siblings visible", async () => {
+    at("family=consensus_edge");
+    const data = clone(payload);
+    const ce = data.families.find((f) => f.family === "consensus_edge");
+    // `_flag_state()` spread into productionState, with the flag unreadable.
+    ce.productionState = {
+      flag: "consensus_edge",
+      state: "unobserved",
+      reason: "flag unreadable: OSError: flags file locked",
+      modelVersion: "ce.2026-08-04.v0-shadow",
+      paramSetId: "b90ef7db61a10905",
+    };
+    serve(jsonResponse(200, data));
+    render(<ModelLabWorkspace />);
+    expect(await screen.findByRole("heading", { name: ce.name }, LAZY)).toBeInTheDocument();
+    const served = within(panelFor("Served now and rollback"));
+    expect(served.getByText("flag unreadable: OSError: flags file locked")).toBeInTheDocument();
+    expect(served.getByText("consensus_edge")).toBeInTheDocument();
+    expect(served.getByText("ce.2026-08-04.v0-shadow")).toBeInTheDocument();
+    expect(served.getByText("b90ef7db61a10905")).toBeInTheDocument();
+  });
+
+  it("the same unreadable flag is listed by name in the family list", async () => {
+    const data = clone(payload);
+    const ce = data.families.find((f) => f.family === "consensus_edge");
+    ce.productionState = {
+      flag: "consensus_edge",
+      state: "unobserved",
+      reason: "flag unreadable: OSError: flags file locked",
+      modelVersion: "ce.2026-08-04.v0-shadow",
+    };
+    serve(jsonResponse(200, data));
+    render(<ModelLabWorkspace />);
+    const table = await screen.findByRole("table", { name: /model families/i });
+    const row = within(within(table).getByRole("link", { name: ce.name }).closest("tr"));
+    const items = row.getAllByRole("listitem").map((li) => li.textContent);
+    expect(items.some((t) => t.includes("consensus_edge") && t.includes("Unobserved"))).toBe(true);
   });
 
   it("an unknown family id is an honest not-found, with a way back", async () => {

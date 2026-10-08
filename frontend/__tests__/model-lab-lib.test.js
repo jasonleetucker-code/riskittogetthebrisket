@@ -22,6 +22,7 @@ import {
   productionFlags,
   selectChallengers,
   servedStatement,
+  stateBlockExtras,
 } from "@/lib/model-lab";
 
 const hill = () => findFamily(payload, "hill_scope_masters");
@@ -126,6 +127,40 @@ describe("served side", () => {
 
   it("served statement falls back to the plain `served` text (Hill)", () => {
     expect(servedStatement(hill().productionState)).toMatch(/eight constants/);
+  });
+
+  it("a spread, unreadable flag record still names its flag and keeps its siblings", () => {
+    const ps = {
+      flag: "consensus_edge",
+      state: "unobserved",
+      reason: "flag unreadable: OSError: locked",
+      modelVersion: "ce.v0",
+    };
+    expect(productionFlags(ps)).toEqual([
+      { flag: "consensus_edge", word: "Unobserved", reason: "flag unreadable: OSError: locked" },
+    ]);
+    // The flag carries the answer; the record is not collapsed into "served".
+    expect(servedStatement(ps)).toBeNull();
+    expect(stateBlockExtras(ps)).toEqual({ flag: "consensus_edge", modelVersion: "ce.v0" });
+    expect(stateBlockExtras({ state: "unobserved", reason: "x" })).toBeNull();
+  });
+
+  it("the #1708 flags list is read even when the record itself is a state block", () => {
+    const ps = {
+      flag: "sparse_evidence_estimator",
+      state: "unobserved",
+      reason: "boom",
+      servedNote: "served side unobserved",
+      flags: [
+        { flag: "sparse_evidence_estimator", state: "unobserved", reason: "boom" },
+        { flag: "joint_sparse_limited_evidence", enabled: false },
+      ],
+    };
+    expect(productionFlags(ps).map((f) => [f.flag, f.word])).toEqual([
+      ["sparse_evidence_estimator", "Unobserved"],
+      ["joint_sparse_limited_evidence", "OFF"],
+    ]);
+    expect(servedStatement(ps)).toBe("served side unobserved");
   });
 
   it("an unobserved productionState is returned as its block", () => {

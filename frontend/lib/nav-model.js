@@ -453,13 +453,18 @@ export function flattenNav(groups) {
  * hitting ⌘K and typing "consensus" would still land on the dead page.
  * Called with no capabilities (the pre-existing signature) it fails
  * closed and omits every gated destination.
+ *
+ * The System items go through `systemItemsFor({ isAdmin })` — the same
+ * filter TopBar, MobileChrome and /more use — so an admin-only Ops page
+ * (/admin, /admin/model-lab, /tools/*) is never offered to a non-admin
+ * here either.  `isAdmin` absent fails closed, like `capabilities`.
  */
-export function paletteTargets({ capabilities } = {}) {
+export function paletteTargets({ capabilities, isAdmin = false } = {}) {
   const seen = new Set();
   const out = [];
   for (const item of [
     ...flattenNav(navGroupsFor({ capabilities })),
-    ...SYSTEM_MODEL.items.map((i) => ({ ...i, group: "System" })),
+    ...systemItemsFor({ isAdmin }).map((i) => ({ ...i, group: "System" })),
     ...PALETTE_EXTRA_TARGETS.map((i) => ({ ...i, group: null })),
   ]) {
     if (seen.has(item.href)) continue;

@@ -51,6 +51,7 @@ function Served({ row }) {
             <li key={f.flag}>
               <code className={styles.code}>{f.flag}</code>{" "}
               <Badge tone="outline">{f.word}</Badge>
+              {f.reason ? <span className={styles.stateReason}> {f.reason}</span> : null}
             </li>
           ))}
         </ul>
