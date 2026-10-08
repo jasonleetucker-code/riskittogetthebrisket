@@ -1,0 +1,129 @@
+/* Recent real trades — PSI editorial structure (Direction A, Lane 6).
+   Tokens only (tokens.css, .psi-editorial scope on the /trade root). Dense
+   aligned rows separated by thin rules; no cards, pills, radii or shadows.
+   Matched assets are marked with weight AND text, never colour alone. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.lede,
+.meta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-strong);
+}
+
+.trade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-default);
+  min-width: 0;
+}
+
+.tradeHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.date {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+
+.source {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.sides {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.side {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.sideHeading {
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.assets {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.asset {
+  font-weight: var(--font-weight-regular);
+}
+
+.assetMatched {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.matchNote {
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-xs);
+  color: var(--accent);
+}
+
+.tags {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+
+.tag {
+  color: var(--text-primary);
+}
+
+.unknown {
+  color: var(--text-tertiary);
+}
+
+.about {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.about ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+}
+
+@media (max-width: 480px) {
+  .side {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

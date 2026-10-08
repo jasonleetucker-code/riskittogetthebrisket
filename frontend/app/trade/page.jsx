@@ -142,6 +142,13 @@ const TradeDeltaHistogram = dyn(
   "Value split chart",
 );
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
+// TC-07 / TC-10: recorded real trades that moved an asset on the calculator.
+// Reference evidence only — it never touches the totals or verdict.  Inside
+// its own collapsed panel, so the chunk and the request wait for the user.
+const RecentRealTrades = dyn(
+  () => import("@/components/trade/RecentRealTrades"),
+  "Recent real trades",
+);
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -2287,6 +2294,15 @@ export default function TradePage() {
             />
           ) : null}
 
+          </CollapsiblePanel>
+
+          <CollapsiblePanel
+            title="Recent real trades"
+            subtitle="Recorded dynasty trades that moved these assets, with each league's format"
+            defaultCollapsed
+            mountCollapsedChildren={false}
+          >
+            <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
           </CollapsiblePanel>
 
           <SuggestionsDesk

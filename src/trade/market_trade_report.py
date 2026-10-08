@@ -246,6 +246,55 @@ def _write_ledger_db(
         conn.close()
 
 
+def ledger_file_path(root: Path | None = None) -> Path:
+    """Where the canonical underlying-trade ledger lives (public read)."""
+    return _ledger_path(root)
+
+
+def read_canonical_ledger(
+    *,
+    root: Path | None = None,
+    since_date: str | None = None,
+) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, Any] | None]]] | None:
+    """Read the persisted canonical ledger back — the one reader of the file
+    :func:`persist_canonical_ledger` writes.
+
+    Returns ``(meta, [(group_record, full_format_or_None), ...])`` or ``None``
+    when no ledger has been built on this host (absence is a state, never an
+    empty ledger).  ``since_date`` (``YYYY-MM-DD``) keeps only trades dated on
+    or after it; UNDATED trades are excluded by that filter because "recent"
+    cannot be claimed for a trade with no date.  Opened ``mode=ro`` — a reader
+    never migrates or locks the store the daily rebuild replaces.
+    """
+    target = _ledger_path(root)
+    if not target.exists():
+        return None
+    conn = sqlite3.connect(f"file:{target.as_posix()}?mode=ro", uri=True)
+    try:
+        meta: dict[str, Any] = {}
+        for key, value in conn.execute("SELECT key, value FROM meta").fetchall():
+            try:
+                meta[str(key)] = json.loads(value)
+            except (TypeError, ValueError):
+                meta[str(key)] = None
+        sql = (
+            "SELECT u.record_json, f.format_json FROM underlying_trades u "
+            "LEFT JOIN formats f ON f.fingerprint = u.format_fingerprint"
+        )
+        params: tuple[Any, ...] = ()
+        if since_date is not None:
+            sql += " WHERE u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
+            params = (since_date,)
+        rows: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+        for record_json, format_json in conn.execute(sql, params):
+            rec = json.loads(record_json)
+            full = json.loads(format_json) if format_json else None
+            rows.append((rec, full))
+    finally:
+        conn.close()
+    return meta, rows
+
+
 def _date_range(dates: Sequence[str | None]) -> dict[str, Any]:
     ds = sorted(d for d in dates if d)
     return {"oldest": ds[0] if ds else None, "newest": ds[-1] if ds else None, "dated": len(ds)}

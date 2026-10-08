@@ -28,6 +28,7 @@ LEDGER_MODULES = (
     "src.trade.market_trade_format",
     "src.trade.market_trade_eval",
     "src.trade.market_trade_report",
+    "src.trade.market_trade_reference",
 )
 
 VALUATION_PATH = (
