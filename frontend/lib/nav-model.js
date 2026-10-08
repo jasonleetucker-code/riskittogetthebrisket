@@ -304,6 +304,9 @@ export const SYSTEM_MODEL = {
     { href: "/tools/ros-data-health", label: "ROS Data Health", hint: "Rest-of-season pipeline health", section: "Ops", adminOnly: true },
     { href: "/tools/trade-coverage", label: "Trade Coverage", hint: "Per-team coverage audit", section: "Ops", adminOnly: true },
     { href: "/admin", label: "Admin", hint: "Operator flags + actions", section: "Ops", adminOnly: true },
+    // Read-only champion/challenger evidence for every model family (IC-6).
+    // Admin-only twice over: hidden here, and 403 from /api/model-lab.
+    { href: "/admin/model-lab", label: "Model Lab", hint: "Champion vs challenger evidence (read-only)", section: "Ops", adminOnly: true, keywords: ["challenger", "champion", "hill", "models", "promotion"] },
   ],
 };
 
@@ -450,13 +453,18 @@ export function flattenNav(groups) {
  * hitting ⌘K and typing "consensus" would still land on the dead page.
  * Called with no capabilities (the pre-existing signature) it fails
  * closed and omits every gated destination.
+ *
+ * The System items go through `systemItemsFor({ isAdmin })` — the same
+ * filter TopBar, MobileChrome and /more use — so an admin-only Ops page
+ * (/admin, /admin/model-lab, /tools/*) is never offered to a non-admin
+ * here either.  `isAdmin` absent fails closed, like `capabilities`.
  */
-export function paletteTargets({ capabilities } = {}) {
+export function paletteTargets({ capabilities, isAdmin = false } = {}) {
   const seen = new Set();
   const out = [];
   for (const item of [
     ...flattenNav(navGroupsFor({ capabilities })),
-    ...SYSTEM_MODEL.items.map((i) => ({ ...i, group: "System" })),
+    ...systemItemsFor({ isAdmin }).map((i) => ({ ...i, group: "System" })),
     ...PALETTE_EXTRA_TARGETS.map((i) => ({ ...i, group: null })),
   ]) {
     if (seen.has(item.href)) continue;

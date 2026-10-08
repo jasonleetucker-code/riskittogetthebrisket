@@ -52,12 +52,14 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/settings",
   "/more",
   "/admin",
+  "/admin/model-lab",
   "/tools/source-health",
   "/tools/ros-data-health",
   "/tools/trade-coverage",
 ];
 
-const allTargets = paletteTargets();
+// Admin view: reachability covers the admin-only Ops surfaces too.
+const allTargets = paletteTargets({ isAdmin: true });
 
 describe("IA coverage", () => {
   it("every route is reachable from the palette targets (nav + system + extras)", () => {
@@ -70,6 +72,7 @@ describe("IA coverage", () => {
     const hrefs = SYSTEM_MODEL.items.map((i) => i.href);
     for (const orphan of [
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
@@ -212,6 +215,7 @@ describe("system menu", () => {
     expect(hrefs).toContain("/more");
     for (const ops of [
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
@@ -225,6 +229,18 @@ describe("system menu", () => {
     for (const item of SYSTEM_MODEL.items) {
       expect(hrefs).toContain(item.href);
     }
+  });
+
+  it("the command palette hides operator surfaces from non-admins, and by default", () => {
+    const ops = SYSTEM_MODEL.items.filter((i) => i.adminOnly).map((i) => i.href);
+    expect(ops).toContain("/admin/model-lab");
+    for (const targets of [paletteTargets(), paletteTargets({ isAdmin: false })]) {
+      const hrefs = targets.map((t) => t.href);
+      for (const href of ops) expect(hrefs, href).not.toContain(href);
+      expect(hrefs).toContain("/settings");
+    }
+    const adminHrefs = paletteTargets({ isAdmin: true }).map((t) => t.href);
+    for (const href of ops) expect(adminHrefs, href).toContain(href);
   });
 
   it("defaults to the non-admin view when the flag is absent", () => {
