@@ -17,6 +17,11 @@
  *     only for a rostered player, because its SELL half is a sell call;
  *   * a `withheld` player never appears;
  *   * no team selected → no SELL items, stated rather than implied;
+ *   * a selected team with no owner id → no SELL items: membership is only
+ *     trusted when the payload's team is PROVEN to be the selected one;
+ *   * a payload for a different league than the one selected is dropped
+ *     whole (defence in depth — the hook already keys on the league);
+ *   * the whole strip is capped: roster SELL/CONFLICT first, then BUYs;
  *   * picks are never SELL items (#784).
  *
  * No score, threshold, blend or vote count is computed here.  Lineage text is
@@ -39,6 +44,7 @@ export const SELL_SCOPE = Object.freeze({
   NO_TEAM: "no_team",
   TEAM_NOT_FOUND: "team_not_found",
   TEAM_MISMATCH: "team_mismatch",
+  TEAM_IDENTITY_UNRESOLVED: "team_identity_unresolved",
   ROSTER_UNAVAILABLE: "roster_unavailable",
 });
 
@@ -55,23 +61,21 @@ export function domainLabel(domain) {
   return DOMAIN_LABELS[domain] || String(domain || "unknown");
 }
 
+// Identity is the owner id on both sides.  A name is not identity (two teams
+// can share one, and a rename changes it), so a selection without an owner id
+// never proves which roster the payload carries.
 function sameTeam(payloadTeam, selectedTeam) {
-  if (!payloadTeam || !selectedTeam) return false;
-  const a = String(payloadTeam.ownerId || "");
-  const b = String(selectedTeam.ownerId || "");
-  if (a && b) return a === b;
-  // Neither side carries an owner id: the request was made by name.
-  if (!a && !b) {
-    const na = String(payloadTeam.name || "").trim().toLowerCase();
-    const nb = String(selectedTeam.name || "").trim().toLowerCase();
-    return Boolean(na) && na === nb;
-  }
-  return false;
+  const a = String(payloadTeam?.ownerId || "");
+  const b = String(selectedTeam?.ownerId || "");
+  return Boolean(a) && Boolean(b) && a === b;
 }
 
 /** The SELL scope for this payload + selection, with the roster set. */
 export function sellScopeFor(payload, selectedTeam) {
   if (!selectedTeam) return { state: SELL_SCOPE.NO_TEAM, rosterKeys: null };
+  if (!String(selectedTeam.ownerId || "")) {
+    return { state: SELL_SCOPE.TEAM_IDENTITY_UNRESOLVED, rosterKeys: null };
+  }
   if (payload?.teamResolution?.reason === "team_not_found") {
     return { state: SELL_SCOPE.TEAM_NOT_FOUND, rosterKeys: null };
   }
@@ -162,11 +166,37 @@ function itemFor(player, kind) {
 /**
  * Select the ticker's verdict items.
  *
- * Returns `{ items, sellScope, counts }`.  Roster items (SELL, CONFLICT) come
- * first — they are the few that concern the selected team — then BUYs, each
- * group in board-rank order, BUYs capped at `buyLimit`.
+ * Returns `{ items, sellScope, leagueMismatch, counts }`.  Roster items (SELL,
+ * CONFLICT) come first — they concern the selected team — then BUYs, each
+ * group in board-rank order.  `limit` caps the WHOLE strip: roster items up to
+ * the cap, BUYs fill what is left.
+ *
+ * `selectedLeagueKey`: when both it and the payload's `leagueKey` are known
+ * and differ, the payload is dropped whole — no BUY and no SELL.
  */
-export function selectTickerVerdicts(payload, { selectedTeam = null, buyLimit = 20 } = {}) {
+export function selectTickerVerdicts(
+  payload,
+  { selectedTeam = null, selectedLeagueKey = "", limit = 20 } = {},
+) {
+  const payloadLeague = String(payload?.leagueKey || "");
+  const wantedLeague = String(selectedLeagueKey || "");
+  if (payloadLeague && wantedLeague && payloadLeague !== wantedLeague) {
+    return {
+      items: [],
+      sellScope: SELL_SCOPE.ROSTER_UNAVAILABLE,
+      leagueMismatch: true,
+      counts: {
+        buy: 0,
+        sell: 0,
+        conflict: 0,
+        withheld: 0,
+        sellOffRoster: 0,
+        conflictOffRoster: 0,
+        rosterShown: 0,
+        buyShown: 0,
+      },
+    };
+  }
   const players = Array.isArray(payload?.players) ? payload.players : [];
   const scope = sellScopeFor(payload, selectedTeam);
   const counts = {
@@ -213,11 +243,14 @@ export function selectTickerVerdicts(payload, { selectedTeam = null, buyLimit = 
   }
   rosterItems.sort(byBoardRank);
   buys.sort(byBoardRank);
-  const shownBuys = buys.slice(0, Math.max(0, buyLimit));
+  const cap = Math.max(0, limit);
+  const shownRoster = rosterItems.slice(0, cap);
+  const shownBuys = buys.slice(0, cap - shownRoster.length);
   return {
-    items: [...rosterItems, ...shownBuys],
+    items: [...shownRoster, ...shownBuys],
     sellScope: scope.state,
-    counts: { ...counts, buyShown: shownBuys.length },
+    leagueMismatch: false,
+    counts: { ...counts, rosterShown: shownRoster.length, buyShown: shownBuys.length },
   };
 }
 
@@ -237,7 +270,9 @@ export function sellScopeText(sellScope, teamName) {
     case SELL_SCOPE.TEAM_NOT_FOUND:
       return "Sells hidden: team not found";
     case SELL_SCOPE.TEAM_MISMATCH:
-      return "Sells hidden: loading your roster";
+      return "Sells hidden: roster is for a different team";
+    case SELL_SCOPE.TEAM_IDENTITY_UNRESOLVED:
+      return "Sells hidden: team identity unresolved";
     case SELL_SCOPE.ROSTER_UNAVAILABLE:
     default:
       return "Sells hidden: roster unavailable";

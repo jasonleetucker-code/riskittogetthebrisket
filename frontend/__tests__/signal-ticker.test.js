@@ -153,6 +153,23 @@ describe("selectTickerVerdicts — SELL only for the selected roster", () => {
     expect(sel.items).toEqual([]);
   });
 
+  it("a name-only selection (no owner id) shows no SELL and says identity is unresolved", () => {
+    const nameOnly = { ownerId: "", name: "Alpha Team" };
+    // Even when the payload's team carries that exact name.
+    const p = payload(ALL, { team: { ownerId: "", name: "Alpha Team" } });
+    const sel = selectTickerVerdicts(p, { selectedTeam: nameOnly });
+    expect(names(sel, "sell")).toEqual([]);
+    expect(names(sel, "conflict")).toEqual([]);
+    expect(sel.sellScope).toBe(SELL_SCOPE.TEAM_IDENTITY_UNRESOLVED);
+    expect(sellScopeText(sel.sellScope)).toBe("Sells hidden: team identity unresolved");
+    // BUYs are unaffected.
+    expect(names(sel, "buy").sort()).toEqual(["Elsewhere Buy", "Rostered Buy"]);
+  });
+
+  it("the mismatch reason is not described as loading", () => {
+    expect(sellScopeText(SELL_SCOPE.TEAM_MISMATCH)).not.toMatch(/loading/i);
+  });
+
   it("changing the selected team changes SELL eligibility", () => {
     const bravo = { ownerId: "owner-2", name: "Bravo Team" };
     const forBravo = payload(ALL, { team: bravo, rosterKeys: ["player:4"] });
@@ -203,12 +220,71 @@ describe("selectTickerVerdicts — order and limit", () => {
     ]);
   });
 
-  it("caps BUYs at buyLimit without touching roster SELLs", () => {
-    const sel = selectTickerVerdicts(payload(ALL), { selectedTeam: TEAM, buyLimit: 1 });
-    expect(names(sel, "buy")).toEqual(["Elsewhere Buy"]);
-    expect(names(sel, "sell")).toEqual(["Rostered Sell"]);
+  it("the cap applies to the WHOLE strip: roster items first, BUYs fill the rest", () => {
+    const sel = selectTickerVerdicts(payload(ALL), { selectedTeam: TEAM, limit: 3 });
+    expect(sel.items.map((i) => i.name)).toEqual([
+      "Rostered Sell",
+      "Rostered Conflict",
+      "Elsewhere Buy",
+    ]);
     expect(sel.counts.buy).toBe(2);
     expect(sel.counts.buyShown).toBe(1);
+    expect(sel.counts.rosterShown).toBe(2);
+  });
+
+  it("a 58-man roster of SELLs cannot overflow the strip", () => {
+    const keys = [];
+    const sells = [];
+    for (let i = 1; i <= 58; i++) {
+      keys.push(`player:r${i}`);
+      sells.push(
+        player(`player:r${i}`, `Roster ${i}`, "directional_sell_only", {
+          signals: [sig("bdvm_market_signal", "fundamental", "sell")],
+          rank: i,
+        }),
+      );
+    }
+    const sel = selectTickerVerdicts(payload([...sells, BUY_ELSEWHERE], { rosterKeys: keys }), {
+      selectedTeam: TEAM,
+      limit: 20,
+    });
+    expect(sel.items).toHaveLength(20);
+    expect(sel.items.every((i) => i.kind === "sell")).toBe(true);
+    expect(sel.items[0].name).toBe("Roster 1"); // board-rank order
+    expect(sel.counts.sell).toBe(58);
+    expect(sel.counts.rosterShown).toBe(20);
+    expect(sel.counts.buyShown).toBe(0);
+  });
+
+  it("the default cap is 20 for the whole strip", () => {
+    const many = [];
+    for (let i = 1; i <= 30; i++) {
+      many.push(
+        player(`player:b${i}`, `Buy ${i}`, "directional_buy_only", {
+          signals: [sig("consensus_edge", "consensus", "buy")],
+          rank: i,
+        }),
+      );
+    }
+    const sel = selectTickerVerdicts(payload([SELL_ON_ROSTER, ...many]), { selectedTeam: TEAM });
+    expect(sel.items).toHaveLength(20);
+    expect(sel.items[0].name).toBe("Rostered Sell");
+  });
+});
+
+describe("selectTickerVerdicts — league guard", () => {
+  it("drops a payload built for a different league than the one selected — no BUY, no SELL", () => {
+    const p = { ...payload(ALL), leagueKey: "dynasty_new" };
+    const sel = selectTickerVerdicts(p, { selectedTeam: TEAM, selectedLeagueKey: "dynasty_main" });
+    expect(sel.items).toEqual([]);
+    expect(sel.leagueMismatch).toBe(true);
+  });
+
+  it("keeps a payload for the selected league", () => {
+    const p = { ...payload(ALL), leagueKey: "dynasty_main" };
+    const sel = selectTickerVerdicts(p, { selectedTeam: TEAM, selectedLeagueKey: "dynasty_main" });
+    expect(sel.leagueMismatch).toBe(false);
+    expect(names(sel, "sell")).toEqual(["Rostered Sell"]);
   });
 });
 

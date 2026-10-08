@@ -40,7 +40,8 @@ import styles from "./market-ticker.module.css";
 // render in place without animation (never hidden — a real verdict is not
 // "quiet").
 const MIN_ANIMATED = 3;
-const BUY_LIMIT = 20;
+// Whole-strip cap: roster SELL/CONFLICT first, then BUYs fill the rest.
+const TICKER_LIMIT = 20;
 
 function useLeagueNames(sleeperTeams) {
   return useMemo(() => {
@@ -88,6 +89,9 @@ function freshnessText(payload, now) {
 }
 
 function quietMessage(status, payload) {
+  if (status === "league_mismatch") {
+    return "Buy/Sell signals unavailable — they were built for a different league.";
+  }
   if (status === "loading" || status === "idle") return "Loading Buy/Sell signals…";
   if (status === "unauthorized") return "Sign in to see Buy/Sell signals.";
   if (status === "unavailable") return "Buy/Sell signals unavailable — board data not ready.";
@@ -130,9 +134,13 @@ export default function MarketTicker() {
   const selection = useMemo(
     () =>
       verdictsVisible
-        ? selectTickerVerdicts(signals.payload, { selectedTeam, buyLimit: BUY_LIMIT })
+        ? selectTickerVerdicts(signals.payload, {
+            selectedTeam,
+            selectedLeagueKey: selectedLeagueKey || "",
+            limit: TICKER_LIMIT,
+          })
         : null,
-    [verdictsVisible, signals.payload, selectedTeam],
+    [verdictsVisible, signals.payload, selectedTeam, selectedLeagueKey],
   );
 
   const alerts = useMemo(() => {
@@ -165,7 +173,7 @@ export default function MarketTicker() {
   const rail = (
     <div className={styles.rail}>
       <span className={styles.railLabel}>Buy / Sell</span>
-      {verdictsVisible && selection ? (
+      {verdictsVisible && selection && !selection.leagueMismatch ? (
         <>
           <span className={styles.freshness}>{sellScopeText(selection.sellScope, teamName)}</span>
           <span className={styles.freshness}>{freshnessText(signals.payload, now)}</span>
@@ -185,7 +193,7 @@ export default function MarketTicker() {
       >
         {rail}
         <div className={styles.quietMsg}>
-          {quietMessage(displayStatus, signals.payload)}
+          {quietMessage(selection?.leagueMismatch ? "league_mismatch" : displayStatus, signals.payload)}
         </div>
       </div>
     );

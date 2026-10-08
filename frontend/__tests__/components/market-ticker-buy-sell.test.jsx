@@ -132,6 +132,21 @@ describe("MarketTicker — canonical Buy/Sell", () => {
     expect(container.textContent).not.toContain("Old Mover");
   });
 
+  it("a payload for a different league is dropped whole", async () => {
+    fetch.mockResolvedValue(okResponse({ ...reconciled(), leagueKey: "dynasty_new" }));
+    const { container } = render(<MarketTicker />);
+    await waitFor(() => expect(screen.getByText(/built for a different league/)).toBeTruthy());
+    expect(verdictSlots(container)).toHaveLength(0);
+  });
+
+  it("a name-only team selection shows BUYs, no SELLs, and names the real reason", async () => {
+    teamState.selectedTeam = { ownerId: "", name: "Alpha Team", players: [] };
+    const { container } = render(<MarketTicker />);
+    await waitFor(() => expect(verdictSlots(container).length).toBeGreaterThan(0));
+    expect(verdictSlots(container).map((li) => li.dataset.verdict)).toEqual(["buy"]);
+    expect(screen.getByText("Sells hidden: team identity unresolved")).toBeTruthy();
+  });
+
   it("no team selected: BUYs still show, no SELL items, and the rail says why", async () => {
     teamState.selectedTeam = null;
     const { container } = render(<MarketTicker />);

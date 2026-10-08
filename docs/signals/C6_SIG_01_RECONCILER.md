@@ -120,7 +120,11 @@ is in `roster.playerKeys` AND whose payload `team` is the selected team, never
 a pick; `conflict` renders as CONFLICT and only for a rostered player (its
 SELL half is a sell call); `withheld` never renders. Lineage text reads
 `agreement.<dir>.independent` / `conflict.sharedAncestry`; nothing is
-re-derived. Order is the backend rank stamp; no score is computed.
+re-derived. Order is the backend rank stamp; no score is computed. Team
+identity is the owner id only — a name-only selection shows no SELL
+("team identity unresolved"); a payload whose `leagueKey` differs from the
+selected league is dropped whole; the strip is capped as a whole (roster
+SELL/CONFLICT first, BUYs fill the rest).
 
 ## Emitters
 
