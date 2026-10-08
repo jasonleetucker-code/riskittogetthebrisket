@@ -21,6 +21,15 @@ Rules, same as the on-box verifiers:
 
 The cookie is read from ``--cookie-file`` (a 600-mode file holding ONLY
 the ``jason_session`` value) and never printed.
+
+Two subcommands carry the 2026-10-08 security-incident acceptance
+evidence (every workflow run, whatever the suite):
+
+* ``security-probe --origin O --cookie-file F --out P`` — status codes and
+  booleans for the session, run once before and once after the revoke;
+* ``security-summary --pre P --post P --census C --revoke-ok B --out S`` —
+  the allowlisted public report plus the job-summary table; exit 2 unless
+  every security check passed.
 """
 
 from __future__ import annotations
@@ -608,6 +617,268 @@ def emit_free_agent(contract: dict | None, out_path: str | None) -> None:
     c.record("pass", f"free agent chosen from the deployed board: {choice}", pool=len(candidates))
 
 
+# ─────────── security acceptance (incident 2026-10-08, guest sessions) ───────────
+#
+# Production evidence that (a) a guest session without a valid pass identity
+# is rejected and (b) a revoked pass cannot keep authenticating a session it
+# already minted.  The workflow probes the SAME session before and after the
+# on-box revoke, then runs a count-only census of the persisted session store
+# (``src/api/session_store.py::guest_session_census``) over SSH.
+#
+# Everything that leaves these functions is an int, a bool or None, through
+# a fixed key allowlist: the report is public (public repo => public
+# artifacts), so no body, header, cookie, username or pass id may reach it.
+
+#: A cheap, read-only private route behind the middleware auth gate.
+SECURITY_PRIVATE_PROBE_PATH = "/api/user/state"
+
+_PROBE_KEYS = ("authStatusHttp", "authenticated", "privateRouteHttp", "probeError")
+_CENSUS_KEYS = (
+    "storePresent",
+    "schemaHasGuestColumns",
+    "totalSessions",
+    "guestSessions",
+    "guestSessionsMissingPassIdentity",
+    "guestSessionsPassRevoked",
+    "guestSessionsLiveWithInactivePass",
+    "guestSessionsExpiredAwaitingCleanup",
+    "passStoreReadable",
+)
+SECURITY_INCIDENT = "2026-10-08-guest-session-cookie-exposure"
+
+
+def _scalar(value: Any) -> int | bool | None:
+    """Only ints and bools survive; anything else becomes None (unknown)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return int(value)
+    return None
+
+
+def _allowlisted(raw: Any, keys: tuple[str, ...]) -> dict[str, int | bool | None] | None:
+    if not isinstance(raw, dict):
+        return None
+    return {k: _scalar(raw.get(k)) for k in keys}
+
+
+def probe_session(client: Client) -> dict[str, int | bool | None]:
+    """Status codes and booleans only — never a body, a header or the cookie."""
+    try:
+        status, body = client.request("/api/auth/status")
+        authenticated = body.get("authenticated") if isinstance(body, dict) else None
+        private_status, _ = client.request(SECURITY_PRIVATE_PROBE_PATH)
+    except Exception:  # noqa: BLE001 — the exception text may carry the URL; record the fact only
+        return {k: (True if k == "probeError" else None) for k in _PROBE_KEYS}
+    return {
+        "authStatusHttp": int(status),
+        "authenticated": authenticated if isinstance(authenticated, bool) else None,
+        "privateRouteHttp": int(private_status),
+        "probeError": False,
+    }
+
+
+def _probe_accepted(p: dict | None) -> bool:
+    return bool(
+        p
+        and p.get("authStatusHttp") == 200
+        and p.get("authenticated") is True
+        and p.get("privateRouteHttp") == 200
+    )
+
+
+def _probe_rejected(p: dict | None) -> bool:
+    return bool(
+        p
+        and p.get("authStatusHttp") == 200
+        and p.get("authenticated") is False
+        and p.get("privateRouteHttp") == 401
+    )
+
+
+def _probe_text(p: dict | None) -> str:
+    if not p:
+        return "no probe result"
+    return (
+        f"/api/auth/status HTTP {p.get('authStatusHttp')} authenticated={p.get('authenticated')}; "
+        f"{SECURITY_PRIVATE_PROBE_PATH} HTTP {p.get('privateRouteHttp')}"
+        + ("; probe raised" if p.get("probeError") else "")
+    )
+
+
+def check_revocation(revoke_ok: bool | None, pre: dict | None, post: dict | None) -> list[Check]:
+    """(b): the SAME session, accepted before the revoke, is rejected after it.
+
+    The control matters: a rejection after the revoke proves nothing about
+    revocation if the session was never accepted in the first place."""
+    rev = _check("SEC-REVOKE", "security-2026-10-08", "on-box revoke succeeded")
+    if revoke_ok is True:
+        rev.record("pass", "guest_passes.revoke marked the pass and it is no longer authoritative")
+    else:
+        rev.record("fail", f"revoke did not succeed (revokeSucceeded={revoke_ok})")
+
+    probe = _check(
+        "SEC-POST-REVOKE",
+        "security-2026-10-08",
+        "a revoked pass's already-created session is rejected on its next request",
+    )
+    if not _probe_accepted(pre):
+        probe.record(
+            "fail",
+            "control probe did not show the session accepted before the revoke "
+            f"({_probe_text(pre)}) — a later rejection would prove nothing",
+        )
+    elif revoke_ok is not True:
+        probe.record("fail", "revoke failed, so the post-revocation probe is not evidence")
+    elif _probe_rejected(post):
+        probe.record("pass", f"before: {_probe_text(pre)}; after: {_probe_text(post)}")
+    else:
+        probe.record(
+            "fail",
+            f"session still answered after the revoke — before: {_probe_text(pre)}; "
+            f"after: {_probe_text(post)}",
+        )
+    return [rev, probe]
+
+
+def check_session_census(census: dict | None) -> list[Check]:
+    """(a) and (b) on the persisted store, counts only.  ``None`` is unknown,
+    and unknown is never a pass: a MUST-be-0 count must be observed as 0."""
+    c = census or {}
+    schema = _check(
+        "SEC-SCHEMA", "security-2026-10-08", "session store carries expiry + pass-id columns"
+    )
+    if c.get("schemaHasGuestColumns") is True:
+        schema.record("pass", "expires_at_epoch and guest_pass_id present")
+    else:
+        schema.record(
+            "fail",
+            f"schemaHasGuestColumns={c.get('schemaHasGuestColumns')} "
+            f"(storePresent={c.get('storePresent')})",
+        )
+
+    def must_be_zero(check_id: str, title: str, *keys: str) -> Check:
+        chk = _check(check_id, "security-2026-10-08", title)
+        values = {k: c.get(k) for k in keys}
+        text = ", ".join(f"{k}={v}" for k, v in values.items())
+        if all(v == 0 and not isinstance(v, bool) for v in values.values()):
+            chk.record("pass", text)
+        else:
+            chk.record("fail", text + " (each MUST be an observed 0)")
+        return chk
+
+    legacy = must_be_zero(
+        "SEC-LEGACY",
+        "no persisted guest session lacks a pass id or expiry",
+        "guestSessionsMissingPassIdentity",
+    )
+    inactive = must_be_zero(
+        "SEC-INACTIVE-PASS",
+        "no persisted guest session survives a revoked, expired or purged pass",
+        "guestSessionsPassRevoked",
+        "guestSessionsLiveWithInactivePass",
+    )
+    return [schema, legacy, inactive]
+
+
+def build_security_summary(
+    *,
+    revoke_ok: bool | None,
+    pre: Any,
+    post: Any,
+    census: Any,
+) -> dict[str, Any]:
+    """The public artifact: fixed keys, ints/bools/None, our own detail text."""
+    pre_s = _allowlisted(pre, _PROBE_KEYS)
+    post_s = _allowlisted(post, _PROBE_KEYS)
+    census_s = _allowlisted(census, _CENSUS_KEYS)
+    checks = check_revocation(revoke_ok, pre_s, post_s) + check_session_census(census_s)
+    return {
+        "incident": SECURITY_INCIDENT,
+        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "revokeSucceeded": revoke_ok,
+        "preRevocationProbe": pre_s,
+        "postRevocationProbe": post_s,
+        "sessionStoreCensus": census_s,
+        "checks": [{"id": k.check_id, "status": k.status, "detail": k.detail} for k in checks],
+        "verdict": "pass" if all(k.status == "pass" for k in checks) else "fail",
+    }
+
+
+def security_summary_markdown(summary: dict[str, Any]) -> str:
+    lines = [
+        f"### Security acceptance — incident {summary['incident']}: **{summary['verdict'].upper()}**",
+        "",
+        "| check | status | detail |",
+        "|---|---|---|",
+    ]
+    for chk in summary["checks"]:
+        lines.append(f"| {chk['id']} | {chk['status']} | {chk['detail']} |")
+    census = summary.get("sessionStoreCensus") or {}
+    lines += ["", "| census (count-only) | value |", "|---|---|"]
+    lines += [f"| {k} | {census.get(k)} |" for k in _CENSUS_KEYS]
+    return "\n".join(lines) + "\n"
+
+
+def _read_json(path: str | None) -> Any:
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _security_probe_main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="verify_v1_authenticated.py security-probe")
+    parser.add_argument("--origin", required=True)
+    parser.add_argument("--cookie-file", required=True)
+    parser.add_argument("--out", required=True)
+    args = parser.parse_args(argv)
+    try:
+        with open(args.cookie_file, encoding="utf-8") as fh:
+            cookie_value = fh.read().strip()
+    except OSError:
+        cookie_value = ""
+    if cookie_value:
+        result = probe_session(Client(args.origin, cookie_value))
+    else:
+        result = {k: (True if k == "probeError" else None) for k in _PROBE_KEYS}
+    result = _allowlisted(result, _PROBE_KEYS)
+    rendered = json.dumps(result, sort_keys=True)
+    with open(args.out, "w", encoding="utf-8") as fh:
+        fh.write(rendered)
+    print(rendered)
+    return 0
+
+
+def _security_summary_main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="verify_v1_authenticated.py security-summary")
+    parser.add_argument("--pre", default=None)
+    parser.add_argument("--post", default=None)
+    parser.add_argument("--census", default=None)
+    parser.add_argument("--revoke-ok", default="", help="'true' / 'false' / '' (unknown)")
+    parser.add_argument("--out", required=True)
+    parser.add_argument("--step-summary", default=None)
+    args = parser.parse_args(argv)
+    revoke_ok = {"true": True, "false": False}.get(args.revoke_ok.strip().lower())
+    summary = build_security_summary(
+        revoke_ok=revoke_ok,
+        pre=_read_json(args.pre),
+        post=_read_json(args.post),
+        census=_read_json(args.census),
+    )
+    rendered = json.dumps(summary, indent=1, sort_keys=True)
+    with open(args.out, "w", encoding="utf-8") as fh:
+        fh.write(rendered)
+    print(rendered)
+    if args.step_summary:
+        with open(args.step_summary, "a", encoding="utf-8") as fh:
+            fh.write(security_summary_markdown(summary))
+    return 0 if summary["verdict"] == "pass" else 2
+
+
 # ────────────────────────────── driver ──────────────────────────────
 
 
@@ -630,7 +901,12 @@ def _isolated(label: str, fn, *args):
         return None
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "security-probe":
+        return _security_probe_main(argv[1:])
+    if argv and argv[0] == "security-summary":
+        return _security_summary_main(argv[1:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origin", required=True)
     parser.add_argument("--league", default="dynasty_main")
@@ -639,7 +915,7 @@ def main() -> int:
     parser.add_argument("--expected-duration-seconds", type=float, default=None)
     parser.add_argument("--observed-expires-epoch", type=float, default=None)
     parser.add_argument("--free-agent-out", default=None)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     with open(args.cookie_file, encoding="utf-8") as fh:
         cookie_value = fh.read().strip()

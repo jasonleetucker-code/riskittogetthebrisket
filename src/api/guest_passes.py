@@ -364,6 +364,48 @@ def session_authority(pass_id: Any, *, db_path: Path | None = None) -> bool:
     return row is not None and row.is_active
 
 
+def read_only_pass_states(
+    pass_ids: Any,
+    *,
+    db_path: Path | None = None,
+) -> dict[int, str] | None:
+    """``{pass_id: "active" | "revoked" | "expired"}`` for every requested id
+    the store holds — read-only, never creating or migrating anything.
+
+    For the verification census (``session_store.guest_session_census``),
+    which must observe production without writing to it.  An id the store
+    does not hold is ABSENT from the result (purged or never minted) —
+    never defaulted to a state.  Returns ``None`` when the store cannot be
+    read at all: an unreadable authority is unknown, not "no passes".
+    Revocation wins over expiry, matching ``GuestPass.is_active``.
+    """
+    ids = sorted({int(i) for i in pass_ids if isinstance(i, int) and not isinstance(i, bool)})
+    path = db_path or _DEFAULT_DB_PATH
+    if not ids:
+        return {}
+    if not path.exists():
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            marks = ",".join("?" for _ in ids)
+            rows = conn.execute(
+                f"SELECT id, note, created_by, created_at_epoch, "
+                f"expires_at_epoch, revoked_at_epoch FROM {_TABLE} WHERE id IN ({marks})",
+                ids,
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        _LOGGER.warning("guest_passes read_only_pass_states failed: %s", exc)
+        return None
+    out: dict[int, str] = {}
+    for row in rows:
+        gp = _row_to_pass(row)
+        out[gp.id] = "revoked" if gp.is_revoked else ("expired" if gp.is_expired else "active")
+    return out
+
+
 def list_passes(
     *,
     include_inactive: bool = True,

@@ -312,6 +312,19 @@ jobs:
             exit 1
           fi
 
+      # Security incident 2026-10-08 acceptance, on EVERY run: the control
+      # half.  The same session is probed again after the revoke; a
+      # rejection then is only evidence if it was accepted now.  Status
+      # codes and booleans only (scripts/verify_v1_authenticated.py
+      # security-probe); the cookie stays in its 600-mode file.
+      - name: Security probe before revocation (control)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/verify_v1_authenticated.py security-probe \
+            --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
+            --out "$RUNNER_TEMP/security_probe_pre.json"
+
       - name: API verification suite
         # The temporary post-deploy Week 1 bridge needs the prod-auth browser
         # artifact for W1-30; API/Lane-4 rows are already independently
@@ -411,6 +424,7 @@ jobs:
           echo "Baseline collection exit: $rc (bounded observations, not campaign acceptance)"
 
       - name: Revoke the pass (always)
+        id: revoke
         if: ${{ always() && steps.mint.outputs.pass_id != '' }}
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -419,13 +433,17 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          trap 'rm -f -- "$RUNNER_TEMP/guest_pass_token" "$RUNNER_TEMP/session_cookie"' EXIT
+          # The session cookie outlives this step on purpose: the
+          # post-revocation probe below needs the SAME session, and that
+          # step deletes the cookie file on its own exit.
+          trap 'rm -f -- "$RUNNER_TEMP/guest_pass_token"' EXIT
+          rc=0
           ssh -i "$HOME/.ssh/id_ed25519" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") PASS_ID=$(printf %q "$PASS_ID") bash -s" <<'REMOTE'
+            "APP_DIR=$(printf %q "$APP_DIR") PASS_ID=$(printf %q "$PASS_ID") bash -s" <<'REMOTE' || rc=$?
           set -Eeuo pipefail
           cd "$APP_DIR"
           PY="$APP_DIR/.venv/bin/python"
@@ -440,10 +458,92 @@ jobs:
 
           pass_id = int(os.environ["PASS_ID"])
           revoked = guest_passes.revoke(pass_id)
-          print(f"revoked pass id={pass_id}: {revoked}")
+          still_authoritative = guest_passes.session_authority(pass_id)
+          print(f"revoked pass id={pass_id}: {revoked}; still authoritative: {still_authoritative}")
+          # A freshly minted pass must be newly marked AND stop being an
+          # authority; anything else is a failed revoke.
+          sys.exit(0 if revoked and not still_authoritative else 3)
           PYEOF
           REMOTE
+          if [ "$rc" -ne 0 ]; then
+            echo "revoke_ok=false" >> "$GITHUB_OUTPUT"
+            echo "::error title=Revoke failed::revoking pass ${PASS_ID} failed (exit ${rc})"
+            exit 1
+          fi
+          echo "revoke_ok=true" >> "$GITHUB_OUTPUT"
           echo "Audit: pass ${PASS_ID} minted and revoked within this run."
+
+      - name: Security probe after revocation (same session)
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'rm -f -- "$RUNNER_TEMP/guest_pass_token" "$RUNNER_TEMP/session_cookie"' EXIT
+          python3 scripts/verify_v1_authenticated.py security-probe \
+            --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
+            --out "$RUNNER_TEMP/security_probe_post.json"
+
+      - name: On-box guest-session census (count-only, read-only)
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # src/api/session_store.py::guest_session_census opens both stores
+          # mode=ro and returns counts/booleans only — no session id,
+          # username, cookie or pass id.  A failure leaves no census file,
+          # which the summary records as unknown (never as 0).
+          rc=0
+          CENSUS_JSON=$(ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          "$PY" - <<'PYEOF'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, os.environ["APP_DIR"])
+          from src.api import session_store
+
+          print(json.dumps(session_store.guest_session_census()))
+          PYEOF
+          REMOTE
+          ) || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::on-box census failed (exit ${rc}); recorded as unknown"
+            exit 0
+          fi
+          printf '%s' "$CENSUS_JSON" > "$RUNNER_TEMP/session_census.json"
+
+      - name: Security acceptance summary (incident 2026-10-08)
+        id: security
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        shell: bash
+        env:
+          REVOKE_OK: ${{ steps.revoke.outputs.revoke_ok }}
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          python3 scripts/verify_v1_authenticated.py security-summary \
+            --pre "$RUNNER_TEMP/security_probe_pre.json" \
+            --post "$RUNNER_TEMP/security_probe_post.json" \
+            --census "$RUNNER_TEMP/session_census.json" \
+            --revoke-ok "$REVOKE_OK" \
+            --out security-acceptance.json \
+            --step-summary "$GITHUB_STEP_SUMMARY" || rc=$?
+          echo "security_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Security acceptance exit: $rc (0 pass · 2 fail)"
 
       - name: Fail the job on API/lane4/browser verdicts
         shell: bash
@@ -452,10 +552,17 @@ jobs:
           LANE4_EXIT: ${{ steps.lane4.outputs.lane4_exit }}
           BROWSER_EXIT: ${{ steps.browser.outputs.browser_exit }}
           BASELINE_EXIT: ${{ steps.baseline.outputs.baseline_exit }}
+          SECURITY_EXIT: ${{ steps.security.outputs.security_exit }}
           BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         run: |
           set -Eeuo pipefail
-          echo "api=$API_EXIT lane4=$LANE4_EXIT browser=$BROWSER_EXIT (0 pass · 2 fail · 3 proved nothing)"
+          echo "api=$API_EXIT lane4=$LANE4_EXIT browser=$BROWSER_EXIT security=$SECURITY_EXIT (0 pass · 2 fail · 3 proved nothing)"
+          # Security incident 2026-10-08 acceptance is binding on every run
+          # that minted a pass: anything but an observed pass fails the job.
+          if [ -n "$SECURITY_EXIT" ] && [ "$SECURITY_EXIT" != "0" ]; then
+            echo "::error title=Security acceptance::post-revocation probe or session census failed (exit $SECURITY_EXIT)"
+            exit 1
+          fi
           # Exit 3 is recorded but does not fail the job: an evidence-free
           # check must be visible, and a red job hides which one happened.
           #
@@ -496,6 +603,7 @@ jobs:
           path: |
             production-route-baselines.json
             v1-auth-report.json
+            security-acceptance.json
             lane4-remote.txt
             tests/e2e/prod-auth-results.json
           if-no-files-found: warn
