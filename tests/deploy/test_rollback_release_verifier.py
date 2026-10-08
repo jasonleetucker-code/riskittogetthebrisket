@@ -31,8 +31,8 @@ TARGET_VERIFIER_MARKER = "TARGET REVISION VERIFIER WAS USED"
 HOSTILE_MARKER = "HOSTILE PYTHON ENVIRONMENT CODE RAN"
 # Produced by the PRE-#1707 src/api/build_identity.py (origin/main 1d0438520)
 # for the tree _legacy_release builds -- i.e. what a saved pre-fix manifest says.
-GOLDEN_LEGACY_TREE_DIGEST = "891b189d6b38ce487321829a74759d89b37371ea3da471709717f0580cb45a87"
-GOLDEN_LEGACY_ARTIFACT_ID = "33603033b905a3a1c87e47b16e529c1fd9204b1741c2f7336e23029af685d82c"
+GOLDEN_LEGACY_TREE_DIGEST = "d66616d6d327ad31945c7d772ea50a82153c4b1f391d26314e6dd6b48a43518c"
+GOLDEN_LEGACY_ARTIFACT_ID = "ef12ecaf08881c681b8b09cc4ba88ed14024f7d58c85a09dde7b8f0d9ad69c90"
 
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
 
@@ -75,19 +75,19 @@ def _legacy_release(app_dir: Path) -> tuple[Path, str]:
     for relative in ("src/api/build_identity.py", "scripts/release_artifact.py"):
         (app_dir / relative).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO / relative, app_dir / relative)
-    (app_dir / ".git").mkdir()
-    (app_dir / ".git/HEAD").write_text(SHA + "\n", encoding="utf-8")
-    (app_dir / "requirements.lock.txt").write_text("fastapi==1.0\n", encoding="utf-8")
+    # Every fixture byte is written in BINARY mode with explicit LF: the golden
+    # values below are a function of these exact bytes, and text mode would
+    # write CRLF on Windows (it did -- the first golden pin only held there).
+    _write(app_dir / ".git/HEAD", SHA.encode() + b"\n")
+    _write(app_dir / "requirements.lock.txt", b"fastapi==1.0\n")
     build = app_dir / "frontend/.next"
-    (build / "static").mkdir(parents=True)
-    (build / "server").mkdir()
-    (app_dir / "frontend/package-lock.json").write_text("{}\n", encoding="utf-8")
-    (build / "BUILD_ID").write_text("legacy-build\n", encoding="utf-8")
-    (build / "static/app.js").write_bytes(b"tested frontend")
-    (build / "server/app-paths-manifest.json").write_text(
-        json.dumps({"/login/page": "app/login/page.js"}), encoding="utf-8"
-    )
-    (build / "server/pages-manifest.json").write_text("{}", encoding="utf-8")
+    _write(app_dir / "frontend/package-lock.json", b"{}\n")
+    _write(build / "BUILD_ID", b"legacy-build\n")
+    _write(build / "static/app.js", b"tested frontend")
+    _write(build / "server/app-paths-manifest.json", b'{"/login/page": "app/login/page.js"}')
+    _write(build / "server/pages-manifest.json", b"{}")
+    for path in build.rglob("*"):
+        assert not path.is_file() or b"\r" not in path.read_bytes(), path
     identity = {
         "commit": SHA,
         "python_lock_sha256": hashlib.sha256(b"fastapi==1.0\n").hexdigest(),
@@ -103,8 +103,8 @@ def _legacy_release(app_dir: Path) -> tuple[Path, str]:
     }
     artifact_id = GOLDEN_LEGACY_ARTIFACT_ID
     manifest = app_dir / "state/staged_release_manifest.json"
-    manifest.parent.mkdir()
-    manifest.write_text(
+    _write(
+        manifest,
         json.dumps(
             {
                 "schema_version": "calculator-release/v1",
@@ -112,10 +112,16 @@ def _legacy_release(app_dir: Path) -> tuple[Path, str]:
                 "identity": identity,
                 "backend_artifact_unavailable_reason": "backend_artifact_not_built_in_this_phase",
             }
-        ),
-        encoding="utf-8",
+        ).encode("utf-8"),
     )
     return manifest, artifact_id
+
+
+def _write(path: Path, data: bytes) -> None:
+    """Binary, platform-independent fixture bytes."""
+    assert b"\r" not in data, path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
 
 
 def _serve_traffic(app_dir: Path, name: str = "login.html") -> None:
@@ -137,9 +143,9 @@ def _hostile_python_environment(tmp_path: Path) -> str:
     hostile = tmp_path / "hostile"
     package = hostile / "path/scripts"
     package.mkdir(parents=True)
-    (package / "__init__.py").write_text("", encoding="utf-8")
-    payload = f"import sys; print({HOSTILE_MARKER!r}); sys.exit(0)\n"
-    (package / "release_artifact.py").write_text(payload, encoding="utf-8")
+    _write(package / "__init__.py", b"")
+    payload = f"import sys; print({HOSTILE_MARKER!r}); sys.exit(0)\n".encode()
+    _write(package / "release_artifact.py", payload)
     userbase = hostile / "userbase"
     usersite = subprocess.run(
         [
@@ -154,9 +160,9 @@ def _hostile_python_environment(tmp_path: Path) -> str:
     ).stdout.strip()
     site_dir = Path(usersite)
     (site_dir / "scripts").mkdir(parents=True)
-    (site_dir / "scripts/__init__.py").write_text("", encoding="utf-8")
-    (site_dir / "scripts/release_artifact.py").write_text(payload, encoding="utf-8")
-    (site_dir / "hostile.pth").write_text(payload, encoding="utf-8")
+    _write(site_dir / "scripts/__init__.py", b"")
+    _write(site_dir / "scripts/release_artifact.py", payload)
+    _write(site_dir / "hostile.pth", payload)
     return textwrap.dedent(f"""\
         export PYTHONPATH={(hostile / "path").as_posix()}
         export PYTHONSAFEPATH=1
@@ -168,7 +174,7 @@ def _hostile_python_environment(tmp_path: Path) -> str:
 def _run(app_dir: Path, tmp_path: Path, manifest: Path, *, preserve: bool, hostile_env: str = ""):
     """Preserve (or not), then check out the target, then run the post-start verify."""
     target_copy = tmp_path / "target_build_identity.py"
-    target_copy.write_text(f"raise SystemExit({TARGET_VERIFIER_MARKER!r})", encoding="utf-8")
+    _write(target_copy, f"raise SystemExit({TARGET_VERIFIER_MARKER!r})\n".encode())
     driver = textwrap.dedent(f"""\
         set -Eeuo pipefail
         export APP_DIR={app_dir.as_posix()}
