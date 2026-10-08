@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 636,
+ "count": 633,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -402,9 +402,6 @@
   "src/news/providers/sleeper.py::key=lambda it: (it.confidence or 0.0, it.severity == \"watch\"),",
   "src/news/providers/sleeper.py::top_count=int(top_add or 0),",
   "src/news/providers/sleeper.py::top_count=int(top_drop or 0),",
-  "src/news/unified_signal_engine.py::abs(usage_signal_dict.get(\"carry_share_z\") or 0),",
-  "src/news/unified_signal_engine.py::abs(usage_signal_dict.get(\"snap_pct_z\") or 0),",
-  "src/news/unified_signal_engine.py::abs(usage_signal_dict.get(\"target_share_z\") or 0),",
   "src/public_league/activity.py::feed.sort(key=lambda t: -int(t.get(\"createdAt\") or 0))",
   "src/public_league/activity.py::wk = t.get(\"week\") or 0",
   "src/public_league/archives.py::rows.sort(key=lambda r: -(int(r.get(\"createdAt\") or 0)))",
