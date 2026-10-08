@@ -163,6 +163,19 @@ NATIVE_STORES: Mapping[str, str] = {
     "sparse_evidence_shadow_ledger": "src.api.sparse_evidence_shadow",
     # Source dataset state clocks
     "dataset_state": "src.sources.dataset_state",
+    # Game Day league-week generations: the append-only ``generations.jsonl``
+    # index (as-known win / beat-median probabilities) and the latest
+    # ``generation.json`` (host finals once final) (AL-4a)
+    "game_day_generations": "src.ros.game_day_live (generations.jsonl + generation.json)",
+    # the pregame weekly-projection archive, or the raw weekly observation log
+    # it is built from before the prune (AL-3b)
+    "game_day_pregame_projections": "src.ros.game_day_live.build_pregame_projection_archive",
+    # Sleeper's own weekly stat dump, persisted by the projection scorecard (AL-3b)
+    "sleeper_weekly_stats": "src.league_comparison.sleeper_stats.fetch_week_stats_response",
+    # nflverse weekly stats scored through the BDVM actuals owner (AL-3b)
+    "nflverse_weekly_stats": "src.bdvm.actuals.weekly_points_from_rows",
+    # immutable BDVM season projection snapshots (AL-3b)
+    "bdvm_projection_snapshot": "src.bdvm.projections (data/bdvm/projections snapshots)",
     # a producer's preregistration document, pinned by sha256 (and commit) by that producer
     "preregistration": "the producer's own preregistration pin (e.g. source-quality pins.preregistration)",
 }
