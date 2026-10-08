@@ -6520,6 +6520,35 @@ async def get_player_value_explain(player: str):
     return JSONResponse(content=player_explain(contract, row, stamps))
 
 
+@app.get("/api/players/{player}/value-movement")
+async def get_player_value_movement(player: str):
+    """Why did this value move: the contributing evidence between the
+    current board generation and the previous one, read from the temporal
+    ledger (``src/history``) — canonical value/rank at both ends, per-source
+    vendor-value deltas, sources that appeared or disappeared, the pipeline
+    version at both ends, and every quantity the ledger does NOT store named
+    as unobserved.  Explicitly non-additive.  Sibling of ``value-explain``
+    (which explains the CURRENT value); same session gate.  ``player`` is a
+    playerId or exact display name."""
+    from src.api.source_weighting_explain import find_row  # noqa: PLC0415
+    from src.api.value_movement import player_value_movement  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    if not contract.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "No board loaded yet."},
+        )
+    row = find_row(contract, player)
+    if row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "player_not_found", "player": player},
+        )
+    payload = await run_in_threadpool(player_value_movement, contract, row)
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store, private"})
+
+
 @app.get("/api/scaffold/status")
 async def get_scaffold_status():
     """Return latest scaffold snapshot metadata for raw/canonical/league/report outputs."""

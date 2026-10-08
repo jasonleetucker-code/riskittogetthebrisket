@@ -667,6 +667,37 @@ def series(
     }
 
 
+def _previous_board_date(conn: sqlite3.Connection, before_date: Any) -> str | None:
+    """The latest canonical board date STRICTLY BEFORE ``before_date`` —
+    the one comparator rule :func:`previous_board_ranks` (``rankChange``)
+    and :func:`previous_board_date` (value-movement attribution) share."""
+    boundary = store.as_of_date(before_date)
+    row = conn.execute(
+        "SELECT MAX(observed_date) FROM observations WHERE lane=? AND observed_date<?",
+        (LANE_CANONICAL, boundary),
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def previous_board_date(
+    *,
+    before_date: date | datetime | str,
+    path: Path | None = None,
+) -> str | None:
+    """The comparator board generation for ``before_date``: the latest
+    canonical board date strictly before it, or ``None`` when no earlier
+    generation exists (or no ledger does) — "no comparator", never a
+    guessed date.  Same rule ``rankChange`` derives from."""
+    boundary = store.as_of_date(before_date)
+    conn = _connect_readonly(path)
+    if conn is None:
+        return None
+    try:
+        return _previous_board_date(conn, boundary)
+    finally:
+        conn.close()
+
+
 def previous_board_ranks(
     *,
     before_date: date | datetime | str,
@@ -692,11 +723,7 @@ def previous_board_ranks(
     if conn is None:
         return {}
     try:
-        prev_date_row = conn.execute(
-            "SELECT MAX(observed_date) FROM observations WHERE lane=? AND observed_date<?",
-            (LANE_CANONICAL, boundary),
-        ).fetchone()
-        prev_date = prev_date_row[0] if prev_date_row else None
+        prev_date = _previous_board_date(conn, boundary)
         if not prev_date:
             return {}
         rows = conn.execute(

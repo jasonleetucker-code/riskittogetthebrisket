@@ -72,6 +72,10 @@ import styles from "./player-file.module.css";
 // does not mount it until opened, so neither the chunk nor the fetch costs
 // anything until a reader asks.
 const ValueExplainDetail = lazy(() => import("@/components/ValueExplainDetail"));
+// "Why it moved" (IC-7): the contributing evidence between the current
+// board generation and the previous one, read from the temporal ledger.
+// Same lazy, mount-on-open posture as the value explanation above.
+const ValueMovementDetail = lazy(() => import("@/components/ValueMovementDetail"));
 
 function findRowByPlayerId(rows, rawParam) {
   if (!Array.isArray(rows) || !rawParam) return null;
@@ -378,6 +382,29 @@ export default function PlayerFilePage() {
           <Panel title="Rank history" subtitle="180-day trajectory" flush>
             <PlayerRankHistoryChart row={row} />
           </Panel>
+          {/* Why the value moved since the previous board: contributing
+              evidence from the temporal ledger, never an asserted cause and
+              never an additive split (private, session-gated endpoint). */}
+          <CollapsiblePanel
+            title="Why it moved"
+            subtitle="What changed in the recorded evidence since the previous board — not additive"
+            defaultCollapsed
+            mountCollapsedChildren={false}
+            dense
+          >
+            <Suspense
+              fallback={
+                <div role="status" aria-label="Loading why the value moved">
+                  <SkeletonText lines={4} />
+                </div>
+              }
+            >
+              <ValueMovementDetail
+                playerKey={String(row.raw?.playerId || row.playerId || row.name || "")}
+                customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
+              />
+            </Suspense>
+          </CollapsiblePanel>
         </div>
       </TabPanel>
 
