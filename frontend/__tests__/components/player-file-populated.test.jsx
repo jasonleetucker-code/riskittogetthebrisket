@@ -342,6 +342,14 @@ describe("Player File — explanations", () => {
     expect(within(overview).getByText("Freshness")).toBeInTheDocument();
   });
 
+  it("offers a collapsed 'Why it moved' disclosure that fetches nothing until opened", () => {
+    render(<PlayerFilePage />);
+    const overview = screen.getByRole("tabpanel", { name: "Overview" });
+    expect(within(overview).getByText("Why it moved")).toBeInTheDocument();
+    const calls = globalThis.fetch.mock.calls.map((c) => String(c[0]));
+    expect(calls.some((u) => u.includes("/value-movement"))).toBe(false);
+  });
+
   it("the Market tab separates the KTC Market benchmark and shows per-source freshness", async () => {
     const user = userEvent.setup();
     render(<PlayerFilePage />);
