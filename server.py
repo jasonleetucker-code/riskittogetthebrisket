@@ -11800,6 +11800,7 @@ from src.public_league.public_contract import (  # noqa: E402 — grouped with p
     is_private_intelligence_section,
     public_envelope,
     public_league_key,
+    public_payload,
 )
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
 from src.public_league.snapshot import (  # noqa: E402 — grouped with public-league block
@@ -11962,7 +11963,9 @@ def _overview_payload_from_contract(contract: dict) -> dict:
     """The ``build_section_payload(snapshot, "overview")`` shape, taken
     from an already-built full contract."""
     payload = {
-        **public_envelope(contract["contractVersion"], contract["league"]),
+        **public_envelope(
+            contract["contractVersion"], contract["league"], contract.get("leagueKey")
+        ),
         "section": "overview",
         "data": contract["sections"]["overview"],
     }
@@ -12086,7 +12089,10 @@ def _seed_public_activity(contract, key, started_at: float) -> None:
     cost the overview or the full contract their seeds."""
     try:
         payload = activity_serving_payload(
-            contract["contractVersion"], contract["league"], contract["sections"]["activity"]
+            contract["contractVersion"],
+            contract["league"],
+            contract.get("leagueKey"),
+            contract["sections"]["activity"],
         )
         _remember_activity(key, payload, started_at)
     except Exception as exc:  # noqa: BLE001
@@ -12454,11 +12460,13 @@ def _public_section_access_error(section: str, request: Request) -> JSONResponse
     )
 
 
-def _public_section_league_error(section: str, league_key: str) -> JSONResponse | None:
+def _public_league_key_error(league_key: str) -> JSONResponse | None:
     """``None`` when a ``leagueKey`` may be honoured for this request.
 
-    The section routes accepted no ``leagueKey`` at all and always
-    resolved the registry default, so a caller asking for a second
+    Every ``/api/public/league*`` route (the full contract, each section,
+    its ``.csv`` variant, the matchup / player routes and their indexes)
+    calls this one predicate.  They accepted no ``leagueKey`` at all and
+    always resolved the registry default, so a caller asking for a second
     league got the FIRST league's payload, byte for byte, with nothing
     on the response saying so — measured on production for
     ``faabAnalytics``, which ``ManualAddDrop.jsx`` requests with an
@@ -12466,8 +12474,11 @@ def _public_section_league_error(section: str, league_key: str) -> JSONResponse 
 
     The public-league product is single-league today, so the honest
     answer to "give me the other league" is a refusal, not a silent
-    substitution.  Unknown keys 400 like every other league-aware route;
-    a known-but-not-public league is told so explicitly.
+    substitution.  Same table as every league-aware route (CLAUDE.md
+    "League-aware routing"): unknown → 400 ``unknown_league``, inactive →
+    400 ``inactive_league``; a known, active league that is not the public
+    one → 404 ``league_not_public``.  An empty key means "the public
+    league" and is the only way to get the default.
     """
     requested = str(league_key or "").strip()
     if not requested:
@@ -12481,6 +12492,15 @@ def _public_section_league_error(section: str, league_key: str) -> JSONResponse 
             content={
                 "error": "unknown_league",
                 "message": f"Unknown leagueKey: {requested!r}.",
+            },
+        )
+    if not cfg.active:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "inactive_league",
+                "message": f"League {cfg.key!r} is not active.",
+                "leagueKey": cfg.key,
             },
         )
     public_id = str(_league_registry.get_sleeper_league_id() or "").strip()
@@ -12916,7 +12936,9 @@ async def get_public_league_metrics():
     valuation_ready = _build_public_activity_valuation() is not None
     return JSONResponse(
         content={
-            "leagueId": _public_league_id(),
+            # The stable registry key, never the raw Sleeper id
+            # (``public_contract.RAW_SLEEPER_ID_FIELDS``).
+            "leagueKey": public_league_key(_public_league_id()),
             "cacheTtlSeconds": _PUBLIC_LEAGUE_CACHE_TTL_SECONDS,
             "warmupEnabled": _PUBLIC_LEAGUE_WARMUP,
             "persistEnabled": _PUBLIC_LEAGUE_PERSIST,
@@ -12934,14 +12956,21 @@ async def get_public_league_metrics():
 
 
 @app.get("/api/public/league")
-async def get_public_league(request: Request, refresh: str = ""):
+async def get_public_league(request: Request, refresh: str = "", leagueKey: str = ""):
     """Full public league contract — every section + league header.
 
     This endpoint is intentionally separate from /api/data.  It never
     reads the private canonical pipeline, never exposes private
     rankings / edge signals, and runs through an allowlist guard
     before serialization.
+
+    ``leagueKey`` is validated exactly as on the section routes
+    (``_public_league_key_error``): a named league is honoured or
+    refused, never silently answered with the default league.
     """
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         # Snapshot fetch (blocking network I/O) AND contract assembly
@@ -13002,12 +13031,17 @@ async def get_public_league_matchup(
     matchup_id: int,
     request: Request,
     refresh: str = "",
+    leagueKey: str = "",
 ):
     """Per-matchup public recap — full lineups, scoring, pre-week standings.
 
     ``season`` is the season year string (e.g. ``"2025"``).
-    Runs through the same safety allowlist as the rest of the contract.
+    Runs through the same serving projection as the rest of the contract
+    (``public_payload``) and validates ``leagueKey`` like every public route.
     """
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
@@ -13023,10 +13057,9 @@ async def get_public_league_matchup(
             "contractVersion": "public-league-matchup/2026-04-17.v1",
             "leagueKey": public_league_key(snapshot.root_league_id),
             "league": {
-                "rootLeagueId": snapshot.root_league_id,
-                "currentLeagueId": snapshot.current_season.league_id
+                "currentSeason": snapshot.current_season.season
                 if snapshot.current_season
-                else "",
+                else None,
                 "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
                 if snapshot.current_season
                 else "",
@@ -13036,8 +13069,7 @@ async def get_public_league_matchup(
             },
             "matchup": recap,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -13067,9 +13099,12 @@ async def get_public_league_matchup(
 
 
 @app.get("/api/public/league/matchups")
-async def list_public_league_matchups(request: Request, refresh: str = ""):
+async def list_public_league_matchups(request: Request, refresh: str = "", leagueKey: str = ""):
     """Index endpoint — every (season, week, matchup_id) that has a
     scored pair.  Useful for sitemap generation + the index landing."""
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
@@ -13079,8 +13114,7 @@ async def list_public_league_matchups(request: Request, refresh: str = ""):
             "matchups": public_matchup_recap.list_matchups(snapshot),
             "generatedAt": snapshot.generated_at,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -13097,9 +13131,14 @@ async def list_public_league_matchups(request: Request, refresh: str = ""):
 
 
 @app.get("/api/public/league/player/{player_id}")
-async def get_public_league_player(player_id: str, request: Request, refresh: str = ""):
+async def get_public_league_player(
+    player_id: str, request: Request, refresh: str = "", leagueKey: str = ""
+):
     """Public player-journey view: every trade, waiver, weekly starter
     slot, per-manager scoring summary for a given Sleeper player_id."""
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
@@ -13110,7 +13149,6 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
             "contractVersion": "public-league-player/2026-04-17.v1",
             "leagueKey": public_league_key(snapshot.root_league_id),
             "league": {
-                "rootLeagueId": snapshot.root_league_id,
                 "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
                 if snapshot.current_season
                 else "",
@@ -13120,8 +13158,7 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
             },
             "player": journey,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -13149,20 +13186,23 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
 
 
 @app.get("/api/public/league/players")
-async def list_public_league_players(request: Request, refresh: str = ""):
+async def list_public_league_players(request: Request, refresh: str = "", leagueKey: str = ""):
     """Index endpoint — every player who appears on a roster or in a
     transaction in the 2-season window.  Lightweight so the frontend
     can build a player-autocomplete."""
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         payload = {
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "seasonsCovered": snapshot.season_ids,
             "players": public_player_journey.list_players_with_activity(snapshot),
             "generatedAt": snapshot.generated_at,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -13242,6 +13282,22 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
     )
 
 
+def _public_csv_headers(filename: str, league_key: str | None) -> dict[str, str]:
+    """Response headers for a public-league CSV download.
+
+    ``X-League-Key`` is the CSV's stand-in for the JSON envelope's
+    ``leagueKey`` — the stable registry key, never a Sleeper id — and is
+    omitted rather than guessed when the registry cannot name the league.
+    """
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
+    }
+    if league_key:
+        headers["X-League-Key"] = league_key
+    return headers
+
+
 @app.get("/api/public/league/{section}.csv")
 async def get_public_league_section_csv(
     section: str,
@@ -13264,8 +13320,18 @@ async def get_public_league_section_csv(
 
     Registered BEFORE the generic /{section} handler so FastAPI's path
     matching resolves the ``.csv`` suffix first.
+
+    A CSV has no JSON envelope to carry ``leagueKey``, so the league it
+    describes is named by the ``X-League-Key`` response header (absent
+    when the registry cannot name the snapshot's league — unknown is not
+    published as a guess).  ``leagueKey`` is validated on every variant,
+    ``hall_of_fame`` included.
     """
     if section == "hall_of_fame":
+        _league_err = _public_league_key_error(leagueKey)
+        if _league_err is not None:
+            return _league_err
+
         # Hall of Fame is a derived projection of the history section.
         def _build_hof():
             snapshot = _get_public_snapshot(
@@ -13273,17 +13339,17 @@ async def get_public_league_section_csv(
             )
             history_payload = build_section_payload(snapshot, "history")
             assert_public_payload_safe(history_payload)
-            return public_csv_export.export_hall_of_fame(history_payload["data"])
+            return (
+                *public_csv_export.export_hall_of_fame(history_payload["data"]),
+                history_payload.get("leagueKey"),
+            )
 
         try:
-            filename, text = await run_in_threadpool(_build_hof)
+            filename, text, csv_league_key = await run_in_threadpool(_build_hof)
             return Response(
                 content=text,
                 media_type="text/csv; charset=utf-8",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                    "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
-                },
+                headers=_public_csv_headers(filename, csv_league_key),
             )
         except Exception as exc:  # noqa: BLE001
             logging.error("CSV export hall_of_fame failed: %s", exc)
@@ -13300,7 +13366,7 @@ async def get_public_league_section_csv(
                 "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
             },
         )
-    _league_err = _public_section_league_error(section, leagueKey)
+    _league_err = _public_league_key_error(leagueKey)
     if _league_err is not None:
         return _league_err
     _access_err = _public_section_access_error(section, request)
@@ -13354,10 +13420,7 @@ async def get_public_league_section_csv(
         return Response(
             content=text,
             media_type="text/csv; charset=utf-8",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
-            },
+            headers=_public_csv_headers(filename, public_league_key(snapshot.root_league_id)),
         )
     except AssertionError as exc:
         logging.error("CSV export safety violation in section %s: %s", section, exc)
@@ -13426,7 +13489,7 @@ async def get_public_league_section(
                     "availableLenses": list(_valid_lenses),
                 },
             )
-    _league_err = _public_section_league_error(section, leagueKey)
+    _league_err = _public_league_key_error(leagueKey)
     if _league_err is not None:
         return _league_err
     _access_err = _public_section_access_error(section, request)
