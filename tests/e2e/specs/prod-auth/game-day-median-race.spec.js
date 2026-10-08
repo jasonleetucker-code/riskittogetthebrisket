@@ -103,8 +103,6 @@ test.describe("Live Median Race (production)", () => {
       await expect(page.getByRole("combobox", { name: "Viewing team" })).toHaveValue(other.ownerId);
       await noPageOverflow(page);
     }
-    const shot = testInfo.outputPath("median-race.png");
-    await section.screenshot({ path: shot });
-    await testInfo.attach("median-race", { path: shot, contentType: "image/png" });
+    // No screenshot: production pages are never captured into files (security S3).
   });
 });

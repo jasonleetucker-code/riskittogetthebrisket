@@ -15,6 +15,8 @@ Provides a fully-deterministic two-season league chain with:
 
 from __future__ import annotations
 
+import copy
+
 from typing import Any
 
 
@@ -279,7 +281,14 @@ LEAGUE_2025 = {
     "status": "complete",
     "total_rosters": 4,
     "previous_league_id": "L2024",
-    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6, "type": 2},
+    "settings": {
+        "playoff_week_start": 15,
+        "draft_rounds": 4,
+        "playoff_teams": 6,
+        "type": 2,
+        # Stated, never assumed: an unstated median setting refuses odds (D3).
+        "league_average_match": 0,
+    },
 }
 LEAGUE_2024 = {
     "league_id": "L2024",
@@ -289,7 +298,14 @@ LEAGUE_2024 = {
     "status": "complete",
     "total_rosters": 4,
     "previous_league_id": None,
-    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6, "type": 2},
+    "settings": {
+        "playoff_week_start": 15,
+        "draft_rounds": 4,
+        "playoff_teams": 6,
+        "type": 2,
+        # Stated, never assumed: an unstated median setting refuses odds (D3).
+        "league_average_match": 0,
+    },
 }
 
 WINNERS_BRACKET_2025 = [
@@ -329,7 +345,9 @@ def build_stub_client():
     winners_by_id = {"L2025": WINNERS_BRACKET_2025, "L2024": WINNERS_BRACKET_2024}
 
     return {
-        "fetch_league": lambda lid: league_by_id.get(lid),
+        # A COPY per fetch: a test that edits one snapshot's league settings
+        # (e.g. ``league_average_match``) must not leak into the next snapshot.
+        "fetch_league": lambda lid: copy.deepcopy(league_by_id.get(lid)),
         "fetch_users": lambda lid: users_by_id.get(lid, []),
         "fetch_rosters": lambda lid: rosters_by_id.get(lid, []),
         "fetch_matchups": lambda lid, wk: matchups_by_id.get(lid, {}).get(wk, []),

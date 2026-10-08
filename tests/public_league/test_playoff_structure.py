@@ -430,7 +430,12 @@ def test_the_championship_engine_receives_the_leagues_field_size(monkeypatch):
     # A finished season (games played, nothing left): the canonical engine
     # refuses only when NOTHING has been played (audit N-1).
     monkeypatch.setattr(
-        playoff_sim, "_current_record", lambda *a, **k: {o: {"wins": 1} for o in owners}
+        playoff_sim,
+        "_current_standings",
+        lambda *a, **k: (
+            {o: {"wins": 1} for o in owners},
+            {"medianGame": False, "state": "not_applicable"},
+        ),
     )
     monkeypatch.setattr(playoff_sim, "_remaining_schedule", lambda *a, **k: [])
 

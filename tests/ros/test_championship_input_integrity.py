@@ -90,6 +90,7 @@ def _league(
                 "playoff_teams": 4,
                 "playoff_seed_type": 1,
                 "playoff_week_start": weeks + 1,
+                "league_average_match": 0,
             }
         },
         num_teams=n_teams,

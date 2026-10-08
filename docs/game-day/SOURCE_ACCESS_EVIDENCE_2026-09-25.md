@@ -72,3 +72,21 @@ kept here only as context, retrieved 2026-09-25, with short excerpts.
 | Exact league scoring | `src/league_intel/scorer.py` | Stat-level projections are rescored here. Uncovered categories are preserved as uncovered, or estimated by a separately validated estimator labelled as OUR estimate; never zero |
 | Best-ball lineup | `src/ros/lineup.py` | — |
 | Game Day simulation | `src/ros/game_day_sim.py` | — |
+
+## Pending owner decision — ESPN scoreboard for NBA / NHL DFS schedules (raised 2026-10-07)
+
+**State: PENDING OWNER DECISION — not approved.** Under the scope boundary above, reading ESPN's
+public NBA and NHL scoreboards (`site.api.espn.com/apis/site/v2/sports/{basketball/nba,hockey/nhl}/scoreboard`)
+for DFS slate start times and lock is plausibly "materially outside the intended integration"
+(ESPN is used today for NFL live game state, injuries, depth charts and news). It therefore needs a
+new owner decision rather than riding on this attestation.
+
+- What is built: automatic NBA/NHL DFS slates (`src/dfs/auto/daily.py`,
+  `src/dfs/auto/league_schedule.py`; ADR-DFS-025 in `docs/dfs/DECISIONS.md`; PR #1695).
+- How it is gated: `config/dfs/auto_sources.json` records the decision per sport, read by
+  `src/dfs/auto/approval.py`. NBA/NHL fetch and build nothing until an entry says `approved` with
+  `approvedOn` and `evidence`; `/dfs` shows "awaiting owner approval of the schedule source".
+  NFL automatic slates do not read it and are unaffected.
+- To approve: record the decision here, then set the sport's entry to `approved` with the date and
+  a pointer to this record, and deploy. To decline: leave it pending (or say so here) — the
+  platform salary file under *Advanced* remains the NBA/NHL path.
