@@ -364,6 +364,243 @@
       "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
       "nextAction": "Land the deploy-gate fix and confirm on a fully green deploy run."
+    },
+    {
+      "id": "C5-PLAY-01",
+      "reason": "#1699 (one canonical playoff/title engine, src/ros/playoff_sim.py; parity + AST guard tests) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Production probe 2026-10-08 ~05:40Z of the public sections on bc51e7e2d: playoffOdds (engine src.ros.playoff_sim, numSims 8000, seedType reseed), rosPlayoffOdds and rosChampionship (engine src.ros.playoff_sim, n 8000) publish IDENTICAL playoff odds for all 12 dynasty_main owners (0 mismatches; e.g. Kich 0.7742 / Collin 0.9951 on all three, the pair that disagreed 99.0% vs 77.2% / 85.1% vs 99.4% in the 2026-10-07 probe) and identical title/finals/semifinal/expectedFinish between rosPlayoffOdds and rosChampionship. The public product covers one league (dynasty_new answers league_not_public). Calibration of the engine is AL-5b; D2/D3 stay separate rows.",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "prOrBranch": "#1699 (train #1709 bc51e7e2d)",
+      "evidence": "deploy run 37726496110; prod /api/public/league/{playoffOdds,rosPlayoffOdds,rosChampionship} probe 2026-10-08",
+      "nextAction": "None (season-end calibration is AL-5b; D2/D3 tracked separately)."
+    },
+    {
+      "id": "C9-HIST-02",
+      "reason": "#1693 removed the 3-season window (walk to Sleeper's '0' terminator; 25-season safety cap reported as 'truncated'; coverage stamped) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Production probe 2026-10-08 ~05:42Z: /api/public/league header league.historyCoverage = {state: complete, seasonsWalked: 3, cap: 25, stoppedAtLeagueId: null}; the 2027 rollover can no longer drop 2024. Pagination was the row's alternative fix, not required (payload growth ~150-280 KB/season measured in #1693).",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "prOrBranch": "#1693 (train #1709 bc51e7e2d)",
+      "evidence": "prod /api/public/league historyCoverage probe 2026-10-08",
+      "nextAction": "None."
+    },
+    {
+      "id": "SI-FIND-luck-orphan-power-bye",
+      "reason": "#1693 fixed both findings with fail-on-old regressions on real dynasty_new 2024 matchups (Luck consumes the canonical schedule_impact; power_v2 bye week records no result) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Production probe 2026-10-08 ~05:42Z: /api/public/league/luck on bc51e7e2d publishes the new seasonStates block (2026/2025/2024 complete, 0 issues) and scheduleImpact. dynasty_main (the only public league; even team count, no orphan rosters) is byte-identical by design (measured in #1693), so the corrected numbers are not reachable on any live surface today; the requirement (no orphan-roster mismatch, no phantom bye loss) holds on the served build.",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "prOrBranch": "#1693 (train #1709 bc51e7e2d)",
+      "evidence": "prod /api/public/league/luck seasonStates probe 2026-10-08; tests/public_league/test_luck_orphan_rosters.py, tests/ros/test_power_v2_bye_week.py",
+      "nextAction": "None. (Named follow-up outside this row: Power's all-play field still drops orphan rosters, #1693 out-of-scope note.)"
+    },
+    {
+      "id": "R-STAB-CLEANUP-2",
+      "reason": "#1667 merged as ffdb139f2 under exact-head RC; its only red was deploy run 37700964086's false live-artifact failure (Next runtime route-cache rewrites), fixed by #1707. train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []) with the #1667 changes still served (backend wheels installed offline from the verified archive; served artifact identity matches the validation job). The integration requirement of this row is met and proven. The train's capability outcomes are tracked on #1667-ai-architecture-train / R-ER-P2 / R-ER-P3 / R-ER-P6.",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "evidence": "deploy runs 37700964086 (false fail) and 37726496110 (all steps green); /api/status build.release",
+      "nextAction": "None."
+    },
+    {
+      "id": "#1667-ai-architecture-train",
+      "reason": "Live-artifact gate fixed by #1707 and passed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); request trace correlation observed in prod (traceparent / x-trace-id / x-request-id headers on /api/health 2026-10-08). NOT yet evidenced, both named as final gates in #1667's own body: (1) production rollback evidence - no rollback or rollback drill has run on the box since #1667 (deploy log shows AUTO_ROLLBACK armed only; rollback.sh is covered by CI tests); (2) the bounded Class-B model workflow dispatched on merged main - class-b-model-branch.yml has only pull_request runs on the train branch (latest 37693405672).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "evidence": "deploy run 37726496110; gh run list class-b-model-branch.yml 2026-10-08",
+      "nextAction": "Record rollback evidence on the box (an operator-run rollback drill to the previous retained release and back, with /api/status identity before/after) and dispatch class-b-model-branch.yml on main to produce the bounded review PR; then COMPLETE."
+    },
+    {
+      "id": "R-ER-P2",
+      "reason": "The #1667 typed /api/leagues pilot + generated frontend contract is deployed and served (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])). The row is the whole Priority 2 chain (docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md: Pydantic response models on important boundaries -> OpenAPI -> generated types -> Schemathesis/adversarial lane); only the pilot endpoint exists, so the row is PARTIAL, not awaiting verification.",
+      "disposition": "PARTIAL",
+      "nextAction": "Extend response_model contracts to the next critical endpoints (e.g. /api/trade/simulate, /api/draft-capital) and add the OpenAPI-driven contract-test lane (backlog item, not product authorization)."
+    },
+    {
+      "id": "R-ER-P6",
+      "reason": "#1667 request trace correlation is deployed (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) and observed in production: /api/health returns traceparent, x-trace-id and x-request-id (probe 2026-10-08). The row is the whole Priority 6 (the doc also requires a small set of user-facing SLOs with burn-rate alerting); SLOs are not defined, so PARTIAL.",
+      "disposition": "PARTIAL",
+      "nextAction": "Define the Priority-6 SLO set (availability, authenticated core-flow success, data freshness, API latency, CWV) with error-budget alerting (backlog item, not product authorization)."
+    },
+    {
+      "id": "R-ER-P3",
+      "reason": "#1667 landed and is verified in production: train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); /api/status build.release carries dependency_lock_sha256, frontend_lock_sha256 and the CI frontend artifact id; backend wheels install offline from the verified archive. Remaining from the Priority 3 chain: attestation/SBOM, and the production venv is still updated in place (historical extra distributions may remain, per #1667).",
+      "nextAction": "Attestation/SBOM for the release archive and a clean (non-in-place) venv build per release (backlog item, not product authorization)."
+    },
+    {
+      "id": "G4",
+      "reason": "#1690 (as-known injury history + news metadata archive, crash-safe append ledger, backup + restore proof) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Retention backup + restore proof run 37732356131 (pinned to bc51e7e2d): 'G4 as-known news metadata: restored 2 file(s)' - the news half is captured and backed up on the box; 'G4 as-known injury history: SOURCE ABSENT ... stream has not started' - the 4-hourly injury timer had not run since the deploy. Half evidenced.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1690 (train #1709 bc51e7e2d)",
+      "evidence": "retention proof run 37732356131",
+      "nextAction": "After the dynasty-injury-feed timer's first post-deploy run, re-run the retention backup + restore proof and confirm 'G4 as-known injury history: restored N file(s)'."
+    },
+    {
+      "id": "R-G4",
+      "reason": "Same delivery as G4 (#1690): news metadata archive captured and restored in retention proof run 37732356131; injury history store not yet started on the box at that run. train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1690 (train #1709 bc51e7e2d)",
+      "evidence": "retention proof run 37732356131",
+      "nextAction": "Confirm the injury history store in the next retention proof after the injury timer runs (see G4)."
+    },
+    {
+      "id": "IC-1",
+      "reason": "G4 (as-known injury/news capture) delivered by #1690 and deployed in train 2 (news half proven on the box, injury half pending its first timer run). Remaining members unchanged: AL-P5 decision receipts, AL-P7 Sharp retention, G5 draft-time state.",
+      "nextAction": "Close AL-P5 (decision receipts), then AL-P7 and G5; confirm G4's injury half on the box."
+    },
+    {
+      "id": "G1",
+      "reason": "#1690 added the pregame_projections listing to deploy/diagnostics/game_day_live_inventory.sh (AL-P8 observability half), deployed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). The observation itself (first prune ~2026-10-13) has not happened.",
+      "nextAction": "Run deploy/diagnostics/game_day_live_inventory.sh on the box after the first prune (~2026-10-13), confirm Week 3+ pregame archives exist, and record Weeks 1-2 as lost."
+    },
+    {
+      "id": "AL-4a",
+      "reason": "#1691 (report-only Game Day calibration scorecard over generations.jsonl, AL-0 receipts, temporal guard) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). No scorecard has been run on the box (the evidence lives only there; the local dry run exits 2 with no data/game_day/live).",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1691 (train #1709 bc51e7e2d)",
+      "nextAction": "Run scripts/game_day_calibration_scorecard.py on the box with RISKIT_RECEIPTS_ENABLED=1 and record the first receipt (insufficient_sample cohorts expected early)."
+    },
+    {
+      "id": "AL-3b",
+      "reason": "#1691 (report-only projection scorecard vs the equal-family champion; weekly + season legs) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Not yet run against the box's archives.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1691 (train #1709 bc51e7e2d)",
+      "nextAction": "Run scripts/projection_scorecard.py --league dynasty_main --season 2026 --fetch-realized on the box with receipts enabled and record the first receipt."
+    },
+    {
+      "id": "AL-0b",
+      "reason": "#1694 (read-only, admin-only Model Lab contract GET /api/model-lab[/{family}]) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). The V1 authenticated verification does not exercise it (guest session, no admin spec), and an anonymous 401 proves nothing here because the middleware 401s every private path.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1694 (train #1709 bc51e7e2d)",
+      "nextAction": "Admin-session GET /api/model-lab on production: every family present with the fixed field set, Hill registry versions listed incl. REJECTED, drift 'unmeasured'."
+    },
+    {
+      "id": "IC-6",
+      "reason": "Its only dependency, the AL-0b Model Lab contract, is merged and deployed (#1694, train 2 bc51e7e2d), so the UI unit is buildable now.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Build the internal Model Lab page over /api/model-lab (Lane 6, PSI Direction A, admin-only)."
+    },
+    {
+      "id": "C2-DROP-01",
+      "reason": "#1696 feeds every /waivers drop (Droppable, best moves, unique upgrade set, Addable best drop) from the canonical cut ladder via ?droppability=1, with explicit unavailable states and no raw-value fallback; in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). #1696 itself states no live browser check was done, and no V1 prod-auth spec covers the Droppable panel.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1017 55daf1e58, #914, #1696",
+      "nextAction": "Authenticated production check of /waivers Droppable (desktop + mobile): drops equal the served cut-ladder order; a lineup-needed player is never offered."
+    },
+    {
+      "id": "C2-CORE-01",
+      "reason": "The last named non-consumer, /rosters TradeTargetsCard's raw full-roster sums, is replaced by the served weakness/strength blocks (#1696) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Not exercised by the V1 prod-auth specs.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#900, #914, #922 b3739f095, #1696",
+      "nextAction": "Authenticated production check of /rosters Trade Targets: Weakest/Strongest equal the served team.weakness / strength.byPosition for the selected team."
+    },
+    {
+      "id": "C2-WEAK-01",
+      "reason": "#1696 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) removed the /rosters page-local need rule and the /api/gameplan engine.position_needs 'urgent' verdict. #1696 names the remaining second need flag: profiles.PositionProfile.urgent_need (published as positions[].urgentNeed in /api/gameplan, consumed by targets.py / packages.py).",
+      "nextAction": "Route profiles.urgent_need through roster_intel/weakness.py (its own unit, trade-adjacent), then verify /rosters Trade Targets on production."
+    },
+    {
+      "id": "SRC-STALEPRES-2026-10-01",
+      "reason": "#1697 readiness (provider-aware pick confidence, monotone confidence on lost evidence, votes_withheld alert, history preserved; 0 values moved today, 12 KTC-only 2029 tier picks high->low) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Parts remain: the cutoff itself has not happened (projected 2026-10-16T23:30Z at the learned cadence; 2026-10-09 13:10Z is the safe bound) so post-cutoff behaviour is unverified on production, and the optional shadow stale-floor challenger was not built. Parkinson low->medium agreement residual accepted by the coordinator as value-driven (option c; (a)/(b) violate the one-board and determinism invariants).",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1592 fc130ed88; #1697",
+      "nextAction": "After the IDPTC cutoff (earliest 2026-10-09 13:10Z; projected 2026-10-16T23:30Z): confirm on production that every pick stays finite with provenance, single_provider + reducedCoverage stamps, source_votes_withheld warning / votes_withheld alert, no confidence rise; optional shadow stale-floor challenger."
+    },
+    {
+      "id": "#1337",
+      "reason": "#1698 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) adopted PlayerNameButton on /trade asset rows, /arbitrage, /players/compare, the Sharp tracker and Sharp roster %, and fixed public award standings to link /league/player/[id]; a source-ratchet guard allowlists every remaining raw render. Remaining per #1698: producers must stamp real Sleeper ids (angle/finder assets, BDVM rows, draft rookies, roster-capacity/team-impact entries), /trades cards need restructuring, and /rosters + /waivers were left to another lane.",
+      "nextAction": "Stamp canonical Sleeper ids on the id-less producers, restructure /trades entries, convert /rosters and /waivers names."
+    },
+    {
+      "id": "R-1337",
+      "reason": "Same delivery as #1337 (#1698, train 2 bc51e7e2d): second slice adopted; id-less producers, /trades, /rosters, /waivers remain.",
+      "nextAction": "See #1337."
+    },
+    {
+      "id": "C8-A11Y-01",
+      "reason": "#1698 extended the axe spec from 10 routes to all 52 page route families on both CI projects (106/106 locally; E2E green on the train head) with a filesystem coverage test; in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). Four colour/underline findings are BASELINED (VISUAL_FIX_REQUIRED, PSI-owned): /draft color-contrast x1, /league-comparison x1, /auction/notifications x5, /league/franchise/[owner] link-in-text-block x2.",
+      "nextAction": "PSI Lane 6 colour/underline fixes for the four baselined findings, then remove them from BASELINE."
+    },
+    {
+      "id": "IC-7",
+      "reason": "#1703 shipped the 'why it moved' half (two-generation contributing evidence on the Player File, non-additive, missing never zero; private route) in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). The 'player discrepancy diagnostic generated from actual pipeline state' half is NOT built (#1703 remaining item 3).",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1703 (train #1709 bc51e7e2d)",
+      "nextAction": "Build the player discrepancy diagnostic from actual pipeline state (overlaps value-explain v2 / value replay); verify the Player File disclosure on production."
+    },
+    {
+      "id": "UI-contract§10/value-movement",
+      "reason": "#1703 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])): GET /api/players/{player}/value-movement + collapsed 'Why it moved' panel on the Player File (per-source deltas from the source_value lane, appeared/disappeared, value/rank/tier/confidence change, pipeline-version change). Not met from this row's spec: weight/freshness/vote-state/flag deltas are published as 'unobserved' because the ledger does not record them per generation (needs IC-1 recording), rank-signal sources have no per-generation values, and it is a separate route rather than part of value-explain. No production render check (private Player File not in the V1 specs).",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1703 (train #1709 bc51e7e2d)",
+      "nextAction": "Record per-generation weights/freshness/vote state/flags in src/history (IC-1), surface them in value-movement, and verify the panel on production."
+    },
+    {
+      "id": "C3-CON-02",
+      "reason": "#1704 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])): authenticated GET/PUT /api/user/trade-protections (owner-validated, per-user per-league, idempotent, BEGIN IMMEDIATE user_kv writes) + /settings Trade protections editor; the manifest's Jason+league MIN acceptance test passes end to end in CI (finder and angle acquire). Production not exercised: guest-pass sessions get 403 guest_read_only on PUT, and no V1 prod-auth spec reads the endpoint.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1704 (train #1709 bc51e7e2d)",
+      "nextAction": "Production check: authenticated GET /api/user/trade-protections?leagueKey=dynasty_main returns nflTeamOptions from the board, and (owner session) a saved MIN protection blocks MIN players from generated outgoing sides."
+    },
+    {
+      "id": "C6-SIG-01",
+      "reason": "#1705 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) shipped the backend half: src/signals/reconciler.py (dedup/lineage only, structurally no arithmetic/weights, transitive lineage DAG, conflicts labelled never averaged, withheld precedence, unobserved vs silent) + private GET /api/signals/reconciled; dead unified_signal_engine.py retired. The UI half (consuming surfaces) remains, per #1705.",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1705 (train #1709 bc51e7e2d)",
+      "nextAction": "Consume /api/signals/reconciled in the existing signal surfaces (C6-SIG-02 ticker, C7-ALERT-01), PSI Direction A."
+    },
+    {
+      "id": "C6-SIG-02",
+      "reason": "Its dependency's backend (the central reconciler endpoint /api/signals/reconciled, #1705) is merged and deployed in train 2 (bc51e7e2d); the ticker consumer can be built now.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "MarketTicker consumes /api/signals/reconciled: BUY global, SELL only for the selected roster (consumer-side filter per C6-SIG-01 record); rule test."
+    },
+    {
+      "id": "C5-WAR-01",
+      "reason": "#1692 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])) delivered the deterministic core only: Realized VORP, Actual WAR (median recomputed by roster id), WAB + Game Changer via exact best-ball re-solve, finished weeks only, contradicted-settings seasons withheld; private GET /api/league/player-impact, shadow only (no consumer). xWAR is NOT built, and the spec's §10 immutable history store (C1-HIST-01 provenance) is not wired.",
+      "disposition": "PARTIAL",
+      "prOrBranch": "#1692 (train #1709 bc51e7e2d); donor #969",
+      "nextAction": "xWAR on the pregame projection archive (G1) with temporal-leakage tests; wire the immutable history store; then the shadow MVP win-impact candidate (SI-E)."
+    },
+    {
+      "id": "#1505",
+      "reason": "C5-WAR-01's deterministic core (VORP/WAR/WAB) landed in #1692 (train 2 bc51e7e2d). Still blocked on SI-E (schedule-neutral shadow candidate), which waits on SI-B/remainder; any official MVP formula change needs owner approval.",
+      "nextAction": "After SI-B/remainder and SI-E: build the shadow MVP win-impact candidate on /api/league/player-impact."
+    },
+    {
+      "id": "SI-E",
+      "reason": "C5-WAR-01's deterministic core landed (#1692, train 2 bc51e7e2d); C2-REPL-01 is complete; the remaining dependency is SI-B/remainder (not started).",
+      "nextAction": "After SI-B/remainder: schedule-neutral realized impact on the #1692 player-impact owner, as a shadow MVP win-impact candidate."
+    },
+    {
+      "id": "CLEANUP-3",
+      "reason": "#1684 (source-state display: scrape vs build clock, fetch vs update, exclusion reasons) and #1685 (D1 first-observation baseline, D8 seasonal validator, D9 as-of confidence freshness; 0 values/ranks moved) integrated and deployed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); #1701 fixed the prod-smoke probe's '200000' status capture. Still open: prod-e2e-smoke last ran red 2026-10-07 21:18Z (before #1701), retention-health red through 2026-10-07 (re-pointed by #1693), smoke-test cancelled and consensus-edge-revalidate red on their last scheduled runs, plus #1684's named follow-ups (board-utils sourceObservation excludedReason only for Hampel drops; SourceAgreementRadar plots not-voting observations).",
+      "nextAction": "Confirm the next scheduled prod-e2e-smoke, retention-health, smoke-test and consensus-edge-revalidate runs green on bc51e7e2d+, then fix the two #1684 display follow-ups."
+    },
+    {
+      "id": "C4-SRC-02",
+      "reason": "#1685 (D1/D8/D9) and #1684 deployed in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []); production contract healthy with 0 source-health errors and seasonal/private absences declared. #1065 (IDPTC vendor content stale vs fetch healthy, end to end) is still OPEN.",
+      "nextAction": "Close #1065 end to end (content-staleness visible on every source-health surface), then verify."
+    },
+    {
+      "id": "C10-CLOSE-03",
+      "reason": "post-deploy V1 Authenticated Production Verification run 37732356062 green (96 passed, 26 project-skipped; 31 prod-auth specs) on bc51e7e2d; E2E Safety Net green on the train head; prod-e2e-smoke has not run since #1701 fixed its probe; #1473 (verification inside the startup window) still open.",
+      "nextAction": "Confirm the next scheduled prod-e2e-smoke green; fix #1473; extend prod-auth specs to the train-2 private surfaces (Model Lab, trade protections, Why it moved, Droppable, Trade Targets)."
+    },
+    {
+      "id": "C10-CLOSE-04",
+      "reason": "C1-RET-07 probe re-pointed with per-stream annotations by #1693 (train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources [])); not yet observed on a scheduled retention-health run (cron 06:40 UTC; last run 37632085170 red 2026-10-07).",
+      "nextAction": "Confirm the next retention-health run is green on bc51e7e2d+, re-verify #1409 dynasty-* refresh units and consensus-edge-revalidate."
+    },
+    {
+      "id": "C1-RET-07",
+      "reason": "#1693 re-pointed the probe at data/scrape_state/identity_dual_read.json generatedAt (48h budget), recorded the legacy identity reports as a frozen archive, and made annotations per stream; in train 2 (#1709) merged as bc51e7e2d (2026-10-08); deploy run 37726496110 SUCCESS on every step incl. 'Verify live frontend matches the tested artifact'; prod /api/status build.commit bc51e7e2d, frontend_artifact_id f81a2c82..., digest version next-build-output-excluding-route-cache/v1; contract healthy (0 structural / 0 source-health errors, missing_sources []). #1693 itself says the box proof is the first scheduled retention-health run, which has not happened since the deploy.",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "prOrBranch": "#1693 (train #1709 bc51e7e2d)",
+      "nextAction": "Confirm the next scheduled retention-health run (cron 06:40 UTC) reports C1-RET-07 ok on bc51e7e2d+."
+    },
+    {
+      "id": "C10-CLOSE-02",
+      "reason": "Train 2 (bc51e7e2d) retired three duplicates: the second/third playoff engines (#1699, verified identical on production), the dead unified_signal_engine Buy/Sell 'single entry point' (#1705, reconciler backend live), and the /rosters + /api/gameplan need verdicts (#1696). Still duplicated: replacement/PAR census, remaining need flag (profiles.urgent_need), Buy/Sell emitter consumers, share rendering, IDP_POSITIONS.",
+      "nextAction": "Re-run the W30 duplicate census on bc51e7e2d+ (#1214) and retire in owner order (replacement/PAR next)."
+    },
+    {
+      "id": "SIG-IDP-GATE-2026-10-03",
+      "reason": "Signals On-Box Verification (collect) run 37732469435 on deployed bc51e7e2d SUCCESS: collector healthy (consecutiveFailures 0), offense voteState active (votes true), IDP families present but held in shadow (shared_market_crosswalk_in_shadow_pending_promotion; votesWhenPromoted DL 147 / LB 101 reported).",
+      "nextAction": "Append that run's results to SIGNALS_FANTASY_INTEGRATION.md §10.8, independent review, verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
     }
   ],
   "ownerAsks": [
