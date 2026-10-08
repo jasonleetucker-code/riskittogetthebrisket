@@ -3974,6 +3974,17 @@ from src.dfs import api as _dfs_api  # noqa: E402
 _dfs_api.configure_session_resolver(lambda request: _get_auth_session(request))
 app.include_router(_dfs_api.router)
 
+# Model Lab (AL-0b / IC-5): a read-only, PRIVATE, admin-only view over the
+# existing model owners (Hill registry + Autopilot, AL-0 receipts, shadow
+# ledgers, evaluator outputs).  /api/model-lab stays behind
+# ``_private_api_gate`` AND every handler calls ``_require_admin_session``
+# (late-bound: it is defined further down this module).  GET only; writes
+# nothing.  Plan: docs/research/ADAPTIVE_LEARNING_2026-09-26.md section 33.
+from src.model_registry import model_lab_api as _model_lab_api  # noqa: E402
+
+_model_lab_api.configure_authorizer(lambda request: _require_admin_session(request))
+app.include_router(_model_lab_api.router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):

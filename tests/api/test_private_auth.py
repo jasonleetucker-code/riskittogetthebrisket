@@ -51,6 +51,9 @@ PRIVATE_API_PATHS = [
     "/api/admin/signal-state/migrate",
     # Signals Fantasy second opinion (#1555): authenticated surfaces only.
     "/api/second-opinion/signals",
+    # Model Lab (AL-0b / IC-5): private + admin-only development metrics.
+    "/api/model-lab",
+    "/api/model-lab/hill_scope_masters",
 ]
 PRIVATE_POST_PATHS = {
     "/api/trade/suggestions",
