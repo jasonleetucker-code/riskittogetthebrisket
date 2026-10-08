@@ -1,577 +1,612 @@
 {
- "family": "Z — coordinator reconciliation (manifest residue + post-audit status changes)",
- "auditedAt": "2026-10-07T21:45:00Z",
- "mainSha": "37ccfbb68",
- "rows": [
-  {
-   "id": "X-02",
-   "aliases": [],
-   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
-   "productFamily": "Out of scope",
-   "capability": "Money / dues / Constitution / League Media",
-   "disposition": "REJECTED",
-   "userVisibleOutcome": "Not built (owner-rejected).",
-   "backendOwner": null,
-   "frontendOwner": null,
-   "dependsOn": [],
-   "reality": "Manifest X-02: OWNER-REJECTED (inventory §0). No code exists.",
-   "prOrBranch": null,
-   "evidence": "docs/C_SERIES_SCOPE_MANIFEST.md line 449",
-   "nextAction": null,
-   "blocker": null,
-   "weight": 1
-  }
- ],
- "overrides": [
-  {
-   "id": "CLEANUP-1",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy of 37ccfbb68; then the campaign row closes with production identity recorded."
-  },
-  {
-   "id": "R-STAB-CLEANUP-1",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy of 37ccfbb68."
-  },
-  {
-   "id": "CLEANUP-3",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy; then #1684 + #1685 (source-state display/backend follow-ups) through the next train."
-  },
-  {
-   "id": "R-STAB-CLEANUP-5",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy; ruleset application remains the owner decision R-STAB-RULESET."
-  },
-  {
-   "id": "PICK-PROJECTOR-1652",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
-  },
-  {
-   "id": "#1652",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
-  },
-  {
-   "id": "CLEANUP-4",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1679 extraction); the tracked-data inventory record shipped in #1677",
-   "disposition": "INTEGRATED_NOT_DEPLOYED",
-   "nextAction": "Verify deploy; further extractions only under the characterization-first rule."
-  },
-  {
-   "id": "#1505",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (docs-only intent now on main)",
-   "nextAction": "C5-WAR-01 core (deterministic VORP/WAR/WAB) unblocks the MVP win-impact build."
-  },
-  {
-   "id": "C1-PICK-03",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1652)",
-   "nextAction": "Verify deploy + authenticated pick-projections; slot-probability calibration waits on realized 2027 slots."
-  },
-  {
-   "id": "SIG-IDP-GATE-2026-10-03",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1654)",
-   "nextAction": "After deploy: dispatch signals-onbox-verification.yml with collect:true, append §10.8 results, independent review; verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
-  },
-  {
-   "id": "C8-A11Y-01",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1682 fixes the /waivers scroll-region failure; E2E green on the train head)",
-   "nextAction": "Extend the axe route list to every route family (lane in flight: claude/player-destination-and-axe-coverage)."
-  },
-  {
-   "id": "C10-CLOSE-03",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1678 + #1682)",
-   "nextAction": "After deploy: the scheduled V1 authenticated verification should go green; then fix #1473 startup-window timing and extend prod-auth specs."
-  },
-  {
-   "id": "C10-CLOSE-04",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1680 tracker dedupe)",
-   "nextAction": "C1-RET-07 probe re-point (#1676; lane claude/league-correctness-wave1 in flight); re-verify #1409 units."
-  },
-  {
-   "id": "C4-SRC-02",
-   "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1675)",
-   "nextAction": "Integrate #1684 + #1685 (reviewed) via the next train."
-  },
-  {
-   "id": "AL-12",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Re-evaluate when the Wave-3 candidate exists; nothing to build before then."
-  },
-  {
-   "id": "IC-9/GOVERNANCE",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Build the Model Lab backend (AL-0b / IC-5) so non-Hill families have a registry disposition surface."
-  },
-  {
-   "id": "IC-9/PROJECTION",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "AL-3b projection scorecard (lane claude/learning-scorecards-al4a-al3b in flight), then challengers."
-  },
-  {
-   "id": "IC-9/TRADE",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "AL-2 ops: run the accumulated trade census on the box, then the per-axis translation-readiness table (AL-2b0)."
-  },
-  {
-   "id": "DFS-ADD-05",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Owner-provided official DK/FD entry templates (OWNER: DFS-§5-02) then verify the export round-trip."
-  },
-  {
-   "id": "DFS-ADD-11",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Implement the field/payout-aware objective (DFS-§6-02) on the existing contest presets."
-  },
-  {
-   "id": "DFS-ADD-15",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Wire odds/ownership/news freshness rows as their sources exist; keep 'unavailable' until then."
-  },
-  {
-   "id": "DFS-ADD-16",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Populate independence groups from measured source overlap once >1 family exists per sport."
-  },
-  {
-   "id": "DFS-ADD-18",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Game context stays DFF/nflverse; sportsbook markets wait on the owner's licensed-feed decision (DFS-§14-01)."
-  },
-  {
-   "id": "DFS-ADD-20",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Import the first real contest results (needs owner contest-standings exports, DFS-MOD-09)."
-  },
-  {
-   "id": "DFS-AUTO-03",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "NBA/NHL automatic slates (DFS-AUTO-19) — seasons start October; MMA stays external (DFS-AUTO-20)."
-  },
-  {
-   "id": "DFS-AUTO-09",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Verify DK/FD scoring cards against official rules (owner confirmation DFS-§5-02) and drop the UNVERIFIED label."
-  },
-  {
-   "id": "DFS-MOD-03",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Calibrate the marginal priors against archived slate outcomes once results accumulate."
-  },
-  {
-   "id": "DFS-MOD-05",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Compare against a real observed field once contest-standings data exists (DFS-MOD-09)."
-  },
-  {
-   "id": "DFS-MOD-06",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Fit on real contests once standings data exists (DFS-MOD-09); keep synthetic-recovery tests."
-  },
-  {
-   "id": "DFS-MOD-08",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Historical evaluation once archived slates + results accumulate."
-  },
-  {
-   "id": "DFS-§12-02",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Fold the modelled distributions (DFS-MOD-03) into the outcome percentiles; keep owner-imported overrides."
-  },
-  {
-   "id": "DFS-§13-02",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Add a permitted NBA projection/slate source (with DFS-AUTO-19)."
-  },
-  {
-   "id": "DFS-§13-03",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Add permitted NHL projections + line assignments (DFS-AUTO-22 candidate) with DFS-AUTO-19."
-  },
-  {
-   "id": "DFS-§20-02",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Run replay/champion-challenger once real contest results exist (DFS-MOD-09)."
-  },
-  {
-   "id": "DFS-§28-01..14",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Close the remaining user stories in dependency order after AUTO-19 and the live/rooting view (DFS-§20-01)."
-  },
-  {
-   "id": "DFS-§8-05",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "NHL line stacks after line assignments land (DFS-AUTO-22)."
-  },
-  {
-   "id": "DFS-§9-04",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Measure DFF vs RotoWire independence once a second NFL family exists; keep one vote per family."
-  },
-  {
-   "id": "R-DEPLOY-SHA-PIN",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Observe a manual (workflow_dispatch) deploy end-to-end and record the resolved SHA used by every stage."
-  },
-  {
-   "id": "R-ER-P10",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Backlog item (not product authorization): add an import-boundary check when a canonical-owner leak is next found."
-  },
-  {
-   "id": "R-G6",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "On-box read-only count of the Sharp + own-league per-season format captures."
-  },
-  {
-   "id": "R-PSI-LANE6",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Tracked per route in C8-PSI-03/*; next: /waivers family migration."
-  },
-  {
-   "id": "AL-10/11",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Manager tendency module (C6-MGR-01) over acquisition + waiver + trade ledgers (Wave 3)."
-  },
-  {
-   "id": "AL-2a",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Run the accumulated census on the box (AL-2 ops) and commit public counts only."
-  },
-  {
-   "id": "AL-8",
-   "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
-   "nextAction": "Re-evaluate after AL-2b0 readiness table exists."
-  },
-  {
-   "id": "SRC-STALEPRES-2026-10-01",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): RESOLVED by owner decision 2026-10-07 (docs/OWNER_REQUESTED_TODO.md 'Added 2026-10-07 — IDP Trade Calculator freshness cutoff (owner decision, final)'; docs/sources/SOURCE_FRESHNESS_WEIGHTING.md §G): quarantineBelow 0.02 stays exactly as-is, no minimum voting floor; quarantined IDPTC observations preserved as history; post-cutoff picks stay finite with single-provider/reduced-coverage stamps and confidence never rising; no manufactured second vote from KTC-derived signals. The stale-floor idea survives only as an AUTHORIZED shadow-only challenger.",
-   "disposition": "AUTHORIZED_AND_READY",
-   "nextAction": "verify post-cutoff pick behavior (lane claude/idptc-cutoff-readiness): after 2026-10-09 13:10Z confirm finite pick values, single-current-provider + reduced-coverage stamps, confidence not raised, degraded-evidence alert/report (not an outage); optional stale-floor challenger stays shadow-only",
-   "blocker": null
-  },
-  {
-   "id": "F-EXT-02",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Owner attestation 2026-09-25 (docs/OWNER_REQUESTED_TODO.md 'Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: OWNER_ATTESTED_AUTHORIZED'; record docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md) names IDP Trade Calculator explicitly and states these sources 'are no longer owner decision required' and 'need no per-source re-approval'. Manifest F-EXT-02 ('no record of any kind') is stale; OD-01's IDPTC half is decided.",
-   "disposition": "AUTHORIZED_AND_READY",
-   "nextAction": "Record OWNER_ATTESTED_AUTHORIZED (2026-09-25 attestation) for idpTradeCalc in C_SERIES_SCOPE_MANIFEST F-EXT-02 / §6 OD-01 and MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC §19.2 beside F-EXT-01; then mark COMPLETE_AND_PROVEN",
-   "blocker": null
-  },
-  {
-   "id": "F-EXT-03",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Same owner attestation 2026-09-25 (docs/OWNER_REQUESTED_TODO.md, OWNER_ATTESTED_AUTHORIZED) explicitly covers DLF, DraftSharks, IDP Show and Flock Fantasy ('every other source already in Calculator's ingestion system'); credentials are owner-configured env/secrets (already present on prod per /api/health). One consistent posture already exists; only the manifest record is stale.",
-   "disposition": "AUTHORIZED_AND_READY",
-   "nextAction": "Record the single OWNER_ATTESTED_AUTHORIZED posture for DLF / DraftSharks / IDP Show / Flock in C_SERIES_SCOPE_MANIFEST F-EXT-03 and §6 OD-01 (closing OD-01 entirely); then mark COMPLETE_AND_PROVEN",
-   "blocker": null
-  },
-  {
-   "id": "TODO-2026-09-26-D3",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Decided by existing records, not open methodology: median games are a FACT of dynasty_main's host rules (league_average_match=1; host shows 4-0 where the simulator shows 2-0, intake 2026-09-26). Owner rules already define the record as the league's official standings: 2026-09-29 eligibility rule ('official regular-season winning percentage ... under the league's canonical standings semantics', OWNER_REQUESTED_TODO 2026-09-29 + BRISKET_HONORS_ELIGIBILITY_SPEC) and the 2026-10-04 draft-order rule ('final regular-season record', the standings convention, docs/picks/DRAFT_ORDER_RULE.md). CLAUDE.md / AGENT_OPERATING_SYSTEM §11 invariant 'exact league scoring and factual scoring identity'. The same 2026-09-26 intake fixed D1/D4/D5 as factual defects without an owner decision; a simulator whose record disagrees with the host's is the same class.",
-   "disposition": "AUTHORIZED_AND_READY",
-   "nextAction": "Count median W/L in current and simulated records and seeding exactly as the host does (gated on league_average_match from the league's own settings, never assumed); pin current-record parity against Sleeper standings for both leagues; run it through the P6 champion/challenger shadow comparison and promote as a factual-defect fix via normal review",
-   "blocker": null
-  },
-  {
-   "id": "AL-5c",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Building and scoring calibration challengers in shadow does not require D2/D3 decisions — those gate PROMOTION only (docs/research/ADAPTIVE_LEARNING_2026-09-26.md §21.5 and its promotion table: 'owner approval; D2/D3 open'; AL-5c = 'calibration challengers before any simulation rebuild; D2 as a challenger'). Shadow challengers are authorized by EXECUTION_PLAN §0 (IC-1..IC-9 batch). The real blocker is the AL-5b season-end calibration dependency.",
-   "disposition": "DEPENDENCY_BLOCKED",
-   "nextAction": "After AL-5b (season-end calibration) lands, build the D2 challenger (and the D3 median-games variant) in shadow, scored by weekly log-loss/PIT on finalized weeks; champion unchanged; evidence feeds the owner's D2 decision",
-   "blocker": null
-  },
-  {
-   "id": "TODO-2026-09-19-week-in-progress-note",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The 'product call' framing was an implementing agent's caution (OWNER_REQUESTED_TODO 'Power Rankings PPG/Recent accuracy' deferred follow-up 2), not an owner reservation. Existing owner preference decides it: every decision surface preserves explicit partial/stale states (MASTER_PRODUCT_PLAN §3.2, CLAUDE.md 'MISSING IS NEVER ZERO'); the PSI contract requires partial states and stale-data communication (docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md §1/§3); owner directive 2026-09-23 requires the Power methodology to show what is not yet counted ('including 0% components that are not yet active').",
-   "disposition": "AUTHORIZED_AND_READY",
-   "nextAction": "Render 'Week N in progress — not yet counted' on Power/Luck from the published partialWeeks field using an existing PSI partial-state primitive (Lane 6); component test + phone/desktop screenshot during Week 5 games",
-   "blocker": null
-  },
-  {
-   "id": "C3-CALC-03/open-decisions",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): All three are decided by existing records. (1) Partial-row votes: binding owner UX requirement on #791 (2026-08-11): 'use a native-covered vote only when enough of the trade is actually covered'; otherwise 'classify that vendor as PARTIAL/INCOMPLETE' — partially covered rows never vote. (2) Source-unavailable state: MISSING IS NEVER ZERO / stale != current (MASTER_PRODUCT_PLAN §3.2, AGENT_OPERATING_SYSTEM §11) requires an explicit unavailable state rather than silent exclusion. (3) 'Even' threshold: ONE CONCEPT, ONE CANONICAL OWNER — reuse the canonical trade verdict's even band (trade-logic tradeImbalance/verdict) instead of a new constant; the historical <1-point rule stays only if it already equals that band.",
-   "disposition": "AUTHORIZED_AND_READY",
-   "nextAction": "Keep partial rows non-voting (#791) with a test; materialize a source-unavailable (freshness-excluded) state onto Second Opinions rows; derive 'Even' from the canonical trade verdict band; small config + test PR, then close #791 follow-ups",
-   "blocker": null
-  },
-  {
-   "id": "#1529 draft-capital stack rebuild",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): No owner ask is pending: the owner withdrew the stack effect (directive 2026-09-29; CLAUDE.md 'The draft-capital stack effect is INFORMATIONAL ONLY', #1527), issue #1529 is titled 'LATER, NOT AUTHORIZED', and the 2026-10-03 batch lists #1529 as out of scope (OWNER_REQUESTED_TODO 'Added 2026-10-03 — Calculator batch'). There is no proposed methodology to approve; it is owner-deferred future work.",
-   "disposition": "INTENTIONALLY_FUTURE",
-   "nextAction": "None until an owner-approved methodology meeting #1529's prerequisites exists; frontend/__tests__/trade-stack-withdrawn.test.js keeps the guard",
-   "blocker": null
-  },
-  {
-   "id": "OD-06",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): CE-28 is explicitly NOT owner-approved (docs/CE_REGISTRY.md: 'carries no owner approval and must not be built on the strength of this row'; no surface, trigger, contract or acceptance criteria). The 2026-10-07 completion directive's denominator is owner-approved requirements only (EXECUTION_PLAN §0), so this is not a requirement; it stays registered as an idea and needs no owner action unless the owner raises it.",
-   "disposition": "NOT_ACTUALLY_REQUIRED",
-   "nextAction": null,
-   "blocker": null
-  },
-  {
-   "id": "DFS-MOD-13",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The requirement itself is conditional ('re-investigated only if useful; never fabricated') and docs/dfs/TRACEABILITY.md marks it LATER; leaving the six seeds as unresolved_identity is the compliant state. No owner action is needed to satisfy it.",
-   "disposition": "INTENTIONALLY_FUTURE",
-   "nextAction": "None; seeds stay unresolved_identity. Re-open only if a concrete product need for one of the six names appears",
-   "blocker": null
-  },
-  {
-   "id": "C9-UR-02",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Existing doctrine already chooses: lost windows are 'recorded, never backfilled as exact' (docs/BRISKET_IDEAS.md §13.3, perishable-evidence directive 2026-09-29), and the temporal-history owner defines 'nearest-prior' as a legitimate labelled fidelity (CLAUDE.md 'Temporal history — one owner'); the owner-approved AL roadmap applies exactly this pattern to lost forecasts (AL-5a backfill 'labelled nearest-prior ... never exact'). So 2026 = labelled nearest-prior retrospective, 2027 = exact edition. The real blocker is C9-UR-01 (DEPENDENCY_BLOCKED).",
-   "disposition": "DEPENDENCY_BLOCKED",
-   "nextAction": "When C9-UR-01 lands: publish the 2026 preseason baseline as a labelled nearest-prior retrospective (never exact) from the temporal ledger + dynasty_main Power week_00; schedule the 2027 exact edition for the Tuesday before Week 1",
-   "blocker": null
-  },
-  {
-   "id": "C6-POD-01",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Scope and source target are owner-decided (OWNER_REQUESTED_TODO 2026-08-11 binding decisions 8/33/35/38-40: ~50 reputable dynasty sources, extracted-take freshness), and the owner's binding low-cost posture (decisions 13, 18, 49) already prefers zero-spend paths; public RSS metadata + publisher-provided transcripts + self-hosted transcription need no spend. Paid transcription is only an ask if the zero-cost path proves insufficient. The real blocker is C6-ANA-01 (PARTIAL, no producer yet).",
-   "disposition": "DEPENDENCY_BLOCKED",
-   "nextAction": "After C6-ANA-01's first producer: check in the source registry via normal source intake (new providers per the 2026-09-25 attestation scope boundary), ingest RSS metadata, prefer publisher transcripts/self-hosted extraction; raise OD-03 paid-transcription spend only with measured coverage evidence",
-   "blocker": null
-  },
-  {
-   "id": "AUC-PF-ORDER",
-   "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The rule is already owner-decided (2026-09-29 directive, OWNER_REQUESTED_TODO 'Rookie Auction Room': 'points-for (lowest first) nomination order'; docs/auction/ROOKIE_AUCTION_ROOM.md); computing it from final Sleeper standings is mechanical. What remains is the 2026 regular season finishing; any exact PF ties (flagged by the preview) are confirmed at launch inside AUC-OFFICIAL-LAUNCH.",
-   "disposition": "DEPENDENCY_BLOCKED",
-   "nextAction": "After the 2026 regular season is final (~mid-Dec 2026): generate the lowest-PF-first order from the room preview, apply via audited set_order to the launch configuration, surface only unresolved exact ties for owner confirmation at launch",
-   "blocker": null
-  }
- ],
- "ownerAsks": [
-  {
-   "id": "BALLDONTLIE-TRIAL",
-   "alsoCovers": [
-    "TODO-2026-09-24-game-day-live-dashboard"
-   ],
-   "criterion": "b",
-   "urgency": "URGENT",
-   "dueBy": "2026-10-11 (next Sunday slate; each live Sunday without it loses Game Day live evidence)",
-   "ask": "Create a free BALLDONTLIE account and add BALLDONTLIE_API_KEY to the box .env (or approve a SportsDataIO paid tier instead), so the shadow flag can be turned on for the next live slate.",
-   "justification": "Owner already decided 'try BALLDONTLIE' (OWNER_REQUESTED_TODO); account creation/key install is owner-only (2026-09-25 attestation: 'Credentials ... configured by the owner'). ESPN 403 must not be bypassed. Blocks the Game Day PRIORITY deliverable's live verification."
-  },
-  {
-   "id": "#1428",
-   "alsoCovers": [
-    "R-1428"
-   ],
-   "criterion": "f",
-   "urgency": "URGENT",
-   "dueBy": null,
-   "ask": "Pick the categorical chart treatment on issue #1428 (the six --chart tokens measure 2.3-3.7:1 on PSI cream panels).",
-   "justification": "Explicit OWNER UI DECISION REQUIRED preserved in #1428 and EXECUTION_PLAN §0 'Owner gates still open'; CALCULATOR_UI_IMPLEMENTATION_CONTRACT §2 forbids agents choosing a chart palette and no approved PSI reference resolves it. Blocks active Lane 6 chart acceptance and the DFS payout chart (DFS-ADD-09)."
-  },
-  {
-   "id": "C10-CLOSE-06/branch-protection",
-   "alsoCovers": [
-    "R-STAB-RULESET"
-   ],
-   "criterion": "b",
-   "urgency": "URGENT",
-   "dueBy": null,
-   "ask": "Run deploy/github/apply-branch-protection.sh with an admin token (payload merged in #1677), choose admin bypass pull_request vs always, and delete or make read-only the unused write deploy keys 145025388/148579683.",
-   "justification": "Repository security settings and admin credentials are owner-only; the 2026-10-07 stabilization directive asks for exactly this as 'one explicit bounded decision'. #1677 merged 2026-10-07T21:30Z, so the payload is ready; today any write account can push to main and deploy."
-  },
-  {
-   "id": "C10-CLOSE-06/credential-rotation",
-   "alsoCovers": [],
-   "criterion": "b",
-   "urgency": "URGENT",
-   "dueBy": null,
-   "ask": "Rotate JASON_LOGIN_PASSWORD in the box .env (a literal once sat in public git history) and confirm so the date can be recorded.",
-   "justification": "Credential action only the owner performs; no rotation record exists anywhere in docs/. Open security exposure on a public repo (not deadline-driven, but unbounded risk)."
-  },
-  {
-   "id": "TODO-2026-09-26-D2",
-   "alsoCovers": [],
-   "criterion": "e",
-   "urgency": "SEASON",
-   "dueBy": "before the 2026 fantasy playoffs (~early Dec 2026)",
-   "ask": "Approve or reject removing the double-counted ROS multiplier (plus fitted points model / per-draw shock) in the playoff/title simulator, optionally after seeing the AL-5c shadow challenger.",
-   "justification": "Genuine methodology change to a published probability, recorded as awaiting owner approval (OWNER_REQUESTED_TODO 2026-09-26 D2); evidence so far is 2 weeks (log-loss 0.928) and cannot settle it. Production championship odds (98.6%) are live this season."
-  },
-  {
-   "id": "#1513",
-   "alsoCovers": [],
-   "criterion": "f",
-   "urgency": "SEASON",
-   "dueBy": "before 2026 season awards are finalized (~late Dec 2026 / early Jan 2027)",
-   "ask": "Decide whether unified Manager of the Year is promoted to official, and from which season (or stays validation-only).",
-   "justification": "Promotion is an explicit owner-only gate (PR #1513: 'promotion is an explicit owner decision (OD-MOTY-1)'; 2026-10-03 batch: 'leave unpromoted'). Weights are owner award policy (2026-09-28)."
-  },
-  {
-   "id": "C7-CE-01/CE-29",
-   "alsoCovers": [
-    "AUC-002"
-   ],
-   "criterion": "b",
-   "urgency": "SEASON",
-   "dueBy": "before auction human rehearsals (~March 2027); useful immediately for all push",
-   "ask": "Generate a VAPID key pair (one-liner in .env.example) and set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_CONTACT in /home/dynasty/trade-calculator/.env, then restart the backend.",
-   "justification": "Free and self-signed, but a production secret: credentials are owner-configured (2026-09-25 attestation; docs/auction/LAUNCH_CHECKLIST.md §C). Prod /api/push/public-key -> 503 push_not_configured (2026-10-07)."
-  },
-  {
-   "id": "AUC-REHEARSAL-HUMAN",
-   "alsoCovers": [],
-   "criterion": "b",
-   "urgency": "SEASON",
-   "dueBy": "before the official 2027 rookie auction (after the late-April 2027 NFL draft)",
-   "ask": "After VAPID keys and AUC-PHASE2 land, run docs/auction/REHEARSAL_GUIDE.md: iPhone + Android notification tests, denied-permission recovery, and a multi-day rehearsal with at least 3 league-mates.",
-   "justification": "Device-observed and multi-human evidence can only come from the owner and league-mates (LAUNCH_CHECKLIST §A: 'cannot be done by an agent')."
-  },
-  {
-   "id": "AUC-RULES-CONFIRM",
-   "alsoCovers": [
-    "AUC-OPEN-OFFERS"
-   ],
-   "criterion": "f",
-   "urgency": "SEASON",
-   "dueBy": "before the official 2027 rookie auction (after the late-April 2027 NFL draft)",
-   "ask": "On the room's rule-confirmation screen, confirm (or change) every PROPOSED_RULE_KEYS rule, including whether open trade offers reserve money.",
-   "justification": "Binding auction rules are reserved to the owner (OWNER_REQUESTED_TODO 2026-09-29: rules 'must be confirmed together on the room's rule-confirmation screen'; LAUNCH_CHECKLIST §B). #1533 adds open-offer reservation to the same rule package, so it is one decision."
-  },
-  {
-   "id": "AUC-DR-WINDOW",
-   "alsoCovers": [],
-   "criterion": "f",
-   "urgency": "SEASON",
-   "dueBy": "before the official 2027 rookie auction",
-   "ask": "Accept the on-host hourly-backup disaster-recovery window, or name a free off-host copy target (paid storage is excluded by the 2026-10-07 directive).",
-   "justification": "Risk acceptance is reserved in LAUNCH_CHECKLIST §B; the 2026-10-07 completion directive's 'no paid storage' already narrows it to accept vs a free target."
-  },
-  {
-   "id": "AUC-OFFICIAL-LAUNCH",
-   "alsoCovers": [
-    "AUC-2027-POOL"
-   ],
-   "criterion": "c",
-   "urgency": "SEASON",
-   "dueBy": "after the 2027 NFL draft (late April 2027), once checklist A-C are complete",
-   "ask": "Approve the official 2027 rookie pool and the official launch (flip the official-room gate in a reviewed PR), including any exact points-for ties the preview flags.",
-   "justification": "Official real-world launch is an explicit owner-only gate (EXECUTION_PLAN §0: bring it to READY_FOR_OWNER_LAUNCH). The 2027 pool cannot exist before the NFL draft and its approval is part of the same launch sign-off."
-  },
-  {
-   "id": "DFS-§5-02",
-   "alsoCovers": [
-    "DFS-ADD-29",
-    "DFS-§19-02",
-    "DFS-MOD-14"
-   ],
-   "criterion": "b",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Confirm each DK/FD rule set, or drop official salary + blank upload/entry templates (and any FD standings export) into tests/dfs/fixtures/templates/.",
-   "justification": "Official rules/template pages refuse automated access (403) and must not be bypassed; templates come from the owner's own platform account. Research mode already works, so no deadline."
-  },
-  {
-   "id": "DFS-ADD-02",
-   "alsoCovers": [
-    "DFS-AUTO-18"
-   ],
-   "criterion": "a",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Approve (or decline) a SportsDataIO DFS-slates plan and set SPORTSDATAIO_API_KEY on the box; decide together with PROJ-KEYED-ADAPTERS (same vendor).",
-   "justification": "Paid feed; spending is owner-gated (EXECUTION_PLAN §0 2026-10-07). Loading the platform CSV remains a working fallback."
-  },
-  {
-   "id": "PROJ-KEYED-ADAPTERS",
-   "alsoCovers": [],
-   "criterion": "a",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Approve or decline Fantasy Nerds and SportsDataIO projection subscriptions and install their keys (SportsDataIO can be one decision with DFS-ADD-02).",
-   "justification": "Paid subscriptions and keys are owner-only. Note: adapter registration with census families is authorized engineering and should proceed meanwhile, inert without keys."
-  },
-  {
-   "id": "DFS-MOD-09",
-   "alsoCovers": [],
-   "criterion": "b",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "If you enter DK/FD contests, import their contest-standings exports via /dfs Results (or approve a licensed results source).",
-   "justification": "Settled-contest data comes only from the owner's own platform account, and contest entry itself is owner-gated; no free automated source exists."
-  },
-  {
-   "id": "DFS-§14-01",
-   "alsoCovers": [],
-   "criterion": "a",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Approve (or decline) a licensed odds/props aggregator and install its key.",
-   "justification": "Sportsbook terms bar scraping; licensed aggregators are paid; spending is owner-gated."
-  },
-  {
-   "id": "C7-AI-01",
-   "alsoCovers": [],
-   "criterion": "a",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Set the paid-inference posture for Ask Brisket (model/API budget and key), or keep it off.",
-   "justification": "Paid LLM spend is owner-gated (AI_FRONT_OFFICE_INTELLIGENCE_SPEC §9-10; 2026-08-11 decision 49: zero site-side AI credits in Manual External AI mode). The retrieval/grounding layer can be built meanwhile without spend."
-  },
-  {
-   "id": "C7-GATE-01",
-   "alsoCovers": [],
-   "criterion": "f",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Answer OD-02: is an authenticated Sleeper write gateway in scope now or a later capability, and if now, how Sleeper credentials are provided.",
-   "justification": "Sending real trades/league mutations is an explicit owner-only gate (EXECUTION_PLAN §0 2026-10-07) and needs owner Sleeper credentials; the CE-11 spec (OWNER_PRODUCT_BACKLOG_SPEC) defines requirements but not timing."
-  },
-  {
-   "id": "C5-FIT-01/college",
-   "alsoCovers": [],
-   "criterion": "b",
-   "urgency": "WHENEVER",
-   "dueBy": "useful before the 2027 rookie draft",
-   "ask": "Create a free CollegeFootballData account and install its API key.",
-   "justification": "New-provider account/key is owner-only (2026-09-25 attestation scope boundary; agents never create accounts). The NFL half (C5-FIT-01/nfl) is authorized and goes first."
-  },
-  {
-   "id": "DRAFTCAP-2029-INVENTORY",
-   "alsoCovers": [
-    "R-DRAFTCAP-INVENTORY",
-    "Draft Capital 2028/2029 inventory"
-   ],
-   "criterion": "d",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Decide whether to extend dynasty_main (2027-only workbook) and dynasty_new (2027-2028) draft-capital inventories to 2028/2029, knowing it re-spreads the $1200 pool and moves All Years totals.",
-   "justification": "Recorded as OWNER DECISION NEEDED by the owner's own 2026-10-01 Draft Capital request; existing preferences ('one $1200 pool', 'selector changes which picks count, never how they are valued') do not decide the pool spread, and dynasty_main's inventory is the owner's workbook."
-  },
-  {
-   "id": "DRAFT-ORDER-DYNASTY-NEW",
-   "alsoCovers": [
-    "dynasty_new draft-order rule"
-   ],
-   "criterion": "f",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "State dynasty_new's rookie-draft order rule (an agent can pre-fill a candidate from its past Sleeper drafts for a one-word confirm).",
-   "justification": "config/leagues/draft_order_rules.json and docs/picks/DRAFT_ORDER_RULE.md fail closed for any league without an owner-approved rule ('never assume every league uses reverse standings'); the 2026-10-04 decision covers dynasty_main only."
-  },
-  {
-   "id": "OD-IDPTC-CAP",
-   "alsoCovers": [],
-   "criterion": "e",
-   "urgency": "WHENEVER",
-   "dueBy": null,
-   "ask": "Decide whether IDPTC's offense vote joins the ktcCrowd cap (or is excluded) and whether its IDP vote shares a cap with idpShowCombined.",
-   "justification": "Changing B10 family membership changes served values; lineage-policy v1 §15.3 forbids a measurement from doing so. Narrowed: the Hill-training half is already decided by the 2026-10-01 owner decisions 1/3 (fail closed whenever independence is not established). Moot while IDPTC is quarantined after 2026-10-09; matters only if it republishes."
-  },
-  {
-   "id": "SRC-DLFVAL-2026-09-24/vote",
-   "alsoCovers": [],
-   "criterion": "f",
-   "urgency": "WHENEVER",
-   "dueBy": "after the DLF Values gate re-run completes",
-   "ask": "Once the stability re-run evidence is presented, approve or decline DLF Values as a voting DLF family member.",
-   "justification": "EXECUTION_PLAN §0: 'DLF Values stay non-voting until their gate passes and the owner approves the vote'; listed under 'Owner gates still open'. Not askable until the gate evidence (acquire-display-gate, PARTIAL) exists."
-  }
- ]
+  "family": "Z — coordinator reconciliation (manifest residue + post-audit status changes)",
+  "auditedAt": "2026-10-07T21:45:00Z",
+  "mainSha": "37ccfbb68",
+  "rows": [
+    {
+      "id": "X-02",
+      "aliases": [],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+      "productFamily": "Out of scope",
+      "capability": "Money / dues / Constitution / League Media",
+      "disposition": "REJECTED",
+      "userVisibleOutcome": "Not built (owner-rejected).",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Manifest X-02: OWNER-REJECTED (inventory §0). No code exists.",
+      "prOrBranch": null,
+      "evidence": "docs/C_SERIES_SCOPE_MANIFEST.md line 449",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    }
+  ],
+  "overrides": [
+    {
+      "id": "PICK-PROJECTOR-1652",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+      "disposition": "INTEGRATED_NOT_DEPLOYED",
+      "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
+    },
+    {
+      "id": "#1652",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head)",
+      "disposition": "INTEGRATED_NOT_DEPLOYED",
+      "nextAction": "Verify deploy, then authenticated /api/ros/pick-projections shows meta.source == season_simulation."
+    },
+    {
+      "id": "#1505",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (docs-only intent now on main)",
+      "nextAction": "C5-WAR-01 core (deterministic VORP/WAR/WAB) unblocks the MVP win-impact build."
+    },
+    {
+      "id": "C1-PICK-03",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1652)",
+      "nextAction": "Verify deploy + authenticated pick-projections; slot-probability calibration waits on realized 2027 slots."
+    },
+    {
+      "id": "SIG-IDP-GATE-2026-10-03",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1654)",
+      "nextAction": "After deploy: dispatch signals-onbox-verification.yml with collect:true, append §10.8 results, independent review; verdict PROMOTE/HOLD/REJECT/INSUFFICIENT_EVIDENCE under the preregistered gate."
+    },
+    {
+      "id": "C8-A11Y-01",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1682 fixes the /waivers scroll-region failure; E2E green on the train head)",
+      "nextAction": "Extend the axe route list to every route family (lane in flight: claude/player-destination-and-axe-coverage)."
+    },
+    {
+      "id": "C10-CLOSE-03",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1678 + #1682)",
+      "nextAction": "After deploy: the scheduled V1 authenticated verification should go green; then fix #1473 startup-window timing and extend prod-auth specs."
+    },
+    {
+      "id": "C10-CLOSE-04",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1680 tracker dedupe)",
+      "nextAction": "C1-RET-07 probe re-point (#1676; lane claude/league-correctness-wave1 in flight); re-verify #1409 units."
+    },
+    {
+      "id": "C4-SRC-02",
+      "reason": "merged in stabilization release train #1686 (merge 37ccfbb68, 2026-10-07; RC 37683881937 + E2E 37683885912 green on the frozen head) (#1675)",
+      "nextAction": "Integrate #1684 + #1685 (reviewed) via the next train."
+    },
+    {
+      "id": "AL-12",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Re-evaluate when the Wave-3 candidate exists; nothing to build before then."
+    },
+    {
+      "id": "IC-9/GOVERNANCE",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Build the Model Lab backend (AL-0b / IC-5) so non-Hill families have a registry disposition surface."
+    },
+    {
+      "id": "IC-9/PROJECTION",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "AL-3b projection scorecard (lane claude/learning-scorecards-al4a-al3b in flight), then challengers."
+    },
+    {
+      "id": "IC-9/TRADE",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "AL-2 ops: run the accumulated trade census on the box, then the per-axis translation-readiness table (AL-2b0)."
+    },
+    {
+      "id": "DFS-ADD-05",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Owner-provided official DK/FD entry templates (OWNER: DFS-§5-02) then verify the export round-trip."
+    },
+    {
+      "id": "DFS-ADD-11",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Implement the field/payout-aware objective (DFS-§6-02) on the existing contest presets."
+    },
+    {
+      "id": "DFS-ADD-15",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Wire odds/ownership/news freshness rows as their sources exist; keep 'unavailable' until then."
+    },
+    {
+      "id": "DFS-ADD-16",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Populate independence groups from measured source overlap once >1 family exists per sport."
+    },
+    {
+      "id": "DFS-ADD-18",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Game context stays DFF/nflverse; sportsbook markets wait on the owner's licensed-feed decision (DFS-§14-01)."
+    },
+    {
+      "id": "DFS-ADD-20",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Import the first real contest results (needs owner contest-standings exports, DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-AUTO-03",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "NBA/NHL automatic slates (DFS-AUTO-19) — seasons start October; MMA stays external (DFS-AUTO-20)."
+    },
+    {
+      "id": "DFS-AUTO-09",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Verify DK/FD scoring cards against official rules (owner confirmation DFS-§5-02) and drop the UNVERIFIED label."
+    },
+    {
+      "id": "DFS-MOD-03",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Calibrate the marginal priors against archived slate outcomes once results accumulate."
+    },
+    {
+      "id": "DFS-MOD-05",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Compare against a real observed field once contest-standings data exists (DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-MOD-06",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Fit on real contests once standings data exists (DFS-MOD-09); keep synthetic-recovery tests."
+    },
+    {
+      "id": "DFS-MOD-08",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Historical evaluation once archived slates + results accumulate."
+    },
+    {
+      "id": "DFS-§12-02",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Fold the modelled distributions (DFS-MOD-03) into the outcome percentiles; keep owner-imported overrides."
+    },
+    {
+      "id": "DFS-§13-02",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Add a permitted NBA projection/slate source (with DFS-AUTO-19)."
+    },
+    {
+      "id": "DFS-§13-03",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Add permitted NHL projections + line assignments (DFS-AUTO-22 candidate) with DFS-AUTO-19."
+    },
+    {
+      "id": "DFS-§20-02",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Run replay/champion-challenger once real contest results exist (DFS-MOD-09)."
+    },
+    {
+      "id": "DFS-§28-01..14",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Close the remaining user stories in dependency order after AUTO-19 and the live/rooting view (DFS-§20-01)."
+    },
+    {
+      "id": "DFS-§8-05",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "NHL line stacks after line assignments land (DFS-AUTO-22)."
+    },
+    {
+      "id": "DFS-§9-04",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Measure DFF vs RotoWire independence once a second NFL family exists; keep one vote per family."
+    },
+    {
+      "id": "R-DEPLOY-SHA-PIN",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Observe a manual (workflow_dispatch) deploy end-to-end and record the resolved SHA used by every stage."
+    },
+    {
+      "id": "R-ER-P10",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Backlog item (not product authorization): add an import-boundary check when a canonical-owner leak is next found."
+    },
+    {
+      "id": "R-G6",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "On-box read-only count of the Sharp + own-league per-season format captures."
+    },
+    {
+      "id": "R-PSI-LANE6",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Tracked per route in C8-PSI-03/*; next: /waivers family migration."
+    },
+    {
+      "id": "AL-10/11",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Manager tendency module (C6-MGR-01) over acquisition + waiver + trade ledgers (Wave 3)."
+    },
+    {
+      "id": "AL-2a",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Run the accumulated census on the box (AL-2 ops) and commit public counts only."
+    },
+    {
+      "id": "AL-8",
+      "reason": "coordinator: next action derived from the row's own recorded evidence (completion ledger assembly 2026-10-07)",
+      "nextAction": "Re-evaluate after AL-2b0 readiness table exists."
+    },
+    {
+      "id": "SRC-STALEPRES-2026-10-01",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): RESOLVED by owner decision 2026-10-07 (docs/OWNER_REQUESTED_TODO.md 'Added 2026-10-07 — IDP Trade Calculator freshness cutoff (owner decision, final)'; docs/sources/SOURCE_FRESHNESS_WEIGHTING.md §G): quarantineBelow 0.02 stays exactly as-is, no minimum voting floor; quarantined IDPTC observations preserved as history; post-cutoff picks stay finite with single-provider/reduced-coverage stamps and confidence never rising; no manufactured second vote from KTC-derived signals. The stale-floor idea survives only as an AUTHORIZED shadow-only challenger.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "verify post-cutoff pick behavior (lane claude/idptc-cutoff-readiness): after 2026-10-09 13:10Z confirm finite pick values, single-current-provider + reduced-coverage stamps, confidence not raised, degraded-evidence alert/report (not an outage); optional stale-floor challenger stays shadow-only",
+      "blocker": null
+    },
+    {
+      "id": "F-EXT-02",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Owner attestation 2026-09-25 (docs/OWNER_REQUESTED_TODO.md 'Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: OWNER_ATTESTED_AUTHORIZED'; record docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md) names IDP Trade Calculator explicitly and states these sources 'are no longer owner decision required' and 'need no per-source re-approval'. Manifest F-EXT-02 ('no record of any kind') is stale; OD-01's IDPTC half is decided.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Record OWNER_ATTESTED_AUTHORIZED (2026-09-25 attestation) for idpTradeCalc in C_SERIES_SCOPE_MANIFEST F-EXT-02 / §6 OD-01 and MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC §19.2 beside F-EXT-01; then mark COMPLETE_AND_PROVEN",
+      "blocker": null
+    },
+    {
+      "id": "F-EXT-03",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Same owner attestation 2026-09-25 (docs/OWNER_REQUESTED_TODO.md, OWNER_ATTESTED_AUTHORIZED) explicitly covers DLF, DraftSharks, IDP Show and Flock Fantasy ('every other source already in Calculator's ingestion system'); credentials are owner-configured env/secrets (already present on prod per /api/health). One consistent posture already exists; only the manifest record is stale.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Record the single OWNER_ATTESTED_AUTHORIZED posture for DLF / DraftSharks / IDP Show / Flock in C_SERIES_SCOPE_MANIFEST F-EXT-03 and §6 OD-01 (closing OD-01 entirely); then mark COMPLETE_AND_PROVEN",
+      "blocker": null
+    },
+    {
+      "id": "TODO-2026-09-26-D3",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Decided by existing records, not open methodology: median games are a FACT of dynasty_main's host rules (league_average_match=1; host shows 4-0 where the simulator shows 2-0, intake 2026-09-26). Owner rules already define the record as the league's official standings: 2026-09-29 eligibility rule ('official regular-season winning percentage ... under the league's canonical standings semantics', OWNER_REQUESTED_TODO 2026-09-29 + BRISKET_HONORS_ELIGIBILITY_SPEC) and the 2026-10-04 draft-order rule ('final regular-season record', the standings convention, docs/picks/DRAFT_ORDER_RULE.md). CLAUDE.md / AGENT_OPERATING_SYSTEM §11 invariant 'exact league scoring and factual scoring identity'. The same 2026-09-26 intake fixed D1/D4/D5 as factual defects without an owner decision; a simulator whose record disagrees with the host's is the same class.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Count median W/L in current and simulated records and seeding exactly as the host does (gated on league_average_match from the league's own settings, never assumed); pin current-record parity against Sleeper standings for both leagues; run it through the P6 champion/challenger shadow comparison and promote as a factual-defect fix via normal review",
+      "blocker": null
+    },
+    {
+      "id": "AL-5c",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Building and scoring calibration challengers in shadow does not require D2/D3 decisions — those gate PROMOTION only (docs/research/ADAPTIVE_LEARNING_2026-09-26.md §21.5 and its promotion table: 'owner approval; D2/D3 open'; AL-5c = 'calibration challengers before any simulation rebuild; D2 as a challenger'). Shadow challengers are authorized by EXECUTION_PLAN §0 (IC-1..IC-9 batch). The real blocker is the AL-5b season-end calibration dependency.",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "After AL-5b (season-end calibration) lands, build the D2 challenger (and the D3 median-games variant) in shadow, scored by weekly log-loss/PIT on finalized weeks; champion unchanged; evidence feeds the owner's D2 decision",
+      "blocker": null
+    },
+    {
+      "id": "TODO-2026-09-19-week-in-progress-note",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The 'product call' framing was an implementing agent's caution (OWNER_REQUESTED_TODO 'Power Rankings PPG/Recent accuracy' deferred follow-up 2), not an owner reservation. Existing owner preference decides it: every decision surface preserves explicit partial/stale states (MASTER_PRODUCT_PLAN §3.2, CLAUDE.md 'MISSING IS NEVER ZERO'); the PSI contract requires partial states and stale-data communication (docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md §1/§3); owner directive 2026-09-23 requires the Power methodology to show what is not yet counted ('including 0% components that are not yet active').",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Render 'Week N in progress — not yet counted' on Power/Luck from the published partialWeeks field using an existing PSI partial-state primitive (Lane 6); component test + phone/desktop screenshot during Week 5 games",
+      "blocker": null
+    },
+    {
+      "id": "C3-CALC-03/open-decisions",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): All three are decided by existing records. (1) Partial-row votes: binding owner UX requirement on #791 (2026-08-11): 'use a native-covered vote only when enough of the trade is actually covered'; otherwise 'classify that vendor as PARTIAL/INCOMPLETE' — partially covered rows never vote. (2) Source-unavailable state: MISSING IS NEVER ZERO / stale != current (MASTER_PRODUCT_PLAN §3.2, AGENT_OPERATING_SYSTEM §11) requires an explicit unavailable state rather than silent exclusion. (3) 'Even' threshold: ONE CONCEPT, ONE CANONICAL OWNER — reuse the canonical trade verdict's even band (trade-logic tradeImbalance/verdict) instead of a new constant; the historical <1-point rule stays only if it already equals that band.",
+      "disposition": "AUTHORIZED_AND_READY",
+      "nextAction": "Keep partial rows non-voting (#791) with a test; materialize a source-unavailable (freshness-excluded) state onto Second Opinions rows; derive 'Even' from the canonical trade verdict band; small config + test PR, then close #791 follow-ups",
+      "blocker": null
+    },
+    {
+      "id": "#1529 draft-capital stack rebuild",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): No owner ask is pending: the owner withdrew the stack effect (directive 2026-09-29; CLAUDE.md 'The draft-capital stack effect is INFORMATIONAL ONLY', #1527), issue #1529 is titled 'LATER, NOT AUTHORIZED', and the 2026-10-03 batch lists #1529 as out of scope (OWNER_REQUESTED_TODO 'Added 2026-10-03 — Calculator batch'). There is no proposed methodology to approve; it is owner-deferred future work.",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "nextAction": "None until an owner-approved methodology meeting #1529's prerequisites exists; frontend/__tests__/trade-stack-withdrawn.test.js keeps the guard",
+      "blocker": null
+    },
+    {
+      "id": "OD-06",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): CE-28 is explicitly NOT owner-approved (docs/CE_REGISTRY.md: 'carries no owner approval and must not be built on the strength of this row'; no surface, trigger, contract or acceptance criteria). The 2026-10-07 completion directive's denominator is owner-approved requirements only (EXECUTION_PLAN §0), so this is not a requirement; it stays registered as an idea and needs no owner action unless the owner raises it.",
+      "disposition": "NOT_ACTUALLY_REQUIRED",
+      "nextAction": null,
+      "blocker": null
+    },
+    {
+      "id": "DFS-MOD-13",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The requirement itself is conditional ('re-investigated only if useful; never fabricated') and docs/dfs/TRACEABILITY.md marks it LATER; leaving the six seeds as unresolved_identity is the compliant state. No owner action is needed to satisfy it.",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "nextAction": "None; seeds stay unresolved_identity. Re-open only if a concrete product need for one of the six names appears",
+      "blocker": null
+    },
+    {
+      "id": "C9-UR-02",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Existing doctrine already chooses: lost windows are 'recorded, never backfilled as exact' (docs/BRISKET_IDEAS.md §13.3, perishable-evidence directive 2026-09-29), and the temporal-history owner defines 'nearest-prior' as a legitimate labelled fidelity (CLAUDE.md 'Temporal history — one owner'); the owner-approved AL roadmap applies exactly this pattern to lost forecasts (AL-5a backfill 'labelled nearest-prior ... never exact'). So 2026 = labelled nearest-prior retrospective, 2027 = exact edition. The real blocker is C9-UR-01 (DEPENDENCY_BLOCKED).",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "When C9-UR-01 lands: publish the 2026 preseason baseline as a labelled nearest-prior retrospective (never exact) from the temporal ledger + dynasty_main Power week_00; schedule the 2027 exact edition for the Tuesday before Week 1",
+      "blocker": null
+    },
+    {
+      "id": "C6-POD-01",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): Scope and source target are owner-decided (OWNER_REQUESTED_TODO 2026-08-11 binding decisions 8/33/35/38-40: ~50 reputable dynasty sources, extracted-take freshness), and the owner's binding low-cost posture (decisions 13, 18, 49) already prefers zero-spend paths; public RSS metadata + publisher-provided transcripts + self-hosted transcription need no spend. Paid transcription is only an ask if the zero-cost path proves insufficient. The real blocker is C6-ANA-01 (PARTIAL, no producer yet).",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "After C6-ANA-01's first producer: check in the source registry via normal source intake (new providers per the 2026-09-25 attestation scope boundary), ingest RSS metadata, prefer publisher transcripts/self-hosted extraction; raise OD-03 paid-transcription spend only with measured coverage evidence",
+      "blocker": null
+    },
+    {
+      "id": "AUC-PF-ORDER",
+      "reason": "owner-action audit 2026-10-07 (owner criteria a-f): The rule is already owner-decided (2026-09-29 directive, OWNER_REQUESTED_TODO 'Rookie Auction Room': 'points-for (lowest first) nomination order'; docs/auction/ROOKIE_AUCTION_ROOM.md); computing it from final Sleeper standings is mechanical. What remains is the 2026 regular season finishing; any exact PF ties (flagged by the preview) are confirmed at launch inside AUC-OFFICIAL-LAUNCH.",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "nextAction": "After the 2026 regular season is final (~mid-Dec 2026): generate the lowest-PF-first order from the room preview, apply via audited set_order to the launch configuration, surface only unresolved exact ties for owner confirmation at launch",
+      "blocker": null
+    },
+    {
+      "id": "CLEANUP-1",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified",
+      "nextAction": "None."
+    },
+    {
+      "id": "R-STAB-CLEANUP-1",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified",
+      "nextAction": "None."
+    },
+    {
+      "id": "CLEANUP-4",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified",
+      "nextAction": "Further extractions only under the characterization-first rule (new rows)."
+    },
+    {
+      "id": "R-STAB-CLEANUP-5",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified; ruleset JSON + test merged. Applying the ruleset is the separate owner row R-STAB-RULESET.",
+      "nextAction": "None (application tracked as C10-CLOSE-06/branch-protection owner ask)."
+    },
+    {
+      "id": "CLEANUP-3",
+      "disposition": "PARTIAL",
+      "reason": "deployed and production-verified 2026-10-07: deploy run for 37ccfbb68 succeeded; /api/status build.commit 37ccfbb68, health 200, contract healthy, missing_sources [], flockFantasySfRookies seasonal-inactive, Signals IDP absent-by-design, timers/services installed and current, build manifest verified; remaining source-state display/backend follow-ups are open PRs #1684 + #1685",
+      "nextAction": "Integrate #1684 + #1685 through the next train, deploy, verify."
+    },
+    {
+      "id": "#1667-ai-architecture-train",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Land the deploy-gate fix (live artifact check vs Next ISR rewrites), get one fully green deploy run, then COMPLETE."
+    },
+    {
+      "id": "R-ER-P2",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Confirm on the next fully green deploy run."
+    },
+    {
+      "id": "R-ER-P6",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Confirm on the next fully green deploy run."
+    },
+    {
+      "id": "R-STAB-CLEANUP-2",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "reason": "#1667 merged as ffdb139f2 and served in production 2026-10-08 (/api/status build.commit ffdb139f2; served frontend_artifact_id f08689db...6595 == the validation job's artifact id; backend wheel artifact identity populated; health 200; contract healthy; post-deploy smoke + live contract steps green). Deploy run 37700964086 still FAILED its last step 'Verify live frontend matches the tested artifact' (frontend bytes mismatch read ~4 min after Next started; suspected ISR runtime rewrites under .next/server) - a deploy-gate defect under repair",
+      "nextAction": "Land the deploy-gate fix and confirm on a fully green deploy run."
+    }
+  ],
+  "ownerAsks": [
+    {
+      "id": "BALLDONTLIE-TRIAL",
+      "alsoCovers": [
+        "TODO-2026-09-24-game-day-live-dashboard"
+      ],
+      "criterion": "b",
+      "urgency": "URGENT",
+      "dueBy": "2026-10-11 (next Sunday slate; each live Sunday without it loses Game Day live evidence)",
+      "ask": "Create a free BALLDONTLIE account and add BALLDONTLIE_API_KEY to the box .env (or approve a SportsDataIO paid tier instead), so the shadow flag can be turned on for the next live slate.",
+      "justification": "Owner already decided 'try BALLDONTLIE' (OWNER_REQUESTED_TODO); account creation/key install is owner-only (2026-09-25 attestation: 'Credentials ... configured by the owner'). ESPN 403 must not be bypassed. Blocks the Game Day PRIORITY deliverable's live verification."
+    },
+    {
+      "id": "#1428",
+      "alsoCovers": [
+        "R-1428"
+      ],
+      "criterion": "f",
+      "urgency": "URGENT",
+      "dueBy": null,
+      "ask": "Pick the categorical chart treatment on issue #1428 (the six --chart tokens measure 2.3-3.7:1 on PSI cream panels).",
+      "justification": "Explicit OWNER UI DECISION REQUIRED preserved in #1428 and EXECUTION_PLAN §0 'Owner gates still open'; CALCULATOR_UI_IMPLEMENTATION_CONTRACT §2 forbids agents choosing a chart palette and no approved PSI reference resolves it. Blocks active Lane 6 chart acceptance and the DFS payout chart (DFS-ADD-09)."
+    },
+    {
+      "id": "C10-CLOSE-06/branch-protection",
+      "alsoCovers": [
+        "R-STAB-RULESET"
+      ],
+      "criterion": "b",
+      "urgency": "URGENT",
+      "dueBy": null,
+      "ask": "Run deploy/github/apply-branch-protection.sh with an admin token (payload merged in #1677), choose admin bypass pull_request vs always, and delete or make read-only the unused write deploy keys 145025388/148579683.",
+      "justification": "Repository security settings and admin credentials are owner-only; the 2026-10-07 stabilization directive asks for exactly this as 'one explicit bounded decision'. #1677 merged 2026-10-07T21:30Z, so the payload is ready; today any write account can push to main and deploy."
+    },
+    {
+      "id": "C10-CLOSE-06/credential-rotation",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "URGENT",
+      "dueBy": null,
+      "ask": "Rotate JASON_LOGIN_PASSWORD in the box .env (a literal once sat in public git history) and confirm so the date can be recorded.",
+      "justification": "Credential action only the owner performs; no rotation record exists anywhere in docs/. Open security exposure on a public repo (not deadline-driven, but unbounded risk)."
+    },
+    {
+      "id": "TODO-2026-09-26-D2",
+      "alsoCovers": [],
+      "criterion": "e",
+      "urgency": "SEASON",
+      "dueBy": "before the 2026 fantasy playoffs (~early Dec 2026)",
+      "ask": "Approve or reject removing the double-counted ROS multiplier (plus fitted points model / per-draw shock) in the playoff/title simulator, optionally after seeing the AL-5c shadow challenger.",
+      "justification": "Genuine methodology change to a published probability, recorded as awaiting owner approval (OWNER_REQUESTED_TODO 2026-09-26 D2); evidence so far is 2 weeks (log-loss 0.928) and cannot settle it. Production championship odds (98.6%) are live this season."
+    },
+    {
+      "id": "#1513",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "SEASON",
+      "dueBy": "before 2026 season awards are finalized (~late Dec 2026 / early Jan 2027)",
+      "ask": "Decide whether unified Manager of the Year is promoted to official, and from which season (or stays validation-only).",
+      "justification": "Promotion is an explicit owner-only gate (PR #1513: 'promotion is an explicit owner decision (OD-MOTY-1)'; 2026-10-03 batch: 'leave unpromoted'). Weights are owner award policy (2026-09-28)."
+    },
+    {
+      "id": "C7-CE-01/CE-29",
+      "alsoCovers": [
+        "AUC-002"
+      ],
+      "criterion": "b",
+      "urgency": "SEASON",
+      "dueBy": "before auction human rehearsals (~March 2027); useful immediately for all push",
+      "ask": "Generate a VAPID key pair (one-liner in .env.example) and set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_CONTACT in /home/dynasty/trade-calculator/.env, then restart the backend.",
+      "justification": "Free and self-signed, but a production secret: credentials are owner-configured (2026-09-25 attestation; docs/auction/LAUNCH_CHECKLIST.md §C). Prod /api/push/public-key -> 503 push_not_configured (2026-10-07)."
+    },
+    {
+      "id": "AUC-REHEARSAL-HUMAN",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "SEASON",
+      "dueBy": "before the official 2027 rookie auction (after the late-April 2027 NFL draft)",
+      "ask": "After VAPID keys and AUC-PHASE2 land, run docs/auction/REHEARSAL_GUIDE.md: iPhone + Android notification tests, denied-permission recovery, and a multi-day rehearsal with at least 3 league-mates.",
+      "justification": "Device-observed and multi-human evidence can only come from the owner and league-mates (LAUNCH_CHECKLIST §A: 'cannot be done by an agent')."
+    },
+    {
+      "id": "AUC-RULES-CONFIRM",
+      "alsoCovers": [
+        "AUC-OPEN-OFFERS"
+      ],
+      "criterion": "f",
+      "urgency": "SEASON",
+      "dueBy": "before the official 2027 rookie auction (after the late-April 2027 NFL draft)",
+      "ask": "On the room's rule-confirmation screen, confirm (or change) every PROPOSED_RULE_KEYS rule, including whether open trade offers reserve money.",
+      "justification": "Binding auction rules are reserved to the owner (OWNER_REQUESTED_TODO 2026-09-29: rules 'must be confirmed together on the room's rule-confirmation screen'; LAUNCH_CHECKLIST §B). #1533 adds open-offer reservation to the same rule package, so it is one decision."
+    },
+    {
+      "id": "AUC-DR-WINDOW",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "SEASON",
+      "dueBy": "before the official 2027 rookie auction",
+      "ask": "Accept the on-host hourly-backup disaster-recovery window, or name a free off-host copy target (paid storage is excluded by the 2026-10-07 directive).",
+      "justification": "Risk acceptance is reserved in LAUNCH_CHECKLIST §B; the 2026-10-07 completion directive's 'no paid storage' already narrows it to accept vs a free target."
+    },
+    {
+      "id": "AUC-OFFICIAL-LAUNCH",
+      "alsoCovers": [
+        "AUC-2027-POOL"
+      ],
+      "criterion": "c",
+      "urgency": "SEASON",
+      "dueBy": "after the 2027 NFL draft (late April 2027), once checklist A-C are complete",
+      "ask": "Approve the official 2027 rookie pool and the official launch (flip the official-room gate in a reviewed PR), including any exact points-for ties the preview flags.",
+      "justification": "Official real-world launch is an explicit owner-only gate (EXECUTION_PLAN §0: bring it to READY_FOR_OWNER_LAUNCH). The 2027 pool cannot exist before the NFL draft and its approval is part of the same launch sign-off."
+    },
+    {
+      "id": "DFS-§5-02",
+      "alsoCovers": [
+        "DFS-ADD-29",
+        "DFS-§19-02",
+        "DFS-MOD-14"
+      ],
+      "criterion": "b",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Confirm each DK/FD rule set, or drop official salary + blank upload/entry templates (and any FD standings export) into tests/dfs/fixtures/templates/.",
+      "justification": "Official rules/template pages refuse automated access (403) and must not be bypassed; templates come from the owner's own platform account. Research mode already works, so no deadline."
+    },
+    {
+      "id": "DFS-ADD-02",
+      "alsoCovers": [
+        "DFS-AUTO-18"
+      ],
+      "criterion": "a",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Approve (or decline) a SportsDataIO DFS-slates plan and set SPORTSDATAIO_API_KEY on the box; decide together with PROJ-KEYED-ADAPTERS (same vendor).",
+      "justification": "Paid feed; spending is owner-gated (EXECUTION_PLAN §0 2026-10-07). Loading the platform CSV remains a working fallback."
+    },
+    {
+      "id": "PROJ-KEYED-ADAPTERS",
+      "alsoCovers": [],
+      "criterion": "a",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Approve or decline Fantasy Nerds and SportsDataIO projection subscriptions and install their keys (SportsDataIO can be one decision with DFS-ADD-02).",
+      "justification": "Paid subscriptions and keys are owner-only. Note: adapter registration with census families is authorized engineering and should proceed meanwhile, inert without keys."
+    },
+    {
+      "id": "DFS-MOD-09",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "If you enter DK/FD contests, import their contest-standings exports via /dfs Results (or approve a licensed results source).",
+      "justification": "Settled-contest data comes only from the owner's own platform account, and contest entry itself is owner-gated; no free automated source exists."
+    },
+    {
+      "id": "DFS-§14-01",
+      "alsoCovers": [],
+      "criterion": "a",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Approve (or decline) a licensed odds/props aggregator and install its key.",
+      "justification": "Sportsbook terms bar scraping; licensed aggregators are paid; spending is owner-gated."
+    },
+    {
+      "id": "C7-AI-01",
+      "alsoCovers": [],
+      "criterion": "a",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Set the paid-inference posture for Ask Brisket (model/API budget and key), or keep it off.",
+      "justification": "Paid LLM spend is owner-gated (AI_FRONT_OFFICE_INTELLIGENCE_SPEC §9-10; 2026-08-11 decision 49: zero site-side AI credits in Manual External AI mode). The retrieval/grounding layer can be built meanwhile without spend."
+    },
+    {
+      "id": "C7-GATE-01",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Answer OD-02: is an authenticated Sleeper write gateway in scope now or a later capability, and if now, how Sleeper credentials are provided.",
+      "justification": "Sending real trades/league mutations is an explicit owner-only gate (EXECUTION_PLAN §0 2026-10-07) and needs owner Sleeper credentials; the CE-11 spec (OWNER_PRODUCT_BACKLOG_SPEC) defines requirements but not timing."
+    },
+    {
+      "id": "C5-FIT-01/college",
+      "alsoCovers": [],
+      "criterion": "b",
+      "urgency": "WHENEVER",
+      "dueBy": "useful before the 2027 rookie draft",
+      "ask": "Create a free CollegeFootballData account and install its API key.",
+      "justification": "New-provider account/key is owner-only (2026-09-25 attestation scope boundary; agents never create accounts). The NFL half (C5-FIT-01/nfl) is authorized and goes first."
+    },
+    {
+      "id": "DRAFTCAP-2029-INVENTORY",
+      "alsoCovers": [
+        "R-DRAFTCAP-INVENTORY",
+        "Draft Capital 2028/2029 inventory"
+      ],
+      "criterion": "d",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Decide whether to extend dynasty_main (2027-only workbook) and dynasty_new (2027-2028) draft-capital inventories to 2028/2029, knowing it re-spreads the $1200 pool and moves All Years totals.",
+      "justification": "Recorded as OWNER DECISION NEEDED by the owner's own 2026-10-01 Draft Capital request; existing preferences ('one $1200 pool', 'selector changes which picks count, never how they are valued') do not decide the pool spread, and dynasty_main's inventory is the owner's workbook."
+    },
+    {
+      "id": "DRAFT-ORDER-DYNASTY-NEW",
+      "alsoCovers": [
+        "dynasty_new draft-order rule"
+      ],
+      "criterion": "f",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Confirm dynasty_new's rookie-draft order: is it picks 1-4 by LOTTERY among the four non-playoff teams and picks 5-10 by reverse final PLAYOFF finish (champion 10th, runner-up 9th; 3rd- and 5th-place games count)? Yes/no; if yes, equal or weighted lottery odds?",
+      "justification": "config/leagues/draft_order_rules.json and docs/picks/DRAFT_ORDER_RULE.md fail closed for any league without an owner-approved rule ('never assume every league uses reverse standings'); the 2026-10-04 decision covers dynasty_main only. Pre-filled 2026-10-07 from the league's Sleeper drafts: reverse playoff finish reproduces picks 5-10 in both 6-team-era drafts (12/12 slots); no deterministic rule tested reproduces picks 1-4 (record, PF, Max PF, PA, all-play, wk15-17 points, consolation result). dynasty_main's rule (reverse record, PF tiebreak) fails both drafts."
+    },
+    {
+      "id": "OD-IDPTC-CAP",
+      "alsoCovers": [],
+      "criterion": "e",
+      "urgency": "WHENEVER",
+      "dueBy": null,
+      "ask": "Decide whether IDPTC's offense vote joins the ktcCrowd cap (or is excluded) and whether its IDP vote shares a cap with idpShowCombined.",
+      "justification": "Changing B10 family membership changes served values; lineage-policy v1 §15.3 forbids a measurement from doing so. Narrowed: the Hill-training half is already decided by the 2026-10-01 owner decisions 1/3 (fail closed whenever independence is not established). Moot while IDPTC is quarantined after 2026-10-09; matters only if it republishes."
+    },
+    {
+      "id": "SRC-DLFVAL-2026-09-24/vote",
+      "alsoCovers": [],
+      "criterion": "f",
+      "urgency": "WHENEVER",
+      "dueBy": "after the DLF Values gate re-run completes",
+      "ask": "Once the stability re-run evidence is presented, approve or decline DLF Values as a voting DLF family member.",
+      "justification": "EXECUTION_PLAN §0: 'DLF Values stay non-voting until their gate passes and the owner approves the vote'; listed under 'Owner gates still open'. Not askable until the gate evidence (acquire-display-gate, PARTIAL) exists."
+    },
+    {
+      "id": "DFS-ESPN-NBA-NHL",
+      "alsoCovers": [
+        "DFS-AUTO NBA/NHL automatic slates"
+      ],
+      "criterion": "f",
+      "urgency": "URGENT",
+      "dueBy": "NHL season already live; NBA opens 2026-10-21 - each slate without it has no automatic NBA/NHL slate",
+      "ask": "Approve (or decline) using ESPN's public schedule endpoints as the NBA/NHL schedule source for DFS automatic slates; approval is recorded per sport in config/dfs/auto_sources.json (approval/approvedOn/evidence).",
+      "justification": "ESPN falls under the Disney Terms of Use; docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md requires an owner decision before any ESPN integration. PR #1695 ships the NBA/NHL pipeline fail-closed (AWAITING_APPROVAL) until this is recorded; NFL automatic slates are unaffected."
+    }
+  ]
 }
