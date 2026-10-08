@@ -227,22 +227,14 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
     const body = await page.locator("#main").innerText();
     expect(body).not.toMatch(/VA\s*[−-]\s*stack/i);
 
+    // Public artifact (security S3): the asserted outcomes only — never teams,
+    // players, values, gaps, verdicts or note text.
     annotate(
       testInfo,
-      "trade-stack-withdrawn",
-      [
-        `teams=${p.teamA.name}|${p.teamB.name}->${p.teamC.name}`,
-        `give=${p.give} receive=${p.receive.join("+")}`,
-        ...before.sides.map((s, i) => `side${i}: raw=${s.raw} va=${s.va} total=${s.total}`),
-        `gap=${before.gap.gap} verdict=${before.gap.verdict}`,
-        `balancers=${before.balancers.length}`,
-        `note=${noteText ?? "absent"}`,
-        `noteAfterTeamChange=${noteAfter ?? "absent"}`,
-        `ownedFirst=${p.ownedFirst.label} (${p.ownedFirst.assetId})`,
-        `withFirst: ${withFirst.sides.map((x) => x.total).join("/")} gap=${withFirst.gap.gap}`,
-        `firstNote=${firstNote}`,
-        `switchedNote=${switchedNote ?? "absent"}`,
-      ].join(" ; "),
+      "trade-stack-totals-unchanged-by-team-switch",
+      String(switched.sides.every((s, i) => s.total === withFirst.sides[i].total)),
     );
+    annotate(testInfo, "trade-stack-note-shown-for-owned-first", String(Boolean(firstNote)));
+    annotate(testInfo, "trade-stack-balancers", String(before.balancers.length));
   });
 });

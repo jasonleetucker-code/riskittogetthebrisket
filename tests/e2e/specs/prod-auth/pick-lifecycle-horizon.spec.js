@@ -41,14 +41,11 @@ test.describe("#1442 pick lifecycle on production", () => {
       const y = Number(m[1]);
       byYear.set(y, (byYear.get(y) || 0) + 1);
     }
-    const census = [...byYear.entries()].sort((a, b) => a[0] - b[0]).map(([y, n]) => `${y}:${n}`);
-    annotate(testInfo, "pick-census", census.join(" "));
-    annotate(testInfo, "retired-years", JSON.stringify(retired));
-    annotate(
-      testInfo,
-      "class-2026-status",
-      JSON.stringify((lifecycle.classes || {})["2026"] || null),
-    );
+    // Public artifact (security S3): fixed-key counts and a boolean only.
+    annotate(testInfo, "retired-2026", String(retired.includes(2026)));
+    for (const y of [2026, 2027, 2028, 2029, 2030]) {
+      annotate(testInfo, `pick-rows-${y}`, String(byYear.get(y) || 0));
+    }
 
     // 1. Consistent with the owner: a retired class has no rows.
     for (const y of retired) {

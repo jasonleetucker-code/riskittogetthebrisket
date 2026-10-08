@@ -57,15 +57,11 @@ test.describe("League MVP team-success gate (production)", () => {
         expect((r.standings || [])[0].value.playerId).toBe(lead.value.playerId);
       }
     }
-    annotate(
-      testInfo,
-      "league-mvp-gate",
-      `verified=${elig.verified} basis=${elig.basis} field=${elig.playoffTeams} ` +
-        `mvpLead=${(mvp.leaders || [])[0]?.value?.playerName || mvp.awaitingReason} ` +
-        `outside=${(elig.outsideTheRace || []).map((o) => `${o.playerName}:${o.reason}`).join("|")} ` +
-        `opoyLead=${races.get("off_mvp")?.leaders?.[0]?.value?.playerName} ` +
-        `dpoyLead=${races.get("def_mvp")?.leaders?.[0]?.value?.playerName}`,
-    );
+    // Public artifact (security S3): the gate's state and counts, never names.
+    annotate(testInfo, "league-mvp-gate-verified", String(elig.verified === true));
+    annotate(testInfo, "league-mvp-gate-basis", String(elig.basis));
+    annotate(testInfo, "league-mvp-gate-playoff-field", String(elig.playoffTeams));
+    annotate(testInfo, "league-mvp-gate-outside-count", String((elig.outsideTheRace || []).length));
 
     await page.goto(prodUrl("/league?tab=awards"), { waitUntil: "domcontentloaded", timeout: 60_000 });
     const mvpCard = page.locator('article[data-award-key="league_mvp"]');

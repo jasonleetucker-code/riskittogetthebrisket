@@ -30,6 +30,8 @@ import importlib.util
 import json
 import math
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -535,3 +537,35 @@ class TestWorkflowPublishesOnlyAllowlistedOutputs:
         )
         assert set(_upload_paths(legacy)) - _ALLOWED_UPLOADS == {"lane4-remote.txt"}
         assert re.findall(r"\btee\s+(?:-a\s+)?(\S+)", legacy) == ["lane4-remote.txt"]
+
+
+# ── the browser suite's sanitized report ───────────────────────────────
+
+
+class TestBrowserReportAnnotationAllowlist:
+    """Owner directive 2026-10-08: ``tests/e2e/prod-auth-results.json`` publishes
+    annotations only through ``tests/e2e/prod-auth-annotation-allowlist.js``.
+    The hostile-annotation cases live in the reporter's own node tests; this
+    runs them under pytest so PR validation exercises them on every change."""
+
+    def test_reporter_node_suite_passes(self):
+        node = shutil.which("node")
+        if node is None:  # pragma: no cover - every CI runner and dev box has node
+            pytest.skip("node is not installed")
+        proc = subprocess.run(
+            [node, "--test", "tests/e2e/prod-auth-safe-reporter.test.js"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0, proc.stdout[-4000:] + proc.stderr[-2000:]
+        assert re.search(r"\bpass [1-9]", proc.stdout), proc.stdout[-2000:]
+
+    def test_reporter_never_publishes_raw_descriptions_or_error_text(self):
+        src = (REPO_ROOT / "tests" / "e2e" / "prod-auth-safe-reporter.js").read_text(
+            encoding="utf-8"
+        )
+        assert "isPublishable" in src, "the reporter no longer consults the allowlist"
+        assert "withheldCount" in src
+        assert "entry.error =" not in src, "failure text must not be published"
