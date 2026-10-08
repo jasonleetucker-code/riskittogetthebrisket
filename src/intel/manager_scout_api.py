@@ -99,12 +99,16 @@ async def get_manager_scout(request: Request) -> JSONResponse:
 
     contract = _contract_provider() if _contract_provider is not None else None
     teams = _current_teams(contract, league_cfg.key)
+    # Today's values only from a board loaded for THIS league's scoring —
+    # the same gate that admits its team names.
+    board = contract if teams else None
     try:
         payload = await run_in_threadpool(
             manager_scout.cached_manager_scout,
             league_cfg.key,
             league_cfg=league_cfg,
             current_teams=teams,
+            contract=board,
         )
     except Exception:  # noqa: BLE001 — a store fault is an unavailable state
         log.exception("manager-scout build failed for %s", league_cfg.key)

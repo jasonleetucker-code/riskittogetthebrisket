@@ -174,6 +174,45 @@ function TendenciesPanel() {
         accessor: (t) => t.trades,
         render: (t) => cell(t.trades, t.tradeState),
       },
+      // Today's canonical board, RAW value sum (not Value-Adjusted), per
+      // trade — the backend's `valueAtToday`. Unpriced assets are excluded
+      // from the sums and counted, never added as 0.
+      {
+        key: "gotPerTrade",
+        header: "Avg got (today)",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (t) => t.gotPerTrade,
+        render: (t) => cell(t.gotPerTrade, t.valueState),
+      },
+      {
+        key: "gavePerTrade",
+        header: "Avg given (today)",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (t) => t.gavePerTrade,
+        render: (t) => cell(t.gavePerTrade, t.valueState),
+      },
+      {
+        key: "netPerTrade",
+        header: "Net (today)",
+        numeric: true,
+        sortable: true,
+        accessor: (t) => t.netPerTrade,
+        render: (t) =>
+          t.netPerTrade === null ? (
+            cell(null, t.valueState)
+          ) : (
+            <span>
+              <Movement delta={t.netPerTrade} format={(n) => n.toLocaleString()} />
+              {t.unpricedAssets ? (
+                <span className={styles.muted}>{` · ${t.unpricedAssets} unpriced`}</span>
+              ) : null}
+            </span>
+          ),
+      },
       {
         key: "topPartner",
         header: "Top partner",
@@ -247,6 +286,9 @@ function TendenciesPanel() {
     coverage.trades !== null ? `${coverage.trades} trades` : null,
     coverage.claims !== null ? `${coverage.claims} claims` : null,
     seasons,
+    coverage.boardState === "available"
+      ? "values at today's board, raw sum, not VA-adjusted"
+      : null,
     coverage.lineupState === "not_applicable" ? "lineups n/a (best ball)" : null,
   ]
     .filter(Boolean)

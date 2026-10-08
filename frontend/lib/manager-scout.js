@@ -3,7 +3,9 @@
  *
  * The canonical owner is `src/intel/manager_scout.py`. This module only
  * reshapes and formats what the backend published; it computes no tendency,
- * no value and no label. It REPLACES `analyzeTradeTendencies`, which used to
+ * no value and no label (the per-trade "today's value" figures are the
+ * backend's `valueAtToday` block — canonical board, raw sum, not
+ * VA-adjusted — passed through verbatim). It REPLACES `analyzeTradeTendencies`, which used to
  * live in `lib/league-analysis.js` and derived per-manager trade tendencies in
  * the browser from the contract's `sleeper.trades` — a second owner of a
  * private concept. That function is deleted, not deprecated; see
@@ -76,6 +78,8 @@ export function managerScoutRows(payload) {
     const tradeMeasured = t.state === "measured";
     const topPartner = Array.isArray(t.partners) && t.partners.length ? t.partners[0] : null;
     const resolved = f.resolvedBids || {};
+    const v = t.valueAtToday || {};
+    const valueMeasured = v.state === "measured";
     return {
       id: String(m?.ownerId || ""),
       manager: m?.displayName || "Former manager",
@@ -92,6 +96,11 @@ export function managerScoutRows(payload) {
       bought: tradeMeasured ? topCounts(t.received?.byPosition) || null : null,
       sold: tradeMeasured ? topCounts(t.sent?.byPosition) || null : null,
       consolidating: tradeMeasured ? finite(t.packageShape?.consolidating) : null,
+      valueState: v.state || "unavailable",
+      gotPerTrade: valueMeasured ? finite(v.receivedPerTrade) : null,
+      gavePerTrade: valueMeasured ? finite(v.sentPerTrade) : null,
+      netPerTrade: valueMeasured ? finite(v.netPerTrade) : null,
+      unpricedAssets: valueMeasured ? finite(v.unpricedAssets) : null,
       waiverState: w.state || "unavailable",
       claims: finite(w.claims),
       faabState: resolved.state || f.state || "unavailable",
@@ -115,5 +124,7 @@ export function managerScoutCoverage(payload) {
     faabAvailable: s.faab?.state === "available",
     lineupState: s.lineup?.state || null,
     ledgerState: s.trades?.state || null,
+    boardState: s.board?.state || null,
+    boardAsOf: s.board?.asOf || null,
   };
 }

@@ -26,6 +26,14 @@ const measured = {
     sent: { picks: 0, byPosition: { QB: 1 } },
     pickShareOfReceived: { state: "measured", value: 0.2857, sampleSize: 7 },
     packageShape: { consolidating: 1 },
+    valueAtToday: {
+      state: "measured",
+      basis: "todays_canonical_board_raw_sum_not_value_adjusted",
+      receivedPerTrade: 2500,
+      sentPerTrade: 4750,
+      netPerTrade: -2250,
+      unpricedAssets: 2,
+    },
   },
   waiverTendencies: { state: "measured", sampleSize: 4, claims: 4 },
   faabTendencies: {
@@ -73,6 +81,10 @@ describe("managerScoutRows — a materializer, never a second owner", () => {
     expect(row.claims).toBe(4);
     expect(row.faabMeanPct).toBe(3.25);
     expect(row.faabRatio).toBe(1.4);
+    expect(row.gotPerTrade).toBe(2500);
+    expect(row.gavePerTrade).toBe(4750);
+    expect(row.netPerTrade).toBe(-2250);
+    expect(row.unpricedAssets).toBe(2);
   });
 
   it("an insufficient sample is null with its state, never 0%", () => {
@@ -86,6 +98,8 @@ describe("managerScoutRows — a materializer, never a second owner", () => {
     expect(row.waiverState).toBe("unavailable");
     expect(row.faabMeanPct).toBeNull();
     expect(row.faabState).toBe("insufficient_sample");
+    expect(row.netPerTrade).toBeNull(); // no valueAtToday block → no number
+    expect(row.valueState).toBe("unavailable");
     expect(stateText(row.tradeState)).toBe("No sample");
     expect(stateText(row.waiverState)).toBe("Unavailable");
   });

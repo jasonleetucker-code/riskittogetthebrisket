@@ -42,9 +42,15 @@ pick season / round             ``src.identity.picks.parse_league_pick_id``
 best-ball format                ``src.api.league_registry`` (stated fact only)
 =============================  =================================================
 
-**No value is computed or read.**  This is a behavioural profile, not a trade
-grade: what an asset was worth belongs to the canonical board and to the
-Trade History aging spec (not authorized), and neither is folded in here.
+**One value view, read — never computed.**  Each trade block carries
+``valueAtToday``: the assets a manager received and sent, priced at TODAY's
+canonical board (``rankDerivedValue`` for players; picks through
+``identity.picks.market_resolution`` + ``api.pick_value_resolution`` — the
+one MarketPickRef→value owner).  It is the Current-Grade view
+``docs/TRADE_HISTORY_AGING_SPEC.md`` §1 names, as a RAW VALUE SUM: no Value
+Adjustment, no package method, and never an at-the-time value.  An asset the
+board declines to price is counted in ``unpricedAssets`` and excluded from the
+sums — never added as 0.
 
 IDENTITY ACROSS SEASONS
 ───────────────────────
@@ -226,7 +232,100 @@ def _new_trade_acc() -> dict[str, Any]:
         "consolidating": 0,
         "expanding": 0,
         "even": 0,
+        "value": _empty_value(),
     }
+
+
+def _empty_value() -> dict[str, Any]:
+    return {
+        "receivedTotal": 0,
+        "sentTotal": 0,
+        "pricedReceived": 0,
+        "pricedSent": 0,
+        "unpricedReceived": 0,
+        "unpricedSent": 0,
+        "picksAtGenericGrade": 0,
+    }
+
+
+ValueLookup = Callable[[str, str], "tuple[int | None, bool]"]
+
+
+def contract_value_lookup(contract: Mapping[str, Any] | None) -> ValueLookup | None:
+    """``(asset_id, asset_kind) -> (value | None, priced_at_generic_grade)``
+    over the loaded canonical board, or ``None`` when no board is loaded.
+
+    Players: the row whose ``playerId`` (Sleeper id) matches, its positive
+    finite ``rankDerivedValue``.  Picks: the league pick's market reference
+    via ``identity.picks.market_resolution`` — slot unknown here, so the
+    GENERIC grade, exactly as that owner answers — priced by
+    ``api.pick_value_resolution.resolve_pick_value``.  A drafted class no
+    longer on the board, an unpriced row, or an unparseable id is ``None``.
+    """
+    if not isinstance(contract, Mapping) or not contract.get("playersArray"):
+        return None
+    import math  # noqa: PLC0415
+
+    from src.api.pick_value_resolution import resolve_pick_value  # noqa: PLC0415
+    from src.identity.picks import market_resolution, parse_league_pick_id  # noqa: PLC0415
+
+    def _positive(v: Any) -> int | None:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return None
+        return int(v) if math.isfinite(float(v)) and v > 0 else None
+
+    players: dict[str, int | None] = {}
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
+            continue
+        pid = str(row.get("playerId") or "").strip()
+        if pid and pid not in players:
+            players[pid] = _positive(row.get("rankDerivedValue"))
+    try:
+        draft_year: int | None = int(contract.get("currentDraftYear"))
+    except (TypeError, ValueError):
+        draft_year = None
+    pick_memo: dict[str, int | None] = {}
+    board = dict(contract)
+
+    def lookup(asset_id: str, asset_kind: str) -> tuple[int | None, bool]:
+        if asset_kind != "pick":
+            pid = _player_id(asset_id)
+            return (players.get(pid) if pid else None), False
+        ident = parse_league_pick_id(asset_id)
+        if ident is None or draft_year is None:
+            return None, False
+        ref = market_resolution(
+            year=ident.season,
+            round_num=ident.round_num,
+            slot=None,
+            current_draft_year=draft_year,
+        ).ref
+        key = ref.board_row_name() or ""
+        if key not in pick_memo:
+            pick_memo[key] = resolve_pick_value(board, ref).value if key else None
+        return pick_memo[key], True
+
+    return lookup
+
+
+def _record_value(
+    acc_value: dict[str, Any],
+    assets: list[Mapping[str, Any]],
+    direction: str,
+    value_of: ValueLookup | None,
+) -> None:
+    if value_of is None:
+        return
+    for a in assets:
+        v, generic = value_of(str(a.get("assetId") or ""), str(a.get("assetKind") or ""))
+        if v is None:
+            acc_value[f"unpriced{direction}"] += 1
+            continue
+        acc_value[f"{direction.lower()}Total"] += v
+        acc_value[f"priced{direction}"] += 1
+        if generic:
+            acc_value["picksAtGenericGrade"] += 1
 
 
 def _new_waiver_acc() -> dict[str, Any]:
@@ -288,6 +387,7 @@ def _fold_trades(
     trades: list[Mapping[str, Any]],
     *,
     position_of: PositionLookup | None,
+    value_of: ValueLookup | None = None,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, int]]:
     accs: dict[str, dict[str, Any]] = {}
     league = {"trades": len(trades), "unattributedSides": 0}
@@ -312,6 +412,8 @@ def _fold_trades(
                 acc["received"], received, trade_season=season_i, position_of=position_of
             )
             _record_assets(acc["sent"], sent, trade_season=season_i, position_of=position_of)
+            _record_value(acc["value"], received, "Received", value_of)
+            _record_value(acc["value"], sent, "Sent", value_of)
             if uid in seen_users:
                 # Two sides of one trade attributed to the same human: the
                 # assets count, the trade does not count twice.
@@ -384,11 +486,54 @@ def _side_block(side: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+#: What ``valueAtToday`` is — and is not.  Travels with every number.
+VALUE_BASIS = "todays_canonical_board_raw_sum_not_value_adjusted"
+
+
+def _value_block(
+    acc: dict[str, Any], n: int, *, board_as_of: str | None, board_state: str
+) -> dict[str, Any]:
+    """Today's-board raw value of what a manager received and sent."""
+    if board_state != "available":
+        return {"state": STATE_UNAVAILABLE, "reason": board_state, "sampleSize": None}
+    v = acc["value"]
+    if not n:
+        return {"state": STATE_INSUFFICIENT, "sampleSize": 0, "basis": VALUE_BASIS}
+
+    def _total(direction: str) -> int | None:
+        # A side whose every asset is unpriced has no measured total; a side
+        # that received nothing at all genuinely totals 0.
+        priced, unpriced = v[f"priced{direction}"], v[f"unpriced{direction}"]
+        return v[f"{direction.lower()}Total"] if (priced or not unpriced) else None
+
+    got, gave = _total("Received"), _total("Sent")
+    net = (got - gave) if (got is not None and gave is not None) else None
+    return {
+        "state": STATE_MEASURED,
+        "sampleSize": n,
+        "basis": VALUE_BASIS,
+        "boardAsOf": board_as_of,
+        "receivedTotal": got,
+        "sentTotal": gave,
+        "netTotal": net,
+        "receivedPerTrade": round(got / n) if got is not None else None,
+        "sentPerTrade": round(gave / n) if gave is not None else None,
+        "netPerTrade": round(net / n) if net is not None else None,
+        "pricedAssets": v["pricedReceived"] + v["pricedSent"],
+        "unpricedAssets": v["unpricedReceived"] + v["unpricedSent"],
+        "unpricedReceived": v["unpricedReceived"],
+        "unpricedSent": v["unpricedSent"],
+        "picksAtGenericGrade": v["picksAtGenericGrade"],
+    }
+
+
 def _trading_block(
     acc: dict[str, Any] | None,
     *,
     source_state: str,
     names: Mapping[str, str | None],
+    board_as_of: str | None = None,
+    board_state: str = "no_board_loaded",
 ) -> dict[str, Any]:
     if source_state != "available":
         return {"state": STATE_UNAVAILABLE, "reason": source_state, "sampleSize": None}
@@ -421,6 +566,7 @@ def _trading_block(
             "even": acc["even"],
             "consolidatingShare": _share(acc["consolidating"], n),
         },
+        "valueAtToday": _value_block(acc, n, board_as_of=board_as_of, board_state=board_state),
     }
 
 
@@ -529,12 +675,15 @@ def build_manager_scout(
     acquisition_path: Path | None = None,
     faab_payload: Mapping[str, Any] | None | bool = False,
     position_lookup: PositionLookup | None | bool = False,
+    contract: Mapping[str, Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """The Manager Scout payload for one league.
 
     ``current_teams`` is the loaded contract's ``sleeper.teams`` for THIS
-    league (display names and current roster ids only).  ``faab_payload`` /
+    league (display names and current roster ids only).  ``contract`` is that
+    same loaded contract, read only for today's canonical values
+    (``valueAtToday``); ``None`` makes that block ``unavailable``.  ``faab_payload`` /
     ``position_lookup`` default (``False``) to the canonical loaders; pass
     ``None`` to state the source is absent, or a value to inject one.
     """
@@ -558,7 +707,15 @@ def build_manager_scout(
     else:
         trades, claims = [], []
         ledger_state = "acquisition_store_missing"
-    trade_accs, trade_league = _fold_trades(trades, position_of=position_of)
+    value_of = contract_value_lookup(contract)
+    board_state = "available" if value_of is not None else "no_board_loaded"
+    board_meta = (contract or {}).get("meta") if isinstance(contract, Mapping) else None
+    board_as_of = None
+    if isinstance(contract, Mapping):
+        board_as_of = (
+            (board_meta or {}).get("generatedAt") if isinstance(board_meta, Mapping) else None
+        ) or contract.get("generatedAt")
+    trade_accs, trade_league = _fold_trades(trades, position_of=position_of, value_of=value_of)
     waiver_accs, waiver_league = _fold_waivers(claims, position_of=position_of)
 
     # FAAB.
@@ -601,7 +758,11 @@ def build_manager_scout(
                 "currentMember": oid in names,
                 "currentRosterId": current_rid.get(oid),
                 "tradeTendencies": _trading_block(
-                    trade_accs.get(oid), source_state=ledger_state, names=names
+                    trade_accs.get(oid),
+                    source_state=ledger_state,
+                    names=names,
+                    board_as_of=board_as_of,
+                    board_state=board_state,
                 ),
                 "waiverTendencies": _waiver_block(waiver_accs.get(oid), source_state=ledger_state),
                 "faabTendencies": _faab_block(oid, priors, source_state=faab_state),
@@ -661,12 +822,30 @@ def build_manager_scout(
                 "state": identity_state,
             },
             "lineup": lineup,
+            "board": {
+                "owner": "rankDerivedValue + src.api.pick_value_resolution",
+                "state": board_state,
+                "asOf": board_as_of,
+                "basis": VALUE_BASIS,
+            },
         },
         "notIncluded": {
             # Named so a reader does not mistake absence for "no behaviour".
             "otherLeagues": "insider_and_sharp_populations_kept_separate",
-            "assetValues": "behavioural_profile_only_no_trade_grades",
+            "atTheTimeValues": "trade_history_aging_not_authorized",
+            "valueAdjustment": "raw_value_sum_only_no_package_method",
             "ageProfile": "no_canonical_age_at_transaction_owner",
+        },
+        "limitations": {
+            # Upstream attribution, not this module's: both the acquisition
+            # collector (scripts/build_acquisition_ledger.py, _owner_by_roster)
+            # and the FAAB history fetch (src/trade/faab_history.py, the
+            # roster_to_owner map) attribute a season's transactions through
+            # the roster->owner map as Sleeper reports it WHEN FETCHED.  A
+            # mid-season takeover therefore credits the departed manager's
+            # earlier moves in that season to the incoming one.  Across
+            # seasons attribution is correct (each season's own map).
+            "withinSeasonTakeover": "attributed_to_owner_at_fetch_time",
         },
         "managers": managers,
     }
@@ -694,9 +873,11 @@ def cached_manager_scout(
     *,
     league_cfg: Any = None,
     current_teams: list[Mapping[str, Any]] | None = None,
+    contract: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """``build_manager_scout`` memoised for 5 minutes per league + input
-    file signatures (acquisition ledger incl. WAL, bid history, directory).
+    file signatures (acquisition ledger incl. WAL, bid history, directory)
+    + the loaded board's identity (a new scrape is a new board).
     """
     import time  # noqa: PLC0415
 
@@ -711,8 +892,17 @@ def cached_manager_scout(
     except Exception:  # noqa: BLE001
         directory_path = None
     teams_sig = tuple(
-        (str(t.get("ownerId") or ""), str(t.get("name") or ""), t.get("roster_id"))
+        (
+            str(t.get("ownerId") or ""),
+            str(t.get("name") or ""),
+            t.get("roster_id", t.get("rosterId")),
+        )
         for t in (current_teams or [])
+    )
+    board_meta = (contract or {}).get("meta") if isinstance(contract, Mapping) else None
+    board_sig = (
+        id(contract),
+        (board_meta or {}).get("generatedAt") if isinstance(board_meta, Mapping) else None,
     )
     key = (
         league_key,
@@ -721,13 +911,16 @@ def cached_manager_scout(
         _stat_sig(faab_history.history_path(league_key)),
         _stat_sig(directory_path),
         teams_sig,
+        board_sig,
     )
     now = time.monotonic()
     with _MEMO_LOCK:
         hit = _MEMO.get(key)
         if hit is not None and now - hit[0] < _MEMO_TTL_SECONDS:
             return hit[1]
-    payload = build_manager_scout(league_key, league_cfg=league_cfg, current_teams=current_teams)
+    payload = build_manager_scout(
+        league_key, league_cfg=league_cfg, current_teams=current_teams, contract=contract
+    )
     with _MEMO_LOCK:
         for stale in [k for k in _MEMO if k[0] == league_key]:
             _MEMO.pop(stale, None)

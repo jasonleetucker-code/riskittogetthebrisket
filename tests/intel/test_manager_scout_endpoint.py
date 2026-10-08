@@ -77,6 +77,10 @@ _CONTRACT = {
             {"ownerId": "U2", "name": "Team Two", "roster_id": 2},
         ]
     },
+    "playersArray": [
+        {"playerId": "4034", "assetClass": "player", "rankDerivedValue": 6000},
+        {"playerId": "1111", "assetClass": "player", "rankDerivedValue": 2500},
+    ],
 }
 
 
@@ -119,6 +123,9 @@ def test_serves_the_resolved_leagues_profiles_with_current_names(scout_env):
     assert managers["U1"]["tradeTendencies"]["tradeCount"] == 1
     assert managers["U1"]["lineupTendencies"]["state"] == "not_applicable"
     assert managers["U1"]["faabTendencies"]["state"] == "unavailable"
+    # Today's values come from the board loaded for THIS league.
+    value = managers["U1"]["tradeTendencies"]["valueAtToday"]
+    assert (value["receivedTotal"], value["sentTotal"], value["netTotal"]) == (6000, 2500, 3500)
 
 
 def test_a_league_mismatch_against_the_loaded_contract_is_503(scout_env):

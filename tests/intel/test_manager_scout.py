@@ -440,12 +440,67 @@ def test_no_raw_sleeper_league_id_is_published(db):
         assert link["lid"] not in blob
 
 
-def test_no_value_quantity_is_published(db):
-    """A behavioural profile, not a trade grade: no canonical value field."""
+BOARD = {
+    "meta": {"generatedAt": "2026-10-08T00:00:00+00:00"},
+    "currentDraftYear": 2027,
+    "playersArray": [
+        {"playerId": "100", "assetClass": "player", "rankDerivedValue": 5000},
+        {"playerId": "200", "assetClass": "player", "rankDerivedValue": 3000},
+        {"playerId": "300", "assetClass": "player", "rankDerivedValue": 2000},
+        # The board declines to price this one.
+        {"playerId": "400", "assetClass": "player", "rankDerivedValue": None},
+        {"canonicalName": "2028 Round 2", "assetClass": "pick", "rankDerivedValue": 1500},
+    ],
+}
+
+
+def test_value_at_today_is_a_raw_canonical_sum_with_unpriced_disclosed(db):
     _seed_two_seasons(db)
-    blob = json.dumps(_build(db))
-    for field in ("rankDerivedValue", "avgGot", "avgGiven", "netValue", "basisValue"):
-        assert field not in blob
+    v = _by_owner(_build(db, contract=BOARD))["U1"]["tradeTendencies"]["valueAtToday"]
+    assert v["state"] == "measured"
+    assert v["basis"] == "todays_canonical_board_raw_sum_not_value_adjusted"
+    assert v["boardAsOf"] == "2026-10-08T00:00:00+00:00"
+    # Received: RB 300 (2000) + WR 200 (3000); the 2026 1st is a drafted
+    # class no longer on the board -> unpriced, NOT 0.
+    assert v["receivedTotal"] == 5000
+    assert v["unpricedReceived"] == 1
+    # Sent: QB 100 (5000) + WR 200 (3000) + 2028 2nd at its generic grade
+    # (1500); DL 400 is unpriced.
+    assert v["sentTotal"] == 9500
+    assert v["unpricedSent"] == 1
+    assert v["netTotal"] == -4500
+    assert (v["receivedPerTrade"], v["sentPerTrade"], v["netPerTrade"]) == (2500, 4750, -2250)
+    assert v["pricedAssets"] == 5 and v["unpricedAssets"] == 2
+    assert v["picksAtGenericGrade"] == 1
+
+
+def test_an_all_unpriced_side_has_no_total_not_zero(db):
+    _ingest(db, "2026", [_trade("tu", ts=T_2026, adds={"400": 3}, drops={"400": 2})])
+    m = _by_owner(_build(db, contract=BOARD))
+    got = m["U1"]["tradeTendencies"]["valueAtToday"]
+    assert got["receivedTotal"] is None  # one asset, unpriced
+    assert got["sentTotal"] == 0  # sent nothing: a real zero
+    assert got["netTotal"] is None
+
+
+def test_no_board_means_value_unavailable_and_no_trades_insufficient(db):
+    _seed_two_seasons(db)
+    teams = [{"ownerId": "U9", "name": "Quiet", "roster_id": 4}]
+    without = _by_owner(_build(db, current_teams=teams))
+    assert without["U1"]["tradeTendencies"]["valueAtToday"] == {
+        "state": "unavailable",
+        "reason": "no_board_loaded",
+        "sampleSize": None,
+    }
+    with_board = _by_owner(_build(db, current_teams=teams, contract=BOARD))
+    quiet = with_board["U9"]["tradeTendencies"]["valueAtToday"]
+    assert quiet["state"] == "insufficient_sample"
+    assert "receivedTotal" not in quiet
+
+
+def test_within_season_takeover_limitation_is_named(db):
+    payload = _build(db)
+    assert payload["limitations"]["withinSeasonTakeover"] == "attributed_to_owner_at_fetch_time"
 
 
 def test_the_payload_is_deterministic(db):
