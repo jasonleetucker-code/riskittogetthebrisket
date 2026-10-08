@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ContestPanel from "@/components/dfs/ContestPanel";
 
@@ -139,7 +139,14 @@ describe("ContestPanel — modes, concentration and curve", () => {
     const onContextChange = vi.fn();
     render(<ContestPanel platform="draftkings" sport="nfl" format="classic" onContextChange={onContextChange} />);
     fireEvent.click(screen.getByRole("radio", { name: "Quick" }));
-    fireEvent.change(await screen.findByLabelText("Contest type"), { target: { value: "large_field_gpp" } });
+    const contestType = await screen.findByLabelText("Contest type");
+    // The select renders before the presets fetch resolves; changing it to an
+    // option that does not exist yet leaves the value empty (flaked in CI under
+    // full-suite load with presetId: null).
+    await waitFor(() =>
+      expect(contestType.querySelector('option[value="large_field_gpp"]')).not.toBeNull(),
+    );
+    fireEvent.change(contestType, { target: { value: "large_field_gpp" } });
     expect(onContextChange).toHaveBeenLastCalledWith({ contestId: null, presetId: "large_field_gpp" });
     expect(screen.getByText(/builds use the transparent projection baseline/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Import" }));
