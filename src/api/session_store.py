@@ -362,7 +362,8 @@ def evict_guest_pass(pass_id: int, *, db_path: Path | None = None) -> int:
                     f"DELETE FROM {_TABLE} WHERE guest_pass_id = ?",
                     (int(pass_id),),
                 )
-                return cur.rowcount or 0
+                # DELETE always reports a count >= 0 (autocommit connection).
+                return max(0, cur.rowcount)
             finally:
                 conn.close()
     except Exception as exc:  # noqa: BLE001
