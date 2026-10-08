@@ -24,6 +24,11 @@ def release(tmp_path: Path):
     (checkout / "frontend/package-lock.json").write_text("{}\n", encoding="utf-8")
     (checkout / "frontend/.next/BUILD_ID").write_text("ci-build\n", encoding="utf-8")
     (checkout / "frontend/.next/static/app.js").write_bytes(b"tested frontend")
+    (checkout / "frontend/.next/server").mkdir()
+    (checkout / "frontend/.next/server/app-paths-manifest.json").write_text(
+        '{"/page": "app/page.js"}', encoding="utf-8"
+    )
+    (checkout / "frontend/.next/server/pages-manifest.json").write_text("{}", encoding="utf-8")
     manifest = create_release_manifest(
         checkout, checkout / "frontend/.next", commit=SHA, node_version="v20.19.0"
     )
@@ -36,6 +41,8 @@ def release(tmp_path: Path):
             "frontend/package-lock.json",
             "frontend/.next/BUILD_ID",
             "frontend/.next/static/app.js",
+            "frontend/.next/server/app-paths-manifest.json",
+            "frontend/.next/server/pages-manifest.json",
         ):
             bundle.add(checkout / name, arcname=name)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
@@ -122,6 +129,8 @@ def test_v2_backend_archive_is_verified_before_frontend_staging(release, tmp_pat
             "frontend/package-lock.json",
             "frontend/.next/BUILD_ID",
             "frontend/.next/static/app.js",
+            "frontend/.next/server/app-paths-manifest.json",
+            "frontend/.next/server/pages-manifest.json",
             "backend-wheelhouse.tar",
         ):
             bundle.add(checkout / name, arcname=name)
@@ -137,6 +146,8 @@ def test_v2_backend_archive_is_verified_before_frontend_staging(release, tmp_pat
             "frontend/package-lock.json",
             "frontend/.next/BUILD_ID",
             "frontend/.next/static/app.js",
+            "frontend/.next/server/app-paths-manifest.json",
+            "frontend/.next/server/pages-manifest.json",
             "backend-wheelhouse.tar",
         ):
             bundle.add(checkout / name, arcname=name)
@@ -170,3 +181,29 @@ def test_deploy_consumes_validation_archive_and_rollback_keeps_it():
     assert "--check-only" in deploy
     assert "python3 -m scripts.stage_release_artifact" in rollback
     assert "refusing a rebuild that changes tested bytes" in rollback
+
+
+def test_archive_carrying_a_runtime_route_cache_is_refused(release, tmp_path):
+    """The digest tolerates Next's live response cache; a tested archive has none."""
+    checkout, _, _, manifest = release
+    owner = hashlib.sha256(b"/page").hexdigest()
+    entry = f"frontend/.next/server/route-cache/APP_PAGE/{owner}/$/index.html"
+    archive = tmp_path / "cached-release.tar"
+    with tarfile.open(archive, "w") as bundle:
+        for name in (
+            "release-manifest.json",
+            "requirements.lock.txt",
+            "frontend/package-lock.json",
+            "frontend/.next/BUILD_ID",
+            "frontend/.next/static/app.js",
+            "frontend/.next/server/app-paths-manifest.json",
+            "frontend/.next/server/pages-manifest.json",
+        ):
+            bundle.add(checkout / name, arcname=name)
+        info = tarfile.TarInfo(entry)
+        info.size = 4
+        bundle.addfile(info, io.BytesIO(b"page"))
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    with pytest.raises(ValueError, match="carries a runtime route cache"):
+        _stage(tmp_path, release, archive=archive, archive_sha256=digest)
+    assert not (checkout / "frontend/.next.new").exists()
