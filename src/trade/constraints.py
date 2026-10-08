@@ -226,20 +226,36 @@ def _team_index(contract: Mapping[str, Any] | None) -> dict[str, str]:
     rule, which is what makes §2.2's dynamic requirement hold: a player who
     joins the protected team becomes protected, and one who leaves stops being
     protected by the TEAM rule, with no stored state to migrate.
+
+    A key carried by rows on DIFFERENT teams (or by a row with no team) is
+    ambiguous — e.g. a QB and a DL who share a display name.  It maps to ``""``,
+    which :meth:`TradeConstraints._keys_for` skips, so a name-only asset
+    resolves to an UNKNOWN team and fails closed while a team rule is active.
+    The retired first-row-wins rule picked whichever row came first and could
+    clear a protected player under his namesake's team.
     """
 
     rows = (contract or {}).get("playersArray") if isinstance(contract, Mapping) else None
-    out: dict[str, str] = {}
+    teams_by_key: dict[str, set[str]] = {}
     for row in rows or []:
         if not isinstance(row, Mapping):
             continue
         team = str(row.get("team") or "").strip().upper()
-        if not team:
-            continue
-        for candidate in (row.get("displayName"), row.get("canonicalName"), row.get("playerId")):
-            key = constraint_key(candidate)
+        keys = {
+            constraint_key(candidate)
+            for candidate in (row.get("displayName"), row.get("canonicalName"), row.get("playerId"))
+        }
+        for key in keys:
             if key:
-                out.setdefault(key, team)
+                teams_by_key.setdefault(key, set()).add(team)
+    out: dict[str, str] = {}
+    for key, teams in teams_by_key.items():
+        if len(teams) == 1:
+            (team,) = teams
+            if team:
+                out[key] = team
+        else:
+            out[key] = ""  # ambiguous: never resolve a team from this key
     return out
 
 
@@ -555,6 +571,16 @@ def _first_field(asset: Any, names: Sequence[str]) -> str:
     return ""
 
 
+def _blocked_by_name(constraints: TradeConstraints, reason: str, name: str) -> bool:
+    """Whether ``reason`` was decided by the asset's NAME (not its id or team)."""
+    key = constraint_key(name)
+    if reason == "protected_individual":
+        return key in constraints.protected_outgoing
+    if reason == "excluded_temporary":
+        return key in constraints.excluded_outgoing
+    return False
+
+
 def outgoing_eligibility(
     pool: Sequence[Any],
     constraints: TradeConstraints | None,
@@ -608,19 +634,23 @@ def outgoing_eligibility(
         # team, and the substrate's projection deliberately does not.  The
         # owner's key resolution accepts either.
         subject = view.source if view.source is not None else view
-        if constraints.block_reason(subject) is not None:
+        reason = constraints.block_reason(subject)
+        if reason is not None:
             excluded.add(view.key)
             # A caller may project the same object differently (angle keys its
-            # dict entries by NAME even if an id were present), so exclude every
-            # identity form the substrate can derive for it.  Over-exclusion is
-            # impossible here: the owner already blocks every asset carrying
-            # this name or id.
-            name = (view.name or "").strip().lower()
-            if name:
-                excluded.add(f"name:{name}")
+            # dict entries by NAME even when an id exists), so also exclude the
+            # other identity forms — but only the forms the owner's decision
+            # actually rests on.  An id names exactly this asset, so its form is
+            # always safe.  A NAME form is added only when the rule matched the
+            # name itself: a team-rule or id-keyed block must not spill onto a
+            # same-name, id-less namesake the owner would let through, or
+            # ``blocked_outgoing`` and enforcement would disagree.
             aid = (view.asset_id or "").strip().lower()
             if aid:
                 excluded.add(f"id:{aid}")
+            name = (view.name or "").strip().lower()
+            if name and _blocked_by_name(constraints, reason, name):
+                excluded.add(f"name:{name}")
 
     policy = base if isinstance(base, EligibilityPolicy) else EligibilityPolicy()
     return replace(policy, excluded_keys=frozenset(policy.excluded_keys) | excluded)

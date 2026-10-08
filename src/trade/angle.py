@@ -1307,8 +1307,14 @@ def find_acquisition_packages(
     warnings: list[str] = []
 
     by_name: dict[str, dict[str, Any]] = {}
+    # Names more than one board row carries (a QB and a DL namesake).  The
+    # first-row-wins lookup above cannot tell which one this roster holds, so
+    # such an entry must not assert a team to the constraint owner.
+    shared_names: set[str] = set()
     for row in players_array:
         name = str(row.get("canonicalName") or row.get("displayName") or "")
+        if name and name in by_name:
+            shared_names.add(name)
         if name and name not in by_name:
             by_name[name] = row
 
@@ -1475,6 +1481,11 @@ def find_acquisition_packages(
             {
                 "name": pname,
                 "position": str(row.get("position") or ""),
+                # C3-CON-02: the OUTGOING pool carries the NFL team so the
+                # constraint owner judges this entry, not a name-keyed board
+                # lookup.  ``None`` (UNKNOWN, which fails closed under a team
+                # rule) when the name is shared and the row may be the namesake.
+                "team": (None if pname in shared_names else (row.get("team") or None)),
                 "my_value": my_v,
                 # See find_angle_packages: ``row`` is what gets priced.
                 "row": row,
