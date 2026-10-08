@@ -85,36 +85,33 @@ module.exports = defineConfig({
   // Separate output dirs so a prod-auth run never clobbers (or uploads
   // as) the default suite's artifacts.
   outputDir: "test-results-prod-auth",
-  reporter: [
-    ["list"],
-    ["html", { open: "never", outputFolder: "playwright-report-prod-auth" }],
-    // The JSON report is the EVIDENCE artifact, not a convenience.
-    //
-    // Specs record which branch of a multi-state render actually ran by
-    // pushing onto `testInfo.annotations` (helpers.js::annotate) — e.g.
-    // V1-45's `states-observed: finalRosterSimulation: populated`. Those
-    // annotations exist only in a structured report: the `list` reporter
-    // prints pass/fail lines and drops them, and the `html` folder is not
-    // uploaded. Without this, a green tick proves the spec passed but not
-    // WHICH state production produced — and V1-45's L4 bar is a statement
-    // about the observed state, so the run could not answer its own
-    // question. Inferring the branch from a pass would be exactly the
-    // "infer rather than read" error this lane exists to prevent.
-    //
-    // Absolute path via `__dirname`: Playwright resolves a reporter's
-    // relative `outputFile` against the cwd, which is the repo root here
-    // and NOT where `outputDir` above lands (that one is config-relative).
-    // Pinning it removes the discrepancy rather than depending on it.
-    ["json", { outputFile: path.join(__dirname, "prod-auth-results.json") }],
-  ],
+  // ONE reporter, and it is the sanitized one (security S3). This repo,
+  // its Actions logs and its artifacts are PUBLIC, and these specs run
+  // against PRODUCTION with a real session cookie. `list`/`dot` print full
+  // assertion output (Received values = private data) into the public log,
+  // `json` records it with stdout/stderr, and `html` embeds traces — a
+  // failed run's trace carried the session cookie 154x (run 37690745794).
+  //
+  // prod-auth-safe-reporter.js writes tests/e2e/prod-auth-results.json —
+  // still the EVIDENCE artifact: specs record which branch of a multi-state
+  // render ran via `testInfo.annotations` (helpers.js::annotate), and the
+  // safe report keeps every annotation, the status and the FIRST LINE of
+  // any failure. Nothing else. Pinned by
+  // tests/e2e/test_prod_auth_artifact_safety.py.
+  reporter: [[path.join(__dirname, "prod-auth-safe-reporter.js")]],
   use: {
     // Deliberately NO baseURL: every navigation and API call builds its
     // absolute URL through helpers.js::prodUrl(PROD_ORIGIN), so a spec
     // cannot accidentally hit a relative (and therefore nonexistent)
     // origin.
-    trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    // NEVER capture production into files (security S3): a trace records
+    // every request header (the session cookie) and every response body
+    // (private board/roster data); screenshots and video show private
+    // pages. A production finding is debugged from the sanitized report's
+    // annotations and by re-running locally — not from a public artifact.
+    trace: "off",
+    screenshot: "off",
+    video: "off",
     ...(chromiumExecutablePath
       ? { launchOptions: { executablePath: chromiumExecutablePath } }
       : {}),

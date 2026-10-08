@@ -407,8 +407,11 @@ def test_prod_auth_config_reports_annotations_as_evidence():
     which is precisely what V1-45's L4 bar asks.
     """
     cfg = (REPO_ROOT / "tests" / "e2e" / "prod-auth.config.js").read_text()
-    assert '["json"' in cfg, "no json reporter: annotations never leave the runner"
-    assert "prod-auth-results.json" in cfg
+    # The structured report is the sanitized one (security S3): the raw
+    # Playwright ``json`` reporter would publish Received values.
+    assert "prod-auth-safe-reporter.js" in cfg, "no structured report: annotations never leave"
+    reporter = (REPO_ROOT / "tests" / "e2e" / "prod-auth-safe-reporter.js").read_text()
+    assert "prod-auth-results.json" in reporter and "annotations" in reporter
 
     wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
     assert (

@@ -179,7 +179,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs tests/e2e/structured-journey-reporter.test.js
+          node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs tests/e2e/structured-journey-reporter.test.js tests/e2e/prod-auth-safe-reporter.test.js
 
       - name: Preflight (compile checks, contract validation, data seed)
         shell: bash
