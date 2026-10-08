@@ -9654,7 +9654,7 @@ def _constraints_for_request(
             username = str(session.get("username") or "").strip()
             if username:
                 state = _user_kv.get_user_state(username) or {}
-                by_league = state.get("tradeConstraintsByLeague") or {}
+                by_league = state.get(_TRADE_PROTECTIONS_FIELD) or {}
                 if isinstance(by_league, dict) and league_key:
                     block = by_league.get(league_key)
                     if isinstance(block, dict):
@@ -13893,8 +13893,19 @@ async def put_user_state_api(request: Request):
 # the registry's default league would protect players in a league the user did
 # not mean, and a read the same way would show them the wrong league's rules.
 
+#
+# Validation runs against the LOADED board (``latest_contract_data``) even when
+# the request names a different league than the one whose contract is loaded.
+# That is deliberate, not a leak: the two things validated — player identity
+# and NFL-team codes — are NFL-wide, not league- or scoring-scoped, so every
+# league's board carries the same players and teams.  Only the STORAGE key is
+# league-scoped.
+
 _TRADE_PROTECTIONS_FIELD = "tradeConstraintsByLeague"
 _TRADE_PROTECTIONS_BODY_KEYS = frozenset({"leagueKey", "untouchables", "nflTeams"})
+#: A rejected request echoes at most this many per-item errors (the rest are
+#: counted in ``errorsTruncated``), so a hostile body cannot amplify a reply.
+_TRADE_PROTECTIONS_MAX_ECHOED_ERRORS = 20
 
 
 def _trade_protections_payload(league_key: str, block: Any) -> dict:
@@ -13965,6 +13976,16 @@ async def put_trade_protections(request: Request):
     session = _get_auth_session(request)
     if not session:
         return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if session.get("auth_method") == "guest_pass":
+        # Every guest-pass session shares the literal username "guest", so a
+        # guest's protections would silently become every other guest's.
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "guest_read_only",
+                "message": "Guest passes cannot save personal trade protections.",
+            },
+        )
     username = str(session.get("username") or "").strip()
     try:
         body = await request.json()
@@ -13993,10 +14014,11 @@ async def put_trade_protections(request: Request):
                     "message": "No board is loaded to validate protections against.",
                 },
             )
-        return JSONResponse(
-            status_code=400,
-            content={"error": "invalid_protection", "errors": errors},
-        )
+        shown = errors[:_TRADE_PROTECTIONS_MAX_ECHOED_ERRORS]
+        content: dict = {"error": "invalid_protection", "errors": shown}
+        if len(errors) > len(shown):
+            content["errorsTruncated"] = len(errors) - len(shown)
+        return JSONResponse(status_code=400, content=content)
 
     stored = clean if (clean["untouchables"] or clean["nflTeams"]) else None
     await run_in_threadpool(

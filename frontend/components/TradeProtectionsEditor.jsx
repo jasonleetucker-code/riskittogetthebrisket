@@ -17,7 +17,7 @@
  * unaffected.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Banner, Button, Field, Input, Select } from "@/components/ds";
 import styles from "./trade-protections.module.css";
 
@@ -28,7 +28,7 @@ const REASON_TEXT = {
   not_a_player: "is a draft pick, not a player",
   unknown_nfl_team: "is not an NFL team code on the current board",
   not_a_string: "is not a valid entry",
-  too_many: "too many protected players (limit 100)",
+  too_many: "too many entries",
 };
 
 function key(value) {
@@ -38,14 +38,20 @@ function key(value) {
 export function describeSaveError(body, status) {
   if (status === 503) return "No board is loaded right now, so protections can't be checked. Try again shortly.";
   if (status === 401) return "Sign in again to save protections.";
+  if (status === 403) return body?.message || "This session cannot save trade protections.";
   const errors = Array.isArray(body?.errors) ? body.errors : [];
   if (errors.length) {
-    return errors
+    const text = errors
       .map((e) => {
         const what = REASON_TEXT[e?.reason] || "was rejected";
-        return e?.reason === "too_many" ? what : `"${e?.value}" ${what}`;
+        if (e?.reason === "too_many") {
+          return e?.field === "nflTeams" ? "too many NFL teams (limit 40)" : "too many protected players (limit 100)";
+        }
+        return `"${e?.value}" ${what}`;
       })
       .join("; ");
+    const more = Number(body?.errorsTruncated) || 0;
+    return more > 0 ? `${text}; and ${more} more` : text;
   }
   return body?.message || body?.error || `Save failed (${status}).`;
 }
@@ -61,6 +67,10 @@ export default function TradeProtectionsEditor({ enabled, leagueKey, leagueName,
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [status, setStatus] = useState("");
+  // The league the editor is showing NOW.  A save started for league A must
+  // not paint its answer over league B if the user switched mid-request.
+  const currentLeague = useRef(leagueKey);
+  currentLeague.current = leagueKey;
 
   const applyServer = useCallback((body) => {
     setSaved(body);
@@ -150,8 +160,13 @@ export default function TradeProtectionsEditor({ enabled, leagueKey, leagueName,
         body: JSON.stringify({ leagueKey, untouchables, nflTeams }),
       });
       const body = await res.json().catch(() => ({}));
+      if (currentLeague.current !== leagueKey) return; // league changed mid-save
       if (!res.ok) {
         setSaveError(describeSaveError(body, res.status));
+        return;
+      }
+      if (body?.leagueKey !== leagueKey) {
+        setSaveError("The server answered for a different league; reload to see what was saved.");
         return;
       }
       applyServer(body);

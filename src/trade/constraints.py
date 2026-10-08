@@ -62,6 +62,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = [
     "ConstraintResolutionError",
+    "MAX_PERSISTENT_PROTECTED_NFL_TEAMS",
     "MAX_PERSISTENT_PROTECTED_PLAYERS",
     "TradeConstraints",
     "UNRESOLVED",
@@ -262,6 +263,9 @@ def _team_index(contract: Mapping[str, Any] | None) -> dict[str, str]:
 
 #: Upper bound on individually protected players per (user, league).
 MAX_PERSISTENT_PROTECTED_PLAYERS = 100
+#: Upper bound on the submitted NFL-team list (32 teams, plus slack for
+#: duplicates); anything longer is refused before it is examined.
+MAX_PERSISTENT_PROTECTED_NFL_TEAMS = 40
 
 _NOT_AN_NFL_TEAM = frozenset({"FA", ""})
 
@@ -355,14 +359,13 @@ def validate_persistent_protection(
     if errors:
         return None, errors
 
-    if len(untouchables_raw) > MAX_PERSISTENT_PROTECTED_PLAYERS:
-        errors.append(
-            {
-                "field": "untouchables",
-                "value": len(untouchables_raw),
-                "reason": "too_many",
-            }
-        )
+    for field_name, values, cap in (
+        ("untouchables", untouchables_raw, MAX_PERSISTENT_PROTECTED_PLAYERS),
+        ("nflTeams", teams_raw, MAX_PERSISTENT_PROTECTED_NFL_TEAMS),
+    ):
+        if len(values) > cap:
+            errors.append({"field": field_name, "value": len(values), "reason": "too_many"})
+    if errors:
         return None, errors
 
     for field_name, values in (("untouchables", untouchables_raw), ("nflTeams", teams_raw)):
@@ -543,6 +546,15 @@ def blocked_outgoing(
     return out
 
 
+def _first_field(asset: Any, names: Sequence[str]) -> str:
+    """First non-empty field, from a mapping (``.get``) or an object (attribute)."""
+    for name in names:
+        got = asset.get(name) if isinstance(asset, Mapping) else getattr(asset, name, None)
+        if got:
+            return str(got)
+    return ""
+
+
 def outgoing_eligibility(
     pool: Sequence[Any],
     constraints: TradeConstraints | None,
@@ -577,7 +589,19 @@ def outgoing_eligibility(
     if constraints is None or not constraints.active:
         return UNCONSTRAINED_OUTGOING
 
-    adapted = adapt_assets(pool)
+    # Pools arrive as attribute objects (finder's Asset) OR plain mappings
+    # (angle's acquire pool).  ``adapt_assets``' defaults read attributes only,
+    # so a mapping projected to name "" and key "name:" — the exclusion set
+    # named nothing the generator enumerates and a saved protection was silently
+    # ignored.  Read both shapes here, at the owner, rather than in each caller.
+    adapted = adapt_assets(
+        pool,
+        id_of=lambda a: _first_field(
+            a, ("asset_id", "assetId", "player_id", "playerId", "canonical_asset_id")
+        ),
+        name_of=lambda a: _first_field(a, ("name", "displayName", "canonicalName")),
+        position_of=lambda a: _first_field(a, ("position", "pos")),
+    )
     excluded: set[str] = set()
     for view in adapted:
         # Decide on the CALLER's object where there is one: it carries the NFL
@@ -586,6 +610,17 @@ def outgoing_eligibility(
         subject = view.source if view.source is not None else view
         if constraints.block_reason(subject) is not None:
             excluded.add(view.key)
+            # A caller may project the same object differently (angle keys its
+            # dict entries by NAME even if an id were present), so exclude every
+            # identity form the substrate can derive for it.  Over-exclusion is
+            # impossible here: the owner already blocks every asset carrying
+            # this name or id.
+            name = (view.name or "").strip().lower()
+            if name:
+                excluded.add(f"name:{name}")
+            aid = (view.asset_id or "").strip().lower()
+            if aid:
+                excluded.add(f"id:{aid}")
 
     policy = base if isinstance(base, EligibilityPolicy) else EligibilityPolicy()
     return replace(policy, excluded_keys=frozenset(policy.excluded_keys) | excluded)

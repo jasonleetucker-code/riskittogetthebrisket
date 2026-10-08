@@ -155,6 +155,46 @@ describe("TradeProtectionsEditor", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("/api/user/trade-protections?leagueKey=dynasty_new");
   });
 
+  it("ignores a save answer that arrives after the user switched league", async () => {
+    let resolvePut;
+    fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY)); // GET league A
+    const { rerender } = render(<TradeProtectionsEditor enabled leagueKey="dynasty_main" />);
+    await screen.findByText(/No protected NFL teams/);
+    fireEvent.change(screen.getByLabelText(/Protect every player on an NFL team/), {
+      target: { value: "MIN" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add team" }));
+    fetchMock.mockImplementationOnce(() => new Promise((r) => (resolvePut = r))); // PUT A
+    fireEvent.click(screen.getByRole("button", { name: /Save protections/ }));
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...EMPTY, leagueKey: "dynasty_new" })); // GET B
+    rerender(<TradeProtectionsEditor enabled leagueKey="dynasty_new" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await screen.findByText(/No protected NFL teams/);
+
+    resolvePut(jsonResponse({ ...EMPTY, configured: true, nflTeams: ["MIN"] }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText("Saved.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove MIN" })).toBeNull();
+  });
+
+  it("refuses to display a save answer for a different league", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(EMPTY));
+    render(<TradeProtectionsEditor enabled leagueKey="dynasty_main" />);
+    await screen.findByText(/No protected NFL teams/);
+    fireEvent.change(screen.getByLabelText(/Protect every player on an NFL team/), {
+      target: { value: "MIN" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add team" }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ ...EMPTY, leagueKey: "dynasty_new", configured: true, nflTeams: ["MIN"] }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Save protections/ }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/different league/);
+    expect(screen.queryByText("Saved.")).toBeNull();
+  });
+
   it("describes the no-board 503 and unknown team codes in plain words", () => {
     expect(describeSaveError({ error: "data_not_ready" }, 503)).toMatch(/No board is loaded/);
     expect(
@@ -163,5 +203,17 @@ describe("TradeProtectionsEditor", () => {
         400,
       ),
     ).toBe('"JAC" is not an NFL team code on the current board');
+    expect(
+      describeSaveError(
+        {
+          errors: [{ field: "untouchables", value: "A", reason: "unknown_player" }],
+          errorsTruncated: 9,
+        },
+        400,
+      ),
+    ).toMatch(/and 9 more$/);
+    expect(describeSaveError({ error: "guest_read_only", message: "Guest passes cannot save." }, 403)).toBe(
+      "Guest passes cannot save.",
+    );
   });
 });

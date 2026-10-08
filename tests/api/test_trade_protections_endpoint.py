@@ -354,3 +354,86 @@ def test_a_saved_protection_is_honoured_by_generated_trades(env, monkeypatch):
 
     # Canonical values are unchanged by preference state (§7 acceptance 13).
     assert [r["rankDerivedValue"] for r in board["playersArray"]] == [5000] * 8
+
+
+def test_a_saved_protection_is_honoured_by_angle_acquire_mode(env, monkeypatch):
+    """#1704 review D1: /api/angle/packages ACQUIRE mode builds a DICT pool.
+
+    Before the owner learned to read mappings, the saved protection reached the
+    resolver (the reasons were even reported) but enumeration still offered the
+    protected players outgoing.
+    """
+    from src.trade.angle import find_acquisition_packages
+
+    def _arow(name, my_val, ktc_val, team):
+        return {
+            "canonicalName": name,
+            "displayName": name,
+            "position": "WR",
+            "team": team,
+            "rankDerivedValue": my_val,
+            "canonicalSiteValues": {"ktc": ktc_val},
+        }
+
+    rows = [_arow("My Star", 3000, 3000, "BUF")]
+    rows += [
+        _arow(f"B{i}", 2300 + 40 * i, 2000 + 10 * i, "MIN" if i == 1 else "CIN") for i in range(8)
+    ]
+    teams = [
+        {"name": "Mine", "ownerId": "me", "players": ["My Star", "B0", "B1", "B2"]},
+        {"name": "Them", "ownerId": "them", "players": ["B7"]},
+    ]
+    board = {"playersArray": rows}
+    monkeypatch.setattr(server, "latest_contract_data", board)
+    cfg = league_registry.get_league_by_key("main")
+
+    def _sent(user):
+        c = server._constraints_for_request(
+            SimpleNamespace(headers=_as(user)), board, cfg, surface="t"
+        )
+        result = find_acquisition_packages(
+            rows, ["B7"], "me", teams, min_my_gain_pct=-100, max_market_gain_pct=100, constraints=c
+        )
+        return {p["name"] for cand in result["candidates"] for p in cand["players"]}
+
+    assert {"B0", "B1"} <= _sent("jason"), "fixture must offer B0 and B1 when unprotected"
+
+    _ok(_put(env, "jason", {"leagueKey": "main", "untouchables": ["B0"], "nflTeams": ["MIN"]}))
+
+    after = _sent("jason")
+    assert after, "unprotected assets must still be offered"
+    assert "B0" not in after  # individual protection
+    assert "B1" not in after  # NFL-team protection (MIN, from the board)
+    assert {"B0", "B1"} <= _sent("bob")  # another user is unaffected
+
+
+# ── review follow-ups (#1704) ────────────────────────────────────────
+
+
+def test_guest_pass_sessions_cannot_write(env, monkeypatch):
+    """Every guest session shares the username "guest"; one guest's rules would
+    become every guest's."""
+    monkeypatch.setattr(
+        server,
+        "_get_auth_session",
+        lambda request: {"username": "guest", "auth_method": "guest_pass"},
+    )
+    res = env.client.put(URL, json={"leagueKey": "main", "untouchables": [], "nflTeams": ["MIN"]})
+    assert res.status_code == 403
+    assert res.json()["error"] == "guest_read_only"
+    assert "tradeConstraintsByLeague" not in user_kv.get_user_state("guest")
+
+
+def test_too_many_teams_is_400(env):
+    res = _put(env, "alice", {"leagueKey": "main", "untouchables": [], "nflTeams": ["MIN"] * 41})
+    assert res.status_code == 400
+    assert res.json()["errors"] == [{"field": "nflTeams", "value": 41, "reason": "too_many"}]
+
+
+def test_echoed_errors_are_capped(env):
+    names = [f"Nobody {i}" for i in range(30)]
+    res = _put(env, "alice", {"leagueKey": "main", "untouchables": names, "nflTeams": []})
+    assert res.status_code == 400
+    body = res.json()
+    assert len(body["errors"]) == 20
+    assert body["errorsTruncated"] == 10

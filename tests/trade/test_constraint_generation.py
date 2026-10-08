@@ -508,3 +508,28 @@ def test_a_roster_analysis_built_without_constraints_says_so():
     assert protected.constraints_applied is True
     assert not protected.can_send(PlayerAsset("QB1", "QB", 9000, 9000))
     assert protected.by_position["QB"], "the ANALYSIS still counts him"
+
+
+def test_a_dict_pool_is_constrained_like_an_object_pool():
+    """Angle's acquire pool is plain dicts.  ``adapt_assets``' attribute-only
+    defaults projected every entry to the name ``""``, so the exclusion set was
+    ``{"name:"}`` and a saved protection was silently ignored (#1704 review D1).
+    """
+    from src.trade.angle import _angle_pool_assets, _angle_sides
+
+    pool = [
+        {"name": "Justin Jefferson", "position": "WR", "my_value": 9000.0},
+        {"name": "Ja'Marr Chase", "position": "WR", "my_value": 8800.0},
+        {"name": "Josh Allen", "position": "QB", "my_value": 8500.0},
+    ]
+    c = resolve_constraints(persistent={"untouchables": ["Justin Jefferson"]})
+    policy = outgoing_eligibility(pool, c)
+
+    assert "name:justin jefferson" in policy.excluded_keys
+    assert "name:" not in policy.excluded_keys
+
+    sides = list(_angle_sides(_angle_pool_assets(pool), [1, 2], side=SEND, outgoing_policy=policy))
+    assert sides, "fixture must enumerate something"
+    sent = {entry["name"] for side in sides for entry in side}
+    assert "Justin Jefferson" not in sent
+    assert {"Ja'Marr Chase", "Josh Allen"} <= sent
