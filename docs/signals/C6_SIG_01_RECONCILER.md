@@ -38,9 +38,12 @@ verdict side by side and never produces a number of its own:
   exception, no team) — never neutral. A player outside what an emitter
   evaluated (off the selected roster for the terminal engine; past the Sharp
   board's 500-asset limit when it truncated) is `out_of_scope` for it; one the
-  owner explicitly refused to price (BDVM `unpriced`) is `declined` with the
-  owner's reason; only an emitter that evaluated the player and said nothing
-  is `silent`.
+  owner explicitly refused to price (BDVM `unpriced`, and the quarantined rows
+  BDVM skips before pricing) is `declined` with the owner's reason; one an
+  emitter row might be but the identity join refused to place is `unplaced`;
+  only an emitter that evaluated the player and said nothing is `silent`.
+* a conflict publishes `sharedAncestry` too: a Consensus Edge Buy against a
+  BDVM Sell is two readings of one market, not two markets disagreeing.
 
 ## Lineage — what is and is not independent
 
@@ -50,9 +53,12 @@ Market (KTC's own Crowd+Trades, derived from the other two) and idpTradeCalc.
 | emitter | lineage group | descends from (closure) |
 |---|---|---|
 | terminal signal | `canonical_board_history` | `canonical_board` → `value_market_sources`, `expert_rank_sources`; `news_feed` |
-| BDVM market signal | `bdvm_fundamental_vs_market` | `bdvm_projections`, `value_market_sources` |
-| Consensus Edge | `consensus_edge_composite` | `canonical_board` (→ …), `value_market_sources`, `sharp_cohort_movements`, `player_context` |
+| BDVM market signal | `bdvm_fundamental_vs_market` | `bdvm_projections` (→ `nflverse_player_data`), `value_market_sources`, `news_feed` (news → events widen σ), `nflverse_player_data` |
+| Consensus Edge | `consensus_edge_composite` | `canonical_board` (→ …), `value_market_sources`, `sharp_cohort_movements`, `player_context` (→ `nflverse_player_data`), `nflverse_player_data` |
 | Sharp market | `sharp_cohort_movements` | — |
+
+The DAG is validated when the module loads: every parent must be declared, and
+self-loops and cycles are refused.
 
 So the terminal engine's value drift, Consensus Edge and the BDVM gap are
 **not** independent votes (lane-4 inventory §3.3), and agreement between any
@@ -73,6 +79,16 @@ IS the contract's exact `displayName` (Consensus Edge `playerKey`); then
 was present but did not resolve. Rosters resolve by the team's `playerIds`
 (`rosterPlacement: player_id`); display names are a labelled fallback for a
 team without ids. Ambiguous / unresolved rows are listed, never guessed.
+
+Name evidence never overrides contradicting identity evidence. An emitter that
+supplied a platform id the board does not carry is a different person from any
+name candidate with its own id (`id_not_on_board`); only an id-less candidate
+can be reached, labelled `name_fallback:id_not_on_board:*`, and only with an
+agreeing position group. A supplied position whose group differs from the
+candidate's is a `position_conflict`, even for a single candidate. The
+`player=` query is an id only when it is all digits, else a name. An explicit
+`team=` that does not resolve is reported in `teamResolution` (`team_not_found`)
+rather than silently answered league-wide.
 
 ## Consumer rules that are NOT the reconciler's
 

@@ -35,8 +35,9 @@ the point of it:
   ``unobserved`` (with its reason) — never a neutral or a HOLD.  A player
   outside what an emitter evaluated is ``out_of_scope`` for it; one the
   emitter explicitly refused to price is ``declined`` with the owner's
-  reason; only an emitter that evaluated the player and said nothing is
-  ``silent``.
+  reason; one an emitter row might be but could not be placed on is
+  ``unplaced``; only an emitter that evaluated the player and said nothing
+  is ``silent``.
 * **Conflict is labelled, never averaged.**  A BUY and a SELL on one
   player produce state ``conflict`` naming both sides, their domains and
   lineages.
@@ -139,22 +140,39 @@ LINEAGE_PARENTS: dict[str, tuple[str, ...]] = {
     "value_market_sources": (),
     "expert_rank_sources": (),
     "news_feed": (),
-    "bdvm_projections": (),
+    # nflverse player data: weekly stats, ids, birth dates, draft capital.
+    "nflverse_player_data": (),
     "sharp_cohort_movements": (),
-    "player_context": (),
     "ros_projection": (),
     "intel_ledger": (),
     # derived
+    # BDVM's reconstructed baseline and in-season actuals are realized
+    # nflverse production; real projection feeds (Clay, IDP Show) sit beside
+    # it.  Declared as descending from nflverse so shared ancestry with the
+    # playerctx snapshot is never missed.
+    "bdvm_projections": ("nflverse_player_data",),
+    # The playerctx snapshot Consensus Edge's opportunity component reads.
+    "player_context": ("nflverse_player_data",),
     "canonical_board": ("value_market_sources", "expert_rank_sources"),
     "canonical_board_history": ("canonical_board", "news_feed"),
     # BDVM fundamentals take no market input, but the GAP that sets its
-    # direction is fundamentals against the value-signal market.
-    "bdvm_fundamental_vs_market": ("bdvm_projections", "value_market_sources"),
+    # direction is fundamentals against the value-signal market.  News ->
+    # events widen sigma (src/bdvm/news_events.py), which moves the option
+    # value and so can move the gap; player context (ages, career load)
+    # comes from nflverse.
+    "bdvm_fundamental_vs_market": (
+        "bdvm_projections",
+        "value_market_sources",
+        "news_feed",
+        "nflverse_player_data",
+    ),
     "consensus_edge_composite": (
         "canonical_board",
         "value_market_sources",
         "sharp_cohort_movements",
         "player_context",
+        # League scoring fit inside fair value is measured on nflverse.
+        "nflverse_player_data",
     ),
     "canonical_board_vs_retail_market": ("canonical_board", "value_market_sources"),
 }
@@ -338,13 +356,51 @@ _SPEC_BY_ID: dict[str, EmitterSpec] = {spec.emitter_id: spec for spec in EMITTER
 _REGISTRY_ORDER: dict[str, int] = {spec.emitter_id: i for i, spec in enumerate(EMITTERS)}
 
 
-def _validate_lineage() -> None:
-    """Every emitter's group and every declared parent must be in the DAG."""
-    for spec in EMITTERS:
-        lineage_closure(spec.lineage_group)
-    for parents in LINEAGE_PARENTS.values():
+def _assert_acyclic(parents_by_node: Mapping[str, Sequence[str]]) -> None:
+    """Refuse a self-loop or any cycle: ancestry must be a DAG.
+
+    A cycle would make two groups each other's ancestor, so "shared
+    ancestry" would stop meaning "one body of evidence upstream of both".
+    """
+    done: set[str] = set()
+    for root in parents_by_node:
+        if root in done:
+            continue
+        path: list[str] = []
+        on_path: set[str] = set()
+        stack: list[tuple[str, bool]] = [(root, False)]
+        while stack:
+            node, leaving = stack.pop()
+            if leaving:
+                on_path.discard(node)
+                path.pop()
+                done.add(node)
+                continue
+            if node in done:
+                continue
+            if node in on_path:
+                raise ValueError(f"lineage cycle through {node!r}: {path}")
+            on_path.add(node)
+            path.append(node)
+            stack.append((node, True))
+            for parent in parents_by_node.get(node, ()):
+                if parent == node or parent in on_path:
+                    raise ValueError(f"lineage cycle through {parent!r}: {[*path, parent]}")
+                if parent not in done:
+                    stack.append((parent, False))
+
+
+def _validate_lineage(parents_by_node: Mapping[str, Sequence[str]] | None = None) -> None:
+    """The DAG is acyclic, and every group and parent in use is declared."""
+    table = LINEAGE_PARENTS if parents_by_node is None else parents_by_node
+    for node, parents in table.items():
         for parent in parents:
-            lineage_closure(parent)
+            if parent not in table:
+                raise ValueError(f"lineage group {node!r} names undeclared parent {parent!r}")
+    _assert_acyclic(table)
+    if parents_by_node is None:
+        for spec in EMITTERS:
+            lineage_closure(spec.lineage_group)
 
 
 _validate_lineage()
@@ -405,6 +461,9 @@ class EmitterRun:
     notes: tuple[str, ...] = ()
     covered_keys: frozenset[str] | None = None
     declined: Mapping[str, str] = field(default_factory=dict)
+    #: Players an emitter row MIGHT be but the identity join refused to place
+    #: (ambiguous name, id contradiction, position conflict) -> reason.
+    unplaced: Mapping[str, str] = field(default_factory=dict)
 
 
 def unobserved(emitter_id: str, reason: str, *, notes: Sequence[str] = ()) -> EmitterRun:
@@ -536,13 +595,39 @@ def _conflict(
     domains = {entry["domain"] for entry in [*buys, *sells]}
     buy_lineages = {entry["lineageGroup"] for entry in buys}
     sell_lineages = {entry["lineageGroup"] for entry in sells}
+    buy_ancestry = {node for entry in buys for node in (entry["lineageGroup"], *entry["ancestors"])}
+    sell_ancestry = {
+        node for entry in sells for node in (entry["lineageGroup"], *entry["ancestors"])
+    }
     return {
         "buy": [_ref(entry) for entry in buys],
         "sell": [_ref(entry) for entry in sells],
         "crossDomain": len(domains) > 1,
         "sameLineage": not buy_lineages.isdisjoint(sell_lineages),
+        # Evidence BOTH sides rest on: a CE Buy against a BDVM Sell is two
+        # readings of one market, not two independent markets disagreeing.
+        "sharedAncestry": sorted(buy_ancestry.intersection(sell_ancestry)),
         "resolution": "not_resolved_by_reconciler",
     }
+
+
+def _status(run: EmitterRun, key: str, spoke: set[str]) -> str:
+    """What an OBSERVED emitter's lack of a verdict on ``key`` means.
+
+    Exactly one of: ``spoke`` / ``declined`` (the owner refused to price
+    him, with its reason) / ``unplaced`` (the emitter has a row that might
+    be him but the identity join refused to place it) / ``out_of_scope``
+    (never evaluated) / ``silent`` (evaluated, said nothing).
+    """
+    if run.emitter_id in spoke:
+        return "spoke"
+    if key in run.declined:
+        return "declined"
+    if key in run.unplaced:
+        return "unplaced"
+    if run.covered_keys is not None and key not in run.covered_keys:
+        return "out_of_scope"
+    return "silent"
 
 
 def reconcile(
@@ -629,24 +714,23 @@ def reconcile(
                     SELL: _agreement(sells),
                 },
                 "emittersUnobserved": unobserved_ids,
-                "emittersOutOfScope": sorted(
-                    run.emitter_id
-                    for run in observed_runs
-                    if run.emitter_id not in spoke
-                    and run.covered_keys is not None
-                    and key not in run.covered_keys
-                ),
                 "emittersDeclined": [
                     {"emitter": run.emitter_id, "reason": run.declined[key]}
                     for run in observed_runs
-                    if run.emitter_id not in spoke and key in run.declined
+                    if _status(run, key, spoke) == "declined"
                 ],
-                "emittersSilent": sorted(
+                "emittersUnplaced": [
+                    {"emitter": run.emitter_id, "reason": run.unplaced[key]}
+                    for run in observed_runs
+                    if _status(run, key, spoke) == "unplaced"
+                ],
+                "emittersOutOfScope": sorted(
                     run.emitter_id
                     for run in observed_runs
-                    if run.emitter_id not in spoke
-                    and key not in run.declined
-                    and (run.covered_keys is None or key in run.covered_keys)
+                    if _status(run, key, spoke) == "out_of_scope"
+                ),
+                "emittersSilent": sorted(
+                    run.emitter_id for run in observed_runs if _status(run, key, spoke) == "silent"
                 ),
             }
         )

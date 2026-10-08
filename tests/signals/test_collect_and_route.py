@@ -459,3 +459,97 @@ def test_sharp_beyond_its_asset_limit_is_out_of_scope(monkeypatch, limit, expect
         assert yan["emittersOutOfScope"] == ["sharp_market"]
     else:
         assert yan["emittersSilent"] == ["sharp_market"]
+
+
+# ── N1 (re-review of #1705): an off-board id never lands on a namesake ──
+
+
+def _namesake_contract():
+    return {"playersArray": [_row("Josh Allen", "4984", "QB")]}
+
+
+def test_an_off_board_id_is_never_filed_on_a_namesake_with_a_different_id():
+    """Repro: an emitter row for id 9999 named Josh Allen; the board has QB 4984."""
+    index = collect.build_identity_index(_namesake_contract())
+    assert index.resolve_with_basis(player_id="9999", name="Josh Allen", position="LB") == (
+        None,
+        "id_not_on_board",
+        None,
+    )
+    # The candidate's OWN id contradicts the emitter's id, so no position
+    # agreement can override it.
+    for position in (None, "QB"):
+        key = index.resolve_with_basis(player_id="9999", name="Josh Allen", position=position)[0]
+        assert key is None, position
+
+
+def test_a_single_name_candidate_must_agree_on_position_group():
+    index = collect.build_identity_index(_namesake_contract())
+    assert index.resolve(name="Josh Allen", position="LB") == (None, "position_conflict")
+    assert index.resolve(name="Josh Allen", position="QB") == ("player:4984", None)
+    assert index.resolve(name="Josh Allen") == ("player:4984", None)
+
+
+def test_sharp_row_for_an_off_board_namesake_is_not_misattributed():
+    index = collect.build_identity_index(_namesake_contract())
+    sharp = {
+        "status": "ok",
+        "query": {"window": "30d"},
+        "assets": [{"assetId": "9999", "displayName": "Josh Allen", "position": "LB", "net": 4}],
+        "coverage": {"platforms": {}},
+    }
+    with mock.patch("src.sharp.market.market_payload", return_value=sharp):
+        run, missed = collect.collect_sharp(index)
+    assert run.observations == ()
+    assert [(m["playerId"], m["reason"]) for m in missed] == [("9999", "id_not_on_board")]
+
+
+def test_player_query_by_name_is_not_treated_as_an_off_board_id():
+    _flags(consensus_edge=False, bdvm=False)
+    payload = _build(_contract(), resolved_team=None, news_items=None, player="Zed Sigalpha")
+    assert payload["playerFilter"]["playerKey"] == "player:90001"
+    assert [p["playerKey"] for p in payload["players"]] == ["player:90001"]
+
+
+def test_the_namesake_reads_unplaced_for_sharp_not_silent():
+    contract = {"playersArray": [_row("Josh Allen", "4984", "QB")]}
+    sharp = {
+        "status": "ok",
+        "query": {"window": "30d"},
+        "assets": [{"assetId": "9999", "displayName": "Josh Allen", "position": "LB", "net": 4}],
+        "coverage": {"platforms": {}},
+    }
+    with mock.patch("src.sharp.market.market_payload", return_value=sharp):
+        run, _ = collect.collect_sharp(collect.build_identity_index(contract))
+    payload = rec.reconcile([run], player_keys=["player:4984"])
+    [allen] = payload["players"]
+    assert allen["emittersUnplaced"] == [{"emitter": "sharp_market", "reason": "id_not_on_board"}]
+    assert allen["signals"] == []
+
+
+def test_bdvm_skipped_quarantined_rows_are_declined_as_quarantined():
+    _flags(consensus_edge=False, bdvm=True)
+    contract = _contract()
+    values = {"status": "ok", "meta": {}, "players": [], "unpriced": []}
+    with mock.patch("src.api.bdvm_api.get_bdvm_values", return_value=values):
+        run, _ = collect.collect_bdvm(
+            contract,
+            collect.build_identity_index(contract),
+            league_key="dynasty_main",
+            freshness={"state": "fresh"},
+        )
+    assert run.declined == {"player:90003": "quarantined"}
+
+
+def test_route_flags_an_explicit_team_that_did_not_resolve(client, monkeypatch):
+    monkeypatch.setattr(server, "latest_contract_data", _contract())
+    body = client.get("/api/signals/reconciled", params={"team": "no-such-owner"}).json()
+    assert body["teamResolution"] == {
+        "requested": {"ownerId": "no-such-owner", "teamName": None},
+        "resolved": False,
+        "source": None,
+        "reason": "team_not_found",
+    }
+    ok = client.get("/api/signals/reconciled", params={"team": "owner-1"}).json()
+    assert ok["teamResolution"]["resolved"] is True
+    assert ok["teamResolution"]["source"] == "explicit"

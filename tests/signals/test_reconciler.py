@@ -433,3 +433,63 @@ def test_an_owner_refusal_is_declined_with_the_owners_reason():
     assert _player(payload, "player:2")["emittersSilent"] == []
     # Evaluated, not refused, said nothing: that one IS silent.
     assert _player(payload, "player:3")["emittersSilent"] == ["bdvm_market_signal"]
+
+
+# ── re-review follow-ups: DAG validity, complete edges, conflict ancestry ─
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        {"a": ("a",)},
+        {"a": ("b",), "b": ("a",)},
+        {"a": ("b",), "b": ("c",), "c": ("a",)},
+        {"root": (), "a": ("root", "b"), "b": ("c",), "c": ("a",)},
+    ],
+)
+def test_lineage_validation_rejects_self_loops_and_cycles(table):
+    with pytest.raises(ValueError, match="cycle"):
+        rec._validate_lineage(table)
+
+
+def test_lineage_validation_rejects_an_undeclared_parent():
+    with pytest.raises(ValueError, match="undeclared parent"):
+        rec._validate_lineage({"a": ("ghost",)})
+
+
+def test_the_shipped_dag_is_acyclic_and_accepts_a_diamond():
+    rec._validate_lineage()
+    rec._validate_lineage({"root": (), "a": ("root",), "b": ("root",), "c": ("a", "b")})
+
+
+def test_bdvm_declares_news_and_nflverse_so_shared_ancestry_is_complete():
+    bdvm = rec.lineage_closure("bdvm_fundamental_vs_market")
+    assert {"news_feed", "nflverse_player_data", "value_market_sources"} <= bdvm
+    ce = rec.lineage_closure("consensus_edge_composite")
+    assert "nflverse_player_data" in ce
+    terminal = rec.lineage_closure("canonical_board_history")
+    assert "news_feed" in terminal
+
+
+def test_a_conflict_publishes_what_both_sides_rest_on():
+    """A CE Buy against a BDVM Sell is two readings of one market."""
+    payload = rec.reconcile(
+        [
+            _run("consensus_edge", _obs("consensus_edge", "player:1", "Buy")),
+            _run("bdvm_market_signal", _obs("bdvm_market_signal", "player:1", "SELL")),
+        ]
+    )
+    conflict = _player(payload, "player:1")["conflict"]
+    assert "value_market_sources" in conflict["sharedAncestry"]
+    assert "nflverse_player_data" in conflict["sharedAncestry"]
+
+
+def test_an_unplaced_row_makes_its_candidates_unplaced_not_silent():
+    run = rec.EmitterRun(
+        emitter_id="sharp_market",
+        state=rec.OBSERVED,
+        unplaced={"player:1": "id_not_on_board"},
+    )
+    player = _player(rec.reconcile([run], player_keys=["player:1"]), "player:1")
+    assert player["emittersUnplaced"] == [{"emitter": "sharp_market", "reason": "id_not_on_board"}]
+    assert player["emittersSilent"] == []

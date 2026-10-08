@@ -44,6 +44,7 @@ class IdentityIndex:
     by_exact_name: dict[str, set[str]] = field(default_factory=dict)
     by_canonical_name: dict[str, set[str]] = field(default_factory=dict)
     group_by_key: dict[str, str] = field(default_factory=dict)
+    id_by_key: dict[str, str] = field(default_factory=dict)
     display_by_key: dict[str, str] = field(default_factory=dict)
     quarantined: dict[str, str] = field(default_factory=dict)
 
@@ -55,11 +56,11 @@ class IdentityIndex:
         position: Any = None,
         emitter_key: Any = None,
     ) -> tuple[str | None, str | None]:
-        """``(asset_key, None)`` or ``(None, "unresolved" | "ambiguous")``."""
-        key, failure, _basis = self.resolve_with_basis(
+        """``(asset_key, None)`` or ``(None, failure)``."""
+        found = self.resolve_detailed(
             player_id=player_id, name=name, position=position, emitter_key=emitter_key
         )
-        return key, failure
+        return found.key, found.failure
 
     def resolve_with_basis(
         self,
@@ -69,40 +70,90 @@ class IdentityIndex:
         position: Any = None,
         emitter_key: Any = None,
     ) -> tuple[str | None, str | None, str | None]:
-        """``(asset_key, failure, basis)`` — basis says HOW it was placed.
+        """``(asset_key, failure, basis)`` — basis says HOW it was placed."""
+        found = self.resolve_detailed(
+            player_id=player_id, name=name, position=position, emitter_key=emitter_key
+        )
+        return found.key, found.failure, found.basis
 
-        ``emitter_key`` is an emitter's own join key when that key IS the
-        contract's exact ``displayName`` (Consensus Edge's ``playerKey``,
-        ``fair_value._row_key``).  Name matching after it is a labelled
-        fallback (``name_fallback:*``), never silently equivalent.
+    def resolve_detailed(
+        self,
+        *,
+        player_id: Any = None,
+        name: Any = None,
+        position: Any = None,
+        emitter_key: Any = None,
+    ) -> "Resolution":
+        """Place one emitter row, refusing rather than guessing.
+
+        Order: the platform id; the emitter's own join key when that key IS
+        the contract's exact ``displayName`` (Consensus Edge ``playerKey``);
+        then name.  Name matching is evidence of identity only when nothing
+        contradicts it:
+
+        * an emitter that supplied an id the board does not carry is a
+          DIFFERENT person from any name candidate that has its own id — that
+          candidate is refused (``id_not_on_board``).  Only an id-less
+          candidate can be reached, labelled ``name_fallback:id_not_on_board``,
+          and only with a supplied position whose group agrees;
+        * a supplied position whose group differs from the candidate's is a
+          ``position_conflict``, even for a single candidate.
+
+        Refused or ambiguous resolutions return their name ``candidates`` so
+        the caller can mark those players ``unplaced`` for the emitter rather
+        than ``silent``.
         """
         pid = str(player_id or "").strip()
         if pid and pid in self.by_id:
-            return self.by_id[pid], None, "player_id"
+            return Resolution(self.by_id[pid], None, "player_id")
+        id_off_board = bool(pid)
         ekey = str(emitter_key or "").strip()
-        fallback = ""
+        prefix = ""
         if ekey:
             candidates = self.by_display_name.get(ekey)
             if candidates and len(candidates) == 1:
-                return next(iter(candidates)), None, "emitter_key"
-            fallback = "name_fallback:"
+                return Resolution(next(iter(candidates)), None, "emitter_key")
+            prefix = "name_fallback:"
+        if id_off_board:
+            prefix = "name_fallback:id_not_on_board:"
         raw = str(name or "").strip()
         if not raw:
-            return None, "unresolved", None
-        for basis, candidates in (
+            return Resolution(None, "id_not_on_board" if id_off_board else "unresolved")
+        group = canonical_position_group(str(position)) if position else None
+        for basis, found in (
             ("exact_name", self.by_exact_name.get(raw.casefold())),
             ("canonical_name", self.by_canonical_name.get(resolve_canonical_name(raw))),
         ):
-            if not candidates:
+            if not found:
                 continue
-            if len(candidates) == 1:
-                return next(iter(candidates)), None, f"{fallback}{basis}"
-            group = canonical_position_group(str(position)) if position else None
-            narrowed = {key for key in candidates if group and self.group_by_key.get(key) == group}
-            if len(narrowed) == 1:
-                return next(iter(narrowed)), None, f"{fallback}{basis}+position"
-            return None, "ambiguous", None
-        return None, "unresolved", None
+            candidates = frozenset(found)
+            if id_off_board:
+                # A candidate carrying its own id is somebody else.
+                pool = {key for key in candidates if not self.id_by_key.get(key)}
+                if not pool:
+                    return Resolution(None, "id_not_on_board", candidates=candidates)
+                if not group:
+                    return Resolution(None, "id_not_on_board", candidates=candidates)
+            else:
+                pool = set(candidates)
+            if group:
+                agreeing = {key for key in pool if self.group_by_key.get(key) in (group, "")}
+                if not agreeing:
+                    return Resolution(None, "position_conflict", candidates=candidates)
+                pool = agreeing
+            if len(pool) == 1:
+                suffix = "+position" if group and len(candidates) > 1 else ""
+                return Resolution(next(iter(pool)), None, f"{prefix}{basis}{suffix}")
+            return Resolution(None, "ambiguous", candidates=candidates)
+        return Resolution(None, "id_not_on_board" if id_off_board else "unresolved")
+
+
+@dataclass(frozen=True)
+class Resolution:
+    key: str | None
+    failure: str | None
+    basis: str | None = None
+    candidates: frozenset[str] = frozenset()
 
 
 def _contract_rows(contract: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -126,6 +177,7 @@ def build_identity_index(contract: Mapping[str, Any]) -> IdentityIndex:
             pid_s = str(pid or "").strip()
             if pid_s:
                 index.by_id.setdefault(pid_s, key)
+                index.id_by_key.setdefault(key, pid_s)
         if str(row.get("displayName") or "").strip():
             index.by_display_name.setdefault(str(row.get("displayName")).strip(), set()).add(key)
         for name in {row.get("displayName"), row.get("canonicalName")}:
@@ -147,6 +199,14 @@ def build_identity_index(contract: Mapping[str, Any]) -> IdentityIndex:
 class _Placement:
     observations: list[rec.Observation] = field(default_factory=list)
     unresolved: list[dict[str, Any]] = field(default_factory=list)
+    #: name candidates of rows the join refused -> why (so those players
+    #: read ``unplaced`` for this emitter, never ``silent``).
+    unplaced: dict[str, str] = field(default_factory=dict)
+
+    def refuse(self, found: "Resolution", record: dict[str, Any]) -> None:
+        self.unresolved.append({**record, "candidates": sorted(found.candidates)})
+        for key in found.candidates:
+            self.unplaced.setdefault(key, str(found.failure))
 
     def place(
         self,
@@ -161,18 +221,20 @@ class _Placement:
         evidence: Mapping[str, Any],
         emitter_key: Any = None,
     ) -> None:
-        key, failure, basis = index.resolve_with_basis(
+        found = index.resolve_detailed(
             player_id=player_id, name=name, position=position, emitter_key=emitter_key
         )
+        key, basis = found.key, found.basis
         if key is None:
-            self.unresolved.append(
+            self.refuse(
+                found,
                 {
                     "emitter": emitter_id,
                     "name": name,
                     "playerId": player_id,
                     "nativeLabel": native_label,
-                    "reason": failure,
-                }
+                    "reason": found.failure,
+                },
             )
             return
         self.observations.append(
@@ -302,6 +364,7 @@ def collect_terminal(
             as_of=_contract_as_of(contract),
             freshness=dict(freshness),
             observations=tuple(placement.observations),
+            unplaced=dict(placement.unplaced),
             notes=tuple(notes),
             covered_keys=frozenset(covered),
         )
@@ -357,20 +420,27 @@ def collect_bdvm(
         for row in payload.get("unpriced") or []:
             if not isinstance(row, Mapping):
                 continue
-            key, failure = index.resolve(name=row.get("name"), position=row.get("position"))
-            if key is None:
-                placement.unresolved.append(
+            found = index.resolve_detailed(name=row.get("name"), position=row.get("position"))
+            if found.key is None:
+                placement.refuse(
+                    found,
                     {
                         "emitter": emitter,
                         "name": row.get("name"),
                         "playerId": None,
                         "nativeLabel": None,
-                        "reason": failure,
+                        "reason": found.failure,
                         "emitterUnpricedReason": row.get("reason"),
-                    }
+                    },
                 )
                 continue
-            declined.setdefault(key, str(row.get("reason") or "unpriced"))
+            declined.setdefault(found.key, str(row.get("reason") or "unpriced"))
+        # BDVM skips quarantined canonical rows before pricing and publishes
+        # no unpriced entry for them (src/bdvm/service.py); say so.
+        placed = {obs.player_key for obs in placement.observations}
+        for key in index.quarantined:
+            if key not in placed:
+                declined.setdefault(key, "quarantined")
         meta = payload.get("meta") if isinstance(payload.get("meta"), Mapping) else {}
         # The verdict compares a projection-driven value against the market.
         # The market leg's age is measurable; the projection snapshot has no
@@ -391,6 +461,7 @@ def collect_bdvm(
             as_of=str(meta.get("asOf")) if meta.get("asOf") else None,
             freshness=bdvm_freshness,
             observations=tuple(placement.observations),
+            unplaced=dict(placement.unplaced),
             notes=tuple(notes),
             declined=declined,
         )
@@ -456,6 +527,7 @@ def collect_consensus_edge(
             as_of=str(board.get("contractScrapedAt")) if board.get("contractScrapedAt") else None,
             freshness=dict(freshness),
             observations=tuple(placement.observations),
+            unplaced=dict(placement.unplaced),
             notes=tuple(notes),
         )
         return run, placement.unresolved
@@ -519,6 +591,7 @@ def collect_sharp(index: IdentityIndex) -> tuple[rec.EmitterRun, list[dict[str, 
             as_of=updated[-1] if updated else None,
             freshness={"state": "unknown", "basis": "no_declared_budget_for_sharp_crawl"},
             observations=tuple(placement.observations),
+            unplaced=dict(placement.unplaced),
             notes=(
                 "owner default window and strength sort; at most "
                 f"{_SHARP_ASSET_LIMIT} assets (truncated={truncated})",
@@ -579,6 +652,8 @@ def build_reconciled_signals(
     scope: str = "auto",
     player: str | None = None,
     collectors: Sequence[str] | None = None,
+    team_request: Mapping[str, Any] | None = None,
+    team_source: str | None = None,
 ) -> dict[str, Any]:
     """Collect every live emitter through its owner and reconcile.
 
@@ -641,7 +716,13 @@ def build_reconciled_signals(
 
     player_filter: dict[str, Any] | None = None
     if player:
-        key, failure = index.resolve(player_id=player, name=player)
+        # A Sleeper id is all digits; anything else is a NAME.  Passing the
+        # query as both would make every name look like an off-board id.
+        query = player.strip()
+        if query.isdigit():
+            key, failure = index.resolve(player_id=query)
+        else:
+            key, failure = index.resolve(name=query)
         player_filter = {"query": player, "playerKey": key, "reason": failure}
         if key is None:
             universe = []
@@ -670,6 +751,14 @@ def build_reconciled_signals(
                 else None
             ),
             "playerFilter": player_filter,
+            # An explicit team that did not resolve is stated, never silently
+            # turned into a league-wide answer.
+            "teamResolution": {
+                "requested": dict(team_request) if team_request else None,
+                "resolved": bool(resolved_team),
+                "source": team_source if resolved_team else None,
+                "reason": "team_not_found" if team_request and not resolved_team else None,
+            },
             "rosterPlacement": roster_basis,
             "contract": {
                 "scrapeTimestamp": contract.get("scrapeTimestamp"),

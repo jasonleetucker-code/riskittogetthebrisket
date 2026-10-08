@@ -14554,11 +14554,18 @@ async def get_reconciled_signals(request: Request):
 
     team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
     team_name = (params.get("teamName") or "").strip()
+    team_request = (
+        {"ownerId": team_owner_id or None, "teamName": team_name or None}
+        if team_owner_id or team_name
+        else None
+    )
     resolved_team = _terminal.resolve_team(contract, owner_id=team_owner_id, name=team_name)
-    if resolved_team is None and not team_owner_id and not team_name:
+    team_source = "explicit" if resolved_team is not None else None
+    if resolved_team is None and team_request is None:
         session_sleeper_id = str(session.get("sleeper_user_id") or "").strip()
         if session_sleeper_id:
             resolved_team = _terminal.resolve_team(contract, owner_id=session_sleeper_id, name=None)
+            team_source = "session" if resolved_team is not None else None
     player = (params.get("player") or "").strip() or None
 
     def _build():
@@ -14580,6 +14587,8 @@ async def get_reconciled_signals(request: Request):
             news_items=news_items,
             scope=scope,
             player=player,
+            team_request=team_request,
+            team_source=team_source,
         )
 
     try:
