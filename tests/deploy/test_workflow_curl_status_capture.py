@@ -14,14 +14,23 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SCANNED = sorted((REPO / ".github" / "workflows").glob("*.yml")) + sorted(
-    (REPO / "deploy").glob("*.sh")
+SCANNED = sorted(
+    {
+        *(REPO / ".github" / "workflows").glob("*.yml"),
+        *(REPO / ".github" / "workflows").glob("*.yaml"),
+        *(REPO / "deploy").rglob("*.sh"),
+        *(REPO / "scripts").rglob("*.sh"),
+    }
 )
 
-# A $( ... ) capture running curl with -w / --write-out whose fallback
-# `|| echo <digits>` (quoted or not) sits INSIDE the substitution.
+# A $( ... ) capture running curl (optionally under a wrapper such as
+# `timeout N`) with a write-out flag (-w, --write-out, or a combined short
+# flag ending in w such as -sw) whose `||` fallback PRINTS something (echo or
+# printf of anything) INSIDE the substitution. `|| true` prints nothing and so
+# cannot concatenate.
 _CONCAT = re.compile(
-    r"\$\(\s*curl\b[^)]*?(?:-w\b|--write-out)[^)]*?\|\|\s*echo\s+\"?\d+\"?\s*\)",
+    r"\$\(\s*(?:[\w./-]+\s+)*?curl\b[^)]*?(?:\s-[A-Za-z]*w\b|--write-out)"
+    r"[^)]*?\|\|\s*(?:echo|printf)\b[^)]*\)",
     re.S,
 )
 _PUBLIC_LEAGUE_CAPTURE = re.compile(r"\$\(\s*curl\b[^)]*?/api/public/league\"\)", re.S)
@@ -40,13 +49,18 @@ def test_the_scan_covers_workflows_and_deploy_scripts():
         "deploy.sh",
         "rollback.sh",
         "verify-deploy.sh",
+        "v1_49_host_native_activation.sh",
     } <= names
 
 
 def test_the_pattern_catches_both_spellings_and_spares_the_fix():
     assert _CONCAT.search("code=$(curl -s -o /dev/null -w '%{http_code}' http://x || echo 000)")
     assert _CONCAT.search('c="$(curl --silent --write-out \'%{http_code}\' "$u" || echo "000")"')
+    assert _CONCAT.search("c=$(curl -sw '%{http_code}' -o /dev/null u || echo '000')")
+    assert _CONCAT.search("c=$(timeout 10 curl -s -w '%{http_code}' u || printf 000)")
+    assert _CONCAT.search('c="$(curl -sS -o f -w \'%{http_code}\' u || echo "curl_error")"')
     assert not _CONCAT.search('c="$(curl --silent --write-out \'%{http_code}\' "$u")" || c=000')
+    assert not _CONCAT.search("c=$(curl -s -o f -w '%{http_code}' u || true)")
 
 
 def test_no_curl_status_capture_concatenates_a_fallback():
