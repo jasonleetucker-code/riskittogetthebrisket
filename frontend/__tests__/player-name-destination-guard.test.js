@@ -182,7 +182,9 @@ describe("#1337 player-name destination ratchet", () => {
       }
     }
     expect(builders).toEqual(["components/ds/PlayerNameButton.jsx"]);
-  });
+    // Reads every app/components/lib source file; generous under a
+    // fully parallel suite where disk reads queue behind other workers.
+  }, 60_000);
 
   it("every allowance names a kind and a reason", () => {
     for (const [rel, allowed] of Object.entries(ALLOWED_RAW)) {

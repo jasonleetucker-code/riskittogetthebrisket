@@ -99,3 +99,21 @@ Code `49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121`; actual proof and limitations in
 `docs/psi/evidence/PR_1429_2026-09-24/README.md`. Axe green does not close #1428.
 The next safe UI unit remains populated Rankings/Player File test coverage after
 live claim checks; no whole-program blocker or route-completion promotion.
+
+## Lane 6 design-owned a11y defects — C8-A11Y-01 axe coverage (PR #1698, 2026-10-07)
+
+PR #1698 extended `tests/e2e/specs/a11y-axe.spec.js` from 10 routes to every page route family
+under `frontend/app` (all on desktop-1366; the original ten plus `/more` and `/game-day` also on
+mobile-chromium). Its first populated scan found violations that are fixed in that PR without
+visual change (`/draft` label ×96; `/league/franchise/[owner]` scrollable-region-focusable).
+The four below need a colour or underline change, which the PSI contract governs, so they are
+recorded here as **Lane 6 design-owned defects** and held in the spec's `BASELINE` /
+`VISUAL_FIX_REQUIRED` (counted, not disabled; a fix makes the entry stale and fails the suite
+until it is deleted). Evidence: local seeded-stack runs on the PR branch; production NV.
+
+| Route (viewport scanned) | WCAG | axe rule × nodes | Element | Fix needs | Status |
+|---|---|---|---|---|---|
+| `/draft` (desktop) | 1.4.3 | color-contrast × 1 | rookie-count pill in an inactive draft tag tab (`.draft-tag-tab-count`) | token/colour change | OPEN — Lane 6 |
+| `/league-comparison` (desktop) | 1.4.3 | color-contrast × 1 | active filter button: inline cyan on `.btn-secondary` | token/colour change | OPEN — Lane 6 |
+| `/auction/notifications` (desktop) | 1.4.3 | color-contrast × 5 | notification-devices table header cells | token/colour change | OPEN — Lane 6 (route also under #1533) |
+| `/league/franchise/[owner]` (desktop) | 1.4.1 | link-in-text-block × 2 | inline cyan prose links ("Ty", "Full draft center →") distinguished by colour only | underline / non-colour cue | OPEN — Lane 6 |
