@@ -47,6 +47,13 @@ describe("/trade on-demand sections", () => {
     }
   });
 
+  it("each lazy section has its own reload-recovering error boundary inside `dyn`", () => {
+    // A failed chunk load must not fall through to app/error.jsx (the whole
+    // page); React.lazy caches the rejection, so recovery is a reload.
+    const dyn = page.slice(page.indexOf("const dyn ="), page.indexOf("const TradeSourceBreakdown"));
+    expect(dyn).toMatch(/<ResilientSection name=\{name\} recovery="reload">\s*<Suspense fallback=\{null\}>/);
+  });
+
   it("SimulationPanel is gated on a result in the page, so its chunk is not requested on load", () => {
     expect(page).toMatch(/\{simResult \|\| simError \? \(\s*<SimulationPanel\b/);
   });

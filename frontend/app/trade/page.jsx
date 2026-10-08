@@ -74,6 +74,7 @@ import {
   SUGG_TYPES,
 } from "./trade-sections";
 import { withValuationMode } from "@/lib/valuation-mode";
+import ResilientSection from "@/components/ResilientSection";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -110,21 +111,37 @@ const TradeMeter = SharedTradeMeter;
 // its OWN Suspense boundary with a null fallback — exactly next/dynamic's
 // per-component behaviour, so a panel that mounts later (e.g. the
 // multi-team flow when a third side is added) never blanks the others.
-const dyn = (loader) => {
+//
+// Each section also gets its OWN error boundary.  Without one, a failed
+// chunk load falls through to app/error.jsx and replaces the whole page —
+// and the realistic failure is a deploy: deploy.sh swaps `.next` and
+// deletes the old build, so a /trade tab opened before it 404s on its old
+// chunk hashes the first time it opens one of these.  React.lazy caches the
+// rejected import, so a remount would re-throw; `recovery="reload"` offers a
+// page reload instead.
+const dyn = (loader, name) => {
   const LazyPanel = lazy(loader);
   return function OnDemandSection(props) {
     return (
-      <Suspense fallback={null}>
-        <LazyPanel {...props} />
-      </Suspense>
+      <ResilientSection name={name} recovery="reload">
+        <Suspense fallback={null}>
+          <LazyPanel {...props} />
+        </Suspense>
+      </ResilientSection>
     );
   };
 };
-const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
-const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
-const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
-const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHistogram"));
-const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
+const TradeSourceBreakdown = dyn(
+  () => import("@/components/trade/TradeSourceBreakdown"),
+  "Per-source breakdown",
+);
+const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"), "Rest-of-season fit");
+const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundamentals check");
+const TradeDeltaHistogram = dyn(
+  () => import("@/components/graphs/TradeDeltaHistogram"),
+  "Value split chart",
+);
+const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -149,9 +166,18 @@ const loadSuggestionsDesk = () => import("./trade-suggestions-desk");
 const prefetch = (loader) => {
   loader().catch(() => {});
 };
-const SimulationPanel = dyn(() => loadSimulationPanel().then((m) => ({ default: m.SimulationPanel })));
-const KtcImportPanel = dyn(() => loadKtcImportPanel().then((m) => ({ default: m.KtcImportPanel })));
-const SuggestionsDesk = dyn(() => loadSuggestionsDesk().then((m) => ({ default: m.SuggestionsDesk })));
+const SimulationPanel = dyn(
+  () => loadSimulationPanel().then((m) => ({ default: m.SimulationPanel })),
+  "Simulation result",
+);
+const KtcImportPanel = dyn(
+  () => loadKtcImportPanel().then((m) => ({ default: m.KtcImportPanel })),
+  "KTC import",
+);
+const SuggestionsDesk = dyn(
+  () => loadSuggestionsDesk().then((m) => ({ default: m.SuggestionsDesk })),
+  "Trade suggestions",
+);
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
