@@ -1,32 +1,32 @@
 {
-  "computedAt": "2026-10-07T23:25:23.866844+00:00",
+  "computedAt": "2026-10-08T06:46:28.746848+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.8023,
-      "finalsOdds": 0.9793,
+      "championshipOdds": 0.8177,
+      "finalsOdds": 0.9815,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.22,
+      "expectedFinish": 1.2,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "861387883699879936",
       "displayName": "Bkesss",
-      "championshipOdds": 0.1871,
-      "finalsOdds": 0.8199,
-      "semifinalOdds": 0.999,
+      "championshipOdds": 0.1742,
+      "finalsOdds": 0.8177,
+      "semifinalOdds": 0.9995,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.0,
+      "expectedFinish": 2.01,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "360184624380633088",
       "displayName": "DeCline",
-      "championshipOdds": 0.0081,
-      "finalsOdds": 0.1609,
-      "semifinalOdds": 0.9715,
+      "championshipOdds": 0.0063,
+      "finalsOdds": 0.162,
+      "semifinalOdds": 0.974,
       "playoffOdds": 1.0,
       "expectedFinish": 2.89,
       "contenderTier": "Dangerous Playoff Team"
@@ -34,22 +34,42 @@
     {
       "ownerId": "984270279268446208",
       "displayName": "Comacho",
-      "championshipOdds": 0.0024,
+      "championshipOdds": 0.0017,
       "finalsOdds": 0.0352,
-      "semifinalOdds": 0.7777,
+      "semifinalOdds": 0.7983,
       "playoffOdds": 0.9998,
-      "expectedFinish": 3.62,
+      "expectedFinish": 3.56,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "640377779837296640",
       "displayName": "Kanyn",
-      "championshipOdds": 0.0001,
-      "finalsOdds": 0.0047,
-      "semifinalOdds": 0.2338,
-      "playoffOdds": 0.9858,
-      "expectedFinish": 5.18,
+      "championshipOdds": 0.0002,
+      "finalsOdds": 0.0037,
+      "semifinalOdds": 0.214,
+      "playoffOdds": 0.9867,
+      "expectedFinish": 5.23,
       "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1202075501976375296",
+      "displayName": "Jhall2002",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0128,
+      "playoffOdds": 0.8578,
+      "expectedFinish": 5.42,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1202064845743071232",
+      "displayName": "shayden18",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0013,
+      "playoffOdds": 0.154,
+      "expectedFinish": 6.76,
+      "contenderTier": "Long Shot"
     },
     {
       "ownerId": "1033502330853302272",
@@ -58,28 +78,8 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0015,
-      "expectedFinish": 8.15,
+      "expectedFinish": 8.14,
       "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "1202064845743071232",
-      "displayName": "shayden18",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0019,
-      "playoffOdds": 0.1552,
-      "expectedFinish": 6.76,
-      "contenderTier": "Long Shot"
-    },
-    {
-      "ownerId": "1202075501976375296",
-      "displayName": "Jhall2002",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0161,
-      "playoffOdds": 0.8577,
-      "expectedFinish": 5.4,
-      "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "472206636534984704",
@@ -87,7 +87,7 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
+      "playoffOdds": 0.0002,
       "expectedFinish": 8.91,
       "contenderTier": "Rebuilder / Seller"
     },
@@ -102,7 +102,7 @@
       "contenderTier": "Rebuilder / Seller"
     }
   ],
-  "n_simulations": 10000,
+  "n_simulations": 6000,
   "playoffSeeds": 6,
   "byeSeeds": 2,
   "playoffStructure": {
@@ -110,7 +110,11 @@
     "byeTeams": 2,
     "playoffWeekStart": 15,
     "source": "league_settings",
-    "reason": ""
+    "reason": "",
+    "seedType": "fixed",
+    "seedTypeReason": ""
   },
-  "rosStrengthAvailable": true
+  "rosStrengthAvailable": true,
+  "engine": "src.ros.playoff_sim",
+  "season": 2026
 }

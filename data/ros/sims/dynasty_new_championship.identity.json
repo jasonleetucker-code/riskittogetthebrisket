@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-10-07T23:25:23.866844+00:00",
-  "forecastSha256": "b94bfde158ce365f115a7aac28441494a774b7d07dba975a2bcec03d8f26679e",
+  "computedAt": "2026-10-08T06:46:28.746848+00:00",
+  "forecastSha256": "d45b54ee89df334c160516abc337f6a9000731160a8c9836fa219c6046aa05ae",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "3a88728d62387f534e767d533fd7d0f8613b6553ef68505ead0fb6fcd3b0661e",
-    "leagueSnapshotGeneratedAt": "2026-10-07T23:25:22+00:00",
+    "inputsSha256": "9c40b5f5f05326cbe77707bd2d887c22d100ac85e74130ce660013c5af33974c",
+    "leagueSnapshotGeneratedAt": "2026-10-08T06:46:27+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,24 +14,31 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "c8c54f043cb2536b83131fe7c1581d65824a3eb6e1efed29b7e048c905cadbfd",
+    "leagueSnapshotSha256": "2f04be5d9e4965e66ec9a684d231790cb62fd716e6db341b035211f8f82d65f2",
     "pointsModelFileSha256": null,
-    "rosAggregateSha256": "58a329b1645b9c75e6b2fcfa49b54a05457facaf6a125af36a03185706bb479d",
-    "rosAggregatedAt": "2026-10-07T23:25:10.914911+00:00",
+    "rosAggregateSha256": "32e0f98816e831b88f7f70f35e4d159aeba4cfe2e7edb09345a2c9e54905cda8",
+    "rosAggregatedAt": "2026-10-08T06:46:19.344192+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "cbfea5f6b23ebbe98d41d44894dbd08569b1c07651ca068d1a7c85fa27d234d6"
+    "teamStrengthFileSha256": "4024c5eb8f31a40c958aac546c943e5f2e15dbaf8a0686e30ba3339d2b34ef0a"
   },
   "kind": "championship",
   "lastScoredWeek": 4,
   "leagueKey": "dynasty_new",
   "model": {
-    "codeSha": "ffdb139f2aba88b5a578bff3207810164ca1af0f",
-    "codeShaCapturedAt": "2026-10-07T23:25:08.875395+00:00",
+    "codeSha": "814e7297a2eeef71a97d0aab0211ea941433aaba",
+    "codeShaCapturedAt": "2026-10-08T06:46:16.799717+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": false,
       "championship": {
-        "_SIM_CACHE_TTL_SEC": 21600
+        "ENGINE": "src.ros.playoff_sim",
+        "_ROW_FIELDS": [
+          "championshipOdds",
+          "finalsOdds",
+          "semifinalOdds",
+          "playoffOdds",
+          "expectedFinish"
+        ]
       },
       "playoffSim": {
         "BEST_BALL_PRESIM_MAX_WEEKS": 1200,
@@ -45,8 +52,19 @@
         "PRESIM_CHECK_EVERY": 40,
         "PRESIM_MEAN_TOLERANCE": 0.01,
         "ROS_BLEND": 0.2,
+        "SEED_TYPE_RESEED": "reseed",
         "SIM_CHECK_EVERY": 1000,
+        "SIM_COUNT_MISSING": "canonical_forecast_simulation_count_missing",
         "TEAM_STRENGTH_UNAVAILABLE": "team_strength_unavailable",
+        "_BRACKET_ROW_FIELDS": [
+          "championshipOdds",
+          "finalsOdds",
+          "semifinalOdds",
+          "expectedFinish"
+        ],
+        "_FINAL_TEAMS_LEFT": 2,
+        "_SEMIFINAL_LOSER_PLACEMENT": 3,
+        "_SEMIFINAL_TEAMS_LEFT": 4,
         "_SIM_CACHE_TTL_SEC": 21600,
         "_TRADE_IMPACT_METHODOLOGY": "Both arms run on one shared RNG seed and an identical simulation count, so the reported delta is the trade's effect rather than the difference between two independent Monte Carlo runs. Intervals are paired (McNemar-style, conservative on the discordant-pair count). A delta whose interval spans zero is flagged significant=false and must not be presented as a result."
       },
@@ -72,9 +90,9 @@
         "source": "fallback-constants"
       }
     },
-    "simParamsSha256": "ed0f7184fbd64d428f11c9e00c0678972cce4a15d6e20b081b48f8895ce9dd6d"
+    "simParamsSha256": "e974eab0ab83af050b747b004e767d5b3ce20d20707dd970556c6a482d092d90"
   },
-  "nSimulations": 10000,
+  "nSimulations": 6000,
   "nullReasons": {
     "inputs.contractGeneration": "not_an_input_of_the_playoff_or_title_simulators",
     "inputs.pointsModelFileSha256": "file_absent"
