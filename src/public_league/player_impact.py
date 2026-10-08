@@ -404,9 +404,17 @@ def evaluate_league_week(
     players: Mapping[str, PlayerInfo],
     replacement: Mapping[str, float | None],
     *,
+    expected_team_count: int | None,
     contradictions: Sequence[str] = (),
 ) -> list[dict[str, Any]]:
     """Every rostered player-week's impact for one finished league-week.
+
+    ``expected_team_count`` is the league's size from the host (``None`` when
+    the host states none).  The week counts as a COMPLETE league-week — the
+    precondition for recomputing the median — only when every expected team
+    has a row AND a known score.  Counting only the rows that happen to be
+    present would quietly take the median over a partial league; an unknown
+    size withholds the median rather than trusting the rows.
 
     Returns one record per ``(player, roster)`` rostered that week.  Pure:
     same inputs, same output, in a deterministic order.
@@ -436,7 +444,11 @@ def evaluate_league_week(
             for pid in sorted(set(team.roster) | set(team.counted))
         ]
     league_scores = {t.roster_id: float(t.score) for t in teams if t.score is not None}
-    league_week_complete = len(league_scores) == len(teams)
+    league_week_complete = (
+        expected_team_count is not None
+        and len(teams) == expected_team_count
+        and len(league_scores) == len(teams)
+    )
     slots = list(rules.starter_slots)
     out: list[dict[str, Any]] = []
 
@@ -486,8 +498,12 @@ def evaluate_league_week(
                 "teamScore": team.score,
                 "opponentRosterId": team.opponent,
             }
-            if team_reason is not None and (pid in counted or not team.counted):
+            if team_reason is not None and (
+                pid in counted or not team.counted or team_reason == R_TEAM_SCORE_MISMATCH
+            ):
                 # This player's counted contribution cannot be established.
+                # A score mismatch also makes the counted lineup itself
+                # unproven, so a bench player is not a KNOWN zero either.
                 for key in _METRICS:
                     rec[key] = _unavailable(team_reason)
                 out.append(rec)
@@ -886,7 +902,13 @@ def compute_season(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> di
     for wk in sorted(weeks):
         records.extend(
             evaluate_league_week(
-                wk, weeks[wk], rules, players, level, contradictions=contradicted.get(wk, ())
+                wk,
+                weeks[wk],
+                rules,
+                players,
+                level,
+                expected_team_count=season.num_teams if season.num_teams > 0 else None,
+                contradictions=contradicted.get(wk, ()),
             )
         )
 

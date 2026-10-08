@@ -58,8 +58,10 @@ def _rec(records, pid):
     return rec
 
 
-def _eval(repl, *, rules=QB_ONLY, week=WEEK, players=QBS):
-    return pi.evaluate_league_week(1, week, rules, players, {"QB": repl})
+def _eval(repl, *, rules=QB_ONLY, week=WEEK, players=QBS, expected=4):
+    return pi.evaluate_league_week(
+        1, week, rules, players, {"QB": repl}, expected_team_count=expected
+    )
 
 
 # ── Actual WAR (spec §3 / §12) ─────────────────────────────────────────
@@ -165,6 +167,31 @@ def test_unknown_team_score_makes_the_median_unknown_for_everyone():
     assert rec["war"]["h2hDelta"] == 1.0  # the H2H half is still known
 
 
+def test_an_absent_team_row_makes_the_median_unknown_not_a_smaller_league():
+    # Team 4's whole row is missing: the median must not be retaken over the
+    # three rows that exist (that published 1.5 for q1 with no reason).
+    week = [t for t in WEEK if t.roster_id != 4]
+    rec = _rec(_eval(30.0, week=week, expected=4), "q1")
+    assert rec["war"]["value"] is None
+    assert rec["war"]["reason"] == pi.R_LEAGUE_WEEK_INCOMPLETE
+    assert rec["war"]["h2hDelta"] is not None  # the H2H half is still known
+
+
+def test_an_unknown_league_size_withholds_the_median():
+    rec = _rec(_eval(30.0, expected=None), "q1")
+    assert rec["war"]["value"] is None
+    assert rec["war"]["reason"] == pi.R_LEAGUE_WEEK_INCOMPLETE
+
+
+def test_a_score_mismatch_makes_bench_players_unknown_not_known_zero():
+    week = list(WEEK)
+    # Host says 53; the counted lineup sums to 50 -> the lineup is unproven.
+    week[0] = pi.TeamWeek(1, "o1", 53.0, ("q1",), {"q1": 50.0, "b1": 3.0}, ("q1", "b1"), 2)
+    rec = _rec(_eval(15.0, week=week), "b1")
+    for key in ("vorp", "war", "wab", "gameChangerPoints"):
+        assert rec[key] == {"value": None, "reason": pi.R_TEAM_SCORE_MISMATCH}
+
+
 def test_unverified_median_rule_withholds_the_total_but_keeps_h2h():
     rules = pi.WeekRules(starter_slots=("QB",), best_ball=True, median_enabled=None)
     rec = _rec(_eval(40.0, rules=rules), "q1")
@@ -186,7 +213,7 @@ def test_bye_team_scores_median_only():
     # loss.  WAR = 0.5 (median only, no H2H game in either world).
     week = list(WEEK) + [_team(5, None, ["q5"], {"q5": 30.0, "b5": 1.0})]
     players = _players({p: "QB" for t in week for p in t.points})
-    rec = _rec(_eval(5.0, week=week, players=players), "q5")
+    rec = _rec(_eval(5.0, week=week, players=players, expected=5), "q5")
     assert rec["war"]["h2h"] == {"actual": None, "counterfactual": None}
     assert rec["war"]["h2hDelta"] == 0.0
     assert rec["war"]["value"] == 0.5
@@ -225,7 +252,7 @@ def test_wab_resolves_superflex_and_idp_flex_not_the_next_player_at_the_position
     opp = _team(2, 1, ["x"], {"x": 70.0}, score=70.0)
     players = _players({**pos, "x": "QB"})
     rules = pi.WeekRules(starter_slots=slots, best_ball=True, median_enabled=False)
-    recs = pi.evaluate_league_week(1, [me, opp], rules, players, {})
+    recs = pi.evaluate_league_week(1, [me, opp], rules, players, {}, expected_team_count=2)
     assert _rec(recs, "qa")["gameChangerPoints"]["value"] == 18.0
     assert _rec(recs, "qa")["wab"]["value"] == 1.0  # 81 beat 70 ; 63 does not
     assert _rec(recs, "da")["gameChangerPoints"]["value"] == 4.0
@@ -247,7 +274,12 @@ def test_infeasible_counterfactual_lineup_is_a_state_not_a_zero_score():
     ]
     players = _players({"q1": "QB", "q2": "QB"})
     rules = pi.WeekRules(starter_slots=("QB",), best_ball=True, median_enabled=False)
-    rec = _rec(pi.evaluate_league_week(1, week, rules, players, {"QB": 15.0}), "q1")
+    rec = _rec(
+        pi.evaluate_league_week(
+            1, week, rules, players, {"QB": 15.0}, expected_team_count=len(week)
+        ),
+        "q1",
+    )
     assert rec["wab"] == {"value": None, "reason": pi.R_COUNTERFACTUAL_INFEASIBLE}
     assert rec["war"]["value"] == 1.0  # league replacement still answers
 
@@ -278,7 +310,12 @@ def test_negative_realized_points_are_never_floored():
     ]
     players = _players({"q1": "QB", "b1": "QB", "q2": "QB", "b2": "QB"})
     rules = pi.WeekRules(starter_slots=("QB",), best_ball=True, median_enabled=False)
-    rec = _rec(pi.evaluate_league_week(1, week, rules, players, {"QB": 1.0}), "q1")
+    rec = _rec(
+        pi.evaluate_league_week(
+            1, week, rules, players, {"QB": 1.0}, expected_team_count=len(week)
+        ),
+        "q1",
+    )
     assert rec["vorp"]["value"] == -3.0
     assert rec["gameChangerPoints"]["value"] == 1.0  # -2 vs -3
     assert rec["wab"]["value"] == 1.0  # -2 beat -2.5 ; -3 does not
@@ -633,7 +670,9 @@ def test_broken_matchup_group_is_unavailable_not_a_bye():
     assert teams[4].matchup_issue == "unpaired" and teams[4].opponent is None
     assert teams[3].matchup_issue is None and teams[3].opponent is None
     players = _players({p: "QB" for t in teams.values() for p in t.points})
-    recs = pi.evaluate_league_week(1, list(teams.values()), QB_ONLY, players, {"QB": 5.0})
+    recs = pi.evaluate_league_week(
+        1, list(teams.values()), QB_ONLY, players, {"QB": 5.0}, expected_team_count=len(teams)
+    )
     q4 = _rec(recs, "q4")
     assert q4["war"]["value"] is None
     assert q4["war"]["reason"] == pi.R_MATCHUP_STRUCTURE
