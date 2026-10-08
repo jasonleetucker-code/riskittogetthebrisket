@@ -113,23 +113,19 @@ def _load_state(
     return {}, False
 
 
-def _persist_state(
-    username: str,
+def _store_state(
     user_state: dict[str, Any],
     league_key: str | None,
     new_state: dict[str, Any],
-    *,
-    path: Any = None,
 ) -> None:
+    """Write one league's bucket into ``user_state`` in place, leaving every
+    other league's bucket as it is NOW (same shape rationale as
+    signalAlertStateByLeague)."""
     key = str(league_key or "").strip()
     existing_by_league = user_state.get(_STATE_FIELD) or {}
     if not isinstance(existing_by_league, dict):
         existing_by_league = {}
-    # merge_user_state is a shallow top-level merge; nesting one extra
-    # level keeps each league's bucket atomic (same shape rationale as
-    # signalAlertStateByLeague).
-    next_by_league = {**existing_by_league, key: new_state}
-    _user_kv.merge_user_state(username, {_STATE_FIELD: next_by_league}, path=path)
+    user_state[_STATE_FIELD] = {**existing_by_league, key: new_state}
 
 
 def detect_bdvm_transitions(
@@ -152,7 +148,27 @@ def detect_bdvm_transitions(
     if not username or not entries:
         return [], "no_entries"
 
-    user_state = _user_kv.get_user_state(username, path=path)
+    result: list[tuple[list[dict[str, Any]], str]] = []
+
+    # Evaluate on the CURRENT state inside the user_kv write lock: reading
+    # first and rewriting the whole field later discarded another league's
+    # concurrent sweep.
+    def _evaluate(user_state: dict[str, Any]) -> None:
+        result.clear()
+        transitions, mode, new_state = _evaluate_bdvm(user_state, entries, league_key)
+        _store_state(user_state, league_key, new_state)
+        result.append((transitions, mode))
+
+    _user_kv.mutate_user_state(username, _evaluate, path=path)
+    return result[0]
+
+
+def _evaluate_bdvm(
+    user_state: dict[str, Any],
+    entries: list[dict[str, Any]],
+    league_key: str | None,
+) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    """Pure: ``(transitions, mode, next league bucket)``."""
     alert_state, existed = _load_state(user_state, league_key)
 
     if not existed:
@@ -163,8 +179,7 @@ def detect_bdvm_transitions(
             and e.get("playerId")
             and str(e.get("signal") or "") in ACTIONABLE_BDVM_SIGNALS
         }
-        _persist_state(username, user_state, league_key, seeded, path=path)
-        return [], "baseline_seeded"
+        return [], "baseline_seeded", seeded
 
     now = _utc_now_ms()
     min_interval_ms = int(_MIN_NOTIFY_INTERVAL_HOURS * 3600 * 1000)
@@ -208,9 +223,8 @@ def detect_bdvm_transitions(
         )
         new_state[state_key] = {"signal": signal, "notifiedAt": now}
 
-    # Persist even when nothing fired — last-seen must stay current.
-    _persist_state(username, user_state, league_key, new_state, path=path)
-    return transitions, "ok"
+    # Persisted even when nothing fired — last-seen must stay current.
+    return transitions, "ok", new_state
 
 
 def _fmt_value(v: Any) -> str:

@@ -45,8 +45,10 @@ from src.api.confidence import (  # noqa: E402  — grouped with its siblings
     CONFIDENCE_BASES,
     FamilyEvidence,
     assess_confidence,
+    PICK_VALUE_BASIS_DERIVED,
     PICK_VALUE_BASIS_TETHER,
     assess_pick_confidence,
+    derived_pick_evidence,
     pick_evidence,
     degrade_for_quarantine,
     gate_parameter as _confidence_gate_parameter,
@@ -9434,6 +9436,30 @@ def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
     }
 
 
+def _stamp_derived_pick_evidence(
+    row: dict[str, Any],
+    parent_names: list[str],
+    by_name: Mapping[str, dict[str, Any]],
+) -> None:
+    """Stamp ``pickEvidence`` on a DERIVED pick row from its parents' evidence.
+
+    A derived pick's value moves when a parent loses a provider, so it must
+    carry that parent's evidence state -- inherited, never upgraded
+    (``confidence.derived_pick_evidence``), with the parents named.  The row's
+    own observations still count: a market that observed THIS row but was
+    withheld is reported too.  Diagnostic only: no value, rank or confidence
+    bucket reads it (SRC-STALEPRES-2026-10-01 reporting).
+    """
+    parents = [(by_name.get(n) or {}).get("pickEvidence") for n in parent_names]
+    own_values = row.get("canonicalSiteValues") or {}
+    own = (
+        pick_evidence(own_values, withheld_sources=row.get("freshnessExcludedSources") or ())
+        if own_values
+        else None
+    )
+    row["pickEvidence"] = derived_pick_evidence(parents, derived_from=parent_names, own=own)
+
+
 def _complete_future_pick_values(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -9642,6 +9668,7 @@ def _complete_future_pick_values(
                     # are not interchangeable must not read identically.
                     "appliedTo": "canonical_board_value",
                 }
+                _stamp_derived_pick_evidence(row, [basis_name], by_name)
                 derived[name] = value
                 legacy = players_by_name.get(row.get("legacyRef") or name)
                 if isinstance(legacy, dict):
@@ -9707,6 +9734,7 @@ def _complete_future_pick_values(
                         prov["yearStepBasisYear"] = basis_derivation["basisYear"]
                     prov["yearStepInheritedFrom"] = basis_name
                 row["pickValueProvenance"] = prov
+                _stamp_derived_pick_evidence(row, [basis_name], by_name)
                 derived[name] = value
                 legacy = players_by_name.get(row.get("legacyRef") or name)
                 if isinstance(legacy, dict):
@@ -9773,6 +9801,7 @@ def _complete_future_pick_values(
                 if len(basis_years) == 1:
                     prov["yearStepBasisYear"] = basis_years.pop()
             row["pickValueProvenance"] = prov
+            _stamp_derived_pick_evidence(row, list(prov["basis"]), by_name)
             derived[name] = value
             legacy = players_by_name.get(name)
             if not isinstance(legacy, dict):
@@ -15641,6 +15670,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     picks_single_after_withholding = 0
     picks_no_provider_after_withholding = 0
     picks_tethered_after_withholding = 0
+    picks_derived_after_withholding = 0
     picks_provider_unknown = 0
     for row in players_array:
         if not isinstance(row, dict):
@@ -15658,6 +15688,11 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             # Tether-priced: the value is the rookie at the slot; its pick
             # markets lost a provider, which is reported, not re-counted.
             picks_tethered_after_withholding += 1
+        elif pe.get("valueBasis") == PICK_VALUE_BASIS_DERIVED:
+            # Derived from other pick rows whose evidence was reduced: the
+            # parents are already counted, so this is reported on its own
+            # line rather than counted again as a market-priced pick.
+            picks_derived_after_withholding += 1
         elif pe.get("state") == "single_provider":
             picks_single_after_withholding += 1
         elif pe.get("state") == "no_provider":
@@ -15672,6 +15707,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         warnings.append(f"pick_evidence_no_voting_provider:{picks_no_provider_after_withholding}")
     if picks_tethered_after_withholding:
         warnings.append(f"pick_evidence_reduced_tether_priced:{picks_tethered_after_withholding}")
+    if picks_derived_after_withholding:
+        warnings.append(f"pick_evidence_reduced_derived:{picks_derived_after_withholding}")
     if picks_provider_unknown:
         warnings.append(f"pick_evidence_provider_unknown:{picks_provider_unknown}")
     if withheld_rows:
