@@ -1228,6 +1228,17 @@ attempt_auto_rollback() {
 on_error() {
   local exit_code="$?"
   local line_no="${1:-unknown}"
+  # `set -E` makes this trap fire inside $(...) command substitutions too. A
+  # rollback there would run with its output captured into the variable and,
+  # because ROLLBACK_ATTEMPTED cannot propagate out of a subshell, the parent
+  # would then roll back a second time. In a subshell, only propagate the
+  # failure; the parent's assignment fails and its own ERR trap does the one
+  # rollback, with its log visible. error() writes to stderr, so the failing
+  # line still reaches the log rather than the captured variable.
+  if [[ "${BASHPID}" != "$$" ]]; then
+    error "Command substitution failed at line ${line_no} (exit code ${exit_code})."
+    exit "${exit_code}"
+  fi
   error "Deployment failed at line ${line_no} (exit code ${exit_code})."
   attempt_auto_rollback || true
   exit "${exit_code}"
