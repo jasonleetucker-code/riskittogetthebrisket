@@ -359,7 +359,9 @@ def test_an_empty_or_preseason_page_is_unavailable_and_backs_off():
 
     out = run("nhl", get_schedule=preseason)
     assert out["outcome"] == "unavailable"
-    assert out["platforms"]["draftkings"]["reason"] == "no_scheduled_game_on_listed_day"
+    assert out["platforms"]["draftkings"]["reason"] == "listed_day_not_regular_season"
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert listing["state"] == "UNAVAILABLE" and "preseason / all-star" in listing["reason"]
 
 
 def _pgh(html):
@@ -402,6 +404,7 @@ def test_partial_team_code_drift_builds_but_marks_the_slate_degraded():
     )  # fmt: skip
     assert s["freshness"]["state"] == "DEGRADED"
     assert "listed_rows_unmatched:team_unknown_for_sport=11" in s["freshness"]["degraded"]
+    assert "lock_may_be_early:untimed_listed_rows" in s["freshness"]["degraded"]
 
 
 def test_a_single_listed_game_is_not_a_classic_slate():
@@ -409,7 +412,9 @@ def test_a_single_listed_game_is_not_a_classic_slate():
     one = "".join(r for r in rows if 'data-team="PIT"' in r or 'data-team="WSH"' in r)
     out = run("nhl", get_dff=lambda s, p: dff_page(s, p, one))
     assert out["outcome"] == "unavailable"
-    assert out["platforms"]["draftkings"]["reason"] == "fewer_than_two_games"
+    assert out["platforms"]["draftkings"]["reason"] == "single_game_listing"
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert "single-game slate is not a classic slate" in listing["reason"]
 
 
 def test_sports_do_not_see_each_others_slates_or_runs():
@@ -504,3 +509,128 @@ def test_pending_approval_fetches_and_builds_nothing(monkeypatch):
             "reason": "schedule_source_pending",
         }
     assert live.sport_approved("nfl") is True  # NFL never reads the approval record
+
+
+# ── review of #1695 @3f5f879b1: run-detail storage, off-day vs error, approval ──
+
+
+def _preseason(sport, day):
+    return {"games": [], "dropped": [{"sourceGameId": "1", "reason": "season_type_1"}]}
+
+
+def test_a_large_run_detail_is_stored_as_valid_bounded_json_and_reads_back():
+    """B1: the stored detail used to be ``json.dumps(...)[:4000]`` — sliced mid-JSON
+    for any real page — after which list_slates / is_due raised JSONDecodeError
+    (/api/dfs/auto/slates 500, timer wedged).  Repro: a full page, preseason day."""
+    run("nhl", get_schedule=_preseason)
+    # Every read path that parses the stored detail must work.
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert listing["state"] == "UNAVAILABLE"
+    assert refresh.is_due("nhl", NHL_NOW + timedelta(hours=2))
+    # And a refused-everything page stores counts + a capped sample, still valid.
+    big = refresh._bounded_detail(
+        {"stage": "pool", "report": {"rowsRead": 999, "rejected": [{"name": "x" * 60}] * 300}}
+    )
+    parsed = json.loads(big)
+    assert len(big) <= refresh.DETAIL_MAX_CHARS and len(parsed["report"]["rejectedSample"]) == 5
+    huge = refresh._bounded_detail({"error": "e" * 10_000, "sample": ["s" * 5000] * 3})
+    assert len(huge) <= refresh.DETAIL_MAX_CHARS and json.loads(huge)["detailTruncated"] is True
+
+
+def test_a_corrupt_legacy_run_row_is_unknown_and_due_never_a_crash():
+    with refresh._connect() as conn:
+        conn.execute(
+            "INSERT INTO dfs_auto_runs VALUES (?,?,?,?,?)",
+            ("draftkings", "nhl", NHL_NOW.isoformat(), "unavailable", '{"report": {"rej'),
+        )
+    assert refresh.is_due("nhl", NHL_NOW + timedelta(minutes=1))  # unknown → refresh now
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert listing["lastRuns"]["draftkings"]["outcome"] == "unknown"
+
+
+def test_schedule_side_drift_or_an_empty_payload_is_a_source_error_not_an_off_day():
+    def drifted(sport, day):
+        return {"games": [], "dropped": [{"reason": "team_unknown_for_sport"}] * 3}
+
+    out = run("nhl", get_schedule=drifted)
+    dk = out["platforms"]["draftkings"]
+    assert dk["outcome"] == "source_error" and dk["error"] == "schedule_has_no_listed_games"
+    assert dk["droppedByReason"] == {"team_unknown_for_sport": 3}
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert listing["state"] == "SOURCE_ERROR" and "not an off day" in listing["reason"]
+    # An ESPN payload with NO events for a day DFF lists a slate on: also an error.
+    out = run("nba", get_schedule=lambda sport, day: {"games": [], "dropped": []})
+    assert out["platforms"]["fanduel"]["error"] == "schedule_has_no_listed_games"
+
+
+def test_listing_drift_collapsing_to_one_game_is_a_source_error():
+    html = pool_html("nhl", "draftkings")
+    for code in ("COL", "WPG", "EDM", "ANA"):
+        html = html.replace(f'data-team="{code}"', f'data-team="X{code}"').replace(
+            f'data-opp="{code}"', f'data-opp="X{code}"'
+        )
+    out = run("nhl", get_dff=lambda s, p: dff_page(s, p, html))
+    dk = out["platforms"]["draftkings"]
+    assert dk["outcome"] == "source_error" and dk["error"] == "listed_games_unmatched"
+    assert dk["listedGames"] == 3 and dk["matchedGames"] == 1
+    assert "not an off day" in refresh.list_slates("nhl", now=NHL_NOW)["reason"]
+
+
+def test_partial_schedule_drift_marks_degraded_and_warns_the_lock_may_be_early():
+    def missing_first(sport, day):
+        got = schedule(sport, day)
+        return {**got, "games": [g for g in got["games"] if g.event_id != "PIT@WSH"]}
+
+    out = run("nhl", get_schedule=missing_first)
+    assert out["outcome"] == "ok"
+    s = next(
+        x for x in refresh.list_slates("nhl", now=NHL_NOW)["slates"]
+        if x["platform"] == "draftkings"
+    )  # fmt: skip
+    assert s["summary"]["games"] == 2 and s["freshness"]["state"] == "DEGRADED"
+    assert "listed_rows_unmatched:game_not_on_schedule=22" in s["freshness"]["degraded"]
+    assert "lock_may_be_early:untimed_listed_rows" in s["freshness"]["degraded"]
+
+
+def test_a_same_time_failure_is_not_hidden_behind_another_platforms_off_day_backoff():
+    def mixed(sport, platform):
+        if platform == "fanduel":
+            raise RuntimeError("down")
+        return dff_page(sport, platform, "<html></html>")
+
+    out = run("nba", get_dff=mixed)
+    assert {p: d["outcome"] for p, d in out["platforms"].items()} == {
+        "draftkings": "unavailable",
+        "fanduel": "source_error",
+    }
+    # Same timestamp: the failure's 10-minute retry wins, not the 1-hour wait.
+    assert refresh.is_due("nba", NBA_NOW + timedelta(minutes=11))
+    # Each platform's view names its own state and platform.
+    dk = refresh.list_slates("nba", platform="draftkings", now=NBA_NOW)
+    fd = refresh.list_slates("nba", platform="fanduel", now=NBA_NOW)
+    assert dk["state"] == "UNAVAILABLE" and dk["reason"].startswith("DraftKings: No NBA slate")
+    assert fd["state"] == "SOURCE_ERROR" and fd["reason"].startswith("FanDuel: The last NBA")
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        {"sports": ["nba"]},
+        {"sports": "approved"},
+        {"sports": {"nba": {"approval": "approved", "approvedOn": "2026-99-99", "evidence": "x"}}},
+        {
+            "sports": {
+                "nba": {"approval": "approved", "approvedOn": "2026-10-08\n", "evidence": "x"}
+            }
+        },
+        {"sports": {"nba": {"approval": "approved", "approvedOn": "2026-10-08", "evidence": 123}}},
+        {"sports": {"nba": {"approval": "approved", "approvedOn": "2026-10-08", "evidence": "  "}}},
+        {"sports": {"nba": {"approval": "approved", "approvedOn": 20261008, "evidence": "x"}}},
+    ],
+)
+def test_malformed_approval_records_fail_closed_never_raise(tmp_path, doc):
+    from src.dfs.auto import approval
+
+    p = tmp_path / "auto_sources.json"
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    assert approval.sport_status("nba", p)["approved"] is False

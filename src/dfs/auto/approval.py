@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,8 @@ def _load(path: Path | None = None) -> dict[str, Any]:
 
 def sport_status(sport: str, path: Path | None = None) -> dict[str, Any]:
     """The schedule-source approval state for one daily sport (fails closed)."""
-    entry = ((_load(path).get("sports") or {}).get(sport)) if sport in GATED_SPORTS else None
+    sports = _load(path).get("sports")
+    entry = sports.get(sport) if isinstance(sports, dict) and sport in GATED_SPORTS else None
     if not isinstance(entry, dict):
         return {
             "sport": sport,
@@ -57,8 +59,9 @@ def sport_status(sport: str, path: Path | None = None) -> dict[str, Any]:
     approval = str(entry.get("approval") or "")
     approved = (
         approval == APPROVED
-        and bool(_DATE.match(str(entry.get("approvedOn") or "")))
-        and bool(str(entry.get("evidence") or "").strip())
+        and _is_real_date(entry.get("approvedOn"))
+        and isinstance(entry.get("evidence"), str)
+        and bool(entry["evidence"].strip())
     )
     return {
         "sport": sport,
@@ -68,6 +71,17 @@ def sport_status(sport: str, path: Path | None = None) -> dict[str, Any]:
         "decisionRecord": entry.get("decisionRecord"),
         "question": entry.get("question"),
     }
+
+
+def _is_real_date(value: object) -> bool:
+    """A real calendar date written exactly ``YYYY-MM-DD`` (no trailing text)."""
+    if not isinstance(value, str) or not _DATE.fullmatch(value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
 
 
 def awaiting_reason(sport: str) -> str:
