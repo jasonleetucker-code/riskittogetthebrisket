@@ -1,0 +1,2204 @@
+{
+  "family": "B — Trade, market evidence, Sharp, waivers/FAAB, draft capital",
+  "auditedAt": "2026-10-07T21:03:18Z",
+  "mainSha": "911411cb4211ed69bf37b62b279fad0b82e130a1",
+  "productionBuild": "14774f789d820fc398eb4e54640914c3458cb3fb (from /api/status build.commit)",
+  "rows": [
+    {
+      "id": "C3-PKG-01",
+      "aliases": [
+        "V1-36",
+        "C3-U1",
+        "OWNER_FEATURE_INVENTORY 2.2"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C3",
+      "productFamily": "Trade",
+      "capability": "One shared package generator; every generated-trade surface consumes it",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "One shared package generator; every generated-trade surface consumes it",
+      "backendOwner": "src/packages/construction.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C2-SIM-01"
+      ],
+      "reality": "src/packages/construction.py is the substrate; finder.py and angle.py consume enumerate_packages/enumerate_sides/topology_is_allowed, suggestions.py imports PackageAsset/adapt_assets/side_key/topology_is_allowed (keeps its tuned fixed 1v1/2v1 shapes by explicit preservation requirement). V1-36 VERIFIED L2 after #1100 (de492be54) made the identity guard mutation-proof; legality counting shared with roster_capacity (CLAUDE.md).",
+      "prOrBranch": "#962, #1079, #1100",
+      "evidence": "tests/packages/test_single_owner.py, tests/trade/test_suggestions_package_identity.py (mutation-proven 4 RED on bypass); /api/trade/finder + /angle production specs pass in V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 3
+    },
+    {
+      "id": "OWNER_FEATURE_INVENTORY 2.3/2.4",
+      "aliases": [
+        "W09-F001",
+        "W09-F002",
+        "W09-F009",
+        "W09-F012",
+        "W27-F002",
+        "audit C25"
+      ],
+      "sourceDoc": "docs/OWNER_FEATURE_INVENTORY.md#2.3-2.4",
+      "productFamily": "Trade",
+      "capability": "Trade Finder (arbitrage) and Trade Suggestions repaired: no empty lists without diagnosis, DBs proposable, gain normalized, dominance pruning, mutual benefit over lopsidedness",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Trade Finder (arbitrage) and Trade Suggestions repaired: no empty lists without diagnosis, DBs proposable, gain normalized, dominance pruning, mutual benefit over lopsidedness",
+      "backendOwner": "src/trade/finder.py, src/trade/suggestions.py",
+      "frontendOwner": "frontend/app/arbitrage/page.jsx, frontend/app/trade/page.jsx",
+      "dependsOn": [
+        "C3-PKG-01"
+      ],
+      "reality": "Audit findings W09-F001, W09-F002, W27-F002, W09-F009, W09-F012 are listed CLAIMED-closed (unverified) in docs/master-site-audit/CLOSURE_STATUS.md; Wave B (#1642) records decision-intelligence audit C25 still OPEN (finder multi-piece guard only fires in the give-more direction). Finder/suggestions are live and return results in production (finder spec passes).",
+      "prOrBranch": "#1642 (C25 pattern update only)",
+      "evidence": "CLOSURE_STATUS.md claimed-unverified; V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) finder/arbitrage specs pass",
+      "nextAction": "Run tools/verify_closure.py reproductions for the five W09/W27 claims on current main; fix C25 (apply the multi-piece guard symmetrically in finder) with a RED->GREEN test",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-VA-01",
+      "aliases": [
+        "V1-37",
+        "C3-U2",
+        "decision 70",
+        "W30-F005"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "One Value Adjustment per runtime with parity proof",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "One Value Adjustment per runtime with parity proof",
+      "backendOwner": "src/trade/ktc_va.py; src/valuation_math/ktc_va_core.py",
+      "frontendOwner": "frontend/lib/trade-logic.js",
+      "dependsOn": [],
+      "reality": "One Python owner (src/trade/ktc_va.py over src/valuation_math/ktc_va_core.py), public thin wrapper src/public_league/trade_grading.py, one JS owner frontend/lib/trade-logic.js::ktcAdjustPackage; _js_round parity 0/40,000. V1-37 VERIFIED L2.",
+      "prOrBranch": null,
+      "evidence": "tests/valuation_math/test_single_owner.py (mutation-tested AST single-owner scan); KTC parity fixture",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-VA-02",
+      "aliases": [
+        "V1-38",
+        "decisions 22/28/29/30/31"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "KTC Value Adjustment stays an explicit, labelled market lens (never canonical value)",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "KTC Value Adjustment stays an explicit, labelled market lens (never canonical value)",
+      "backendOwner": "src/trade/ktc_va.py",
+      "frontendOwner": "frontend/components/trade/TradeMeter.jsx",
+      "dependsOn": [],
+      "reality": "VA is applied only to package/side totals; rankDerivedValue never mutated; labelled in /trade. V1-38 VERIFIED.",
+      "prOrBranch": null,
+      "evidence": "existing parity test; tests/api/test_one_canonical_value_per_asset.py",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CON-01",
+      "aliases": [
+        "V1-130",
+        "V1-34",
+        "C3-U3",
+        "#835",
+        "W09-F011"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "One recommendation-constraint owner applied during generation, fail-closed",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "One recommendation-constraint owner applied during generation, fail-closed",
+      "backendOwner": "src/trade/constraints.py; server.py::_constraints_for_request",
+      "frontendOwner": "frontend/app/arbitrage/page.jsx",
+      "dependsOn": [
+        "C3-PKG-01"
+      ],
+      "reality": "src/trade/constraints.py is the single owner (V1-130/V1-34 VERIFIED, #929 817d9abe4) and server.py::_constraints_for_request feeds it to 3 generators (suggestions, finder, angle). But /arbitrage's session exclusions travel through a finder-local ARBITRAGE_CONTROL_KEY envelope (finder.py ~L1045 excludePlayers) instead of the owner's refinement input, i.e. a second constraint path; _constraints_for_request never passes a refinement block.",
+      "prOrBranch": "#929",
+      "evidence": "tests/trade/test_recommendation_constraints.py + test_constraint_generation.py (41, mutation-proven)",
+      "nextAction": "Route /arbitrage excludePlayers through resolve_constraints(refinement={'exclude': ...}) and delete the finder-local exclusion envelope; wire the owner into /api/gameplan package generation",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CON-02",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 2.10",
+        "#835 §2-3",
+        "ledger 103"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Persistent personal protection: per-user, per-league untouchables and NFL-team outgoing protection",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Persistent personal protection: per-user, per-league untouchables and NFL-team outgoing protection",
+      "backendOwner": "src/trade/constraints.py + user_kv (tradeConstraintsByLeague)",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C3-CON-01"
+      ],
+      "reality": "The owner reads user_kv tradeConstraintsByLeague (server.py ~L9581) but NOTHING writes it: no storage endpoint, no UI. Every user therefore resolves to 'no protections configured'.",
+      "prOrBranch": null,
+      "evidence": "git grep tradeConstraintsByLeague: one reader, zero writers",
+      "nextAction": "Add an authenticated PUT/GET for tradeConstraintsByLeague[leagueKey] {untouchables, nflTeams} with a settings/trade UI to edit it; Jason+league minimal acceptance test from the manifest",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CON-03",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 2.11",
+        "#835 §5-6",
+        "ledger 104"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Generated-package LOCK / EXCLUDE refinement controls, applied during generation",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Generated-package LOCK / EXCLUDE refinement controls, applied during generation",
+      "backendOwner": "src/trade/constraints.py",
+      "frontendOwner": "frontend/app/arbitrage/page.jsx",
+      "dependsOn": [
+        "C3-CON-01"
+      ],
+      "reality": "resolve_constraints implements lock/exclude precedence (exclude wins; persistent outranks lock), but no request carries a refinement block. Only /arbitrage has a session-only 'Exclude' button using its own envelope; no LOCK control anywhere; no persistence until cleared.",
+      "prOrBranch": null,
+      "evidence": "frontend/__tests__/components/arbitrage-refinement.test.jsx (exclude only)",
+      "nextAction": "Add lock/exclude per-player controls on generated packages (arbitrage, angle, suggestions) posting a refinement block consumed by _constraints_for_request; implement the 9 acceptance tests from the #835 spec",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-XMKT-01",
+      "aliases": [
+        "WS-J F-1",
+        "C3-U6"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Whole-package native market coverage before any external approval",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Whole-package native market coverage before any external approval",
+      "backendOwner": "src/league_intel/cross_market.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C3-PKG-01"
+      ],
+      "reality": "src/league_intel/cross_market.py value_package/compare_packages consumed by angle.py, gameplan.py, roster_intel/packages.py; AST guard forbids per-asset market summing in angle.py.",
+      "prOrBranch": null,
+      "evidence": "tests/league_intel/test_cross_market.py; /angle Package Builder production spec passes in V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-EQ-01",
+      "aliases": [
+        "V1-44",
+        "#800",
+        "decision 41"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Equalizers rank on the post-VA gap, one owner, no double application",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Equalizers rank on the post-VA gap, one owner, no double application",
+      "backendOwner": "src/trade/suggestions.py::_find_balancers",
+      "frontendOwner": "frontend/lib/trade-logic.js::findBalancers",
+      "dependsOn": [
+        "C3-VA-01"
+      ],
+      "reality": "Post-VA simulate-not-subtract rule holds in BOTH runtimes (V1-44 VERIFIED, mutation-proven) and Wave B B0 stops pick filler/topology breaks in the Python balancer. But two implementations remain (frontend/lib/trade-logic.js::findBalancers and src/trade/suggestions.py::_find_balancers) with no cross-runtime parity fixture; the manifest's evidence is 'single owner, parity'.",
+      "prOrBranch": "#1642 (B0)",
+      "evidence": "tests/trade/test_balancer_uses_adjusted_gap.py (24), test_balancer_generation_rules.py, frontend/__tests__/trade-logic.test.js",
+      "nextAction": "Add a shared JSON fixture run by both pytest and vitest asserting identical balancer choice/residual for the same sides (or serve calculator balancers from the backend owner); then close issue #800",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CTX-01",
+      "aliases": [
+        "V1-41",
+        "#842",
+        "OWNER_FEATURE_INVENTORY 2.13",
+        "Wave B B4"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Use Team Context: one shared toggle, ON by default; OFF is Asset-Only without team evidence",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Use Team Context: one shared toggle, ON by default; OFF is Asset-Only without team evidence",
+      "backendOwner": "src/trade/team_context.py; src/trade/analyze_trade.py",
+      "frontendOwner": "frontend/components/trade/TradeWarRoom.jsx; frontend/app/arbitrage/page.jsx",
+      "dependsOn": [
+        "C2-STR-01",
+        "C2-CORE-01",
+        "C5-PLAY-01"
+      ],
+      "reality": "Single reader src/trade/team_context.py (Wave B B4); War Room Team Context/Asset-only switch on /trade (#1459) and /arbitrage (#1642). Production: trade-war-room spec (1v1, 2v1, 1v2 + Asset-Only) passes desktop+mobile. Gap vs final state: the playoff/championship counterfactual is not consumed — analyze_trade.currentSeasonEquity is named UNAVAILABLE because playoff_sim.simulate_trade_impact has no production caller.",
+      "prOrBranch": "#1043, #1459, #1642",
+      "evidence": "tests/trade/test_team_context_flag.py; arbitrage-refinement.test.jsx; V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) trade-war-room.spec.js PASS",
+      "nextAction": "Wire a production caller of playoff_sim.simulate_trade_impact (roster-level, not weekly-mean shift) into the Team-Context-ON path and replace currentSeasonEquity UNAVAILABLE; then close #842",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CAP-01",
+      "aliases": [
+        "V1-39",
+        "#843",
+        "OWNER_FEATURE_INVENTORY 2.14",
+        "Wave B B2"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Evaluate trades against the final legal post-trade roster with forced-drop cost",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Evaluate trades against the final legal post-trade roster with forced-drop cost",
+      "backendOwner": "src/trade/roster_capacity.py",
+      "frontendOwner": "frontend/components/trade/TradeWarRoom.jsx",
+      "dependsOn": [
+        "C2-SIM-01",
+        "C2-DROP-01",
+        "C3-CTX-01"
+      ],
+      "reality": "roster_capacity.py is the one owner (V1-39 VERIFIED); Wave B B2 added forced_drop_cost (only releases the trade adds, None when unknown) as a ranking factor with Team Context ON. #1642's own UNRESOLVED: counterparty capacity is reported but not ranked, no consolidation credit in the finder, suggestions has no counterparty block.",
+      "prOrBranch": "#1642",
+      "evidence": "tests/trade/test_roster_capacity.py (50), test_forced_drop_cost.py, test_capacity_wiring.py; v1-45 production specs pass",
+      "nextAction": "Rank counterparty forced-drop cost in finder/angle, add finder consolidation credit, add the counterparty capacity block to /api/trade/suggestions; then close #843",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-TOPO-01",
+      "aliases": [
+        "#841/#842 supersession",
+        "Wave B B0/B1"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Generated-trade topology: abs(playersA - playersB) <= 1, picks excluded; 3v2/2v3 actually offered",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Generated-trade topology: abs(playersA - playersB) <= 1, picks excluded; 3v2/2v3 actually offered",
+      "backendOwner": "src/packages/construction.py::topology_is_allowed; src/trade/finder.py; src/trade/angle.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C3-PKG-01"
+      ],
+      "reality": "Wave B B1 wired the tested mechanism into live generators: finder adds PackageShape 2v2/3v2/2v3 from each roster's top 6 assets (finder.py ~L972-992), angle applies topology_is_allowed to every generated side, B0 stops the suggestions balancer breaking topology. Merged 0fbd5d472, in production build 14774f789; no production observation of a 3v2 offer.",
+      "prOrBranch": "#1642",
+      "evidence": "tests/packages/test_construction.py (manifest table verbatim), tests/trade/test_generated_topology.py",
+      "nextAction": "Production probe: POST /api/trade/finder for a dynasty_main team in an authenticated verification run and assert at least one 2v3/3v2 candidate and zero 3v1/1v3",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/core",
+      "aliases": [
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-06",
+        "V1-45",
+        "V1-47",
+        "OWNER_FEATURE_INVENTORY 2.1"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-02..TC-06",
+      "productFamily": "Trade",
+      "capability": "Trade calculator core: canonical values, raw total vs Value Adjustment, verdict + amount to even, player/pick equalizers, clear trade, 2-5 sides, KTC import",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Trade calculator core: canonical values, raw total vs Value Adjustment, verdict + amount to even, player/pick equalizers, clear trade, 2-5 sides, KTC import",
+      "backendOwner": "src/api/trade_simulator.py; src/trade/ktc_va.py",
+      "frontendOwner": "frontend/app/trade/page.jsx; frontend/lib/trade-logic.js",
+      "dependsOn": [
+        "C3-VA-01",
+        "C3-EQ-01"
+      ],
+      "reality": "Live /trade: raw + VA shown separately, post-VA amount-to-even and balancers, Clear Trade button, multi-team (3+) modelling preserved, KTC import/export. V1-45 VERIFIED L4 in production; today's authenticated run passes v1-45-trade-surface and trade-war-room on desktop and mobile.",
+      "prOrBranch": null,
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) (v1-45-trade-surface, trade-war-room PASS)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/TC-01",
+      "aliases": [
+        "TC-01"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-01",
+      "productFamily": "Trade",
+      "capability": "Two-sided builder with package composition summaries ('1 QB, 1 WR, 1 RB')",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Two-sided builder with package composition summaries ('1 QB, 1 WR, 1 RB')",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/trade-sections.jsx",
+      "dependsOn": [],
+      "reality": "Builder, search, pieces count, picks (exact slot + generic) and roster-aware search exist; no package composition summary is rendered (no composition/position-mix code in frontend/app/trade or components/trade).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Render a per-side position composition line from the side's asset rows (display-only, no new value math) with a vitest",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-05",
+      "aliases": [
+        "TC-05"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-05",
+      "productFamily": "Trade",
+      "capability": "Shareable trade URL reconstructs identities, quantities, destinations and methodology version",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Shareable trade URL reconstructs identities, quantities, destinations and methodology version",
+      "backendOwner": null,
+      "frontendOwner": "frontend/lib/trade-share.js",
+      "dependsOn": [],
+      "reality": "frontend/lib/trade-share.js encodes schema v1 with run-length quantity (q, #1619) and destinations; it carries no methodology/VA version, and an unknown schema version returns null rather than degrading honestly per asset.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add an optional methodology/VA version field to the share payload and an honest per-asset 'retired/unresolved' state on decode, with round-trip tests",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "OWNER-TODO 2026-10-03 Trade Calculator quantity + E/M/L picks",
+      "aliases": [
+        "#1619",
+        "#1415",
+        "T-NEW-02",
+        "TC-21",
+        "C3-CALC-01 quantity clause"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-03 — Trade Calculator: unlimited asset quantity",
+      "productFamily": "Trade",
+      "capability": "Every calculator asset repeatable (no cap, either side); Early/Mid/Late future market picks discoverable first in search",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Every calculator asset repeatable (no cap, either side); Early/Mid/Late future market picks discoverable first in search",
+      "backendOwner": null,
+      "frontendOwner": "frontend/lib/trade-assets.js; frontend/lib/trade-share.js; frontend/app/trade/page.jsx",
+      "dependsOn": [],
+      "reality": "#1619 (bf326ed92, 2026-10-03) shipped canAddEntry for any valid row, '- N +' grouping, copies preserved in totals/VA/share/export/KTC import, market group first in searchCalculatorAssets; supersedes the #1415/T-NEW-02 uniqueness half (#1441 53109028c delivered the quantity/identity half). Deployed; no production observation of the iPhone search case. Issue #1415 is still OPEN.",
+      "prOrBranch": "#1619, #1441",
+      "evidence": "vitest suites in #1619",
+      "nextAction": "Authenticated mobile production spec: search '2027' shows Early/Mid/Late 1st before owned picks and a player added twice counts twice; then close #1415",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/TC-07+TC-10",
+      "aliases": [
+        "TC-07",
+        "TC-10",
+        "MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC §6"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-07",
+      "productFamily": "Trade",
+      "capability": "Recent accepted dynasty trades shown inside the calculator with league-format tags",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Recent accepted dynasty trades shown inside the calculator with league-format tags",
+      "backendOwner": "src/trade/market_trade_report.py; src/trade/market_trade_ledger.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-MTL-01",
+        "C4-MTL-03"
+      ],
+      "reality": "No recent-trades panel exists in /trade. The substrate exists and runs in production: the completed-trade ledger (KTC + Sharp Sleeper + own-league, format dispositions) and /api/market/trades (own-league only, no frontend consumer).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add a read endpoint over underlying_trades.sqlite filtered to trades touching the calculator's assets (public KTC rows + own league only; respect the private boundary), render a 'Recent real trades' panel with format tags and UNKNOWN fields left unknown",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/TC-08",
+      "aliases": [
+        "TC-08",
+        "CE-01 UI"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-08",
+      "productFamily": "Trade",
+      "capability": "Dedicated searchable Dynasty Trade Database page",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Dedicated searchable Dynasty Trade Database page",
+      "backendOwner": "src/trade/market_trade_report.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-MTL-01",
+        "C3-CALC-01/TC-07+TC-10"
+      ],
+      "reality": "No page exists (no frontend route for market trades). Ledger, dedupe and format fingerprint exist in src/trade/market_trade_*.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Build /market/trades over the canonical underlying-trade ledger with player/pick/date/format/topology filters and deep links; private-boundary review of which lanes may display contents",
+      "blocker": null,
+      "weight": 3
+    },
+    {
+      "id": "C3-CALC-01/TC-11+TC-12",
+      "aliases": [
+        "TC-11",
+        "TC-12"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-11",
+      "productFamily": "Trade",
+      "capability": "Stacked per-asset value bars per side with VA visually distinct; consistent per-asset visual identity across trade analytics",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Stacked per-asset value bars per side with VA visually distinct; consistent per-asset visual identity across trade analytics",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/trade-sections.jsx",
+      "dependsOn": [
+        "C3-CALC-01/core"
+      ],
+      "reality": "Absent from /trade (no value-exchanged visualization).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add an accessible stacked bar (numbers visible, not color-only) using PSI ds tokens per the calculator UI contract",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-13+TC-16",
+      "aliases": [
+        "TC-13",
+        "TC-16"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-13",
+      "productFamily": "Trade",
+      "capability": "Multi-asset canonical value trend chart (7D-full) and historical high/low/current value span per asset",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Multi-asset canonical value trend chart (7D-full) and historical high/low/current value span per asset",
+      "backendOwner": "src/history/asof.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C1-HIST-01",
+        "C1-HIST-02"
+      ],
+      "reality": "Absent from /trade. The canonical as-of ledger (src/history, picks first-class) exists but no read endpoint serves trade-asset histories; /api/data/rank-history is the legacy store.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add a private endpoint returning src/history as-of series for a list of asset keys (fidelity labels, no pre-2026-07-14 fill), then the trend + span charts",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/TC-14",
+      "aliases": [
+        "TC-14"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-14",
+      "productFamily": "Trade",
+      "capability": "Quick Trade Facts table (raw total, pieces, average value/age/rank; nulls never averaged as zero)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Quick Trade Facts table (raw total, pieces, average value/age/rank; nulls never averaged as zero)",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/trade-sections.jsx",
+      "dependsOn": [],
+      "reality": "Absent from /trade.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Render the facts table from side asset rows (display-only), excluding nulls from averages, with tests",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-15",
+      "aliases": [
+        "TC-15"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-15",
+      "productFamily": "Trade",
+      "capability": "Trade value-dispersion / concentration analysis",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Trade value-dispersion / concentration analysis",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/trade-sections.jsx",
+      "dependsOn": [],
+      "reality": "Absent from /trade.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Show an explained concentration metric (e.g. top-asset share / HHI) beside asset values without implying better/worse",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-17",
+      "aliases": [
+        "TC-17"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-17",
+      "productFamily": "Trade",
+      "capability": "Biggest 30-day riser/faller cards in the calculator",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Biggest 30-day riser/faller cards in the calculator",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "C1-HIST-01"
+      ],
+      "reality": "Movers exist on /rankings and terminal surfaces but not in the calculator.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Reuse the existing movers owner (no new mover math) to render riser/faller cards on /trade, skipping assets with no 30-day baseline",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-18",
+      "aliases": [
+        "TC-18"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-18",
+      "productFamily": "Trade",
+      "capability": "Inline explainers for canonical value, VA, amount-to-even, confidence, pick valuation",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Inline explainers for canonical value, VA, amount-to-even, confidence, pick valuation",
+      "backendOwner": null,
+      "frontendOwner": "frontend/components/trade/TradeFairnessExplanation.jsx",
+      "dependsOn": [
+        "C3-CALC-01/TC-13+TC-16",
+        "C3-CALC-01/TC-15"
+      ],
+      "reality": "TradeFairnessExplanation and the Monte Carlo disclosure (#1462) exist; explainers for comparable trades, dispersion, value span do not (those features are absent).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add explainers as each analytics member lands",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-22",
+      "aliases": [
+        "TC-22"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-22",
+      "productFamily": "Trade",
+      "capability": "Cross-surface pick-value parity (Rankings, calculator, Analyze, finder, Draft Capital, history, exports, mobile)",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Cross-surface pick-value parity (Rankings, calculator, Analyze, finder, Draft Capital, history, exports, mobile)",
+      "backendOwner": "src/api/pick_value_resolution.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C1-PICK-01"
+      ],
+      "reality": "One MarketPickRef resolver (src/api/pick_value_resolution.py) and tests/picks/test_single_owner.py exist; no cross-surface parity matrix test or production comparison exists. Draft Capital uses auction dollars (a different unit) by design.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add a parity test asserting one pick key resolves to the same rankDerivedValue across contract, simulate, finder and analyze payloads",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/TC-23",
+      "aliases": [
+        "TC-23",
+        "V1-109"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-23",
+      "productFamily": "Trade",
+      "capability": "Mobile-first calculator parity for the complete workflow",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Mobile-first calculator parity for the complete workflow",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/",
+      "dependsOn": [
+        "C3-CALC-01/TC-07+TC-10",
+        "C3-CALC-01/TC-13+TC-16",
+        "C3-CALC-01/TC-14",
+        "C3-CALC-01/TC-15"
+      ],
+      "reality": "Core flow verified on mobile in production (V1-109 /trade sticky tray, trade-war-room mobile PASS today). Analytics members (trades, trends, dispersion, facts) do not exist yet, so full-workflow mobile parity cannot be complete.",
+      "prOrBranch": null,
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) prod-mobile trade-war-room + v1-109 /trade PASS",
+      "nextAction": "Extend the mobile prod spec as each analytics member lands",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-CALC-01/TC-24",
+      "aliases": [
+        "TC-24"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-24",
+      "productFamily": "Trade",
+      "capability": "Dismissible product announcement / CTA banner",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Dismissible product announcement / CTA banner",
+      "backendOwner": null,
+      "frontendOwner": "frontend/components/ds/Banner.jsx",
+      "dependsOn": [],
+      "reality": "ds/Banner supports dismiss, but no announcement mechanism with persistence/expiry exists.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add a config-driven announcement with dismiss persistence (localStorage, try/catch) and expiry, mobile-safe",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-25",
+      "aliases": [
+        "TC-25"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-25",
+      "productFamily": "Trade",
+      "capability": "Selective market/community update embeds or summaries (context only, never valuation truth)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Selective market/community update embeds or summaries (context only, never valuation truth)",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "C6-ANA-01"
+      ],
+      "reality": "Absent.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Surface existing news/intel items (already ingested sources only, attribution kept) as a context strip; no new provider without intake",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-26+TC-27",
+      "aliases": [
+        "TC-26",
+        "TC-27"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-26",
+      "productFamily": "Trade",
+      "capability": "About / FAQ / Contact / methodology surfaces and responsive footer access",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "About / FAQ / Contact / methodology surfaces and responsive footer access",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "No About/FAQ/Contact route exists in frontend/app.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add a lightweight /about (methodology summary, FAQ, contact path) linked from the PSI nav/more menu",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-28",
+      "aliases": [
+        "TC-28"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-28",
+      "productFamily": "Trade",
+      "capability": "Optional non-intrusive monetization slots",
+      "disposition": "NOT_ACTUALLY_REQUIRED",
+      "userVisibleOutcome": "Optional non-intrusive monetization slots",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "The spec states it defines safe capability only and does not require ads to be enabled; no ads are planned.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-29",
+      "aliases": [
+        "TC-29"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-29",
+      "productFamily": "Trade",
+      "capability": "KTC-reference workflow parity audit before declaring the mature calculator complete",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "KTC-reference workflow parity audit before declaring the mature calculator complete",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "C3-CALC-01/TC-07+TC-10",
+        "C3-CALC-01/TC-13+TC-16"
+      ],
+      "reality": "Not performed.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Classify each TC concept as implemented / improved / rejected / pending against production and record it in the spec",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-01/TC-30",
+      "aliases": [
+        "TC-30",
+        "C3-CALC-01"
+      ],
+      "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-30",
+      "productFamily": "Trade",
+      "capability": "Mature Trade Calculator end-state acceptance gate",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Mature Trade Calculator end-state acceptance gate",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "C3-CALC-01/core",
+        "C3-CALC-01/TC-01",
+        "C3-CALC-01/TC-05",
+        "C3-CALC-01/TC-07+TC-10",
+        "C3-CALC-01/TC-08",
+        "C3-CALC-01/TC-11+TC-12",
+        "C3-CALC-01/TC-13+TC-16",
+        "C3-CALC-01/TC-14",
+        "C3-CALC-01/TC-15",
+        "C3-CALC-01/TC-17",
+        "C3-CALC-01/TC-22",
+        "C3-CALC-01/TC-23",
+        "C4-MTL-03",
+        "C1-PICK-01 (TC-19, other family)",
+        "C1-PICK-02 (TC-20, other family)"
+      ],
+      "reality": "Gate cannot pass until analytics and real-trade members exist; core, quantity and pick-completeness pieces are done.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Run the TC-30 checklist + production browser matrix once the members land",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-02",
+      "aliases": [
+        "V1-46",
+        "#781",
+        "decisions 3-7"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Manual overrides visually silent with one global Reset Values",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Manual overrides visually silent with one global Reset Values",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/page.jsx",
+      "dependsOn": [],
+      "reality": "Shipped #1025 (b78dd858e); V1-46 VERIFIED. Issue #781 is still OPEN.",
+      "prOrBranch": "#1025",
+      "evidence": "UX tests pinned in V1-46",
+      "nextAction": "Close issue #781 citing #1025",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-03",
+      "aliases": [
+        "#791",
+        "decision 23",
+        "#1462"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Second Opinions one-glance tally ('Side A 5 · Side B 3 · Even 1 · 2 incomplete'); imputation never a vote",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Second Opinions one-glance tally ('Side A 5 · Side B 3 · Even 1 · 2 incomplete'); imputation never a vote",
+      "backendOwner": "src/api/second_opinions",
+      "frontendOwner": "frontend/components/trade/TradeSourceBreakdown.jsx",
+      "dependsOn": [],
+      "reality": "#1462 (4bfdab739) added the per-(vendor,asset) coverage taxonomy, COUNTED/ESTIMATE/NOT_APPLICABLE/INCOMPLETE rows and a one-vote-per-correlation-family tally. Deployed; no production spec observes the tally. Issue #791 still OPEN.",
+      "prOrBranch": "#1462",
+      "evidence": "second-opinions-coverage.test.jsx (14), second-opinions-scale.test.jsx",
+      "nextAction": "Add an authenticated production spec asserting the tally line renders and an IDP-only trade shows KTC as NOT_APPLICABLE, then close #791",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C3-CALC-03/open-decisions",
+      "aliases": [
+        "#791 follow-ups"
+      ],
+      "sourceDoc": "PR #1462 body 'Open owner decisions'",
+      "productFamily": "Trade",
+      "capability": "Second Opinions methodology choices left open by #1462",
+      "disposition": "OWNER_ACTION_REQUIRED",
+      "userVisibleOutcome": "Second Opinions methodology choices left open by #1462",
+      "backendOwner": null,
+      "frontendOwner": "frontend/components/trade/TradeSourceBreakdown.jsx",
+      "dependsOn": [
+        "C3-CALC-03"
+      ],
+      "reality": "#1462 records three open owner decisions: the 'Even' threshold (historical < 1 point), whether a partially covered row may ever vote, and a source-unavailable state.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "Three Second Opinions methodology parameters are unset",
+        "whyReal": "They change which side a vendor is counted for; the 10-07 directive excludes open owner methodology choices",
+        "doneAround": "Current behavior (Even < 1 point, partial rows never vote) stays in place and is labelled",
+        "ownerOrExternalAction": "Owner picks the Even threshold, partial-row vote rule and source-unavailable display",
+        "afterUnblock": "Implement as small config + test changes"
+      },
+      "weight": 1
+    },
+    {
+      "id": "C3-MC-01",
+      "aliases": [
+        "#790",
+        "decision 21",
+        "C3-U7"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Monte Carlo revalidated; win % never presented as a real-life probability",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Monte Carlo revalidated; win % never presented as a real-life probability",
+      "backendOwner": "src/trade/monte_carlo.py; src/trade/correlation_matrix.py",
+      "frontendOwner": "frontend/app/trade/page.jsx",
+      "dependsOn": [
+        "C3-VA-01",
+        "C1-HIST-01"
+      ],
+      "reality": "#1462 fixed disclosure (synthetic +/-15% band named, unpriced assets refused, text no longer claims source-disagreement sampling). Measured 0 of 1,126 rows carry a stamped band, so 100% of runs use the synthetic PRIOR band; correlation matrix still disconnected; /trade MC is 2-side only. The 10-item revalidation (history-estimated, stratified bands) is not done.",
+      "prOrBranch": "#1462",
+      "evidence": "MonteCarloDisclosure.test.jsx, MonteCarloBand.test.jsx, test_symmetrize.py",
+      "nextAction": "Build the family-bootstrap / history-estimated band as a SHADOW challenger with a preregistered backtest (champion unchanged); add explicit multi-team refusal text",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-REPLAY-01",
+      "aliases": [
+        "V1-97",
+        "ledger 101",
+        "C3-U9"
+      ],
+      "sourceDoc": "docs/trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md",
+      "productFamily": "Trade",
+      "capability": "Historical Trade Replay / As-Of with three lenses, strict no-future-information, fidelity labels",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Historical Trade Replay / As-Of with three lenses, strict no-future-information, fidelity labels",
+      "backendOwner": "src/history/asof.py",
+      "frontendOwner": "frontend/lib/trade-retro-value.js; frontend/app/trades/page.jsx",
+      "dependsOn": [
+        "C1-HIST-01",
+        "C1-HIST-02",
+        "C1-ACQ-02"
+      ],
+      "reality": "V1-97 VERIFIED (#992): no future observation, missing history never replaced by current value. But the computation lives in frontend/lib/trade-retro-value.js (self-described second implementation of src/history/asof.py) and back-derives old values via valueFromRank; picks are 'unavailable' although C1-HIST-02 records pick history first-class.",
+      "prOrBranch": "#992",
+      "evidence": null,
+      "nextAction": "Serve at-the-time values from src/history.asof (with fidelity labels and pick history) via a backend endpoint and delete the frontend valueFromRank back-derivation",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C3-AGE-01",
+      "aliases": [
+        "docs/TRADE_HISTORY_AGING_SPEC.md"
+      ],
+      "sourceDoc": "docs/TRADE_HISTORY_AGING_SPEC.md",
+      "productFamily": "Trade",
+      "capability": "Trade History 'How It Aged' with the same methodology on both timestamps and an evidence-based threshold",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Trade History 'How It Aged' with the same methodology on both timestamps and an evidence-based threshold",
+      "backendOwner": null,
+      "frontendOwner": "frontend/lib/trade-retro-value.js",
+      "dependsOn": [
+        "C3-REPLAY-01",
+        "C1-HIST-02"
+      ],
+      "reality": "trade-retro-value.js still uses the inherited fixed +/-200 band (L183-184) and raw sums; no evidence-derived threshold.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "After C3-REPLAY-01 moves server-side, derive the aging band from measured value volatility over the temporal ledger and apply the same VA methodology at both timestamps",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "#1527 stack effect informational only",
+      "aliases": [
+        "#1527",
+        "owner directive 2026-09-29"
+      ],
+      "sourceDoc": "CLAUDE.md#Trade comparison (draft-capital stack effect)",
+      "productFamily": "Trade",
+      "capability": "Draft-capital stack effect shown only as an experimental note, never in totals, verdict, flows or balancers",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Draft-capital stack effect shown only as an experimental note, never in totals, verdict, flows or balancers",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/trade/page.jsx; frontend/lib/trade-logic.js",
+      "dependsOn": [],
+      "reality": "#1527 (7a7c1efed) withdrew it; frontend/__tests__/trade-stack-withdrawn.test.js guards it. The production spec trade-stack-withdrawn.spec.js FAILS on desktop and mobile in today's run ('stack note is shown for a first-round pick' not found) - #1678 says the spec is stale since Wave A made a generic pick hypothetical for stack attribution.",
+      "prOrBranch": "#1527; fix to verifier: #1678 (open)",
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) trade-stack-withdrawn.spec.js FAIL x2",
+      "nextAction": "Merge #1678 and re-run the authenticated verification workflow",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "#1529 draft-capital stack rebuild",
+      "aliases": [
+        "#1529"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Calculator batch 2026-10-03 (#1529 row)",
+      "productFamily": "Trade",
+      "capability": "Rebuild the draft-capital stack effect so it can re-enter trade totals",
+      "disposition": "OWNER_ACTION_REQUIRED",
+      "userVisibleOutcome": "Rebuild the draft-capital stack effect so it can re-enter trade totals",
+      "backendOwner": null,
+      "frontendOwner": "frontend/lib/trade-logic.js::computeStackAdjustments",
+      "dependsOn": [
+        "OWNER-TODO 2026-10-03 Wave A"
+      ],
+      "reality": "Issue #1529 OPEN, 'LATER, NOT AUTHORIZED'; Wave A (its prerequisite) is merged. Re-entry requires an owner-approved methodology; the guard test is the methodology decision.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "No approved stack-effect methodology",
+        "whyReal": "Owner reserved it ('returns to the totals only through an owner-approved methodology')",
+        "doneAround": "Stack stays informational-only (#1527)",
+        "ownerOrExternalAction": "Owner approves or rejects a stack methodology meeting #1529's prerequisites",
+        "afterUnblock": "Implement behind the existing guard test update"
+      },
+      "weight": 2
+    },
+    {
+      "id": "OWNER-TODO 2026-10-03 Wave A",
+      "aliases": [
+        "#1626",
+        "S1",
+        "S2"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-03 — Calculator batch",
+      "productFamily": "Trade",
+      "capability": "Draft-capital correctness: one draft year, no double-counted 2027 picks, no team sends a pick it doesn't own",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Draft-capital correctness: one draft year, no double-counted 2027 picks, no team sends a pick it doesn't own",
+      "backendOwner": "src/identity/pick_lifecycle.py::league_draft_years; src/identity/picks.py::lookup_league_pick_owner",
+      "frontendOwner": "frontend/app/trade/page.jsx",
+      "dependsOn": [],
+      "reality": "#1626 (acb1da9c4) merged and deployed. Public probe of production /api/draft-capital: upcomingDraftYear 2027 with leagueDraftYears rule pick_lifecycle.league_draft_years, 72/72 unique pick assetIds, teams sum to $1200; dynasty_new 80/80 unique. Pick-lifecycle production spec passes (2026 retired, 2027-2029 present). Not observed: the /trade stack double-count fix and the unowned-pick send guard (the production stack spec is red on a stale assertion, see #1678).",
+      "prOrBranch": "#1626, #1618",
+      "evidence": "curl https://chaseupside.com/api/draft-capital (2026-10-07); V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) pick-lifecycle-horizon PASS",
+      "nextAction": "After #1678, add a production assertion that simulate/analyze reject or flag a pick sent by a non-owner and that a 2027 pick appears once in the stack note",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "#1618 follow-ups",
+      "aliases": [
+        "#1618"
+      ],
+      "sourceDoc": "PR #1642 body UNRESOLVED",
+      "productFamily": "Trade",
+      "capability": "Unknown pick ownership is never shown as 'no picks' anywhere",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Unknown pick ownership is never shown as 'no picks' anywhere",
+      "backendOwner": "server.py::_fetch_draft_capital",
+      "frontendOwner": "frontend/app/trade/page.jsx",
+      "dependsOn": [],
+      "reality": "#1642 UNRESOLVED: server.py::_fetch_draft_capital (the fourth producer) is not fixed for failed traded_picks fetch, and /trade still reads team.picks || [] so unknown picks render as none.",
+      "prOrBranch": "#1618",
+      "evidence": null,
+      "nextAction": "Make _fetch_draft_capital propagate the unknown-ownership state and render 'pick ownership unavailable' instead of an empty list; RED->GREEN tests",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "OWNER-TODO 2026-10-01 Draft Capital year selector",
+      "aliases": [
+        "#1579",
+        "Draft Capital year selector"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-01 — Draft Capital year selector",
+      "productFamily": "Trade",
+      "capability": "All Years | <year> selector on the existing Draft Capital page, derived years, per-year totals from the same $1200 pool",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "All Years | <year> selector on the existing Draft Capital page, derived years, per-year totals from the same $1200 pool",
+      "backendOwner": "src/api/draft_capital_years.py",
+      "frontendOwner": "frontend/app/league (draft-capital tab)",
+      "dependsOn": [],
+      "reality": "#1579 (77a15a33d). Production observed 2026-10-07: /league?tab=draft-capital renders 'All Years | 2027' with per-team dollars and pick lists; /api/draft-capital serves availableYears, teamTotalsByYear, yearSummaries (2027: 72 priced, 0 unpriced) and dynasty_new [2027, 2028].",
+      "prOrBranch": "#1579",
+      "evidence": "Browser read of https://chaseupside.com/league?tab=draft-capital + public /api/draft-capital probe; V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) v1-123-draft-capital PASS",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "Draft Capital 2028/2029 inventory",
+      "aliases": [
+        "Draft Capital year selector — OWNER DECISION NEEDED row"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-01 — Draft Capital year selector",
+      "productFamily": "Trade",
+      "capability": "Draft Capital years ALL/2027/2028/2029 for both leagues",
+      "disposition": "OWNER_ACTION_REQUIRED",
+      "userVisibleOutcome": "Draft Capital years ALL/2027/2028/2029 for both leagues",
+      "backendOwner": "src/api/draft_capital_fallback.py; CSVs/Draft Data.xlsx path",
+      "frontendOwner": null,
+      "dependsOn": [
+        "OWNER-TODO 2026-10-01 Draft Capital year selector"
+      ],
+      "reality": "dynasty_main's workbook inventory covers 2027 only and dynasty_new's fallback 2027-2028, although Sleeper reports traded 2028/2029 picks; extending either inventory re-spreads the $1200 pool (All Years totals move).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "How the $1200 pool spreads across 2028/2029",
+        "whyReal": "It changes every team's published draft capital; recorded as OWNER DECISION NEEDED",
+        "doneAround": "Selector shows only years present in the real inventory",
+        "ownerOrExternalAction": "Owner decides whether to extend inventory years (and the pool rule)",
+        "afterUnblock": "Extend the inventory and add the years to availableYears"
+      },
+      "weight": 1
+    },
+    {
+      "id": "V1-100",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 9.7",
+        "W00-F001"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Trade",
+      "capability": "Unauthenticated draft-capital redaction",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Unauthenticated draft-capital redaction",
+      "backendOwner": "server.py /api/draft-capital",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Anonymous production call to /api/draft-capital returns rookieBoardRedacted: true (probe 2026-10-07).",
+      "prOrBranch": null,
+      "evidence": "public probe 2026-10-07",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C7-POST-01",
+      "aliases": [
+        "#840",
+        "OWNER_FEATURE_INVENTORY 2.12",
+        "Wave B B3"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+      "productFamily": "Trade",
+      "capability": "Competitive Posture PUSH / HOLD / RETOOL / REBUILD, explained, probabilistic, context only",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Competitive Posture PUSH / HOLD / RETOOL / REBUILD, explained, probabilistic, context only",
+      "backendOwner": "src/roster_intel/window.py",
+      "frontendOwner": "frontend/components/trade/TradeWarRoom.jsx",
+      "dependsOn": [
+        "C2-STR-01",
+        "C2-AGE-02",
+        "C5-PLAY-01"
+      ],
+      "reality": "Wave B B3: src/roster_intel/window.py canonical posture on the continuous window, HOLD = label-flip share of a perturbation grid, null confidence with no evidence; team_impact._classify_window retired; War Room 'Team direction (context, not a vote)'. Live board measured 5 PUSH/3 HOLD/1 RETOOL/3 REBUILD. Parameters are PRIOR; not observed in production; listed here because the family brief names Wave B (C7 family may also carry it).",
+      "prOrBranch": "#1642",
+      "evidence": "tests/roster_intel/test_posture.py, tests/api/test_competitive_posture_wiring.py",
+      "nextAction": "Authenticated production spec asserting the War Room Team direction section renders a label with confidence for both teams; then close #840",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C7-PICKGEN-01",
+      "aliases": [
+        "#841",
+        "OWNER_FEATURE_ADDENDUM_2026-08-14_TRADE_FINDER_POSTURE_AWARE_PICKS",
+        "Wave B B5",
+        "OWNER-TODO 2026-10-03 unknown-slot market side"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C7",
+      "productFamily": "Trade",
+      "capability": "Posture-aware pick generation: owned picks enter generated trades only when mutually beneficial",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Posture-aware pick generation: owned picks enter generated trades only when mutually beneficial",
+      "backendOwner": "src/trade/finder.py; src/trade/pick_market.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C7-POST-01",
+        "C3-CTX-01",
+        "C1-PICK-03"
+      ],
+      "reality": "Wave B B5: owned picks offered only in complementary posture pairs, protected/excluded picks never sent; unknown-slot market side = KTC Early/Mid/Late average or forecast-weighted (src/trade/pick_market.py). Measured: 6-177 pick-inclusive candidates per team and none reaches a top 40, because the two-team mutual-utility objective (current-season equity counterfactual) is not wired.",
+      "prOrBranch": "#1642",
+      "evidence": "tests/trade/test_posture_aware_picks.py, test_pick_market.py",
+      "nextAction": "Add the two-team mutual-utility term (both sides' current-season equity from the playoff counterfactual) to finder ranking so complementary pick packages can surface; then close #841",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "OWNER-TODO 2026-10-04 draft-order rule + pick forecast",
+      "aliases": [
+        "docs/picks/DRAFT_ORDER_RULE.md",
+        "Wave B B6"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Canonical rookie-draft order + probability-weighted Pick Forecast",
+      "productFamily": "Trade",
+      "capability": "Canonical rookie draft order (reverse record, lower PF tiebreak) and probability-weighted pick forecast for generated-trade pick pricing",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Canonical rookie draft order (reverse record, lower PF tiebreak) and probability-weighted pick forecast for generated-trade pick pricing",
+      "backendOwner": "src/public_league/draft_order.py; src/ros/playoff_sim.py; src/trade/pick_market.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C5-PLAY-01"
+      ],
+      "reality": "#1642 B6: src/public_league/draft_order.py + config/leagues/draft_order_rules.json (dynasty_main); playoff_sim emits draftSlotDistribution/finalWins/finalPointsFor; pick_market P_used = c*P + (1-c)/3. Committed runner output data/ros/sims/latest_playoff.json (computedAt 2026-10-07T17:39Z) carries draftOrderRule reverse_record_lower_pf and slot distributions - but pointsModelSource is 'fallback-constants' and the sim is near-deterministic after 4/14 weeks (one team 98.6% title odds, another 0.03 expected final wins), so slot forecasts are extreme; provisional c = 0.5*4/14 limits the effect.",
+      "prOrBranch": "#1642",
+      "evidence": "tests/public_league/test_draft_order.py, tests/ros/test_draft_slot_forecast_e2e.py, tests/ros/test_standings_tiebreak.py; data/ros/sims/latest_playoff.json",
+      "nextAction": "Repair the playoff sim's fallback-constants points model (C5-PLAY-01 owner) so slot distributions are credible; then verify a finder pick's provenance block in production",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "#1652",
+      "aliases": [
+        "Pick Projector draft-order follow-up"
+      ],
+      "sourceDoc": "docs/picks/DRAFT_ORDER_RULE.md",
+      "productFamily": "Trade",
+      "capability": "Pick Projector ordered by the canonical draft-order rule via season-simulation slots (Team Strength ordering deleted)",
+      "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+      "userVisibleOutcome": "Pick Projector ordered by the canonical draft-order rule via season-simulation slots (Team Strength ordering deleted)",
+      "backendOwner": "src/ros/pick_projection.py; src/ros/pick_forecast_snapshot.py",
+      "frontendOwner": "frontend/app/league (_pick-projector.jsx)",
+      "dependsOn": [
+        "OWNER-TODO 2026-10-04 draft-order rule + pick forecast"
+      ],
+      "reality": "Open PR #1652 (claude/clever-cori-avckkk), CI green (L0 + Validate PR), independent review APPROVE_WITH_NITS fixed; also upgrades AL-P4 capture to projector identity v2 with slot distributions + season progress. Merging via the stabilization train.",
+      "prOrBranch": "#1652",
+      "evidence": null,
+      "nextAction": "Merge via the stabilization train; post-deploy check /api/ros/pick-projections meta.source == season_simulation on dynasty_main and no_draft_order_rule_for_league on dynasty_new",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "pick-forecast confidence calibration",
+      "aliases": [
+        "AL-6 (future-pick distribution)",
+        "Wave B B6 calibration"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Canonical rookie-draft order + probability-weighted Pick Forecast",
+      "productFamily": "Trade",
+      "capability": "Calibrate the pick-forecast trust weight c against realized slots",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "userVisibleOutcome": "Calibrate the pick-forecast trust weight c against realized slots",
+      "backendOwner": "src/trade/pick_market.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "#1652",
+        "AL-P4"
+      ],
+      "reality": "c is provisional (0.5 x weeks-final share); calibration code fits c per season quarter but has no history: AL-P4 v1 snapshots lack slot distributions (v2 is in #1652) and realized slots exist only after a draft order is final.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "No realized-slot outcomes paired with archived forecasts",
+        "whyReal": "Outcomes only exist when the 2026 regular season ends (draft order fixed)",
+        "doneAround": "Provisional c, labelled provisional, never a hard switch to the modal tier",
+        "ownerOrExternalAction": "Time: archive weekly forecasts (#1652 AL-P4 v2) until the season completes",
+        "afterUnblock": "Fit c per quarter and promote through the model registry"
+      },
+      "weight": 1
+    },
+    {
+      "id": "dynasty_new draft-order rule",
+      "aliases": [],
+      "sourceDoc": "docs/picks/DRAFT_ORDER_RULE.md",
+      "productFamily": "Trade",
+      "capability": "Pick forecast for dynasty_new",
+      "disposition": "OWNER_ACTION_REQUIRED",
+      "userVisibleOutcome": "Pick forecast for dynasty_new",
+      "backendOwner": "config/leagues/draft_order_rules.json",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "config/leagues/draft_order_rules.json records the rule for dynasty_main only; dynasty_new is UNKNOWN and fails closed (no slot forecast, plain average).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "dynasty_new's rookie draft-order rule is not recorded",
+        "whyReal": "It is a league-rule fact only the owner/commissioner can state; inferring it is forbidden",
+        "doneAround": "dynasty_new fails closed to the generic Early/Mid/Late average",
+        "ownerOrExternalAction": "Owner states dynasty_new's draft-order rule",
+        "afterUnblock": "Add one config row; forecasts activate automatically"
+      },
+      "weight": 1
+    },
+    {
+      "id": "draft-order rollover gap",
+      "aliases": [],
+      "sourceDoc": "PR #1642 body UNRESOLVED",
+      "productFamily": "Trade",
+      "capability": "Between Sleeper season rollover and the rookie draft, use the previous season's final standings to fix the known order",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Between Sleeper season rollover and the rookie draft, use the previous season's final standings to fix the known order",
+      "backendOwner": "src/ros/playoff_sim.py; src/public_league/draft_order.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "#1642 UNRESOLVED: in that window no slot forecast is produced (fails safe to the plain average) although the order is already determined.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Feed the completed prior season's final standings through league_draft_order_rule to emit a certain (c=1) slot per pick during the rollover window, with a test",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "AL-P4",
+      "aliases": [
+        "G-pick-forecast"
+      ],
+      "sourceDoc": "docs/BRISKET_IDEAS.md#13.4",
+      "productFamily": "Trade / Adaptive Learning",
+      "capability": "Dated private weekly pick-forecast + team-strength snapshot (first-write-wins, backed up)",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Dated private weekly pick-forecast + team-strength snapshot (first-write-wins, backed up)",
+      "backendOwner": "src/ros/pick_forecast_snapshot.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "#1604 merged (release train ee37e357a); production backup/restore proof shows data/pick_forecast_snapshots with 2 files restored and verified. Slot-distribution capture (v2) is in #1652.",
+      "prOrBranch": "#1602/#1604",
+      "evidence": "Retention backup + restore proof run 37678996694 (2026-10-07, on the production box)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-MTL-01",
+      "aliases": [
+        "CE-01",
+        "Batch 3 Unit I",
+        "ADDENDUM 2026-10-01 Sharp-discovered Sleeper trades",
+        "ADDENDUM 2026-10-01 format-normalized dispositions",
+        "C4-U3"
+      ],
+      "sourceDoc": "docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md#3,#19",
+      "productFamily": "Market evidence",
+      "capability": "Market Trade Ledger: normalized multi-lane completed-trade ledger with format metadata and cross-source dedupe (unresolved stays unresolved)",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Market Trade Ledger: normalized multi-lane completed-trade ledger with format metadata and cross-source dedupe (unresolved stays unresolved)",
+      "backendOwner": "src/trade/market_trade_ledger.py, market_trade_archive.py, market_trade_normalize.py, market_trade_groups.py, market_trade_format.py, market_trade_report.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C1-ID-01",
+        "C1-ACQ-01"
+      ],
+      "reality": "Own-league lane (#961 892df5686) plus Batch 3 Unit I (#1586 22974490f): KTC + Sharp-discovered Sleeper + own-league lanes, market_trade_groups §19.5 hierarchy with one underlyingTradeId, market_trade_format fingerprint/dispositions, point-in-time format capture (#1606/#1607 b46eabe5f). Production: the raw archive (fetches/identity_snapshots/raw_observations, 8.9 MB), own-league/Sharp format captures and 14 ledger report files exist on the box and restore cleanly.",
+      "prOrBranch": "#961, #1586, #1607, #1610",
+      "evidence": "Retention backup + restore proof run 37678996694 (2026-10-07, on the production box); tests/trade/test_market_trade_*",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 3
+    },
+    {
+      "id": "C4-MTL-02",
+      "aliases": [
+        "AL-P1",
+        "G2",
+        "KTC Trade DB capture"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C4",
+      "productFamily": "Market evidence",
+      "capability": "KTC Trade Database ingestion lane (permission-scoped, KTC-labelled provenance) running in production",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "KTC Trade Database ingestion lane (permission-scoped, KTC-labelled provenance) running in production",
+      "backendOwner": "src/sources/ktc_trades.py; src/trade/market_trade_archive.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-MTL-01",
+        "F-EXT-01"
+      ],
+      "reality": "src/sources/ktc_trades.py + scripts/fetch_ktc_trades.py, dynasty-ktc-trades timer (*:07,*:37) installed by deploy/install-systemd-service.sh. Production: data/market_trades/archive.sqlite (schema v1, raw_observations) exists, is in the nightly backup and passes PRAGMA integrity_check on restore.",
+      "prOrBranch": "#1586",
+      "evidence": "Retention backup + restore proof run 37678996694 (2026-10-07, on the production box)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C4-MTL-03",
+      "aliases": [
+        "TC-09",
+        "MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC §4/§7/§8"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Market evidence",
+      "capability": "Comparable-trade matching (indexed, format-aware, recency-aware; never averaged into canonical value)",
+      "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+      "userVisibleOutcome": "Comparable-trade matching (indexed, format-aware, recency-aware; never averaged into canonical value)",
+      "backendOwner": "src/trade/comparable_trades.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-MTL-01"
+      ],
+      "reality": "src/trade/comparable_trades.py (#961) implements four of five spec match tiers but has NO caller (no endpoint, no UI) and still searches only own registered leagues, not the broad ledger built since (#1586).",
+      "prOrBranch": "#961",
+      "evidence": null,
+      "nextAction": "Point comparable_trades at the canonical underlying-trade ledger (all lanes, dispositions respected), expose it on an authenticated endpoint used by TC-07 and Second Opinions, measure latency + relevance",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C4-KTC-01",
+      "aliases": [
+        "V1-26",
+        "W05-F005"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Market evidence",
+      "capability": "KTC playerID -> identity has one owner",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "KTC playerID -> identity has one owner",
+      "backendOwner": "src/sources/ktc_identity.py; Dynasty Scraper.py (scrape_ktc Strategy 2)",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "src/sources/ktc_identity.py owns it (V1-26 VERIFIED, join 200/200). tests/sources/test_ktc_identity.py::KNOWN_DEFERRED_DERIVATIONS still pins scrape_ktc Strategy 2's own id->name map (board-affecting, needs a measured unit).",
+      "prOrBranch": null,
+      "evidence": "tests/sources/test_ktc_identity.py",
+      "nextAction": "Migrate scrape_ktc Strategy 2 onto ktc_identity with a board_diff measurement; remove the KNOWN_DEFERRED_DERIVATIONS entry",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-FAAB-01",
+      "aliases": [
+        "CE-19",
+        "#830",
+        "decisions 56-65",
+        "FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14 §4-§11"
+      ],
+      "sourceDoc": "docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "FAAB Market Heat + normalized external evidence: four separate populations, % of original budget, bounded heat",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "FAAB Market Heat + normalized external evidence: four separate populations, % of original budget, bounded heat",
+      "backendOwner": "src/trade/faab_engine.py; src/trade/faab_recommender.py",
+      "frontendOwner": "frontend/components/waivers/FaabRecommendation.jsx",
+      "dependsOn": [
+        "C4-MTL-01",
+        "C4-WAIV-01"
+      ],
+      "reality": "Engine Stage E consumes Sleeper Most-Added via faab_recommender._trending_share (engagement lift); crowd (KTC/MFL) population with faab_comparability; own-league history keeps $0 bids. Missing vs #830: Sharp-league winning-bid ingestion, Most Dropped as weaker context, an explicit ~10% heat cap/backtest against Brisket clearing prices.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Ingest Sharp-league completed waiver bids (budget/format metadata required, fail closed) as a fourth labelled population in the market layer; add Most Dropped as context; backtest with scripts/faab_backtest.py",
+      "blocker": null,
+      "weight": 3
+    },
+    {
+      "id": "C4-FAAB-02",
+      "aliases": [
+        "V1-57",
+        "#911"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "FAAB bid-history collection is scheduled",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "FAAB bid-history collection is scheduled",
+      "backendOwner": "scripts/fetch_faab_history.py; src/trade/faab_history.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "dynasty-faab-history timer (V1-57 VERIFIED L3, on-box run 32843495391). Today's production backup restores data/faab/ (4 files).",
+      "prOrBranch": null,
+      "evidence": "Retention backup + restore proof run 37678996694 (2026-10-07, on the production box)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "F-FAAB-01",
+      "aliases": [
+        "V1-55",
+        "OWNER_FEATURE_INVENTORY 3.1",
+        "#1209"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+      "productFamily": "Waivers / FAAB",
+      "capability": "One FAAB engine separating objective ceiling from recommended bid",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "One FAAB engine separating objective ceiling from recommended bid",
+      "backendOwner": "src/trade/faab_engine.py",
+      "frontendOwner": "frontend/components/waivers/FaabRecommendation.jsx",
+      "dependsOn": [],
+      "reality": "src/trade/faab_engine.py, one engine (#1209 unified the engines); V1-55 VERIFIED; backtest 166/166 -> 0/166 low-value overbids.",
+      "prOrBranch": null,
+      "evidence": "tests/trade/test_faab_*.py; scripts/faab_backtest.py",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "V1-56",
+      "aliases": [
+        "#1151",
+        "OWNER_FEATURE_INVENTORY 3.2",
+        "W11-F006"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "FAAB league context panel (league budget and typical winning bids beside the bid), including with no team selected",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "FAAB league context panel (league budget and typical winning bids beside the bid), including with no team selected",
+      "backendOwner": "src/api/faab_analytics.py",
+      "frontendOwner": "frontend/components/waivers/ManualAddDrop.jsx",
+      "dependsOn": [],
+      "reality": "Strip verified in production with a team selected (v1-56 spec PASS today). Issue #1151 OPEN and real on main: ManualAddDrop.jsx renders FaabHeaderStat only inside the selectedTeam branch, so league analytics never show without a team.",
+      "prOrBranch": null,
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) v1-56-waivers-faab-strip PASS (team selected)",
+      "nextAction": "Render the league-level FAAB tiles outside the selectedTeam branch (team-specific remaining stays gated), add a no-team vitest, close #1151",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "V1-129",
+      "aliases": [
+        "audit F-33",
+        "#911"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "External crowd-FAAB evidence is comparable (single-copy, format-matched), fresh and position-capable",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "External crowd-FAAB evidence is comparable (single-copy, format-matched), fresh and position-capable",
+      "backendOwner": "src/trade/faab_comparability.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "src/trade/faab_comparability.py single owner at fetch and read; target TEP from the fresh scoring card; offense-only population refuses IDP. On-box run measured 146 retained rows, IDP refused. TEP severity axis intentionally dormant (no crosswalk).",
+      "prOrBranch": null,
+      "evidence": "V1-129 Lane 4 on-box run 32843495391; tests/trade/test_faab_crowd.py",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "OWNER-TODO 2026-09-24 classify_need decision",
+      "aliases": [
+        "Lane A classify_need"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Calculator completion campaign Lane A",
+      "productFamily": "Waivers / FAAB",
+      "capability": "faab_engine.classify_need is only a FAAB interpretation of canonical lineup demand and need depth",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "faab_engine.classify_need is only a FAAB interpretation of canonical lineup demand and need depth",
+      "backendOwner": "src/trade/faab_engine.py::classify_need",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "#1436 (5ff4bafcd) routed classify_need through src/ros/lineup.py (demand) and src/roster_intel/weakness.py::position_depth; deployed since 2026-09-25.",
+      "prOrBranch": "#1436",
+      "evidence": "tests/trade/test_faab_engine.py",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "OWNER-TODO 2026-09-24 FAAB vs Trade flex demand",
+      "aliases": [],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner decision — FAAB vs Trade flex demand stays as-is",
+      "productFamily": "Waivers / FAAB",
+      "capability": "Keep FAAB's fractional flex split and Trade's lineup-owner flex assignment separate",
+      "disposition": "INTENTIONALLY_FUTURE",
+      "userVisibleOutcome": "Keep FAAB's fractional flex split and Trade's lineup-owner flex assignment separate",
+      "backendOwner": "src/trade/faab_engine.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Owner decision recorded as DECISION (deferred): do not unify without a measured, owner-approved methodology change.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "Live Waiver Opportunity layer",
+      "aliases": [
+        "#1209",
+        "#1313",
+        "docs/faab-live-opportunity-model.md"
+      ],
+      "sourceDoc": "docs/faab-redesign-2026-09-01-report.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "Short-term opportunity layer for FAAB bids, promoted only after shadow evidence",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "userVisibleOutcome": "Short-term opportunity layer for FAAB bids, promoted only after shadow evidence",
+      "backendOwner": "src/trade/faab_opportunity.py; src/trade/faab_shadow.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "AL-8"
+      ],
+      "reality": "#1209 built src/trade/faab_opportunity.py; #1313 Stage 1 turned waiver_live_opportunity ON for SHADOW logging only (live response pinned to canonical value). Promotion awaits outcome evidence from data/faab/shadow_comparisons_<league>.json.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "Not enough resolved shadow comparisons to fit retention() or judge promotion",
+        "whyReal": "Promotion before its evidence gate is owner-reserved",
+        "doneAround": "Shadow keeps accumulating; live bids stay canonical-only",
+        "ownerOrExternalAction": "Time + a human-reviewed promotion decision once evidence exists",
+        "afterUnblock": "Fit retention shape, run the promotion review"
+      },
+      "weight": 2
+    },
+    {
+      "id": "#738 FAAB residual follow-ups",
+      "aliases": [
+        "#738"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "Close out the FAAB redesign handoff (#738)",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Close out the FAAB redesign handoff (#738)",
+      "backendOwner": null,
+      "frontendOwner": "frontend/app/api/waiver/",
+      "dependsOn": [],
+      "reality": "Median and timer items are resolved (faab_analytics keeps $0 bids; V1-57). Still open: no Next dev bridge route frontend/app/api/waiver/faab-recommend/route.js (local dev only), and the issue is open.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add the dev bridge route and close #738 (timer Requires= item belongs to ops)",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-WAIV-01",
+      "aliases": [
+        "CE-19 ledger half"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Waivers / FAAB",
+      "capability": "Per-league waiver event history ledger",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Per-league waiver event history ledger",
+      "backendOwner": "src/trade/waiver_ledger.py; server.py /api/market/waivers",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C1-ACQ-01"
+      ],
+      "reality": "src/trade/waiver_ledger.py (#961) projects the canonical acquisition ledger; served at authenticated /api/market/waivers. No frontend consumer; production response not observed (401 anonymously).",
+      "prOrBranch": "#961",
+      "evidence": null,
+      "nextAction": "Add /api/market/waivers to the authenticated production verification (row counts by league, failed claims preserved)",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C4-SHARP-01",
+      "aliases": [
+        "V1-58",
+        "C4-U2"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "Sharp cohort proven populated in production",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Sharp cohort proven populated in production",
+      "backendOwner": "src/sharp/cohort.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "V1-58 VERIFIED L3: on-box run 32843495391 resolved 2,389 members through cohort_members on production stores; Sharp pages render real data in today's production run.",
+      "prOrBranch": null,
+      "evidence": "V1-58 on-box run; V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789) v1-62/v1-123 sharp specs PASS",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "#951",
+      "aliases": [
+        "#951"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "The scheduled 'Verify Sharp Production Population' smoke actually measures",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "The scheduled 'Verify Sharp Production Population' smoke actually measures",
+      "backendOwner": ".github/workflows (verify-sharp-production)",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "data/ops/sharp-production-smoke.json: status unverifiable_unauthenticated since 2026-08-20, lastMeasuredOn null (401 on /api/sharp/cohort). The V1 authenticated workflow already mints and revokes an ephemeral guest pass on the box.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Reuse the ephemeral guest-pass mint/revoke steps from the V1 authenticated workflow in the Sharp smoke (no long-lived token), so the gate records a measured cohort count",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-SHARP-02",
+      "aliases": [
+        "V1-59"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "Sharp bootstrap stops failing",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Sharp bootstrap stops failing",
+      "backendOwner": "src/intel/platform_ledger.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "V1-59 VERIFIED L3 (scheduled chain proof, #1144); 'Bootstrap Sharp Records' run 37678996959 succeeded 2026-10-07.",
+      "prOrBranch": null,
+      "evidence": "docs/ops/V1_59_SCHEDULED_CHAIN_PROOF_2026-08-26.md; run 37678996959",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-SHARP-03",
+      "aliases": [
+        "V1-60"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "FFPC roster lane is real or honestly empty",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "FFPC roster lane is real or honestly empty",
+      "backendOwner": "src/platforms/ffpc/",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "V1-60 VERIFIED: CollectResult.status/unavailable_reason; FFPC returns no_cohort_managers_on_platform instead of an empty success. A real feed needs a roster-bearing URL (optional per the final state).",
+      "prOrBranch": null,
+      "evidence": "V1-60 tests",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-INS-01",
+      "aliases": [
+        "V1-65",
+        "OWNER_FEATURE_INVENTORY 4.8"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "Insider Trading / cross-league ownership consumes the canonical ledger",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Insider Trading / cross-league ownership consumes the canonical ledger",
+      "backendOwner": "src/intel/",
+      "frontendOwner": "frontend/app/intel/page.jsx",
+      "dependsOn": [],
+      "reality": "V1-65 VERIFIED L2 on-box census (14,264 leagues; gates reconciled); today's production run passes v1-123-insider-trading on desktop and mobile.",
+      "prOrBranch": null,
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "V1-61",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 4.5"
+      ],
+      "sourceDoc": "docs/sharp-roster-percentage/METHODOLOGY.md",
+      "productFamily": "Sharp",
+      "capability": "Sharp Roster Percentage",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Sharp Roster Percentage",
+      "backendOwner": "src/sharp/roster_percentage.py",
+      "frontendOwner": "frontend/app/market/sharp-roster-percentage/page.jsx",
+      "dependsOn": [],
+      "reality": "VERIFIED L4 (authenticated render matches response); production spec passes today (desktop).",
+      "prOrBranch": null,
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "V1-62",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 4.4",
+        "SHARP_INSIDER spec §7/§7.1"
+      ],
+      "sourceDoc": "docs/SHARP_INSIDER_EXPERIENCE_PERFORMANCE_SPEC.md#7",
+      "productFamily": "Sharp",
+      "capability": "Sharp Tracker: buys/sells, unique managers/leagues, 48h/7d/14d/30d/90d windows, drill-down",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Sharp Tracker: buys/sells, unique managers/leagues, 48h/7d/14d/30d/90d windows, drill-down",
+      "backendOwner": "src/sharp/market.py",
+      "frontendOwner": "frontend/app/market/sharp-tracker/page.jsx",
+      "dependsOn": [
+        "C8-PERF-04 (perf, other family)"
+      ],
+      "reality": "VERIFIED L4 2026-09-01; WINDOWS 48h..all in the page; uniqueManagers/uniqueLeagues in src/sharp/market.py; production spec passes today.",
+      "prOrBranch": null,
+      "evidence": "V1 Authenticated Production Verification run 37678996634 (2026-10-07, head 0869c595c = code of prod build 14774f789)",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "V1-63",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 4.6"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "Manager-level Sharp concentration (rosters vs people)",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Manager-level Sharp concentration (rosters vs people)",
+      "backendOwner": "src/sharp/roster_percentage.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "VERIFIED L1 (#977 ef41523a8).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "V1-64",
+      "aliases": [
+        "OWNER_FEATURE_INVENTORY 4.7",
+        "SHARP_INSIDER spec §15.12"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sharp",
+      "capability": "Sharp event ledger surfaces adds/drops, deduped within windows",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Sharp event ledger surfaces adds/drops, deduped within windows",
+      "backendOwner": "src/intel/platform_ledger.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "VERIFIED L1 on both producers (#936 5bdee44db).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "SHARP_INSIDER spec §7.2",
+      "aliases": [],
+      "sourceDoc": "docs/SHARP_INSIDER_EXPERIENCE_PERFORMANCE_SPEC.md#7.2",
+      "productFamily": "Sharp",
+      "capability": "Sharp Tracker conditions on league format (1QB/SF, TEP, team count, depth, IDP) using the Market Trade Ledger format architecture",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Sharp Tracker conditions on league format (1QB/SF, TEP, team count, depth, IDP) using the Market Trade Ledger format architecture",
+      "backendOwner": "src/sharp/market.py; src/sharp/league_format_capture.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-MTL-01"
+      ],
+      "reality": "src/sharp/market.py has no format conditioning; the point-in-time Sharp league format capture now exists in production (#1607, sharp_league_format_captures restored in today's proof).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add a format filter to /api/sharp/market keyed on the captured TradeMarketFormat dimensions (unknown stays unknown) and a selector on the tracker",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "SHARP_INSIDER spec §8",
+      "aliases": [
+        "SHARP_INSIDER spec §9 buying workflow",
+        "§10 guided tour"
+      ],
+      "sourceDoc": "docs/SHARP_INSIDER_EXPERIENCE_PERFORMANCE_SPEC.md#8",
+      "productFamily": "Sharp",
+      "capability": "Insider Trading decision workflow: league explicit, user needs first, sell/buy choice, Insider report receipts, manager drill-down, Similar Value / Possible Return Finder, hand-off",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Insider Trading decision workflow: league explicit, user needs first, sell/buy choice, Insider report receipts, manager drill-down, Similar Value / Possible Return Finder, hand-off",
+      "backendOwner": "src/intel/",
+      "frontendOwner": "frontend/app/intel/page.jsx",
+      "dependsOn": [
+        "C4-INS-01",
+        "C2-WEAK-01",
+        "C3-PKG-01"
+      ],
+      "reality": "Insider table (C4-INS-01) is live and verified; frontend/app/intel/page.jsx has no needs-first step, possible-return finder or execution hand-off.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Add Step B (team needs from the canonical weakness owner) and Step G (possible-return packages via the angle owner) to /intel",
+      "blocker": null,
+      "weight": 3
+    },
+    {
+      "id": "AL-P7",
+      "aliases": [],
+      "sourceDoc": "docs/BRISKET_IDEAS.md#13.4",
+      "productFamily": "Sharp / Adaptive Learning",
+      "capability": "Sharp trade retention past the 400-day intel prune",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Sharp trade retention past the 400-day intel prune",
+      "backendOwner": "src/intel/ledger.py::prune; src/trade/market_trade_archive.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "src/intel/ledger.py::prune still DELETEs asset_movements older than MOVEMENT_RETENTION_DAYS and orphaned transactions; Sharp-lane trades are read by the market ledger but not copied into the append-only archive.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Before pruning, copy trade movements into the append-only market_trades archive (idempotent) or exempt trade movements from the prune; test that no trade is deleted without an archived copy",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "AL-10",
+      "aliases": [
+        "SHARP_INSIDER spec §6.1",
+        "Adaptive Learning §13"
+      ],
+      "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning",
+      "productFamily": "Sharp / Adaptive Learning",
+      "capability": "Sharp Score validated against future outcomes (incl. the roster-quality evidence lane) before any qualification change",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Sharp Score validated against future outcomes (incl. the roster-quality evidence lane) before any qualification change",
+      "backendOwner": "src/sharp/score.py; config/sharp/scoring_v2.json",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-SHARP-01"
+      ],
+      "reality": "Not started; scoring_v2 weights are the champion. Needs AL-0 receipts (merged #1597).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Build a report-only validation of Sharp Score vs subsequent value/roster outcomes with receipts; no qualification change",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C6-MGR-01",
+      "aliases": [
+        "CE-03",
+        "AL-11",
+        "#1146 (FAAB manager tendencies)"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+      "productFamily": "Manager intelligence",
+      "capability": "Manager Scout / manager tendencies derived from canonical transaction, waiver and lineup history",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Manager Scout / manager tendencies derived from canonical transaction, waiver and lineup history",
+      "backendOwner": "src/intel/; src/acquisition/; src/trade/faab_history.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C1-ACQ-01",
+        "C4-MTL-01"
+      ],
+      "reality": "Absent as a product (no manager-scout module/route). Substrate exists: acquisition ledger, intel ledger, FAAB bid predictor that learns per-manager tendencies from resolved losing bids (#1146). Listed here because the family brief names manager tendencies; C6 family may also carry it.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Build a per-manager tendency profile (trade frequency, positions bought/sold, FAAB aggressiveness) from canonical stores with tendency tests; private surface only",
+      "blocker": null,
+      "weight": 3
+    },
+    {
+      "id": "AL-2 ops",
+      "aliases": [
+        "AL-2a″ (IDP inventory)"
+      ],
+      "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning Wave 1",
+      "productFamily": "Market evidence / Adaptive Learning",
+      "capability": "Completed-trade ledger in production with bootstrap and accumulated coverage censuses (IDP inventory included)",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Completed-trade ledger in production with bootstrap and accumulated coverage censuses (IDP inventory included)",
+      "backendOwner": "scripts/market_trade_ledger.py --census",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-MTL-02",
+        "AL-2a"
+      ],
+      "reality": "First production capture proven (archive on the box). No bootstrap or accumulated census result has been recorded anywhere in the repo; per-capture turnover tracking not evidenced.",
+      "prOrBranch": null,
+      "evidence": "Retention backup + restore proof run 37678996694 (2026-10-07, on the production box)",
+      "nextAction": "Run `python scripts/market_trade_ledger.py --census` on the box via an on-box workflow and commit only the public projection (counts, IDP inventory, window turnover)",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "AL-2a",
+      "aliases": [],
+      "sourceDoc": "docs/market_trades/TARGET_FORMAT_CENSUS.md",
+      "productFamily": "Market evidence / Adaptive Learning",
+      "capability": "Target-format evidence census over the completed-trade ledger (report-only)",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "Target-format evidence census over the completed-trade ledger (report-only)",
+      "backendOwner": "src/trade/market_trade_report.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "#1595 (73c345b40) merged and deployed: target_format_census / build_target_format_census, 13 comparability axes. No production run recorded.",
+      "prOrBranch": "#1595",
+      "evidence": "tests/trade/test_market_trade_census.py",
+      "nextAction": "Same on-box census run as AL-2 ops",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "AL-2a′",
+      "aliases": [
+        "owner methodology decision 2 (2026-10-01)",
+        "plan §35 T1/T8"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-01 completed-trade addenda",
+      "productFamily": "Market evidence / Adaptive Learning",
+      "capability": "BROAD_CONTEXT disposition (timing-limited / format-mismatch, targetPriceAuthority 0)",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+      "userVisibleOutcome": "BROAD_CONTEXT disposition (timing-limited / format-mismatch, targetPriceAuthority 0)",
+      "backendOwner": "src/trade/market_trade_format.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "#1610 (7e8d8cda2) merged and deployed; disposition counts on production not observed.",
+      "prOrBranch": "#1610",
+      "evidence": null,
+      "nextAction": "Include per-disposition counts in the on-box census projection",
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "AL-2b0",
+      "aliases": [],
+      "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning Wave 1",
+      "productFamily": "Market evidence / Adaptive Learning",
+      "capability": "Translator readiness table per format axis from census counts",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Translator readiness table per format axis from census counts",
+      "backendOwner": "src/trade/market_trade_report.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "AL-2 ops"
+      ],
+      "reality": "Not built; inputs (accumulated census) are one run away.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Emit READY_FOR_PREREGISTERED_TEST / PROMISING_BUT_CONFOUNDED / INSUFFICIENT_SAMPLE / NOT_IDENTIFIABLE per axis from accumulated-census counts",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "AL-2b",
+      "aliases": [],
+      "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning Wave 1",
+      "productFamily": "Market evidence / Adaptive Learning",
+      "capability": "At most one preregistered shadow format translator on an identifiable axis",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "userVisibleOutcome": "At most one preregistered shadow format translator on an identifiable axis",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "AL-2b0"
+      ],
+      "reality": "Not started; requires an axis the readiness table marks READY_FOR_PREREGISTERED_TEST.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "No axis yet proven identifiable",
+        "whyReal": "The preregistered method forbids fitting a translator on an unidentifiable axis",
+        "doneAround": "All non-native trades stay BROAD_CONTEXT/TARGET_UNSUPPORTED",
+        "ownerOrExternalAction": "Evidence: AL-2b0 must report a READY axis from real counts",
+        "afterUnblock": "Preregister and run one shadow translator"
+      },
+      "weight": 2
+    },
+    {
+      "id": "AL-2c",
+      "aliases": [
+        "MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC §13",
+        "Batch 3 completed-trade benchmark latent price"
+      ],
+      "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning Wave 1",
+      "productFamily": "Market evidence / Adaptive Learning",
+      "capability": "Shadow format-aware latent transaction-price model (transactionMarketValueGeneric vs TargetLeague)",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "userVisibleOutcome": "Shadow format-aware latent transaction-price model (transactionMarketValueGeneric vs TargetLeague)",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "AL-2b"
+      ],
+      "reality": "Not started; shadow only, after AL-2b.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "Translator evidence chain not yet established",
+        "whyReal": "Native evidence must dominate; without AL-2b only native trades are usable and the sample may be insufficient",
+        "doneAround": "Native-only diagnostics via market_trade_eval residuals",
+        "ownerOrExternalAction": "Evidence accumulation (AL-2 ops/AL-2b0/AL-2b)",
+        "afterUnblock": "Fit the shadow model; never promote without the registry gate"
+      },
+      "weight": 3
+    },
+    {
+      "id": "AL-P5",
+      "aliases": [],
+      "sourceDoc": "docs/BRISKET_IDEAS.md#13.4",
+      "productFamily": "Trade / Adaptive Learning",
+      "capability": "Decision/recommendation receipts at serve time (finder, suggestions, angle, FAAB recommend, Perfect Draft server half)",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "Decision/recommendation receipts at serve time (finder, suggestions, angle, FAAB recommend, Perfect Draft server half)",
+      "backendOwner": "src/history/ + src/model_registry/ (AL-0 receipts)",
+      "frontendOwner": null,
+      "dependsOn": [
+        "AL-0"
+      ],
+      "reality": "Not implemented (BRISKET_IDEAS §13.4: NOT_CAPTURED); AL-0 receipt store merged (#1597) with no production writer.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Write private receipts (contract generation, inputs hash, outputs) from the four trade/FAAB endpoints with byte-identical outputs pinned by tests",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "AL-8",
+      "aliases": [],
+      "sourceDoc": "docs/BRISKET_IDEAS.md#14",
+      "productFamily": "Waivers / FAAB / Adaptive Learning",
+      "capability": "FAAB clearing-price learning (shadow) from own-league history incl. failed bids",
+      "disposition": "AUTHORIZED_AND_READY",
+      "userVisibleOutcome": "FAAB clearing-price learning (shadow) from own-league history incl. failed bids",
+      "backendOwner": "src/trade/faab_history.py; src/trade/faab_engine.py",
+      "frontendOwner": null,
+      "dependsOn": [
+        "C4-FAAB-02",
+        "AL-0"
+      ],
+      "reality": "Not started; inputs exist (bid_history with failed claims, crowd ledger, shadow comparisons).",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": "Report-only fit of clearing price vs modelled rival distribution with receipts; champion unchanged",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "AL-13",
+      "aliases": [],
+      "sourceDoc": "docs/BRISKET_IDEAS.md#14",
+      "productFamily": "Trade / Adaptive Learning",
+      "capability": "Trade recommendation evaluation against what was later accepted/realized",
+      "disposition": "DEPENDENCY_BLOCKED",
+      "userVisibleOutcome": "Trade recommendation evaluation against what was later accepted/realized",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [
+        "AL-P5",
+        "C7-DESK-01"
+      ],
+      "reality": "Cannot start without served-recommendation receipts.",
+      "prOrBranch": null,
+      "evidence": null,
+      "nextAction": null,
+      "blocker": {
+        "what": "No archived recommendations to evaluate",
+        "whyReal": "Recommendations are computed per request and not recorded (G8)",
+        "doneAround": "None",
+        "ownerOrExternalAction": "AL-P5 receipts + time for outcomes",
+        "afterUnblock": "Run the evaluation over receipts"
+      },
+      "weight": 2
+    },
+    {
+      "id": "C4-SRC-01",
+      "aliases": [
+        "V1-89",
+        "OD-04"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sources",
+      "capability": "DraftSharks staleness resolved",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "DraftSharks staleness resolved",
+      "backendOwner": "scripts/fetch_draftsharks.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "OD-04 resolved by owner 2026-08-25 (accept HEALTHY_CURRENT); production /api/status 2026-10-07 shows draftSharks and draftSharksIdp ageHours 3.26 with 367/318 served rows.",
+      "prOrBranch": null,
+      "evidence": "https://chaseupside.com/api/status probe 2026-10-07",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "C4-SRC-02",
+      "aliases": [
+        "#1675",
+        "#1065"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sources",
+      "capability": "Partial source runs, freshness, coverage and degraded state reported honestly and distinctly",
+      "disposition": "PARTIAL",
+      "userVisibleOutcome": "Partial source runs, freshness, coverage and degraded state reported honestly and distinctly",
+      "backendOwner": "server.py::_build_source_health_snapshot; src/sources/dataset_state.py",
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Production /api/status now reports total_sources 26 / sources_with_data 22 and partial_run false (the '2 of 21 healthy' defect is gone). Open PR #1675 fixes remaining reporting defects (declared seasonal/private absence listed as missing, unknown age rendered fresh, watchdogs defaulting missing ageHours to 0.0); follow-ups D1/D6/D8/D9 and #1065 (IDPTC fetch-fresh vs content-stale end to end) remain.",
+      "prOrBranch": "#1675 (open)",
+      "evidence": "/api/status probe 2026-10-07",
+      "nextAction": "Merge #1675 via the stabilization train, then the D1 first-observation baseline fix and #1065 content-staleness surfacing",
+      "blocker": null,
+      "weight": 2
+    },
+    {
+      "id": "C4-SRC-03",
+      "aliases": [],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
+      "productFamily": "Sources",
+      "capability": "FootballGuys ghost stamps removed",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "FootballGuys ghost stamps removed",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "No footballguys files remain under data/scrape_state on main; production registered_sources has none.",
+      "prOrBranch": null,
+      "evidence": "git ls-tree origin/main data/scrape_state; /api/status",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "F-EXT-01",
+      "aliases": [
+        "OD-01 (KTC)",
+        "#1555"
+      ],
+      "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+      "productFamily": "Sources",
+      "capability": "KTC data-use permission recorded",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "KTC data-use permission recorded",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Owner decision 2026-09-30 (#1555): owner-reported authorization to scrape all KTC data is the recorded authorization.",
+      "prOrBranch": null,
+      "evidence": "docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md §19.2",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "F-EXT-02",
+      "aliases": [
+        "OD-01 (IDPTC)"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner attestation — source access (2026-09-25)",
+      "productFamily": "Sources",
+      "capability": "IDPTC authorization recorded or dependency re-scoped",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "IDPTC authorization recorded or dependency re-scoped",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Owner attestation 2026-09-25 (OWNER_ATTESTED_AUTHORIZED) names IDP Trade Calculator among authorized sources; record docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md. Manifest row text is stale.",
+      "prOrBranch": null,
+      "evidence": "docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    },
+    {
+      "id": "F-EXT-03",
+      "aliases": [
+        "OD-01 (credentialed)"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner attestation — source access (2026-09-25)",
+      "productFamily": "Sources",
+      "capability": "Consistent posture for credentialed/paywall-adjacent sources",
+      "disposition": "COMPLETE_AND_PROVEN",
+      "userVisibleOutcome": "Consistent posture for credentialed/paywall-adjacent sources",
+      "backendOwner": null,
+      "frontendOwner": null,
+      "dependsOn": [],
+      "reality": "Same owner attestation covers DLF, DraftSharks, IDP Show, Flock and the existing portfolio; new providers still go through intake. Manifest row text is stale.",
+      "prOrBranch": null,
+      "evidence": "docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md",
+      "nextAction": null,
+      "blocker": null,
+      "weight": 1
+    }
+  ]
+}

@@ -244,7 +244,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ### Starting the Stack
 
 ```powershell
-.\start_dynasty.bat          # Start Python backend (port 8000)
+python server.py            # Start Python backend (port 8000; there is no start_dynasty.bat)
 .\start_frontend.bat         # Start Next.js dev server (port 3000)
 .\start_stack.bat            # Start both in separate windows
 ```

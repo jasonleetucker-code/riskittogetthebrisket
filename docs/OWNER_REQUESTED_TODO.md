@@ -1632,3 +1632,36 @@ service".
 | Authorizes (once begun): point-in-time capture; evaluation; scorecards; learning receipts; shadow challengers; drift measurement; source-value measurement; trade-evidence evaluation; projection evaluation; explainability; internal Model Lab UX; bounded performance/refactor work for these surfaces; promotion ONLY through an already-authorized model-specific mechanism with every pre-existing gate satisfied | CAPTURED — begins after stabilization |
 | NOT authorized: lowering a promotion gate; any shortcut around P6 / model-registry governance; automatic retraining on drift; self-promotion; autonomous trades/waivers; DFS entry; buying data; Signals IDP activation without its preregistered gate; treating user edits as independent evidence; treating dependent sources as independent; learning facts/rules; optimizing for agreement with the current Calculator | RECORDED — binding boundary |
 | Success definition: for any important player / source / model, Calculator answers "WHY DO WE BELIEVE THIS?" from stored evidence — what we knew, when, from where, freshness, independence, coverage, model, prediction, performance, challengers, failed challengers, what would change the champion, and why the user sees today's result | RECORDED — acceptance |
+
+## Added 2026-10-07 — Calculator completion campaign ("FINISH THE CALCULATOR SITE", owner directive)
+
+Owner directive received 2026-10-07 (after the stabilization and learning-loop directives the same day). Authorization
+is recorded in `docs/EXECUTION_PLAN.md` §0; this entry captures intent. Mission: from the actual current state of `main`,
+AUDIT → RECONCILE → STABILIZE → IMPLEMENT → INTEGRATE → TEST → DEPLOY → VERIFY → next dependency, until every in-scope,
+owner-approved, authorized, technically actionable Calculator requirement not behind a genuine external/owner-only gate
+is COMPLETE. The repository (not the directive's prose) defines the denominator; the directive is not a feature list.
+
+| Item | Disposition |
+|---|---|
+| Zero-loss completion ledger over existing canonical ids (C-Series manifest, V1, DFS traceability, SI milestones, AL-*, IC-*, auction, owner-intake residue); one requirement → one row → one disposition from the 13-value enum; requirement-weighted dashboard by product family | DONE — `docs/completion/CALCULATOR_COMPLETION_DASHBOARD.md` (597 rows, 20.3% weighted complete at 2026-10-07) |
+| Execute dependency-ready requirements in coherent, independently reviewed PR batches; integrate via release trains with exact-head release-candidate validation; verify production (implemented ≠ integrated ≠ deployed ≠ production-verified) | IN PROGRESS |
+| Families to verify before declaring complete: Rankings, Trade, Player File, League Hub, Team Strength, Draft Capital, Power Rankings, Schedule Intelligence, Game Day, playoff/title forecasting, FAAB/waivers, Sharp, source reliability, projections, BDVM, awards/MVP, reports/share, DFS, mock rookie auction, Adaptive Learning four loops + Model Lab, explainability, Premium UI route matrix, mobile, accessibility, performance, security/auth, backup/restore, CI/deploy identity, production E2E | RECORDED — binding acceptance list |
+| Keep MARKET / SHARP / MANAGER / ANALYST / CANONICAL distinct; missing ≠ zero; no frontend engines; no second owners; no evidence deletion; no paid storage | RECORDED — binding |
+| Owner-only gates (spend, credentials, contest entry, autonomous trades/waivers, real messages, official auction launch, real league changes, gate-bypassing activations, weakening validation, provider-terms violations, silent methodology change) | RECORDED — remain owner-gated; work completes up to the gate |
+| Final deliverable: CALCULATOR COMPLETION REPORT (main/deployed SHA, weighted completion, family table, PR/issue dispositions, source/model/data/performance/mobile/a11y/security/E2E state, owner actions, external blockers, limitations; the completion statement only if evidence supports it) | CAPTURED |
+
+## Added 2026-10-07 — IDP Trade Calculator freshness cutoff (owner decision, final)
+
+Resolves integrity-sweep §8.1 (ledger rows SRC-STALEPRES / OD-STALE-QUAR). Recorded in
+`docs/sources/SOURCE_FRESHNESS_WEIGHTING.md` §G ("Owner decision 2026-10-07").
+
+| Item | Disposition |
+|---|---|
+| Keep `quarantineBelow 0.02` exactly as-is in production; no minimum voting floor to avoid a single-provider (KTC) pick state | DECIDED — binding |
+| Preserve the quarantined IDPTC observation as historical evidence; never delete or zero it | DECIDED — binding |
+| After the cutoff: finite canonical pick values where the architecture supports it honestly; stamp single current provider, reduced coverage and the existing confidence penalty; confidence must never rise because IDPTC disappeared | DECIDED — verify (lane `claude/idptc-cutoff-readiness`) |
+| No manufactured second independent vote from KTC-derived signals; Crowd / Trades / Market not counted as independent providers where they share lineage | DECIDED — binding |
+| Alert/report the degraded evidence state; not a production outage while the remaining value is valid | DECIDED — verify |
+| Keep trying to restore/replace independent IDP / pick evidence through the authorized source path | ONGOING |
+| Optional shadow-only challenger testing a small stale-source floor (no production effect unless it passes the normal gates) | AUTHORIZED — shadow only |
+

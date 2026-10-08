@@ -1,0 +1,2376 @@
+{
+ "family": "C — Seasonal engines, league hub, schedule, power rankings, playoff odds, Game Day, analyst intelligence, awards, reports",
+ "auditedAt": "2026-10-07T21:29:00Z",
+ "mainSha": "911411cb4211ed69bf37b62b279fad0b82e130a1",
+ "productionBuild": "14774f789d820fc398eb4e54640914c3458cb3fb",
+ "rows": [
+  {
+   "id": "C5-POW-01",
+   "aliases": [
+    "V1-52",
+    "C5-U4",
+    "T-NEW-08"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Power Rankings",
+   "capability": "One weekly power-rankings engine with public and private views",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "One Power Rankings board on /league, identical across views",
+   "backendOwner": "src/ros/power_v2.py",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx",
+   "dependsOn": [
+    "C2-STR-01"
+   ],
+   "reality": "src/public_league/power.py was deleted by #1009 (f92a465ed), after #979 (6c235cb51) and #996 (c8ee6fcba). power_v2 is the only engine, consumed by public_contract and the server.py lens routing. A production probe of /api/public/league/rosPower shows rankSource canonical_engine, model canonical-power-2026.09-v2, 12/12 rows. The manifest row still says DUPLICATED, which is stale.",
+   "prOrBranch": "#1009 f92a465ed",
+   "evidence": "prod rosPower probe 2026-10-07; docs/power/V1_52_CANONICAL_POWER_ENGINE.md",
+   "nextAction": "Update the C5-POW-01 manifest status to consolidated",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "TODO-2026-09-19-power-ppg-recent",
+   "aliases": [
+    "PRIOR-A03-F03",
+    "claude/ppg-recent-accuracy-lhc0x4"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Power Rankings PPG/Recent accuracy",
+   "productFamily": "Power Rankings",
+   "capability": "Power Rankings PPG/Recent never count an in-progress week",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "PPG and Recent columns use the same finished-week denominator for every team",
+   "backendOwner": "src/ros/power_v2.py (metrics.final_regular_season_weeks)",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx",
+   "dependsOn": [
+    "C5-POW-01"
+   ],
+   "reality": "Merged as #1397 (5b8e00d82, 2026-09-22) with the final-week gate and published denominators. On a Wednesday the production payload shows countedWeeks [1-4], partialWeeks [] and recentGamesUsed 4. The defect's own condition (a live in-progress week) has not been observed in production.",
+   "prOrBranch": "#1397 5b8e00d82",
+   "evidence": "prod rosPower countedWeeks/partialWeeks",
+   "nextAction": "Probe rosPower during Week 5 games (Thu Oct 8 to Mon Oct 12); counted weeks must stay [1-4]",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-22-power-ros-rebalance",
+   "aliases": [
+    "reduced ROS influence decision"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Power Rankings ROS/demonstrated-performance rebalance",
+   "productFamily": "Power Rankings",
+   "capability": "Reduce ROS influence relative to demonstrated performance in Power Rankings",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Rankings reward demonstrated results more than projection",
+   "backendOwner": "src/ros/power_v2.py",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx",
+   "dependsOn": [
+    "C5-POW-01"
+   ],
+   "reality": "#1397 (5b8e00d82). Production weights are ros .30 / all_play .30 / recent .15 / vorp .15 / wl .10, with target forward/results 0.3/0.7. resultsEvidence 0.864665 = 1-e^(-4/2), which confirms tau 2. Recent shows as inactive because it is redundant.",
+   "prOrBranch": "#1397 5b8e00d82",
+   "evidence": "prod rosPower methodology/effectiveWeights",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "CANONICAL_WEEKLY_POWER_RANKINGS_SPEC-§12",
+   "aliases": [
+    "power rolling-origin backtest"
+   ],
+   "sourceDoc": "docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md#12",
+   "productFamily": "Power Rankings",
+   "capability": "Rolling-origin historical backtest of the Power Rankings formula",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Evidence that the official formula predicts next-week results better than simple baselines",
+   "backendOwner": "src/ros/power_v2.py (new evaluation script)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-POW-01"
+   ],
+   "reality": "Nothing exists: no script, test or doc. The owner said it remains valuable and was deferred in the 2026-09-22 rebalance. Historical inputs (2024/2025 Sleeper and 2026 weeks 1-4) are re-fetchable.",
+   "prOrBranch": null,
+   "evidence": "grep: 'rolling-origin' appears only in spec/research docs",
+   "nextAction": "Write a report-only no-lookahead replay of 2024/2025 and 2026 weeks 1-4 against record/PPG/all-play/results-only baselines (next-week and 3-week all-play rank correlation plus weight sensitivity)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "TODO-2026-09-23-power-pipeline-methodology",
+   "aliases": [
+    "#1400",
+    "#1401"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Power Rankings pipeline audit + methodology display",
+   "productFamily": "Power Rankings",
+   "capability": "Power Rankings refuse partial snapshots; methodology text comes from the canonical effective weights",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "A complete 12-team board with an accurate, backend-generated methodology",
+   "backendOwner": "src/ros/power_v2.py; src/public_league snapshot ingest",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx",
+   "dependsOn": [
+    "C5-POW-01"
+   ],
+   "reality": "#1400 (0c156fc1c) and #1401 (4e79d10ad). Production shows rankingComplete true, expectedTeamCount 12, and methodology weights equal to effectiveWeights, with reasons.",
+   "prOrBranch": "#1400 0c156fc1c; #1401 4e79d10ad",
+   "evidence": "prod rosPower probe",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-19-week-in-progress-note",
+   "aliases": [],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Power Rankings PPG/Recent accuracy (deferred follow-up 2)",
+   "productFamily": "Power Rankings",
+   "capability": "\"Week N in progress — not yet counted\" note on Power/Luck",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Users see explicitly that the current week is excluded",
+   "backendOwner": "src/ros/power_v2.py (already publishes partialWeeks)",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx",
+   "dependsOn": [
+    "TODO-2026-09-19-power-ppg-recent"
+   ],
+   "reality": "Not built. Only week 0 renders \"Week 1 in progress\" (ros-power.jsx:386). The intake records it as an open product call on whether it is wanted.",
+   "prOrBranch": null,
+   "evidence": "code read",
+   "nextAction": "If the owner approves, render it from the published partialWeeks (small UI change)",
+   "blocker": {
+    "what": "Owner product call on whether the in-progress note is wanted",
+    "whyReal": "The intake explicitly leaves the decision to the owner",
+    "doneAround": "Nothing; the denominator fix already makes the board correct",
+    "ownerOrExternalAction": "Owner answers yes or no",
+    "afterUnblock": "A roughly one-file UI change from the existing payload field"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C5-POW-snapshots-share",
+   "aliases": [
+    "power weekly snapshots",
+    "power publication",
+    "power share card",
+    "#1295",
+    "#1378",
+    "#1398"
+   ],
+   "sourceDoc": "docs/BRISKET_IDEAS.md#13.1",
+   "productFamily": "Power Rankings",
+   "capability": "Immutable weekly Power snapshots, official publication and a share card",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "A weekly official board with movement and a shareable card",
+   "backendOwner": "src/ros/scrape.py::_refresh_power_snapshots -> power_snapshots.record_snapshot",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx (in-page share card)",
+   "dependsOn": [
+    "C5-POW-01"
+   ],
+   "reality": "Tracked data/ros/power_snapshots: dynasty_main/2026 week_00-04 and dynasty_new/2026 week_01-04, last written 2026-10-06 (17f1cf24d). Production officialSnapshot is week 4, finalized 2026-10-06, with movement against week 3. The share card is in-page (#1295/#1378/#1398 5f7aa9dc5). Known gap: the public endpoint serves dynasty_main only (dynasty_new returns 404), and dynasty_new has no week-0 baseline (recorded as lost).",
+   "prOrBranch": "#1398 5f7aa9dc5",
+   "evidence": "git-tracked snapshots; prod officialSnapshot",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C5-PLAY-01",
+   "aliases": [
+    "V1-51",
+    "C5-U3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Playoff / title odds",
+   "capability": "One playoff-probability engine (one simulation substrate)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "One playoff/title probability per team, everywhere",
+   "backendOwner": "src/ros/playoff_sim.py (target); src/public_league/playoff_odds.py (second engine)",
+   "frontendOwner": "frontend/app/league/sections (playoffOdds, rosPlayoffOdds)",
+   "dependsOn": [
+    "C2-LINE-01"
+   ],
+   "reality": "The bracket is unified through playoff_structure (#919 20eeaedc4, #930 ef95cc339), with finished-week and fail-closed fixes (#1435, #1465). Two simulators are still both served in production and disagree: Kich 99.0% in playoffOdds vs 77.2% in rosPlayoffOdds, and Collin 85.1% vs 99.4%.",
+   "prOrBranch": "#919 20eeaedc4; #930 ef95cc339",
+   "evidence": "prod playoffOdds vs rosPlayoffOdds probe 2026-10-07",
+   "nextAction": "Make playoff_sim the canonical engine; playoff_odds either delegates to it or is retired from public serving, with a parity test (no methodology change: D2/D3 stay separate)",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "TODO-2026-09-23-playoff-finished-week",
+   "aliases": [
+    "Calculator campaign Lane D early item"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Power Rankings pipeline audit (P2 playoff odds)",
+   "productFamily": "Playoff / title odds",
+   "capability": "Playoff Odds use only finished weeks and keep real 0.0 scores",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Playoff odds are not distorted mid-week",
+   "backendOwner": "src/public_league/playoff_odds.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PLAY-01"
+   ],
+   "reality": "Merged in #1435 (ee255c98d): _season_weekly_scores consumes luck._season_weekly_scores plus _final_week_set, with regression tests. Production weeksPlayed 4 matches luck finalizedWeeks [1-4]. The mid-week case has not been observed live.",
+   "prOrBranch": "#1435 ee255c98d",
+   "evidence": "prod playoffOdds weeksPlayed",
+   "nextAction": "Probe playoffOdds during Week 5 games and confirm weeksPlayed stays 4",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-26-championship-input-integrity",
+   "aliases": [
+    "D1",
+    "D4",
+    "D5",
+    "claude/championship-input-integrity"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Championship / playoff odds methodology",
+   "productFamily": "Playoff / title odds",
+   "capability": "Championship odds never published from failed or foreign inputs",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "No coin-flip odds, no frozen live weeks, no cross-league rosters",
+   "backendOwner": "src/ros/playoff_sim.py; src/ros/scrape.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PLAY-01"
+   ],
+   "reality": "#1465 (2d91f2077) through train #1466 (b4a97111d). Production rosPlayoffOdds/rosChampionship were computed 2026-10-07T17:39 with weeksFinal 4 and playoffStructure 7/1 from league settings; separate dynasty_new_* sim files exist.",
+   "prOrBranch": "#1465 2d91f2077",
+   "evidence": "prod rosChampionship probe",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-26-D2",
+   "aliases": [
+    "ROS double count in playoff_sim"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Championship / playoff odds methodology (D2)",
+   "productFamily": "Playoff / title odds",
+   "capability": "Remove the double-counted ROS strength in the playoff/title simulator mean",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Title odds that are not overconfident (Brent 98.6%)",
+   "backendOwner": "src/ros/playoff_sim.py:594",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PLAY-01"
+   ],
+   "reality": "Still open: playoff_sim.py:594 keeps emp_mean*(1+ROS_BLEND*ros_z), production rosBlend is 0.2, and no challenger exists. Brent's production championship odds are 98.6%.",
+   "prOrBranch": null,
+   "evidence": "code read; prod rosChampionship",
+   "nextAction": "Build the proposal as a shadow challenger under AL-5c (log-loss/PIT on finalized weeks, no promotion) to inform the owner",
+   "blocker": {
+    "what": "Owner methodology decision on D2 (drop the multiplier / fit the points model to league scoring / add a per-draw team shock)",
+    "whyReal": "A methodology change to a published probability; the intake records it as awaiting owner approval",
+    "doneAround": "A shadow challenger and its evidence can be built now",
+    "ownerOrExternalAction": "Owner approves or rejects the proposal after seeing the challenger evidence",
+    "afterUnblock": "Promote through P6 champion/challenger"
+   },
+   "weight": 2
+  },
+  {
+   "id": "TODO-2026-09-26-D3",
+   "aliases": [
+    "median games in simulators",
+    "#1530 finding: simulators ignore median"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Championship / playoff odds methodology (D3)",
+   "productFamily": "Playoff / title odds",
+   "capability": "Median games counted in simulated records and seeding",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Simulated records match the host's record (4-0, not 2-0)",
+   "backendOwner": "src/ros/playoff_sim.py; src/public_league/playoff_odds.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PLAY-01"
+   ],
+   "reality": "Neither simulator awards median games; dynasty_main runs league_average_match=1. On 2026-09-26 the host showed 4-0 while the simulator showed 2-0. No owner decision is recorded.",
+   "prOrBranch": null,
+   "evidence": "intake 2026-09-26; #1530 findings",
+   "nextAction": "Prepare a shadow variant that counts median W/L in records and seeding for owner review",
+   "blocker": {
+    "what": "Owner methodology decision on whether and how median games enter seeding",
+    "whyReal": "Recorded as a methodology decision awaiting owner approval",
+    "doneAround": "Shadow variant and evidence",
+    "ownerOrExternalAction": "Owner decides",
+    "afterUnblock": "Implement in the canonical simulator, which also unblocks SI-D prospective comparisons"
+   },
+   "weight": 2
+  },
+  {
+   "id": "AL-P6",
+   "aliases": [
+    "AL-5a",
+    "playoff/title forecast archive",
+    "#1602",
+    "#1604"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning sections 9-31",
+   "productFamily": "Playoff / title odds",
+   "capability": "Point-in-time playoff/title forecast archive with model identity",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Season-end calibration of title odds becomes possible",
+   "backendOwner": "src/ros/forecast_archive.py -> data/forecast_archive/",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Capture was merged in train #1602 (ee37e357a); deploy.sh runs archive_ros_forecasts --git-history, and committed identity sidecars appear through 2026-10-07. The acceptance clause \"commit-history backfill labelled nearest-prior\" is not built: the code reports skipped:pre_archive, deferred by #1602. The on-box archive was not observed, and the claim row is stale (\"in progress\").",
+   "prOrBranch": "#1602 ee37e357a",
+   "evidence": "code; identity sidecars in git",
+   "nextAction": "Build the labelled nearest-prior backfill from data/ros/sims git history, then do an on-box archive row-count check",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-5b",
+   "aliases": [
+    "season-end playoff/title calibration"
+   ],
+   "sourceDoc": "docs/research/ADAPTIVE_LEARNING_2026-09-26.md#AL-5",
+   "productFamily": "Playoff / title odds",
+   "capability": "Season-end calibration of playoff/title forecasts",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "A reliability report on title odds",
+   "backendOwner": "src/ros/forecast_archive.py consumer (to build)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-P6",
+    "AL-0"
+   ],
+   "reality": "Requires realized 2026 playoff outcomes, which do not exist until the season ends (January 2027). The archive feeding it is accumulating (AL-P6).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Run after the 2026 championship is decided",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "AL-5c",
+   "aliases": [
+    "playoff/title calibration challengers"
+   ],
+   "sourceDoc": "docs/research/ADAPTIVE_LEARNING_2026-09-26.md#AL-5",
+   "productFamily": "Playoff / title odds",
+   "capability": "Calibration challengers for the playoff/title simulators",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Better-calibrated odds",
+   "backendOwner": "src/ros/playoff_sim.py (shadow)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-5b",
+    "TODO-2026-09-26-D2",
+    "TODO-2026-09-26-D3"
+   ],
+   "reality": "None exist. The plan sequences them after AL-5b, and they implement the open D2/D3 methodology choices.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SI-A",
+   "aliases": [
+    "#1531",
+    "#1530"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#3",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Canonical schedule-impact contract with an exact equal-opponent baseline and the League Hub table",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "The Luck tab shows each team's schedule impact in win credits",
+   "backendOwner": "src/public_league/schedule_impact.py",
+   "frontendOwner": "frontend/components/league/ScheduleImpact.jsx",
+   "dependsOn": [],
+   "reality": "#1531 (72eee1cb1). Production luck.scheduleImpact covers 2024-2026 across 12 teams, and impacts sum to 0. Exhaustive 6-team oracle tests plus 6 sabotages.",
+   "prOrBranch": "#1531 72eee1cb1",
+   "evidence": "prod /api/public/league/luck; tests/public_league/test_schedule_impact.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SI-B/core",
+   "aliases": [
+    "#1541",
+    "timing_only_v1",
+    "Schedule Multiverse"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#5b",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Exact week-order distributions and the read-only Schedule Multiverse",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "\"Same opponents, different weeks\" table on the Luck tab",
+   "backendOwner": "src/public_league/schedule_impact.py",
+   "frontendOwner": "frontend/components/league/ScheduleImpact.jsx",
+   "dependsOn": [
+    "SI-A"
+   ],
+   "reality": "#1541 (52a3059f8). Production luck payload carries timingOnly schedule-timing-2026.09-b2 for 3 seasons.",
+   "prOrBranch": "#1541 52a3059f8",
+   "evidence": "prod luck probe",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SI-B/remainder",
+   "aliases": [
+    "league-valid alternative calendar",
+    "finish/qualification distributions"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "League-valid alternative-calendar model with record/finish/qualification distributions, persisted snapshots and scrape-job precompute",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Percentiles, finish and qualification odds under defensible alternative schedules",
+   "backendOwner": "src/public_league/schedule_impact.py + calendar sampler",
+   "frontendOwner": "frontend/components/league/ScheduleImpact.jsx",
+   "dependsOn": [
+    "SI-A",
+    "SI-B/core"
+   ],
+   "reality": "Not started; no open PR or branch. The finish sampler exists as unpublished library code. The prerequisite per-league rules record (divisions, tiebreaks) does not exist and is part of this unit.",
+   "prOrBranch": null,
+   "evidence": "spec §6; no PR",
+   "nextAction": "Add a canonical per-league format/rules record (divisions, tiebreaks) and publish the existing finish sampler under a separate model id",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "SI-C/team-page",
+   "aliases": [
+    "#1540"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Schedule impact summary on team pages",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Franchise page \"Schedule impact\" card plus a per-season column",
+   "backendOwner": "src/public_league/schedule_impact.py",
+   "frontendOwner": "frontend/app/league/franchise/[owner]/page.jsx",
+   "dependsOn": [
+    "SI-A"
+   ],
+   "reality": "#1540 (2126f4531). The production server-rendered franchise page contains \"Schedule impact — 2026\".",
+   "prOrBranch": "#1540 2126f4531",
+   "evidence": "prod SSR HTML probe",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SI-C/power-context",
+   "aliases": [
+    "#1540"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Schedule context on Power Rankings, display only, formula unchanged",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "A \"Schedule\" column beside Record, labelled \"not part of the power score\"",
+   "backendOwner": "src/public_league/schedule_impact.py",
+   "frontendOwner": "frontend/app/league/sections/ros-power.jsx",
+   "dependsOn": [
+    "SI-A",
+    "C5-POW-01"
+   ],
+   "reality": "Shipped in #1540 (2126f4531), with ranks and scores pinned identical by test. The column is client-rendered, so no production observation of it is recorded.",
+   "prOrBranch": "#1540 2126f4531",
+   "evidence": "tests pin rank invariance",
+   "nextAction": "Capture a production browser screenshot or DOM check of the Power Rankings Schedule column",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SI-C/recap-statements",
+   "aliases": [
+    "schedule statements in weekly recap / Upside Report"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Weekly recap / Upside Report schedule statements templated from the contract",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Recaps say e.g. \"would be 3-1 against an average schedule\"",
+   "backendOwner": "src/public_league/weekly_recap.py + schedule_impact contract",
+   "frontendOwner": "frontend/app/league/sections (weeklyRecap)",
+   "dependsOn": [
+    "SI-A"
+   ],
+   "reality": "Not started per spec §6. The template recap generator (weekly_recap.py) is live and current (production week 4), so statements can be added to it now. The Upside Report itself does not exist.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Add templated schedule-impact statements to weekly_recap.build_section from the contract",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SI-C/share-card",
+   "aliases": [
+    "schedule share card"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Schedule share card separate from the full-league rankings card",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "A shareable schedule-luck card",
+   "backendOwner": "src/public_league/schedule_impact.py",
+   "frontendOwner": "frontend (share card)",
+   "dependsOn": [
+    "SI-A"
+   ],
+   "reality": "Not started. No canonical share renderer exists (C9-SHARE-01), so building it ad hoc would add another one-off share path.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Build the card on the in-page share-card pattern, or on C9-SHARE-01 if that lands first",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SI-C/history",
+   "aliases": [
+    "league-wide historical schedule view"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "League-wide historical schedule-impact view",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "All seasons' schedule luck in one league view",
+   "backendOwner": "src/public_league/schedule_impact.py (bySeason already in contract)",
+   "frontendOwner": "frontend/components/league/ScheduleImpact.jsx",
+   "dependsOn": [
+    "SI-A"
+   ],
+   "reality": "Not started. Per-team past-season columns exist (C1), and the contract already carries bySeason.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Render a bySeason league table on the Luck/History tab",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SI-C/hard-luck",
+   "aliases": [
+    "Hard Luck statistical distinction"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Hard Luck statistical distinction (award/label)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "A statistically grounded Hard Luck label",
+   "backendOwner": "src/public_league/schedule_impact.py + awards.py",
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [
+    "SI-A"
+   ],
+   "reality": "Not started. The spec says to coordinate with the open awards work (#1513 validation PR). It must not change any existing award formula.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Define the Hard Luck criterion from the contract's exact distributions and publish it as a separately named distinction",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "SI-D",
+   "aliases": [
+    "valid slot swaps",
+    "retrospective playoff sensitivity"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Valid schedule-slot swaps and retrospective playoff qualification/seeding sensitivity",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "\"Would you have made the playoffs under schedule X\" analysis",
+   "backendOwner": "src/public_league/schedule_impact.py + playoff_structure",
+   "frontendOwner": null,
+   "dependsOn": [
+    "SI-B/remainder"
+   ],
+   "reality": "Not started. Needs the league-valid calendar model and the tiebreak/division rules record from the B remainder.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SI-E",
+   "aliases": [
+    "scheduleNeutralRealizedWAR",
+    "MVP win-impact candidate (shadow)"
+   ],
+   "sourceDoc": "docs/SCHEDULE_INTELLIGENCE_SPEC.md#6",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Schedule-neutral realized player impact feeding a shadow MVP win-impact candidate",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "MVP breakdown with schedule-neutral win impact (shadow only)",
+   "backendOwner": "C5-WAR-01 owner (to build)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-WAR-01",
+    "C2-REPL-01",
+    "SI-B/remainder"
+   ],
+   "reality": "Blocked on C5-WAR-01, which is absent on main (donor #969 is closed).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "SI-FIND-luck-orphan-power-bye",
+   "aliases": [
+    "#1530 findings",
+    "luck.py orphan rosters",
+    "power_v2 bye phantom loss"
+   ],
+   "sourceDoc": "issue #1530#Findings",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Fix Luck orphan-roster mismatch and the power_v2 phantom bye loss",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Luck's expected and actual wins cover the same game set; no phantom losses",
+   "backendOwner": "src/public_league/luck.py; src/ros/power_v2.py:1117",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Both unfixed. luck._actual_week_results credits wins against unresolved orphan rosters that all-play drops (dynasty_new 2024, up to 0.68 wins). power_v2.py:1117 uses actuals.get(oid, 0.0), which is latent while both leagues have even team counts.",
+   "prOrBranch": null,
+   "evidence": "code read",
+   "nextAction": "Align Luck's actual-result set with all-play (as schedule_impact does), skip unpaired weeks in power_v2, and add regressions on dynasty_new 2024 rosters 3/5",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "AL-P4",
+   "aliases": [
+    "#1604",
+    "pick-forecast + team-strength snapshot"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning sections 9-31",
+   "productFamily": "Team Strength / pick forecast",
+   "capability": "Dated private weekly pick-forecast and team-strength snapshot",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Evidence for later pick-forecast calibration (not user-facing)",
+   "backendOwner": "src/ros/pick_forecast_snapshot.py -> data/pick_forecast_snapshots/",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Merged in train #1602 (ee37e357a). Timer dynasty-pick-forecast-snapshot runs Tue/Wed/Thu 12:20 UTC, and the store is in the backup script. It is tiered append-only supersession rather than literal first-write-wins, which needs reconciling with the acceptance wording. The private store has no production observation, and the claim row is stale.",
+   "prOrBranch": "#1602 ee37e357a",
+   "evidence": "code; timer template",
+   "nextAction": "On-box check of the timer's last run and ledger rows for 2026 week 4 in both leagues; reconcile the first-write-wins wording",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-10-04-pick-projector-slot-distribution",
+   "aliases": [
+    "#1652",
+    "#1642 follow-up"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-03 (canonical rookie-draft order row)",
+   "productFamily": "Team Strength / pick forecast",
+   "capability": "Pick Projector orders picks by the canonical draft-order slot distribution, not Team Strength",
+   "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+   "userVisibleOutcome": "Pick Projector shows forecast draft slots under the league's real rule",
+   "backendOwner": "src/ros/pick_projection.py; src/public_league/draft_order.py; src/ros/playoff_sim.py",
+   "frontendOwner": "frontend/app/league/sections/_pick-projector.jsx",
+   "dependsOn": [
+    "#1642"
+   ],
+   "reality": "Open PR #1652 (claude/clever-cori-avckkk, head 53b3c859; L0 and Validate PR green, MERGEABLE CLEAN) removes project_draft_order and uses draftSlotDistribution plus the canonical rule. Main still has pick_projection.py:101 project_draft_order.",
+   "prOrBranch": "#1652",
+   "evidence": "PR CI green",
+   "nextAction": "Integrate/merge #1652, then verify the authenticated /api/ros/pick-projections",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-GD-01",
+   "aliases": [
+    "CE-20",
+    "#789",
+    "C5-U2",
+    "#1445",
+    "#1446"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Game Day",
+   "capability": "Game Day Command Center: joint league-week best-ball simulation, exact scoring, beat-median, low-cost V1",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "/game-day shows score, projected best-ball finals, win and median chances",
+   "backendOwner": "src/api/matchup_intel.py; src/ros/game_day_live.py; game_day_sim",
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-PLAY-01",
+    "C5-PROJ-C"
+   ],
+   "reality": "Engine and UI are merged and deployed: #1244 (f922d0daf) sim, #1445 (b7d9a7a52) backend, #1446 (4f3316054) PSI UI. Week-1 contract rows W1-18..28 are VERIFIED, and the 2026-09-29 box diagnostic showed the collector writing a generation about every minute for both leagues. The manifest's own acceptance (Brier/reliability) has no code, and live win% is withheld in production.",
+   "prOrBranch": "#1445 b7d9a7a52; #1446 4f3316054",
+   "evidence": "W1 contract; box diagnostic run 36511519687",
+   "nextAction": "Build the AL-4a calibration scorecard (the acceptance evidence for this row)",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "TODO-2026-09-24-game-day-live-dashboard",
+   "aliases": [
+    "#1335 comment 5824706487",
+    "#1334",
+    "Game Day PRIORITY deliverable",
+    "U4-U7"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-24 — Calculator completion campaign (Game Day PRIORITY)",
+   "productFamily": "Game Day",
+   "capability": "Game Day live best-ball dashboard verified during real live games",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Live score, clock-aware rest-of-game forecast and win% during a real Sunday",
+   "backendOwner": "src/nfl_data/live_game_state.py; src/ros/game_day_live.py",
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-GD-01",
+    "BALLDONTLIE-TRIAL"
+   ],
+   "reality": "Done: replay fixtures for every state (tests/fixtures/game_day/replay: real end_q1..final plus synthetic delay/postponed/OT/mixed), local desktop 1366 and phone 390 screenshots with axe 0 (docs/game-day/evidence/U7_UI_2026-09-25), and a local refresh-in-place E2E. Missing: production live behaviour, because ESPN returns 403 and no other provider is on, so live win% is withheld; plus the Sunday multi-game capture, the Tuesday stat-correction window, production screenshots and owner visual review.",
+   "prOrBranch": "#1445; #1446",
+   "evidence": "replay fixtures; U7 evidence README",
+   "nextAction": "After a live-state source is on: Sunday slate capture, Tuesday correction window, production screenshots",
+   "blocker": {
+    "what": "No live NFL game-state source is enabled in production (ESPN returns 403 on every attempt; BALLDONTLIE and SportsDataIO need keys)",
+    "whyReal": "Kicked-off games show 'unknown' and live win% is withheld (GAME_STATE_OR_SCORING_UNAVAILABLE), as observed during the 2026-09-28 SNF diagnostic. Bypassing the ESPN block is forbidden",
+    "doneAround": "Pregame/final, fixtures, local screenshots and every non-live state already work",
+    "ownerOrExternalAction": "Owner creates a BALLDONTLIE account and installs BALLDONTLIE_API_KEY (free tier = class B partial, no clock), or approves a SportsDataIO paid tier/trial",
+    "afterUnblock": "Flip the shadow flag, capture a live slate, classify A/B/C, promote into the selector, then do Sunday multi-game + Tuesday correction production verification"
+   },
+   "weight": 3
+  },
+  {
+   "id": "BALLDONTLIE-TRIAL",
+   "aliases": [
+    "#1509",
+    "TODO-2026-09-27-balldontlie"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner decision — try BALLDONTLIE",
+   "productFamily": "Game Day",
+   "capability": "BALLDONTLIE live-state adapter behind the one live-state owner (shadow first)",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Observed quarter/clock/status for live games",
+   "backendOwner": "src/nfl_data/live_game_state.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Built in #1509 (731dc12ba). Flag balldontlie_live_game_state defaults False (shadow only). The A/B/C classification is provisional (B) from docs, not evidence. The 2026-09-29 box check found no shadow log (key absent), and ESPN 403 is recorded and not bypassed. The WORK_CLAIMS row is stale ('active').",
+   "prOrBranch": "#1509 731dc12ba",
+   "evidence": "docs/game-day/BALLDONTLIE_LIVE_STATE_EVALUATION.md",
+   "nextAction": "Once the key is installed: enable the shadow flag and capture a slate",
+   "blocker": {
+    "what": "No live NFL game-state source is enabled in production (ESPN returns 403 on every attempt; BALLDONTLIE and SportsDataIO need keys)",
+    "whyReal": "Kicked-off games show 'unknown' and live win% is withheld (GAME_STATE_OR_SCORING_UNAVAILABLE), as observed during the 2026-09-28 SNF diagnostic. Bypassing the ESPN block is forbidden",
+    "doneAround": "Pregame/final, fixtures, local screenshots and every non-live state already work",
+    "ownerOrExternalAction": "Owner creates a BALLDONTLIE account and installs BALLDONTLIE_API_KEY (free tier = class B partial, no clock), or approves a SportsDataIO paid tier/trial",
+    "afterUnblock": "Flip the shadow flag, capture a live slate, classify A/B/C, promote into the selector, then do Sunday multi-game + Tuesday correction production verification"
+   },
+   "weight": 2
+  },
+  {
+   "id": "GD-GATE-D",
+   "aliases": [
+    "Gate D",
+    "stat corrections"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-25 research-to-portfolio (Gate D)",
+   "productFamily": "Game Day",
+   "capability": "A real stat correction propagates to a new generation while preserving as-known history",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Corrected scores appear without rewriting history",
+   "backendOwner": "src/ros/game_day_live.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "Pinned by tests/game_day/test_game_day_correction_propagation.py on a real replay post-final change (new generation, supersedes, as-known rows kept, pending_host -> partial). No real production correction observed.",
+   "prOrBranch": "#1445",
+   "evidence": "tests/game_day/test_game_day_correction_propagation.py",
+   "nextAction": "Make the box inventory script print state.json statCorrections and capture a Tuesday correction window",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "GD-GATE-G",
+   "aliases": [
+    "Gate G",
+    "cold requests"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-25 research-to-portfolio (Gate G)",
+   "productFamily": "Game Day",
+   "capability": "Cold/no-generation requests are immediately useful with truthful pending states",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "No 40 s blank; a pending state then the forecast",
+   "backendOwner": "src/api/matchup_intel.py",
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "Returns a pending payload plus one background compute; TestColdRequest passes (0.06-0.21 s locally vs 43.7 s before). The box shows a producer=game_day_request_compute generation (dynasty_main week 2), so the path ran in production. Production latency and the pending UI were not measured.",
+   "prOrBranch": "#1445",
+   "evidence": "TestColdRequest; box generation record",
+   "nextAction": "Time a cold production request on a fresh week (authenticated spec)",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-25-game-day-team-switcher",
+   "aliases": [
+    "#1452",
+    "#1453",
+    "#1460"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner directive — Game Day switches between every team",
+   "productFamily": "Game Day",
+   "capability": "Game Day switches to any roster of the selected league, league-isolated",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Team picker near the hero; view any team's matchup from its own side",
+   "backendOwner": "src/api/matchup_intel.py",
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "#1452 (d68e7a71e) and #1453 (a78e9add2) via train #1460 (eaec9e4b8). The production spec 'Team A -> B -> C within the selected league' passes prod-desktop and prod-mobile in V1 runs 37152552682 (2026-10-03) and 37678996634 (2026-10-07). The late-response race is tested locally only.",
+   "prOrBranch": "#1460 eaec9e4b8",
+   "evidence": "V1 prod-auth runs 37152552682, 37678996634",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-26-game-day-median-race",
+   "aliases": [
+    "#1461"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner directive — Game Day Live Median Race",
+   "productFamily": "Game Day",
+   "capability": "League-wide Live Median Race from the joint simulation",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Every team ranked by beat-median probability, with movement",
+   "backendOwner": "src/api/matchup_intel.py (M(d) per draw)",
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "#1461 (6154bd91c) via train #1466 (b4a97111d). The production spec passes desktop and mobile in runs 37152552682, 37206457445 and 37678996634, but it has never run during a live game, so the live current median and movement are unobserved.",
+   "prOrBranch": "#1466 b4a97111d",
+   "evidence": "V1 prod-auth runs",
+   "nextAction": "Run the median-race spec during a live slate",
+   "blocker": {
+    "what": "No live NFL game-state source is enabled in production (ESPN returns 403 on every attempt; BALLDONTLIE and SportsDataIO need keys)",
+    "whyReal": "Kicked-off games show 'unknown' and live win% is withheld (GAME_STATE_OR_SCORING_UNAVAILABLE), as observed during the 2026-09-28 SNF diagnostic. Bypassing the ESPN block is forbidden",
+    "doneAround": "Pregame/final, fixtures, local screenshots and every non-live state already work",
+    "ownerOrExternalAction": "Owner creates a BALLDONTLIE account and installs BALLDONTLIE_API_KEY (free tier = class B partial, no clock), or approves a SportsDataIO paid tier/trial",
+    "afterUnblock": "Flip the shadow flag, capture a live slate, classify A/B/C, promote into the selector, then do Sunday multi-game + Tuesday correction production verification"
+   },
+   "weight": 2
+  },
+  {
+   "id": "#1334",
+   "aliases": [
+    "global selected team",
+    "Game Day NFL-game impact"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Recovered durable owner requirements (#1334)",
+   "productFamily": "Game Day",
+   "capability": "One selected fantasy team drives every team-dependent surface; Game Day shows its matchup and an impact-emphasized NFL slate",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "My team everywhere; NFL games that matter most are emphasized",
+   "backendOwner": "src/api/matchup_intel.py",
+   "frontendOwner": "frontend (userState.selectedTeam consumers)",
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "Game Day uses userState.selectedTeam (?team= overrides), shows the actual matchup, and orders the slate by kickoff (#1320 693b4af98). Emphasis uses per-side player counts plus top-3 gameLeverage rather than projected-point sums (deliberate per #1335 §C). The site-wide 'every team-dependent surface' audit is not done; the issue is open.",
+   "prOrBranch": "#1320 693b4af98",
+   "evidence": "code read",
+   "nextAction": "Audit the remaining team-dependent routes (trade/waivers/rosters/league) for selectedTeam consumption, then close or rescope #1334",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "#1335",
+   "aliases": [
+    "Game Day IA redesign"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Recovered durable owner requirements (#1335)",
+   "productFamily": "Game Day",
+   "capability": "Game Day information architecture: hero, What Matters Now, slate, details, data info",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Clean live-sports command-center layout",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "#1446 shipped Hero > MedianRace > WhatMattersNow > NflSlate > BestBallDetails > DataInfo, and the production w1-16 specs pass. There are no production screenshots and no owner visual review; the UI ledger says 'production NV' and the issue is open.",
+   "prOrBranch": "#1446 4f3316054",
+   "evidence": "prod-auth specs",
+   "nextAction": "Take production desktop and phone screenshots with real data and request owner visual review",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "#789-extras",
+   "aliases": [
+    "For You|Matchup|Players|Games|News nav",
+    "TV mode",
+    "rooting/leverage guide",
+    "personalized news feed"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Game Day Command Center scope summary",
+   "productFamily": "Game Day",
+   "capability": "Mobile tab nav, desktop/TV mode, rooting guide and personalized news on Game Day",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "TV mode, a news feed for owner/opponent players, and a 'what do I need' rooting view",
+   "backendOwner": "src/api/matchup_intel.py",
+   "frontendOwner": "frontend/app/game-day/page.jsx",
+   "dependsOn": [
+    "C5-GD-01"
+   ],
+   "reality": "Rooting/leverage is partial (gameLeverage + WhatMattersNow). No tab nav, TV mode or personalized news feed exists. The owner's later #1335 single-page hierarchy likely supersedes the tab nav.",
+   "prOrBranch": null,
+   "evidence": "code read",
+   "nextAction": "Build TV mode and the per-matchup news feed from the existing /api/news + player ids; record the tab nav as superseded by the #1335 hierarchy",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-GD-02",
+   "aliases": [
+    "Game Day prediction archive",
+    "#981",
+    "#1240",
+    "#1243"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Game Day",
+   "capability": "Prediction archive without temporal leakage (pregame + in-game snapshots)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Every Game Day prediction preserved as known at the time",
+   "backendOwner": "data/game_day/predictions/; data/game_day/live/**/generations.jsonl",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-HIST-01"
+   ],
+   "reality": "#981 (878ee922c), #1240 (b60da4247), #1243 (a19822332); W1-03/W1-04 VERIFIED (#1316, #1303). The 2026-09-29 box diagnostic shows the capture timer firing and in-game as-known rows in generations.jsonl (584 rows, week 3). The C5_GD_02 doc status is stale.",
+   "prOrBranch": "#981 878ee922c",
+   "evidence": "W1 contract; box diagnostic",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "G1",
+   "aliases": [
+    "AL-P8",
+    "AL-3a",
+    "#1525",
+    "pregame weekly projection archive"
+   ],
+   "sourceDoc": "docs/BRISKET_IDEAS.md#13.2",
+   "productFamily": "Game Day",
+   "capability": "Pregame weekly projections survive the 4-week Game Day prune (archive completeness, backed up)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Projection scorecards and MVP xWAR get a no-lookahead baseline",
+   "backendOwner": "src/ros/game_day_live.py -> _nfl/<season>/week_N/pregame_projections.json.gz",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-GD-02"
+   ],
+   "reality": "#1525 merged (f4e1f9b10) and is in served build 14774f789; the backup half shipped via AL-P2 #1611 (6e6cc96b3: data/game_day, data/bdvm, data/forecast_archive). AL-P8 acceptance (first box build observed; Weeks 1-2 recorded as lost) is not recorded. Raw Sleeper weekly lines exist only from Week 3. The first prune that exercises it is around 2026-10-13.",
+   "prOrBranch": "#1525 f4e1f9b10; #1611 6e6cc96b3",
+   "evidence": "code; backup script lines",
+   "nextAction": "Add a pregame_projections listing to the box inventory script, run it after the first prune (~2026-10-13), and record Weeks 1-2 as lost",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "AL-4a",
+   "aliases": [
+    "Game Day calibration scorecard"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning (AL-4)",
+   "productFamily": "Game Day",
+   "capability": "Game Day calibration scorecard over existing generations (Brier/log loss/reliability/MAE/interval coverage by game state)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Evidence of how accurate Game Day win% and projections are",
+   "backendOwner": "new report-only module over data/game_day/live/**/generations.jsonl",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-GD-02",
+    "AL-0"
+   ],
+   "reality": "No Game Day Brier/logloss/reliability code exists (Brier only in bdvm/backtest.py and trade/pick_market.py). AL-0 is merged (#1597 9ce3ea04c), and generations.jsonl holds as-known win% and beat-median% from week 3.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Report-only AL-4a scorecard: generations.jsonl win%/beat-median% vs host finals, emitted as AL-0 evaluation receipts",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "AL-4b",
+   "aliases": [
+    "Game Day shadow challengers"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning (AL-4)",
+   "productFamily": "Game Day",
+   "capability": "Game Day shadow challengers (no promotion on one week)",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Improved Game Day models over time",
+   "backendOwner": "src/ros/game_day_live.py (shadow)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-4a"
+   ],
+   "reality": "None exist; sequenced after the AL-4a scorecard.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "TODO-2026-09-25-aggregate-confidence",
+   "aliases": [
+    "row.confidence or 1.0",
+    "#1449"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-25 (Kept separate)",
+   "productFamily": "Projections / ROS",
+   "capability": "A ROS row confidence of 0.0 is not weighted as 1.0",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Correct weighting of zero-confidence ROS rows",
+   "backendOwner": "src/ros/aggregate.py:194",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "#1449 (122e2da1a) changed it to `1.0 if row.confidence is None else float(...)`, pinned by tests/ros/test_row_confidence_semantics.py; a deterministic code-level defect with a discriminating test.",
+   "prOrBranch": "#1449 122e2da1a",
+   "evidence": "tests/ros/test_row_confidence_semantics.py",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "GD-UNCOVERED-SCORING",
+   "aliases": [
+    "Game Day exact scoring coverage",
+    "decision 16"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-24 — Calculator completion campaign (Game Day PRIORITY)",
+   "productFamily": "Game Day",
+   "capability": "Uncovered scoring categories estimated as OURS or explicitly uncovered, never zero",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Projections show which scoring categories are imputed or unknown",
+   "backendOwner": "src/ros/game_day_estimates.py",
+   "frontendOwner": "frontend/app/game-day/page.jsx (Data info)",
+   "dependsOn": [
+    "C5-PROJ-B"
+   ],
+   "reality": "First downs are imputed and labelled OURS (imputedPoints/imputedScoringKeys). Return/ST/IDP and other unprojected categories are published as uncoveredScoringKeys (unknown, never 0). /api/matchup/intel is auth-only (401), so not observed in production by this audit.",
+   "prOrBranch": "#1445",
+   "evidence": "unit tests",
+   "nextAction": "Assert uncoveredScoringKeys in the prod-auth Game Day spec",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C5-ROS-01",
+   "aliases": [
+    "#854",
+    "C5-U1"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Projections / ROS",
+   "capability": "Redraft/ROS seasonal intelligence lane, kept separate from canonical dynasty valuation",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Seasonal projections power Game Day, Power, playoffs and waivers without touching dynasty values",
+   "backendOwner": "src/ros/",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-SRC-01"
+   ],
+   "reality": "The lane-separation guard is merged: tests/api/test_canonical_ownership_protections.py::test_no_seasonal_lane_module_assigns_a_canonical_alias (#964 a13615bad) and tests/sources/test_game_type_gate_red.py. data/ros refreshes every 2h. The ROS inputs are census-labelled LIVE_BUT_RANKINGS_ONLY, and the full spec depends on PROJ-C/E/F; #854 is open.",
+   "prOrBranch": "#964 a13615bad",
+   "evidence": "lane-separation tests",
+   "nextAction": "Finish C5-PROJ-C/E/F (see those rows)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-PROJ-A",
+   "aliases": [
+    "source capability census"
+   ],
+   "sourceDoc": "docs/C_SERIES_EXECUTION_MAP.md#C5-U1",
+   "productFamily": "Projections / ROS",
+   "capability": "Projection source capability/access/lineage census",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Known authorized acquisition path per projection source",
+   "backendOwner": "config/projections/source_capability_census.json; src/ros/projection_source_census.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "#966 (736bb999f) with tests/ros/test_projection_source_census.py; kept current (Sleeper, Fantasy Nerds and SportsDataIO added). Minor drift: src/dfs/sources_dff.py (Daily Fantasy Fuel DFS projections) is not censused.",
+   "prOrBranch": "#966 736bb999f",
+   "evidence": "tests/ros/test_projection_source_census.py",
+   "nextAction": "Add a dailyfantasyfuel entry to the census (housekeeping)",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C5-PROJ-B",
+   "aliases": [
+    "canonical projection schema + exact rescoring"
+   ],
+   "sourceDoc": "docs/C_SERIES_EXECUTION_MAP.md#C5-U1",
+   "productFamily": "Projections / ROS",
+   "capability": "Canonical projection-stat schema and exact-league rescoring",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Projections scored under this league's exact rules",
+   "backendOwner": "src/ros/projection_observations.py (wraps BDVM ProjectionRecord.resolve_fpg)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PROJ-A"
+   ],
+   "reality": "#973 (d7f3fcd92); consumed by the ensemble, game_day_estimates and sleeper_weekly_projections; no second schema.",
+   "prOrBranch": "#973 d7f3fcd92",
+   "evidence": "tests/ros",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C5-PROJ-C",
+   "aliases": [
+    "weekly ensemble",
+    "Game Day weekly projection families"
+   ],
+   "sourceDoc": "docs/C_SERIES_EXECUTION_MAP.md#C5-U1",
+   "productFamily": "Projections / ROS",
+   "capability": "Weekly offense + IDP multi-family projection ensemble",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Weekly forecasts from several independent families",
+   "backendOwner": "src/ros/game_day_estimates.py (WEEKLY_SOURCE_ADAPTERS)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PROJ-B"
+   ],
+   "reality": "Exactly one independent weekly family is live: sleeperWeeklyProjections (RotoWire via Sleeper; offense+K+IDP), flag enabled/LIVE on production /api/status (#1445 b7d9a7a52). So the ensemble can only run as single_family_passthrough; projectionFamiliesContributing is reported honestly. CBS/NFL.com/FantasyPros have no recorded access path.",
+   "prOrBranch": "#1445 b7d9a7a52",
+   "evidence": "prod /api/status flags",
+   "nextAction": "Register the built keyed adapters in WEEKLY_SOURCE_ADAPTERS (they stay inert without keys) and record an access path for one free family (e.g. NFL Fantasy)",
+   "blocker": {
+    "what": "A second independent weekly family needs an owner-installed key/subscription (Fantasy Nerds, SportsDataIO) or a newly recorded free access path",
+    "whyReal": "Paid feeds and credentials are owner-only; no free second family has an access path recorded",
+    "doneAround": "Adapter registration and the access-path census",
+    "ownerOrExternalAction": "Owner approves or declines Fantasy Nerds/SportsDataIO subscriptions and installs keys",
+    "afterUnblock": "Ensemble produces real multi-family weekly forecasts"
+   },
+   "weight": 3
+  },
+  {
+   "id": "C5-PROJ-D",
+   "aliases": [
+    "ROS/full-season ensemble",
+    "#1053"
+   ],
+   "sourceDoc": "docs/C_SERIES_EXECUTION_MAP.md#C5-U1",
+   "productFamily": "Projections / ROS",
+   "capability": "ROS / full-season ensemble (horizon-matched, equal-family)",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Season-long projections combine independent families",
+   "backendOwner": "src/ros/projection_ensemble.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PROJ-B"
+   ],
+   "reality": "#1053 (01ce43496): equal-family mean/median/trimmed of Clay and IDP Show, no weights; consumed by matchup_intel, best_ball_utility and capture_game_day_predictions. The endpoints are auth-only, so no production observation.",
+   "prOrBranch": "#1053 01ce43496",
+   "evidence": "unit tests",
+   "nextAction": "Authenticated production probe of the served ensemble rows and family count",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-PROJ-E",
+   "aliases": [
+    "projection archive + leakage-safe backtest"
+   ],
+   "sourceDoc": "docs/C_SERIES_EXECUTION_MAP.md#C5-U1",
+   "productFamily": "Projections / ROS",
+   "capability": "Immutable projection archive plus leakage-safe backtesting",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Measured projection accuracy",
+   "backendOwner": "data/bdvm/projections; data/game_day/live/_nfl/**/pregame_projections.json.gz; src/ros/forecast_archive.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PROJ-C",
+    "G1"
+   ],
+   "reality": "The archive half exists (BDVM snapshots, #1525 pregame archive, forecast archive). No leakage-safe projection backtest or scorecard exists in src or scripts; AL-3b is the backtest half.",
+   "prOrBranch": "#1525",
+   "evidence": null,
+   "nextAction": "Build AL-3b",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-PROJ-F",
+   "aliases": [
+    "projection consumer migration"
+   ],
+   "sourceDoc": "docs/C_SERIES_EXECUTION_MAP.md#C5-U1",
+   "productFamily": "Projections / ROS",
+   "capability": "All seasonal consumers migrated onto the projection ensemble, with production proof",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Power, playoff odds, waivers and profiles use real projections, not ranking-derived ROS",
+   "backendOwner": "src/ros/*",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-PROJ-D"
+   ],
+   "reality": "Ensemble consumers are only matchup_intel, game_day_estimates and best_ball_utility. power_v2, the playoff/championship sims, waivers and the Universal Player Profile still read the rankings-based ROS aggregate. No PR or claim exists. Migrating a published-number consumer (Power, playoff sims) is a P6 methodology change needing shadow evidence.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Inventory the remaining consumers and migrate the playoff-sim points model in shadow first, then probe production",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "AL-3b",
+   "aliases": [
+    "projection scorecard"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning (AL-3)",
+   "productFamily": "Projections / ROS",
+   "capability": "Projection scorecard (raw stats + exact league scoring) vs the equal-family champion",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Known accuracy by provider x position x category x horizon",
+   "backendOwner": "new evaluation module over projection archives",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-0",
+    "G1"
+   ],
+   "reality": "AL-0 (#1597 9ce3ea04c) and AL-1a (#1612) are merged; no scorecard code exists. Realized Weeks 1-5 exist, but there is only one weekly family.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "AL-3b scorecard using the Week 3+ Sleeper archive plus Clay/IDP Show season snapshots, emitted as evaluation receipts",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "AL-3c",
+   "aliases": [
+    "AL-3d",
+    "Batch 3 J2",
+    "ensemble reliability challengers",
+    "BDVM component calibration"
+   ],
+   "sourceDoc": "docs/EXECUTION_PLAN.md#Adaptive Learning (AL-3)",
+   "productFamily": "Projections / ROS",
+   "capability": "Ensemble reliability challengers; BDVM component calibration and MEASURED/MECHANICAL/PRIOR labels",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Calibrated projection components",
+   "backendOwner": "src/ros/projection_ensemble.py; src/bdvm/",
+   "frontendOwner": null,
+   "dependsOn": [
+    "AL-3b"
+   ],
+   "reality": "No code. Sequenced NEXT after AL-3b. The base imputations exist (reception_shape_projection.py, first_down_rate.py). BDVM J1 (#1585 f595f2d7f) belongs to the valuation family.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "PROJ-KEYED-ADAPTERS",
+   "aliases": [
+    "Fantasy Nerds",
+    "SportsDataIO",
+    "FANTASYNERDS_API_KEY",
+    "SPORTSDATAIO_API_KEY"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-24 — Calculator completion campaign (Game Day PRIORITY)",
+   "productFamily": "Projections / ROS",
+   "capability": "Fantasy Nerds and SportsDataIO weekly projection (and SDIO live-state) adapters, credential-gated",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "More independent weekly projection families once keys exist",
+   "backendOwner": "src/ros/fantasynerds_weekly_projections.py; sportsdataio_weekly_projections.py; keyed_weekly_projections.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Built in #1445 (b7d9a7a52); env names are in .env.example; flags are OFF and show UNREACHABLE on production; not registered as a consumer. Fantasy Nerds mapping is SCHEMA_VERIFIED=False and it aggregates RotoWire (ancestry overlap with Sleeper).",
+   "prOrBranch": "#1445 b7d9a7a52",
+   "evidence": "prod /api/status flags",
+   "nextAction": "Register both adapters with their census families (authorized engineering, inert without keys)",
+   "blocker": {
+    "what": "Paid subscriptions and API keys",
+    "whyReal": "Spend and credentials are owner-only; agents never handle keys",
+    "doneAround": "Adapter registration and schema checks against public docs",
+    "ownerOrExternalAction": "Owner approves subscriptions and installs FANTASYNERDS_API_KEY / SPORTSDATAIO_API_KEY",
+    "afterUnblock": "Enable the flags through source-health gates and verify the family count rises"
+   },
+   "weight": 2
+  },
+  {
+   "id": "C5-WAR-01",
+   "aliases": [
+    "T-NEW-13",
+    "C5-U5",
+    "#969 donor",
+    "Fantasy WAR/VORP/WAB/xWAR/Game Changer"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Projections / ROS",
+   "capability": "Player Impact: realized lineup VORP, WAR, xWAR, Wins Above Bench, Game Changer Points",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Player impact board and WAR in Player File / MVP breakdown",
+   "backendOwner": "new owner (docs/PLAYER_IMPACT_WAR_MVP_SPEC.md)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C2-REPL-01",
+    "C1-HIST-01"
+   ],
+   "reality": "Nothing on main (no WAR/WAB/game-changer symbols). Donor #969 closed unmerged 2026-09-09 (diff kept on GitHub). Dependencies are met: C2-REPL-01 = V1-29 VERIFIED (#933 6eb847c39, #987 faa50ba9a, VORP fix #1364 a0d937156) and the temporal ledger exists. The owner approves only the final MVP composite weights (spec §14).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Build the deterministic core (realized lineup VORP, actual WAR, wins above bench) on src/ros/lineup.py + the canonical replacement owner, harvesting #969",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C5-ST-01",
+   "aliases": [
+    "#802",
+    "V1-49",
+    "C5-U6"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Projections / ROS",
+   "capability": "Player special-teams scoring credited to the player; def_* stays DST; explicit UNSCORABLE",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Return yards and ST events count for the right players",
+   "backendOwner": "src/nfl_data/realized_points.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "F-SCORE-02"
+   ],
+   "reality": "Merged: kr_yd/pr_yd/st_td to the player (B7), st_tkl_solo/st_ff/st_fum_rec/kick_ret_td/punt_ret_td (#1031 2970cc07f), blocked kicks (#915 7446b8b31), explicit UNSCORABLE/HOST_PATH_UNREACHABLE. host_native_scoring is enabled in production. The 2025 host-truth reconciliation is recorded (1,280 rows / 2,239.40 points). Remaining gate: measure on real 2026 in-season weeks (V1-49 deferred to this trigger, which has now arrived); #802 is open.",
+   "prOrBranch": "#1031 2970cc07f; #915 7446b8b31",
+   "evidence": "2025 reconciliation; golden archetypes",
+   "nextAction": "Run the host_native reconciliation on 2026 weeks 1-4, record it, close #802",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-FIT-01/nfl",
+   "aliases": [
+    "#803",
+    "C5-U8"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Projections / ROS",
+   "capability": "Player-specific league-scoring fit from NFL history vs a versioned standard-market baseline (research, OOS-validated)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Evidence of which players this scoring favors (not a value change)",
+   "backendOwner": "src/scoring/ (new); league_intel/scoring_fit.py is position-level only",
+   "frontendOwner": null,
+   "dependsOn": [
+    "F-SCORE-02",
+    "C5-ST-01"
+   ],
+   "reality": "Nothing per-player exists, only position-level IDP fit (#592) and the reception_fit tilt. No PR or claim. Promotion into valuation would be a separate owner methodology decision (the league-adjusted lens was rejected, #822).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Versioned standard-market baseline card, dual-card scoring of NFL history, season-forward OOS test (research only)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C5-FIT-01/college",
+   "aliases": [
+    "#803 college translation"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Projections / ROS",
+   "capability": "College/prospect scoring-style translation incl. returns",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Prospect fit signal (only if validated)",
+   "backendOwner": "src/scoring/ (new)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-FIT-01/nfl"
+   ],
+   "reality": "No college code or data path. It needs a college stats source (e.g. CollegeFootballData API key) and is only promotable after historical-cohort validation.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": {
+    "what": "College stats source credential (CollegeFootballData key) and later owner approval to feed any validated signal into valuation",
+    "whyReal": "Credentials are owner-installed; feeding valuation is an owner methodology gate",
+    "doneAround": "The NFL-history half",
+    "ownerOrExternalAction": "Owner installs the key (free tier exists) / approves the source",
+    "afterUnblock": "Build translation research and the cohort validation"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C5-BDVM-01",
+   "aliases": [
+    "C5-U7",
+    "V1-54"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C5",
+   "productFamily": "Projections / ROS",
+   "capability": "BDVM fundamentals stay a second, named concept, never merged into rankDerivedValue",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Fundamentals page and Fund-gap columns",
+   "backendOwner": "src/bdvm/",
+   "frontendOwner": "frontend/app/bdvm",
+   "dependsOn": [],
+   "reality": "bdvm_engine defaults True (feature_flags.py:380) and shows enabled/LIVE on production /api/status. tests/bdvm/test_engine_parity.py and V1-54 VERIFIED (separate concept); dynasty-bdvm-refresh timer; #1567 deploy evidence.",
+   "prOrBranch": null,
+   "evidence": "prod /api/status; parity fixture",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-ROS-01",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Projections / ROS",
+   "capability": "ROS projections via src/ros adapters",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "ROS boards refresh every 2h",
+   "backendOwner": "src/ros/sources",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "src/ros/sources adapters feed git-tracked data/ros (refreshed 2026-10-07 17:39Z). Caveat: these are rankings, not projections (C5-ROS-01 carries the upgrade).",
+   "prOrBranch": null,
+   "evidence": "git-tracked data/ros",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-SCORE-02",
+   "aliases": [
+    "B7"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Projections / ROS",
+   "capability": "Realized scoring under exact league settings",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Correct historical fantasy points",
+   "backendOwner": "src/nfl_data/realized_points.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Holds, with the C5-ST-01 repairs merged; host_native_scoring enabled in production; the 2025 host-truth reconciliation is recorded.",
+   "prOrBranch": null,
+   "evidence": "B7 evidence; reconciliation",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C6-ANA-01",
+   "aliases": [
+    "OD-03",
+    "T-NEW-10",
+    "C6-U2",
+    "Calculator campaign Lane D analyst ledger",
+    "#1437"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Analyst claim/evidence ledger with persistence and as-of query",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Analyst takes stored once, queryable as known at any time",
+   "backendOwner": "src/analyst/store.py; src/analyst/asof.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ID-01"
+   ],
+   "reality": "Schema/stance #911 (5351e7150). Append-only idempotent store + as-of query #1437 (ae0c0a3fb, 2026-09-25). Zero callers of ingest()/claims_as_of outside src/analyst+tests (no route, script, timer, workflow), not in deploy/backup, so no production ledger rows. Intake rows for OD-03 (TODO) and T-NEW-10 are stale.",
+   "prOrBranch": "#1437 ae0c0a3fb",
+   "evidence": "tests/analyst/*",
+   "nextAction": "Build the first scheduled producer writing via ingest() (e.g. existing /api/news headlines as fact claims), add data/analyst_ledger.sqlite to backup, fix the stale intake rows",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C6-POD-01",
+   "aliases": [
+    "C6-U3",
+    "Podcast Intelligence"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Podcast Intelligence (~50 sources, canonical analyst identity)",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "Analyst takes from podcasts in Player File, Consensus Edge and briefs",
+   "backendOwner": "src/analyst/ (producer to build)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C6-ANA-01"
+   ],
+   "reality": "No podcast/RSS/transcript ingestion anywhere in src/scripts, no checked-in source registry, no credentials or transcription tooling.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Check in the ~50-source registry (show, feed URL, analyst id); prefer sources that publish transcripts/authorized text",
+   "blocker": {
+    "what": "Source approval and transcription/extraction cost posture (OD-03 cost half)",
+    "whyReal": "Paid transcription/LLM extraction spend and the source list are owner decisions recorded under OD-03",
+    "doneAround": "Source registry and RSS metadata ingestion",
+    "ownerOrExternalAction": "Owner approves the source list and chooses paid API vs self-hosted transcription, plus an extraction budget",
+    "afterUnblock": "Build ingestion -> claim extraction -> ledger"
+   },
+   "weight": 3
+  },
+  {
+   "id": "C6-YT-01",
+   "aliases": [
+    "#782",
+    "C6-U3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "YouTube analyst intelligence, deduped vs podcasts",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "YouTube takes without double-counting podcast uploads",
+   "backendOwner": "src/analyst/",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C6-POD-01"
+   ],
+   "reality": "Nothing exists; #782 is open. Cross-media dedupe exists only at schema level (independent_claims/thesis lineage).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C6-X-01",
+   "aliases": [
+    "#788",
+    "C6-U3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "X/Twitter analyst feed (official API only)",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "Analyst feed from X (future)",
+   "backendOwner": "src/analyst/",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C6-ANA-01"
+   ],
+   "reality": "No X client code. The intake marks it LONG-TERM and cost-gated (decision 13): do not pay recurring X API cost at current site scale.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C6-FRESH-01",
+   "aliases": [
+    "decisions 33-40",
+    "Podcast/YouTube freshness policy"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Take freshness/decay/supersession (type-, event-, season-aware; modifies, never votes)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Stale takes stop voting but stay visible as history",
+   "backendOwner": "src/analyst/ (policy over ClaimsAsOf)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C6-ANA-01"
+   ],
+   "reality": "Not built: src/analyst has only the TakeType vocabulary ('no freshness constants'). The owner's starting defaults are recorded (intake freshness policy table, decisions 33-40), and the ledger dependency is merged.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Implement the pure freshness policy over ClaimsAsOf (take type, event anchor, season phase; defaults labelled PRIOR; applied after dedupe) with decay/expiry/supersession tests",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C6-SIG-01",
+   "aliases": [
+    "C6-U1",
+    "unified_signal_engine.py",
+    "LANE4_SIGNAL_EMITTER_INVENTORY"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "ONE Central Buy/Sell reconciler over labelled domain signals, no double counting",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "One coherent Buy/Sell answer per player with lineage",
+   "backendOwner": "src/news/unified_signal_engine.py (dead, to retire) -> new reconciler",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C6-ANA-01"
+   ],
+   "reality": "Not consolidated. unified_signal_engine.py still claims 'single entry point' with zero production importers; docs/lane4/LANE4_SIGNAL_EMITTER_INVENTORY.md lists 9 live emitters. A dedup/lineage-only reconciler (labelled domain signals, no blended score) needs no new weights; any cross-emitter weighting would be an owner methodology choice.",
+   "prOrBranch": null,
+   "evidence": "emitter inventory",
+   "nextAction": "Build a dedup-only reconciler publishing labelled domain signals with lineage/correlation group (Consensus Edge WITHHELD precedence kept), then retire the dead engine",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C6-SIG-02",
+   "aliases": [
+    "#784",
+    "decision 10",
+    "homepage ticker"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Homepage ticker consumes canonical Buy/Sell; BUY global, SELL only the selected team's roster",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Stock-ticker Buy/Sell for my team",
+   "backendOwner": null,
+   "frontendOwner": "frontend MarketTicker.jsx",
+   "dependsOn": [
+    "C6-SIG-01"
+   ],
+   "reality": "MarketTicker.jsx (#965 854598d9a) shows rank movers via computeMovers with a roster/league/all scope; no BUY/SELL verdicts and no selected-roster SELL rule. #784 is open.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C6-MGR-01",
+   "aliases": [
+    "CE-03",
+    "Manager Scout",
+    "C6-U4"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Manager Scout from canonical transaction/waiver/lineup history",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Private tendencies per rival manager",
+   "backendOwner": "src/intel/ (new tendency module)",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ACQ-01",
+    "C4-MTL-01"
+   ],
+   "reality": "No module or product. Inputs are merged: src/acquisition (#878), waiver ledger + Market Trade Ledger (#961 892df5686), completed-trade ledger (#1586). Only a client-side analyzeTradeTendencies exists on /trades, which is not a canonical owner.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Server-side tendency module over acquisition + waiver + trade ledgers with tendency and private-boundary tests; retire the client-side analyzer as owner",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C6-UPP-01",
+   "aliases": [
+    "#783",
+    "decision 9",
+    "C6-U6"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Universal Player Profile: one canonical intelligence/news feed (fact vs opinion, freshness, selective quotation)",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Player File Intel tab with attributed, fresh, deduped intelligence",
+   "backendOwner": "src/analyst/; /api/news",
+   "frontendOwner": "frontend Player File (IntelContextSection, PlayerNewsSection)",
+   "dependsOn": [
+    "C6-ANA-01",
+    "C6-FRESH-01",
+    "C6-SIG-01"
+   ],
+   "reality": "The Player File Intel tab exists (IntelContextSection + PlayerNewsSection), but news is name-matched from the in-memory 7-day /api/news, with no canonical feed, no fact/opinion separation and no analyst claims. #783 is open.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "After the first analyst producer: feed claims_as_of into the Intel tab with fact/opinion labels",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "#1337",
+   "aliases": [
+    "shared player-link primitive",
+    "PlayerNameButton",
+    "#1458"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Recovered durable owner requirements (#1337)",
+   "productFamily": "Analyst intelligence",
+   "capability": "Every actionable player name links through one identity-safe primitive to the Player File",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Click any player name anywhere to reach the Player File",
+   "backendOwner": null,
+   "frontendOwner": "frontend PlayerNameButton",
+   "dependsOn": [],
+   "reality": "First slice #1458 (3fadefbc7, via train #1466): PlayerNameButton links on Game Day, rankings rails, /edge and terminal movers (~14 files). Trade/league/waivers/draft/news surfaces remain; the issue is open and the intake says partial links are not completion.",
+   "prOrBranch": "#1458 3fadefbc7",
+   "evidence": null,
+   "nextAction": "Audit the remaining surfaces and convert the next slice (trade, league, waivers, draft, news)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C6-EDGE-01",
+   "aliases": [
+    "C6-U5",
+    "Consensus Edge",
+    "ADR-023"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
+   "productFamily": "Analyst intelligence",
+   "capability": "Consensus Edge: independence-resolved, freshness applied after dedupe, ship gate passed",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Edge signals on /edge and alerts",
+   "backendOwner": "src/consensus_edge/",
+   "frontendOwner": "frontend /edge",
+   "dependsOn": [
+    "C6-FRESH-01"
+   ],
+   "reality": "feature_flags.py:464 consensus_edge False; production /api/status shows enabled:false on 14774f789. ADR-023 requires validate_consensus_edge_board.py to pass on a re-run; no passing re-run is recorded. The dynasty-consensus-edge-snapshot timer exists.",
+   "prOrBranch": null,
+   "evidence": "prod /api/status",
+   "nextAction": "Re-run the ship gate on matured labels and record the verdict (activation only if it passes)",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "G4",
+   "aliases": [
+    "as-known injury/news capture"
+   ],
+   "sourceDoc": "docs/BRISKET_IDEAS.md#13.2",
+   "productFamily": "Analyst intelligence",
+   "capability": "Append-only as-known injury status and news-headline metadata capture",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Retrospectives know what was known at kickoff/decision time",
+   "backendOwner": "scripts/refresh_injury_feed.py; /api/news aggregator",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Not built: refresh_injury_feed.py still overwrites injuries_prior.json (transition events only); /api/news is in-memory and never persisted. In-season weeks not captured are lost permanently. Covered by the Adaptive Learning 'capture first' directive.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Dated append-only injury snapshot log + news metadata persistence (id, provider, times, headline, URL, player ids; no bodies) + backup line",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "R14",
+   "aliases": [
+    "R64",
+    "private decision/offer journal",
+    "source-directed research queue"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-25 research-to-portfolio (NEW CANDIDATE)",
+   "productFamily": "Analyst intelligence",
+   "capability": "Candidate ideas R14 (private offer journal) and R64 (source-directed research queue)",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "None until promoted",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Both are recorded as CANDIDATE, not authorized (R14 explicitly 'still CANDIDATE' in the 2026-10-01 directive). No code.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C9-AWARD-01",
+   "aliases": [
+    "V1-95",
+    "C9-U2"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Awards",
+   "capability": "Awards do not exist before games are played",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "No fake winners at 0-0",
+   "backendOwner": "src/public_league/awards.py",
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [],
+   "reality": "#937 (5feade0eb) plus the awaiting state #1372 (c8576dfb4); tests/public_league/test_awards_need_games.py (9 tests); V1-95 VERIFIED on the deployed build 2026-08-20.",
+   "prOrBranch": "#937 5feade0eb",
+   "evidence": "test_awards_need_games.py; V1 contract",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "C9-AWARD-02/league-mvp-gate",
+   "aliases": [
+    "C9-AWARD-02",
+    "TODO-2026-09-26-league-mvp-team-success",
+    "TODO-2026-09-29-500-or-better",
+    "#1487",
+    "#1518"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Awards",
+   "capability": "League MVP requires the playoff field and a .500-or-better record; other awards ungated",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "MVP race shows only eligible players, with named exclusions",
+   "backendOwner": "src/public_league/awards.py::_league_mvp_gate",
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [],
+   "reality": "#1487 (1baaf16b9) and #1518 (8243d6205); test_league_mvp_team_success_gate.py (16) and test_league_mvp_record_500_inclusive.py. Production awards payload: eligibility.rule playoff_field_and_record_500_or_better, verified true, playoffTeams 7, outside-the-race entries reason team_outside_playoff_field, vorpCalcVersion 2026-09-29-league-mvp-record-500-or-better.",
+   "prOrBranch": "#1487 1baaf16b9; #1518 8243d6205",
+   "evidence": "prod /api/public/league/awards",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-AWARD-02/opoy-dpoy-labels",
+   "aliases": [
+    "#1464"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Awards (C. OPOY/DPOY terminology)",
+   "productFamily": "Awards",
+   "capability": "off_mvp/def_mvp shown as Offensive/Defensive Player of the Year",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Correct award names everywhere",
+   "backendOwner": "src/public_league/awards.py",
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [],
+   "reality": "Commit 5269a6199 via #1464 / train #1466 (b4a97111d); production shows 'Offensive Player of the Year Race' and 'Defensive Player of the Year Race' in the payload and SSR HTML.",
+   "prOrBranch": "#1466 b4a97111d",
+   "evidence": "prod probe",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-26-waiver-king-override",
+   "aliases": [
+    "#1464"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Awards: 2026 Waiver King eligibility",
+   "productFamily": "Awards",
+   "capability": "2026 Waiver King: Joel and Blaine ineligible (season-scoped override)",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Waiver King goes to the top eligible manager, with labelled exclusions",
+   "backendOwner": "src/public_league/award_eligibility.py; config/leagues/award_eligibility_overrides.json",
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [],
+   "reality": "Override id 2026-waiver-king-joel-blaine shipped via #1466 (b4a97111d). Production: Blaine (rank 1) and jstuedle (rank 2) show eligible:false, 'Ineligible for 2026 award'; Eric is the award rank-1 leader.",
+   "prOrBranch": "#1466 b4a97111d",
+   "evidence": "prod awards payload",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-26-expand-standings",
+   "aliases": [
+    "#1464"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Awards: Expand standings",
+   "productFamily": "Awards",
+   "capability": "Every current-season award race publishes canonical top-12 standings",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Expandable full race standings",
+   "backendOwner": "src/public_league/awards.py",
+   "frontendOwner": "frontend/app/league/sections/award-standings.jsx",
+   "dependsOn": [],
+   "reality": "Commit b59bf88ef via #1466. Production: all 22 races publish standings/standingsTotal/standingsEntity; 19 have 12 rows, and shorter ones reflect smaller qualifying pools.",
+   "prOrBranch": "#1466 b4a97111d",
+   "evidence": "prod awards payload",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "TODO-2026-09-11-awards-mobile",
+   "aliases": [
+    "T-NEW-09",
+    "#1342",
+    "codex/awards-mobile-redesign"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Recovered durable owner requirements (public awards UX)",
+   "productFamily": "Awards",
+   "capability": "Awards Hub mobile hierarchy plus weekly top-three share snapshot",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "MVP -> OPOY/DPOY -> ROY -> positional order; saveable weekly snapshot on a phone",
+   "backendOwner": null,
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [],
+   "reality": "#1342 merged 2026-09-11 (8249aa930); saveSnapshot/captureElementImage exist and the production HTML shows the MVP->OPOY order. No real-iPhone verification is recorded; WORK_CLAIMS row 148 is stale (READY_FOR_INTEGRATION).",
+   "prOrBranch": "#1342 8249aa930",
+   "evidence": "prod SSR HTML",
+   "nextAction": "Real-device (iPhone) check of hierarchy and snapshot save, then update claim row 148 and the intake row",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1513",
+   "aliases": [
+    "Unified Manager of the Year",
+    "OD-MOTY"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Owner correction — award record eligibility (MOTY)",
+   "productFamily": "Awards",
+   "capability": "Unified Manager of the Year (no record or playoff gate), validation track",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "One combined Manager of the Year award",
+   "backendOwner": "src/public_league/awards.py (PR #1513)",
+   "frontendOwner": "frontend/app/league/sections/awards.jsx",
+   "dependsOn": [],
+   "reality": "Open PR #1513 'VALIDATION TRACK, PARTIAL / NOT PROMOTED (v1.1)': OFFICIAL_FROM_SEASON = None, weights 0.40A+0.25T+0.15W+0.10D+0.10P, no gates. Production still serves the old manager_of_the_year race.",
+   "prOrBranch": "#1513",
+   "evidence": null,
+   "nextAction": "Finish the validation evidence on the PR and present it for the promotion decision",
+   "blocker": {
+    "what": "Promotion of a new official award formula",
+    "whyReal": "The owner keeps #1513 as a validation track; promotion of an official formula is owner-only",
+    "doneAround": "Validation evidence and shadow publication",
+    "ownerOrExternalAction": "Owner approves or declines promoting unified MOTY (from which season)",
+    "afterUnblock": "Set OFFICIAL_FROM_SEASON and ship"
+   },
+   "weight": 2
+  },
+  {
+   "id": "#1505",
+   "aliases": [
+    "MVP win-impact",
+    "SI-E consumer"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-03 (out of scope: #1505 intent only)",
+   "productFamily": "Awards",
+   "capability": "Player win-impact as a component of the overall MVP formula",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "MVP reflects how much a player changed fantasy wins",
+   "backendOwner": "C5-WAR-01 owner (to build); docs/PLAYER_IMPACT_WAR_MVP_SPEC.md",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C5-WAR-01",
+    "SI-E"
+   ],
+   "reality": "Open docs-only PR #1505 edits only docs/PLAYER_IMPACT_WAR_MVP_SPEC.md; the owner direction (2026-09-27) is not on main's spec. No code; a win-impact component needs WAR/WAB, which are absent. Any official MVP formula change also needs owner approval (shadow only until then).",
+   "prOrBranch": "#1505",
+   "evidence": null,
+   "nextAction": "Reconcile and merge docs-only #1505 so the spec carries the intent; the build waits for C5-WAR-01",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "TODO-2026-09-19-awards-scored-weeks",
+   "aliases": [
+    "awards in-progress-week drift"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Power Rankings PPG/Recent accuracy (deferred follow-up 1)",
+   "productFamily": "Awards",
+   "capability": "Awards VORP/starter/replacement use finished weeks only",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Award races don't drift mid-week",
+   "backendOwner": "src/public_league/awards.py (_final_scored_weeks)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Commit a38aacb99 via #1463 (f3d2ff481), backed by #1366 (30063569b) and #1517 (5b9e4392f). Production MVP values are asOfWeek 4 while matchupPreview is week 5. The intake line ~523 still lists it as open (stale).",
+   "prOrBranch": "#1463 f3d2ff481",
+   "evidence": "prod awards asOfWeek",
+   "nextAction": "Mark the intake follow-up resolved, citing #1463",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "HONORS-§7-traded-split",
+   "aliases": [
+    "Brisket Honors per-franchise-week attribution"
+   ],
+   "sourceDoc": "docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md#7",
+   "productFamily": "Awards",
+   "capability": "Traded players' award production split per franchise-week for eligibility",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "A traded MVP candidate is gated on the franchise-weeks he actually played for",
+   "backendOwner": "src/public_league/awards.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C9-AWARD-02/league-mvp-gate"
+   ],
+   "reality": "Not implemented: awards credit and gate a traded player on his most recent franchise (recorded known partial); spec test #7 does not exist.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Attribute VORP per (player, franchise, week) in awards.py and add the spec §7 test",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-HIST-01",
+   "aliases": [
+    "V1-96",
+    "C9-U1"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Historical franchise continuity repaired",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Correct historical standings and manager continuity",
+   "backendOwner": "src/public_league/identity.py",
+   "frontendOwner": null,
+   "dependsOn": [
+    "C1-ACQ-02"
+   ],
+   "reality": "Squash #965 (854598d9a): Manager.is_retired flag instead of erasure; tests/public_league/test_identity_retirement.py; V1-96 VERIFIED. Production history shows 2024 numTeams 10 with 10 standings rows. _RETIRED_OWNER_IDS is a hard-coded set by owner-approved design.",
+   "prOrBranch": "#965 854598d9a",
+   "evidence": "prod history probe",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-HIST-02",
+   "aliases": [
+    "C9-U1",
+    "PUBLIC_MAX_SEASONS"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Paginated all-time archives (no truncation as seasons accumulate)",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "All-time history keeps every season",
+   "backendOwner": "src/public_league/sleeper_client.py",
+   "frontendOwner": "frontend/app/league/sections/archives.jsx",
+   "dependsOn": [],
+   "reality": "Not repaired: PUBLIC_MAX_SEASONS defaults to 3; archives is one unpaginated 845 KB response. No loss today (chain is exactly 2024-2026), but the 2027 rollover would silently drop 2024.",
+   "prOrBranch": null,
+   "evidence": "prod archives probe",
+   "nextAction": "Remove the 3-season cap (or paginate archives by season) with an archive test, before the 2027 league rollover",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-SHARE-01",
+   "aliases": [
+    "CE-10",
+    "C9-U3"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Canonical Share Renderer over privacy-classified view models",
+   "disposition": "AUTHORIZED_AND_READY",
+   "userVisibleOutcome": "Consistent, privacy-safe share images for every surface",
+   "backendOwner": "new renderer",
+   "frontendOwner": "frontend/app/league/**/opengraph-image.js (4 ad-hoc routes)",
+   "dependsOn": [
+    "F-PRIV-01"
+   ],
+   "reality": "Not built: 4 separate opengraph-image routes (franchise, player, rivalry, weekly matchup) plus more one-off share paths since (awards snapshot, Power share card, ShareButton.jsx). F-PRIV-01 is satisfied.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Design one renderer over privacy-classified view models and migrate the 4 opengraph routes first",
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-WRS-01",
+   "aliases": [
+    "#829",
+    "decisions 47-55",
+    "C9-U4"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Weekly Report Studio: Manual External AI default, one pregame + one postgame package, structured import, validate, preview, publish",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Owner prepares a package, pastes AI output, previews and publishes weekly reports",
+   "backendOwner": "src/public_league/matchup_narrative.py",
+   "frontendOwner": "frontend/app/league/articles",
+   "dependsOn": [
+    "C9-SHARE-01",
+    "C5-POW-01"
+   ],
+   "reality": "#1265 (5336ec3cb) made Manual External AI the default for per-matchup articles only (build_manual_package, validate_manual_article schema 1.1). No weekly pregame/postgame package, preview/publish flow or graphics; #829 is open. C5-POW-01 is satisfied; C9-SHARE-01 is needed only for graphics.",
+   "prOrBranch": "#1265 5336ec3cb",
+   "evidence": null,
+   "nextAction": "Build the weekly pregame/postgame package + import -> validate -> preview -> publish pipeline on the existing validator (graphics later via C9-SHARE-01)",
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C9-UR-01",
+   "aliases": [
+    "T-NEW-07",
+    "Upside Report weekly"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "The Upside Report (weekly showcase)",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "A weekly league showcase report",
+   "backendOwner": "src/public_league (report via WRS pipeline)",
+   "frontendOwner": "frontend/app/league",
+   "dependsOn": [
+    "C9-WRS-01"
+   ],
+   "reality": "No Upside Report code. The template weeklyRecap (weekly_recap.py) and matchupPreview are live and current in production (recap week 4, preview week 5 generated 2026-10-07).",
+   "prOrBranch": null,
+   "evidence": "prod weeklyRecap/matchupPreview",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-UR-02",
+   "aliases": [
+    "Upside Report Preseason/Kickoff Edition"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Preseason/Kickoff edition as the immutable preseason baseline",
+   "disposition": "OWNER_ACTION_REQUIRED",
+   "userVisibleOutcome": "A preseason baseline edition",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [
+    "C9-UR-01",
+    "C1-HIST-01"
+   ],
+   "reality": "The Tuesday-before-Week-1 window has passed (BRISKET_IDEAS §13.3 records it as lost). Inputs survive (temporal ledger, dynasty_main Power week_00), so only a labelled nearest-prior baseline is possible for 2026.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": {
+    "what": "Choice between a labelled nearest-prior 2026 baseline and accepting the loss until 2027",
+    "whyReal": "Irreversible evidence: an exact contemporaneous edition cannot be produced, and presenting a reconstruction needs owner sign-off",
+    "doneAround": "The 2027 edition can be scheduled once C9-UR-01 exists",
+    "ownerOrExternalAction": "Owner picks nearest-prior retrospective vs skip-2026",
+    "afterUnblock": "Build with C9-UR-01"
+   },
+   "weight": 1
+  },
+  {
+   "id": "C9-V3-01",
+   "aliases": [
+    "C9-U7",
+    "Public League Experience v3",
+    "Franchise Passport"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Public League Experience v3: six hubs, Franchise Passport, storytelling",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "A redesigned /league",
+   "backendOwner": "src/public_league/",
+   "frontendOwner": "frontend/app/league",
+   "dependsOn": [
+    "C9-HIST-01",
+    "C8-PSI-03"
+   ],
+   "reality": "Still the old UX over 34 src/public_league modules; no Franchise Passport or six-hub structure. /league is not yet migrated to PSI (C8-PSI-03).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 3
+  },
+  {
+   "id": "C9-RECAP-01",
+   "aliases": [
+    "CE-21",
+    "Dynasty Season Recap / Wrapped",
+    "C9-U5"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "Dynasty Season Recap / Wrapped",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "End-of-season wrapped per manager",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [
+    "C9-UR-01"
+   ],
+   "reality": "Does not exist (no wrapped/season_recap code).",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 2
+  },
+  {
+   "id": "C9-TRUTH-01",
+   "aliases": [
+    "C9-U6",
+    "League Truth public view"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C9",
+   "productFamily": "Public League / reports",
+   "capability": "League Truth public view (factual/retrospective only)",
+   "disposition": "DEPENDENCY_BLOCKED",
+   "userVisibleOutcome": "Public factual league-truth metrics",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [
+    "C7-AI-05",
+    "F-PRIV-01"
+   ],
+   "reality": "Does not exist; the private C7-AI-05 League Truth it depends on is absent.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "F-PRIV-01",
+   "aliases": [
+    "B8"
+   ],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#F",
+   "productFamily": "Public League / reports",
+   "capability": "Public/private boundary on both channels",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Public /league shows facts only; private intelligence needs a session",
+   "backendOwner": "src/public_league/public_contract.py",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "Production probe: anonymous rosTeamStrength/rosTradeDeadline/faabAnalytics/teamAssignment return 401 auth_required; a scan of 20 public sections found no rankDerivedValue/canonicalConsensusRank/KTC/edge fields. tests/api/test_public_league_privacy_boundary.py (13 tests).",
+   "prOrBranch": null,
+   "evidence": "prod probes 2026-10-07",
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "T-NEW-03",
+   "aliases": [
+    "Public League manual Sleeper sync / freshness"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Companion intake requirements",
+   "productFamily": "Public League / reports",
+   "capability": "Authenticated 'Sync Sleeper' action with sync states and visible generatedAt on /league",
+   "disposition": "PARTIAL",
+   "userVisibleOutcome": "Owner can force-refresh league data and see when it was updated",
+   "backendOwner": "server.py::_authorized_force_refresh",
+   "frontendOwner": "frontend/lib/public-league-data.js; frontend/app/league",
+   "dependsOn": [],
+   "reality": "Backend exists (?refresh=1 for signed-in users, 300 s TTL, single-flight, cooldown). public-league-data.js accepts a refresh flag, but nothing in /league calls it; no Sync button, states or generatedAt display.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": "Add the authenticated Sync action with Syncing/Updated/Failed states and the generatedAt display on /league",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1622",
+   "aliases": [
+    "#1623",
+    "Activity tab performance lane"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-10-03 (Activity performance lane)",
+   "productFamily": "Public League / reports",
+   "capability": "/league?tab=activity meets the global performance standard",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
+   "userVisibleOutcome": "Activity tab loads fast",
+   "backendOwner": "src/public_league (activity prepared output)",
+   "frontendOwner": "frontend/app/league/sections/activity.jsx",
+   "dependsOn": [],
+   "reality": "#1623 merged 2026-10-03 (632fff395). Audit probe of the production API: 173,568 B (15,381 B gzip), total 0.67-0.81 s over 5 samples (was 421,211 B, p50 1.95 s / p95 3.6 s); an owner-recorded p50 0.687 / p95 0.721. Browser useful-state on desktop and mobile (V1 coverage) is not yet recorded and #1622 is open.",
+   "prOrBranch": "#1623 632fff395",
+   "evidence": "prod curl timings 2026-10-07",
+   "nextAction": "Harvest the post-deploy V1 desktop and mobile results for /league?tab=activity, then close #1622",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#985",
+   "aliases": [
+    "DynastyStats-derived expansion",
+    "League Hub/Pulse",
+    "Asset Map",
+    "Transaction Intelligence"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Recovered durable owner requirements (#985)",
+   "productFamily": "Public League / reports",
+   "capability": "DynastyStats-derived League Hub/Pulse, Asset Map, Transaction Intelligence",
+   "disposition": "INTENTIONALLY_FUTURE",
+   "userVisibleOutcome": "Future League Hub enrichments",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "#985 is open; the intake classifies it LONG-TERM, post-V1, fold-when-natural.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "X-01",
+   "aliases": [],
+   "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#X",
+   "productFamily": "Schedule Intelligence",
+   "capability": "Schedule generator",
+   "disposition": "REJECTED",
+   "userVisibleOutcome": "None",
+   "backendOwner": null,
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "OWNER-REJECTED (manifest X-01; EXECUTION_PLAN Schedule Intelligence section). No generator code; schedule_impact.py is read-only retrospective analysis.",
+   "prOrBranch": null,
+   "evidence": null,
+   "nextAction": null,
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "T-NEW-05",
+   "aliases": [
+    "V1-94",
+    "teamAssignment missing-data-as-zero"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Companion intake requirements",
+   "productFamily": "Public League / reports",
+   "capability": "teamAssignment never renders missing data as zero",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Explicit unavailable states in team assignment",
+   "backendOwner": "src/api (teamAssignment)",
+   "frontendOwner": null,
+   "dependsOn": [],
+   "reality": "V1-94 VERIFIED via #914 and #1015 (bc21bd3c3); tests/api/test_team_assignment_availability.py. The section is now auth-gated (anonymous 401), so production evidence is the V1 contract record. OWNER_REQUESTED_TODO_SPEC_INDEX still says TODO (stale).",
+   "prOrBranch": "#1015 bc21bd3c3",
+   "evidence": "V1 contract",
+   "nextAction": "Fix the stale status in docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md",
+   "blocker": null,
+   "weight": 1
+  },
+  {
+   "id": "#1340",
+   "aliases": [
+    "C2-STR-01 surface",
+    "Team Strength page",
+    "TODO-2026-09-24-team-strength-1340"
+   ],
+   "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#Added 2026-09-24 — Calculator completion campaign (Lane A #1340)",
+   "productFamily": "Team Strength / roster intelligence",
+   "capability": "Team Strength page renders a real result or a truthful unavailable state, never stuck loading",
+   "disposition": "COMPLETE_AND_PROVEN",
+   "userVisibleOutcome": "Team Strength tab works on desktop and mobile",
+   "backendOwner": "src/roster_intel/strength.py; src/ros/team_strength.py",
+   "frontendOwner": "frontend Team Strength/Weakness tab",
+   "dependsOn": [
+    "C2-STR-01"
+   ],
+   "reality": "The 2026-09-15 failure was followed by #1390 (b83105228, leagueKey threading + staleness guard). V1 Authenticated Production Verification run 37678996634 (2026-10-07) passes v1-123-team-strength.spec.js on prod-desktop and prod-mobile (3.0-3.1 s) — the spec's acceptance is a real table or an explicit not-ready state. Issue #1340 is still open (stale).",
+   "prOrBranch": "#1390 b83105228",
+   "evidence": "V1 prod-auth run 37678996634",
+   "nextAction": "Close #1340 citing run 37678996634",
+   "blocker": null,
+   "weight": 1
+  }
+ ]
+}
