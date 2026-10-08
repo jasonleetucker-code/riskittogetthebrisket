@@ -13148,6 +13148,70 @@ async def list_public_league_players(request: Request, refresh: str = ""):
         )
 
 
+# ── Player Impact (C5-WAR-01) — PRIVATE, read-only ─────────────────────
+# Realized Lineup VORP / Actual WAR / Wins Above Bench / Game Changer per
+# (player, franchise, week), owned by ``src/public_league/player_impact.py``.
+# Private by default: no product record classifies these modelled
+# (replacement-relative) quantities as public, so the path is outside the
+# public allowlist and the handler re-checks the session.  It changes no
+# award, MVP formula or published value — nothing consumes it yet.
+# Keyed by the snapshot's generation, so a refresh recomputes.
+_player_impact_cache: dict[tuple[str, str, str], dict] = {}
+_PLAYER_IMPACT_CACHE_MAX = 4
+
+
+@app.get("/api/league/player-impact")
+async def get_league_player_impact(request: Request, season: str = "", playerId: str = ""):
+    """Deterministic player-impact contract for one finished-weeks season."""
+    from src.public_league import player_impact as _player_impact  # noqa: PLC0415
+
+    if not _get_auth_session(request):
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    def _build() -> tuple[int, dict]:
+        snapshot = _get_public_snapshot()
+        # The league snapshot is ONE league's; another league's rosters must
+        # never answer for this one (same guard as faab-recommend).
+        if str(league_cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return 503, {
+                "error": "data_not_ready",
+                "reason": "league_snapshot_mismatch",
+                "leagueKey": league_cfg.key,
+            }
+        target = snapshot.season_by_year(season) if season else snapshot.current_season
+        if target is None:
+            return 404, {"error": "unknown_season", "season": season}
+        key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id)
+        computed = _player_impact_cache.get(key)
+        if computed is None:
+            computed = _player_impact.compute_season(snapshot, target)
+            while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
+                _player_impact_cache.pop(next(iter(_player_impact_cache)))
+            _player_impact_cache[key] = computed
+        payload = _player_impact.build_payload(
+            snapshot, target, player_id=playerId or None, computed=computed
+        )
+        payload["leagueKey"] = league_cfg.key
+        payload["generatedAt"] = snapshot.generated_at
+        return 200, payload
+
+    try:
+        status, content = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        # Logged, never echoed: raw exception text can carry paths/internals.
+        logging.error("Player impact build failed: %s", exc)
+        return JSONResponse(status_code=503, content={"error": "player_impact_unavailable"})
+    return JSONResponse(
+        status_code=status,
+        content=content,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
 @app.get("/api/public/league/{section}.csv")
 async def get_public_league_section_csv(
     section: str,
