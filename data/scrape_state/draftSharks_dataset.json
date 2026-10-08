@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-05-01T19:55:37Z",
-     "broad": true,
-     "rowsAdded": 0,
-     "rowsChanged": 118,
-     "rowsRemoved": 1,
-     "rowsTotal": 460
-    },
-    {
      "at": "2026-05-03T11:31:53Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,18 +1928,25 @@
      "rowsChanged": 10,
      "rowsRemoved": 0,
      "rowsTotal": 386
+    },
+    {
+     "at": "2026-10-08T06:46:31Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 386
     }
    ],
-   "contentSince": "2026-10-07T23:25:26Z",
-   "fingerprint": "2848ea933454bf502e917041",
+   "contentSince": "2026-10-08T06:46:31Z",
+   "fingerprint": "760f7c070a067702fa2edbce",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-07T23:25:26Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-08T06:46:31Z",
    "lastBroadDatasetChangeAt": "2026-10-07T23:25:26Z",
    "rowChangedAt": {},
    "rowCount": 386,
    "rowCountHistory": [
-    408,
     408,
     408,
     408,
@@ -1976,6 +1975,7 @@
     392,
     392,
     386,
+    386,
     386
    ],
    "rowHashes": {
@@ -2001,7 +2001,7 @@
     "ben sinnott": "3af0accd86",
     "bhayshul tuten": "d7cca6c82b",
     "bijan robinson": "f04750637a",
-    "blake corum": "b502f80765",
+    "blake corum": "d2782d0df1",
     "bo nix": "0f253a95f8",
     "braelon allen": "128908a026",
     "brandon aiyuk": "2eead4e947",
@@ -2055,7 +2055,7 @@
     "d.j. moore": "0773040e12",
     "d.k. metcalf": "a7fead62d5",
     "dak prescott": "3ae63a56a7",
-    "dallas goedert": "bca47072b1",
+    "dallas goedert": "99861ef8c3",
     "dallen bentley": "bae1738c09",
     "dalton kincaid": "20ea1a95a3",
     "dalton schultz": "2c6132e985",
@@ -2322,7 +2322,7 @@
     "ted hurst": "7469847810",
     "tee higgins": "cf937844f2",
     "terrance ferguson": "0b943a86bf",
-    "terry mclaurin": "99861ef8c3",
+    "terry mclaurin": "b502f80765",
     "tetairoa mcmillan": "456abbaf13",
     "tez johnson": "39ebf107f6",
     "theo johnson": "186aeeed3c",
@@ -2332,7 +2332,7 @@
     "tory horton": "8a556af492",
     "travis etienne": "27dbf9ffe6",
     "travis hunter": "470e84f1b3",
-    "travis kelce": "d2782d0df1",
+    "travis kelce": "bca47072b1",
     "tre harris": "ea35b8bc22",
     "tre tucker": "0f4ae6316e",
     "treveyon henderson": "40ef955f5d",
