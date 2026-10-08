@@ -517,6 +517,22 @@ def _flag_unread(flag: Mapping[str, Any]) -> str:
     )
 
 
+def _all_on(*flags: Mapping[str, Any]) -> bool | None:
+    """A conjunction of flags, read the way the serving code reads it: any OFF flag
+    decides OFF (``a and b`` never consults the rest); all ON is ON; otherwise the
+    served side is unobserved."""
+    values = [_flag_enabled(f) for f in flags]
+    if any(v is False for v in values):
+        return False
+    if all(v is True for v in values):
+        return True
+    return None
+
+
+def _unread_flags(*flags: Mapping[str, Any]) -> str:
+    return "; ".join(_flag_unread(f) for f in flags if _flag_enabled(f) is None)
+
+
 def _incumbent_row_state(enabled: bool | None) -> str:
     """The flag-gated incumbent: served while OFF, displaced while ON, unknown otherwise."""
     if enabled is False:
@@ -1166,6 +1182,11 @@ SPARSE_FAMILY = "sparse_evidence_estimator"
 SPARSE_EVIDENCE_REL = "docs/valuation/evidence/sparse-evidence-2026-10-01"
 #: The sparse-evidence one-board evaluation emits no AL-0 EVALUATION receipt, so
 #: its native verdict is translated onto the AL-0 vocabulary here.
+SPARSE_PATH_RETENTION = "0.30 single-source retention"
+SPARSE_PATH_LIMITED = (
+    "no single-source haircut (joint_sparse_limited_evidence ON: limitedEvidence stamp)"
+)
+
 SPARSE_VERDICT_TO_VERDICT: Mapping[str, str] = {
     "does not meet gate": "champion_retained",
     "meets gate": "challenger_better_pending_policy",
@@ -1215,10 +1236,31 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
     gates = (results or {}).get("gates")
     no_eval = err or "no committed sparse-evidence evaluation"
     flag = _flag_state("sparse_evidence_estimator")
+    limited_flag = _flag_state("joint_sparse_limited_evidence")
     enabled = _flag_enabled(flag)
     word = _flag_word(enabled)
     no_record = "no shadow record on this host"
     board = (latest or {}).get("board")
+    # Which path serves a single-family row when the estimator is OFF -- the same
+    # precedence ``data_contract._compute_unified_rankings`` applies: estimator
+    # first, else the joint challenger's sparse half (``joint_sparse_limited_evidence``:
+    # limitedEvidence stamp, NO 0.30 retention), else the 0.30 retention.
+    limited = _flag_enabled(limited_flag)
+    incumbent_path: Any = {
+        False: SPARSE_PATH_RETENTION,
+        True: SPARSE_PATH_LIMITED,
+    }.get(limited, unobserved(_flag_unread(limited_flag)))
+    incumbent_text = (
+        incumbent_path
+        if isinstance(incumbent_path, str)
+        else "the incumbent path (unobserved: joint_sparse_limited_evidence unreadable)"
+    )
+    if enabled is True:
+        served_note = f"candidate C ({ESTIMATOR_VERSION}) is served: sparse_evidence_estimator ON"
+    elif enabled is False:
+        served_note = f"{incumbent_text} is served: sparse_evidence_estimator OFF"
+    else:
+        served_note = _flag_unread(flag)
 
     served_version: Any
     if enabled is True:
@@ -1235,7 +1277,9 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
     champion: Any = {
         "version": served_version,
         "createdAt": not_applicable(
-            "the incumbent 0.30 single-source retention is a rule, not a fit"
+            "candidate C is a deterministic estimator version, not a fit"
+            if enabled
+            else f"the incumbent ({incumbent_text}) is a rule, not a fit"
         ),
         "trainedAt": not_applicable("not fitted"),
         "dataThrough": _first_value(
@@ -1269,15 +1313,14 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
     ]
     challengers = [
         _challenger(
-            version=ids[0] if ids else "single-source retention incumbent",
+            version=ids[0] if ids else incumbent_text,
             state=_incumbent_row_state(enabled),
-            native_status=f"flag {word}",
+            native_status=incumbent_path,
             created_at=not_applicable("a rule, not a fit"),
             metrics=not_applicable("reference side of the comparison"),
-            reason={
-                False: "served while the sparse_evidence_estimator flag is OFF",
-                True: "not served: the sparse_evidence_estimator flag is ON; restored by rollback",
-            }.get(enabled, _flag_unread(flag)),
+            reason=served_note
+            if enabled is not True
+            else f"not served: {served_note}; rollback restores {incumbent_text}",
         ),
         _challenger(
             version=ids[1] if ids else ESTIMATOR_VERSION,
@@ -1331,19 +1374,26 @@ def build_sparse_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         promotionAuthority=BATCH3_AUTHORITY,
         productionState={
             **flag,
+            "servedPath": f"candidate C ({ESTIMATOR_VERSION})"
+            if enabled is True
+            else (incumbent_path if enabled is False else unobserved(served_note)),
+            "servedNote": served_note,
+            "flags": [flag, limited_flag],
             "shadowLedger": {k: v for k, v in ledger.items() if k != "latest"},
             "latestShadowRecordAt": _value(latest, "recordedAt", no_record),
         },
         rollback={
-            "served": {
-                False: "the incumbent is served; nothing to roll back",
-                True: "candidate C is served (flag ON)",
-            }.get(enabled, _flag_unread(flag)),
-            "command": "RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0 + restart",
+            "served": served_note,
+            "command": "RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0 + restart (restores "
+            f"{incumbent_text})"
+            if enabled is not False
+            else "nothing to roll back: the incumbent is served",
         },
         decisionReason=unobserved(_flag_unread(flag))
         if enabled is None
-        else (f"flag {word}; candidate C preregistered verdict: {verdict}" if verdict else no_eval),
+        else (
+            f"{served_note}; candidate C preregistered verdict: {verdict}" if verdict else no_eval
+        ),
         dataQuality={
             "latestBoardAgeHours": ((latest or {}).get("board") or {}).get("payloadAgeHours")
             if latest
@@ -1396,8 +1446,26 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
     mode = (evaluation or {}).get("mode")
     horizons = primary.get("horizons") or {}
     filter_flag = _flag_state("joint_outlier_sparse_challenger")
-    enabled = _flag_enabled(filter_flag)
-    word = _flag_word(enabled)
+    cap_flag = _flag_state("source_family_cap")
+    # The serving gate is a CONJUNCTION (``data_contract._compute_unified_rankings``:
+    # ``_joint_challenger = _family_cap_applied and is_enabled(...)``): the filter
+    # weighs CAPPED evidence, so with the family cap rolled back it stands down to
+    # Hampel even when its own flag is ON.
+    enabled = _all_on(cap_flag, filter_flag)
+    word = _flag_word(_flag_enabled(filter_flag))
+    if enabled is True:
+        served_note = (
+            "the joint filter is served (joint_outlier_sparse_challenger ON, source_family_cap ON)"
+        )
+    elif enabled is False and _flag_enabled(filter_flag) is False:
+        served_note = "Hampel is served: joint_outlier_sparse_challenger is OFF"
+    elif enabled is False:
+        served_note = (
+            "Hampel is served: source_family_cap is OFF, so the joint filter stands down "
+            f"even with joint_outlier_sparse_challenger {word} (it needs capped evidence)"
+        )
+    else:
+        served_note = _unread_flags(cap_flag, filter_flag)
     no_record = "no shadow record on this host"
     board = (latest or {}).get("board")
     span = primary.get("span")
@@ -1437,7 +1505,11 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         )
     champion: Any = {
         "version": served_version,
-        "createdAt": not_applicable("the Hampel incumbent is a rule, not a fit"),
+        "createdAt": not_applicable(
+            "the joint filter is a deterministic filter version, not a fit"
+            if enabled
+            else "the Hampel incumbent is a rule, not a fit"
+        ),
         "trainedAt": not_applicable("not fitted"),
         "dataThrough": _first_value(
             _value(board, "scrapeTimestamp", no_record),
@@ -1467,19 +1539,18 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
         else not_applicable("the incumbent is the reference the deltas compare against"),
     }
     if enabled is None:
-        champion = unobserved(_flag_unread(filter_flag))
+        champion = unobserved(served_note)
     state, al0 = _state_from_native(verdict, ROBUST_VERDICT_TO_VERDICT)
     challengers = [
         _challenger(
             version=ids[0] if ids else "Hampel incumbent",
             state=_incumbent_row_state(enabled),
-            native_status=f"flag {word}",
+            native_status={True: "not served", False: "served"}.get(enabled, "unobserved"),
             created_at=not_applicable("a rule, not a fit"),
             metrics=not_applicable("reference side of the comparison"),
-            reason={
-                False: "served while joint_outlier_sparse_challenger is OFF",
-                True: "not served: joint_outlier_sparse_challenger is ON; restored by rollback",
-            }.get(enabled, _flag_unread(filter_flag)),
+            reason=served_note
+            if enabled is not True
+            else f"not served: {served_note}; restored by rollback",
         ),
         _challenger(
             version=ids[1] if ids else CHALLENGER_VERSION,
@@ -1542,8 +1613,13 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
             "review and owner approval; promotes: false on every receipt",
         },
         productionState={
+            "servedSide": {True: "joint filter", False: "Hampel"}.get(
+                enabled, unobserved(served_note)
+            ),
+            "servedNote": served_note,
             "flags": [
                 filter_flag,
+                cap_flag,
                 _flag_state("joint_sparse_limited_evidence"),
             ],
             "shadowLedgerPresent": ledger_file.is_file(),
@@ -1551,16 +1627,15 @@ def build_robust_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, An
             "latestShadowMode": _value(latest, "mode", no_record),
         },
         rollback={
-            "served": {
-                False: "the Hampel incumbent is served; nothing to roll back",
-                True: "the joint filter is served (flag ON)",
-            }.get(enabled, _flag_unread(filter_flag)),
-            "command": "RISKIT_FEATURE_JOINT_OUTLIER_SPARSE_CHALLENGER=0 + restart",
+            "served": served_note,
+            "command": "RISKIT_FEATURE_JOINT_OUTLIER_SPARSE_CHALLENGER=0 + restart"
+            if enabled is not False
+            else "nothing to roll back: Hampel is served",
         },
-        decisionReason=unobserved(_flag_unread(filter_flag))
+        decisionReason=unobserved(served_note)
         if enabled is None
         else (
-            (f"filter flag {word}; preregistered verdict {verdict}" if verdict else no_eval)
+            (f"{served_note}; preregistered verdict {verdict}" if verdict else no_eval)
             + (f" ({replay_note})" if replay_note else "")
         ),
         dataQuality={
@@ -1607,10 +1682,70 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
         "the preregistered gate's per-criterion results (section 10.8) have not been recorded; "
         "the on-box report carries measurements, not an adjudicated verdict"
     )
-    champion_desc = "Candidate A served (flag ON)" if enabled else "no Signals IDP vote (hold)"
-    champion = {
-        "version": champion_desc,
-        "createdAt": not_applicable("a source-vote hold, not a fit"),
+    # What is SERVED is the vote-state owner's answer (data_contract), never the gate
+    # restated: Candidate A votes only where the Signals IDP CSV is present, the
+    # source is not rolled back (signals_active_source) AND the hold is lifted
+    # (signals_idp_shared_market).  On a host that never provisioned Signals the
+    # flag can be ON while nothing votes.
+    vote_states: dict[str, Any] = {}
+    availability: dict[str, Any] = {}
+    vote_err: str | None = None
+    try:
+        from src.api import data_contract as dc
+
+        holds = dict(dc.PRIVATE_SOURCE_VOTE_HOLDS)
+        hold_status: Any = {
+            "heldSources": sorted(holds),
+            "holdReasons": sorted(set(holds.values())),
+        }
+        states = dc._private_source_vote_state(csv_root=root)
+        for key in sorted(dc.PRIVATE_SOURCE_SHADOW_KEYS):
+            if key in states:
+                vote_states[key] = states[key].get("voteState")
+                availability[key] = states[key].get("state")
+        if not vote_states:
+            vote_err = "no Signals IDP source is registered with the vote-state owner"
+        active_state, shadow_state = dc.VOTE_STATE_ACTIVE, dc.VOTE_STATE_SHADOW
+    except Exception as exc:  # noqa: BLE001
+        hold_status = unobserved(f"vote holds unreadable: {type(exc).__name__}: {exc}")
+        vote_err = f"vote state unreadable: {type(exc).__name__}: {exc}"
+        active_state, shadow_state = "active", "shadow"
+
+    observed_states = set(vote_states.values())
+    served: bool | None
+    if enabled is None or vote_err is not None:
+        served = None
+        served_note = (
+            _flag_unread(flag) if enabled is None else f"served side unobserved: {vote_err}"
+        )
+    elif active_state in observed_states:
+        voting = sorted(k for k, v in vote_states.items() if v == active_state)
+        served = True
+        served_note = f"Candidate A votes for {', '.join(voting)} (voteState {active_state})"
+    else:
+        served = False
+        served_note = (
+            "no Signals IDP vote is served (voteState: "
+            + ", ".join(f"{k} {v}" for k, v in vote_states.items())
+            + ")"
+        )
+    if served is True:
+        candidate_state = LAB_CHAMPION
+    elif served is False and shadow_state in observed_states:
+        candidate_state = LAB_SHADOW
+    else:
+        # Not running here (CSV unavailable / rolled back), or unknown.
+        candidate_state = LAB_INSUFFICIENT
+
+    champion: Any = {
+        "version": "Candidate A (shared-market family crosswalk)"
+        if served
+        else "no Signals IDP vote (hold)",
+        "createdAt": not_applicable(
+            "Candidate A is a preregistered rule, not a fit"
+            if served
+            else "a source-vote hold, not a fit"
+        ),
         "trainedAt": not_applicable("Candidate A fits no parameter (section 10.7)"),
         "dataThrough": unobserved(no_report) if latest_doc is None else latest_doc.get("utc"),
         "featureDictionary": not_applicable(
@@ -1625,39 +1760,28 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
         "sampleSize": unobserved(no_results),
         "metrics": unobserved(no_results),
     }
-    if enabled is None:
-        champion = unobserved(_flag_unread(flag))
-    # Native statuses from the vote-hold owner (data_contract), never restated here.
-    try:
-        from src.api import data_contract as dc
-
-        holds = dict(dc.PRIVATE_SOURCE_VOTE_HOLDS)
-        hold_status: Any = {
-            "heldSources": sorted(holds),
-            "holdReasons": sorted(set(holds.values())),
-        }
-        vote_state: Any = {True: dc.VOTE_STATE_ACTIVE, False: dc.VOTE_STATE_SHADOW}.get(
-            enabled, "unobserved"
-        )
-    except Exception as exc:  # noqa: BLE001
-        hold_status = unobserved(f"vote holds unreadable: {type(exc).__name__}: {exc}")
-        vote_state = "unobserved"
+    if served is None:
+        champion = unobserved(served_note)
     challengers = [
         _challenger(
             version="no Signals IDP vote (hold)",
-            state=_incumbent_row_state(enabled),
+            state=_incumbent_row_state(served),
             native_status=hold_status,
             created_at=not_applicable("a hold"),
             metrics=not_applicable("reference side"),
-            reason="the incumbent board with no Signals IDP vote (section 10.3)",
+            reason=served_note
+            if served is not True
+            else f"not served: {served_note}; restored by rollback",
         ),
         _challenger(
             version="Candidate A: family rank to shared-market family ladder to GLOBAL curve",
-            state={True: LAB_CHAMPION, False: LAB_SHADOW}.get(enabled, LAB_INSUFFICIENT),
-            native_status=f"voteState {vote_state}",
+            state=candidate_state,
+            native_status={k: v for k, v in vote_states.items()}
+            if vote_states
+            else unobserved(vote_err or "no vote state"),
             created_at=not_applicable("preregistered rule, fits no parameter"),
             metrics=unobserved(no_results),
-            reason=no_results if enabled is not None else f"{_flag_unread(flag)}; {no_results}",
+            reason=f"{served_note}; {no_results}",
         ),
     ]
     return _family(
@@ -1691,17 +1815,21 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
             "independent review approves, then the owner flips signals_idp_shared_market",
             "automatic": False,
         },
-        productionState=flag,
-        rollback={
-            "served": {
-                True: "Candidate A is served (flag ON)",
-                False: "the hold is served",
-            }.get(enabled, _flag_unread(flag)),
-            "command": "RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart",
+        productionState={
+            **flag,
+            "servedNote": served_note,
+            "voteStates": vote_states if vote_states else unobserved(vote_err or "no vote state"),
+            "availability": availability if availability else unobserved(vote_err or "none"),
         },
-        decisionReason=unobserved(_flag_unread(flag))
-        if enabled is None
-        else f"flag {_flag_word(enabled)}; {no_results}",
+        rollback={
+            "served": served_note,
+            "command": "RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart"
+            if served is not False
+            else "nothing to roll back: no Signals IDP vote is served",
+        },
+        decisionReason=unobserved(served_note)
+        if served is None
+        else f"flag {_flag_word(enabled)}; {served_note}; {no_results}",
         dataQuality={"onboxReports": len(reports), "latestReport": report_identity},
         receipts=_family_receipts(receipts, SIGNALS_FAMILY),
     )

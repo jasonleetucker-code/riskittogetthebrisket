@@ -620,7 +620,6 @@ FLAG_GATED = [
     # (family builder, flag, incumbent row index, challenger row index)
     ("build_sparse_family", "sparse_evidence_estimator", 0, 1),
     ("build_robust_family", "joint_outlier_sparse_challenger", 0, 1),
-    ("build_signals_family", "signals_idp_shared_market", 0, 1),
 ]
 NO_RECEIPTS = {"state": "unobserved", "reason": "test"}
 
@@ -648,7 +647,9 @@ def test_flag_on_serves_the_challenger_not_the_incumbent(flag_env, builder, flag
     assert "served while" not in str(rows[inc]["reason"])
     assert rows[chal]["state"] == ml.LAB_CHAMPION
     assert not ml.is_state_block(block["champion"])
-    assert "flag ON" in block["decisionReason"]
+    assert "is served" in block["decisionReason"]
+    assert "the incumbent" not in block["champion"]["createdAt"]["reason"]
+    assert "Hampel incumbent" not in block["champion"]["createdAt"]["reason"]
     assert block["challengerStates"]["CHAMPION"] == 1
 
 
@@ -659,7 +660,7 @@ def test_flag_off_serves_the_incumbent(flag_env, builder, flag, inc, chal):
     rows = block["challengers"]
     assert rows[inc]["state"] == ml.LAB_CHAMPION
     assert rows[chal]["state"] != ml.LAB_CHAMPION
-    assert "flag OFF" in block["decisionReason"]
+    assert "OFF" in block["decisionReason"]
 
 
 def test_consensus_edge_flag_on_names_the_model_champion(flag_env):
@@ -748,3 +749,107 @@ def test_genuine_empty_values_are_not_turned_into_unobserved(tmp_path):
     assert hill["champion"]["trainingWindow"]["trainingSources"] == []
     assert hill["champion"]["trainingWindow"]["inputFingerprints"] == {}
     assert hill["champion"]["targetLineage"]["holdoutBoards"] == []
+
+
+# ── compound serving gates: the Lab reads what is SERVED, not one flag ───────
+
+
+def test_joint_filter_stands_down_without_the_family_cap(flag_env):
+    """data_contract serves the joint filter only when source_family_cap AND
+    joint_outlier_sparse_challenger are both ON."""
+    flag_env("joint_outlier_sparse_challenger", True)
+    flag_env("source_family_cap", False)
+    block = ml.build_robust_family(REPO, NO_RECEIPTS)
+    _assert_family_shape(block)
+    hampel, joint = block["challengers"]
+    assert hampel["state"] == ml.LAB_CHAMPION
+    assert joint["state"] != ml.LAB_CHAMPION
+    assert block["productionState"]["servedSide"] == "Hampel"
+    assert "source_family_cap is OFF" in block["productionState"]["servedNote"]
+    assert {f["flag"] for f in block["productionState"]["flags"]} >= {
+        "joint_outlier_sparse_challenger",
+        "source_family_cap",
+    }
+    assert "joint filter is served" not in str(block["rollback"])
+
+
+def test_unreadable_family_cap_leaves_the_served_side_unobserved(monkeypatch, flag_env):
+    from src.api import feature_flags
+
+    flag_env("joint_outlier_sparse_challenger", True)
+    real = feature_flags.effective_flags()
+    partial = {k: v for k, v in real.items() if k != "source_family_cap"}
+    monkeypatch.setattr(feature_flags, "effective_flags", lambda: partial)
+    block = ml.build_robust_family(REPO, NO_RECEIPTS)
+    assert block["champion"]["state"] == "unobserved"
+    assert "source_family_cap" in block["champion"]["reason"]
+    assert all(r["state"] != ml.LAB_CHAMPION for r in block["challengers"])
+
+
+def test_sparse_incumbent_is_the_limited_evidence_path_when_that_flag_is_on(flag_env):
+    """Estimator OFF + joint_sparse_limited_evidence ON skips the 0.30 retention."""
+    flag_env("sparse_evidence_estimator", False)
+    flag_env("joint_sparse_limited_evidence", True)
+    block = ml.build_sparse_family(REPO, NO_RECEIPTS)
+    incumbent = block["challengers"][0]
+    assert incumbent["state"] == ml.LAB_CHAMPION
+    assert incumbent["nativeStatus"] == ml.SPARSE_PATH_LIMITED
+    assert block["productionState"]["servedPath"] == ml.SPARSE_PATH_LIMITED
+    assert "0.30" not in block["productionState"]["servedNote"]
+
+
+def test_sparse_rollback_names_the_path_it_restores(flag_env):
+    flag_env("sparse_evidence_estimator", True)
+    flag_env("joint_sparse_limited_evidence", True)
+    block = ml.build_sparse_family(REPO, NO_RECEIPTS)
+    assert ml.SPARSE_PATH_LIMITED in block["rollback"]["command"]
+    flag_env("joint_sparse_limited_evidence", False)
+    block = ml.build_sparse_family(REPO, NO_RECEIPTS)
+    assert ml.SPARSE_PATH_RETENTION in block["rollback"]["command"]
+
+
+def _provision_signals(root: Path) -> None:
+    for fam in ("Dl", "Lb", "Db"):
+        _write(root / f"data/sources/signals/board/signalsIdp{fam}.csv", "name,rank\n")
+
+
+def test_signals_flag_on_without_provisioned_csvs_serves_no_vote(tmp_path, flag_env):
+    """A host that never provisioned Signals: the flag is ON but nothing votes."""
+    flag_env("signals_idp_shared_market", True)
+    block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
+    _assert_family_shape(block)
+    hold, candidate = block["challengers"]
+    assert hold["state"] == ml.LAB_CHAMPION
+    assert candidate["state"] == ml.LAB_INSUFFICIENT
+    assert set(block["productionState"]["voteStates"].values()) == {"unavailable"}
+    assert block["champion"]["version"] == "no Signals IDP vote (hold)"
+
+
+def test_signals_flag_on_with_provisioned_csvs_votes(tmp_path, flag_env):
+    _provision_signals(tmp_path)
+    flag_env("signals_idp_shared_market", True)
+    block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
+    hold, candidate = block["challengers"]
+    assert candidate["state"] == ml.LAB_CHAMPION
+    assert hold["state"] == ml.LAB_RETIRED
+    assert set(block["productionState"]["voteStates"].values()) == {"active"}
+
+
+def test_signals_flag_off_with_provisioned_csvs_is_shadow(tmp_path, flag_env):
+    _provision_signals(tmp_path)
+    flag_env("signals_idp_shared_market", False)
+    block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
+    hold, candidate = block["challengers"]
+    assert hold["state"] == ml.LAB_CHAMPION
+    assert candidate["state"] == ml.LAB_SHADOW
+
+
+def test_signals_rolled_back_source_is_not_shadow(tmp_path, flag_env):
+    _provision_signals(tmp_path)
+    flag_env("signals_idp_shared_market", True)
+    flag_env("signals_active_source", False)
+    block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
+    hold, candidate = block["challengers"]
+    assert hold["state"] == ml.LAB_CHAMPION
+    assert candidate["state"] == ml.LAB_INSUFFICIENT
+    assert set(block["productionState"]["voteStates"].values()) == {"rolled_back"}
