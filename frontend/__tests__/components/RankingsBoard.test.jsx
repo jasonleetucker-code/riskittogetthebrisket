@@ -78,17 +78,19 @@ vi.mock("@/components/useBdvm", () => ({ useBdvmEndpoint: (...args) => {
   return { data: bdvm.data, failure: null };
 } }));
 
+const DEFAULT_RAW_DATA = {
+  dataFreshness: { generatedAt: "2026-07-26T00:00:00Z" },
+  // Board built from an EARLIER scrape — the two clocks differ.
+  scrapeTimestamp: "2026-07-25T18:00:00Z",
+};
+const dyn = vi.hoisted(() => ({ rawData: null }));
 vi.mock("@/components/useDynastyData", () => ({
   useDynastyData: () => ({
     loading: false,
     error: "",
     source: "test",
     rows: ROWS,
-    rawData: {
-      dataFreshness: { generatedAt: "2026-07-26T00:00:00Z" },
-      // Board built from an EARLIER scrape — the two clocks differ.
-      scrapeTimestamp: "2026-07-25T18:00:00Z",
-    },
+    rawData: dyn.rawData || DEFAULT_RAW_DATA,
   }),
 }));
 vi.mock("@/components/AppShell", () => ({
@@ -137,6 +139,7 @@ function renderedNames() {
 }
 
 beforeEach(() => {
+  dyn.rawData = null;
   openPlayerPopup.mockClear();
   bdvm.data = null;
   bdvm.request.mockClear();
@@ -240,6 +243,27 @@ describe("rankings board", () => {
     expect(screen.queryByText(/Last scraped/)).toBeNull();
     expect(screen.getByText(/Board built/)).toBeInTheDocument();
     expect(screen.getByText(/from the scrape of/)).toBeInTheDocument();
+  });
+
+  it("never presents the board BUILD time as an update: header names the scrape clock", () => {
+    // Board rebuilt just now (e.g. a restart) from a scrape 3 days old.
+    const now = Date.now();
+    dyn.rawData = {
+      dataFreshness: { generatedAt: new Date(now).toISOString() },
+      scrapeTimestamp: new Date(now - 3 * 86_400_000).toISOString(),
+    };
+    render(<RankingsPage />);
+    const header = document.body.textContent;
+    expect(header).not.toMatch(/Updated/);
+    expect(screen.getByText("Chase Upside Consensus / Scraped 3d ago")).toBeInTheDocument();
+  });
+
+  it("falls back to the build clock, labelled as the build clock, when no scrape time is published", () => {
+    const now = Date.now();
+    dyn.rawData = { dataFreshness: { generatedAt: new Date(now - 2 * 3_600_000).toISOString() } };
+    render(<RankingsPage />);
+    expect(screen.getByText("Chase Upside Consensus / Board built 2h ago")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Updated/);
   });
 
   it("describes confidence with the current rule, not the retired spread rule", () => {

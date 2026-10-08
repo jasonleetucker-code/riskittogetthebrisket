@@ -34,6 +34,7 @@ import {
   formatHours,
   rowAuthority,
   rowSourceFreshness,
+  sourceExclusionLabel,
 } from "@/lib/value-explainers";
 import styles from "./value-explain.module.css";
 
@@ -223,7 +224,7 @@ export function SourceFreshnessList({ row, rawData }) {
                 <span className={styles.sourceName}>{s.label}</span>
                 <span className={styles.sourceWeight}>
                   {s.excluded
-                    ? "not voting — stale or unhealthy source"
+                    ? sourceExclusionLabel(s)
                     : s.outlierDropped
                       ? "dropped as an outlier"
                       : s.appliedWeight != null
