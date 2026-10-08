@@ -478,6 +478,14 @@ maybe_rebuild_frontend_after_rollback() {
 
   verify_frontend_build_manifest "${staging_dir}" || return 1
 
+  # Pre-start byte-exact guarantee (#1707), same rule as deploy.sh: the tree
+  # Next is about to serve must carry no runtime route cache.  Checked on the
+  # staging dir BEFORE the swap so a refusal leaves the live frontend running.
+  if [[ -e "${staging_dir}/server/route-cache" || -L "${staging_dir}/server/route-cache" ]]; then
+    error "Rollback frontend build already carries a runtime route cache: ${staging_dir}/server/route-cache"
+    return 1
+  fi
+
   local frontend_name="${SERVICE_NAME}-frontend"
   if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
     log "Stopping frontend service for rollback swap: ${frontend_name}"

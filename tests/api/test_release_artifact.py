@@ -222,6 +222,9 @@ def test_workflow_packages_only_after_build_and_checks():
 # cache into the served tree, so a post-start digest must not count it. --------
 
 
+IN_FLIGHT_UUID = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+
+
 def _route_cache(build: Path, kind: str, source: str) -> Path:
     owner = hashlib.sha256(source.encode("utf-8")).hexdigest()
     return build / "server/route-cache" / kind / owner / "$"
@@ -235,7 +238,8 @@ def _serve_traffic(build: Path) -> None:
         (login / name).write_bytes(b"runtime " + name.encode())
     (login / "login.segments/_tree.segment.rsc").write_bytes(b"tree")
     (login / "login.segments/login/__PAGE__.segment.rsc").write_bytes(b"page")
-    (login / "login.html.tmp.k3j2h1").write_bytes(b"in-flight atomic write")
+    # Next 16.3.8 writeFileAtomic (node-fs-methods.js): `${f}.${randomUUID()}.tmp`.
+    (login / f"login.html.{IN_FLIGHT_UUID}.tmp").write_bytes(b"in-flight atomic write")
     index = _route_cache(build, "APP_PAGE", "/page")
     index.mkdir(parents=True)
     (index / "index.html").write_bytes(b"home")
@@ -311,8 +315,19 @@ def _login_root(build: Path) -> Path:
         lambda b: _login_root(b).parent / "x.html",
         # straight into the directory
         lambda b: b / "server/route-cache/chunk.html",
+        # a temp file that is not Next's `<file>.<uuid>.tmp` shape
+        lambda b: _login_root(b) / "login.html.tmp.k3j2h1",
+        lambda b: _login_root(b) / f"login.js.{IN_FLIGHT_UUID}.tmp",
     ],
-    ids=["non_response_suffix", "undeclared_route", "wrong_kind", "outside_root", "flat"],
+    ids=[
+        "non_response_suffix",
+        "undeclared_route",
+        "wrong_kind",
+        "outside_root",
+        "flat",
+        "foreign_tmp_shape",
+        "tmp_of_non_response_file",
+    ],
 )
 def test_route_cache_refuses_anything_next_would_not_write(release_tree, smuggle):
     root, build = release_tree
@@ -354,12 +369,11 @@ def test_digest_version_is_bound_into_the_artifact_id(release_tree):
         forged["identity"]["frontend_tree_digest_version"] = forged_version
         with pytest.raises(ValueError, match="digest version is unsupported"):
             verify_release_manifest(forged, root, build, expected_commit=SHA)
-    # Dropping the field selects the legacy algorithm, under which the
-    # recorded (new-algorithm) digest no longer matches; nor would the ID.
+    # Dropping the field selects the legacy algorithm; the ID no longer matches.
     stripped = copy.deepcopy(built)
     del stripped["identity"]["frontend_tree_digest_version"]
     _serve_traffic(build)
-    with pytest.raises(ValueError, match="frontend bytes mismatch"):
+    with pytest.raises(ValueError, match="identity mismatch"):
         verify_release_manifest(stripped, root, build, expected_commit=SHA)
     assert _artifact_id(stripped["identity"]) != built["artifact_id"]
 
@@ -375,36 +389,97 @@ def _legacy_manifest(root: Path, build: Path) -> dict:
     return {**built, "identity": identity, "artifact_id": hashlib.sha256(encoded).hexdigest()}
 
 
-def test_legacy_manifest_still_verifies_with_the_legacy_algorithm(release_tree):
-    root, build = release_tree
-    legacy = _legacy_manifest(root, build)
-    assert _artifact_id(legacy["identity"]) == legacy["artifact_id"]
-    verify_release_manifest(legacy, root, build, expected_commit=SHA)
-    (root / ".release-manifest.json").write_text(json.dumps(legacy), encoding="utf-8")
-    running = resolve_runtime_release_identity(root, commit=SHA)
-    assert running["frontend_artifact_id"] == legacy["artifact_id"]
-    assert running["frontend_tree_digest_version"] == "legacy"
-    # The legacy algorithm keeps its exact strictness: it never learned the
-    # route-cache exclusion, so it still covers every file it always covered.
-    (build / "static/chunk.js").write_bytes(b"tampered")
-    with pytest.raises(ValueError, match="frontend bytes mismatch"):
-        verify_release_manifest(legacy, root, build, expected_commit=SHA)
-
-
-def test_legacy_digest_bytes_are_unchanged(release_tree):
-    """The legacy digest is the exact pre-fix function, not a re-derivation."""
-    _, build = release_tree
-    _serve_traffic(build)
+def _pre_fix_digest(build: Path) -> str:
+    """Independent copy of the ORIGINAL ``_frontend_tree_digest`` (pre-#1707)."""
     files = []
     for path in sorted(build.rglob("*")):
         relative = path.relative_to(build)
         if relative.parts[0] == "cache" or not path.is_file():
             continue
         files.append((relative.as_posix(), hashlib.sha256(path.read_bytes()).hexdigest()))
-    expected = hashlib.sha256(
+    return hashlib.sha256(
         json.dumps(files, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     ).hexdigest()
-    assert _frontend_tree_digest(build) == expected
+
+
+def test_legacy_manifest_without_route_cache_is_byte_identical(release_tree):
+    root, build = release_tree
+    legacy = _legacy_manifest(root, build)
+    assert legacy["identity"]["frontend_tree_sha256"] == _pre_fix_digest(build)
+    assert _artifact_id(legacy["identity"]) == legacy["artifact_id"]
+    verify_release_manifest(legacy, root, build, expected_commit=SHA)
+    (root / ".release-manifest.json").write_text(json.dumps(legacy), encoding="utf-8")
+    running = resolve_runtime_release_identity(root, commit=SHA)
+    assert running["frontend_artifact_id"] == legacy["artifact_id"]
+    assert running["frontend_tree_digest_version"] == "legacy"
+    (build / "static/chunk.js").write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="frontend bytes mismatch"):
+        verify_release_manifest(legacy, root, build, expected_commit=SHA)
+
+
+def test_legacy_digest_without_route_cache_needs_no_route_manifests(release_tree):
+    """A tree with no route cache hashes exactly as before -- no new requirement."""
+    _, build = release_tree
+    (build / "server/app-paths-manifest.json").unlink()
+    (build / "server/pages-manifest.json").unlink()
+    assert _frontend_tree_digest(build) == _pre_fix_digest(build)
+
+
+def test_legacy_manifest_verifies_after_traffic(release_tree):
+    """F3: a pre-fix release in the rollback window survives a post-traffic verify."""
+    root, build = release_tree
+    legacy = _legacy_manifest(root, build)
+    _serve_traffic(build)
+    verify_release_manifest(legacy, root, build, expected_commit=SHA)
+    (root / ".release-manifest.json").write_text(json.dumps(legacy), encoding="utf-8")
+    assert (
+        resolve_runtime_release_identity(root, commit=SHA)["frontend_artifact_id"]
+        == (legacy["artifact_id"])
+    )
+    (build / "server/app/login/page.js").write_bytes(b"altered bundle")
+    with pytest.raises(ValueError, match="frontend bytes mismatch"):
+        verify_release_manifest(legacy, root, build, expected_commit=SHA)
+
+
+def test_legacy_manifest_refuses_an_undeclared_route_cache_entry(release_tree):
+    root, build = release_tree
+    legacy = _legacy_manifest(root, build)
+    _serve_traffic(build)
+    (_login_root(build) / "evil.js").write_bytes(b"smuggled")
+    with pytest.raises(ValueError, match="undeclared entry"):
+        verify_release_manifest(legacy, root, build, expected_commit=SHA)
+
+
+def test_legacy_route_cache_without_route_manifests_fails_closed(release_tree):
+    root, build = release_tree
+    legacy = _legacy_manifest(root, build)
+    _serve_traffic(build)
+    (build / "server/app-paths-manifest.json").unlink()
+    with pytest.raises(ValueError, match="route manifest"):
+        verify_release_manifest(legacy, root, build, expected_commit=SHA)
+
+
+def _shell_function(text: str, name: str) -> str:
+    start = text.index(f"\n{name}() {{")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_deploy_and_rollback_assert_no_route_cache_before_next_starts():
+    """The compensating pre-start guarantee for the route-cache exclusion (F2)."""
+    repo = Path(__file__).resolve().parents[2]
+    deploy = _shell_function(
+        (repo / "deploy/deploy.sh").read_text(encoding="utf-8"), "deploy_frontend_atomic"
+    )
+    guard = deploy.index('if [[ -e "${live_dir}/server/route-cache"')
+    assert deploy.index('mv "${staging_dir}" "${live_dir}"') < guard
+    assert guard < deploy.index('"${SYSTEMCTL_BIN}" start "${frontend_name}"')
+    assert "exit 1" in deploy[guard : deploy.index('"${SYSTEMCTL_BIN}" start')]
+
+    rollback = (repo / "deploy/rollback.sh").read_text(encoding="utf-8")
+    guard = rollback.index('if [[ -e "${staging_dir}/server/route-cache"')
+    assert guard < rollback.index('mv "${staging_dir}" "${live_dir}"')
+    assert guard < rollback.index('"${SYSTEMCTL_BIN}" start "${frontend_name}"')
+    assert "return 1" in rollback[guard : rollback.index('mv "${staging_dir}" "${live_dir}"')]
 
 
 def test_deploy_still_verifies_the_live_tree_after_start():

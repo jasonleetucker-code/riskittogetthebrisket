@@ -532,6 +532,15 @@ deploy_frontend_atomic() {
   mv "${staging_dir}" "${live_dir}"
   log "Frontend build swapped into place: ${live_dir}"
 
+  # Pre-start byte-exact guarantee (#1707): the release digest tolerates
+  # Next's runtime response cache because a SERVING tree grows one.  Before
+  # Next starts, the tree must have none -- so the live tree is exactly the
+  # verified build at the moment it begins serving.
+  if [[ -e "${live_dir}/server/route-cache" || -L "${live_dir}/server/route-cache" ]]; then
+    error "Frontend build already carries a runtime route cache before start: ${live_dir}/server/route-cache"
+    exit 1
+  fi
+
   log "Starting frontend service after swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
   sleep 2

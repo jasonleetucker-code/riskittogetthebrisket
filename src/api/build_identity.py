@@ -111,13 +111,20 @@ def _sha256_text(path: Path) -> str:
 # Two algorithms, selected by ``identity["frontend_tree_digest_version"]``:
 #
 # * absent (every manifest produced before this field existed) -- LEGACY: every
-#   file under ``.next`` except the top-level ``cache/`` build cache.  Kept byte
-#   for byte so a saved manifest in the rollback window still verifies exactly as
-#   it did when it was written; an existing field never changes meaning.
-# * ``FRONTEND_TREE_DIGEST_VERSION`` -- additionally excludes Next's runtime
-#   response cache, ``server/route-cache/``.
+#   file under ``.next`` except the top-level ``cache/`` build cache AND the
+#   declared runtime route-cache entries described below.  On any tree WITHOUT a
+#   ``server/route-cache/`` directory -- every tree CI ever packaged, since CI
+#   never starts Next before packaging -- this is byte-identical to the original
+#   function, so a saved manifest's digest and artifact ID never change.  The
+#   route-cache exclusion applies to legacy manifests too (coordinator decision
+#   on #1707, F3): otherwise a pre-fix release in the rollback window could never
+#   pass a post-traffic verify.  It is sound for the same reasons as below, and
+#   ``deploy.sh`` / ``rollback.sh`` assert the directory is absent immediately
+#   before Next starts, which restores the byte-exact pre-start guarantee.
+# * ``FRONTEND_TREE_DIGEST_VERSION`` -- the same exclusion, and the two route
+#   manifests are required even when no route cache exists yet.
 #
-# Why the second exists (deploy run 37700964086, 2026-10-07): ``next start``
+# Why the exclusion exists (deploy run 37700964086, 2026-10-07): ``next start``
 # writes response-cache entries into the served build tree.  Measured on this
 # repo's own build (Next 16.3.8): the FIRST request to ANY prerendered route --
 # static ones included, not only ``revalidate`` routes -- promotes the build seed
@@ -135,7 +142,10 @@ def _sha256_text(path: Path) -> str:
 #     ``source`` is a route the IMMUTABLE build declares -- a key of
 #     ``server/app-paths-manifest.json`` (``.../page`` -> APP_PAGE,
 #     ``.../route`` -> APP_ROUTE) or ``server/pages-manifest.json`` (PAGES) --
-#     and carry a response-cache suffix (or Next's atomic-write temp suffix).
+#     and carry a response-cache suffix -- optionally followed by the in-flight
+#     temp suffix of Next's ``writeFileAtomic``
+#     (``next/dist/server/lib/node-fs-methods.js``: ``${f}.${randomUUID()}.tmp``;
+#     a crash can leave one behind, and it is still only response data).
 #     Anything else under the directory (a ``.js`` chunk, an unknown route hash,
 #     a symlink) refuses verification.
 #   - both route manifests are themselves covered by the digest, so the excluded
@@ -146,7 +156,10 @@ def _sha256_text(path: Path) -> str:
 #     a byte CI tested.
 FRONTEND_TREE_DIGEST_VERSION = "next-build-output-excluding-route-cache/v1"
 NEXT_ROUTE_CACHE_DIRECTORY = "route-cache"
-_ROUTE_CACHE_RESPONSE_FILE = re.compile(r".+\.(?:html|rsc|meta|body|json)(?:\.tmp\.[0-9a-z]+)?")
+_ROUTE_CACHE_RESPONSE_FILE = re.compile(
+    r".+\.(?:html|rsc|meta|body|json)"
+    r"(?:\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp)?"
+)
 _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
@@ -206,7 +219,12 @@ def _frontend_tree_digest(build_dir: Path, version: str | None = None) -> str:
         raise ValueError("unsupported frontend tree digest version")
     if not build_dir.is_dir():
         raise ValueError(f"frontend build directory is missing: {build_dir}")
-    owners = _route_cache_owners(build_dir) if version is not None else None
+    route_cache = build_dir / "server" / NEXT_ROUTE_CACHE_DIRECTORY
+    owners = (
+        _route_cache_owners(build_dir)
+        if version is not None or route_cache.exists() or route_cache.is_symlink()
+        else None
+    )
     files: list[tuple[str, str]] = []
     for path in sorted(build_dir.rglob("*")):
         relative = path.relative_to(build_dir)
