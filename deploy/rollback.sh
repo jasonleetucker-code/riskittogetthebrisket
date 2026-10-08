@@ -478,6 +478,14 @@ maybe_rebuild_frontend_after_rollback() {
 
   verify_frontend_build_manifest "${staging_dir}" || return 1
 
+  # Pre-start byte-exact guarantee (#1707), same rule as deploy.sh: the tree
+  # Next is about to serve must carry no runtime route cache.  Checked on the
+  # staging dir BEFORE the swap so a refusal leaves the live frontend running.
+  if [[ -e "${staging_dir}/server/route-cache" || -L "${staging_dir}/server/route-cache" ]]; then
+    error "Rollback frontend build already carries a runtime route cache: ${staging_dir}/server/route-cache"
+    return 1
+  fi
+
   local frontend_name="${SERVICE_NAME}-frontend"
   if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
     log "Stopping frontend service for rollback swap: ${frontend_name}"
@@ -556,6 +564,8 @@ preserve_runtime_reconciler() {
 
 cleanup_runtime_reconciler() {
   [[ -n "${RUNTIME_RECONCILER_TMPDIR}" ]] && rm -rf "${RUNTIME_RECONCILER_TMPDIR}"
+  # The preserved release verifier (below) rides the same EXIT trap.
+  [[ -n "${RELEASE_VERIFIER_TMPDIR:-}" ]] && rm -rf "${RELEASE_VERIFIER_TMPDIR}"
   return 0
 }
 
@@ -706,6 +716,7 @@ main() {
 
   trap cleanup_runtime_reconciler EXIT
   preserve_runtime_reconciler
+  preserve_release_verifier
 
   git checkout --force "${rollback_target}"
   git reset --hard "${rollback_target}"
@@ -776,10 +787,11 @@ main() {
   fi
 
   if [[ -n "${ROLLBACK_ARTIFACT_ARCHIVE}" ]]; then
-    python3 -m scripts.release_artifact verify \
-      --root "${APP_DIR}" \
-      --manifest "${state_dir}/staged_release_manifest.json" \
-      --commit "${rollback_target}"
+    if ! verify_live_release_with_preserved_verifier \
+      "${state_dir}/staged_release_manifest.json" "${rollback_target}"; then
+      error "Live frontend does not verify against the rollback target's release manifest."
+      exit 1
+    fi
     cp "${state_dir}/staged_release_manifest.json" "${state_dir}/last_successful_release_manifest.json"
   else
     rm -f "${state_dir}/last_successful_release_manifest.json"
@@ -797,6 +809,69 @@ main() {
     log "Rollback complete. Active revision: ${rollback_target}"
     warn "Runtime controls were NOT reconciled or verified for this revision."
   fi
+}
+
+# ── post-start release verification across a revision change ───────
+# Same problem, same answer as the runtime reconciler above (#1707).  The
+# post-start check that the LIVE frontend is the tested artifact runs after
+# the rollback target is checked out and after verify-deploy.sh has sent it
+# traffic, by which point Next has written its runtime response cache into
+# the tree.  A target built before #1707 carries a verifier that counts that
+# cache, so it could never pass -- for every rollback in the retention
+# window, including the ERR-trap rollback of a failed forward deploy.
+#
+# So the verifier is taken from the revision RUNNING when the rollback
+# starts (the newest one), copied out before the checkout, and run against
+# the target's own tree and saved manifest.  It is backward compatible by
+# construction: a version-less (legacy) manifest verifies byte-identically
+# on a tree with no route cache, and with only the declared-route exclusion
+# after traffic.  The closure is two stdlib-only files (pinned by
+# tests/api/test_release_artifact.py); the empty package markers keep the
+# target's src/__init__.py chain out of it.  Absent a preserved verifier the
+# post-start verify FAILS CLOSED -- the target's own copy is never a fallback.
+RELEASE_VERIFIER_TMPDIR=""
+RELEASE_VERIFIER_DIR=""
+
+preserve_release_verifier() {
+  local identity="${APP_DIR}/src/api/build_identity.py"
+  local cli="${APP_DIR}/scripts/release_artifact.py"
+  if [[ ! -f "${identity}" || ! -f "${cli}" ]]; then
+    log "Current revision carries no release verifier; an artifact rollback will refuse to certify."
+    return 0
+  fi
+  if ! RELEASE_VERIFIER_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/riskit-rollback-verifier-XXXXXX")"; then
+    error "Could not create a temporary directory to preserve the release verifier."
+    exit 1
+  fi
+  local dir="${RELEASE_VERIFIER_TMPDIR}"
+  if ! { mkdir -p "${dir}/src/api" "${dir}/scripts" &&
+    : > "${dir}/src/__init__.py" && : > "${dir}/src/api/__init__.py" &&
+    : > "${dir}/scripts/__init__.py" &&
+    cp "${identity}" "${dir}/src/api/build_identity.py" &&
+    cp "${cli}" "${dir}/scripts/release_artifact.py"; }; then
+    error "Could not preserve the release verifier from the current revision."
+    exit 1
+  fi
+  RELEASE_VERIFIER_DIR="${dir}"
+  log "Preserved the current revision's release verifier outside the checkout."
+}
+
+verify_live_release_with_preserved_verifier() {
+  local manifest="$1" commit="$2"
+  if [[ -z "${RELEASE_VERIFIER_DIR}" ]]; then
+    error "No release verifier was preserved from the pre-rollback revision; refusing to certify ${commit}."
+    return 1
+  fi
+  log "Verifying the live frontend with the pre-rollback revision's release verifier."
+  # -E: ignore every PYTHON* variable (PYTHONPATH, PYTHONSAFEPATH, PYTHONSTARTUP,
+  # ...); -s/-S: no user or system site-packages, so no installed `scripts` or
+  # `src` package can shadow the copy -- safe because the closure is stdlib-only.
+  # NOT -I: `-m` must keep the copy's directory (cwd) first on sys.path.
+  (
+    cd "${RELEASE_VERIFIER_DIR}" &&
+      python3 -E -s -S -m scripts.release_artifact verify \
+        --root "${APP_DIR}" --manifest "${manifest}" --commit "${commit}"
+  )
 }
 
 # Run main only when EXECUTED, not when sourced.  Sourcing is how

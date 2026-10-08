@@ -113,6 +113,26 @@ def test_lock_only_change_forces_full_validation(repo: Path, path: str):
     assert scope.frontend is True
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/api/build_identity.py",
+        "scripts/release_artifact.py",
+        "scripts/stage_release_artifact.py",
+    ],
+)
+def test_release_artifact_identity_change_forces_the_frontend_lane(repo: Path, path: str):
+    """A digest change must be packaged and verified against a real Next build."""
+    _git(repo, "checkout", "-q", "-b", "feature")
+    _commit_files(repo, {path: "X = 1\n"}, "release identity change")
+
+    scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
+
+    assert scope.high_risk is True
+    assert scope.python is True
+    assert scope.frontend is True
+
+
 def test_canonical_owner_change_is_high_risk(repo: Path):
     _git(repo, "checkout", "-q", "-b", "feature")
     _commit_files(repo, {"src/canonical/player_valuation.py": "X = 1\n"}, "canonical change")

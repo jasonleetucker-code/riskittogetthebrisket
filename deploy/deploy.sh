@@ -508,6 +508,14 @@ deploy_frontend_atomic() {
     exit 1
   fi
 
+  # Pre-start byte-exact guarantee (#1707), first half: refuse a staging dir
+  # that carries a runtime route cache BEFORE stopping anything, so a refusal
+  # leaves the old frontend serving.  Re-checked on the live dir after the swap.
+  if [[ -e "${staging_dir}/server/route-cache" || -L "${staging_dir}/server/route-cache" ]]; then
+    error "Frontend staging build carries a runtime route cache: ${staging_dir}/server/route-cache"
+    exit 1
+  fi
+
   log "Stopping frontend service for atomic swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" stop "${frontend_name}" || true
 
@@ -531,6 +539,15 @@ deploy_frontend_atomic() {
   fi
   mv "${staging_dir}" "${live_dir}"
   log "Frontend build swapped into place: ${live_dir}"
+
+  # Pre-start byte-exact guarantee (#1707), second half: the release digest tolerates
+  # Next's runtime response cache because a SERVING tree grows one.  Before
+  # Next starts, the tree must have none -- so the live tree is exactly the
+  # verified build at the moment it begins serving.
+  if [[ -e "${live_dir}/server/route-cache" || -L "${live_dir}/server/route-cache" ]]; then
+    error "Frontend build already carries a runtime route cache before start: ${live_dir}/server/route-cache"
+    exit 1
+  fi
 
   log "Starting frontend service after swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
