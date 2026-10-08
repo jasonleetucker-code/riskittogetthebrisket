@@ -612,3 +612,139 @@ def test_receipt_counts_is_a_grouped_read(tmp_path, monkeypatch):
         ("fam", "FEATURES", 1),
         ("fam", "OBSERVATION", 2),
     }
+
+
+# ── served side follows the flag (ON / OFF / unobserved) ─────────────────────
+
+FLAG_GATED = [
+    # (family builder, flag, incumbent row index, challenger row index)
+    ("build_sparse_family", "sparse_evidence_estimator", 0, 1),
+    ("build_robust_family", "joint_outlier_sparse_challenger", 0, 1),
+    ("build_signals_family", "signals_idp_shared_market", 0, 1),
+]
+NO_RECEIPTS = {"state": "unobserved", "reason": "test"}
+
+
+@pytest.fixture
+def flag_env(monkeypatch):
+    from src.api import feature_flags
+
+    def set_flag(name, value):
+        monkeypatch.setenv(f"RISKIT_FEATURE_{name.upper()}", "1" if value else "0")
+        feature_flags.reload()
+
+    yield set_flag
+    monkeypatch.undo()
+    feature_flags.reload()
+
+
+@pytest.mark.parametrize("builder,flag,inc,chal", FLAG_GATED)
+def test_flag_on_serves_the_challenger_not_the_incumbent(flag_env, builder, flag, inc, chal):
+    flag_env(flag, True)
+    block = getattr(ml, builder)(REPO, NO_RECEIPTS)
+    _assert_family_shape(block)
+    rows = block["challengers"]
+    assert rows[inc]["state"] == ml.LAB_RETIRED
+    assert "served while" not in str(rows[inc]["reason"])
+    assert rows[chal]["state"] == ml.LAB_CHAMPION
+    assert not ml.is_state_block(block["champion"])
+    assert "flag ON" in block["decisionReason"]
+    assert block["challengerStates"]["CHAMPION"] == 1
+
+
+@pytest.mark.parametrize("builder,flag,inc,chal", FLAG_GATED)
+def test_flag_off_serves_the_incumbent(flag_env, builder, flag, inc, chal):
+    flag_env(flag, False)
+    block = getattr(ml, builder)(REPO, NO_RECEIPTS)
+    rows = block["challengers"]
+    assert rows[inc]["state"] == ml.LAB_CHAMPION
+    assert rows[chal]["state"] != ml.LAB_CHAMPION
+    assert "flag OFF" in block["decisionReason"]
+
+
+def test_consensus_edge_flag_on_names_the_model_champion(flag_env):
+    flag_env("consensus_edge", True)
+    block = ml.build_consensus_edge_family(REPO, NO_RECEIPTS)
+    _assert_family_shape(block)
+    assert block["challengers"][0]["state"] == ml.LAB_CHAMPION
+    assert not ml.is_state_block(block["champion"])
+    assert "flag ON" in block["decisionReason"]
+
+
+@pytest.mark.parametrize(
+    "builder",
+    [
+        "build_sparse_family",
+        "build_robust_family",
+        "build_signals_family",
+        "build_consensus_edge_family",
+    ],
+)
+def test_unobserved_flag_is_never_read_as_off(monkeypatch, builder):
+    from src.api import feature_flags
+
+    def unreadable():
+        raise RuntimeError("flag registry unavailable")
+
+    monkeypatch.setattr(feature_flags, "effective_flags", unreadable)
+    block = getattr(ml, builder)(REPO, NO_RECEIPTS)
+    _assert_family_shape(block)
+    assert block["champion"]["state"] == "unobserved"
+    assert "could not be read" in block["champion"]["reason"]
+    assert block["decisionReason"]["state"] == "unobserved"
+    # No row may claim to be served when nobody can say which side is.
+    assert all(r["state"] != ml.LAB_CHAMPION for r in block["challengers"])
+
+
+# ── a genuine 0 / empty is data, never "unobserved" ──────────────────────────
+
+
+def test_genuine_empty_values_are_not_turned_into_unobserved(tmp_path):
+    evidence = tmp_path / ml.ROBUST_EVIDENCE_REL / "evaluation_historical_replay.json"
+    _write(
+        evidence,
+        {
+            "mode": "historical_replay",
+            "computedAt": "2026-10-01T00:00:00Z",
+            "primary": {
+                "span": [],
+                "boards": 0,
+                "originDays": 0,
+                "horizons": {},
+                "decision": {
+                    "verdict": "INSUFFICIENT",
+                    "reasons": [],
+                    "minimumSample": {},
+                    "accumulation": 0,
+                },
+            },
+        },
+    )
+    robust = ml.build_robust_family(tmp_path, NO_RECEIPTS)
+    assert not ml.is_state_block(robust["champion"])  # flag OFF by default
+    assert robust["champion"]["sampleSize"] == {}
+    assert robust["champion"]["validationWindows"][0]["span"] == []
+    assert robust["dataQuality"]["accumulation"] == 0
+    assert robust["gate"]["minimumSample"] == {}
+
+    _write(
+        tmp_path / ml.SPARSE_EVIDENCE_REL / "results.json",
+        {"verdict": "does not meet gate", "gates": {}, "boardRows": 0, "pins": {}},
+    )
+    sparse = ml.build_sparse_family(tmp_path, NO_RECEIPTS)
+    assert not ml.is_state_block(sparse["champion"])
+    assert sparse["champion"]["sampleSize"]["boardRows"] == 0
+
+    holdout = {**_holdout(500.0), "trainingSources": [], "holdoutSources": []}
+    _write(
+        tmp_path / ml.HILL_REGISTRY_REL,
+        {
+            "modelId": "hill_scope_masters",
+            "championVersion": 1,
+            "versions": [_version(1, "champion", holdout=holdout, trainingInputs={})],
+        },
+    )
+    hill = ml.build_hill_family(tmp_path, NO_RECEIPTS)
+    assert hill["champion"]["trainingWindow"]["trainingSources"] == []
+    assert hill["champion"]["trainingWindow"]["inputFingerprints"] == {}
+    assert hill["champion"]["targetLineage"]["holdoutBoards"] == []
