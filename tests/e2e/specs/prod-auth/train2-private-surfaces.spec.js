@@ -35,12 +35,15 @@
  *     the server would itself REJECT (an unknown field → 400 invalid_body)
  *     if the guest gate ever regressed — so no outcome of this request can
  *     write user_kv;
- *   - the browser tests answer every non-GET to /api/user/** locally (the
- *     team switcher persists its choice through PUT /api/user/state) and
- *     fail if anything else under /api/user/** tries to write. The only
- *     other non-GETs these pages make are the pure computation endpoints
- *     the existing prod-auth specs already allow (/api/waiver/suggestions,
- *     /api/waiver/best-available-idp, /api/rankings/overrides).
+ *   - the browser tests route EVERY /api/** request and fail closed: a GET
+ *     goes through; a non-GET reaches production only if it is one of the
+ *     pure computation endpoints in COMPUTE_ONLY_POSTS; PUT /api/user/state
+ *     (useLeague persists a league switch there) is answered locally and
+ *     never forwarded; anything else is ABORTED and fails the test. (The
+ *     TeamSwitcher itself writes localStorage through useSettings, not the
+ *     server.)
+ *   - failure messages carry counts and ids only — never a roster name next
+ *     to a value (the report is published from a public repo).
  *   - no form is submitted, nothing is saved.
  *
  * Desktop-only checks carry the `@desktop-only` title tag, which the
@@ -75,11 +78,15 @@ async function loadBoard(page) {
     )
     .sort((a, b) => a.canonicalConsensusRank - b.canonicalConsensusRank);
   expect(ranked.length, "the board carries no ranked, id-keyed players to verify against").toBeGreaterThan(0);
-  const teams = (body?.sleeper?.teams || []).filter((t) => t && t.ownerId);
+  const allTeams = (body?.sleeper?.teams || []).filter((t) => t && typeof t === "object");
   boardCache = {
     leagueKey: body?.meta?.leagueKey || null,
     top: ranked[0],
-    teams,
+    // Every roster, orphans included: roster intelligence keys an orphan
+    // (no ownerId) positionally, so league-wide counts compare against this.
+    allTeams,
+    // Teams a request can name by ownerId.
+    teams: allTeams.filter((t) => t.ownerId),
   };
   return boardCache;
 }
@@ -100,19 +107,33 @@ function header(res, name) {
   return String(res.headers()[name.toLowerCase()] || "");
 }
 
+/** Non-GET endpoints a page may send to production: pure computations that
+ *  mutate no league or user state. Anything else is refused. */
+const COMPUTE_ONLY_POSTS = new Set([
+  "POST /api/waiver/suggestions",
+  "POST /api/waiver/best-available-idp",
+  "POST /api/waiver/faab-recommend",
+  "POST /api/rankings/overrides",
+]);
+/** Non-GETs answered locally and never forwarded (a league switch is
+ *  persisted through it by useLeague). */
+const ANSWERED_LOCALLY = new Set(["PUT /api/user/state"]);
+
 /**
- * Answer the UI's own user-state writes locally (team switcher → PUT
- * /api/user/state) and refuse, recording, any OTHER write under /api/user/**.
- * Returns the list the test asserts empty at the end.
+ * Route every /api/** request of the page and FAIL CLOSED: GET/HEAD pass,
+ * COMPUTE_ONLY_POSTS pass, ANSWERED_LOCALLY never reaches production, and
+ * every other non-GET is aborted and recorded. Returns the list the test
+ * asserts empty at the end.
  */
-async function blockUserWrites(page) {
-  const unexpected = [];
-  await page.route("**/api/user/**", (route) => {
+async function guardWrites(page) {
+  const refused = [];
+  await page.route("**/api/**", (route) => {
     const req = route.request();
     const method = req.method();
     if (method === "GET" || method === "HEAD") return route.continue();
-    const path = new URL(req.url()).pathname;
-    if (path === "/api/user/state") {
+    const sig = `${method} ${new URL(req.url()).pathname}`;
+    if (COMPUTE_ONLY_POSTS.has(sig)) return route.continue();
+    if (ANSWERED_LOCALLY.has(sig)) {
       let patch = {};
       try {
         patch = req.postDataJSON() || {};
@@ -125,10 +146,10 @@ async function blockUserWrites(page) {
         body: JSON.stringify({ state: patch }),
       });
     }
-    unexpected.push(`${method} ${path}`);
+    refused.push(sig);
     return route.abort();
   });
-  return unexpected;
+  return refused;
 }
 
 /** Pick a real league team through the deployed TeamSwitcher (the guest pass
@@ -335,7 +356,7 @@ test.describe("Train 2: value movement (UI-contract §10 / IC-7)", () => {
     annotate(
       testInfo,
       "value-movement",
-      `${board.top.displayName || board.top.canonicalName} (#${board.top.canonicalConsensusRank}): ` +
+      `player ${pid} (rank ${board.top.canonicalConsensusRank}): ` +
         `status=${m.status}${m.missingReason ? ` reason=${m.missingReason}` : ""}`,
     );
 
@@ -382,7 +403,7 @@ test.describe("Train 2: value movement (UI-contract §10 / IC-7)", () => {
   test("the Player File 'Why it moved' disclosure fetches only when opened and renders the evidence", async ({
     prodPage: page,
   }, testInfo) => {
-    const unexpectedWrites = await blockUserWrites(page);
+    const unexpectedWrites = await guardWrites(page);
     const board = await loadBoard(page);
     const pid = String(board.top.playerId);
     const movementRequests = [];
@@ -429,7 +450,7 @@ test.describe("Train 2: value movement (UI-contract §10 / IC-7)", () => {
       "why-it-moved",
       `${testInfo.project.name}: status=${payload.status}, ${movementRequests.length} fetch(es), all after open`,
     );
-    expect(unexpectedWrites, "the Player File attempted a user write").toEqual([]);
+    expect(unexpectedWrites, "the Player File attempted a non-allowlisted write").toEqual([]);
   });
 });
 
@@ -469,12 +490,16 @@ test.describe("Train 2: roster intelligence core (C2-CORE-01)", () => {
     // never scored as zero.
     const unpriced = new Set(core.unpricedIds || []);
     for (const m of core.members) {
-      expect(unpriced.has(m.playerId), `${m.name} is both a core member and unpriced`).toBe(false);
-      expect(Number.isFinite(m.value) && m.value > 0, `${m.name} core value ${m.value}`).toBe(true);
+      // Ids only in messages: no roster name next to a value is ever published.
+      expect(unpriced.has(m.playerId), `core member ${m.playerId} is also unpriced`).toBe(false);
+      expect(Number.isFinite(m.value) && m.value > 0, `core member ${m.playerId} has no positive value`).toBe(true);
     }
     expect(Array.isArray(core.unfilledStarterSlots)).toBe(true);
     // Every league team is ranked in the context block.
-    expect(Array.isArray(ri.leagueContext) && ri.leagueContext.length).toBe(board.teams.length);
+    expect(
+      Array.isArray(ri.leagueContext) && ri.leagueContext.length,
+      "every roster in the league (orphans included) is ranked in leagueContext",
+    ).toBe(board.allTeams.length);
     annotate(
       testInfo,
       "core",
@@ -491,7 +516,7 @@ test.describe("Train 2: /waivers Droppable consumes the canonical cut ladder (C2
     prodPage: page,
   }, testInfo) => {
     test.setTimeout(240_000);
-    const unexpectedWrites = await blockUserWrites(page);
+    const unexpectedWrites = await guardWrites(page);
     const board = await loadBoard(page);
     const seen = collectRosterIntelligence(page);
     await page.goto(prodUrl("/waivers"), { waitUntil: "domcontentloaded" });
@@ -521,7 +546,13 @@ test.describe("Train 2: /waivers Droppable consumes the canonical cut ladder (C2
     const table = page.locator("table").filter({
       has: page.locator("caption", { hasText: "Legal releases beaten by the available pool, in cut order" }),
     });
-    await expect(table, "the Droppable table must render").toHaveCount(1, { timeout: 60_000 });
+    // DataTable renders its emptyState INSTEAD of the table, so the panel
+    // shows exactly one of the two.
+    const emptyTitle = page.getByText("No drop candidates", { exact: true });
+    await expect(
+      table.or(emptyTitle),
+      "the Droppable panel must render its rows or its stated empty state",
+    ).toHaveCount(1, { timeout: 60_000 });
     // Let the analysis settle (it gates on the ladder + the board).
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
     const rendered = table.locator("tbody tr").filter({ has: page.locator('td[data-col="player"]') });
@@ -535,7 +566,7 @@ test.describe("Train 2: /waivers Droppable consumes the canonical cut ladder (C2
       expect(rung, `Droppable row ${i + 1} shows cut "${rungText}", which is not a rung of the canonical ladder`).toBeTruthy();
       expect(
         cell.includes(normName(rung.name)),
-        `Droppable row ${i + 1} (cut ${rung.rung}) does not show the ladder's player "${rung.name}"`,
+        `Droppable row ${i + 1} (cut ${rung.rung}) does not show the ladder's player (id ${rung.playerId})`,
       ).toBe(true);
       expect(
         undroppableNames.some((u) => cell.includes(u)),
@@ -545,9 +576,13 @@ test.describe("Train 2: /waivers Droppable consumes the canonical cut ladder (C2
     }
     expect([...seenRungs].sort((a, b) => a - b), "Droppable rows are in cut order").toEqual(seenRungs);
     expect(new Set(seenRungs).size, "no ladder rung is offered twice").toBe(seenRungs.length);
+    // The ladder loaded (asserted above), so the page must not claim it could
+    // not be read — in either branch.
+    await expect(page.getByText("Drop candidates unavailable", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("No drop candidates shown", { exact: true })).toHaveCount(0);
     if (n === 0) {
-      // Empty is stated, never a silent blank.
-      await expect(page.getByText(/No drop candidates/).first()).toBeVisible();
+      // Empty is stated with the ladder-OK title, never a silent blank.
+      await expect(emptyTitle, "an empty Droppable list must say so with the ladder-OK title").toBeVisible();
     }
     annotate(
       testInfo,
@@ -555,7 +590,7 @@ test.describe("Train 2: /waivers Droppable consumes the canonical cut ladder (C2
       `${teamName}: ladder ${rungs.length} rungs, ${undroppable.length} undroppable; ` +
         `${n} Droppable row(s) rendered (cuts ${seenRungs.join(",") || "none"}), all ladder rungs`,
     );
-    expect(unexpectedWrites, "/waivers attempted a user write").toEqual([]);
+    expect(unexpectedWrites, "/waivers attempted a non-allowlisted write").toEqual([]);
   });
 });
 
@@ -566,7 +601,7 @@ test.describe("Train 2: /rosters Trade Targets consume team.weakness (C2-WEAK-01
     prodPage: page,
   }, testInfo) => {
     test.setTimeout(240_000);
-    const unexpectedWrites = await blockUserWrites(page);
+    const unexpectedWrites = await guardWrites(page);
     const board = await loadBoard(page);
     const seen = collectRosterIntelligence(page);
     await page.goto(prodUrl("/rosters"), { waitUntil: "domcontentloaded" });
@@ -611,7 +646,7 @@ test.describe("Train 2: /rosters Trade Targets consume team.weakness (C2-WEAK-01
         `served needs (non-none, worst first): ${needs.map((x) => `${x.position}:${x.level}`).join(", ") || "none"}`,
       );
     }
-    expect(unexpectedWrites, "/rosters attempted a user write").toEqual([]);
+    expect(unexpectedWrites, "/rosters attempted a non-allowlisted write").toEqual([]);
   });
 });
 

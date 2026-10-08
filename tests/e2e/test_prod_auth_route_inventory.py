@@ -12,10 +12,11 @@ This guard keeps it closed, statically, in the fast pytest gate:
   probes a 404 path forever);
 * each route is REFERENCED IN CODE (not merely in a comment) by at least one
   prod-auth spec;
-* the prod-auth specs stay READ-ONLY against production: the only non-GET
-  ``page.request`` calls are the allowlisted ones, and the single PUT (the
-  guest trade-protections refusal) is preceded by the guest-pass precondition
-  and carries a body the server would reject anyway;
+* the prod-auth specs stay READ-ONLY against production: every non-GET the
+  spec CODE itself sends — through ANY request context, a template-built URL,
+  or a ``fetch`` with a ``method`` option — must be allowlisted, and the single
+  PUT (the guest trade-protections refusal) is preceded, in the same test, by
+  the guest-pass precondition and carries a body the server would reject;
 * ``@desktop-only`` titles are filtered from the mobile project at
   collection (``grepInvert``), not collected and skipped.
 
@@ -95,9 +96,65 @@ ALLOWED_NON_GET = {
     ("put", "/api/user/trade-protections"),  # guest-refusal probe, see below
 }
 
-_NON_GET_CALL = re.compile(
-    r"page\.request\.(post|put|patch|delete|fetch)\(\s*prodUrl\(\s*[`\"']([^`\"'$?]+)"
+#: ``<receiver>.post|put|patch|delete|fetch(<first arg>`` on ANY receiver —
+#: ``page.request``, the ``request`` fixture, ``context.request``, an
+#: ``APIRequestContext`` variable, ``route.fetch`` ...
+_WRITE_CALL = re.compile(
+    r"(?P<recv>[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\.(?P<method>post|put|patch|delete|fetch)"
+    r"\(\s*(?P<arg>[^\n]*)"
 )
+#: A receiver that is (or wraps) an HTTP client: always analysed, whatever
+#: its argument looks like.
+_HTTP_RECEIVER = re.compile(r"request|context|api|route|client|http", re.I)
+#: An explicit write method passed as an option — ``fetch(url, {method: "PUT"})``
+#: inside ``page.evaluate``, or ``request.fetch(url, {method: ...})``.
+_METHOD_OPTION = re.compile(r"\bmethod\s*:\s*[`\"'](POST|PUT|PATCH|DELETE)[`\"']", re.I)
+#: The start of a Playwright test body.
+_TEST_START = re.compile(r"\btest\(\s*[`\"']")
+
+
+def _literal_target(arg: str) -> str | None:
+    """The static path a call targets, or ``None`` when it cannot be read.
+
+    ``prodUrl(`/a/b${qs}`)`` → ``/a/b`` (a template may only APPEND to a
+    literal path); a template that STARTS with ``${`` or a bare variable is
+    unresolvable."""
+    m = re.match(r"prodUrl\(\s*([`\"'])(.*?)\1", arg) or re.match(r"([`\"'])(.*?)\1", arg)
+    if not m:
+        return None
+    literal = m.group(2)
+    if "${" in literal:
+        literal = literal[: literal.index("${")]
+    literal = literal.split("?")[0]
+    return literal or None
+
+
+def _line(code: str, offset: int) -> int:
+    return code.count("\n", 0, offset) + 1
+
+
+def non_get_offenders(name: str, code: str) -> list[str]:
+    """Every non-GET request a spec's CODE makes that is not allowlisted."""
+    offenders: list[str] = []
+    for m in _WRITE_CALL.finditer(code):
+        recv, method, arg = m.group("recv"), m.group("method"), m.group("arg")
+        urlish = arg.lstrip().startswith(("prodUrl(", "`", '"', "'")) and (
+            "/api" in arg or "http" in arg or "prodUrl(" in arg or "${" in arg
+        )
+        if not (_HTTP_RECEIVER.search(recv) or urlish):
+            continue  # e.g. ``someMap.delete(key)``
+        where = f"{name}:{_line(code, m.start())}"
+        target = _literal_target(arg)
+        if method == "fetch":
+            offenders.append(f"{where}: {recv}.fetch(...) — use an explicit get/post/put")
+        elif target is None:
+            offenders.append(f"{where}: {method.upper()} to an unresolvable target")
+        elif (method, target) not in ALLOWED_NON_GET:
+            offenders.append(f"{where}: {method.upper()} {target}")
+    for m in _METHOD_OPTION.finditer(code):
+        where = f"{name}:{_line(code, m.start())}"
+        offenders.append(f"{where}: explicit method {m.group(1).upper()} in request options")
+    return offenders
 
 
 def _code_only(src: str) -> str:
@@ -158,10 +215,7 @@ class TestTrain2RoutesAreProductionVerified(unittest.TestCase):
     def test_prod_auth_specs_make_only_allowlisted_writes(self) -> None:
         offenders: list[str] = []
         for name, code in _spec_sources().items():
-            for m in _NON_GET_CALL.finditer(code):
-                method, path = m.group(1), m.group(2).split("?")[0]
-                if (method, path) not in ALLOWED_NON_GET:
-                    offenders.append(f"{name}: {method.upper()} {path}")
+            offenders += non_get_offenders(name, code)
         self.assertEqual(
             offenders,
             [],
@@ -171,16 +225,49 @@ class TestTrain2RoutesAreProductionVerified(unittest.TestCase):
             + "\n".join(offenders),
         )
 
+    def test_the_write_detector_is_not_vacuous(self) -> None:
+        """Each evasion the detector must catch, caught."""
+        cases = {
+            "template target": "await page.request.put(prodUrl(`${base}/api/user/state`), {});",
+            "other path, template": "await page.request.post(prodUrl(`/api/user/state${q}`));",
+            "fixture context": 'await request.delete(prodUrl("/api/user/trade-protections"));',
+            "context.request": 'await context.request.patch(prodUrl("/api/user/state"), {});',
+            "api var": "const r = await api.put(url);",
+            "evaluate fetch": (
+                'await page.evaluate(() => fetch("/api/user/state", { method: "PUT" }));'
+            ),
+            "request.fetch": 'await page.request.fetch(prodUrl("/api/x"), { method: "GET" });',
+        }
+        for label, snippet in cases.items():
+            with self.subTest(label):
+                self.assertTrue(non_get_offenders("x.spec.js", snippet), f"missed: {label}")
+        # ...and the allowlisted forms, plus an unrelated Map.delete, pass.
+        clean = "\n".join(
+            [
+                "await page.request.put(prodUrl(`/api/user/trade-protections${qs}`), {});",
+                'await page.request.post(prodUrl("/api/trade/finder"), {});',
+                "seen.delete(key);",
+            ]
+        )
+        self.assertEqual(non_get_offenders("x.spec.js", clean), [])
+
     def test_the_trade_protections_put_is_guarded_and_cannot_write(self) -> None:
-        """The one PUT is sent only from a proven guest-pass session, and its
-        body carries an unknown field, so even a regressed guest gate answers
-        400 invalid_body instead of writing user_kv."""
+        """The one PUT is sent only from a proven guest-pass session — checked
+        INSIDE THE SAME TEST, before the request — and its body carries an
+        unknown field, so even a regressed guest gate answers 400
+        invalid_body instead of writing user_kv."""
         code = _spec_sources()["train2-private-surfaces.spec.js"]
-        put_at = code.index("page.request.put(")
-        before = code[:put_at]
-        self.assertIn('toBe("guest_pass")', before, "the PUT lost its guest-pass precondition")
-        self.assertIn("prodVerificationNeverWrites", code[put_at : put_at + 600])
         self.assertEqual(code.count("page.request.put("), 1, "exactly one PUT is allowed")
+        put_at = code.index("page.request.put(")
+        tests_before = list(_TEST_START.finditer(code, 0, put_at))
+        self.assertTrue(tests_before, "the PUT is not inside a test")
+        same_test = code[tests_before[-1].start() : put_at]
+        self.assertIn(
+            'toBe("guest_pass")',
+            same_test,
+            "the guest-pass precondition must run in the same test, before the PUT",
+        )
+        self.assertIn("prodVerificationNeverWrites", code[put_at : put_at + 600])
 
     def test_desktop_only_titles_are_filtered_from_mobile_at_collection(self) -> None:
         cfg = PROD_AUTH_CONFIG.read_text(encoding="utf-8")
