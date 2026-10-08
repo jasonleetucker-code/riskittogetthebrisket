@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
@@ -20,6 +20,11 @@ import { sourceVoteFields } from "@/lib/source-vote-state";
 import { ROS_SOURCES } from "@/lib/ros-sources";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
+import { useLeague } from "@/components/useLeague";
+
+// Code-split (React.lazy, not next/dynamic — see CLAUDE.md "Perfect Draft"):
+// the editor sits in a collapsed section and loads only when opened.
+const TradeProtectionsEditor = lazy(() => import("@/components/TradeProtectionsEditor"));
 
 // The settings page enumerates the canonical ranking registry directly
 // so a newly registered source automatically shows up here without any
@@ -62,7 +67,9 @@ function Section({ title, defaultOpen = true, children }) {
         </span>
       </button>
       <div id={bodyId} hidden={!open} style={open ? { marginTop: 10 } : undefined}>
-        {children}
+        {/* A function child mounts only while open, so a lazily loaded
+            panel's chunk is fetched when someone opens it, not on page load. */}
+        {typeof children === "function" ? (open ? children() : null) : children}
       </div>
     </div>
   );
@@ -205,6 +212,7 @@ export default function SettingsPage() {
     setNotifications,
     toggleWatchlist,
   } = useUserState();
+  const { selectedLeague, selectedLeagueKey } = useLeague();
   const [watchAddName, setWatchAddName] = useState("");
   const [hydrated, setHydrated] = useState(true);
   const [emailDraft, setEmailDraft] = useState("");
@@ -1088,6 +1096,24 @@ export default function SettingsPage() {
         <CustomAlertsConfigurator enabled={!!serverBacked} players={rows} />
       </Section>
 
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Trade recommendations"
+        description="Personal rules for generated trade ideas in the selected league. They never change any value."
+      >
+      <Section title="Trade protections" defaultOpen={false}>
+        {() => (
+          <Suspense fallback={<p className="muted" role="status">Loading trade protections…</p>}>
+            <TradeProtectionsEditor
+              enabled={!!serverBacked}
+              leagueKey={selectedLeagueKey}
+              leagueName={selectedLeague?.displayName}
+              players={rows}
+            />
+          </Suspense>
+        )}
+      </Section>
       </SettingsGroup>
 
       <div

@@ -45,6 +45,7 @@ PRIVATE_API_PATHS = [
     # census found no anonymous consumer.
     "/api/scaffold/status",
     "/api/user/state",
+    "/api/user/trade-protections",
     "/api/player/12345/realized",  # Phase 11 follow-on — realized points
     "/api/admin/nfl-data/flush",
     "/api/admin/sessions/force-logout-all",

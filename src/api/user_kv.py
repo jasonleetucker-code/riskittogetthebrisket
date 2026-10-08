@@ -404,6 +404,48 @@ def merge_user_state(
         conn.close()
 
 
+def set_league_scoped_entry(
+    username: str,
+    field: str,
+    league_key: str,
+    value: Any,
+    *,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Replace ONE league's entry under a ``{leagueKey: ...}`` map field.
+
+    Every other league's entry is preserved — the read, the edit and the write
+    happen on one connection, so a write for league A can never be assembled
+    from a stale copy of league B taken by a separate read.  ``None`` removes
+    that league's entry; an empty map removes the field entirely, so "nothing
+    stored" stays distinguishable from "an empty map".
+
+    Callers own validation and canonicalisation of ``league_key`` (it must
+    already be a registry key) and of ``value``.
+    """
+    key = str(league_key or "").strip()
+    if not username or not key or not field:
+        return get_user_state(username, path=path)
+    conn = _connect(path)
+    try:
+        entry = _read_row(conn, username)
+        current = entry.get(str(field))
+        by_league = dict(current) if isinstance(current, dict) else {}
+        if value is None:
+            by_league.pop(key, None)
+        else:
+            by_league[key] = value
+        if by_league:
+            entry[str(field)] = by_league
+        else:
+            entry.pop(str(field), None)
+        _prune_expired_dismissals(entry)
+        _write_row(conn, username, entry)
+        return dict(entry)
+    finally:
+        conn.close()
+
+
 def _merge_per_league_dismissals(
     existing_by_league: dict[str, Any] | None,
     league_key: str,
