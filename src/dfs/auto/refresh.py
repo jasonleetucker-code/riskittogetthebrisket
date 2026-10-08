@@ -24,6 +24,12 @@ Freshness states, per slate (``freshness()``):
   unavailable on the last build (the slate says which);
 * ``SOURCE_ERROR`` — the last refresh attempt for its platform failed;
 * ``UNAVAILABLE`` — nothing has ever been built (a list-level state).
+
+Sports: NFL (``refresh_nfl`` — weekly, windows derived from the nflverse
+schedule) and NBA / NHL (``refresh_daily`` — the dated slate Daily Fantasy Fuel
+lists, timed by the ESPN scoreboard; DFS-AUTO-19).  One table, one cadence, one
+freshness vocabulary for all of them; the ``week`` column holds the NFL week, or
+the slate's Eastern date as ``YYYYMMDD`` for a daily sport (``periodKey``).
 """
 
 from __future__ import annotations
@@ -35,7 +41,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Mapping
 
 from src.dfs import pit, store
-from src.dfs.auto import SYSTEM_OWNER, nfl
+from src.dfs.auto import SYSTEM_OWNER, daily, nfl
+from src.dfs.auto.common import body_hash
 from src.dfs.auto.scoring_cards import CARDS
 
 _lock = threading.Lock()
@@ -99,6 +106,39 @@ def cadence(lock_at: datetime, now: datetime) -> timedelta | None:
     return timedelta(minutes=10)
 
 
+#: Sports with an automatic path.
+AUTO_SPORTS = ("nfl",) + daily.SPORTS
+#: After an attempt that found nothing to build (offseason, an off day, a page
+#: listing no slate yet) the next attempt waits this long; after a failure or an
+#: ordinary success the timer's own 10-minute tick governs.
+UNAVAILABLE_BACKOFF = timedelta(hours=1)
+RETRY_BACKOFF = timedelta(minutes=10)
+#: A run whose stored detail is unreadable: state unknown, so refresh now.
+UNKNOWN_OUTCOME = "unknown"
+#: Run details are stored bounded and ALWAYS as valid JSON (never sliced).
+DETAIL_MAX_CHARS = 4000
+_REPORT_KEYS = ("report", "pool")
+_REPORT_FIELDS = (
+    "rowsRead", "rowsUsed", "rejectedByReason", "identity", "projectionFamilies",
+    "familyDisagreements",
+)  # fmt: skip
+#: Refusals that mean a LISTED row could not be placed on the schedule — source
+#: or mapping drift, not an off day.
+DRIFT_REASONS = (
+    "team_unknown_for_sport",
+    "game_not_on_schedule",
+    "opponent_disagrees_with_schedule",
+    "home_away_disagrees_with_schedule",
+)
+#: Schedule drops that PROVE a listed day is not a regular-season / playoff day.
+NON_REGULAR_SEASON_DROPS = frozenset({"season_type_1", "season_type_4"})
+PLATFORM_LABEL = {"draftkings": "DraftKings", "fanduel": "FanDuel"}
+
+
+def derivation_note(sport: str) -> str:
+    return nfl.DERIVATION_NOTE if sport == "nfl" else daily.derivation_note(sport)
+
+
 def season_for(now: datetime) -> int:
     """The NFL season a date belongs to (Jan–Feb are the previous season's playoffs)."""
     return now.year if now.month >= 3 else now.year - 1
@@ -108,13 +148,23 @@ def season_for(now: datetime) -> int:
 
 
 def _last_run(conn: sqlite3.Connection, platform: str, sport: str) -> dict[str, Any] | None:
+    """The newest run for a platform+sport.  A row whose detail cannot be read
+    (e.g. a legacy row truncated mid-JSON) is outcome ``unknown`` — which makes
+    the sport due at once — and never raises: one bad row must not 500 the page
+    or wedge the timer."""
     r = conn.execute(
         "SELECT at, outcome, detail FROM dfs_auto_runs WHERE platform=? AND sport=? ORDER BY at DESC LIMIT 1",
         (platform, sport),
     ).fetchone()
-    return (
-        {"at": r[0], "outcome": r[1], "detail": json.loads(r[2]) if r[2] else None} if r else None
-    )
+    if not r:
+        return None
+    outcome, detail = r[1], None
+    if r[2]:
+        try:
+            detail = json.loads(r[2])
+        except ValueError:
+            outcome, detail = UNKNOWN_OUTCOME, {"corruptDetail": True}
+    return {"at": r[0], "outcome": outcome, "detail": detail}
 
 
 def freshness(
@@ -159,6 +209,7 @@ def list_slates(
             args.append(platform)
         rows = conn.execute(q + " ORDER BY lock_at, platform, slate_key", args).fetchall()
         runs = {p: _last_run(conn, p, sport) for p in nfl.PLATFORMS}
+    is_daily = sport in daily.SPORTS
     cols = (
         "auto_key", "platform", "sport", "season", "week", "slate_key", "label", "lock_at",
         "snapshot_id", "content_hash", "built_at", "checked_at", "degraded", "summary",
@@ -172,7 +223,8 @@ def list_slates(
                 "platform": d["platform"],
                 "sport": d["sport"],
                 "season": d["season"],
-                "week": d["week"],
+                "week": None if is_daily else d["week"],
+                "slateDate": _period_date(d["week"]) if is_daily else None,
                 "slateKey": d["slate_key"],
                 "label": d["label"],
                 "lockAt": d["lock_at"],
@@ -181,14 +233,105 @@ def list_slates(
                 "freshness": freshness(d, runs.get(d["platform"]), now),
             }
         )
-    return {
+    out = {
         "sport": sport,
         "state": "AVAILABLE" if slates else "UNAVAILABLE",
         "slates": slates,
         "lastRuns": {p: r for p, r in runs.items() if r},
-        "derivationNote": nfl.DERIVATION_NOTE,
+        "derivationNote": derivation_note(sport),
         "asOf": _iso(now),
     }
+    if not slates:
+        state, reason = _nothing_built(sport, runs, platform)
+        out["state"] = state
+        if reason:
+            out["reason"] = reason
+    return out
+
+
+def _nothing_built(
+    sport: str, runs: Mapping[str, Any], platform: str | None = None
+) -> tuple[str, str | None]:
+    """The list state + why a sport has no slate, in words, from the last runs.
+
+    Only the requested platform's run counts when one is asked for, and every
+    sentence names its platform.  A failed source — including listed rows or
+    games that the schedule could not place — is ``SOURCE_ERROR``, never "an
+    off day".  Only runs that found nothing to build are ``UNAVAILABLE``, with
+    wording that says which kind of nothing."""
+    considered = {
+        p: r for p, r in sorted(runs.items()) if r and (platform is None or p == platform)
+    }
+    if not considered:
+        return "UNAVAILABLE", None
+    label = sport.upper()
+    errors = {p: r for p, r in considered.items() if r.get("outcome") == "source_error"}
+    if errors:
+        text = " ".join(
+            f"{PLATFORM_LABEL.get(p, p)}: {_error_text(label, r.get('detail') or {})}"
+            for p, r in errors.items()
+        )
+        return "SOURCE_ERROR", text + " The platform file still works under Advanced."
+    if all(r.get("outcome") == "unavailable" for r in considered.values()):
+        texts: dict[str, list[str]] = {}
+        for p, r in considered.items():
+            t = _unavailable_text(label, (r.get("detail") or {}).get("reason"))
+            texts.setdefault(t, []).append(PLATFORM_LABEL.get(p, p))
+        text = " ".join(f"{', '.join(ps)}: {t}" for t, ps in texts.items())
+        return "UNAVAILABLE", text + " The platform file still works under Advanced."
+    return "UNAVAILABLE", None
+
+
+def _counts(d: Mapping[str, Any] | None) -> str:
+    return ", ".join(f"{k} x{v}" for k, v in (d or {}).items()) or "no detail"
+
+
+def _error_text(label: str, d: Mapping[str, Any]) -> str:
+    err = d.get("error")
+    tail = "This is a data error, not an off day; it retries within 10 minutes."
+    if err == "listed_rows_unmatched":
+        return (
+            f"Daily Fantasy Fuel listed {d.get('rowsListed')} {label} players for a day with "
+            f"{d.get('scheduledGames')} scheduled games, but none matched the schedule "
+            f"({_counts(d.get('rejectedByReason'))}). {tail}"
+        )
+    if err == "schedule_has_no_listed_games":
+        return (
+            f"Daily Fantasy Fuel lists a {label} slate, but the schedule returned no "
+            f"regular-season or playoff game for that day (dropped: "
+            f"{_counts(d.get('droppedByReason'))}). {tail}"
+        )
+    if err == "listed_games_unmatched":
+        return (
+            f"Daily Fantasy Fuel listed {d.get('listedGames')} {label} games, but only "
+            f"{d.get('matchedGames')} matched the schedule "
+            f"({_counts(d.get('rejectedByReason'))}) - not enough for a classic slate. {tail}"
+        )
+    return (
+        f"The last {label} refresh failed ({err or 'unknown error'}); it retries within 10 minutes."
+    )
+
+
+def _unavailable_text(label: str, reason: Any) -> str:
+    if reason == "listed_day_not_regular_season":
+        return (
+            f"The {label} slate listed today is a preseason / all-star day; automatic slates "
+            "cover the regular season and playoffs. Checked again hourly."
+        )
+    if reason == "single_game_listing":
+        return (
+            f"Only one {label} game is listed - a single-game slate is not a classic slate. "
+            "Checked again hourly."
+        )
+    return (
+        f"No {label} slate is listed right now (an off day, the offseason or preseason). "
+        "Checked again hourly."
+    )
+
+
+def _period_date(period: Any) -> str | None:
+    s = str(period or "")
+    return f"{s[:4]}-{s[4:6]}-{s[6:8]}" if len(s) == 8 and s.isdigit() else None
 
 
 def get_row(auto_key: str) -> dict[str, Any] | None:
@@ -208,36 +351,79 @@ def is_due(sport: str = "nfl", now: datetime | None = None) -> bool:
             "SELECT lock_at, checked_at FROM dfs_auto_slates WHERE sport=? AND lock_at > ?",
             (sport, _iso(now)),
         ).fetchall()
-        failed = [
-            r for r in (_last_run(conn, p, sport) for p in nfl.PLATFORMS)
-            if r and r["outcome"] != "ok"
-        ]  # fmt: skip
+        last = [r for r in (_last_run(conn, p, sport) for p in nfl.PLATFORMS) if r]
+    failed = [r for r in last if r["outcome"] != "ok"]
     if not rows:
-        return True
+        if not last:
+            return True
+        # Several platforms can share the newest timestamp (one pass records
+        # both): the SHORTEST applicable backoff wins, so a failure is never
+        # hidden behind another platform's one-hour off-day wait.
+        latest = max(r["at"] for r in last)
+        wait = min(_backoff(r["outcome"]) for r in last if r["at"] == latest)
+        return now - _parse(latest) >= wait
     for lock_at, checked_at in rows:
         cad = cadence(_parse(lock_at), now)
         if cad is not None and now - _parse(checked_at) >= cad:
             return True
     # A failed platform retries at the shortest cadence rather than waiting 2 h.
-    return any(now - _parse(r["at"]) >= timedelta(minutes=10) for r in failed)
+    return any(now - _parse(r["at"]) >= _backoff(r["outcome"]) for r in failed)
+
+
+def _backoff(outcome: str) -> timedelta:
+    if outcome == UNKNOWN_OUTCOME:
+        return timedelta(0)
+    return UNAVAILABLE_BACKOFF if outcome == "unavailable" else RETRY_BACKOFF
 
 
 # ── the refresh ──────────────────────────────────────────────────────────
+
+
+def _summarize_report(rep: Any) -> Any:
+    """A pool report reduced to counts + a capped sample (bounded BEFORE serialising)."""
+    if not isinstance(rep, Mapping):
+        return None
+    out = {k: rep[k] for k in _REPORT_FIELDS if k in rep}
+    out["rejectedSample"] = list(rep.get("rejected") or [])[:5]
+    if rep.get("notes"):
+        out["notes"] = [str(n)[:300] for n in list(rep["notes"])[:3]]
+    return out
+
+
+def _bounded_detail(detail: Any) -> str:
+    """Run detail → JSON that is valid AND at most ``DETAIL_MAX_CHARS``.  Never a
+    slice of a longer string (that stored invalid JSON every later read choked on)."""
+    d = dict(detail) if isinstance(detail, Mapping) else {"value": detail}
+    for k in _REPORT_KEYS:
+        if k in d:
+            d[k] = _summarize_report(d[k])
+    for k in ("sample", "dropped"):
+        if isinstance(d.get(k), list):
+            d[k] = d[k][:5]
+    text = json.dumps(d, default=str)
+    if len(text) <= DETAIL_MAX_CHARS:
+        return text
+    slim = {k: v for k, v in d.items() if v is None or isinstance(v, (bool, int, float))}
+    slim.update({k: v[:200] for k, v in d.items() if isinstance(v, str)})
+    slim["detailTruncated"] = True
+    text = json.dumps(slim, default=str)
+    return text if len(text) <= DETAIL_MAX_CHARS else json.dumps({"detailTruncated": True})
 
 
 def _record_run(platform: str, sport: str, at: str, outcome: str, detail: Any) -> None:
     with _lock, _connect() as conn:
         conn.execute(
             "INSERT INTO dfs_auto_runs VALUES (?,?,?,?,?)",
-            (platform, sport, at, outcome, json.dumps(detail, default=str)[:4000]),
+            (platform, sport, at, outcome, _bounded_detail(detail)),
         )
 
 
 def _store_slate(platform: str, body: dict[str, Any], degraded: list[str], now: datetime) -> str:
     """Upsert one derived slate.  Returns ``created`` | ``unchanged``."""
     auto = body["auto"]
-    key = f"{platform}:nfl:{auto['season']}:w{auto['week']}:{auto['slateKey']}"
-    h = nfl.body_hash(body)
+    sport = auto["sport"]
+    key = auto["autoKey"]
+    h = body_hash(body)
     athletes = body["athletes"]
     summary = {
         "games": len(auto["games"]),
@@ -271,7 +457,7 @@ def _store_slate(platform: str, body: dict[str, Any], degraded: list[str], now: 
         conn.execute(
             "INSERT OR REPLACE INTO dfs_auto_slates VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                key, platform, "nfl", auto["season"], auto["week"], auto["slateKey"], body["label"],
+                key, platform, sport, auto["season"], auto["periodKey"], auto["slateKey"], body["label"],
                 auto["lockAt"], meta["id"], h, at, at,
                 json.dumps(degraded) if degraded else None, json.dumps(summary),
             ),
@@ -432,4 +618,215 @@ def refresh_nfl(
             "slates": outcomes,
             "pool": report.to_dict(),
         }
+    return result
+
+
+# ── NBA / NHL (DFS-AUTO-19) ──────────────────────────────────────────────
+
+
+def _schedule_for(
+    sport: str, days: list[str], cache: dict[str, Any], get_schedule: Fetcher
+) -> tuple[list[Any], list[dict[str, Any]], list[str], dict[str, int]]:
+    """Games for the listed days (one fetch per day per pass), their provenance,
+    per-day failure codes, and every schedule event dropped, counted by reason."""
+    games: list[Any] = []
+    meta: list[dict[str, Any]] = []
+    errors: list[str] = []
+    dropped: dict[str, int] = {}
+    for day in days:
+        if day not in cache:
+            try:
+                cache[day] = get_schedule(sport, day)
+            except Exception as exc:  # noqa: BLE001 - a failed source is a recorded state
+                cache[day] = exc
+        got = cache[day]
+        if isinstance(got, Exception):
+            errors.append(str(getattr(got, "code", type(got).__name__)))
+            continue
+        games.extend(got.get("games") or [])
+        for d in got.get("dropped") or []:
+            reason = str((d or {}).get("reason") or "unknown")
+            dropped[reason] = dropped.get(reason, 0) + 1
+        meta.append(
+            {
+                "source": "espn_scoreboard",
+                "date": day,
+                "url": got.get("url"),
+                "fetchedAt": got.get("fetchedAt"),
+                "sha256": got.get("sha256"),
+                "games": len(got.get("games") or []),
+                "dropped": (got.get("dropped") or [])[:20],
+            }
+        )
+    return games, meta, errors, dropped
+
+
+def _listed_games(rows: list[Mapping[str, Any]]) -> int:
+    """How many distinct games a DFF page lists (by its own team/opponent codes)."""
+    pairs = {
+        (
+            str(r.get("startDate") or ""),
+            frozenset({str(r["team"]).upper(), str(r["opponent"]).upper()}),
+        )
+        for r in rows
+        if r.get("team") and r.get("opponent")
+    }
+    return len(pairs)
+
+
+def _drift_markers(report: Any) -> list[str]:
+    """DEGRADED markers for listed rows the schedule could not place.  Any of them
+    may be the EARLIEST game, so the slate also says its lock may be early."""
+    out = [
+        f"listed_rows_unmatched:{r}={report.rejected_by_reason[r]}"
+        for r in DRIFT_REASONS
+        if report.rejected_by_reason.get(r)
+    ]
+    if out:
+        out.append("lock_may_be_early:untimed_listed_rows")
+    return out
+
+
+def _daily_sources(
+    at: str, page: Mapping[str, Any], sched_meta: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        "builtAt": at,
+        "salaries": {
+            "source": "dailyfantasyfuel",
+            "url": page.get("url"),
+            "fetchedAt": page.get("fetchedAt"),
+            "publishedAt": page.get("updatedAt"),
+            "sha256": page.get("sha256"),
+        },
+        "schedule": sched_meta,
+        "projections": {"dailyfantasyfuel": {"state": "ok", "publishedAt": page.get("updatedAt")}},
+        "identity": {"source": "provider_scoped", "state": "not_available_for_sport"},
+        "status": {"source": "dailyfantasyfuel"},
+    }
+
+
+def _unmatched_detail(rows: list[Any], games: list[Any], report: Any) -> dict[str, Any]:
+    return {
+        "stage": "pool",
+        "error": "listed_rows_unmatched",
+        "rowsListed": len(rows),
+        "scheduledGames": len(games),
+        "rejectedByReason": dict(sorted(report.rejected_by_reason.items())),
+        "sample": report.rejected[:5],
+    }
+
+
+def refresh_daily(
+    sport: str,
+    *,
+    now: datetime | None = None,
+    get_dff: Fetcher,
+    get_schedule: Fetcher,
+    force: bool = False,
+) -> dict[str, Any]:
+    """One refresh pass for a daily sport.  ``get_dff(sport, platform)`` returns a
+    parsed DFF page (``live.get_daily_dff``); ``get_schedule(sport, day)`` returns
+    ``{"games": [ScheduledGame], ...}`` (``live.get_daily_schedule``)."""
+    if sport not in daily.SPORTS:
+        raise ValueError(f"not a daily automatic sport: {sport!r}")
+    now = now or _now()
+    at = _iso(now)
+    if not force and not is_due(sport, now):
+        return {"outcome": "not_due", "sport": sport, "at": at}
+    result: dict[str, Any] = {"outcome": "ok", "sport": sport, "at": at, "platforms": {}}
+    cache: dict[str, Any] = {}
+    seen: list[str] = []
+
+    def done(platform: str, outcome: str, detail: dict[str, Any]) -> None:
+        _record_run(platform, sport, at, outcome, detail)
+        result["platforms"][platform] = {"outcome": outcome, **detail}
+        seen.append(outcome)
+
+    for platform in daily.PLATFORMS:
+        try:
+            page = get_dff(sport, platform)
+        except Exception as exc:  # noqa: BLE001
+            code = str(getattr(exc, "code", type(exc).__name__))
+            done(platform, "source_error", {"stage": "salaries", "error": code})
+            continue
+        rows = page.get("rows") or []
+        if not rows:
+            done(platform, "unavailable", {"stage": "salaries", "reason": "no_slate_listed"})
+            continue
+        days = daily.slate_dates(rows)
+        if not days:
+            done(platform, "source_error", {"stage": "salaries", "error": "no_start_dates"})
+            continue
+        games, sched_meta, sched_errors, dropped = _schedule_for(sport, days, cache, get_schedule)
+        if sched_errors and not games:
+            err = ",".join(sorted(set(sched_errors)))
+            done(platform, "source_error", {"stage": "schedule", "error": err})
+            continue
+        pool, report = daily.build_pool(sport, platform, rows, games)
+        if not pool:
+            if games:
+                # The schedule HAS games on the listed day(s) and still nothing
+                # matched: a mapping / source defect (e.g. team-code drift), never
+                # an off day.  Named, counted, and surfaced as an error.
+                done(platform, "source_error", _unmatched_detail(rows, games, report))
+            elif dropped and set(dropped) <= NON_REGULAR_SEASON_DROPS:
+                # Every event that day is PROVABLY preseason / all-star: nothing
+                # to build, not a defect.
+                detail = {"stage": "pool", "reason": "listed_day_not_regular_season"}
+                done(platform, "unavailable", {**detail, "droppedByReason": dropped})
+            else:
+                # The page lists a slate, yet the schedule offers no game for it:
+                # an empty payload or events dropped for any other reason
+                # (unknown team code, invalid time, ...) is a data error.
+                done(
+                    platform,
+                    "source_error",
+                    {
+                        "stage": "schedule",
+                        "error": "schedule_has_no_listed_games",
+                        "rowsListed": len(rows),
+                        "droppedByReason": dropped,
+                    },
+                )
+            continue
+        sources = _daily_sources(at, page, sched_meta)
+        degraded = ["schedule_partial"] if sched_errors else []
+        # Listed rows the schedule could not place: the slate may be missing whole
+        # games — possibly the earliest — so it says so (DEGRADED + lock warning).
+        degraded += _drift_markers(report)
+        built: dict[str, str] = {}
+        for day, slate_games in daily.slates(pool, games):
+            that_day = sum(1 for g in games if g.date_et == day)
+            body = daily.slate_body(
+                sport, platform, day, slate_games, pool, report, sources, that_day
+            )
+            if body is not None:
+                built[body["auto"]["autoKey"]] = _store_slate(platform, body, degraded, now)
+        if not built:
+            listed = _listed_games(rows)
+            matched = len({a.game for a in pool})
+            if listed >= 2:
+                # The page lists a classic slate; drift left fewer than two
+                # placeable games.  A data error, never "an off day".
+                done(
+                    platform,
+                    "source_error",
+                    {
+                        "stage": "slates",
+                        "error": "listed_games_unmatched",
+                        "listedGames": listed,
+                        "matchedGames": matched,
+                        "rejectedByReason": dict(sorted(report.rejected_by_reason.items())),
+                    },
+                )
+            else:
+                detail = {"stage": "slates", "reason": "single_game_listing"}
+                done(platform, "unavailable", {**detail, "report": report.to_dict()})
+            continue
+        done(platform, "ok", {"slates": built, "pool": report.to_dict()})
+    if "source_error" in seen:
+        result["outcome"] = "partial" if "ok" in seen else "source_error"
+    elif "ok" not in seen:
+        result["outcome"] = "unavailable"
     return result

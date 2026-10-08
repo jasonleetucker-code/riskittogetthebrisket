@@ -106,11 +106,27 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
   if (!data) {
     return (
       <p className={styles.note} aria-live="polite">
-        Loading this week&apos;s slates…
+        Loading automatic slates…
       </p>
     );
   }
   const slates = (data.slates || []).filter((s) => s.platform === platform);
+  if (!slates.length && data.state === "SOURCE_ERROR") {
+    // A failed source (including listed rows that matched no scheduled game) is
+    // an error, never presented as "an off day".
+    return (
+      <Banner tone="warning" title="Automatic slates: source error">
+        {data.reason}
+      </Banner>
+    );
+  }
+  if (!slates.length && data.state === "AWAITING_APPROVAL") {
+    return (
+      <Banner tone="info" title="Awaiting owner approval of the schedule source">
+        {data.reason}
+      </Banner>
+    );
+  }
   if (!slates.length) {
     const waiting = `Fetching ${platformLabel} slates now — this takes under a minute.`;
     return (
