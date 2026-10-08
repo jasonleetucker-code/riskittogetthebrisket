@@ -238,7 +238,16 @@ ROUTES = (
     "/api/public/league/matchup/2025/1/1",
     "/api/public/league/players",
     "/api/public/league/player/p-idp1",
+    "/api/public/league/metrics",
+    "/api/league/articles",
+    "/api/league/articles/2025/1/1/recap",
 )
+
+#: Article reads describe the public league but carry no JSON envelope of
+#: their own (their bodies are pinned by
+#: ``test_league_articles_route_characterization.py``), so "served" means
+#: the key validation let the request through to the article store.
+ARTICLE_ROUTES = ("/api/league/articles", "/api/league/articles/2025/1/1/recap")
 
 
 @pytest.fixture
@@ -318,8 +327,125 @@ class TestEveryPublicRouteHonoursLeagueKey:
     def test_the_public_league_is_served_by_key_or_alias(self, routed_client, path, spelling):
         client, league_key = routed_client
         res = client.get(_with_key(path, spelling))
+        if path in ARTICLE_ROUTES:
+            # Past validation: the list answers, a missing article is the
+            # store's own 404, never a league refusal.
+            assert res.status_code in (200, 404), f"{path}: {res.status_code}"
+            assert res.json().get("error") not in {
+                "unknown_league",
+                "inactive_league",
+                "league_not_public",
+            }
+            return
         assert res.status_code == 200, f"{path}: {res.status_code} {res.text[:200]}"
         if path.endswith(".csv"):
             assert res.headers.get("x-league-key") == league_key
         else:
             assert res.json()["leagueKey"] == league_key
+
+
+# ── Failure paths are public payloads too ───────────────────────────────
+
+
+@pytest.fixture
+def failing_rebuild(authed_client, controlled_snapshot, monkeypatch):  # noqa: F811
+    """A cold cache whose rebuild returns a HALF-FETCHED current season —
+    the real ``current_season_integrity_error`` path (``sleeper_client``
+    answers a failed ``/rosters`` GET with ``[]``).  The refusal text names
+    the season as ``"2025 (L2025)"``; the routes used to echo it in their
+    503 bodies."""
+    from src.public_league import build_public_snapshot
+
+    _league_key, sleeper_id = controlled_snapshot
+    broken = build_public_snapshot(sleeper_id, max_seasons=2, include_nfl_players=False)
+    broken.current_season.rosters = []
+    monkeypatch.setattr(server, "build_public_snapshot", lambda *a, **k: broken)
+    monkeypatch.setattr(server, "_PUBLIC_LEAGUE_PERSIST", False)
+    for key, value in {
+        "snapshot": None,
+        "snapshot_league_id": None,
+        "fetched_at": 0.0,
+        "refreshing": False,
+        "last_failure_at": 0.0,
+        "last_failure_error": None,
+    }.items():
+        monkeypatch.setitem(server._public_league_cache, key, value)
+    return authed_client, sleeper_id
+
+
+class TestUnavailableResponsesNameNoSleeperId:
+    def test_every_public_route_503_is_generic(self, failing_rebuild):
+        client, sleeper_id = failing_rebuild
+        forbidden = {sleeper_id, "L2024"}
+        paths = [
+            "/api/public/league",
+            "/api/public/league/overview",
+            "/api/public/league/history",
+            "/api/public/league/activity",
+            "/api/public/league/archives",
+            "/api/public/league/rosPower",
+            "/api/public/league/franchise?owner=owner-B",
+            "/api/public/league/matchups",
+            "/api/public/league/matchup/2025/1/1",
+            "/api/public/league/players",
+            "/api/public/league/player/p-idp1",
+            "/api/public/league/history.csv",
+            "/api/public/league/hall_of_fame.csv",
+        ]
+        seen_503 = 0
+        leaks = {}
+        for path in paths:
+            res = client.get(path)
+            seen_503 += res.status_code == 503
+            body = res.text
+            bad = sorted(f for f in forbidden if f in body)
+            if bad or "integrity" in body or "rosters" in body:
+                leaks[path] = (res.status_code, body[:200])
+        assert seen_503 == len(paths), "every route must actually take the failure path"
+        assert not leaks, f"failure detail served publicly: {leaks}"
+
+    def test_the_detail_is_still_logged(self, failing_rebuild, caplog):
+        client, sleeper_id = failing_rebuild
+        with caplog.at_level("ERROR"):
+            client.get("/api/public/league/history")
+        assert any(
+            sleeper_id in r.getMessage() for r in caplog.records
+        ), "the operator log must keep the specific failure"
+
+
+class TestPowerRefusalAndLensAreProjected:
+    def test_a_membership_refusal_names_no_league_id(self, public_routes, monkeypatch):
+        """``power_v2._refused_section`` used to publish the integrity text
+        (``"2025 (L2025)"`` + owner ids) in ``missingInputs`` on the public
+        ``rosPower`` route, canonical and lens paths alike."""
+        client, snapshot, _r, _o = public_routes
+        monkeypatch.setattr(snapshot.current_season, "rosters", [])
+        forbidden = _forbidden_values(snapshot)
+        for path in (
+            "/api/public/league/rosPower",
+            "/api/public/league/rosPower?lens=results_only",
+        ):
+            res = client.get(path)
+            assert res.status_code == 200, f"{path}: {res.status_code} {res.text[:200]}"
+            data = res.json()["data"]
+            assert data["unrankable"]["reason"] == "current_league_membership_incomplete"
+            assert not _raw_id_leaks(res.json(), forbidden), path
+
+    def test_the_lens_recompute_goes_through_the_projection(self, public_routes, monkeypatch):
+        """The ``?lens=`` branch replaced ``payload["data"]`` AFTER the
+        section payload was projected; whatever it returns is projected too."""
+        from src.ros import power_v2
+
+        client, snapshot, _r, _o = public_routes
+        real = power_v2.build_section
+
+        def leaky(snap, *a, **k):
+            section = real(snap, *a, **k)
+            if k.get("lens"):
+                section = {**section, "leagueId": snap.root_league_id}
+            return section
+
+        monkeypatch.setattr(power_v2, "build_section", leaky)
+        res = client.get("/api/public/league/rosPower?lens=results_only")
+        assert res.status_code == 200, f"{res.status_code} {res.text[:200]}"
+        assert not _raw_id_leaks(res.json(), _forbidden_values(snapshot))

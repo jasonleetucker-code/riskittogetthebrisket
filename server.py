@@ -12914,9 +12914,29 @@ _PUBLIC_LEAGUE_CACHE_CONTROL = (
 )
 
 
+def _public_unavailable_body(what: str) -> dict[str, str]:
+    """The body of every public-league 503: a fixed message, never the
+    exception text.
+
+    The routes used to answer ``{"error": f"... unavailable: {exc}"}``, and
+    the exceptions that reach them are not public-safe: the snapshot
+    integrity refusal names the current season's raw Sleeper league id
+    (``snapshot.current_season_membership_error`` labels it
+    ``"<season> (<league id>)"``) and the owner ids that failed to resolve,
+    and any other exception can carry paths or internals.  The detail is
+    already logged by each handler; the public caller learns only that the
+    data is unavailable.
+    """
+    return {"error": f"{what} unavailable.", "reason": "upstream_unavailable"}
+
+
 @app.get("/api/public/league/metrics")
-async def get_public_league_metrics():
+async def get_public_league_metrics(leagueKey: str = ""):
     """Small, public-safe observability endpoint for the snapshot cache.
+
+    ``leagueKey`` is validated like every other public route
+    (``_public_league_key_error``) even though the counters are global:
+    a named league is honoured or refused, never silently answered.
 
     Exposes the counters that ``_log_public_league_event`` has been
     emitting: cache hit ratio, rebuild wall-clock, contract byte-size,
@@ -12925,6 +12945,9 @@ async def get_public_league_metrics():
 
     NOTE: no private data — just aggregated counters for the cache.
     """
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
     snap = _public_league_metrics_snapshot()
     # Diagnostic: is the valuation pipeline wired up right now?  This
     # only surfaces the boolean — never any private values — and lets
@@ -13020,7 +13043,7 @@ async def get_public_league(request: Request, refresh: str = "", leagueKey: str 
         logging.error("Public league contract build failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Public league data unavailable: {exc}"},
+            content=_public_unavailable_body("Public league data"),
         )
 
 
@@ -13094,7 +13117,7 @@ async def get_public_league_matchup(
         logging.error("Matchup recap build failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Matchup recap unavailable: {exc}"},
+            content=_public_unavailable_body("Matchup recap"),
         )
 
 
@@ -13126,7 +13149,7 @@ async def list_public_league_matchups(request: Request, refresh: str = "", leagu
         logging.error("Matchup index failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Matchup index unavailable: {exc}"},
+            content=_public_unavailable_body("Matchup index"),
         )
 
 
@@ -13181,7 +13204,7 @@ async def get_public_league_player(
         logging.error("Player journey build failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Player journey unavailable: {exc}"},
+            content=_public_unavailable_body("Player journey"),
         )
 
 
@@ -13214,7 +13237,7 @@ async def list_public_league_players(request: Request, refresh: str = "", league
         logging.error("Players index failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Players index unavailable: {exc}"},
+            content=_public_unavailable_body("Players index"),
         )
 
 
@@ -13355,7 +13378,7 @@ async def get_public_league_section_csv(
             logging.error("CSV export hall_of_fame failed: %s", exc)
             return JSONResponse(
                 status_code=503,
-                content={"error": f"CSV export unavailable: {exc}"},
+                content=_public_unavailable_body("CSV export"),
             )
 
     if section not in PUBLIC_SECTION_KEYS:
@@ -13432,7 +13455,7 @@ async def get_public_league_section_csv(
         logging.error("CSV export for section %s failed: %s", section, exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"CSV export unavailable: {exc}"},
+            content=_public_unavailable_body("CSV export"),
         )
 
 
@@ -13548,8 +13571,10 @@ async def get_public_league_section(
 
                     if lens != power_v2.LENS_CANONICAL:
                         payload["data"] = power_v2.build_section(snapshot, lens=lens)
-                assert_public_payload_safe(payload)
-                return payload
+                # ``franchiseDetail`` / the lens recompute were attached AFTER
+                # ``build_section_payload`` projected the payload, so the
+                # whole response goes through the serving projection again.
+                return public_payload(payload)
 
             payload = await run_in_threadpool(_build)
         return JSONResponse(
@@ -13566,7 +13591,7 @@ async def get_public_league_section(
         logging.error("Public league section %s failed: %s", section, exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Public league section unavailable: {exc}"},
+            content=_public_unavailable_body("Public league section"),
         )
 
 
