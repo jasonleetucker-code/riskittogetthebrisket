@@ -47,6 +47,10 @@ class IdentityIndex:
     id_by_key: dict[str, str] = field(default_factory=dict)
     display_by_key: dict[str, str] = field(default_factory=dict)
     quarantined: dict[str, str] = field(default_factory=dict)
+    #: The contract row's own stamps a consumer needs to PRESENT a verdict
+    #: (C6-SIG-02): backend-stamped rank, position and asset class, copied
+    #: verbatim.  Presentation context only — the reconciler never reads it.
+    board_by_key: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def resolve(
         self,
@@ -170,6 +174,21 @@ def build_identity_index(contract: Mapping[str, Any]) -> IdentityIndex:
         key = keyed[0]
         display = str(row.get("displayName") or row.get("canonicalName") or "").strip()
         index.display_by_key.setdefault(key, display)
+        rank = row.get("canonicalConsensusRank")
+        index.board_by_key.setdefault(
+            key,
+            {
+                # A rank-less row (off the ranked board, or a slot pick)
+                # is ``None`` — never 0, which would sort it to the top.
+                "canonicalConsensusRank": (
+                    rank
+                    if isinstance(rank, int) and not isinstance(rank, bool) and rank > 0
+                    else None
+                ),
+                "position": str(row.get("position") or "").strip() or None,
+                "assetClass": keyed[1],
+            },
+        )
         index.group_by_key.setdefault(
             key, canonical_position_group(str(row.get("position") or "")) or ""
         )
@@ -707,9 +726,17 @@ def build_reconciled_signals(
         effective_scope = "roster" if resolved_team else "league"
     universe: list[str] | None = None
     roster_basis: str | None = None
+    # Roster MEMBERSHIP is published in every scope (C6-SIG-02): a league-wide
+    # consumer that must limit SELL to the selected roster reads it here
+    # rather than re-joining names to ids in the browser — identity stays with
+    # this module's one join.
+    roster_members: list[str] | None = None
+    roster_missed: list[dict[str, Any]] = []
+    if resolved_team:
+        roster_members, roster_missed, roster_basis = roster_keys(index, resolved_team)
     if effective_scope == "roster":
         if resolved_team:
-            universe, roster_missed, roster_basis = roster_keys(index, resolved_team)
+            universe = list(roster_members or [])
             unresolved.extend(roster_missed)
         else:
             universe = []
@@ -738,6 +765,12 @@ def build_reconciled_signals(
         display_names=index.display_by_key,
         unresolved=unresolved,
     )
+    for entry in payload["players"]:
+        # The contract row's own stamps, verbatim; ``None`` for a key the
+        # board does not carry.  Attached after reconciliation so it cannot
+        # influence any state the reconciler decides.
+        board = index.board_by_key.get(entry["playerKey"])
+        entry["board"] = dict(board) if board is not None else None
     payload.update(
         {
             "leagueKey": league_key,
@@ -760,6 +793,17 @@ def build_reconciled_signals(
                 "reason": "team_not_found" if team_request and not resolved_team else None,
             },
             "rosterPlacement": roster_basis,
+            # The resolved team's roster as canonical asset keys, whatever the
+            # scope; ``None`` when no team resolved (unknown, never empty).
+            "roster": (
+                {
+                    "playerKeys": list(roster_members or []),
+                    "placement": roster_basis,
+                    "unresolvedCount": len(roster_missed),
+                }
+                if resolved_team
+                else None
+            ),
             "contract": {
                 "scrapeTimestamp": contract.get("scrapeTimestamp"),
                 "generatedAt": contract.get("generatedAt"),
