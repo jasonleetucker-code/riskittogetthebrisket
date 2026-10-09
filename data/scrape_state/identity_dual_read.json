@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-10-09T06:50:01.432425+00:00",
+ "generatedAt": "2026-10-09T15:37:34.933755+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2074,
+ "calls": 2072,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2049,
- "v2WouldChange": 25,
+ "v2Same": 2046,
+ "v2WouldChange": 26,
  "v2Examples": [
   {
    "name": "Andru Phillips",
@@ -56,6 +56,14 @@
    "name": "Devin Neal",
    "pos": "",
    "served": "12476",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Elijah Mitchell",
+   "pos": "",
+   "served": "7561",
    "engineV2": null,
    "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
