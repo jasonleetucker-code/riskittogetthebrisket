@@ -142,6 +142,13 @@ const TradeDeltaHistogram = dyn(
   "Value split chart",
 );
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
+// TC-07 / TC-10: recorded real trades that moved an asset on the calculator.
+// Reference evidence only — it never touches the totals or verdict.  Inside
+// its own collapsed panel, so the chunk and the request wait for the user.
+const RecentRealTrades = dyn(
+  () => import("@/components/trade/RecentRealTrades"),
+  "Recent real trades",
+);
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -192,6 +199,7 @@ export default function TradePage() {
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
   const [activeSide, setActiveSide] = useState(0); // index into sides
+  const [realTradesOpen, setRealTradesOpen] = useState(false);
   // Per-side inline search: each side renders its own search input, so
   // adding a player is one tap away — no overlay, no "+ Add" button.
   // ``sideQueries[i]`` holds side i's current input string;
@@ -2288,6 +2296,21 @@ export default function TradePage() {
           ) : null}
 
           </CollapsiblePanel>
+
+          {/* Controlled, and the section is mounted ONLY while open: a
+              mounted-but-folded section would refetch on every trade edit. */}
+          <Panel
+            title="Recent real trades"
+            subtitle="Recorded verified-dynasty trades that moved these assets, with each league's format"
+            collapsible
+            collapsed={!realTradesOpen}
+            onToggleCollapsed={() => setRealTradesOpen((v) => !v)}
+            bodyId="trade-recent-real-trades"
+          >
+            {realTradesOpen ? (
+              <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
+            ) : null}
+          </Panel>
 
           <SuggestionsDesk
             sleeperTeams={sleeperTeams}
