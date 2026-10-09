@@ -140,6 +140,8 @@ export function FailureState({
   // than our generic sentence, and dropping it in favour of a friendlier
   // one is how a degraded state becomes indistinguishable from an outage.
   const detail = failure.message || "";
+  // No opacity on it: 0.7 took the PSI tertiary ink to 2.86:1 (WCAG 1.4.3,
+  // axe on /admin/model-lab 2026-10-08). Size + parentheses de-emphasise it.
   // The machine-readable code travels with the explanation (small, for a
   // support report), never instead of it.
   const codeNote = failure.code ? `(${failure.code})` : "";
@@ -149,7 +151,7 @@ export function FailureState({
     // The code sits on its own line, outside the description, so the
     // description stays exactly the reader-facing sentence.
     const code = codeNote ? (
-      <p className="ds-empty__description" data-testid="failure-code" style={{ opacity: 0.7, fontSize: "0.85em" }}>
+      <p className="ds-empty__description" data-testid="failure-code" style={{ fontSize: "0.85em" }}>
         {codeNote}
       </p>
     ) : null;
@@ -183,7 +185,7 @@ export function FailureState({
       {codeNote ? (
         <>
           {" "}
-          <span data-testid="failure-code" style={{ opacity: 0.7, fontSize: "0.85em" }}>
+          <span data-testid="failure-code" style={{ fontSize: "0.85em" }}>
             {codeNote}
           </span>
         </>

@@ -63,6 +63,7 @@ describe("private pages", () => {
       "/settings",
       "/more",
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",

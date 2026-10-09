@@ -186,7 +186,7 @@ export const __routeGates = {
  * For PUBLIC-only routes, AppShell refuses to hydrate private data.
  * See PUBLIC_ONLY_ROUTE_PREFIXES above.
  */
-export default function AppShell({ children, authenticated = false, capabilities = null }) {
+export default function AppShell({ children, authenticated = false, capabilities = null, isAdmin = false }) {
   const pathname = usePathname();
   // Two INDEPENDENT reasons to skip the player pipeline, composed rather
   // than merged: one is a privacy boundary, one is "this page has no use
@@ -202,17 +202,17 @@ export default function AppShell({ children, authenticated = false, capabilities
     !isPublicOnlyRoute(pathname) && !isNoPlayerDataRoute(pathname);
 
   return privateDataEnabled ? (
-    <PrivateAppShell authenticated={authenticated} capabilities={capabilities}>
+    <PrivateAppShell authenticated={authenticated} capabilities={capabilities} isAdmin={isAdmin}>
       {children}
     </PrivateAppShell>
   ) : (
-    <NoPlayerDataAppShell authenticated={authenticated} capabilities={capabilities}>
+    <NoPlayerDataAppShell authenticated={authenticated} capabilities={capabilities} isAdmin={isAdmin}>
       {children}
     </NoPlayerDataAppShell>
   );
 }
 
-function PrivateAppShell({ children, authenticated, capabilities }) {
+function PrivateAppShell({ children, authenticated, capabilities, isAdmin }) {
   const { loading, error, failure, retry, rows, siteKeys, rawData } =
     useDynastyData();
   return (
@@ -227,6 +227,7 @@ function PrivateAppShell({ children, authenticated, capabilities }) {
       privateDataEnabled={true}
       authenticated={authenticated}
       capabilities={capabilities}
+      isAdmin={isAdmin}
     >
       {children}
     </InnerAppShell>
@@ -237,7 +238,7 @@ function PrivateAppShell({ children, authenticated, capabilities }) {
 // /api/data would leak private data, and private routes that simply have
 // no player data to show.  Named for what it does (no player data) rather
 // than for either reason, since it now answers to two.
-function NoPlayerDataAppShell({ children, authenticated, capabilities }) {
+function NoPlayerDataAppShell({ children, authenticated, capabilities, isAdmin }) {
   // No useDynastyData call — the public page pipeline must never
   // hydrate from /api/data.  The search + popup components render
   // against an empty rows list so they simply no-op rather than
@@ -254,13 +255,14 @@ function NoPlayerDataAppShell({ children, authenticated, capabilities }) {
       privateDataEnabled={false}
       authenticated={authenticated}
       capabilities={capabilities}
+      isAdmin={isAdmin}
     >
       {children}
     </InnerAppShell>
   );
 }
 
-function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, children }) {
+function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, isAdmin = false, children }) {
   // Player search requires an authenticated session.  Search against
   // the private contract leaks ranking data and private identifiers
   // to logged-out visitors on otherwise-public surfaces.
@@ -430,6 +432,8 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
           // the menus — hiding an entry from the drawer while ⌘K still
           // routes there would leave V1-131 half-fixed.
           capabilities={capabilities}
+          // Ops destinations are admin-only, same filter as the System menu.
+          isAdmin={isAdmin}
           isOpen={searchOpen}
           onClose={() => setSearchOpen(false)}
           onSelect={(row) => openPlayerPopup(row)}
