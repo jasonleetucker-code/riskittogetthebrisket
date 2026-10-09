@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-10-08T20:12:31.130024+00:00",
+ "generatedAt": "2026-10-09T00:43:58.679810+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2074,
+ "calls": 2075,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2049,
+ "v2Same": 2050,
  "v2WouldChange": 25,
  "v2Examples": [
   {
@@ -56,14 +56,6 @@
    "name": "Devin Neal",
    "pos": "",
    "served": "12476",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
-   "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Elijah Mitchell",
-   "pos": "",
-   "served": "7561",
    "engineV2": null,
    "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
@@ -152,6 +144,14 @@
    "name": "Nikolas Martin",
    "pos": "",
    "served": "12630",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Pat Jones",
+   "pos": "",
+   "served": "7674",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
