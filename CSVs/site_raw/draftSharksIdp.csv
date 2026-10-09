@@ -29,9 +29,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 28,,Blake Cashman,LB,14.10,6,30.3,176,391,584,866,,15
 29,,DeMarvion Overshown,LB,21.09,14,26.1,150,365,579,986,,15
 30,,Patrick Queen,LB,16.10,9,27.1,128,377,591,973,,15
-31,,Cooper DeJean,DB,13.11,10,23.6,161,409,637,1117,,14
+31,,Cooper DeJean,DB,13.11,10,23.7,161,409,637,1117,,14
 32,,Dallas Turner,DL,15.02,6,23.7,151,344,572,1020,,14
-33,,Aidan Hutchinson,DL,7.06,6,26.1,148,383,631,962,,14
+33,,Aidan Hutchinson,DL,7.06,6,26.2,148,383,631,962,,14
 34,,Terrel Bernard,LB,18.12,7,27.4,143,349,547,901,,13
 35,,Trevin Wallace,LB,28.04,13,23.6,17,375,606,1099,,13
 36,,Will Anderson Jr.,DL,8.10,8,25.1,129,355,596,977,,13
@@ -52,9 +52,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 51,,Jared Verse,DL,10.01,11,25.9,119,316,521,795,,10
 52,,Jalen Carter,DL,16.07,10,25.5,97,319,513,858,,10
 53,,Cody Simon,LB,26.06,14,24.5,30,328,531,963,,10
-54,,Sirvocea Dennis,LB,28.07,10,26.5,28,344,539,888,,9
+54,,Sirvocea Dennis,LB,28.07,10,26.6,28,344,539,888,,9
 55,,Brian Burns,DL,10.03,8,28.4,0,390,560,784,,9
-56,,Kyle Louis,LB,75.07,6,22.5,27,317,525,983,,9
+56,,Kyle Louis,LB,75.07,6,22.6,27,317,525,983,,9
 57,,T.J. Edwards,LB,20.10,10,30.1,117,322,482,714,,9
 58,,George Karlaftis,DL,22.01,5,25.5,103,293,492,807,,9
 59,,Xavier Watts,DB,14.12,11,24.8,128,341,540,921,,9
@@ -85,7 +85,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 84,,Byron Murphy II,DL,21.01,11,24.1,80,257,426,754,,6
 85,,Mike Green,DL,27.02,13,23.2,65,254,423,795,,6
 86,,Cole Bishop,DB,19.03,7,23.9,119,307,497,872,,6
-87,,Chris Johnson,DB,29.04,6,21.8,100,308,499,900,,6
+87,,Chris Johnson,DB,29.04,6,21.9,100,308,499,900,,6
 88,,Eric Wilson,LB,22.03,6,32,147,279,398,554,,6
 89,,Alontae Taylor,DB,27.01,9,27.8,146,308,476,751,,6
 90,,Chamarri Conner,DB,13.08,5,26.2,129,311,482,798,,6
@@ -178,14 +178,14 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 177,,Ronnie Hickman,DB,89.01,11,24.9,116,242,383,653,,1
 178,,Nick Herbig,DL,21.10,9,24.8,88,195,328,538,,1
 179,,Jonah Elliss,DL,87.01,10,23.5,83,150,255,481,,1
-180,,Joey Porter Jr.,DB,93.06,14,26.2,122,241,379,639,,1
-181,,Danielle Hunter,DL,12.04,8,31.9,105,165,229,387,,1
-182,,Justin Strnad,LB,55.10,10,30.1,103,210,315,466,,1
-183,,Tyler Nubin,DB,24.04,8,25.3,96,248,393,670,,1
-184,,Devonte Wyatt,DL,49.01,11,28.5,76,173,264,382,,0
-185,,Mike Sainristil,DB,30.02,7,26,30,277,423,722,,0
-186,,Julian Love,DB,19.08,11,28.5,141,227,358,615,,0
-187,,Tommy Togiai,DL,51.12,8,27,71,171,265,402,,0
+180,,Danielle Hunter,DL,12.04,8,31.9,105,165,229,387,,1
+181,,Justin Strnad,LB,55.10,10,30.1,103,210,315,466,,1
+182,,Tyler Nubin,DB,24.04,8,25.3,96,248,393,670,,1
+183,,Devonte Wyatt,DL,49.01,11,28.5,76,173,264,382,,0
+184,,Mike Sainristil,DB,30.02,7,26,30,277,423,722,,0
+185,,Julian Love,DB,19.08,11,28.5,141,227,358,615,,0
+186,,Tommy Togiai,DL,51.12,8,27,71,171,265,402,,0
+187,,Joey Porter Jr.,DB,93.06,14,26.2,113,241,379,639,,0
 188,,Patrick Surtain II,DB,20.07,10,26.4,112,241,379,639,,0
 189,,Jalen Pitre,DB,22.10,8,27.3,134,234,361,586,,0
 190,,Chris Jones,DL,28.08,5,32.3,93,175,227,336,,0
@@ -265,7 +265,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 264,,Camryn Bynum,DB,23.01,13,28.2,109,215,326,511,,-2
 265,,Byron Murphy,DB,61.05,6,28.7,108,217,329,497,,-2
 266,,Cor'Dale Flott,DB,47.02,9,25.1,108,206,321,555,,-2
-267,,Upton Stout,DB,79.07,8,24.7,89,216,331,572,,-2
+267,,Upton Stout,DB,79.07,8,24.8,89,216,331,572,,-2
 268,,DeShon Elliott,DB,26.12,9,29.4,132,207,313,475,,-3
 269,,Jalen Thompson,DB,26.03,14,28.2,112,214,324,509,,-3
 270,,Jonathan Allen,DL,69.10,6,31.7,72,129,167,247,,-3
@@ -276,7 +276,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 275,,Leonard Williams,DL,21.04,11,32.3,118,108,141,210,,-3
 276,,Dani Dennis-Sutton,DL,75.02,11,22.8,34,114,190,357,,-3
 277,,Oluwafemi Oladejo,LB,81.03,9,23,28,115,195,367,,-3
-278,,DJ Turner II,DB,94.04,6,25.8,115,201,307,524,,-3
+278,,DJ Turner II,DB,94.04,6,25.9,115,201,307,524,,-3
 279,,Bud Clark,DB,76.04,11,24.4,0,233,377,662,,-3
 280,,Vita Vea,DL,65.12,10,31.7,73,117,151,225,,-3
 281,,JT Tuimoloau,DL,80.11,13,23.3,39,105,178,336,,-3
@@ -288,7 +288,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 287,,Justin Reid,DB,33.09,8,29.6,130,199,298,435,,-3
 288,,Deommodore Lenoir,DB,50.10,8,27,93,202,316,526,,-3
 289,,Harrison Phillips,DL,65.02,13,30.7,61,120,158,222,,-3
-290,,Renardo Green,DB,87.08,8,25.8,116,194,296,505,,-3
+290,,Renardo Green,DB,87.08,8,25.9,116,194,296,505,,-3
 291,,Tariq Woolen,DB,45.07,10,27.4,111,191,299,498,,-4
 292,,Javon Bullard,DB,33.02,11,24.1,77,203,318,560,,-4
 293,,Jartavius Martin,DB,93.11,7,26.4,67,209,324,537,,-4
@@ -360,7 +360,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 359,,David Walker,LB,79.01,10,26.3,26,103,168,258,,-9
 360,,Felix Anudike-Uzomah,DL,94.12,5,24.7,53,0,0,0,,-9
 361,,Jourdan Lewis,DB,68.01,7,31.1,78,142,203,280,,-9
-362,,Justin Eboigbe,DL,86.05,7,25.4,50,0,0,0,,-9
+362,,Justin Eboigbe,DL,86.05,7,25.5,50,0,0,0,,-9
 363,,Malik Harrison,LB,57.02,18,28.6,0,115,176,267,,-9
 364,,Romello Height,DL,32.03,8,25.4,27,95,155,257,,-9
 365,,Cam Hart,DB,86.02,7,25.8,60,129,199,339,,-10
@@ -390,11 +390,11 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 389,,Christian Rozeboom,LB,27.06,10,29.7,10,0,0,0,,-17
 390,,Jeremiah Owusu-Koramoah,LB,53.10,11,26.9,0,0,0,0,,-17
 391,,JD Bertrand,LB,84.12,11,26.4,0,0,0,0,,-17
-392,,Jimmy Rolder,LB,74.12,6,22.6,0,0,0,0,,-17
+392,,Jimmy Rolder,LB,74.12,6,22.7,0,0,0,0,,-17
 393,,Nohl Williams,DB,79.09,5,24,108,0,0,0,,-18
 394,,Mike Hughes,DB,65.09,11,29.6,105,0,0,0,,-18
 395,,Marcus Epps,DB,59.03,10,30.7,75,0,0,0,,-19
-396,,Carrington Valentine,DB,33.12,11,25,32,0,0,0,,-20
+396,,Carrington Valentine,DB,33.12,11,25.1,32,0,0,0,,-20
 397,,Colton Hood,DB,31.03,8,21.6,18,0,0,0,,-20
 398,,Darien Porter,DB,35.12,13,25.8,7,0,0,0,,-21
 399,,Kristian Fulton,DB,57.09,5,28.1,0,0,0,0,,-21
