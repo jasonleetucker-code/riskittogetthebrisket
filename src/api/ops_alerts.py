@@ -179,12 +179,30 @@ def _load_ops_state(path: Any = None) -> dict[str, Any]:
     return dict(state.get("opsAlertState") or {})
 
 
-def _save_ops_state(state: dict[str, Any], path: Any = None) -> None:
-    user_kv.merge_user_state(
-        _OPS_STATE_USER,
-        {"opsAlertState": state},
-        path=path,
-    )
+def _save_ops_state(state: dict[str, Any], categories: set[str], path: Any = None) -> None:
+    """Write back ONLY the categories this sweep changed, onto the CURRENT
+    stored state, under the user_kv write lock.
+
+    The sweep reads its state, then delivers (seconds), then writes.  Writing
+    the whole ``opsAlertState`` copy back discarded every category another
+    sweep recorded meanwhile -- including a delivered alert's cooldown, which
+    then fired again.  A category this sweep did not touch keeps its stored
+    value; one it removed is removed.
+    """
+    if not categories:
+        return
+
+    def _apply(entry: dict[str, Any]) -> None:
+        current = entry.get("opsAlertState")
+        current = dict(current) if isinstance(current, dict) else {}
+        for category in categories:
+            if category in state:
+                current[category] = state[category]
+            else:
+                current.pop(category, None)
+        entry["opsAlertState"] = current
+
+    user_kv.mutate_user_state(_OPS_STATE_USER, _apply, path=path)
 
 
 def _should_fire(
@@ -373,5 +391,10 @@ def check_and_alert(
             if not entry.get("deliveredAt"):
                 state.pop(a.category, None)
 
-    _save_ops_state(state, path=kv_path)
+    # Only what this sweep changed: every firing category (recorded or rolled
+    # back), and recoveries only when their notice was actually delivered.
+    touched = {a.category for a in firing}
+    if delivered:
+        touched |= {r.category for r in recovery_alerts}
+    _save_ops_state(state, touched, path=kv_path)
     return summary

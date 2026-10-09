@@ -337,6 +337,27 @@ def _mutate_user_state(
         conn.close()  # an uncommitted transaction (mutate raised) rolls back
 
 
+def mutate_user_state(
+    username: str,
+    mutate: Callable[[dict[str, Any]], None],
+    *,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Public read-modify-write: ``mutate`` edits the CURRENT blob in place
+    under the write lock, and the result is committed in the same transaction.
+
+    Use this instead of ``get_user_state`` followed by a whole-field write
+    (``set_user_field`` / ``merge_user_state``): that pair reads outside the
+    lock, so a concurrent writer to the same field is silently discarded.
+    ``mutate`` must be pure and fast (no network, no delivery) -- it runs
+    while holding the database write lock.  If it raises, nothing is written
+    and the exception propagates.  Returns the post-write blob.
+    """
+    if not username:
+        return {}
+    return _mutate_user_state(username, mutate, path=path)
+
+
 def get_user_state(username: str, *, path: Path | None = None) -> dict[str, Any]:
     """Return the full state blob for ``username``.
 
