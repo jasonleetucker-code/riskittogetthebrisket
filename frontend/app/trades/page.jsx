@@ -21,9 +21,14 @@ import { PlayerImage } from "@/components/ui";
 import { TRADE_ALPHA } from "@/lib/trade-logic";
 import {
   analyzeSleeperTradeHistory,
-  analyzeTradeTendencies,
   buildCombinedPairTrade,
 } from "@/lib/league-analysis";
+import { useManagerScout } from "@/components/useManagerScout";
+import {
+  managerScoutCoverage,
+  managerScoutRows,
+  stateText,
+} from "@/lib/manager-scout";
 import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
 import { useRankHistory } from "@/components/useRankHistory";
 import { buildHistoryLookup } from "@/lib/value-history";
@@ -34,8 +39,10 @@ import styles from "./trades.module.css";
 //
 // Every analyzed league trade, the running winners/losers table, and
 // per-manager tendencies.  All grading, value, and retro math lives in
-// lib/league-analysis + lib/trade-retro-value + lib/value-history; this
-// file only arranges the results.
+// lib/league-analysis + lib/trade-retro-value + lib/value-history; the
+// tendencies come from the private Manager Scout owner
+// (`/api/manager-scout`, src/intel/manager_scout.py — C6-MGR-01) and are
+// only formatted here.  This file only arranges the results.
 
 // ``unknown`` is a rendered state, not an omission.  A trade whose
 // at-the-time value could not be established must not silently look like a
@@ -136,50 +143,186 @@ function TeamScoresPanel({ teamScores, alpha }) {
   );
 }
 
-function TendenciesPanel({ tendencies }) {
+// A count/value, or the reason there is none — never a fabricated 0.
+function cell(value, state, format = (v) => v.toLocaleString()) {
+  if (value === null || value === undefined) {
+    return <span className={styles.muted}>{stateText(state)}</span>;
+  }
+  return format(value);
+}
+
+const FAILURE_COPY = {
+  not_ready: "Tendencies load once this league's data is loaded.",
+  league: "This league can't be profiled.",
+  auth: "Sign in to see manager tendencies.",
+  unavailable: "Manager Scout couldn't read its sources right now.",
+};
+
+function TendenciesPanel() {
+  const { loading, data, failure } = useManagerScout();
+  const rows = useMemo(() => managerScoutRows(data), [data]);
+  const coverage = useMemo(() => managerScoutCoverage(data), [data]);
+
   const columns = useMemo(
     () => [
       { key: "manager", header: "Manager", sortable: true, accessor: (t) => t.manager },
-      { key: "trades", header: "Trades", numeric: true, sortable: true, accessor: (t) => t.trades },
       {
-        key: "avgGiven",
-        header: "Avg given",
+        key: "trades",
+        header: "Trades",
+        numeric: true,
+        sortable: true,
+        accessor: (t) => t.trades,
+        render: (t) => cell(t.trades, t.tradeState),
+      },
+      // Today's canonical board, RAW value sum (not Value-Adjusted), per
+      // trade — the backend's `valueAtToday`. Unpriced assets are excluded
+      // from the sums and counted, never added as 0.
+      {
+        key: "gotPerTrade",
+        header: "Avg got (today)",
         numeric: true,
         sortable: true,
         hideBelow: "md",
-        accessor: (t) => t.avgGiven,
-        render: (t) => t.avgGiven.toLocaleString(),
+        accessor: (t) => t.gotPerTrade,
+        render: (t) => cell(t.gotPerTrade, t.valueState),
       },
       {
-        key: "avgGot",
-        header: "Avg got",
+        key: "gavePerTrade",
+        header: "Avg given (today)",
         numeric: true,
         sortable: true,
         hideBelow: "md",
-        accessor: (t) => t.avgGot,
-        render: (t) => t.avgGot.toLocaleString(),
+        accessor: (t) => t.gavePerTrade,
+        render: (t) => cell(t.gavePerTrade, t.valueState),
       },
       {
-        key: "net",
-        header: "Net",
+        key: "netPerTrade",
+        header: "Net (today)",
         numeric: true,
         sortable: true,
-        accessor: (t) => t.net,
-        render: (t) => <Movement delta={t.net} format={(n) => n.toLocaleString()} />,
+        accessor: (t) => t.netPerTrade,
+        render: (t) =>
+          t.netPerTrade === null ? (
+            cell(null, t.valueState)
+          ) : (
+            <span>
+              <Movement delta={t.netPerTrade} format={(n) => n.toLocaleString()} />
+              {t.unpricedAssets ? (
+                <span className={styles.muted}>{` · ${t.unpricedAssets} unpriced`}</span>
+              ) : null}
+            </span>
+          ),
       },
-      { key: "tendency", header: "Tendency", accessor: (t) => t.tendency },
+      {
+        key: "topPartner",
+        header: "Top partner",
+        hideBelow: "md",
+        accessor: (t) => t.topPartner,
+        render: (t) => cell(t.topPartner, t.tradeState, (v) => v),
+      },
+      {
+        key: "picks",
+        header: "Picks in / out",
+        numeric: true,
+        sortable: true,
+        accessor: (t) => t.picksIn,
+        render: (t) =>
+          t.picksIn === null
+            ? cell(null, t.tradeState)
+            : `${t.picksIn} / ${t.picksOut}`,
+      },
+      {
+        key: "bought",
+        header: "Bought",
+        hideBelow: "md",
+        accessor: (t) => t.bought,
+        render: (t) => cell(t.bought, t.tradeState, (v) => v),
+      },
+      {
+        key: "sold",
+        header: "Sold",
+        hideBelow: "lg",
+        accessor: (t) => t.sold,
+        render: (t) => cell(t.sold, t.tradeState, (v) => v),
+      },
+      {
+        key: "claims",
+        header: "Waiver claims",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (t) => t.claims,
+        render: (t) => cell(t.claims, t.waiverState),
+      },
+      {
+        key: "faab",
+        header: "Avg FAAB bid",
+        numeric: true,
+        sortable: true,
+        accessor: (t) => t.faabMeanPct,
+        render: (t) =>
+          t.faabMeanPct === null ? (
+            cell(null, t.faabState)
+          ) : (
+            <span title={`${t.faabSample} resolved bids`}>
+              {`${t.faabMeanPct.toFixed(1)}%`}
+              {t.faabRatio !== null ? (
+                <span className={styles.muted}>{` · ${t.faabRatio.toFixed(2)}× lg`}</span>
+              ) : null}
+            </span>
+          ),
+      },
     ],
     [],
   );
 
-  if (!tendencies.length) return null;
+  const seasons = coverage.seasons.length
+    ? coverage.seasons.length > 1
+      ? `${coverage.seasons[0]}–${coverage.seasons[coverage.seasons.length - 1]}`
+      : coverage.seasons[0]
+    : null;
+  const subtitle = [
+    "Private · descriptive, from this league's recorded trades, waiver claims and FAAB bids",
+    coverage.trades !== null ? `${coverage.trades} trades` : null,
+    coverage.claims !== null ? `${coverage.claims} claims` : null,
+    seasons,
+    coverage.boardState === "available"
+      ? "values at today's board, raw sum, not VA-adjusted"
+      : null,
+    coverage.lineupState === "not_applicable" ? "lineups n/a (best ball)" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (loading && !data) {
+    return (
+      <Panel flush title="Trade tendencies" subtitle="Loading manager profiles…">
+        <SkeletonTable rows={4} columns={5} />
+      </Panel>
+    );
+  }
+  if (failure) {
+    return (
+      <Panel title="Trade tendencies">
+        <Banner tone={failure.kind === "error" ? "negative" : "warning"} title="Tendencies unavailable">
+          {FAILURE_COPY[failure.kind] || failure.message || "Request failed."}
+        </Banner>
+      </Panel>
+    );
+  }
+  if (!rows.length) return null;
 
   return (
-    <Panel flush title="Trade tendencies" subtitle="How each manager trades.">
+    <Panel flush title="Trade tendencies" subtitle={subtitle}>
+      {coverage.ledgerState && coverage.ledgerState !== "available" ? (
+        <Banner tone="warning" title="Transaction ledger not on this server">
+          Trade and waiver tendencies are unavailable until the acquisition ledger is built.
+        </Banner>
+      ) : null}
       <DataTable
-        caption="Per-manager trade tendencies"
+        caption="Per-manager trade, waiver and FAAB tendencies"
         columns={columns}
-        rows={tendencies}
+        rows={rows}
         rowKey={(t) => t.id || t.manager}
         density="compact"
         defaultSort={{ key: "trades", direction: "desc" }}
@@ -474,11 +617,6 @@ export default function TradesPage() {
     );
   }, [combineMode, analysis, teamFilter, teamFilterB, rawData, rows, alpha]);
 
-  const tendencies = useMemo(
-    () => analyzeTradeTendencies(rawData, rows),
-    [rawData, rows],
-  );
-
   const hasTrades = analysis.analyzed.length > 0;
 
   return (
@@ -589,7 +727,7 @@ export default function TradesPage() {
           ) : (
             <>
               <TeamScoresPanel teamScores={analysis.teamScores} alpha={alpha} />
-              <TendenciesPanel tendencies={tendencies} />
+              <TendenciesPanel />
 
               {filtered.length > 0 ? (
                 <div className={styles.ledger}>
