@@ -371,6 +371,137 @@ def evict_guest_pass(pass_id: int, *, db_path: Path | None = None) -> int:
         return 0
 
 
+def ro_sqlite_uri(path: Path) -> str:
+    """A sqlite ``mode=ro`` URI with the path properly escaped.
+
+    ``f"file:{path}?mode=ro"`` breaks on a path holding ``?``, ``#`` or
+    ``%`` (the remainder would be parsed as URI query/fragment); ``as_uri``
+    percent-encodes it.  Content read-only: sqlite may still create the
+    ``-wal``/``-shm`` side files of a WAL database."""
+    return Path(path).resolve().as_uri() + "?mode=ro"
+
+
+#: The two columns a guest-pass session needs to be bounded and revocable.
+_GUEST_IDENTITY_COLUMNS = ("expires_at_epoch", "guest_pass_id")
+
+
+def guest_session_census(
+    *,
+    db_path: Path | None = None,
+    guest_pass_db_path: Path | None = None,
+) -> dict[str, Any]:
+    """Count-only census of the persisted sessions — the production
+    acceptance evidence for the 2026-10-08 guest-session fix.  Content
+    read-only (sqlite ``mode=ro``; may create ``-wal``/``-shm``).
+
+    Never calls ``_setup``: migrating here would make
+    ``schemaHasGuestColumns`` true by construction and so prove nothing.
+    Returns counts and booleans only — no session id, username, cookie or
+    pass id ever leaves this function.
+
+    MISSING IS NEVER ZERO: an absent or unreadable store reports ``None``
+    counts, and a guest row whose pass cannot be looked up makes the
+    pass-state counts ``None`` rather than 0.
+
+    Keys:
+
+    * ``guestSessionsMissingPassIdentity`` — ``auth_method = guest_pass``
+      without an expiry or a pass id.  Such a row cannot be bounded or
+      revoked; startup hydrate drops it and the per-request check refuses it.
+    * ``guestSessionsPassRevoked`` — rows minted from a revoked pass
+      (``guest_passes.revoke`` deletes them).
+    * ``guestSessionsLiveWithInactivePass`` — rows whose OWN expiry is still
+      in the future but whose pass is expired or no longer in the store.
+    * ``guestSessionsExpiredAwaitingCleanup`` — rows past their own expiry
+      (and not revoked).  Inert: hydrate and ``_get_auth_session`` both
+      refuse them; they leave disk at the next restart or request.
+    """
+    path = db_path or _DEFAULT_DB_PATH
+    unknown: dict[str, Any] = {
+        "storePresent": path.exists(),
+        "schemaHasGuestColumns": None,
+        "totalSessions": None,
+        "guestSessions": None,
+        "guestSessionsMissingPassIdentity": None,
+        "guestSessionsPassRevoked": None,
+        "guestSessionsLiveWithInactivePass": None,
+        "guestSessionsExpiredAwaitingCleanup": None,
+        "passStoreReadable": None,
+    }
+    if not unknown["storePresent"]:
+        return unknown
+    try:
+        conn = sqlite3.connect(ro_sqlite_uri(path), uri=True)
+        try:
+            columns = {r[1] for r in conn.execute(f"PRAGMA table_info({_TABLE})").fetchall()}
+            if not columns:
+                return unknown
+            has_guest_columns = all(c in columns for c in _GUEST_IDENTITY_COLUMNS)
+            total = int(conn.execute(f"SELECT COUNT(*) FROM {_TABLE}").fetchone()[0])
+            select = "expires_at_epoch, guest_pass_id" if has_guest_columns else "NULL, NULL"
+            guest_rows = conn.execute(
+                f"SELECT {select} FROM {_TABLE} WHERE auth_method = 'guest_pass'"
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        _LOGGER.warning("session_store guest_session_census failed: %s", exc)
+        return unknown
+
+    missing = 0
+    bounded: list[tuple[float, int]] = []
+    for expires, pass_id in guest_rows:
+        exp = _positive_float(expires)
+        pid = _positive_int(pass_id)
+        if exp is None or pid is None:
+            missing += 1
+        else:
+            bounded.append((exp, pid))
+
+    out = dict(unknown)
+    out.update(
+        schemaHasGuestColumns=has_guest_columns,
+        totalSessions=total,
+        guestSessions=len(guest_rows),
+        guestSessionsMissingPassIdentity=missing,
+    )
+    from src.api import guest_passes  # noqa: PLC0415 — guest_passes imports us lazily
+
+    # Always read (even with nothing to classify) so ``passStoreReadable``
+    # is a real true/false observation whenever the session store was read.
+    states = guest_passes.read_only_pass_states(
+        [pid for _, pid in bounded], db_path=guest_pass_db_path
+    )
+    out["passStoreReadable"] = states is not None
+    if not bounded:
+        # Nothing to classify: these zeros are observed, whatever the pass
+        # store's state.
+        out.update(
+            guestSessionsPassRevoked=0,
+            guestSessionsLiveWithInactivePass=0,
+            guestSessionsExpiredAwaitingCleanup=0,
+        )
+        return out
+    if states is None:
+        return out
+    now = time.time()
+    revoked = live_inactive = awaiting = 0
+    for exp, pid in bounded:
+        state = states.get(pid)  # None: purged / never minted
+        if state == "revoked":
+            revoked += 1
+        elif exp <= now:
+            awaiting += 1
+        elif state != "active":
+            live_inactive += 1
+    out.update(
+        guestSessionsPassRevoked=revoked,
+        guestSessionsLiveWithInactivePass=live_inactive,
+        guestSessionsExpiredAwaitingCleanup=awaiting,
+    )
+    return out
+
+
 def force_clear_all(*, db_path: Path | None = None) -> int:
     """Emergency sign-out-everyone hammer.  Returns count evicted."""
     path = db_path or _DEFAULT_DB_PATH
