@@ -1,7 +1,7 @@
 import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import AutoSlates from "@/components/dfs/AutoSlates";
+import AutoSlates, { degradedMarkerText } from "@/components/dfs/AutoSlates";
 
 function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -87,6 +87,50 @@ describe("AutoSlates — daily sports (DFS-AUTO-19)", () => {
     expect(await screen.findByText("Awaiting owner approval of the schedule source")).toBeInTheDocument();
     expect(onSelected).not.toHaveBeenCalled();
     expect(calls.some((u) => u.endsWith("/auto/slates/select"))).toBe(false);
+  });
+
+  it("words the lock-may-be-early marker instead of showing the raw code", async () => {
+    fetch.mockImplementation(async (url) => {
+      if (String(url).includes("/auto/slates?")) {
+        return jsonResponse(200, {
+          sport: "nhl",
+          state: "AVAILABLE",
+          slates: [
+            {
+              autoSlateId: "draftkings:nhl:2026:d20261007:listed",
+              platform: "draftkings",
+              sport: "nhl",
+              slateKey: "listed",
+              label: "DraftKings NHL · Wed Oct 7 · 3 games",
+              lockAt: "2026-10-07T23:30:00+00:00",
+              contentHash: "nhlhash",
+              summary: { games: 3, players: 66, projected: 64 },
+              freshness: {
+                state: "DEGRADED",
+                locked: false,
+                ageMinutes: 2,
+                degraded: [
+                  "listed_rows_unmatched:game_not_on_schedule=2",
+                  "lock_may_be_early:untimed_listed_rows",
+                ],
+              },
+            },
+          ],
+        });
+      }
+      return jsonResponse(201, { snapshotId: "s1", contentHash: "nhlhash" });
+    });
+    render(<AutoSlates sport="nhl" platform="draftkings" selectedHash={null} onSelected={() => {}} />);
+    expect(await screen.findByText(/Lock may be earlier than shown: some listed players/)).toBeInTheDocument();
+    expect(screen.queryByText(/lock_may_be_early/)).not.toBeInTheDocument();
+  });
+
+  it("degradedMarkerText words any lock-early reason and passes other markers through", () => {
+    expect(degradedMarkerText("lock_may_be_early:untimed_listed_rows")).toMatch(
+      /^Lock may be earlier than shown: some listed players could not be placed/,
+    );
+    expect(degradedMarkerText("lock_may_be_early:new_reason")).toBe("Lock may be earlier than shown: new reason");
+    expect(degradedMarkerText("schedule_partial")).toBe("schedule_partial");
   });
 
   it("says plainly when a sport has no automatic path", async () => {
