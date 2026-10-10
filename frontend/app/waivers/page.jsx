@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import {
   Badge,
   Banner,
@@ -16,6 +16,7 @@ import {
   ValueBasisNote,
 } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
+import ResilientSection from "@/components/ResilientSection";
 import ManualAddDrop from "@/components/waivers/ManualAddDrop";
 import BestAvailableIdps from "@/components/waivers/BestAvailableIdps";
 import {
@@ -32,6 +33,14 @@ import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { waiverBidStateForRow } from "@/lib/waiver-faab";
 import WaiverBidFigure from "@/components/waivers/WaiverBidFigure";
 import styles from "./waivers.module.css";
+
+// Perfect Waivers (C7-WAIV-01) loads on demand: the panel and its fetch stay
+// out of this page's initial chunk, which check-bundle-sizes.mjs guards.
+// React.lazy, NOT next/dynamic — next/dynamic pulled Next's loadable runtime
+// into the shared graph and pushed /waivers over budget once already (see
+// app/draft/page.jsx).  A rejected chunk import is cached by React.lazy, so
+// the section recovers by reload rather than by remount.
+const PerfectWaiversPanel = lazy(() => import("@/components/waivers/PerfectWaiversPanel"));
 
 // ── /waivers — the claim desk ─────────────────────────────────────────
 //
@@ -673,6 +682,16 @@ export default function WaiversPage() {
           </Banner>
         ) : null}
         <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />
+        {selectedTeam?.ownerId ? (
+          <ResilientSection name="Perfect Waivers" recovery="reload">
+            <Suspense fallback={null}>
+              <PerfectWaiversPanel
+                leagueKey={selectedLeague?.key}
+                ownerId={String(selectedTeam.ownerId)}
+              />
+            </Suspense>
+          </ResilientSection>
+        ) : null}
         <BestMovesPanel moves={analysis.bestMoves} faabIndex={faabIndex} />
         <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />
         <div className={styles.split}>
