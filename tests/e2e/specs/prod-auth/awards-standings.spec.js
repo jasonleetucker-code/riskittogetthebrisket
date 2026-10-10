@@ -89,12 +89,13 @@ test.describe("Awards standings + 2026 Waiver King eligibility (production)", ()
       const firstEligible = (wk.standings || []).find((r) => r.eligible);
       if (firstEligible) expect(wk.leaders[0].ownerId).toBe(firstEligible.ownerId);
     }
+    // Public artifact (security S3): counts only — never team or player names.
+    annotate(testInfo, "waiver-king-season", String(season));
+    annotate(testInfo, "waiver-king-standings-rows", String((wk?.standings || []).length));
     annotate(
       testInfo,
-      "waiver-king",
-      `season=${season} winner=${wkAward ? wkAward.displayName : "none"} standings=${(wk?.standings || [])
-        .map((r) => `${r.rank}:${r.displayName}:${r.value?.pointsGained}:${r.eligible ? `A${r.awardRank}` : "INELIGIBLE"}`)
-        .join(" | ")}`,
+      "waiver-king-ineligible-rows",
+      String((wk?.standings || []).filter((r) => !r.eligible).length),
     );
 
     await page.goto(prodUrl("/league?tab=awards"), { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -131,7 +132,7 @@ test.describe("Awards standings + 2026 Waiver King eligibility (production)", ()
           `/players/${encodeURIComponent(api[0].value.playerId)}`,
         );
       }
-      annotate(testInfo, "player-award", `${playerKey}: ${api.map((r) => r.value.playerName).join(", ")}`);
+      annotate(testInfo, "player-award-rows", String(api.length));
     }
 
     // ── Team statistics: every team, API order ──
@@ -143,7 +144,7 @@ test.describe("Awards standings + 2026 Waiver King eligibility (production)", ()
       for (let i = 0; i < api.length; i++) {
         await expect(rows.nth(i)).toContainText(api[i].displayName);
       }
-      annotate(testInfo, key, api.map((r) => `${r.rank}:${r.displayName}`).join(", "));
+      annotate(testInfo, `${key}-rows`, String(api.length));
     }
 
     // ── Manager awards ──

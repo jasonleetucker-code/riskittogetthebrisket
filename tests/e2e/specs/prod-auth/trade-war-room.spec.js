@@ -143,18 +143,13 @@ async function checkShape(page, testInfo, p, label, give, receive) {
   if (roster.detail && roster.detail.ppg != null && (roster.available || roster.unavailableReason === "partial_projection_coverage")) {
     await expect(room.locator('[data-lens="roster"]').getByText(signedPpg(roster.detail.ppg), { exact: true })).toBeVisible();
   }
+  // Public artifact (security S3): the capacity outcome and feasibility state
+  // only — never the recommendation, gaps, PPG, roster sizes or player names.
+  annotate(testInfo, `war-room-${label}-requires-drops`, String(cap.requiresDrops === true));
   annotate(
     testInfo,
-    `war-room-${label}`,
-    [
-      `rec=${a.recommendation}/${a.confidence}`,
-      `market=${a.lenses.market.detail?.vaAdjustedGap}`,
-      `roster=${roster.available ? roster.detail.ppg : `unavailable:${roster.unavailableReason}`}`,
-      `feas=${feas.detail?.state || feas.unavailableReason}`,
-      `size=${cap.sizeBefore}->${cap.sizeAfter}/${cap.rosterLimit}`,
-      `drops=${(cap.forcedDrops || []).map((d) => d.name).join("|")}`,
-      `basis=${roster.detail?.basis?.source || "-"}`,
-    ].join(" "),
+    `war-room-${label}-feasibility`,
+    String(feas.detail?.state || feas.unavailableReason || "none"),
   );
   await noPageOverflow(page);
   return { body, cap, feas, room };
@@ -164,7 +159,6 @@ test.describe("Trade War Room (production)", () => {
   test("1-for-1, 2-for-1 and 1-for-2 on a real roster, plus Asset-Only", async ({ prodPage: page }, testInfo) => {
     test.setTimeout(600_000);
     const p = await plan(page);
-    annotate(testInfo, "war-room-team", `${p.my.name} (${(p.my.players || []).length} players) league=${p.leagueKey}`);
 
     // 1-for-1: size unchanged → no false forced-drop cost.
     const one = await checkShape(page, testInfo, p, "1for1", [p.mine[0]], [p.theirs[0]]);
@@ -188,7 +182,7 @@ test.describe("Trade War Room (production)", () => {
     await expect(
       two.room.locator('[data-lens="roster"]').getByText("Not included in Asset-Only analysis").first(),
     ).toBeVisible({ timeout: 60_000 });
-    annotate(testInfo, "war-room-asset-only", `rec=${off.analysis.recommendation}`);
+    annotate(testInfo, "war-room-asset-only-applied", String(off.teamContext?.applied === false));
 
     // 1-for-2 expansion: one more body; at the cap a cut is required and named.
     const three = await checkShape(page, testInfo, p, "1for2", [p.mine[0]], [p.theirs[0], p.theirs[1]]);

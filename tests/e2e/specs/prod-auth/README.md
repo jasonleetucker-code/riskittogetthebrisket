@@ -85,3 +85,17 @@ npx playwright test --config tests/e2e/prod-auth.config.js
 
 Run without the env vars, that command reports every test as skipped —
 by design.
+
+### What an annotation may publish (security S3, owner directive 2026-10-08)
+
+The run's report, `tests/e2e/prod-auth-results.json`, is a public artifact.
+`prod-auth-safe-reporter.js` publishes an annotation only when its type is
+allowlisted for that spec file in `tests/e2e/prod-auth-annotation-allowlist.js`
+and its value is exactly of the declared kind: status, boolean, count, HTTP
+status, enum state or a fixed code string. Everything else is withheld and
+counted per test as `withheldCount`. Never annotate owner ids, player or team
+names, win %, value or rank movement, a team's roster counts, trade
+recommendations or free text. When an assertion matters, annotate its boolean
+outcome. Failures publish an `errorClass` and never the message, so assertion
+messages may name what they need. Every test's status and fixed title stay
+visible.
