@@ -14,7 +14,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 13,,Ernest Jones,LB,4.02,11,26.8,157,457,716,1179,,21
 14,,Jacob Rodriguez,LB,7.05,6,24.1,135,440,711,1290,,21
 15,,Dillon Thieneman,DB,4.09,10,22.2,121,479,779,1453,,20
-16,,Fred Warner,LB,1.09,8,29.8,162,426,663,1111,,19
+16,,Fred Warner,LB,1.09,8,29.8,157,426,663,1111,,19
 17,,Devin Lloyd,LB,4.06,5,28,169,418,646,1031,,18
 18,,Daiyan Henley,LB,3.11,7,26.8,143,421,660,1087,,18
 19,,Nakobe Dean,LB,2.09,13,25.8,142,410,650,1107,,18
@@ -253,10 +253,10 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 252,,DeForest Buckner,DL,15.05,13,32.5,100,136,170,256,,-2
 253,,Derick Hall,DL,82.02,11,25.5,73,126,207,319,,-2
 254,,R Mason Thomas,DL,18.03,5,22.1,39,127,209,410,,-2
-255,,Kayden McDonald,DL,16.11,8,21.6,27,127,214,415,,-2
-256,,Jaycee Horn,DB,27.01,5,26.8,104,212,334,550,,-2
-257,,Wade Woodaz,LB,63.10,8,22.7,44,171,284,531,,-2
-258,,Malik Mustapha,DB,13.12,8,24.3,15,236,382,669,,-2
+255,,Malik Mustapha,DB,13.12,8,24.3,22,236,382,669,,-2
+256,,Kayden McDonald,DL,16.11,8,21.6,27,127,214,415,,-2
+257,,Jaycee Horn,DB,27.01,5,26.8,104,212,334,550,,-2
+258,,Wade Woodaz,LB,63.10,8,22.7,44,171,284,531,,-2
 259,,D.J. Reed,DB,51.11,6,29.9,130,216,321,465,,-2
 260,,Maliek Collins,DL,26.01,11,31.5,71,140,184,259,,-2
 261,,Josh Metellus,DB,11.04,6,28.7,124,212,320,487,,-2
@@ -362,7 +362,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 361,,Malik Harrison,LB,45.09,18,28.6,0,115,176,267,,-9
 362,,Felix Anudike-Uzomah,DL,83.07,5,24.7,53,0,0,0,,-9
 363,,Justin Eboigbe,DL,74.12,7,25.5,52,0,0,0,,-9
-364,,Romello Height,DL,20.10,8,25.4,27,95,155,257,,-9
+364,,Romello Height,DL,20.10,8,25.4,31,95,155,257,,-9
 365,,Cam Hart,DB,74.09,7,25.8,63,129,199,339,,-9
 366,,Anthony Nelson,DL,48.12,10,29.6,48,98,128,185,,-9
 367,,Theo Jackson,DB,22.11,6,28,67,131,199,312,,-10
@@ -383,7 +383,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 382,,Malik Hooker,DB,57.11,14,30.5,64,119,179,261,,-11
 383,,Donte Jackson,DB,23.09,7,30.9,56,122,175,242,,-11
 384,,Chidobe Awuzie,DB,22.08,13,31.3,46,107,153,211,,-12
-385,,Jaden Dugger,LB,63.04,8,22.6,14,52,87,162,,-13
+385,,Jaden Dugger,LB,63.04,8,22.6,19,52,87,162,,-13
 386,,Demario Davis,LB,11.03,13,37.8,143,0,0,0,,-13
 387,,Deonte Banks,DB,83.03,8,25.6,32,73,114,189,,-14
 388,,Khalil Mack,DL,20.08,7,35.6,89,0,0,0,,-15
