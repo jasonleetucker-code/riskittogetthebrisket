@@ -1208,7 +1208,12 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # trips on the failure this floor exists for — a whole position
     # dropping out lands at ~344.  At 400 this check was red for weeks,
     # which also hard-blocked the weekly Hill-curve refit workflow.
-    "yahooBoone": 360,
+    # Re-pinned 360 -> 300 (2026-10-13): Boone's 2026-10-09 charts are
+    # smaller (366 raw rows, ~351 matching the board pool, was 410 / ~389),
+    # so 360 would flag every healthy run.  300 still trips on a whole
+    # position dropping out — the largest such board is ~351 - 65 (TE) =
+    # ~286 matches.  The scraper's raw floor (320) stays above it.
+    "yahooBoone": 300,
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
