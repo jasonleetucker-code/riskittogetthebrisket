@@ -12807,6 +12807,22 @@ def _compute_unified_rankings(
             if isinstance(pdata, dict):
                 pdata["rankDerivedValue"] = derived
 
+    # ── Withheld-only rows keep their observations on the record ──
+    # ``sourceRankMeta`` is published above only for rows that blended.  A
+    # row EVERY observation of which was withheld (quarantined / FAILED)
+    # never enters ``row_normalized`` — yet the blend loop already stamped
+    # each withheld observation's meta (value, path, ``appliedWeight: 0``,
+    # ``excludedReason``).  Leaving the template's ``{}`` erased that record:
+    # measured 2026-10-13, every 2027 slot pick (priced by IDP Trade
+    # Calculator alone, then value-tethered to the rookie pool) published no
+    # trace of the IDPTC observation once its picks quarantined.  Record
+    # only — no value, rank, weight or confidence is read from or written
+    # by this.
+    for row_idx, source_meta in row_source_meta.items():
+        row = players_array[row_idx]
+        if source_meta and not row.get("sourceRankMeta"):
+            row["sourceRankMeta"] = source_meta
+
     # ── Phase 4c: removed ──
     # The IDP calibration post-pass (a Lab-configured per-bucket
     # multiplier applied to DL/LB/DB rows) has been retired.  The
