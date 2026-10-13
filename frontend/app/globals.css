@@ -2624,6 +2624,15 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid rgba(248, 113, 113, 0.18);
 }
 
+/* Under the editorial scope --muted is --text-tertiary (#6b6151): 4.60:1 on
+   --surface-2, and the badge's own blue tint takes it to 4.46:1 — under
+   WCAG AA's 4.5:1 (axe, /rankings + /finder, 2026-10-13, once a top-board
+   row was single-source).  --text-secondary is 7.33:1 on the same tint. */
+.psi-editorial .caution-single,
+.psi-editorial .caution-disagree {
+  color: var(--text-secondary);
+}
+
 /* ── Source audit panel (expandable row) ─────────────────────────── */
 .rankings-row-clickable {
   cursor: pointer;
