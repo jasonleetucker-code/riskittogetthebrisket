@@ -136,6 +136,38 @@ test.describe("journey: /tools health pages", () => {
     }
   });
 
+  test("/tools/source-health shows the pipeline's freshness verdict per source", async ({
+    authedPage: page,
+  }) => {
+    // Population and verdicts come from /api/sources/weighting — the
+    // backend's freshness-against-cadence table — never from a client
+    // threshold.  One table row per (source, subset) the endpoint reports.
+    const res = await page.request.get("/api/sources/weighting");
+    expect(res.status()).toBe(200);
+    const payload = await res.json();
+    const expected = Array.isArray(payload?.sources) ? payload.sources : [];
+    expect(expected.length, "the loaded board must publish source weighting").toBeGreaterThan(0);
+
+    await page.goto(pageUrl("/tools/source-health"), { waitUntil: "domcontentloaded" });
+    await expect(pageHeading(page, /Source Health/i)).toBeVisible({ timeout: 60_000 });
+    const table = page.getByRole("table", { name: /Per-source freshness state/ });
+    await expect(table).toBeVisible({ timeout: 30_000 });
+    await expect(table.locator("tbody tr")).toHaveCount(expected.length);
+
+    // Every state the backend reported is rendered as a labelled status.
+    const LABEL = {
+      ON_SCHEDULE: "On schedule",
+      OVERDUE: "Overdue",
+      STALE: "Stale",
+      SEVERELY_STALE: "Severely stale",
+      QUARANTINED: "Quarantined",
+      UNMEASURED: "Unmeasured",
+    };
+    for (const state of new Set(expected.map((r) => r.state).filter(Boolean))) {
+      await expect(table.getByText(LABEL[state] || state).first()).toBeVisible();
+    }
+  });
+
   test("/tools/trade-coverage audits every Sleeper team in the contract", async ({
     authedPage: page,
   }) => {
