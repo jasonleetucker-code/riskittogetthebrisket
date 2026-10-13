@@ -105,7 +105,7 @@ export function stateSummary(rows) {
   const counts = new Map();
   for (const r of rows) {
     const key = r.state || "UNKNOWN";
-    counts.set(key, (counts.get(key) || 0) + 1);
+    counts.set(key, counts.has(key) ? counts.get(key) + 1 : 1);
   }
   return [...counts.entries()]
     .map(([state, count]) => ({ state, count, ...stateStatus(state === "UNKNOWN" ? null : state) }))
