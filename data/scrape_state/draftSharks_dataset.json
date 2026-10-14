@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-05-06T20:16:38Z",
-     "broad": true,
-     "rowsAdded": 0,
-     "rowsChanged": 15,
-     "rowsRemoved": 0,
-     "rowsTotal": 450
-    },
-    {
      "at": "2026-05-07T15:22:15Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 288,
      "rowsRemoved": 0,
      "rowsTotal": 386
+    },
+    {
+     "at": "2026-10-14T01:30:56Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 386
     }
    ],
-   "contentSince": "2026-10-13T21:39:21Z",
-   "fingerprint": "854a4236f4f1c4c4ec496a88",
+   "contentSince": "2026-10-14T01:30:56Z",
+   "fingerprint": "0ea30fd9a02318e2e4e61ad2",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-13T21:39:21Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-14T01:30:56Z",
    "lastBroadDatasetChangeAt": "2026-10-13T21:39:21Z",
    "rowChangedAt": {},
    "rowCount": 386,
@@ -1952,7 +1952,6 @@
     390,
     390,
     390,
-    390,
     391,
     391,
     391,
@@ -1961,6 +1960,7 @@
     392,
     392,
     392,
+    386,
     386,
     386,
     386,
@@ -2095,7 +2095,7 @@
     "drake maye": "1c7969ef76",
     "dyami brown": "0e33a8e9fe",
     "dylan sampson": "ca4d9dc561",
-    "eli heidenreich": "f45bcb5fa5",
+    "eli heidenreich": "5033a98b88",
     "eli raridon": "0638270709",
     "eli stowers": "482a3d3e3a",
     "elic ayomanor": "118c7a35e1",
@@ -2283,7 +2283,7 @@
     "quentin johnston": "d0e94d8373",
     "quinshon judkins": "20a11c06b2",
     "rachaad white": "6f4a70d623",
-    "raheim sanders": "5033a98b88",
+    "raheim sanders": "f45bcb5fa5",
     "rashee rice": "8749c83fe9",
     "rasheen ali": "32965a3801",
     "rashid shaheed": "5543f318c1",
