@@ -399,3 +399,21 @@ def test_today_default_does_not_crash(root):
     )
     assert body["state"] == "ok"
     assert date.fromisoformat(body["since"])
+
+
+def test_side_refs_from_resolved_assets_never_send_names_for_players():
+    refs = ct.side_refs_from_assets(
+        [
+            {"name": "Justin Jefferson", "playerId": "6794", "assetClass": "player"},
+            {"name": "No Id Guy", "playerId": None, "assetClass": "player"},
+            {"name": "2027 Early 1st", "assetClass": "pick", "pos": "PICK"},
+            {
+                "name": "2028 Mid 1st",
+                "assetClass": "pick",
+                "assetId": "pick:dynasty_main:2028:r1:o3",
+            },
+        ]
+    )
+    assert refs.player_ids == ["6794"]
+    assert refs.pick_names == ["2027 Early 1st"]
+    assert refs.pick_asset_ids == ["pick:dynasty_main:2028:r1:o3"]

@@ -112,6 +112,25 @@ class SideRefs:
         }
 
 
+def side_refs_from_assets(assets: Iterable[Mapping[str, Any]]) -> SideRefs:
+    """Identity refs for one side of a resolved trade (``simulate_trade``'s
+    ``receiving`` / ``sending``): players by Sleeper id, owned picks by their
+    canonical league-pick id, other picks by board row name.  A player with no
+    id is NOT sent — identity is never resolved from a name here."""
+    players: list[str] = []
+    picks: list[str] = []
+    owned: list[str] = []
+    for a in assets or []:
+        if a.get("assetId"):
+            owned.append(str(a["assetId"]))
+        elif a.get("assetClass") == "pick" or a.get("pos") == "PICK":
+            if a.get("name"):
+                picks.append(str(a["name"]))
+        elif a.get("playerId"):
+            players.append(str(a["playerId"]))
+    return SideRefs(player_ids=players, pick_names=picks, pick_asset_ids=owned)
+
+
 def ref_queries(league_key: str, side: SideRefs) -> list[Any]:
     """One single-ref TC-07 query per DISTINCT accepted package asset — the
     rows of the one-to-one matching.  Unparseable refs are reported by the

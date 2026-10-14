@@ -187,3 +187,35 @@ def test_simulate_endpoint_is_unchanged_by_the_war_room(two_league_registry, mon
     body = _post(monkeypatch, "/api/trade/simulate", _BODY).json()
     assert "rosterUtility" not in body
     assert "teamContext" not in body
+
+
+def test_analyze_attaches_comparables_as_a_non_voting_lens(two_league_registry, monkeypatch):  # noqa: F811
+    from src.trade import comparable_trades as ct
+
+    seen = {}
+
+    def fake(league_key, *, side_a, side_b, **_kw):
+        seen.update(league=league_key, a=side_a, b=side_b)
+        return {"state": "ok", "trades": [], "candidates": 0, "methodology": {"status": "x"}}
+
+    monkeypatch.setattr(ct, "comparable_trades", fake)
+    body = _post(monkeypatch, "/api/trade/analyze", _BODY).json()
+    lens = body["analysis"]["lenses"]["comparables"]
+    assert lens["available"] is True and lens["votes"] is False
+    assert lens["lineage"] == "real_trade_ledger"
+    # The package's two sides travel as identity refs (received / sent).
+    assert isinstance(seen["a"], ct.SideRefs) and isinstance(seen["b"], ct.SideRefs)
+    assert seen["league"]
+
+
+def test_analyze_survives_a_comparables_failure(two_league_registry, monkeypatch):  # noqa: F811
+    from src.trade import comparable_trades as ct
+
+    def boom(*_a, **_kw):
+        raise RuntimeError("ledger exploded")
+
+    monkeypatch.setattr(ct, "comparable_trades", boom)
+    res = _post(monkeypatch, "/api/trade/analyze", _BODY)
+    assert res.status_code == 200
+    lens = res.json()["analysis"]["lenses"]["comparables"]
+    assert lens["available"] is False and lens["unavailableReason"] == "comparables_error"

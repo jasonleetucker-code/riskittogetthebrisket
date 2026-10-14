@@ -169,6 +169,10 @@ const UNAVAILABLE_WORDS = {
   team_not_in_league_bundle: "This team is not in the league's roster intelligence",
   roster_snapshot_missing: "No roster snapshot for this league yet",
   starter_slots_missing: "This league's starting slots are not configured",
+  trade_ledger_not_built: "The recorded-trade ledger is not built on the server",
+  trade_ledger_unavailable: "The recorded-trade ledger could not be read",
+  no_identifiable_assets: "No asset in this trade could be identified in the trade ledger",
+  comparables_error: "Comparable trades could not be computed right now",
 };
 
 // ── Competitive Posture (#840 / C7-POST-01) — labels only ────────────────
@@ -222,6 +226,38 @@ export function postureSummary(lens) {
           : "Own first-round pick: unknown",
     parameterStatus: d.parameterStatus || null,
     notes: Array.isArray(d.notes) ? d.notes : [],
+  };
+}
+
+/**
+ * The comparable-real-trades lens (TC-09) as display rows.  Reference only:
+ * the lens never votes and never moves confidence, so this renders beside the
+ * answer, not inside it.  Every number is the packet's.
+ */
+export function comparablesSummary(lens) {
+  if (!lens || !lens.available) {
+    return { available: false, reasonText: unavailableText(lens?.unavailableReason) };
+  }
+  const d = lens.detail || {};
+  const rows = (d.comparableTrades || []).map((t, i) => ({
+    key: `${t.occurredDate || "undated"}-${i}`,
+    date: t.occurredDate || "Date unknown",
+    similarity:
+      typeof t.similarity === "number" && Number.isFinite(t.similarity)
+        ? `${Math.round(t.similarity * 100)}% similar`
+        : null,
+    reasons: (t.reasons || []).filter(Boolean),
+  }));
+  const below = typeof d.belowMinScore === "number" ? d.belowMinScore : 0;
+  return {
+    available: true,
+    rows,
+    emptyText: rows.length
+      ? null
+      : below
+        ? `${below} recorded trade${below === 1 ? "" : "s"} shared an asset but resembled this package too little to list.`
+        : "No recorded trade in the sample shares an asset with this package.",
+    scanCapped: d.scanCapped === true,
   };
 }
 
