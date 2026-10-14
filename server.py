@@ -8109,14 +8109,8 @@ async def get_bdvm_trades(request: Request):
     bdvm_constraints = _constraints_for_request(
         request, contract, league_cfg, surface="/api/bdvm/trades"
     )
-    bdvm_owner_id: str | None = None
-    if team is None:
-        session = _get_auth_session(request) or {}
-        bdvm_owner_id = str(session.get("sleeper_user_id") or "").strip() or None
-        if bdvm_owner_id is None:
-            username = str(session.get("username") or "").strip().lower()
-            mapped = (getattr(league_cfg, "default_team_map", None) or {}).get(username) or {}
-            bdvm_owner_id = str(mapped.get("ownerId") or "").strip() or None
+    # Always the REQUESTER's roster, whichever side of a scanned pair it is on.
+    bdvm_owner_id = _requester_owner_id(request, league_cfg)
 
     try:
         payload = await run_in_threadpool(
@@ -8290,11 +8284,20 @@ async def get_gameplan(request: Request):
     # requester's persistent protections apply (the one shared resolver; there
     # is no refinement UI on this surface).  Only resolved when packages are
     # actually generated.
-    gameplan_constraints = (
-        _constraints_for_request(request, contract, league_cfg, surface="/api/gameplan")
-        if partner_owner_id
-        else None
-    )
+    # The requester's protections bind the requester's OUTGOING side: our
+    # assets when they view their own team, the partner's assets when they are
+    # the partner, and nothing when they are neither side.
+    gameplan_constraints = partner_side_constraints = None
+    if partner_owner_id:
+        requester = _requester_owner_id(request, league_cfg)
+        if requester and requester in (owner_id, partner_owner_id):
+            resolved = _constraints_for_request(
+                request, contract, league_cfg, surface="/api/gameplan"
+            )
+            if requester == owner_id:
+                gameplan_constraints = resolved
+            else:
+                partner_side_constraints = resolved
 
     try:
         payload = await run_in_threadpool(
@@ -8305,6 +8308,7 @@ async def get_gameplan(request: Request):
             owner_id,
             partner_owner_id=partner_owner_id,
             constraints=gameplan_constraints,
+            partner_constraints=partner_side_constraints,
         )
     except _gameplan.GameplanUnavailable as exc:
         return JSONResponse(
@@ -8881,9 +8885,13 @@ def _suggestion_weakness_needs(
         key=lambda pair: -pair[0],
     )
     best, team = scored[0]
-    runner_up = scored[1][0] if len(scored) > 1 else -1
-    if best < 0.8 * len(wanted) or best == runner_up:
-        return None, "roster_not_matched_to_a_league_team"
+    team_players = {str(p).strip().lower() for p in (team.get("players") or [])}
+    if best == 0 or team_players != wanted:
+        # Only the team's ACTUAL roster carries its weakness answer.  A what-if
+        # roster (the real team minus two QBs, say) would otherwise inherit the
+        # stored team's needs — QB "not a need" while the submitted roster has
+        # no QB.  Anything but an exact match keeps the count-based need.
+        return None, "roster_differs_from_league_team"
     owner_id = str(team.get("ownerId") or "")
     if not owner_id:
         return None, "owner_id_unresolved"
@@ -9825,6 +9833,23 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
             warnings.append(note)
         else:
             result["warnings"] = [note]
+
+
+def _requester_owner_id(request: "Request", league_cfg: Any) -> str | None:
+    """The requesting user's own Sleeper owner id in this league, or ``None``.
+
+    Recommendation constraints are the requester's, so they bind the
+    requester's roster — never the subject team of a request that happens to
+    name someone else.  Resolved the same way ``/api/gameplan`` infers its
+    default team: the session's Sleeper id, else the league's default team map.
+    """
+    session = _get_auth_session(request) or {}
+    owner = str(session.get("sleeper_user_id") or "").strip()
+    if owner:
+        return owner
+    username = str(session.get("username") or "").strip().lower()
+    mapped = (getattr(league_cfg, "default_team_map", None) or {}).get(username) or {}
+    return str(mapped.get("ownerId") or "").strip() or None
 
 
 def _refinement_from_body(body: Any) -> tuple[dict | None, JSONResponse | None]:

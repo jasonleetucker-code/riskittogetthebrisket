@@ -284,8 +284,10 @@ def scan_double_positive_trades(
 
     ``constraints`` (C3-CON-01, ``src/trade/constraints``) are the requester's
     persistent protections.  They block assets on the giving side of the ONE
-    roster they belong to — ``constrained_owner_id`` (side A when ``team`` is
-    given) — and are applied BEFORE the per-side asset cap.  Applying them
+    roster they belong to — ``constrained_owner_id``, the requester's roster,
+    whichever side of a pair it is on (never simply side A: a request naming
+    another ``team`` must not constrain that team) — and are applied BEFORE the
+    per-side asset cap.  Applying them
     league-wide would block, say, every MIN player on every roster and stop the
     requester acquiring their own protected names.  Active constraints with no
     resolvable owner fail closed: no trades and a reason, never an
@@ -299,8 +301,6 @@ def scan_double_positive_trades(
         ]
         if not side_a_rosters:
             return {"error": "unknown_team", "team": team, "trades": []}
-        if constrained_owner_id is None:
-            constrained_owner_id = side_a_rosters[0]["ownerId"]
     else:
         side_a_rosters = rosters
 

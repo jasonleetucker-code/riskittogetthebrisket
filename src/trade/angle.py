@@ -1526,6 +1526,19 @@ def find_acquisition_packages(
             "noResultLabel": "No qualifying trade found under current constraints",
             "warnings": [*warnings, "A locked player cannot be included in a counter-package."],
         }
+    if len(lock.required) > max(target_sizes):
+        return {
+            "acquire": {"players": [], "size": 0, "my_total": 0, "market_total": 0, "targets": []},
+            "candidates": [],
+            "lockedOutgoing": lock.to_dict(),
+            "noResultReason": "locked_players_exceed_package_size",
+            "noResultLabel": "No qualifying trade found under current constraints",
+            "warnings": [
+                *warnings,
+                f"More players are locked than a counter-package here can send "
+                f"({max(target_sizes)}).",
+            ],
+        }
     locked_ids = {id(e) for e in lock.required}
     sendable, _ = partition_sendable(full_pool, constraints)
     pool = [e for e in sendable if id(e) not in locked_ids][: max(1, int(candidate_pool))]
