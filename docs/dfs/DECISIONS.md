@@ -425,3 +425,82 @@ robots-respecting pages only.
 **Consequences.** `/dfs` populates a real NFL slate for both platforms with nothing downloaded. Open
 gaps are DFS-AUTO rows: platform ids (BLOCKED), NBA/NHL (LATER — DFF pages exist, a schedule source
 is needed), MMA (BLOCKED — no source), licensed odds/props (BLOCKED — paid).
+
+## ADR-DFS-025 — Sport-aware athlete identity, then automatic NBA + NHL slates (2026-10-07)
+
+**Context.** The owner's zero-upload requirement (ADR-DFS-024) covers every DFS sport, and the NBA
+and NHL regular seasons start in October 2026. Two gaps blocked it: identity was NFL-only (the one
+directory is Sleeper's `/v1/players/nfl`, and nothing stopped an NBA "Jaylen Williams" being
+resolved against it), and NBA/NHL had no schedule source (DFF rows carry a date but no start time,
+so no lock).
+
+**Decision — identity (DFS-§9-03).** `src/identity/athletes.py` extends the canonical identity owner
+rather than adding a DFS one: keys carry sport (`athlete:<sport>:<namespace>:<id>`);
+`resolve_athlete(sport, index, …)` answers only from a directory for that sport
+(`SleeperDirectoryIndex.sport`, default `nfl`) and otherwise returns an explicit UNRESOLVED
+(`sport_mismatch` / `no_directory_for_sport`); team codes are per sport (NBA `WSH`→`WAS`, NHL
+`WSH`; ESPN/platform/DFF spellings mapped, unknown → `None`). NFL resolution is byte-for-byte
+`resolve_canonical_v2`. Automatic athletes get `auto-<sport>-<id>` ids (NFL ids change from
+`auto-<id>`: the next refresh writes new system snapshots; existing owner copies and builds are
+untouched) and an `athleteKey`.
+
+**Decision — NBA + NHL slates (DFS-AUTO-19).** `src/dfs/auto/daily.py`:
+
+* **Pool + salary + position(s)** from the same owner-authorised DFF pages (A-020; robots.txt still
+  disallows only `/lineup/*`, re-checked 2026-10-07). A daily page lists ONE dated slate, so the
+  slate is that listing (`dff_listed_slate`, unverified), not a derived window set. Other same-day
+  slates are not discoverable from a permitted source (DFF's slate picker is the rejected AJAX
+  endpoint).
+* **Start times / lock** from the ESPN public scoreboard (`src/dfs/auto/league_schedule.py`). ESPN is
+  already an owner-attested Calculator provider (`docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`)
+  whose scoreboard is read for NFL; reading the same endpoint family for NBA/NHL schedules is
+  recorded here as an **expansion of that integration**. It is not a new provider, not a DK/FD
+  endpoint, unauthenticated and free. Paced: 30-minute cache, descriptive UA, bounded timeout +
+  size, shared circuit breaker, no retry loop.
+* **Owner gate (review of #1695).** That record requires a new owner decision for a use
+  "materially outside the intended integration", which this plausibly is. So NBA/NHL are gated
+  per sport on a recorded decision in `config/dfs/auto_sources.json` (`src/dfs/auto/approval.py`):
+  approved only with `approval: "approved"` + `approvedOn` + `evidence`, otherwise fail closed —
+  nothing is fetched or built, and `/dfs` shows "awaiting owner approval of the schedule source"
+  (`AWAITING_APPROVAL`; selecting a stored NBA/NHL slate answers 409 `AWAITING_OWNER_APPROVAL`).
+  The pending decision is cross-referenced in the access-evidence record. NFL never reads it. An
+  approval RECORD rather than a new feature flag: the decision is evidence the owner records (like
+  `source_seeds.json` access states), and a new registry flag would also force flag-count edits in
+  `README.md` / `docs/ARCHITECTURE.md`, which an open work claim holds. Rollout lever for all
+  automatic slates stays `dfs_auto_slates`.
+* Every listed row must match a scheduled game that Eastern day (team, opponent, home/away); a
+  row that does not is refused with a reason (counted per reason). Preseason, postponed,
+  invalid-time and unknown-team schedule events are dropped with a reason; nothing is timed by a
+  guess. **"Nothing to build" and "a source broke" are never confused** (review of #1695):
+  * `SOURCE_ERROR` (shown as an error in `/dfs`, retried in 10 minutes): the day has scheduled
+    games but no listed row matches (`listed_rows_unmatched`, e.g. DFF writing "PGH"); the page
+    lists a slate but the schedule offers no game for it — an empty payload, or events dropped
+    for any reason other than preseason / all-star (`schedule_has_no_listed_games`); or the page
+    lists two or more games but drift leaves fewer than two placeable (`listed_games_unmatched`).
+  * `unavailable` (backs off one hour): the page lists no slate (`no_slate_listed`), every
+    schedule event that day is provably preseason / all-star (`listed_day_not_regular_season`),
+    or the page lists a single game (`single_game_listing` — not a classic slate).
+  * Partial drift (any listed row refused as `team_unknown_for_sport`, `game_not_on_schedule`,
+    `opponent_disagrees_with_schedule` or `home_away_disagrees_with_schedule`) still builds the
+    slate but marks it DEGRADED with per-reason counts AND `lock_may_be_early` — the untimed game
+    may have been the earliest, so the shown lock may be late.
+  * Each platform's view states its own platform's state, by name. Run details are stored as
+    bounded, valid JSON (counts + a capped sample); an unreadable legacy row reads as `unknown`
+    and makes the sport due at once instead of failing the page or the timer. When two platforms
+    share a run timestamp, the shortest applicable backoff wins.
+* **Projection**: one family (DFF). No second permitted NBA/NHL projection source is connected, so
+  there is no ensemble; a 0.0 line is excluded (not a forecast of 0); DFF `O`/`IR`/`SUSP`… withheld.
+* **NHL extras as evidence only**: DFF's projected even-strength / power-play line and goalie
+  starter flag ride on the athlete (`dffRegLine`, `dffPpLine`, `dffStarterFlag`); unconfirmed
+  goalies are disclosed on the slate. Using lines as stack constraints or correlation inputs is a
+  separate (methodology) step.
+* **Refresh**: the existing 10-minute timer now ticks every automatic sport, each deciding if due
+  (same time-to-lock cadence). A pass that finds nothing to build (the `unavailable` cases above)
+  backs off one hour and the script exits 2 for it (previously NFL's `unavailable` exited 1); a
+  `SOURCE_ERROR` retries at 10 minutes and exits 1.
+* **Unchanged**: optimizer, portfolio, late swap, exports — already sport-generic; upload files stay
+  refused (`PLATFORM_IDS_UNAVAILABLE`). Rule sets and scoring stay UNVERIFIED (research only).
+
+**Rejected.** Official league endpoints (`api-web.nhle.com`, `cdn.nba.com`) — genuinely new
+providers needing intake; Sleeper's NBA directory — not part of the integration and NHL has none;
+inferring a lock from the DFF date alone (guessing).

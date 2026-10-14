@@ -149,7 +149,9 @@ class PublicLeagueRouteTests(unittest.TestCase):
         r = self.client.get("/api/public/league/metrics")
         self.assertEqual(r.status_code, 200)
         body = r.json()
-        self.assertIn("leagueId", body)
+        # The league is named by its registry key, never the raw Sleeper id.
+        self.assertIn("leagueKey", body)
+        self.assertNotIn("leagueId", body)
         self.assertIn("cacheTtlSeconds", body)
         self.assertIn("metrics", body)
         m = body["metrics"]

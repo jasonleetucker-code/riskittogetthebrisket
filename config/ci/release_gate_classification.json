@@ -640,7 +640,7 @@
     "prod-e2e-smoke.yml::smoke::Run public /league spec against prod": {
       "category": "blocking"
     },
-    "prod-e2e-smoke.yml::smoke::Upload Playwright trace artifacts on failure": {
+    "prod-e2e-smoke.yml::smoke::Upload the Playwright report on failure": {
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Use Node 20": {

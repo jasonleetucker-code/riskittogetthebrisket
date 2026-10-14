@@ -1,25 +1,17 @@
 {
- "generatedAt": "2026-10-08T06:43:16.208410+00:00",
+ "generatedAt": "2026-10-14T14:06:05.063292+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2073,
+ "calls": 2008,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2049,
+ "v2Same": 1984,
  "v2WouldChange": 24,
  "v2Examples": [
-  {
-   "name": "Andru Phillips",
-   "pos": "",
-   "served": "4555",
-   "engineV2": "11700",
-   "v2Method": "exact_canonical:name",
-   "v2Reason": null
-  },
   {
    "name": "Bam Knight",
    "pos": "",
@@ -50,14 +42,6 @@
    "served": "10917",
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
-   "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Devin Neal",
-   "pos": "",
-   "served": "12476",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
   },
   {
@@ -147,6 +131,22 @@
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Pat Jones",
+   "pos": "",
+   "served": "7674",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Tyler Johnson",
+   "pos": "",
+   "served": "6960",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
   },
   {
    "name": "Matthew Hibner",

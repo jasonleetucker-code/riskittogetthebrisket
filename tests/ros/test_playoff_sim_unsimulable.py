@@ -48,7 +48,11 @@ class _Harness(unittest.TestCase):
                 "_build_team_distributions",
                 return_value=(_dists(self.owners), {o: 0.0 for o in self.owners}),
             ),
-            patch.object(playoff_sim, "_current_record", return_value=record),
+            patch.object(
+                playoff_sim,
+                "_current_standings",
+                return_value=(record, {"medianGame": False, "state": "not_applicable"}),
+            ),
             patch.object(playoff_sim, "_remaining_schedule", return_value=schedule),
             patch.object(playoff_sim, "_load_ros_strength_map", return_value={}),
             patch.object(playoff_sim, "_league_best_ball", return_value=False),

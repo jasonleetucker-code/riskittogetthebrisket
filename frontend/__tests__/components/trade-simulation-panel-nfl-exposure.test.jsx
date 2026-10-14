@@ -25,7 +25,7 @@ import { describe, it, expect } from "vitest";
 import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SimulationPanel } from "@/app/trade/trade-sections";
+import { SimulationPanel } from "@/app/trade/trade-simulation-panel";
 
 const BASE_SIM = {
   team: { name: "My Team" },

@@ -5,8 +5,9 @@
  *
  * Implements §4 steps 2-3 of
  * docs/trade/V1_45_TRADE_CALCULATOR_L4_EVIDENCE_RECIPE.md against the
- * merged render (frontend/app/trade/trade-sections.jsx SimulationPanel,
- * PR #1120): build a trade through the deployed UI whose receiving
+ * merged render (SimulationPanel, PR #1120 — then in
+ * frontend/app/trade/trade-sections.jsx, since #1710 in
+ * frontend/app/trade/trade-simulation-panel.jsx): build a trade through the deployed UI whose receiving
  * roster sits at the league's roster cap, capture the page's OWN
  * POST /api/trade/simulate, and assert the rendered Final-roster
  * section matches the response's stamps field-for-field on what is

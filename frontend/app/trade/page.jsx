@@ -66,17 +66,15 @@ import {
   SkeletonTable,
 } from "@/components/ds";
 import {
-  KtcImportPanel,
   MobileQuickAddBar,
   PickTeamSelectors,
   ProactiveSuggestionsRail,
   SuggestionsRailPlaceholder,
   SideCard,
-  SimulationPanel,
-  SuggestionsDesk,
   SUGG_TYPES,
 } from "./trade-sections";
 import { withValuationMode } from "@/lib/valuation-mode";
+import ResilientSection from "@/components/ResilientSection";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -113,21 +111,73 @@ const TradeMeter = SharedTradeMeter;
 // its OWN Suspense boundary with a null fallback — exactly next/dynamic's
 // per-component behaviour, so a panel that mounts later (e.g. the
 // multi-team flow when a third side is added) never blanks the others.
-const dyn = (loader) => {
+//
+// Each section also gets its OWN error boundary.  Without one, a failed
+// chunk load falls through to app/error.jsx and replaces the whole page —
+// and the realistic failure is a deploy: deploy.sh swaps `.next` and
+// deletes the old build, so a /trade tab opened before it 404s on its old
+// chunk hashes the first time it opens one of these.  React.lazy caches the
+// rejected import, so a remount would re-throw; `recovery="reload"` offers a
+// page reload instead.
+const dyn = (loader, name) => {
   const LazyPanel = lazy(loader);
-  return function SecondOpinionPanel(props) {
+  return function OnDemandSection(props) {
     return (
-      <Suspense fallback={null}>
-        <LazyPanel {...props} />
-      </Suspense>
+      <ResilientSection name={name} recovery="reload">
+        <Suspense fallback={null}>
+          <LazyPanel {...props} />
+        </Suspense>
+      </ResilientSection>
     );
   };
 };
-const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
-const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
-const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
-const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHistogram"));
-const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
+const TradeSourceBreakdown = dyn(
+  () => import("@/components/trade/TradeSourceBreakdown"),
+  "Per-source breakdown",
+);
+const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"), "Rest-of-season fit");
+const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundamentals check");
+const TradeDeltaHistogram = dyn(
+  () => import("@/components/graphs/TradeDeltaHistogram"),
+  "Value split chart",
+);
+const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
+
+// On-demand page sections — the same React.lazy + per-section Suspense
+// pattern, for code that cannot be on screen at first render:
+//
+// * SimulationPanel — renders only once "Simulate impact" has answered;
+//   its chunk is requested on the click, in parallel with the request.
+// * KtcImportPanel — renders only after "Import KTC" is pressed.
+// * SuggestionsDesk — the foot of the page, below the builder, the
+//   verdict and Second opinions.  Always rendered, so its chunk is
+//   requested on mount, in parallel with the player-pool fetch the whole
+//   builder waits on; by the time the page body renders it is loaded.
+//
+// Measured 2026-10-08: together ~18 KB out of the /trade page chunk,
+// which sat at 92.8 KB against a 93 KB budget.  Their modules must stay
+// out of ./trade-sections — a static import or re-export from there puts
+// them straight back into this page's chunk.
+const loadSimulationPanel = () => import("./trade-simulation-panel");
+const loadKtcImportPanel = () => import("./trade-ktc-import");
+const loadSuggestionsDesk = () => import("./trade-suggestions-desk");
+// A prefetch failure is not handled here: the lazy render below retries
+// the import and surfaces any real failure the same way it always would.
+const prefetch = (loader) => {
+  loader().catch(() => {});
+};
+const SimulationPanel = dyn(
+  () => loadSimulationPanel().then((m) => ({ default: m.SimulationPanel })),
+  "Simulation result",
+);
+const KtcImportPanel = dyn(
+  () => loadKtcImportPanel().then((m) => ({ default: m.KtcImportPanel })),
+  "KTC import",
+);
+const SuggestionsDesk = dyn(
+  () => loadSuggestionsDesk().then((m) => ({ default: m.SuggestionsDesk })),
+  "Trade suggestions",
+);
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
@@ -150,6 +200,11 @@ export default function TradePage() {
   const [focusedSideIdx, setFocusedSideIdx] = useState(null);
   const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
+  // The suggestions desk is always rendered once the pool loads; fetch its
+  // chunk now, alongside the pool, so it never pops in late.
+  useEffect(() => {
+    prefetch(loadSuggestionsDesk);
+  }, []);
 
   // Per-player value overrides for this trade only.
   // Keyed by player name → number (the final effective value to use in trade math).
@@ -1475,6 +1530,7 @@ export default function TradePage() {
   const runSimulateTrade = useCallback(() => {
     if (sides.length !== 2) return;
     if (!selectedTeam) return;
+    prefetch(loadSimulationPanel);
     // The ONE side mapping (`lib/trade-war-room.js`), shared with the Trade
     // War Room so the two can never disagree about which way a trade points:
     // the side holding more of this team's players is the side it GIVES.
@@ -1943,6 +1999,7 @@ export default function TradePage() {
               ) : null}
               <Button
                 onClick={() => {
+                  prefetch(loadKtcImportPanel);
                   setKtcImportOpen((v) => !v);
                   setKtcImportError("");
                 }}
@@ -1988,12 +2045,16 @@ export default function TradePage() {
             </Banner>
           ) : null}
 
-          <SimulationPanel
-            simResult={simResult}
-            simError={simError}
-            selectedTeam={selectedTeam}
-            onReset={resetSim}
-          />
+          {/* Gated here, not only inside the panel: rendering the lazy
+              component is what requests its chunk. */}
+          {simResult || simError ? (
+            <SimulationPanel
+              simResult={simResult}
+              simError={simError}
+              selectedTeam={selectedTeam}
+              onReset={resetSim}
+            />
+          ) : null}
 
           {ktcImportOpen ? (
             <KtcImportPanel

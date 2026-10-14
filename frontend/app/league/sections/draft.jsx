@@ -103,9 +103,9 @@ function DraftSection({ data, initialOwner, setOwner }) {
         </Card>
       )}
 
-      {drafts.map((d) => (
+      {drafts.map((d, i) => (
         <Card
-          key={d.draftId}
+          key={`${d.season}-${i}`}
           title={`${d.season} rookie draft`}
           subtitle={`${d.status} · ${d.rounds || "?"} rounds · ${(d.picks || []).length} picks`}
         >

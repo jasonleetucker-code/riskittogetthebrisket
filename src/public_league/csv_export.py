@@ -13,6 +13,12 @@ attachment header.
 
 This module is NOT allowed to import from any private pipeline module.
 It composes over the already-safety-checked public section payloads.
+
+No column carries a raw Sleeper id (``leagueId`` / ``draftId``): the
+payloads these read are the served projection
+(``public_contract.public_payload``), which drops them, and a season is
+named by its ``season`` label.  The league a CSV describes is named by the
+route's ``X-League-Key`` response header.
 """
 
 from __future__ import annotations
@@ -62,7 +68,6 @@ def export_history(data: dict[str, Any]) -> tuple[str, str]:
             rows.append(
                 {
                     "season": season,
-                    "leagueId": season_block["leagueId"],
                     "standing": standing["standing"],
                     "finalPlace": standing.get("finalPlace"),
                     "madePlayoffs": standing.get("madePlayoffs"),
@@ -78,7 +83,6 @@ def export_history(data: dict[str, Any]) -> tuple[str, str]:
             )
     fields = [
         "season",
-        "leagueId",
         "standing",
         "finalPlace",
         "madePlayoffs",
@@ -176,7 +180,6 @@ def export_awards(data: dict[str, Any]) -> tuple[str, str]:
             rows.append(
                 {
                     "season": season_row["season"],
-                    "leagueId": season_row["leagueId"],
                     "seasonStatus": season_row.get("seasonStatus"),
                     "key": a["key"],
                     "label": a["label"],
@@ -193,7 +196,6 @@ def export_awards(data: dict[str, Any]) -> tuple[str, str]:
             rows.append(
                 {
                     "season": "_race",
-                    "leagueId": "",
                     "seasonStatus": "in_progress",
                     "key": race["key"],
                     "label": race["label"],
@@ -206,7 +208,6 @@ def export_awards(data: dict[str, Any]) -> tuple[str, str]:
             )
     fields = [
         "season",
-        "leagueId",
         "seasonStatus",
         "key",
         "label",
@@ -248,7 +249,6 @@ def export_records(data: dict[str, Any]) -> tuple[str, str]:
         "displayName",
         "teamName",
         "season",
-        "leagueId",
         "week",
         "isPlayoff",
         "points",
@@ -286,7 +286,6 @@ def export_franchise(data: dict[str, Any], owner_id: str | None = None) -> tuple
             "ownerId",
             "displayName",
             "season",
-            "leagueId",
             "rosterId",
             "teamName",
             "wins",
@@ -328,7 +327,6 @@ def export_activity(data: dict[str, Any]) -> tuple[str, str]:
                 {
                     "transactionId": t["transactionId"],
                     "season": t["season"],
-                    "leagueId": t["leagueId"],
                     "week": t.get("week"),
                     "createdAt": t.get("createdAt"),
                     "totalAssets": t["totalAssets"],
@@ -344,7 +342,6 @@ def export_activity(data: dict[str, Any]) -> tuple[str, str]:
     fields = [
         "transactionId",
         "season",
-        "leagueId",
         "week",
         "createdAt",
         "totalAssets",
@@ -366,18 +363,14 @@ def export_draft(data: dict[str, Any]) -> tuple[str, str]:
         for p in d.get("picks", []):
             rows.append(
                 {
-                    "draftId": d["draftId"],
                     "season": d["season"],
-                    "leagueId": d["leagueId"],
                     "type": d.get("type"),
                     "status": d.get("status"),
                     **p,
                 }
             )
     fields = [
-        "draftId",
         "season",
-        "leagueId",
         "type",
         "status",
         "round",
@@ -403,7 +396,6 @@ def export_weekly(data: dict[str, Any]) -> tuple[str, str]:
             rows.append(
                 {
                     "season": w["season"],
-                    "leagueId": w["leagueId"],
                     "week": w["week"],
                     "isPlayoff": w.get("isPlayoff"),
                     "homeOwnerId": home.get("ownerId"),
@@ -418,7 +410,6 @@ def export_weekly(data: dict[str, Any]) -> tuple[str, str]:
             )
     fields = [
         "season",
-        "leagueId",
         "week",
         "isPlayoff",
         "homeOwnerId",

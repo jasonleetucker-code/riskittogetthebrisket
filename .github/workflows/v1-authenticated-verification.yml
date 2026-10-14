@@ -481,6 +481,13 @@ jobs:
             esac
           done
 
+      # PUBLIC repo => public artifacts (security S3).  The browser suite
+      # contributes ONLY its sanitized report (tests/e2e/prod-auth.config.js
+      # runs prod-auth-safe-reporter.js; trace/screenshot/video are off).
+      # NEVER add tests/e2e/test-results-prod-auth/, a Playwright html
+      # report, a trace, a video or a screenshot here: a failed run's
+      # trace.zip carried the session cookie 154x plus private response
+      # bodies.  Pinned by tests/e2e/test_prod_auth_artifact_safety.py.
       - name: Upload the reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -490,8 +497,6 @@ jobs:
             production-route-baselines.json
             v1-auth-report.json
             lane4-remote.txt
-            prod-auth-browser.txt
             tests/e2e/prod-auth-results.json
-            tests/e2e/test-results-prod-auth/
           if-no-files-found: warn
           retention-days: 30

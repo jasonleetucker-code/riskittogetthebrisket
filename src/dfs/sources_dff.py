@@ -17,8 +17,12 @@ Behaviour:
 * **provenance** — URL, fetch time, HTTP status and the SHA-256 of the raw page
   travel with every observation;
 * **parse** — only the documented row attributes (name, team, opponent,
-  position, salary, projection, recent averages, injury, spread, over/under,
-  implied team total); a page with no rows is ``SOURCE_EMPTY``, never zero;
+  home/away, position + alternate position, salary, projection, recent
+  averages, injury, spread, over/under, implied team total, and — on the NHL
+  pages — DFF's projected even-strength / power-play LINE and its starter flag,
+  observed on the live pages 2026-10-07); a page with no rows is
+  ``SOURCE_EMPTY``, never zero.  An attribute the page does not carry is
+  ``None`` (unknown), never ``0``;
 * **join** — to the slate by normalized name + team + position, CONFIRMED by an
   exact salary match (the page is platform-specific); a name that matches
   several athletes or whose salary disagrees is quarantined, never first-wins;
@@ -114,6 +118,18 @@ def _num(v: str | None) -> float | None:
         return None
 
 
+def _int(v: str | None) -> int | None:
+    """A small positive integer attribute (a line number), else None — never 0."""
+    try:
+        n = int(str(v).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+#: DFF's ``data-loc``: "@" = the row's team is AWAY, "vs" = at HOME.
+_LOC = {"@": "away", "vs": "home"}
+
 _UPDATED = re.compile(r'<time[^>]*datetime="([^"]+)"[^>]*data-type="updated"', re.S)
 
 
@@ -155,6 +171,11 @@ def parse(page_html: str) -> list[dict[str, Any]]:
                 "impliedTeamTotal": _num(a.get("proj_score")),
                 "startDate": a.get("start_date") or None,
                 "sourcePlayerId": a.get("player_id") or None,
+                "positionAlt": (a.get("pos_alt") or "").upper() or None,
+                "homeAway": _LOC.get(a.get("loc") or ""),
+                "regLine": _int(a.get("reg_line")),
+                "ppLine": _int(a.get("pp_line")),
+                "starterFlag": a.get("starter_flag") or None,
             }
         )
     return rows

@@ -142,12 +142,17 @@ jobs:
             --project=mobile-chromium \
             tests/e2e/specs/public-league.spec.js
 
-      - name: Upload Playwright trace artifacts on failure
+      # PUBLIC repo => public artifact, and this run targets PRODUCTION
+      # (security S3).  playwright.config.js turns trace/screenshot/video
+      # OFF for a non-loopback E2E_BASE_URL, and only the html report
+      # (steps + errors of an ANONYMOUS public-page run) is uploaded —
+      # never tests/e2e/test-results/ (traces, videos, screenshots).
+      # Pinned by tests/e2e/test_prod_auth_artifact_safety.py.
+      - name: Upload the Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: prod-e2e-smoke-artifacts
           path: |
-            tests/e2e/test-results/
             tests/e2e/playwright-report/
           retention-days: 7

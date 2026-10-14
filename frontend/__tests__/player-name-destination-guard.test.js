@@ -96,10 +96,17 @@ const ADOPTED = {
 const ALLOWED_RAW = {
   "app/trade/page.jsx": {},
   "app/trade/trade-sections.jsx": {
+    "t.name": [1, NOT_A_PLAYER, "team summary"],
+    "selectedTeam.name": [1, NOT_A_PLAYER, "the user's team badge"],
+  },
+  // Split out of trade-sections.jsx (loaded on demand by /trade); the
+  // allowances moved with the code, unchanged.
+  "app/trade/trade-simulation-panel.jsx": {
     "d.name": [1, NO_CANONICAL_ID, "forced-drop list: roster_capacity's playerId falls back to the name (src/trade/roster_capacity.py _norm(name) / `playerId or name`)"],
     "m.name": [2, NO_CANONICAL_ID, "promoted/displaced lineup prose from the simulator; ids are not guaranteed canonical on that path — adopt once the producer stamps the Sleeper id"],
-    "t.name": [2, NOT_A_PLAYER, "team selector option / team summary"],
-    "selectedTeam.name": [1, NOT_A_PLAYER, "the user's team badge"],
+  },
+  "app/trade/trade-suggestions-desk.jsx": {
+    "t.name": [1, NOT_A_PLAYER, "team selector option"],
     "p.name": [2, NO_CANONICAL_ID, "suggestion cards: /api/trade/suggestions give/receive entries carry no playerId"],
   },
   "app/draft/page.jsx": {
