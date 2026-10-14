@@ -446,6 +446,10 @@ class EnumerationReport:
     #: byte-identical to before the seam existed.
     required_send: int = 0
     shapes_skipped_for_required: list[str] = field(default_factory=list)
+    #: The RECEIVE-side mirror: a desired incoming asset (Package Builder) on
+    #: every receive side.  Published only when given.
+    required_receive: int = 0
+    shapes_skipped_for_required_receive: list[str] = field(default_factory=list)
 
     @property
     def truncated(self) -> bool:
@@ -482,6 +486,16 @@ class EnumerationReport:
                     "shapesSkippedForRequired": list(self.shapes_skipped_for_required),
                 }
                 if self.required_send
+                else {}
+            ),
+            **(
+                {
+                    "requiredReceive": self.required_receive,
+                    "shapesSkippedForRequiredReceive": list(
+                        self.shapes_skipped_for_required_receive
+                    ),
+                }
+                if self.required_receive
                 else {}
             ),
         }
@@ -657,6 +671,7 @@ def enumerate_packages(
     rank_key: Callable[[PackageAsset], Any] | None = None,
     adapt: bool = True,
     required_send: Sequence[Any] = (),
+    required_receive: Sequence[Any] = (),
 ) -> tuple[Iterator[SidePair], EnumerationReport]:
     """Enumerate every legal package shape between two pools.
 
@@ -687,6 +702,12 @@ def enumerate_packages(
     :class:`ConstraintMisapplied`, because persistent protection outranks a
     temporary lock (§3.3).  Topology is still enforced: a lock never licenses a
     3-for-1.
+
+    ``required_receive`` is the mirror on the RECEIVE side — a desired incoming
+    asset that every package must bring back (Package Builder, C7-PKGB-01).  It
+    skips ``policy`` for the same reason a lock does, the outgoing policy never
+    applies to it (receive side, §2.2), shapes too small to hold it are skipped
+    and reported, and topology is still enforced.
     """
     outgoing = _resolve_outgoing(outgoing_policy, side=SEND)
     policy = policy or EligibilityPolicy()
@@ -711,6 +732,11 @@ def enumerate_packages(
     fixed_keys = {a.key for a in fixed}
     if fixed_keys:
         ours = [a for a in ours if a.key not in fixed_keys]
+    fixed_recv = tuple(adapt_assets(required_receive) if adapt else list(required_receive))
+    report.required_receive = len(fixed_recv)
+    fixed_recv_keys = {a.key for a in fixed_recv}
+    if fixed_recv_keys:
+        theirs = [a for a in theirs if a.key not in fixed_recv_keys]
 
     ours = _eligible(ours, policy, report, ours=True, outgoing=outgoing)
     # No ``outgoing=`` here, and that is the whole of §2.2.
@@ -735,19 +761,25 @@ def enumerate_packages(
         report.shapes_skipped_for_required = [
             f"{s.send}-for-{s.receive}" for s in plan if s.send < len(fixed)
         ]
+    if fixed_recv:
+        report.shapes_skipped_for_required_receive = [
+            f"{s.send}-for-{s.receive}" for s in plan if s.receive < len(fixed_recv)
+        ]
 
     def _iter() -> Iterator[SidePair]:
         seen: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
         for shape in plan:
             free = shape.send - len(fixed)
-            if free < 0 or len(ours) < free or len(theirs) < shape.receive:
+            free_recv = shape.receive - len(fixed_recv)
+            if free < 0 or free_recv < 0 or len(ours) < free or len(theirs) < free_recv:
                 continue
             for fillers in combinations(ours, free):
                 send = (*fixed, *fillers)
                 send_keys = {a.key for a in send}
                 if len(send_keys) != len(send):
                     continue  # the same asset twice on one side
-                for receive in combinations(theirs, shape.receive):
+                for recv_fillers in combinations(theirs, free_recv):
+                    receive = (*fixed_recv, *recv_fillers)
                     if max_packages is not None and report.emitted >= max_packages:
                         report.budget_exhausted = True
                         return

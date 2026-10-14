@@ -48,15 +48,18 @@ const CONTEXT_OPTIONS = [
 import styles from "./arbitrage.module.css";
 import BestOffersView from "./BestOffersView";
 import GoldenUpgradesView from "./GoldenUpgradesView";
+import PackageBuilderView from "./PackageBuilderView";
 
-// The package layer has three views over the same team selection: the
+// The package layer has four views over the same team selection: the
 // equal-count arbitrage scan (unchanged), Best Trade to Send Each Team
 // (C7-BEST-TRADE), which allows a one-player difference and posture picks,
-// and Golden Upgrades (C7-GOLD-01), same-position 1-for-1 inversions.
+// Golden Upgrades (C7-GOLD-01), same-position 1-for-1 inversions, and the
+// Package Builder (C7-PKGB-01), packages built to the user's own request.
 const VIEW_OPTIONS = [
   { value: "scan", label: "Package scan" },
   { value: "best", label: "Best offer by opponent" },
   { value: "golden", label: "Golden Upgrades" },
+  { value: "builder", label: "Package Builder" },
 ];
 
 // ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
@@ -582,6 +585,17 @@ export default function ArbitragePage() {
             myTeam={effectiveTeam}
             leagueKey={selectedLeagueKey}
             ownerKey={selectedOwnerId}
+          />
+        </Panel>
+      ) : null}
+
+      {packageView === "builder" ? (
+        <Panel>
+          <PackageBuilderView
+            myTeam={effectiveTeam}
+            leagueKey={selectedLeagueKey}
+            ownerKey={selectedOwnerId}
+            teams={teams}
           />
         </Panel>
       ) : null}

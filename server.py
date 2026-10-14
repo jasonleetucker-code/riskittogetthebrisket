@@ -9111,6 +9111,78 @@ async def post_trade_finder(request: Request):
     return JSONResponse(content=result)
 
 
+def _generated_trade_team_context(
+    contract: dict,
+    league_cfg: Any,
+    sleeper_teams: list,
+    *,
+    use_team_context: bool,
+    capacity_context: Any,
+    surface: str,
+) -> tuple[Any, Any, Any]:
+    """``(needs_by_owner, lineup_delta, capacity_for)`` for a ranked trade surface.
+
+    One read of Team Context shared by Best Offers and Package Builder: rated
+    needs from the Team Weakness owner, lineup impact from the canonical lineup
+    solver over the league bundle, and roster capacity / forced-release cost
+    from ``roster_capacity``.  Each piece degrades to ``None`` (unknown, never
+    zero) when it cannot be read; asset-only mode reads none of them.
+    """
+    if not use_team_context:
+        return None, None, None
+    from src.trade import best_offers as _best_offers
+
+    needs_by_owner = None
+    lineup_delta = None
+    try:
+        from src.api.roster_intelligence import build_league_roster_intelligence
+
+        intel = build_league_roster_intelligence(contract, team_count=len(sleeper_teams) or None)
+        needs_by_owner = {}
+        for owner, team in (intel.get("teams") or {}).items():
+            weakness = (team or {}).get("weakness") or {}
+            if weakness.get("available"):
+                needs_by_owner[str(owner)] = {
+                    str(n["position"])
+                    for n in weakness.get("needs") or []
+                    if n.get("position") and n.get("level") in ("critical", "high")
+                }
+    except Exception as exc:  # noqa: BLE001 — context never fails the route
+        log.info("%s: team weakness unavailable: %s", surface, exc)
+    try:
+        from src.api import gameplan as _gp
+        from src.api.league_registry import get_scoring_profile
+
+        bundle, _hit = _gp.get_league_bundle(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+        lineup_delta = _best_offers.lineup_delta_from_bundle(bundle)
+    except Exception as exc:  # noqa: BLE001
+        log.info("%s: lineup solver unavailable: %s", surface, exc)
+
+    def capacity_for(opp, give, receive):
+        if capacity_context is None:
+            return None, None
+        from src.trade.roster_capacity import (
+            assess_roster_capacity,
+            forced_drop_cost,
+            player_names_only,
+        )
+
+        try:
+            cap = assess_roster_capacity(
+                capacity_context,
+                incoming_players=player_names_only(receive),
+                outgoing_players=player_names_only(give),
+            )
+        except Exception:  # noqa: BLE001 — an annotation never drops an offer
+            return None, None
+        cost, _basis = forced_drop_cost(cap)
+        return cap, cost
+
+    return needs_by_owner, lineup_delta, capacity_for
+
+
 @app.post("/api/trade/best-offers")
 async def post_trade_best_offers(request: Request):
     """Best Trade to Send Each Team (C7-BEST-TRADE) — one offer per opponent.
@@ -9228,56 +9300,14 @@ async def post_trade_best_offers(request: Request):
     def _generate():
         from src.trade import best_offers as _best_offers
 
-        needs_by_owner = None
-        lineup_delta = None
-        if use_team_context:
-            try:
-                from src.api.roster_intelligence import build_league_roster_intelligence
-
-                intel = build_league_roster_intelligence(
-                    contract, team_count=len(sleeper_teams) or None
-                )
-                needs_by_owner = {}
-                for owner, team in (intel.get("teams") or {}).items():
-                    weakness = (team or {}).get("weakness") or {}
-                    if weakness.get("available"):
-                        needs_by_owner[str(owner)] = {
-                            str(n["position"])
-                            for n in weakness.get("needs") or []
-                            if n.get("position") and n.get("level") in ("critical", "high")
-                        }
-            except Exception as exc:  # noqa: BLE001 — context never fails the route
-                log.info("best offers: team weakness unavailable: %s", exc)
-            try:
-                from src.api import gameplan as _gp
-                from src.api.league_registry import get_scoring_profile
-
-                bundle, _hit = _gp.get_league_bundle(
-                    league_cfg.key, get_scoring_profile(league_cfg.key), contract
-                )
-                lineup_delta = _best_offers.lineup_delta_from_bundle(bundle)
-            except Exception as exc:  # noqa: BLE001
-                log.info("best offers: lineup solver unavailable: %s", exc)
-
-        def capacity_for(opp, give, receive):
-            if capacity_context is None:
-                return None, None
-            from src.trade.roster_capacity import (
-                assess_roster_capacity,
-                forced_drop_cost,
-                player_names_only,
-            )
-
-            try:
-                cap = assess_roster_capacity(
-                    capacity_context,
-                    incoming_players=player_names_only(receive),
-                    outgoing_players=player_names_only(give),
-                )
-            except Exception:  # noqa: BLE001 — an annotation never drops an offer
-                return None, None
-            cost, _basis = forced_drop_cost(cap)
-            return cap, cost
+        needs_by_owner, lineup_delta, capacity_for = _generated_trade_team_context(
+            contract,
+            league_cfg,
+            sleeper_teams,
+            use_team_context=use_team_context,
+            capacity_context=capacity_context,
+            surface="best offers",
+        )
 
         result = _best_offers.build_best_offers(
             players,
@@ -9409,6 +9439,163 @@ async def post_trade_golden_upgrades(request: Request):
 
     result["leagueKey"] = league_cfg.key
     result["useTeamContext"] = use_team_context
+    if constraints is not None:
+        result["constraints"] = constraints.to_dict()
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
+_PACKAGE_BUILDER_MAX_OUTGOING = 60
+
+
+@app.post("/api/trade/package-builder")
+async def post_trade_package_builder(request: Request):
+    """Package Builder (C7-PKGB-01) — packages built to the user's request.
+
+    Body::
+
+        {
+          "myTeam": "Team Name",
+          "leagueKey": "...",                    // optional, standard resolver
+          "target": "Player or pick name",       // optional desired incoming asset
+          "opponent": "Team B",                  // optional (implied by target)
+          "outgoing": ["..."],                   // optional: assets you'll offer
+          "returnPositions": ["WR", "PICKS"],    // optional; QB RB WR TE DL LB DB PICKS
+          "maxPlayersPerSide": 2,                // 1-3
+          "allowPicks": false,
+          "evidence": "any" | "external",
+          "useTeamContext": true,
+          "refinement": {"lock": [], "exclude": []},
+          "limit": 10                            // 1-25
+        }
+
+    Every constraint is applied during generation (``src/trade/package_builder``).
+    Recommendation only — nothing is sent.
+    """
+    if latest_contract_data is None:
+        return JSONResponse(status_code=503, content={"error": "No data loaded."})
+    players = latest_contract_data.get("players")
+    sleeper_teams = (latest_contract_data.get("sleeper") or {}).get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Body must be a JSON object."})
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import package_builder as _pb
+
+    def _bad(error: str, **extra: Any) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"error": error, **extra})
+
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return _bad("Request body must include 'myTeam'.")
+    team_names = {str(t.get("name")) for t in sleeper_teams if t.get("name")}
+    if my_team not in team_names:
+        return _bad("unknown_team", myTeam=my_team)
+    target = body.get("target")
+    if target is not None and (not isinstance(target, str) or len(target) > 120):
+        return _bad("invalid_target")
+    opponent = body.get("opponent")
+    if opponent is not None and (
+        not isinstance(opponent, str) or opponent not in team_names or opponent == my_team
+    ):
+        return _bad("unknown_opponent")
+    outgoing = body.get("outgoing")
+    if outgoing is not None and (
+        not isinstance(outgoing, list)
+        or len(outgoing) > _PACKAGE_BUILDER_MAX_OUTGOING
+        or not all(isinstance(n, str) and n.strip() for n in outgoing)
+    ):
+        return _bad("invalid_outgoing", max=_PACKAGE_BUILDER_MAX_OUTGOING)
+    return_positions, unknown = _pb.normalize_return_positions(body.get("returnPositions"))
+    if unknown:
+        return _bad("invalid_return_positions", unknown=unknown[:10])
+    try:
+        max_side = int(body.get("maxPlayersPerSide", _pb.MAX_PACKAGE_PLAYERS))
+        limit = int(body.get("limit", 10))
+    except (TypeError, ValueError):
+        return _bad("invalid_numbers")
+    if not 1 <= max_side <= _pb.MAX_PACKAGE_PLAYERS or not 1 <= limit <= 25:
+        return _bad("invalid_numbers")
+    evidence = body.get("evidence", "any")
+    if evidence not in _pb.EVIDENCE_LEVELS:
+        return _bad("invalid_evidence", allowed=list(_pb.EVIDENCE_LEVELS))
+    allow_picks = body.get("allowPicks", False) is True
+    refinement, error = _refinement_from_body(body)
+    if error is not None:
+        return error
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    constraints = _constraints_for_request(
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/package-builder",
+        refinement=refinement,
+    )
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+    pick_forecasts = None
+    if use_team_context and allow_picks:
+        pick_forecasts = await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+    my_block = next((t for t in sleeper_teams if t.get("name") == my_team), None)
+    capacity_context = (
+        _capacity_context_for(contract, league_cfg, my_block, surface="/api/trade/package-builder")
+        if use_team_context
+        else None
+    )
+
+    def _generate():
+        needs_by_owner, lineup_delta, capacity_for = _generated_trade_team_context(
+            contract,
+            league_cfg,
+            sleeper_teams,
+            use_team_context=use_team_context,
+            capacity_context=capacity_context,
+            surface="package builder",
+        )
+        return _pb.build_packages(
+            players,
+            my_team,
+            sleeper_teams,
+            contract=contract,
+            target=target or None,
+            opponent=opponent or None,
+            outgoing=outgoing,
+            return_positions=return_positions,
+            max_players_per_side=max_side,
+            allow_picks=allow_picks,
+            evidence=evidence,
+            constraints=constraints,
+            use_team_context=use_team_context,
+            needs_by_owner=needs_by_owner,
+            lineup_delta=lineup_delta,
+            capacity_for=capacity_for,
+            pick_forecasts=pick_forecasts,
+            limit=limit,
+        )
+
+    try:
+        result = await run_in_threadpool(_generate)
+    except Exception as e:
+        log.error(f"Package builder failed: {e}")
+        return JSONResponse(status_code=500, content={"error": "package_builder_failed"})
+
+    result["leagueKey"] = league_cfg.key
     if constraints is not None:
         result["constraints"] = constraints.to_dict()
     _stamp_valuation_mode(result, valuation_mode, valuation_note)

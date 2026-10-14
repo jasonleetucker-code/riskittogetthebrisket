@@ -381,8 +381,12 @@ def _factors(
     edge_pct = equity["vaAdjustedGap"] / max(float(equity["sendingAdjusted"]), 1.0)
     canonical = _clip01(edge_pct / float(scale.get("canonicalEdgeSaturationPct", 15.0)) * 100.0)
     # A qualifying verdict always carries a margin (best_qualifying_verdict
-    # admits none without one), so it is read directly — never defaulted.
-    comfort = _comfort(float(verdict.margin_pct), scale)
+    # admits none without one), so it is read directly — never defaulted.  A
+    # consumer with NO qualifying external verdict (Package Builder's "any
+    # evidence" mode) passes ``None``: the external terms are then unknown,
+    # not zero.
+    has_external = verdict is not None and verdict.margin_pct is not None
+    comfort = _comfort(float(verdict.margin_pct), scale) if has_external else None
     divergence = (
         _divergence(
             (*give, *receive),
@@ -393,7 +397,7 @@ def _factors(
             edge_pct=edge_pct * 100.0,
             margin_pct=float(verdict.margin_pct),
         )
-        if rows
+        if rows and has_external
         else None
     )
     # Calculator shopping: another approved calculator that prices EVERY asset
@@ -414,8 +418,8 @@ def _factors(
     size = len(give) + len(receive)
     return {
         "canonicalEdge": round(canonical, 4),
-        "externalComfort": round(comfort, 4),
-        "mutualBalance": round(min(canonical, comfort), 4),
+        "externalComfort": round(comfort, 4) if comfort is not None else None,
+        "mutualBalance": round(min(canonical, comfort), 4) if comfort is not None else None,
         "calculatorDivergence": round(divergence, 4) if divergence is not None else None,
         "contraryCalculator": contrary if verdicts else None,
         "ourNeedFit": _need_fit(receive, our_needs),
@@ -568,6 +572,50 @@ def _scorer(
     return score
 
 
+def rerank_head(
+    head: list[BestOfferCandidate],
+    weights: Mapping[str, float],
+    *,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None,
+    capacity_for: Callable[..., tuple[Any, float | None]] | None,
+    my_owner: str,
+    opp_owner: str,
+    opp: str,
+) -> None:
+    """Score the head's roster consequences and re-sort it in place.
+
+    Lineup impact (both sides, canonical lineup solver) and the cost of the
+    releases the trade forces (``roster_capacity.forced_drop_cost``; ``None``
+    is UNKNOWN, never free).  Unknown rerank factors rank as the head's worst
+    known value (``_RERANK_FACTORS``).  Shared by every consumer of this
+    ranking (Best Offers, Package Builder) so the roster read is one rule.
+    """
+    for c in head:
+        if lineup_delta is not None:
+            c.lineup = lineup_delta(my_owner, opp_owner, _names(c.give), _names(c.receive)) or {
+                "available": False,
+                "reason": "team_not_in_lineup_bundle",
+            }
+            if c.lineup and c.lineup.get("available") and c.lineup.get("ourBefore"):
+                # A lineup with no recorded baseline is not scored at all
+                # (factor stays None) rather than against zero.
+                base_pts = max(float(c.lineup["ourBefore"]), 1.0)
+                c.factors["lineupImpact"] = round(
+                    max(-1.0, min(1.0, float(c.lineup["ourDelta"]) / base_pts * 10.0)), 4
+                )
+        if capacity_for is not None:
+            c.capacity, cost = capacity_for(opp, c.give, c.receive)
+            if cost is not None:
+                give_model = max(sum(a.model_value for a in c.give), 1)
+                c.factors["forcedDropCost"] = round(_clip01(cost / give_model), 4)
+    stand_ins = {n: _worst_known(head, n) for n in _RERANK_FACTORS}
+    for c in head:
+        imputed = {n: v for n, v in stand_ins.items() if v is not None and c.factors.get(n) is None}
+        c.imputations = imputed
+        c.arbitrage_score = _score(c.factors, weights, imputed)
+    head.sort(key=lambda c: (-c.arbitrage_score, c.has_pick, c.package_key()))
+
+
 def _no_result_reason(diag: Mapping[str, Any]) -> str:
     """The most fundamental blocker, in the order a manager would ask."""
     if diag["enumerated"] == 0:
@@ -621,6 +669,10 @@ def _why_us(c: BestOfferCandidate, our_needs: set[str] | None) -> str:
 
 def _why_them(c: BestOfferCandidate, their_needs: set[str] | None, pair: str | None) -> str:
     v = c.external
+    if v is None:
+        # Package Builder's "any evidence" mode: no approved calculator both
+        # prices every asset and grades it even or better for them.
+        return "No approved calculator both prices every asset and grades this even for them."
     if v.result == "win":
         lead = f"{v.label} has them ahead by {v.margin_pct:.1f}% after its package adjustment."
     else:
@@ -639,7 +691,7 @@ def _caveats(c: BestOfferCandidate, prior: Mapping[str, Any]) -> list[str]:
     out = [
         f"Ranking is a declared prior ({prior.get('status')}), not a validated model.",
     ]
-    if c.external.calculator == MARKET_IDPTC:
+    if c.external is not None and c.external.calculator == MARKET_IDPTC:
         out.append(
             "IDP Trade Calculator's own package rule is not published; its verdict uses the "
             "KTC Value Adjustment as a declared approximation."
@@ -871,35 +923,15 @@ def build_best_offers(
         # cost of releases the trade forces.  Team Context only.
         head = ranked[:top_k]
         if use_ctx:
-            for c in head:
-                if lineup_delta is not None:
-                    c.lineup = lineup_delta(
-                        my_owner, owner_of.get(opp, ""), _names(c.give), _names(c.receive)
-                    ) or {"available": False, "reason": "team_not_in_lineup_bundle"}
-                    if c.lineup and c.lineup.get("available") and c.lineup.get("ourBefore"):
-                        # A lineup with no recorded baseline is not scored at
-                        # all (factor stays None) rather than against zero.
-                        base_pts = max(float(c.lineup["ourBefore"]), 1.0)
-                        c.factors["lineupImpact"] = round(
-                            max(-1.0, min(1.0, float(c.lineup["ourDelta"]) / base_pts * 10.0)), 4
-                        )
-                if capacity_for is not None:
-                    # ``capacity_for`` returns ``(RosterCapacity | None,
-                    # forced-drop cost | None)`` — ``None`` cost is UNKNOWN,
-                    # never free (``roster_capacity.forced_drop_cost``).
-                    c.capacity, cost = capacity_for(opp, c.give, c.receive)
-                    if cost is not None:
-                        give_model = max(sum(a.model_value for a in c.give), 1)
-                        c.factors["forcedDropCost"] = round(_clip01(cost / give_model), 4)
-            # Unknown rerank factors rank as the head's worst KNOWN value.
-            stand_ins = {n: _worst_known(head, n) for n in _RERANK_FACTORS}
-            for c in head:
-                imputed = {
-                    n: v for n, v in stand_ins.items() if v is not None and c.factors.get(n) is None
-                }
-                c.imputations = imputed
-                c.arbitrage_score = _score(c.factors, weights, imputed)
-            head.sort(key=lambda c: (-c.arbitrage_score, c.has_pick, c.package_key()))
+            rerank_head(
+                head,
+                weights,
+                lineup_delta=lineup_delta,
+                capacity_for=capacity_for,
+                my_owner=my_owner,
+                opp_owner=owner_of.get(opp, ""),
+                opp=opp,
+            )
         best = head[0]
         card.update(
             {
@@ -966,7 +998,7 @@ def _offer_dict(
         "receive": [_asset_dict(a) for a in c.receive],
         "packageSize": finder._package_size_label(c.give, c.receive),
         "canonical": c.equity,
-        "external": c.external.to_dict(),
+        "external": c.external.to_dict() if c.external is not None else None,
         "externalAll": [v.to_dict() for v in c.external_all],
         "whyThisHelpsUs": _why_us(c, our_needs),
         "whyTheyMayAccept": _why_them(c, their_needs, pair),

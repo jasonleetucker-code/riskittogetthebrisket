@@ -931,6 +931,7 @@ def _generate_packages(
     required_send: list[Asset] | tuple[Asset, ...] = (),
     score: Any = None,
     one_for_one_only: bool = False,
+    required_receive: list[Asset] | tuple[Asset, ...] = (),
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -958,6 +959,10 @@ def _generate_packages(
     ``one_for_one_only`` stops after the 1-for-1 shape, for a consumer whose
     question is a single swap (Golden Upgrades) — enumerating 2-for-2 only to
     reject every package would cost seconds and answer nothing.
+
+    ``required_receive`` is the receive-side mirror of ``required_send`` (a
+    Package Builder's desired incoming asset); the arbitrage finder never sets
+    it, so its output is unchanged.
     """
     results: list[TradeCandidate] = []
 
@@ -985,6 +990,7 @@ def _generate_packages(
             pool_limit=pool_limit,
             rank_key=substrate.by_value_desc,
             required_send=required_send,
+            **({"required_receive": required_receive} if required_receive else {}),
         )
         for pair in packages:
             give, receive = pair.sources()
