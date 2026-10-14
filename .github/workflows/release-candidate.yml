@@ -77,7 +77,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch origin "${{ inputs.base_ref }}" --depth=200
+          # No --depth: the checkout is fetch-depth 0, and a depth-limited
+          # fetch rewrites .git/shallow, which made the unit-test step's
+          # feature-dictionary lock-history gate fail as "shallow boundary".
+          git fetch --no-tags origin "${{ inputs.base_ref }}"
           python scripts/check_release_candidate.py \
             --base "origin/${{ inputs.base_ref }}" \
             --head HEAD \
