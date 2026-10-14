@@ -63,7 +63,7 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
       {fr && (
         <Card
           title={fr.displayName}
-          subtitle={`Current: ${fr.currentTeamName || "—"}${fr.currentLeagueId ? ` · League id ${fr.currentLeagueId.slice(-6)}` : ""}`}
+          subtitle={`Current: ${fr.currentTeamName || "—"}${fr.currentSeason ? ` · ${fr.currentSeason} season` : ""}`}
           action={
             fr.topRival && (
               <span style={{ fontSize: "0.74rem", color: "var(--subtext)" }}>

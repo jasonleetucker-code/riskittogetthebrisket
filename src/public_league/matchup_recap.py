@@ -123,10 +123,13 @@ def _side_block(
     # render as the winner.  It also cannot collide with a Sleeper user id,
     # which is numeric.  `ownerResolved: false` is what the UI gates on —
     # it must not link to /league/franchise/<synthetic>, which does not
-    # exist.
+    # exist.  Keyed by SEASON LABEL, not the Sleeper league id: this id is
+    # served publicly, and raw Sleeper ids never are
+    # (`public_contract.RAW_SLEEPER_ID_FIELDS`).  One season is one league,
+    # so (season, roster) is exactly as unique.
     owner_resolved = bool(owner_id)
     if not owner_resolved:
-        owner_id = f"retired:{season.league_id}:{rid}"
+        owner_id = f"retired:{season.season}:{rid}"
 
     starters = _starter_scores(entry, snapshot)
     bench = _bench_scores(entry, snapshot)
@@ -138,7 +141,7 @@ def _side_block(
         "ownerResolved": owner_resolved,
         "rosterId": rid,
         # display_name_for() returns the id itself when no manager matches,
-        # which for the synthetic id would print "retired:12345:9" on the
+        # which for the synthetic id would print "retired:2025:9" on the
         # card.  team_name() already degrades correctly to "Team <rid>".
         "displayName": (
             metrics.display_name_for(snapshot, owner_id) if owner_resolved else "Former manager"

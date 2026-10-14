@@ -1116,6 +1116,18 @@ explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
     counts twice as many games as the simulator's.
   - Measured 2026-09-26: after two finished weeks the host shows 4-0 where the simulator shows 2-0.
   - Deciding whether and how the median game enters seeding is a methodology decision.
+  - **Update 2026-10-08 (PR #1712, TODO-2026-09-26-D3).** Reclassified by the coordinator's owner-action audit
+    (2026-10-07) as an exact-league-rule fact: the record is the league's official standings. Verified read-only
+    against Sleeper's own roster records: `dynasty_main` host W-L-T = H2H + median for 12/12 rosters after four
+    weeks; `dynasty_new` (median off) = H2H for 10/10. The record to date, every simulated week, seeding and the
+    bracket now count the median game exactly as the host does (threshold = average of the middle two scores; a
+    score on it is a tie). An unstated `league_average_match` refuses seeding/playoff/title/draft-slot odds.
+  - **Still open for the owner — does the rookie-DRAFT order count median results?** The 2026-10-04 draft-order
+    rule says "reverse final regular-season record" and does not say. The league's history does not settle it:
+    2026's rookie draft was an auction (no slot order), and 2025's linear draft (after the 2024 season, median on)
+    matches reverse record neither with nor without median results (`docs/picks/DRAFT_ORDER_RULE.md`). Until the
+    owner decides, the draft-slot forecast keeps the pre-D3 record (H2H, ties half a win) and is stamped
+    `draftOrderRecordBasis: "head_to_head_with_half_win_ties"`.
 
 ## Added 2026-09-26 — Adaptive Learning / Continuous Model Improvement (owner directive)
 The owner wants Calculator to become **empirically self-improving wherever learning is legitimate**: preserve point-in-time observations, forecasts, recommendations, decisions/non-decisions and outcomes; evaluate what happened; run bounded challengers; and promote a different production methodology only when it clears the applicable evidence and governance gates. “Machine learning” is acceptable shorthand, but the product direction is broader: calibration, statistical learning, model selection, behavioral learning, time-series methods and other evidence-based adaptation are all eligible when they fit the question.

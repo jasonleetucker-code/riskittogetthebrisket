@@ -119,7 +119,31 @@ export default function RosChampionshipSection() {
         {data.rosStrengthAvailable
           ? "ROS roster strength blended into weekly score distributions"
           : "Empirical-only mode (no ROS roster snapshot)"}
+        {data.standingsRule?.state === "counted"
+          ? " · records count the weekly league-median game, as the host does"
+          : ""}
       </div>
+      {/* The engine could not play the bracket as the host plays it, so the
+          title / finals / semifinal columns are withheld, not 0% — say why
+          (#1699 review F3), in the backend's own words. */}
+      {data.championshipUnavailable ? (
+        <div
+          role="note"
+          style={{ fontSize: "0.74rem", color: "var(--amber)", marginBottom: 10 }}
+        >
+          Title odds withheld:{" "}
+          {data.championshipUnavailable.detail || data.championshipUnavailable.reason}
+        </div>
+      ) : null}
+      {data.standingsRule?.state === "unverified" ? (
+        <div
+          role="note"
+          style={{ fontSize: "0.74rem", color: "var(--amber)", marginBottom: 10 }}
+        >
+          Standings rule unverified:{" "}
+          {data.standingsRule.detail || data.standingsRule.reason}
+        </div>
+      ) : null}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
         <thead>
           <tr

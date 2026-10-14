@@ -16,6 +16,32 @@ recipe docs) explicitly cannot produce.
 | `v1-56-waivers-faab-strip.spec.js` | V1-56 | The `/waivers` league-FAAB context strip renders the mean/median from the page's **own** `faabAnalytics` fetch (formatting-aware equality, including a measured `$0` median rendered honestly), and a missing/empty analytics payload renders an explicit `—` unavailable state or no strip — never invented zeros. The state the live payload produced is annotated. |
 | `v1-27-lineup-render.spec.js` | V1-27 / C2-U1 §10 item 2 | On the `/` war room, the Portfolio panel's starters list equals the authenticated contract's `sleeper.teams[].optimalLineup` stamp for the displayed team — slot sequence and player set, in the stamp's own order — the split-legend starter count equals the stamp's, unpriced players are excluded from both lists (upper-bound arithmetic when the live stamp has none, annotated rather than faked), and the truth-ladder note is absent iff the stamp came from live `rosterPositions`. On `/rosters`, the "Starters only" scope renders totals with no `starter-slots-unavailable` note exactly when every team is stamped. This is the one item `scripts/verify_lineup_production.py` marks "needs a browser". |
 
+### Release train 2 private surfaces
+
+`train2-private-surfaces.spec.js` covers the private routes release train 2
+(merge `bc51e7e2d`) shipped; `tests/e2e/test_prod_auth_route_inventory.py` is
+the static inventory that fails if one of them stops being probed (or stops
+being declared).
+
+| surface | ledger row(s) | proves |
+|---|---|---|
+| `GET /api/model-lab`, `/api/model-lab/{family}` | AL-0b (gate only) | a guest session gets `403 admin_required`, `no-store`, no Lab content. The Lab's CONTENT needs an admin and is not exercised |
+| `GET/PUT /api/user/trade-protections` | C3-CON-02 | per-league shape (`leagueKey` required → 400), `null` vocabularies when no board; a guest-pass PUT is `403 guest_read_only` and the GET after it is unchanged |
+| `GET /api/players/{p}/value-movement` + Player File "Why it moved" | UI-contract §10 / IC-7 | `additive: false`, `evidenceNotCause: true`, unobserved quantities named, an absent source has a `null` delta (never 0); the disclosure fetches only when opened and renders the evidence (both viewports) |
+| `GET /api/roster/intelligence` (core) | C2-CORE-01 | starters/reserves from the solve, `unpricedIds` disjoint from the core, every team in `leagueContext` |
+| `/waivers` Droppable | C2-DROP-01 | every rendered Droppable row is a rung of the page's own `?droppability=1` cut ladder, in cut order; undroppable players never appear |
+| `/rosters` Trade Targets | C2-WEAK-01 | the Top-need badge and need sections are the served `team.weakness` order, or the card states "Need priority unavailable" |
+| `GET /api/ros/pick-projections` | PICK-PROJECTOR-1652 / #1652 / C1-PICK-03 | `meta.source == season_simulation`; a league with no recorded draft-order rule gets `no_draft_order_rule_for_league`; no slot is ever 0 |
+| `GET /api/signals/reconciled` | C6-SIG-01 | `numericBlend: false`, per-emitter states, no player-level magnitude, conflicts labelled not resolved |
+| `GET /api/league/player-impact` | C5-WAR-01 | xWAR `unavailable`, no playoffs, every metric's known + unavailable weeks = rostered weeks, `null` (not 0) with no known week |
+
+Not verifiable with a guest pass, and named rather than implied: Model Lab
+content, the AL-4a / AL-3b scorecards (no route serves them; Model Lab is the
+only reader), and G4's as-known injury/news archives (box-local files).
+
+Tests titled `@desktop-only` are filtered from `prod-mobile` at collection
+(`grepInvert` in `prod-auth.config.js`) rather than collected and skipped.
+
 ## Env contract
 
 Both variables are **required**; without them every spec skips with an

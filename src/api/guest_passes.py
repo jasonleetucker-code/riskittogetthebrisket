@@ -19,7 +19,15 @@ on creation and is never recoverable from the DB.
 Lifecycle:
     create()      → pass exists with future ``expires_at_epoch``
     validate(t)   → returns the pass row when fresh; None otherwise
-    revoke(id)    → marks ``revoked_at_epoch``; subsequent validate fails
+    revoke(id)    → marks ``revoked_at_epoch``; subsequent validate fails,
+                    and every session minted from the pass is evicted
+                    from the persistent session store
+    session_authority(id) → may a session minted from this pass still
+                    authenticate?  ``server._get_auth_session`` asks on
+                    EVERY guest-session request, so a revoke made by
+                    another process (the verification workflow revokes
+                    over SSH, not through the server) takes effect on the
+                    very next request, whatever the in-memory cache holds
     list_passes() → all rows, owner-visible (notes + status, never
                     plaintext tokens)
     purge_expired() → opportunistic GC; called on validate.
@@ -279,10 +287,21 @@ def revoke(
     pass_id: int,
     *,
     db_path: Path | None = None,
+    session_db_path: Path | None = None,
 ) -> bool:
-    """Mark the pass revoked.  Returns True iff a row was updated.
-    Idempotent — re-revoking an already-revoked pass returns False
-    without raising.
+    """Mark the pass revoked AND evict every session minted from it.
+
+    Returns True iff the pass row was newly marked.  Idempotent —
+    re-revoking an already-revoked pass returns False without raising
+    (the session eviction still runs: it is a cleanup, not a state
+    change, and a previous eviction may have been interrupted).
+
+    Revoking used to only flip ``validate`` — a session minted from the
+    pass kept authenticating until the pass's own expiry, so a leaked
+    session cookie stayed live for the pass's whole window.  The pass
+    row is the authority now (``session_authority``, checked on every
+    guest request); deleting the persisted rows here is the
+    belt-and-braces half, so a restart cannot rehydrate them either.
     """
     path = db_path or _DEFAULT_DB_PATH
     if not _ensure_setup(path):
@@ -296,9 +315,53 @@ def revoke(
                 f"WHERE id = ? AND revoked_at_epoch IS NULL",
                 (now, int(pass_id)),
             )
-            return cur.rowcount > 0
+            changed = cur.rowcount > 0
         finally:
             conn.close()
+    try:
+        from src.api import session_store  # noqa: PLC0415 — avoid an import cycle
+
+        session_store.evict_guest_pass(int(pass_id), db_path=session_db_path)
+    except Exception as exc:  # noqa: BLE001 — the pass row is the authority
+        _LOGGER.warning("guest_passes revoke: session eviction failed: %s", exc)
+    return changed
+
+
+def get(pass_id: int, *, db_path: Path | None = None) -> GuestPass | None:
+    """The pass row by id, or ``None`` (unknown, purged, or unreadable)."""
+    path = db_path or _DEFAULT_DB_PATH
+    if not _ensure_setup(path):
+        return None
+    with _db_lock:
+        conn = _connect(path)
+        try:
+            row = conn.execute(
+                f"SELECT id, note, created_by, created_at_epoch, "
+                f"expires_at_epoch, revoked_at_epoch FROM {_TABLE} "
+                f"WHERE id = ? LIMIT 1",
+                (int(pass_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    return _row_to_pass(row) if row else None
+
+
+def session_authority(pass_id: Any, *, db_path: Path | None = None) -> bool:
+    """May a session minted from pass ``pass_id`` still authenticate?
+
+    True only for a pass that EXISTS, is not revoked and has not expired.
+    Fails closed on everything else: an unknown or purged pass, a
+    non-integer id, an unreadable store.  Missing authority is not
+    authority.
+    """
+    if isinstance(pass_id, bool) or not isinstance(pass_id, int) or pass_id <= 0:
+        return False
+    try:
+        row = get(pass_id, db_path=db_path)
+    except Exception as exc:  # noqa: BLE001 — fail closed
+        _LOGGER.warning("guest_passes session_authority read failed: %s", exc)
+        return False
+    return row is not None and row.is_active
 
 
 def list_passes(

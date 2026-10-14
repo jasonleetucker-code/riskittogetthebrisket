@@ -1196,7 +1196,14 @@ def build_section(
             preseason=preseason,
             as_of_season=current_label,
             reason="current_league_membership_incomplete",
-            detail=membership_error,
+            # Not ``membership_error`` itself: that names the current
+            # season's raw Sleeper league id and the unresolved owner ids,
+            # and this section is served on the PUBLIC /league route.  The
+            # full text is in the log line above.
+            detail=(
+                f"current season {current_label or '?'} league membership is "
+                "incomplete in the snapshot"
+            ),
         )
     host_scored_through = (
         _metrics.last_scored_week(current_season) if current_season is not None else None

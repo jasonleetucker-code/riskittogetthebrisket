@@ -10,8 +10,10 @@
 //     contractVersion: "public-league/YYYY-MM-DD.vN",
 //     leagueKey: "<registry key>" | null,   // which league answered (never a Sleeper id)
 //     league: {
-//       rootLeagueId, leagueName, seasonsCovered, leagueIds,
-//       currentLeagueId, generatedAt, managers: [ ... ]
+//       leagueName, seasonsCovered, historyCoverage, currentSeason,
+//       generatedAt, managers: [ ... ]
+//       // NO raw Sleeper ids (rootLeagueId / leagueIds / currentLeagueId /
+//       // per-row leagueId / draftId) — public_contract.RAW_SLEEPER_ID_FIELDS
 //     },
 //     sections: {
 //       history, rivalries, awards, records, franchise, activity,

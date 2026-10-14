@@ -103,7 +103,14 @@ def _level_league(names: list[str]):
 def _run(engine: str, names: list[str], *, playoff_teams: int = 2, sims: int = 2000):
     dists, schedule = _level_league(names)
     with (
-        mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: {o: {} for o in names}),
+        mock.patch.object(
+            playoff_sim,
+            "_current_standings",
+            lambda *a, **k: (
+                {o: {} for o in names},
+                {"medianGame": False, "state": "not_applicable"},
+            ),
+        ),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
         mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
@@ -306,7 +313,14 @@ def _run_spread(league_key, *, sims=600):
         for j in range(i + 1, len(names))
     ]
     with (
-        mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: {o: {} for o in names}),
+        mock.patch.object(
+            playoff_sim,
+            "_current_standings",
+            lambda *a, **k: (
+                {o: {} for o in names},
+                {"medianGame": False, "state": "not_applicable"},
+            ),
+        ),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
         mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),

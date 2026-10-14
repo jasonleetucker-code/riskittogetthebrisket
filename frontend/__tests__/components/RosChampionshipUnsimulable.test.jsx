@@ -96,3 +96,68 @@ describe("RosChampionshipSection — the team-strength refusal", () => {
     expect(screen.queryByText(/rosters could not be priced/i)).toBeNull();
   });
 });
+
+describe("RosChampionshipSection — withheld title odds (#1699 review F3)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const ROW = {
+    ownerId: "o1",
+    displayName: "Alice",
+    championshipOdds: null,
+    finalsOdds: null,
+    semifinalOdds: null,
+    playoffOdds: 0.95,
+    expectedFinish: null,
+    contenderTier: null,
+  };
+
+  it("shows championshipUnavailable.detail beside the seeding odds", async () => {
+    await renderWith({
+      championshipOdds: [ROW],
+      n_simulations: 10000,
+      playoffSeeds: 6,
+      byeSeeds: 2,
+      rosStrengthAvailable: true,
+      championshipUnavailable: {
+        reason: "fixed_bracket_field_unplayable",
+        detail: "the bracket cannot be played as the host plays it",
+      },
+    });
+    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    expect(screen.getByText(/cannot be played as the host plays it/i)).toBeTruthy();
+    expect(screen.getByText("95.0%")).toBeTruthy();
+  });
+
+  it("names a counted median game and an unverified standings rule", async () => {
+    await renderWith({
+      championshipOdds: [{ ...ROW, championshipOdds: 0.3 }],
+      n_simulations: 10000,
+      playoffSeeds: 7,
+      byeSeeds: 1,
+      rosStrengthAvailable: true,
+      standingsRule: { medianGame: true, state: "counted" },
+    });
+    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    expect(screen.getByText(/weekly league-median game/i)).toBeTruthy();
+    expect(screen.queryByText(/Title odds withheld/i)).toBeNull();
+  });
+
+  it("states an unverified standings rule in the backend's words", async () => {
+    await renderWith({
+      championshipOdds: [{ ...ROW, championshipOdds: 0.3 }],
+      n_simulations: 10000,
+      playoffSeeds: 7,
+      byeSeeds: 1,
+      rosStrengthAvailable: true,
+      standingsRule: {
+        medianGame: null,
+        state: "unverified",
+        reason: "median_setting_unknown",
+        detail: "records are head-to-head only and may not match the host",
+      },
+    });
+    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    expect(screen.getByText(/may not match the host/i)).toBeTruthy();
+  });
+});

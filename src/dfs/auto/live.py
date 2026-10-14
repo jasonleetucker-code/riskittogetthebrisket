@@ -10,6 +10,11 @@ here opens a second downloader:
   (flag ``sleeper_weekly_projections``);
 * identity/status → the Sleeper directory the app already keeps on disk
   (``consensus_edge.identity_join.load_player_directory``) — read-only here.
+
+NBA / NHL (DFS-AUTO-19):
+
+* salaries/pool → the same DFF adapter, per sport;
+* schedule → ``src.dfs.auto.league_schedule`` (ESPN scoreboard, cached 30 min).
 """
 
 from __future__ import annotations
@@ -50,6 +55,35 @@ def get_dff(platform: str) -> dict[str, Any]:
     }
 
 
+def get_daily_dff(sport: str, platform: str) -> dict[str, Any]:
+    """A daily sport's DFF page.  An EMPTY page is returned as such (no slate is
+    listed today — an off day or preseason), not raised: it is not a failure."""
+    from src.dfs import sources_dff
+
+    page = sources_dff.fetch(sport, platform)
+    return {
+        "rows": sources_dff.parse(page["html"]),
+        "url": page["url"],
+        "fetchedAt": page["fetchedAt"],
+        "updatedAt": sources_dff.page_updated_at(page["html"]),
+        "sha256": page["sha256"],
+    }
+
+
+def get_daily_schedule(sport: str, day: str) -> dict[str, Any]:
+    from src.dfs.auto import league_schedule
+
+    raw = league_schedule.fetch(sport, day)
+    games, dropped = league_schedule.parse(sport, raw["payload"])
+    return {
+        "games": games,
+        "dropped": dropped,
+        "url": raw["url"],
+        "fetchedAt": raw["fetchedAt"],
+        "sha256": raw["sha256"],
+    }
+
+
 def get_sleeper_rows(season: int, week: int) -> tuple[list[Any], str] | None:
     from src.ros.sleeper_weekly_projections import fetch_weekly_projection_rows
 
@@ -75,6 +109,16 @@ def enabled() -> bool:
         return False
 
 
+def sport_approved(sport: str) -> bool:
+    """NBA / NHL automatic slates need the owner's recorded approval of their
+    schedule source (``config/dfs/auto_sources.json``); NFL does not read it."""
+    if sport == "nfl":
+        return True
+    from src.dfs.auto import approval
+
+    return approval.sport_status(sport)["approved"]
+
+
 def refresh_nfl_live(force: bool = False) -> dict[str, Any]:
     from src.dfs.auto import refresh
 
@@ -90,7 +134,47 @@ def refresh_nfl_live(force: bool = False) -> dict[str, Any]:
     )
 
 
+def refresh_live(sport: str, force: bool = False) -> dict[str, Any]:
+    """One sport's refresh with the real fetchers (``nfl`` | ``nba`` | ``nhl``)."""
+    from src.dfs.auto import refresh
+
+    if sport == "nfl":
+        return refresh_nfl_live(force=force)
+    if not enabled():
+        return {
+            "outcome": "not_due",
+            "sport": sport,
+            "reason": "feature flag dfs_auto_slates is off",
+        }
+    if not sport_approved(sport):
+        # Built and ready, but the schedule source awaits the owner's decision
+        # (ADR-DFS-025): nothing is fetched, nothing is built.
+        return {"outcome": "awaiting_approval", "sport": sport, "reason": "schedule_source_pending"}
+    return refresh.refresh_daily(
+        sport, get_dff=get_daily_dff, get_schedule=get_daily_schedule, force=force
+    )
+
+
+def refresh_all_live(force: bool = False) -> dict[str, dict[str, Any]]:
+    """Every automatic sport, each deciding for itself whether it is due.  One
+    sport's failure never stops another's refresh."""
+    from src.dfs.auto import refresh
+
+    out: dict[str, dict[str, Any]] = {}
+    for sport in refresh.AUTO_SPORTS:
+        try:
+            out[sport] = refresh_live(sport, force=force)
+        except Exception as exc:  # noqa: BLE001 - recorded, never raised into the timer
+            out[sport] = {"outcome": "source_error", "sport": sport, "error": type(exc).__name__}
+    return out
+
+
 @jobs.register("dfs_auto_refresh")
 def _job(owner: str, params: dict[str, Any]) -> dict[str, Any]:
-    """Queued by a page view that finds the slates stale; same code as the timer."""
-    return refresh_nfl_live(force=False)
+    """Queued by a page view that finds a sport's slates stale; same code as the timer."""
+    sport = str((params or {}).get("sport") or "nfl")
+    from src.dfs.auto import refresh
+
+    if sport not in refresh.AUTO_SPORTS:
+        return {"outcome": "unavailable", "reason": f"no automatic path for {sport}"}
+    return refresh_live(sport, force=False)

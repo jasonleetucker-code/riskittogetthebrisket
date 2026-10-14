@@ -197,8 +197,6 @@ test.describe("Trade War Room (production)", () => {
       await expect(three.room.locator('[data-lens="feasibility"]').getByText(/likely cut:/)).toBeVisible();
     }
 
-    const shot = testInfo.outputPath("war-room-1for2.png");
-    await page.screenshot({ path: shot, fullPage: false });
-    await testInfo.attach("war-room-1for2", { path: shot, contentType: "image/png" });
+    // No screenshot: production pages are never captured into files (security S3).
   });
 });

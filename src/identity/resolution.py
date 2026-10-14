@@ -162,7 +162,11 @@ class SleeperDirectoryIndex:
     built alongside.
     """
 
-    def __init__(self, directory: Mapping[str, Any] | None):
+    def __init__(self, directory: Mapping[str, Any] | None, *, sport: str = "nfl"):
+        # The sport this directory answers for (Sleeper's dump is
+        # ``/v1/players/nfl``).  ``src.identity.athletes.resolve_athlete``
+        # refuses to resolve another sport's athlete against it (DFS-§9-03).
+        self.sport = sport
         self.by_clean: dict[str, list[SleeperCandidate]] = {}
         self.by_lookup: dict[str, list[SleeperCandidate]] = {}
         self.by_initial_last: dict[tuple[str, str], list[SleeperCandidate]] = {}

@@ -569,7 +569,14 @@ League-aware endpoints (all stamp `leagueKey` on their response):
 - `POST /api/angle/find`, `POST /api/angle/packages`
 - `GET /api/draft-capital`
 - `POST /api/scrape` (non-default leagueKey returns 501 today; multi-league scrape is future work)
-- `GET /api/public/league/*` (routes through `_public_league_id()` which reads the registry)
+- `GET /api/public/league*` — every public route, `.csv` included, takes an optional
+  `leagueKey` validated by `server.py::_public_league_key_error` (unknown → 400
+  `unknown_league`, inactive → 400 `inactive_league`, a league with no public
+  snapshot → 404 `league_not_public`, never the default substituted). Public
+  payloads carry NO raw Sleeper league/draft id: `public_contract.public_payload`
+  is the one serving projection (`RAW_SLEEPER_ID_FIELDS`, fail-closed in
+  `assert_public_payload_safe`); seasons are named by label, the league by
+  `leagueKey` (CSV: `X-League-Key` header)
 
 Backend map the frontend relies on: `leagueKey` → `sleeperLeagueId`
 + `rosterSettings` + `idpEnabled`.  Lookups go through

@@ -219,7 +219,9 @@ def test_pool_gets_platform_salary_positions_ids_and_kickoffs():
     fd, _ = _pool("fanduel")
     assert rep.used == len(pool_rows("draftkings")) and not rep.rejected
     a = next(x for x in dk if x.name == "LAR QB1")
-    assert a.player_id == "auto-LARQB1" and a.game == "LAR@PHI" and a.opponent == "PHI"
+    # The synthetic id carries its sport (DFS-§9-03); so does the athlete key.
+    assert a.player_id == "auto-nfl-LARQB1" and a.game == "LAR@PHI" and a.opponent == "PHI"
+    assert a.extra["athleteKey"].startswith("athlete:nfl:")
     assert a.start_time_utc == "2026-10-04T17:00:00+00:00"
     # DraftKings and FanDuel stay separate: own salaries and own defense label.
     b = next(x for x in fd if x.name == "LAR QB1")

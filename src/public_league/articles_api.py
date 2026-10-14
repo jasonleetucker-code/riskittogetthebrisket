@@ -39,6 +39,8 @@ from typing import Any, Callable
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from src.public_league.public_contract import public_payload
+
 # No prefix and no tags: the OpenAPI operations must stay byte-identical
 # to the pre-extraction app.
 router = APIRouter()
@@ -61,6 +63,17 @@ def _host() -> Any:
     return _host_provider()
 
 
+def _public_league_key_error(request: Request) -> JSONResponse | None:
+    """The public reads validate ``?leagueKey=`` exactly like every
+    ``/api/public/league*`` route (``server._public_league_key_error``,
+    resolved on the host at request time): articles describe the public
+    league, so a request naming another league is refused, never answered
+    with the default league's articles.  Read from ``query_params`` rather
+    than a declared parameter so the pinned OpenAPI operations are unchanged.
+    """
+    return _host()._public_league_key_error(request.query_params.get("leagueKey") or "")
+
+
 @router.get("/api/league/articles")
 async def get_league_articles(request: Request):
     """List narrative articles, optionally filtered by season/week.
@@ -77,6 +90,9 @@ async def get_league_articles(request: Request):
     """
     from src.public_league import matchup_narrative as _mn
 
+    league_err = _public_league_key_error(request)
+    if league_err is not None:
+        return league_err
     season = (request.query_params.get("season") or "").strip() or None
     week_raw = (request.query_params.get("week") or "").strip()
     try:
@@ -121,22 +137,30 @@ async def get_league_articles(request: Request):
             }
         )
 
+    # Same serving projection as every public-league route (raw Sleeper ids
+    # dropped, private-field walk) — fail-closed hygiene: articles carry
+    # none today.
     return JSONResponse(
-        content={
-            "articles": enriched,
-            "total": len(enriched),
-            "season": season,
-            "week": week_filter,
-        },
+        content=public_payload(
+            {
+                "articles": enriched,
+                "total": len(enriched),
+                "season": season,
+                "week": week_filter,
+            }
+        ),
         headers={"Cache-Control": "public, max-age=120"},
     )
 
 
 @router.get("/api/league/articles/{season}/{week}/{matchup_id}/{mode}")
-async def get_league_article(season: str, week: int, matchup_id: int, mode: str):
+async def get_league_article(season: str, week: int, matchup_id: int, mode: str, request: Request):
     """Single article — full body, ready to render."""
     from src.public_league import matchup_narrative as _mn
 
+    league_err = _public_league_key_error(request)
+    if league_err is not None:
+        return league_err
     if mode not in {"preview", "recap"}:
         return JSONResponse(
             status_code=400,
@@ -152,7 +176,7 @@ async def get_league_article(season: str, week: int, matchup_id: int, mode: str)
             },
         )
     return JSONResponse(
-        content=article,
+        content=public_payload(article),
         # Cache for 5 minutes; new articles propagate via cron not on-demand.
         headers={"Cache-Control": "public, max-age=300"},
     )

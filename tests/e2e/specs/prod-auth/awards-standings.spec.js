@@ -156,8 +156,6 @@ test.describe("Awards standings + 2026 Waiver King eligibility (production)", ()
     }
 
     await noPageOverflow(page);
-    const shot = testInfo.outputPath("awards-standings.png");
-    await page.screenshot({ path: shot, fullPage: false });
-    await testInfo.attach("awards-standings", { path: shot, contentType: "image/png" });
+    // No screenshot: production pages are never captured into files (security S3).
   });
 });

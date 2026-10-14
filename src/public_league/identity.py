@@ -77,19 +77,33 @@ class Manager:
     # history.
     is_retired: bool = False
 
+    def current_season(self) -> str | None:
+        """Season label of the league this manager is currently in, or
+        ``None`` when they are not in the current season."""
+        if not self.current_league_id:
+            return None
+        for alias in self.aliases:
+            if alias.league_id == self.current_league_id:
+                return alias.season
+        return None
+
     def to_public_dict(self) -> dict[str, Any]:
-        """Slim, public-safe serialization of a manager."""
+        """Slim, public-safe serialization of a manager.
+
+        Names seasons by their label, never by the raw Sleeper league id
+        (``current_league_id`` / ``TeamAlias.league_id`` stay internal —
+        see ``public_contract.RAW_SLEEPER_ID_FIELDS``).
+        """
         return {
             "ownerId": self.owner_id,
             "displayName": self.display_name or self.current_team_name or "Unknown",
             "avatar": self.avatar or "",
             "currentTeamName": self.current_team_name or "",
             "currentRosterId": self.current_roster_id,
-            "currentLeagueId": self.current_league_id or "",
+            "currentSeason": self.current_season(),
             "aliases": [
                 {
                     "season": a.season,
-                    "leagueId": a.league_id,
                     "teamName": a.team_name,
                     "displayName": a.display_name,
                     "avatar": a.avatar,
