@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><head><title>KTC trade calculator (fixture)</title></head><body>
+<!-- Trimmed capture of https://keeptradecut.com/trade-calculator taken 2026-10-13: the real
+     embed markup verbatim, the row list cut to six rows and each row to its identity fields. -->
+    <script type="application/json" id="ktc-players">[{"playerName":"Jahmyr Gibbs","playerID":1415,"slug":"jahmyr-gibbs-1415","position":"RB","positionID":2,"team":"DET","rookie":false,"age":24.6},{"playerName":"Jeremiyah Love","playerID":1934,"slug":"jeremiyah-love-1934","position":"RB","positionID":2,"team":"ARI","rookie":true,"age":21.4},{"playerName":"Jameson Williams","playerID":1273,"slug":"jameson-williams-1273","position":"WR","positionID":3,"team":"DET","rookie":false,"age":25.6},{"playerName":"Wan'Dale Robinson","playerID":1274,"slug":"wan-dale-robinson-1274","position":"WR","positionID":3,"team":"TEN","rookie":false,"age":25.8},{"playerName":"J.J. McCarthy","playerID":1555,"slug":"jj-mccarthy-1555","position":"QB","positionID":1,"team":"NYG","rookie":false,"age":23.7},{"playerName":"2027 Mid 4th","playerID":1712,"slug":"2027-mid-4th-1712","position":"RDP","positionID":5,"team":"FA","rookie":false,"age":0.0}]</script>
+    <script>
+            var playersArray = JSON.parse(document.getElementById('ktc-players').textContent);
+            var oneQBSC = false;
+            var sfSC = false;
+    </script>
+</body></html>

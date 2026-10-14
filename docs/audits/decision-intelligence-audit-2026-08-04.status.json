@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 18,
+  "open": 17,
   "needs_review": 2,
-  "closed": 22,
+  "closed": 23,
   "deferred": 1
  },
  "findings": [
@@ -486,13 +486,13 @@
    "auditId": "T-9",
    "path": "src/trade/suggestions.py",
    "signature": "analyze_roster(roster_names, pool",
-   "status": "open",
-   "verifiedBy": "Still called with a name list the pool can only partly resolve.\n\nSIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY UNCHANGED. The call site gained a `constraints=` keyword when the recommendation-constraint owner was wired in, so the old needle `analyze_roster(roster_names, pool, starter_needs)` stopped matching and the probe flipped to signature_absent. That is the case this module's own docstring warns about: an absent signature means the cited MECHANISM changed, not that the defect is fixed. It is not fixed \u2014 C3-CON-01 decides which resolved assets may be OFFERED and does nothing whatever about resolution, which is what T-9 is about. The needle is respelled to the part that IS the defect (the name list reaching `analyze_roster`) rather than to the full argument list, so a further keyword cannot flip it again and invite a second close-on-a-respelling.",
+   "status": "closed",
+   "verifiedBy": "CLOSED 2026-10-14 (trade-discovery Batch 1, claude/trade-constraints-lock-exclude). The roster is now analysed against the WHOLE priced board (`analysis_pool = roster_pool`, built with `ktc_top_n=0` by the route), not the top-150 quality pool that only gates what may be proposed. Measured on the 2026-10-14 archive board: roster visibility 86-97% per team (was 3-36% against the top-150 pool); teams with zero suggestions 10 -> 4 of 12, each with a named `noResultReason`. The remaining 3-14% are players with no board price at all and are published by name in `metadata.rosterUnpriced` rather than dropped. Tripwire: the needle is the retired call shape \u2014 passing the top-N `pool` to `analyze_roster` again would re-open T-9.\n\nHistory: respelled 2026-08-19 (C3-CON-01) while still open; the C3-CON-01 constraints keyword decided what may be OFFERED and did nothing about resolution.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "src/trade/suggestions.py",
     "needle": "analyze_roster(roster_names, pool"
    }
