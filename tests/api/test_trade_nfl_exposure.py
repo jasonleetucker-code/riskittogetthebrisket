@@ -315,12 +315,19 @@ def test_simulate_endpoint_attaches_the_exposure_block(two_league_registry, monk
 
 
 def test_analyze_endpoint_verdict_ignores_the_exposure_block(two_league_registry, monkeypatch):  # noqa: F811
+    # The route also feeds comparable real trades into the packet (a
+    # non-voting lens).  Pin them so the recomputation below sees the same
+    # input and this test isolates exactly one thing: the exposure block.
+    from src.trade import comparable_trades as ct
+
+    comps = {"state": "unavailable", "reason": "trade_ledger_not_built"}
+    monkeypatch.setattr(ct, "comparable_trades", lambda *_a, **_k: dict(comps))
     res = _post(monkeypatch, "/api/trade/analyze", _BODY)
     assert res.status_code == 200, res.text
     body = res.json()
     assert "nflExposure" in body
     stripped = {k: v for k, v in body.items() if k not in ("nflExposure", "analysis")}
-    assert _canon(analyze_trade(stripped)) == _canon(body["analysis"])
+    assert _canon(analyze_trade(stripped, comparables=comps)) == _canon(body["analysis"])
 
 
 def test_simulate_endpoint_degrades_when_exposure_fails(two_league_registry, monkeypatch):  # noqa: F811
