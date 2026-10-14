@@ -1127,6 +1127,14 @@ them without reading why (WS-J F-3/F-4):
 | `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board** — `display_value` order, covers every asset class |
 | `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — KTC Market (`ktcCrowdTradesSfTep`, via `src/sources/ktc_market.py`) for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
 
+`suggestions.py`'s quality pool is the top-150 **plus a positional floor**
+(2026-10-14, owner inventory 2.3/2.4): every position the league starts also
+admits its top `starters x teamCount` board players, because the global top-150
+held no defensive backs and DB targets never existed.  Roster ANALYSIS reads
+the whole roster; what may be OFFERED stays inside that pool.  Needs come from
+the canonical Team Weakness owner when the submitted roster is exactly a league
+team's, else the count-based need with `needSource.weaknessUnavailableReason`.
+
 `finder.py` must anchor on a real retail value because its whole
 premise is arbitrage between our board and the market — the market
 number is load-bearing in its arithmetic. `suggestions.py` only needs

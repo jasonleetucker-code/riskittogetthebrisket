@@ -8190,9 +8190,24 @@ async def get_bdvm_trades(request: Request):
     team = (request.query_params.get("team") or "").strip() or None
     from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
 
+    # C3-CON-01 — persistent protections constrain the requester's OWN giving
+    # side.  With ``team`` that is side A; on a league-wide scan it is the
+    # session's own roster (resolved like /api/gameplan does), and the scan
+    # fails closed when protections exist but no roster can be matched.
+    bdvm_constraints = _constraints_for_request(
+        request, contract, league_cfg, surface="/api/bdvm/trades"
+    )
+    # Always the REQUESTER's roster, whichever side of a scanned pair it is on.
+    bdvm_owner_id = _requester_owner_id(request, league_cfg)
+
     try:
         payload = await run_in_threadpool(
-            _bdvm_api.get_bdvm_trades, contract, league_cfg.key, team=team
+            _bdvm_api.get_bdvm_trades,
+            contract,
+            league_cfg.key,
+            team=team,
+            constraints=bdvm_constraints,
+            constrained_owner_id=bdvm_owner_id,
         )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
@@ -8353,6 +8368,24 @@ async def get_gameplan(request: Request):
         )
 
     partner_owner_id = (params.get("partner") or "").strip() or None
+    # C3-CON-01 — the package generator proposes what THIS team sends, so the
+    # requester's persistent protections apply (the one shared resolver; there
+    # is no refinement UI on this surface).  Only resolved when packages are
+    # actually generated.
+    # The requester's protections bind the requester's OUTGOING side: our
+    # assets when they view their own team, the partner's assets when they are
+    # the partner, and nothing when they are neither side.
+    gameplan_constraints = partner_side_constraints = None
+    if partner_owner_id:
+        requester = _requester_owner_id(request, league_cfg)
+        if requester and requester in (owner_id, partner_owner_id):
+            resolved = _constraints_for_request(
+                request, contract, league_cfg, surface="/api/gameplan"
+            )
+            if requester == owner_id:
+                gameplan_constraints = resolved
+            else:
+                partner_side_constraints = resolved
 
     try:
         payload = await run_in_threadpool(
@@ -8362,6 +8395,8 @@ async def get_gameplan(request: Request):
             contract,
             owner_id,
             partner_owner_id=partner_owner_id,
+            constraints=gameplan_constraints,
+            partner_constraints=partner_side_constraints,
         )
     except _gameplan.GameplanUnavailable as exc:
         return JSONResponse(
@@ -8838,8 +8873,15 @@ async def post_trade_suggestions(request: Request):
     # C3-CON-01 — resolved on the request thread (it reads the session and the
     # user store) and handed to the generator, which applies it during
     # enumeration.
+    suggestion_refinement, refinement_error = _refinement_from_body(body)
+    if refinement_error is not None:
+        return refinement_error
     constraints = _constraints_for_request(
-        request, contract, league_cfg, surface="/api/trade/suggestions"
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/suggestions",
+        refinement=suggestion_refinement,
     )
 
     # Pool build + suggestion generation are heavy CPU passes over the
@@ -8847,9 +8889,20 @@ async def post_trade_suggestions(request: Request):
     # exactly like /api/trade/finder already does, instead of stalling
     # the event loop for every concurrent request.
     def _generate():
-        pool = build_asset_pool_from_contract(
-            contract,
-            ktc_top_n=ktc_top_n,
+        from src.trade.suggestions import _apply_board_top_n_filter
+
+        # The FULL board (every row ranked, nothing cut) feeds roster analysis
+        # and the positional floor; the top-N cut of it is the quality pool
+        # proposals are drawn from.  One build, two views — the cut is the
+        # same ``_apply_board_top_n_filter`` the builder would have applied.
+        full_pool = build_asset_pool_from_contract(contract, ktc_top_n=0)
+        pool = _apply_board_top_n_filter(list(full_pool), ktc_top_n)
+        sleeper_block = contract.get("sleeper") if isinstance(contract, dict) else None
+        league_team_count = len((sleeper_block or {}).get("teams") or []) or (
+            len(league_rosters) + 1 if league_rosters else None
+        )
+        weakness_needs, weakness_reason = _suggestion_weakness_needs(
+            contract, league_cfg, roster, league_team_count
         )
         # Roster capacity for the requesting team, built ONCE and reused
         # across every proposal — the expensive part (joining the roster to
@@ -8874,6 +8927,10 @@ async def post_trade_suggestions(request: Request):
             ktc_top_n=ktc_top_n,
             capacity_context=capacity_context,
             constraints=constraints,
+            roster_pool=full_pool,
+            team_count=league_team_count,
+            weakness_needs=weakness_needs,
+            weakness_unavailable_reason=weakness_reason,
         )
 
     try:
@@ -8888,6 +8945,58 @@ async def post_trade_suggestions(request: Request):
         result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _suggestion_weakness_needs(
+    contract: Any, league_cfg: Any, roster: list, team_count: int | None
+) -> tuple[list[str] | None, str | None]:
+    """The canonical Team Weakness answer for the roster being analysed.
+
+    ``(positions rated critical/high, None)``, or ``(None, reason)``.  The
+    request carries a roster LIST, not a team, so the team is identified by
+    roster overlap: the one ``sleeper.teams`` entry holding at least 80% of the
+    submitted names, and strictly more than any other.  Anything weaker — a
+    hand-typed what-if roster, two near-identical teams — is unresolved and the
+    engine keeps its count-based need, stamped with the reason.  Guessing a
+    team would publish another manager's needs as this roster's.
+    """
+    teams = ((contract or {}).get("sleeper") or {}).get("teams") or []
+    wanted = {str(n).strip().lower() for n in roster if str(n).strip()}
+    if not teams or not wanted:
+        return None, "no_league_rosters"
+    scored = sorted(
+        (
+            (len(wanted & {str(p).strip().lower() for p in (t.get("players") or [])}), t)
+            for t in teams
+            if isinstance(t, dict)
+        ),
+        key=lambda pair: -pair[0],
+    )
+    best, team = scored[0]
+    team_players = {str(p).strip().lower() for p in (team.get("players") or [])}
+    if best == 0 or team_players != wanted:
+        # Only the team's ACTUAL roster carries its weakness answer.  A what-if
+        # roster (the real team minus two QBs, say) would otherwise inherit the
+        # stored team's needs — QB "not a need" while the submitted roster has
+        # no QB.  Anything but an exact match keeps the count-based need.
+        return None, "roster_differs_from_league_team"
+    owner_id = str(team.get("ownerId") or "")
+    if not owner_id:
+        return None, "owner_id_unresolved"
+    try:
+        from src.api.roster_intelligence import team_weakness_for
+
+        weakness = team_weakness_for(contract, owner_id, team_count=team_count)
+    except Exception as exc:  # noqa: BLE001 — context never fails suggestions
+        log.info("suggestion weakness unavailable: %s", exc)
+        return None, "weakness_owner_failed"
+    if not weakness.get("available"):
+        return None, str(weakness.get("unavailableReason") or "weakness_unavailable")
+    return [
+        str(n["position"])
+        for n in weakness.get("needs") or []
+        if n.get("position") and n.get("level") in ("critical", "high")
+    ], None
 
 
 def _finder_postures(contract: Any, league_cfg: Any, sleeper_teams: Any) -> dict[str, str] | None:
@@ -9030,8 +9139,15 @@ async def post_trade_finder(request: Request):
     # C3-CON-01 — the finder was the only engine that already accepted
     # `constraints`, and this route never passed any, so it ran unconstrained in
     # production while the parameter looked wired.
+    finder_refinement, refinement_error = _refinement_from_body(body)
+    if refinement_error is not None:
+        return refinement_error
     finder_constraints = _constraints_for_request(
-        request, contract, league_cfg, surface="/api/trade/finder"
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/finder",
+        refinement=finder_refinement,
     )
 
     # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
@@ -9487,8 +9603,15 @@ async def post_angle_packages(request: Request):
         # C3-CON-01.  Acquire mode is the one Angle mode that CHOOSES outgoing
         # assets — the other two enumerate what we would receive against a send
         # side the user typed — so it is the one that carries constraints.
+        angle_refinement, refinement_error = _refinement_from_body(body)
+        if refinement_error is not None:
+            return refinement_error
         angle_constraints = _constraints_for_request(
-            request, contract, league_cfg, surface="/api/angle/packages"
+            request,
+            contract,
+            league_cfg,
+            surface="/api/angle/packages",
+            refinement=angle_refinement,
         )
 
         try:
@@ -9828,12 +9951,51 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
             result["warnings"] = [note]
 
 
+def _requester_owner_id(request: "Request", league_cfg: Any) -> str | None:
+    """The requesting user's own Sleeper owner id in this league, or ``None``.
+
+    Recommendation constraints are the requester's, so they bind the
+    requester's roster — never the subject team of a request that happens to
+    name someone else.  Resolved the same way ``/api/gameplan`` infers its
+    default team: the session's Sleeper id, else the league's default team map.
+    """
+    session = _get_auth_session(request) or {}
+    owner = str(session.get("sleeper_user_id") or "").strip()
+    if owner:
+        return owner
+    username = str(session.get("username") or "").strip().lower()
+    mapped = (getattr(league_cfg, "default_team_map", None) or {}).get(username) or {}
+    return str(mapped.get("ownerId") or "").strip() or None
+
+
+def _refinement_from_body(body: Any) -> tuple[dict | None, JSONResponse | None]:
+    """Validated temporary LOCK/EXCLUDE (C3-CON-03) from a request body.
+
+    ``(refinement, error_response)``.  The wire field is ``refinement:
+    {lock: [...], exclude: [...]}``; absent means none.  Validation is the
+    constraint owner's (``validate_refinement``), so every generated-trade
+    route refuses the same malformed or contradictory request with the same
+    400 rather than each one guessing.
+    """
+    from src.trade.constraints import validate_refinement
+
+    raw = body.get("refinement") if isinstance(body, dict) else None
+    clean, errors = validate_refinement(raw)
+    if errors:
+        return None, JSONResponse(
+            status_code=400,
+            content={"error": "invalid_refinement", "errors": errors},
+        )
+    return clean, None
+
+
 def _constraints_for_request(
     request: "Request",
     contract: dict | None,
     league_cfg: Any,
     *,
     surface: str,
+    refinement: dict | None = None,
 ) -> Any:
     """Recommendation constraints for one (user, league), or the fail-closed set.
 
@@ -9848,7 +10010,9 @@ def _constraints_for_request(
     saved anything resolves to "nothing configured", which is a legitimate
     answer and NOT a failure: §7 acceptance 12 and the owner's own
     ``test_no_configured_preference_is_not_a_failure`` both turn on that
-    distinction.  Temporary LOCK/EXCLUDE refinement is ``C3-CON-03``.
+    distinction.  Temporary LOCK/EXCLUDE refinement (``C3-CON-03``) arrives
+    already validated through ``refinement`` and is resolved by the same owner;
+    it is never stored, so a temporary EXCLUDE cannot become permanent.
 
     Fail-closed is reserved for genuinely not knowing.  An anonymous request has
     no protections, which is knowable; a store that RAISES is not, and returns
@@ -9870,7 +10034,7 @@ def _constraints_for_request(
                     block = by_league.get(league_key)
                     if isinstance(block, dict):
                         persistent = block
-        return resolve_constraints(contract=contract, persistent=persistent)
+        return resolve_constraints(contract=contract, persistent=persistent, refinement=refinement)
     except Exception as exc:  # noqa: BLE001 — unknown must not become unconstrained
         log.warning("recommendation constraints unresolved for %s: %s", surface, exc)
         return UNRESOLVED

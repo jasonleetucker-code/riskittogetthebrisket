@@ -667,6 +667,7 @@ def generate_packages(
     max_candidates_per_stage: int = 400,
     allow_scalar_fallback: bool = False,
     constraints: Any | None = None,
+    our_limit: int | None = None,
 ) -> dict[str, Any]:
     """Generate, filter and return a Pareto frontier of trade packages.
 
@@ -696,6 +697,10 @@ def generate_packages(
             copy. Only the OUTGOING side is constrained: a protected player
             stays a valid incoming target. ``None`` (the default) generates
             exactly as before — every existing caller is unaffected.
+        our_limit: cap on ``our_assets`` applied AFTER the constraints.
+            A caller that truncated first would let protected players
+            occupy the top slots and then vanish, offering fewer than the
+            cap.  ``None`` keeps every sendable asset.
 
     Returns:
         ``{"frontier": [...], "bestBy": {...}, "rejected": [...],
@@ -709,6 +714,8 @@ def generate_packages(
     # nothing for the one production caller today (src/api/gameplan.py),
     # which passes no constraints argument.
     our_assets, blocked_outgoing = partition_sendable(our_assets, constraints)
+    if our_limit is not None and our_limit >= 0:
+        our_assets = list(our_assets)[:our_limit]
 
     base_lineup = optimal_score(our_pool, slots)
     our_size = len(our_pool)

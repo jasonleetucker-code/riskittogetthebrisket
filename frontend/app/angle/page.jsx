@@ -18,6 +18,16 @@ import {
   StatTile,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
+import {
+  emptyRefinement,
+  loadRefinement,
+  refinementKey,
+  saveRefinement,
+  toRequest,
+  toggleExclude,
+  toggleLock,
+} from "@/lib/trade-refinement";
+import { OutgoingRefinement, RefinementBar } from "@/components/trade/RefinementControls";
 import styles from "./angle.module.css";
 
 // ── /angle — the counter-pitch builder ────────────────────────────────
@@ -104,7 +114,7 @@ function RosterPicker({
 
 // ── Results ───────────────────────────────────────────────────────────
 
-function PackagePlayers({ players }) {
+function PackagePlayers({ players, refine = null }) {
   return (
     <div className={styles.packagePlayers}>
       {(players || []).map((p) => (
@@ -115,6 +125,15 @@ function PackagePlayers({ players }) {
             {fmtValue(p.my_value)} · {fmtValue(p.market_value)}{" "}
             {marketLabelForSource(p.market_source)}
           </span>
+          {refine ? (
+            <OutgoingRefinement
+              name={p.name}
+              refinement={refine.refinement}
+              onLock={refine.onLock}
+              onExclude={refine.onExclude}
+              disabled={refine.disabled}
+            />
+          ) : null}
         </span>
       ))}
     </div>
@@ -187,6 +206,9 @@ export default function AnglePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
+  // C3-CON-03: LOCK / EXCLUDE on what acquire mode proposes to SEND.  Kept per
+  // (team, league, acquire selection) until cleared; never a saved protection.
+  const [refinement, setRefinement] = useState(emptyRefinement);
 
   useEffect(() => {
     if (ownerId) return;
@@ -301,7 +323,7 @@ export default function AnglePage() {
     [totalsFor, targetPlayerNameList],
   );
 
-  async function findTrades() {
+  async function findTrades(nextRefinement = refinement) {
     if (!ownerId) {
       setErr("Pick your team.");
       return;
@@ -322,6 +344,7 @@ export default function AnglePage() {
             acquirePlayerNames: targetPlayerNameList,
             minMyGainPct: Number(minMyGainPct),
             maxMarketGainPct: Number(maxMarketGainPct),
+            refinement: toRequest(nextRefinement),
           }
         : {
             mode: "offer",
@@ -370,6 +393,40 @@ export default function AnglePage() {
 
   const canSubmit = !!ownerId && (isAcquireMode || playerNameList.length > 0) && !loading;
 
+  const refinementStorageKey = useMemo(
+    () =>
+      refinementKey({
+        owner: activeOwnerId,
+        leagueKey: selectedLeagueKey,
+        surface: "angle-acquire",
+        context: `${ownerId}|${targetOwnerId}|${[...targetPlayerNameList].sort().join(",")}`,
+      }),
+    [activeOwnerId, selectedLeagueKey, ownerId, targetOwnerId, targetPlayerNameList],
+  );
+
+  useEffect(() => {
+    setRefinement(loadRefinement(refinementStorageKey));
+  }, [refinementStorageKey]);
+
+  function applyRefinement(next) {
+    setRefinement(next);
+    saveRefinement(refinementStorageKey, next);
+    // Regenerate immediately (spec §3.3); the server applies the refinement
+    // during enumeration through the one constraint owner.  Only while the
+    // form is still in acquire mode — an offer-mode request carries no
+    // refinement, and silently dropping the lock would misreport it.
+    if (resultIsAcquire && isAcquireMode) void findTrades(next);
+  }
+
+  const refine = resultIsAcquire
+    ? {
+        refinement,
+        onLock: (name) => applyRefinement(toggleLock(refinement, name)),
+        onExclude: (name) => applyRefinement(toggleExclude(refinement, name)),
+        disabled: loading,
+      }
+    : null;
+
   const packageColumns = useMemo(
     () => [
       {
@@ -384,7 +441,7 @@ export default function AnglePage() {
                 : `From ${c.team || "(unknown)"}`}{" "}
               · {c.size} {c.size === 1 ? "player" : "players"}
             </span>
-            <PackagePlayers players={c.players} />
+            <PackagePlayers players={c.players} refine={refine} />
           </div>
         ),
       },
@@ -434,7 +491,8 @@ export default function AnglePage() {
         headerInfo: "Arbitrage edge — your gain net of the market gap.",
       },
     ],
-    [resultIsAcquire, targetTeam],
+    // ``refine`` carries the live LOCK / EXCLUDE state and handlers.
+    [resultIsAcquire, targetTeam, refine],
   );
 
   if (dataLoading) {
@@ -622,7 +680,12 @@ export default function AnglePage() {
         </div>
 
         <div className={styles.actions}>
-          <Button variant="primary" onClick={findTrades} disabled={!canSubmit} loading={loading}>
+          <Button
+            variant="primary"
+            onClick={() => findTrades()}
+            disabled={!canSubmit}
+            loading={loading}
+          >
             {isAcquireMode
               ? `Find what to give up (${targetPlayerNameList.length})`
               : `Find return options${playerNameList.length ? ` (${playerNameList.length})` : ""}`}
@@ -638,6 +701,17 @@ export default function AnglePage() {
             </Button>
           ) : null}
         </div>
+
+        {resultIsAcquire ? (
+          <RefinementBar
+            refinement={refinement}
+            onLock={refine.onLock}
+            onExclude={refine.onExclude}
+            onSkip={() => {}}
+            onClear={() => applyRefinement(emptyRefinement())}
+            disabled={loading}
+          />
+        ) : null}
 
         {err ? (
           <Banner tone="negative" title="Couldn't find packages">
@@ -681,7 +755,7 @@ export default function AnglePage() {
             defaultSort={{ key: "arb_score", direction: "desc" }}
             emptyState={
               <EmptyState
-                title="No packages clear the bar"
+                title={result?.noResultLabel || "No packages clear the bar"}
                 description={`Nothing hits +${Number(minMyGainPct)}% / ±${Number(maxMarketGainPct)}% with this selection${
                   targetTeam ? ` against ${targetTeam.name}` : ""
                 }. Try a different selection, loosen the thresholds under Advanced, or remove the team filter.`}

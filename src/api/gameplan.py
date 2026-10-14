@@ -1075,6 +1075,8 @@ def build_gameplan(
     weakness: Mapping[str, Any],
     partner_owner_id: str | None = None,
     cache_hit: bool = False,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Assemble one team's gameplan payload.
 
@@ -1142,7 +1144,9 @@ def build_gameplan(
     # ── packages (only against a named counterparty) ─────────────────
     packages_payload: dict[str, Any] | None = None
     if partner_owner_id:
-        packages_payload = _build_packages(bundle, owner_id, partner_owner_id)
+        packages_payload = _build_packages(
+            bundle, owner_id, partner_owner_id, constraints, partner_constraints
+        )
 
     payload: dict[str, Any] = {
         "contractVersion": GAMEPLAN_CONTRACT_VERSION,
@@ -1188,8 +1192,23 @@ def build_gameplan(
     return payload
 
 
-def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) -> dict[str, Any]:
-    """Trade Package Generator output against one counterparty."""
+def _build_packages(
+    bundle: LeagueBundle,
+    owner_id: str,
+    partner_owner_id: str,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
+) -> dict[str, Any]:
+    """Trade Package Generator output against one counterparty.
+
+    Recommendation constraints (C3-CON-01, ``src/trade/constraints``) bind the
+    REQUESTER's outgoing side, wherever that is.  ``constraints`` applies when
+    the requester is the subject team (``owner_id``): our assets, before the
+    per-side cap, inside ``generate_packages``.  ``partner_constraints`` applies
+    when the requester is the PARTNER — what the generator asks the partner for
+    is what the requester would send, so those assets are partitioned before
+    the cap too.  The route passes at most one of the two.
+    """
     partner_team = bundle.team(partner_owner_id)
     if partner_team is None:
         return {
@@ -1199,14 +1218,27 @@ def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) 
             "bestBy": {},
         }
 
-    ours = _trade_assets(bundle, owner_id, surplus_only=True)[:MAX_PACKAGE_ASSETS_PER_SIDE]
-    theirs = _trade_assets(bundle, partner_owner_id, surplus_only=True)[
-        :MAX_PACKAGE_ASSETS_PER_SIDE
-    ]
+    # Uncapped here: the cap is applied by the generator AFTER the constraints,
+    # so a protected player cannot occupy a slot and then vanish.
+    ours = _trade_assets(bundle, owner_id, surplus_only=True)
+    theirs_all = _trade_assets(bundle, partner_owner_id, surplus_only=True)
+    partner_blocked: list = []
+    if partner_constraints is not None:
+        from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+        theirs_all, partner_blocked = partition_sendable(theirs_all, partner_constraints)
+    theirs = list(theirs_all)[:MAX_PACKAGE_ASSETS_PER_SIDE]
     # Cornerstones must come from their FULL roster: derived from the
     # filtered ask list, every asset looks elite relative to that list
     # and the premium rule refuses almost every package.
     their_full = _trade_assets(bundle, partner_owner_id, surplus_only=False)
+
+    if constraints is not None:
+        from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+        ours_sendable, _ours_blocked = partition_sendable(ours, constraints)
+    else:
+        ours_sendable = list(ours)
 
     roster_settings = bundle.inputs.roster_limit
     result = _packages.generate_packages(
@@ -1220,13 +1252,20 @@ def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) 
         their_signal=bundle.signals[partner_owner_id],
         roster_limit=roster_settings,
         gate_pct=DEFAULT_GATE_PCT,
+        constraints=constraints,
+        our_limit=MAX_PACKAGE_ASSETS_PER_SIDE,
     )
+    if partner_constraints is not None:
+        result["partnerConstraintsBlockedOutgoing"] = len(partner_blocked)
     result["partner"] = {
         "ownerId": partner_owner_id,
         "teamName": partner_team.team_name,
     }
     result["assetPolicy"] = {
-        "ourAssetsOffered": len(ours),
+        # Counted by the constraint owner itself rather than read back from
+        # the generator's payload, so the figure cannot depend on a key a
+        # caller (or a stub) omits.
+        "ourAssetsOffered": min(MAX_PACKAGE_ASSETS_PER_SIDE, len(ours_sendable)),
         "theirAssetsOffered": len(theirs),
         "maxPerSide": MAX_PACKAGE_ASSETS_PER_SIDE,
         "filter": "tradeable surplus that the contract prices on the dynasty market",
@@ -1260,6 +1299,8 @@ def get_team_gameplan(
     owner_id: str,
     *,
     partner_owner_id: str | None = None,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Cached end-to-end build for one team.  Runs off the event loop.
 
@@ -1273,7 +1314,20 @@ def get_team_gameplan(
         raise TeamNotInLeague(owner_id)
 
     stamp = bundle.inputs.source_stamp
-    cache_key = "\x00".join([league_key, stamp, owner_id, partner_owner_id or ""])
+    # The package section depends on the requester's protections, so an active
+    # constraint set is part of the key — one user's untouchables must never be
+    # served from (or into) another user's cached packages.
+    constraints_key = ""
+    active = [
+        (side, c.to_dict())
+        for side, c in (("ours", constraints), ("partner", partner_constraints))
+        if c is not None and getattr(c, "active", False)
+    ]
+    if partner_owner_id and active:
+        constraints_key = hashlib.sha1(
+            json.dumps(active, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+    cache_key = "\x00".join([league_key, stamp, owner_id, partner_owner_id or "", constraints_key])
     with _CACHE_LOCK:
         cached = _TEAM_CACHE.get(cache_key)
         if cached is not None and cached[0] == stamp:
@@ -1311,6 +1365,8 @@ def get_team_gameplan(
             weakness=weakness,
             partner_owner_id=partner_owner_id,
             cache_hit=cache_hit,
+            constraints=constraints,
+            partner_constraints=partner_constraints,
         )
         with _CACHE_LOCK:
             if epoch == _CACHE_EPOCH:

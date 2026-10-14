@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
@@ -22,6 +22,21 @@ import {
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
 import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
+import {
+  emptyRefinement,
+  loadRefinement,
+  refinementKey,
+  saveRefinement,
+  toRequest,
+  toggleExclude,
+  toggleLock,
+  toggleSkip,
+} from "@/lib/trade-refinement";
+import {
+  IncomingSkip,
+  OutgoingRefinement,
+  RefinementBar,
+} from "@/components/trade/RefinementControls";
 
 // C3-CTX-01 — the same Team context / Asset only switch the Trade War Room
 // uses.  ON lets this team's roster (needs, forced releases) shape the order;
@@ -149,7 +164,7 @@ function PlayerEdgeTable({ opportunities }) {
   );
 }
 
-function AssetList({ assets, onExclude }) {
+function AssetList({ assets, side, refine }) {
   if (!assets?.length) return <span className={styles.muted}>—</span>;
   return (
     <ul className={styles.assetList}>
@@ -165,16 +180,22 @@ function AssetList({ assets, onExclude }) {
                 ? ` · market ≈${fmt(a.ktcValue)} (KTC tier average — slot unknown)`
                 : ` · market ${fmt(a.ktcValue)}`}
           </span>
-          {onExclude && a.name ? (
-            <button
-              type="button"
-              className={styles.excludeButton}
-              aria-label={`Exclude ${a.name} from suggestions`}
-              title="Exclude from this scan"
-              onClick={() => onExclude(a.name)}
-            >
-              ×
-            </button>
+          {refine && a.name && side === "give" ? (
+            <OutgoingRefinement
+              name={a.name}
+              refinement={refine.refinement}
+              onLock={refine.onLock}
+              onExclude={refine.onExclude}
+              disabled={refine.disabled}
+            />
+          ) : null}
+          {refine && a.name && side === "receive" ? (
+            <IncomingSkip
+              name={a.name}
+              refinement={refine.refinement}
+              onSkip={refine.onSkip}
+              disabled={refine.disabled}
+            />
           ) : null}
         </li>
       ))}
@@ -182,7 +203,7 @@ function AssetList({ assets, onExclude }) {
   );
 }
 
-function TradeCard({ trade, myTeam, opponent, onExclude }) {
+function TradeCard({ trade, myTeam, opponent, refine }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
   const counterparty = trade.counterparty || (opponent && opponent !== "all" ? opponent : null);
@@ -243,11 +264,11 @@ function TradeCard({ trade, myTeam, opponent, onExclude }) {
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
-          <AssetList assets={trade.give} onExclude={onExclude} />
+          <AssetList assets={trade.give} side="give" refine={refine} />
         </div>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You get</h4>
-          <AssetList assets={trade.receive} onExclude={onExclude} />
+          <AssetList assets={trade.receive} side="receive" refine={refine} />
         </div>
       </div>
       {openInCalculator ? (
@@ -290,7 +311,10 @@ export default function ArbitragePage() {
   const [edgeAction, setEdgeAction] = useState("buy");
   const [edgeClass, setEdgeClass] = useState("all");
   const [edgeFloor, setEdgeFloor] = useState(0.05);
-  const [excludedPlayers, setExcludedPlayers] = useState([]);
+  // C3-CON-03 LOCK / EXCLUDE (+ the incoming-only "Skip target").  Kept per
+  // (team, league, scan context) in localStorage until cleared — never in the
+  // persistent trade-protection store.
+  const [refinement, setRefinement] = useState(emptyRefinement);
   const [useTeamContext, setUseTeamContext] = useState(true);
   // Only the LATEST scan may write the result: a mode switch mid-scan starts a
   // new request, and a slower earlier response must not paint the other
@@ -298,6 +322,21 @@ export default function ArbitragePage() {
   const scanSeq = useRef(0);
 
   const effectiveTeam = myTeam || defaultTeam;
+
+  const storageKey = useMemo(
+    () =>
+      refinementKey({
+        owner: selectedOwnerId,
+        leagueKey: selectedLeagueKey,
+        surface: "arbitrage",
+        context: `${effectiveTeam}|${opponent}`,
+      }),
+    [selectedOwnerId, selectedLeagueKey, effectiveTeam, opponent],
+  );
+
+  useEffect(() => {
+    setRefinement(loadRefinement(storageKey));
+  }, [storageKey]);
 
   const playerEdges = useMemo(
     () =>
@@ -322,11 +361,8 @@ export default function ArbitragePage() {
     [rows, edgeFloor],
   );
 
-  async function run(nextExcluded = excludedPlayers, teamContext = useTeamContext) {
+  async function run(nextRefinement = refinement, teamContext = useTeamContext) {
     if (!effectiveTeam) return;
-    const normalizedExcluded = Array.from(
-      new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
-    );
     const selectedOpponents =
       opponent === "all"
         ? teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)
@@ -338,19 +374,20 @@ export default function ArbitragePage() {
     try {
       const body = {
         myTeam: effectiveTeam,
-        // The backend route currently validates only that opponentTeams is a
-        // list before passing it through to src/trade/finder.py.  The reserved
-        // control object lets the arbitrage page request session-local search
-        // policy without changing persistent trade constraints or valuation.
+        // The reserved control object carries this page's search policy
+        // (equal-count shapes; incoming-only skipped targets).  LOCK / EXCLUDE
+        // travel as `refinement`, validated and applied by the server's one
+        // constraint owner during generation.
         opponentTeams: [
           ...selectedOpponents,
           {
             [ARBITRAGE_CONTROL_KEY]: {
               equalCountOnly: true,
-              excludePlayers: normalizedExcluded,
+              skipTargets: [...(nextRefinement?.skip || [])],
             },
           },
         ],
+        refinement: toRequest(nextRefinement),
       };
       body.useTeamContext = teamContext !== false;
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
@@ -377,41 +414,62 @@ export default function ArbitragePage() {
     }
   }
 
-  function excludePlayer(playerName) {
-    const name = String(playerName || "").trim();
-    if (!name || excludedPlayers.includes(name)) return;
-    const next = [...excludedPlayers, name];
-    setExcludedPlayers(next);
-    // Remove the stale suggestion immediately, then ask the backend to search
-    // the reduced pools.  The rerun is not a post-filter: finder.py receives
-    // the same exclusion and removes the player before package enumeration.
-    setResult((prev) =>
-      prev
-        ? {
-            ...prev,
-            trades: (prev.trades || []).filter((trade) => !tradeContainsPlayer(trade, name)),
-          }
-        : prev,
-    );
+  // Every refinement change regenerates immediately (spec §3.3).  The rerun is
+  // not a post-filter: the server applies the same refinement before package
+  // enumeration.  A newly excluded / skipped player's stale cards are removed
+  // at once so the page never shows a package the user just ruled out.
+  function applyRefinement(next, removedName = null) {
+    setRefinement(next);
+    saveRefinement(storageKey, next);
+    if (removedName) {
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              trades: (prev.trades || []).filter(
+                (trade) => !tradeContainsPlayer(trade, removedName),
+              ),
+            }
+          : prev,
+      );
+    }
     void run(next);
   }
 
-  function restorePlayer(playerName) {
-    const next = excludedPlayers.filter((name) => name !== playerName);
-    setExcludedPlayers(next);
-    void run(next);
+  function lockPlayer(name) {
+    applyRefinement(toggleLock(refinement, name));
   }
 
-  function clearExclusions() {
-    setExcludedPlayers([]);
-    void run([]);
+  function excludePlayer(name) {
+    const next = toggleExclude(refinement, name);
+    const nowExcluded = (next.exclude || []).includes(String(name || "").trim());
+    applyRefinement(next, nowExcluded ? name : null);
+  }
+
+  function skipTarget(name) {
+    const next = toggleSkip(refinement, name);
+    const nowSkipped = (next.skip || []).includes(String(name || "").trim());
+    applyRefinement(next, nowSkipped ? name : null);
+  }
+
+  function clearRefinements() {
+    applyRefinement(emptyRefinement());
   }
 
   function resetPackageScan() {
-    setExcludedPlayers([]);
+    // The refinement for the new (team, opponent) context is loaded from
+    // storage by the effect above; only the stale result is cleared here.
     setResult(null);
     setError("");
   }
+
+  const refine = {
+    refinement,
+    onLock: lockPlayer,
+    onExclude: excludePlayer,
+    onSkip: skipTarget,
+    disabled: running,
+  };
 
   const meta = result?.metadata;
 
@@ -467,7 +525,7 @@ export default function ArbitragePage() {
       <Panel>
         <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
         <p className={styles.muted}>
-          This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. Use the × beside any player to remove them from this scan and search again without them.
+          This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. On a player you would send, Lock keeps them in every regenerated package and Exclude keeps them out; on a player you would receive, Skip leaves them out of this scan. Locks and exclusions stay until you clear them and never change your saved trade protections.
         </p>
         <div className={styles.controls}>
           <Field label="Your team">
@@ -514,35 +572,21 @@ export default function ArbitragePage() {
               setUseTeamContext(next);
               // Re-scan an existing result in the new mode; never silently
               // keep showing the other mode's order.
-              if (result) run(excludedPlayers, next);
+              if (result) run(refinement, next);
             }}
           />
-          <Button onClick={() => run(excludedPlayers)} disabled={running || dataLoading || !effectiveTeam}>
+          <Button onClick={() => run(refinement)} disabled={running || dataLoading || !effectiveTeam}>
             {running ? "Scanning…" : "Find trade packages"}
           </Button>
         </div>
-        {excludedPlayers.length ? (
-          <div className={styles.exclusionBar} aria-label="Excluded players">
-            <span className={styles.muted}>Excluded from this scan:</span>
-            <div className={styles.exclusionChips}>
-              {excludedPlayers.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  className={styles.exclusionChip}
-                  aria-label={`Restore ${name} to suggestions`}
-                  title="Undo exclusion"
-                  onClick={() => restorePlayer(name)}
-                >
-                  {name} ×
-                </button>
-              ))}
-            </div>
-            <Button size="sm" variant="secondary" onClick={clearExclusions} disabled={running}>
-              Clear exclusions
-            </Button>
-          </div>
-        ) : null}
+        <RefinementBar
+          refinement={refinement}
+          onLock={lockPlayer}
+          onExclude={excludePlayer}
+          onSkip={skipTarget}
+          onClear={clearRefinements}
+          disabled={running}
+        />
       </Panel>
 
       {error ? <Banner tone="negative">{error}</Banner> : null}
@@ -575,8 +619,14 @@ export default function ArbitragePage() {
 
       {!running && result && !result.trades?.length ? (
         <EmptyState
-          title="No package arbitrage found"
-          description="Every candidate either lost value on our board, used an excluded player, or looked too lopsided on the counterparty's market to be plausible."
+          title={meta?.noResultLabel || "No package arbitrage found"}
+          description={
+            meta?.noResultReason === "lock_conflicts_with_protection"
+              ? "A locked player is also protected or excluded, so no package can include him. Unlock him or change the protection."
+              : meta?.noResultReason === "locked_player_unavailable"
+                ? "A locked player is not on this roster's tradeable list, so no package can include him."
+                : "Every candidate either lost value on our board, used an excluded player, or looked too lopsided on the counterparty's market to be plausible."
+          }
         />
       ) : null}
 
@@ -588,7 +638,7 @@ export default function ArbitragePage() {
               trade={t}
               myTeam={effectiveTeam}
               opponent={opponent}
-              onExclude={excludePlayer}
+              refine={refine}
             />
           ))}
         </div>
