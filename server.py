@@ -4047,6 +4047,20 @@ from src.model_registry import model_lab_api as _model_lab_api  # noqa: E402
 _model_lab_api.configure_authorizer(lambda request: _require_admin_session(request))
 app.include_router(_model_lab_api.router)
 
+# Manager Scout (C6-MGR-01 / CE-03): PRIVATE per-manager tendency profiles over
+# the canonical trade, waiver and FAAB owners.  /api/manager-scout stays behind
+# ``_private_api_gate``; league-scoped, 503 on a loaded-contract league
+# mismatch.  Read-only.  Both callables are late-bound (defined further down).
+from src.intel import manager_scout_api as _manager_scout_api  # noqa: E402
+
+_manager_scout_api.configure(
+    league_resolver=lambda request: _resolve_league_for_request(
+        request, require_loaded_contract=True
+    ),
+    contract_provider=lambda: latest_contract_data,
+)
+app.include_router(_manager_scout_api.router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):

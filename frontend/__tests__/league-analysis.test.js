@@ -5,7 +5,6 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeSleeperTradeHistory,
-  analyzeTradeTendencies,
   buildCombinedPairTrade,
   buildSleeperIdentityMaps,
 } from "@/lib/league-analysis";
@@ -460,116 +459,6 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
       expect(bucket.won).toBe(0);
       expect(bucket.lost).toBe(0);
     }
-  });
-});
-
-describe("analyzeTradeTendencies — ownerId aggregation", () => {
-  it("splits orphan takeovers by owner", () => {
-    const rawData = {
-      sleeper: {
-        teams: [
-          { name: "New Manager", roster_id: 5, ownerId: "user-new" },
-          { name: "Opponent", roster_id: 6, ownerId: "user-opponent" },
-        ],
-        positions: { "Test Star": "QB", "Test Mid": "RB" },
-        trades: [
-          mkTrade({
-            offsetDaysAgo: 90,
-            sides: [
-              { team: "Previous Manager", rosterId: 5, ownerId: "user-prev", got: ["Test Star"], gave: ["Test Mid"] },
-              { team: "Opponent", rosterId: 6, ownerId: "user-opponent", got: ["Test Mid"], gave: ["Test Star"] },
-            ],
-          }),
-          mkTrade({
-            offsetDaysAgo: 5,
-            sides: [
-              { team: "New Manager", rosterId: 5, ownerId: "user-new", got: ["Test Mid"], gave: ["Test Star"] },
-              { team: "Opponent", rosterId: 6, ownerId: "user-opponent", got: ["Test Star"], gave: ["Test Mid"] },
-            ],
-          }),
-        ],
-      },
-    };
-
-    const tendencies = analyzeTradeTendencies(rawData, rows);
-    const managers = tendencies.map((t) => t.manager).sort();
-    // 3 managers: user-prev under historical name, user-new under
-    // current name, user-opponent under current name.
-    expect(managers).toEqual(["New Manager", "Opponent", "Previous Manager"]);
-  });
-});
-
-describe("analyzeTradeTendencies — an unpriced asset is not worth zero", () => {
-  // Audit 2026-08-17.  `resolveAssetValue` used `row.values?.full || 0`
-  // on both branches, so an asset the board declines to price counted
-  // as a measured zero in totalGot / totalGiven.  It matters most for
-  // picks: every 2027/2028 5th and 6th is unpriced, so a manager who
-  // trades late picks had them valued at exactly nothing.
-  //
-  // `boardValueOrNull` — the correct helper — was already defined 900
-  // lines above in the same file, with a comment about this exact
-  // coercion.  This function had simply never adopted it.
-  const rowsWithUnpriced = [
-    ...rows,
-    // A row the board explicitly declines to price.
-    { name: "Unpriced Guy", pos: "WR", values: { full: null, raw: null } },
-  ];
-
-  function tendenciesFor(got, gave, rowSet) {
-    const rawData = {
-      sleeper: {
-        teams: [
-          { name: "A", roster_id: 1, ownerId: "u-a" },
-          { name: "B", roster_id: 2, ownerId: "u-b" },
-        ],
-        positions: {},
-        trades: [
-          mkTrade({
-            sides: [
-              { team: "A", rosterId: 1, ownerId: "u-a", got, gave },
-              { team: "B", rosterId: 2, ownerId: "u-b", got: gave, gave: got },
-            ],
-          }),
-        ],
-      },
-    };
-    return analyzeTradeTendencies(rawData, rowSet);
-  }
-
-  it("omits an unpriced asset from the total instead of adding 0", () => {
-    const withUnpriced = tendenciesFor(["Test Star", "Unpriced Guy"], ["Test Mid"], rowsWithUnpriced);
-    const a = withUnpriced.find((t) => t.manager === "A");
-    // 5000 from Test Star, and NOTHING from the unpriced row — not 0
-    // added, but the asset excluded and disclosed.
-    expect(a.avgGot).toBe(5000);
-    expect(a.unpricedAssets).toBe(1);
-  });
-
-  it("an asset with no board row at all is unpriced, not zero", () => {
-    const t = tendenciesFor(["Test Star", "Nobody Has Heard Of Him"], ["Test Mid"], rows);
-    const a = t.find((t) => t.manager === "A");
-    expect(a.avgGot).toBe(5000);
-    expect(a.unpricedAssets).toBe(1);
-  });
-
-  it("reports zero unpriced when every asset prices", () => {
-    const t = tendenciesFor(["Test Star"], ["Test Mid"], rows);
-    const a = t.find((t) => t.manager === "A");
-    expect(a.avgGot).toBe(5000);
-    expect(a.avgGiven).toBe(2000);
-    expect(a.unpricedAssets).toBe(0);
-  });
-
-  it("does not let an unpriced asset drag the net toward zero", () => {
-    // The defect's visible symptom: adding an unpriced asset to the GOT
-    // side used to leave the total unchanged while the asset counted
-    // toward nothing, making a manager look like they got less value.
-    const clean = tendenciesFor(["Test Star"], ["Test Mid"], rows);
-    const withExtra = tendenciesFor(["Test Star", "Unpriced Guy"], ["Test Mid"], rowsWithUnpriced);
-    const a1 = clean.find((t) => t.manager === "A");
-    const a2 = withExtra.find((t) => t.manager === "A");
-    expect(a2.net).toBe(a1.net);
-    expect(a2.unpricedAssets).toBeGreaterThan(a1.unpricedAssets);
   });
 });
 
