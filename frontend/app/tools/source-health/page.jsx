@@ -1,62 +1,76 @@
 "use client";
 
 import { PageHeader } from "@/components/ui";
-import { InfoTip } from "@/components/ds";
+import { InfoTip, Panel } from "@/components/ds";
 import SourceHealthStrip from "@/components/SourceHealthStrip";
+import SourceWeightingTable from "@/components/SourceWeightingTable";
+import styles from "./source-health.module.css";
 
 /**
- * Source Health — full-page diagnostic view of scraper status.
+ * Source Health — full-page diagnostic view of every ranking source.
  *
- * Reads from /api/status and renders per-source record counts,
- * last-run age, failure reasons, and timing.  The compact strip
- * version of this also appears in the terminal for at-a-glance
- * awareness; this page is the "I want to see everything" view.
+ * Two different questions, kept on two different surfaces because they
+ * have different answers:
  *
- * Auth-gated: /api/status is authed on the frontend anyway, and
- * the scraper diagnostics aren't useful to anonymous visitors.
+ *   1. Freshness and weighting (SourceWeightingTable, /api/sources/weighting)
+ *      — the pipeline's own verdict: content age against each source's
+ *      expected cadence, the freshness factor, health, coverage and the
+ *      weight the blend actually applied.  A quarantined source shows here.
+ *   2. Fetch recency (SourceHealthStrip, /api/status) — when each file was
+ *      last fetched, plus run failures.  Fixed 4h/12h bands; a recent fetch
+ *      of unchanged vendor content is still green there, which is exactly
+ *      why it is not the freshness verdict.
+ *
+ * Auth-gated: both endpoints sit behind the session gate.
  */
 export default function SourceHealthPage() {
   return (
-    <section>
-      <div className="card">
-        <PageHeader
-          title="Source Health"
-          subtitle="Scraper status for every ranking source in the pipeline."
-        />
+    <section className={`${styles.page} psi-editorial`}>
+      <PageHeader
+        title="Source Health"
+        subtitle="Is each ranking source current, and how much does it count?"
+      />
+      <SourceWeightingTable />
+      <Panel
+        title="Fetch recency"
+        headingLevel={2}
+        subtitle="When each source file was last fetched, and any run failures."
+      >
         <SourceHealthStrip variant="page" />
         <p className="muted" style={{ marginTop: 14, fontSize: "0.72rem" }}>
           Auto-refreshes every 60 seconds.
           <InfoTip label="the status dots">
             <p>
-              The dots report <strong>freshness</strong> — how long ago each
-              source last refreshed — not whether the last scrape of it
-              succeeded. A failed fetch usually leaves the previous file in
-              place, so a recent file is not proof of a clean run.
+              These dots report <strong>fetch recency</strong> — how long ago each
+              source file was last fetched — not whether its content is current.
+              A fetch can succeed against a vendor that has not published anything
+              new; the Freshness and weighting table above is the verdict on that.
+              A failed fetch usually leaves the previous file in place, so a recent
+              file is not proof of a clean run either.
             </p>
             <p>
-              <strong>Green</strong> — refreshed within 4h.
+              <strong>Green</strong> — fetched within 4h.
             </p>
             <p>
-              <strong>Amber</strong> — refreshed 4–12h ago.
+              <strong>Amber</strong> — fetched 4–12h ago.
             </p>
             <p>
-              <strong>Red</strong> — refreshed over 12h ago.
+              <strong>Red</strong> — fetched over 12h ago.
             </p>
             <p>
-              <strong>Grey</strong> — no per-source refresh time is known, or
-              the served board declares the source absent by design
-              (seasonally inactive, or a private source this host does not
-              carry). Unknown is not fresh, and absent by design is not a
-              failure.
+              <strong>Grey</strong> — no per-source fetch time is known, or the
+              served board declares the source absent by design (seasonally
+              inactive, or a private source this host does not carry). Unknown is
+              not fresh, and absent by design is not a failure.
             </p>
             <p>
-              Run failures are listed separately at the foot of the detail
-              panel, under the names the scrape run itself used.
+              Run failures are listed separately at the foot of the detail panel,
+              under the names the scrape run itself used.
             </p>
             <p>Click a header to expand that source&apos;s detail.</p>
           </InfoTip>
         </p>
-      </div>
+      </Panel>
     </section>
   );
 }

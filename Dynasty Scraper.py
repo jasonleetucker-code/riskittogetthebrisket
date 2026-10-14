@@ -92,6 +92,7 @@ except Exception as _ktc_fmt_import_exc:  # noqa: BLE001
 # player-identity owner.  The moved code is byte-for-byte identical
 # (tests/identity/test_name_primitives_parity.py pins it).
 from src.identity import resolution as _identity_resolution  # noqa: E402
+from src.sources.ktc_identity import extract_embedded_array as _ktc_extract_embedded_array  # noqa: E402
 from src.identity.name_primitives import best_match as _identity_best_match  # noqa: E402
 from src.identity.name_primitives import clean_name as _identity_clean_name  # noqa: E402
 from src.identity.name_primitives import (  # noqa: E402
@@ -2271,15 +2272,13 @@ async def scrape_ktc(page, players):
             content = await page.content()
             _ktc_mark("page_content_done", bytes=len(content))
 
-            # Try inline playersArray (current KTC format as of 2026-03)
-            pa_match = re.search(
-                r"var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)",
-                content,
-                re.DOTALL,
-            )
-            if pa_match:
+            # playersArray from the page source, via the one KTC embed reader:
+            # inline ``var playersArray = [...]`` (2026-03 format) or the
+            # ``<script id="ktc-players">`` element KTC moved to in 2026-10,
+            # which the inline-only regex here could no longer see.
+            player_list = _ktc_extract_embedded_array(content, "playersArray")
+            if player_list:
                 try:
-                    player_list = json.loads(pa_match.group(1))
                     for item in player_list:
                         pname = item.get("playerName")
                         if not pname:
