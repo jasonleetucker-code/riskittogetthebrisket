@@ -340,6 +340,14 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "waiver_gems",
         "arbitrageScore",
         "arbitrage_score",
+        # Manager Scout (C6-MGR-01) — per-manager tendencies are private
+        # decision intelligence (OWNER_PRODUCT_BACKLOG_SPEC §7).  Its
+        # distinctive block names may never reach a public payload.
+        "managerScout",
+        "tradeTendencies",
+        "waiverTendencies",
+        "faabTendencies",
+        "lineupTendencies",
         # Scraper / pipeline internals
         "rawSources",
         "raw_sources",
