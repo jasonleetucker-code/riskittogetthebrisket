@@ -107,6 +107,21 @@ def test_the_roster_is_analysed_whole_not_through_the_quality_gate():
     assert legacy["rosterAnalysis"]["rosterSize"] < whole["rosterAnalysis"]["rosterSize"]
 
 
+def test_a_roster_player_the_board_cannot_price_is_named_not_dropped():
+    """T-9: what the analysis could not see is published, by name."""
+    board, roster = _offense_heavy_board()
+    out = generate_suggestions_from_pool(
+        [*roster, "Unpriced Rookie"],
+        list(board),
+        starter_needs=NEEDS,
+        roster_pool=board,
+        team_count=2,
+    )
+    meta = out["metadata"]
+    assert meta["rosterUnpriced"] == ["Unpriced Rookie"]
+    assert meta["rosterProvided"] == meta["rosterMatched"] + 1
+
+
 def test_an_empty_answer_always_says_why():
     board, roster = _offense_heavy_board()
     # A quality pool with nothing this roster can offer.

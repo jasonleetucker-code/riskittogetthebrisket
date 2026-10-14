@@ -1233,6 +1233,13 @@ def _build_packages(
     # and the premium rule refuses almost every package.
     their_full = _trade_assets(bundle, partner_owner_id, surplus_only=False)
 
+    if constraints is not None:
+        from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+        ours_sendable, _ours_blocked = partition_sendable(ours, constraints)
+    else:
+        ours_sendable = list(ours)
+
     roster_settings = bundle.inputs.roster_limit
     result = _packages.generate_packages(
         list(bundle.team(owner_id).pool),
@@ -1255,11 +1262,10 @@ def _build_packages(
         "teamName": partner_team.team_name,
     }
     result["assetPolicy"] = {
-        "ourAssetsOffered": min(
-            MAX_PACKAGE_ASSETS_PER_SIDE,
-            # ``generate_packages`` always stamps this count as an int.
-            len(ours) - int(result["constraintsBlockedOutgoing"]),
-        ),
+        # Counted by the constraint owner itself rather than read back from
+        # the generator's payload, so the figure cannot depend on a key a
+        # caller (or a stub) omits.
+        "ourAssetsOffered": min(MAX_PACKAGE_ASSETS_PER_SIDE, len(ours_sendable)),
         "theirAssetsOffered": len(theirs),
         "maxPerSide": MAX_PACKAGE_ASSETS_PER_SIDE,
         "filter": "tradeable surplus that the contract prices on the dynasty market",
