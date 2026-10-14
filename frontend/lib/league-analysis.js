@@ -1052,124 +1052,18 @@ export function buildLeagueEdgeMap(rows, sleeperTeams, myTeamName = "") {
   return teamEdges;
 }
 
-// ── Trade Tendencies ────────────────────────────────────────────────────
-/**
- * Analyze per-manager trading patterns: avg given/got, net, position bias.
- * @param {object} rawData - the rawData from useDynastyData
- * @param {object[]} rows - all player rows
- * @returns {object[]} Sorted array of { manager, trades, avgGiven, avgGot, net, tendency }
- */
-export function analyzeTradeTendencies(rawData, rows) {
-  const trades = rawData?.sleeper?.trades;
-  if (!Array.isArray(trades) || !trades.length) return [];
-
-  const rowLookup = buildRowLookup(rows);
-  const posMap = rawData?.sleeper?.positions || {};
-  const pickAliases = rawData?.pickAliases || null;
-  const identityMaps = buildSleeperIdentityMaps(rawData?.sleeper?.teams);
-  const managerStats = {};
-
-  // Shared resolver that handles both players and pick labels, so trade
-  // tendency totals include pick value rather than silently dropping
-  // picks that fail a direct rowLookup hit.
-  // Returns null for an asset the board declines to price — NOT 0
-  // (audit 2026-08-17).  This was `row.values?.full || 0` on both
-  // branches, which is the exact coercion `boardValueOrNull` was written
-  // for 900 lines above, comment and all: "`x || 0` turned every one of
-  // those into a measured zero".  This function simply never adopted it.
-  //
-  // It matters most for PICKS: every 2027/2028 5th and 6th is unpriced,
-  // so a manager who trades late picks had them counted as worth exactly
-  // nothing in `totalGot` / `totalGiven` — the trade-tendency numbers on
-  // the league page.  "We cannot price this" was published as "this is
-  // worth zero".
-  const resolveAssetValue = (name) => {
-    if (!name) return null;
-    if (parsePickToken(name)) {
-      const row = resolvePickRow(name, rowLookup, pickAliases);
-      return row ? boardValueOrNull(row) : null;
-    }
-    const row = rowLookup.get(String(name).toLowerCase());
-    return row ? boardValueOrNull(row) : null;
-  };
-
-  for (const trade of trades) {
-    if (!trade.sides || trade.sides.length < 2) continue;
-    for (const side of trade.sides) {
-      // Key by ownerId (falls back to rosterId / team name) so
-      // renamed teams roll up into a single row per human while
-      // orphan takeovers stay split across owners.
-      const key = sideAggregationKey(side);
-      const displayName = sideDisplayName(side, identityMaps) || "Unknown";
-      if (!managerStats[key]) {
-        managerStats[key] = {
-          manager: displayName,
-          trades: 0,
-          totalGiven: 0,
-          totalGot: 0,
-          // How many assets on each side the board could not price.
-          // Without this the totals look complete while silently
-          // omitting assets — which is the same lie as counting them
-          // as zero, just harder to see.
-          unpricedGot: 0,
-          unpricedGave: 0,
-          posBias: {},
-        };
-      }
-      const stats = managerStats[key];
-      stats.trades++;
-
-      let gotTotal = 0;
-      let gaveTotal = 0;
-      for (const name of side.got || []) {
-        const v = resolveAssetValue(name);
-        if (v === null) stats.unpricedGot++;
-        else gotTotal += v;
-      }
-      for (const name of side.gave || []) {
-        const v = resolveAssetValue(name);
-        if (v === null) stats.unpricedGave++;
-        else gaveTotal += v;
-      }
-      stats.totalGot += gotTotal;
-      stats.totalGiven += gaveTotal;
-
-      // Track position bias in acquisitions
-      for (const name of side.got || []) {
-        let pos = (posMap[name] || "").toUpperCase();
-        if (!pos) continue;
-        if (["LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"].includes(pos)) pos = "IDP";
-        stats.posBias[pos] = (stats.posBias[pos] || 0) + 1;
-      }
-    }
-  }
-
-  return Object.entries(managerStats)
-    .map(([key, s]) => {
-      const avgGiven = Math.round(s.totalGiven / Math.max(s.trades, 1));
-      const avgGot = Math.round(s.totalGot / Math.max(s.trades, 1));
-      const net = avgGot - avgGiven;
-      const topPos = Object.entries(s.posBias).sort((a, b) => b[1] - a[1])[0];
-      const tendency = topPos ? `Targets ${topPos[0]}s` : "\u2014";
-      // `id` is the ownerId-first aggregation key so the React table
-      // can key rows uniquely even when two managers happen to share
-      // a display name.
-      return {
-        id: key,
-        manager: s.manager,
-        trades: s.trades,
-        avgGiven,
-        avgGot,
-        net,
-        tendency,
-        // Published so a consumer can say "based on N of M assets"
-        // rather than presenting a partial total as a complete one.
-        // Additive; existing readers are unaffected.
-        unpricedAssets: s.unpricedGot + s.unpricedGave,
-      };
-    })
-    .sort((a, b) => b.trades - a.trades);
-}
+// ── RETIRED: analyzeTradeTendencies ─────────────────────────
+//
+// This file used to export `analyzeTradeTendencies`, which derived
+// per-manager trade tendencies (trade count, avg given/got on today's
+// board, "Targets WRs") in the browser from `sleeper.trades`.  Manager
+// tendencies are PRIVATE decision intelligence with one canonical owner
+// now — `src/intel/manager_scout.py` (C6-MGR-01), served by
+// `GET /api/manager-scout` and formatted by `lib/manager-scout.js`.
+//
+// Deleted rather than deprecated, for the same reason as the Team
+// Strength scorer below: an unused export is a working second engine one
+// import away.  Guarded by `__tests__/manager-scout.test.js`.
 
 // ── RETIRED: scoreTeamTiers ─────────────────────────────────
 //
