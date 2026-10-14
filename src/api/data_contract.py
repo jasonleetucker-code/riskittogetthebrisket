@@ -1208,7 +1208,12 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # trips on the failure this floor exists for — a whole position
     # dropping out lands at ~344.  At 400 this check was red for weeks,
     # which also hard-blocked the weekly Hill-curve refit workflow.
-    "yahooBoone": 360,
+    # Re-pinned 360 -> 300 (2026-10-13): Boone's 2026-10-09 charts are
+    # smaller (366 raw rows, ~351 matching the board pool, was 410 / ~389),
+    # so 360 would flag every healthy run.  300 still trips on a whole
+    # position dropping out — the largest such board is ~351 - 65 (TE) =
+    # ~286 matches.  The scraper's raw floor (320) stays above it.
+    "yahooBoone": 300,
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
@@ -12801,6 +12806,22 @@ def _compute_unified_rankings(
             pdata = players_by_name[legacy_ref]
             if isinstance(pdata, dict):
                 pdata["rankDerivedValue"] = derived
+
+    # ── Withheld-only rows keep their observations on the record ──
+    # ``sourceRankMeta`` is published above only for rows that blended.  A
+    # row EVERY observation of which was withheld (quarantined / FAILED)
+    # never enters ``row_normalized`` — yet the blend loop already stamped
+    # each withheld observation's meta (value, path, ``appliedWeight: 0``,
+    # ``excludedReason``).  Leaving the template's ``{}`` erased that record:
+    # measured 2026-10-13, every 2027 slot pick (priced by IDP Trade
+    # Calculator alone, then value-tethered to the rookie pool) published no
+    # trace of the IDPTC observation once its picks quarantined.  Record
+    # only — no value, rank, weight or confidence is read from or written
+    # by this.
+    for row_idx, source_meta in row_source_meta.items():
+        row = players_array[row_idx]
+        if source_meta and not row.get("sourceRankMeta"):
+            row["sourceRankMeta"] = source_meta
 
     # ── Phase 4c: removed ──
     # The IDP calibration post-pass (a Lab-configured per-bucket

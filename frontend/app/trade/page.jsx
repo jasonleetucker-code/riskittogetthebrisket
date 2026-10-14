@@ -74,6 +74,7 @@ import {
   SUGG_TYPES,
 } from "./trade-sections";
 import { withValuationMode } from "@/lib/valuation-mode";
+import { buildKtcNameIndex, resolveKtcEntries } from "@/lib/ktc-import";
 import ResilientSection from "@/components/ResilientSection";
 import styles from "./trade.module.css";
 
@@ -1295,57 +1296,17 @@ export default function TradePage() {
       const unresolvedOne = data?.unresolved?.sideOne || [];
       const unresolvedTwo = data?.unresolved?.sideTwo || [];
 
-      // Resolve each KTC-returned name → our canonical row.  Our
-      // board and KTC share pick-name shapes ("2026 Early 1st") and
-      // most player names verbatim, so a direct rowByName hit
-      // covers the common case.  For near-matches we try a ladder
-      // of increasingly permissive lookups (case-insensitive,
-      // whitespace-normalized, suffix-stripped) before giving up —
-      // historically this silently dropped picks + "Jr./III"
-      // variants.  Residual misses are surfaced to the user.
-      const _normalize = (s) =>
-        String(s || "")
-          .toLowerCase()
-          .replace(/[.']/g, "")
-          .replace(/\s+/g, " ")
-          .replace(/\s+(jr|sr|ii|iii|iv|v)$/i, "")
-          .trim();
-      const lowerIndex = new Map();
-      const normIndex = new Map();
-      for (const r of rows) {
-        if (!r?.name) continue;
-        const low = r.name.toLowerCase();
-        if (!lowerIndex.has(low)) lowerIndex.set(low, r);
-        const norm = _normalize(r.name);
-        if (!normIndex.has(norm)) normIndex.set(norm, r);
-      }
-      const resolveBatch = (entries) => {
-        const found = [];
-        const missing = [];
-        for (const entry of entries) {
-          // 1. Exact case match — fast path, covers 99%.
-          let row = rowByName.get(entry.name);
-          // 2. Case-insensitive match.
-          if (!row)
-            row = lowerIndex.get(String(entry.name || "").toLowerCase());
-          // 3. Normalized (punctuation / whitespace / suffix-stripped).
-          if (!row) row = normIndex.get(_normalize(entry.name));
-          // 4. Pick token fallback — KTC's pick labels ("2026 1.09",
-          //    "2027 Mid 1st") use a different shape than our
-          //    canonical row names ("2026 Pick 1.09").  Walk the
-          //    same ``resolvePickRow`` resolver league-analysis +
-          //    the share-URL hydrator use so picks from KTC URLs
-          //    actually load instead of silently dropping.
-          if (!row && parsePickToken(entry.name)) {
-            row = resolvePickRow(entry.name, rowByLowerName, pickAliases);
-          }
-          if (row) found.push(row);
-          else missing.push(entry.name);
-        }
-        return { found, missing };
-      };
-      const one = resolveBatch(sideOneEntries);
-      const two = resolveBatch(sideTwoEntries);
+      // Resolve each KTC-returned name → our canonical row (exact →
+      // case-insensitive → normalized → pick label; same-name rows are
+      // split by KTC's stated position).  See lib/ktc-import.js.
+      // Residual misses and ambiguous names are surfaced to the user.
+      const nameIndex = buildKtcNameIndex(rows);
+      const resolvePick = (name) =>
+        parsePickToken(name)
+          ? resolvePickRow(name, rowByLowerName, pickAliases)
+          : null;
+      const one = resolveKtcEntries(sideOneEntries, nameIndex, { resolvePick });
+      const two = resolveKtcEntries(sideTwoEntries, nameIndex, { resolvePick });
 
       // Replace sides A and B in place.  Nothing is deduped: an asset KTC
       // lists twice is two copies and both load, on either side (owner
@@ -1385,6 +1346,17 @@ export default function TradePage() {
         warnings.push(`no board match for: ${one.missing.join(", ")}`);
       if (two.missing.length)
         warnings.push(`no board match for: ${two.missing.join(", ")}`);
+      const ambiguousNames = [...one.ambiguous, ...two.ambiguous];
+      if (ambiguousNames.length)
+        warnings.push(
+          `more than one board player named ${ambiguousNames.join(", ")} — check the loaded player`,
+        );
+      if (data?.playerMap?.source === "last_good")
+        warnings.push(
+          `KTC unreachable — used a saved KTC player list from ${Math.round(
+            Number(data.playerMap.ageHours) || 0,
+          )}h ago`,
+        );
       const totalLoaded = cleanedOne.length + cleanedTwo.length;
       const totalExpected = sideOneEntries.length + sideTwoEntries.length;
       if (totalLoaded === 0) {
@@ -1407,7 +1379,7 @@ export default function TradePage() {
     } finally {
       setKtcImportBusy(false);
     }
-  }, [ktcImportUrl, rowByName]);
+  }, [ktcImportUrl, rows, rowByLowerName, pickAliases]);
 
   const exportKtcUrl = useCallback(async () => {
     setExportStatus("");
