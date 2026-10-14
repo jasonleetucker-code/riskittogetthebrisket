@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 
 from src.source_archive import store as archive_store
+from src.sources.ktc_identity import extract_embedded_array
 from src.source_archive.store import ArchivedBoard, read_boards
 from src.sources import ktc_format_archive as kfa
 from src.sources import ktc_value_sources as kvs
@@ -1039,6 +1040,7 @@ def _scrape_ktc_slice(**overrides):
         "_archive_ktc_format_variants": kfa.archive_variants_safely,
         "_ktc_selected_hashes": kfa.selected_hashes,
         "_ktc_extract_tep": lambda *_a, **_k: None,
+        "_ktc_extract_embedded_array": extract_embedded_array,
         "_telemetry": _Telemetry(),
         "clean_name": lambda n: str(n).strip(),
         "get_cached": lambda _key: None,
