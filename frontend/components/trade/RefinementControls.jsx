@@ -10,16 +10,28 @@ import { refinementState } from "@/lib/trade-refinement";
 import styles from "./refinement-controls.module.css";
 
 /** Outgoing asset: LOCK (must stay in the package) or EXCLUDE (keep it out). */
-export function OutgoingRefinement({ name, refinement, onLock, onExclude, disabled = false }) {
+export function OutgoingRefinement({
+  name,
+  refinement,
+  onLock,
+  onExclude,
+  disabled = false,
+  context = "",
+}) {
   if (!name) return null;
   const state = refinementState(refinement, name);
+  // ``context`` disambiguates the same player's controls repeated on several
+  // cards (e.g. one star headlining many best offers).
+  const where = context ? ` in ${context}` : "";
   return (
     <span className={styles.group} role="group" aria-label={`Refine ${name}`}>
       <button
         type="button"
         className={styles.toggle}
         aria-pressed={state === "lock"}
-        aria-label={state === "lock" ? `Unlock ${name}` : `Lock ${name} into every package`}
+        aria-label={
+          state === "lock" ? `Unlock ${name}${where}` : `Lock ${name} into every package${where}`
+        }
         title="Lock: keep this player in every regenerated package"
         disabled={disabled}
         onClick={() => onLock(name)}
@@ -31,7 +43,9 @@ export function OutgoingRefinement({ name, refinement, onLock, onExclude, disabl
         className={styles.toggle}
         aria-pressed={state === "exclude"}
         aria-label={
-          state === "exclude" ? `Stop excluding ${name}` : `Exclude ${name} from outgoing packages`
+          state === "exclude"
+            ? `Stop excluding ${name}${where}`
+            : `Exclude ${name} from outgoing packages${where}`
         }
         title="Exclude: keep this player out of regenerated packages (temporary)"
         disabled={disabled}

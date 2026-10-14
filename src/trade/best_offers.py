@@ -30,8 +30,15 @@ RANKING among qualifying candidates is a **declared PRIOR**
 (``config/trade/best_offers_prior.json``, status ``PRIOR_UNVALIDATED``): the
 owner spec makes exact weights evidence-gated, so every factor, weight and the
 config version are echoed on each offer, and each run is recorded for later
-validation.  The prior prefers a mutually defensible offer over the largest
-calculator exploit.
+validation.
+
+The prior does NOT maximise the disagreement between our board and the
+external calculator (spec §2.3: "do not simply maximize the discrepancy").
+Two terms push against calculator-only exploits: ``externalComfort`` rises to
+full credit at a comfortable opponent margin and then DECLINES past an exploit
+band, and ``calculatorDivergence`` — a cost — grows with how far our board and
+the qualifying calculator disagree about the assets themselves.  Both bands
+are declared priors in the config, not validated thresholds.
 
 Recommendation only.  Nothing here sends, drafts on Sleeper, or mutates a
 league.
@@ -47,8 +54,10 @@ from typing import Any, Callable, Mapping, Sequence
 from src.league_intel.cross_market import (
     CALCULATOR_LABELS,
     EXTERNAL_EVEN_TOLERANCE_PCT,
+    MARKET_IDPTC,
     best_qualifying_verdict,
     external_package_verdicts,
+    native_calculator_value,
 )
 from src.trade import finder
 from src.trade.analyze_trade import equity_verdict
@@ -64,7 +73,7 @@ __all__ = [
     "record_run",
 ]
 
-BEST_OFFERS_VERSION = "best-offers.2026-10-14.v1"
+BEST_OFFERS_VERSION = "best-offers.2026-10-14.v2"
 
 _REPO = Path(__file__).resolve().parents[2]
 _PRIOR_PATH = _REPO / "config" / "trade" / "best_offers_prior.json"
@@ -85,6 +94,7 @@ NO_RESULT_REASONS = (
     "lock_conflicts_with_protection",
     "locked_player_unavailable",
     "opponent_roster_unresolved",
+    "no_candidate_packages",
     "no_plausible_package",
     "no_canonical_win",
     "no_whole_package_coverage",
@@ -106,6 +116,9 @@ _NO_RESULT_TEXT = {
     ),
     "locked_player_unavailable": "A locked player is not on your tradeable roster.",
     "opponent_roster_unresolved": "This team's roster could not be read.",
+    "no_candidate_packages": (
+        "No package of an allowed shape could be built from the two rosters in this scan."
+    ),
     "no_plausible_package": (
         "Every package this search could build failed the plausibility gates (fire-sale or "
         "junk shapes)."
@@ -148,6 +161,8 @@ class BestOfferCandidate:
     arbitrage_score: float = 0.0  # the prior score; named for the finder seam
     flags: list[str] = field(default_factory=list)
     ranking_factors: dict[str, Any] = field(default_factory=dict)
+    #: Rerank stand-ins used for UNKNOWN factors (worst known in the head).
+    imputations: dict[str, float] = field(default_factory=dict)
     summary: str = ""
     lineup: dict[str, Any] | None = None
     capacity: Any = None
@@ -267,6 +282,72 @@ def _need_fit(assets: Sequence[Any], needs: set[str] | None) -> float | None:
     return sum(1 for a in players if a.position in needs) / len(players)
 
 
+#: Factors that are COSTS: their weight is subtracted.
+_COST_FACTORS = frozenset({"forcedDropCost", "calculatorDivergence"})
+
+#: Factors computed only for the roster-aware rerank head.  Inside that head
+#: an UNKNOWN value is ranked as the head's worst KNOWN value (never as zero),
+#: so a package whose lineup or release cost cannot be read never outranks a
+#: known-bad one merely for being unreadable.  The published factor stays
+#: ``null`` and ``rankingImputations`` names what was assumed.
+_RERANK_FACTORS = ("lineupImpact", "forcedDropCost")
+
+
+def _comfort(margin_pct: float, scale: Mapping[str, Any]) -> float:
+    """Opponent comfort on the qualifying calculator: a plateau, not a ramp.
+
+    0 at even → 1 at ``externalComfortSaturationPct`` → flat to
+    ``externalExploitBandPct`` → back to 0 at ``externalExploitZeroPct``.  A
+    margin far past the band means the two boards disagree badly about these
+    assets; that is a calculator exploit, not a mutually defensible offer.
+    """
+    sat = float(scale.get("externalComfortSaturationPct", 15.0))
+    band = float(scale.get("externalExploitBandPct", 30.0))
+    zero = float(scale.get("externalExploitZeroPct", 60.0))
+    m = max(0.0, margin_pct)
+    if m <= sat:
+        return _clip01(m / sat) if sat > 0 else 1.0
+    if m <= band:
+        return 1.0
+    return _clip01(1.0 - (m - band) / max(zero - band, 1e-9))
+
+
+def _divergence(
+    assets: Sequence[Any],
+    rows: Sequence[Mapping[str, Any] | None],
+    calculator: str,
+    pick_provenance: Mapping[str, Any] | None,
+    scale: Mapping[str, Any],
+) -> float | None:
+    """How far our board and the qualifying calculator disagree about THESE
+    assets: the board-value-weighted mean of ``|ln(board / native)|`` beyond a
+    tolerance, scaled to 1 at ``divergenceSaturationRatio``.
+
+    ``None`` when any asset lacks a positive board or native value (it cannot
+    happen for a qualifying verdict, whose coverage is complete; it is guarded
+    rather than defaulted).
+    """
+    import math  # noqa: PLC0415
+
+    tol = math.log(1.0 + float(scale.get("divergenceTolerancePct", 25.0)) / 100.0)
+    sat = math.log(float(scale.get("divergenceSaturationRatio", 2.0)))
+    num = den = 0.0
+    for a, row in zip(assets, rows, strict=True):
+        board = float(a.model_value)
+        native = (
+            native_calculator_value(row, calculator, pick_provenance=pick_provenance)
+            if row is not None
+            else None
+        )
+        if not board > 0 or native is None:
+            return None
+        num += board * abs(math.log(board / native))
+        den += board
+    if not den > 0 or not sat > tol:
+        return None
+    return _clip01((num / den - tol) / (sat - tol))
+
+
 def _factors(
     give: Sequence[Any],
     receive: Sequence[Any],
@@ -275,14 +356,20 @@ def _factors(
     prior: Mapping[str, Any],
     our_needs: set[str] | None,
     their_needs: set[str] | None,
+    *,
+    rows: Sequence[Mapping[str, Any] | None] = (),
+    pick_provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, float | None]:
     scale = prior.get("scales") or {}
     edge_pct = equity["vaAdjustedGap"] / max(float(equity["sendingAdjusted"]), 1.0)
     canonical = _clip01(edge_pct / float(scale.get("canonicalEdgeSaturationPct", 30.0)) * 100.0)
     # A qualifying verdict always carries a margin (best_qualifying_verdict
     # admits none without one), so it is read directly — never defaulted.
-    comfort = _clip01(
-        max(0.0, float(verdict.margin_pct)) / float(scale.get("externalComfortSaturationPct", 15.0))
+    comfort = _comfort(float(verdict.margin_pct), scale)
+    divergence = (
+        _divergence((*give, *receive), rows, verdict.calculator, pick_provenance, scale)
+        if rows
+        else None
     )
     sources = [a.source_count for a in (*give, *receive) if a.source_count > 0]
     confidence = (
@@ -295,6 +382,7 @@ def _factors(
         "canonicalEdge": round(canonical, 4),
         "externalComfort": round(comfort, 4),
         "mutualBalance": round(min(canonical, comfort), 4),
+        "calculatorDivergence": round(divergence, 4) if divergence is not None else None,
         "ourNeedFit": _need_fit(receive, our_needs),
         "theirNeedFit": _need_fit(give, their_needs),
         "simplicity": round(_clip01(1.0 - (size - 2) / 4.0), 4),
@@ -304,20 +392,33 @@ def _factors(
     }
 
 
-def _score(factors: Mapping[str, float | None], weights: Mapping[str, float]) -> float:
-    """Σ wᵢ·fᵢ over AVAILABLE factors; a missing factor contributes nothing.
+def _score(
+    factors: Mapping[str, float | None],
+    weights: Mapping[str, float],
+    imputed: Mapping[str, float] | None = None,
+) -> float:
+    """Σ wᵢ·fᵢ over AVAILABLE factors; costs (``_COST_FACTORS``) subtract.
 
-    ``forcedDropCost`` is a cost (its weight is applied as a subtraction), and
-    an unknown cost is never read as free — it simply is not subtracted, and
-    the offer's caveats say so.
+    A factor that was never computed contributes nothing.  ``imputed`` carries
+    the rerank head's conservative stand-ins for unknown rerank factors (see
+    ``_RERANK_FACTORS``); an unknown cost is therefore never read as free.
     """
     total = 0.0
     for name, w in weights.items():
         f = factors.get(name)
+        if f is None and imputed:
+            f = imputed.get(name)
         if f is None:
             continue
-        total += -w * f if name == "forcedDropCost" else w * f
+        total += -w * f if name in _COST_FACTORS else w * f
     return round(total, 6)
+
+
+def _worst_known(head: Sequence["BestOfferCandidate"], name: str) -> float | None:
+    known = [c.factors[name] for c in head if c.factors.get(name) is not None]
+    if not known:
+        return None
+    return max(known) if name in _COST_FACTORS else min(known)
 
 
 # ── Per-opponent search ───────────────────────────────────────────────────
@@ -346,9 +447,14 @@ def _scorer(
     our_needs: set[str] | None,
     their_needs: set[str] | None,
     diag: dict[str, Any],
+    pick_provenance: Mapping[str, Any] | None = None,
 ) -> Callable[[list[Any], list[Any]], BestOfferCandidate | None]:
     weights = prior["weights"]
     row_memo: dict[int, Mapping[str, Any] | None] = {}
+    # The posture path re-scores player-only cores the first pass already
+    # judged; memoising by package keeps the diagnostics a count of DISTINCT
+    # packages and avoids re-pricing them.
+    seen: dict[tuple, BestOfferCandidate | None] = {}
 
     def row(asset: Any) -> Mapping[str, Any] | None:
         key = id(asset)
@@ -357,6 +463,16 @@ def _scorer(
         return row_memo[key]
 
     def score(give: list[Any], receive: list[Any]) -> BestOfferCandidate | None:
+        key = (
+            tuple(sorted((a.asset_id or a.name) for a in give)),
+            tuple(sorted((a.asset_id or a.name) for a in receive)),
+        )
+        if key in seen:
+            return seen[key]
+        seen[key] = result = _judge(give, receive)
+        return result
+
+    def _judge(give: list[Any], receive: list[Any]) -> BestOfferCandidate | None:
         diag["enumerated"] += 1
         ok, plaus_flags = finder.plausibility_check(give, receive)
         if not ok:
@@ -370,10 +486,9 @@ def _scorer(
             diag["rejectedBy"]["no_canonical_win"] += 1
             return None
         diag["canonicalWins"] += 1
-        verdicts = external_package_verdicts(
-            [row(a) for a in give],  # the opponent RECEIVES what we give
-            [row(a) for a in receive],
-        )
+        give_rows = [row(a) for a in give]  # the opponent RECEIVES what we give
+        recv_rows = [row(a) for a in receive]
+        verdicts = external_package_verdicts(give_rows, recv_rows, pick_provenance=pick_provenance)
         if not any(v.coverage == "complete" for v in verdicts):
             if any(v.coverage == "withheld" for v in verdicts):
                 diag["rejectedBy"]["external_provider_withheld"] += 1
@@ -386,7 +501,17 @@ def _scorer(
             diag["rejectedBy"]["opponent_not_even_on_any_calculator"] += 1
             return None
         diag["qualified"] += 1
-        factors = _factors(give, receive, equity, best, prior, our_needs, their_needs)
+        factors = _factors(
+            give,
+            receive,
+            equity,
+            best,
+            prior,
+            our_needs,
+            their_needs,
+            rows=[*give_rows, *recv_rows],
+            pick_provenance=pick_provenance,
+        )
         return BestOfferCandidate(
             give=list(give),
             receive=list(receive),
@@ -404,7 +529,7 @@ def _scorer(
 def _no_result_reason(diag: Mapping[str, Any]) -> str:
     """The most fundamental blocker, in the order a manager would ask."""
     if diag["enumerated"] == 0:
-        return "no_plausible_package"
+        return "no_candidate_packages"
     if diag["plausible"] == 0:
         return "no_plausible_package"
     if diag["canonicalWins"] == 0:
@@ -472,7 +597,7 @@ def _caveats(c: BestOfferCandidate, prior: Mapping[str, Any]) -> list[str]:
     out = [
         f"Ranking is a declared prior ({prior.get('status')}), not a validated model.",
     ]
-    if c.external.calculator != next(iter(CALCULATOR_LABELS)):
+    if c.external.calculator == MARKET_IDPTC:
         out.append(
             "IDP Trade Calculator's own package rule is not published; its verdict uses the "
             "KTC Value Adjustment as a declared approximation."
@@ -637,7 +762,14 @@ def build_best_offers(
         policy = outgoing_eligibility(my_roster, constraints)
         their_needs = (needs_by_owner or {}).get(owner_of.get(opp, "")) if use_ctx else None
         diag = _new_diag()
-        score = _scorer(index, prior, our_needs, their_needs, diag)
+        score = _scorer(
+            index,
+            prior,
+            our_needs,
+            their_needs,
+            diag,
+            pick_provenance=(contract or {}).get("pickAnchorsProvenance"),
+        )
         cands, enum_report = finder.generate_packages(
             my_roster,
             opp_roster,
@@ -701,7 +833,7 @@ def build_best_offers(
                 if lineup_delta is not None:
                     c.lineup = lineup_delta(
                         my_owner, owner_of.get(opp, ""), _names(c.give), _names(c.receive)
-                    )
+                    ) or {"available": False, "reason": "team_not_in_lineup_bundle"}
                     if c.lineup and c.lineup.get("available") and c.lineup.get("ourBefore"):
                         # A lineup with no recorded baseline is not scored at
                         # all (factor stays None) rather than against zero.
@@ -717,7 +849,14 @@ def build_best_offers(
                     if cost is not None:
                         give_model = max(sum(a.model_value for a in c.give), 1)
                         c.factors["forcedDropCost"] = round(_clip01(cost / give_model), 4)
-                c.arbitrage_score = _score(c.factors, weights)
+            # Unknown rerank factors rank as the head's worst KNOWN value.
+            stand_ins = {n: _worst_known(head, n) for n in _RERANK_FACTORS}
+            for c in head:
+                imputed = {
+                    n: v for n, v in stand_ins.items() if v is not None and c.factors.get(n) is None
+                }
+                c.imputations = imputed
+                c.arbitrage_score = _score(c.factors, weights, imputed)
             head.sort(key=lambda c: (-c.arbitrage_score, c.has_pick, c.package_key()))
         best = head[0]
         card.update(
@@ -794,6 +933,7 @@ def _offer_dict(
         "confidence": _confidence_label(c),
         "caveats": _caveats(c, prior),
         "rankingFactors": dict(c.factors),
+        "rankingImputations": dict(c.imputations),
         "score": c.arbitrage_score,
         "flags": list(c.flags),
         "pickPosturePair": pair if c.has_pick else None,

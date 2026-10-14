@@ -57,14 +57,118 @@ export function summarizeCard(card) {
   };
 }
 
+/**
+ * Re-derive "this player also headlines N other offers" over the cards the
+ * page actually holds.  The server counts within one request, so after a
+ * single-card regeneration its counts describe a set that no longer exists.
+ * Counting only — no offer is re-ranked or re-priced.
+ */
+export function recomputeConcentration(result) {
+  if (!result) return result;
+  const usage = new Map();
+  for (const card of result.opponents || []) {
+    for (const a of card?.offer?.send || []) {
+      usage.set(a.name, usage.has(a.name) ? usage.get(a.name) + 1 : 1);
+    }
+  }
+  const opponents = (result.opponents || []).map((card) => {
+    if (!card?.offer) return card;
+    const also = {};
+    for (const a of card.offer.send || []) {
+      const n = usage.get(a.name);
+      if (n > 1) also[a.name] = n - 1;
+    }
+    return { ...card, offer: { ...card.offer, outgoingAlsoOfferedTo: also } };
+  });
+  const outgoingConcentration = Object.fromEntries(
+    [...usage.entries()]
+      .filter(([, n]) => n > 1)
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+  return { ...result, opponents, outgoingConcentration };
+}
+
 /** Replace one opponent's card in a full result (single-card regeneration). */
 export function mergeCards(result, fresh) {
   if (!result) return fresh;
   const byTeam = new Map((fresh?.opponents || []).map((o) => [o.team, o]));
-  return {
+  return recomputeConcentration({
     ...result,
     opponents: (result.opponents || []).map((o) => byTeam.get(o.team) || o),
-  };
+  });
+}
+
+/**
+ * One line per approved calculator — a contrary COMPLETE verdict is shown,
+ * never hidden behind the one that qualified.  The opponent may well check
+ * the calculator that grades it a loss.
+ */
+export function verdictLines(offer) {
+  return (offer?.externalAll || []).map((v) => {
+    let text;
+    if (v.coverage === "complete") {
+      const result = v.result ? ` (${v.result} for them)` : "";
+      text = `${v.label}: them ${fmtSignedPct(v.opponentMarginPct)}${result}`;
+    } else if (v.coverage === "withheld") {
+      text = `${v.label}: withheld as stale`;
+    } else {
+      text = `${v.label}: does not price every asset`;
+    }
+    return {
+      calculator: v.calculator,
+      text,
+      qualifies: Boolean(v.qualifies),
+      contrary: v.coverage === "complete" && v.result === "loss",
+    };
+  });
+}
+
+const FACTOR_LABELS = {
+  mutualBalance: "Mutual balance",
+  canonicalEdge: "Canonical edge",
+  externalComfort: "Opponent comfort (external)",
+  calculatorDivergence: "Board vs calculator disagreement (cost)",
+  lineupImpact: "Lineup impact",
+  ourNeedFit: "Fits your needs",
+  theirNeedFit: "Fits their needs",
+  simplicity: "Simplicity",
+  confidence: "Evidence confidence",
+  forcedDropCost: "Forced release cost (cost)",
+};
+
+/** The declared-prior factors behind one offer, for the "how it ranked" list. */
+export function factorRows(offer) {
+  const factors = offer?.rankingFactors || {};
+  const imputed = offer?.rankingImputations || {};
+  return Object.keys(FACTOR_LABELS)
+    .filter((k) => k in factors)
+    .map((k) => {
+      const v = factors[k];
+      const known = Number.isFinite(v);
+      const stand = Number.isFinite(imputed[k]) ? imputed[k] : null;
+      return {
+        key: k,
+        label: FACTOR_LABELS[k],
+        value: known ? v.toFixed(2) : UNKNOWN,
+        note:
+          !known && stand !== null
+            ? `unknown — ranked as ${stand.toFixed(2)}, the worst known among the top offers`
+            : !known
+              ? "not available"
+              : null,
+      };
+    });
+}
+
+/** A DOM id from a team name (team names carry spaces and punctuation). */
+export function domId(prefix, name) {
+  const slug = String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  let h = 0;
+  for (const ch of String(name ?? "")) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `${prefix}-${slug || "x"}-${h.toString(36)}`;
 }
 
 export function lineupLine(lineup) {

@@ -30,14 +30,22 @@ const QUALIFIED = {
     canonical: { vaAdjustedGap: 1000, magnitude: "stretch" },
     external: { label: "KTC Market", opponentMarginPct: 4.17, result: "win" },
     externalAll: [
-      { calculator: "ktc", label: "KTC Market", coverage: "complete" },
+      {
+        calculator: "ktc",
+        label: "KTC Market",
+        coverage: "complete",
+        opponentMarginPct: 4.17,
+        result: "win",
+        qualifies: true,
+      },
       { calculator: "idptc", label: "IDP Trade Calculator", coverage: "incomplete" },
     ],
     whyThisHelpsUs: "A clear win on our board.",
     whyTheyMayAccept: "KTC Market has them ahead.",
     confidence: "moderate",
     caveats: ["Ranking is a declared prior (PRIOR_UNVALIDATED), not a validated model."],
-    rankingFactors: {},
+    rankingFactors: { mutualBalance: 0.42, calculatorDivergence: 0.1, lineupImpact: null },
+    rankingImputations: { lineupImpact: -0.25 },
     score: 0.6,
     outgoingAlsoOfferedTo: { "Our WR": 3 },
   },
@@ -89,7 +97,7 @@ describe("Best offer by opponent view", () => {
       .mockResolvedValueOnce(payload([{ ...QUALIFIED }]));
     render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them", "Other"]} />);
     await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
-    await user.click(await screen.findByRole("button", { name: "Lock Our WR into every package" }));
+    await user.click(await screen.findByRole("button", { name: "Lock Our WR into every package in the Them offer" }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(body(global.fetch.mock.calls[1])).toMatchObject({
       opponents: ["Them"],
@@ -124,5 +132,49 @@ describe("Best offer by opponent view", () => {
     await user.click(screen.getByRole("radio", { name: "Asset only" }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(body(global.fetch.mock.calls[1]).useTeamContext).toBe(false);
+  });
+
+  it("shows a contrary complete verdict and every ranking factor", async () => {
+    const user = userEvent.setup();
+    const contrary = {
+      ...QUALIFIED,
+      offer: {
+        ...QUALIFIED.offer,
+        externalAll: [
+          {
+            calculator: "ktc",
+            label: "KTC Market",
+            coverage: "complete",
+            opponentMarginPct: -8.7,
+            result: "loss",
+          },
+          {
+            calculator: "idptc",
+            label: "IDP Trade Calculator",
+            coverage: "complete",
+            opponentMarginPct: 32.5,
+            result: "win",
+            qualifies: true,
+          },
+        ],
+      },
+    };
+    global.fetch = vi.fn().mockResolvedValue(payload([contrary]));
+    render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them"]} />);
+    await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+    expect(await screen.findByText("KTC Market: them -8.7% (loss for them)")).toBeInTheDocument();
+    expect(screen.getByText("IDP Trade Calculator: them +32.5% (win for them)")).toBeInTheDocument();
+    expect(screen.getByText("How this offer ranked")).toBeInTheDocument();
+    expect(screen.getByText("Board vs calculator disagreement (cost)")).toBeInTheDocument();
+    expect(screen.getByText(/ranked as -0.25, the worst known/)).toBeInTheDocument();
+    expect(screen.getByText("0.600")).toBeInTheDocument();
+  });
+
+  it("a team name with spaces still labels its card", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(payload([{ ...QUALIFIED, team: "The Big Team" }]));
+    render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["The Big Team"]} />);
+    await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+    expect(await screen.findByRole("article", { name: "The Big Team" })).toBeInTheDocument();
   });
 });

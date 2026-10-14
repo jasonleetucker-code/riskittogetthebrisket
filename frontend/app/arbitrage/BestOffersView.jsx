@@ -21,11 +21,14 @@ import { buildShareUrl } from "@/lib/trade-share";
 import {
   UNKNOWN,
   concentrationLine,
+  domId,
+  factorRows,
   fmtSignedInt,
   fmtSignedPct,
   lineupLine,
   mergeCards,
   summarizeCard,
+  verdictLines,
 } from "@/lib/best-offers";
 import {
   emptyRefinement,
@@ -56,7 +59,7 @@ function cardStorageKey(owner, leagueKey, myTeam, opponent) {
   });
 }
 
-function AssetLine({ assets, refine }) {
+function AssetLine({ assets, refine, context }) {
   return (
     <ul className={styles.assets}>
       {(assets || []).map((a, i) => (
@@ -70,6 +73,7 @@ function AssetLine({ assets, refine }) {
               onLock={refine.onLock}
               onExclude={refine.onExclude}
               disabled={refine.disabled}
+              context={context}
             />
           ) : null}
         </li>
@@ -96,14 +100,15 @@ function OfferCard({ card, myTeam, refine, regenerating }) {
     }
   }, [offer, myTeam, card.team]);
 
+  const headingId = domId("offer", card.team);
   return (
     <article
       className={styles.card}
-      aria-labelledby={`offer-${card.team}`}
+      aria-labelledby={headingId}
       aria-busy={regenerating}
     >
       <header className={styles.cardHead}>
-        <h3 id={`offer-${card.team}`} className={styles.team}>
+        <h3 id={headingId} className={styles.team}>
           {card.team}
         </h3>
         {card.posture ? <Badge tone="neutral">{card.posture}</Badge> : null}
@@ -136,7 +141,11 @@ function OfferCard({ card, myTeam, refine, regenerating }) {
           <div className={styles.sides}>
             <div>
               <h4 className={styles.sideLabel}>You send</h4>
-              <AssetLine assets={offer.send} refine={refine} />
+              <AssetLine
+                assets={offer.send}
+                refine={refine}
+                context={`the ${card.team} offer`}
+              />
             </div>
             <div>
               <h4 className={styles.sideLabel}>You receive</h4>
@@ -156,22 +165,44 @@ function OfferCard({ card, myTeam, refine, regenerating }) {
             {concentrationLine(offer) ? (
               <li>{concentrationLine(offer)}</li>
             ) : null}
-            {(offer.externalAll || [])
-              .filter((v) => v.coverage !== "complete")
-              .map((v) => (
-                <li key={v.calculator}>
-                  {v.label}:{" "}
-                  {v.coverage === "withheld"
-                    ? "withheld as stale"
-                    : "does not price every asset"}
-                </li>
-              ))}
+            {verdictLines(offer).map((v) => (
+              <li
+                key={v.calculator}
+                className={v.contrary ? styles.caveat : undefined}
+              >
+                {v.text}
+              </li>
+            ))}
             {(offer.caveats || []).map((c) => (
               <li key={c} className={styles.caveat}>
                 {c}
               </li>
             ))}
           </ul>
+          <details className={styles.factors}>
+            <summary>How this offer ranked</summary>
+            <dl>
+              {factorRows(offer).map((f) => (
+                <div key={f.key} className={styles.factorRow}>
+                  <dt>{f.label}</dt>
+                  <dd>
+                    {f.value}
+                    {f.note ? (
+                      <span className={styles.muted}> ({f.note})</span>
+                    ) : null}
+                  </dd>
+                </div>
+              ))}
+              <div className={styles.factorRow}>
+                <dt>Prior score</dt>
+                <dd>
+                  {Number.isFinite(offer.score)
+                    ? offer.score.toFixed(3)
+                    : UNKNOWN}
+                </dd>
+              </div>
+            </dl>
+          </details>
           <footer className={styles.cardFoot}>
             <span className={styles.muted}>{s.packageSize}</span>
             {calcUrl ? (
@@ -187,7 +218,6 @@ function OfferCard({ card, myTeam, refine, regenerating }) {
           refinement={refine.refinement}
           onLock={refine.onLock}
           onExclude={refine.onExclude}
-          onSkip={() => {}}
           onClear={refine.onClear}
           disabled={refine.disabled}
         />
@@ -209,6 +239,9 @@ export default function BestOffersView({
   const [useTeamContext, setUseTeamContext] = useState(true);
   const [refinements, setRefinements] = useState({});
   const seq = useRef(0);
+  // Per-opponent regeneration tokens: a response is applied only if it is the
+  // latest for that card AND no full scan started after it was sent.
+  const cardSeq = useRef({});
 
   useEffect(() => {
     setResult(null);
@@ -237,6 +270,7 @@ export default function BestOffersView({
     if (!myTeam) return;
     const mine = ++seq.current;
     setRunning(true);
+    setRegenerating(null); // a full scan supersedes any card in flight
     setError("");
     try {
       // Saved per-card refinements travel with the full scan, so a stored
@@ -270,6 +304,11 @@ export default function BestOffersView({
   }
 
   async function regenerate(opp, nextRefinement) {
+    const scanAtStart = seq.current;
+    const mine = (cardSeq.current[opp] ?? 0) + 1;
+    cardSeq.current[opp] = mine;
+    const current = () =>
+      cardSeq.current[opp] === mine && seq.current === scanAtStart;
     setRegenerating(opp);
     setError("");
     try {
@@ -280,11 +319,11 @@ export default function BestOffersView({
         opponents: [opp],
         refinementByOpponent: { [opp]: toRequest(nextRefinement) },
       });
-      setResult((prev) => mergeCards(prev, data));
+      if (current()) setResult((prev) => mergeCards(prev, data));
     } catch (err) {
-      setError(err?.message || "Request failed");
+      if (current()) setError(err?.message || "Request failed");
     } finally {
-      setRegenerating(null);
+      if (current()) setRegenerating(null);
     }
   }
 
@@ -327,8 +366,9 @@ export default function BestOffersView({
       </div>
       {result?.rankingMethod ? (
         <p className={styles.muted}>
-          Ranking: declared prior ({result.rankingMethod.status}); every factor
-          is shown on each offer. Best opportunity first.
+          Ranking: declared prior ({result.rankingMethod.status}); open “How
+          this offer ranked” on any card for its factors. Best opportunity
+          first.
         </p>
       ) : null}
       {error ? <Banner tone="negative">{error}</Banner> : null}

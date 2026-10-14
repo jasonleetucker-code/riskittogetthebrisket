@@ -9,7 +9,7 @@ and IDP.  It has nothing to do with this module.
 
 CORRECTED 2026-08-18.  This block used to say the honest count of
 production importers was **zero**.  That has not been true for some
-time.  Measured at HEAD there are **three**, and two of them are
+time.  Measured at HEAD there are **four**, and three of them are
 reachable from a user request:
 
 ============================  ==========================  ==============
@@ -22,6 +22,12 @@ importer                      what it takes               reached from
                               ``PackageValuation``,
                               ``NORMALIZATION_VERSION``
 ``src/api/gameplan``          ``DEFAULT_GATE_PCT``        (constant only)
+``src/trade/best_offers``     ``external_package_verdicts``, ``POST /api/trade/best-offers``
+                              ``best_qualifying_verdict``,
+                              ``native_calculator_value``,
+                              ``CALCULATOR_LABELS``,
+                              ``MARKET_IDPTC``,
+                              ``EXTERNAL_EVEN_TOLERANCE_PCT``
 ============================  ==========================  ==============
 
 **A behaviour change here DOES reach a user.**  This module is live,
@@ -194,6 +200,8 @@ __all__ = [
     "EXTERNAL_EVEN_TOLERANCE_PCT",
     "best_qualifying_verdict",
     "external_package_verdicts",
+    "native_calculator_value",
+    "NATIVE_PICK_ANCHOR_CLASSES",
     "NORMALIZATION_VERSION",
     "MARKET_KTC",
     "MARKET_IDPTC",
@@ -839,11 +847,43 @@ def _round_or_none(v: float | None) -> int | None:
     return int(round(v)) if v is not None else None
 
 
-def _native_value(row: Mapping[str, Any], calculator: str) -> float | None:
+#: Which ``pickAnchorsProvenance`` site key records each calculator's PICK
+#: board.  KTC publishes one pick board (the ``ktc`` site); every KTC value key
+#: on a pick row is read from it, so its provenance is that board's.
+_PICK_PROVENANCE_SITE: dict[str, str] = {MARKET_KTC: "ktc", MARKET_IDPTC: "idpTradeCalc"}
+
+#: Anchor provenance classes that are the vendor's OWN pick observation.
+#: Anything else — ``derived_slot_from_tier`` (a tier spread across a slot
+#: curve), ``model_injected_composite`` — is our derivation under a vendor key.
+NATIVE_PICK_ANCHOR_CLASSES: frozenset[str] = frozenset(
+    {"published_slot", "unyeared_slot", "published_tier"}
+)
+
+#: Board pick rows whose per-source values were DERIVED (a far-future year
+#: stepped from a published one, a round stepped from round 4, a generic grade
+#: averaged over tiers) or which are suppressed aliases.  Their vendor-keyed
+#: numbers are not that vendor's price.
+_DERIVED_PICK_ROW_CLASSES: frozenset[str] = frozenset(
+    {"derived_year_step", "derived_round_step", "derived_uniform_tier_ev", "alias_suppressed"}
+)
+
+
+def native_calculator_value(
+    row: Mapping[str, Any],
+    calculator: str,
+    *,
+    pick_provenance: Mapping[str, Any] | None = None,
+) -> float | None:
     """The calculator's own published value for this row, or ``None``.
 
     Deliberately NOT :func:`_site_value`: that reader falls back to legacy KTC
     keys, which would let a retired board answer for KTC Market.
+
+    A PICK row is native only when the contract's ``pickAnchorsProvenance``
+    (``pick_provenance``) records the calculator's pick board as having
+    PUBLISHED that exact pick, and the row itself is not a derived or alias
+    row.  No provenance ⇒ ``None``: a pick nobody can prove the vendor priced
+    must not qualify a trade on that vendor's calculator.
     """
     sites = row.get("canonicalSiteValues")
     if not isinstance(sites, Mapping):
@@ -852,7 +892,39 @@ def _native_value(row: Mapping[str, Any], calculator: str) -> float | None:
         v = float(sites.get(calculator))
     except (TypeError, ValueError):
         return None
-    return v if v > 0 else None
+    if not v > 0:
+        return None
+    if str(row.get("assetClass") or "").lower() == "pick":
+        prov_row = row.get("pickValueProvenance")
+        if isinstance(prov_row, Mapping) and prov_row.get("class") in _DERIVED_PICK_ROW_CLASSES:
+            return None
+        if not _pick_published_by(row, calculator, pick_provenance):
+            return None
+    return v
+
+
+def _pick_published_by(
+    row: Mapping[str, Any], calculator: str, pick_provenance: Mapping[str, Any] | None
+) -> bool:
+    from src.identity.picks import parse_pick_label  # noqa: PLC0415 — pick identity owner
+
+    site = _PICK_PROVENANCE_SITE.get(calculator)
+    per_site = (pick_provenance or {}).get(site) if site else None
+    if not isinstance(per_site, Mapping):
+        return False
+    label = parse_pick_label(str(row.get("canonicalName") or row.get("displayName") or ""))
+    if label is None:
+        return False
+    target = label.market_ref
+    for raw, klass in per_site.items():
+        parsed = parse_pick_label(str(raw))
+        if parsed is not None and parsed.market_ref == target:
+            return klass in NATIVE_PICK_ANCHOR_CLASSES
+    return False
+
+
+def _native_value(row: Mapping[str, Any], calculator: str) -> float | None:
+    return native_calculator_value(row, calculator)
 
 
 def _row_label(row: Mapping[str, Any]) -> str:
@@ -864,6 +936,7 @@ def external_package_verdicts(
     opponent_sends: Iterable[Mapping[str, Any] | None],
     *,
     calculators: Iterable[str] = (MARKET_KTC, MARKET_IDPTC),
+    pick_provenance: Mapping[str, Any] | None = None,
 ) -> list[CalculatorVerdict]:
     """Every eligible calculator's verdict on one whole trade.
 
@@ -871,6 +944,13 @@ def external_package_verdicts(
     contract's ``playersArray`` entries) for what the opponent gets and gives.
     ``None`` in either list is an asset with no board row (or a derived, not
     native, price) — it makes every calculator ``incomplete``.
+    ``pick_provenance`` is the contract's ``pickAnchorsProvenance``; without it
+    no pick is native (see :func:`native_calculator_value`).
+
+    ``withheld`` is reported only when a withheld provider is the ONLY gap: an
+    asset the calculator does not price at all is ``incomplete`` whatever else
+    is stale, so "the only covering calculator is withheld" is never claimed
+    for a package that calculator could not have priced anyway.
     """
     recv = list(opponent_receives)
     sent = list(opponent_sends)
@@ -891,17 +971,19 @@ def external_package_verdicts(
                 if calc in (row.get("freshnessExcludedSources") or ()):
                     withheld.append(_row_label(row))
                     continue
-                v = _native_value(row, calc)
+                v = native_calculator_value(row, calc, pick_provenance=pick_provenance)
                 if v is None:
                     missing.append(_row_label(row))
                     continue
                 values.append(v)
-        if withheld:
-            out.append(CalculatorVerdict(calc, label, "withheld", tuple(missing), tuple(withheld)))
+        if withheld and not missing:
+            out.append(CalculatorVerdict(calc, label, "withheld", (), tuple(withheld)))
             continue
         if missing or not recv_vals or not sent_vals:
             out.append(
-                CalculatorVerdict(calc, label, "incomplete", tuple(missing or ["empty side"]))
+                CalculatorVerdict(
+                    calc, label, "incomplete", tuple(missing or ["empty side"]), tuple(withheld)
+                )
             )
             continue
         recv_adj, sent_adj, _rva, _sva = adjusted_pair_totals(recv_vals, sent_vals)

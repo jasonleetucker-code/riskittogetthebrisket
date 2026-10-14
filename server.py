@@ -9170,6 +9170,19 @@ async def post_trade_best_offers(request: Request):
         return JSONResponse(
             status_code=400, content={"error": "'refinementByOpponent' must be an object."}
         )
+    # Bounded to real opponents: each key costs a constraint-store read, and a
+    # refinement for a team that is not in this league has no card to apply to.
+    team_names = {str(t.get("name")) for t in sleeper_teams if t.get("name")}
+    unknown_opps = sorted(str(o) for o in raw_by_opp if str(o) not in team_names)
+    if unknown_opps or my_team in raw_by_opp:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid_refinement",
+                "message": "'refinementByOpponent' keys must be other teams in this league.",
+                "unknownTeams": unknown_opps[:10],
+            },
+        )
     refinement_by_opp: dict[str, dict] = {}
     for opp, raw in raw_by_opp.items():
         clean, error = _refinement_from_body({"refinement": raw})

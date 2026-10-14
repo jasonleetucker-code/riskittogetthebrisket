@@ -125,3 +125,20 @@ def test_unknown_team_is_a_400(authed):
         URL, json={"myTeam": "Nobody", "leagueKey": "main"}, headers={"x-test-user": "jason"}
     )
     assert res.status_code == 400
+
+
+def test_refinement_keys_must_be_other_teams_in_the_league(authed):
+    """Review nit: each key costs a constraint-store read, so the map is
+    bounded to real opponents (never the requester, never a stranger)."""
+    for key in ("Nobody", "Us"):
+        res = authed.client.post(
+            URL,
+            json={
+                "myTeam": "Us",
+                "leagueKey": "main",
+                "refinementByOpponent": {key: {"lock": [], "exclude": []}},
+            },
+            headers={"x-test-user": "jason"},
+        )
+        assert res.status_code == 400, key
+        assert res.json()["error"] == "invalid_refinement"

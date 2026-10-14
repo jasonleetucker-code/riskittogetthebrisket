@@ -148,6 +148,39 @@
   color: var(--text-secondary, var(--text-muted));
 }
 
+.factors {
+  font-size: 0.82rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+.factors summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.factors dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 2px;
+}
+
+.factorRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.factorRow dt {
+  color: var(--text-muted);
+}
+
+.factorRow dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .cardFoot {
   display: flex;
   align-items: center;
