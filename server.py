@@ -9312,6 +9312,109 @@ async def post_trade_best_offers(request: Request):
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 
+@app.post("/api/trade/golden-upgrades")
+async def post_trade_golden_upgrades(request: Request):
+    """Golden Upgrades (C7-GOLD-01) — same-position 1-for-1 inversions.
+
+    Body::
+
+        {
+          "myTeam": "Team Name",
+          "leagueKey": "...",                 // optional, standard resolver
+          "useTeamContext": true,             // lineup impact via the canonical solver
+          "refinement": {"lock": [], "exclude": []}
+        }
+
+    Owned player → opponent's target where our canonical board prefers the
+    target and the position's own market (native KTC Market / IDP Trade
+    Calculator) prefers the owned player, both by at least the declared
+    minimums.  Saved protections and LOCK / EXCLUDE apply.  Recommendation
+    only — nothing is sent.
+    """
+    if latest_contract_data is None:
+        return JSONResponse(status_code=503, content={"error": "No data loaded."})
+    players = latest_contract_data.get("players")
+    sleeper_teams = (latest_contract_data.get("sleeper") or {}).get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Body must be a JSON object."})
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return JSONResponse(
+            status_code=400, content={"error": "Request body must include 'myTeam'."}
+        )
+    if not any(t.get("name") == my_team for t in sleeper_teams):
+        return JSONResponse(status_code=400, content={"error": "unknown_team", "myTeam": my_team})
+    refinement, error = _refinement_from_body(body)
+    if error is not None:
+        return error
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    constraints = _constraints_for_request(
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/golden-upgrades",
+        refinement=refinement,
+    )
+
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+
+    def _generate():
+        from src.trade import best_offers as _best_offers
+        from src.trade.golden_upgrades import find_golden_upgrades
+
+        lineup_delta = None
+        if use_team_context:
+            try:
+                from src.api import gameplan as _gp
+                from src.api.league_registry import get_scoring_profile
+
+                bundle, _hit = _gp.get_league_bundle(
+                    league_cfg.key, get_scoring_profile(league_cfg.key), contract
+                )
+                lineup_delta = _best_offers.lineup_delta_from_bundle(bundle)
+            except Exception as exc:  # noqa: BLE001 — context never fails the route
+                log.info("golden upgrades: lineup solver unavailable: %s", exc)
+        return find_golden_upgrades(
+            players,
+            my_team,
+            sleeper_teams,
+            contract=contract,
+            constraints=constraints,
+            lineup_delta=lineup_delta,
+        )
+
+    try:
+        result = await run_in_threadpool(_generate)
+    except Exception as e:
+        log.error(f"Golden upgrades failed: {e}")
+        return JSONResponse(status_code=500, content={"error": "golden_upgrades_failed"})
+
+    result["leagueKey"] = league_cfg.key
+    result["useTeamContext"] = use_team_context
+    if constraints is not None:
+        result["constraints"] = constraints.to_dict()
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/trade/import-ktc")
 async def post_trade_import_ktc(request: Request):
     """Resolve a KeepTradeCut trade-calculator URL into ordered
