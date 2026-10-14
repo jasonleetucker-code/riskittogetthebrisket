@@ -81,7 +81,9 @@ export function managerScoutRows(payload) {
     const v = t.valueAtToday || {};
     const valueMeasured = v.state === "measured";
     return {
-      id: String(m?.ownerId || ""),
+      // Row identity is the opaque per-league managerKey; a raw Sleeper id is
+      // published only for current members (and never needed here).
+      id: String(m?.managerKey || m?.ownerId || ""),
       manager: m?.displayName || "Former manager",
       currentMember: Boolean(m?.currentMember),
       tradeState: t.state || "unavailable",

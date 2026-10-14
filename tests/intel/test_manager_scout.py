@@ -97,8 +97,34 @@ def _build(db, **kw):
     return ms.build_manager_scout(LEAGUE, acquisition_path=db, **kw)
 
 
+#: Every Sleeper user id these fixtures use.  Rows are identified by the
+#: opaque ``managerKey``; a raw ``ownerId`` is published for current members
+#: only, so tests resolve a row back to its fixture id through the key.
+_FIXTURE_UIDS = tuple(f"U{i}" for i in range(1, 10))
+
+
+def _uid(row):
+    if row.get("ownerId"):
+        return row["ownerId"]
+    by_key = {ms.manager_key(LEAGUE, u): u for u in _FIXTURE_UIDS}
+    return by_key.get(row.get("managerKey"))
+
+
 def _by_owner(payload):
-    return {m["ownerId"]: m for m in payload["managers"]}
+    return {_uid(m): m for m in payload["managers"]}
+
+
+def test_former_members_publish_no_raw_sleeper_id(db):
+    """Independent review of #1722: an opaque key, never a former member's id."""
+    _seed_two_seasons(db)
+    payload = _build(db, current_teams=[{"ownerId": "U1", "name": "One", "roster_id": 1}])
+    for m in payload["managers"]:
+        assert m["managerKey"] and len(m["managerKey"]) == 16
+        if not m["currentMember"]:
+            assert m["ownerId"] is None
+        for p in m["tradeTendencies"].get("partners") or []:
+            assert p["managerKey"]
+            assert p["ownerId"] in (None, "U1")
 
 
 # ── Trading ───────────────────────────────────────────────────────────────
@@ -210,8 +236,8 @@ def test_partners_are_keyed_by_human_and_carry_current_names(db):
     _seed_two_seasons(db)
     teams = [{"ownerId": "U4", "name": "Team Four", "roster_id": 2}]
     u1 = _by_owner(_build(db, current_teams=teams))["U1"]["tradeTendencies"]
-    assert {p["ownerId"]: p["trades"] for p in u1["partners"]} == {"U2": 1, "U4": 1}
-    named = {p["ownerId"]: p["displayName"] for p in u1["partners"]}
+    assert {_uid(p): p["trades"] for p in u1["partners"]} == {"U2": 1, "U4": 1}
+    named = {_uid(p): p["displayName"] for p in u1["partners"]}
     assert named == {"U2": None, "U4": "Team Four"}
 
 
@@ -232,7 +258,7 @@ def test_a_three_team_trade_stays_one_trade_with_two_partners(db):
     u1 = m["U1"]["tradeTendencies"]  # rid 3 in 2026
     assert u1["tradeCount"] == 1
     assert u1["multiTeamTrades"] == 1
-    assert sorted(p["ownerId"] for p in u1["partners"]) == ["U3", "U4"]
+    assert sorted(_uid(p) for p in u1["partners"]) == ["U3", "U4"]
 
 
 def test_an_unresolved_player_is_its_own_bucket_never_a_position(db):
@@ -510,3 +536,24 @@ def test_the_payload_is_deterministic(db):
     a.pop("generatedAt")
     b.pop("generatedAt")
     assert a == b
+
+
+def test_a_pick_from_a_class_this_league_has_drafted_is_unpriced():
+    """Independent review of #1722: the board's draft year is BOARD scope.
+
+    A pick from a class this league already drafted no longer exists; pricing
+    it at today's generic grade would be a fabricated value.  It is unpriced.
+    """
+    contract = {
+        "currentDraftYear": 2026,
+        "playersArray": [
+            {"displayName": "2026 Round 1", "assetClass": "pick", "rankDerivedValue": 4000},
+            {"displayName": "Somebody", "playerId": "9", "rankDerivedValue": 1000},
+        ],
+    }
+    pick_id = f"pick:{LEAGUE}:2026:r1:o3"
+    open_lookup = ms.contract_value_lookup(contract)
+    retired_lookup = ms.contract_value_lookup(contract, retired_seasons=[2026])
+    assert retired_lookup(pick_id, "pick") == (None, False)
+    # Players are unaffected by the league's draft classes.
+    assert retired_lookup("9", "player") == open_lookup("9", "player")

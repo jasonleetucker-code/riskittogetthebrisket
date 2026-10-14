@@ -91,7 +91,10 @@ definition, and those counts are published as counts.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
+import secrets
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -250,8 +253,29 @@ def _empty_value() -> dict[str, Any]:
 
 ValueLookup = Callable[[str, str], "tuple[int | None, bool]"]
 
+#: Per-process secret for :func:`manager_key`.  Random at import, so the key is
+#: stable across requests of one server process and meaningless outside it.
+_MANAGER_KEY_SECRET = secrets.token_bytes(32)
 
-def contract_value_lookup(contract: Mapping[str, Any] | None) -> ValueLookup | None:
+
+def manager_key(league_key: str, owner_id: str) -> str:
+    """An opaque, league-scoped identifier for one manager.
+
+    The payload's row identity.  A raw Sleeper user id is published only for a
+    CURRENT member — the same id the private contract's ``sleeper.teams``
+    already serves — never for former members, whose ids reach back years and
+    are not otherwise exposed (independent review of #1722, 2026-10-14).
+    """
+    return hmac.new(
+        _MANAGER_KEY_SECRET, f"{league_key}\x00{owner_id}".encode("utf-8"), hashlib.sha256
+    ).hexdigest()[:16]
+
+
+def contract_value_lookup(
+    contract: Mapping[str, Any] | None,
+    *,
+    retired_seasons: Iterable[int] = (),
+) -> ValueLookup | None:
     """``(asset_id, asset_kind) -> (value | None, priced_at_generic_grade)``
     over the loaded canonical board, or ``None`` when no board is loaded.
 
@@ -261,7 +285,16 @@ def contract_value_lookup(contract: Mapping[str, Any] | None) -> ValueLookup | N
     GENERIC grade, exactly as that owner answers — priced by
     ``api.pick_value_resolution.resolve_pick_value``.  A drafted class no
     longer on the board, an unpriced row, or an unparseable id is ``None``.
+
+    ``retired_seasons`` are the classes THIS league has already drafted
+    (``identity.pick_lifecycle.league_draft_years``).  The board's draft year is
+    board scope — it keeps a class while any served league still prices it —
+    so a pick from a class this league has completed would otherwise be priced
+    at today's generic grade although the pick no longer exists.  Those picks
+    are UNPRICED (counted, never valued), the Wave A rule that a league-scoped
+    surface never derives its draft year from the board.
     """
+    retired = frozenset(int(s) for s in retired_seasons)
     if not isinstance(contract, Mapping) or not contract.get("playersArray"):
         return None
     import math  # noqa: PLC0415
@@ -293,7 +326,7 @@ def contract_value_lookup(contract: Mapping[str, Any] | None) -> ValueLookup | N
             pid = _player_id(asset_id)
             return (players.get(pid) if pid else None), False
         ident = parse_league_pick_id(asset_id)
-        if ident is None or draft_year is None:
+        if ident is None or draft_year is None or ident.season in retired:
             return None, False
         ref = market_resolution(
             year=ident.season,
@@ -527,6 +560,20 @@ def _value_block(
     }
 
 
+def _partner_rows(
+    partners: list[tuple[str, int]], names: Mapping[str, str | None], league_key: str
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "managerKey": manager_key(league_key, uid),
+            "ownerId": uid if uid in names else None,
+            "displayName": names.get(uid),
+            "trades": k,
+        }
+        for uid, k in partners
+    ]
+
+
 def _trading_block(
     acc: dict[str, Any] | None,
     *,
@@ -534,6 +581,7 @@ def _trading_block(
     names: Mapping[str, str | None],
     board_as_of: str | None = None,
     board_state: str = "no_board_loaded",
+    league_key: str = "",
 ) -> dict[str, Any]:
     if source_state != "available":
         return {"state": STATE_UNAVAILABLE, "reason": source_state, "sampleSize": None}
@@ -548,9 +596,7 @@ def _trading_block(
         "tradeCount": n,
         "tradesBySeason": dict(sorted(acc["bySeason"].items())),
         "multiTeamTrades": acc["multiTeam"],
-        "partners": [
-            {"ownerId": uid, "displayName": names.get(uid), "trades": k} for uid, k in partners
-        ],
+        "partners": _partner_rows(partners, names, league_key),
         "unattributedPartnerSides": acc["unattributedPartners"],
         "received": _side_block(recv),
         "sent": _side_block(sent),
@@ -667,6 +713,21 @@ def _lineup_block(league_cfg: Any) -> dict[str, Any]:
 # ── Public entry point ────────────────────────────────────────────────────
 
 
+def _league_draft_years(league_cfg: Any, contract: Mapping[str, Any] | None) -> Any:
+    """This league's draft years through the one league-scoped resolver, or None."""
+    sleeper_id = getattr(league_cfg, "sleeper_league_id", None)
+    if not sleeper_id:
+        return None
+    try:
+        from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+
+        settings = ((contract or {}).get("sleeper") or {}).get("leagueSettings") or {}
+        season = settings.get("season") if isinstance(settings, Mapping) else None
+        return league_draft_years_for(str(sleeper_id), league_season=season)
+    except Exception:  # noqa: BLE001 — unknown years fall back to the board's
+        return None
+
+
 def build_manager_scout(
     league_key: str,
     *,
@@ -707,7 +768,10 @@ def build_manager_scout(
     else:
         trades, claims = [], []
         ledger_state = "acquisition_store_missing"
-    value_of = contract_value_lookup(contract)
+    league_years = _league_draft_years(league_cfg, contract)
+    value_of = contract_value_lookup(
+        contract, retired_seasons=league_years.retired_seasons if league_years else ()
+    )
     board_state = "available" if value_of is not None else "no_board_loaded"
     board_meta = (contract or {}).get("meta") if isinstance(contract, Mapping) else None
     board_as_of = None
@@ -753,12 +817,14 @@ def build_manager_scout(
     for oid in sorted(owner_ids, key=lambda o: (o not in names, (names.get(o) or "").lower(), o)):
         managers.append(
             {
-                "ownerId": oid,
+                "managerKey": manager_key(league_key, oid),
+                "ownerId": oid if oid in names else None,
                 "displayName": names.get(oid),
                 "currentMember": oid in names,
                 "currentRosterId": current_rid.get(oid),
                 "tradeTendencies": _trading_block(
                     trade_accs.get(oid),
+                    league_key=league_key,
                     source_state=ledger_state,
                     names=names,
                     board_as_of=board_as_of,
