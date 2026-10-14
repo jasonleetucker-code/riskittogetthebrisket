@@ -65,7 +65,7 @@ describe("best offers display helpers", () => {
     const fresh = { opponents: [{ team: "Them", status: "no_result", noResultLabel: "x" }] };
     const merged = mergeCards(full, fresh);
     expect(merged.opponents.map((o) => o.status)).toEqual(["no_result", "no_result"]);
-    expect(merged.opponents[1]).toBe(full.opponents[1]);
+    expect(merged.opponents.find((o) => o.team === "Other")).toBe(full.opponents[1]);
   });
 
   it("states lineup impact and asset concentration honestly", () => {
@@ -120,5 +120,12 @@ describe("best offers display helpers", () => {
   it("makes whitespace-free, collision-resistant DOM ids", () => {
     expect(domId("offer", "The Big Team")).toMatch(/^offer-the-big-team-[a-z0-9]+$/);
     expect(domId("offer", "A B")).not.toEqual(domId("offer", "A-B"));
+  });
+
+  it("keeps best-first order after a regenerated card changes score", () => {
+    const card = (team, score) => ({ team, status: "qualified", offer: { send: [], score } });
+    const full = { opponents: [card("A", 0.9), card("B", 0.5), { team: "C", status: "no_result" }] };
+    const merged = mergeCards(full, { opponents: [card("B", 0.95)] });
+    expect(merged.opponents.map((o) => o.team)).toEqual(["B", "A", "C"]);
   });
 });

@@ -923,10 +923,6 @@ def _pick_published_by(
     return False
 
 
-def _native_value(row: Mapping[str, Any], calculator: str) -> float | None:
-    return native_calculator_value(row, calculator)
-
-
 def _row_label(row: Mapping[str, Any]) -> str:
     return str(row.get("displayName") or row.get("canonicalName") or row.get("name") or "?")
 

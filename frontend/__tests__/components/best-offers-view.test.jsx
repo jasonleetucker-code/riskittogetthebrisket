@@ -177,4 +177,20 @@ describe("Best offer by opponent view", () => {
     await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
     expect(await screen.findByRole("article", { name: "The Big Team" })).toBeInTheDocument();
   });
+
+  it("a response for the previous team never lands after the team changes", async () => {
+    const user = userEvent.setup();
+    let resolveFirst;
+    global.fetch = vi.fn().mockImplementationOnce(
+      () => new Promise((resolve) => { resolveFirst = resolve; }),
+    );
+    const { rerender } = render(
+      <BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them"]} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+    rerender(<BestOffersView myTeam="Other" leagueKey="lg" ownerKey="me" opponentNames={["Them"]} />);
+    resolveFirst(payload([QUALIFIED]));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("heading", { name: "Them" })).toBeNull();
+  });
 });

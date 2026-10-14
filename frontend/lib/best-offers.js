@@ -88,13 +88,31 @@ export function recomputeConcentration(result) {
   return { ...result, opponents, outgoingConcentration };
 }
 
-/** Replace one opponent's card in a full result (single-card regeneration). */
+/** Server order: qualified offers by score, then no-result cards by team. */
+function serverOrder(a, b) {
+  const qa = a?.offer ? 0 : 1;
+  const qb = b?.offer ? 0 : 1;
+  if (qa !== qb) return qa - qb;
+  if (!qa) {
+    const sa = Number.isFinite(a.offer.score) ? a.offer.score : -Infinity;
+    const sb = Number.isFinite(b.offer.score) ? b.offer.score : -Infinity;
+    if (sa !== sb) return sb - sa;
+  }
+  return String(a?.team || "").localeCompare(String(b?.team || ""));
+}
+
+/**
+ * Replace one opponent's card in a full result (single-card regeneration),
+ * keeping "best opportunity first" true for the cards the page now holds.
+ */
 export function mergeCards(result, fresh) {
   if (!result) return fresh;
   const byTeam = new Map((fresh?.opponents || []).map((o) => [o.team, o]));
   return recomputeConcentration({
     ...result,
-    opponents: (result.opponents || []).map((o) => byTeam.get(o.team) || o),
+    opponents: (result.opponents || [])
+      .map((o) => byTeam.get(o.team) || o)
+      .sort(serverOrder),
   });
 }
 
@@ -128,6 +146,7 @@ const FACTOR_LABELS = {
   canonicalEdge: "Canonical edge",
   externalComfort: "Opponent comfort (external)",
   calculatorDivergence: "Board vs calculator disagreement (cost)",
+  contraryCalculator: "Another calculator grades it a loss for them (cost)",
   lineupImpact: "Lineup impact",
   ourNeedFit: "Fits your needs",
   theirNeedFit: "Fits their needs",
