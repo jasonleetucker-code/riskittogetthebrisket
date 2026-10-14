@@ -1,0 +1,33 @@
+{
+  "id": "comparable_trades_v1",
+  "status": "PRIOR_UNVALIDATED",
+  "owner": "src/trade/comparable_trades.py",
+  "decided": "2026-10-14 — owner trade-discovery directive (TC-09 / C4-MTL-03). Component set and weights are declared priors: no relevance-judgement target exists to fit them against yet.",
+  "note": "RELEVANCE ORDERING ONLY. The score ranks which recorded real trades are most like the package on the calculator; it is never a price, never a value, and never feeds a verdict, a meter or the canonical board. A candidate must share at least one asset with the package (overlap is the gate), so total value can never make two trades 'comparable' on its own (spec TC-09).",
+  "weights": {
+    "assetOverlap": 0.45,
+    "topology": 0.2,
+    "format": 0.2,
+    "recency": 0.15
+  },
+  "matchWeights": {
+    "exact": 1.0,
+    "round": 0.6,
+    "oppositeDirectionMultiplier": 0.5
+  },
+  "recencyHalfLifeDays": 90,
+  "formatScores": {
+    "NATIVE_COMPARABLE": 1.0,
+    "VALIDATED_TRANSFORMABLE": 0.8,
+    "BROAD_CONTEXT": 0.4,
+    "TARGET_UNSUPPORTED": 0.1
+  },
+  "unknownFormatScore": 0.25,
+  "unknownFormatNote": "Format comparability that cannot be read for the requested league (the ledger's disposition was computed for another league, or none was recorded) scores LOW, never neutral: unknown is not a match.",
+  "minScore": 0.2,
+  "notIncluded": {
+    "packageValueProximity": "Deferred. Similar value needs each historical trade valued AT THE TIME it happened (Trade History: at-the-time grade = closest snapshot at or before the trade). Today's values would measure how the trade aged, not how similar it is.",
+    "pickHorizon": "Deferred. 'How far out was the pick then vs now' needs each host league's draft calendar; external leagues do not publish one we hold, and calendar-year distance alone duplicates recency.",
+    "assetTierConcentration": "Deferred with value proximity: tiers are value bands, so they inherit the same at-the-time requirement."
+  }
+}

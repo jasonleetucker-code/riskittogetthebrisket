@@ -372,6 +372,41 @@ def read_ledger_trades(
         yield json.loads(record_json), (json.loads(format_json) if format_json else None)
 
 
+def read_ledger_window(
+    conn: sqlite3.Connection,
+    *,
+    since_date: str,
+    until_date: str | None = None,
+):
+    """Yield ``(group_record, full_format_or_None)`` for every DATED trade in
+    ``[since_date, until_date]`` (inclusive, ISO dates) — NEWEST FIRST, lazily,
+    the same order and record shape as ``read_ledger_trades``.  The browse
+    reader for the trade database (TC-08) when no asset narrows the query.
+    Undated trades are never yielded: a date window cannot claim them."""
+    where = "u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
+    params: list[Any] = [since_date]
+    if until_date:
+        # occurred_date is an ISO date; a timestamp suffix still sorts inside the day.
+        where += " AND substr(u.occurred_date, 1, 10) <= ?"
+        params.append(until_date)
+    ids = conn.cursor().execute(
+        f"SELECT u.underlying_trade_id FROM underlying_trades u WHERE {where}"
+        " ORDER BY u.occurred_date DESC, u.underlying_trade_id DESC",
+        params,
+    )
+    fetch = (
+        "SELECT u.record_json, f.format_json FROM underlying_trades u "
+        "LEFT JOIN formats f ON f.fingerprint = u.format_fingerprint "
+        "WHERE u.underlying_trade_id = ?"
+    )
+    for (trade_id,) in ids:
+        row = conn.execute(fetch, (trade_id,)).fetchone()
+        if row is None:  # pragma: no cover - the file is replaced atomically
+            continue
+        record_json, format_json = row
+        yield json.loads(record_json), (json.loads(format_json) if format_json else None)
+
+
 def _date_range(dates: Sequence[str | None]) -> dict[str, Any]:
     ds = sorted(d for d in dates if d)
     return {"oldest": ds[0] if ds else None, "newest": ds[-1] if ds else None, "dated": len(ds)}
