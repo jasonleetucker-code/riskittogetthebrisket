@@ -1,0 +1,40 @@
+/* /tools/source-health page shell.
+   The .psi-editorial class scopes the editorial token values onto this
+   section (tokens.css) but does not repaint the section itself, which
+   would otherwise stay transparent over the dark terminal body.  Paint it,
+   and go full-bleed against .main-shell's padding.  Same pattern and the
+   exact breakpoint values as app/rankings/board.module.css's .page — keep
+   the two in step if .main-shell's padding rules move. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
