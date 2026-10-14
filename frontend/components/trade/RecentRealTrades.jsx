@@ -118,6 +118,12 @@ export default function RecentRealTrades({ sides, leagueKey }) {
           signal: ctl.signal,
         });
         const body = await res.json().catch(() => null);
+        if (res.ok && body?.state === "no_assets") {
+          // Every calculator asset was unresolvable: nothing was searched.
+          // That is not a ledger failure, so it must not read as one.
+          setState({ status: "no_assets", body, qs });
+          return;
+        }
         if (!res.ok || !body || body.state !== "ok") {
           setState({
             status: res.ok ? "unavailable" : referenceFailureKind(res.status),
@@ -168,6 +174,14 @@ export default function RecentRealTrades({ sides, leagueKey }) {
       </Banner>
     );
   }
+  if (state.status === "no_assets") {
+    return (
+      <Banner tone="info" title="These assets could not be identified">
+        None of the calculator assets could be matched to a recorded identity, so the trade ledger
+        was not searched. This says nothing about whether they have been traded.
+      </Banner>
+    );
+  }
   if (state.status === "unavailable") {
     return (
       <Banner tone="info" title="Real-trade evidence unavailable">
@@ -187,7 +201,12 @@ export default function RecentRealTrades({ sides, leagueKey }) {
         above. Verified-dynasty trades since {body.since}
         {ledger.builtAt ? `; ledger rebuilt ${String(ledger.builtAt).slice(0, 10)}` : ""}.
       </p>
-      {trades.length === 0 ? (
+      {trades.length === 0 && body.scanCapped ? (
+        <EmptyState
+          title="Search stopped before finishing"
+          description="The search reached its scan limit before finding a matching trade, so older trades were not checked. This is incomplete evidence, not a sign these assets have not been traded."
+        />
+      ) : trades.length === 0 ? (
         <EmptyState
           title="No recorded trades"
           description="No trade in the recorded sample moved these assets in this window."
@@ -201,6 +220,11 @@ export default function RecentRealTrades({ sides, leagueKey }) {
       )}
       {withheldText(body.withheld) ? (
         <p className={styles.meta}>{withheldText(body.withheld)}</p>
+      ) : null}
+      {trades.length > 0 && body.scanCapped ? (
+        <p className={styles.meta}>
+          The search reached its scan limit; older matching trades may exist and are not listed.
+        </p>
       ) : null}
       {body.truncated ? (
         <p className={styles.meta}>

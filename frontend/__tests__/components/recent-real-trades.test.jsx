@@ -204,6 +204,34 @@ describe("RecentRealTrades", () => {
     await waitFor(() => expect(screen.getByText("No recorded trades")).toBeTruthy());
   });
 
+  it("a capped scan with no match says the search was incomplete, never 'no trades'", async () => {
+    mockFetch(async () => ({
+      ok: true,
+      json: async () => ({ ...OK_BODY, trades: [], scanCapped: true }),
+    }));
+    render(<RecentRealTrades sides={SIDES} leagueKey="dynasty_main" />);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    await waitFor(() => expect(screen.getByText("Search stopped before finishing")).toBeTruthy());
+    expect(screen.queryByText("No recorded trades")).toBeNull();
+  });
+
+  it("no identifiable assets: says nothing was searched, not that the ledger failed", async () => {
+    mockFetch(async () => ({
+      ok: true,
+      json: async () => ({ state: "no_assets", trades: [], query: { unresolved: ["x"] } }),
+    }));
+    render(<RecentRealTrades sides={SIDES} leagueKey="dynasty_main" />);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    await waitFor(() =>
+      expect(screen.getByText("These assets could not be identified")).toBeTruthy(),
+    );
+    expect(screen.queryByText("Real-trade evidence unavailable")).toBeNull();
+  });
+
   it("populated: assets, matches, format tags, timing and source", async () => {
     const fetchFn = mockFetch(async () => ({ ok: true, json: async () => OK_BODY }));
     render(<RecentRealTrades sides={SIDES} leagueKey="dynasty_main" />);
