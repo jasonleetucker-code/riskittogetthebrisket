@@ -57,7 +57,14 @@ POSITION_FAMILIES = ("QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS")
 _ALIASES = {"EDGE": "DL", "DE": "DL", "DT": "DL", "CB": "DB", "S": "DB", "PICK": "PICKS"}
 
 EVIDENCE_LEVELS = ("external", "any")
-MAX_PACKAGE_PLAYERS = 3  # the substrate's largest shape (3-for-2 / 2-for-3)
+#: Assets (players AND picks) on either side — the substrate's largest shape is
+#: 3-for-2 / 2-for-3.  Applied as a SHAPE limit before enumeration.
+MAX_PACKAGE_ASSETS = 3
+#: Emission budget per finder shape group per opponent.  Pools are ranked by
+#: value, so a budget-cut search keeps the most valuable combinations; the cut
+#: is reported (``searchTruncated``), never silent.  Measured worst case before
+#: the budget (no target, no positions, picks on, size 3): 318k packages, 28 s.
+SEARCH_BUDGET_PER_SHAPE_GROUP = 2500
 
 _NO_RESULT_TEXT = {
     "no_priced_outgoing_assets": "None of the players you offered carries a market value.",
@@ -69,6 +76,12 @@ _NO_RESULT_TEXT = {
     ),
     "locked_player_unavailable": "A locked player is not among the assets you offered.",
     "target_not_found": "The player or pick you want is not on another team's roster.",
+    "target_not_on_opponent": "The asset you want belongs to a different team than the one chosen.",
+    "target_ambiguous": "More than one team holds an asset by that name — choose the team.",
+    "target_unpriced": (
+        "The asset you want is rostered but our board does not price it, so no package can "
+        "be valued around it."
+    ),
     "target_on_your_roster": "You already own the asset you asked for.",
     "target_is_a_pick_but_picks_are_off": (
         "The asset you want is a draft pick; allow draft picks to build for it."
@@ -119,13 +132,19 @@ def _norm(name: Any) -> str:
 
 
 def _match(assets: Sequence[Any], wanted: str) -> Any | None:
-    """An asset by display name, board-row name or canonical pick id."""
+    """An asset by its own name or canonical pick id — never by a shared board
+    row (a generic "2029 Round 1" row is every team's pick, not one asset)."""
     w = _norm(wanted)
     for a in assets:
-        keys = {_norm(a.name), _norm(getattr(a, "board_row", "")), _norm(a.asset_id)}
-        if w and w in keys:
+        if w and w in {_norm(a.name), _norm(a.asset_id)}:
             return a
     return None
+
+
+def _raw_roster_has(team: Mapping[str, Any] | None, wanted: str) -> bool:
+    """Whether the ROSTER lists the name at all, priced or not."""
+    w = _norm(wanted)
+    return any(_norm(n) == w for n in (team or {}).get("players") or [])
 
 
 def _no_result(reason: str, *, constrained: bool = False) -> dict[str, Any]:
@@ -149,7 +168,7 @@ def build_packages(
     opponent: str | None = None,
     outgoing: Sequence[str] | None = None,
     return_positions: frozenset[str] | None = None,
-    max_players_per_side: int = MAX_PACKAGE_PLAYERS,
+    max_assets_per_side: int = MAX_PACKAGE_ASSETS,
     allow_picks: bool = False,
     evidence: str = "any",
     constraints: Any | None = None,
@@ -170,7 +189,7 @@ def build_packages(
 
     if evidence not in EVIDENCE_LEVELS:
         raise ValueError(f"evidence must be one of {EVIDENCE_LEVELS}")
-    max_side = max(1, min(int(max_players_per_side), MAX_PACKAGE_PLAYERS))
+    max_side = max(1, min(int(max_assets_per_side), MAX_PACKAGE_ASSETS))
     prior = dict(prior or bo.load_ranking_prior())
     weights = prior["weights"]
     top_k = int((prior.get("search") or {}).get("lineupRerankTopK", 5))
@@ -193,7 +212,7 @@ def build_packages(
         "opponent": opponent or None,
         "outgoing": list(outgoing) if outgoing else None,
         "returnPositions": sorted(return_positions) if return_positions else None,
-        "maxPlayersPerSide": max_side,
+        "maxAssetsPerSide": max_side,
         "allowPicks": bool(allow_picks),
         "evidence": evidence,
     }
@@ -215,6 +234,12 @@ def build_packages(
                 else "shown, not required"
             ),
             "topology": "abs(players sent - players received) <= 1; picks not counted",
+            "packageSize": "at most maxAssetsPerSide assets (players and picks) on either side",
+            "picks": (
+                "only when the user allows them; a user-requested pick may balance a package"
+                if allow_picks
+                else "excluded"
+            ),
             "constraintsAppliedDuringGeneration": True,
         },
         "teamContext": {"applied": use_ctx},
@@ -228,22 +253,23 @@ def build_packages(
     my_owner = owner_of.get(my_team, "")
 
     # ── outgoing pool (the user's selection, then the constraint owner) ────
-    my_roster = finder.resolve_roster(my_team, sleeper_teams, pool_by_name)
-    if allow_picks:
-        my_picks, _ = finder.owned_pick_assets(
-            team_by_name[my_team], contract, players, pool_by_name, pick_forecasts, unfiltered
-        )
-        my_roster = [*my_roster, *my_picks]
+    my_players_all = finder.resolve_roster(my_team, sleeper_teams, pool_by_name)
+    my_picks_all, _ = finder.owned_pick_assets(
+        team_by_name[my_team], contract, players, pool_by_name, pick_forecasts, unfiltered
+    )
+    my_players = my_players_all
     not_on_roster: list[str] = []
     if outgoing:
+        # The selection names PLAYERS; picks are governed by ``allow_picks``.
         chosen = []
         for name in outgoing:
-            a = _match(my_roster, name)
+            a = _match(my_players_all, name) or _match(my_picks_all, name)
             if a is None:
                 not_on_roster.append(str(name))
-            elif a not in chosen:
+            elif a not in chosen and not a.is_pick:
                 chosen.append(a)
-        my_roster = chosen
+        my_players = chosen
+    my_roster = [*my_players, *(my_picks_all if allow_picks else [])]
     if not_on_roster:
         base["outgoingNotOnRoster"] = not_on_roster
     if not my_roster:
@@ -263,28 +289,54 @@ def build_packages(
     # ── the desired incoming asset ────────────────────────────────────────
     target_asset = None
     if target:
-        if _match(my_roster, target) is not None or _match(
-            finder.resolve_roster(my_team, sleeper_teams, pool_by_name), target
+        if (
+            _match(my_players_all, target) is not None
+            or _match(my_picks_all, target) is not None
+            or _raw_roster_has(team_by_name[my_team], target)
         ):
             return {**base, **_no_result("target_on_your_roster")}
-        holders = []
+        holders: list[tuple[str, Any]] = []
+        unpriced_holders: list[str] = []
         for name, team in team_by_name.items():
-            if name == my_team or (opponent and name != opponent):
+            if name == my_team:
                 continue
-            roster = finder.resolve_roster(name, sleeper_teams, pool_by_name)
-            hit = _match(roster, target)
+            hit = _match(finder.resolve_roster(name, sleeper_teams, pool_by_name), target)
             if hit is None:
                 picks, _ = finder.owned_pick_assets(
                     team, contract, players, pool_by_name, pick_forecasts, unfiltered
                 )
                 hit = _match(picks, target)
-                if hit is not None and not allow_picks:
-                    return {**base, **_no_result("target_is_a_pick_but_picks_are_off")}
             if hit is not None:
                 holders.append((name, hit))
+            elif _raw_roster_has(team, target):
+                unpriced_holders.append(name)
+        if opponent:
+            elsewhere = [n for n, _a in holders if n != opponent]
+            holders = [(n, a) for n, a in holders if n == opponent]
+            if not holders and elsewhere:
+                return {
+                    **base,
+                    "targetHolders": sorted(elsewhere),
+                    **_no_result("target_not_on_opponent"),
+                }
+            unpriced_holders = [n for n in unpriced_holders if n == opponent]
         if not holders:
+            if unpriced_holders:
+                return {
+                    **base,
+                    "targetHolders": sorted(unpriced_holders),
+                    **_no_result("target_unpriced"),
+                }
             return {**base, **_no_result("target_not_found")}
+        if len(holders) > 1:
+            return {
+                **base,
+                "targetHolders": sorted(n for n, _a in holders),
+                **_no_result("target_ambiguous"),
+            }
         opponent, target_asset = holders[0]
+        if target_asset.is_pick and not allow_picks:
+            return {**base, **_no_result("target_is_a_pick_but_picks_are_off")}
         request["opponent"] = opponent
     if len(lock.required) > max_side:
         return {**base, **_no_result("package_size_cannot_hold_requirements", constrained=True)}
@@ -294,9 +346,10 @@ def build_packages(
 
     # ── generate per opponent, constraints inside the enumeration ─────────
     diag = bo._new_diag()
-    diag["rejectedBy"]["over_package_size"] = 0
     diag["rejectedBy"]["no_fair_package"] = diag["rejectedBy"].pop("no_canonical_win")
     any_return_pool = False
+    truncated = False
+    needs_by_opp: dict[str, set[str] | None] = {}
     found: list[tuple[str, bo.BestOfferCandidate]] = []
     enumeration: dict[str, Any] = {}
     for opp in opponents:
@@ -319,7 +372,8 @@ def build_packages(
             continue
         any_return_pool = True
         their_needs = (needs_by_owner or {}).get(owner_of.get(opp, "")) if use_ctx else None
-        score = _scorer(index, prior, our_needs, their_needs, diag, evidence, max_side, contract)
+        needs_by_opp[opp] = their_needs
+        score = _scorer(index, prior, our_needs, their_needs, diag, evidence, contract)
         cands, report = finder.generate_packages(
             my_roster,
             opp_pool,
@@ -328,8 +382,13 @@ def build_packages(
             **({"required_send": list(lock.required)} if lock.required else {}),
             **({"required_receive": [target_asset]} if target_asset is not None else {}),
             score=score,
+            max_per_side=max_side,
+            max_packages=SEARCH_BUDGET_PER_SHAPE_GROUP,
         )
         enumeration[opp] = report
+        truncated = truncated or any(
+            isinstance(g, dict) and g.get("budgetExhausted") for g in report.values()
+        )
         found.extend((opp, c) for c in cands)
 
     if not any_return_pool:
@@ -340,45 +399,55 @@ def build_packages(
         key = (opp, c.package_key())
         if key not in seen or c.arbitrage_score > seen[key][1].arbitrage_score:
             seen[key] = (opp, c)
-    ranked = sorted(
-        seen.values(),
-        key=lambda oc: (-oc[1].arbitrage_score, oc[1].has_pick, oc[0], oc[1].package_key()),
-    )
-    if not ranked:
+    opp_of = {id(c): opp for opp, c in seen.values()}
+    cands = [c for _opp, c in seen.values()]
+    if not cands:
         out = {
             **base,
             **_no_result(_reason(diag, evidence), constrained=bool(blocked or lock.required)),
         }
         out["diagnostics"] = {**diag, "enumeration": enumeration}
+        if truncated:
+            out["searchTruncated"] = True
         return out
 
-    head = ranked[: max(top_k, limit)]
+    def _order(c: bo.BestOfferCandidate) -> tuple:
+        return (-c.arbitrage_score, c.has_pick, opp_of[id(c)], c.package_key())
+
+    # An unknown disagreement cost (no calculator prices the whole package)
+    # ranks as the worst KNOWN one across every candidate, never as free.
+    bo.score_head(cands, weights, factors=("calculatorDivergence",))
+    cands.sort(key=_order)
+    head = cands[: max(top_k, limit)]
     if use_ctx:
-        # Roster consequences per opponent pairing, then one merged order.
+        # Roster consequences per opponent pairing; ONE set of stand-ins over
+        # the merged head, so every opponent's candidates are charged alike.
         by_opp: dict[str, list[bo.BestOfferCandidate]] = {}
-        for opp, c in head:
-            by_opp.setdefault(opp, []).append(c)
-        for opp, cs in by_opp.items():
-            bo.rerank_head(
-                cs,
-                weights,
+        for c in head:
+            by_opp.setdefault(opp_of[id(c)], []).append(c)
+        for opp, group in by_opp.items():
+            bo.annotate_roster_factors(
+                group,
                 lineup_delta=lineup_delta,
                 capacity_for=capacity_for,
                 my_owner=my_owner,
                 opp_owner=owner_of.get(opp, ""),
                 opp=opp,
             )
-        head.sort(
-            key=lambda oc: (-oc[1].arbitrage_score, oc[1].has_pick, oc[0], oc[1].package_key())
-        )
+    bo.score_head(head, weights, factors=(*bo._RERANK_FACTORS, "calculatorDivergence"))
+    head.sort(key=_order)
 
     packages = []
-    for opp, c in head[: max(1, int(limit))]:
-        offer = bo._offer_dict(c, our_needs, None, None, prior)
+    for c in head[: max(1, int(limit))]:
+        opp = opp_of[id(c)]
+        offer = bo._offer_dict(c, our_needs, needs_by_opp.get(opp), None, prior)
         offer["opponent"] = opp
         offer["externalQualifies"] = bool(c.external is not None and c.external.qualifies)
         packages.append(offer)
-    return {**base, "packages": packages, "diagnostics": {**diag, "enumeration": enumeration}}
+    out = {**base, "packages": packages, "diagnostics": {**diag, "enumeration": enumeration}}
+    if truncated:
+        out["searchTruncated"] = True
+    return out
 
 
 def _reason(diag: Mapping[str, Any], evidence: str) -> str:
@@ -398,7 +467,6 @@ def _scorer(
     their_needs: set[str] | None,
     diag: dict[str, Any],
     evidence: str,
-    max_side: int,
     contract: Mapping[str, Any],
 ) -> Callable[[list[Any], list[Any]], bo.BestOfferCandidate | None]:
     """Judge one enumerated package against the user's request.
@@ -422,9 +490,6 @@ def _scorer(
 
     def _judge(give: list[Any], receive: list[Any]) -> bo.BestOfferCandidate | None:
         diag["enumerated"] += 1
-        if len(give) > max_side or len(receive) > max_side:
-            diag["rejectedBy"]["over_package_size"] += 1
-            return None
         ok, flags = finder.plausibility_check(give, receive)
         if not ok:
             diag["rejectedBy"]["no_plausible_package"] += 1
@@ -444,11 +509,12 @@ def _scorer(
         if any(v.coverage == "complete" for v in verdicts):
             diag["covered"] += 1
         if best is None and evidence == "external":
-            reason = (
-                "opponent_not_even_on_any_calculator"
-                if any(v.coverage == "complete" for v in verdicts)
-                else "no_whole_package_coverage"
-            )
+            if any(v.coverage == "complete" for v in verdicts):
+                reason = "opponent_not_even_on_any_calculator"
+            elif any(v.coverage == "withheld" for v in verdicts):
+                reason = "external_provider_withheld"
+            else:
+                reason = "no_whole_package_coverage"
             diag["rejectedBy"][reason] += 1
             return None
         if best is not None:

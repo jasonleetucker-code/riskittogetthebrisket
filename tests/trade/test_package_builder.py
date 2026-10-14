@@ -108,9 +108,14 @@ def test_outgoing_selection_limits_what_can_be_sent():
     assert out2["outgoingNotOnRoster"] == ["Ghost"]
 
 
-def test_max_package_size_is_honoured():
-    out = _build(MINE, THEIRS, max_players_per_side=1)
+def test_max_package_size_limits_the_shapes_generated_not_the_results():
+    out = _build(MINE, THEIRS, max_assets_per_side=1)
+    assert out["packages"]
     assert all(len(p["send"]) == 1 and len(p["receive"]) == 1 for p in out["packages"])
+    # Applied before enumeration: only the 1-for-1 shape group ran at all.
+    for report in out["diagnostics"]["enumeration"].values():
+        assert report["asymmetric"]["emitted"] == 0
+        assert report["multiPlayer"]["emitted"] == 0
 
 
 def test_a_canonical_loss_is_never_returned():
@@ -201,3 +206,63 @@ def test_an_unknown_nfl_team_fails_closed_under_a_team_protection():
         constraints=resolve_constraints(persistent={"nflTeams": ["MIN"]}),
     )
     assert out["noResultReason"] == "all_outgoing_assets_constrained"
+
+
+def test_a_target_held_by_another_team_than_the_chosen_one_says_so():
+    third = [("Third QB", "QB", 4500, 4300, 4300, "LV")]
+    out = _build(MINE, THEIRS, third=third, target="Third QB", opponent="Them")
+    assert out["noResultReason"] == "target_not_on_opponent"
+    assert out["targetHolders"] == ["Third"]
+
+
+def test_an_ambiguous_target_is_refused_with_its_holders():
+    third = [("Their QB", "QB", 4500, 4300, 4300, "LV")]
+    out = _build(MINE, THEIRS, third=third, target="Their QB")
+    assert out["noResultReason"] == "target_ambiguous"
+    assert out["targetHolders"] == ["Them", "Third"]
+    # Naming the team resolves it.
+    assert _build(MINE, THEIRS, third=third, target="Their QB", opponent="Third")["packages"]
+
+
+def test_a_rostered_but_unpriced_target_is_not_reported_missing():
+    players, teams, contract = _league(MINE, THEIRS)
+    teams[1]["players"].append("Unpriced Rookie")
+    out = pb.build_packages(
+        players, "Us", teams, contract=contract, use_team_context=False, target="Unpriced Rookie"
+    )
+    assert out["noResultReason"] == "target_unpriced"
+    assert out["targetHolders"] == ["Them"]
+
+
+def test_owning_the_target_outside_the_outgoing_selection_is_still_yours():
+    out = _build(MINE, THEIRS, target="Our RB", outgoing=["Our WR"])
+    assert out["noResultReason"] == "target_on_your_roster"
+
+
+def test_unknown_roster_costs_rank_as_the_merged_heads_worst_known():
+    """Review: stand-ins came per opponent, so a lone candidate with an
+    unknown release cost ranked as free against charged opponents."""
+    third = [("Third WR", "WR", 4150, 4050, 4050, "LV")]
+
+    def capacity_for(opp, give, receive):
+        return (None, None) if opp == "Third" else (object(), 400.0)
+
+    out = _build(
+        MINE,
+        THEIRS,
+        third=third,
+        use_team_context=True,
+        capacity_for=capacity_for,
+        max_assets_per_side=1,
+    )
+    third_pkgs = [p for p in out["packages"] if p["opponent"] == "Third"]
+    assert third_pkgs
+    for p in third_pkgs:
+        assert p["rankingFactors"]["forcedDropCost"] is None
+        assert p["rankingImputations"]["forcedDropCost"] > 0
+
+
+def test_the_search_budget_is_reported_never_silent(monkeypatch):
+    monkeypatch.setattr(pb, "SEARCH_BUDGET_PER_SHAPE_GROUP", 1)
+    out = _build(MINE, THEIRS)
+    assert out["searchTruncated"] is True

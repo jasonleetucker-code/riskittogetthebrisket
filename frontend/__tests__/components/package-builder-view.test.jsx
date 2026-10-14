@@ -20,6 +20,7 @@ const PKG = {
   receive: [{ name: "Their QB", position: "QB", isPick: false }],
   canonical: { vaAdjustedGap: 300, magnitude: "lean" },
   external: null,
+  whyTheyMayAccept: "No approved calculator both prices every asset and grades this even for them.",
   externalAll: [
     { calculator: "k", label: "KTC Market", coverage: "complete", opponentMarginPct: -2.5, result: "loss" },
   ],
@@ -58,9 +59,11 @@ describe("Package Builder view", () => {
       returnPositions: ["QB"],
       allowPicks: true,
       evidence: "any",
-      maxPlayersPerSide: 3,
+      maxAssetsPerSide: 3,
     });
-    expect(screen.getByText("No calculator shows them even")).toBeInTheDocument();
+    expect(
+      screen.getByText("No approved calculator both prices every asset and grades this even for them."),
+    ).toBeInTheDocument();
     expect(screen.getByText("KTC Market: them -2.5% (loss for them)")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open in Trade Calculator" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^send/i })).toBeNull();
@@ -102,11 +105,33 @@ describe("Package Builder view", () => {
     });
     expect(req).toEqual({
       myTeam: "Us",
-      maxPlayersPerSide: 2,
+      maxAssetsPerSide: 2,
       allowPicks: false,
       evidence: "external",
       useTeamContext: false,
       refinement: { lock: [], exclude: [] },
     });
+  });
+
+  it("a team change clears the target and team choice and errors read as sentences", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "unknown_opponent" }),
+    });
+    const { rerender } = render(
+      <PackageBuilderView myTeam="Us" leagueKey="lg" ownerKey="me" teams={TEAMS} />,
+    );
+    await user.type(screen.getByLabelText("Player or pick you want (optional)"), "Their QB");
+    await user.selectOptions(screen.getByLabelText("From team"), "Them");
+    await user.click(screen.getByRole("button", { name: "Build packages" }));
+    expect(await screen.findByText("Choose a different team to trade with.")).toBeInTheDocument();
+    expect(screen.queryByText("unknown_opponent")).toBeNull();
+    rerender(<PackageBuilderView myTeam="Them" leagueKey="lg" ownerKey="me" teams={TEAMS} />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Player or pick you want (optional)")).toHaveValue(""),
+    );
+    expect(screen.getByLabelText("From team")).toHaveValue("");
   });
 });

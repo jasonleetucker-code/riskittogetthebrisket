@@ -32,7 +32,9 @@ import {
 import {
   PACKAGE_POSITIONS,
   buildRequest,
+  externalLine,
   noResultText,
+  requestErrorText,
   togglePosition,
 } from "@/lib/package-builder";
 import {
@@ -103,6 +105,9 @@ export default function PackageBuilderView({
     setResult(null);
     setRunning(false);
     setOutgoing([]);
+    setTarget("");
+    setOpponent("");
+    setError("");
     setRefinement(loadRefinement(storageKey));
   }, [storageKey]);
 
@@ -148,8 +153,7 @@ export default function PackageBuilderView({
         ),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok)
-        throw new Error(data?.error || `Request failed (${res.status})`);
+      if (!res.ok) throw new Error(requestErrorText(data?.error));
       if (mine === seq.current) setResult(data);
     } catch (err) {
       if (mine === seq.current) setError(err?.message || "Request failed");
@@ -210,7 +214,7 @@ export default function PackageBuilderView({
               ))}
           </Select>
         </Field>
-        <Field label="Most players per side">
+        <Field label="Most assets per side (players + picks)">
           <Select
             value={String(maxSide)}
             onChange={(e) => setMaxSide(Number(e.target.value))}
@@ -317,7 +321,6 @@ export default function PackageBuilderView({
         <ol className={styles.list}>
           {packages.map((pkg, i) => {
             const url = calcUrl(myTeam, pkg);
-            const ext = pkg.external;
             return (
               <li key={`${pkg.opponent}-${i}`} className={styles.row}>
                 <header className={styles.rowHead}>
@@ -330,11 +333,7 @@ export default function PackageBuilderView({
                     </strong>{" "}
                     ({pkg.canonical?.magnitude || UNKNOWN})
                   </span>
-                  <span>
-                    {ext
-                      ? `${ext.label}: them ${fmtSignedPct(ext.opponentMarginPct)}`
-                      : "No calculator shows them even"}
-                  </span>
+                  <span>{externalLine(pkg, fmtSignedPct)}</span>
                   {pkg.confidence ? (
                     <Badge tone="outline">{pkg.confidence} confidence</Badge>
                   ) : null}

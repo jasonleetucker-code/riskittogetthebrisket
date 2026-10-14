@@ -932,6 +932,8 @@ def _generate_packages(
     score: Any = None,
     one_for_one_only: bool = False,
     required_receive: list[Asset] | tuple[Asset, ...] = (),
+    max_per_side: int | None = None,
+    max_packages: int | None = None,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -963,10 +965,20 @@ def _generate_packages(
     ``required_receive`` is the receive-side mirror of ``required_send`` (a
     Package Builder's desired incoming asset); the arbitrage finder never sets
     it, so its output is unchanged.
+
+    ``max_per_side`` drops every shape with more assets than that on either
+    side BEFORE enumeration (a size limit applied during generation, not by
+    rejecting packages afterwards); ``max_packages`` is a per-shape-group
+    emission budget, reported as ``budgetExhausted``.  Both unset by the
+    finder itself.
     """
     results: list[TradeCandidate] = []
 
     def _run(shapes: list[substrate.PackageShape], pool_limit: int | None):
+        if max_per_side is not None:
+            shapes = [s for s in shapes if s.send <= max_per_side and s.receive <= max_per_side]
+            if not shapes:
+                return substrate.EnumerationReport()
         packages, report = substrate.enumerate_packages(
             my_assets,
             opp_assets,
@@ -991,6 +1003,7 @@ def _generate_packages(
             rank_key=substrate.by_value_desc,
             required_send=required_send,
             **({"required_receive": required_receive} if required_receive else {}),
+            **({"max_packages": max_packages} if max_packages is not None else {}),
         )
         for pair in packages:
             give, receive = pair.sources()

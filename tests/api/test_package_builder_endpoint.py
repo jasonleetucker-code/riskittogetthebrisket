@@ -84,7 +84,7 @@ def test_a_target_build_is_recommend_only_and_never_cached(authed):
     "extra,error",
     [
         ({"returnPositions": ["K"]}, "invalid_return_positions"),
-        ({"maxPlayersPerSide": 4}, "invalid_numbers"),
+        ({"maxAssetsPerSide": 4}, "invalid_numbers"),
         ({"evidence": "vibes"}, "invalid_evidence"),
         ({"opponent": "Us"}, "unknown_opponent"),
         ({"outgoing": "Our WR"}, "invalid_outgoing"),

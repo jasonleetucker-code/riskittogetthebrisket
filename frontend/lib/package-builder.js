@@ -36,7 +36,7 @@ export function buildRequest({
 }) {
   const body = {
     myTeam,
-    maxPlayersPerSide: maxSide,
+    maxAssetsPerSide: maxSide,
     allowPicks: Boolean(allowPicks),
     evidence: evidence === "external" ? "external" : "any",
     useTeamContext: useTeamContext !== false,
@@ -72,10 +72,42 @@ const REASON_TEXT = {
   no_plausible_package: "Every package failed the plausibility gates.",
   no_fair_package:
     "Every package that fits your request loses for you on our board.",
+  target_not_on_opponent:
+    "That asset belongs to a different team than the one chosen.",
+  target_ambiguous:
+    "More than one team holds an asset by that name — choose the team.",
+  target_unpriced:
+    "That asset is rostered, but our board does not price it, so no package can be valued around it.",
   no_external_acceptance:
     "No package that is fair for you is even or better for them on an approved calculator that prices every asset.",
 };
 
 export function noResultText(result) {
   return result?.noResultDetail || REASON_TEXT[result?.noResultReason] || null;
+}
+
+const ERROR_TEXT = {
+  unknown_team: "Choose your team first.",
+  unknown_opponent: "Choose a different team to trade with.",
+  invalid_target: "That player or pick name is not valid.",
+  invalid_outgoing: "Choose at most 60 assets to offer.",
+  invalid_return_positions: "One of the selected positions is not supported.",
+  invalid_numbers: "Package size must be between 1 and 3.",
+  invalid_evidence: "Choose which evidence the packages need.",
+  invalid_refinement: "A player cannot be both locked and excluded.",
+};
+
+/** A readable message for a 4xx/5xx code; the code itself is never shown alone. */
+export function requestErrorText(code) {
+  return ERROR_TEXT[code] || "The package builder could not run. Try again.";
+}
+
+/** The "do they accept" line: the server's own wording when nothing qualifies. */
+export function externalLine(pkg, fmtPct) {
+  const ext = pkg?.external;
+  if (ext) return `${ext.label}: them ${fmtPct(ext.opponentMarginPct)}`;
+  return (
+    pkg?.whyTheyMayAccept ||
+    "No approved calculator prices every asset and grades it even for them."
+  );
 }

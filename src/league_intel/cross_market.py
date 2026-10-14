@@ -9,7 +9,7 @@ and IDP.  It has nothing to do with this module.
 
 CORRECTED 2026-08-18.  This block used to say the honest count of
 production importers was **zero**.  That has not been true for some
-time.  Measured at HEAD there are **five**, and four of them are
+time.  Measured at HEAD there are **six**, and five of them are
 reachable from a user request:
 
 ============================  ==========================  ==============
@@ -31,6 +31,8 @@ importer                      what it takes               reached from
 ``src/trade/golden_upgrades`` ``native_calculator_value``, ``POST /api/trade/golden-upgrades``
                               ``CALCULATOR_LABELS``,
                               ``MARKET_KTC``, ``MARKET_IDPTC``
+``src/trade/package_builder`` ``external_package_verdicts``, ``POST /api/trade/package-builder``
+                              ``best_qualifying_verdict``
 ============================  ==========================  ==============
 
 **A behaviour change here DOES reach a user.**  This module is live,

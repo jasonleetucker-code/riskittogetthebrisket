@@ -9461,7 +9461,7 @@ async def post_trade_package_builder(request: Request):
           "opponent": "Team B",                  // optional (implied by target)
           "outgoing": ["..."],                   // optional: assets you'll offer
           "returnPositions": ["WR", "PICKS"],    // optional; QB RB WR TE DL LB DB PICKS
-          "maxPlayersPerSide": 2,                // 1-3
+          "maxAssetsPerSide": 2,                 // 1-3, players and picks
           "allowPicks": false,
           "evidence": "any" | "external",
           "useTeamContext": true,
@@ -9518,15 +9518,18 @@ async def post_trade_package_builder(request: Request):
         or not all(isinstance(n, str) and n.strip() for n in outgoing)
     ):
         return _bad("invalid_outgoing", max=_PACKAGE_BUILDER_MAX_OUTGOING)
-    return_positions, unknown = _pb.normalize_return_positions(body.get("returnPositions"))
+    raw_positions = body.get("returnPositions")
+    if isinstance(raw_positions, list) and len(raw_positions) > 16:
+        return _bad("invalid_return_positions", unknown=["<too many>"])
+    return_positions, unknown = _pb.normalize_return_positions(raw_positions)
     if unknown:
         return _bad("invalid_return_positions", unknown=unknown[:10])
     try:
-        max_side = int(body.get("maxPlayersPerSide", _pb.MAX_PACKAGE_PLAYERS))
+        max_side = int(body.get("maxAssetsPerSide", _pb.MAX_PACKAGE_ASSETS))
         limit = int(body.get("limit", 10))
     except (TypeError, ValueError):
         return _bad("invalid_numbers")
-    if not 1 <= max_side <= _pb.MAX_PACKAGE_PLAYERS or not 1 <= limit <= 25:
+    if not 1 <= max_side <= _pb.MAX_PACKAGE_ASSETS or not 1 <= limit <= 25:
         return _bad("invalid_numbers")
     evidence = body.get("evidence", "any")
     if evidence not in _pb.EVIDENCE_LEVELS:
@@ -9577,7 +9580,7 @@ async def post_trade_package_builder(request: Request):
             opponent=opponent or None,
             outgoing=outgoing,
             return_positions=return_positions,
-            max_players_per_side=max_side,
+            max_assets_per_side=max_side,
             allow_picks=allow_picks,
             evidence=evidence,
             constraints=constraints,

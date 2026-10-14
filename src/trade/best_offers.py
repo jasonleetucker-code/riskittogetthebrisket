@@ -364,6 +364,11 @@ def _divergence(
     return max(package, asset)
 
 
+def _kindest_complete(verdicts: Sequence[Any]) -> Any | None:
+    complete = [v for v in verdicts if v.coverage == "complete" and v.margin_pct is not None]
+    return max(complete, key=lambda v: v.margin_pct) if complete else None
+
+
 def _factors(
     give: Sequence[Any],
     receive: Sequence[Any],
@@ -387,17 +392,22 @@ def _factors(
     # not zero.
     has_external = verdict is not None and verdict.margin_pct is not None
     comfort = _comfort(float(verdict.margin_pct), scale) if has_external else None
+    # Disagreement is measured against the qualifying calculator, or — when
+    # nothing qualifies (Package Builder "any" mode) — against the complete
+    # calculator that is kindest to the opponent: the cost of disagreement is
+    # still known there and must not be skipped as if it were free.
+    reference = verdict if has_external else _kindest_complete(verdicts)
     divergence = (
         _divergence(
             (*give, *receive),
             rows,
-            verdict.calculator,
+            reference.calculator,
             pick_provenance,
             scale,
             edge_pct=edge_pct * 100.0,
-            margin_pct=float(verdict.margin_pct),
+            margin_pct=float(reference.margin_pct),
         )
-        if rows and has_external
+        if rows and reference is not None
         else None
     )
     # Calculator shopping: another approved calculator that prices EVERY asset
@@ -572,9 +582,8 @@ def _scorer(
     return score
 
 
-def rerank_head(
+def annotate_roster_factors(
     head: list[BestOfferCandidate],
-    weights: Mapping[str, float],
     *,
     lineup_delta: Callable[..., dict[str, Any] | None] | None,
     capacity_for: Callable[..., tuple[Any, float | None]] | None,
@@ -582,13 +591,11 @@ def rerank_head(
     opp_owner: str,
     opp: str,
 ) -> None:
-    """Score the head's roster consequences and re-sort it in place.
+    """Read each candidate's roster consequences (no scoring).
 
     Lineup impact (both sides, canonical lineup solver) and the cost of the
     releases the trade forces (``roster_capacity.forced_drop_cost``; ``None``
-    is UNKNOWN, never free).  Unknown rerank factors rank as the head's worst
-    known value (``_RERANK_FACTORS``).  Shared by every consumer of this
-    ranking (Best Offers, Package Builder) so the roster read is one rule.
+    is UNKNOWN, never free).
     """
     for c in head:
         if lineup_delta is not None:
@@ -608,12 +615,45 @@ def rerank_head(
             if cost is not None:
                 give_model = max(sum(a.model_value for a in c.give), 1)
                 c.factors["forcedDropCost"] = round(_clip01(cost / give_model), 4)
-    stand_ins = {n: _worst_known(head, n) for n in _RERANK_FACTORS}
+
+
+def score_head(
+    head: list[BestOfferCandidate],
+    weights: Mapping[str, float],
+    factors: Sequence[str] = _RERANK_FACTORS,
+) -> None:
+    """Re-score and sort ``head`` in place, an unknown factor ranking as the
+    WHOLE head's worst known value (never as free).  A consumer that merges
+    several opponents' candidates passes the merged head, so every candidate
+    is charged against the same stand-ins."""
+    stand_ins = {n: _worst_known(head, n) for n in factors}
     for c in head:
         imputed = {n: v for n, v in stand_ins.items() if v is not None and c.factors.get(n) is None}
         c.imputations = imputed
         c.arbitrage_score = _score(c.factors, weights, imputed)
     head.sort(key=lambda c: (-c.arbitrage_score, c.has_pick, c.package_key()))
+
+
+def rerank_head(
+    head: list[BestOfferCandidate],
+    weights: Mapping[str, float],
+    *,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None,
+    capacity_for: Callable[..., tuple[Any, float | None]] | None,
+    my_owner: str,
+    opp_owner: str,
+    opp: str,
+) -> None:
+    """Annotate the head's roster consequences, then re-score it (one opponent)."""
+    annotate_roster_factors(
+        head,
+        lineup_delta=lineup_delta,
+        capacity_for=capacity_for,
+        my_owner=my_owner,
+        opp_owner=opp_owner,
+        opp=opp,
+    )
+    score_head(head, weights)
 
 
 def _no_result_reason(diag: Mapping[str, Any]) -> str:
