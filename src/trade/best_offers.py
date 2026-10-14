@@ -282,8 +282,7 @@ def _factors(
     # A qualifying verdict always carries a margin (best_qualifying_verdict
     # admits none without one), so it is read directly — never defaulted.
     comfort = _clip01(
-        max(0.0, float(verdict.margin_pct))
-        / float(scale.get("externalComfortSaturationPct", 15.0))
+        max(0.0, float(verdict.margin_pct)) / float(scale.get("externalComfortSaturationPct", 15.0))
     )
     sources = [a.source_count for a in (*give, *receive) if a.source_count > 0]
     confidence = (
@@ -703,8 +702,10 @@ def build_best_offers(
                     c.lineup = lineup_delta(
                         my_owner, owner_of.get(opp, ""), _names(c.give), _names(c.receive)
                     )
-                    if c.lineup and c.lineup.get("available"):
-                        base_pts = max(float(c.lineup.get("ourBefore") or 0.0), 1.0)
+                    if c.lineup and c.lineup.get("available") and c.lineup.get("ourBefore"):
+                        # A lineup with no recorded baseline is not scored at
+                        # all (factor stays None) rather than against zero.
+                        base_pts = max(float(c.lineup["ourBefore"]), 1.0)
                         c.factors["lineupImpact"] = round(
                             max(-1.0, min(1.0, float(c.lineup["ourDelta"]) / base_pts * 10.0)), 4
                         )
@@ -748,7 +749,9 @@ def build_best_offers(
     results.sort(
         key=lambda r: (
             order.get(r["status"], 2),
-            -((r.get("offer") or {}).get("score") or 0.0),
+            # No-result cards already sort last by status; only qualified
+            # offers (which always carry a score) are ordered by it.
+            -(r["offer"]["score"] if r.get("offer") else 0.0),
             r["team"],
         )
     )
