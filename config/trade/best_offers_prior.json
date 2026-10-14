@@ -1,0 +1,26 @@
+{
+  "id": "best_offers_prior_v1",
+  "status": "PRIOR_UNVALIDATED",
+  "owner": "src/trade/best_offers.py",
+  "decided": "2026-10-14 — owner chose a declared, transparent prior with recorded receipts until a validation target exists (OWNER_PRODUCT_BACKLOG_SPEC.md §2.3: exact ranking weights require validation before production).",
+  "note": "These weights ORDER candidates that already passed every hard rule (canonical win, opponent even-or-better on a whole-package-covered external calculator, topology, posture-justified picks, constraints). They never qualify or disqualify a trade. Each factor is in [0, 1]; forcedDropCost is subtracted. A factor that cannot be computed contributes nothing and is reported as null.",
+  "weights": {
+    "mutualBalance": 0.25,
+    "canonicalEdge": 0.15,
+    "externalComfort": 0.15,
+    "lineupImpact": 0.15,
+    "ourNeedFit": 0.08,
+    "theirNeedFit": 0.08,
+    "simplicity": 0.07,
+    "confidence": 0.07,
+    "forcedDropCost": 0.15
+  },
+  "scales": {
+    "canonicalEdgeSaturationPct": 30.0,
+    "externalComfortSaturationPct": 15.0,
+    "confidenceSourceBaseline": 8.0
+  },
+  "search": {
+    "lineupRerankTopK": 5
+  }
+}

@@ -46,6 +46,15 @@ const CONTEXT_OPTIONS = [
   { value: "asset", label: "Asset only" },
 ];
 import styles from "./arbitrage.module.css";
+import BestOffersView from "./BestOffersView";
+
+// The package layer has two views over the same team selection: the
+// equal-count arbitrage scan (unchanged) and Best Trade to Send Each Team
+// (C7-BEST-TRADE), which allows a one-player difference and posture picks.
+const VIEW_OPTIONS = [
+  { value: "scan", label: "Package scan" },
+  { value: "best", label: "Best offer by opponent" },
+];
 
 // ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
 //
@@ -316,6 +325,7 @@ export default function ArbitragePage() {
   // persistent trade-protection store.
   const [refinement, setRefinement] = useState(emptyRefinement);
   const [useTeamContext, setUseTeamContext] = useState(true);
+  const [packageView, setPackageView] = useState("scan");
   // Only the LATEST scan may write the result: a mode switch mid-scan starts a
   // new request, and a slower earlier response must not paint the other
   // mode's order under the current switch position.
@@ -524,6 +534,48 @@ export default function ArbitragePage() {
 
       <Panel>
         <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
+        <div className={styles.controls}>
+          <SegmentedControl
+            label="Package view"
+            options={VIEW_OPTIONS}
+            value={packageView}
+            onChange={(v) => setPackageView(v)}
+          />
+          {packageView === "best" ? (
+            <Field label="Your team">
+              <Select
+                value={effectiveTeam}
+                onChange={(e) => {
+                  setMyTeam(e.target.value);
+                  resetPackageScan();
+                }}
+                disabled={dataLoading || !teams.length}
+              >
+                {teams.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+        </div>
+      </Panel>
+
+      {packageView === "best" ? (
+        <Panel>
+          <BestOffersView
+            myTeam={effectiveTeam}
+            leagueKey={selectedLeagueKey}
+            ownerKey={selectedOwnerId}
+            opponentNames={teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)}
+          />
+        </Panel>
+      ) : null}
+
+      {packageView === "scan" ? (
+        <>
+      <Panel>
         <p className={styles.muted}>
           This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. On a player you would send, Lock keeps them in every regenerated package and Exclude keeps them out; on a player you would receive, Skip leaves them out of this scan. Locks and exclusions stay until you clear them and never change your saved trade protections.
         </p>
@@ -649,6 +701,8 @@ export default function ArbitragePage() {
           title="Package scan ready"
           description="The player-level opportunities above are live immediately. Choose your team and a counterparty to search actual trade constructions."
         />
+      ) : null}
+        </>
       ) : null}
     </div>
   );

@@ -189,6 +189,11 @@ from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
 from src.utils.name_clean import normalize_position as _norm_pos
 
 __all__ = [
+    "CALCULATOR_LABELS",
+    "CalculatorVerdict",
+    "EXTERNAL_EVEN_TOLERANCE_PCT",
+    "best_qualifying_verdict",
+    "external_package_verdicts",
     "NORMALIZATION_VERSION",
     "MARKET_KTC",
     "MARKET_IDPTC",
@@ -746,3 +751,193 @@ def compare_packages(
         passes_gate=passes,
         verdict_certain=True,
     )
+
+
+# ── Whole-package external-calculator verdicts (C7-BEST-TRADE) ────────────
+#
+# A DIFFERENT question from :func:`value_package`.  That function prices one
+# side on ONE preferred market (IDPTC whenever any IDP is present) and may
+# convert across markets.  The Best-Trade owner rule asks, per calculator,
+# "does the OPPONENT come out even or better under THIS calculator?", and a
+# calculator may answer only when it natively prices EVERY asset in the whole
+# trade (owner spec: OWNER_PRODUCT_BACKLOG_SPEC.md "Best Trade to Send Each
+# Team"; TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md §4).  So:
+#
+# * native value only — ``canonicalSiteValues[calc] > 0`` for that exact key;
+#   no legacy-key fallback, no scalar conversion, no derived (unknown-slot)
+#   pick price, and never our own board value;
+# * a calculator the pipeline WITHHELD for staleness on any asset in the trade
+#   (``freshnessExcludedSources``) is ineligible, value present or not;
+# * the package adjustment is the repository's one Value Adjustment owner
+#   (``src.trade.ktc_va``) applied to that calculator's own values — KTC's
+#   published algorithm for KTC; for IDP Trade Calculator, whose own package
+#   rule is not published, the same VA is the declared approximation and is
+#   labelled as such on the verdict.
+#
+# Missing coverage is ``incomplete``, never approval, and a missing value is
+# never zero.
+
+#: Calculators eligible to qualify a trade, with their display labels.
+CALCULATOR_LABELS = {MARKET_KTC: "KTC Market", MARKET_IDPTC: "IDP Trade Calculator"}
+
+#: Declared default: "even" means the opponent's VA-adjusted margin is >= 0.
+#: KTC's own "fair trade" band is looser; widening this is an owner decision.
+EXTERNAL_EVEN_TOLERANCE_PCT = 0.0
+
+_VA_BASIS = {
+    MARKET_KTC: "KTC Value Adjustment (KTC's published package rule, src.trade.ktc_va)",
+    MARKET_IDPTC: (
+        "KTC Value Adjustment applied to IDP Trade Calculator values — IDPTC's own "
+        "package rule is not published, so this is a declared approximation"
+    ),
+}
+
+
+@dataclass(frozen=True)
+class CalculatorVerdict:
+    """One calculator's whole-package verdict, from the OPPONENT's side."""
+
+    calculator: str
+    label: str
+    #: ``complete`` (every asset natively priced) / ``incomplete`` / ``withheld``.
+    coverage: str
+    missing: tuple[str, ...] = ()
+    withheld: tuple[str, ...] = ()
+    opp_receives_raw: float | None = None
+    opp_sends_raw: float | None = None
+    opp_receives_adjusted: float | None = None
+    opp_sends_adjusted: float | None = None
+    margin: float | None = None
+    margin_pct: float | None = None
+    #: ``win`` / ``even`` / ``loss`` for the opponent; ``None`` when coverage
+    #: is not complete — an unpriceable package has no verdict.
+    result: str | None = None
+    qualifies: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "calculator": self.calculator,
+            "label": self.label,
+            "coverage": self.coverage,
+            "missing": list(self.missing),
+            "withheld": list(self.withheld),
+            "opponentReceivesRaw": _round_or_none(self.opp_receives_raw),
+            "opponentSendsRaw": _round_or_none(self.opp_sends_raw),
+            "opponentReceivesAdjusted": _round_or_none(self.opp_receives_adjusted),
+            "opponentSendsAdjusted": _round_or_none(self.opp_sends_adjusted),
+            "opponentMargin": _round_or_none(self.margin),
+            "opponentMarginPct": (
+                round(self.margin_pct, 2) if self.margin_pct is not None else None
+            ),
+            "result": self.result,
+            "qualifies": self.qualifies,
+            "valueAdjustment": _VA_BASIS.get(self.calculator),
+        }
+
+
+def _round_or_none(v: float | None) -> int | None:
+    return int(round(v)) if v is not None else None
+
+
+def _native_value(row: Mapping[str, Any], calculator: str) -> float | None:
+    """The calculator's own published value for this row, or ``None``.
+
+    Deliberately NOT :func:`_site_value`: that reader falls back to legacy KTC
+    keys, which would let a retired board answer for KTC Market.
+    """
+    sites = row.get("canonicalSiteValues")
+    if not isinstance(sites, Mapping):
+        return None
+    try:
+        v = float(sites.get(calculator))
+    except (TypeError, ValueError):
+        return None
+    return v if v > 0 else None
+
+
+def _row_label(row: Mapping[str, Any]) -> str:
+    return str(row.get("displayName") or row.get("canonicalName") or row.get("name") or "?")
+
+
+def external_package_verdicts(
+    opponent_receives: Iterable[Mapping[str, Any] | None],
+    opponent_sends: Iterable[Mapping[str, Any] | None],
+    *,
+    calculators: Iterable[str] = (MARKET_KTC, MARKET_IDPTC),
+) -> list[CalculatorVerdict]:
+    """Every eligible calculator's verdict on one whole trade.
+
+    ``opponent_receives`` / ``opponent_sends`` are canonical board rows (the
+    contract's ``playersArray`` entries) for what the opponent gets and gives.
+    ``None`` in either list is an asset with no board row (or a derived, not
+    native, price) — it makes every calculator ``incomplete``.
+    """
+    recv = list(opponent_receives)
+    sent = list(opponent_sends)
+    from src.trade.ktc_va import adjusted_pair_totals  # noqa: PLC0415 — trade owner
+
+    out: list[CalculatorVerdict] = []
+    for calc in calculators:
+        label = CALCULATOR_LABELS.get(calc, calc)
+        missing: list[str] = []
+        withheld: list[str] = []
+        recv_vals: list[float] = []
+        sent_vals: list[float] = []
+        for rows, values in ((recv, recv_vals), (sent, sent_vals)):
+            for row in rows:
+                if not isinstance(row, Mapping):
+                    missing.append("unpriced asset")
+                    continue
+                if calc in (row.get("freshnessExcludedSources") or ()):
+                    withheld.append(_row_label(row))
+                    continue
+                v = _native_value(row, calc)
+                if v is None:
+                    missing.append(_row_label(row))
+                    continue
+                values.append(v)
+        if withheld:
+            out.append(CalculatorVerdict(calc, label, "withheld", tuple(missing), tuple(withheld)))
+            continue
+        if missing or not recv_vals or not sent_vals:
+            out.append(
+                CalculatorVerdict(calc, label, "incomplete", tuple(missing or ["empty side"]))
+            )
+            continue
+        recv_adj, sent_adj, _rva, _sva = adjusted_pair_totals(recv_vals, sent_vals)
+        margin = recv_adj - sent_adj
+        margin_pct = 100.0 * margin / sent_adj if sent_adj > 0 else None
+        if margin_pct is None:
+            result = None
+        elif margin_pct > EXTERNAL_EVEN_TOLERANCE_PCT and margin > 0:
+            result = "win"
+        elif margin_pct >= -EXTERNAL_EVEN_TOLERANCE_PCT:
+            result = "even"
+        else:
+            result = "loss"
+        out.append(
+            CalculatorVerdict(
+                calculator=calc,
+                label=label,
+                coverage="complete",
+                opp_receives_raw=sum(recv_vals),
+                opp_sends_raw=sum(sent_vals),
+                opp_receives_adjusted=recv_adj,
+                opp_sends_adjusted=sent_adj,
+                margin=margin,
+                margin_pct=margin_pct,
+                result=result,
+                qualifies=result in ("win", "even"),
+            )
+        )
+    return out
+
+
+def best_qualifying_verdict(
+    verdicts: Iterable[CalculatorVerdict],
+) -> CalculatorVerdict | None:
+    """The qualifying verdict with the largest opponent margin, or ``None``."""
+    qualifying = [v for v in verdicts if v.qualifies and v.margin_pct is not None]
+    if not qualifying:
+        return None
+    return max(qualifying, key=lambda v: (v.margin_pct, v.calculator))

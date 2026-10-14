@@ -9103,6 +9103,194 @@ async def post_trade_finder(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/trade/best-offers")
+async def post_trade_best_offers(request: Request):
+    """Best Trade to Send Each Team (C7-BEST-TRADE) — one offer per opponent.
+
+    Body::
+
+        {
+          "myTeam": "Team Name",
+          "leagueKey": "...",                         // optional, standard resolver
+          "useTeamContext": true,                      // C3-CTX-01, default ON
+          "opponents": ["Team A"],                     // optional: regenerate cards
+          "refinementByOpponent": {"Team A": {"lock": [...], "exclude": [...]}}
+        }
+
+    Hard rules (``src/trade/best_offers``): a canonical WIN for us; the
+    opponent even or better on KTC Market or IDP Trade Calculator with
+    whole-package native coverage; player counts within one (picks not
+    counted); picks only via the posture-aware path; saved protections and the
+    card's LOCK / EXCLUDE respected.  Ranking among qualifying offers is a
+    declared PRIOR.  Recommendation only — nothing is sent.
+    """
+    if latest_contract_data is None:
+        return JSONResponse(status_code=503, content={"error": "No data loaded."})
+    players = latest_contract_data.get("players")
+    sleeper_teams = (latest_contract_data.get("sleeper") or {}).get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Body must be a JSON object."})
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return JSONResponse(
+            status_code=400, content={"error": "Request body must include 'myTeam'."}
+        )
+    if not any(t.get("name") == my_team for t in sleeper_teams):
+        return JSONResponse(status_code=400, content={"error": "unknown_team", "myTeam": my_team})
+    opponents = body.get("opponents")
+    if opponents is not None and (
+        not isinstance(opponents, list) or not all(isinstance(o, str) for o in opponents)
+    ):
+        return JSONResponse(status_code=400, content={"error": "'opponents' must be a list."})
+
+    raw_by_opp = body.get("refinementByOpponent") or {}
+    if not isinstance(raw_by_opp, dict):
+        return JSONResponse(
+            status_code=400, content={"error": "'refinementByOpponent' must be an object."}
+        )
+    refinement_by_opp: dict[str, dict] = {}
+    for opp, raw in raw_by_opp.items():
+        clean, error = _refinement_from_body({"refinement": raw})
+        if error is not None:
+            return error
+        refinement_by_opp[str(opp)] = clean
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+
+    # Constraints resolve per card: saved protections + that card's refinement.
+    # Resolved here, on the request thread (it reads the session and user store).
+    base_constraints = _constraints_for_request(
+        request, contract, league_cfg, surface="/api/trade/best-offers"
+    )
+    constraints_by_opp = {
+        opp: _constraints_for_request(
+            request,
+            contract,
+            league_cfg,
+            surface="/api/trade/best-offers",
+            refinement=ref,
+        )
+        for opp, ref in refinement_by_opp.items()
+    }
+
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+    postures = pick_forecasts = None
+    if use_team_context:
+        postures = await run_in_threadpool(_finder_postures, contract, league_cfg, sleeper_teams)
+        pick_forecasts = await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+
+    my_block = next((t for t in sleeper_teams if t.get("name") == my_team), None)
+    capacity_context = (
+        _capacity_context_for(contract, league_cfg, my_block, surface="/api/trade/best-offers")
+        if use_team_context
+        else None
+    )
+
+    def _generate():
+        from src.trade import best_offers as _best_offers
+
+        needs_by_owner = None
+        lineup_delta = None
+        if use_team_context:
+            try:
+                from src.api.roster_intelligence import build_league_roster_intelligence
+
+                intel = build_league_roster_intelligence(
+                    contract, team_count=len(sleeper_teams) or None
+                )
+                needs_by_owner = {}
+                for owner, team in (intel.get("teams") or {}).items():
+                    weakness = (team or {}).get("weakness") or {}
+                    if weakness.get("available"):
+                        needs_by_owner[str(owner)] = {
+                            str(n["position"])
+                            for n in weakness.get("needs") or []
+                            if n.get("position") and n.get("level") in ("critical", "high")
+                        }
+            except Exception as exc:  # noqa: BLE001 — context never fails the route
+                log.info("best offers: team weakness unavailable: %s", exc)
+            try:
+                from src.api import gameplan as _gp
+                from src.api.league_registry import get_scoring_profile
+
+                bundle, _hit = _gp.get_league_bundle(
+                    league_cfg.key, get_scoring_profile(league_cfg.key), contract
+                )
+                lineup_delta = _best_offers.lineup_delta_from_bundle(bundle)
+            except Exception as exc:  # noqa: BLE001
+                log.info("best offers: lineup solver unavailable: %s", exc)
+
+        def capacity_for(opp, give, receive):
+            if capacity_context is None:
+                return None, None
+            from src.trade.roster_capacity import (
+                assess_roster_capacity,
+                forced_drop_cost,
+                player_names_only,
+            )
+
+            try:
+                cap = assess_roster_capacity(
+                    capacity_context,
+                    incoming_players=player_names_only(receive),
+                    outgoing_players=player_names_only(give),
+                )
+            except Exception:  # noqa: BLE001 — an annotation never drops an offer
+                return None, None
+            cost, _basis = forced_drop_cost(cap)
+            return cap, cost
+
+        result = _best_offers.build_best_offers(
+            players,
+            my_team,
+            sleeper_teams,
+            contract=contract,
+            constraints_for=lambda opp: constraints_by_opp.get(opp, base_constraints),
+            use_team_context=use_team_context,
+            postures=postures,
+            pick_forecasts=pick_forecasts,
+            needs_by_owner=needs_by_owner,
+            lineup_delta=lineup_delta,
+            capacity_for=capacity_for,
+            opponents=opponents,
+        )
+        meta = contract.get("meta") if isinstance(contract, dict) else None
+        stamp = (meta or {}).get("generatedAt") if isinstance(meta, dict) else None
+        result["runId"] = _best_offers.record_run(
+            result, league_key=league_cfg.key, board_stamp=stamp
+        )
+        return result
+
+    try:
+        result = await run_in_threadpool(_generate)
+    except Exception as e:
+        log.error(f"Best offers failed: {e}")
+        return JSONResponse(status_code=500, content={"error": "best_offers_failed"})
+
+    result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    # Private decision intelligence — never cached by a shared proxy.
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/trade/import-ktc")
 async def post_trade_import_ktc(request: Request):
     """Resolve a KeepTradeCut trade-calculator URL into ordered
