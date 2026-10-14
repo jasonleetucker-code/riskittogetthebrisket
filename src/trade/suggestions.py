@@ -337,6 +337,9 @@ class RosterAnalysis:
     sendable_keys: frozenset[str] = frozenset()
     #: ``[(asset, reason), ...]`` — why the sendable view is shorter.
     constrained_out: tuple[tuple[PlayerAsset, str], ...] = ()
+    #: Roster names the analysis pool could not price (T-9): reported, never
+    #: silently dropped from the roster the user sees analysed.
+    unmatched: tuple[str, ...] = ()
     #: Whether a constraint set was consulted at all.  "Nothing is protected"
     #: and "nobody asked" are different claims and this keeps them apart.
     constraints_applied: bool = False
@@ -842,10 +845,12 @@ def analyze_roster(
 
     by_position: dict[str, list[PlayerAsset]] = {}
     matched = 0
+    unmatched: list[str] = []
     for rn in roster_names:
         key = _identity_key(rn)
         a = pool_by_name.get(key)
         if a is None:
+            unmatched.append(str(rn))
             continue
         matched += 1
         by_position.setdefault(a.position, []).append(a)
@@ -894,6 +899,7 @@ def analyze_roster(
     )
 
     return RosterAnalysis(
+        unmatched=tuple(unmatched),
         roster_size=matched,
         by_position=by_position,
         surplus_positions=surplus_positions,
@@ -2278,6 +2284,8 @@ def generate_suggestions_from_pool(
             "ktcTopNFilter": board_top_n,
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
+            # T-9: the roster players the analysis could not price, by name.
+            "rosterUnpriced": list(roster.unmatched),
             # C3-CON-01.  Published because a shorter list with no explanation
             # reads as "no trades exist" rather than "you protect these".
             "constraintsBlockedOutgoing": len(roster.constrained_out),

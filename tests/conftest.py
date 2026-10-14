@@ -276,6 +276,11 @@ _LIVEDATA_MODULES = frozenset(
         # data.  ``test_livedata_policy.py`` records it as open.
         "test_fantasypros_idp_integration.py",
         "test_ktc_reconciliation.py",
+        # ``test_ktc_import_live.py`` — added 2026-10-13.  The only test that
+        # fetches keeptradecut.com; split out of ``test_ktc_import_e2e.py`` so
+        # that module's deterministic tests stay blocking.  Hard-gate twin:
+        # ``tests/trade/test_ktc_import_player_map.py`` (captured fixtures).
+        "test_ktc_import_live.py",
         "test_fetch_flock_fantasy_rookies.py",
         # ``test_faab_calibration.py`` — added 2026-08-16.  Its own
         # docstring says what it is: "These are the tests that would

@@ -62,7 +62,9 @@ __all__ = [
     "KtcIdentityCollision",
     "KtcIdentityMap",
     "KtcAsset",
+    "extract_embedded_array",
     "identity_from_rows",
+    "identity_rows",
     "search_index_rows",
     "parse_ktc_identity",
     "SEARCH_INDEX_VAR",
@@ -179,24 +181,59 @@ class KtcIdentityMap:
         return KtcAsset(raw=raw, kind="unresolved", player_id=pid, reason="id_not_in_index")
 
 
-def _extract_array(html: str, var_name: str) -> list[Any] | None:
-    """Pull one inline ``var <name> = [...]`` array out of the page.
-
-    Returns ``None`` when the array is absent or unparseable — both are
-    "we did not observe it", and neither is an empty market.
-    """
-    match = re.search(
-        r"var\s+%s\s*=\s*(\[.*?\]);" % re.escape(var_name),
-        html,
-        re.DOTALL,
-    )
-    if not match:
-        return None
+def _parse_json_list(text: str) -> list[Any] | None:
     try:
-        parsed = json.loads(match.group(1))
+        parsed = json.loads(text)
     except (ValueError, TypeError):
         return None
     return parsed if isinstance(parsed, list) else None
+
+
+def extract_embedded_array(html: str, var_name: str) -> list[Any] | None:
+    """Pull one JavaScript array variable out of a KTC page, in either embed form.
+
+    KTC ships the same data two ways, and which one a page uses changes under us:
+
+    * **inline literal** — ``var <name> = [...];``.  The trade / waiver databases
+      still do this (2026-10-13).
+    * **JSON script element** — ``<script type="application/json" id="ID">[...]</script>``
+      plus ``var <name> = JSON.parse(document.getElementById('ID').textContent);``.
+      The trade calculator and ``/dynasty-rankings`` moved to this in 2026-10, which
+      silently broke every plain-HTTP reader that only knew the first form (the
+      trade-URL import returned "Failed to fetch KTC player map." for every URL).
+      The element id is read from the page's own binding rather than hard-coded, so
+      a renamed element still resolves.
+
+    This is the ONE reader of KTC's embedded arrays for plain-HTTP callers.
+    Returns ``None`` when the array is absent or unparseable — both are "we did
+    not observe it", and neither is an empty market.
+    """
+    name = re.escape(var_name)
+    match = re.search(r"var\s+%s\s*=\s*(\[.*?\]);" % name, html, re.DOTALL)
+    if match:
+        parsed = _parse_json_list(match.group(1))
+        if parsed is not None:
+            return parsed
+
+    binding = re.search(
+        r"var\s+%s\s*=\s*JSON\.parse\(\s*document\.getElementById\(\s*['\"]([^'\"]+)['\"]\s*\)"
+        r"\s*\.(?:textContent|innerText|innerHTML)\s*\)" % name,
+        html,
+    )
+    if not binding:
+        return None
+    element = re.search(
+        r"<script\b[^>]*\bid=['\"]%s['\"][^>]*>(.*?)</script>" % re.escape(binding.group(1)),
+        html,
+        re.DOTALL,
+    )
+    if not element:
+        return None
+    return _parse_json_list(element.group(1))
+
+
+# Retained private name: callers inside this module and older tests use it.
+_extract_array = extract_embedded_array
 
 
 def _ingest(
@@ -252,6 +289,32 @@ def _ingest(
     return players, picks, rejected, missing, positions
 
 
+def identity_rows(rows: Iterable[Any]) -> list[dict[str, Any]]:
+    """Project raw KTC rows onto the minimal identity rows (id, name, position).
+
+    Rows without a usable id or name are skipped, never filled in.  This is the
+    shape callers ARCHIVE when they must re-resolve later against the identity
+    as it was at fetch time (the trade-ledger archive, the trade-URL import's
+    last-known-good copy); :func:`identity_from_rows` reads it back.
+    """
+    out: list[dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        pid = row.get("playerID")
+        name = row.get("playerName")
+        if pid is None or not isinstance(name, str) or not name.strip():
+            continue
+        out.append(
+            {
+                "playerID": pid,
+                "playerName": name.strip(),
+                "position": str(row.get("position") or "").strip().upper() or None,
+            }
+        )
+    return out
+
+
 def search_index_rows(html: str) -> tuple[list[dict[str, Any]], str | None]:
     """The minimal identity rows (id, name, position) the page carries, and
     which array they came from — for a caller that must ARCHIVE the identity
@@ -264,21 +327,7 @@ def search_index_rows(html: str) -> tuple[list[dict[str, Any]], str | None]:
         rows = _extract_array(html, var_name)
         if not rows:
             continue
-        out: list[dict[str, Any]] = []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            pid = row.get("playerID")
-            name = row.get("playerName")
-            if pid is None or not isinstance(name, str) or not name.strip():
-                continue
-            out.append(
-                {
-                    "playerID": pid,
-                    "playerName": name.strip(),
-                    "position": str(row.get("position") or "").strip().upper() or None,
-                }
-            )
+        out = identity_rows(rows)
         if out:
             return out, var_name
     return [], None
