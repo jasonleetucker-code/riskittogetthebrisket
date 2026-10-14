@@ -19,7 +19,12 @@ def _league(mine, theirs, *, withheld=()):
     """rows: ``(name, pos, board, sites: dict, nfl_team)``."""
     players, rows = {}, []
     for name, pos, board, sites, team in (*mine, *theirs):
-        players[name] = {"_canonicalSiteValues": dict(sites), "position": pos, "_sites": 8}
+        players[name] = {
+            "_canonicalSiteValues": dict(sites),
+            "position": pos,
+            "team": team,
+            "_sites": 8,
+        }
         rows.append(
             {
                 "displayName": name,
@@ -129,6 +134,10 @@ def test_a_protected_owned_player_is_never_offered_but_a_protected_target_is_obt
 
 def test_everything_protected_is_an_explained_no_result():
     c = resolve_constraints(persistent={"nflTeams": ["CIN"]})
+    # A non-CIN player proves the team rule reads the real team (not a
+    # fail-closed unknown that would block everything for the wrong reason).
+    other = ("Our DAL LB", "LB", 3000, {MARKET_IDPTC: 4000}, "DAL")
+    assert _run([OWNED_LB, other], [TARGET_LB], constraints=c)["upgrades"]
     out = _run([OWNED_LB], [TARGET_LB], constraints=c)
     assert out["noResultReason"] == "all_outgoing_assets_constrained"
     assert out["noResultLabel"] == "No Golden Upgrade found under current constraints"
