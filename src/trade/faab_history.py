@@ -292,6 +292,16 @@ class MarketPriors:
     failed_bid_sample_size: int = 0
     owner_attempt_aggression: dict[str, float] = field(default_factory=dict)
     owner_attempt_sample: dict[str, int] = field(default_factory=dict)
+    #: Descriptive per-manager means on the same %-of-original-budget scale,
+    #: plus the league's resolved-attempt mean and each manager's count of
+    #: FAILED (outbid) waiver bids.  Read by Manager Scout (C6-MGR-01), which
+    #: publishes raw quantities rather than re-deriving them from the file.
+    #: Not inputs to any recommendation; the aggression ratios above remain
+    #: what the FAAB engine consumes.
+    owner_win_mean_pct: dict[str, float] = field(default_factory=dict)
+    owner_attempt_mean_pct: dict[str, float] = field(default_factory=dict)
+    owner_attempt_failed: dict[str, int] = field(default_factory=dict)
+    bid_attempt_mean_pct: float | None = None
     by_week: dict[int, float] = field(default_factory=dict)
     seasons: list[str] = field(default_factory=list)
 
@@ -380,6 +390,10 @@ def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
                     attempts_by_owner.setdefault(owner, []).append(pct)
                 if status == "failed":
                     priors.failed_bid_sample_size += 1
+                    if owner:
+                        priors.owner_attempt_failed[owner] = (
+                            priors.owner_attempt_failed.get(owner, 0) + 1
+                        )
 
     if not winning_pct:
         return priors
@@ -400,15 +414,18 @@ def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
     winning_league_mean = priors.mean_pct or 1.0
     for owner, vals in winning_by_owner.items():
         priors.owner_sample[owner] = len(vals)
+        priors.owner_win_mean_pct[owner] = statistics.fmean(vals)
         priors.owner_aggression[owner] = (
             (statistics.fmean(vals) / winning_league_mean) if winning_league_mean else 1.0
         )
 
     priors.bid_attempt_sample_size = len(waiver_attempt_pct)
     if waiver_attempt_pct:
-        attempt_league_mean = statistics.fmean(waiver_attempt_pct) or 1.0
+        priors.bid_attempt_mean_pct = statistics.fmean(waiver_attempt_pct)
+        attempt_league_mean = priors.bid_attempt_mean_pct or 1.0
         for owner, vals in attempts_by_owner.items():
             priors.owner_attempt_sample[owner] = len(vals)
+            priors.owner_attempt_mean_pct[owner] = statistics.fmean(vals)
             priors.owner_attempt_aggression[owner] = (
                 (statistics.fmean(vals) / attempt_league_mean) if attempt_league_mean else 1.0
             )
