@@ -15,7 +15,18 @@ second trade, arbitrage or value engine.  A Golden Upgrade is an owned-player
    no price);
 5. the target is obtainable: on an opponent's roster;
 6. the inversion is meaningful: both edges clear the declared minimums in
-   ``config/trade/golden_upgrades.json`` (``PRIOR_UNVALIDATED``).
+   ``config/trade/golden_upgrades.json`` (``PRIOR_UNVALIDATED``);
+7. both players are market-relevant: inside their market's top-150 pool (the
+   finder's own quality gate, ``finder.MARKET_TOP_N_FILTER``) — deep-bench
+   pairs are not offered.  The pool is RANKED on the finder's market value,
+   which for offense may fall back to a historical KTC key when KTC Market is
+   absent; the preference test itself (4) reads native values only.
+
+Ordering is by the weaker of the two edges, but an inversion whose two edges
+together exceed ``exploitBandPct`` is a sign the two boards disagree about the
+players rather than a clean upgrade: its strength decays to 0 at
+``exploitZeroPct`` and it is flagged ``exploitRisk`` (same anti-exploit rule
+as Best Offers, spec §2.3).
 
 Candidates come from the finder's own enumeration (``finder.generate_packages``
 over the canonical substrate); this module only states the six criteria as a
@@ -80,6 +91,8 @@ def _scorer(
 ) -> Callable[[list, list], Any]:
     min_board = float(cfg["minBoardGainPct"])
     min_market = float(cfg["minMarketInversionPct"])
+    band = float(cfg.get("exploitBandPct", 50.0))
+    zero = float(cfg.get("exploitZeroPct", 100.0))
 
     def native(asset: Any, calc: str) -> tuple[float | None, bool]:
         row = row_for(asset)
@@ -122,6 +135,10 @@ def _scorer(
             diag["inversionTooSmall"] += 1
             return None
         diag["golden"] += 1
+        total = board_gain + market_inv
+        decay = 1.0
+        if total > band:
+            decay = max(0.0, 1.0 - (total - band) / max(zero - band, 1e-9))
         return GoldenCandidate(
             give=[owned],
             receive=[target],
@@ -130,9 +147,10 @@ def _scorer(
             calculator=calc,
             owned_market=owned_mv,
             target_market=target_mv,
-            # Order by the WEAKER of the two edges: a Golden Upgrade is only as
-            # golden as its smaller inversion.
-            arbitrage_score=round(min(board_gain, market_inv), 4),
+            # Order by the WEAKER of the two edges — a Golden Upgrade is only as
+            # golden as its smaller inversion — decayed past the exploit band.
+            arbitrage_score=round(min(board_gain, market_inv) * decay, 4),
+            flags=["exploitRisk"] if total > band else [],
         )
 
     return score
@@ -186,6 +204,11 @@ def find_golden_upgrades(
                 f"{cfg['minMarketInversionPct']}% on that position's own market (native values)"
             ),
             "obtainable": "on an opponent roster; your protections and exclusions respected",
+            "marketRelevant": "both players inside their market's top-150 pool",
+            "exploitBand": (
+                f"board gain + market inversion above {cfg.get('exploitBandPct', 50.0)}% is "
+                "flagged and ranked down"
+            ),
             "status": cfg.get("status"),
             "configPath": "config/trade/golden_upgrades.json",
         },
@@ -260,7 +283,7 @@ def find_golden_upgrades(
         if not opp_roster:
             continue
         cands, _report = finder.generate_packages(
-            my_roster, opp_roster, policy, equal_count_only=True, score=score
+            my_roster, opp_roster, policy, one_for_one_only=True, score=score
         )
         cands = sorted(cands, key=lambda c: (-c.arbitrage_score, c.give[0].name, c.receive[0].name))
         for c in cands[: int(cfg.get("perOpponentLimit", 5))]:
@@ -292,6 +315,7 @@ def find_golden_upgrades(
                 "boardGainPct": c.board_gain_pct,
                 "marketInversionPct": c.market_inversion_pct,
                 "strength": c.arbitrage_score,
+                "exploitRisk": "exploitRisk" in c.flags,
                 "lineupImpact": lineup,
                 "why": (
                     f"Our board values {c.receive[0].name} {c.board_gain_pct:.1f}% above "
@@ -303,10 +327,26 @@ def find_golden_upgrades(
         )
     out = {**base, "upgrades": upgrades, "diagnostics": diag}
     if not upgrades:
-        out["noResultReason"] = "no_inversion_meets_the_thresholds"
+        out["noResultReason"] = _no_result_reason(diag)
         out["noResultLabel"] = (
             "No Golden Upgrade found under current constraints"
             if blocked or locked
             else "No Golden Upgrade found"
         )
     return out
+
+
+def _no_result_reason(diag: Mapping[str, int]) -> str:
+    """Name what actually stopped every pair — "no price to judge" must not
+    read as "no swap exists" (review S3)."""
+    if diag["pairs"] == 0:
+        return "no_comparable_pairs"
+    priced_stage = diag["pairs"] - diag["notSubstitutable"] - diag["boardDoesNotPreferTarget"]
+    if priced_stage <= 0:
+        return "no_same_position_target_board_prefers"
+    judged = diag["marketDoesNotPreferOwned"] + diag["inversionTooSmall"]
+    if judged == 0:
+        if diag["marketWithheld"] and not diag["marketUnpriced"]:
+            return "market_withheld"
+        return "market_prices_unavailable"
+    return "no_inversion_meets_the_thresholds"

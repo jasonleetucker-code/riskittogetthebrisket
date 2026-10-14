@@ -930,6 +930,7 @@ def _generate_packages(
     equal_count_only: bool = False,
     required_send: list[Asset] | tuple[Asset, ...] = (),
     score: Any = None,
+    one_for_one_only: bool = False,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -953,6 +954,10 @@ def _generate_packages(
     ``score`` replaces the arbitrage objective for a CONSUMER that keeps this
     enumeration but asks a different question (the Best-Trade owner rule,
     ``src/trade/best_offers``).  ``None`` is this module's own scorer.
+
+    ``one_for_one_only`` stops after the 1-for-1 shape, for a consumer whose
+    question is a single swap (Golden Upgrades) — enumerating 2-for-2 only to
+    reject every package would cost seconds and answer nothing.
     """
     results: list[TradeCandidate] = []
 
@@ -991,6 +996,8 @@ def _generate_packages(
         return report
 
     one_for_one = _run([substrate.PackageShape(1, 1)], None)
+    if one_for_one_only:
+        return results, {"mode": "one_for_one_only", "oneForOne": one_for_one.to_dict()}
     if equal_count_only:
         two_for_two = _run(
             [substrate.PackageShape(2, 2)],

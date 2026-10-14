@@ -84,6 +84,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.caution {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-warning, var(--text-muted));
+}
+
 .why {
   margin: 0;
   font-size: 0.86rem;

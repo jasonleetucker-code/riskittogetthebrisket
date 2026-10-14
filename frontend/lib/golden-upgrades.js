@@ -32,6 +32,7 @@ export function goldenRows(result) {
       ownedLine: `${fmtInt(u?.owned?.boardValue)} board · ${fmtInt(u?.owned?.marketValue)} market`,
       targetLine: `${fmtInt(u?.target?.boardValue)} board · ${fmtInt(u?.target?.marketValue)} market`,
       lineupText,
+      exploitRisk: Boolean(u?.exploitRisk),
       why: u?.why || "",
     };
   });
@@ -47,6 +48,13 @@ const REASON_TEXT = {
   locked_player_unavailable: "A locked player is not on your tradeable roster.",
   locked_players_exceed_package_size:
     "A Golden Upgrade is one player for one player — lock at most one.",
+  no_comparable_pairs: "No opponent roster had a priced player to compare.",
+  no_same_position_target_board_prefers:
+    "No opponent has a same-position player our board rates above one of yours.",
+  market_prices_unavailable:
+    "The candidates' own market does not price both players, so no market preference can be shown.",
+  market_withheld:
+    "The market that prices these players is withheld as stale right now.",
   no_inversion_meets_the_thresholds:
     "No same-position swap has our board preferring their player while their market prefers yours by the minimum margins.",
 };

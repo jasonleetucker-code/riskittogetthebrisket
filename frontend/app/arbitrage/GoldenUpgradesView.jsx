@@ -68,7 +68,9 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
   const seq = useRef(0);
 
   useEffect(() => {
+    seq.current += 1; // drop any response for the previous team or league
     setResult(null);
+    setRunning(false);
     setRefinement(loadRefinement(storageKey));
   }, [storageKey]);
 
@@ -154,8 +156,8 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
       />
       {result?.criteria ? (
         <p className={styles.muted}>
-          Minimums: {result.criteria.boardPrefersTarget}; market inversion per{" "}
-          {result.criteria.configPath} ({result.criteria.status}).
+          Minimums: {result.criteria.boardPrefersTarget};{" "}
+          {result.criteria.marketPrefersOwned} ({result.criteria.status}).
         </p>
       ) : null}
       {error ? <Banner tone="negative">{error}</Banner> : null}
@@ -212,6 +214,13 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
                   </div>
                 </dl>
                 <p className={styles.why}>{row.why}</p>
+                {row.exploitRisk ? (
+                  <p className={styles.caution}>
+                    Large inversion: the two boards disagree sharply about these
+                    players, so it ranks lower — check both values before
+                    offering.
+                  </p>
+                ) : null}
                 {row.lineupText ? (
                   <p className={styles.sub}>{row.lineupText}</p>
                 ) : null}

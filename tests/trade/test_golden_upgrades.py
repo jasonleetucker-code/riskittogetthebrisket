@@ -70,6 +70,7 @@ def test_a_different_position_is_never_an_upgrade():
     out = _run([OWNED_LB], [target])
     assert out["upgrades"] == []
     assert out["diagnostics"]["notSubstitutable"] == 1
+    assert out["noResultReason"] == "no_same_position_target_board_prefers"
 
 
 def test_the_board_must_prefer_the_target():
@@ -92,6 +93,8 @@ def test_a_legacy_ktc_key_never_answers_for_ktc_market():
     out = _run([owned], [target])
     assert out["upgrades"] == []
     assert out["diagnostics"]["marketUnpriced"] == 1
+    # "No price to judge" is not "no swap exists".
+    assert out["noResultReason"] == "market_prices_unavailable"
 
 
 def test_native_ktc_market_offense_upgrade_qualifies():
@@ -104,6 +107,7 @@ def test_native_ktc_market_offense_upgrade_qualifies():
 def test_a_withheld_provider_is_not_a_market_preference():
     out = _run([OWNED_LB], [TARGET_LB], withheld=("Their LB",))
     assert out["upgrades"] == [] and out["diagnostics"]["marketWithheld"] == 1
+    assert out["noResultReason"] == "market_withheld"
 
 
 def test_an_inversion_below_the_declared_minimums_is_not_golden():
@@ -171,3 +175,24 @@ def test_lineup_impact_is_reported_from_the_solver_seam():
 def test_the_consumer_never_enumerates_packages_itself():
     src = Path(gu.__file__).read_text(encoding="utf-8")
     assert "combinations(" not in src and "itertools" not in src
+
+
+def test_a_huge_inversion_is_flagged_and_ranked_below_a_clean_one():
+    """Review S2: the live #1 was a 23% board gain against a 61% market
+    inversion — two boards disagreeing about the players, not an upgrade."""
+    huge = ("Huge LB", "LB", 3000, {MARKET_IDPTC: 5600}, "CIN")  # +61% market
+    clean = ("Clean LB", "LB", 3000, {MARKET_IDPTC: 3900}, "CIN")
+    targets = [
+        ("Target A", "LB", 3700, {MARKET_IDPTC: 3450}, "BUF"),
+    ]
+    out = _run([huge, clean], targets)
+    by_owned = {u["owned"]["name"]: u for u in out["upgrades"]}
+    assert by_owned["Huge LB"]["exploitRisk"] is True
+    assert by_owned["Clean LB"]["exploitRisk"] is False
+    assert out["upgrades"][0]["owned"]["name"] == "Clean LB"
+
+
+def test_golden_enumerates_single_swaps_only():
+    out = _run([OWNED_LB, ("Our LB2", "LB", 2900, {MARKET_IDPTC: 3900}, "CIN")], [TARGET_LB])
+    assert all(isinstance(u["owned"], dict) for u in out["upgrades"])
+    assert out["diagnostics"]["pairs"] == 2  # two 1-for-1s; no 2-for-2 was built

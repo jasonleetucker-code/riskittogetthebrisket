@@ -513,6 +513,7 @@ def test_the_documented_importer_census_is_the_real_one():
         "src/roster_intel/packages.py",
         "src/trade/angle.py",
         "src/trade/best_offers.py",
+        "src/trade/golden_upgrades.py",
     }
     pattern = re.compile(r"^\s*from\s+src\.league_intel\.cross_market\s+import", re.M)
     root = _repo_root()
