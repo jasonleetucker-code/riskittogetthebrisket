@@ -7796,6 +7796,80 @@ async def get_market_trades(request: Request):
     )
 
 
+def _csv_query_values(request: Request, name: str) -> list[str]:
+    """Comma-separated query values (the Next bridge forwards one value per
+    key, so repeated params would collapse)."""
+    raw = request.query_params.get(name) or ""
+    return [v.strip() for v in raw.split(",") if v.strip()]
+
+
+@app.get("/api/market/trades/reference")
+async def get_market_trade_reference(request: Request):
+    """C3-CALC-01 / TC-07 + TC-10 — recent real trades touching the
+    calculator's assets, with their league-format tags.
+
+    Read-only display projection of the canonical underlying-trade ledger
+    (``src.trade.market_trade_reference``).  Facts only — no grade, no market
+    price, no canonical value is read or computed.  Private (the global API
+    gate) and league-scoped: only verified-dynasty trades; this league's own
+    trades are shown, other registry leagues' trades are withheld however
+    they reached the ledger; Sharp-lane trades only with a cohort manager on
+    them.  Withheld rows are counted by reason, never listed.
+
+    Query parameters::
+
+        leagueKey      optional — standard resolver
+        players        comma-separated Sleeper player ids
+        picks          comma-separated board pick-row names ("2027 Early 1st")
+        pickAssetIds   comma-separated owned league-pick ids
+        limit          optional, default 20, max 50
+
+    Responses::
+
+        200  {state: ok | no_assets, trades, ledger, query, withheld, ...}
+        400  unknown_league / inactive_league
+        503  trade_ledger_unavailable — no ledger built on this host
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import market_trade_reference as _reference  # noqa: PLC0415
+
+    try:
+        limit = int(request.query_params.get("limit") or _reference.DEFAULT_LIMIT)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "limit must be an integer"},
+        )
+    names: dict[str, dict[str, Any]] = {}
+    for row in (latest_contract_data or {}).get("playersArray") or []:
+        sid = str(row.get("playerId") or "").strip()
+        if sid and sid not in names:
+            names[sid] = {
+                "name": row.get("canonicalName") or row.get("displayName"),
+                "position": row.get("position"),
+            }
+    body = await run_in_threadpool(
+        _reference.reference_trades,
+        league_cfg.key,
+        player_ids=_csv_query_values(request, "players"),
+        pick_names=_csv_query_values(request, "picks"),
+        pick_asset_ids=_csv_query_values(request, "pickAssetIds"),
+        limit=limit,
+        names=names,
+    )
+    if body["state"] == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={**body, "error": "trade_ledger_unavailable"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=body, headers={"Cache-Control": "private, max-age=60"})
+
+
 @app.get("/api/valuation/league-adjusted")
 async def get_league_adjusted_values(request: Request):
     """This league's league-adjusted value overlay (LI-9).
