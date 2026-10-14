@@ -152,6 +152,36 @@ class DimensionResult:
 # ── Lens 1: market ───────────────────────────────────────────────────────
 
 
+def equity_verdict(sending_values: list[float], receiving_values: list[float]) -> dict[str, Any]:
+    """The calculator's canonical equity verdict for one package pair.
+
+    Canonical values (``rankDerivedValue``) + the exact KTC Value Adjustment —
+    the same quantity every fairness verdict in this repository is measured
+    on.  ``win`` is the selected team coming out ahead by MORE than the
+    market's own fairness band (an "even" gap neither favours nor opposes).
+    The one definition :func:`_market_lens` and the Best-Trade consumer share.
+    """
+    send_adj, recv_adj, send_va, recv_va = adjusted_pair_totals(sending_values, receiving_values)
+    gap = recv_adj - send_adj  # positive = the selected team comes out ahead
+    magnitude = _fairness_label(gap)
+    # An "even" gap is inside the market's own fairness band: it neither
+    # favors nor opposes, whatever its sign.
+    direction = "neutral" if magnitude == "even" else _direction(gap)
+    return {
+        "receivingValue": int(round(sum(receiving_values))),
+        "sendingValue": int(round(sum(sending_values))),
+        "rawGap": int(round(sum(receiving_values) - sum(sending_values))),
+        "vaAdjustedGap": int(round(gap)),
+        "magnitude": magnitude,
+        "direction": direction,
+        "win": gap > 0 and magnitude != "even",
+        "sendingAdjusted": round(send_adj, 1),
+        "receivingAdjusted": round(recv_adj, 1),
+        "sendingValueAdjustment": round(float(send_va), 1),
+        "receivingValueAdjustment": round(float(recv_va), 1),
+    }
+
+
 def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
     """Canonical package values + exact KTC VA.  Calls the owner directly."""
     receiving = simulation.get("receiving") or []
@@ -165,27 +195,22 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             unavailable_reason="no_priced_assets_either_side",
             lineage=LINEAGE_CANONICAL_VALUE,
         )
-    send_adj, recv_adj, send_va, recv_va = adjusted_pair_totals(sending_values, receiving_values)
-    gap = recv_adj - send_adj  # positive = the selected team comes out ahead
-    magnitude = _fairness_label(gap)
-    # An "even" gap is inside the market's own fairness band: it neither
-    # favors nor opposes, whatever its sign.
-    direction = "neutral" if magnitude == "even" else _direction(gap)
+    verdict = equity_verdict(sending_values, receiving_values)
     return DimensionResult(
         name="equity",
         available=True,
-        direction=direction,
+        direction=verdict["direction"],
         lineage=LINEAGE_CANONICAL_VALUE,
         detail={
-            "receivingValue": int(round(sum(receiving_values))),
-            "sendingValue": int(round(sum(sending_values))),
-            "rawGap": int(round(sum(receiving_values) - sum(sending_values))),
-            "vaAdjustedGap": int(round(gap)),
-            "magnitude": magnitude,
-            "sendingAdjusted": round(send_adj, 1),
-            "receivingAdjusted": round(recv_adj, 1),
-            "sendingValueAdjustment": round(float(send_va), 1),
-            "receivingValueAdjustment": round(float(recv_va), 1),
+            "receivingValue": verdict["receivingValue"],
+            "sendingValue": verdict["sendingValue"],
+            "rawGap": verdict["rawGap"],
+            "vaAdjustedGap": verdict["vaAdjustedGap"],
+            "magnitude": verdict["magnitude"],
+            "sendingAdjusted": verdict["sendingAdjusted"],
+            "receivingAdjusted": verdict["receivingAdjusted"],
+            "sendingValueAdjustment": verdict["sendingValueAdjustment"],
+            "receivingValueAdjustment": verdict["receivingValueAdjustment"],
             "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)",
             "unresolvedIn": list(simulation.get("unresolvedIn") or []),
             "unresolvedOut": list(simulation.get("unresolvedOut") or []),

@@ -1,0 +1,102 @@
+.view {
+  display: grid;
+  gap: 10px;
+}
+
+.lede,
+.muted,
+.count {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+.row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pair > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.label {
+  flex-basis: 100%;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.sub {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0;
+}
+
+.metrics dt {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.metrics dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.caution {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-warning, var(--text-muted));
+}
+
+.why {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 640px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}

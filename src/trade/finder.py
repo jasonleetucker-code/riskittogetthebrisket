@@ -671,6 +671,42 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     return score_with_value_adjustment(give, receive, _score_trade_on_values)
 
 
+def plausibility_check(give: list[Asset], receive: list[Asset]) -> tuple[bool, list[str]]:
+    """The finder's structural plausibility gates, ``(ok, flags)``.
+
+    Shared by this module's scorer and by the Best-Trade consumer
+    (``src/trade/best_offers``) so "is this a package a manager would take
+    seriously" has one definition.  Canonical values only; no market reads.
+
+    * Multi-for-one fire sale guard — when giving more PLAYERS than receiving
+      (C3-TOPO-01: a pick added to a 1-for-1 is not "two fillers for an
+      elite"), the give side's total must be a meaningful fraction of the
+      receive side; tighter against an elite target; and at least one give
+      piece must be a real starter-quality anchor.
+    * Junk filter — at least one meaningful asset on each side.
+    """
+    flags: list[str] = []
+    give_model = sum(a.model_value for a in give)
+    recv_model = sum(a.model_value for a in receive)
+    if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):
+        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
+            return False, flags
+        max_recv = max(a.model_value for a in receive)
+        if max_recv >= ELITE_THRESHOLD:
+            if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
+                return False, flags
+            flags.append("elite_target")
+        max_give = max(a.model_value for a in give)
+        if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
+            return False, flags
+        flags.append("anchor_verified")
+    if all(a.model_value < JUNK_THRESHOLD for a in give):
+        return False, flags
+    if all(a.model_value < JUNK_THRESHOLD for a in receive):
+        return False, flags
+    return True, flags
+
+
 def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
     """Score a candidate trade on the values passed in, with no package
     adjustment of its own.  Callers want :func:`_score_trade`."""
@@ -734,31 +770,9 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     if board_delta < MAX_BOARD_LOSS:
         return None
 
-    # ── Multi-for-one fire sale guard ────────────────────────────────
-    # Prevent suggesting two roster fillers for an elite target.
-    # When giving more pieces than receiving, the give side's total model
-    # value must be a meaningful fraction of the receive side.
-    flags: list[str] = []
-
-    # Counted in PLAYERS (C3-TOPO-01): a pick added to a 1-for-1 is not a
-    # "two fillers for an elite" package.  The simplicity penalty below still
-    # counts every asset — a pick is one more piece to negotiate.
-    if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):
-        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
-            return None
-        # ── Elite target protection (tighter ratio) ──────────────────
-        max_recv = max(_mv(a) for a in receive)
-        if max_recv >= ELITE_THRESHOLD:
-            if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
-                return None
-            flags.append("elite_target")
-        # ── Package anchor quality ───────────────────────────────────
-        # At least one give piece must be a real starter-quality asset,
-        # not just two bench stashes that happen to sum high enough.
-        max_give = max(_mv(a) for a in give)
-        if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
-            return None
-        flags.append("anchor_verified")
+    plausible, flags = plausibility_check(give, receive)
+    if not plausible:
+        return None
 
     # KTC scoring
     give_market_assets = [a for a in give if a.has_market]
@@ -791,12 +805,6 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
 
     # The opponent must STRICTLY WIN on KTC — no break-even, no loss.
     if opp_appeal <= 0:
-        return None
-
-    # Filter out junk trades: at least one meaningful asset on each side
-    if all(_mv(a) < JUNK_THRESHOLD for a in give):
-        return None
-    if all(_mv(a) < JUNK_THRESHOLD for a in receive):
         return None
 
     # Arbitrage score: how much we gain on our board while the opponent
@@ -921,6 +929,11 @@ def _generate_packages(
     *,
     equal_count_only: bool = False,
     required_send: list[Asset] | tuple[Asset, ...] = (),
+    score: Any = None,
+    one_for_one_only: bool = False,
+    required_receive: list[Asset] | tuple[Asset, ...] = (),
+    max_per_side: int | None = None,
+    max_packages: int | None = None,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -940,10 +953,32 @@ def _generate_packages(
     ``required_send`` is the C3-CON-03 LOCK: every emitted package sends those
     assets (the substrate forces them; shapes too small to hold them are
     skipped and reported, never widened).
+
+    ``score`` replaces the arbitrage objective for a CONSUMER that keeps this
+    enumeration but asks a different question (the Best-Trade owner rule,
+    ``src/trade/best_offers``).  ``None`` is this module's own scorer.
+
+    ``one_for_one_only`` stops after the 1-for-1 shape, for a consumer whose
+    question is a single swap (Golden Upgrades) — enumerating 2-for-2 only to
+    reject every package would cost seconds and answer nothing.
+
+    ``required_receive`` is the receive-side mirror of ``required_send`` (a
+    Package Builder's desired incoming asset); the arbitrage finder never sets
+    it, so its output is unchanged.
+
+    ``max_per_side`` drops every shape with more assets than that on either
+    side BEFORE enumeration (a size limit applied during generation, not by
+    rejecting packages afterwards); ``max_packages`` is a per-shape-group
+    emission budget, reported as ``budgetExhausted``.  Both unset by the
+    finder itself.
     """
     results: list[TradeCandidate] = []
 
     def _run(shapes: list[substrate.PackageShape], pool_limit: int | None):
+        if max_per_side is not None:
+            shapes = [s for s in shapes if s.send <= max_per_side and s.receive <= max_per_side]
+            if not shapes:
+                return substrate.EnumerationReport()
         packages, report = substrate.enumerate_packages(
             my_assets,
             opp_assets,
@@ -967,15 +1002,21 @@ def _generate_packages(
             pool_limit=pool_limit,
             rank_key=substrate.by_value_desc,
             required_send=required_send,
+            **({"required_receive": required_receive} if required_receive else {}),
+            **({"max_packages": max_packages} if max_packages is not None else {}),
         )
         for pair in packages:
             give, receive = pair.sources()
-            tc = _score_trade(give, receive)
+            # The default path names ``_score_trade`` explicitly: the VA guard
+            # (tests/trade/test_finder_va_is_not_bypassable.py) parses this.
+            tc = _score_trade(give, receive) if score is None else score(give, receive)
             if tc is not None:
                 results.append(tc)
         return report
 
     one_for_one = _run([substrate.PackageShape(1, 1)], None)
+    if one_for_one_only:
+        return results, {"mode": "one_for_one_only", "oneForOne": one_for_one.to_dict()}
     if equal_count_only:
         two_for_two = _run(
             [substrate.PackageShape(2, 2)],
@@ -1278,6 +1319,7 @@ def _posture_pick_packages(
     *,
     equal_count_only: bool,
     required_send: list[Asset] | tuple[Asset, ...] = (),
+    score: Any = None,
 ) -> tuple[list[TradeCandidate], str | None]:
     """Pick-inclusive packages for a COMPLEMENTARY posture pair only.
 
@@ -1324,14 +1366,15 @@ def _posture_pick_packages(
         rank_key=substrate.by_value_desc,
         required_send=required_send,
     )
+    score_fn = score or _score_trade
     out: list[TradeCandidate] = []
     for pair_ in cores:
         give, receive = pair_.sources()
-        core = _score_trade(give, receive)
+        core = score_fn(give, receive)
         best: TradeCandidate | None = None
         for pick in picks[:_PICKS_TRIED_PER_TEAM]:
             g, r = (give + [pick], receive) if side == "give" else (give, receive + [pick])
-            tc = _score_trade(g, r)
+            tc = score_fn(g, r)
             if tc is None:
                 continue
             if core is not None and tc.arbitrage_score <= core.arbitrage_score:
@@ -1984,3 +2027,16 @@ def find_trades(
         },
         "warnings": warnings,
     }
+
+
+# ── Public seams for consumers of this enumeration (C7-BEST-TRADE) ────────
+#
+# The Best-Trade consumer (``src/trade/best_offers``) reuses this module's
+# pool, roster resolution, owned-pick resolution, package enumeration and
+# posture-aware pick path — it is a different OBJECTIVE over the same
+# candidates, never a second generator.
+resolve_roster = _resolve_roster
+owned_pick_assets = _owned_pick_assets
+generate_packages = _generate_packages
+posture_pick_packages = _posture_pick_packages
+FUTURE_TILTING_POSTURES = _FUTURE_TILTING
