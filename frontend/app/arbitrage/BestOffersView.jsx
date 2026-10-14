@@ -234,7 +234,8 @@ export default function BestOffersView({
 }) {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
-  const [regenerating, setRegenerating] = useState(null);
+  // Teams whose card is regenerating (several can be in flight at once).
+  const [regenerating, setRegenerating] = useState(() => new Set());
   const [error, setError] = useState("");
   const [useTeamContext, setUseTeamContext] = useState(true);
   const [refinements, setRefinements] = useState({});
@@ -244,8 +245,14 @@ export default function BestOffersView({
   const cardSeq = useRef({});
 
   useEffect(() => {
+    // A different team or league: any response still in flight answers a
+    // question nobody is asking any more.
+    seq.current += 1;
+    cardSeq.current = {};
     setResult(null);
     setRefinements({});
+    setRegenerating(new Set());
+    setRunning(false);
   }, [myTeam, leagueKey]);
 
   function refinementFor(opp) {
@@ -270,7 +277,7 @@ export default function BestOffersView({
     if (!myTeam) return;
     const mine = ++seq.current;
     setRunning(true);
-    setRegenerating(null); // a full scan supersedes any card in flight
+    setRegenerating(new Set()); // a full scan supersedes any card in flight
     setError("");
     try {
       // Saved per-card refinements travel with the full scan, so a stored
@@ -309,7 +316,7 @@ export default function BestOffersView({
     cardSeq.current[opp] = mine;
     const current = () =>
       cardSeq.current[opp] === mine && seq.current === scanAtStart;
-    setRegenerating(opp);
+    setRegenerating((prev) => new Set(prev).add(opp));
     setError("");
     try {
       const data = await request({
@@ -323,7 +330,12 @@ export default function BestOffersView({
     } catch (err) {
       if (current()) setError(err?.message || "Request failed");
     } finally {
-      if (current()) setRegenerating(null);
+      if (current())
+        setRegenerating((prev) => {
+          const next = new Set(prev);
+          next.delete(opp);
+          return next;
+        });
     }
   }
 
@@ -391,7 +403,7 @@ export default function BestOffersView({
               key={card.team}
               card={card}
               myTeam={myTeam}
-              regenerating={regenerating === card.team}
+              regenerating={regenerating.has(card.team)}
               refine={{
                 refinement: refinements[card.team] || emptyRefinement(),
                 onLock: (name) =>
@@ -411,7 +423,7 @@ export default function BestOffersView({
                     ),
                   ),
                 onClear: () => applyRefinement(card.team, emptyRefinement()),
-                disabled: running || regenerating === card.team,
+                disabled: running || regenerating.has(card.team),
               }}
             />
           ))}

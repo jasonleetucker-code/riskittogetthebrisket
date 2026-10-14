@@ -283,7 +283,7 @@ def _need_fit(assets: Sequence[Any], needs: set[str] | None) -> float | None:
 
 
 #: Factors that are COSTS: their weight is subtracted.
-_COST_FACTORS = frozenset({"forcedDropCost", "calculatorDivergence"})
+_COST_FACTORS = frozenset({"forcedDropCost", "calculatorDivergence", "contraryCalculator"})
 
 #: Factors computed only for the roster-aware rerank head.  Inside that head
 #: an UNKNOWN value is ranked as the head's worst KNOWN value (never as zero),
@@ -301,9 +301,9 @@ def _comfort(margin_pct: float, scale: Mapping[str, Any]) -> float:
     margin far past the band means the two boards disagree badly about these
     assets; that is a calculator exploit, not a mutually defensible offer.
     """
-    sat = float(scale.get("externalComfortSaturationPct", 15.0))
-    band = float(scale.get("externalExploitBandPct", 30.0))
-    zero = float(scale.get("externalExploitZeroPct", 60.0))
+    sat = float(scale.get("externalComfortSaturationPct", 10.0))
+    band = float(scale.get("externalExploitBandPct", 25.0))
+    zero = float(scale.get("externalExploitZeroPct", 50.0))
     m = max(0.0, margin_pct)
     if m <= sat:
         return _clip01(m / sat) if sat > 0 else 1.0
@@ -318,20 +318,36 @@ def _divergence(
     calculator: str,
     pick_provenance: Mapping[str, Any] | None,
     scale: Mapping[str, Any],
+    *,
+    edge_pct: float,
+    margin_pct: float,
 ) -> float | None:
-    """How far our board and the qualifying calculator disagree about THESE
-    assets: the board-value-weighted mean of ``|ln(board / native)|`` beyond a
-    tolerance, scaled to 1 at ``divergenceSaturationRatio``.
+    """How far our board and the qualifying calculator disagree about this
+    trade — the larger of two readings, each 0 inside a tolerance and 1 at
+    saturation:
 
-    ``None`` when any asset lacks a positive board or native value (it cannot
+    * PACKAGE: our canonical edge plus the opponent's margin on the calculator
+      (both in %).  Each side "wins" only because the two boards price the
+      package differently, so their sum IS the disagreement — and it is read
+      on whole-package totals, so adding a large piece both boards agree on
+      cannot hide one mispriced asset (review B2: a board-weighted mean of
+      per-asset ratios could);
+    * WORST ASSET: the largest single ``|ln(board / native)|`` in the package,
+      so one asset priced far apart is seen however the totals net out.
+
+    ``None`` when an asset lacks a positive board or native value (it cannot
     happen for a qualifying verdict, whose coverage is complete; it is guarded
     rather than defaulted).
     """
     import math  # noqa: PLC0415
 
-    tol = math.log(1.0 + float(scale.get("divergenceTolerancePct", 25.0)) / 100.0)
-    sat = math.log(float(scale.get("divergenceSaturationRatio", 2.0)))
-    num = den = 0.0
+    tol_total = float(scale.get("divergenceTolerancePct", 25.0))
+    sat_total = float(scale.get("divergenceSaturationPct", 60.0))
+    tol_asset = math.log(1.0 + float(scale.get("assetDivergenceTolerancePct", 25.0)) / 100.0)
+    sat_asset = math.log(float(scale.get("assetDivergenceSaturationRatio", 2.0)))
+    if not sat_total > tol_total or not sat_asset > tol_asset:
+        return None
+    worst = 0.0
     for a, row in zip(assets, rows, strict=True):
         board = float(a.model_value)
         native = (
@@ -341,11 +357,11 @@ def _divergence(
         )
         if not board > 0 or native is None:
             return None
-        num += board * abs(math.log(board / native))
-        den += board
-    if not den > 0 or not sat > tol:
-        return None
-    return _clip01((num / den - tol) / (sat - tol))
+        worst = max(worst, abs(math.log(board / native)))
+    total = max(0.0, edge_pct) + max(0.0, margin_pct)
+    package = _clip01((total - tol_total) / (sat_total - tol_total))
+    asset = _clip01((worst - tol_asset) / (sat_asset - tol_asset))
+    return max(package, asset)
 
 
 def _factors(
@@ -359,17 +375,35 @@ def _factors(
     *,
     rows: Sequence[Mapping[str, Any] | None] = (),
     pick_provenance: Mapping[str, Any] | None = None,
+    verdicts: Sequence[Any] = (),
 ) -> dict[str, float | None]:
     scale = prior.get("scales") or {}
     edge_pct = equity["vaAdjustedGap"] / max(float(equity["sendingAdjusted"]), 1.0)
-    canonical = _clip01(edge_pct / float(scale.get("canonicalEdgeSaturationPct", 30.0)) * 100.0)
+    canonical = _clip01(edge_pct / float(scale.get("canonicalEdgeSaturationPct", 15.0)) * 100.0)
     # A qualifying verdict always carries a margin (best_qualifying_verdict
     # admits none without one), so it is read directly — never defaulted.
     comfort = _comfort(float(verdict.margin_pct), scale)
     divergence = (
-        _divergence((*give, *receive), rows, verdict.calculator, pick_provenance, scale)
+        _divergence(
+            (*give, *receive),
+            rows,
+            verdict.calculator,
+            pick_provenance,
+            scale,
+            edge_pct=edge_pct * 100.0,
+            margin_pct=float(verdict.margin_pct),
+        )
         if rows
         else None
+    )
+    # Calculator shopping: another approved calculator that prices EVERY asset
+    # grades it a loss for them.  The opponent may well check that one.
+    contrary = (
+        1.0
+        if any(
+            v is not verdict and v.coverage == "complete" and v.result == "loss" for v in verdicts
+        )
+        else 0.0
     )
     sources = [a.source_count for a in (*give, *receive) if a.source_count > 0]
     confidence = (
@@ -383,6 +417,7 @@ def _factors(
         "externalComfort": round(comfort, 4),
         "mutualBalance": round(min(canonical, comfort), 4),
         "calculatorDivergence": round(divergence, 4) if divergence is not None else None,
+        "contraryCalculator": contrary if verdicts else None,
         "ourNeedFit": _need_fit(receive, our_needs),
         "theirNeedFit": _need_fit(give, their_needs),
         "simplicity": round(_clip01(1.0 - (size - 2) / 4.0), 4),
@@ -415,10 +450,16 @@ def _score(
 
 
 def _worst_known(head: Sequence["BestOfferCandidate"], name: str) -> float | None:
+    """The conservative stand-in for an unknown rerank factor.
+
+    A cost takes the worst KNOWN cost; a benefit takes the worst known value
+    and never more than zero — an unreadable lineup is never credited as an
+    improvement because another package's lineup improved (review S1).
+    """
     known = [c.factors[name] for c in head if c.factors.get(name) is not None]
     if not known:
         return None
-    return max(known) if name in _COST_FACTORS else min(known)
+    return max(known) if name in _COST_FACTORS else min(min(known), 0.0)
 
 
 # ── Per-opponent search ───────────────────────────────────────────────────
@@ -511,6 +552,7 @@ def _scorer(
             their_needs,
             rows=[*give_rows, *recv_rows],
             pick_provenance=pick_provenance,
+            verdicts=verdicts,
         )
         return BestOfferCandidate(
             give=list(give),
