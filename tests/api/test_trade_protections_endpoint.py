@@ -437,3 +437,46 @@ def test_echoed_errors_are_capped(env):
     body = res.json()
     assert len(body["errors"]) == 20
     assert body["errorsTruncated"] == 10
+
+
+# ── C3-CON-03: temporary refinement rides the same resolver ───────────
+
+
+def test_refinement_combines_with_the_saved_block_and_is_never_stored(env):
+    _ok(_put(env, "jason", {"leagueKey": "main", "untouchables": ["Josh Allen"], "nflTeams": []}))
+    before = env.client.get(URL, params={"leagueKey": "main"}, headers=_as("jason")).json()
+
+    request = SimpleNamespace(headers=_as("jason"))
+    cfg = league_registry.get_league_by_key("main")
+    c = server._constraints_for_request(
+        request,
+        env.contract,
+        cfg,
+        surface="test",
+        refinement={"lock": ["Ja'Marr Chase"], "exclude": ["Jordan Addison"]},
+    )
+    assert c.block_reason({"name": "Josh Allen"}) == "protected_individual"
+    assert c.block_reason({"name": "Jordan Addison"}) == "excluded_temporary"
+    assert c.locked_outgoing == frozenset({"ja'marr chase"})
+
+    after = env.client.get(URL, params={"leagueKey": "main"}, headers=_as("jason")).json()
+    assert after == before, "a temporary EXCLUDE must never become a stored protection"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"refinement": {"lock": ["A"], "exclude": ["a"]}},
+        {"refinement": "nope"},
+        {"refinement": {"exclude": [3]}},
+    ],
+)
+def test_a_malformed_refinement_is_a_400_from_the_shared_parser(body):
+    clean, error = server._refinement_from_body(body)
+    assert clean is None
+    assert error is not None and error.status_code == 400
+    assert json.loads(error.body)["error"] == "invalid_refinement"
+
+
+def test_an_absent_refinement_parses_to_nothing():
+    assert server._refinement_from_body({}) == ({"lock": [], "exclude": []}, None)

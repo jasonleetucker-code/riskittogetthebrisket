@@ -20,7 +20,7 @@ The engine does NOT modify any internal canonical values or calibration.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from src.canonical.calibration import to_display_value
@@ -1462,7 +1462,16 @@ def _generate_positional_upgrades(
                     sp_need = roster.starter_needs.get(sp, 1)
                     for p in sp_depth[sp_need:]:
                         sp_ev = p.display_value
-                        if sp_ev >= MIN_RELEVANT_VALUE and abs(sp_ev - gap_needed) < surplus_tol:
+                        # ``can_send``: the widened fallback used to skip the
+                        # constraint check every other offered asset gets, so
+                        # a protected surplus player could ride along as the
+                        # sweetener.
+                        if (
+                            sp_ev >= MIN_RELEVANT_VALUE
+                            and abs(sp_ev - gap_needed) < surplus_tol
+                            and roster.can_send(p)
+                            and p.name != weakest_starter.name
+                        ):
                             sweeteners.append(p)
             if not sweeteners:
                 continue
@@ -1856,6 +1865,10 @@ def generate_suggestions_from_pool(
     ktc_top_n: int | None = None,
     capacity_context: Any | None = None,
     constraints: Any | None = None,
+    roster_pool: list[PlayerAsset] | None = None,
+    team_count: int | None = None,
+    weakness_needs: list[str] | None = None,
+    weakness_unavailable_reason: str | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1878,6 +1891,37 @@ def generate_suggestions_from_pool(
     failure mode as a balancer that does not say where it lands.  Refusing
     over-cap packages is right for ``roster_intel.packages``, which is choosing
     what to put on a Pareto frontier — a different question.
+
+    ``roster_pool`` (the UNFILTERED board, every row ranked) fixes two measured
+    defects (owner inventory 2.3/2.4; audit W09-F001, W27-F002), and
+    ``team_count`` sizes the second fix:
+
+    * **The roster is a fact, not a quality gate.**  Roster analysis used to
+      join the roster against the top-``board_top_n`` pool, so every rostered
+      player outside it vanished from the analysis: deep rooms read as empty,
+      teams lost their surplus, and generators that need a surplus or a need
+      returned nothing — whole teams got zero suggestions with no reason.
+      With ``roster_pool`` the analysis (depth, need, surplus) sees the whole
+      roster; what may be OFFERED stays inside the quality pool, so the
+      top-N gate still governs both sides of every proposal.
+    * **A positional floor for demanded positions.**  The global top-N held
+      0 defensive backs on the audited board, so every IDP team read as
+      "needs DB" while DB targets were empty.  The pool now also admits, per
+      position the league starts, the top ``starters x team_count`` players —
+      the league's starter-caliber population at that position.  Offense
+      positions are already inside the top-N in practice; IDP rooms re-enter.
+
+    Without ``roster_pool`` the behaviour is exactly the legacy one.
+
+    ``weakness_needs`` are the positions the canonical Team Weakness owner
+    (``src/roster_intel/weakness.py`` via ``build_league_roster_intelligence``)
+    rates ``critical`` / ``high`` for THIS team.  When supplied they REPLACE the
+    startable-count need, which cannot discriminate on deep rosters: measured
+    on the 2026-10-14 board, with whole 58-man rosters analysed, every team in
+    ``dynasty_main`` had zero count-based needs (a hole only opens when a room
+    has fewer startable bodies than slots).  ``None`` keeps the count-based need
+    and stamps why the owner's answer was not used
+    (``weakness_unavailable_reason``) — never a fabricated need.
     """
     if board_top_n is None:
         board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -1889,8 +1933,44 @@ def generate_suggestions_from_pool(
     # non-rookies; the assets stay in the user's roster (so the
     # roster analysis is correct), they just can't appear as trade
     # TARGETS.  Re-enabled May 12 each year.
-    if not _rookies_eligible_today():
+    rookies_eligible = _rookies_eligible_today()
+    if not rookies_eligible:
         pool = [p for p in pool if not p.rookie]
+
+    positional_floor: dict[str, Any] | None = None
+    if roster_pool is not None and starter_needs:
+        if team_count and team_count > 1:
+            pool_keys = {_identity_key(p.name) for p in pool}
+            added_by_position: dict[str, int] = {}
+            additions: list[PlayerAsset] = []
+            for pos, need in sorted(starter_needs.items()):
+                quota = int(need) * int(team_count)
+                if quota < 1:
+                    continue
+                ranked = sorted(
+                    (p for p in roster_pool if p.position == pos),
+                    key=lambda p: (p.board_rank or 10**9, -p.display_value),
+                )
+                for p in ranked[:quota]:
+                    key = _identity_key(p.name)
+                    if key in pool_keys or (p.rookie and not rookies_eligible):
+                        continue
+                    pool_keys.add(key)
+                    additions.append(p)
+                    added_by_position[pos] = added_by_position.get(pos, 0) + 1
+            if additions:
+                pool = sorted(
+                    [*pool, *additions],
+                    key=lambda p: (p.board_rank or 10**9, -p.display_value),
+                )
+            positional_floor = {
+                "applied": True,
+                "rule": "per demanded position: top (starters x teamCount) on the board",
+                "teamCount": int(team_count),
+                "addedByPosition": dict(sorted(added_by_position.items())),
+            }
+        else:
+            positional_floor = {"applied": False, "reason": "team_count_unknown"}
 
     if not starter_needs:
         # Fail closed.  Without the league's lineup there is no honest way to
@@ -1909,13 +1989,19 @@ def generate_suggestions_from_pool(
                 "noResultReason": "league_lineup_unresolved",
             },
         }
-    roster = analyze_roster(roster_names, pool, starter_needs, constraints=constraints)
+    analysis_pool = roster_pool if roster_pool is not None else pool
+    roster = analyze_roster(roster_names, analysis_pool, starter_needs, constraints=constraints)
     if roster.roster_size and not roster.sendable_keys:
         # Every asset we could offer is protected or excluded.  Say so rather
         # than returning four empty categories, which reads as "nothing to
-        # suggest" — the failure §4 forbids by name.
+        # suggest" — the failure §4 forbids by name.  Same camelCase shape as
+        # every other return path (this one used to answer snake_case keys and
+        # no ``totalSuggestions``, so a client reading the normal shape saw
+        # ``undefined`` rather than an empty list).
         return {
-            **{c: [] for c in ("sell_high", "buy_low", "consolidation", "positional_upgrade")},
+            "rosterAnalysis": _serialize_roster(roster),
+            **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+            "totalSuggestions": 0,
             "warnings": [
                 "Every asset on your roster is protected or excluded from outgoing "
                 "recommendations, so no suggestion could be generated."
@@ -1928,18 +2014,82 @@ def generate_suggestions_from_pool(
                 "noResultReason": "all_outgoing_assets_constrained",
             },
         }
+    if roster_pool is not None:
+        # The analysis saw the whole roster; what may be OFFERED stays inside
+        # the quality pool, so the top-N gate still holds on the give side.
+        quality_keys = {_identity_key(p.name) for p in pool}
+        roster = replace(
+            roster,
+            sendable_by_position={
+                pos: [p for p in room if _identity_key(p.name) in quality_keys]
+                for pos, room in roster.sendable_by_position.items()
+            },
+            sendable_keys=frozenset(k for k in roster.sendable_keys if k in quality_keys),
+        )
+
+    # C3-CON-03 LOCK.  Resolved against the whole roster; an unsatisfiable lock
+    # is an honest no-result, never a silently unlocked list (§4).
+    from src.trade.constraints import constraint_key, resolve_locked_outgoing  # noqa: PLC0415
+
+    everyone = [p for room in roster.by_position.values() for p in room]
+    lock = resolve_locked_outgoing(everyone, constraints)
+    if not lock.satisfiable:
+        return {
+            "rosterAnalysis": _serialize_roster(roster),
+            **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+            "totalSuggestions": 0,
+            "warnings": ["A locked player cannot be included in a suggestion."],
+            "metadata": {
+                "rosterMatched": roster.roster_size,
+                "rosterProvided": len(roster_names),
+                "lockedOutgoing": lock.to_dict(),
+                "noResultReason": lock.no_result_reason,
+                "noResultLabel": "No qualifying trade found under current constraints",
+            },
+        }
+    locked_keys = frozenset(constraint_key(a.name) for a in lock.required)
+    if weakness_needs is not None:
+        roster = replace(
+            roster,
+            need_positions=[pos for pos in weakness_needs if pos in roster.starter_needs],
+        )
+    need_source = {
+        "source": ("team_weakness_owner" if weakness_needs is not None else "startable_count"),
+        **(
+            {"weaknessUnavailableReason": weakness_unavailable_reason}
+            if weakness_needs is None and weakness_unavailable_reason
+            else {}
+        ),
+    }
     roster_set = {_identity_key(n) for n in roster_names}
 
     sell_high = _generate_sell_high(roster, pool, roster_set)
     buy_low = _generate_buy_low(roster, pool, roster_set)
     consolidation = _generate_consolidation(roster, pool, roster_set)
     upgrades = _generate_positional_upgrades(roster, pool, roster_set)
+    if locked_keys:
+        # LOCK as a construction rule on these hand-rolled generators: a
+        # suggestion that does not send every locked player was never a
+        # candidate.  Applied before enrichment, ranking and the quality pass.
+        def _sends_locks(sug: TradeSuggestion) -> bool:
+            return locked_keys <= {constraint_key(p.name) for p in sug.give}
+
+        sell_high = [x for x in sell_high if _sends_locks(x)]
+        buy_low = [x for x in buy_low if _sends_locks(x)]
+        consolidation = [x for x in consolidation if _sends_locks(x)]
+        upgrades = [x for x in upgrades if _sends_locks(x)]
+    generated_counts = {
+        "sellHigh": len(sell_high),
+        "buyLow": len(buy_low),
+        "consolidation": len(consolidation),
+        "positionalUpgrades": len(upgrades),
+    }
 
     # Phase 3: Opponent-aware analysis (if league rosters provided)
     opponent_analyses: dict[str, RosterAnalysis] = {}
     if league_rosters:
         opponent_analyses = _analyze_opponent_rosters(
-            league_rosters, pool, starter_needs=roster.starter_needs
+            league_rosters, analysis_pool, starter_needs=roster.starter_needs
         )
 
     # Enrich all suggestions with edge signals, balancers, opponent fit
@@ -2011,6 +2161,52 @@ def generate_suggestions_from_pool(
 
     all_suggestions = sell_high + buy_low + consolidation + upgrades
 
+    # W09-F001: an empty answer must say WHY.  Four empty lists with no reason
+    # read as "no trade exists for this team" when the real answer may be "the
+    # roster has no surplus to sell and no hole to fill" or "the quality pass
+    # removed every candidate".
+    no_result: dict[str, Any] = {}
+    if not all_suggestions:
+        # Depth beyond the starters, at a surplus position, that may be offered
+        # (constraints AND the quality pool).  Every generator but the upgrade
+        # path sells from exactly this set, so zero here is the usual answer on
+        # a deep roster whose spare bodies all sit below the quality gate.
+        offerable_surplus = sum(
+            1
+            for pos in roster.surplus_positions
+            for p in roster.by_position.get(pos, [])[roster.starter_needs.get(pos, 1) :]
+            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+        )
+        if sum(generated_counts.values()) == 0:
+            if locked_keys:
+                reason = "lock_unsatisfiable"
+            elif not roster.surplus_positions and not roster.need_positions:
+                reason = "no_surplus_or_need"
+            elif offerable_surplus == 0:
+                reason = "no_offerable_surplus_in_quality_pool"
+            elif not roster.need_positions:
+                reason = "no_need_positions"
+            else:
+                reason = "no_targets_in_pool"
+        else:
+            reason = "quality_filters_removed_all"
+        no_result = {
+            "noResultReason": reason,
+            "noResultLabel": (
+                "No qualifying trade found under current constraints"
+                if locked_keys or roster.constrained_out
+                else "No qualifying trade found"
+            ),
+            "generatorDiagnostics": {
+                "generated": generated_counts,
+                "surplusPositions": list(roster.surplus_positions),
+                "needPositions": list(roster.need_positions),
+                "sendableAssets": len(roster.sendable_keys),
+                "offerableSurplusDepth": offerable_surplus,
+                "qualityPoolSize": len(pool),
+            },
+        }
+
     return {
         "rosterAnalysis": _serialize_roster(roster),
         "sellHigh": [_serialize_suggestion(s, roster) for s in sell_high],
@@ -2032,6 +2228,11 @@ def generate_suggestions_from_pool(
             "starterNeeds": roster.starter_needs,
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),
+            "needSource": need_source,
+            **({"positionalFloor": positional_floor} if positional_floor is not None else {}),
+            **({"rosterAnalysisPool": "full_board"} if roster_pool is not None else {}),
+            **({"lockedOutgoing": lock.to_dict()} if locked_keys else {}),
+            **no_result,
         },
     }
 

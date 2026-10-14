@@ -440,6 +440,12 @@ class EnumerationReport:
     #: True once an outgoing policy was actually applied, so an empty result
     #: under constraints is distinguishable from an empty result without any.
     outgoing_constrained: bool = False
+    #: C3-CON-03 LOCK: assets forced onto every SEND side of
+    #: :func:`enumerate_packages`, and the shapes too small to hold them.
+    #: Published only when a lock was given, so an unlocked call's report is
+    #: byte-identical to before the seam existed.
+    required_send: int = 0
+    shapes_skipped_for_required: list[str] = field(default_factory=list)
 
     @property
     def truncated(self) -> bool:
@@ -470,6 +476,14 @@ class EnumerationReport:
             # Assets that had no canonical id and fell back to a name key.
             # Non-zero means the dedup identity is weaker for those rows.
             "nameKeyedAssets": self.name_keyed_assets,
+            **(
+                {
+                    "requiredSend": self.required_send,
+                    "shapesSkippedForRequired": list(self.shapes_skipped_for_required),
+                }
+                if self.required_send
+                else {}
+            ),
         }
 
 
@@ -642,6 +656,7 @@ def enumerate_packages(
     max_packages: int | None = None,
     rank_key: Callable[[PackageAsset], Any] | None = None,
     adapt: bool = True,
+    required_send: Sequence[Any] = (),
 ) -> tuple[Iterator[SidePair], EnumerationReport]:
     """Enumerate every legal package shape between two pools.
 
@@ -662,6 +677,16 @@ def enumerate_packages(
     :data:`UNCONSTRAINED_OUTGOING`; there is no default, so the ninth consumer
     of this substrate cannot generate an unconstrained recommendation by
     forgetting a keyword.
+
+    ``required_send`` is the C3-CON-03 LOCK seam: those assets appear on EVERY
+    send side, exactly as ``required`` does in :func:`enumerate_sides`.  They
+    count against each shape's send size (a 1-for-1 cannot hold two locks, so
+    that shape is skipped and reported), they skip ``policy`` (a locked player
+    is not being asked whether he is roster clog), and they do NOT escape the
+    outgoing policy — forcing a protected player raises
+    :class:`ConstraintMisapplied`, because persistent protection outranks a
+    temporary lock (§3.3).  Topology is still enforced: a lock never licenses a
+    3-for-1.
     """
     outgoing = _resolve_outgoing(outgoing_policy, side=SEND)
     policy = policy or EligibilityPolicy()
@@ -670,9 +695,22 @@ def enumerate_packages(
 
     ours = adapt_assets(our_assets) if adapt else list(our_assets)
     theirs = adapt_assets(their_assets) if adapt else list(their_assets)
+    fixed = tuple(adapt_assets(required_send) if adapt else list(required_send))
     report.our_pool_size = len(ours)
     report.their_pool_size = len(theirs)
     report.name_keyed_assets = sum(1 for a in (*ours, *theirs) if a.key_is_name_fallback)
+    report.required_send = len(fixed)
+
+    if fixed and outgoing is not None:
+        forced = [a for a in fixed if not outgoing.admits(a)]
+        if forced:
+            raise ConstraintMisapplied(
+                "required outgoing asset(s) are constrained and cannot be forced "
+                f"into a recommendation: {', '.join(sorted(a.name for a in forced))}"
+            )
+    fixed_keys = {a.key for a in fixed}
+    if fixed_keys:
+        ours = [a for a in ours if a.key not in fixed_keys]
 
     ours = _eligible(ours, policy, report, ours=True, outgoing=outgoing)
     # No ``outgoing=`` here, and that is the whole of §2.2.
@@ -693,12 +731,19 @@ def enumerate_packages(
     plan = list(shapes) if shapes else _default_shapes(max_per_side, max_side_difference)
     report.shapes = [f"{s.send}-for-{s.receive}" for s in plan]
 
+    if fixed:
+        report.shapes_skipped_for_required = [
+            f"{s.send}-for-{s.receive}" for s in plan if s.send < len(fixed)
+        ]
+
     def _iter() -> Iterator[SidePair]:
         seen: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
         for shape in plan:
-            if len(ours) < shape.send or len(theirs) < shape.receive:
+            free = shape.send - len(fixed)
+            if free < 0 or len(ours) < free or len(theirs) < shape.receive:
                 continue
-            for send in combinations(ours, shape.send):
+            for fillers in combinations(ours, free):
+                send = (*fixed, *fillers)
                 send_keys = {a.key for a in send}
                 if len(send_keys) != len(send):
                     continue  # the same asset twice on one side

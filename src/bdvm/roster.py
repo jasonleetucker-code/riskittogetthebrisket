@@ -274,11 +274,22 @@ def scan_double_positive_trades(
     *,
     team: str | None = None,
     max_results: int = MAX_RESULTS,
+    constraints: Any | None = None,
+    constrained_owner_id: str | None = None,
 ) -> dict[str, Any]:
     """Find trades that are positive for BOTH sides in their own currency.
 
     ``team`` filters side A by owner id or roster name (case-insensitive);
     None scans every ordered pair.
+
+    ``constraints`` (C3-CON-01, ``src/trade/constraints``) are the requester's
+    persistent protections.  They block assets on the giving side of the ONE
+    roster they belong to — ``constrained_owner_id`` (side A when ``team`` is
+    given) — and are applied BEFORE the per-side asset cap.  Applying them
+    league-wide would block, say, every MIN player on every roster and stop the
+    requester acquiring their own protected names.  Active constraints with no
+    resolvable owner fail closed: no trades and a reason, never an
+    unconstrained scan.
     """
     rosters = roster_analysis.get("rosters") or []
     if team is not None:
@@ -288,8 +299,27 @@ def scan_double_positive_trades(
         ]
         if not side_a_rosters:
             return {"error": "unknown_team", "team": team, "trades": []}
+        if constrained_owner_id is None:
+            constrained_owner_id = side_a_rosters[0]["ownerId"]
     else:
         side_a_rosters = rosters
+
+    constraints_active = constraints is not None and getattr(constraints, "active", False)
+    if constraints_active and not constrained_owner_id:
+        return {
+            "trades": [],
+            "scanned": 0,
+            "noResultReason": "constraints_owner_unresolved",
+            "warnings": [
+                "Your trade protections could not be matched to a roster in this league, "
+                "so no trade was generated."
+            ],
+        }
+
+    def _sendable(roster: Mapping[str, Any], assets: list[Any]) -> list[Any]:
+        if not constraints_active or roster["ownerId"] != constrained_owner_id:
+            return assets
+        return [a for a in assets if constraints.block_reason(a) is None]
 
     results: list[dict[str, Any]] = []
     seen: set[tuple] = set()
@@ -297,14 +327,14 @@ def scan_double_positive_trades(
         a_assets = [
             a for a in ra["assets"] if a["tradeValue"].get("balanced", 0.0) >= MIN_ASSET_VALUE
         ]
-        a_assets = a_assets[:TOP_ASSETS_PER_SIDE]
+        a_assets = _sendable(ra, a_assets)[:TOP_ASSETS_PER_SIDE]
         for rb in rosters:
             if rb is ra or rb["ownerId"] == ra["ownerId"]:
                 continue
             b_assets = [
                 a for a in rb["assets"] if a["tradeValue"].get("balanced", 0.0) >= MIN_ASSET_VALUE
             ]
-            b_assets = b_assets[:TOP_ASSETS_PER_SIDE]
+            b_assets = _sendable(rb, b_assets)[:TOP_ASSETS_PER_SIDE]
             shapes: list[tuple[list, list]] = []
             shapes += [([x], [y]) for x in a_assets for y in b_assets]
             shapes += [(list(pair), [y]) for pair in combinations(a_assets, 2) for y in b_assets]

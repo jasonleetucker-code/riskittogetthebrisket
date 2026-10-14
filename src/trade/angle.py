@@ -1492,19 +1492,44 @@ def find_acquisition_packages(
             }
         )
     pool.sort(key=lambda p: -p["my_value"])
-    pool = pool[: max(1, int(candidate_pool))]
 
-    # C3-CON-01.  The policy is built from the pool that will actually be
-    # enumerated, so §2.2's NFL-team rule resolves against today's board rather
-    # than against stored state.  ENFORCEMENT happens inside the substrate; the
-    # partition here only supplies the reasons, because a count cannot explain a
-    # short list.
+    # C3-CON-01.  The policy is built from the WHOLE eligible roster, so §2.2's
+    # NFL-team rule resolves against today's board rather than against stored
+    # state, and the constraints are applied BEFORE the ``candidate_pool``
+    # truncation: truncating first let protected players occupy the top slots
+    # and then vanish, leaving fewer than ``candidate_pool`` sendable assets.
+    # ENFORCEMENT still happens inside the substrate; the partition here only
+    # supplies the reasons and decides which sendable assets survive the cap.
     from src.trade.constraints import blocked_outgoing as _blocked  # noqa: PLC0415
     from src.trade.constraints import outgoing_eligibility  # noqa: PLC0415
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+    from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
 
-    _blocked_out = _blocked(pool, constraints)
-    _outgoing_policy = outgoing_eligibility(pool, constraints)
-    if pool and len(_blocked_out) >= len(pool):
+    full_pool = pool
+    _blocked_out = _blocked(full_pool, constraints)
+    _outgoing_policy = outgoing_eligibility(full_pool, constraints)
+    # C3-CON-03 LOCK: resolved against the full roster; an unsatisfiable lock is
+    # an honest no-result, never a silently unlocked candidate list (§4).
+    lock = resolve_locked_outgoing(full_pool, constraints)
+    if not lock.satisfiable:
+        return {
+            "acquire": {
+                "players": [],
+                "size": 0,
+                "my_total": 0,
+                "market_total": 0,
+                "targets": [],
+            },
+            "candidates": [],
+            "lockedOutgoing": lock.to_dict(),
+            "noResultReason": lock.no_result_reason,
+            "noResultLabel": "No qualifying trade found under current constraints",
+            "warnings": [*warnings, "A locked player cannot be included in a counter-package."],
+        }
+    locked_ids = {id(e) for e in lock.required}
+    sendable, _ = partition_sendable(full_pool, constraints)
+    pool = [e for e in sendable if id(e) not in locked_ids][: max(1, int(candidate_pool))]
+    if full_pool and len(_blocked_out) >= len(full_pool):
         return {
             "acquire": {
                 "players": [],
@@ -1618,6 +1643,7 @@ def find_acquisition_packages(
         # that carries C3-CON-01.
         side=_SEND,
         outgoing_policy=_outgoing_policy,
+        required=_angle_pool_assets(list(lock.required)),
         against=desired_side_assets,
         refused=topology_report,
     ):

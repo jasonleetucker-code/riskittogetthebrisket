@@ -920,6 +920,7 @@ def _generate_packages(
     outgoing_policy: Any,
     *,
     equal_count_only: bool = False,
+    required_send: list[Asset] | tuple[Asset, ...] = (),
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -935,6 +936,10 @@ def _generate_packages(
     ``/arbitrage`` explicitly requests ``equal_count_only`` and gets exactly
     1-for-1 + 2-for-2.  That keeps this UX policy scoped to the surface that
     asked for it instead of silently changing other internal callers.
+
+    ``required_send`` is the C3-CON-03 LOCK: every emitted package sends those
+    assets (the substrate forces them; shapes too small to hold them are
+    skipped and reported, never widened).
     """
     results: list[TradeCandidate] = []
 
@@ -961,6 +966,7 @@ def _generate_packages(
             shapes=shapes,
             pool_limit=pool_limit,
             rank_key=substrate.by_value_desc,
+            required_send=required_send,
         )
         for pair in packages:
             give, receive = pair.sources()
@@ -1018,18 +1024,26 @@ def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
 
 def _parse_arbitrage_controls(
     opponent_items: list[Any],
-) -> tuple[list[str], bool, set[str], list[str]]:
+) -> tuple[list[str], bool, set[str], list[str], set[str]]:
     """Split real opponent names from the /arbitrage control envelope.
 
     The public route already passes ``opponentTeams`` through after validating
     it is a list.  Ordinary callers send only strings and get byte-for-byte the
     old semantics.  The arbitrage page may append one reserved mapping with
-    equal-count policy and session-local player exclusions.
+    equal-count policy, legacy session-local player exclusions
+    (``excludePlayers``, both sides — kept for one release while clients move to
+    the constraint owner's ``refinement``), and ``skipTargets``.
+
+    ``skipTargets`` is INCOMING-only: "don't show me packages that bring this
+    player back".  It is a search filter on the opponent's pool, not a trade
+    constraint — constraints are outgoing-only (spec §3), which is why it does
+    not go through ``src/trade/constraints``.
     """
     opponents: list[str] = []
     equal_count_only = False
     excluded_keys: set[str] = set()
     excluded_display: list[str] = []
+    skip_target_keys: set[str] = set()
 
     for item in opponent_items:
         if isinstance(item, str):
@@ -1042,6 +1056,11 @@ def _parse_arbitrage_controls(
             continue
         if raw_control.get("equalCountOnly") is True:
             equal_count_only = True
+        raw_skip = raw_control.get("skipTargets")
+        if isinstance(raw_skip, (list, tuple, set)):
+            skip_target_keys.update(
+                str(n or "").strip().casefold() for n in raw_skip if str(n or "").strip()
+            )
         raw_excluded = raw_control.get("excludePlayers")
         if not isinstance(raw_excluded, (list, tuple, set)):
             continue
@@ -1053,7 +1072,7 @@ def _parse_arbitrage_controls(
             excluded_keys.add(key)
             excluded_display.append(name)
 
-    return opponents, equal_count_only, excluded_keys, excluded_display
+    return opponents, equal_count_only, excluded_keys, excluded_display, skip_target_keys
 
 
 def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
@@ -1258,6 +1277,7 @@ def _posture_pick_packages(
     outgoing_policy: Any,
     *,
     equal_count_only: bool,
+    required_send: list[Asset] | tuple[Asset, ...] = (),
 ) -> tuple[list[TradeCandidate], str | None]:
     """Pick-inclusive packages for a COMPLEMENTARY posture pair only.
 
@@ -1302,6 +1322,7 @@ def _posture_pick_packages(
         shapes=shapes,
         pool_limit=_PICK_CORE_POOL_LIMIT,
         rank_key=substrate.by_value_desc,
+        required_send=required_send,
     )
     out: list[TradeCandidate] = []
     for pair_ in cores:
@@ -1396,9 +1417,13 @@ def find_trades(
     -------
     dict with trades, metadata, and any warnings.
     """
-    opponent_teams, equal_count_only, excluded_player_keys, excluded_player_names = (
-        _parse_arbitrage_controls(opponent_teams)
-    )
+    (
+        opponent_teams,
+        equal_count_only,
+        excluded_player_keys,
+        excluded_player_names,
+        skip_target_keys,
+    ) = _parse_arbitrage_controls(opponent_teams)
 
     if market_top_n is None:
         market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -1564,6 +1589,34 @@ def find_trades(
             ],
         }
 
+    # C3-CON-03 — temporary LOCK.  Resolved against the full outgoing roster
+    # BEFORE enumeration; a lock that cannot be honoured (protected, excluded,
+    # NFL-team rule, or not on this roster) is an honest no-result under
+    # current constraints, never a silently unlocked list (spec §4).
+    from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
+
+    lock = resolve_locked_outgoing(my_roster, constraints)
+    if not lock.satisfiable:
+        return {
+            "trades": [],
+            "metadata": {
+                "myTeam": my_team,
+                "packageMode": "equal_count_only" if equal_count_only else "default",
+                "refinement": constraints.to_dict() if constraints is not None else None,
+                "lockedOutgoing": lock.to_dict(),
+                "noResultReason": lock.no_result_reason,
+                "noResultLabel": "No qualifying trade found under current constraints",
+            },
+            "warnings": [
+                "A locked player cannot be included: "
+                + "; ".join(
+                    [f"{k} ({r})" for k, r in lock.conflicts]
+                    + [f"{k} (not on your tradeable roster)" for k in lock.missing]
+                )
+            ],
+        }
+    locked_assets = list(lock.required)
+
     all_trades: list[TradeCandidate] = []
     enumeration_reports: dict[str, dict[str, Any]] = {}
     opponents_analyzed = 0
@@ -1674,7 +1727,9 @@ def find_trades(
         opp_filtered = [
             a
             for a in opp_roster
-            if a.name not in owned_names and a.name.strip().casefold() not in excluded_player_keys
+            if a.name not in owned_names
+            and a.name.strip().casefold() not in excluded_player_keys
+            and a.name.strip().casefold() not in skip_target_keys
         ]
         if not opp_filtered:
             continue
@@ -1687,6 +1742,9 @@ def find_trades(
             opp_filtered,
             outgoing_policy,
             equal_count_only=equal_count_only,
+            # Only when a lock is set, so an unrefined call keeps the exact
+            # pre-LOCK call shape (test seams stub this signature).
+            **({"required_send": locked_assets} if locked_assets else {}),
         )
         if pick_generation_on:
             # The opponent's picks are only ever ASKED for when we tilt future
@@ -1699,7 +1757,10 @@ def find_trades(
                     opp_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
                 )
                 opp_picks = [
-                    a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
+                    a
+                    for a in opp_picks
+                    if a.name.strip().casefold() not in excluded_player_keys
+                    and a.name.strip().casefold() not in skip_target_keys
                 ]
             with_picks, pair = _posture_pick_packages(
                 my_roster,
@@ -1710,6 +1771,7 @@ def find_trades(
                 postures.get(opp_name),
                 outgoing_policy,
                 equal_count_only=equal_count_only,
+                **({"required_send": locked_assets} if locked_assets else {}),
             )
             shaped.extend(with_picks)
             pick_generation["pairs"][opp_name] = {
@@ -1866,6 +1928,18 @@ def find_trades(
             # must not render identically.
             "constraintsBlockedOutgoing": len(blocked_outgoing),
             "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
+            # C3-CON-03: published only when a refinement is active, so an
+            # unrefined response is unchanged.
+            **(
+                {
+                    "refinement": constraints.to_dict(),
+                    "lockedOutgoing": lock.to_dict(),
+                }
+                if constraints is not None
+                and (constraints.locked_outgoing or constraints.excluded_outgoing)
+                else {}
+            ),
+            **({"skipTargets": sorted(skip_target_keys)} if skip_target_keys else {}),
             "totalCandidatesEvaluated": len(all_trades),
             "totalQualified": len(ranked),
             "returned": len(capped),

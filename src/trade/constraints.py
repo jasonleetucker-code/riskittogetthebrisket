@@ -62,6 +62,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = [
     "ConstraintResolutionError",
+    "LockResolution",
+    "MAX_REFINEMENT_ASSETS",
     "MAX_PERSISTENT_PROTECTED_NFL_TEAMS",
     "MAX_PERSISTENT_PROTECTED_PLAYERS",
     "TradeConstraints",
@@ -72,8 +74,10 @@ __all__ = [
     "partition_sendable",
     "protectable_nfl_teams",
     "resolve_constraints",
+    "resolve_locked_outgoing",
     "unresolved_protected_players",
     "validate_persistent_protection",
+    "validate_refinement",
 ]
 
 
@@ -116,6 +120,12 @@ class TradeConstraints:
     resolution_failed: bool = False
     #: Machine-readable reasons, for a caller rendering an honest no-result.
     notes: tuple[str, ...] = ()
+    #: LOCKs that could not be honoured, ``constraint_key -> reason``
+    #: (``protected_individual`` / ``excluded_temporary``).  Recorded as DATA,
+    #: not only as a note, because §4 forbids silently dropping a lock: a
+    #: consumer must turn a conflict into "No qualifying trade found under
+    #: current constraints", never into an unlocked result.
+    lock_conflicts: Mapping[str, str] = field(default_factory=dict)
     #: ``constraint_key -> NFL team``, for dynamic team-rule resolution.
     _team_by_key: Mapping[str, str] = field(default_factory=dict, repr=False)
 
@@ -209,6 +219,11 @@ class TradeConstraints:
             "excludedOutgoing": sorted(self.excluded_outgoing),
             "lockedOutgoing": sorted(self.locked_outgoing),
             "notes": list(self.notes),
+            **(
+                {"lockConflicts": dict(sorted(self.lock_conflicts.items()))}
+                if self.lock_conflicts
+                else {}
+            ),
         }
 
 
@@ -481,10 +496,12 @@ def resolve_constraints(
     )
     locked = _as_key_set((refinement or {}).get("lock"))
     excluded = _as_key_set((refinement or {}).get("exclude"))
+    conflicts: dict[str, str] = {}
 
     # §3.3 — LOCK and EXCLUDE are mutually exclusive for the same player.
     both = locked & excluded
     if both:
+        conflicts.update((key, "excluded_temporary") for key in both)
         # Contradictory state.  Resolve toward NOT proposing him: an EXCLUDE the
         # user set is a refusal, and honouring the LOCK instead would force a
         # player into a package the user just said to keep out of it.
@@ -498,6 +515,7 @@ def resolve_constraints(
     # cannot force a protected player into a recommendation.
     forced = locked & protected
     if forced:
+        conflicts.update((key, "protected_individual") for key in forced)
         locked -= forced
         notes.append(
             f"{len(forced)} LOCK(ed) player(s) are persistently protected; the protection "
@@ -511,7 +529,156 @@ def resolve_constraints(
         locked_outgoing=locked,
         resolution_failed=False,
         notes=tuple(notes),
+        lock_conflicts=conflicts,
         _team_by_key=_team_index(contract) if teams else {},
+    )
+
+
+# ── Temporary refinement: LOCK / EXCLUDE (C3-CON-03) ─────────────────────
+#
+# Refinement is per-session state the CLIENT keeps (spec §3.3: it survives
+# regeneration and ordinary refreshes until cleared).  It is never written to
+# the persistent protection store, which is what keeps a temporary EXCLUDE
+# from ever becoming a permanent untouchable.  The server only validates the
+# shape and resolves it against the pool being generated from.
+
+#: Upper bound per list.  A refinement naming more players than a roster holds
+#: is not a refinement; refusing keeps the per-request work bounded.
+MAX_REFINEMENT_ASSETS = 25
+
+
+def validate_refinement(
+    raw: Any,
+) -> tuple[dict[str, list[str]] | None, list[dict[str, Any]]]:
+    """Validate a request's ``{"lock": [...], "exclude": [...]}``.
+
+    ``(clean, errors)``; ``clean`` is ``None`` when there are errors, and
+    ``{"lock": [], "exclude": []}`` when nothing was asked for (``raw`` absent
+    or ``None``).  A player named in BOTH lists is refused
+    (``refinement_conflict``) rather than resolved: the client enforces the
+    exclusivity, so a request carrying both is a client fault, and guessing
+    which the user meant would generate a package they did not ask for.
+    """
+
+    if raw is None:
+        return {"lock": [], "exclude": []}, []
+    if not isinstance(raw, Mapping):
+        return None, [{"field": None, "value": None, "reason": "not_an_object"}]
+    errors: list[dict[str, Any]] = []
+    clean: dict[str, list[str]] = {}
+    for field_name in ("lock", "exclude"):
+        values = raw.get(field_name, [])
+        if values is None:
+            values = []
+        if not isinstance(values, list):
+            errors.append({"field": field_name, "value": None, "reason": "not_a_list"})
+            continue
+        if len(values) > MAX_REFINEMENT_ASSETS:
+            errors.append({"field": field_name, "value": len(values), "reason": "too_many"})
+            continue
+        names: dict[str, str] = {}
+        for value in values:
+            if not isinstance(value, str) or not value.strip():
+                errors.append({"field": field_name, "value": value, "reason": "not_a_string"})
+                continue
+            names.setdefault(constraint_key(value), value.strip())
+        clean[field_name] = [names[k] for k in sorted(names)]
+    if errors:
+        return None, errors
+    both = {constraint_key(v) for v in clean["lock"]} & {
+        constraint_key(v) for v in clean["exclude"]
+    }
+    if both:
+        return None, [
+            {"field": "lock", "value": name, "reason": "refinement_conflict"}
+            for name in sorted(both)
+        ]
+    return clean, []
+
+
+@dataclass(frozen=True)
+class LockResolution:
+    """A LOCK set resolved against the pool a recommender generates from.
+
+    ``required`` are the caller's own asset objects to force onto every
+    outgoing side.  ``missing`` are locked names the pool does not carry (the
+    player was traded away or is not on this roster).  ``conflicts`` are locks
+    that cannot be honoured, with the reason — a persistent protection, a
+    simultaneous EXCLUDE, or an NFL-team rule.  Any non-empty ``missing`` or
+    ``conflicts`` means the honest answer is a no-result, never an unlocked
+    package (§4).
+    """
+
+    required: tuple[Any, ...] = ()
+    missing: tuple[str, ...] = ()
+    conflicts: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def satisfiable(self) -> bool:
+        return not self.missing and not self.conflicts
+
+    @property
+    def no_result_reason(self) -> str | None:
+        if self.conflicts:
+            return "lock_conflicts_with_protection"
+        if self.missing:
+            return "locked_player_unavailable"
+        return None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "required": [
+                _first_field(a, ("name", "displayName", "canonicalName")) for a in self.required
+            ],
+            "missing": list(self.missing),
+            "conflicts": [{"player": k, "reason": r} for k, r in self.conflicts],
+            "satisfiable": self.satisfiable,
+        }
+
+
+def resolve_locked_outgoing(
+    pool: Sequence[Any],
+    constraints: TradeConstraints | None,
+) -> LockResolution:
+    """Resolve LOCKs against the FULL outgoing roster (before any truncation).
+
+    Matching uses the owner's own identity keys (name, display name, ids), so
+    a lock lands on the same object the generator would enumerate.  A locked
+    asset the owner would block for any reason (the NFL-team rule is the case
+    :func:`resolve_constraints` cannot see, because it has no pool) is a
+    conflict, not a silent drop.
+    """
+
+    if constraints is None or not constraints.locked_outgoing and not constraints.lock_conflicts:
+        return LockResolution()
+    conflicts: dict[str, str] = dict(constraints.lock_conflicts)
+    found: dict[str, Any] = {}
+    for asset in pool:
+        keys, _is_pick, _team = constraints._keys_for(asset)
+        for key in keys & constraints.locked_outgoing:
+            found.setdefault(key, asset)
+    required: list[Any] = []
+    seen_ids: set[int] = set()
+    for key in sorted(constraints.locked_outgoing):
+        asset = found.get(key)
+        if asset is None:
+            continue
+        reason = constraints.block_reason(asset)
+        if reason is not None:
+            conflicts[key] = reason
+            continue
+        if id(asset) not in seen_ids:
+            seen_ids.add(id(asset))
+            required.append(asset)
+    missing = tuple(
+        key
+        for key in sorted(constraints.locked_outgoing)
+        if key not in found and key not in conflicts
+    )
+    return LockResolution(
+        required=tuple(required),
+        missing=missing,
+        conflicts=tuple(sorted(conflicts.items())),
     )
 
 
