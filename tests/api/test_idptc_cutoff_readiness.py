@@ -566,10 +566,25 @@ def test_2c_tethered_picks_on_the_board_are_stamped(sim) -> None:
 def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
     """A row whose confidence fell must not have fallen for a seated source
     the pre-cutoff board had ALREADY rejected (review of #1697: 15 of 16
-    high→medium rows were exactly that, e.g. Bijan Robinson, Brock Purdy)."""
+    high→medium rows were exactly that, e.g. Bijan Robinson, Brock Purdy).
+
+    Comparable rows only: those the pre-cutoff board withheld NOTHING from.
+    ``_lost_evidence_seats`` replays the outlier test on voting + EVERY
+    withheld value, so on a row where another source was already withheld
+    before the cutoff (2026-10-13: The IDP Show, quarantined as stale on the
+    live board) the replay panel contains a value the "before" board never
+    voted with, and "already rejected before" no longer means "not caused by
+    a lost vote" — the seat is then correctly charged to that other loss.
+    Comparing such rows made this hard-gate test flip on one provider's
+    staleness with our code byte-identical (measured: Chris Olave, untouched
+    by the cutoff, failed it).  On the comparable rows the property is
+    exactly the one #1697 measured."""
     before, after = _rows(sim["before"]), _rows(sim["after"])
+    compared = 0
     for key, a in after.items():
         if not a.get("freshnessExcludedSources"):
+            continue
+        if before[key].get("freshnessExcludedSources"):
             continue
         already = set(before[key].get("droppedSources") or [])
         seat_line = [r for r in a.get("confidenceReasons") or [] if "did not reach" in r]
@@ -580,7 +595,10 @@ def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
         voting_before = {
             dc.correlation_group_for(k) for k in (before[key].get("effectiveSourceRanks") or {})
         }
+        compared += 1
         assert not (seated & (families - voting_before)), (key, seated, already)
+    if not compared:
+        pytest.skip("no row on this board carries a seat the cutoff alone could have caused")
 
 
 def test_3_4_ktc_crowd_and_trades_never_two_providers_on_the_board(sim) -> None:
