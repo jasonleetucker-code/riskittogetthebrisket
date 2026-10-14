@@ -23,7 +23,17 @@ FILTERS — every one reads a FACT already on the projected row
 UNKNOWN IS NOT A MATCH.  A format filter excludes a row whose value for that
 field is unknown, and the response counts those exclusions per filter
 (``excludedUnknown``) — so "no 12-team trades" and "we do not know the team
-count of these trades" never read the same.
+count of these trades" never read the same.  ``ktcTepLevel`` is a KTC vendor
+setting: a non-KTC row is NOT APPLICABLE to it (``excludedNotApplicable``),
+which is a different statement from unknown.
+
+PAGING is a cursor, not an offset: ``(beforeDate, skip)`` names a position in
+the ledger's fixed order (date descending, then trade id) — "start at the
+rows dated ``beforeDate``, after the first ``skip`` of them".  Each page scans
+from its own position, so a page that hit the scan bound hands back a cursor
+where it stopped and the next page continues past it; an offset would rescan
+from the newest row and could never get beyond the bound.  The cursor holds a
+date and a count only — never a trade id.
 
 NOT A FILTER: an approximate package value band.  Valuing a historical trade
 needs values AT THE TIME of the trade (Trade History spec — at-the-time grade
@@ -41,12 +51,13 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from src.trade import market_trade_format as mtf
 from src.trade import market_trade_reference as ref
 from src.trade import market_trade_report as report
 
 DEFAULT_LIMIT = 25
 MAX_LIMIT = 50
-MAX_OFFSET = 2000
+MAX_SKIP = 100_000
 #: How far back the database may be browsed.  A display bound only.
 MAX_LOOKBACK_DAYS = 3 * 365
 DEFAULT_LOOKBACK_DAYS = ref.RECENT_LOOKBACK_DAYS
@@ -126,16 +137,21 @@ def _parse_date(raw: str | None, name: str) -> str | None:
 
 
 def normalize_filters(filters: TradeFilters, today: date) -> tuple[TradeFilters, list[str]]:
-    """Validate and bound the window; returns the effective filters and notes."""
+    """Validate and bound the window; returns the effective filters and notes.
+    With no ``since`` the window reaches ``DEFAULT_LOOKBACK_DAYS`` back from
+    ``until`` (or today) — an ``until``-only request is anchored on ``until``."""
     notes: list[str] = []
     floor = (today - timedelta(days=MAX_LOOKBACK_DAYS)).isoformat()
+    until = _parse_date(filters.until, "until")
+    if until is not None and until < floor:
+        raise FilterError(f"until is older than the database reaches back ({floor})")
+    anchor = date.fromisoformat(until) if until else today
     since = _parse_date(filters.since, "since") or (
-        (today - timedelta(days=DEFAULT_LOOKBACK_DAYS)).isoformat()
+        (anchor - timedelta(days=DEFAULT_LOOKBACK_DAYS)).isoformat()
     )
     if since < floor:
         notes.append(f"since_clamped_to_{floor}")
         since = floor
-    until = _parse_date(filters.until, "until")
     if until is not None and until < since:
         raise FilterError("until is before since")
     if filters.source is not None and filters.source not in SOURCES:
@@ -177,9 +193,15 @@ def _asset_mix(row: Mapping[str, Any]) -> str | None:
     return None
 
 
-def row_passes(row: Mapping[str, Any], f: TradeFilters, excluded_unknown: dict[str, int]) -> bool:
+def row_passes(
+    row: Mapping[str, Any],
+    f: TradeFilters,
+    excluded_unknown: dict[str, int],
+    excluded_na: dict[str, int] | None = None,
+) -> bool:
     """Whether a projected row satisfies every filter.  A format filter on an
-    unknown field excludes the row and is counted in ``excluded_unknown``."""
+    unknown field excludes the row and is counted in ``excluded_unknown``; the
+    KTC-only filter on a non-KTC row is counted in ``excluded_na``."""
     occurred = str(row.get("occurredDate") or "")[:10]
     if f.until and occurred > f.until:
         return False
@@ -196,6 +218,10 @@ def row_passes(row: Mapping[str, Any], f: TradeFilters, excluded_unknown: dict[s
         want = getattr(f, attr)
         if want is None:
             continue
+        if key == "ktcTepLevel" and tags.get("formatSource") != mtf.SOURCE_KTC:
+            if excluded_na is not None:
+                excluded_na[key] = excluded_na.get(key, 0) + 1
+            return False
         have = tags.get(key)
         if have is None:
             excluded_unknown[key] = excluded_unknown.get(key, 0) + 1
@@ -210,7 +236,8 @@ def browse_trades(
     filters: TradeFilters,
     *,
     limit: int = DEFAULT_LIMIT,
-    offset: int = 0,
+    before_date: str | None = None,
+    skip: int = 0,
     names: Mapping[str, Mapping[str, Any]] | None = None,
     today: date | None = None,
     root: Path | None = None,
@@ -220,8 +247,14 @@ def browse_trades(
     ``FilterError`` on an uninterpretable filter."""
     today = today or date.today()
     limit = max(1, min(int(limit), MAX_LIMIT))
-    offset = max(0, min(int(offset), MAX_OFFSET))
+    skip = max(0, min(int(skip), MAX_SKIP))
     f, notes = normalize_filters(filters, today)
+    cursor_date = _parse_date(before_date, "beforeDate")
+    if cursor_date is None:
+        skip = 0
+    # The page's upper bound: the cursor's date, never past the filter's.
+    bounds = [d for d in (f.until, cursor_date) if d]
+    page_until = min(bounds) if bounds else None
     q = ref.build_query(
         league_key,
         player_ids=f.player_ids,
@@ -237,7 +270,7 @@ def browse_trades(
         "maxLookbackDays": MAX_LOOKBACK_DAYS,
         "samplingBiases": list(report.KNOWN_SAMPLING_BIASES),
         "limit": limit,
-        "offset": offset,
+        "cursor": {"beforeDate": cursor_date, "skip": skip} if cursor_date else None,
     }
     conn = report.open_canonical_ledger(root)
     if conn is None:
@@ -248,6 +281,7 @@ def browse_trades(
             "ledger": None,
             "trades": [],
             "hasMore": False,
+            "nextCursor": None,
             "withheld": None,
         }
     asked_assets = any(
@@ -266,25 +300,38 @@ def browse_trades(
                 "ledger": ledger,
                 "trades": [],
                 "hasMore": False,
+                "nextCursor": None,
                 "withheld": None,
             }
         ctx = (privacy or ref.default_privacy_context)()
         names = names or {}
         rows = (
-            report.read_ledger_trades(conn, asset_keys=sorted(q.keys()), since_date=f.since)
+            report.read_ledger_trades(
+                conn, asset_keys=sorted(q.keys()), since_date=f.since, until_date=page_until
+            )
             if asset_filtered
-            else report.read_ledger_window(conn, since_date=f.since, until_date=f.until)
+            else report.read_ledger_window(conn, since_date=f.since, until_date=page_until)
         )
         withheld: dict[str, int] = {}
         excluded_unknown: dict[str, int] = {}
+        excluded_na: dict[str, int] = {}
         page: list[dict[str, Any]] = []
-        matched = 0
         scanned = 0
         scan_capped = False
-        has_more = False
+        next_cursor: dict[str, Any] | None = None
+        cur_date: str | None = None
+        on_date = 0
         for rec, full_format in rows:
+            occurred = str(rec.get("occurredDate") or "")[:10]
+            if occurred != cur_date:
+                cur_date, on_date = occurred, 0
+            position = {"beforeDate": occurred, "skip": on_date}
+            on_date += 1
+            if cursor_date and occurred == cursor_date and position["skip"] < skip:
+                continue  # already shown by an earlier page
             if scanned >= MAX_SCAN:
                 scan_capped = True
+                next_cursor = position
                 break
             scanned += 1
             visible, reason, own = ref.visibility(rec, league_key, ctx)
@@ -294,15 +341,12 @@ def browse_trades(
             row = ref.project_trade(rec, full_format, q, league_key, names, own_this_league=own)
             if asset_filtered and not row["matchedAssets"]:
                 continue
-            if not row_passes(row, f, excluded_unknown):
-                continue
-            matched += 1
-            if matched <= offset:
+            if not row_passes(row, f, excluded_unknown, excluded_na):
                 continue
             if len(page) < limit:
                 page.append(row)
             else:
-                has_more = True
+                next_cursor = position
                 break
     finally:
         conn.close()
@@ -314,9 +358,13 @@ def browse_trades(
         "reason": None,
         "ledger": ledger,
         "trades": page,
-        "hasMore": has_more,
+        # True when a further page may hold rows: the page filled, or the scan
+        # bound stopped this page early (the cursor resumes where it stopped).
+        "hasMore": next_cursor is not None,
+        "nextCursor": next_cursor,
         "scanned": scanned,
         "scanCapped": scan_capped,
         "withheld": withheld,
         "excludedUnknown": excluded_unknown,
+        "excludedNotApplicable": excluded_na,
     }

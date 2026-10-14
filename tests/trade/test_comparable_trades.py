@@ -261,6 +261,7 @@ def test_format_component_uses_this_leagues_disposition_only(tmp_path):
     assert fmt["2026-10-01"] == {
         "score": cfg["formatScores"]["NATIVE_COMPARABLE"],
         "weight": cfg["weights"]["format"],
+        "applicable": True,
         "state": "known",
     }
     # Computed for another league: unknown, scored LOW — not the native score
@@ -269,14 +270,73 @@ def test_format_component_uses_this_leagues_disposition_only(tmp_path):
     assert fmt["2026-09-30"]["score"] == cfg["unknownFormatScore"] < 0.5
 
 
-def test_score_is_the_configured_weighted_mean(root):
+def test_score_is_the_configured_weighted_mean_over_applicable_components(root):
     cfg = ct.load_comparable_config()
-    body = _run(root, a=[JEFF], b=[CHASE])
-    for t in body["trades"]:
-        comps = t["comparability"]["components"]
-        total = sum(cfg["weights"].values())
-        expect = sum(cfg["weights"][k] * comps[k]["score"] for k in ct.COMPONENTS) / total
-        assert t["comparability"]["score"] == pytest.approx(expect, abs=1e-3)
+    for a, b in (([JEFF], [CHASE]), ([JEFF], [])):
+        body = _run(root, a=a, b=b)
+        for t in body["trades"]:
+            comps = t["comparability"]["components"]
+            live = [k for k in ct.COMPONENTS if comps[k]["applicable"]]
+            total = sum(cfg["weights"][k] for k in live)
+            expect = sum(cfg["weights"][k] * comps[k]["score"] for k in live) / total
+            assert t["comparability"]["score"] == pytest.approx(expect, abs=1e-3)
+
+
+def _score(sides, a=(), b=(), *, a_picks=(), b_picks=()):
+    cfg = ct.load_comparable_config()
+    refs_a = ct.ref_queries(LEAGUE, ct.SideRefs(player_ids=a, pick_names=a_picks))
+    refs_b = ct.ref_queries(LEAGUE, ct.SideRefs(player_ids=b, pick_names=b_picks))
+    rec = {"sides": sides, "occurredDate": "2026-10-08"}
+    fm = {"appliesToThisLeague": True, "disposition": "NATIVE_COMPARABLE"}
+    return ct.score_trade(rec, fm, refs_a, refs_b, own=False, today=TODAY, cfg=cfg)
+
+
+def test_matching_is_one_to_one_so_a_missing_asset_never_ties_the_exact_trade():
+    # Package: 2027 1st + 2028 1st for player 100.
+    pkg = {"a_picks": ["2027 Round 1", "2028 Round 1"], "b": ["100"]}
+    exact = _score([[_pick(2027, 1), _pick(2028, 1)], [_player("100")]], **pkg)
+    missing_2028 = _score([[_pick(2027, 1), _pick(2027, 1)], [_player("100")]], **pkg)
+    assert exact["score"] > missing_2028["score"]
+    assert (
+        exact["components"]["assetOverlap"]["score"]
+        > missing_2028["components"]["assetOverlap"]["score"]
+    )
+
+
+def test_extra_copies_of_a_matched_asset_do_not_raise_overlap():
+    one = _score([[_pick(2027, 1)], [_player("100")]], a_picks=["2027 Round 1"], b=["100"])
+    two = _score(
+        [[_pick(2027, 1), _pick(2027, 1)], [_player("100")]], a_picks=["2027 Round 1"], b=["100"]
+    )
+    assert one["components"]["assetOverlap"]["score"] > two["components"]["assetOverlap"]["score"]
+    assert one["score"] > two["score"]
+
+
+def test_one_trade_asset_is_never_counted_in_both_directions():
+    block = _score(
+        [[_pick(2027, 1)], [_player("999")]],
+        a_picks=["2027 Round 1"],
+        b_picks=["2027 Round 1"],
+    )
+    keys = [r["key"] for r in block["reasons"]]
+    assert keys.count("sharedRound") + keys.count("oppositeDirection") == 1
+    assert block["alignment"]["oppositeDirectionMatches"] == 0
+
+
+def test_one_sided_package_does_not_score_or_claim_a_shape():
+    block = _score([[_player("100")], [_player(str(i)) for i in range(1, 6)]], a=["100"])
+    topo = block["components"]["topology"]
+    assert topo == {"score": None, "weight": topo["weight"], "applicable": False}
+    texts = [r["text"] for r in block["reasons"]]
+    assert "Shape not compared until both sides have assets" in texts
+    assert not any(t.startswith("Same") and "shape" in t for t in texts)
+
+
+def test_broad_context_never_outranks_unknown():
+    cfg = ct.load_comparable_config()
+    assert cfg["formatScores"]["BROAD_CONTEXT"] <= cfg["unknownFormatScore"]
+    assert cfg["formatScores"]["TARGET_UNSUPPORTED"] <= cfg["formatScores"]["BROAD_CONTEXT"]
+    assert cfg["unknownFormatScore"] < 0.5
 
 
 def test_min_score_drops_weak_candidates_and_counts_them(root):

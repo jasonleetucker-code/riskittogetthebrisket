@@ -141,13 +141,66 @@ def test_since_is_clamped_and_noted(root):
     assert "2024-01-01" in _dates(body)
 
 
-def test_paging(root):
+def _page(root, cursor, **kw):
+    c = cursor or {}
+    return _run(root, before_date=c.get("beforeDate"), skip=c.get("skip", 0), **kw)
+
+
+def test_cursor_paging_walks_every_row_once(root):
     first = _run(root, limit=2)
-    second = _run(root, limit=2, offset=2)
     assert _dates(first) == ["2026-10-05", "2026-10-04"] and first["hasMore"] is True
+    assert first["nextCursor"] == {"beforeDate": "2026-10-03", "skip": 0}
+    second = _page(root, first["nextCursor"], limit=2)
     assert _dates(second) == ["2026-10-03", "2026-10-02"]
-    last = _run(root, limit=2, offset=4)
-    assert last["hasMore"] is False
+    third = _page(root, second["nextCursor"], limit=2)
+    assert _dates(third) == ["2026-10-01", "2026-07-01"]
+    assert third["hasMore"] is False and third["nextCursor"] is None
+
+
+def test_cursor_skips_within_a_shared_date(tmp_path):
+    same_day = [
+        _ktc(f"utrade:ktc_trade_database:s{i}", "2026-10-05", [[_player(str(i))], [_player("x")]])
+        for i in range(5)
+    ]
+    _persist(tmp_path, same_day)
+    seen = []
+    cursor = None
+    for _ in range(5):
+        body = _page(tmp_path, cursor, limit=2)
+        seen += [t["sides"][0][0]["canonicalId"] for t in body["trades"]]
+        cursor = body["nextCursor"]
+        if cursor is None:
+            break
+    assert len(seen) == 5 and len(set(seen)) == 5
+
+
+def test_paging_continues_past_the_scan_bound(root, monkeypatch):
+    monkeypatch.setattr(db, "MAX_SCAN", 2)
+    seen = []
+    cursor = None
+    for _ in range(10):
+        body = _page(root, cursor, limit=5)
+        seen += _dates(body)
+        cursor = body["nextCursor"]
+        if body["scanCapped"]:
+            assert body["hasMore"] is True and cursor is not None
+        if cursor is None:
+            break
+    assert seen == [
+        "2026-10-05",
+        "2026-10-04",
+        "2026-10-03",
+        "2026-10-02",
+        "2026-10-01",
+        "2026-07-01",
+    ]
+
+
+def test_until_only_is_anchored_on_until(root):
+    body = _run(root, db.TradeFilters(until="2026-07-15"))
+    assert body["state"] == "ok"
+    assert body["filters"]["since"] == "2025-07-15"
+    assert _dates(body) == ["2026-07-01"]
 
 
 def test_format_filter_excludes_unknown_and_counts_it(root):
@@ -168,10 +221,13 @@ def test_superflex_unknown_is_not_a_match(root):
 
 def test_ktc_tep_level_is_the_vendors_own_setting(root):
     body = _run(root, db.TradeFilters(ktc_tep_level=2))
+    assert body["trades"]
     for t in body["trades"]:
         assert t["formatTags"]["ktcTepLevel"] == 2
-    # Non-KTC-format rows never carry a vendor level: excluded as unknown.
-    assert body["excludedUnknown"].get("ktcTepLevel", 0) >= 2
+    # Non-KTC-format rows never carry a vendor level: NOT APPLICABLE, which is
+    # counted apart from unknown.
+    assert body["excludedNotApplicable"].get("ktcTepLevel") == 2
+    assert "ktcTepLevel" not in body["excludedUnknown"]
 
 
 def test_shape_and_asset_mix(root):
@@ -214,6 +270,8 @@ def test_source_filter_and_privacy(tmp_path):
         db.TradeFilters(asset_mix="faab"),
         db.TradeFilters(ktc_tep_level=7),
         db.TradeFilters(teams=0),
+        db.TradeFilters(until="2026-13-01"),
+        db.TradeFilters(until="2020-01-01"),
     ],
 )
 def test_bad_filters_raise(root, filters):

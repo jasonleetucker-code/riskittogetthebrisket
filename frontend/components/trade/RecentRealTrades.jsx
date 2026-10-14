@@ -314,7 +314,9 @@ function ModeBody({ state, empty, comparable, extraSides }) {
       {body.truncated ? (
         <p className={styles.meta}>
           {comparable
-            ? `Showing the ${trades.length} most similar of ${body.candidates} candidate trades.`
+            ? `Showing the ${trades.length} most similar of ${body.candidates} candidate trades${
+                body.scanCapped ? " among the most recent trades touching these assets" : ""
+              }.`
             : `Showing the ${trades.length} most recent matching trades; older ones are not listed.`}
         </p>
       ) : null}

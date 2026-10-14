@@ -308,9 +308,10 @@ def read_ledger_trades(
     *,
     asset_keys: Sequence[str],
     since_date: str,
+    until_date: str | None = None,
 ):
     """Yield ``(group_record, full_format_or_None)`` for the trades dated on or
-    after ``since_date`` that have an asset whose canonical id or match key is
+    after ``since_date`` (and, when given, on or before ``until_date``) that have an asset whose canonical id or match key is
     in ``asset_keys`` — NEWEST FIRST (date, then trade id), lazily, so a
     caller can stop after the rows it needs.  UNDATED trades are never
     yielded: "recent" cannot be claimed for a trade with no date.
@@ -325,6 +326,10 @@ def read_ledger_trades(
     marks = ",".join("?" for _ in keys)
     order = " ORDER BY u.occurred_date DESC, u.underlying_trade_id DESC"
     dated = "u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
+    bounds: list[Any] = [since_date]
+    if until_date:
+        dated += " AND substr(u.occurred_date, 1, 10) <= ?"
+        bounds.append(until_date)
     if _has_table(conn, "trade_assets"):
         (hits,) = conn.execute(
             f"SELECT COUNT(*) FROM trade_assets WHERE asset_key IN ({marks})", keys
@@ -357,7 +362,7 @@ def read_ledger_trades(
     # copy every matching record through SQLite's sorter.
     ids = conn.cursor().execute(
         f"SELECT u.underlying_trade_id FROM underlying_trades u WHERE {dated} AND {where}{order}",
-        [since_date, *params],
+        [*bounds, *params],
     )
     fetch = (
         "SELECT u.record_json, f.format_json FROM underlying_trades u "

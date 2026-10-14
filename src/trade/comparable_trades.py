@@ -34,8 +34,13 @@ This module is a relevance ordering over facts, nothing more:
 THE SIMILARITY MODEL (``config/trade/comparable_trades.json``,
 ``PRIOR_UNVALIDATED``) — a weighted mean of four named components:
 
-``assetOverlap``  F1 of the matched assets: recall over the package's assets,
-                  precision over the trade's.  An exact match counts
+``assetOverlap``  F1 of a ONE-TO-ONE matching between the package's assets
+                  and the trade's: recall over the package's assets,
+                  precision over the trade's.  Each package asset and each
+                  trade asset is used at most once (a maximum-weight
+                  assignment), so two 2027 firsts cannot both answer one
+                  package first, and a trade missing a package asset can never
+                  tie the trade that has it.  An exact match counts
                   ``matchWeights.exact``, a same-round pick ``round``.  The
                   package's two sides are aligned onto two of the trade's
                   sides in whichever orientation matches more — Sleeper lanes
@@ -45,13 +50,16 @@ THE SIMILARITY MODEL (``config/trade/comparable_trades.json``,
                   OTHER aligned side (it was exchanged FOR its package-mates)
                   counts at ``oppositeDirectionMultiplier``.
 ``topology``      closeness of the aligned trade's shape (assets per side) to
-                  the package's; a third team's assets count as mismatch.
+                  the package's; a third team's assets count as mismatch.  NOT
+                  APPLICABLE while either package side is empty (the shape is
+                  not built yet), and then it drops out of the mean.
 ``format``        the ledger's disposition for this league.  When it was
                   computed for another league or is absent:
                   ``unknownFormatScore`` — LOW, never neutral.
 ``recency``       ``0.5 ** (ageDays / recencyHalfLifeDays)``.
 
-Components the spec lists but this module cannot measure honestly are named
+Not-applicable components drop out of the weighted mean; unknown ones do not
+(they score low).  Components the spec lists but this module cannot measure honestly are named
 in the config's ``notIncluded`` and stamped on every response.
 
 Missing is never zero: no ledger is ``unavailable``, an empty package is
@@ -104,11 +112,26 @@ class SideRefs:
         }
 
 
-def _side_size(q: Any) -> int:
-    """Assets the side asked about — the recall denominator.  Counted from
-    what was accepted; an unparseable ref is reported, not counted."""
-    acc = q.accepted
-    return len(acc["players"]) + len(acc["picks"]) + len(acc["pickAssetIds"])
+def ref_queries(league_key: str, side: SideRefs) -> list[Any]:
+    """One single-ref TC-07 query per DISTINCT accepted package asset — the
+    rows of the one-to-one matching.  Unparseable refs are reported by the
+    side's own query and are not package assets here."""
+    out: list[Any] = []
+    seen: set[tuple[str, str]] = set()
+    for kind, refs in (
+        ("player_ids", side.player_ids),
+        ("pick_names", side.pick_names),
+        ("pick_asset_ids", side.pick_asset_ids),
+    ):
+        for raw in list(refs)[: ref.MAX_QUERY_ASSETS]:
+            key = (kind, str(raw or "").strip())
+            if not key[1] or key in seen:
+                continue
+            seen.add(key)
+            q = ref.build_query(league_key, **{kind: [key[1]]})
+            if not q.empty():
+                out.append(q)
+    return out
 
 
 def _match_weight(match: str | None, cfg: Mapping[str, Any]) -> float:
@@ -120,54 +143,78 @@ def _match_weight(match: str | None, cfg: Mapping[str, Any]) -> float:
     return 0.0
 
 
-def _side_matches(
-    side: Sequence[Mapping[str, Any]], q: Any, *, own: bool, cfg: Mapping[str, Any]
-) -> tuple[float, list[tuple[Mapping[str, Any], str]]]:
-    total = 0.0
-    hits: list[tuple[Mapping[str, Any], str]] = []
-    for asset in side:
-        m = ref._asset_match(asset, q, own_this_league=own)
-        if m:
-            total += _match_weight(m, cfg)
-            hits.append((asset, m))
-    return total, hits
+def _assign(weights: list[list[float]]) -> list[tuple[int, int]]:
+    """Maximum-weight one-to-one assignment (rows = package assets, columns
+    = trade assets); only positive-weight pairs are returned."""
+    if not weights or not weights[0]:
+        return []
+    from scipy.optimize import linear_sum_assignment  # noqa: PLC0415 — lazy, as elsewhere
+
+    rows, cols = linear_sum_assignment(weights, maximize=True)
+    return [(int(r), int(c)) for r, c in zip(rows, cols) if weights[r][c] > 0]
 
 
 def _align(
     sides: Sequence[Sequence[Mapping[str, Any]]],
-    qa: Any,
-    qb: Any,
+    refs_a: Sequence[Any],
+    refs_b: Sequence[Any],
     *,
     own: bool,
     cfg: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Best assignment of package side A / B onto two distinct trade sides
-    (i for A, j for B).  Maximizes same-direction weight plus the discounted
-    opposite-direction weight; ties keep the first (lowest-index) pairing so
-    the answer is deterministic.  A one-sided record aligns A only."""
+    """Best one-to-one matching of the package onto two distinct trade sides
+    (i for side A, j for side B).
+
+    For each candidate pairing the package's assets are matched against the
+    assets of sides i and j by a maximum-weight assignment: a side-A asset
+    found on side i (or a side-B asset on side j) scores its full grade
+    weight; found on the OTHER aligned side it scores the opposite-direction
+    multiple.  Every package asset and every trade asset is used at most once
+    across BOTH directions.  The pairing with the larger total wins; ties keep
+    the first (lowest-index) pairing, so the answer is deterministic.  A
+    one-sided trade record aligns side A only."""
     opp = float(cfg["matchWeights"]["oppositeDirectionMultiplier"])
     n = len(sides)
-    a_w = [_side_matches(s, qa, own=own, cfg=cfg) for s in sides]
-    b_w = [_side_matches(s, qb, own=own, cfg=cfg) for s in sides]
     pairs: list[tuple[int, int | None]] = (
         [(i, j) for i in range(n) for j in range(n) if i != j] if n >= 2 else [(0, None)]
     )
-    best: tuple[float, int, int | None] | None = None
+    package = [(q, "a") for q in refs_a] + [(q, "b") for q in refs_b]
+    best: dict[str, Any] | None = None
     for i, j in pairs:
-        same = a_w[i][0] + (b_w[j][0] if j is not None else 0.0)
-        crossed = (a_w[j][0] if j is not None else 0.0) + b_w[i][0]
-        score = same + opp * crossed
-        if best is None or score > best[0] + 1e-12:
-            best = (score, i, j)
+        cols = [(a, i) for a in sides[i]] + ([(a, j) for a in sides[j]] if j is not None else [])
+        grades: list[list[str | None]] = []
+        weights: list[list[float]] = []
+        for q, which in package:
+            g_row, w_row = [], []
+            home = i if which == "a" else j
+            for asset, side_idx in cols:
+                g = ref._asset_match(asset, q, own_this_league=own)
+                w = _match_weight(g, cfg)
+                if side_idx != home:
+                    w *= opp
+                g_row.append(g)
+                w_row.append(w)
+            grades.append(g_row)
+            weights.append(w_row)
+        chosen = _assign(weights)
+        total = sum(weights[r][c] for r, c in chosen)
+        if best is None or total > best["matchedWeight"] + 1e-12:
+            same: list[tuple[Mapping[str, Any], str]] = []
+            opposite: list[tuple[Mapping[str, Any], str]] = []
+            for r, c in chosen:
+                asset, side_idx = cols[c]
+                home = i if package[r][1] == "a" else j
+                hit = (asset, str(grades[r][c]))
+                (same if side_idx == home else opposite).append(hit)
+            best = {
+                "a": i,
+                "b": j,
+                "matchedWeight": total,
+                "sameDirection": same,
+                "oppositeDirection": opposite,
+            }
     assert best is not None
-    weight, i, j = best
-    return {
-        "a": i,
-        "b": j,
-        "matchedWeight": weight,
-        "sameDirection": a_w[i][1] + (b_w[j][1] if j is not None else []),
-        "oppositeDirection": (a_w[j][1] if j is not None else []) + b_w[i][1],
-    }
+    return best
 
 
 def _overlap(matched_weight: float, package_size: int, trade_size: int) -> float:
@@ -180,23 +227,16 @@ def _overlap(matched_weight: float, package_size: int, trade_size: int) -> float
 
 def _topology(
     sides: Sequence[Sequence[Any]], a_idx: int, b_idx: int | None, size_a: int, size_b: int
-) -> float:
-    """1 − (per-side count mismatch + third-team assets) / larger total.  A
-    package side with no assets yet is compared on the built side only."""
+) -> float | None:
+    """1 − (per-side count mismatch + third-team assets) / larger total, or
+    ``None`` (not applicable) while either package side is empty."""
+    if not size_a or not size_b:
+        return None
     ta = len(sides[a_idx])
     tb = len(sides[b_idx]) if b_idx is not None else 0
     extra = sum(len(s) for k, s in enumerate(sides) if k not in (a_idx, b_idx))
-    mismatch = extra
-    pkg_total = trade_total = 0
-    if size_a:
-        mismatch += abs(size_a - ta)
-        pkg_total += size_a
-        trade_total += ta
-    if size_b:
-        mismatch += abs(size_b - tb)
-        pkg_total += size_b
-        trade_total += tb
-    denom = max(pkg_total, trade_total + extra, 1)
+    mismatch = abs(size_a - ta) + abs(size_b - tb) + extra
+    denom = max(size_a + size_b, ta + tb + extra, 1)
     return max(0.0, 1.0 - mismatch / denom)
 
 
@@ -238,7 +278,7 @@ def _reasons(
     size_a: int,
     size_b: int,
     sides: Sequence[Sequence[Any]],
-    topology: float,
+    topology: float | None,
     fmt_state: str,
     disposition: str | None,
     age: int | None,
@@ -265,7 +305,9 @@ def _reasons(
             }
         )
     pkg = _shape(s for s in (size_a, size_b) if s)
-    if len(sides) > 2:
+    if topology is None:
+        out.append({"key": "topology", "text": "Shape not compared until both sides have assets"})
+    elif len(sides) > 2:
         out.append({"key": "topology", "text": f"{len(sides)}-team trade; yours is {pkg}"})
     else:
         trade_sizes = [len(sides[align["a"]])]
@@ -286,8 +328,8 @@ def _reasons(
 def score_trade(
     rec: Mapping[str, Any],
     format_match: Mapping[str, Any],
-    qa: Any,
-    qb: Any,
+    refs_a: Sequence[Any],
+    refs_b: Sequence[Any],
     *,
     own: bool,
     today: date,
@@ -295,17 +337,18 @@ def score_trade(
     names: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The ``comparability`` block for one visible ledger trade, or ``None``
-    when it shares no asset with the package (the gate)."""
+    when it shares no asset with the package (the gate).  ``refs_a`` /
+    ``refs_b`` are ``ref_queries`` — one query per distinct package asset."""
     names = names or {}
     sides = [list(s) for s in rec.get("sides") or []]
     if not sides:
         return None
-    align = _align(sides, qa, qb, own=own, cfg=cfg)
+    align = _align(sides, refs_a, refs_b, own=own, cfg=cfg)
     if align["matchedWeight"] <= 0:
         return None
-    size_a, size_b = _side_size(qa), _side_size(qb)
+    size_a, size_b = len(refs_a), len(refs_b)
     trade_size = sum(len(s) for s in sides)
-    values: dict[str, float] = {
+    values: dict[str, float | None] = {
         "assetOverlap": _overlap(align["matchedWeight"], size_a + size_b, trade_size),
         "topology": _topology(sides, align["a"], align["b"], size_a, size_b),
     }
@@ -314,12 +357,21 @@ def score_trade(
         rec.get("occurredDate"), today, float(cfg["recencyHalfLifeDays"])
     )
     weights = cfg["weights"]
-    components = {
-        key: {"score": round(values[key], 4), "weight": float(weights[key])} for key in COMPONENTS
-    }
+    components: dict[str, dict[str, Any]] = {}
+    num = den = 0.0
+    for key in COMPONENTS:
+        v = values[key]
+        w = float(weights[key])
+        components[key] = {
+            "score": None if v is None else round(v, 4),
+            "weight": w,
+            "applicable": v is not None,
+        }
+        if v is not None:
+            num += w * v
+            den += w
     components["format"]["state"] = fmt_state
-    total_w = sum(float(weights[k]) for k in COMPONENTS)
-    score = sum(float(weights[k]) * values[k] for k in COMPONENTS) / total_w
+    score = num / den
     return {
         "score": round(score, 4),
         "components": components,
@@ -340,6 +392,20 @@ def score_trade(
             "oppositeDirectionMatches": len(align["oppositeDirection"]),
         },
     }
+
+
+def _merge_queries(qa: Any, qb: Any) -> Any:
+    """Both sides' queries as one TC-07 query (the ledger scan keys and the
+    projection's match flags).  Merged rather than rebuilt from the joined
+    ref lists, so each side keeps its own ``MAX_QUERY_ASSETS`` bound."""
+    union = ref._Query()
+    for q in (qa, qb):
+        union.players |= q.players
+        for gid, refined in q.pick_refined.items():
+            union.pick_refined.setdefault(gid, set()).update(refined)
+        union.pick_unrefined |= q.pick_unrefined
+        union.owned_ids |= q.owned_ids
+    return union
 
 
 def methodology(cfg: Mapping[str, Any]) -> dict[str, Any]:
@@ -381,12 +447,8 @@ def comparable_trades(
     today = today or date.today()
     qa = ref.build_query(league_key, **side_a.as_kwargs())
     qb = ref.build_query(league_key, **side_b.as_kwargs())
-    union = ref.build_query(
-        league_key,
-        player_ids=[*side_a.player_ids, *side_b.player_ids],
-        pick_names=[*side_a.pick_names, *side_b.pick_names],
-        pick_asset_ids=[*side_a.pick_asset_ids, *side_b.pick_asset_ids],
-    )
+    union = _merge_queries(qa, qb)
+    refs_a, refs_b = ref_queries(league_key, side_a), ref_queries(league_key, side_b)
     since = (today - timedelta(days=ref.RECENT_LOOKBACK_DAYS)).isoformat()
     base: dict[str, Any] = {
         "leagueKey": league_key,
@@ -434,7 +496,14 @@ def comparable_trades(
                 continue
             row = ref.project_trade(rec, full_format, union, league_key, names, own_this_league=own)
             block = score_trade(
-                rec, row["formatMatch"], qa, qb, own=own, today=today, cfg=cfg, names=names
+                rec,
+                row["formatMatch"],
+                refs_a,
+                refs_b,
+                own=own,
+                today=today,
+                cfg=cfg,
+                names=names,
             )
             if block is None:
                 continue

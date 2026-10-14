@@ -101,7 +101,9 @@ export default function TradeDatabasePage() {
   const [assetText, setAssetText] = useState("");
   const [assetNote, setAssetNote] = useState(null);
   const [applied, setApplied] = useState(null);
-  const [offset, setOffset] = useState(0);
+  // Cursor paging: `cursors` is the stack of page starts (null = newest).
+  const [cursors, setCursors] = useState([null]);
+  const cursor = cursors[cursors.length - 1];
   const [state, setState] = useState({ status: "idle", body: null });
   const seq = useRef(0);
 
@@ -121,11 +123,12 @@ export default function TradeDatabasePage() {
         players: applied.players.join(","),
         picks: applied.picks.join(","),
         limit: PAGE_SIZE,
-        offset: offset || "",
+        beforeDate: cursor?.beforeDate || "",
+        skip: cursor ? cursor.skip : "",
       },
       selectedLeagueKey || "",
     );
-  }, [applied, offset, selectedLeagueKey]);
+  }, [applied, cursor, selectedLeagueKey]);
 
   const load = useCallback(async (query) => {
     const mine = ++seq.current;
@@ -152,6 +155,11 @@ export default function TradeDatabasePage() {
     if (qs !== null) void load(qs);
   }, [qs, load]);
 
+  // A cursor names a position in one league's view; a league switch starts over.
+  useEffect(() => {
+    setCursors([null]);
+  }, [selectedLeagueKey]);
+
   function addAsset() {
     const text = assetText.trim();
     if (!text) return;
@@ -171,18 +179,33 @@ export default function TradeDatabasePage() {
     setAssetText("");
   }
 
+  function writeUrl(next) {
+    // Keep the address a deep link to what is on screen.
+    if (typeof window === "undefined" || !window.history?.replaceState) return;
+    const qsNext = databaseQueryString({
+      ...next.filters,
+      players: next.players.join(","),
+      picks: next.picks.join(","),
+    });
+    window.history.replaceState(null, "", qsNext ? `?${qsNext}` : window.location.pathname);
+  }
+
   function apply(e) {
     e?.preventDefault?.();
-    setOffset(0);
-    setApplied({ filters: draft, players, picks });
+    const next = { filters: draft, players, picks };
+    setCursors([null]);
+    setApplied(next);
+    writeUrl(next);
   }
 
   function reset() {
+    const next = { filters: EMPTY_FILTERS, players: [], picks: [] };
     setDraft(EMPTY_FILTERS);
     setPlayers([]);
     setPicks([]);
-    setOffset(0);
-    setApplied({ filters: EMPTY_FILTERS, players: [], picks: [] });
+    setCursors([null]);
+    setApplied(next);
+    writeUrl(next);
   }
 
   const set = (key) => (e) => setDraft((d) => ({ ...d, [key]: e.target.value }));
@@ -271,7 +294,7 @@ export default function TradeDatabasePage() {
             <Field label="Teams">
               <Input
                 type="number"
-                min="2"
+                min="1"
                 max="64"
                 inputMode="numeric"
                 value={draft.teams}
@@ -341,15 +364,16 @@ export default function TradeDatabasePage() {
         <Results
           state={state}
           trades={trades}
-          offset={offset}
-          onPage={(next) => setOffset(Math.max(0, next))}
+          page={cursors.length}
+          onNewer={() => setCursors((c) => (c.length > 1 ? c.slice(0, -1) : c))}
+          onOlder={(next) => setCursors((c) => [...c, next])}
         />
       </Panel>
     </div>
   );
 }
 
-function Results({ state, trades, offset, onPage }) {
+function Results({ state, trades, page, onNewer, onOlder }) {
   const body = state.body;
   if (state.status === "idle" || state.status === "loading") {
     return (
@@ -389,6 +413,9 @@ function Results({ state, trades, offset, onPage }) {
   }
   const ledger = body.ledger || {};
   const excluded = excludedUnknownText(body.excludedUnknown);
+  const notApplicable = body.excludedNotApplicable?.ktcTepLevel
+    ? `${body.excludedNotApplicable.ktcTepLevel} non-KTC trades hidden: the KTC TEP setting does not apply to them.`
+    : null;
   const withheld = withheldText(body.withheld);
   return (
     <div className={styles.results}>
@@ -405,7 +432,7 @@ function Results({ state, trades, offset, onPage }) {
           title={body.scanCapped ? "Search stopped before finishing" : "No matching trades"}
           description={
             body.scanCapped
-              ? "The search reached its scan limit before finding a match; older trades were not checked."
+              ? "This page reached the search limit before finding a match. Older trades have not been checked yet."
               : "No recorded trade matches these filters."
           }
         />
@@ -417,29 +444,23 @@ function Results({ state, trades, offset, onPage }) {
         </ol>
       )}
       {excluded ? <p className={styles.note}>{excluded}</p> : null}
+      {notApplicable ? <p className={styles.note}>{notApplicable}</p> : null}
       {withheld ? <p className={styles.note}>{withheld}</p> : null}
-      {body.scanCapped && trades.length ? (
+      {body.scanCapped ? (
         <p className={styles.note}>
-          The search reached its scan limit; older matching trades may exist and are not listed.
+          This page stopped at the search limit; use Older to keep searching further back.
         </p>
       ) : null}
       <div className={styles.pager}>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={offset <= 0}
-          onClick={() => onPage(offset - PAGE_SIZE)}
-        >
+        <Button type="button" variant="secondary" disabled={page <= 1} onClick={onNewer}>
           Newer
         </Button>
-        <span className={styles.note}>
-          {trades.length ? `Trades ${offset + 1}–${offset + trades.length}` : ""}
-        </span>
+        <span className={styles.note}>{`Page ${page}`}</span>
         <Button
           type="button"
           variant="secondary"
-          disabled={!body.hasMore}
-          onClick={() => onPage(offset + PAGE_SIZE)}
+          disabled={!body.hasMore || !body.nextCursor}
+          onClick={() => onOlder(body.nextCursor)}
         >
           Older
         </Button>

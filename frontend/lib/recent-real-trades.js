@@ -276,7 +276,11 @@ export function excludedUnknownText(excluded) {
   return `Not shown because the filtered fact is not recorded: ${parts.join("; ")}.`;
 }
 
-/** Board name -> Sleeper id for names exactly one player carries. */
+/**
+ * Board name -> Sleeper id for names exactly one player carries.  A name also
+ * carried by a row with NO id is ambiguous too (another player may hold it),
+ * so it is left out rather than resolved to the one id we can see.
+ */
 export function uniquePlayerIndex(rows) {
   const ids = new Map();
   const dup = new Set();
@@ -284,7 +288,11 @@ export function uniquePlayerIndex(rows) {
     if (!r || r.assetClass === "pick" || r.pos === "PICK") continue;
     const name = String(r.name || "").trim();
     const id = String(r.playerId ?? r?.raw?.playerId ?? "").trim();
-    if (!name || !id) continue;
+    if (!name) continue;
+    if (!id) {
+      dup.add(name);
+      continue;
+    }
     if (ids.has(name) && ids.get(name) !== id) dup.add(name);
     else ids.set(name, id);
   }

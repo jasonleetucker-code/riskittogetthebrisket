@@ -111,6 +111,8 @@ def test_database_bad_filters_are_400(env, monkeypatch):  # noqa: F811
             "since=yesterday",
             "source=espn",
             "since=2026-10-05&until=2026-10-01",
+            "beforeDate=soon",
+            "skip=x",
         ):
             resp = c.get(f"/api/market/trades/database?{qs}")
             assert resp.status_code == 400, qs

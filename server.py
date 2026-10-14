@@ -7992,11 +7992,13 @@ async def get_market_trade_database(request: Request):
                                            | own_league_sleeper
         shape                              e.g. 2x1
         assetMix                           players | picks | mixed
-        limit / offset                     paging (limit max 50)
+        limit                              page size (max 50)
+        beforeDate / skip                  paging cursor — echo ``nextCursor``
 
     Responses::
 
-        200  {state: ok | no_assets, trades, hasMore, excludedUnknown, ...}
+        200  {state: ok | no_assets, trades, hasMore, nextCursor,
+              excludedUnknown, excludedNotApplicable, ...}
         400  unknown_league / inactive_league / bad_request
         503  trade_ledger_unavailable — no ledger built on this host
     """
@@ -8029,7 +8031,7 @@ async def get_market_trade_database(request: Request):
             asset_mix=(qp.get("assetMix") or "").strip() or None,
         )
         limit = _query_int(request, "limit", _database.DEFAULT_LIMIT)
-        offset = _query_int(request, "offset", 0)
+        skip = _query_int(request, "skip", 0)
     except _database.FilterError as err:
         return bad(str(err))
     except ValueError as err:
@@ -8041,7 +8043,8 @@ async def get_market_trade_database(request: Request):
             league_cfg.key,
             filters,
             limit=limit,
-            offset=offset,
+            before_date=qp.get("beforeDate"),
+            skip=skip,
             names=_board_names_by_player_id(),
         )
     except _database.FilterError as err:

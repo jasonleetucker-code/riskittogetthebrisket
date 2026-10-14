@@ -142,6 +142,8 @@ describe("comparable query helpers", () => {
       { name: "A", playerId: "1" },
       { name: "B", playerId: "2" },
       { name: "B", playerId: "3" },
+      { name: "C", playerId: "4" },
+      { name: "C" },
       { name: "2027 Early 1st", pos: "PICK", assetClass: "pick" },
     ]);
     expect([...idx.entries()]).toEqual([["A", "1"]]);
@@ -214,7 +216,9 @@ describe("/market/trade-database", () => {
           ledger: {},
           trades: [TRADE],
           hasMore: true,
+          nextCursor: { beforeDate: "2026-09-30", skip: 1 },
           excludedUnknown: { teams: 2 },
+          excludedNotApplicable: { ktcTepLevel: 3 },
           withheld: {},
           notes: [],
           samplingBiases: [],
@@ -233,9 +237,17 @@ describe("/market/trade-database", () => {
     await waitFor(() => expect(screen.getByText("Justin Jefferson")).toBeTruthy());
     expect(screen.getByRole("heading", { name: "Trade Database" })).toBeTruthy();
     expect(screen.getByText(/2 with unknown team count/)).toBeTruthy();
+    expect(screen.getByText(/3 non-KTC trades hidden/)).toBeTruthy();
     expect(String(fetchFn.mock.calls[0][0])).toContain("leagueKey=dynasty_main");
     fireEvent.click(screen.getByRole("button", { name: "Older" }));
-    await waitFor(() => expect(String(fetchFn.mock.calls.at(-1)[0])).toContain("offset=25"));
+    await waitFor(() => {
+      const url = String(fetchFn.mock.calls.at(-1)[0]);
+      expect(url).toContain("beforeDate=2026-09-30");
+      expect(url).toContain("skip=1");
+    });
+    expect(screen.getByText("Page 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Newer" }));
+    await waitFor(() => expect(String(fetchFn.mock.calls.at(-1)[0])).not.toContain("beforeDate"));
   });
 
   it("applies set filters only and refuses an ambiguous player name", async () => {
@@ -254,6 +266,7 @@ describe("/market/trade-database", () => {
       expect(url).toContain("players=6794");
       expect(url).not.toContain("superflex");
     });
+    expect(window.location.search).toContain("teams=12");
   });
 
   it("a 400 says the filter was not understood", async () => {
