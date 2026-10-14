@@ -279,8 +279,10 @@ def _factors(
     scale = prior.get("scales") or {}
     edge_pct = equity["vaAdjustedGap"] / max(float(equity["sendingAdjusted"]), 1.0)
     canonical = _clip01(edge_pct / float(scale.get("canonicalEdgeSaturationPct", 30.0)) * 100.0)
+    # A qualifying verdict always carries a margin (best_qualifying_verdict
+    # admits none without one), so it is read directly — never defaulted.
     comfort = _clip01(
-        max(0.0, float(verdict.margin_pct or 0.0))
+        max(0.0, float(verdict.margin_pct))
         / float(scale.get("externalComfortSaturationPct", 15.0))
     )
     sources = [a.source_count for a in (*give, *receive) if a.source_count > 0]

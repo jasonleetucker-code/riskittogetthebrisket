@@ -22,7 +22,10 @@ def _contract():
             "assetClass": "player",
         }
 
-    rows = [row("Our WR", "WR", 4000, 5000, 5100, "CIN"), row("Their RB", "RB", 5000, 4800, 4900, "BUF")]
+    rows = [
+        row("Our WR", "WR", 4000, 5000, 5100, "CIN"),
+        row("Their RB", "RB", 5000, 4800, 4900, "BUF"),
+    ]
     return {
         "meta": {"leagueKey": "main"},
         "playersArray": rows,
