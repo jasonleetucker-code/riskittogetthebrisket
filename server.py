@@ -9118,12 +9118,13 @@ async def post_trade_import_ktc(request: Request):
 
     Body: ``{"url": "https://keeptradecut.com/trade-calculator?...&teamOne=1274&teamTwo=1555..."}``.
 
-    Returns ``{sideOne, sideTwo, unresolved, sourceUrl}`` — see
+    Returns ``{sideOne, sideTwo, unresolved, sourceUrl, playerMap}`` — see
     ``src/trade/ktc_import.py::resolve_trade_url`` for the shape.
-    Public endpoint (same as the other /api/trade/* endpoints) so
-    the drawer-less trade page works without re-authing.
+    Requires a session like the other /api/trade/* endpoints (it is not in
+    ``_PUBLIC_API_EXACT``).  Never fetches the supplied URL — only its query
+    string is read; the KTC pages fetched are fixed in ``ktc_import``.
     """
-    from src.trade.ktc_import import resolve_trade_url  # noqa: PLC0415 — lazy import
+    from src.trade.ktc_import import KtcPlayerMapError, resolve_trade_url  # noqa: PLC0415
 
     try:
         body = await request.json()
@@ -9158,12 +9159,27 @@ async def post_trade_import_ktc(request: Request):
             status_code=400,
             content={"ok": False, "error": str(exc)},
         )
-    except Exception as exc:  # noqa: BLE001 — surface upstream failures
+    except KtcPlayerMapError as exc:
+        # Each failure class carries its own user-facing reason.  One generic
+        # message for all of them is how a KTC layout change hid behind
+        # "Failed to fetch KTC player map." for every import.
         return JSONResponse(
-            status_code=502,
+            status_code=exc.status_code,
             content={
                 "ok": False,
-                "error": "Failed to fetch KTC player map.",
+                "error": exc.user_message,
+                "reason": type(exc).__name__,
+                "detail": str(exc),
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — an unexpected defect, not an upstream state
+        log.error(f"KTC import failed unexpectedly: {type(exc).__name__}: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": "KTC import failed unexpectedly.",
+                "reason": "internal_error",
                 "detail": f"{type(exc).__name__}: {exc}",
             },
         )
@@ -9176,9 +9192,9 @@ async def post_trade_export_ktc(request: Request):
 
     Body ``{"sideOne": ["Josh Allen", ...], "sideTwo": ["2026 Mid 1st", ...]}``.
     Returns ``{ok, url, unresolved:{sideOne,sideTwo}, resolvedCount}``.
-    Reuses the cached KTC player map.  Public, like other /api/trade/*.
+    Reuses the cached KTC player map.  Session-gated like other /api/trade/*.
     """
-    from src.trade.ktc_import import build_ktc_url  # noqa: PLC0415
+    from src.trade.ktc_import import KtcPlayerMapError, build_ktc_url  # noqa: PLC0415
 
     try:
         body = await request.json()
@@ -9199,12 +9215,24 @@ async def post_trade_export_ktc(request: Request):
 
     try:
         result = await run_in_threadpool(build_ktc_url, side_one, side_two)
-    except Exception as exc:  # noqa: BLE001
+    except KtcPlayerMapError as exc:
         return JSONResponse(
-            status_code=502,
+            status_code=exc.status_code,
             content={
                 "ok": False,
-                "error": "Failed to fetch KTC player map.",
+                "error": exc.user_message,
+                "reason": type(exc).__name__,
+                "detail": str(exc),
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"KTC export failed unexpectedly: {type(exc).__name__}: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": "KTC export failed unexpectedly.",
+                "reason": "internal_error",
                 "detail": f"{type(exc).__name__}: {exc}",
             },
         )

@@ -75,12 +75,18 @@ test("the automatic slate panel comes first and always says what it has (DFS-AUT
   await openWorkspace(page);
   await page.getByRole("radio", { name: "NFL" }).click();
   await page.getByRole("radio", { name: "DraftKings" }).click();
-  // One of the honest states — a slate list, a refresh in progress, or unavailable (with the
-  // manual path offered) — never a blank panel and never an upload prompt first.
+  // One of the honest states AutoSlates renders — a slate list, a refresh in progress, nothing
+  // listed, unavailable, a source error, or awaiting schedule-source approval (each with the
+  // manual path offered) — never a blank panel and never an upload prompt first.  A CI runner
+  // with no route to the slate source lands on "source error", so that state must count.
   await expect(
     page
       .getByRole("list", { name: "DraftKings slates" })
-      .or(page.getByText(/Fetching DraftKings slates now|No automatic DraftKings slates|Automatic slates unavailable/))
+      .or(
+        page.getByText(
+          /Fetching DraftKings slates now|No automatic DraftKings slates|Automatic slates unavailable|Automatic slates: source error|Awaiting owner approval of the schedule source/,
+        ),
+      )
       .first(),
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Advanced · Data overrides / manual import")).toBeVisible();

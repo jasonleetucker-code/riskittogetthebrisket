@@ -123,7 +123,12 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch origin main --depth=200 || true
+          # No --depth: the checkout is fetch-depth 0, and a depth-limited
+          # fetch here rewrites .git/shallow and truncates history for every
+          # later step — which made the feature-dictionary lock-history gate
+          # (tests/model_registry/test_feature_dictionary.py) fail as
+          # "shallow boundary" on every PR running the backend suite.
+          git fetch --no-tags origin main || true
           python scripts/ci_change_scope.py --base origin/main --head HEAD --github-output
 
       - name: Validate dependency graph (pip check)
