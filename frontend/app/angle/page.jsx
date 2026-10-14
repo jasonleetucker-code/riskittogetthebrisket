@@ -412,8 +412,10 @@ export default function AnglePage() {
     setRefinement(next);
     saveRefinement(refinementStorageKey, next);
     // Regenerate immediately (spec §3.3); the server applies the refinement
-    // during enumeration through the one constraint owner.
-    if (resultIsAcquire) void findTrades(next);
+    // during enumeration through the one constraint owner.  Only while the
+    // form is still in acquire mode — an offer-mode request carries no
+    // refinement, and silently dropping the lock would misreport it.
+    if (resultIsAcquire && isAcquireMode) void findTrades(next);
   }
 
   const refine = resultIsAcquire
@@ -753,7 +755,7 @@ export default function AnglePage() {
             defaultSort={{ key: "arb_score", direction: "desc" }}
             emptyState={
               <EmptyState
-                title="No packages clear the bar"
+                title={result?.noResultLabel || "No packages clear the bar"}
                 description={`Nothing hits +${Number(minMyGainPct)}% / ±${Number(maxMarketGainPct)}% with this selection${
                   targetTeam ? ` against ${targetTeam.name}` : ""
                 }. Try a different selection, loosen the thresholds under Advanced, or remove the team filter.`}

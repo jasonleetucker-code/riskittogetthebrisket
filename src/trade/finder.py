@@ -1613,7 +1613,19 @@ def find_trades(
     from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
 
     lock = resolve_locked_outgoing(my_roster, constraints)
-    if not lock.satisfiable:
+    # The search pool is the per-market top-N, so a rostered player outside it
+    # (or one the board does not price) is "outside this scan", not "not on
+    # your roster" — the two are different sentences.
+    me_raw = next((t for t in sleeper_teams if t.get("name") == my_team), None) or {}
+    raw_names = {str(n).strip().lower() for n in (me_raw.get("players") or [])}
+    outside_pool = [k for k in lock.missing if k in raw_names]
+    max_send = 2 if equal_count_only else 3
+    lock_reason = lock.no_result_reason
+    if lock_reason == "locked_player_unavailable" and outside_pool:
+        lock_reason = "locked_player_outside_market_pool"
+    elif lock.satisfiable and len(lock.required) > max_send:
+        lock_reason = "locked_players_exceed_package_size"
+    if lock_reason is not None:
         return {
             "trades": [],
             "metadata": {
@@ -1621,14 +1633,21 @@ def find_trades(
                 "packageMode": "equal_count_only" if equal_count_only else "default",
                 "refinement": constraints.to_dict() if constraints is not None else None,
                 "lockedOutgoing": lock.to_dict(),
-                "noResultReason": lock.no_result_reason,
+                "noResultReason": lock_reason,
                 "noResultLabel": "No qualifying trade found under current constraints",
             },
             "warnings": [
-                "A locked player cannot be included: "
+                f"More players are locked than this scan's largest package sends ({max_send})."
+                if lock_reason == "locked_players_exceed_package_size"
+                else "A locked player cannot be included: "
                 + "; ".join(
                     [f"{k} ({r})" for k, r in lock.conflicts]
-                    + [f"{k} (not on your tradeable roster)" for k in lock.missing]
+                    + [
+                        f"{k} (outside this scan's market pool)"
+                        if k in raw_names
+                        else f"{k} (not on your roster)"
+                        for k in lock.missing
+                    ]
                 )
             ],
         }

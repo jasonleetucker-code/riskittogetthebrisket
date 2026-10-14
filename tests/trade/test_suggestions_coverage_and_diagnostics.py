@@ -198,3 +198,42 @@ def test_an_unsatisfiable_lock_is_a_no_result_under_constraints():
     result = generate_suggestions_from_pool(roster, list(board), starter_needs=NEEDS, constraints=c)
     assert result["totalSuggestions"] == 0
     assert result["metadata"]["noResultReason"] == "lock_conflicts_with_protection"
+
+
+def _deep_wr_board():
+    """Independent review repro: nine spare WRs, DB targets at every value."""
+    starters = [_p(f"WR Start{i}", "WR", 9000 - i) for i in range(4)]
+    spares = [_p(f"WR S{i}", "WR", 6000 - 150 * i) for i in range(9)]
+    dbs = [_p(f"DB Weak{i}", "DB", 900 - i) for i in range(3)]
+    targets = [_p(f"DB T{i}", "DB", 6000 - 150 * i) for i in range(9)]
+    board = _board(starters + spares + dbs + targets)
+    return board, [p.name for p in starters + spares + dbs]
+
+
+def test_a_lock_past_the_generators_caps_is_still_reached():
+    """LOCK is a generation rule: a locked depth player beyond the top-3/top-2
+    caps still produces his legal even trade instead of an empty answer."""
+    board, roster = _deep_wr_board()
+    for locked in ("WR S3", "WR S8"):
+        c = resolve_constraints(refinement={"lock": [locked]})
+        result = generate_suggestions_from_pool(
+            roster, list(board), starter_needs=NEEDS, weakness_needs=["DB"], constraints=c
+        )
+        gives = [
+            {p["name"] for p in s["give"]}
+            for cat in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")
+            for s in result[cat]
+        ]
+        assert gives, (locked, result["metadata"])
+        assert all(locked in g for g in gives)
+
+
+def test_a_locked_player_below_the_quality_pool_says_so():
+    board, roster = _deep_wr_board()
+    pool = sg._apply_board_top_n_filter(list(board), 6)
+    c = resolve_constraints(refinement={"lock": ["WR S8"]})
+    result = generate_suggestions_from_pool(
+        roster, list(pool), starter_needs=NEEDS, roster_pool=board, team_count=2, constraints=c
+    )
+    assert result["totalSuggestions"] == 0
+    assert result["metadata"]["noResultReason"] == "locked_player_outside_quality_pool"

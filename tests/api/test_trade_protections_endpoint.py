@@ -480,3 +480,15 @@ def test_a_malformed_refinement_is_a_400_from_the_shared_parser(body):
 
 def test_an_absent_refinement_parses_to_nothing():
     assert server._refinement_from_body({}) == ({"lock": [], "exclude": []}, None)
+
+
+def test_suggestion_needs_come_from_the_weakness_owner_only_for_the_exact_roster():
+    """Review N2: a what-if roster must not inherit the stored team's needs."""
+    contract = {
+        "sleeper": {"teams": [{"name": "Us", "ownerId": "1", "players": ["A", "B", "C"]}]},
+        "playersArray": [],
+    }
+    needs, reason = server._suggestion_weakness_needs(contract, None, ["A", "B"], 1)
+    assert needs is None and reason == "roster_differs_from_league_team"
+    needs, reason = server._suggestion_weakness_needs(contract, None, ["a", "B", "c"], 1)
+    assert reason != "roster_differs_from_league_team"

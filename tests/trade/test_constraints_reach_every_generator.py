@@ -74,7 +74,9 @@ def test_bdvm_protects_only_the_requesters_giving_side():
     assert "Young Stash Wr" in gives, "fixture: the stash is offered when unprotected"
 
     c = resolve_constraints(persistent={"untouchables": ["Young Stash Wr", "Young Wr"]})
-    guarded = scan_double_positive_trades(analysis, params, team="OldTeam", constraints=c)
+    guarded = scan_double_positive_trades(
+        analysis, params, team="OldTeam", constraints=c, constrained_owner_id="1"
+    )
     assert all("Young Stash Wr" not in t["from"]["gives"] for t in guarded["trades"])
     # A protected NAME on the other roster is still a valid acquisition target:
     # protection is the requester's outgoing rule, never a league-wide block.
@@ -165,3 +167,30 @@ def test_angle_acquire_protected_lock_is_a_no_result():
     result = _acquire(c, candidate_pool=7)
     assert result["candidates"] == []
     assert result["noResultReason"] == "lock_conflicts_with_protection"
+
+
+def test_bdvm_never_constrains_a_named_team_that_is_not_the_requester():
+    """Review B3: ``team=<other>`` must not put the requester's rules on that
+    team; the requester (side B here) is the one constrained."""
+    from src.bdvm.roster import scan_double_positive_trades
+
+    analysis, params = _bdvm()
+    base = scan_double_positive_trades(analysis, params, team="OldTeam")
+    c = resolve_constraints(persistent={"untouchables": ["Young Stash Wr", "Young Wr"]})
+    # Requester is YoungTeam (owner "2"): OldTeam's side is untouched...
+    other = scan_double_positive_trades(
+        analysis, params, team="OldTeam", constraints=c, constrained_owner_id="2"
+    )
+    old_gives = {n for t in other["trades"] for n in t["from"]["gives"]}
+    assert old_gives == {n for t in base["trades"] for n in t["from"]["gives"]}
+    # ...and YoungTeam never sends its protected player.
+    assert all("Young Wr" not in t["to"]["gives"] for t in other["trades"])
+
+
+def test_bdvm_named_team_without_a_resolved_requester_fails_closed():
+    from src.bdvm.roster import scan_double_positive_trades
+
+    analysis, params = _bdvm()
+    c = resolve_constraints(persistent={"untouchables": ["Young Stash Wr"]})
+    out = scan_double_positive_trades(analysis, params, team="OldTeam", constraints=c)
+    assert out["trades"] == [] and out["noResultReason"] == "constraints_owner_unresolved"

@@ -348,6 +348,11 @@ class RosterAnalysis:
     #: analysis constructed without one carries an empty demand, and
     #: ``analyze_roster`` refuses to build one at all.
     starter_needs: dict[str, int] = field(default_factory=dict)
+    #: C3-CON-03 LOCK, by ``_identity_key``.  Generators move locked players to
+    #: the FRONT of every candidate list before their own caps (top-3 sells,
+    #: top-2 per surplus room, the 6x8 consolidation pairs), so a lock is
+    #: reached during generation instead of being filtered for afterwards.
+    locked_keys: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         """An analysis built without constraints has consulted none.
@@ -903,6 +908,18 @@ def analyze_roster(
     )
 
 
+def _locked_first(players: list[PlayerAsset], roster: RosterAnalysis) -> list[PlayerAsset]:
+    """``players`` with LOCKED ones moved to the front (stable otherwise).
+
+    Applied before a generator's caps, so the cap cannot cut a locked player
+    out of the candidates — the difference between LOCK as a generation rule
+    and LOCK as a post-filter that can miss the real best (spec §6).
+    """
+    if not roster.locked_keys:
+        return players
+    return sorted(players, key=lambda p: _identity_key(p.name) not in roster.locked_keys)
+
+
 def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> bool:
     """Whether a proposed trade contains no IDP asset.
 
@@ -1181,11 +1198,14 @@ def _generate_sell_high(
         need = roster.starter_needs.get(pos, 1)
         # Depth is measured on the FULL room (a protected player is still
         # depth); the candidates we may offer come from the sendable view.
-        sell_candidates = [
-            p
-            for p in players[need:]
-            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
-        ]
+        sell_candidates = _locked_first(
+            [
+                p
+                for p in players[need:]
+                if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+            ],
+            roster,
+        )
         if not sell_candidates:
             continue
 
@@ -1259,11 +1279,14 @@ def _generate_buy_low(
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
                 need = roster.starter_needs.get(surplus_pos, 1)
-                tradeable = [
-                    p
-                    for p in depth[need:]
-                    if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
-                ]
+                tradeable = _locked_first(
+                    [
+                        p
+                        for p in depth[need:]
+                        if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+                    ],
+                    roster,
+                )
                 for sell in tradeable[:2]:
                     give_val = sell.display_value
                     recv_val = target.display_value
@@ -1320,6 +1343,7 @@ def _generate_consolidation(
                 tradeable.append(p)
 
     tradeable.sort(key=lambda x: -x.display_value)
+    tradeable = _locked_first(tradeable, roster)
     if len(tradeable) < 2:
         return []
 
@@ -1416,11 +1440,14 @@ def _generate_positional_upgrades(
             continue
 
         starters = players[:need]
-        depth = [
-            p
-            for p in players[need:]
-            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
-        ]
+        depth = _locked_first(
+            [
+                p
+                for p in players[need:]
+                if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+            ],
+            roster,
+        )
         if not starters or not depth:
             continue
 
@@ -1477,6 +1504,9 @@ def _generate_positional_upgrades(
                 continue
 
             sweeteners.sort(key=lambda s: abs(s.display_value - gap_needed))
+            # A locked sweetener inside the tolerance is preferred over a
+            # closer unlocked one.
+            sweeteners = _locked_first(sweeteners, roster)
             sweetener = sweeteners[0]
             give_ws = weakest_starter.display_value
             give_sw = sweetener.display_value
@@ -2048,6 +2078,31 @@ def generate_suggestions_from_pool(
             },
         }
     locked_keys = frozenset(constraint_key(a.name) for a in lock.required)
+    if lock.required:
+        outside = [a.name for a in lock.required if not roster.can_send(a)]
+        if outside:
+            # On the roster, but below the quality pool this engine offers
+            # from: it cannot be proposed here, and saying "unsatisfiable"
+            # would misstate why.
+            return {
+                "rosterAnalysis": _serialize_roster(roster),
+                **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+                "totalSuggestions": 0,
+                "warnings": [
+                    "A locked player sits below the suggestion quality pool, so no "
+                    "suggestion can include him: " + ", ".join(sorted(outside))
+                ],
+                "metadata": {
+                    "rosterMatched": roster.roster_size,
+                    "rosterProvided": len(roster_names),
+                    "lockedOutgoing": lock.to_dict(),
+                    "noResultReason": "locked_player_outside_quality_pool",
+                    "noResultLabel": "No qualifying trade found under current constraints",
+                },
+            }
+        roster = replace(
+            roster, locked_keys=frozenset(_identity_key(a.name) for a in lock.required)
+        )
     if weakness_needs is not None:
         roster = replace(
             roster,
@@ -2068,9 +2123,11 @@ def generate_suggestions_from_pool(
     consolidation = _generate_consolidation(roster, pool, roster_set)
     upgrades = _generate_positional_upgrades(roster, pool, roster_set)
     if locked_keys:
-        # LOCK as a construction rule on these hand-rolled generators: a
-        # suggestion that does not send every locked player was never a
-        # candidate.  Applied before enrichment, ranking and the quality pass.
+        # LOCK on these hand-rolled generators: locked players were moved to
+        # the front of every candidate list before the generators' caps
+        # (``_locked_first``), so they are REACHED during generation; this keeps
+        # only the candidates that send every lock (with two locks a 1-for-1
+        # cannot hold them).  Before enrichment, ranking and the quality pass.
         def _sends_locks(sug: TradeSuggestion) -> bool:
             return locked_keys <= {constraint_key(p.name) for p in sug.give}
 
@@ -2179,7 +2236,7 @@ def generate_suggestions_from_pool(
         )
         if sum(generated_counts.values()) == 0:
             if locked_keys:
-                reason = "lock_unsatisfiable"
+                reason = "no_trade_includes_locked_player"
             elif not roster.surplus_positions and not roster.need_positions:
                 reason = "no_surplus_or_need"
             elif offerable_surplus == 0:
