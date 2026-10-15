@@ -53,7 +53,9 @@ function pickPlayers(contract) {
 }
 
 async function submitImport(page) {
-  await page.getByRole("button", { name: /^Import KTC$/ }).click();
+  // The KTC row sits behind the "Import trade" control (C3-IMPORT-IMAGE).
+  await page.getByRole("button", { name: /^Import trade$/ }).click();
+  await page.getByRole("button", { name: /^From KeepTradeCut URL$/ }).click();
   await page.getByLabel("KeepTradeCut trade-calculator URL").fill(KTC_URL);
   await page.getByRole("button", { name: /^Load trade$/ }).click();
 }

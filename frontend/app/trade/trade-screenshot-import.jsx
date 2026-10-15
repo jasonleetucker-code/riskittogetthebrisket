@@ -244,6 +244,7 @@ function ReviewItem({ item, area, rows, dispatch }) {
           {item.suggestions.length ? (
             <div
               className={styles.suggestions}
+              role="group"
               aria-label={`Suggestions for ${subject}`}
             >
               {item.suggestions.map((sg, i) => (
@@ -727,7 +728,7 @@ export function ScreenshotImportDialog({
         ) : null}
 
         {review && !pending ? (
-          <div className={styles.review} aria-label="Review">
+          <div className={styles.review}>
             {review.warnings.map((w, i) => (
               <Banner key={`${w.code}-${w.sourceImage}-${i}`} tone="warning">
                 {describeWarning(w, images.length)}
