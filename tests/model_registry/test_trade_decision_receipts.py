@@ -169,9 +169,19 @@ def test_a_corrupt_line_is_counted_as_refused_and_the_rest_still_recorded(
         fh.write("{not json\n")
     store = tmp_path / "receipts.sqlite"
     monkeypatch.setenv(pr.RECEIPTS_ENABLED_ENV, "1")
-    assert cli.main(["--log-dir", str(log_dir), "--store", str(store)]) == cli.EXIT_PARTIAL
+    # A permanently invalid line is reported, but cannot fail every future deploy.
+    assert cli.main(["--log-dir", str(log_dir), "--store", str(store)]) == cli.EXIT_OK
     out = json.loads(capsys.readouterr().out)
-    assert out["written"] == 1 and len(out["refused"]) == 1
+    assert out["written"] == 1 and out["refusedCount"] == 1
+
+
+def test_an_unterminated_final_line_is_an_append_in_progress_not_a_refusal(run_log):
+    log_dir, run_id = run_log
+    (log_file,) = log_dir.glob("runs-*.jsonl")
+    with log_file.open("a", encoding="utf-8") as fh:
+        fh.write('{"runId": "half')  # no newline: still being written
+    lines = _lines(log_dir)
+    assert [line["runId"] for _, line in lines] == [run_id]
 
 
 def test_no_run_log_yet_is_an_empty_run_not_an_error(tmp_path, capsys):

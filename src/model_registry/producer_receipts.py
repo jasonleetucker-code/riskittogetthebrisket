@@ -1632,12 +1632,17 @@ def iter_best_offers_run_lines(log_dir: Path) -> Iterable[tuple[str, Mapping[str
     """``(file name, parsed line | None)`` for every line of every monthly run log.
 
     ``None`` marks a line that is not a JSON object, so the caller can count it
-    as refused instead of it vanishing."""
+    as refused instead of it vanishing.  An UNTERMINATED final line is skipped,
+    not refused: ``record_run`` writes each line with its newline in one call,
+    so a line without one is an append still in progress (or torn by a crash)
+    and is read complete on the next run."""
     import json  # noqa: PLC0415
 
     for path in sorted(log_dir.glob("runs-*.jsonl")):
         with path.open(encoding="utf-8") as fh:
             for raw in fh:
+                if not raw.endswith("\n"):
+                    continue
                 if not raw.strip():
                     continue
                 try:

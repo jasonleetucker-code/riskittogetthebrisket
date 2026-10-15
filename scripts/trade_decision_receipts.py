@@ -19,9 +19,13 @@ Writes only when ``RISKIT_RECEIPTS_ENABLED=1`` (fail closed): the box's deploy
 sets it; any other invocation builds and reports.
 
 Exit codes:
-  0  receipts built (and, when enabled, stored: written / duplicates only)
-  1  partial: a line was refused, or the store reported a conflict / rejection
-     or could not be written -- everything else was still recorded
+  0  receipts built (and, when enabled, stored: written / duplicates only).
+     Refused lines are listed in the summary (``refused``) but do not change
+     the exit code: the log is append-only, so a line that can never form a
+     valid receipt would otherwise fail every future deploy and train
+     operators to ignore the warning.
+  1  the store reported a conflict / rejection or could not be written --
+     the failure an operator can act on
 """
 
 from __future__ import annotations
@@ -90,8 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         "receipts": len(receipts),
         "refused": refused,
     }
-    for item in refused:
-        print(f"WARNING: refused {item['item']}: {item['reason']}", file=sys.stderr)
+    summary["refusedCount"] = len(refused)
 
     if args.dry_run or not pr.receipts_enabled():
         summary["written"] = None
@@ -101,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             else f"{pr.RECEIPTS_ENABLED_ENV} is not 1 (only the box's deploy writes receipts)"
         )
         print(json.dumps(summary, sort_keys=True))
-        return EXIT_PARTIAL if refused else EXIT_OK
+        return EXIT_OK
 
     from src.model_registry.receipt_store import append_receipts  # noqa: PLC0415
 
@@ -120,9 +123,9 @@ def main(argv: list[str] | None = None) -> int:
         rejected=result["rejected"],
     )
     print(json.dumps(summary, sort_keys=True))
-    if refused or result["contentConflicts"] or result["rejected"]:
+    if result["contentConflicts"] or result["rejected"]:
         print(
-            "WARNING: trade decision receipts recorded with refusals / conflicts / rejections",
+            "WARNING: trade decision receipts recorded with conflicts / rejections",
             file=sys.stderr,
         )
         return EXIT_PARTIAL
