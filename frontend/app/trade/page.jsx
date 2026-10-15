@@ -15,6 +15,7 @@ import {
   findBalancers,
   isTradeableBoardRow,
   parsePickToken,
+  reanchorSuppressedPickEntries,
   resolvePickRow,
   searchCalculatorAssets,
   createSide,
@@ -584,6 +585,16 @@ export default function TradePage() {
       setHydrated(true);
     }
   }, [rows, hydrated, rowByName]);
+
+  // Re-anchor suppressed tier-pick aliases ("2027 Mid 1st" once 2027 is the
+  // current class) to the slot row the board prices them on.  One pass for
+  // every path that turns a name into a row — saved workspace, share link,
+  // KTC import, history import — and for a board refresh that rolls the
+  // class while the page is open.  ``reanchorSuppressedPickEntries``
+  // returns the same array when nothing changed, so this cannot loop.
+  useEffect(() => {
+    setSides((prev) => reanchorSuppressedPickEntries(prev, rowByLowerName, pickAliases));
+  }, [sides, rowByLowerName, pickAliases]);
 
   // Persist trade workspace to localStorage
   useEffect(() => {
