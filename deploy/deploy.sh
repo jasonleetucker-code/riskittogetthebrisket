@@ -1144,6 +1144,46 @@ record_hill_learning_receipts() {
   return 0
 }
 
+# Idempotent post-deploy recording of AL-P5 DECISION receipts for served Best
+# Offers runs (src/model_registry/producer_receipts.py §5). The run log
+# (data/trade/best_offers/runs-YYYY-MM.jsonl) is written at serve time by the
+# backend; scripts/trade_decision_receipts.py reads it into the same box-local
+# data/learning/receipts.sqlite the Hill step writes. Reading after the fact
+# keeps the serving path and its response byte-identical (AL-P5 acceptance);
+# each receipt's cutoff is still the run's own serve-time recordedAt.
+#
+# Same posture as record_hill_learning_receipts, for the same reasons: after
+# record_success_state, outside the rollback window, RISKIT_RECEIPTS_ENABLED=1
+# set here and only here, bounded (timeout 300), non-fatal. A failure is a
+# WARNING and the next deploy re-reads the same append-only log, so nothing is
+# lost. Same DEPLOY_USER == APP_USER assumption: the backend (User=APP_USER)
+# writes the run log this step reads.
+record_trade_decision_receipts() {
+  local script="${APP_DIR}/scripts/trade_decision_receipts.py"
+  local output=""
+  if [[ ! -f "${script}" ]]; then
+    log "[trade-receipts] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[trade-receipts] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[trade-receipts] recording Best Offers decision receipts (idempotent)"
+  if output="$(RISKIT_RECEIPTS_ENABLED=1 timeout 300 "${VENV_DIR}/bin/python" "${script}" 2>&1)"; then
+    log "[trade-receipts] decision receipts recorded"
+  else
+    warn "[trade-receipts] WARNING: decision receipts exited non-zero (1 = partial, 124 = timed out) — non-fatal"
+  fi
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[trade-receipts] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -1486,6 +1526,7 @@ main() {
   trap - ERR
   archive_ros_forecasts
   record_hill_learning_receipts
+  record_trade_decision_receipts
 
   log "Deployment succeeded at revision ${TARGET_REV}."
 }

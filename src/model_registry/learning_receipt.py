@@ -178,6 +178,9 @@ NATIVE_STORES: Mapping[str, str] = {
     "bdvm_projection_snapshot": "src.bdvm.projections (data/bdvm/projections snapshots)",
     # a producer's preregistration document, pinned by sha256 (and commit) by that producer
     "preregistration": "the producer's own preregistration pin (e.g. source-quality pins.preregistration)",
+    # Best Trade to Send Each Team: the box-local append-only run log, one line per
+    # served run (AL-P5)
+    "best_offers_run_log": "src.trade.best_offers.record_run (data/trade/best_offers/runs-YYYY-MM.jsonl)",
 }
 
 #: Stores that hold a PRODUCER'S OWN OUTPUT (plan §19.1: the model registry,
@@ -196,6 +199,7 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
         "robust_filter_shadow_ledger",
         "sparse_evidence_shadow_ledger",
         "preregistration",
+        "best_offers_run_log",
     }
 )
 
@@ -216,6 +220,7 @@ ARTIFACT_STORE_WRITERS: Mapping[str, frozenset[str]] = {
     "robust_filter_shadow_ledger": frozenset({"robust_filter_shadow"}),
     "sparse_evidence_shadow_ledger": frozenset({"sparse_evidence_shadow"}),
     "preregistration": frozenset(),
+    "best_offers_run_log": frozenset({"best_offers"}),
 }
 
 #: Kinds whose refs describe what FED a model; every ref must be ``input``.

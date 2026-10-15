@@ -62,6 +62,10 @@ def _stub_bin(tmp_path: Path) -> tuple[Path, Path]:
             f'if [[ "{name}" == "install" ]]; then\n'
             '  src=""; dest=""; prev=""\n'
             '  for a in "$@"; do\n'
+            # The value after -m / -o / -g is an option argument, never a
+            # path: reading `0755` as a destination wrote a file named 0755
+            # into the working directory (the repo root under pytest).
+            '    case "$prev" in -m|-o|-g) prev="$a"; continue ;; esac\n'
             '    case "$a" in -*) ;; *) if [[ -f "$a" ]]; then src="$a"; else dest="$a"; fi ;; esac\n'
             '    prev="$a"\n'
             "  done\n"
