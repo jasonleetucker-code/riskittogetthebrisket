@@ -28,7 +28,11 @@ as a candidate asset string — never executed, evaluated or followed.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
+
+from src.identity.directory_cache import get_default_sleeper_index
+from src.identity.resolution import SleeperDirectoryIndex
 
 from src.trade.screenshot_import.image_input import png_dimensions
 from src.trade.screenshot_import.layout import Layout, Line, build_lines, detect_layout
@@ -63,6 +67,22 @@ _EDGE_FRACTION = 0.01
 
 def default_engine() -> OcrEngine:
     return TesseractEngine()
+
+
+@dataclass(frozen=True)
+class ScreenshotIdentity:
+    """The identity owner's directory index, as the importer reads it.
+
+    ``index`` is ``None`` when no Sleeper directory is on disk; every player
+    then resolves ``unresolved`` / ``identity_directory_unavailable``.
+    """
+
+    index: SleeperDirectoryIndex | None
+
+
+def default_identity_context() -> ScreenshotIdentity:
+    """The process-wide cached directory index (``src.identity.directory_cache``)."""
+    return ScreenshotIdentity(index=get_default_sleeper_index())
 
 
 class ExtractionSchemaError(ValueError):

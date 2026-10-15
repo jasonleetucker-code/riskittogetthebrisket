@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from src.identity import directory_cache
-from src.trade.market_trade_normalize import IdentityContext
+from src.trade.screenshot_import.service import default_identity_context
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "identity_directory_subset.json"
 
@@ -80,20 +80,14 @@ def test_concurrent_first_callers_build_once(dump: Path):
     assert directory_cache.build_count() == 1
 
 
-def test_identity_context_load_shared_uses_the_cache(dump: Path, monkeypatch):
+def test_screenshot_identity_context_uses_the_cache(dump: Path, monkeypatch):
     monkeypatch.setattr(directory_cache, "default_directory_path", lambda: dump)
-    a = IdentityContext.load_shared()
-    b = IdentityContext.load_shared()
+    a = default_identity_context()
+    b = default_identity_context()
     assert a.index is not None and a.index is b.index
-    assert a.directory_source == "public_league.nfl_players"
-    # Per-instance caches stay per instance.
-    assert a._ktc_cache is not b._ktc_cache
-    res = a.resolve_name("Patrick Mahomes", "QB")
-    assert res is not None and res.sleeper_id == "4046"
+    assert directory_cache.build_count() == 1
 
 
-def test_load_shared_without_a_directory_is_explicitly_unavailable(tmp_path, monkeypatch):
+def test_screenshot_identity_without_a_directory_is_explicitly_unavailable(tmp_path, monkeypatch):
     monkeypatch.setattr(directory_cache, "default_directory_path", lambda: tmp_path / "x.json")
-    ctx = IdentityContext.load_shared()
-    assert ctx.index is None and ctx.directory_source is None
-    assert ctx.resolve_name("Patrick Mahomes", "QB") is None
+    assert default_identity_context().index is None

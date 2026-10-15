@@ -10013,9 +10013,9 @@ def _screenshot_ocr_engine_factory():
 
 def _screenshot_identity_context():
     """Test seam: the identity context (process-wide cached directory index)."""
-    from src.trade.market_trade_normalize import IdentityContext  # noqa: PLC0415
+    from src.trade.screenshot_import.service import default_identity_context  # noqa: PLC0415
 
-    return IdentityContext.load_shared()
+    return default_identity_context()
 
 
 def _screenshot_availability(engine) -> dict:

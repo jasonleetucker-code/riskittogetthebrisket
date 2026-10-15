@@ -128,20 +128,6 @@ class IdentityContext:
             directory, source="public_league.nfl_players" if directory else None
         )
 
-    @classmethod
-    def load_shared(cls) -> "IdentityContext":
-        """Same directory as :meth:`load_default`, through the process-wide
-        index cache (``src.identity.directory_cache``) — the request-path
-        variant.  The shared index is read-only; this context's own
-        resolution caches stay per instance."""
-        from src.identity.directory_cache import get_default_sleeper_index  # noqa: PLC0415
-
-        index = get_default_sleeper_index()
-        return cls(
-            index=index,
-            directory_source="public_league.nfl_players" if index is not None else None,
-        )
-
     def resolve_name(self, name: str, position: str | None) -> Resolution | None:
         if self.index is None:
             return None
