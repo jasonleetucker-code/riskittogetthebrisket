@@ -210,6 +210,11 @@ LEAGUE_SCOPED_POSTS = [
     "/api/trade/simulate",
     "/api/trade/suggestions",
     "/api/trade/finder",
+    "/api/angle/find",
+    "/api/angle/packages",
+    "/api/trade/best-offers",
+    "/api/trade/golden-upgrades",
+    "/api/trade/package-builder",
 ]
 
 

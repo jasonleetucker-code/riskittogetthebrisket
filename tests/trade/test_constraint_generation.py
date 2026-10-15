@@ -359,18 +359,23 @@ def test_every_generating_surface_accepts_constraints():
     """
     import inspect
 
-    from src.trade import angle, finder, suggestions
+    from src.trade import angle, best_offers, finder, golden_upgrades, package_builder, suggestions
 
     generating = [
         (finder.find_trades, "finder.find_trades"),
         (suggestions.generate_suggestions_from_pool, "suggestions.generate_suggestions_from_pool"),
         (suggestions.analyze_roster, "suggestions.analyze_roster"),
         (angle.find_acquisition_packages, "angle.find_acquisition_packages"),
+        (golden_upgrades.find_golden_upgrades, "golden_upgrades.find_golden_upgrades"),
+        (package_builder.build_packages, "package_builder.build_packages"),
     ]
     for fn, label in generating:
         assert (
             "constraints" in inspect.signature(fn).parameters
         ), f"{label} generates outgoing assets and cannot be constrained"
+    # Best Offers resolves constraints PER OPPONENT CARD (each card's LOCK /
+    # EXCLUDE), so it takes a resolver rather than one constraints object.
+    assert "constraints_for" in inspect.signature(best_offers.build_best_offers).parameters
 
     from src.api import trade_simulator
 

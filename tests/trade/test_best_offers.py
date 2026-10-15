@@ -31,7 +31,8 @@ def _league(mine, theirs, *, withheld=()):
                 "team": team,
                 "rankDerivedValue": board,
                 "canonicalSiteValues": dict(sites),
-                "freshnessExcludedSources": list(withheld) if name in dict(withheld or {}) else [],
+                # ``withheld``: ``(player name, source key)`` pairs.
+                "freshnessExcludedSources": [src for n, src in withheld if n == name],
                 "assetClass": "player",
             }
         )
@@ -228,8 +229,8 @@ def test_a_lock_appears_in_the_offer_and_a_protected_lock_is_refused():
     players, teams, contract = _wide_league()
     lock = resolve_constraints(refinement={"lock": ["Mine 5"]})
     offer = _card(_run(players, teams, contract, constraints_for=lambda _o: lock))["offer"]
-    if offer is not None:
-        assert "Mine 5" in {a["name"] for a in offer["send"]}
+    assert offer is not None, "the lock must still leave a qualifying offer to check"
+    assert "Mine 5" in {a["name"] for a in offer["send"]}
     bad = resolve_constraints(
         persistent={"untouchables": ["Mine 5"]}, refinement={"lock": ["Mine 5"]}
     )
