@@ -44,6 +44,7 @@ export {
   SkeletonStat,
 } from "./Skeleton";
 export { EmptyState } from "./EmptyState";
+export { FileDropzone } from "./FileDropzone";
 export { Banner } from "./Banner";
 export { FailureState } from "./FailureState";
 export { Sparkline, Meter } from "./Sparkline";
