@@ -39,6 +39,9 @@ def test_every_flag_defaults_off_except_safe_additive():
         "rookie_auction",  # own router + own store; mock rooms only; moves no existing number
         "dfs_workspace",  # own private router + own store under data/dfs/; never reads or writes the dynasty board
         "dfs_auto_slates",  # automatic DFS slates; writes only data/dfs/ (system:auto); manual path unaffected
+        # Import Trade from Screenshot: own endpoint, local OCR, identities only
+        # (never values); writes and retains nothing; 503 when tesseract is absent.
+        "trade_screenshot_import",
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded
