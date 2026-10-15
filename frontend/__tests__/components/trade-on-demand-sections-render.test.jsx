@@ -10,8 +10,9 @@
  *   - the suggestions desk renders without any interaction;
  *   - the simulation result renders once the simulator has a result, and
  *     not before;
- *   - the KTC import row renders when "Import KTC" is pressed (the full
- *     import round trip is trade-asset-quantity.test.jsx [10]).
+ *   - the KTC import row renders when Import trade -> From KeepTradeCut URL
+ *     is chosen (the full import round trip is trade-asset-quantity.test.jsx
+ *     [10]).
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
@@ -123,10 +124,11 @@ describe("/trade on-demand sections, rendered by the page", () => {
     expect(await screen.findByText("Simulation failed")).toBeTruthy();
   });
 
-  it("renders the KTC import row when Import KTC is pressed", async () => {
+  it("renders the KTC import row when Import trade -> From KeepTradeCut URL is chosen", async () => {
     render(<TradePage />);
     expect(screen.queryByLabelText("KeepTradeCut trade-calculator URL")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Import KTC" }));
+    await userEvent.click(screen.getByRole("button", { name: "Import trade" }));
+    await userEvent.click(screen.getByRole("button", { name: "From KeepTradeCut URL" }));
     expect(await screen.findByLabelText("KeepTradeCut trade-calculator URL")).toBeTruthy();
   });
 });

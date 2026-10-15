@@ -452,3 +452,126 @@ export function toImportedSides(state) {
     state.sides[s].items.filter((it) => it.row).map((it) => it.row),
   );
 }
+
+// ── plain-language copy for server answers ───────────────────────────
+
+/**
+ * One failed extraction, in plain words.  ``retryable`` says whether the
+ * same image may succeed on a second try (busy, rate-limited, timed out,
+ * network) — a wrong file type or a switched-off feature will not.
+ *
+ * @param {number} status - HTTP status (0 for a network failure)
+ * @param {object} body - parsed error body ({ error, message })
+ * @param {string|null} retryAfter - Retry-After header value, if any
+ */
+export function describeImportError(status, body, retryAfter = null) {
+  const code =
+    String(body?.error || "") || (status === 0 ? "network" : `http_${status}`);
+  const seconds = Number.parseInt(retryAfter, 10);
+  const wait =
+    Number.isFinite(seconds) && seconds > 0
+      ? ` Try again in ${seconds} seconds.`
+      : "";
+  switch (code) {
+    case "feature_disabled":
+      return {
+        code,
+        retryable: false,
+        message: "Screenshot import is turned off.",
+      };
+    case "guest_read_only":
+      return {
+        code,
+        retryable: false,
+        message: "Sign in to import trades from screenshots.",
+      };
+    case "rate_limited":
+      return {
+        code,
+        retryable: true,
+        message: `Too many screenshots in a short time.${wait || " Try again in a moment."}`,
+      };
+    case "ocr_unavailable":
+      return {
+        code,
+        retryable: false,
+        message: "Screenshot reading isn't set up on the server yet.",
+      };
+    case "ocr_busy":
+      return {
+        code,
+        retryable: true,
+        message: `The screenshot reader is busy.${wait || " Try again in a moment."}`,
+      };
+    case "ocr_timeout":
+      return {
+        code,
+        retryable: true,
+        message:
+          "Reading took too long. Try again, or crop the screenshot to just the trade.",
+      };
+    case "network":
+      return {
+        code,
+        retryable: true,
+        message:
+          "Couldn't reach the server. Check your connection and try again.",
+      };
+    default:
+      break;
+  }
+  if (status === 413) {
+    return {
+      code,
+      retryable: false,
+      message: "That image is too large. Crop it to the trade and try again.",
+    };
+  }
+  if (status === 415) {
+    return {
+      code,
+      retryable: false,
+      message: "Use a PNG, JPEG or WebP screenshot.",
+    };
+  }
+  if (status === 400) {
+    return {
+      code,
+      retryable: false,
+      message: body?.message
+        ? String(body.message)
+        : "That image could not be read.",
+    };
+  }
+  return {
+    code,
+    retryable: status >= 500 || status === 0,
+    message: body?.message
+      ? String(body.message)
+      : `Reading failed (HTTP ${status}).`,
+  };
+}
+
+const WARNING_COPY = {
+  missing_side:
+    "only one side of the trade was found. Add the other side by hand or upload another screenshot.",
+  low_layout_confidence:
+    "the side layout is unclear — check that every asset is on the right side.",
+  possibly_cropped:
+    "the image may be cropped, so assets at the edge could be missing.",
+  pick_owner_not_established:
+    "pick owners aren't shown, so picks import as market picks with no team owner.",
+  no_assets_found: "no trade assets were found.",
+};
+
+/** A server warning, prefixed with the screenshot it came from. */
+export function describeWarning(warning, imageCount = 1) {
+  const code = String(warning?.code || "");
+  const text = WARNING_COPY[code] || code.replace(/_/g, " ");
+  const prefix =
+    imageCount > 1 && Number.isInteger(warning?.sourceImage)
+      ? `Screenshot ${warning.sourceImage + 1}: `
+      : "";
+  const body = prefix ? text : text.charAt(0).toUpperCase() + text.slice(1);
+  return `${prefix}${body}`;
+}

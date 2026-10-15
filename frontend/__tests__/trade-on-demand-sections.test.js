@@ -7,7 +7,8 @@
  * own modules and loaded with React.lazy (2026-10-08):
  *
  *   - trade-simulation-panel.jsx — only after "Simulate impact" answers
- *   - trade-ktc-import.jsx       — only after "Import KTC" is pressed
+ *   - trade-ktc-import.jsx       — only after Import trade -> From KeepTradeCut URL
+ *   - trade-screenshot-import.jsx — only after Import trade -> From screenshot
  *   - trade-suggestions-desk.jsx — the foot of the page
  *
  * The split is undone silently by ONE static import: webpack puts a module
@@ -23,7 +24,12 @@ const read = (rel) => fs.readFileSync(path.resolve(__dirname, "..", rel), "utf8"
 const page = read("app/trade/page.jsx");
 const sections = read("app/trade/trade-sections.jsx");
 
-const ON_DEMAND = ["trade-simulation-panel", "trade-ktc-import", "trade-suggestions-desk"];
+const ON_DEMAND = [
+  "trade-simulation-panel",
+  "trade-ktc-import",
+  "trade-suggestions-desk",
+  "trade-screenshot-import",
+];
 
 /** Static `import … from "./x"` / `export … from "./x"` of a module. */
 const staticImportOf = (mod) =>
@@ -42,7 +48,12 @@ describe("/trade on-demand sections", () => {
   }
 
   it("the lazy sections go through `dyn` (one Suspense boundary each)", () => {
-    for (const name of ["SimulationPanel", "KtcImportPanel", "SuggestionsDesk"]) {
+    for (const name of [
+      "SimulationPanel",
+      "KtcImportPanel",
+      "SuggestionsDesk",
+      "ScreenshotImportDialog",
+    ]) {
       expect(page).toMatch(new RegExp(`const ${name} = dyn\\(`));
     }
   });
@@ -60,5 +71,17 @@ describe("/trade on-demand sections", () => {
 
   it("KtcImportPanel renders only while the import row is open", () => {
     expect(page).toMatch(/\{ktcImportOpen \? \(\s*<KtcImportPanel\b/);
+  });
+
+  it("ScreenshotImportDialog renders only while the screenshot dialog is open", () => {
+    expect(page).toMatch(/\{screenshotImportOpen \? \(\s*<ScreenshotImportDialog\b/);
+  });
+
+  it("the screenshot-import status is fetched from the Import control, not on load", () => {
+    // The only status fetch in the page lives inside toggleImportMenu.
+    const fetches = page.match(/fetch\("\/api\/trade\/import-screenshot\/status"/g) || [];
+    expect(fetches).toHaveLength(1);
+    const handler = page.slice(page.indexOf("const toggleImportMenu"), page.indexOf("const screenshotEntryVisible"));
+    expect(handler).toMatch(/fetch\("\/api\/trade\/import-screenshot\/status"/);
   });
 });

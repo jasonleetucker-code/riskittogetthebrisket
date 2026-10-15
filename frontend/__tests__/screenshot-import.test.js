@@ -7,6 +7,8 @@ import {
   UNASSIGNED,
   addItem,
   confirmCandidate,
+  describeImportError,
+  describeWarning,
   emptyReview,
   importReady,
   isSlotOrTierPickName,
@@ -617,5 +619,57 @@ describe("toImportedSides", () => {
     expect(a).toEqual([row("2027 Round 1"), row("2027 Round 1")]);
     expect(a[0]).toBe(row("2027 Round 1")); // the board row itself — no value is copied or invented
     expect(b.map((r) => r.name)).toEqual(["Puka Nacua", "Bijan Robinson"]);
+  });
+});
+
+describe("describeImportError", () => {
+  it("maps every documented error code to plain words with the right retry advice", () => {
+    expect(
+      describeImportError(404, { error: "feature_disabled" }),
+    ).toMatchObject({ retryable: false });
+    expect(
+      describeImportError(403, { error: "guest_read_only" }).message,
+    ).toMatch(/Sign in/);
+    const rl = describeImportError(429, { error: "rate_limited" }, "12");
+    expect(rl).toMatchObject({ retryable: true });
+    expect(rl.message).toMatch(/12 seconds/);
+    expect(
+      describeImportError(503, { error: "ocr_unavailable" }),
+    ).toMatchObject({ retryable: false });
+    expect(describeImportError(503, { error: "ocr_busy" })).toMatchObject({
+      retryable: true,
+    });
+    expect(describeImportError(504, { error: "ocr_timeout" })).toMatchObject({
+      retryable: true,
+    });
+    expect(describeImportError(0, null)).toMatchObject({
+      code: "network",
+      retryable: true,
+    });
+    expect(
+      describeImportError(413, { error: "image_too_large" }),
+    ).toMatchObject({ retryable: false });
+    expect(
+      describeImportError(415, { error: "unsupported_media_type" }).message,
+    ).toMatch(/PNG, JPEG or WebP/);
+    expect(
+      describeImportError(400, { error: "bad_image", message: "Not an image." })
+        .message,
+    ).toBe("Not an image.");
+    expect(describeImportError(500, {})).toMatchObject({ retryable: true });
+  });
+});
+
+describe("describeWarning", () => {
+  it("names the screenshot only when there are several", () => {
+    expect(
+      describeWarning({ code: "missing_side", sourceImage: 0 }, 1),
+    ).toMatch(/^Only one side/);
+    expect(
+      describeWarning({ code: "possibly_cropped", sourceImage: 1 }, 2),
+    ).toMatch(/^Screenshot 2: the image may be cropped/);
+    expect(describeWarning({ code: "something_new", sourceImage: 0 }, 1)).toBe(
+      "Something new",
+    );
   });
 });

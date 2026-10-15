@@ -1,0 +1,271 @@
+/* trade-screenshot-import.module.css — the screenshot-import review.
+   Loaded with the lazy dialog chunk, never with /trade's first paint.
+   Structure only: every colour, size, radius and space is a token; rules
+   and alignment organise the review — no nested cards. */
+
+/* The review needs two columns; the shared modal panel caps at 560px. */
+.dialogWide:global(.ds-modal__panel) {
+  max-width: 960px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lede {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-left: var(--space-2);
+}
+
+/* ── screenshots ── */
+.images {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-subtle);
+}
+.image {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  flex-shrink: 0;
+}
+.imageInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+.imageInfo .meta {
+  margin-left: 0;
+}
+.imageName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.imageError {
+  font-size: var(--font-size-xs);
+  color: var(--negative-text);
+}
+.imageActions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* ── review ── */
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.reviewBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+  padding-bottom: var(--space-2);
+}
+.reviewTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+@media (width < 768px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column,
+.tray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.tray {
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--space-3);
+}
+.columnHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: var(--space-1);
+}
+.columnTitle {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.count {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.itemMain {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.itemIdentity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.itemIdentity .meta {
+  margin-left: var(--space-1);
+}
+.raw {
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+.arrow {
+  color: var(--text-tertiary);
+  align-self: center;
+}
+.matched {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.itemBadges {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.itemActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.fix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+.searchResults {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── ignored text ── */
+.ignored {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+.ignoredSummary {
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  border-radius: var(--radius-1);
+}
+.ignoredSummary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.ignoredList {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ── actions ── */
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--space-3);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
