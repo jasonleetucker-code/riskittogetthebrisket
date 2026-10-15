@@ -3,7 +3,7 @@
  * Counts with their samples; never a grade, label or likelihood.
  */
 import { describe, expect, it } from "vitest";
-import { offerEvidenceLines } from "@/lib/manager-scout";
+import { offerEvidenceLines } from "@/lib/manager-evidence";
 
 const measured = {
   state: "measured",

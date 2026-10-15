@@ -6,7 +6,7 @@
  * `offerEvidenceLines`. Descriptive counts only: no fit grade, no label,
  * no acceptance likelihood. A non-measured block shows one line saying why.
  */
-import { offerEvidenceLines } from "@/lib/manager-scout";
+import { offerEvidenceLines } from "@/lib/manager-evidence";
 import styles from "./manager-evidence.module.css";
 
 export default function ManagerEvidence({ evidence, team }) {
