@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-05-08T18:02:05Z",
-     "broad": true,
-     "rowsAdded": 0,
-     "rowsChanged": 20,
-     "rowsRemoved": 0,
-     "rowsTotal": 449
-    },
-    {
      "at": "2026-05-10T14:11:57Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 14,
      "rowsRemoved": 0,
      "rowsTotal": 386
+    },
+    {
+     "at": "2026-10-15T05:20:17Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 386
     }
    ],
-   "contentSince": "2026-10-14T23:33:50Z",
-   "fingerprint": "d2be652d7a45f8ad47fceaf0",
+   "contentSince": "2026-10-15T05:20:17Z",
+   "fingerprint": "bcc19fc68f7b07c9eeb9351d",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-14T23:33:50Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-15T05:20:17Z",
    "lastBroadDatasetChangeAt": "2026-10-14T23:33:50Z",
    "rowChangedAt": {
     "a.j. brown": "2026-10-13T21:39:21Z",
@@ -2134,7 +2134,7 @@
     "jaydon blue": "2026-10-13T21:39:21Z",
     "jaylen waddle": "2026-10-13T21:39:21Z",
     "jaylen warren": "2026-10-14T14:09:25Z",
-    "jaylen wright": "2026-10-14T23:33:50Z",
+    "jaylen wright": "2026-10-15T05:20:17Z",
     "jaylin lane": "2026-10-14T14:09:25Z",
     "jaylin noel": "2026-10-13T21:39:21Z",
     "jeff caldwell": "2026-10-13T21:39:21Z",
@@ -2274,7 +2274,7 @@
     "saquon barkley": "2026-10-13T21:39:21Z",
     "savion williams": "2026-10-13T21:39:21Z",
     "sean tucker": "2026-10-13T21:39:21Z",
-    "seth mcgowan": "2026-10-14T23:33:50Z",
+    "seth mcgowan": "2026-10-15T05:20:17Z",
     "seydou traore": "2026-10-14T14:09:25Z",
     "shedeur sanders": "2026-10-13T21:39:21Z",
     "sione vaki": "2026-10-14T14:09:25Z",
@@ -2335,7 +2335,6 @@
    "rowCount": 386,
    "rowCountHistory": [
     390,
-    390,
     391,
     391,
     391,
@@ -2344,6 +2343,7 @@
     392,
     392,
     392,
+    386,
     386,
     386,
     386,
@@ -2555,7 +2555,7 @@
     "jaydon blue": "f4d3194ffb",
     "jaylen waddle": "5bf25b85d3",
     "jaylen warren": "10129d7cdf",
-    "jaylen wright": "7f493c6a07",
+    "jaylen wright": "3d780228a5",
     "jaylin lane": "a1d75f0983",
     "jaylin noel": "ea35b8bc22",
     "jeff caldwell": "0f60a9324d",
@@ -2695,7 +2695,7 @@
     "saquon barkley": "9362332a7b",
     "savion williams": "7c72f81089",
     "sean tucker": "4b8b8b4006",
-    "seth mcgowan": "3d780228a5",
+    "seth mcgowan": "7f493c6a07",
     "seydou traore": "f10c706bb4",
     "shedeur sanders": "64a885aeda",
     "sione vaki": "1b882b7518",
