@@ -465,6 +465,7 @@ export default function PackageBuilderView({
                     source: "package_builder",
                   })}
                   disabled={!leagueKey}
+                />
                 <ManagerEvidence
                   evidence={pkg.managerEvidence}
                   team={pkg.opponent}
