@@ -15324,6 +15324,195 @@ async def put_trade_protections(request: Request):
     )
 
 
+# ── Trade Desk (Part 12) ──────────────────────────────────────────
+# The writer for ``user_kv.tradeDeskByLeague[leagueKey]``.  Shape, statuses and
+# transitions are owned by ``src/trade/trade_desk.py``; this authenticates,
+# resolves the NAMED league (same rule as trade protections) and stores through
+# one atomic read-modify-write.  Recommendation only: nothing here sends,
+# proposes or executes a trade, and every status is user-entered.
+
+
+def _trade_desk_teams(league_key: str) -> dict[str, dict]:
+    """This league's teams from the loaded contract, or ``{}`` when the loaded
+    contract belongs to another league (rosters are never borrowed)."""
+    from src.intel.manager_scout_api import _current_teams
+
+    contract = latest_contract_data if isinstance(latest_contract_data, dict) else None
+    return {
+        str(t.get("name") or ""): t
+        for t in _current_teams(contract, league_key)
+        if str(t.get("name") or "")
+    }
+
+
+def _trade_desk_session(request: Request, *, write: bool):
+    """``(username, None)`` or ``(None, error JSONResponse)``."""
+    session = _get_auth_session(request)
+    username = str((session or {}).get("username") or "").strip()
+    if not session or not username:
+        return None, JSONResponse(status_code=401, content={"error": "auth_required"})
+    if write and session.get("auth_method") == "guest_pass":
+        # Every guest-pass session shares the username "guest".
+        return None, JSONResponse(
+            status_code=403,
+            content={
+                "error": "guest_read_only",
+                "message": "Guest passes cannot save a Trade Desk.",
+            },
+        )
+    return username, None
+
+
+def _trade_desk_error(err) -> JSONResponse:
+    status = {
+        "not_found": 404,
+        "duplicate": 409,
+        "desk_full": 409,
+    }.get(err.code, 400)
+    content: dict = {"error": err.code}
+    if err.detail is not None:
+        content["detail"] = err.detail
+    return JSONResponse(status_code=status, content=content)
+
+
+def _trade_desk_response(league_key: str, entry: Any) -> JSONResponse:
+    from src.trade import trade_desk as _desk
+
+    return JSONResponse(
+        content=_desk.payload(league_key, entry, teams_by_name=_trade_desk_teams(league_key)),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def _trade_desk_body(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    return body if isinstance(body, dict) else None
+
+
+@app.get("/api/user/trade-desk")
+async def get_trade_desk(request: Request):
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=False)
+    if err is not None:
+        return err
+    league_cfg, err = _trade_protections_league(request)
+    if err is not None:
+        return err
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    by_league = state.get(_desk.TRADE_DESK_FIELD)
+    entry = by_league.get(league_cfg.key) if isinstance(by_league, dict) else None
+    return _trade_desk_response(league_cfg.key, entry)
+
+
+@app.post("/api/user/trade-desk")
+async def post_trade_desk(request: Request):
+    """Save one package to the desk.  Body: ``{leagueKey, myTeam, opponent,
+    send: [asset], receive: [asset], source?, sourceRunId?, status?, note?}``."""
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=True)
+    if err is not None:
+        return err
+    body = await _trade_desk_body(request)
+    if body is None:
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    unknown = _desk.unknown_keys(body, create=True)
+    if unknown:
+        return JSONResponse(
+            status_code=400, content={"error": "invalid_body", "unknownFields": unknown}
+        )
+    league_cfg, err = _trade_protections_league(request, body)
+    if err is not None:
+        return err
+    teams = _trade_desk_teams(league_cfg.key)
+    if not teams:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "This league's teams are not loaded; nothing was saved.",
+            },
+        )
+    try:
+        item = _desk.new_item(
+            body,
+            team_names=teams,
+            owner_ids={n: str(t.get("ownerId") or "") for n, t in teams.items()},
+        )
+        entry = await run_in_threadpool(
+            _user_kv.mutate_league_scoped_entry,
+            username,
+            _desk.TRADE_DESK_FIELD,
+            league_cfg.key,
+            lambda current: _desk.add_item(current, item),
+        )
+    except _desk.DeskError as e:
+        return _trade_desk_error(e)
+    resp = _trade_desk_response(league_cfg.key, entry)
+    resp.status_code = 201
+    return resp
+
+
+@app.patch("/api/user/trade-desk/{item_id}")
+async def patch_trade_desk(item_id: str, request: Request):
+    """Change one item's user-entered status and/or note.
+    Body: ``{leagueKey, status?, note?}``."""
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=True)
+    if err is not None:
+        return err
+    body = await _trade_desk_body(request)
+    if body is None:
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    unknown = _desk.unknown_keys(body, create=False)
+    if unknown:
+        return JSONResponse(
+            status_code=400, content={"error": "invalid_body", "unknownFields": unknown}
+        )
+    league_cfg, err = _trade_protections_league(request, body)
+    if err is not None:
+        return err
+    try:
+        entry = await run_in_threadpool(
+            _user_kv.mutate_league_scoped_entry,
+            username,
+            _desk.TRADE_DESK_FIELD,
+            league_cfg.key,
+            lambda current: _desk.update_item(current, item_id, body),
+        )
+    except _desk.DeskError as e:
+        return _trade_desk_error(e)
+    return _trade_desk_response(league_cfg.key, entry)
+
+
+@app.delete("/api/user/trade-desk/{item_id}")
+async def delete_trade_desk(item_id: str, request: Request):
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=True)
+    if err is not None:
+        return err
+    league_cfg, err = _trade_protections_league(request)
+    if err is not None:
+        return err
+    try:
+        entry = await run_in_threadpool(
+            _user_kv.mutate_league_scoped_entry,
+            username,
+            _desk.TRADE_DESK_FIELD,
+            league_cfg.key,
+            lambda current: _desk.remove_item(current, item_id),
+        )
+    except _desk.DeskError as e:
+        return _trade_desk_error(e)
+    return _trade_desk_response(league_cfg.key, entry)
+
+
 # ── Web Push subscriptions ────────────────────────────────────────
 @app.get("/api/push/public-key")
 async def get_push_public_key():

@@ -49,17 +49,20 @@ import styles from "./arbitrage.module.css";
 import BestOffersView from "./BestOffersView";
 import GoldenUpgradesView from "./GoldenUpgradesView";
 import PackageBuilderView from "./PackageBuilderView";
+import TradeDeskView from "./TradeDeskView";
 
 // The package layer has four views over the same team selection: the
 // equal-count arbitrage scan (unchanged), Best Trade to Send Each Team
 // (C7-BEST-TRADE), which allows a one-player difference and posture picks,
 // Golden Upgrades (C7-GOLD-01), same-position 1-for-1 inversions, and the
 // Package Builder (C7-PKGB-01), packages built to the user's own request.
+// The Trade Desk (Part 12) is the user's private list of saved packages.
 const VIEW_OPTIONS = [
   { value: "scan", label: "Package scan" },
   { value: "best", label: "Best offer by opponent" },
   { value: "golden", label: "Golden Upgrades" },
   { value: "builder", label: "Package Builder" },
+  { value: "desk", label: "Trade Desk" },
 ];
 
 // ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
@@ -547,7 +550,7 @@ export default function ArbitragePage() {
             value={packageView}
             onChange={(v) => setPackageView(v)}
           />
-          {packageView !== "scan" ? (
+          {packageView !== "scan" && packageView !== "desk" ? (
             <Field label="Your team">
               <Select
                 value={effectiveTeam}
@@ -597,6 +600,12 @@ export default function ArbitragePage() {
             ownerKey={selectedOwnerId}
             teams={teams}
           />
+        </Panel>
+      ) : null}
+
+      {packageView === "desk" ? (
+        <Panel>
+          <TradeDeskView leagueKey={selectedLeagueKey} />
         </Panel>
       ) : null}
 
