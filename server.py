@@ -15095,7 +15095,8 @@ def _trade_desk_teams(league_key: str) -> dict[str, dict]:
 def _trade_desk_session(request: Request, *, write: bool):
     """``(username, None)`` or ``(None, error JSONResponse)``."""
     session = _get_auth_session(request)
-    if not session:
+    username = str((session or {}).get("username") or "").strip()
+    if not session or not username:
         return None, JSONResponse(status_code=401, content={"error": "auth_required"})
     if write and session.get("auth_method") == "guest_pass":
         # Every guest-pass session shares the username "guest".
@@ -15106,7 +15107,7 @@ def _trade_desk_session(request: Request, *, write: bool):
                 "message": "Guest passes cannot save a Trade Desk.",
             },
         )
-    return str(session.get("username") or "").strip(), None
+    return username, None
 
 
 def _trade_desk_error(err) -> JSONResponse:
@@ -15184,7 +15185,11 @@ async def post_trade_desk(request: Request):
             },
         )
     try:
-        item = _desk.new_item(body, team_names=teams)
+        item = _desk.new_item(
+            body,
+            team_names=teams,
+            owner_ids={n: str(t.get("ownerId") or "") for n, t in teams.items()},
+        )
         entry = await run_in_threadpool(
             _user_kv.mutate_league_scoped_entry,
             username,

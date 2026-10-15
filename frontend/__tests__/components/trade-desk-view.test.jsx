@@ -88,16 +88,37 @@ describe("Trade Desk view", () => {
   });
 
   it("a signed-out user sees why, not an empty desk", async () => {
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: false,
-        status: 401,
-        json: async () => ({ error: "auth_required" }),
-      });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: "auth_required" }),
+    });
     render(<TradeDeskView leagueKey="main" />);
     expect(
       await screen.findByText("Sign in to use the Trade Desk."),
     ).toBeInTheDocument();
+  });
+
+  it("a network failure frees the controls and says so", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    render(<TradeDeskView leagueKey="main" />);
+    expect(
+      await screen.findByText(
+        "Could not reach the server; nothing was changed.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("a trailing space is not an edit and sends no PATCH", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(ok(desk([{ ...ITEM, note: "hi" }])));
+    render(<TradeDeskView leagueKey="main" />);
+    await screen.findByText("Us → Them");
+    const note = screen.getByLabelText("Note");
+    await user.type(note, " ");
+    await user.tab();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });

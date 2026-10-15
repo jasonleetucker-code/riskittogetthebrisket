@@ -4,12 +4,18 @@
  * "Save to Trade Desk" on a generated-trade card. Saving records the package
  * on the user's private desk with status Candidate; it never sends anything.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ds";
-import { deskErrorText, saveToDesk } from "@/lib/trade-desk";
+import { deskErrorText, packageIdentity, saveToDesk } from "@/lib/trade-desk";
 
 export default function SaveToDeskButton({ body, disabled }) {
   const [state, setState] = useState({ kind: "idle", text: "" });
+  // A re-run or refine can render a DIFFERENT package in the same card slot;
+  // "Saved" belongs to the package that was saved, never to the slot.
+  const identity = packageIdentity(body);
+  useEffect(() => {
+    setState({ kind: "idle", text: "" });
+  }, [identity]);
   const save = async () => {
     setState({ kind: "saving", text: "" });
     const res = await saveToDesk(body);

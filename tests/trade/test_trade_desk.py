@@ -135,3 +135,33 @@ def test_unknown_request_fields_are_named():
         "execute"
     ]
     assert desk.unknown_keys({"leagueKey": "m", "myTeam": "Us"}, create=False) == ["myTeam"]
+
+
+def test_a_renamed_team_is_still_found_by_its_owner_id():
+    item = desk.new_item(_body(), team_names=TEAMS, owner_ids={"Us": "1", "Them": "2"}, now=T0)
+    assert (item["myOwnerId"], item["opponentOwnerId"]) == ("1", "2")
+    renamed = {
+        "Us": {"name": "Us", "ownerId": "1", "players": ["Our WR"]},
+        "Them Renamed": {"name": "Them Renamed", "ownerId": "2", "players": ["Their RB"]},
+    }
+    assert desk.roster_check(item, renamed)["state"] == "current"
+
+
+def test_a_name_now_held_by_another_owner_is_never_matched():
+    item = desk.new_item(_body(), team_names=TEAMS, owner_ids={"Us": "1", "Them": "2"}, now=T0)
+    swapped = {
+        "Us": {"name": "Us", "ownerId": "1", "players": ["Our WR"]},
+        "Them": {"name": "Them", "ownerId": "9", "players": ["Their RB"]},
+    }
+    assert desk.roster_check(item, swapped) == {"state": "unknown", "reason": "team_not_in_league"}
+
+
+def test_the_duplicate_check_survives_a_rename():
+    a = desk.new_item(_body(), team_names=TEAMS, owner_ids={"Us": "1", "Them": "2"}, now=T0)
+    entry = desk.add_item(None, a)
+    b = desk.new_item(
+        _body(opponent="Other"), team_names=TEAMS, owner_ids={"Us": "1", "Other": "2"}, now=T1
+    )
+    with pytest.raises(desk.DeskError) as e:
+        desk.add_item(entry, b)
+    assert e.value.code == "duplicate"

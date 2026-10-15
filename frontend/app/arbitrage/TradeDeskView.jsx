@@ -9,7 +9,7 @@
  * shown beside the status, never instead of it. Recommendation only: nothing
  * here sends or proposes a trade.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
@@ -125,7 +125,9 @@ function DeskItem({ item, onChange, busy }) {
             disabled={busy}
             onChange={(e) => setNote(e.target.value)}
             onBlur={() => {
-              if (note !== (item.note || ""))
+              // The server trims, so compare trimmed: a trailing space is not
+              // an edit and must not PATCH on every blur.
+              if (note.trim() !== (item.note || ""))
                 onChange("update", item.id, { note });
             }}
           />
@@ -162,6 +164,7 @@ export default function TradeDeskView({ leagueKey }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("all");
+  const requestSeq = useRef(0);
 
   useEffect(() => {
     if (!leagueKey) return undefined;
@@ -180,12 +183,16 @@ export default function TradeDeskView({ leagueKey }) {
 
   const change = useCallback(
     async (kind, id, patch) => {
+      const seq = ++requestSeq.current;
       setBusy(true);
       setError("");
       const res =
         kind === "remove"
           ? await removeDeskItem(leagueKey, id)
           : await updateDeskItem(leagueKey, id, patch);
+      // Only the newest request may paint: an older response landing late
+      // must not show a desk from before the user's latest change.
+      if (seq !== requestSeq.current) return;
       if (res.ok) setDesk(res.desk);
       else setError(deskErrorText(res.code));
       setBusy(false);

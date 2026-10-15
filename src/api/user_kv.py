@@ -110,6 +110,10 @@ KNOWN_KEYS = frozenset(
         # by ``src/trade/constraints.py``; written only through
         # ``PUT /api/user/trade-protections`` via ``set_league_scoped_entry``.
         "tradeConstraintsByLeague",
+        # Per-league Trade Desk watchlist (Part 12).  Shape owned by
+        # ``src/trade/trade_desk.py``; written only through
+        # ``/api/user/trade-desk`` via ``mutate_league_scoped_entry``.
+        "tradeDeskByLeague",
     }
 )
 

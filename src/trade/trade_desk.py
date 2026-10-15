@@ -168,11 +168,19 @@ def _asset_key(a: Mapping[str, Any]) -> str:
     return str(a.get("assetId") or a.get("name") or "").lower()
 
 
+def _side_key(item: Mapping[str, Any], name_field: str, owner_field: str) -> str:
+    """A team's identity: its Sleeper owner id when recorded, else its name.
+
+    Display names change when a manager renames; the owner id does not."""
+    owner = str(item.get(owner_field) or "")
+    return f"owner:{owner}" if owner else f"name:{item.get(name_field) or ''}"
+
+
 def package_key(item: Mapping[str, Any]) -> tuple:
     """Identity of a package: the two teams and the two asset sets."""
     return (
-        str(item.get("myTeam") or ""),
-        str(item.get("opponent") or ""),
+        _side_key(item, "myTeam", "myOwnerId"),
+        _side_key(item, "opponent", "opponentOwnerId"),
         tuple(sorted(_asset_key(a) for a in item.get("send") or [])),
         tuple(sorted(_asset_key(a) for a in item.get("receive") or [])),
     )
@@ -184,9 +192,16 @@ def unknown_keys(body: Mapping[str, Any], *, create: bool) -> list[str]:
 
 
 def new_item(
-    body: Mapping[str, Any], *, team_names: Iterable[str], now: datetime | None = None
+    body: Mapping[str, Any],
+    *,
+    team_names: Iterable[str],
+    owner_ids: Mapping[str, str] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
-    """A validated new desk item from a create request."""
+    """A validated new desk item from a create request.
+
+    ``owner_ids`` maps this league's current team names to their Sleeper owner
+    ids; when known they are stored so the item survives a team rename."""
     names = set(team_names)
     my_team = _text(body.get("myTeam"), "myTeam", MAX_NAME_LEN)
     opponent = _text(body.get("opponent"), "opponent", MAX_NAME_LEN)
@@ -217,6 +232,10 @@ def new_item(
     }
     if run_id:
         item["sourceRunId"] = run_id
+    for name, field in ((my_team, "myOwnerId"), (opponent, "opponentOwnerId")):
+        owner = str((owner_ids or {}).get(name) or "")
+        if owner:
+            item[field] = owner
     return item
 
 
@@ -304,8 +323,20 @@ def roster_check(
     """
     if not teams_by_name:
         return {"state": "unknown", "reason": "league_rosters_not_loaded"}
-    mine = teams_by_name.get(str(item.get("myTeam") or ""))
-    theirs = teams_by_name.get(str(item.get("opponent") or ""))
+    by_owner = {
+        str(t.get("ownerId")): t for t in teams_by_name.values() if str(t.get("ownerId") or "")
+    }
+
+    def _team(name_field: str, owner_field: str) -> Mapping[str, Any] | None:
+        owner = str(item.get(owner_field) or "")
+        if owner:
+            # A recorded owner id decides; a renamed team is still found, and a
+            # name now held by someone else is never matched instead.
+            return by_owner.get(owner)
+        return teams_by_name.get(str(item.get(name_field) or ""))
+
+    mine = _team("myTeam", "myOwnerId")
+    theirs = _team("opponent", "opponentOwnerId")
     if mine is None or theirs is None:
         return {"state": "unknown", "reason": "team_not_in_league"}
     my_names, their_names = _roster_names(mine), _roster_names(theirs)

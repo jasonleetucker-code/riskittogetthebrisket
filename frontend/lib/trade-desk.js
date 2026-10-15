@@ -62,6 +62,7 @@ const ERROR_TEXT = {
   data_not_ready: "This league's teams are not loaded yet; nothing was saved.",
   unknown_team: "That team is not in this league.",
   not_found: "That item is no longer on your Trade Desk.",
+  network: "Could not reach the server; nothing was changed.",
 };
 
 export function deskErrorText(code) {
@@ -69,7 +70,13 @@ export function deskErrorText(code) {
 }
 
 async function call(url, init) {
-  const res = await fetch(url, { credentials: "include", ...init });
+  let res;
+  try {
+    res = await fetch(url, { credentials: "include", ...init });
+  } catch {
+    // A network failure is an answer too: callers must never hang on it.
+    return { ok: false, code: "network", status: 0 };
+  }
   let body = null;
   try {
     body = await res.json();
@@ -128,4 +135,20 @@ export function rosterCheckText(check) {
 export function lastMarked(item) {
   const history = Array.isArray(item?.statusHistory) ? item.statusHistory : [];
   return history.length ? history[history.length - 1] : null;
+}
+
+/** A stable identity for one package, for keying per-package UI state. */
+export function packageIdentity(body) {
+  const names = (side) =>
+    (body?.[side] || [])
+      .map((a) => String(a.assetId || a.name || "").toLowerCase())
+      .sort()
+      .join("|");
+  return [
+    body?.leagueKey,
+    body?.myTeam,
+    body?.opponent,
+    names("send"),
+    names("receive"),
+  ].join("::");
 }

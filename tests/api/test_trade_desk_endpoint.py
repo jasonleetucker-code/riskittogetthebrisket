@@ -144,3 +144,16 @@ def test_roster_check_flags_a_moved_player_without_touching_status(desk_env, mon
     check = got["items"][0]["rosterCheck"]
     assert check["state"] == "changed" and check["noLongerInPlace"] == ["Their RB"]
     assert got["items"][0]["status"] == item["status"]
+
+
+def test_a_session_without_a_username_is_401_not_500(desk_env, monkeypatch):
+    monkeypatch.setattr(
+        server, "_get_auth_session", lambda r: {"username": "", "auth_method": "password"}
+    )
+    assert _save(desk_env).status_code == 401
+    assert desk_env.client.get(URL, params={"leagueKey": "main"}).status_code == 401
+
+
+def test_saved_items_record_owner_ids(desk_env):
+    item = _save(desk_env).json()["items"][0]
+    assert (item["myOwnerId"], item["opponentOwnerId"]) == ("1", "2")
