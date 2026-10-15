@@ -106,7 +106,7 @@ def test_no_universe_clock_where_the_board_does_not_span_universes(case):
     assert sub.universe_clock("offense", universes) is None
 
 
-def test_pipeline_applies_it_only_to_offense_rows_of_mixed_boards():
+def test_pipeline_universe_clock_only_ages_rows_and_never_touches_picks():
     from src.api.data_contract import build_api_data_contract
     from tests.archive_fixtures import newest_complete_raw_payload
 
@@ -132,9 +132,17 @@ def test_pipeline_applies_it_only_to_offense_rows_of_mixed_boards():
         for key, meta in (row.get("sourceRankMeta") or {}).items():
             f_off = meta.get("freshness", 1.0)
             f_on = ((other.get("sourceRankMeta") or {}).get(key) or {}).get("freshness", 1.0)
-            if row.get("assetClass") in ("idp", "pick"):
+            if row.get("assetClass") == "pick":
+                # Picks never take a universe clock (``is_pick`` is excluded).
                 assert f_on == f_off, (row["displayName"], key)
             else:
+                # The universe clock only CAPS the source clock, so for EITHER
+                # universe evidence can only get older (docs/sources/
+                # SOURCE_FRESHNESS_WEIGHTING.md "One board, two universes").
+                # "IDP unchanged" was a 2026-09-30 measurement, not the rule: on
+                # 2026-10-15 an offense-only broad update made IDPTC's source
+                # clock newer than its IDP clock, so IDP rows correctly aged
+                # against their own last broad change (Abdul Carter 1.0 -> 0.9978).
                 assert f_on <= f_off + 1e-9, (row["displayName"], key)
 
 
