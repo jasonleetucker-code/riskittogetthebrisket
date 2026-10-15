@@ -936,6 +936,13 @@ def _offer_shape(n_receive: int, n_send: int) -> str:
     return "even"
 
 
+def _count(value: Any) -> int | None:
+    """A published count, or ``None`` when it is absent or not a count."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
 def offer_evidence(
     scout: Mapping[str, Any] | None,
     *,
@@ -986,7 +993,9 @@ def offer_evidence(
             "state": STATE_UNAVAILABLE,
             "reason": trading.get("reason") or "trade_history_unavailable",
         }
-    n = int(trading.get("tradeCount") or 0)
+    n = _count(trading.get("tradeCount"))
+    if n is None:
+        return {**base, "state": STATE_UNAVAILABLE, "reason": "trade_count_unrecorded"}
     recv = list(they_receive)
     send = list(they_send)
     shape = _offer_shape(len(recv), len(send))
@@ -999,12 +1008,21 @@ def offer_evidence(
             "offerShapeForThem": shape,
         }
 
-    received = trading.get("received") or {}
-    by_pos: dict[str, int] = {}
-    for pos, k in (received.get("byPosition") or {}).items():
-        key = normalize_position(pos) or str(pos)
-        by_pos[key] = by_pos.get(key, 0) + int(k or 0)
-    players_received = int(received.get("players") or 0)
+    received = trading.get("received") if isinstance(trading.get("received"), Mapping) else {}
+    # ``byPosition`` is a counter block built by ``_bump``: inside a PRESENT
+    # block a position never bumped was received zero times.  A missing block
+    # is unknown, and every per-position count is then ``None``.
+    raw_by_pos = received.get("byPosition")
+    by_pos: dict[str, int] | None = None
+    if isinstance(raw_by_pos, Mapping):
+        by_pos = {}
+        for pos, k in raw_by_pos.items():
+            c = _count(k)
+            if c is None:
+                continue
+            key = normalize_position(pos) or str(pos)
+            by_pos[key] = by_pos.get(key, 0) + c
+    players_received = _count(received.get("players"))
     offered_positions = sorted(
         {
             normalize_position(a.get("position")) or UNRESOLVED_POSITION
@@ -1015,7 +1033,9 @@ def offer_evidence(
     positions = [
         {
             "position": pos,
-            "receivedBefore": by_pos.get(pos, 0) if pos != UNRESOLVED_POSITION else None,
+            "receivedBefore": (
+                by_pos.get(pos, 0) if (by_pos is not None and pos != UNRESOLVED_POSITION) else None
+            ),
             "ofPlayersReceived": players_received,
         }
         for pos in offered_positions
@@ -1025,17 +1045,22 @@ def offer_evidence(
     if offered_picks:
         picks = {
             "offeredToThem": offered_picks,
-            "receivedBefore": int(received.get("picks") or 0),
-            "ofAssetsReceived": int(received.get("assets") or 0),
+            "receivedBefore": _count(received.get("picks")),
+            "ofAssetsReceived": _count(received.get("assets")),
         }
-    shapes = trading.get("packageShape") or {}
-    partners = trading.get("partners") or []
+    shapes = trading.get("packageShape")
+    same_shape = _count(shapes.get(shape)) if isinstance(shapes, Mapping) else None
+    partners = trading.get("partners")
     req = str(requester_owner_id or "").strip()
-    with_you = (
-        next((int(p.get("trades") or 0) for p in partners if p.get("ownerId") == req), 0)
-        if req
-        else None
-    )
+    with_you: int | None = None
+    if req and isinstance(partners, list):
+        # ``partners`` lists every human they traded with, so a requester who
+        # is absent from it completed zero trades with them — a real count.
+        with_you = 0
+        for p in partners:
+            if isinstance(p, Mapping) and p.get("ownerId") == req:
+                with_you = _count(p.get("trades"))
+                break
     return {
         **base,
         "state": STATE_MEASURED,
@@ -1045,10 +1070,12 @@ def offer_evidence(
         "positionsTheyWouldReceive": positions,
         # Players they received whose position the identity owner could not
         # resolve: every ``receivedBefore`` above is a floor by this much.
-        "unresolvedPositionReceived": by_pos.get(UNRESOLVED_POSITION, 0),
+        "unresolvedPositionReceived": (
+            by_pos.get(UNRESOLVED_POSITION, 0) if by_pos is not None else None
+        ),
         "picksTheyWouldReceive": picks,
         "offerShapeForThem": shape,
-        "sameShapeBefore": int(shapes.get(shape) or 0),
+        "sameShapeBefore": same_shape,
         "tradesWithRequester": with_you,
     }
 

@@ -112,3 +112,27 @@ def test_carries_no_label_threshold_or_probability_field():
     ev = _ev(_scout(), [RB, PICK], [RB])
     banned = ("probab", "likel", "accept", "label", "score", "fit")
     assert not [k for k in ev if any(b in k.lower() for b in banned)]
+
+
+def test_an_unrecorded_count_is_none_never_zero():
+    scout = _scout()
+    trading = scout["managers"][0]["tradeTendencies"]
+    trading["received"] = {"assets": 9}  # no players / picks / byPosition block
+    trading["packageShape"] = None
+    trading["partners"] = None
+    ev = _ev(scout, [RB, PICK], [RB])
+    assert ev["state"] == "measured"
+    assert ev["positionsTheyWouldReceive"] == [
+        {"position": "RB", "receivedBefore": None, "ofPlayersReceived": None}
+    ]
+    assert ev["picksTheyWouldReceive"]["receivedBefore"] is None
+    assert ev["sameShapeBefore"] is None
+    assert ev["tradesWithRequester"] is None
+    assert ev["unresolvedPositionReceived"] is None
+
+
+def test_a_missing_trade_count_is_unavailable():
+    scout = _scout()
+    scout["managers"][0]["tradeTendencies"].pop("tradeCount")
+    ev = _ev(scout, [RB], [RB])
+    assert (ev["state"], ev["reason"]) == ("unavailable", "trade_count_unrecorded")

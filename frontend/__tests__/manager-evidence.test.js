@@ -88,3 +88,29 @@ describe("offerEvidenceLines", () => {
     }
   });
 });
+
+describe("offerEvidenceLines with unrecorded counts", () => {
+  it("drops a line whose count is unknown rather than printing null or 0", () => {
+    const out = offerEvidenceLines({
+      state: "measured",
+      tradeCount: 3,
+      positionsTheyWouldReceive: [
+        { position: "RB", receivedBefore: null, ofPlayersReceived: 5 },
+      ],
+      picksTheyWouldReceive: {
+        offeredToThem: 1,
+        receivedBefore: null,
+        ofAssetsReceived: null,
+      },
+      offerShapeForThem: "even",
+      sameShapeBefore: null,
+      tradesWithRequester: null,
+      unresolvedPositionReceived: null,
+    });
+    expect(out.available).toBe(true);
+    expect(out.lines).toEqual([]);
+    expect(out.note).toBe(
+      "From 3 completed trades. History, not a prediction.",
+    );
+  });
+});

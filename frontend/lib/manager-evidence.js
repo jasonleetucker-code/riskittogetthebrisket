@@ -51,23 +51,31 @@ export function offerEvidenceLines(ev) {
   const plural = (k, word) => `${k} ${word}${k === 1 ? "" : "s"}`;
   const lines = [];
   for (const p of ev.positionsTheyWouldReceive || []) {
-    if (p.receivedBefore == null) continue;
+    if (
+      finite(p.receivedBefore) === null ||
+      finite(p.ofPlayersReceived) === null
+    )
+      continue;
     lines.push(
       `Received ${p.receivedBefore} ${p.position} of ${plural(p.ofPlayersReceived, "player")} acquired by trade`,
     );
   }
   const picks = ev.picksTheyWouldReceive;
-  if (picks) {
+  if (
+    picks &&
+    finite(picks.receivedBefore) !== null &&
+    finite(picks.ofAssetsReceived) !== null
+  ) {
     lines.push(
       `Received ${plural(picks.receivedBefore, "pick")} of ${plural(picks.ofAssetsReceived, "asset")} acquired by trade`,
     );
   }
-  if (ev.offerShapeForThem) {
+  if (ev.offerShapeForThem && finite(ev.sameShapeBefore) !== null) {
     lines.push(
       `${ev.sameShapeBefore} of ${plural(n, "trade")} had this shape for them (${ev.offerShapeForThem})`,
     );
   }
-  if (ev.tradesWithRequester != null) {
+  if (finite(ev.tradesWithRequester) !== null) {
     lines.push(`${plural(ev.tradesWithRequester, "trade")} completed with you`);
   }
   const unresolved = finite(ev.unresolvedPositionReceived);
