@@ -16509,14 +16509,32 @@ async def post_trade_analyze(request: Request):
     Response: the ``/api/trade/simulate`` payload's fields, plus
     ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output
     (recommendation / confidence / reasonsFor / reasonsAgainst / dimensions /
-    unavailableDimensions).
+    unavailableDimensions), with comparable real trades for the package as
+    the non-voting ``marketCorroboration`` lens (TC-09).
     """
-    result, _league_key, error = await _build_trade_simulation(request, for_analysis=True)
+    result, league_key, error = await _build_trade_simulation(request, for_analysis=True)
     if error is not None:
         return error
+    from src.trade import comparable_trades as _comparable  # noqa: PLC0415
     from src.trade.analyze_trade import analyze_trade
 
-    result["analysis"] = analyze_trade(result)
+    # Comparable real trades for this exact package — context for the
+    # packet's ``marketCorroboration`` lens, which never votes.  Any failure
+    # is reported as that lens being unavailable, never as a broken analysis.
+    try:
+        if not league_key:
+            raise LookupError("league not resolved")
+        comparables = await run_in_threadpool(
+            _comparable.comparable_trades,
+            league_key,
+            side_a=_comparable.side_refs_from_assets(result.get("receiving") or []),
+            side_b=_comparable.side_refs_from_assets(result.get("sending") or []),
+            names=_board_names_by_player_id(),
+        )
+    except Exception:  # noqa: BLE001 — evidence-only; the verdict never depends on it
+        log.warning("analyze: comparable trades unavailable", exc_info=True)
+        comparables = {"state": "unavailable", "reason": "comparables_error"}
+    result["analysis"] = analyze_trade(result, comparables=comparables)
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},

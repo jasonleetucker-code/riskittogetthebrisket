@@ -141,6 +141,55 @@ describe("TradeWarRoom — the packet, verbatim", () => {
     expect(screen.getByText("currentSeasonEquity")).toBeInTheDocument();
   });
 
+  it("names comparable real trades as not computed when the packet has none", async () => {
+    await renderWith(CONSOLIDATION);
+    fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
+    expect(screen.getByText("Comparable real trades")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Comparable real trades" })).toBeNull();
+  });
+
+  it("shows comparable real trades as reference, never inside the answer", async () => {
+    const withComps = structuredClone(CONSOLIDATION);
+    withComps.analysis.lenses.comparables = {
+      available: true,
+      dimension: "marketCorroboration",
+      lineage: "real_trade_ledger",
+      votes: false,
+      direction: "context",
+      detail: {
+        comparableTrades: [
+          {
+            occurredDate: "2026-10-01",
+            similarity: 0.8234,
+            reasons: ["Same asset: WR Buf Star", "Same 1-for-1 shape"],
+          },
+        ],
+        candidates: 4,
+        belowMinScore: 0,
+        scanCapped: false,
+      },
+    };
+    await renderWith(withComps);
+    const verdict = document.querySelector("[data-recommendation]");
+    expect(verdict).not.toHaveTextContent("similar");
+    fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
+    expect(screen.getByRole("heading", { name: "Comparable real trades" })).toBeInTheDocument();
+    expect(screen.getByText(/82% similar: Same asset: WR Buf Star; Same 1-for-1 shape/)).toBeInTheDocument();
+    expect(screen.getByText(/is not counted in the recommendation/)).toBeInTheDocument();
+  });
+
+  it("an empty comparables sample says why nothing is listed", async () => {
+    const empty = structuredClone(CONSOLIDATION);
+    empty.analysis.lenses.comparables = {
+      available: true,
+      votes: false,
+      detail: { comparableTrades: [], belowMinScore: 2 },
+    };
+    await renderWith(empty);
+    fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
+    expect(screen.getByText(/2 recorded trades shared an asset/)).toBeInTheDocument();
+  });
+
   it("shows the canonical team direction as context, never as a vote", async () => {
     await renderWith(CONSOLIDATION);
     fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));

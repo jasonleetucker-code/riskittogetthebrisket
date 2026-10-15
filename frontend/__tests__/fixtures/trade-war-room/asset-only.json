@@ -135,9 +135,23 @@
     "lineage": "team_strategy_context",
     "unavailableReason": "asset_only_mode",
     "votes": false
+   },
+   {
+    "available": false,
+    "dimension": "marketCorroboration",
+    "lineage": "real_trade_ledger",
+    "unavailableReason": "not_computed",
+    "votes": false
    }
   ],
   "lenses": {
+   "comparables": {
+    "available": false,
+    "dimension": "marketCorroboration",
+    "lineage": "real_trade_ledger",
+    "unavailableReason": "not_computed",
+    "votes": false
+   },
    "evidence": {
     "available": true,
     "detail": {
@@ -222,11 +236,6 @@
   },
   "topUncertainty": null,
   "unavailableDimensions": [
-   {
-    "dimension": "marketCorroboration",
-    "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade matching) are ABSENT \u2014 there is no independent vendor/comp evidence to synthesize.",
-    "reason": "no_backing_ledger"
-   },
    {
     "dimension": "valueUncertainty",
     "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
