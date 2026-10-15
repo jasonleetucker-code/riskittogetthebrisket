@@ -631,6 +631,102 @@ def resolve_canonical_v2(
     return _unresolved("none", REASON_NO_CANDIDATE, [])
 
 
+# ── Suggestions (never a resolution) ────────────────────────────────────
+
+SUGGESTION_MIN_RATIO = 0.80
+
+
+@dataclass(frozen=True)
+class PlayerSuggestion:
+    """A "did you mean" candidate.  NOT a resolution: it carries no status,
+    and nothing in this module ever promotes it to one."""
+
+    sleeper_id: str
+    display_name: str
+    position: str
+    team: str
+    score: float
+
+
+def suggest_player_candidates(
+    index: SleeperDirectoryIndex,
+    name: str | None,
+    *,
+    position: str | None = None,
+    team: str | None = None,
+    limit: int = 3,
+) -> list[PlayerSuggestion]:
+    """Near-name candidates for a name the canonical ladder refused.
+
+    SUGGESTIONS ONLY.  This exists for a human to confirm — e.g. an OCR'd
+    surname typo ("Patrick Mahomse") that :func:`resolve_canonical_v2`
+    correctly refuses, because its fuzzy rung requires an exact surname.
+    It must never auto-select: callers display the list and wait for a
+    person to choose.  It returns no :class:`Resolution` and no status, so
+    there is nothing to mistake for an answer.
+
+    Scoring: ``difflib.SequenceMatcher`` ratio over the lower-cased
+    ``clean_name`` keys of the index, kept at ``>= 0.80``.  When
+    ``position`` is given, candidates outside its position GROUP (OFFENSE /
+    IDP / KICKER) are dropped.  ``team`` only orders ties (a candidate on
+    that team first), it never filters.  Order is deterministic:
+    ``(score desc, rostered first, team match first, sleeper_id asc)``.
+    """
+    import difflib  # noqa: PLC0415
+
+    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
+    cleaned = clean_name(name) if name else ""
+    target = cleaned.lower().strip()
+    if not target or limit <= 0 or looks_like_pick_name(cleaned):
+        return []
+    group = canonical_position_group(position) if position else None
+    team_u = str(team or "").strip().upper()
+    matcher = difflib.SequenceMatcher(autojunk=False)
+    matcher.set_seq2(target)
+    scored: list[tuple[float, SleeperCandidate]] = []
+    for key in index.clean_pool:
+        matcher.set_seq1(key.lower())
+        if matcher.real_quick_ratio() < SUGGESTION_MIN_RATIO:
+            continue
+        if matcher.quick_ratio() < SUGGESTION_MIN_RATIO:
+            continue
+        ratio = matcher.ratio()
+        if ratio < SUGGESTION_MIN_RATIO:
+            continue
+        for cand in index.by_clean.get(key, []):
+            if group is not None and cand.position:
+                if canonical_position_group(cand.position) != group:
+                    continue
+            scored.append((ratio, cand))
+    scored.sort(
+        key=lambda sc: (
+            -sc[0],
+            0 if str(sc[1].team or "").strip() else 1,
+            0 if team_u and str(sc[1].team or "").strip().upper() == team_u else 1,
+            sc[1].sleeper_id,
+        )
+    )
+    out: list[PlayerSuggestion] = []
+    seen: set[str] = set()
+    for ratio, cand in scored:
+        if cand.sleeper_id in seen:
+            continue
+        seen.add(cand.sleeper_id)
+        out.append(
+            PlayerSuggestion(
+                sleeper_id=cand.sleeper_id,
+                display_name=cand.display_name,
+                position=pos_family(cand.position),
+                team=cand.team or "",
+                score=round(ratio, 4),
+            )
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
 # ── Policy: CONTRACT_CSV_JOIN_V1 ────────────────────────────────────────
 
 CONTRACT_CSV_JOIN_V1 = "contract_csv_join_v1"
