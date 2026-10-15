@@ -11,6 +11,7 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   sideTotal,
+  applyImportedSides,
   defaultDestination,
   findBalancers,
   isTradeableBoardRow,
@@ -1325,22 +1326,10 @@ export default function TradePage() {
       const cleanedOne = one.found;
       const cleanedTwo = two.found;
 
+      // Seeds default destinations in a 3+-team trade and drops stale
+      // routing — the shared bulk-load rule (lib/trade-logic).
       setSides((prev) =>
-        prev.map((s, i) => {
-          if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
-          const replacement = i === 0 ? cleanedOne : cleanedTwo;
-          // Seed default destinations for the newly-loaded assets when
-          // we're in a 3+-team trade; 2-team trades ignore the map.
-          // Old destinations referencing assets that aren't in the new
-          // set are dropped so we don't accumulate stale routing.
-          const nextDestinations = {};
-          if (prev.length > 2) {
-            for (const asset of replacement) {
-              nextDestinations[tradeEntryKey(asset)] = defaultDestination(i, prev.length);
-            }
-          }
-          return { ...s, assets: replacement, destinations: nextDestinations };
-        }),
+        applyImportedSides(prev, [cleanedOne, cleanedTwo], "replace"),
       );
       setValueOverrides({});
 
