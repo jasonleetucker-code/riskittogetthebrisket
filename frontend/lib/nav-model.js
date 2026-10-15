@@ -238,6 +238,15 @@ export const NAV_MODEL = [
         hint: "Which players the sharp cohort actually rosters",
         keywords: ["sharp", "roster percentage", "ownership", "rostered", "exposure"],
       },
+      // Recorded real dynasty trades (TC-08).  Market, not League: the
+      // ledger spans external leagues; this league's own trades appear in it
+      // only for this league (the same visibility rules as /trade's panel).
+      {
+        href: "/market/trade-database",
+        label: "Trade Database",
+        hint: "Browse recorded real dynasty trades by asset, date and format",
+        keywords: ["trade database", "real trades", "comps", "comparable trades", "ktc trades"],
+      },
     ],
   },
   {

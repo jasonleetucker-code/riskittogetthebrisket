@@ -24,15 +24,25 @@
  * types and says how many); the panel is mounted only while open, so it
  * never refetches while collapsed.
  *
+ * Two modes (TC-09): "Most recent" lists trades that moved any calculator
+ * asset, newest first; "Most comparable" ranks trades by how much they
+ * resemble the PACKAGE (GET /api/market/trades/comparable) and shows why
+ * each matched.  The similarity score is a declared-prior relevance order,
+ * never a price — it is rendered as "% similar" beside the reasons, and
+ * nothing here feeds the totals or verdict.
+ *
  * Loaded on demand from /trade (React.lazy inside a collapsed panel), so
  * none of this is in the page's first-load chunk.
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Banner, EmptyState, SkeletonTable } from "@/components/ds";
+import { Banner, EmptyState, SegmentedControl, SkeletonTable } from "@/components/ds";
 import {
   assetText,
   caveatTexts,
+  comparableQueryFromSides,
+  comparableQueryIsEmpty,
+  comparableQueryString,
   formatMatchText,
   formatTagList,
   formatTimingText,
@@ -41,6 +51,7 @@ import {
   referenceFailureKind,
   referenceQueryString,
   sideHeading,
+  similarityText,
   sourceText,
   withheldText,
 } from "@/lib/recent-real-trades";
@@ -59,14 +70,36 @@ function AssetItem({ asset }) {
   );
 }
 
-function TradeRow({ trade }) {
+const MODES = [
+  { value: "recent", label: "Most recent" },
+  { value: "comparable", label: "Most comparable" },
+];
+
+function WhyMatched({ comparability }) {
+  const reasons = comparability?.reasons || [];
+  if (!reasons.length) return null;
+  return (
+    <ul className={styles.reasons} aria-label="Why this trade matched">
+      {reasons.map((r) => (
+        <li key={r.key} className={styles.reason}>
+          {r.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function TradeRow({ trade }) {
   const tags = formatTagList(trade.formatTags);
+  const similarity = similarityText(trade.comparability);
   return (
     <li className={styles.trade}>
       <div className={styles.tradeHead}>
         <span className={styles.date}>{trade.occurredDate || "Date unknown"}</span>
+        {similarity ? <span className={styles.similarity}>{similarity}</span> : null}
         <span className={styles.source}>{sourceText(trade)}</span>
       </div>
+      <WhyMatched comparability={trade.comparability} />
       <div className={styles.sides}>
         {trade.sides.map((side, idx) => (
           <div className={styles.side} key={idx}>
@@ -102,10 +135,25 @@ function TradeRow({ trade }) {
 }
 
 export default function RecentRealTrades({ sides, leagueKey }) {
-  const query = useMemo(() => referenceQueryFromSides(sides), [sides]);
-  const qs = useMemo(() => referenceQueryString(query, leagueKey), [query, leagueKey]);
-  const empty = referenceQueryIsEmpty(query);
+  const [mode, setMode] = useState("recent");
+  const comparable = mode === "comparable";
+  const recentQuery = useMemo(() => referenceQueryFromSides(sides), [sides]);
+  const compQuery = useMemo(() => comparableQueryFromSides(sides), [sides]);
+  const url = useMemo(
+    () =>
+      comparable
+        ? `/api/market/trades/comparable?${comparableQueryString(compQuery, leagueKey)}`
+        : `/api/market/trades/reference?${referenceQueryString(recentQuery, leagueKey)}`,
+    [comparable, compQuery, recentQuery, leagueKey],
+  );
+  const empty = comparable
+    ? comparableQueryIsEmpty(compQuery)
+    : referenceQueryIsEmpty(recentQuery);
   const [state, setState] = useState({ status: "idle", body: null, qs: null });
+  // A result belongs to the URL that produced it; a stale one (the package
+  // or the mode changed) renders as loading, never under the wrong heading.
+  const current = state.qs === url ? state : { status: "loading", body: null, qs: url };
+  const qs = url;
 
   useEffect(() => {
     if (empty) return undefined;
@@ -113,7 +161,7 @@ export default function RecentRealTrades({ sides, leagueKey }) {
     const timer = setTimeout(async () => {
       setState((s) => ({ ...s, status: "loading" }));
       try {
-        const res = await fetch(`/api/market/trades/reference?${qs}`, {
+        const res = await fetch(qs, {
           credentials: "same-origin",
           signal: ctl.signal,
         });
@@ -144,6 +192,28 @@ export default function RecentRealTrades({ sides, leagueKey }) {
     };
   }, [qs, empty]);
 
+  const modeControl = (
+    <SegmentedControl
+      label="Order real trades by"
+      value={mode}
+      onChange={setMode}
+      options={MODES}
+    />
+  );
+  return (
+    <div className={styles.root}>
+      {modeControl}
+      <ModeBody
+        state={current}
+        empty={empty}
+        comparable={comparable}
+        extraSides={compQuery.extraSides}
+      />
+    </div>
+  );
+}
+
+function ModeBody({ state, empty, comparable, extraSides }) {
   if (empty) {
     return (
       <EmptyState
@@ -194,13 +264,24 @@ export default function RecentRealTrades({ sides, leagueKey }) {
   const body = state.body;
   const trades = body.trades || [];
   const ledger = body.ledger || {};
+  const notIncluded = Object.values(body.methodology?.notIncluded || {});
   return (
-    <div className={styles.root}>
+    <>
       <p className={styles.lede}>
         Reference evidence, not a valuation — these trades do not change the totals or verdict
         above. Verified-dynasty trades since {body.since}
         {ledger.builtAt ? `; ledger rebuilt ${String(ledger.builtAt).slice(0, 10)}` : ""}.
+        {comparable
+          ? " Ranked by resemblance to your package: shared assets, shape, league format and" +
+            " recency. Every trade shown shares at least one asset with it."
+          : ""}
       </p>
+      {comparable && extraSides > 0 ? (
+        <p className={styles.meta}>
+          Similarity compares the first two sides; the other {extraSides} side
+          {extraSides === 1 ? " was" : "s were"} not used.
+        </p>
+      ) : null}
       {trades.length === 0 && body.scanCapped ? (
         <EmptyState
           title="Search stopped before finishing"
@@ -208,8 +289,12 @@ export default function RecentRealTrades({ sides, leagueKey }) {
         />
       ) : trades.length === 0 ? (
         <EmptyState
-          title="No recorded trades"
-          description="No trade in the recorded sample moved these assets in this window."
+          title={comparable ? "No comparable trades" : "No recorded trades"}
+          description={
+            comparable && body.belowMinScore
+              ? `${body.belowMinScore} recorded trade${body.belowMinScore === 1 ? "" : "s"} shared an asset but resembled this package too little to list.`
+              : "No trade in the recorded sample moved these assets in this window."
+          }
         />
       ) : (
         <ol className={styles.list}>
@@ -228,14 +313,18 @@ export default function RecentRealTrades({ sides, leagueKey }) {
       ) : null}
       {body.truncated ? (
         <p className={styles.meta}>
-          Showing the {trades.length} most recent matching trades; older ones are not listed.
+          {comparable
+            ? `Showing the ${trades.length} most similar of ${body.candidates} candidate trades${
+                body.scanCapped ? " among the most recent trades touching these assets" : ""
+              }.`
+            : `Showing the ${trades.length} most recent matching trades; older ones are not listed.`}
         </p>
       ) : null}
-      {(body.query?.unresolved || []).length ? (
+      {unresolvedCount(body) ? (
         <p className={styles.meta}>
-          {body.query.unresolved.length} calculator asset
-          {body.query.unresolved.length === 1 ? "" : "s"} could not be identified and{" "}
-          {body.query.unresolved.length === 1 ? "was" : "were"} not searched.
+          {unresolvedCount(body)} calculator asset
+          {unresolvedCount(body) === 1 ? "" : "s"} could not be identified and{" "}
+          {unresolvedCount(body) === 1 ? "was" : "were"} not searched.
         </p>
       ) : null}
       <details className={styles.about}>
@@ -245,7 +334,30 @@ export default function RecentRealTrades({ sides, leagueKey }) {
             <li key={b}>{b}</li>
           ))}
         </ul>
+        {comparable && body.methodology ? (
+          <>
+            <p>
+              The similarity score is a declared starting model (not yet validated against
+              outcomes). It orders references only — it is never a price or a value.
+            </p>
+            {notIncluded.length ? (
+              <ul>
+                {notIncluded.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        ) : null}
       </details>
-    </div>
+    </>
   );
+}
+
+function unresolvedCount(body) {
+  const q = body?.query || {};
+  if (q.sideA || q.sideB) {
+    return (q.sideA?.unresolved || []).length + (q.sideB?.unresolved || []).length;
+  }
+  return (q.unresolved || []).length;
 }

@@ -203,3 +203,99 @@ export function referenceFailureKind(status) {
   if (status >= 400 && status < 500) return "request_error";
   return "unavailable";
 }
+
+// ── TC-09 — comparable trades (same panel, "Most comparable" mode) ────
+
+/**
+ * Per-side refs for /api/market/trades/comparable.  The similarity model
+ * aligns TWO package sides; a third side (3-team calculator trade) is not
+ * sent, and `extraSides` lets the panel say so instead of hiding it.
+ */
+export function comparableQueryFromSides(sides) {
+  const list = sides || [];
+  const one = (side) => referenceQueryFromSides(side ? [side] : []);
+  return { a: one(list[0]), b: one(list[1]), extraSides: Math.max(0, list.length - 2) };
+}
+
+export function comparableQueryIsEmpty(q) {
+  return !q || (referenceQueryIsEmpty(q.a) && referenceQueryIsEmpty(q.b));
+}
+
+export function comparableQueryString(q, leagueKey) {
+  const params = new URLSearchParams();
+  if (leagueKey) params.set("leagueKey", leagueKey);
+  for (const [prefix, side] of [
+    ["a", q.a],
+    ["b", q.b],
+  ]) {
+    if (side.players.length) params.set(`${prefix}Players`, side.players.join(","));
+    if (side.picks.length) params.set(`${prefix}Picks`, side.picks.join(","));
+    if (side.pickAssetIds.length) params.set(`${prefix}PickAssetIds`, side.pickAssetIds.join(","));
+  }
+  return params.toString();
+}
+
+/** "82% similar" — a relevance score, so it is never shown as a value. */
+export function similarityText(comparability) {
+  const s = comparability?.score;
+  if (typeof s !== "number" || !Number.isFinite(s)) return null;
+  return `${Math.round(s * 100)}% similar`;
+}
+
+// ── TC-08 — the trade database page ───────────────────────────────────
+
+/** Query string for /api/market/trades/database from the page's filters.
+ * Empty / "any" values are omitted, never sent as a default. */
+export function databaseQueryString(filters, leagueKey) {
+  const params = new URLSearchParams();
+  if (leagueKey) params.set("leagueKey", leagueKey);
+  for (const [key, value] of Object.entries(filters || {})) {
+    if (value === null || value === undefined) continue;
+    const text = String(value).trim();
+    if (!text || text === "any") continue;
+    params.set(key, text);
+  }
+  return params.toString();
+}
+
+const UNKNOWN_FILTER_TEXT = {
+  superflex: "QB format",
+  teams: "team count",
+  starters: "starter count",
+  idp: "IDP status",
+  teScoringEdge: "TE scoring",
+  ktcTepLevel: "KTC TEP setting",
+};
+
+/** "3 trades hidden because their team count is not recorded." */
+export function excludedUnknownText(excluded) {
+  const parts = Object.entries(excluded || {})
+    .filter(([, n]) => n > 0)
+    .map(([key, n]) => `${n} with unknown ${UNKNOWN_FILTER_TEXT[key] || key}`);
+  if (!parts.length) return null;
+  return `Not shown because the filtered fact is not recorded: ${parts.join("; ")}.`;
+}
+
+/**
+ * Board name -> Sleeper id for names exactly one player carries.  A name also
+ * carried by a row with NO id is ambiguous too (another player may hold it),
+ * so it is left out rather than resolved to the one id we can see.
+ */
+export function uniquePlayerIndex(rows) {
+  const ids = new Map();
+  const dup = new Set();
+  for (const r of rows || []) {
+    if (!r || r.assetClass === "pick" || r.pos === "PICK") continue;
+    const name = String(r.name || "").trim();
+    const id = String(r.playerId ?? r?.raw?.playerId ?? "").trim();
+    if (!name) continue;
+    if (!id) {
+      dup.add(name);
+      continue;
+    }
+    if (ids.has(name) && ids.get(name) !== id) dup.add(name);
+    else ids.set(name, id);
+  }
+  for (const name of dup) ids.delete(name);
+  return ids;
+}

@@ -1,193 +1,401 @@
-"""C4-MTL-03 — comparable-trade matching.
+"""TC-09 / C4-MTL-03 — comparable real trades for the calculator package.
 
-``_classify`` is tested directly as a pure function over format dicts
-(the shape ``market_trade_ledger._format_metadata`` produces), since that
-is where the real decision logic lives and it needs no registry or
-acquisition-store fixtures to exercise. ``comparable_trades_for_asset``'s
-wiring (grouping, self-exclusion, sorting) is tested with the registry
-and ledger reads replaced by simple stand-ins, so these tests stay
-invariant-based rather than coupled to live registry/scoring-snapshot
-state.
+``src.trade.comparable_trades`` ranks visible ledger trades by a declared
+similarity model.  Pinned here on a synthetic ledger persisted through the
+ledger owner's own writer (fixtures shared with the TC-07 tests):
+
+* overlap is the GATE — a trade sharing no asset is never returned, however
+  "similar" it is otherwise;
+* identity is TC-07's — players by canonical id, picks at exact / round
+  grades, a different tier never matches, unresolved matches nothing;
+* alignment is symmetric (works whichever side the package lists first) and
+  an asset that moved the OTHER way scores lower than the same asset moving
+  the same way;
+* the format component is the ledger's disposition only for THIS league;
+  otherwise it is the configured unknown score — low, never neutral;
+* privacy and projection are TC-07's (withheld rows counted, no ids leak);
+* no canonical value is read and none is computed;
+* config weights are the single source of the numbers.
 """
 
 from __future__ import annotations
 
-from types import SimpleNamespace
+import ast
+import json
+from datetime import date
+from pathlib import Path
 
-import src.trade.comparable_trades as ct
-from src.trade.comparable_trades import (
-    TIER_BROAD,
-    TIER_EXACT,
-    TIER_NEAR,
-    TIER_UNSUPPORTED,
-    _classify,
-    comparable_trades_for_asset,
+import pytest
+
+from src.trade import comparable_trades as ct
+from src.trade import market_trade_reference as ref
+from tests.trade.test_market_trade_reference import (
+    KTC_FMT,
+    LEAGUE,
+    OTHER,
+    SECRET_IDS,
+    TODAY,
+    _fixture_groups,
+    _group,
+    _persist,
+    _pick,
+    _player,
+    _privacy,
+    _unresolved,
 )
 
-
-def _fmt(*, teams=None, superflex=None, tep=None, is2te=None, idp=None):
-    return {
-        "teams": teams,
-        "superflex": superflex,
-        "tep": tep,
-        "tepLevel": None,
-        "is2Te": is2te,
-        "idp": idp,
-    }
+REPO = Path(__file__).resolve().parents[2]
+JEFF, CHASE, LAMB = "6794", "7564", "6786"
 
 
-# ── _classify ────────────────────────────────────────────────────────
-
-
-def test_exact_when_every_core_dimension_and_team_count_match():
-    target = _fmt(teams=12, superflex=True, tep=True, is2te=True, idp=True)
-    source = _fmt(teams=12, superflex=True, tep=True, is2te=True, idp=True)
-    tier, reasons = _classify(target, source)
-    assert tier == TIER_EXACT
-    assert reasons
-
-
-def test_near_when_core_matches_but_team_count_is_close():
-    target = _fmt(teams=12, superflex=True, tep=True, idp=False)
-    source = _fmt(teams=10, superflex=True, tep=True, idp=False)
-    tier, _ = _classify(target, source)
-    assert tier == TIER_NEAR
-
-
-def test_broad_when_team_count_is_far_apart_despite_core_match():
-    target = _fmt(teams=12, superflex=True, tep=True, idp=False)
-    source = _fmt(teams=8, superflex=True, tep=True, idp=False)
-    tier, reasons = _classify(target, source)
-    assert tier == TIER_BROAD
-    assert any("team count" in r for r in reasons)
-
-
-def test_broad_when_a_core_dimension_differs():
-    target = _fmt(teams=12, superflex=True, tep=True, idp=False)
-    source = _fmt(teams=12, superflex=False, tep=True, idp=False)
-    tier, reasons = _classify(target, source)
-    assert tier == TIER_BROAD
-    assert any("superflex" in r for r in reasons)
-
-
-def test_unsupported_when_a_required_dimension_is_unknown_on_either_side():
-    target = _fmt(teams=12, superflex=True, tep=None, idp=False)
-    source = _fmt(teams=12, superflex=True, tep=True, idp=False)
-    tier, reasons = _classify(target, source)
-    assert tier == TIER_UNSUPPORTED
-    assert any("tep" in r for r in reasons)
-
-
-def test_unknown_dimension_is_never_treated_as_a_broad_mismatch():
-    """An unproven dimension must fail closed to UNSUPPORTED, not be
-    silently treated as a match OR a mismatch (which would land it in
-    BROAD instead)."""
-    target = _fmt(teams=12, superflex=None, tep=True, idp=True)
-    source = _fmt(teams=12, superflex=True, tep=True, idp=True)
-    tier, _ = _classify(target, source)
-    assert tier == TIER_UNSUPPORTED
-
-
-def test_near_when_is_2te_mismatches_but_teams_and_core_match():
-    target = _fmt(teams=12, superflex=True, tep=True, idp=False, is2te=True)
-    source = _fmt(teams=12, superflex=True, tep=True, idp=False, is2te=False)
-    tier, _ = _classify(target, source)
-    assert tier == TIER_NEAR
-
-
-# ── comparable_trades_for_asset wiring ─────────────────────────────────
-
-
-def _trade(source_ref, *, asset_id="player:4034", occurred_at_ms=None, fmt=None, rid1=1, rid2=2):
-    return {
-        "leagueKey": "src_league",
-        "sourceRef": source_ref,
-        "season": "2026",
-        "week": 3,
-        "occurredAtMs": occurred_at_ms,
-        "timeFidelity": "exact" if occurred_at_ms is not None else "undated",
-        "assetCount": 1,
-        "teamCount": 2,
-        "teams": {
-            str(rid1): {"received": [], "sent": [{"assetId": asset_id, "assetKind": "player"}]},
-            str(rid2): {"received": [{"assetId": asset_id, "assetKind": "player"}], "sent": []},
-        },
-        "format": fmt or _fmt(teams=12, superflex=True, tep=True, idp=False),
-        "sourceFamily": "own_league_sleeper",
-        "dynastyVerified": True,
-    }
-
-
-def test_comparable_trades_excludes_the_target_league_and_untouched_trades(monkeypatch):
-    monkeypatch.setattr(
-        ct,
-        "TargetFormat",
-        SimpleNamespace(
-            from_registry=lambda key: SimpleNamespace(
-                teams=12, superflex=True, tep=True, tep_level=None, is_2te=True, idp=False
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        ct,
-        "active_leagues",
-        lambda: [SimpleNamespace(key="target"), SimpleNamespace(key="other")],
+def _ktc(gid, date_, sides, *, disposition="BROAD_CONTEXT", target=LEAGUE):
+    return _group(
+        gid,
+        date_=date_,
+        families=[ref.SOURCE_KTC],
+        sides=sides,
+        fmt=KTC_FMT,
+        host="mfl",
+        host_league_id="777777777777777777",
+        disposition=disposition,
+        target=target,
     )
 
-    def _fake_market_trades(league_key, *, path=None):
-        if league_key == "target":
-            # Should never be reached: the target league is excluded before
-            # market_trades is even called for it.
-            raise AssertionError("target league must not be queried")
-        return [
-            _trade("tx:1", asset_id="player:4034", occurred_at_ms=100),
-            _trade("tx:2", asset_id="player:9999", occurred_at_ms=200),  # untouched asset
-        ]
 
-    monkeypatch.setattr(ct, "market_trades", _fake_market_trades)
-
-    results = comparable_trades_for_asset("player:4034", "target")
-
-    assert len(results) == 1
-    assert results[0]["sourceRef"] == "tx:1"
-    assert results[0]["matchTier"] == TIER_EXACT
-
-
-def test_comparable_trades_sorts_newest_first_with_undated_last(monkeypatch):
-    monkeypatch.setattr(
-        ct,
-        "TargetFormat",
-        SimpleNamespace(
-            from_registry=lambda key: SimpleNamespace(
-                teams=12, superflex=True, tep=True, tep_level=None, is_2te=True, idp=False
-            )
-        ),
+def _run(root, a=(), b=(), *, a_picks=(), b_picks=(), a_owned=(), **kw):
+    kw.setdefault("today", TODAY)
+    kw.setdefault("privacy", _privacy())
+    return ct.comparable_trades(
+        kw.pop("league", LEAGUE),
+        side_a=ct.SideRefs(player_ids=a, pick_names=a_picks, pick_asset_ids=a_owned),
+        side_b=ct.SideRefs(player_ids=b, pick_names=b_picks),
+        root=root,
+        **kw,
     )
-    monkeypatch.setattr(ct, "active_leagues", lambda: [SimpleNamespace(key="other")])
-    monkeypatch.setattr(
-        ct,
-        "market_trades",
-        lambda league_key, **kw: [
-            _trade("tx:old", occurred_at_ms=100),
-            _trade("tx:new", occurred_at_ms=300),
-            _trade("tx:undated", occurred_at_ms=None),
+
+
+def _ids(body):
+    return [t["occurredDate"] for t in body["trades"]]
+
+
+@pytest.fixture
+def root(tmp_path):
+    _persist(
+        tmp_path,
+        [
+            # Same 1-for-1, same direction, recent.
+            _ktc("utrade:ktc_trade_database:c1", "2026-10-01", [[_player(JEFF)], [_player(CHASE)]]),
+            # Same two players, but with a third asset: a 2-for-1.
+            _ktc(
+                "utrade:ktc_trade_database:c2",
+                "2026-10-01",
+                [[_player(JEFF), _pick(2027, 1, tier="early")], [_player(CHASE)]],
+            ),
+            # Only Jefferson, for an unrelated player.
+            _ktc("utrade:ktc_trade_database:c3", "2026-10-01", [[_player(JEFF)], [_player(LAMB)]]),
+            # Jefferson and Chase on the SAME side (they moved together, i.e.
+            # in opposite direction relative to a Jefferson-for-Chase package).
+            _ktc(
+                "utrade:ktc_trade_database:c4",
+                "2026-10-01",
+                [[_player(JEFF), _player(CHASE)], [_player(LAMB)]],
+            ),
+            # Shares nothing with the package.
+            _ktc(
+                "utrade:ktc_trade_database:c5", "2026-10-02", [[_player("1111")], [_player("2222")]]
+            ),
+            # Same 1-for-1, a year old.
+            _ktc("utrade:ktc_trade_database:c6", "2025-11-01", [[_player(JEFF)], [_player(CHASE)]]),
         ],
     )
-
-    results = comparable_trades_for_asset("player:4034", "target")
-
-    assert [r["sourceRef"] for r in results] == ["tx:new", "tx:old", "tx:undated"]
+    return tmp_path
 
 
-def test_no_leagues_returns_empty_not_an_error(monkeypatch):
-    monkeypatch.setattr(
-        ct,
-        "TargetFormat",
-        SimpleNamespace(
-            from_registry=lambda key: SimpleNamespace(
-                teams=None, superflex=None, tep=None, tep_level=None, is_2te=None, idp=None
-            )
-        ),
+def _by_shape(body):
+    return {
+        tuple(tuple(a["canonicalId"] for a in side) for side in t["sides"]): t
+        for t in body["trades"]
+    }
+
+
+def test_no_ledger_is_unavailable_not_empty(tmp_path):
+    body = _run(tmp_path, a=[JEFF])
+    assert body["state"] == "unavailable" and body["reason"] == "trade_ledger_not_built"
+    assert body["methodology"]["status"] == "PRIOR_UNVALIDATED"
+
+
+def test_empty_package_is_no_assets(root):
+    body = _run(root)
+    assert body["state"] == "no_assets" and body["trades"] == []
+
+
+def test_overlap_is_the_gate(root):
+    body = _run(root, a=[JEFF], b=[CHASE])
+    for t in body["trades"]:
+        ids = {a["canonicalId"] for side in t["sides"] for a in side}
+        assert ids & {f"player:{JEFF}", f"player:{CHASE}"}
+    assert "2026-10-02" not in _ids(body)  # the no-overlap trade
+
+
+def test_exact_same_trade_ranks_first_and_says_why(root):
+    body = _run(root, a=[JEFF], b=[CHASE])
+    top = body["trades"][0]
+    assert top["occurredDate"] == "2026-10-01"
+    assert [len(s) for s in top["sides"]] == [1, 1]
+    comp = top["comparability"]
+    assert comp["components"]["assetOverlap"]["score"] == 1.0
+    assert comp["components"]["topology"]["score"] == 1.0
+    keys = [r["key"] for r in comp["reasons"]]
+    assert keys[:2] == ["sharedExact", "topology"]
+    assert "Same 1-for-1 shape" in [r["text"] for r in comp["reasons"]]
+
+
+def test_alignment_is_symmetric(root):
+    ab = _run(root, a=[JEFF], b=[CHASE])
+    ba = _run(root, a=[CHASE], b=[JEFF])
+    assert [t["comparability"]["score"] for t in ab["trades"]] == [
+        t["comparability"]["score"] for t in ba["trades"]
+    ]
+
+
+def test_opposite_direction_scores_below_same_direction(root):
+    trades = _by_shape(_run(root, a=[JEFF], b=[CHASE]))
+    same = trades[((f"player:{JEFF}",), (f"player:{CHASE}",))]
+    together = trades[((f"player:{JEFF}", f"player:{CHASE}"), (f"player:{LAMB}",))]
+    assert together["comparability"]["alignment"]["oppositeDirectionMatches"] == 1
+    assert "oppositeDirection" in [r["key"] for r in together["comparability"]["reasons"]]
+    assert (
+        together["comparability"]["components"]["assetOverlap"]["score"]
+        < same["comparability"]["components"]["assetOverlap"]["score"]
     )
-    monkeypatch.setattr(ct, "active_leagues", lambda: [])
-    assert comparable_trades_for_asset("player:4034", "target") == []
+
+
+def test_partial_overlap_and_shape_mismatch_rank_lower(root):
+    body = _run(root, a=[JEFF], b=[CHASE])
+    trades = _by_shape(body)
+    exact = trades[((f"player:{JEFF}",), (f"player:{CHASE}",))]["comparability"]["score"]
+    plus_pick = next(t for t in body["trades"] if [len(s) for s in t["sides"]] == [2, 1])
+    one_shared = trades[((f"player:{JEFF}",), (f"player:{LAMB}",))]["comparability"]["score"]
+    assert exact > plus_pick["comparability"]["score"] > one_shared
+    assert plus_pick["comparability"]["components"]["topology"]["score"] < 1.0
+
+
+def test_recency_orders_otherwise_identical_trades(root):
+    body = _run(root, a=[JEFF], b=[CHASE])
+    same = [
+        t
+        for t in body["trades"]
+        if [a["canonicalId"] for s in t["sides"] for a in s]
+        == [f"player:{JEFF}", f"player:{CHASE}"]
+    ]
+    assert [t["occurredDate"] for t in same] == ["2026-10-01", "2025-11-01"]
+    assert same[0]["comparability"]["score"] > same[1]["comparability"]["score"]
+
+
+def test_pick_grades_follow_tc07(tmp_path):
+    _persist(
+        tmp_path,
+        [
+            _ktc(
+                "utrade:ktc_trade_database:p1",
+                "2026-10-01",
+                [[_pick(2027, 1, tier="early")], [_player(JEFF)]],
+            ),
+            _ktc(
+                "utrade:ktc_trade_database:p2",
+                "2026-10-01",
+                [[_pick(2027, 1, tier="late")], [_player(LAMB)]],
+            ),
+            _ktc("utrade:ktc_trade_database:p3", "2026-10-01", [[_pick(2027, 1)], [_player(LAMB)]]),
+        ],
+    )
+    body = _run(tmp_path, a_picks=["2027 Early 1st"])
+    texts = [r["text"] for t in body["trades"] for r in t["comparability"]["reasons"]]
+    assert any(t.startswith("Same asset: 2027 Early 1st") for t in texts)
+    assert any(
+        t.startswith("Same pick round: 2027 1.") or t.startswith("Same pick round: 2027")
+        for t in texts
+    )
+    # The Late 1st never matches an Early 1st package.
+    for t in body["trades"]:
+        assert all(a["canonicalId"] != "mpick:2027:r1:tlate" for side in t["sides"] for a in side)
+    assert len(body["trades"]) == 2
+
+
+def test_unresolved_ledger_asset_matches_nothing(tmp_path):
+    _persist(
+        tmp_path,
+        [
+            _ktc(
+                "utrade:ktc_trade_database:u1",
+                "2026-10-01",
+                [[_unresolved("Justin Jefferson")], [_player(LAMB)]],
+            )
+        ],
+    )
+    assert _run(tmp_path, a=[JEFF])["trades"] == []
+
+
+def test_format_component_uses_this_leagues_disposition_only(tmp_path):
+    cfg = ct.load_comparable_config()
+    _persist(
+        tmp_path,
+        [
+            _ktc(
+                "utrade:ktc_trade_database:f1",
+                "2026-10-01",
+                [[_player(JEFF)], [_player(CHASE)]],
+                disposition="NATIVE_COMPARABLE",
+            ),
+            _ktc(
+                "utrade:ktc_trade_database:f2",
+                "2026-09-30",
+                [[_player(JEFF)], [_player(CHASE)]],
+                disposition="NATIVE_COMPARABLE",
+                target=OTHER,
+            ),
+        ],
+    )
+    body = _run(tmp_path, a=[JEFF], b=[CHASE])
+    fmt = {t["occurredDate"]: t["comparability"]["components"]["format"] for t in body["trades"]}
+    assert fmt["2026-10-01"] == {
+        "score": cfg["formatScores"]["NATIVE_COMPARABLE"],
+        "weight": cfg["weights"]["format"],
+        "applicable": True,
+        "state": "known",
+    }
+    # Computed for another league: unknown, scored LOW — not the native score
+    # and not a neutral 0.5.
+    assert fmt["2026-09-30"]["state"] == "unknown"
+    assert fmt["2026-09-30"]["score"] == cfg["unknownFormatScore"] < 0.5
+
+
+def test_score_is_the_configured_weighted_mean_over_applicable_components(root):
+    cfg = ct.load_comparable_config()
+    for a, b in (([JEFF], [CHASE]), ([JEFF], [])):
+        body = _run(root, a=a, b=b)
+        for t in body["trades"]:
+            comps = t["comparability"]["components"]
+            live = [k for k in ct.COMPONENTS if comps[k]["applicable"]]
+            total = sum(cfg["weights"][k] for k in live)
+            expect = sum(cfg["weights"][k] * comps[k]["score"] for k in live) / total
+            assert t["comparability"]["score"] == pytest.approx(expect, abs=1e-3)
+
+
+def _score(sides, a=(), b=(), *, a_picks=(), b_picks=()):
+    cfg = ct.load_comparable_config()
+    refs_a = ct.ref_queries(LEAGUE, ct.SideRefs(player_ids=a, pick_names=a_picks))
+    refs_b = ct.ref_queries(LEAGUE, ct.SideRefs(player_ids=b, pick_names=b_picks))
+    rec = {"sides": sides, "occurredDate": "2026-10-08"}
+    fm = {"appliesToThisLeague": True, "disposition": "NATIVE_COMPARABLE"}
+    return ct.score_trade(rec, fm, refs_a, refs_b, own=False, today=TODAY, cfg=cfg)
+
+
+def test_matching_is_one_to_one_so_a_missing_asset_never_ties_the_exact_trade():
+    # Package: 2027 1st + 2028 1st for player 100.
+    pkg = {"a_picks": ["2027 Round 1", "2028 Round 1"], "b": ["100"]}
+    exact = _score([[_pick(2027, 1), _pick(2028, 1)], [_player("100")]], **pkg)
+    missing_2028 = _score([[_pick(2027, 1), _pick(2027, 1)], [_player("100")]], **pkg)
+    assert exact["score"] > missing_2028["score"]
+    assert (
+        exact["components"]["assetOverlap"]["score"]
+        > missing_2028["components"]["assetOverlap"]["score"]
+    )
+
+
+def test_extra_copies_of_a_matched_asset_do_not_raise_overlap():
+    one = _score([[_pick(2027, 1)], [_player("100")]], a_picks=["2027 Round 1"], b=["100"])
+    two = _score(
+        [[_pick(2027, 1), _pick(2027, 1)], [_player("100")]], a_picks=["2027 Round 1"], b=["100"]
+    )
+    assert one["components"]["assetOverlap"]["score"] > two["components"]["assetOverlap"]["score"]
+    assert one["score"] > two["score"]
+
+
+def test_one_trade_asset_is_never_counted_in_both_directions():
+    block = _score(
+        [[_pick(2027, 1)], [_player("999")]],
+        a_picks=["2027 Round 1"],
+        b_picks=["2027 Round 1"],
+    )
+    keys = [r["key"] for r in block["reasons"]]
+    assert keys.count("sharedRound") + keys.count("oppositeDirection") == 1
+    assert block["alignment"]["oppositeDirectionMatches"] == 0
+
+
+def test_one_sided_package_does_not_score_or_claim_a_shape():
+    block = _score([[_player("100")], [_player(str(i)) for i in range(1, 6)]], a=["100"])
+    topo = block["components"]["topology"]
+    assert topo == {"score": None, "weight": topo["weight"], "applicable": False}
+    texts = [r["text"] for r in block["reasons"]]
+    assert "Shape not compared until both sides have assets" in texts
+    assert not any(t.startswith("Same") and "shape" in t for t in texts)
+
+
+def test_broad_context_never_outranks_unknown():
+    cfg = ct.load_comparable_config()
+    assert cfg["formatScores"]["BROAD_CONTEXT"] <= cfg["unknownFormatScore"]
+    assert cfg["formatScores"]["TARGET_UNSUPPORTED"] <= cfg["formatScores"]["BROAD_CONTEXT"]
+    assert cfg["unknownFormatScore"] < 0.5
+
+
+def test_min_score_drops_weak_candidates_and_counts_them(root):
+    cfg = {**ct.load_comparable_config(), "minScore": 0.99}
+    body = _run(root, a=[JEFF], b=[CHASE], config=cfg)
+    assert body["trades"] == [] and body["belowMinScore"] >= 1
+    assert body["methodology"]["minScore"] == 0.99
+
+
+def test_limit_truncates_after_ranking(root):
+    body = _run(root, a=[JEFF], b=[CHASE], limit=1)
+    assert len(body["trades"]) == 1 and body["truncated"] is True
+    assert body["candidates"] > 1
+
+
+def test_privacy_rules_and_projection_are_tc07s(tmp_path):
+    _persist(tmp_path, _fixture_groups())
+    body = _run(tmp_path, a=[JEFF])
+    families = {f for t in body["trades"] for f in t["sourceFamilies"]}
+    assert "mystery_lane" not in families
+    assert body["withheld"].get(ref.WITHHELD_UNKNOWN_FAMILY) == 1
+    assert body["withheld"].get(ref.WITHHELD_OTHER_LEAGUE) == 1
+    text = json.dumps(body)
+    for secret in SECRET_IDS:
+        assert secret not in text
+    assert "utrade:" not in text
+
+
+def test_methodology_names_what_is_not_measured(root):
+    body = _run(root, a=[JEFF])
+    not_included = body["methodology"]["notIncluded"]
+    assert {"packageValueProximity", "pickHorizon"} <= set(not_included)
+    assert "never" in body["methodology"]["statement"].lower()
+
+
+def test_module_reads_no_value_and_computes_none():
+    src = (REPO / "src/trade/comparable_trades.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    strings = {
+        n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
+    }
+    for banned in ("rankDerivedValue", "value", "targetPriceAuthority", "ktcMarket"):
+        assert banned not in strings, banned
+    imports = {
+        a.name if isinstance(n, ast.Import) else (n.module or "")
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.Import, ast.ImportFrom))
+        for a in (n.names if isinstance(n, ast.Import) else [n])
+    }
+    assert not any("data_contract" in m or "market_trade_format" in m for m in imports)
+
+
+def test_today_default_does_not_crash(root):
+    body = ct.comparable_trades(
+        LEAGUE,
+        side_a=ct.SideRefs(player_ids=[JEFF]),
+        side_b=ct.SideRefs(),
+        root=root,
+        privacy=_privacy(),
+    )
+    assert body["state"] == "ok"
+    assert date.fromisoformat(body["since"])
