@@ -1,74 +1,64 @@
 {
-  "computedAt": "2026-10-15T12:14:57.381300+00:00",
+  "computedAt": "2026-10-15T17:28:30.213271+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.9935,
-      "finalsOdds": 0.998,
+      "championshipOdds": 0.9886,
+      "finalsOdds": 0.9952,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.01,
+      "expectedFinish": 1.02,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.0041,
-      "finalsOdds": 0.6312,
-      "semifinalOdds": 0.9975,
+      "championshipOdds": 0.0053,
+      "finalsOdds": 0.5746,
+      "semifinalOdds": 0.9877,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.37,
+      "expectedFinish": 2.45,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.0015,
-      "finalsOdds": 0.2598,
-      "semifinalOdds": 0.8439,
+      "championshipOdds": 0.0043,
+      "finalsOdds": 0.3073,
+      "semifinalOdds": 0.832,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.33,
+      "expectedFinish": 3.29,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.0006,
-      "finalsOdds": 0.1042,
-      "semifinalOdds": 0.6825,
+      "championshipOdds": 0.0015,
+      "finalsOdds": 0.1105,
+      "semifinalOdds": 0.6823,
       "playoffOdds": 1.0,
-      "expectedFinish": 4.14,
+      "expectedFinish": 4.11,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "831633191830933504",
       "displayName": "Collin",
       "championshipOdds": 0.0003,
-      "finalsOdds": 0.0068,
-      "semifinalOdds": 0.4413,
+      "finalsOdds": 0.0121,
+      "semifinalOdds": 0.441,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.19,
+      "expectedFinish": 5.11,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0322,
-      "playoffOdds": 0.9966,
-      "expectedFinish": 5.93,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "1208452010173538304",
-      "displayName": "Kich",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0017,
-      "playoffOdds": 0.5903,
-      "expectedFinish": 6.25,
+      "finalsOdds": 0.0003,
+      "semifinalOdds": 0.0528,
+      "playoffOdds": 0.9995,
+      "expectedFinish": 6.02,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -76,9 +66,19 @@
       "displayName": "Ty",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0009,
-      "playoffOdds": 0.4131,
-      "expectedFinish": 6.78,
+      "semifinalOdds": 0.0022,
+      "playoffOdds": 0.5037,
+      "expectedFinish": 6.49,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1208452010173538304",
+      "displayName": "Kich",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.002,
+      "playoffOdds": 0.4968,
+      "expectedFinish": 6.51,
       "contenderTier": "Fringe Playoff Team"
     },
     {
@@ -88,7 +88,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 9.75,
+      "expectedFinish": 9.83,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -108,7 +108,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 9.26,
+      "expectedFinish": 9.19,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -118,7 +118,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 10.99,
+      "expectedFinish": 10.97,
       "contenderTier": "Rebuilder / Seller"
     }
   ],
