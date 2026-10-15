@@ -85,6 +85,37 @@ def test_db_targets_reach_a_db_needy_team_through_the_positional_floor():
     assert result["metadata"]["needSource"]["source"] == "team_weakness_owner"
 
 
+def test_every_offered_asset_names_the_gate_that_admitted_it():
+    """The response must not advertise one gate (``boardTopNFilter``) while
+    applying two: an asset only the positional floor admitted says so."""
+    board, roster = _offense_heavy_board()
+    top_n = sum(1 for p in board if p.display_value >= 5000)
+    pool = sg._apply_board_top_n_filter(list(board), top_n)
+    result = generate_suggestions_from_pool(
+        roster,
+        list(pool),
+        starter_needs=NEEDS,
+        roster_pool=board,
+        team_count=2,
+        weakness_needs=["DB"],
+    )
+    assets = [
+        a
+        for cat in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")
+        for s in result[cat]
+        for side in ("give", "receive")
+        for a in s[side]
+    ]
+    assert assets
+    pool_names = {p.name for p in pool}
+    for a in assets:
+        if a["name"] in pool_names:
+            assert a["qualityGate"] == sg.QUALITY_GATE_TOP_N, a
+        else:
+            assert a["qualityGate"] == sg.QUALITY_GATE_POSITIONAL_FLOOR, a
+    assert any(a["qualityGate"] == sg.QUALITY_GATE_POSITIONAL_FLOOR for a in assets)
+
+
 def test_without_roster_pool_the_legacy_behaviour_is_unchanged():
     board, roster = _offense_heavy_board()
     top_n = sum(1 for p in board if p.display_value >= 5000)

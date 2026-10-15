@@ -1229,6 +1229,60 @@ export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
   return null;
 }
 
+/**
+ * The row a trade entry should be priced on.
+ *
+ * A suppressed generic-tier pick row ("2027 Mid 1st" once 2027 is the
+ * current class) carries no value: the board aliases it to its slot row
+ * ("2027 Pick 1.06") through ``pickAliases``.  Search already hides those
+ * rows, but every path that turns a NAME back into a row — a saved
+ * workspace, a share link, a KTC import, a trade imported from history —
+ * matched the name exactly and landed on the unpriced alias.  A trade saved
+ * while 2027 was still a future class then rehydrated as "—" / unpriced
+ * after the class roll.
+ *
+ * Follows the alias (``resolvePickRow``); an owned pick keeps its canonical
+ * ``assetId`` and label.  When nothing resolves the entry is returned
+ * unchanged — still visible and labelled unpriced, never dropped.
+ */
+export function canonicalTradeEntry(entry, rowLookup, pickAliases) {
+  if (!entry || !isSuppressedGenericPickRow(entry)) return entry;
+  const target = resolvePickRow(entry.name, rowLookup, pickAliases);
+  if (!target || target === entry) return entry;
+  if (!entry.assetId) return target;
+  return { ...target, assetId: entry.assetId, assetLabel: entry.assetLabel || entry.name };
+}
+
+/**
+ * ``sides`` with every suppressed-alias entry re-anchored to its priced row
+ * (``canonicalTradeEntry``).  Destinations keyed by the old entry key move
+ * with the entry.  Returns the SAME array when nothing changed, so a React
+ * effect can call it on every board refresh without looping.
+ */
+export function reanchorSuppressedPickEntries(sides, rowLookup, pickAliases) {
+  let changed = false;
+  const next = (sides || []).map((side) => {
+    const assets = side?.assets || [];
+    if (!assets.some(isSuppressedGenericPickRow)) return side;
+    const destinations = { ...(side.destinations || {}) };
+    const mapped = assets.map((entry) => {
+      const fixed = canonicalTradeEntry(entry, rowLookup, pickAliases);
+      if (fixed !== entry) {
+        changed = true;
+        const oldKey = tradeEntryKey(entry);
+        const newKey = tradeEntryKey(fixed);
+        if (oldKey in destinations && oldKey !== newKey) {
+          if (!(newKey in destinations)) destinations[newKey] = destinations[oldKey];
+          delete destinations[oldKey];
+        }
+      }
+      return fixed;
+    });
+    return { ...side, assets: mapped, destinations };
+  });
+  return changed ? next : sides;
+}
+
 // ── Trade Side Helpers ───────────────────────────────────────────────────
 // Identity and quantity rules live in ./trade-assets.js.  Every asset is
 // repeatable in the calculator (owner decision 2026-10-03, superseding
