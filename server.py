@@ -9728,7 +9728,8 @@ async def post_trade_package_builder(request: Request):
           "evidence": "any" | "external",
           "useTeamContext": true,
           "refinement": {"lock": [], "exclude": []},
-          "limit": 10                            // 1-25
+          "limit": 10,                           // 1-25
+          "perOpponent": false                   // best package per opponent only
         }
 
     Every constraint is applied during generation (``src/trade/package_builder``).
@@ -9797,6 +9798,7 @@ async def post_trade_package_builder(request: Request):
     if evidence not in _pb.EVIDENCE_LEVELS:
         return _bad("invalid_evidence", allowed=list(_pb.EVIDENCE_LEVELS))
     allow_picks = body.get("allowPicks", False) is True
+    per_opponent = body.get("perOpponent", False) is True
     refinement, error = _refinement_from_body(body)
     if error is not None:
         return error
@@ -9841,6 +9843,7 @@ async def post_trade_package_builder(request: Request):
             target=target or None,
             opponent=opponent or None,
             outgoing=outgoing,
+            per_opponent=per_opponent,
             return_positions=return_positions,
             max_assets_per_side=max_side,
             allow_picks=allow_picks,

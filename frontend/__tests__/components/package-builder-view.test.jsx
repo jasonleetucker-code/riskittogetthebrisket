@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@/lib/trade-share", () => ({ buildShareUrl: () => "/trade?share=x" }));
 
 import PackageBuilderView from "@/app/arbitrage/PackageBuilderView";
-import { buildRequest } from "@/lib/package-builder";
+import { buildRequest, modeRequestFields, resultCountText } from "@/lib/package-builder";
 
 const TEAMS = [
   { name: "Us", players: ["Our WR", "Our RB"] },
@@ -133,5 +133,70 @@ describe("Package Builder view", () => {
       expect(screen.getByLabelText("Player or pick you want (optional)")).toHaveValue(""),
     );
     expect(screen.getByLabelText("From team")).toHaveValue("");
+  });
+
+  it("Sell a player sends that one asset and asks for the best offer per team", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      ok({
+        grouping: "best_per_opponent",
+        opponentsSearched: 1,
+        request: { perOpponent: true },
+        packages: [PKG],
+      }),
+    );
+    render(<PackageBuilderView myTeam="Us" leagueKey="lg" ownerKey="me" teams={TEAMS} />);
+    await user.click(screen.getByRole("radio", { name: "Sell a player" }));
+    expect(screen.getByRole("button", { name: "Build packages" })).toBeDisabled();
+    expect(screen.getByText("Choose the player you want to sell.")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Player to sell"), "Our WR");
+    await user.click(screen.getByRole("button", { name: "Build packages" }));
+    expect(await screen.findByText("1 team has an offer (of 1 searched).")).toBeInTheDocument();
+    const sent = body(global.fetch.mock.calls[0]);
+    expect(sent).toMatchObject({ outgoing: ["Our WR"], perOpponent: true });
+    expect(sent.target).toBeUndefined();
+    expect(sent.opponent).toBeUndefined();
+  });
+
+  it("Improve a position asks for that position back, per team", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(ok({ packages: [PKG] }));
+    render(<PackageBuilderView myTeam="Us" leagueKey="lg" ownerKey="me" teams={TEAMS} />);
+    await user.click(screen.getByRole("radio", { name: "Improve a position" }));
+    await user.selectOptions(screen.getByLabelText("Position to improve"), "QB");
+    await user.click(screen.getByRole("button", { name: "Build packages" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(body(global.fetch.mock.calls[0])).toMatchObject({
+      returnPositions: ["QB"],
+      perOpponent: true,
+    });
+  });
+
+  it("Acquire a player requires the target", () => {
+    expect(modeRequestFields("acquire", { target: " " })).toMatchObject({
+      ready: false,
+      missing: "Choose the player or pick you want.",
+    });
+    expect(modeRequestFields("acquire", { target: "Their QB", opponent: "Them" })).toMatchObject({
+      ready: true,
+      target: "Their QB",
+      opponent: "Them",
+      perOpponent: false,
+    });
+    expect(modeRequestFields("improve", { improvePosition: "PICKS" }).ready).toBe(false);
+    expect(modeRequestFields("custom", {}).ready).toBe(true);
+  });
+
+  it("result counts follow the server's grouping", () => {
+    expect(resultCountText({ packages: [PKG, PKG], grouping: "best_per_opponent" })).toBe(
+      "2 teams have an offer.",
+    );
+    expect(resultCountText({ packages: [PKG], request: { opponent: "Them" } })).toBe(
+      "1 package found with Them.",
+    );
+    expect(
+      buildRequest({ myTeam: "Us", maxSide: 2, perOpponent: true, refinement: { lock: [], exclude: [] } })
+        .perOpponent,
+    ).toBe(true);
   });
 });

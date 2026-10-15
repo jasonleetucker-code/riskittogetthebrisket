@@ -266,3 +266,39 @@ def test_the_search_budget_is_reported_never_silent(monkeypatch):
     monkeypatch.setattr(pb, "SEARCH_BUDGET_PER_SHAPE_GROUP", 1)
     out = _build(MINE, THEIRS)
     assert out["searchTruncated"] is True
+
+
+THIRD = [
+    ("Third WR", "WR", 4150, 4050, 4050, "NYJ"),
+    ("Third TE", "TE", 3900, 3800, 3800, "LV"),
+]
+
+
+def test_sell_a_player_lists_each_buyer_once():
+    """ "Sell a player" (outgoing = one asset, per_opponent): every package
+    sends that asset, and each opponent appears at most once."""
+    out = _build(MINE, THEIRS, third=THIRD, outgoing=["Our WR"], per_opponent=True)
+    assert out["packages"], out
+    assert all(s == {"Our WR"} for s in _sent(out))
+    opps = [p["opponent"] for p in out["packages"]]
+    assert len(opps) == len(set(opps))
+    assert out["grouping"] == "best_per_opponent"
+    assert out["opponentsSearched"] == 2
+    assert out["opponentsWithOffers"] == len(opps)
+    assert out["request"]["perOpponent"] is True
+
+
+def test_per_opponent_keeps_each_opponents_best_from_the_ungrouped_order():
+    grouped = _build(MINE, THEIRS, third=THIRD, outgoing=["Our WR"], per_opponent=True)
+    ungrouped = _build(MINE, THEIRS, third=THIRD, outgoing=["Our WR"], limit=25)
+    best = {}
+    for p in ungrouped["packages"]:
+        best.setdefault(p["opponent"], p)
+    for p in grouped["packages"]:
+        assert best[p["opponent"]]["receive"] == p["receive"]
+
+
+def test_without_per_opponent_the_response_is_unchanged():
+    out = _build(MINE, THEIRS, third=THIRD, outgoing=["Our WR"])
+    assert "grouping" not in out
+    assert out["request"]["perOpponent"] is False
