@@ -207,7 +207,7 @@ export default function TradeDeskView({ leagueKey }) {
     );
   }
   return (
-    <section className={styles.view} aria-label="Trade Desk">
+    <section className={`${styles.view} psi-editorial`} aria-label="Trade Desk">
       <p className={styles.muted}>
         Your private list of trade ideas. Save packages from the views above and
         mark where each one stands. The app cannot see whether a trade was sent,
