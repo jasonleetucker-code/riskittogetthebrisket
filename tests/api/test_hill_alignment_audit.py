@@ -245,7 +245,19 @@ def test_identity_csv_override_and_incumbent_threshold_change_nothing(raw, base,
     before = (dict(dc._SOURCE_CSV_PATHS), dc._hampel_filter_per_player)
     same_csv = vr.build(raw, vr.csv_override_spec(paths))
     same_floor = vr.build(raw, vr.hampel_threshold_spec(dc._HAMPEL_MIN_THRESHOLD))
-    assert vr.board_diff(base, same_csv)["rowsChanged"] == 0
+    # The CSV seam is identity up to QUANTIZATION, not bit-exact.  The rewrite
+    # rescales each source to a 9999 top at 4 decimals, the far-future
+    # derivation rounds its stepped votes to 1 decimal
+    # (``_inject_far_future_pick_sources``), and the board truncates to an
+    # integer.  A derived row sitting on a truncation boundary can therefore
+    # move by exactly 1 (measured 2026-10-15: "2030 Late 1st" 2938 -> 2939 and
+    # the "2030 Round 1" generic that averages it, once the board rolled to
+    # 2027 and 2030 became a derived year).  The same one-unit truncation slack
+    # ``_BLEND_HULL_QUANTIZATION_*`` already treats as precision, not policy.
+    diff = vr.board_diff(base, same_csv)
+    assert all(abs(m["delta"]) <= 1 for m in diff["largestMoves"]), diff["largestMoves"]
+    assert diff["top200MembershipChanges"] == 0
+    # The threshold seam rewrites nothing, so it stays exact.
     assert vr.board_hash(same_floor) == vr.board_hash(base)
     assert (dict(dc._SOURCE_CSV_PATHS), dc._hampel_filter_per_player) == before
 
