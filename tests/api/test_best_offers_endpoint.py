@@ -142,3 +142,63 @@ def test_refinement_keys_must_be_other_teams_in_the_league(authed):
         )
         assert res.status_code == 400, key
         assert res.json()["error"] == "invalid_refinement"
+
+
+def test_each_offer_carries_descriptive_manager_evidence(authed, monkeypatch):
+    from src.intel import manager_scout as ms
+
+    seen = {}
+
+    def fake_scout(league_key, **kw):
+        seen["league"] = league_key
+        return {
+            "managers": [
+                {
+                    "ownerId": "2",
+                    "tradeTendencies": {
+                        "state": "measured",
+                        "tradeCount": 3,
+                        "received": {
+                            "assets": 4,
+                            "players": 4,
+                            "picks": 0,
+                            "byPosition": {"WR": 2},
+                        },
+                        "packageShape": {"even": 3},
+                        "partners": [{"ownerId": "1", "trades": 1}],
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(ms, "cached_manager_scout", fake_scout)
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "useTeamContext": False},
+        headers={"x-test-user": "jason"},
+    )
+    assert res.status_code == 200, res.text
+    ev = res.json()["opponents"][0]["offer"]["managerEvidence"]
+    assert seen["league"] == "main"
+    assert ev["state"] == "measured"
+    assert ev["positionsTheyWouldReceive"] == [
+        {"position": "WR", "receivedBefore": 2, "ofPlayersReceived": 4}
+    ]
+    assert ev["tradesWithRequester"] == 1
+
+
+def test_a_scout_fault_leaves_an_unavailable_block_not_a_500(authed, monkeypatch):
+    from src.intel import manager_scout as ms
+
+    def boom(*a, **k):
+        raise RuntimeError("store down")
+
+    monkeypatch.setattr(ms, "cached_manager_scout", boom)
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "useTeamContext": False},
+        headers={"x-test-user": "jason"},
+    )
+    assert res.status_code == 200, res.text
+    ev = res.json()["opponents"][0]["offer"]["managerEvidence"]
+    assert (ev["state"], ev["reason"]) == ("unavailable", "manager_scout_unavailable")

@@ -9271,6 +9271,50 @@ def _generated_trade_team_context(
     return needs_by_owner, lineup_delta, capacity_for
 
 
+def _attach_manager_evidence(
+    offers: list[tuple[str, dict[str, Any]]],
+    *,
+    contract: Any,
+    league_cfg: Any,
+    sleeper_teams: list[dict[str, Any]],
+    my_team: str,
+) -> None:
+    """Stamp ``managerEvidence`` on each ``(opponent team, offer)`` pair.
+
+    Descriptive counts from the opponent's own completed trades, read from
+    the ONE Manager Scout owner (``manager_scout.offer_evidence`` over the
+    memoised profile) — never a probability.  Fails soft: any fault leaves an
+    explicit ``unavailable`` block rather than taking down the generator.
+    Only from a board whose teams belong to this league (the same gate
+    ``/api/manager-scout`` applies).
+    """
+    if not offers:
+        return
+    from src.intel import manager_scout as _scout
+
+    owner_of = {str(t.get("name") or ""): str(t.get("ownerId") or "") for t in sleeper_teams}
+    try:
+        teams = _manager_scout_api._current_teams(contract, league_cfg.key)
+        scout = (
+            _scout.cached_manager_scout(
+                league_cfg.key, league_cfg=league_cfg, current_teams=teams, contract=contract
+            )
+            if teams
+            else None
+        )
+    except Exception:  # noqa: BLE001 — a store fault is an unavailable state
+        log.exception("manager evidence: scout build failed for %s", league_cfg.key)
+        scout = None
+    for team, offer in offers:
+        offer["managerEvidence"] = _scout.offer_evidence(
+            scout,
+            opponent_owner_id=owner_of.get(team),
+            requester_owner_id=owner_of.get(my_team),
+            they_receive=offer.get("send") or [],
+            they_send=offer.get("receive") or [],
+        )
+
+
 @app.post("/api/trade/best-offers")
 async def post_trade_best_offers(request: Request):
     """Best Trade to Send Each Team (C7-BEST-TRADE) — one offer per opponent.
@@ -9415,6 +9459,17 @@ async def post_trade_best_offers(request: Request):
         stamp = (meta or {}).get("generatedAt") if isinstance(meta, dict) else None
         result["runId"] = _best_offers.record_run(
             result, league_key=league_cfg.key, board_stamp=stamp
+        )
+        _attach_manager_evidence(
+            [
+                (str(card.get("team") or ""), card["offer"])
+                for card in result.get("opponents") or []
+                if isinstance(card.get("offer"), dict)
+            ],
+            contract=contract,
+            league_cfg=league_cfg,
+            sleeper_teams=sleeper_teams,
+            my_team=my_team,
         )
         return result
 
@@ -9659,7 +9714,7 @@ async def post_trade_package_builder(request: Request):
             capacity_context=capacity_context,
             surface="package builder",
         )
-        return _pb.build_packages(
+        built = _pb.build_packages(
             players,
             my_team,
             sleeper_teams,
@@ -9679,6 +9734,18 @@ async def post_trade_package_builder(request: Request):
             pick_forecasts=pick_forecasts,
             limit=limit,
         )
+        _attach_manager_evidence(
+            [
+                (str(p.get("opponent") or ""), p)
+                for p in built.get("packages") or []
+                if isinstance(p, dict)
+            ],
+            contract=contract,
+            league_cfg=league_cfg,
+            sleeper_teams=sleeper_teams,
+            my_team=my_team,
+        )
+        return built
 
     try:
         result = await run_in_threadpool(_generate)

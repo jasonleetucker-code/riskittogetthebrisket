@@ -89,6 +89,43 @@ describe("Best offer by opponent view", () => {
     expect(body(global.fetch.mock.calls[0])).toMatchObject({ myTeam: "Us", useTeamContext: true });
   });
 
+  it("shows the opponent's trade history as counts, or why it is missing", async () => {
+    const user = userEvent.setup();
+    const withHistory = {
+      ...QUALIFIED,
+      offer: {
+        ...QUALIFIED.offer,
+        managerEvidence: {
+          state: "measured",
+          tradeCount: 5,
+          positionsTheyWouldReceive: [{ position: "WR", receivedBefore: 2, ofPlayersReceived: 6 }],
+          picksTheyWouldReceive: null,
+          offerShapeForThem: "even",
+          sameShapeBefore: 3,
+          tradesWithRequester: 0,
+          unresolvedPositionReceived: 0,
+        },
+      },
+    };
+    const noHistory = {
+      ...QUALIFIED,
+      team: "Other",
+      offer: {
+        ...QUALIFIED.offer,
+        managerEvidence: { state: "insufficient_sample", reason: "no_completed_trades_observed" },
+      },
+    };
+    global.fetch = vi.fn().mockResolvedValue(payload([withHistory, noHistory]));
+    render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them", "Other"]} />);
+    await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+
+    expect(await screen.findByText("Them: trade history")).toBeInTheDocument();
+    expect(screen.getByText("Received 2 WR of 6 players acquired by trade")).toBeInTheDocument();
+    expect(screen.getByText("3 of 5 trades had this shape for them (even)")).toBeInTheDocument();
+    expect(screen.getByText("0 trades completed with you")).toBeInTheDocument();
+    expect(screen.getByText("Manager history: no completed trades on record.")).toBeInTheDocument();
+  });
+
   it("LOCK on a card regenerates only that opponent with its refinement", async () => {
     const user = userEvent.setup();
     global.fetch = vi

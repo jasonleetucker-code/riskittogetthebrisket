@@ -18,6 +18,7 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import ManagerEvidence from "@/components/trade/ManagerEvidence";
 import {
   UNKNOWN,
   concentrationLine,
@@ -179,6 +180,7 @@ function OfferCard({ card, myTeam, refine, regenerating }) {
               </li>
             ))}
           </ul>
+          <ManagerEvidence evidence={offer.managerEvidence} team={card.team} />
           <details className={styles.factors}>
             <summary>How this offer ranked</summary>
             <dl>
