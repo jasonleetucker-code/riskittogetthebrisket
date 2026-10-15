@@ -1466,6 +1466,50 @@ export function defaultDestination(sideIdx, sideCount) {
 }
 
 /**
+ * Load an imported trade (KTC URL, screenshot) into sides A and B — the ONE
+ * bulk-load rule both importers share, so they cannot drift apart.
+ *
+ *   mode "replace" — sides A and B take exactly the imported entries; any
+ *                    3rd+ side is left untouched.  Destinations are rebuilt
+ *                    from scratch: in a 3+-team trade each imported entry is
+ *                    seeded with ``defaultDestination``; a 2-team trade keeps
+ *                    an empty map (``computeSideFlows`` routes implicitly).
+ *                    Old routing for entries no longer present is dropped.
+ *   mode "add"     — the imported entries are APPENDED to sides A and B.
+ *                    Existing routing is kept; a newly seen line in a 3+-team
+ *                    trade gets the default, exactly as ``addToSide`` does.
+ *
+ * Nothing is deduped, in either mode: an asset imported twice is two copies,
+ * and adding an asset already in the trade adds another copy (owner decision
+ * 2026-10-03, lib/trade-assets).  Entries are the caller's board rows,
+ * unchanged — nothing here values anything.  Pure: returns a new array; the
+ * input sides are not mutated and untouched sides keep their identity.
+ *
+ * @param {Array} sides - current trade sides (``createSide`` shape)
+ * @param {[Array, Array]} importedSides - entries for side A and side B
+ * @param {"replace"|"add"} mode
+ */
+export function applyImportedSides(sides, importedSides, mode = "replace") {
+  const list = Array.isArray(sides) ? sides : [];
+  const n = list.length;
+  const add = mode === "add";
+  return list.map((s, i) => {
+    if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
+    const incoming = Array.isArray(importedSides?.[i]) ? importedSides[i] : [];
+    const assets = add ? [...(s.assets || []), ...incoming] : [...incoming];
+    const destinations = add ? { ...(s.destinations || {}) } : {};
+    if (n > 2) {
+      for (const asset of incoming) {
+        const key = tradeEntryKey(asset);
+        if (destinations[key] == null)
+          destinations[key] = defaultDestination(i, n);
+      }
+    }
+    return { ...s, assets, destinations };
+  });
+}
+
+/**
  * Compute, for each side, the lists of incoming / outgoing asset
  * references with their counterparty side index.  This is the
  * "who's getting what" view of a multi-team trade — the companion

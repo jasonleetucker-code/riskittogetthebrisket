@@ -276,6 +276,19 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m scripts.generate_leagues_contract --check
+      - name: Install tesseract-ocr (screenshot import OCR tests)
+        # The screenshot trade importer (C3-IMPORT-IMAGE) shells out to the
+        # tesseract binary.  Installing it here makes the real-OCR tests
+        # (``@pytest.mark.tesseract``) RUN in the hard gate instead of
+        # skipping; without the binary they skip and only the fake-engine
+        # tests cover the pipeline.
+        if: ${{ steps.scope.outputs.python == 'true' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends tesseract-ocr
+          tesseract --version | head -1
       - name: Run unit tests (hard gate — pure logic)
         # Path-aware (tiered-validation L2): skipped only when this diff
         # touches neither backend/tooling code nor a high-risk shared

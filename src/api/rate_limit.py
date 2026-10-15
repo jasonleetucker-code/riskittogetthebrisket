@@ -54,24 +54,28 @@ _BYPASS_IPS = frozenset(
 )
 
 
+def _refilled(tokens: float, last: float, now: float, capacity: float, window_s: float) -> float:
+    """One token-bucket refill step: ``capacity`` tokens per ``window_s``
+    seconds, never above ``capacity``.  Shared by the per-IP buckets and the
+    keyed buckets below."""
+    elapsed = now - last
+    if elapsed <= 0:
+        return tokens
+    return min(capacity, tokens + elapsed * (capacity / window_s))
+
+
 def _refill(bucket: _Bucket, now: float) -> None:
     """Token-bucket refill.  Minute-rate refills one token every
     ``60/RATE_PER_MIN`` seconds; hour-rate refills one every
     ``3600/RATE_PER_HOUR`` seconds."""
-    # Minute bucket.
-    elapsed_min = now - bucket.last_refill_minute
-    if elapsed_min > 0:
-        bucket.tokens_minute = min(
-            _RATE_PER_MIN,
-            bucket.tokens_minute + elapsed_min * (_RATE_PER_MIN / 60.0),
+    if now - bucket.last_refill_minute > 0:
+        bucket.tokens_minute = _refilled(
+            bucket.tokens_minute, bucket.last_refill_minute, now, _RATE_PER_MIN, 60.0
         )
         bucket.last_refill_minute = now
-    # Hour bucket.
-    elapsed_hour = now - bucket.last_refill_hour
-    if elapsed_hour > 0:
-        bucket.tokens_hour = min(
-            _RATE_PER_HOUR,
-            bucket.tokens_hour + elapsed_hour * (_RATE_PER_HOUR / 3600.0),
+    if now - bucket.last_refill_hour > 0:
+        bucket.tokens_hour = _refilled(
+            bucket.tokens_hour, bucket.last_refill_hour, now, _RATE_PER_HOUR, 3600.0
         )
         bucket.last_refill_hour = now
 
@@ -139,7 +143,61 @@ def snapshot() -> dict[str, Any]:
 def reset_for_tests() -> None:
     with _lock:
         _buckets.clear()
+    with _keyed_lock:
+        _keyed_buckets.clear()
     login_reset_for_tests()
+
+
+# ── Keyed buckets (per-user limits on expensive private endpoints) ─────
+#
+# The per-IP buckets above guard PUBLIC endpoints.  A few private
+# endpoints are expensive enough to need their own ceiling per signed-in
+# user (e.g. ``POST /api/trade/import-screenshot`` runs OCR).  These use
+# the same refill arithmetic (``_refilled``) in a separate store, keyed by
+# a caller-chosen string such as ``"screenshot:<username>"``.
+_MAX_TRACKED_KEYS = 5000
+
+
+@dataclass
+class _KeyedBucket:
+    tokens: float
+    last_refill: float
+
+
+_keyed_buckets: dict[str, _KeyedBucket] = {}
+_keyed_lock = threading.Lock()
+
+
+def _keyed_now() -> float:
+    """The keyed buckets' single clock read — a test seam."""
+    return time.time()
+
+
+def should_rate_limit_key(key: str, *, capacity: int, window_seconds: float) -> tuple[bool, int]:
+    """``(is_limited, retry_after_seconds)`` for one request charged to
+    ``key``: at most ``capacity`` requests per ``window_seconds``, refilled
+    continuously.  Thread-safe; never blocks.  An empty key is never
+    limited (the caller has no identity to charge)."""
+    if not key or capacity <= 0 or window_seconds <= 0:
+        return (False, 0)
+    now = _keyed_now()
+    with _keyed_lock:
+        bucket = _keyed_buckets.get(key)
+        if bucket is None:
+            _keyed_buckets[key] = _KeyedBucket(tokens=float(capacity) - 1.0, last_refill=now)
+            if len(_keyed_buckets) > _MAX_TRACKED_KEYS:
+                oldest = sorted(_keyed_buckets.items(), key=lambda kv: kv[1].last_refill)
+                for k, _ in oldest[: max(1, _MAX_TRACKED_KEYS // 10)]:
+                    if k != key:
+                        _keyed_buckets.pop(k, None)
+            return (False, 0)
+        bucket.tokens = _refilled(bucket.tokens, bucket.last_refill, now, capacity, window_seconds)
+        bucket.last_refill = now
+        if bucket.tokens < 1.0:
+            per_token = window_seconds / capacity
+            return (True, max(1, math.ceil((1.0 - bucket.tokens) * per_token)))
+        bucket.tokens -= 1.0
+        return (False, 0)
 
 
 # ── Login failure throttle (W22-F003) ────────────────────────────────

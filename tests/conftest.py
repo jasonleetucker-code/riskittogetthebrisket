@@ -322,6 +322,11 @@ def pytest_configure(config):
         "suite-wide 'every NFL week is final' stand-in (see "
         "_synthetic_seasons_have_finished_nfl_weeks in tests/conftest.py).",
     )
+    config.addinivalue_line(
+        "markers",
+        "tesseract: runs the REAL local tesseract OCR binary; skipped when "
+        "the binary is not installed (see tests/trade/screenshot_import).",
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")

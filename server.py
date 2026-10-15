@@ -14,7 +14,10 @@ Requirements:
 """
 
 import asyncio
+import base64
+import binascii
 import json
+import re
 import math
 import os
 import sys
@@ -3898,6 +3901,13 @@ async def lifespan(app: FastAPI):
             "fatal": 0,
         }
 
+    # 0b. Screenshot import: one warning if the OCR binary is missing.  The
+    # route itself answers 503 ocr_unavailable, so this is observability only.
+    try:
+        _screenshot_import_startup_check()
+    except Exception as exc:  # noqa: BLE001 — never block startup on an optional feature
+        log.warning("screenshot import availability check failed: %s", type(exc).__name__)
+
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
     _seed_ingestion_verdict_from_startup_payload(latest_data)
@@ -6465,6 +6475,8 @@ async def get_metrics():
             "disk_free_mb": free_mb,
             "disk_ok": disk_ok,
             "scrape_running": scrape_status.get("running", False),
+            # Screenshot trade import: outcome COUNTS only (never text).
+            "screenshot_import": screenshot_import_metrics(),
         }
     )
 
@@ -10019,6 +10031,296 @@ async def post_trade_import_ktc(request: Request):
             },
         )
     return JSONResponse(content={"ok": True, **result})
+
+
+# ── Import Trade from Screenshot (C3-IMPORT-IMAGE) ───────────────────────
+#
+# Reads an uploaded screenshot with the LOCAL tesseract binary and returns
+# asset IDENTITIES + SIDES only — never values; the calculator prices every
+# asset from the canonical board.  Pipeline owner: src/trade/screenshot_import.
+# Nothing here retains the image or logs the text read from it — counts only.
+# Runbook: docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md.
+# The global body cap (``_MAX_REQUEST_BYTES``, 2 MB) applies unchanged: the
+# client downscales every screenshot to <= 1.3 MB before upload (~1.73 MB as
+# base64 in JSON).  The handler re-checks the real body length against it.
+_SCREENSHOT_MAX_BODY_BYTES = _MAX_REQUEST_BYTES
+# Decoded-image ceiling for this route: what fits inside that body as base64.
+_SCREENSHOT_MAX_IMAGE_BYTES = 1_500_000
+_SCREENSHOT_RATE_CAPACITY = 20  # images ...
+_SCREENSHOT_RATE_WINDOW_S = 600.0  # ... per 10 minutes, per signed-in user
+_SCREENSHOT_MAX_INDEX = 3
+_SCREENSHOT_BUSY_RETRY_S = 5
+_SCREENSHOT_UNAVAILABLE_MESSAGE = (
+    "Screenshot reading is not set up on this server yet (install the tesseract-ocr package)."
+)
+_SCREENSHOT_IMAGE_ERRORS = {
+    # ImageRejected.code -> (HTTP status, error code, message)
+    "too_large": (413, "image_too_large", "That image is too large (3 MB maximum)."),
+    "bomb": (413, "image_too_large", "That image has too many pixels to read safely."),
+    "unsupported_type": (
+        415,
+        "unsupported_image_type",
+        "Only PNG, JPEG or WEBP screenshots can be read.",
+    ),
+    "malformed": (400, "malformed_image", "That file could not be read as an image."),
+    "empty": (400, "empty_image", "The image was empty."),
+}
+_screenshot_import_counts: dict[str, int] = {
+    "requests": 0,
+    "ok": 0,
+    "rejected_image": 0,
+    "rate_limited": 0,
+    "unavailable": 0,
+}
+_screenshot_counts_lock = threading.Lock()
+
+
+def _screenshot_count(key: str) -> None:
+    with _screenshot_counts_lock:
+        _screenshot_import_counts[key] = _screenshot_import_counts[key] + 1
+
+
+def _screenshot_ocr_engine_factory():
+    """Test seam: the OCR engine the routes use."""
+    from src.trade.screenshot_import.service import default_engine  # noqa: PLC0415
+
+    return default_engine()
+
+
+def _screenshot_identity_context():
+    """Test seam: the identity context (process-wide cached directory index)."""
+    from src.trade.screenshot_import.service import default_identity_context  # noqa: PLC0415
+
+    return default_identity_context()
+
+
+def _screenshot_availability(engine) -> dict:
+    from src.trade.screenshot_import.image_input import pillow_available  # noqa: PLC0415
+
+    avail = engine.availability().to_dict()
+    if avail["available"] and not pillow_available():
+        avail = {**avail, "available": False, "reason": "pillow_not_installed"}
+    return avail
+
+
+def _screenshot_import_startup_check() -> None:
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("trade_screenshot_import"):
+        return
+    avail = _screenshot_availability(_screenshot_ocr_engine_factory())
+    if not avail["available"]:
+        log.warning(
+            "Screenshot trade import is unavailable (%s); "
+            "install the tesseract-ocr package to enable it.",
+            avail["reason"],
+        )
+
+
+def screenshot_import_metrics() -> dict:
+    from src.trade.screenshot_import.ocr import ocr_counters  # noqa: PLC0415
+
+    with _screenshot_counts_lock:
+        route = dict(_screenshot_import_counts)
+    return {"route": route, "ocr": ocr_counters()}
+
+
+_DATA_URL_PREFIX_RE = re.compile(r"^\s*data:[^,]{0,100};base64,", re.IGNORECASE)
+
+
+def _decode_screenshot_base64(value: str) -> bytes | None:
+    text = _DATA_URL_PREFIX_RE.sub("", value)
+    text = "".join(text.split())
+    if not text:
+        return None
+    try:
+        return base64.b64decode(text, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+
+
+def _screenshot_error(code, message, status, *, headers=None, context=None):
+    from src.api.error_responses import error_payload  # noqa: PLC0415
+
+    st, body = error_payload(code, message=message, context=context, status_code=status)
+    hdrs = {"Cache-Control": "no-store"}
+    hdrs.update(headers or {})
+    return JSONResponse(status_code=st, content=body, headers=hdrs)
+
+
+@app.get("/api/trade/import-screenshot/status")
+async def get_trade_import_screenshot_status():
+    """Is screenshot reading available on this server, and is it enabled?
+
+    ``{"available", "reason", "engine": "tesseract", "version", "enabled"}``.
+    ``available: false`` with ``reason: "tesseract_not_installed"`` is the
+    expected state on a box without the ``tesseract-ocr`` package.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    avail = await run_in_threadpool(_screenshot_availability, _screenshot_ocr_engine_factory())
+    return JSONResponse(
+        content={
+            "available": bool(avail["available"]),
+            "reason": avail["reason"],
+            "engine": "tesseract",
+            "version": avail["version"],
+            "enabled": is_enabled("trade_screenshot_import"),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/trade/import-screenshot")
+async def post_trade_import_screenshot(request: Request):
+    """Read ONE trade screenshot into candidate assets per side.
+
+    Body: ``{"image": "<base64, optional data: URL prefix>", "index": 0..3}``
+    (``index`` is the client's position for this image in a multi-image
+    import, echoed back as ``imageIndex``).
+
+    200 → the extraction payload (``src/trade/screenshot_import/service.py``
+    documents and validates the exact shape).  Errors: 404
+    ``feature_disabled``; 403 ``guest_read_only``; 429 ``rate_limited`` (+
+    ``Retry-After``); 400 ``invalid_json`` / ``missing_image`` /
+    ``invalid_index`` / ``invalid_image_encoding`` / ``malformed_image`` /
+    ``empty_image``; 413 ``image_too_large``; 415 ``unsupported_image_type``;
+    503 ``ocr_unavailable`` / ``ocr_busy`` (+ ``Retry-After``); 504
+    ``ocr_timeout``.  The image and the text read from it are never logged
+    or stored.
+    """
+    from src.api import rate_limit as _rl  # noqa: PLC0415
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.trade.screenshot_import import image_input as _img  # noqa: PLC0415
+    from src.trade.screenshot_import import ocr as _ocr  # noqa: PLC0415
+    from src.trade.screenshot_import import service as _svc  # noqa: PLC0415
+
+    if not is_enabled("trade_screenshot_import"):
+        return _screenshot_error(
+            "feature_disabled", "Screenshot import is switched off on this server.", 404
+        )
+    session = _get_auth_session(request)
+    if not session:
+        return _screenshot_error("auth_required", "Sign-in required.", 401)
+    if session.get("auth_method") == "guest_pass":
+        return _screenshot_error("guest_read_only", "Guest passes cannot import screenshots.", 403)
+    _screenshot_count("requests")
+
+    engine = _screenshot_ocr_engine_factory()
+    avail = await run_in_threadpool(_screenshot_availability, engine)
+    if not avail["available"]:
+        _screenshot_count("unavailable")
+        return _screenshot_error(
+            "ocr_unavailable",
+            _SCREENSHOT_UNAVAILABLE_MESSAGE,
+            503,
+            context={"reason": avail["reason"]},
+        )
+
+    username = str(session.get("username") or "").strip().lower()
+    limited, retry_after = _rl.should_rate_limit_key(
+        f"screenshot:{username}",
+        capacity=_SCREENSHOT_RATE_CAPACITY,
+        window_seconds=_SCREENSHOT_RATE_WINDOW_S,
+    )
+    if limited:
+        _screenshot_count("rate_limited")
+        return _screenshot_error(
+            "rate_limited",
+            "Too many screenshots — wait a moment and try again.",
+            429,
+            headers={"Retry-After": str(retry_after)},
+            context={"retryAfterSeconds": retry_after},
+        )
+
+    raw = await request.body()
+    if len(raw) > _SCREENSHOT_MAX_BODY_BYTES:
+        _screenshot_count("rejected_image")
+        return _screenshot_error("image_too_large", "That image is too large (3 MB maximum).", 413)
+    try:
+        body = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        body = None
+    if not isinstance(body, dict):
+        return _screenshot_error("invalid_json", "JSON body required.", 400)
+    image_field = body.get("image")
+    if not isinstance(image_field, str) or not image_field.strip():
+        return _screenshot_error("missing_image", "Missing 'image' (base64).", 400)
+    index = body.get("index", 0)
+    if (
+        isinstance(index, bool)
+        or not isinstance(index, int)
+        or not (0 <= index <= _SCREENSHOT_MAX_INDEX)
+    ):
+        return _screenshot_error(
+            "invalid_index", f"'index' must be an integer 0-{_SCREENSHOT_MAX_INDEX}.", 400
+        )
+    data = _decode_screenshot_base64(image_field)
+    if data is None:
+        _screenshot_count("rejected_image")
+        return _screenshot_error(
+            "invalid_image_encoding", "'image' is not valid base64 image data.", 400
+        )
+
+    try:
+        prepared = await run_in_threadpool(
+            _img.decode_image, data, max_bytes=_SCREENSHOT_MAX_IMAGE_BYTES
+        )
+    except _img.ImageRejected as exc:
+        _screenshot_count("rejected_image")
+        status, code, message = _SCREENSHOT_IMAGE_ERRORS[exc.code]
+        return _screenshot_error(code, message, status)
+    except _img.ImagingUnavailable:
+        _screenshot_count("unavailable")
+        return _screenshot_error(
+            "ocr_unavailable",
+            _SCREENSHOT_UNAVAILABLE_MESSAGE,
+            503,
+            context={"reason": "pillow_not_installed"},
+        )
+    finally:
+        del data
+
+    identity_ctx = await run_in_threadpool(_screenshot_identity_context)
+    contract = latest_contract_data
+    try:
+        payload = await run_in_threadpool(
+            lambda: _svc.extract_trade(
+                prepared.png,
+                engine=engine,
+                identity_ctx=identity_ctx,
+                contract=contract,
+                image_index=index,
+            )
+        )
+    except _ocr.OcrUnavailable as exc:
+        _screenshot_count("unavailable")
+        return _screenshot_error(
+            "ocr_unavailable", _SCREENSHOT_UNAVAILABLE_MESSAGE, 503, context={"reason": exc.reason}
+        )
+    except _ocr.OcrBusy:
+        return _screenshot_error(
+            "ocr_busy",
+            "The screenshot reader is busy — try again in a few seconds.",
+            503,
+            headers={"Retry-After": str(_SCREENSHOT_BUSY_RETRY_S)},
+            context={"retryAfterSeconds": _SCREENSHOT_BUSY_RETRY_S},
+        )
+    except _ocr.OcrTimeout:
+        return _screenshot_error(
+            "ocr_timeout", "Reading that screenshot took too long — try a smaller crop.", 504
+        )
+    except _ocr.OcrError as exc:
+        log.warning("screenshot import: OCR failed (%s)", type(exc).__name__)
+        return _screenshot_error("ocr_failed", "The screenshot could not be read.", 502)
+    except _svc.ExtractionSchemaError as exc:
+        # A server defect: the payload drifted from its published contract.
+        log.error("screenshot import: extraction contract violation: %s", exc)
+        return _screenshot_error(
+            "extraction_contract_violation", "Screenshot import failed unexpectedly.", 500
+        )
+    _screenshot_count("ok")
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/trade/export-ktc")

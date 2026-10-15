@@ -102,3 +102,12 @@ tzdata~=2026.1; sys_platform == "win32"
 # docs/dfs/DECISIONS.md ADR-DFS-001.
 numpy~=2.0
 scipy~=1.13
+
+# Image decoding for "Import Trade from Screenshot"
+# (src/trade/screenshot_import/image_input.py): magic-byte allowlist,
+# decompression-bomb guard, EXIF transpose, grayscale + dark-mode invert,
+# metadata-stripping PNG re-encode before the local tesseract binary reads
+# it.  Imported lazily — a box without it reports the feature unavailable.
+# The OCR engine itself is the system package ``tesseract-ocr`` (apt), NOT a
+# Python dependency; see docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md.
+Pillow~=12.0
