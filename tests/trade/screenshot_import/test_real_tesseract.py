@@ -50,13 +50,16 @@ def test_fixture_screenshot_reads_sides_and_assets(name, identity_ctx, board):
     assert [s["label"] for s in out["sides"]] == [s["label"] for s in expected["sides"]]
     for side, exp in zip(out["sides"], expected["sides"]):
         assert [it["boardName"] for it in side["items"]] == [a["boardName"] for a in exp["assets"]]
-        assert all(it["status"] == "resolved" for it in side["items"])
+        assert [it["status"] for it in side["items"]] == [
+            a.get("status", "resolved") for a in exp["assets"]
+        ]
     assert out["unassigned"] == []
     ignored_text = " | ".join(ig["raw"] for ig in out["ignored"])
     for name_ in expected["mustBeIgnored"]:
         assert name_ in ignored_text
-    # Other-site values never become items.
-    assert any(ig["reason"] == "value_number" for ig in out["ignored"])
+    if expected["mustBeIgnored"]:
+        # Other-site values never become items.
+        assert any(ig["reason"] == "value_number" for ig in out["ignored"])
     if name.startswith("dark"):
         assert prep.inverted is True
 

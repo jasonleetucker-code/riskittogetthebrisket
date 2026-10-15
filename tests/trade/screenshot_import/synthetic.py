@@ -161,6 +161,40 @@ SCENARIOS: dict[str, dict] = {
             "mustBeIgnored": ["Brian Thomas"],
         },
     },
+    "small_no_anchor_columns": {
+        "size": (900, 420),
+        "dark": False,
+        "font_size": 18,
+        "texts": [
+            ("Patrick Mahomes", 30, 60),
+            ("2029 3rd", 30, 110),
+            ("Byron Young", 30, 160),
+            ("Bijan Robinson", 520, 60),
+            ("2027 Mid 1st", 520, 110),
+        ],
+        "expected": {
+            "layoutKind": "two_column",
+            "strict": False,
+            "sides": [
+                {
+                    "label": "Side A",
+                    "assets": [
+                        {"text": "Patrick Mahomes", "boardName": "Patrick Mahomes"},
+                        {"text": "2029 3rd", "boardName": "2029 Round 3"},
+                        {"text": "Byron Young", "boardName": None, "status": "needs_confirmation"},
+                    ],
+                },
+                {
+                    "label": "Side B",
+                    "assets": [
+                        {"text": "Bijan Robinson", "boardName": "Bijan Robinson"},
+                        {"text": "2027 Mid 1st", "boardName": "2027 Mid 1st"},
+                    ],
+                },
+            ],
+            "mustBeIgnored": [],
+        },
+    },
 }
 
 
