@@ -74,7 +74,7 @@ def run_log(tmp_path):
 
 
 def _lines(log_dir):
-    return list(pr.iter_best_offers_run_lines(log_dir))
+    return list(bo.iter_run_log_lines(log_dir))
 
 
 def test_the_run_log_is_a_registered_artifact_store_written_by_best_offers():

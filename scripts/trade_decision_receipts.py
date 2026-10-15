@@ -55,7 +55,11 @@ def build_receipts(log_dir: Path) -> tuple[list[Any], list[dict[str, str]], int]
     lines = 0
     if not log_dir.is_dir():
         return receipts, refused, lines
-    for file_name, line in pr.iter_best_offers_run_lines(log_dir):
+    from src.trade.best_offers import iter_run_log_lines  # noqa: PLC0415
+
+    # The run log is read by its own owner (the writer), not by the learning
+    # layer: src/model_registry may not import src/trade (learning boundary).
+    for file_name, line in iter_run_log_lines(log_dir):
         lines += 1
         if line is None:
             refused.append({"item": file_name, "reason": "line is not a JSON object"})
