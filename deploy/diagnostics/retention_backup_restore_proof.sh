@@ -387,7 +387,7 @@ optional_status() {
 # row naming user_kv.sqlite must still fail, not pass as a recorded skip.
 # Lockstep with the `optional backup_*` calls in riskit-state-backup.sh is
 # pinned by tests/deploy/test_state_backup_optional_stores.py.
-KNOWN_OPTIONAL_STORES=" intel_ledger.sqlite3 market_trades_archive.sqlite market_trades_reports own_league_format_captures.sqlite source_archive_boards.sqlite bdvm forecast_archive pick_forecast_snapshots sparse_evidence_shadow robust_filter_shadow signals_sources consensus_edge.sqlite dfs_workspace.sqlite temporal_ledger.sqlite injury_history news_archive "
+KNOWN_OPTIONAL_STORES=" intel_ledger.sqlite3 market_trades_archive.sqlite market_trades_reports own_league_format_captures.sqlite source_archive_boards.sqlite bdvm forecast_archive pick_forecast_snapshots sparse_evidence_shadow robust_filter_shadow signals_sources consensus_edge.sqlite dfs_workspace.sqlite temporal_ledger.sqlite injury_history news_archive trade_best_offers "
 optional_absence_explained() {
     local name="$1" label="$2" status
     if [[ "${KNOWN_OPTIONAL_STORES}" != *" ${name} "* ]]; then

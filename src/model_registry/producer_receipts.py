@@ -25,6 +25,10 @@ the box emit receipts AS THEY RUN, in the owner order of
    the COMMITTED ``config/model_registry/`` evidence through the AL-0 Hill adapters.
    The refit itself runs on a CI runner with no persistent store and commits no
    receipt. No Hill holdout EVALUATION: it is retrospective (section 4 below).
+5. **Best Trade to Send Each Team** (``src/trade/best_offers.py``, AL-P5) — one
+   DECISION per served run, read from the box-local run log by
+   ``scripts/trade_decision_receipts.py`` after each deploy. The serving path and
+   its response are untouched (AL-P5 acceptance: producer outputs byte-identical).
 
 Rules this module keeps (pinned by ``tests/model_registry/test_producer_receipts.py``):
 
@@ -87,6 +91,7 @@ from src.history.asof import FIDELITY_NEAREST_PRIOR
 from src.model_registry.feature_dictionary import FeatureDictionary, validate_manifest
 from src.model_registry.learning_receipt import (
     KIND_CHALLENGER,
+    KIND_DECISION,
     KIND_FEATURES,
     KIND_MODEL,
     KIND_OBSERVATION,
@@ -1507,3 +1512,137 @@ def hill_autopilot_run_receipt(
             "isPromotionRecord": False,
         },
     )
+
+
+# ── 5. generated-trade decisions: Best Trade to Send Each Team (AL-P5) ───────
+
+BEST_OFFERS_PRODUCER = "best_offers"
+BEST_OFFERS_FAMILY = "best_offers_prior"
+BEST_OFFERS_STORE = "best_offers_run_log"
+
+
+def _best_offers_version_id(ranking: Mapping[str, Any]) -> str:
+    """``mv:best_offers_prior:<id>-w<sha8>`` — the declared prior that ranked the run.
+
+    The prior is a config document (``config/trade/best_offers_prior.json``) with
+    no model registry, so its identity is its own ``id`` plus a hash of the
+    weights the run actually used (both carried on the run line). A line that
+    names no prior is refused rather than given a placeholder identity."""
+    prior_id = _require(ranking.get("id"), "rankingMethod.id")
+    weights = ranking.get("weights")
+    if not isinstance(weights, Mapping) or not weights:
+        raise ReceiptError("producer record lacks rankingMethod.weights")
+    token = "".join(c if (c.isalnum() or c in "._-") else "_" for c in prior_id)
+    return model_version_id(BEST_OFFERS_FAMILY, f"{token}-w{_sha(dict(weights))[:8]}")
+
+
+def best_offers_decision_receipts(
+    line: Mapping[str, Any], *, file_name: str
+) -> list[LearningReceipt]:
+    """One DECISION receipt for one served Best Offers run, AS STORED in its run log.
+
+    Point into the run log, copy nothing: the receipt's ``decisionSet`` is the
+    run line itself (``<file>#<runId>``, the producer's own artifact, so it may
+    carry the line's ``recordedAt``). ``cutoff`` is that ``recordedAt`` — stamped
+    after the build, so everything the run read was known by then.
+
+    The board the run read is named on the line only by its ``generatedAt``
+    stamp, which is no content address: the slot is ``Unobserved`` with the
+    stamp carried in the body, never a guessed reference. NON-ACTION is not
+    emitted: whether the user acted on an offer is not observable here (the
+    calculator never sends a trade, and Sleeper offers are not readable).
+
+    The body is a summary of the run (counts and the ranking identity), never
+    its offers: those stay in the producer's private log. ``promotes`` is False.
+    """
+    native = _require(line.get("runId"), "runId")
+    recorded = parse_instant(line.get("recordedAt"), what="run recordedAt")
+    ranking = line.get("rankingMethod")
+    if not isinstance(ranking, Mapping):
+        raise ReceiptError("producer record lacks rankingMethod")
+    mvid = _best_offers_version_id(ranking)
+    opponents = line.get("opponents")
+    if not isinstance(opponents, list):
+        raise ReceiptError("producer record lacks the opponents list")
+    reasons: dict[str, int] = {}
+    qualified = 0
+    for o in opponents:
+        if not isinstance(o, Mapping):
+            raise ReceiptError("an opponents entry is not an object")
+        if o.get("status") == "qualified":
+            qualified += 1
+        elif o.get("noResultReason"):
+            key = str(o["noResultReason"])
+            reasons[key] = reasons.get(key, 0) + 1
+    board_stamp = line.get("boardStamp")
+    team_context = line.get("teamContext")
+    return [
+        build_receipt(
+            kind=KIND_DECISION,
+            producer=BEST_OFFERS_PRODUCER,
+            native_id=native,
+            model_family=BEST_OFFERS_FAMILY,
+            model_version_id=mvid,
+            cutoff=recorded,
+            slots={
+                "decisionSet": StoreRef(
+                    store=BEST_OFFERS_STORE,
+                    key=f"{file_name}#{native}",
+                    role=ROLE_ARTIFACT,
+                    known_at=recorded,
+                    fidelity="exact",
+                    basis="the run line's own recordedAt; the line is appended right after it",
+                    produced_for=native,
+                ),
+                "board": Unobserved(
+                    "the run log names the board by its generatedAt stamp only "
+                    f"({board_stamp!r}), which is not a content address"
+                ),
+            },
+            body={
+                "decision": "generated_trade_recommendations",
+                "action": "recommend_only",
+                "producerVersion": _require(line.get("version"), "producer version"),
+                "leagueKey": _require(line.get("leagueKey"), "leagueKey"),
+                "boardStamp": board_stamp,
+                "rankingStatus": ranking.get("status"),
+                "teamContext": (
+                    dict(team_context)
+                    if isinstance(team_context, Mapping)
+                    else _missing("team context", team_context)
+                ),
+                "opponents": len(opponents),
+                "qualified": qualified,
+                "noResultReasons": dict(sorted(reasons.items())),
+                "sourceRecord": {
+                    "store": BEST_OFFERS_STORE,
+                    "lineCanonicalJsonSha256": _sha(dict(line)),
+                },
+                "nonAction": NotApplicable(
+                    "whether the user acted on an offer is not observable: the calculator "
+                    "never sends a trade and pending Sleeper offers are not readable"
+                ).to_dict(),
+                "promotes": False,
+            },
+        )
+    ]
+
+
+def iter_best_offers_run_lines(log_dir: Path) -> Iterable[tuple[str, Mapping[str, Any] | None]]:
+    """``(file name, parsed line | None)`` for every line of every monthly run log.
+
+    ``None`` marks a line that is not a JSON object, so the caller can count it
+    as refused instead of it vanishing."""
+    import json  # noqa: PLC0415
+
+    for path in sorted(log_dir.glob("runs-*.jsonl")):
+        with path.open(encoding="utf-8") as fh:
+            for raw in fh:
+                if not raw.strip():
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    yield path.name, None
+                    continue
+                yield path.name, obj if isinstance(obj, Mapping) else None
