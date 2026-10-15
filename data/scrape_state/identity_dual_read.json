@@ -1,17 +1,25 @@
 {
- "generatedAt": "2026-10-14T23:30:24.452684+00:00",
+ "generatedAt": "2026-10-15T17:25:16.011645+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2011,
+ "calls": 2013,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1987,
- "v2WouldChange": 24,
+ "v2Same": 1988,
+ "v2WouldChange": 25,
  "v2Examples": [
+  {
+   "name": "Andru Phillips",
+   "pos": "",
+   "served": "4555",
+   "engineV2": "11700",
+   "v2Method": "exact_canonical:name",
+   "v2Reason": null
+  },
   {
    "name": "Bam Knight",
    "pos": "",

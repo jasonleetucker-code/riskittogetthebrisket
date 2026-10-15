@@ -179,8 +179,16 @@ def build_packages(
     pick_forecasts: Mapping[int, Any] | None = None,
     limit: int = 10,
     prior: Mapping[str, Any] | None = None,
+    per_opponent: bool = False,
 ) -> dict[str, Any]:
-    """The best packages satisfying one user request, best first."""
+    """The best packages satisfying one user request, best first.
+
+    ``per_opponent`` keeps only each opponent's best package — the "Sell a
+    player" / "Improve a position" views, which ask WHO the plausible
+    partners are rather than for many variants with one team.  The choice is
+    made on the same pre-rerank order the head uses, then the roster-aware
+    rerank runs over those per-opponent bests exactly as it does over the head.
+    """
     from src.trade.constraints import (  # noqa: PLC0415
         blocked_outgoing,
         outgoing_eligibility,
@@ -215,6 +223,7 @@ def build_packages(
         "maxAssetsPerSide": max_side,
         "allowPicks": bool(allow_picks),
         "evidence": evidence,
+        "perOpponent": bool(per_opponent),
     }
     base: dict[str, Any] = {
         "version": PACKAGE_BUILDER_VERSION,
@@ -418,7 +427,15 @@ def build_packages(
     # ranks as the worst KNOWN one across every candidate, never as free.
     bo.score_head(cands, weights, factors=("calculatorDivergence",))
     cands.sort(key=_order)
-    head = cands[: max(top_k, limit)]
+    if per_opponent:
+        head = []
+        seen_opp: set[str] = set()
+        for c in cands:
+            if opp_of[id(c)] not in seen_opp:
+                seen_opp.add(opp_of[id(c)])
+                head.append(c)
+    else:
+        head = cands[: max(top_k, limit)]
     if use_ctx:
         # Roster consequences per opponent pairing; ONE set of stand-ins over
         # the merged head, so every opponent's candidates are charged alike.
@@ -445,6 +462,10 @@ def build_packages(
         offer["externalQualifies"] = bool(c.external is not None and c.external.qualifies)
         packages.append(offer)
     out = {**base, "packages": packages, "diagnostics": {**diag, "enumeration": enumeration}}
+    if per_opponent:
+        out["grouping"] = "best_per_opponent"
+        out["opponentsWithOffers"] = len(head)
+        out["opponentsSearched"] = len(opponents)
     if truncated:
         out["searchTruncated"] = True
     return out
