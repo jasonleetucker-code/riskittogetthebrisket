@@ -59,6 +59,7 @@ const TITLE = {
   "/edge": "Source Disagreement",
   "/market/sharp-tracker": "Sharp Tracker",
   "/market/sharp-roster-percentage": "Sharp Roster Percentage",
+  "/market/trade-database": "Trade Database",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",
