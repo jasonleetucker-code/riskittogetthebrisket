@@ -11,6 +11,7 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   sideTotal,
+  applyImportedSides,
   defaultDestination,
   findBalancers,
   isTradeableBoardRow,
@@ -59,6 +60,7 @@ import {
   Banner,
   Button,
   CollapsiblePanel,
+  Icon,
   InfoTip,
   Panel,
   PageHeader,
@@ -169,6 +171,9 @@ const RecentRealTrades = dyn(
 // them straight back into this page's chunk.
 const loadSimulationPanel = () => import("./trade-simulation-panel");
 const loadKtcImportPanel = () => import("./trade-ktc-import");
+// C3-IMPORT-IMAGE: the screenshot-import dialog renders only after the user
+// chooses Import trade -> From screenshot.
+const loadScreenshotImport = () => import("./trade-screenshot-import");
 const loadSuggestionsDesk = () => import("./trade-suggestions-desk");
 // A prefetch failure is not handled here: the lazy render below retries
 // the import and surfaces any real failure the same way it always would.
@@ -186,6 +191,11 @@ const KtcImportPanel = dyn(
 const SuggestionsDesk = dyn(
   () => loadSuggestionsDesk().then((m) => ({ default: m.SuggestionsDesk })),
   "Trade suggestions",
+);
+const ScreenshotImportDialog = dyn(
+  () =>
+    loadScreenshotImport().then((m) => ({ default: m.ScreenshotImportDialog })),
+  "Screenshot import",
 );
 
 export default function TradePage() {
@@ -252,6 +262,14 @@ export default function TradePage() {
   const [ktcImportBusy, setKtcImportBusy] = useState(false);
   const [ktcImportError, setKtcImportError] = useState("");
   const [ktcImportStatus, setKtcImportStatus] = useState("");
+  // "Import trade" control: a disclosure offering the KTC URL row and the
+  // screenshot dialog.  The screenshot feature's status is fetched on the
+  // FIRST open of the control — never on page load — and "From screenshot"
+  // is hidden unless the backend says the feature is enabled.
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [screenshotStatus, setScreenshotStatus] = useState(null); // null | "loading" | object
+  const [screenshotImportOpen, setScreenshotImportOpen] = useState(false);
+  const [screenshotImportNote, setScreenshotImportNote] = useState("");
   const [exportStatus, setExportStatus] = useState("");
 
   // Share + simulator state.
@@ -1325,22 +1343,10 @@ export default function TradePage() {
       const cleanedOne = one.found;
       const cleanedTwo = two.found;
 
+      // Seeds default destinations in a 3+-team trade and drops stale
+      // routing — the shared bulk-load rule (lib/trade-logic).
       setSides((prev) =>
-        prev.map((s, i) => {
-          if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
-          const replacement = i === 0 ? cleanedOne : cleanedTwo;
-          // Seed default destinations for the newly-loaded assets when
-          // we're in a 3+-team trade; 2-team trades ignore the map.
-          // Old destinations referencing assets that aren't in the new
-          // set are dropped so we don't accumulate stale routing.
-          const nextDestinations = {};
-          if (prev.length > 2) {
-            for (const asset of replacement) {
-              nextDestinations[tradeEntryKey(asset)] = defaultDestination(i, prev.length);
-            }
-          }
-          return { ...s, assets: replacement, destinations: nextDestinations };
-        }),
+        applyImportedSides(prev, [cleanedOne, cleanedTwo], "replace"),
       );
       setValueOverrides({});
 
@@ -1391,6 +1397,42 @@ export default function TradePage() {
       setKtcImportBusy(false);
     }
   }, [ktcImportUrl, rows, rowByLowerName, pickAliases]);
+
+  // ── Import trade control (KTC URL / screenshot) ───────────────────
+  const toggleImportMenu = useCallback(() => {
+    setImportMenuOpen((open) => !open);
+    prefetch(loadKtcImportPanel);
+    if (screenshotStatus !== null) return;
+    setScreenshotStatus("loading");
+    fetch("/api/trade/import-screenshot/status", { cache: "no-store" })
+      .then((r) => r.json().catch(() => ({})))
+      .then((d) => {
+        const status = d && typeof d === "object" ? d : {};
+        setScreenshotStatus(status);
+        if (status.enabled === true) prefetch(loadScreenshotImport);
+      })
+      // Unreachable status = the feature is not offered (fail closed).
+      .catch(() => setScreenshotStatus({ enabled: false, available: false }));
+  }, [screenshotStatus]);
+
+  const screenshotEntryVisible =
+    screenshotStatus === "loading" ||
+    (screenshotStatus !== null && screenshotStatus.enabled === true);
+
+  // Confirmed screenshot import: ONE sides update (lib/trade-logic
+  // applyImportedSides), the same bulk-load reset as the KTC path.
+  const importScreenshotSides = useCallback((importedSides, mode) => {
+    const n =
+      (importedSides?.[0]?.length || 0) + (importedSides?.[1]?.length || 0);
+    setSides((prev) => applyImportedSides(prev, importedSides, mode));
+    setValueOverrides({});
+    setScreenshotImportOpen(false);
+    setScreenshotImportNote(
+      `Imported ${n} ${n === 1 ? "asset" : "assets"} from screenshot${
+        mode === "add" ? " (added to the current trade)" : ""
+      }`,
+    );
+  }, []);
 
   const exportKtcUrl = useCallback(async () => {
     setExportStatus("");
@@ -1989,15 +2031,50 @@ export default function TradePage() {
                 <Button onClick={addTeam}>Add Team</Button>
               ) : null}
               <Button
-                onClick={() => {
-                  prefetch(loadKtcImportPanel);
-                  setKtcImportOpen((v) => !v);
-                  setKtcImportError("");
-                }}
-                aria-expanded={ktcImportOpen}
+                onClick={toggleImportMenu}
+                aria-expanded={importMenuOpen}
+                aria-controls="trade-import-options"
+                icon={
+                  <Icon
+                    name={importMenuOpen ? "chevron-up" : "chevron-down"}
+                    size={12}
+                  />
+                }
               >
-                Import KTC
+                Import trade
               </Button>
+              {importMenuOpen ? (
+                <span
+                  id="trade-import-options"
+                  role="group"
+                  aria-label="Import trade from"
+                  className={styles.importOptions}
+                >
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setImportMenuOpen(false);
+                      setKtcImportOpen(true);
+                      setKtcImportError("");
+                    }}
+                  >
+                    From KeepTradeCut URL
+                  </Button>
+                  {screenshotEntryVisible ? (
+                    <Button
+                      variant="ghost"
+                      loading={screenshotStatus === "loading"}
+                      onClick={() => {
+                        setImportMenuOpen(false);
+                        setScreenshotImportNote("");
+                        setScreenshotImportOpen(true);
+                      }}
+                    >
+                      From screenshot
+                    </Button>
+                  ) : null}
+                </span>
+              ) : null}
               <Button onClick={copyShareLink} disabled={!hasAssets}>
                 Copy share link
               </Button>
@@ -2065,6 +2142,33 @@ export default function TradePage() {
           {ktcImportStatus && !ktcImportOpen ? (
             <Banner tone="info" onDismiss={() => setKtcImportStatus("")}>
               KTC import: {ktcImportStatus}
+            </Banner>
+          ) : null}
+
+          {/* Gated here: rendering the lazy dialog is what requests its chunk. */}
+          {screenshotImportOpen ? (
+            <ScreenshotImportDialog
+              onClose={() => setScreenshotImportOpen(false)}
+              onImport={importScreenshotSides}
+              hasExistingAssets={hasAssets}
+              rows={rows}
+              rowByName={rowByName}
+              rowByLowerName={rowByLowerName}
+              pickAliases={pickAliases}
+              status={
+                screenshotStatus && typeof screenshotStatus === "object"
+                  ? screenshotStatus
+                  : null
+              }
+            />
+          ) : null}
+
+          {screenshotImportNote && !screenshotImportOpen ? (
+            <Banner
+              tone="positive"
+              onDismiss={() => setScreenshotImportNote("")}
+            >
+              {screenshotImportNote}
             </Banner>
           ) : null}
 
