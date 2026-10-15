@@ -245,7 +245,9 @@ describe("/market/trade-database", () => {
       expect(url).toContain("beforeDate=2026-09-30");
       expect(url).toContain("skip=1");
     });
-    expect(screen.getByText("Page 2")).toBeTruthy();
+    // The page label renders after the second fetch RESOLVES, not when it is
+    // called: wait for the label itself (a bare getByText raced under CI load).
+    expect(await screen.findByText("Page 2")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Newer" }));
     await waitFor(() => expect(String(fetchFn.mock.calls.at(-1)[0])).not.toContain("beforeDate"));
   });
