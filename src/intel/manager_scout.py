@@ -917,6 +917,169 @@ def build_manager_scout(
     }
 
 
+# ── Offer evidence: one profile read against one proposed package ─────────
+
+#: What an ``offer_evidence`` block is — and is not.  Travels with it.
+OFFER_EVIDENCE_BASIS = "descriptive_counts_from_completed_trades_not_an_acceptance_probability"
+
+
+def _offer_shape(n_receive: int, n_send: int) -> str:
+    """The package's structural shape from the OPPONENT's side.
+
+    Same definition ``_fold_trades`` applies to history: sending more pieces
+    than you receive is consolidating.  Structural, never a threshold.
+    """
+    if n_send > n_receive:
+        return "consolidating"
+    if n_send < n_receive:
+        return "expanding"
+    return "even"
+
+
+def _count(value: Any) -> int | None:
+    """A published count, or ``None`` when it is absent or not a count."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+def offer_evidence(
+    scout: Mapping[str, Any] | None,
+    *,
+    opponent_owner_id: str | None,
+    requester_owner_id: str | None,
+    they_receive: Iterable[Mapping[str, Any]],
+    they_send: Iterable[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """How the opponent's OWN completed trades line up with one package.
+
+    Read-only over a ``build_manager_scout`` payload — it derives nothing
+    the profile does not already measure.  For each position the opponent
+    would receive it reports how many players of that position they have
+    received in completed trades, out of all players they received; for a
+    package that sends them picks, how many picks they have received; the
+    package's structural shape against the shapes of their past trades; and
+    how many trades they completed with the requester.
+
+    Counts with their samples only.  No label ("likes RBs"), no threshold,
+    no probability: none of those has an owner-settled cut-off, and an
+    acceptance probability needs outcome evidence nobody holds
+    (OWNER_PRODUCT_BACKLOG_SPEC §7, module docstring).  Every non-measured
+    state says why.
+    """
+    from src.utils.name_clean import normalize_position  # noqa: PLC0415
+
+    base = {"methodVersion": METHOD_VERSION, "basis": OFFER_EVIDENCE_BASIS}
+    if not isinstance(scout, Mapping):
+        return {**base, "state": STATE_UNAVAILABLE, "reason": "manager_scout_unavailable"}
+    oid = str(opponent_owner_id or "").strip()
+    if not oid:
+        return {**base, "state": STATE_UNAVAILABLE, "reason": "opponent_owner_unresolved"}
+    profile = next(
+        (
+            m
+            for m in scout.get("managers") or []
+            if isinstance(m, Mapping) and m.get("ownerId") == oid
+        ),
+        None,
+    )
+    if profile is None:
+        return {**base, "state": STATE_UNAVAILABLE, "reason": "opponent_profile_missing"}
+    trading = profile.get("tradeTendencies") or {}
+    tstate = trading.get("state")
+    if tstate == STATE_UNAVAILABLE:
+        return {
+            **base,
+            "state": STATE_UNAVAILABLE,
+            "reason": trading.get("reason") or "trade_history_unavailable",
+        }
+    n = _count(trading.get("tradeCount"))
+    if n is None:
+        return {**base, "state": STATE_UNAVAILABLE, "reason": "trade_count_unrecorded"}
+    recv = list(they_receive)
+    send = list(they_send)
+    shape = _offer_shape(len(recv), len(send))
+    if not n:
+        return {
+            **base,
+            "state": STATE_INSUFFICIENT,
+            "sampleSize": 0,
+            "reason": "no_completed_trades_observed",
+            "offerShapeForThem": shape,
+        }
+
+    received = trading.get("received") if isinstance(trading.get("received"), Mapping) else {}
+    # ``byPosition`` is a counter block built by ``_bump``: inside a PRESENT
+    # block a position never bumped was received zero times.  A missing block
+    # is unknown, and every per-position count is then ``None``.
+    raw_by_pos = received.get("byPosition")
+    by_pos: dict[str, int] | None = None
+    if isinstance(raw_by_pos, Mapping):
+        by_pos = {}
+        for pos, k in raw_by_pos.items():
+            c = _count(k)
+            if c is None:
+                continue
+            key = normalize_position(pos) or str(pos)
+            by_pos[key] = by_pos.get(key, 0) + c
+    players_received = _count(received.get("players"))
+    offered_positions = sorted(
+        {
+            normalize_position(a.get("position")) or UNRESOLVED_POSITION
+            for a in recv
+            if not a.get("isPick")
+        }
+    )
+    positions = [
+        {
+            "position": pos,
+            "receivedBefore": (
+                by_pos.get(pos, 0) if (by_pos is not None and pos != UNRESOLVED_POSITION) else None
+            ),
+            "ofPlayersReceived": players_received,
+        }
+        for pos in offered_positions
+    ]
+    offered_picks = sum(1 for a in recv if a.get("isPick"))
+    picks = None
+    if offered_picks:
+        picks = {
+            "offeredToThem": offered_picks,
+            "receivedBefore": _count(received.get("picks")),
+            "ofAssetsReceived": _count(received.get("assets")),
+        }
+    shapes = trading.get("packageShape")
+    same_shape = _count(shapes.get(shape)) if isinstance(shapes, Mapping) else None
+    partners = trading.get("partners")
+    req = str(requester_owner_id or "").strip()
+    with_you: int | None = None
+    if req and isinstance(partners, list):
+        # ``partners`` lists every human they traded with, so a requester who
+        # is absent from it completed zero trades with them — a real count.
+        with_you = 0
+        for p in partners:
+            if isinstance(p, Mapping) and p.get("ownerId") == req:
+                with_you = _count(p.get("trades"))
+                break
+    return {
+        **base,
+        "state": STATE_MEASURED,
+        "sampleSize": n,
+        "window": trading.get("window"),
+        "tradeCount": n,
+        "positionsTheyWouldReceive": positions,
+        # Players they received whose position the identity owner could not
+        # resolve: every ``receivedBefore`` above is a floor by this much.
+        "unresolvedPositionReceived": (
+            by_pos.get(UNRESOLVED_POSITION, 0) if by_pos is not None else None
+        ),
+        "picksTheyWouldReceive": picks,
+        "offerShapeForThem": shape,
+        "sameShapeBefore": same_shape,
+        "tradesWithRequester": with_you,
+    }
+
+
 # ── Per-process memo ──────────────────────────────────────────────────────
 
 _MEMO_LOCK = threading.Lock()

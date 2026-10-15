@@ -22,6 +22,7 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import ManagerEvidence from "@/components/trade/ManagerEvidence";
 import {
   UNKNOWN,
   fmtSignedInt,
@@ -454,6 +455,10 @@ export default function PackageBuilderView({
                     <li>{lineupLine(pkg.lineupImpact)}</li>
                   ) : null}
                 </ul>
+                <ManagerEvidence
+                  evidence={pkg.managerEvidence}
+                  team={pkg.opponent}
+                />
                 {url ? (
                   <Button as={Link} href={url} size="sm" variant="secondary">
                     Open in Trade Calculator

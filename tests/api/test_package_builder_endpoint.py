@@ -97,6 +97,29 @@ def test_bad_requests_are_400(authed, extra, error):
     assert res.json()["error"] == error
 
 
+def test_each_package_carries_the_opponents_manager_evidence(authed, monkeypatch):
+    from src.intel import manager_scout as ms
+
+    seen = []
+
+    def fake_evidence(scout, *, opponent_owner_id, requester_owner_id, they_receive, they_send):
+        seen.append((opponent_owner_id, requester_owner_id))
+        return {"state": "measured", "tradeCount": 1}
+
+    monkeypatch.setattr(ms, "cached_manager_scout", lambda *a, **k: {"managers": []})
+    monkeypatch.setattr(ms, "offer_evidence", fake_evidence)
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "target": "Their QB", "useTeamContext": False},
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    pkgs = res.json()["packages"]
+    assert pkgs and all(p["managerEvidence"]["state"] == "measured" for p in pkgs)
+    # Joined through the package's own opponent, from the requester's side.
+    assert set(seen) == {("2", "1")}
+
+
 def test_sell_a_player_view_groups_by_opponent(authed):
     res = authed.client.post(
         URL,
