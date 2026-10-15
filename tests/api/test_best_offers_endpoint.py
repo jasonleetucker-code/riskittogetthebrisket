@@ -202,3 +202,44 @@ def test_a_scout_fault_leaves_an_unavailable_block_not_a_500(authed, monkeypatch
     assert res.status_code == 200, res.text
     ev = res.json()["opponents"][0]["offer"]["managerEvidence"]
     assert (ev["state"], ev["reason"]) == ("unavailable", "manager_scout_unavailable")
+
+
+def test_one_cards_evidence_fault_is_contained_to_that_card(authed, monkeypatch):
+    from src.intel import manager_scout as ms
+
+    monkeypatch.setattr(ms, "cached_manager_scout", lambda *a, **k: {"managers": []})
+
+    def boom(*a, **k):
+        raise ValueError("odd profile")
+
+    monkeypatch.setattr(ms, "offer_evidence", boom)
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "useTeamContext": False},
+        headers={"x-test-user": "jason"},
+    )
+    assert res.status_code == 200, res.text
+    ev = res.json()["opponents"][0]["offer"]["managerEvidence"]
+    assert (ev["state"], ev["reason"]) == ("unavailable", "offer_evidence_failed")
+
+
+def test_manager_evidence_is_never_written_to_the_run_log(authed, monkeypatch, tmp_path):
+    import json as _json
+
+    from src.trade import best_offers as bo
+
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "useTeamContext": False},
+        headers={"x-test-user": "jason"},
+    )
+    assert res.status_code == 200, res.text
+    assert "managerEvidence" in res.json()["opponents"][0]["offer"]
+    lines = [
+        line
+        for f in bo.BEST_OFFERS_RUN_LOG_DIR.glob("runs-*.jsonl")
+        for line in f.read_text().splitlines()
+    ]
+    assert lines and all(
+        "managerEvidence" not in _json.loads(line)["opponents"][0]["offer"] for line in lines
+    )

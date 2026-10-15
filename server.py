@@ -9306,13 +9306,22 @@ def _attach_manager_evidence(
         log.exception("manager evidence: scout build failed for %s", league_cfg.key)
         scout = None
     for team, offer in offers:
-        offer["managerEvidence"] = _scout.offer_evidence(
-            scout,
-            opponent_owner_id=owner_of.get(team),
-            requester_owner_id=owner_of.get(my_team),
-            they_receive=offer.get("send") or [],
-            they_send=offer.get("receive") or [],
-        )
+        try:
+            offer["managerEvidence"] = _scout.offer_evidence(
+                scout,
+                opponent_owner_id=owner_of.get(team),
+                requester_owner_id=owner_of.get(my_team),
+                they_receive=offer.get("send") or [],
+                they_send=offer.get("receive") or [],
+            )
+        except Exception:  # noqa: BLE001 — one card's evidence never fails the run
+            log.exception("manager evidence: offer_evidence failed for %s", team)
+            offer["managerEvidence"] = {
+                "methodVersion": _scout.METHOD_VERSION,
+                "basis": _scout.OFFER_EVIDENCE_BASIS,
+                "state": "unavailable",
+                "reason": "offer_evidence_failed",
+            }
 
 
 @app.post("/api/trade/best-offers")
