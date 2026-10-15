@@ -82,8 +82,15 @@ export function sniffImageType(bytes) {
 
 /** Target size with the long edge capped at ``maxEdge``; never upscales. */
 export function scaledDimensions(width, height, maxEdge = MAX_LONG_EDGE) {
-  const w = Math.max(1, Math.round(Number(width) || 0));
-  const h = Math.max(1, Math.round(Number(height) || 0));
+  const w = Math.round(Number(width));
+  const h = Math.round(Number(height));
+  // An unknown size is refused, never read as 0 and drawn as a 1x1 canvas.
+  if (!(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0)) {
+    throw new ScreenshotPrepError(
+      "decode_failed",
+      "That image could not be opened.",
+    );
+  }
   const long = Math.max(w, h);
   if (long <= maxEdge) return { width: w, height: h };
   const scale = maxEdge / long;
@@ -194,10 +201,12 @@ function defaultCreateCanvas(width, height) {
   return canvas;
 }
 
+/** The decoded size, or ``null`` for a dimension the image does not report. */
 function sourceSize(img) {
+  const pick = (a, b) => (a > 0 ? a : b > 0 ? b : null);
   return {
-    width: img.naturalWidth || img.width || 0,
-    height: img.naturalHeight || img.height || 0,
+    width: pick(img.naturalWidth, img.width),
+    height: pick(img.naturalHeight, img.height),
   };
 }
 

@@ -68,6 +68,16 @@ describe("sniffImageType", () => {
 });
 
 describe("scaledDimensions", () => {
+  it("refuses an unknown or non-positive size instead of drawing 1x1", () => {
+    expect(() => scaledDimensions(undefined, 600)).toThrow(
+      /could not be opened/,
+    );
+    expect(() => scaledDimensions(0, 600)).toThrow(/could not be opened/);
+    expect(() => scaledDimensions(800, Number.NaN)).toThrow(
+      /could not be opened/,
+    );
+  });
+
   it("caps the long edge and keeps the aspect ratio", () => {
     expect(scaledDimensions(3200, 1600)).toEqual({ width: 1600, height: 800 });
     expect(scaledDimensions(1170, 2532)).toEqual({

@@ -345,3 +345,68 @@ test("hides From screenshot when the feature is disabled", async ({
     page.getByRole("button", { name: /^From screenshot$/ }),
   ).toHaveCount(0);
 });
+
+// ── Real backend + real Tesseract (no route mocks) ─────────────────────────
+// Runs only where the server reports OCR available (a dev box or CI runner
+// with tesseract-ocr installed); skips cleanly elsewhere.  Uploads a
+// committed synthetic screenshot and checks the REAL pipeline: OCR -> layout
+// -> identity -> review, with each expected asset on its side and the
+// "Suggested" equalizer region kept out of both sides.
+test("real OCR: a committed screenshot lands on the right sides", async ({
+  authedPage: page,
+}) => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const status = await page.request.get("/api/trade/import-screenshot/status");
+  const body = status.ok() ? await status.json() : {};
+  test.skip(
+    !(body.enabled && body.available),
+    `server OCR not available (${body.reason || status.status()})`,
+  );
+
+  const dir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "fixtures",
+    "screenshot_import",
+    "light_two_column",
+  );
+  const expected = JSON.parse(
+    fs.readFileSync(path.join(dir, "expected.json"), "utf8"),
+  );
+
+  await openTrade(page);
+  const dialog = await openScreenshotDialog(page);
+  await dialog.getByTestId("ds-dropzone-input").setInputFiles({
+    name: "trade.png",
+    mimeType: "image/png",
+    buffer: fs.readFileSync(path.join(dir, "image.png")),
+  });
+  const sideA = dialog.getByRole("region", { name: "Side A" });
+  const sideB = dialog.getByRole("region", { name: "Side B" });
+  await expect(sideA).toBeVisible({ timeout: 60_000 });
+
+  // Every asset is READ onto its own side (the raw OCR text is shown on each
+  // line); players must also MATCH their board row.  A pick may legitimately
+  // await a slot choice on the live board (e.g. "2027 1st" once the class is
+  // priced by slot), so picks are checked by their read text only -- their
+  // resolution is pinned against a fixed board in the Python suite.
+  const isPick = (a) => /^\d{4}\b/.test(a.text);
+  const [expA, expB] = expected.sides;
+  for (const [side, exp] of [
+    [sideA, expA],
+    [sideB, expB],
+  ]) {
+    for (const asset of exp.assets) {
+      await expect(side.getByText(asset.text).first()).toBeVisible();
+      if (!isPick(asset)) {
+        await expect(side.getByText(asset.boardName).first()).toBeVisible();
+      }
+    }
+  }
+  for (const name of expected.mustBeIgnored || []) {
+    await expect(sideA.getByText(name)).toHaveCount(0);
+    await expect(sideB.getByText(name)).toHaveCount(0);
+  }
+});

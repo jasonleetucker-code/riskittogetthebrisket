@@ -43,6 +43,10 @@ STATUS_NEEDS_CONFIRMATION = "needs_confirmation"
 STATUS_UNRESOLVED = "unresolved"
 
 REASON_NOT_ON_BOARD = "not_on_board"
+# A pick read correctly at a grade the board does not price (e.g. "2027 1st"
+# once the 2027 class is priced by slot): the screenshot does not say WHICH
+# pick, so the user chooses -- never a fabricated slot or tier.
+REASON_PICK_SLOT_UNKNOWN = "pick_slot_unknown"
 REASON_NO_MATCH = "no_match"
 REASON_RETIRED_PICK_CLASS = "retired_pick_class"
 REASON_DIRECTORY_UNAVAILABLE = "identity_directory_unavailable"
@@ -248,6 +252,8 @@ def _resolve_pick(item: ParsedItem, board: BoardIndex) -> ResolvedItem:
             out.suggestions.append(
                 {"sleeperId": None, "boardName": cname, "position": None, "team": None}
             )
+    if ref.grade == "generic" and out.suggestions:
+        out.reason = REASON_PICK_SLOT_UNKNOWN
     return out
 
 

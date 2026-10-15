@@ -120,3 +120,29 @@ def test_no_value_field_is_ever_read(identity_ctx, board):
         row["rankDerivedValue"] = 9999 if row.get("playerId") == "10925" else 1
     res = _one("Byron Young", identity_ctx, board)
     assert res.status == "needs_confirmation"
+
+
+def test_a_bare_pick_on_a_slot_priced_class_asks_which_slot():
+    """ "2027 1st" once 2027 is priced by slot: read correctly, never guessed."""
+    from src.identity.picks import parse_pick_label
+    from src.trade.screenshot_import.parse import ParsedItem
+    from src.trade.screenshot_import.resolve import (
+        BoardIndex,
+        REASON_PICK_SLOT_UNKNOWN,
+        _resolve_pick,
+    )
+
+    contract = {
+        "currentDraftYear": 2027,
+        "playersArray": [
+            {"displayName": "2027 Early 1st", "assetClass": "pick"},
+            {"displayName": "2027 Mid 1st", "assetClass": "pick"},
+        ],
+    }
+    item = ParsedItem(
+        kind="pick", raw="2027 1st", market_ref=parse_pick_label("2027 1st").market_ref
+    )
+    out = _resolve_pick(item, BoardIndex(contract))
+    assert out.status == "unresolved" and out.board_name is None
+    assert out.reason == REASON_PICK_SLOT_UNKNOWN
+    assert [s["boardName"] for s in out.suggestions] == ["2027 Early 1st", "2027 Mid 1st"]

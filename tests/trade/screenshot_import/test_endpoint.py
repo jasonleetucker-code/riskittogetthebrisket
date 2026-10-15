@@ -186,14 +186,18 @@ def test_unsupported_type_is_415(client):
     assert res.status_code == 415 and res.json()["error"] == "unsupported_image_type"
 
 
-def test_oversize_image_is_413(client):
-    data = b"\x89PNG\r\n\x1a\n" + b"\0" * 3_050_000
+def test_oversize_image_is_413(client, monkeypatch):
+    # The decoded-image ceiling, checked by the handler (a real image this size
+    # cannot fit in the 2 MB body as base64, so the ceiling is lowered here).
+    monkeypatch.setattr(server, "_SCREENSHOT_MAX_IMAGE_BYTES", 1_000)
+    data = b"\x89PNG\r\n\x1a\n" + b"\0" * 2_000
     res = client.post(URL, json={"image": _b64(data)}, headers=H)
     assert res.status_code == 413 and res.json()["error"] == "image_too_large"
 
 
-def test_body_over_the_route_cap_is_413_before_the_handler(client):
-    res = client.post(URL, json={"image": "A" * 4_400_000}, headers=H)
+def test_body_over_the_global_cap_is_413_before_the_handler(client):
+    # No per-route allowance: the global 2 MB body cap applies unchanged.
+    res = client.post(URL, json={"image": "A" * 2_200_000}, headers=H)
     assert res.status_code == 413
 
 

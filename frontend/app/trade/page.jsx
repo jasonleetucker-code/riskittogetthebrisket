@@ -1420,12 +1420,14 @@ export default function TradePage() {
     (screenshotStatus !== null && screenshotStatus.enabled === true);
 
   // Confirmed screenshot import: ONE sides update (lib/trade-logic
-  // applyImportedSides), the same bulk-load reset as the KTC path.
+  // applyImportedSides). Replace is a bulk load and resets value overrides
+  // like the KTC path; Add keeps the user's edits on the assets already in
+  // the trade.
   const importScreenshotSides = useCallback((importedSides, mode) => {
     const n =
       (importedSides?.[0]?.length || 0) + (importedSides?.[1]?.length || 0);
     setSides((prev) => applyImportedSides(prev, importedSides, mode));
-    setValueOverrides({});
+    if (mode !== "add") setValueOverrides({});
     setScreenshotImportOpen(false);
     setScreenshotImportNote(
       `Imported ${n} ${n === 1 ? "asset" : "assets"} from screenshot${

@@ -4092,31 +4092,19 @@ except (TypeError, ValueError):
     _MAX_REQUEST_BYTES = 2_097_152
 
 
-# Per-path allowances ABOVE the global cap, for the one route whose body is
-# an image.  A 3 MB screenshot is ~4 MB once base64-encoded inside JSON; the
-# handler re-checks the real body length and the decoded image size itself.
-_REQUEST_BYTES_BY_PATH: dict[str, int] = {
-    "/api/trade/import-screenshot": 4_300_000,
-}
-
-
 @app.middleware("http")
 async def _limit_request_size(request: Request, call_next):
     if request.method in ("POST", "PUT", "PATCH"):
         cl = request.headers.get("content-length")
         if cl is not None:
-            limit = max(
-                _MAX_REQUEST_BYTES,
-                _REQUEST_BYTES_BY_PATH.get(request.url.path or "", _MAX_REQUEST_BYTES),
-            )
             try:
-                if int(cl) > limit:
+                if int(cl) > _MAX_REQUEST_BYTES:
                     return JSONResponse(
                         status_code=413,
                         content={
                             "ok": False,
                             "error": "Request body too large.",
-                            "maxBytes": limit,
+                            "maxBytes": _MAX_REQUEST_BYTES,
                         },
                     )
             except (TypeError, ValueError):
@@ -9976,7 +9964,12 @@ async def post_trade_import_ktc(request: Request):
 # asset from the canonical board.  Pipeline owner: src/trade/screenshot_import.
 # Nothing here retains the image or logs the text read from it — counts only.
 # Runbook: docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md.
-_SCREENSHOT_MAX_BODY_BYTES = 4_300_000
+# The global body cap (``_MAX_REQUEST_BYTES``, 2 MB) applies unchanged: the
+# client downscales every screenshot to <= 1.3 MB before upload (~1.73 MB as
+# base64 in JSON).  The handler re-checks the real body length against it.
+_SCREENSHOT_MAX_BODY_BYTES = _MAX_REQUEST_BYTES
+# Decoded-image ceiling for this route: what fits inside that body as base64.
+_SCREENSHOT_MAX_IMAGE_BYTES = 1_500_000
 _SCREENSHOT_RATE_CAPACITY = 20  # images ...
 _SCREENSHOT_RATE_WINDOW_S = 600.0  # ... per 10 minutes, per signed-in user
 _SCREENSHOT_MAX_INDEX = 3
@@ -10194,7 +10187,9 @@ async def post_trade_import_screenshot(request: Request):
         )
 
     try:
-        prepared = await run_in_threadpool(_img.decode_image, data)
+        prepared = await run_in_threadpool(
+            _img.decode_image, data, max_bytes=_SCREENSHOT_MAX_IMAGE_BYTES
+        )
     except _img.ImageRejected as exc:
         _screenshot_count("rejected_image")
         status, code, message = _SCREENSHOT_IMAGE_ERRORS[exc.code]

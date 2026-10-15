@@ -146,6 +146,9 @@ function StatusBadge({ item }) {
   if (item.status === "resolved") return <Badge tone="outline">Matched</Badge>;
   if (item.status === "needs_confirmation")
     return <Badge tone="warning">Confirm</Badge>;
+  // Read correctly, but the screenshot doesn't name the slot: a choice, not a miss.
+  if (item.reason === "pick_slot_unknown")
+    return <Badge tone="warning">Choose slot</Badge>;
   return <Badge tone="negative">Not found</Badge>;
 }
 
@@ -236,9 +239,11 @@ function ReviewItem({ item, area, rows, dispatch }) {
       {item.status === "unresolved" ? (
         <div className={styles.fix}>
           <p className={styles.note}>
-            {item.reason === "not_on_board"
-              ? "Not on the current board."
-              : "Couldn't match this text to a board asset."}{" "}
+            {item.reason === "pick_slot_unknown"
+              ? "The screenshot doesn't say which pick this is, and the board prices this class by slot."
+              : item.reason === "not_on_board"
+                ? "Not on the current board."
+                : "Couldn't match this text to a board asset."}{" "}
             Choose the right asset or remove it.
           </p>
           {item.suggestions.length ? (
