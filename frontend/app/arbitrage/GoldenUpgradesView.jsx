@@ -19,6 +19,8 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import { deskBodyFromOffer } from "@/lib/trade-desk";
+import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
 import { goldenRows, noResultText } from "@/lib/golden-upgrades";
 import {
   emptyRefinement,
@@ -224,6 +226,18 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
                 {row.lineupText ? (
                   <p className={styles.sub}>{row.lineupText}</p>
                 ) : null}
+                <SaveToDeskButton
+                  body={deskBodyFromOffer(
+                    { send: [row.owned], receive: [row.target] },
+                    {
+                      leagueKey,
+                      myTeam,
+                      opponent: row.opponent,
+                      source: "golden_upgrades",
+                    },
+                  )}
+                  disabled={!leagueKey}
+                />
                 {url ? (
                   <Button as={Link} href={url} size="sm" variant="secondary">
                     Open in Trade Calculator

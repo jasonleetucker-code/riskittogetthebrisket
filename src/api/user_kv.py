@@ -481,6 +481,46 @@ def set_league_scoped_entry(
     return _mutate_user_state(username, _replace, path=path)
 
 
+def mutate_league_scoped_entry(
+    username: str,
+    field: str,
+    league_key: str,
+    mutate: Callable[[Any], Any],
+    *,
+    path: Path | None = None,
+) -> Any:
+    """Read-modify-write ONE league's entry under a ``{leagueKey: ...}`` map field.
+
+    ``mutate(current)`` receives that league's current entry (``None`` when
+    absent) and returns the replacement (``None`` removes it).  The read, the
+    edit and the write happen inside one ``BEGIN IMMEDIATE`` transaction, like
+    :func:`set_league_scoped_entry`, so two tabs editing the same list cannot
+    lose each other's change.  If ``mutate`` raises, nothing is written and the
+    exception propagates.  Returns the entry as written.
+    """
+    key = str(league_key or "").strip()
+    if not username or not key or not field:
+        raise ValueError("username, field and league_key are required")
+    written: dict[str, Any] = {}
+
+    def _apply(entry: dict[str, Any]) -> None:
+        current = entry.get(str(field))
+        by_league = dict(current) if isinstance(current, dict) else {}
+        value = mutate(by_league.get(key))
+        if value is None:
+            by_league.pop(key, None)
+        else:
+            by_league[key] = value
+        if by_league:
+            entry[str(field)] = by_league
+        else:
+            entry.pop(str(field), None)
+        written["value"] = value
+
+    _mutate_user_state(username, _apply, path=path)
+    return written.get("value")
+
+
 def _merge_per_league_dismissals(
     existing_by_league: dict[str, Any] | None,
     league_key: str,

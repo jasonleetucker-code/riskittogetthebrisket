@@ -342,3 +342,32 @@ def test_get_user_state_does_not_read_other_users_blobs(kv_path):
     assert alice.get("watchlist") == ["a"]
     assert "bob" not in alice
     assert user_kv.get_user_state("charlie", path=kv_path) == {}
+
+
+def test_mutate_league_scoped_entry_is_one_transaction_per_league(kv_path):
+    user_kv.set_user_field("alice", "other", 1, path=kv_path)
+    user_kv.set_league_scoped_entry("alice", "deskByLeague", "b", {"items": [9]}, path=kv_path)
+    out = user_kv.mutate_league_scoped_entry(
+        "alice",
+        "deskByLeague",
+        "a",
+        lambda cur: {"items": [*(cur or {}).get("items", []), 1]},
+        path=kv_path,
+    )
+    assert out == {"items": [1]}
+    state = user_kv.get_user_state("alice", path=kv_path)
+    assert state["deskByLeague"] == {"a": {"items": [1]}, "b": {"items": [9]}}
+    assert state["other"] == 1
+
+    # A raising mutation writes nothing.
+    def boom(cur):
+        raise RuntimeError("refused")
+
+    with pytest.raises(RuntimeError):
+        user_kv.mutate_league_scoped_entry("alice", "deskByLeague", "a", boom, path=kv_path)
+    assert user_kv.get_user_state("alice", path=kv_path)["deskByLeague"]["a"] == {"items": [1]}
+
+    # None removes the league; the last league removes the field.
+    user_kv.mutate_league_scoped_entry("alice", "deskByLeague", "a", lambda c: None, path=kv_path)
+    user_kv.mutate_league_scoped_entry("alice", "deskByLeague", "b", lambda c: None, path=kv_path)
+    assert "deskByLeague" not in user_kv.get_user_state("alice", path=kv_path)
