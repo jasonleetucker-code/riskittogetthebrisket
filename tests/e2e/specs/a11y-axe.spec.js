@@ -105,6 +105,7 @@ const ROUTES = [
   "/market/sharp-people",
   "/market/sharp-roster-percentage",
   "/market/sharp-tracker",
+  "/market/trade-database",
   "/more",
   "/news",
   "/phases",
