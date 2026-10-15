@@ -1974,6 +1974,10 @@ def generate_suggestions_from_pool(
         pool = [p for p in pool if not p.rookie]
 
     positional_floor: dict[str, Any] | None = None
+    # Identity keys the positional floor admitted beyond the top-N: every
+    # offered asset is stamped with the gate that let it in (``qualityGate``),
+    # so the response never advertises one gate while applying two.
+    floor_keys: set[str] = set()
     if roster_pool is not None and starter_needs:
         if team_count and team_count > 1:
             pool_keys = {_identity_key(p.name) for p in pool}
@@ -1992,6 +1996,7 @@ def generate_suggestions_from_pool(
                     if key in pool_keys or (p.rookie and not rookies_eligible):
                         continue
                     pool_keys.add(key)
+                    floor_keys.add(key)
                     additions.append(p)
                     added_by_position[pos] = added_by_position.get(pos, 0) + 1
             if additions:
@@ -2270,12 +2275,16 @@ def generate_suggestions_from_pool(
             },
         }
 
-    return {
-        "rosterAnalysis": _serialize_roster(roster),
+    buckets = {
         "sellHigh": [_serialize_suggestion(s, roster) for s in sell_high],
         "buyLow": [_serialize_suggestion(s, roster) for s in buy_low],
         "consolidation": [_serialize_suggestion(s, roster) for s in consolidation],
         "positionalUpgrades": [_serialize_suggestion(s, roster) for s in upgrades],
+    }
+    _stamp_quality_gates(buckets, floor_keys)
+    return {
+        "rosterAnalysis": _serialize_roster(roster),
+        **buckets,
         "totalSuggestions": len(all_suggestions),
         "metadata": {
             "assetPoolSize": len(pool),
@@ -2360,6 +2369,25 @@ def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
         # Deprecated alias — never a KTC rank (WS-J F-4).
         result["ktcRank"] = p.board_rank
     return result
+
+
+QUALITY_GATE_TOP_N = "top_n"
+QUALITY_GATE_POSITIONAL_FLOOR = "positional_floor"
+
+
+def _stamp_quality_gates(buckets: dict[str, list[dict[str, Any]]], floor_keys: set[str]) -> None:
+    """Name, on every offered asset, the gate that admitted it to the quality
+    pool: ``positional_floor`` for an asset only the per-position starter floor
+    let in (it may rank past ``boardTopNFilter``), ``top_n`` otherwise."""
+    for suggestions in buckets.values():
+        for sug in suggestions:
+            for side in ("give", "receive"):
+                for asset in sug.get(side) or []:
+                    asset["qualityGate"] = (
+                        QUALITY_GATE_POSITIONAL_FLOOR
+                        if _identity_key(asset.get("name") or "") in floor_keys
+                        else QUALITY_GATE_TOP_N
+                    )
 
 
 def _serialize_suggestion(

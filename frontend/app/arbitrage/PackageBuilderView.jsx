@@ -31,11 +31,15 @@ import {
   verdictLines,
 } from "@/lib/best-offers";
 import {
+  BUILDER_MODES,
+  IMPROVE_POSITIONS,
   PACKAGE_POSITIONS,
   buildRequest,
   externalLine,
+  modeRequestFields,
   noResultText,
   requestErrorText,
+  resultCountText,
   togglePosition,
 } from "@/lib/package-builder";
 import {
@@ -87,6 +91,9 @@ export default function PackageBuilderView({
     surface: "package-builder",
     context: myTeam,
   });
+  const [mode, setMode] = useState("custom");
+  const [sellAsset, setSellAsset] = useState("");
+  const [improvePosition, setImprovePosition] = useState("");
   const [target, setTarget] = useState("");
   const [opponent, setOpponent] = useState("");
   const [outgoing, setOutgoing] = useState([]);
@@ -106,6 +113,7 @@ export default function PackageBuilderView({
     setResult(null);
     setRunning(false);
     setOutgoing([]);
+    setSellAsset("");
     setTarget("");
     setOpponent("");
     setError("");
@@ -125,8 +133,17 @@ export default function PackageBuilderView({
     [teams, myTeam, opponent],
   );
 
+  const fields = modeRequestFields(mode, {
+    target,
+    opponent,
+    outgoing,
+    positions,
+    sellAsset,
+    improvePosition,
+  });
+
   async function run(nextRefinement = refinement) {
-    if (!myTeam) return;
+    if (!myTeam || !fields.ready) return;
     const mine = ++seq.current;
     setRunning(true);
     setError("");
@@ -140,10 +157,11 @@ export default function PackageBuilderView({
             buildRequest({
               myTeam,
               leagueKey,
-              target,
-              opponent,
-              outgoing,
-              positions,
+              target: fields.target,
+              opponent: fields.opponent,
+              outgoing: fields.outgoing,
+              positions: fields.positions,
+              perOpponent: fields.perOpponent,
               maxSide,
               allowPicks,
               evidence,
@@ -186,35 +204,84 @@ export default function PackageBuilderView({
         size and picks shape what is generated — they are not filters on a
         finished list. Recommendations only — nothing is sent.
       </p>
+      <SegmentedControl
+        label="What do you want to do?"
+        options={BUILDER_MODES}
+        value={mode}
+        onChange={(m) => {
+          setMode(m);
+          setResult(null);
+        }}
+      />
       <div className={styles.form}>
-        <Field label="Player or pick you want (optional)">
-          <Input
-            list="package-builder-targets"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder="Any"
-          />
-        </Field>
+        {mode === "sell" ? (
+          <Field label="Player to sell">
+            <Select
+              value={sellAsset}
+              onChange={(e) => setSellAsset(e.target.value)}
+            >
+              <option value="">Choose a player</option>
+              {myRoster.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        {mode === "improve" ? (
+          <Field label="Position to improve">
+            <Select
+              value={improvePosition}
+              onChange={(e) => setImprovePosition(e.target.value)}
+            >
+              <option value="">Choose a position</option>
+              {IMPROVE_POSITIONS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        {mode === "acquire" || mode === "custom" ? (
+          <Field
+            label={
+              mode === "acquire"
+                ? "Player or pick you want"
+                : "Player or pick you want (optional)"
+            }
+          >
+            <Input
+              list="package-builder-targets"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              placeholder={mode === "acquire" ? "Search other rosters" : "Any"}
+            />
+          </Field>
+        ) : null}
         <datalist id="package-builder-targets">
           {otherPlayers.map((n) => (
             <option key={n} value={n} />
           ))}
         </datalist>
-        <Field label="From team">
-          <Select
-            value={opponent}
-            onChange={(e) => setOpponent(e.target.value)}
-          >
-            <option value="">Any team</option>
-            {teams
-              .filter((t) => t.name !== myTeam)
-              .map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-          </Select>
-        </Field>
+        {mode === "acquire" || mode === "custom" ? (
+          <Field label="From team">
+            <Select
+              value={opponent}
+              onChange={(e) => setOpponent(e.target.value)}
+            >
+              <option value="">Any team</option>
+              {teams
+                .filter((t) => t.name !== myTeam)
+                .map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+        ) : null}
         <Field label="Most assets per side (players + picks)">
           <Select
             value={String(maxSide)}
@@ -236,48 +303,54 @@ export default function PackageBuilderView({
           Allow draft picks
         </label>
       </div>
-      <div
-        className={styles.positions}
-        role="group"
-        aria-label="Positions you want back"
-      >
-        <span className={styles.groupLabel}>Positions you want back:</span>
-        {PACKAGE_POSITIONS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className={styles.chip}
-            aria-pressed={positions.includes(p)}
-            onClick={() => setPositions((prev) => togglePosition(prev, p))}
-          >
-            {p}
-          </button>
-        ))}
-        <span className={styles.muted}>{positions.length ? "" : "(any)"}</span>
-      </div>
-      <details className={styles.outgoing}>
-        <summary>
-          Assets you would offer ({outgoing.length ? outgoing.length : "all"})
-        </summary>
-        <div className={styles.outgoingList}>
-          {myRoster.map((n) => (
-            <label key={n} className={styles.check}>
-              <input
-                type="checkbox"
-                checked={outgoing.includes(n)}
-                onChange={() =>
-                  setOutgoing((prev) =>
-                    prev.includes(n)
-                      ? prev.filter((x) => x !== n)
-                      : [...prev, n],
-                  )
-                }
-              />
-              {n}
-            </label>
+      {mode === "custom" || mode === "sell" ? (
+        <div
+          className={styles.positions}
+          role="group"
+          aria-label="Positions you want back"
+        >
+          <span className={styles.groupLabel}>Positions you want back:</span>
+          {PACKAGE_POSITIONS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={styles.chip}
+              aria-pressed={positions.includes(p)}
+              onClick={() => setPositions((prev) => togglePosition(prev, p))}
+            >
+              {p}
+            </button>
           ))}
+          <span className={styles.muted}>
+            {positions.length ? "" : "(any)"}
+          </span>
         </div>
-      </details>
+      ) : null}
+      {mode === "sell" ? null : (
+        <details className={styles.outgoing}>
+          <summary>
+            Assets you would offer ({outgoing.length ? outgoing.length : "all"})
+          </summary>
+          <div className={styles.outgoingList}>
+            {myRoster.map((n) => (
+              <label key={n} className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={outgoing.includes(n)}
+                  onChange={() =>
+                    setOutgoing((prev) =>
+                      prev.includes(n)
+                        ? prev.filter((x) => x !== n)
+                        : [...prev, n],
+                    )
+                  }
+                />
+                {n}
+              </label>
+            ))}
+          </div>
+        </details>
+      )}
       <div className={styles.controls}>
         <SegmentedControl
           label="Evidence required"
@@ -291,10 +364,14 @@ export default function PackageBuilderView({
           value={useTeamContext ? "team" : "asset"}
           onChange={(v) => setUseTeamContext(v === "team")}
         />
-        <Button onClick={() => run()} disabled={running || !myTeam}>
+        <Button
+          onClick={() => run()}
+          disabled={running || !myTeam || !fields.ready}
+        >
           {running ? "Building packages…" : "Build packages"}
         </Button>
       </div>
+      {!fields.ready ? <p className={styles.muted}>{fields.missing}</p> : null}
       <RefinementBar
         refinement={refinement}
         onLock={refine.onLock}
@@ -306,8 +383,7 @@ export default function PackageBuilderView({
       {running ? <SkeletonTable rows={4} /> : null}
       {!running && result ? (
         <p className={styles.count} role="status">
-          {packages.length} package{packages.length === 1 ? "" : "s"} found
-          {result.request?.opponent ? ` with ${result.request.opponent}` : ""}.
+          {resultCountText(result)}
         </p>
       ) : null}
       {!running && result && !packages.length ? (

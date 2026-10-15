@@ -7817,6 +7817,20 @@ def _csv_query_values(request: Request, name: str) -> list[str]:
     return [v.strip() for v in raw.split(",") if v.strip()]
 
 
+def _board_names_by_player_id() -> dict[str, dict[str, Any]]:
+    """Sleeper player id -> board display name / position, for labelling
+    ledger assets.  Labels only: matching is by canonical id, never name."""
+    names: dict[str, dict[str, Any]] = {}
+    for row in (latest_contract_data or {}).get("playersArray") or []:
+        sid = str(row.get("playerId") or "").strip()
+        if sid and sid not in names:
+            names[sid] = {
+                "name": row.get("canonicalName") or row.get("displayName"),
+                "position": row.get("position"),
+            }
+    return names
+
+
 @app.get("/api/market/trades/reference")
 async def get_market_trade_reference(request: Request):
     """C3-CALC-01 / TC-07 + TC-10 — recent real trades touching the
@@ -7858,14 +7872,7 @@ async def get_market_trade_reference(request: Request):
             status_code=400,
             content={"error": "bad_request", "message": "limit must be an integer"},
         )
-    names: dict[str, dict[str, Any]] = {}
-    for row in (latest_contract_data or {}).get("playersArray") or []:
-        sid = str(row.get("playerId") or "").strip()
-        if sid and sid not in names:
-            names[sid] = {
-                "name": row.get("canonicalName") or row.get("displayName"),
-                "position": row.get("position"),
-            }
+    names = _board_names_by_player_id()
     body = await run_in_threadpool(
         _reference.reference_trades,
         league_cfg.key,
@@ -7875,6 +7882,173 @@ async def get_market_trade_reference(request: Request):
         limit=limit,
         names=names,
     )
+    if body["state"] == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={**body, "error": "trade_ledger_unavailable"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=body, headers={"Cache-Control": "private, max-age=60"})
+
+
+def _query_int(request: Request, name: str, default: int | None) -> int | None:
+    raw = (request.query_params.get(name) or "").strip()
+    if not raw:
+        return default
+    return int(raw)  # ValueError -> the caller's 400
+
+
+def _query_bool(request: Request, name: str) -> bool | None:
+    raw = (request.query_params.get(name) or "").strip().lower()
+    if not raw:
+        return None
+    if raw in ("true", "1", "yes"):
+        return True
+    if raw in ("false", "0", "no"):
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
+@app.get("/api/market/trades/comparable")
+async def get_market_trade_comparable(request: Request):
+    """C3-CALC-01 / TC-09 (C4-MTL-03) — recorded real trades most like the
+    package on the calculator, each with the reasons it matched.
+
+    Relevance ORDERING over the canonical underlying-trade ledger
+    (``src.trade.comparable_trades``): never a price or a value, and it feeds
+    no verdict.  A trade must share an asset with the package to be a
+    candidate.  Same privacy rules and projection as
+    ``/api/market/trades/reference``.
+
+    Query parameters (comma-separated, per package side)::
+
+        leagueKey                      optional — standard resolver
+        aPlayers / aPicks / aPickAssetIds   side A
+        bPlayers / bPicks / bPickAssetIds   side B
+        limit                          optional, default 10, max 25
+
+    Responses::
+
+        200  {state: ok | no_assets, trades[].comparability, methodology, ...}
+        400  unknown_league / inactive_league / bad_request
+        503  trade_ledger_unavailable — no ledger built on this host
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+    try:
+        limit = _query_int(request, "limit", _comparable.DEFAULT_LIMIT)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "limit must be an integer"},
+        )
+
+    def side(prefix: str) -> Any:
+        return _comparable.SideRefs(
+            player_ids=_csv_query_values(request, f"{prefix}Players"),
+            pick_names=_csv_query_values(request, f"{prefix}Picks"),
+            pick_asset_ids=_csv_query_values(request, f"{prefix}PickAssetIds"),
+        )
+
+    body = await run_in_threadpool(
+        _comparable.comparable_trades,
+        league_cfg.key,
+        side_a=side("a"),
+        side_b=side("b"),
+        limit=limit,
+        names=_board_names_by_player_id(),
+    )
+    if body["state"] == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={**body, "error": "trade_ledger_unavailable"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=body, headers={"Cache-Control": "private, max-age=60"})
+
+
+@app.get("/api/market/trades/database")
+async def get_market_trade_database(request: Request):
+    """C3-CALC-01 / TC-08 — browse and filter the recorded real dynasty trades.
+
+    Same visibility rules and projection as ``/api/market/trades/reference``
+    (``src.trade.market_trade_database``).  Facts only — nothing is valued or
+    graded.  A format filter EXCLUDES rows whose value is unknown and counts
+    them (``excludedUnknown``); unknown is never a match.
+
+    Query parameters::
+
+        leagueKey                          optional — standard resolver
+        players / picks / pickAssetIds     optional asset filter (comma-separated)
+        since / until                      ISO dates (default: the last 365 days)
+        superflex / idp / teScoringEdge    true | false
+        teams / starters / ktcTepLevel     integers
+        source                             ktc_trade_database | sleeper_sharp_discovery
+                                           | own_league_sleeper
+        shape                              e.g. 2x1
+        assetMix                           players | picks | mixed
+        limit                              page size (max 50)
+        beforeDate / skip                  paging cursor — echo ``nextCursor``
+
+    Responses::
+
+        200  {state: ok | no_assets, trades, hasMore, nextCursor,
+              excludedUnknown, excludedNotApplicable, ...}
+        400  unknown_league / inactive_league / bad_request
+        503  trade_ledger_unavailable — no ledger built on this host
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import market_trade_database as _database  # noqa: PLC0415
+
+    def bad(message: str) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"error": "bad_request", "message": message})
+
+    qp = request.query_params
+    try:
+        filters = _database.TradeFilters(
+            player_ids=_csv_query_values(request, "players"),
+            pick_names=_csv_query_values(request, "picks"),
+            pick_asset_ids=_csv_query_values(request, "pickAssetIds"),
+            since=qp.get("since"),
+            until=qp.get("until"),
+            superflex=_query_bool(request, "superflex"),
+            teams=_query_int(request, "teams", None),
+            starters=_query_int(request, "starters", None),
+            idp=_query_bool(request, "idp"),
+            te_scoring_edge=_query_bool(request, "teScoringEdge"),
+            ktc_tep_level=_query_int(request, "ktcTepLevel", None),
+            source=(qp.get("source") or "").strip() or None,
+            shape=_database.parse_shape(qp.get("shape")),
+            asset_mix=(qp.get("assetMix") or "").strip() or None,
+        )
+        limit = _query_int(request, "limit", _database.DEFAULT_LIMIT)
+        skip = _query_int(request, "skip", 0)
+    except _database.FilterError as err:
+        return bad(str(err))
+    except ValueError as err:
+        return bad(str(err) if "must be" in str(err) else "integer filters must be integers")
+
+    try:
+        body = await run_in_threadpool(
+            _database.browse_trades,
+            league_cfg.key,
+            filters,
+            limit=limit,
+            before_date=qp.get("beforeDate"),
+            skip=skip,
+            names=_board_names_by_player_id(),
+        )
+    except _database.FilterError as err:
+        return bad(str(err))
     if body["state"] == "unavailable":
         return JSONResponse(
             status_code=503,
@@ -9618,7 +9792,8 @@ async def post_trade_package_builder(request: Request):
           "evidence": "any" | "external",
           "useTeamContext": true,
           "refinement": {"lock": [], "exclude": []},
-          "limit": 10                            // 1-25
+          "limit": 10,                           // 1-25
+          "perOpponent": false                   // best package per opponent only
         }
 
     Every constraint is applied during generation (``src/trade/package_builder``).
@@ -9687,6 +9862,7 @@ async def post_trade_package_builder(request: Request):
     if evidence not in _pb.EVIDENCE_LEVELS:
         return _bad("invalid_evidence", allowed=list(_pb.EVIDENCE_LEVELS))
     allow_picks = body.get("allowPicks", False) is True
+    per_opponent = body.get("perOpponent", False) is True
     refinement, error = _refinement_from_body(body)
     if error is not None:
         return error
@@ -9731,6 +9907,7 @@ async def post_trade_package_builder(request: Request):
             target=target or None,
             opponent=opponent or None,
             outgoing=outgoing,
+            per_opponent=per_opponent,
             return_positions=return_positions,
             max_assets_per_side=max_side,
             allow_picks=allow_picks,

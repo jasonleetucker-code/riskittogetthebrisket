@@ -16,6 +16,95 @@ export const PACKAGE_POSITIONS = [
   "PICKS",
 ];
 
+/**
+ * The builder's views (directive Part 3).  Each is a preset over the SAME
+ * server request — no mode has its own generator:
+ *
+ *   acquire — a desired incoming asset (``target``); its holder is implied.
+ *   sell    — one asset to move (``outgoing = [it]``); the best package with
+ *             EACH plausible buyer (``perOpponent``).
+ *   improve — one position you want back (``returnPositions = [it]``), best
+ *             package per team (``perOpponent``); the roster-aware rerank keeps
+ *             a trade that opens a bigger hole elsewhere from ranking first.
+ *   custom  — every control, as before.
+ */
+export const BUILDER_MODES = [
+  { value: "acquire", label: "Acquire a player" },
+  { value: "sell", label: "Sell a player" },
+  { value: "improve", label: "Improve a position" },
+  { value: "custom", label: "Custom" },
+];
+
+export const IMPROVE_POSITIONS = PACKAGE_POSITIONS.filter((p) => p !== "PICKS");
+
+/**
+ * The request fields one mode sends, and whether it has what it needs.
+ * ``missing`` names the one required choice when ``ready`` is false.
+ */
+export function modeRequestFields(mode, state) {
+  const s = state || {};
+  if (mode === "acquire") {
+    const target = String(s.target ?? "").trim();
+    return {
+      target,
+      opponent: s.opponent || "",
+      outgoing: s.outgoing || [],
+      positions: [],
+      perOpponent: false,
+      ready: Boolean(target),
+      missing: target ? null : "Choose the player or pick you want.",
+    };
+  }
+  if (mode === "sell") {
+    const asset = String(s.sellAsset ?? "").trim();
+    return {
+      target: "",
+      opponent: "",
+      outgoing: asset ? [asset] : [],
+      positions: s.positions || [],
+      perOpponent: true,
+      ready: Boolean(asset),
+      missing: asset ? null : "Choose the player you want to sell.",
+    };
+  }
+  if (mode === "improve") {
+    const pos = IMPROVE_POSITIONS.includes(s.improvePosition)
+      ? s.improvePosition
+      : "";
+    return {
+      target: "",
+      opponent: "",
+      outgoing: s.outgoing || [],
+      positions: pos ? [pos] : [],
+      perOpponent: true,
+      ready: Boolean(pos),
+      missing: pos ? null : "Choose the position to improve.",
+    };
+  }
+  return {
+    target: String(s.target ?? "").trim(),
+    opponent: s.opponent || "",
+    outgoing: s.outgoing || [],
+    positions: s.positions || [],
+    perOpponent: false,
+    ready: true,
+    missing: null,
+  };
+}
+
+/** "3 teams have an offer" / "5 packages found", from the server's grouping. */
+export function resultCountText(result) {
+  const n = (result?.packages || []).length;
+  if (result?.grouping === "best_per_opponent") {
+    const searched = result?.opponentsSearched;
+    return `${n} team${n === 1 ? "" : "s"} ${n === 1 ? "has" : "have"} an offer${
+      typeof searched === "number" ? ` (of ${searched} searched)` : ""
+    }.`;
+  }
+  const opp = result?.request?.opponent;
+  return `${n} package${n === 1 ? "" : "s"} found${opp ? ` with ${opp}` : ""}.`;
+}
+
 export function togglePosition(list, pos) {
   return list.includes(pos) ? list.filter((p) => p !== pos) : [...list, pos];
 }
@@ -33,6 +122,7 @@ export function buildRequest({
   evidence,
   useTeamContext,
   refinement,
+  perOpponent,
 }) {
   const body = {
     myTeam,
@@ -48,6 +138,7 @@ export function buildRequest({
   if (opponent) body.opponent = opponent;
   if (outgoing?.length) body.outgoing = [...outgoing];
   if (positions?.length) body.returnPositions = [...positions];
+  if (perOpponent) body.perOpponent = true;
   return body;
 }
 

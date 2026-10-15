@@ -118,3 +118,34 @@ def test_each_package_carries_the_opponents_manager_evidence(authed, monkeypatch
     assert pkgs and all(p["managerEvidence"]["state"] == "measured" for p in pkgs)
     # Joined through the package's own opponent, from the requester's side.
     assert set(seen) == {("2", "1")}
+
+
+def test_sell_a_player_view_groups_by_opponent(authed):
+    res = authed.client.post(
+        URL,
+        json={
+            "myTeam": "Us",
+            "leagueKey": "main",
+            "outgoing": ["Our WR"],
+            "perOpponent": True,
+            "useTeamContext": False,
+        },
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["request"]["perOpponent"] is True
+    assert body["grouping"] == "best_per_opponent"
+    opps = [p["opponent"] for p in body["packages"]]
+    assert len(opps) == len(set(opps))
+    assert all({a["name"] for a in p["send"]} == {"Our WR"} for p in body["packages"])
+
+
+def test_per_opponent_must_be_a_real_boolean(authed):
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "perOpponent": "yes", "useTeamContext": False},
+        headers=H,
+    )
+    assert res.status_code == 200
+    assert res.json()["request"]["perOpponent"] is False

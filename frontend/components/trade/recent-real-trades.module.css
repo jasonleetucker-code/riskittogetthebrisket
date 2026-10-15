@@ -127,3 +127,30 @@
     gap: 0;
   }
 }
+
+/* TC-09 comparable mode: the similarity is a relevance order, set in the
+   data face beside the date (not a value column), and the reasons are a
+   plain rule-separated list — text carries the meaning, not colour. */
+.similarity {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.reason {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
