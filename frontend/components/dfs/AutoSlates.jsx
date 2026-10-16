@@ -34,6 +34,23 @@ async function api(path, init) {
 const POLL_MS = 15000;
 const MAX_POLLS = 8;
 
+// Words for the backend's degraded-slate reasons.  Display only: the markers
+// come from /api/dfs/auto/slates and are never interpreted beyond wording.
+const LOCK_EARLY_REASONS = {
+  untimed_listed_rows: "some listed players could not be placed on a scheduled game, and any of them may play first",
+};
+
+/** One degraded marker → the words shown on the slate. */
+export function degradedMarkerText(marker) {
+  const text = String(marker ?? "");
+  const lockEarly = "lock_may_be_early:";
+  if (text.startsWith(lockEarly)) {
+    const reason = text.slice(lockEarly.length);
+    return `Lock may be earlier than shown: ${LOCK_EARLY_REASONS[reason] || reason.replace(/_/g, " ")}`;
+  }
+  return text;
+}
+
 export default function AutoSlates({ sport, platform, selectedHash, onSelected, onAvailability }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -141,7 +158,9 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
         {slates.map((s) => {
           const f = freshnessCopy(s.freshness?.state);
           const active = Boolean(selectedHash) && selectedHash === s.contentHash;
-          const degraded = s.freshness?.degraded?.length ? ` · ${s.freshness.degraded.join(", ")}` : "";
+          const degraded = s.freshness?.degraded?.length
+            ? ` · ${s.freshness.degraded.map(degradedMarkerText).join(", ")}`
+            : "";
           return (
             <li key={s.autoSlateId} className={active ? styles.autoActive : undefined}>
               <div className={styles.autoHead}>
