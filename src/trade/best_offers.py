@@ -49,7 +49,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from src.league_intel.cross_market import (
     CALCULATOR_LABELS,
@@ -1114,3 +1114,28 @@ def record_run(
         return run_id
     except Exception:  # noqa: BLE001 — never fail a recommendation on its record
         return None
+
+
+def iter_run_log_lines(
+    log_dir: Path | None = None,
+) -> Iterator[tuple[str, Mapping[str, Any] | None]]:
+    """``(file name, parsed line | None)`` for every line of every monthly run log.
+
+    ``None`` marks a line that is not a JSON object, so the caller can count it
+    as refused instead of it vanishing.  An UNTERMINATED final line is skipped,
+    not refused: ``record_run`` writes each line with its newline in one call,
+    so a line without one is an append still in progress (or torn by a crash)
+    and is read complete on the next run."""
+    for path in sorted((log_dir or BEST_OFFERS_RUN_LOG_DIR).glob("runs-*.jsonl")):
+        with path.open(encoding="utf-8") as fh:
+            for raw in fh:
+                if not raw.endswith("\n"):
+                    continue
+                if not raw.strip():
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    yield path.name, None
+                    continue
+                yield path.name, obj if isinstance(obj, Mapping) else None

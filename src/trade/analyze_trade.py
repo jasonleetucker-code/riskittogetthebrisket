@@ -74,16 +74,17 @@ LINEAGE_ROSTER_RULES = "league_roster_rules"
 #: Competitive Posture is an INTERPRETATION of evidence other lenses already
 #: carry (playoff odds, Team Strength, age-value) — context, never a vote.
 LINEAGE_TEAM_STRATEGY = "team_strategy_context"
+#: Recorded real trades (the canonical underlying-trade ledger).  A separate
+#: body of evidence from the board, but it is REFERENCE only: it never votes,
+#: so it cannot be counted alongside the market lens that already prices the
+#: same assets.
+LINEAGE_REAL_TRADES = "real_trade_ledger"
+#: How many comparable trades the packet carries.
+COMPARABLES_SHOWN = 3
 
 #: Dimensions this depth deliberately does not compute, named so "not
 #: included" and "computed and found neutral" never look the same.
 _UNAVAILABLE_DIMENSIONS = (
-    {
-        "dimension": "marketCorroboration",
-        "reason": "no_backing_ledger",
-        "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade "
-        "matching) are ABSENT — there is no independent vendor/comp evidence to synthesize.",
-    },
     {
         "dimension": "valueUncertainty",
         "reason": "unaudited_model",
@@ -474,6 +475,71 @@ def _evidence_lens(simulation: dict[str, Any], roster: DimensionResult) -> Dimen
     )
 
 
+# ── Lens 5: comparable real trades (never votes) ─────────────────────────
+
+
+def _comparables_lens(comparables: dict[str, Any] | None) -> DimensionResult:
+    """Recorded real trades most like this package (TC-09 / C4-MTL-03), as
+    CONTEXT.
+
+    ``comparables`` is the ``src.trade.comparable_trades.comparable_trades``
+    payload the route computed for this package, or ``None`` when it was not
+    computed.  The owner's own contract is "relevance ordering, never a price,
+    feeds no verdict", and the market lens already prices these assets — so
+    this lens carries ``votes=False`` and ``_recommend`` never reads it.  It
+    does not touch confidence or the uncertainty list either: a thin or empty
+    comps sample is reported here as itself, never as a reason to move the
+    verdict."""
+    base = {"name": "marketCorroboration", "votes": False, "lineage": LINEAGE_REAL_TRADES}
+    if not isinstance(comparables, dict):
+        return DimensionResult(**base, available=False, unavailable_reason="not_computed")
+    state = comparables.get("state")
+    if state == "unavailable":
+        return DimensionResult(
+            **base,
+            available=False,
+            unavailable_reason=str(comparables.get("reason") or "trade_ledger_unavailable"),
+        )
+    if state == "no_assets":
+        return DimensionResult(**base, available=False, unavailable_reason="no_identifiable_assets")
+    if state != "ok":
+        return DimensionResult(**base, available=False, unavailable_reason="comparables_error")
+    trades = comparables.get("trades") or []
+    shown = []
+    for t in trades[:COMPARABLES_SHOWN]:
+        comp = t.get("comparability") or {}
+        fm = t.get("formatMatch") or {}
+        shown.append(
+            {
+                "occurredDate": t.get("occurredDate"),
+                "similarity": comp.get("score"),
+                "reasons": [r.get("text") for r in comp.get("reasons") or []],
+                "formatDisposition": fm.get("disposition")
+                if fm.get("appliesToThisLeague")
+                else None,
+                "sourceFamilies": t.get("sourceFamilies"),
+                "sides": t.get("sides"),
+            }
+        )
+    methodology = comparables.get("methodology") or {}
+    return DimensionResult(
+        **base,
+        available=True,
+        direction="context",
+        detail={
+            "comparableTrades": shown,
+            "candidates": comparables.get("candidates"),
+            "belowMinScore": comparables.get("belowMinScore"),
+            "scanCapped": comparables.get("scanCapped"),
+            "since": comparables.get("since"),
+            "methodologyStatus": methodology.get("status"),
+            "role": "context_not_vote",
+            "note": "What managers actually traded in similar packages. Reference evidence "
+            "only — never a price, never a vote, and it does not change confidence.",
+        },
+    )
+
+
 # ── Synthesis ────────────────────────────────────────────────────────────
 
 
@@ -730,6 +796,7 @@ class AnalyzeTradeResult:
                 "feasibility": by_name.get("feasibility"),
                 "evidence": by_name.get("evidence"),
                 "posture": by_name.get("strategicPosture"),
+                "comparables": by_name.get("marketCorroboration"),
             },
             "dimensions": [d.to_dict() for d in self.dimensions],
             "unavailableDimensions": list(self.unavailable_dimensions),
@@ -793,13 +860,17 @@ def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
     )
 
 
-def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
+def analyze_trade(
+    simulation: dict[str, Any], comparables: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
     Pure composition over fields the simulation already carries
     (``receiving`` / ``sending`` / ``rosterCapacity`` / ``rosterUtility`` /
-    ``finalRosterSimulation`` / ``teamContext``).  Computes no canonical value
-    and calls no engine the simulation did not already call.
+    ``finalRosterSimulation`` / ``teamContext``) plus, when the caller
+    computed it, the comparable-trades payload for this package (context
+    only — see ``_comparables_lens``).  Computes no canonical value and calls
+    no engine.
     """
     cfg = _config()
     team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
@@ -816,6 +887,8 @@ def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
         posture = _excluded_by_mode("strategicPosture", LINEAGE_TEAM_STRATEGY)
         posture.votes = False
     evidence = _evidence_lens(simulation, roster)
+    # Asset-level evidence: present in Asset-Only mode too.
+    comps = _comparables_lens(comparables)
 
     recommendation, confidence, basis = _recommend(market, roster, feasibility)
     reasons_for, reasons_against = _reasons(market, roster, feasibility, cfg)
@@ -832,7 +905,7 @@ def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
         reasons_for=reasons_for,
         reasons_against=reasons_against,
         uncertainty=uncertainty,
-        dimensions=[market, roster, feasibility, evidence, posture],
+        dimensions=[market, roster, feasibility, evidence, posture, comps],
         unavailable_dimensions=list(_UNAVAILABLE_DIMENSIONS),
         team_context={
             "applied": team_context,

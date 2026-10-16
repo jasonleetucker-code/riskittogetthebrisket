@@ -14,6 +14,7 @@ import {
   Drawer,
   EmptyState,
   Field,
+  FileDropzone,
   Icon,
   Input,
   Meter,
@@ -110,6 +111,7 @@ export default function DesignGallery() {
   const [density, setDensity] = useState("regular");
   const [modalOpen, setModalOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [demoFiles, setDemoFiles] = useState([]);
 
   return (
     <div className={`psi-editorial ${styles.page}`} data-testid="psi-gallery">
@@ -302,6 +304,20 @@ export default function DesignGallery() {
                 onChange={setSegment}
                 options={[{ value: "1d" }, { value: "7d" }, { value: "30d" }]}
               />
+            </div>
+            <div>
+              <p className={styles.demoLabel}>FileDropzone (pick, drop or paste; nothing uploads here)</p>
+              <FileDropzone
+                label="Choose screenshots"
+                help="PNG, JPEG or WebP, up to 4. Drop files here."
+                multiple
+                maxFiles={4}
+                pasteTarget="none"
+                onFiles={(files) => setDemoFiles(files.map((f) => f.name))}
+              />
+              {demoFiles.length ? (
+                <p className={styles.demoLabel}>Chosen: {demoFiles.join(", ")}</p>
+              ) : null}
             </div>
           </div>
         </Panel>

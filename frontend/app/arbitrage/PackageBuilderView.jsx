@@ -22,6 +22,8 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import { deskBodyFromOffer } from "@/lib/trade-desk";
+import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
 import ManagerEvidence from "@/components/trade/ManagerEvidence";
 import {
   UNKNOWN,
@@ -455,6 +457,15 @@ export default function PackageBuilderView({
                     <li>{lineupLine(pkg.lineupImpact)}</li>
                   ) : null}
                 </ul>
+                <SaveToDeskButton
+                  body={deskBodyFromOffer(pkg, {
+                    leagueKey,
+                    myTeam,
+                    opponent: pkg.opponent,
+                    source: "package_builder",
+                  })}
+                  disabled={!leagueKey}
+                />
                 <ManagerEvidence
                   evidence={pkg.managerEvidence}
                   team={pkg.opponent}

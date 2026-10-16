@@ -427,6 +427,9 @@ AL_P2_OPTIONAL = {
     # current injury report only; news feeds roll forward.
     "injury_history",
     "news_archive",
+    # AL-P5 (2026-10-15): the Best Offers served-run log the DECISION receipts
+    # point into. Optional: small, but never allowed to fail a core generation.
+    "trade_best_offers",
 }
 
 

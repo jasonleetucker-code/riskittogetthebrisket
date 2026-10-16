@@ -857,6 +857,9 @@ optional backup_dir "${DATA_DIR}/pick_forecast_snapshots"
 #     Shadow-evaluation ledgers (monthly JSONL) — what each shadow run saw.
 optional backup_dir "${DATA_DIR}/sparse_evidence_shadow"
 optional backup_dir "${DATA_DIR}/robust_filter_shadow"
+#     Best Offers served-run log (monthly JSONL, AL-P5) — the native store the
+#     DECISION receipts point into; what each served run recommended that day.
+optional backup_dir "${DATA_DIR}/trade/best_offers" "trade_best_offers"
 #   * As-known capture stores (Adaptive Learning G4, 2026-10-07; register
 #     addendum "As-known injury + news capture").  PERISHABLE: ESPN serves the
 #     current injury report only and the news providers' feeds roll forward, so

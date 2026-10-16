@@ -1677,3 +1677,21 @@ Resolves integrity-sweep §8.1 (ledger rows SRC-STALEPRES / OD-STALE-QUAR). Reco
 | Keep trying to restore/replace independent IDP / pick evidence through the authorized source path | ONGOING |
 | Optional shadow-only challenger testing a small stale-source floor (no production effect unless it passes the normal gates) | AUTHORIZED — shadow only |
 
+## Added 2026-10-15 — Universal Trade Screenshot Import (C3-IMPORT-IMAGE, owner directive)
+
+Owner master implementation prompt, 2026-10-15: on /trade, Import trade -> From screenshot. Screenshot
+-> upload/paste/drop -> recognize -> review -> import -> analyze, from any calculator or platform,
+with no manual re-entry of clearly recognized assets. Runbook: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
+
+| Item | Disposition |
+|---|---|
+| Reader = free local OCR (Tesseract binary); no paid vision API, no new credentials | DECIDED — owner, 2026-10-15 |
+| Build in parallel with the trade-discovery merge queue | DECIDED — owner, 2026-10-15 |
+| Screenshot supplies identities and sides only; our canonical values, VA and settings decide everything else | DECIDED — binding (prompt) |
+| Never invent an ID or silently substitute; ambiguous needs confirmation; nothing unrecognized silently dropped; neutral Side A / Side B + Swap | DECIDED — binding (prompt) |
+| Replace vs Add when a trade is loaded; one atomic update; Cancel = no mutation; repeatable hypothetical assets preserved (#1619) | DECIDED — binding (prompt) |
+| KTC URL import stays a separate supported method | DECIDED — binding (prompt) |
+| Production OCR needs a one-time `sudo apt-get install -y tesseract-ocr` on the VPS (deploy's sudo allowlist cannot) | OWNER ACTION — until then the status endpoint reports unavailable and the UI says so |
+| Accuracy on real phone screenshots (Sleeper/ESPN/Yahoo/dark mode) measured after the VPS install; no universal-accuracy claim | PENDING — after the owner action |
+| Implementation | IN PROGRESS — branch `claude/trade-screenshot-import` |
+

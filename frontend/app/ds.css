@@ -1092,6 +1092,36 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   max-width: 44ch;
 }
 
+/* ══ FileDropzone ═══════════════════════════════════════════════════════ */
+/* A ruled intake region, not a card: dashed hairline on the nested surface,
+   the accent only while files are dragged over it. */
+.ds-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  text-align: center;
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+.ds-dropzone--active {
+  border-color: var(--accent);
+  border-style: solid;
+}
+.ds-dropzone--disabled {
+  opacity: 0.6;
+}
+.ds-dropzone__help {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  max-width: 48ch;
+}
+
 /* ══ Banner / Alert ═════════════════════════════════════════════════════ */
 .ds-banner {
   display: flex;

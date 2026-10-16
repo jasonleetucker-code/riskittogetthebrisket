@@ -41,6 +41,7 @@ import {
   formatSignedPpg,
   formatSignedValue,
   formatValue,
+  comparablesSummary,
   postureSummary,
   rosterImpactRows,
   unavailableText,
@@ -277,6 +278,7 @@ function Details({ analysis, raw }) {
   const basis = roster.basis || {};
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
+  const comps = comparablesSummary(analysis.lenses?.comparables);
   return (
     <CollapsiblePanel title="How this was decided" defaultCollapsed className={styles.details}>
       <div className={styles.detailsBody}>
@@ -337,12 +339,40 @@ function Details({ analysis, raw }) {
             </p>
           </section>
         ) : null}
+        {comps.available ? (
+          <section>
+            <h4 className={styles.detailsTitle}>Comparable real trades</h4>
+            {comps.rows.length ? (
+              <ul className={styles.detailsList}>
+                {comps.rows.map((r) => (
+                  <li key={r.key}>
+                    <strong>{r.date}</strong>
+                    {r.similarity ? ` — ${r.similarity}` : ""}
+                    {r.reasons.length ? `: ${r.reasons.join("; ")}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>{comps.emptyText}</p>
+            )}
+            <p>
+              What managers actually traded in similar packages. Reference only — it is never a
+              price, is not counted in the recommendation and does not change its confidence.
+              {comps.scanCapped ? " Only the most recent matching trades were searched." : ""}
+            </p>
+          </section>
+        ) : null}
         <section>
           <h4 className={styles.detailsTitle}>Not included yet</h4>
           <ul className={styles.detailsList}>
             {posture.available || analysis.teamContext?.mode === "asset_only" ? null : (
               <li key="strategicPosture">
                 <strong>strategicPosture</strong> — {posture.reasonText}
+              </li>
+            )}
+            {comps.available ? null : (
+              <li key="marketCorroboration">
+                <strong>Comparable real trades</strong> — {comps.reasonText}
               </li>
             )}
             {(analysis.unavailableDimensions || []).map((d) => (

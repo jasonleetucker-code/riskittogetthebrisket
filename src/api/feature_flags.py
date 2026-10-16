@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-19 of the 38 entries in ``_DEFAULTS`` below are ``True`` —
+20 of the 39 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -17,7 +17,8 @@ end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
 ``signals_active_source``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
-``rookie_auction``, ``dfs_workspace`` and ``dfs_auto_slates`` — several with comments
+``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates`` and
+``trade_screenshot_import`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -427,6 +428,16 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # queues no refresh, and the timer tick exits 2; the manual file path is
     # unaffected.  Rollback: RISKIT_FEATURE_DFS_AUTO_SLATES=0 + restart.
     "dfs_auto_slates": True,
+    # Import Trade from Screenshot (C3-IMPORT-IMAGE): ``POST
+    # /api/trade/import-screenshot`` reads an uploaded screenshot with the
+    # LOCAL tesseract binary and returns asset identities + sides only
+    # (never values).  Additive: it writes nothing, retains nothing, and the
+    # calculator still prices every asset from the canonical board.  A box
+    # without the ``tesseract-ocr`` package answers 503 ``ocr_unavailable``
+    # rather than failing.  Off → the route answers 404 feature_disabled and
+    # the status endpoint reports ``enabled: false``.
+    # Rollback: RISKIT_FEATURE_TRADE_SCREENSHOT_IMPORT=0 + restart.
+    "trade_screenshot_import": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -720,6 +731,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # dfs_auto_slates gates src/dfs/auto (the /api/dfs/auto/* routes mounted
     # in server.py, and scripts/refresh_dfs_auto_slates.py on its timer).
     "dfs_auto_slates": LIVE,
+    # trade_screenshot_import gates /api/trade/import-screenshot inline in
+    # server.py: off → 404 feature_disabled, on → the extraction payload.
+    "trade_screenshot_import": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,

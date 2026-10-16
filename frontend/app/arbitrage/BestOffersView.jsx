@@ -18,6 +18,8 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import { deskBodyFromOffer } from "@/lib/trade-desk";
+import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
 import ManagerEvidence from "@/components/trade/ManagerEvidence";
 import {
   UNKNOWN,
@@ -83,7 +85,7 @@ function AssetLine({ assets, refine, context }) {
   );
 }
 
-function OfferCard({ card, myTeam, refine, regenerating }) {
+function OfferCard({ card, myTeam, leagueKey, runId, refine, regenerating }) {
   const s = summarizeCard(card);
   const offer = card.offer;
   const calcUrl = useMemo(() => {
@@ -207,6 +209,16 @@ function OfferCard({ card, myTeam, refine, regenerating }) {
           </details>
           <footer className={styles.cardFoot}>
             <span className={styles.muted}>{s.packageSize}</span>
+            <SaveToDeskButton
+              body={deskBodyFromOffer(offer, {
+                leagueKey,
+                myTeam,
+                opponent: card.team,
+                source: "best_offers",
+                runId,
+              })}
+              disabled={!leagueKey}
+            />
             {calcUrl ? (
               <Button as={Link} href={calcUrl} size="sm" variant="secondary">
                 Open in Trade Calculator
@@ -405,6 +417,8 @@ export default function BestOffersView({
               key={card.team}
               card={card}
               myTeam={myTeam}
+              leagueKey={leagueKey}
+              runId={result?.runId}
               regenerating={regenerating.has(card.team)}
               refine={{
                 refinement: refinements[card.team] || emptyRefinement(),

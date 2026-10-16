@@ -789,6 +789,7 @@ store goes through the online-backup helper.
 | `data/pick_forecast_snapshots/` (`src/ros/pick_forecast_snapshot.py`, #1604) | `dynasty-pick-forecast-snapshot` | append-only monthly JSONL | `dirs/pick_forecast_snapshots.tar.gz` | **No** — the team-strength state of a week |
 | `data/learning/receipts.sqlite` (AL-0, #1597) | AL units | indefinite | `sqlite/receipts.sqlite.gz` (already present — addendum above) | see above |
 | `data/sparse_evidence_shadow/`, `data/robust_filter_shadow/` | shadow timers | append-only monthly JSONL | `dirs/<name>.tar.gz` | No — what each shadow run saw on its inputs that day; tiny |
+| `data/trade/best_offers/` (`src/trade/best_offers.py::record_run`) | `POST /api/trade/best-offers`, one line per served run | append-only monthly JSONL, indefinite | `dirs/trade_best_offers.tar.gz` (AL-P5, 2026-10-15) | **No** — what each served run recommended, on that day's board; the AL-P5 DECISION receipts (`scripts/trade_decision_receipts.py`, post-deploy) point into it. PRIVATE |
 
 `backup_sqlite` gained an optional output label (the second argument, like
 `backup_dir`'s) because basenames are not unique: `archive.sqlite` and

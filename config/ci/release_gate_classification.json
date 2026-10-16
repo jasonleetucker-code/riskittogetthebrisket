@@ -580,6 +580,9 @@
     "pr-validation.yml::validate::Install frontend dependencies": {
       "category": "blocking"
     },
+    "pr-validation.yml::validate::Install tesseract-ocr (screenshot import OCR tests)": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::Planning integrity gate": {
       "category": "blocking"
     },
