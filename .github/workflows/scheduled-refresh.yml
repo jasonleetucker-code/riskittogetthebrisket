@@ -84,9 +84,12 @@ jobs:
           SHEET_ID="17wa6qdZ1Y8ckb4TIVZ4_C71g0skvtk9UZy43zSFzRlA"
 
           echo "Downloading Draft Data workbook..."
+          # A transport failure (DNS, reset, timeout) must reach the "keep
+          # existing workbook" branch below, not abort the step under
+          # `set -e`.  Assign the fallback on failure; never concatenate it.
           HTTP_CODE=$(curl -sL -w "%{http_code}" \
             "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx" \
-            -o "CSVs/Draft Data.xlsx.tmp")
+            -o "CSVs/Draft Data.xlsx.tmp") || HTTP_CODE=000
 
           if [[ "$HTTP_CODE" != "200" ]]; then
             echo "::warning title=Sheet sync failed::Google Sheets returned HTTP ${HTTP_CODE} — keeping existing workbook"
