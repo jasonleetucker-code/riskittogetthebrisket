@@ -1693,5 +1693,5 @@ with no manual re-entry of clearly recognized assets. Runbook: `docs/ops/SCREENS
 | KTC URL import stays a separate supported method | DECIDED — binding (prompt) |
 | Production OCR needs a one-time `sudo apt-get install -y tesseract-ocr` on the VPS (deploy's sudo allowlist cannot) | OWNER ACTION — until then the status endpoint reports unavailable and the UI says so |
 | Accuracy on real phone screenshots (Sleeper/ESPN/Yahoo/dark mode) measured after the VPS install; no universal-accuracy claim | PENDING — after the owner action |
-| Implementation | IN PROGRESS — branch `claude/trade-screenshot-import` |
+| Implementation | DEPLOYED 2026-10-16 — PR #1751 via release train #1753 (`47a9f561b`); recognition switches on after the owner action above |
 
