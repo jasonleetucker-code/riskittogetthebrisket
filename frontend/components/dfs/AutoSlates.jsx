@@ -34,10 +34,40 @@ async function api(path, init) {
 const POLL_MS = 15000;
 const MAX_POLLS = 8;
 
+// Words for the backend's degraded-slate reasons.  Display only: the markers
+// come from /api/dfs/auto/slates and are never interpreted beyond wording.
+const LOCK_EARLY_REASONS = {
+  untimed_listed_rows: "some listed players could not be placed on a scheduled game, and any of them may play first",
+};
+
+/** One degraded marker → the words shown on the slate. */
+export function degradedMarkerText(marker) {
+  const text = String(marker ?? "");
+  const lockEarly = "lock_may_be_early:";
+  if (text.startsWith(lockEarly)) {
+    const reason = text.slice(lockEarly.length);
+    return `Lock may be earlier than shown: ${LOCK_EARLY_REASONS[reason] || reason.replace(/_/g, " ")}`;
+  }
+  return text;
+}
+
+// Exactly one row is "In use": the slate this component opened when it still
+// carries the loaded content, else the first slate whose content matches it.
+export function activeAutoSlateId(slates, selectedHash, selectedAutoId) {
+  if (!selectedHash) return null;
+  const own = slates.find((s) => s.autoSlateId === selectedAutoId);
+  if (own && own.contentHash === selectedHash) return own.autoSlateId;
+  return slates.find((s) => s.contentHash === selectedHash)?.autoSlateId ?? null;
+}
+
 export default function AutoSlates({ sport, platform, selectedHash, onSelected, onAvailability }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  // The slate THIS component opened. Two live slates can carry identical content
+  // (a "Main" and a "Full week" built from the same games), so the content hash
+  // alone cannot say which row is in use.
+  const [selectedAutoId, setSelectedAutoId] = useState(null);
   const autoOpened = useRef(false);
   const polls = useRef(0);
   const hasSelection = useRef(Boolean(selectedHash));
@@ -53,6 +83,7 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
         setError(errorMessage(r.body, "That slate could not be opened."));
         return;
       }
+      setSelectedAutoId(autoSlateId);
       onSelected(r.body);
     },
     [onSelected],
@@ -111,6 +142,7 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
     );
   }
   const slates = (data.slates || []).filter((s) => s.platform === platform);
+  const activeId = activeAutoSlateId(slates, selectedHash, selectedAutoId);
   if (!slates.length && data.state === "SOURCE_ERROR") {
     // A failed source (including listed rows that matched no scheduled game) is
     // an error, never presented as "an off day".
@@ -140,8 +172,10 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
       <ul className={styles.autoList} aria-label={`${platformLabel} slates`}>
         {slates.map((s) => {
           const f = freshnessCopy(s.freshness?.state);
-          const active = Boolean(selectedHash) && selectedHash === s.contentHash;
-          const degraded = s.freshness?.degraded?.length ? ` · ${s.freshness.degraded.join(", ")}` : "";
+          const active = activeId !== null && s.autoSlateId === activeId;
+          const degraded = s.freshness?.degraded?.length
+            ? ` · ${s.freshness.degraded.map(degradedMarkerText).join(", ")}`
+            : "";
           return (
             <li key={s.autoSlateId} className={active ? styles.autoActive : undefined}>
               <div className={styles.autoHead}>

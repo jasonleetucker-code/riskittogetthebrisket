@@ -62,6 +62,8 @@ describe("isNoPlayerDataRoute — the cost decision", () => {
 
   it("matches descendants, so /admin/sharp-identities is covered", () => {
     expect(isNoPlayerDataRoute("/admin/sharp-identities")).toBe(true);
+    // The Model Lab (IC-6) reads only /api/model-lab, never the player contract.
+    expect(isNoPlayerDataRoute("/admin/model-lab")).toBe(true);
   });
 
   it("does not match on a shared prefix string", () => {

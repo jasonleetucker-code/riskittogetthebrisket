@@ -149,9 +149,10 @@ def season_for(now: datetime) -> int:
 
 def _last_run(conn: sqlite3.Connection, platform: str, sport: str) -> dict[str, Any] | None:
     """The newest run for a platform+sport.  A row whose detail cannot be read
-    (e.g. a legacy row truncated mid-JSON) is outcome ``unknown`` — which makes
-    the sport due at once — and never raises: one bad row must not 500 the page
-    or wedge the timer."""
+    (e.g. a legacy row truncated mid-JSON) — or is valid JSON but not an object
+    (a list, string, number, ``null``), which every reader would ``.get`` on —
+    is outcome ``unknown``, which makes the sport due at once, and never raises:
+    one bad row must not 500 the page or wedge the timer."""
     r = conn.execute(
         "SELECT at, outcome, detail FROM dfs_auto_runs WHERE platform=? AND sport=? ORDER BY at DESC LIMIT 1",
         (platform, sport),
@@ -163,6 +164,8 @@ def _last_run(conn: sqlite3.Connection, platform: str, sport: str) -> dict[str, 
         try:
             detail = json.loads(r[2])
         except ValueError:
+            detail = None
+        if not isinstance(detail, dict):
             outcome, detail = UNKNOWN_OUTCOME, {"corruptDetail": True}
     return {"at": r[0], "outcome": outcome, "detail": detail}
 

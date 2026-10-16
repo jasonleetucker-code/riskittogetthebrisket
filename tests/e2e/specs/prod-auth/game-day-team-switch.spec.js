@@ -56,15 +56,10 @@ async function noPageOverflow(page) {
   expect(sizes.document, "the page must not scroll sideways").toBeLessThanOrEqual(sizes.viewport + 1);
 }
 
-function describeAnswer(body) {
-  return [
-    body.leagueKey,
-    `w${body.week}`,
-    body.mode,
-    body.probabilityState || "-",
-    (body.freshness && body.freshness.state) || "-",
-    (body.freshness && body.freshness.generationId) || "no-generation",
-  ].join(" ");
+/** Allowlisted, non-identifying evidence for one answer (never the team id). */
+function annotateAnswer(testInfo, label, body) {
+  annotate(testInfo, `team-switch-${label}-mode`, String(body.mode));
+  annotate(testInfo, `team-switch-${label}-probability-state`, String(body.probabilityState || "none"));
 }
 
 test.describe("Game Day team switcher (production)", () => {
@@ -79,7 +74,7 @@ test.describe("Game Day team switcher (production)", () => {
     const b = (answerA.opponent && answerA.opponent.ownerId) || owners.find((o) => o !== a);
     const c = owners.find((o) => o !== a && o !== b);
     annotate(testInfo, "team-switch-league", league);
-    annotate(testInfo, "team-switch-A", `${a} ${describeAnswer(answerA)}`);
+    annotateAnswer(testInfo, "A", answerA);
 
     await page.goto(prodUrl(`/game-day?team=${encodeURIComponent(a)}`), {
       waitUntil: "domcontentloaded",
@@ -97,7 +92,7 @@ test.describe("Game Day team switcher (production)", () => {
     await picker.selectOption(b);
     await expect(page).toHaveURL(new RegExp(`team=${encodeURIComponent(b)}`));
     const answerB = await intel(page, b);
-    annotate(testInfo, "team-switch-B", `${b} ${describeAnswer(answerB)}`);
+    annotateAnswer(testInfo, "B", answerB);
     expect(answerB.leagueKey).toBe(league);
     expect(answerB.team.ownerId).toBe(b);
     await shows(page, b, answerB.team.displayName);
@@ -108,11 +103,13 @@ test.describe("Game Day team switcher (production)", () => {
       answerA.freshness.generationId === answerB.freshness.generationId;
     const winA = answerA.opponent && answerA.opponent.outcome && answerA.opponent.outcome.winMatchupPct;
     const winB = answerB.team.outcome && answerB.team.outcome.winMatchupPct;
+    annotate(testInfo, "team-switch-same-generation", String(Boolean(sameGeneration)));
     if (sameGeneration && answerA.opponent.ownerId === b && typeof winA === "number") {
       expect(winB, "B's own win chance is A's opponent's win chance").toBe(winA);
-      annotate(testInfo, "team-switch-reversal", `verified ${winB}%`);
+      // The outcome only: a win percentage is a private forecast.
+      annotate(testInfo, "team-switch-reversal-verified", "true");
     } else {
-      annotate(testInfo, "team-switch-reversal", "not comparable (different generation or no numeric chance)");
+      annotate(testInfo, "team-switch-reversal-verified", "false");
     }
     await noPageOverflow(page);
 
@@ -120,7 +117,7 @@ test.describe("Game Day team switcher (production)", () => {
     await picker.selectOption(c);
     await expect(page).toHaveURL(new RegExp(`team=${encodeURIComponent(c)}`));
     const answerC = await intel(page, c);
-    annotate(testInfo, "team-switch-C", `${c} ${describeAnswer(answerC)}`);
+    annotateAnswer(testInfo, "C", answerC);
     expect(answerC.leagueKey).toBe(league);
     await shows(page, c, answerC.team.displayName);
     await expect(page.locator(`[data-game-day-team="${b}"]`)).toHaveCount(0);
