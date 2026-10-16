@@ -20,7 +20,7 @@ globally defer UI under this newer instruction. Backend complete / UI incomplete
 product incomplete. First safe unit: #1422 `/design`, on its own branch/claim.
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-10-07 (CLEANUP-1 reconciliation only: the two 2026-10-07 owner directives recorded at the top of §0 — repository stabilization AUTHORIZED NOW, learning-loop batch IC-1..IC-9 sequenced after it — plus a pointer to the 2026-10-03 directive, the #1338 closure note and AL merge evidence; no other authorization changed). Earlier: 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-10-16 (records reconciliation: the 2026-10-14 trade-discovery and 2026-10-15 screenshot-import owner directives recorded in §0 with their merge/deploy evidence, plus the 2026-10-16 audit-batch directive incl. the DLF offense-only vote decision; no other authorization changed). Earlier: 2026-10-07 (CLEANUP-1 reconciliation only: the two 2026-10-07 owner directives recorded at the top of §0 — repository stabilization AUTHORIZED NOW, learning-loop batch IC-1..IC-9 sequenced after it — plus a pointer to the 2026-10-03 directive, the #1338 closure note and AL merge evidence; no other authorization changed). Earlier: 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -82,6 +82,42 @@ weakening independent validation; exposing paid/private data; provider-terms vio
 changes. The stabilization campaign below has integrated (train #1686, `37ccfbb68`) and leaves explicit
 non-conflicting blockers (#1667 train: deploy/rollback blockers B1–B4, fix PR #1681), so the IC batch's start
 condition is met. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07 — Calculator completion campaign").
+
+## Trade discovery — owner directive, 2026-10-14 (under the 2026-10-07 completion authorization)
+
+**AUTHORIZED (recorded 2026-10-16; executed 2026-10-14..15).** Finish the trade-discovery surfaces through
+the protected path, consuming the canonical owners only (finder enumeration, constraint owner, VA, roster
+capacity, posture). Shipped and deployed (production `build.commit` 47a9f561b), production verification
+pending authenticated verification:
+- Batch 1 — protections on every generator, LOCK / EXCLUDE (C3-CON-01/03), suggestions coverage — #1739
+- Batches 2–3 — Best Trade to Send Each Team (C7-BEST-TRADE), Golden Upgrades (C7-GOLD-01), Package
+  Builder (C7-PKGB-01) — #1741; Acquire / Sell / Improve modes — #1746
+- Recent real trades on /trade (C3-CALC-01 TC-07+TC-10) + Manager Scout (C6-MGR-01) — train #1740
+- Comparable real trades (C4-MTL-03 / TC-09) + Trade Database (TC-08) — train #1744
+- Manager Scout evidence on cards (#1745), AL-P5 decision receipts (#1747), Trade Desk watchlist
+  (C7-DESK-01/trade-desk, #1748), adversarial test sweep (#1749), Analyze Trade comparables lens (#1752) —
+  train #1753
+No canonical value, weight or methodology change. Recommendation only — nothing sends or executes.
+
+## Universal Trade Screenshot Import (C3-IMPORT-IMAGE) — owner directive, 2026-10-15
+
+**AUTHORIZED; DEPLOYED 2026-10-16** (#1751 via train #1753, `47a9f561b`). Reader = free local OCR
+(Tesseract); no paid API, no new credentials (owner decision 2026-10-15). Screenshots supply identities and
+sides only — our values decide everything. **Owner action:** `sudo apt-get install -y tesseract-ocr` on the
+VPS (the deploy's sudo allowlist cannot); until then the status endpoint reports unavailable and the UI says
+so. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-15"). Runbook: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
+
+## Repository audit next batch — owner directive, 2026-10-16
+
+**AUTHORIZED NOW (implementation; merges and deploys need explicit owner approval per this directive).**
+Four lanes: (A) release train 4 landing the green 2026-10-08 PRs #1724, #1725 (security, the authenticated
+verification re-enable gate), #1714, #1715, #1717, #1720, #1723; (B) truthful automation signals — the
+scheduled-refresh staleness watchdog must not fail on a vendor-frozen source already withheld from voting
+(#1726) and the E2E safety net must be green (#1730); (C) **owner decision: DLF vote is offense-only** —
+`dlfIdp` / `dlfRookieIdp` stay ingested and displayed but never vote (rollback flag), plus fail-closed
+source-policy fallbacks; (D) this records reconciliation. Not authorized by it: re-enabling the disabled
+verification workflows (owner action), any other value/methodology change, League Tycoon (parked — owner PR
+#1755), Market Edge Lab.
 
 ## Repository stabilization / truth-reconciliation campaign — owner directive, 2026-10-07
 
