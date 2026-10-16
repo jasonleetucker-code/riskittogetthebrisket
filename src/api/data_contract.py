@@ -5051,23 +5051,40 @@ def _source_weighting_state_dir(csv_root: "Path | None") -> Path:
     return root / "data" / "scrape_state"
 
 
-def _load_source_weighting(
-    as_of: "datetime | None", csv_root: "Path | None" = None
-) -> dict[str, Any]:
-    """``{source_key: SourceWeighting}`` for every registered voter + KTC Market.
+#: ``sourceWeighting.unavailableReason`` when a board WITH an observation time
+#: got no freshness weighting because its dataset-state directory is absent.
+#: Every source then votes at full base authority — the documented replay
+#: posture ("never today's state applied to a past board") — but on a live
+#: build it means the freshness × health × coverage factors silently stopped
+#: applying, so it is logged loudly and stamped (validator: ``degraded``).
+SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING = "state_dir_missing"
 
-    Memoized on (as_of, state-file mtimes, config mtime): the overrides
-    endpoint rebuilds the board often and the inputs change only when a
-    refresh records a new dataset state.
+
+def _source_weighting_resolution(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> tuple[dict[str, Any], str | None]:
+    """``(weighting, unavailable_reason)``; see :func:`_load_source_weighting`.
+
+    ``unavailable_reason`` is ``None`` on the healthy path and when the board
+    carries no time (``as_of`` None — documented: no "state in force at T").
+    The weighting itself is unchanged in every case: this only makes the
+    missing-state fallback visible instead of silent.
     """
     if as_of is None:
-        return {}
+        return {}, None
     from src.sources import freshness as _freshness  # noqa: PLC0415
     from src.sources.dataset_state import state_path  # noqa: PLC0415
 
     state_dir = _source_weighting_state_dir(csv_root)
     if not state_dir.is_dir():
-        return {}
+        logging.warning(
+            "source weighting UNAVAILABLE: no dataset state directory at %s — every "
+            "source votes at full base authority (freshness/health/coverage factors "
+            "NOT applied); stamped sourceWeighting.unavailableReason=%s",
+            state_dir,
+            SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING,
+        )
+        return {}, SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING
     keys = [str(s.get("key") or "") for s in _RANKING_SOURCES] + [_KTC_MARKET_KEY]
     stamps: list[tuple[str, int]] = []
     for key in keys:
@@ -5082,12 +5099,101 @@ def _load_source_weighting(
     cache_key = (as_of.isoformat(), str(state_dir), tuple(stamps), cfg_mtime)
     cached = _SOURCE_WEIGHTING_CACHE.get(cache_key)
     if cached is not None:
-        return cached
+        return cached, None
     weighting = _freshness.load_source_weightings(keys, state_dir=state_dir, as_of=as_of)
     if len(_SOURCE_WEIGHTING_CACHE) > 16:
         _SOURCE_WEIGHTING_CACHE.clear()
     _SOURCE_WEIGHTING_CACHE[cache_key] = weighting
-    return weighting
+    return weighting, None
+
+
+def _load_source_weighting(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> dict[str, Any]:
+    """``{source_key: SourceWeighting}`` for every registered voter + KTC Market.
+
+    Memoized on (as_of, state-file mtimes, config mtime): the overrides
+    endpoint rebuilds the board often and the inputs change only when a
+    refresh records a new dataset state.  ``{}`` (base weights) when the
+    board has no time or no state directory — the latter is logged loudly
+    and, on the contract path, stamped (:func:`_source_weighting_resolution`).
+    """
+    return _source_weighting_resolution(as_of, csv_root)[0]
+
+
+#: ``sourceSeasonalState.basis`` / per-source ``basis`` when the seasonal
+#: policy file could not be read and the exclusions came from the recorded
+#: seasonal states instead (fail closed — see
+#: :func:`_seasonal_inactive_resolution`).
+SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE = "recorded_state_policy_unreadable"
+
+
+def _recorded_seasonal_inactive_sources(
+    state_dir: Path, as_of: "datetime"
+) -> dict[str, dict[str, Any]]:
+    """Seasonal exclusions from the fetcher's RECORDED states alone.
+
+    The last-known exclusions when the declaration file is unreadable.  Only
+    a registered ranking source whose state file was written UNDER a
+    declaration counts — ``record_inactive_observation`` stamps the file's
+    own ``sourceKey`` and ``policyId``, so a hand-written or undeclared state
+    file (no ``policyId``) still switches nothing off.  The state in force at
+    the board's own time decides, exactly as on the healthy path.
+    """
+    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+    out: dict[str, dict[str, Any]] = {}
+    for src in _RANKING_SOURCES:
+        key = str(src.get("key") or "")
+        state = _seasonal.load_state(_seasonal.state_path(state_dir, key))
+        if not state or state.get("sourceKey") != key or not state.get("policyId"):
+            continue
+        if _seasonal.state_as_of(state, as_of) != _seasonal.SEASONALLY_INACTIVE:
+            continue
+        out[key] = {
+            "state": _seasonal.SEASONALLY_INACTIVE,
+            "policyId": state.get("policyId"),
+            "since": state.get("since"),
+            "classYear": state.get("classYear"),
+            "lastInactiveVerifiedAt": state.get("lastInactiveVerifiedAt"),
+            "basis": SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE,
+        }
+    return out
+
+
+def _seasonal_inactive_resolution(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> tuple[dict[str, dict[str, Any]], str | None]:
+    """``(inactive, policy_error)``; see :func:`_seasonally_inactive_sources`.
+
+    FAIL CLOSED on an unreadable / malformed policy file.  Applying NO
+    exclusions — the previous behaviour — would let a seasonally inactive
+    source's stale historical CSV (the 48-row ``flockFantasySfRookies`` board
+    from the graduated class) vote again as if it were current, on nothing
+    but a config typo.  Instead the exclusions fall back to the recorded
+    seasonal states (:func:`_recorded_seasonal_inactive_sources` — the
+    last-known exclusions, still read as of the board's time), the error is
+    logged, and ``policy_error`` is returned so the contract stamps
+    ``sourceSeasonalState.policyError`` and the validator reports
+    ``seasonal_policy_unreadable`` + ``degraded``.  Never a value invented:
+    a source with no recorded inactive state votes exactly as before.
+    """
+    if as_of is None:
+        return {}, None
+    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+    state_dir = _source_weighting_state_dir(csv_root)
+    try:
+        return _seasonal.inactive_sources_as_of(state_dir, as_of), None
+    except _seasonal.SeasonalPolicyError as exc:
+        fallback = _recorded_seasonal_inactive_sources(state_dir, as_of)
+        logging.error(
+            "seasonal policy UNREADABLE (%s); failing closed to the recorded seasonal "
+            "states: %s held inactive; stamped sourceSeasonalState.policyError",
+            exc,
+            sorted(fallback) or "none",
+        )
+        return fallback, str(exc)
 
 
 def _seasonally_inactive_sources(
@@ -5103,8 +5209,9 @@ def _seasonally_inactive_sources(
     source weighting, so a replay of a historical tree uses that tree's own
     state and a board built for time T sees the state in force at T.
 
-    A malformed policy file is logged and treated as "no declarations" —
-    every source then behaves as it did before the policy existed.
+    A malformed or unreadable policy file FAILS CLOSED to the recorded
+    seasonal states (:func:`_seasonal_inactive_resolution`), never to "no
+    exclusions" — which would let a stale seasonal board vote again.
 
     A board with no observation time (``as_of`` None — a payload without
     ``scrapeTimestamp``) gets NO seasonal exclusions, mirroring
@@ -5113,15 +5220,7 @@ def _seasonally_inactive_sources(
     make the board depend on whatever state the checkout happens to carry.
     The production path always stamps ``scrapeTimestamp``.
     """
-    if as_of is None:
-        return {}
-    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
-
-    try:
-        return _seasonal.inactive_sources_as_of(_source_weighting_state_dir(csv_root), as_of)
-    except _seasonal.SeasonalPolicyError as exc:
-        logging.warning("seasonal policy unreadable (%s); no seasonal exclusions applied", exc)
-        return {}
+    return _seasonal_inactive_resolution(as_of, csv_root)[0]
 
 
 def _iso_or_none(dt: "datetime | None") -> str | None:
@@ -14007,8 +14106,12 @@ def build_api_data_contract(
     # Freshness × health × coverage per source, evaluated at the board's OWN
     # scrape time (src/sources/freshness.py; owner directive 2026-09-23).
     freshness_as_of = _payload_as_of(raw_payload)
-    source_weighting = _load_source_weighting(freshness_as_of, csv_root)
-    seasonally_inactive = _seasonally_inactive_sources(freshness_as_of, csv_root)
+    source_weighting, source_weighting_unavailable = _source_weighting_resolution(
+        freshness_as_of, csv_root
+    )
+    seasonally_inactive, seasonal_policy_error = _seasonal_inactive_resolution(
+        freshness_as_of, csv_root
+    )
     # Private, box-local sources (Signals): absent BY DESIGN where the
     # collector has never run, or rolled back by flag.  Not a vote, not an
     # expected source, not an error — and stamped on the payload so the
@@ -14467,6 +14570,19 @@ def build_api_data_contract(
         # from ``sourceRankMeta`` by the board's own declaration.
         "privateSourceAvailability": {k: dict(v) for k, v in sorted(source_vote_state.items())},
     }
+    # Degraded-input diagnostics (fail-closed fallbacks).  Stamped ONLY when
+    # the fallback fired, so a healthy build's payload is byte-identical; the
+    # validator turns each into a warning + ``degraded``.
+    if source_weighting_unavailable:
+        contract_payload["sourceWeighting"] = {
+            **(contract_payload.get("sourceWeighting") or {}),
+            "unavailableReason": source_weighting_unavailable,
+        }
+    if seasonal_policy_error:
+        contract_payload["sourceSeasonalState"]["policyError"] = seasonal_policy_error
+        contract_payload["sourceSeasonalState"]["basis"] = (
+            SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE
+        )
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
     for row in players_array:
@@ -15820,6 +15936,20 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     if picks_provider_unknown:
         warnings.append(f"pick_evidence_provider_unknown:{picks_provider_unknown}")
     if withheld_rows:
+        degraded = True
+
+    # ── Fail-closed input fallbacks ─────────────────────────────────────
+    # Each is stamped by ``build_api_data_contract`` only when its fallback
+    # fired.  DEGRADED, never an error: the board is valid (base weights /
+    # the recorded seasonal exclusions), but an operator must see that the
+    # healthy input was not read.
+    _weighting_block = payload.get("sourceWeighting")
+    if isinstance(_weighting_block, dict) and _weighting_block.get("unavailableReason"):
+        warnings.append(f"source_weighting_unavailable:{_weighting_block['unavailableReason']}")
+        degraded = True
+    _seasonal_block = payload.get("sourceSeasonalState")
+    if isinstance(_seasonal_block, dict) and _seasonal_block.get("policyError"):
+        warnings.append("seasonal_policy_unreadable")
         degraded = True
 
     # ── Cross-wire sourceRunSummary.partialRun into contractHealth ──────
