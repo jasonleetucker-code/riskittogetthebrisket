@@ -12304,6 +12304,15 @@ def _compute_unified_rankings(
             )
             players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
 
+        if not all_values and anchor_value is None and subgroup_center is None:
+            # Every observation on this row was withheld (freshness / health
+            # weight 0), so nothing voted.  ``center_value`` above is a literal
+            # 0.0 placeholder, not a blend: entering the ranked pool with it
+            # published a rank and ``rankDerivedValue`` 0 for a row with no
+            # evidence.  MISSING IS NEVER ZERO — the row stays unpriced exactly
+            # like a row nothing matched; its withheld observations remain on
+            # the record in ``sourceRankMeta``.
+            continue
         row_normalized.append((blended_value, row_idx))
 
     if _sparse_candidates:
