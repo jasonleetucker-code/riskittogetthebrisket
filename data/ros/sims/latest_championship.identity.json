@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-10-16T18:28:31.534945+00:00",
-  "forecastSha256": "75221c400fef7ef9e953fca5cb03d95ba2e78a2837c633bf62bba7af3ce94d39",
+  "computedAt": "2026-10-16T21:49:58.842998+00:00",
+  "forecastSha256": "302e7b7c0e99320242378e5687b57fb7de55f097b016b9c8f3f9dc5f4e963651",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "09c8c1aa89c9c84ec7cade393983ed495ae268925ce8b8f116ca49aa6f85a90d",
-    "leagueSnapshotGeneratedAt": "2026-10-16T18:28:24+00:00",
+    "inputsSha256": "3006e123eb996aca2acabf805e408faa55b636875cb47f08270f3802ca957220",
+    "leagueSnapshotGeneratedAt": "2026-10-16T21:49:51+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,19 +14,19 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "79be53d789c77a577b7816b6f9136d99a0c68a252096253a53c536f1bc38e21b",
+    "leagueSnapshotSha256": "7adcdbd0c46cb6717f676450943904beeb0cfd0ac9a0c665829e8679d4709c49",
     "pointsModelFileSha256": null,
-    "rosAggregateSha256": "ea3c3e94e6a9ee0713d06e7ab66de493391afd351fd9e1b5af56fd2badb94c96",
-    "rosAggregatedAt": "2026-10-16T18:28:17.051032+00:00",
+    "rosAggregateSha256": "a4e549bb46496dda93741c2173d91700f0c688a800f5e463c8b77a7325758987",
+    "rosAggregatedAt": "2026-10-16T21:49:46.147371+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "c4ef47052aed352d62fd6dcbbe65a6c4e4cdef1e0c8a33474ccac9188af45405"
+    "teamStrengthFileSha256": "3e1e1a015eaf43de57a53f4123e9cf7d806a8aa9c7c8687001f6bf612a7e7f18"
   },
   "kind": "championship",
   "lastScoredWeek": 5,
   "leagueKey": "dynasty_main",
   "model": {
-    "codeSha": "20b31b8e561858d41427717f420ce36ff8ff4d4d",
-    "codeShaCapturedAt": "2026-10-16T18:28:13.972922+00:00",
+    "codeSha": "643a41047821beceffdbfa18691fe73762e29454",
+    "codeShaCapturedAt": "2026-10-16T21:49:43.697300+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": true,
