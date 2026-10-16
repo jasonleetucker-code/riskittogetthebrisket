@@ -38,12 +38,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
+
+try:  # imported as ``scripts.verify_v1_authenticated`` (tests) …
+    from scripts import public_verification_report as pvr
+except ImportError:  # … or run as ``python3 scripts/verify_v1_authenticated.py``
+    import public_verification_report as pvr  # type: ignore[no-redef]
 
 _PROVES_NOTHING = {"blocked", "unmeasurable"}
 
@@ -70,6 +76,70 @@ def _check(check_id: str, row: str, title: str) -> Check:
     c = Check(check_id, row, title)
     CHECKS.append(c)
     return c
+
+
+# ─────────────────────────── public output ───────────────────────────
+#
+# PUBLIC OUTPUT ONLY.  This runs on a PUBLIC repository's runner, so stdout
+# and ``--report`` carry ONLY the allowlisted summary built by
+# ``scripts/public_verification_report.py``: ids, statuses, counts,
+# booleans, timings.  Never ``detail`` text, request payloads (V27-3's carries
+# a Sleeper owner id and two player names), player / team names, owner ids,
+# starter deltas, Sharp transparency fields or response-body excerpts.  A
+# check absent from this table publishes no evidence at all.
+
+PUBLIC_EVIDENCE: dict[str, dict[str, object]] = {
+    "AUTH0": {"isAdmin": pvr.BOOL, "authenticated": pvr.BOOL, "authMethod": pvr.ENUM},
+    "V102A": {"expected_seconds": pvr.NUMBER, "observed_remaining_seconds": pvr.NUMBER},
+    "V131A": {"available": pvr.BOOL, "boardStatus": pvr.COUNT},
+    "V49-3": {"httpStatus": pvr.COUNT},
+    "V11-3": {"pricedRows": pvr.COUNT, "missingBasisCount": pvr.COUNT},
+    "SIG-OFF": {"rowsContributing": pvr.COUNT, "rowsWithNativeValue": pvr.COUNT},
+    "SIG-IDP": {
+        "voteStates": pvr.enum_map(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")),
+        "rowsVisible": pvr.count_map(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")),
+        "rowsShadowed": pvr.count_map(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")),
+        "rowsVoting": pvr.count_map(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")),
+    },
+    "V27-3": {"starterDeltaNeutral": pvr.BOOL},
+    "V45A": {"state": pvr.ENUM},
+    "FA-PICK": {"pool": pvr.COUNT},
+}
+
+_CRASH_TYPE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_.]{0,79}):")
+
+
+def public_report(
+    checks: list[Check],
+    *,
+    origin: str,
+    league: str,
+    exit_code: int,
+    secrets: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """The only document this script prints or writes (see the table above).
+
+    A ``<label>:crash`` check publishes its exception CLASS name only — the
+    message can carry a URL or a body excerpt."""
+    published = []
+    for c in checks:
+        evidence, allowed = dict(c.evidence), PUBLIC_EVIDENCE.get(c.check_id, {})
+        if c.check_id.endswith(":crash"):
+            m = _CRASH_TYPE_RE.match(c.detail or "")
+            evidence, allowed = {"errorType": m.group(1) if m else None}, {"errorType": pvr.VERSION}
+        published.append(
+            pvr.public_check(
+                c.check_id, c.row, c.title, c.status, evidence, allowed, secrets=secrets
+            )
+        )
+    return pvr.public_report(
+        producer="verify_v1_authenticated",
+        generated_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        origin=origin,
+        league=league,
+        checks=published,
+        exit_code=exit_code,
+    )
 
 
 class Client:
@@ -120,6 +190,8 @@ def check_auth0(client: Client) -> bool:
         f"authenticated={body.get('authenticated')} authMethod={body.get('authMethod')} "
         f"username={body.get('username')}",
         isAdmin=body.get("isAdmin"),
+        authenticated=body.get("authenticated"),
+        authMethod=body.get("authMethod"),
     )
     return ok
 
@@ -368,6 +440,8 @@ def check_v11_item3_fresh(contract: dict | None) -> None:
         f"{len(priced)} priced rows on the deployed response; "
         f"{len(missing_basis)} without a confidenceBasis",
         sample_missing=missing_basis[:10],
+        pricedRows=len(priced),
+        missingBasisCount=len(missing_basis),
     )
 
 
@@ -521,6 +595,7 @@ def check_v27_item3(client: Client, contract: dict | None, league: str) -> None:
             else "(moved — either a real defect or the swap was not starter-neutral; inspect evidence)"
         ),
         payload=payload,
+        starterDeltaNeutral=neutral,
     )
 
 
@@ -962,19 +1037,21 @@ def main(argv: list[str] | None = None) -> int:
         _isolated("V45A", check_v45, client, contract, args.league)
         _isolated("FA-PICK", emit_free_agent, contract, args.free_agent_out)
 
-    report = {
-        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "origin": args.origin,
-        "league": args.league,
-        "checks": [c.__dict__ for c in CHECKS],
-    }
-    rendered = json.dumps(report, indent=1, default=str)
-    print(rendered)
+    code = _exit_code(CHECKS)
+    # PUBLIC repo: the log and --report carry the allowlisted summary only.
+    # The full per-check detail is not written anywhere on the runner.
+    report = public_report(
+        CHECKS, origin=args.origin, league=args.league, exit_code=code, secrets=(cookie_value,)
+    )
+    print("\n".join(pvr.summary_lines(report)))
     if args.report:
         with open(args.report, "w", encoding="utf-8") as fh:
-            fh.write(rendered)
+            fh.write(json.dumps(report, indent=1, sort_keys=True))
+    return code
 
-    statuses = [c.status for c in CHECKS]
+
+def _exit_code(checks: list[Check]) -> int:
+    statuses = [c.status for c in checks]
     if "error" in statuses:
         return 1
     if "fail" in statuses:
