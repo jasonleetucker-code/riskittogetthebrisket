@@ -744,6 +744,12 @@ jobs:
       - name: Staleness watchdog
         # Fails the workflow when any registered ranking source is
         # older than its threshold in ``config/source_staleness.json``.
+        # One narrow exception, reported loudly as DEGRADED rather than
+        # hidden: a source with an unexpired owner-tracked entry in
+        # ``acknowledgedFetchOutages`` that this run's own board proves
+        # casts no vote (#1726).  A stale source that still votes, an
+        # expired entry, or an unbuildable board stays red.  It prints a
+        # ``degraded:`` line per such source for the two steps below.
         # Uses the same freshness signal the live alert engine reads
         # (``data/scrape_state/{key}_last_success`` stamps, falling
         # back to CSV mtime), so a green watchdog run guarantees the
@@ -797,9 +803,15 @@ jobs:
           # Pull the watchdog's stale-source summary (if it ran) so the
           # issue names what's actually stale instead of a generic blurb.
           STALE_SUMMARY="(see the Run scraper / watchdog steps)"
+          DEGRADED_SUMMARY="none"
           if [[ -f "${RUNNER_TEMP}/staleness.log" ]]; then
             LINE=$(grep -E '^(fail|ok):' "${RUNNER_TEMP}/staleness.log" | tail -n1 || true)
             [[ -n "$LINE" ]] && STALE_SUMMARY="$LINE"
+            # Acknowledged fetch outages (non-fatal by themselves) are
+            # still named, so a run that fails for ANOTHER reason never
+            # reads as if the degraded source were healthy.
+            DEG=$(grep -E '^degraded:' "${RUNNER_TEMP}/staleness.log" | sed 's/^/  - /' || true)
+            [[ -n "$DEG" ]] && DEGRADED_SUMMARY=$'\n'"$DEG"
           fi
           BODY=$(cat <<EOF
           Scheduled data refresh failed.
@@ -808,13 +820,15 @@ jobs:
           - Commit: ${GITHUB_SHA}
           - Triggered: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
           - Freshness watchdog: ${STALE_SUMMARY}
+          - Degraded (acknowledged fetch outage, withheld from voting, non-fatal): ${DEGRADED_SUMMARY}
 
           Likely causes:
           1. A fetcher crashed (check the **Run scraper** step).
           2. KTC produced too few rows (primary-source guard tripped).
           3. The DLF freshness guard tripped (>24h since last DLF stamp).
           4. The staleness watchdog flagged one or more sources past
-             threshold (see the run summary table).
+             threshold (see the run summary table) — including any
+             acknowledged fetch outage that expired or started voting.
 
           The cron will retry automatically on the next 2h cycle.  If
           the same failure recurs, fix the root cause and trigger a
@@ -878,6 +892,16 @@ jobs:
                    --json number --jq '.[].number' 2>/dev/null || echo "")
           if [[ -z "$OPEN" ]]; then
             echo "no open stale-sources issue; nothing to close"
+            exit 0
+          fi
+          # Green is not all-clear while an acknowledged fetch outage is
+          # only DEGRADED: that issue is the outage's tracking record
+          # (config/source_staleness.json ``acknowledgedFetchOutages``),
+          # and closing it would announce a recovery nobody measured.
+          if [[ -f "${RUNNER_TEMP}/staleness.log" ]] \
+             && grep -qE '^degraded:' "${RUNNER_TEMP}/staleness.log"; then
+            echo "gates passed, but an acknowledged fetch outage is still DEGRADED; leaving the tracking issue open:"
+            grep -E '^degraded:' "${RUNNER_TEMP}/staleness.log"
             exit 0
           fi
           for N in $OPEN; do
