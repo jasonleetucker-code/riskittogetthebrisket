@@ -1919,9 +1919,11 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         # IDPTC is the retail IDP authority and the backbone source.
         # The old weight=2.0 dated to when IDPTC was the SOLE IDP
-        # anchor; now that DraftSharks SF+IDP and FootballGuys SF+IDP
+        # anchor; now that DraftSharks SF+IDP and The IDP Show Combined
         # are also cross-market anchors (see ``is_cross_market``), no
         # single source gets an explicit multiplier in the blend.
+        # (FootballGuys SF+IDP were once anchors too; those boards were
+        # retired and no FootballGuys source key exists any more.)
         # The ``weight`` field is still honoured as a user-override
         # knob on ``/settings`` but in the live blend every source
         # contributes with one equal vote.
@@ -1930,8 +1932,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Cross-market anchor source (2026-04-20): IDPTC prices both
         # offense and IDP on a single combined-pool scale, so its
         # per-player value is a direct cross-market signal.  Along
-        # with DraftSharks (via combined rank pre-pass) and
-        # FootballGuys (via the scraper's preserved combined rank),
+        # with DraftSharks (via combined rank pre-pass) and The IDP
+        # Show Combined (its native combined rank, Phase 1c pre-pass),
         # IDPTC contributes to the anchor value on IDP + pick rows;
         # ``anchor_value`` = mean of every ``is_cross_market=True``
         # source's contribution.  See the blend loop in
@@ -2878,7 +2880,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # combined ladder where the Hill tail produces low values.
         "ds_combined_rank_partner": "draftSharksIdp",
         # Contributes to the multi-source cross-market anchor
-        # (alongside IDPTC and FootballGuys).  See IDPTC entry above
+        # (alongside IDPTC, DraftSharks IDP and The IDP Show Combined;
+        # the retired FootballGuys boards no longer exist).  See IDPTC entry above
         # for the blend math.
         "is_cross_market": True,
     },
@@ -11762,12 +11765,13 @@ def _compute_unified_rankings(
     # Identify every cross-market source (2026-04-20 multi-anchor
     # upgrade).  Formerly a single ``is_anchor=True`` source (IDPTC)
     # with ~90% weight on IDP/pick rows; now every source flagged
-    # ``is_cross_market=True`` — IDPTC, DraftSharks SF, DraftSharks
-    # IDP, FootballGuys SF, FootballGuys IDP — contributes to the
+    # ``is_cross_market=True`` — today IDPTC, DraftSharks SF, DraftSharks
+    # IDP and The IDP Show Combined (the FootballGuys SF / IDP boards that
+    # were once on this list are retired) — contributes to the
     # anchor via a simple mean of their per-player value
     # contributions.  Each source prices offense and IDP on ONE
     # combined scale (IDPTC natively; DS via the combined-rank
-    # pre-pass; FBG via the scraper's preserved combined rank), so
+    # pre-pass; IDP Show via its native combined rank), so
     # averaging their values is a straightforward cross-market
     # consensus.  Subgroup = every other source, α=0.10 against the
     # averaged anchor.  See the hierarchical-blend block further
