@@ -67,11 +67,15 @@ def _health_zero(source_key: str) -> SourceWeighting:
 
 @pytest.fixture
 def contract(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    monkeypatch.setattr(
-        dc,
-        "_load_source_weighting",
-        lambda as_of, csv_root=None: {_WITHHELD: _health_zero(_WITHHELD)},
-    )
+    weighting = {_WITHHELD: _health_zero(_WITHHELD)}
+    monkeypatch.setattr(dc, "_load_source_weighting", lambda as_of, csv_root=None: weighting)
+    # The contract path may resolve weighting through the lower-level seam
+    # (which also reports why weighting was unavailable); patch it too so the
+    # test pins the blend, not which wrapper the build happens to call.
+    if hasattr(dc, "_source_weighting_resolution"):
+        monkeypatch.setattr(
+            dc, "_source_weighting_resolution", lambda as_of, csv_root=None: (weighting, None)
+        )
     return dc.build_api_data_contract(_payload())
 
 
