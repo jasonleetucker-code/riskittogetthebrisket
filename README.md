@@ -17,12 +17,12 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   Sleeper-login allowlist; public routes hit `/api/public/league/*`.
 - **Feature flags** (`src/api/feature_flags.py`): every new
   capability from the 2026-04 upgrade ships flag-gated. Defaults are
-  **per-flag**: 20 of the 39 in `_DEFAULTS` ship enabled (`ledger_rank_change`, `bdvm_engine`,
+  **per-flag**: 21 of the 40 in `_DEFAULTS` ship enabled (`ledger_rank_change`, `bdvm_engine`,
   `te_basis_conversion`, `monte_carlo_trade`, `idp_scoring_fit`,
   `reception_scoring_fit`, `nfl_data_ingest`, `realized_points_api`,
   `perfect_draft`, `waiver_live_opportunity`, `source_freshness_weighting`,
   `source_family_cap`, `source_universe_freshness`, `signals_active_source`,
-  `game_day_live_game_state`,
+  `dlf_offense_only_vote`, `game_day_live_game_state`,
   `sleeper_weekly_projections`, `rookie_auction`, `dfs_workspace`,
   `dfs_auto_slates`, `trade_screenshot_import`),
   several deliberately. For those the env var is a rollback lever, not an

@@ -981,6 +981,98 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
     return out
 
 
+#: Registered PUBLIC sources under a declared OWNER-POLICY vote hold: still
+#: ingested (their CSV values sit in ``canonicalSiteValues``) and displayed
+#: (``/api/rankings/sources`` ``voteHold``, the contract's vote-state stamp,
+#: the Settings source table), but they cast no vote.
+#:
+#: This is the SAME hold as :data:`PRIVATE_SOURCE_VOTE_HOLDS` applied to a
+#: public source, through the SAME gate — ``_compute_unified_rankings`` drops
+#: a held key from ``active_sources`` exactly as it drops a seasonally
+#: inactive or a private held source.  So a held source is not a zero value,
+#: not a decayed vote, not "present evidence" for the single-source rule, not
+#: an expected source on any row, and (because B11 eligibility walks
+#: ``active_sources``) not an ELIGIBLE family whose silence counts as lost
+#: evidence.  It is not a third mechanism: one declaration table, one gate.
+#:
+#: DLF vote offense-only (owner directive 2026-10-16,
+#: ``docs/OWNER_REQUESTED_TODO.md``): the DLF IDP boards stop voting; DLF's
+#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged and DLF
+#: Values (``dlfValuesSfTep``) stays unregistered/held.  Rollback:
+#: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart.
+POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
+    key: {
+        "reason": "owner_policy_dlf_vote_offense_only",
+        "decision": "owner directive 2026-10-16: DLF vote is offense-only",
+        "flag": "dlf_offense_only_vote",
+    }
+    for key in ("dlfIdp", "dlfRookieIdp")
+}
+
+#: ``holdKind`` stamped on a public policy-held entry of the vote-state stamp,
+#: so it can never read as a private, box-local source.
+VOTE_HOLD_KIND_OWNER_POLICY = "owner_policy"
+
+
+def _policy_source_vote_holds() -> dict[str, dict[str, str]]:
+    """The :data:`POLICY_SOURCE_VOTE_HOLDS` entries IN FORCE (flag read).
+
+    ``{source_key: {"reason", "decision", "flag"}}``.  A hold whose rollback
+    flag is OFF is not in force and the source votes as it did before the
+    decision.  Read at call time (``feature_flags`` caches per process).
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    # Each rollback flag is read by LITERAL name so the flag-reachability
+    # scan (tests/api/test_feature_flag_reachability.py) can see the gate.
+    in_force = {"dlf_offense_only_vote": is_enabled("dlf_offense_only_vote")}
+    registered = {str(s.get("key") or "") for s in _RANKING_SOURCES}
+    return {
+        key: dict(hold)
+        for key, hold in POLICY_SOURCE_VOTE_HOLDS.items()
+        if key in registered and in_force.get(hold["flag"], False)
+    }
+
+
+def _source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
+    """Every source with a NON-DEFAULT vote state, for the contract stamp.
+
+    :func:`_private_source_vote_state` (every private source) plus one entry
+    per public source under an in-force owner-policy hold.  The public entry
+    uses the same vocabulary — ``heldFromVote`` (the reason), ``votes:
+    False``, ``voteState: "held"`` — so every existing reader of the stamp
+    (``private_sources_absent_by_design`` in the contract validator, the
+    CI and live coverage gates; the Rankings / Settings vote-state labels)
+    treats it as "collected, not voting by declaration" without a second
+    code path, and adds ``private: False`` + ``holdKind`` so it never reads
+    as a box-local source.  ``state`` is ``present`` / ``missing`` from the
+    CSV alone: a public source is always provisioned.
+
+    The stamp keeps its historical name ``privateSourceAvailability``;
+    renaming it would touch every consumer and is a separate change.
+    """
+    out = _private_source_vote_state(csv_root)
+    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    for key, hold in _policy_source_vote_holds().items():
+        cfg = _SOURCE_CSV_PATHS.get(key)
+        rel = cfg if isinstance(cfg, str) else (cfg or {}).get("path")
+        csv_present = bool(rel) and (root / str(rel)).is_file()
+        out[key] = {
+            "state": PRIVATE_SOURCE_PRESENT if csv_present else PRIVATE_SOURCE_MISSING,
+            "provisioned": True,
+            "csvPresent": csv_present,
+            "private": False,
+            "holdKind": VOTE_HOLD_KIND_OWNER_POLICY,
+            "holdDecision": hold["decision"],
+            "rollbackFlag": hold["flag"],
+            "rolledBack": False,
+            "heldFromVote": hold["reason"],
+            "votes": False,
+            "voteState": VOTE_STATE_HELD if csv_present else VOTE_STATE_UNAVAILABLE,
+        }
+    return out
+
+
 def private_source_keys() -> frozenset[str]:
     """Keys of every private, box-local source (``private_marker`` declared)."""
     return frozenset(
@@ -3290,6 +3382,7 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
     lockstep.
     """
     out: list[dict[str, Any]] = []
+    holds = _policy_source_vote_holds()
     for src in _RANKING_SOURCES:
         entry: dict[str, Any] = {
             "key": str(src.get("key") or ""),
@@ -3314,6 +3407,11 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             # field is never null and consumers never have to encode the
             # "no group means independent" rule themselves.
             "correlationGroup": str(src.get("correlation_group") or src.get("key") or ""),
+            # A declared owner-policy vote hold in force (``POLICY_SOURCE_VOTE_HOLDS``):
+            # the source stays registered and visible here, with the reason,
+            # but casts no vote.  ``None`` = no policy hold.  Not a parity
+            # field — the frontend reads vote state from the contract stamp.
+            "voteHold": holds.get(str(src.get("key") or "")),
         }
         out.append(entry)
     return out
@@ -10305,6 +10403,7 @@ def _compute_unified_rankings(
     seasonally_inactive_sources: Iterable[str] | None = None,
     absent_private_sources: Iterable[str] | None = None,
     shadow_private_sources: Iterable[str] | None = None,
+    policy_held_sources: Iterable[str] | None = None,
     freshness_as_of: "datetime | None" = None,
     csv_root: "Path | None" = None,
 ) -> dict[str, str]:
@@ -10549,6 +10648,12 @@ def _compute_unified_rankings(
     # Reusing this one gate is what keeps "absent by design" from reading as
     # a matching failure anywhere downstream.
     _seasonal_off |= {str(k) for k in (absent_private_sources or ())}
+    # A PUBLIC source under a declared owner-policy vote hold
+    # (``POLICY_SOURCE_VOTE_HOLDS`` — today the DLF IDP boards, owner
+    # directive 2026-10-16) takes the same posture through the same gate:
+    # collected and displayed, no vote, not expected, not an eligible family.
+    _policy_held = {str(k) for k in (policy_held_sources or ())}
+    _seasonal_off |= _policy_held
     # SHADOW private sources (Signals IDP, 2026-10-04): a subset of the
     # absent ones above.  They cast no vote and are expected on no row —
     # exactly the posture above — but Phase 1 still translates them so
@@ -12890,7 +12995,7 @@ def _compute_unified_rankings(
     _apply_two_way_player_boost(
         players_array,
         players_by_name,
-        excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())),
+        excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())) | _policy_held,
     )
     # ── Confidence describes the value that SHIPPED (B11) ──
     #
@@ -13909,7 +14014,19 @@ def build_api_data_contract(
     # expected source, not an error — and stamped on the payload so the
     # validator and every reader can tell "not provisioned here" from a
     # source that disappeared.
-    private_availability = _private_source_vote_state(csv_root)
+    # One read of every non-default vote state (``_source_vote_state``): the
+    # private sources, plus public sources under an in-force owner-policy
+    # vote hold (DLF IDP, owner directive 2026-10-16) — same gate, separate
+    # name, and the stamp below publishes exactly what the gate used.
+    source_vote_state = _source_vote_state(csv_root)
+    private_availability = {
+        k: v
+        for k, v in source_vote_state.items()
+        if v.get("holdKind") != VOTE_HOLD_KIND_OWNER_POLICY
+    }
+    policy_held = frozenset(
+        k for k, v in source_vote_state.items() if v.get("holdKind") == VOTE_HOLD_KIND_OWNER_POLICY
+    )
     absent_private = frozenset(k for k, v in private_availability.items() if not v["votes"])
     shadow_private = frozenset(
         k for k, v in private_availability.items() if v.get("voteState") == VOTE_STATE_SHADOW
@@ -13933,6 +14050,7 @@ def build_api_data_contract(
         seasonally_inactive_sources=frozenset(seasonally_inactive),
         absent_private_sources=absent_private,
         shadow_private_sources=shadow_private,
+        policy_held_sources=policy_held,
         freshness_as_of=freshness_as_of,
         csv_root=csv_root,
     )
@@ -14341,7 +14459,13 @@ def build_api_data_contract(
         # a value.  ``validate_api_data_contract`` reads it so a build that
         # CANNOT hold private data (CI) is not failed for lacking it, while
         # a provisioned host whose board vanished still is.
-        "privateSourceAvailability": {k: dict(v) for k, v in sorted(private_availability.items())},
+        #
+        # Also carries one entry per PUBLIC source under an in-force
+        # owner-policy vote hold (``_source_vote_state``; ``private: False``,
+        # ``holdKind: "owner_policy"``) so the same readers show it as
+        # collected-not-voting and the coverage gates excuse its absence
+        # from ``sourceRankMeta`` by the board's own declaration.
+        "privateSourceAvailability": {k: dict(v) for k, v in sorted(source_vote_state.items())},
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
