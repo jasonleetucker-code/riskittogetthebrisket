@@ -13,7 +13,10 @@ exact same stamp-or-mtime signal the live alert engine reads, and
 thresholds match the live policy.  No parallel logic to drift.
 
 Exit codes:
-  0 — every source is within threshold
+  0 — every source is within threshold, or every stale one is either
+      soft (inside its escalation window) or an ACKNOWLEDGED FETCH OUTAGE
+      that the built board proves casts no vote (reported as DEGRADED —
+      see :func:`split_acknowledged_outages`)
   1 — at least one source is stale; the workflow step turns red and
       the workflow's failure-handler step opens an issue
 
@@ -241,6 +244,192 @@ def split_seasonally_inactive(
     return remaining, verified, lapsed
 
 
+# ── Acknowledged fetch outages (2026-10-16, #1726) ─────────────────────────
+#
+# A stale ``_last_success`` stamp is a FETCH failure by construction: every
+# fetcher re-stamps on every successful run whether or not the vendor
+# published anything (config/source_staleness.json's first comment;
+# tests/api/test_freshness_budget_not_laxer_than_alerts.py).  So this
+# watchdog never sees "vendor stopped publishing" — that is CONTENT
+# staleness, owned by the freshness weighting (src/sources/freshness.py) and
+# reported by scripts/check_source_health.py — and nothing here may relabel a
+# fetch failure as one.
+#
+# What it CAN do is stop one known, owner-tracked fetch outage from turning
+# the whole data job permanently red, which made every other failure
+# invisible.  An entry in ``acknowledgedFetchOutages`` downgrades exactly
+# that source from FAIL to DEGRADED, and only while ALL of:
+#
+#   * the entry is well-formed: an ``issue`` reference, ``acknowledgedAt``
+#     and ``expiresAt`` timestamps, a span of at most
+#     ``ACK_MAX_SPAN_DAYS`` (an acknowledgement is a dated promise to fix,
+#     never a permanent exemption), and ``now`` inside that window;
+#   * the board this run built proves the source CASTS NO VOTE:
+#     ``sourceWeighting.sources[key]`` (the contract's own per-source
+#     vote census) has ``votingRows == 0`` and ``excludedRows >= 1`` — it
+#     is on the board and the pipeline withholds it on every row.
+#
+# Anything else stays a hard failure, with the refusal reason named: a
+# missing/expired/over-long entry, an unbuildable board, a source the
+# census does not describe, and above all a stale source that STILL VOTES.
+# Exact source keys only — an acknowledgement never covers a vendor family.
+# This touches only this job's exit code: the live alert engine
+# (src/api/source_health_alerts.py), the on-site banner and the contract's
+# own warnings keep reporting the outage unchanged.
+
+ACK_MAX_SPAN_DAYS = 14
+
+
+def load_acknowledged_fetch_outages(path: Path | None = None) -> dict[str, dict]:
+    """``acknowledgedFetchOutages`` from ``config/source_staleness.json``.
+
+    Returned raw (validation is :func:`acknowledgement_refusal`'s job, so a
+    malformed entry surfaces as a NAMED refusal instead of vanishing here).
+    A missing or unreadable file acknowledges nothing — fail closed.
+    """
+    import json  # noqa: PLC0415
+
+    path = path or (_REPO_ROOT / "config" / "source_staleness.json")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    entries = raw.get("acknowledgedFetchOutages") if isinstance(raw, dict) else None
+    if not isinstance(entries, dict):
+        return {}
+    return {str(k): v for k, v in entries.items() if not str(k).startswith("_")}
+
+
+def _parse_utc(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None  # an ambiguous clock is not a deadline
+    return parsed.astimezone(timezone.utc)
+
+
+def acknowledgement_refusal(entry: object, now: datetime) -> str | None:
+    """``None`` when ``entry`` is an ACTIVE acknowledgement, else why not."""
+    if not isinstance(entry, dict):
+        return "acknowledgement_malformed"
+    if not str(entry.get("issue") or "").strip():
+        return "acknowledgement_missing_issue"
+    acknowledged = _parse_utc(entry.get("acknowledgedAt"))
+    expires = _parse_utc(entry.get("expiresAt"))
+    if acknowledged is None or expires is None:
+        return "acknowledgement_missing_or_unzoned_dates"
+    if expires <= acknowledged:
+        return "acknowledgement_expires_before_it_starts"
+    if (expires - acknowledged).total_seconds() > ACK_MAX_SPAN_DAYS * 86400:
+        return f"acknowledgement_span_exceeds_{ACK_MAX_SPAN_DAYS}d"
+    if now < acknowledged:
+        return "acknowledgement_not_yet_active"
+    if now >= expires:
+        return "acknowledgement_expired"
+    return None
+
+
+def board_vote_census() -> dict[str, dict] | None:
+    """Per-source vote census of the board this run built, or ``None``.
+
+    Builds the contract exactly as ``scripts/watchdog_contract_coverage.py``
+    does (same export precedence, same builder) and returns its
+    ``sourceWeighting.sources`` — the pipeline's own record of how many rows
+    each source voted on and how many it was withheld from.  No second
+    freshness rule: the watchdog reads the weighting's verdict, it does not
+    re-derive it.  ``None`` (any failure) means no acknowledgement can be
+    honoured — fail closed.
+    """
+    import json  # noqa: PLC0415
+
+    try:
+        from scripts.watchdog_contract_coverage import _find_latest_export  # noqa: PLC0415
+        from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
+
+        export = _find_latest_export()
+        if export is None:
+            return None
+        with export.open("r", encoding="utf-8") as f:
+            contract = build_api_data_contract(json.load(f))
+    except Exception:  # noqa: BLE001 — unbuildable board = no evidence
+        return None
+    sources = ((contract or {}).get("sourceWeighting") or {}).get("sources")
+    return sources if isinstance(sources, dict) else None
+
+
+def _row_count(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+def split_acknowledged_outages(
+    hard_stale: list[tuple[str, float, float, str]],
+    acknowledgements: dict[str, dict],
+    vote_census: dict[str, dict] | None,
+    now: datetime,
+) -> tuple[
+    list[tuple[str, float, float, str]],
+    list[tuple[str, float, float, str, dict, dict]],
+    dict[str, str],
+]:
+    """``(still_hard, degraded, refusals)`` — pure, IO-free.
+
+    ``degraded`` rows are ``(src, age, threshold, lastFetched, ack, census)``.
+    ``refusals`` names, for every stale source that HAD an acknowledgement
+    but stays fatal, why it was not honoured.  A stale source with no entry
+    is untouched — this function can only ever narrow a failure that an
+    owner wrote down AND the board proves inert.
+    """
+    still_hard: list[tuple[str, float, float, str]] = []
+    degraded: list[tuple[str, float, float, str, dict, dict]] = []
+    refusals: dict[str, str] = {}
+    for row in hard_stale:
+        src = row[0]
+        if src not in acknowledgements:
+            still_hard.append(row)
+            continue
+        ack = acknowledgements[src]
+        reason = acknowledgement_refusal(ack, now)
+        census = None
+        if reason is None:
+            if vote_census is None:
+                reason = "board_vote_census_unavailable"
+            else:
+                census = vote_census.get(src)
+                voting = _row_count((census or {}).get("votingRows"))
+                withheld = _row_count((census or {}).get("excludedRows"))
+                if not isinstance(census, dict) or census.get("role") != "model_input":
+                    reason = "source_not_in_board_vote_census"
+                elif voting is None or withheld is None:
+                    reason = "board_vote_census_has_no_row_counts"
+                elif voting > 0:
+                    reason = f"stale_source_still_votes_on_{voting}_rows"
+                elif withheld < 1:
+                    reason = "source_absent_from_board_not_withheld"
+        if reason is not None:
+            refusals[src] = reason
+            still_hard.append(row)
+        else:
+            degraded.append((*row, dict(ack), dict(census or {})))
+    return still_hard, degraded, refusals
+
+
+def degraded_line(row: tuple[str, float, float, str, dict, dict]) -> str:
+    """One ``degraded:`` log line — grepped into the failure issue."""
+    src, age, threshold, last, ack, census = row
+    return (
+        f"degraded: {src} — acknowledged FETCH outage ({ack.get('issue')}, expires "
+        f"{ack.get('expiresAt')}); last fetched {last} ({age:.1f}h ago, threshold "
+        f"{threshold:.1f}h); withheld from voting on {census.get('excludedRows')} "
+        f"row(s), voting on {census.get('votingRows')}"
+    )
+
+
 def main() -> int:
     thresholds = load_thresholds()
     soft_sources = load_soft_sources()
@@ -261,6 +450,18 @@ def main() -> int:
     hard_stale, soft_stale, fresh = classify_freshness(
         freshness, thresholds, soft_sources, soft_escalate_hours
     )
+    acknowledgements = load_acknowledged_fetch_outages()
+    degraded: list[tuple[str, float, float, str, dict, dict]] = []
+    ack_refusals: dict[str, str] = {}
+    if any(row[0] in acknowledgements for row in hard_stale):
+        # Built only when an acknowledgement could apply, so the healthy
+        # path costs nothing extra.
+        hard_stale, degraded, ack_refusals = split_acknowledged_outages(
+            hard_stale,
+            acknowledgements,
+            board_vote_census(),
+            datetime.now(tz=timezone.utc),
+        )
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     summary_lines: list[str] = ["## Source freshness watchdog", ""]
@@ -271,6 +472,34 @@ def main() -> int:
         summary_lines.append("|---|---|---|---|")
         for src, age, threshold, last in hard_stale:
             summary_lines.append(f"| `{src}` | {age:.1f} | {threshold:.1f} | {last} |")
+        summary_lines.append("")
+        for src, reason in sorted(ack_refusals.items()):
+            summary_lines.append(f"- `{src}`: acknowledgement NOT honoured — `{reason}`")
+        if ack_refusals:
+            summary_lines.append("")
+    if degraded:
+        summary_lines.append(
+            "### DEGRADED — acknowledged fetch outages (withheld from voting, non-fatal until expiry)"
+        )
+        summary_lines.append("")
+        summary_lines.append(
+            "_The FETCH is failing (this is not a vendor publication gap).  Non-fatal only "
+            "because an owner-tracked entry in config/source_staleness.json "
+            "``acknowledgedFetchOutages`` covers it AND this run's board shows it casting "
+            "no vote.  Fails again at expiry, or the moment it votes._"
+        )
+        summary_lines.append("")
+        summary_lines.append(
+            "| source | age (h) | threshold (h) | last fetched | issue | expires | "
+            "voting rows | withheld rows |"
+        )
+        summary_lines.append("|---|---|---|---|---|---|---|---|")
+        for src, age, threshold, last, ack, census in degraded:
+            summary_lines.append(
+                f"| `{src}` | {age:.1f} | {threshold:.1f} | {last} | {ack.get('issue')} "
+                f"| {ack.get('expiresAt')} | {census.get('votingRows')} "
+                f"| {census.get('excludedRows')} |"
+            )
         summary_lines.append("")
     if soft_stale:
         summary_lines.append("### Soft-stale sources (reported, non-fatal)")
@@ -340,6 +569,18 @@ def main() -> int:
             f"re-mint / fix the fetcher to clear it."
         )
 
+    for row in degraded:
+        src, age, _threshold, last, ack, census = row
+        print(
+            f"::warning title=DEGRADED (acknowledged fetch outage): {src}::Fetch has "
+            f"failed since {last} ({age:.1f}h).  Non-fatal only until "
+            f"{ack.get('expiresAt')} under {ack.get('issue')}, and only because this "
+            f"run's board withholds it on {census.get('excludedRows')} row(s) and it "
+            f"votes on none.  Fix the fetcher; do not extend the acknowledgement "
+            f"without an owner decision."
+        )
+        print(degraded_line(row))
+
     for src, info in sorted(seasonal_inactive.items()):
         print(
             f"::notice title=Seasonally inactive source: {src}::Declared seasonal "
@@ -377,22 +618,31 @@ def main() -> int:
         soft_note = f", {len(soft_stale)} soft-stale (non-fatal)" if soft_stale else ""
         if seasonal_inactive:
             soft_note += f", {len(seasonal_inactive)} seasonally inactive (declared)"
+        if degraded:
+            soft_note += (
+                f", {len(degraded)} DEGRADED (acknowledged fetch outage, withheld "
+                f"from voting): {', '.join(r[0] for r in degraded)}"
+            )
         print(f"ok: {len(fresh)} sources fresh, 0 hard-stale, 0 unmeasurable{soft_note}")
         return 0
 
     for src, age, threshold, last in hard_stale:
+        refusal = ack_refusals.get(src)
         print(
             f"::error title=Stale source: {src}::Last fetched {last} "
             f"({age:.1f}h ago, threshold {threshold:.1f}h).  "
             f"Investigate the fetcher run for this source in the "
             f"'Run scraper' step above."
+            + (f"  Acknowledgement NOT honoured: {refusal}." if refusal else "")
         )
     print(
         f"\nfail: {len(hard_stale)} stale source(s), {len(unmeasurable)} unmeasurable, "
         f"{len(fresh)} fresh"
-        f"{f', {len(soft_stale)} soft-stale' if soft_stale else ''}.  "
+        f"{f', {len(soft_stale)} soft-stale' if soft_stale else ''}"
+        f"{f', {len(degraded)} degraded' if degraded else ''}.  "
         f"Stale: {', '.join(s for s, *_ in hard_stale) or 'none'}"
         f"{'.  Unmeasurable: ' + ', '.join(unmeasurable) if unmeasurable else ''}"
+        f"{'.  Acknowledgement refused: ' + ', '.join(f'{k} ({v})' for k, v in sorted(ack_refusals.items())) if ack_refusals else ''}"
     )
     return 1
 

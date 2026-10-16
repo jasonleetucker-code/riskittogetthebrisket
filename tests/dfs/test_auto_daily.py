@@ -548,6 +548,24 @@ def test_a_corrupt_legacy_run_row_is_unknown_and_due_never_a_crash():
     assert listing["lastRuns"]["draftkings"]["outcome"] == "unknown"
 
 
+@pytest.mark.parametrize("stored", ["[1, 2]", '"str"', "123", "null", "true"])
+@pytest.mark.parametrize("outcome", ["unavailable", "source_error"])
+def test_a_run_detail_that_is_valid_json_but_not_an_object_is_unknown(stored, outcome):
+    """Valid JSON that is not an object (a list, a string, a number) used to
+    reach ``list_slates`` as the run detail and raise AttributeError on
+    ``.get`` — a 500, not a listing.  Any non-object detail is outcome unknown
+    (due now), never a raise."""
+    with refresh._connect() as conn:
+        conn.execute(
+            "INSERT INTO dfs_auto_runs VALUES (?,?,?,?,?)",
+            ("draftkings", "nhl", NHL_NOW.isoformat(), outcome, stored),
+        )
+    listing = refresh.list_slates("nhl", now=NHL_NOW)
+    assert listing["lastRuns"]["draftkings"]["outcome"] == "unknown"
+    assert listing["lastRuns"]["draftkings"]["detail"] == {"corruptDetail": True}
+    assert refresh.is_due("nhl", NHL_NOW + timedelta(minutes=1))  # unknown → refresh now
+
+
 def test_schedule_side_drift_or_an_empty_payload_is_a_source_error_not_an_off_day():
     def drifted(sport, day):
         return {"games": [], "dropped": [{"reason": "team_unknown_for_sport"}] * 3}

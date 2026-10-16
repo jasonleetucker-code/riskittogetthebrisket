@@ -162,7 +162,7 @@ async function selectFirstTeam(page, testInfo) {
   await expect(option, "the TeamSwitcher opened with no league teams").toBeVisible({ timeout: 30_000 });
   const name = (await option.locator(".team-switcher-option-name").innerText()).trim();
   await option.click();
-  annotate(testInfo, "team-selected", name || "first team");
+  annotate(testInfo, "team-selected", String(Boolean(name)));
   return name;
 }
 
@@ -225,7 +225,8 @@ test.describe("Train 2: Model Lab admin gate (AL-0b)", () => {
     prodPage: page,
   }, testInfo) => {
     const who = await sessionIdentity(page);
-    annotate(testInfo, "session", `authMethod=${who.authMethod} isAdmin=${who.isAdmin}`);
+    annotate(testInfo, "session-auth-method", String(who.authMethod));
+    annotate(testInfo, "session-is-admin", String(who.isAdmin === true));
     expect(
       who.isAdmin,
       "this check asserts the NON-admin gate; the workflow's session must be a guest pass",
@@ -234,7 +235,8 @@ test.describe("Train 2: Model Lab admin gate (AL-0b)", () => {
     for (const path of ["/api/model-lab", "/api/model-lab/hill_curves"]) {
       const res = await page.request.get(prodUrl(path), { timeout: 45_000 });
       const body = await res.json().catch(() => null);
-      annotate(testInfo, `model-lab ${path}`, `${res.status()} ${body?.error ?? "(no error code)"}`);
+      annotate(testInfo, "model-lab-status", String(res.status()));
+      annotate(testInfo, "model-lab-error", String(body?.error ?? "none"));
       expect(res.status(), `${path} must refuse a non-admin session`).toBe(403);
       expect(body?.error, `${path} must name the refusal`).toBe("admin_required");
       // A refusal body is never cached by a shared proxy either.
@@ -242,11 +244,9 @@ test.describe("Train 2: Model Lab admin gate (AL-0b)", () => {
       // The 403 is the whole answer: no Lab payload leaks alongside it.
       expect(body && ("families" in body || "family" in body), `${path} leaked Lab content`).toBeFalsy();
     }
-    annotate(
-      testInfo,
-      "unverified",
-      "Model Lab CONTENT (families, receipts, AL-4a/AL-3b scorecards) needs an admin session; not exercised",
-    );
+    // Model Lab CONTENT (families, receipts, AL-4a/AL-3b scorecards) needs an
+    // admin session and is not exercised here.
+    annotate(testInfo, "admin-content-exercised", "false");
   });
 });
 
@@ -287,17 +287,13 @@ test.describe("Train 2: trade protections (C3-CON-02)", () => {
       expect(body.untouchables, "an unconfigured league stores no untouchables").toEqual([]);
       expect(body.nflTeams, "an unconfigured league stores no NFL teams").toEqual([]);
     }
-    annotate(
-      testInfo,
-      "trade-protections-get",
-      `configured=${body.configured} untouchables=${body.untouchables.length} nflTeams=${body.nflTeams.length} ` +
-        `options=${Array.isArray(body.nflTeamOptions) ? body.nflTeamOptions.length : "null"}`,
-    );
+    annotate(testInfo, "trade-protections-configured", String(body.configured === true));
 
     // ── The guest write refusal. Precondition FIRST: only a proven guest-pass
     // session may send this PUT at all.
     const who = await sessionIdentity(page);
-    annotate(testInfo, "session", `authMethod=${who.authMethod} isAdmin=${who.isAdmin}`);
+    annotate(testInfo, "session-auth-method", String(who.authMethod));
+    annotate(testInfo, "session-is-admin", String(who.isAdmin === true));
     expect(
       who.authMethod,
       "refusing to send the protections PUT from a session that is not a guest pass",
@@ -311,7 +307,8 @@ test.describe("Train 2: trade protections (C3-CON-02)", () => {
       timeout: 45_000,
     });
     const putBody = await put.json().catch(() => null);
-    annotate(testInfo, "trade-protections-put", `${put.status()} ${putBody?.error ?? ""}`);
+    annotate(testInfo, "trade-protections-put-status", String(put.status()));
+    annotate(testInfo, "trade-protections-put-error", String(putBody?.error ?? "none"));
     expect(put.status(), "a guest-pass PUT must be refused").toBe(403);
     expect(putBody?.error).toBe("guest_read_only");
 
@@ -353,12 +350,9 @@ test.describe("Train 2: value movement (UI-contract §10 / IC-7)", () => {
     // The live board the reader is looking at travels with the answer.
     expect(m.liveBoard && typeof m.liveBoard === "object", "liveBoard block").toBe(true);
     expect(m.currentContext?.scope).toBe("current_board_only");
-    annotate(
-      testInfo,
-      "value-movement",
-      `player ${pid} (rank ${board.top.canonicalConsensusRank}): ` +
-        `status=${m.status}${m.missingReason ? ` reason=${m.missingReason}` : ""}`,
-    );
+    // Public artifact (security S3): the movement STATUS only — never the
+    // player, rank or values.
+    annotate(testInfo, "value-movement-status", String(m.status));
 
     if (m.status === "unkeyed") return;
     // What the ledger does not store is NAMED, never re-derived.
@@ -391,12 +385,12 @@ test.describe("Train 2: value movement (UI-contract §10 / IC-7)", () => {
         expect(/share|contribution|attribut/i.test(k), `source ${s.source} carries "${k}"`).toBe(false);
       }
     }
+    annotate(testInfo, "value-movement-sources-recorded", String((m.sources || []).length));
+    annotate(testInfo, "value-movement-sources-moved", String(moved));
     annotate(
       testInfo,
-      "value-movement-sources",
-      `${(m.sources || []).length} recorded (${moved} moved), ` +
-        `${(m.sourcesNotObservedAtEitherGeneration || []).length} not observed at either board; ` +
-        `boards ${m.previous?.observedDate} -> ${m.current?.observedDate}`,
+      "value-movement-sources-not-observed",
+      String((m.sourcesNotObservedAtEitherGeneration || []).length),
     );
   });
 
@@ -445,11 +439,8 @@ test.describe("Train 2: value movement (UI-contract §10 / IC-7)", () => {
       // A non-ok movement renders its honest state, never an empty table.
       await expect(body.getByRole("heading", { name: "Between boards" })).toHaveCount(0);
     }
-    annotate(
-      testInfo,
-      "why-it-moved",
-      `${testInfo.project.name}: status=${payload.status}, ${movementRequests.length} fetch(es), all after open`,
-    );
+    annotate(testInfo, "why-it-moved-status", String(payload.status));
+    annotate(testInfo, "why-it-moved-fetches", String(movementRequests.length));
     expect(unexpectedWrites, "the Player File attempted a non-allowlisted write").toEqual([]);
   });
 });
@@ -475,7 +466,8 @@ test.describe("Train 2: roster intelligence core (C2-CORE-01)", () => {
     if (!core.available) {
       expect(core.unavailableReason, "an unavailable core names why").toBeTruthy();
       expect(core.members, "an unavailable core lists no members").toEqual([]);
-      annotate(testInfo, "core", `unavailable: ${core.unavailableReason}`);
+      annotate(testInfo, "core-state", "unavailable");
+      annotate(testInfo, "core-unavailable-reason", String(core.unavailableReason));
       return;
     }
     const starters = core.members.filter((m) => m.role === "starter");
@@ -500,12 +492,9 @@ test.describe("Train 2: roster intelligence core (C2-CORE-01)", () => {
       Array.isArray(ri.leagueContext) && ri.leagueContext.length,
       "every roster in the league (orphans included) is ranked in leagueContext",
     ).toBe(board.allTeams.length);
-    annotate(
-      testInfo,
-      "core",
-      `${team.name || team.ownerId}: ${starters.length} starters, ${reserves.length} reserves, ` +
-        `${unpriced.size} unpriced, unfilled starter slots ${core.unfilledStarterSlots.length}, slots from ${core.slotSource}`,
-    );
+    // Public artifact (security S3): never the team, nor its roster counts.
+    annotate(testInfo, "core-state", "available");
+    annotate(testInfo, "core-slot-source", String(core.slotSource));
   });
 });
 
@@ -584,12 +573,7 @@ test.describe("Train 2: /waivers Droppable consumes the canonical cut ladder (C2
       // Empty is stated with the ladder-OK title, never a silent blank.
       await expect(emptyTitle, "an empty Droppable list must say so with the ladder-OK title").toBeVisible();
     }
-    annotate(
-      testInfo,
-      "droppable",
-      `${teamName}: ladder ${rungs.length} rungs, ${undroppable.length} undroppable; ` +
-        `${n} Droppable row(s) rendered (cuts ${seenRungs.join(",") || "none"}), all ladder rungs`,
-    );
+    annotate(testInfo, "droppable-rows-match-ladder", "true");
     expect(unexpectedWrites, "/waivers attempted a non-allowlisted write").toEqual([]);
   });
 });
@@ -615,7 +599,7 @@ test.describe("Train 2: /rosters Trade Targets consume team.weakness (C2-WEAK-01
 
     if (intelRes.status() !== 200) {
       await expect(card.locator(".trade-targets-unavailable")).toBeVisible();
-      annotate(testInfo, "trade-targets", `roster intelligence ${intelRes.status()} → card states unavailable`);
+      annotate(testInfo, "trade-targets-state", "intel_unavailable");
       expect(unexpectedWrites).toEqual([]);
       return;
     }
@@ -623,7 +607,7 @@ test.describe("Train 2: /rosters Trade Targets consume team.weakness (C2-WEAK-01
     const weakness = ri.team?.weakness;
     if (!weakness || weakness.available === false) {
       await expect(card.locator(".trade-targets-unavailable"), "an unmeasured need must be stated").toBeVisible();
-      annotate(testInfo, "trade-targets", `weakness unavailable: ${weakness?.unavailableReason ?? "absent"}`);
+      annotate(testInfo, "trade-targets-state", "weakness_unavailable");
     } else {
       const needs = (weakness.needs || []).filter((x) => x && x.position && x.level && x.level !== "none");
       const badge = card.locator(".trade-targets-top-need");
@@ -640,11 +624,8 @@ test.describe("Train 2: /rosters Trade Targets consume team.weakness (C2-WEAK-01
       } else {
         await expect(badge).toHaveText("No starting-slot need");
       }
-      annotate(
-        testInfo,
-        "trade-targets",
-        `served needs (non-none, worst first): ${needs.map((x) => `${x.position}:${x.level}`).join(", ") || "none"}`,
-      );
+      // Never the needs themselves: a team's weaknesses are private.
+      annotate(testInfo, "trade-targets-state", "needs_served");
     }
     expect(unexpectedWrites, "/rosters attempted a non-allowlisted write").toEqual([]);
   });
@@ -672,7 +653,7 @@ test.describe("Train 2: Pick Projector (PICK-PROJECTOR-1652)", () => {
         // Sleeper overlay unreachable: an explicit degraded state, no picks
         // invented. Proves the honest state only — the row stays unproven.
         expect(body.picks).toEqual([]);
-        annotate(testInfo, `pick-projector ${key}`, "DEGRADED no_teams — slot source not observed");
+        annotate(testInfo, `pick-projector-${key}-state`, "degraded_no_teams");
         continue;
       }
       const meta = body.meta || {};
@@ -707,13 +688,9 @@ test.describe("Train 2: Pick Projector (PICK-PROJECTOR-1652)", () => {
           ).toBe(true);
         }
       }
-      annotate(
-        testInfo,
-        `pick-projector ${key}`,
-        `source=${meta.source} rule=${meta.draftOrderRule ?? "none"} reason=${reason ?? "none"} ` +
-          `simulatedSeason=${meta.simulatedSeason ?? "?"} forecastDraftYear=${meta.forecastDraftYear ?? "none"} ` +
-          `picks=${body.picks === null ? "unknown" : body.picks.length}`,
-      );
+      annotate(testInfo, `pick-projector-${key}-state`, "served");
+      annotate(testInfo, `pick-projector-${key}-source`, String(meta.source));
+      annotate(testInfo, `pick-projector-${key}-reason`, String(reason ?? "none"));
     }
   });
 });
@@ -766,13 +743,8 @@ test.describe("Train 2: signal reconciler (C6-SIG-01)", () => {
         expect(p.conflict?.resolution).toBe("not_resolved_by_reconciler");
       }
     }
-    annotate(testInfo, "reconciler-emitters", JSON.stringify(byState));
-    annotate(
-      testInfo,
-      "reconciler-players",
-      `${team.name || team.ownerId} roster: ${players.length} players ${JSON.stringify(playerStates)}; ` +
-        `${(body.unresolved || []).length} unresolved observations`,
-    );
+    // Public artifact (security S3): never the team or its players' states.
+    annotate(testInfo, "reconciler-emitters-reporting", String(ids.size));
   });
 });
 
@@ -789,7 +761,7 @@ test.describe("Train 2: player impact / WAR core (C5-WAR-01)", () => {
       { timeoutMs: 120_000 },
     );
     if (status === 503 && body?.reason === "league_snapshot_mismatch") {
-      annotate(testInfo, "player-impact", `503 league_snapshot_mismatch for ${board.leagueKey} — fails closed`);
+      annotate(testInfo, "player-impact-state", "league_snapshot_mismatch");
       return;
     }
     expect(status, "player impact must serve the session").toBe(200);
@@ -816,11 +788,8 @@ test.describe("Train 2: player impact / WAR core (C5-WAR-01)", () => {
         coverage[b.coverage] = (coverage[b.coverage] || 0) + 1;
       }
     }
-    annotate(
-      testInfo,
-      "player-impact",
-      `season ${body.season} asOfWeek ${body.scope?.asOfWeek ?? "none"} settings=${body.settings?.state}: ` +
-        `${rows.length} rows; metric coverage ${JSON.stringify(coverage)}`,
-    );
+    annotate(testInfo, "player-impact-state", "served");
+    annotate(testInfo, "player-impact-settings-state", String(body.settings?.state));
+    annotate(testInfo, "player-impact-rows", String(rows.length));
   });
 });

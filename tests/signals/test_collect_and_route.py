@@ -553,3 +553,54 @@ def test_route_flags_an_explicit_team_that_did_not_resolve(client, monkeypatch):
     ok = client.get("/api/signals/reconciled", params={"team": "owner-1"}).json()
     assert ok["teamResolution"]["resolved"] is True
     assert ok["teamResolution"]["source"] == "explicit"
+
+
+# ── C6-SIG-02: what a league-wide consumer needs to apply "SELL only for ──
+# ── the selected roster" without re-joining identity in the browser ──────
+
+
+def test_league_scope_publishes_the_resolved_rosters_membership():
+    _flags(consensus_edge=True, bdvm=False)
+    contract = _contract()
+    board = _ce_board([_ce_row("Sam Twin", "LB", "Buy"), _ce_row("Zed Sigalpha", "QB", "Sell")])
+    with mock.patch("src.consensus_edge.api.board_for_contract", return_value=board):
+        payload = _build(
+            contract,
+            resolved_team=contract["sleeper"]["teams"][0],
+            news_items=[],
+            scope="league",
+        )
+    assert payload["scope"] == "league"
+    # Membership comes from the same identity join the roster scope uses;
+    # the off-board name is counted, never dropped silently.
+    assert payload["roster"] == {
+        "playerKeys": ["player:90001", "player:90002"],
+        "placement": "name_fallback",
+        "unresolvedCount": 1,
+    }
+    # The league universe is unchanged by publishing membership.
+    keys = {p["playerKey"] for p in payload["players"]}
+    assert "player:90005" in keys
+
+
+def test_no_resolved_team_publishes_no_roster_rather_than_an_empty_one():
+    _flags(consensus_edge=False, bdvm=False)
+    payload = _build(_contract(), resolved_team=None, news_items=None, scope="league")
+    assert payload["roster"] is None
+
+
+def test_each_player_carries_the_contract_rows_own_board_stamps_verbatim():
+    _flags(consensus_edge=True, bdvm=False)
+    contract = _contract()
+    contract["playersArray"][1]["canonicalConsensusRank"] = None  # off the ranked board
+    board = _ce_board([_ce_row("Zed Sigalpha", "QB", "Buy"), _ce_row("Yan Sigbravo", "WR", "Buy")])
+    with mock.patch("src.consensus_edge.api.board_for_contract", return_value=board):
+        payload = _build(contract, resolved_team=None, news_items=[], scope="league")
+    by_key = {p["playerKey"]: p for p in payload["players"]}
+    assert by_key["player:90001"]["board"] == {
+        "canonicalConsensusRank": 50,
+        "position": "QB",
+        "assetClass": "offense",
+    }
+    # Rank-less is None — never 0, which would sort it first.
+    assert by_key["player:90002"]["board"]["canonicalConsensusRank"] is None
