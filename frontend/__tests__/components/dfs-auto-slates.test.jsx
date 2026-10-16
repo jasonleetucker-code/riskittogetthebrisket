@@ -1,7 +1,7 @@
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import AutoSlates, { degradedMarkerText } from "@/components/dfs/AutoSlates";
+import AutoSlates, { activeAutoSlateId, degradedMarkerText } from "@/components/dfs/AutoSlates";
 
 function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -144,5 +144,53 @@ describe("AutoSlates — daily sports (DFS-AUTO-19)", () => {
     );
     render(<AutoSlates sport="mma" platform="draftkings" selectedHash={null} onSelected={() => {}} />);
     expect(await screen.findByText(/live for NFL, NBA and NHL/)).toBeInTheDocument();
+  });
+
+  describe("two live slates with identical content", () => {
+    const slate = (key, label) => ({
+      autoSlateId: `draftkings:nfl:2026:w6:${key}`,
+      platform: "draftkings",
+      sport: "nfl",
+      slateKey: key,
+      label,
+      lockAt: "2026-10-18T17:00:00+00:00",
+      contentHash: "samehash",
+      summary: { games: 13, players: 400, projected: 380 },
+      freshness: { state: "CURRENT", locked: false, ageMinutes: 2, degraded: [] },
+    });
+    const SLATES = [slate("full_week", "DraftKings NFL · Full week"), slate("main", "DraftKings NFL · Main")];
+    const MAIN = "draftkings:nfl:2026:w6:main";
+
+    function Harness() {
+      const [hash, setHash] = React.useState(null);
+      return <AutoSlates sport="nfl" platform="draftkings" selectedHash={hash} onSelected={(b) => setHash(b.contentHash)} />;
+    }
+
+    it("marks only the slate that was selected as in use", async () => {
+      fetch.mockImplementation(async (url) => {
+        if (String(url).includes("/auto/slates?")) {
+          return jsonResponse(200, { sport: "nfl", state: "AVAILABLE", slates: SLATES });
+        }
+        return jsonResponse(201, { snapshotId: "s1", contentHash: "samehash" });
+      });
+      render(<Harness />);
+      // The default ("main") opens; the identical "Full week" row must not also claim it.
+      await waitFor(() => expect(screen.getAllByRole("button", { name: "In use" })).toHaveLength(1));
+      const mainRow = screen.getByText("DraftKings NFL · Main").closest("li");
+      expect(mainRow).toHaveTextContent("In use");
+      // Choosing the other one moves the marker; there is still exactly one.
+      fireEvent.click(screen.getByRole("button", { name: "Use this slate" }));
+      await waitFor(() => expect(screen.getByText("DraftKings NFL · Full week").closest("li")).toHaveTextContent("In use"));
+      expect(screen.getAllByRole("button", { name: "In use" })).toHaveLength(1);
+      expect(mainRow).toHaveTextContent("Use this slate");
+    });
+
+    it("activeAutoSlateId picks one row for an externally loaded hash", () => {
+      expect(activeAutoSlateId(SLATES, "samehash", null)).toBe("draftkings:nfl:2026:w6:full_week");
+      expect(activeAutoSlateId(SLATES, "samehash", MAIN)).toBe(MAIN);
+      // A selection whose content is no longer loaded (e.g. an uploaded file replaced it) is not "in use".
+      expect(activeAutoSlateId(SLATES, "otherhash", MAIN)).toBe(null);
+      expect(activeAutoSlateId(SLATES, null, MAIN)).toBe(null);
+    });
   });
 });
