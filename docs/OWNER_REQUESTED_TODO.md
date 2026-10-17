@@ -1695,3 +1695,17 @@ with no manual re-entry of clearly recognized assets. Runbook: `docs/ops/SCREENS
 | Accuracy on real phone screenshots (Sleeper/ESPN/Yahoo/dark mode) measured after the VPS install; no universal-accuracy claim | PENDING — after the owner action |
 | Implementation | DEPLOYED 2026-10-16 — PR #1751 via release train #1753 (`47a9f561b`); recognition switches on after the owner action above |
 
+
+## Added 2026-10-16 — DLF vote offense-only (owner decision)
+
+Owner directive 2026-10-16: "DLF vote is offense-only." Settles the interpretation
+`docs/sources/SOURCE_VALUATION_AUDIT_2026-10-13.md` §2b ("DLF naming note") left open as an
+OWNER_DECISION. Lane `claude/dlf-offense-only-vote`.
+
+| Item | Disposition |
+|---|---|
+| DLF vote offense-only: `dlfIdp` and `dlfRookieIdp` remain ingested and displayed but never vote; `dlfSf` / `dlfRookieSf` unchanged; DLF Values (`dlfValuesSfTep`) held | DECIDED — owner directive 2026-10-16 |
+| Implemented through the existing vote-hold gate (`data_contract.POLICY_SOURCE_VOTE_HOLDS`, same gate as seasonal inactivity / private holds); rollback `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart | IMPLEMENTED — lane `claude/dlf-offense-only-vote` |
+| KTC Crowd / KTC Trades / KTC Market separation | UNCHANGED — owner policy 2026-09-23 |
+| Confidence semantics of the hold: a policy-held board is NOT an eligible confidence family (same as seasonal inactivity / the Signals IDP hold), not seated as lost evidence. Measured on the pinned 2026-10-16 export: 34 IDP rows rise low → medium (DLF IDP was itself each row's weakest family — 33 agreement, 1 freshness; none from shrunken coverage or independence) | APPROVED — owner 2026-10-16 ("Approve the 34 confidence rises on #1758") |
+| Re-measured after release train 4 merged (2026-10-16 ~14:58 UTC, same code — train changed the board by 0 rows; the shift is today's DLF/KTC data refresh): 228 values moved (172 IDP / 55 picks / 1 offense), confidence 13 up / 63 down — 49 high → medium because DLF IDP was the row's fifth voting family; 0 newly single-source / unpriced | APPROVED — owner 2026-10-16 ("Merge as-is") |

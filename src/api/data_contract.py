@@ -983,6 +983,98 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
     return out
 
 
+#: Registered PUBLIC sources under a declared OWNER-POLICY vote hold: still
+#: ingested (their CSV values sit in ``canonicalSiteValues``) and displayed
+#: (``/api/rankings/sources`` ``voteHold``, the contract's vote-state stamp,
+#: the Settings source table), but they cast no vote.
+#:
+#: This is the SAME hold as :data:`PRIVATE_SOURCE_VOTE_HOLDS` applied to a
+#: public source, through the SAME gate — ``_compute_unified_rankings`` drops
+#: a held key from ``active_sources`` exactly as it drops a seasonally
+#: inactive or a private held source.  So a held source is not a zero value,
+#: not a decayed vote, not "present evidence" for the single-source rule, not
+#: an expected source on any row, and (because B11 eligibility walks
+#: ``active_sources``) not an ELIGIBLE family whose silence counts as lost
+#: evidence.  It is not a third mechanism: one declaration table, one gate.
+#:
+#: DLF vote offense-only (owner directive 2026-10-16,
+#: ``docs/OWNER_REQUESTED_TODO.md``): the DLF IDP boards stop voting; DLF's
+#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged and DLF
+#: Values (``dlfValuesSfTep``) stays unregistered/held.  Rollback:
+#: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart.
+POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
+    key: {
+        "reason": "owner_policy_dlf_vote_offense_only",
+        "decision": "owner directive 2026-10-16: DLF vote is offense-only",
+        "flag": "dlf_offense_only_vote",
+    }
+    for key in ("dlfIdp", "dlfRookieIdp")
+}
+
+#: ``holdKind`` stamped on a public policy-held entry of the vote-state stamp,
+#: so it can never read as a private, box-local source.
+VOTE_HOLD_KIND_OWNER_POLICY = "owner_policy"
+
+
+def _policy_source_vote_holds() -> dict[str, dict[str, str]]:
+    """The :data:`POLICY_SOURCE_VOTE_HOLDS` entries IN FORCE (flag read).
+
+    ``{source_key: {"reason", "decision", "flag"}}``.  A hold whose rollback
+    flag is OFF is not in force and the source votes as it did before the
+    decision.  Read at call time (``feature_flags`` caches per process).
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    # Each rollback flag is read by LITERAL name so the flag-reachability
+    # scan (tests/api/test_feature_flag_reachability.py) can see the gate.
+    in_force = {"dlf_offense_only_vote": is_enabled("dlf_offense_only_vote")}
+    registered = {str(s.get("key") or "") for s in _RANKING_SOURCES}
+    return {
+        key: dict(hold)
+        for key, hold in POLICY_SOURCE_VOTE_HOLDS.items()
+        if key in registered and in_force.get(hold["flag"], False)
+    }
+
+
+def _source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
+    """Every source with a NON-DEFAULT vote state, for the contract stamp.
+
+    :func:`_private_source_vote_state` (every private source) plus one entry
+    per public source under an in-force owner-policy hold.  The public entry
+    uses the same vocabulary — ``heldFromVote`` (the reason), ``votes:
+    False``, ``voteState: "held"`` — so every existing reader of the stamp
+    (``private_sources_absent_by_design`` in the contract validator, the
+    CI and live coverage gates; the Rankings / Settings vote-state labels)
+    treats it as "collected, not voting by declaration" without a second
+    code path, and adds ``private: False`` + ``holdKind`` so it never reads
+    as a box-local source.  ``state`` is ``present`` / ``missing`` from the
+    CSV alone: a public source is always provisioned.
+
+    The stamp keeps its historical name ``privateSourceAvailability``;
+    renaming it would touch every consumer and is a separate change.
+    """
+    out = _private_source_vote_state(csv_root)
+    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    for key, hold in _policy_source_vote_holds().items():
+        cfg = _SOURCE_CSV_PATHS.get(key)
+        rel = cfg if isinstance(cfg, str) else (cfg or {}).get("path")
+        csv_present = bool(rel) and (root / str(rel)).is_file()
+        out[key] = {
+            "state": PRIVATE_SOURCE_PRESENT if csv_present else PRIVATE_SOURCE_MISSING,
+            "provisioned": True,
+            "csvPresent": csv_present,
+            "private": False,
+            "holdKind": VOTE_HOLD_KIND_OWNER_POLICY,
+            "holdDecision": hold["decision"],
+            "rollbackFlag": hold["flag"],
+            "rolledBack": False,
+            "heldFromVote": hold["reason"],
+            "votes": False,
+            "voteState": VOTE_STATE_HELD if csv_present else VOTE_STATE_UNAVAILABLE,
+        }
+    return out
+
+
 def private_source_keys() -> frozenset[str]:
     """Keys of every private, box-local source (``private_marker`` declared)."""
     return frozenset(
@@ -1829,9 +1921,11 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         # IDPTC is the retail IDP authority and the backbone source.
         # The old weight=2.0 dated to when IDPTC was the SOLE IDP
-        # anchor; now that DraftSharks SF+IDP and FootballGuys SF+IDP
+        # anchor; now that DraftSharks SF+IDP and The IDP Show Combined
         # are also cross-market anchors (see ``is_cross_market``), no
         # single source gets an explicit multiplier in the blend.
+        # (FootballGuys SF+IDP were once anchors too; those boards were
+        # retired and no FootballGuys source key exists any more.)
         # The ``weight`` field is still honoured as a user-override
         # knob on ``/settings`` but in the live blend every source
         # contributes with one equal vote.
@@ -1840,8 +1934,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Cross-market anchor source (2026-04-20): IDPTC prices both
         # offense and IDP on a single combined-pool scale, so its
         # per-player value is a direct cross-market signal.  Along
-        # with DraftSharks (via combined rank pre-pass) and
-        # FootballGuys (via the scraper's preserved combined rank),
+        # with DraftSharks (via combined rank pre-pass) and The IDP
+        # Show Combined (its native combined rank, Phase 1c pre-pass),
         # IDPTC contributes to the anchor value on IDP + pick rows;
         # ``anchor_value`` = mean of every ``is_cross_market=True``
         # source's contribution.  See the blend loop in
@@ -2788,7 +2882,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # combined ladder where the Hill tail produces low values.
         "ds_combined_rank_partner": "draftSharksIdp",
         # Contributes to the multi-source cross-market anchor
-        # (alongside IDPTC and FootballGuys).  See IDPTC entry above
+        # (alongside IDPTC, DraftSharks IDP and The IDP Show Combined;
+        # the retired FootballGuys boards no longer exist).  See IDPTC entry above
         # for the blend math.
         "is_cross_market": True,
     },
@@ -3292,6 +3387,7 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
     lockstep.
     """
     out: list[dict[str, Any]] = []
+    holds = _policy_source_vote_holds()
     for src in _RANKING_SOURCES:
         entry: dict[str, Any] = {
             "key": str(src.get("key") or ""),
@@ -3316,6 +3412,11 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             # field is never null and consumers never have to encode the
             # "no group means independent" rule themselves.
             "correlationGroup": str(src.get("correlation_group") or src.get("key") or ""),
+            # A declared owner-policy vote hold in force (``POLICY_SOURCE_VOTE_HOLDS``):
+            # the source stays registered and visible here, with the reason,
+            # but casts no vote.  ``None`` = no policy hold.  Not a parity
+            # field — the frontend reads vote state from the contract stamp.
+            "voteHold": holds.get(str(src.get("key") or "")),
         }
         out.append(entry)
     return out
@@ -4955,23 +5056,40 @@ def _source_weighting_state_dir(csv_root: "Path | None") -> Path:
     return root / "data" / "scrape_state"
 
 
-def _load_source_weighting(
-    as_of: "datetime | None", csv_root: "Path | None" = None
-) -> dict[str, Any]:
-    """``{source_key: SourceWeighting}`` for every registered voter + KTC Market.
+#: ``sourceWeighting.unavailableReason`` when a board WITH an observation time
+#: got no freshness weighting because its dataset-state directory is absent.
+#: Every source then votes at full base authority — the documented replay
+#: posture ("never today's state applied to a past board") — but on a live
+#: build it means the freshness × health × coverage factors silently stopped
+#: applying, so it is logged loudly and stamped (validator: ``degraded``).
+SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING = "state_dir_missing"
 
-    Memoized on (as_of, state-file mtimes, config mtime): the overrides
-    endpoint rebuilds the board often and the inputs change only when a
-    refresh records a new dataset state.
+
+def _source_weighting_resolution(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> tuple[dict[str, Any], str | None]:
+    """``(weighting, unavailable_reason)``; see :func:`_load_source_weighting`.
+
+    ``unavailable_reason`` is ``None`` on the healthy path and when the board
+    carries no time (``as_of`` None — documented: no "state in force at T").
+    The weighting itself is unchanged in every case: this only makes the
+    missing-state fallback visible instead of silent.
     """
     if as_of is None:
-        return {}
+        return {}, None
     from src.sources import freshness as _freshness  # noqa: PLC0415
     from src.sources.dataset_state import state_path  # noqa: PLC0415
 
     state_dir = _source_weighting_state_dir(csv_root)
     if not state_dir.is_dir():
-        return {}
+        logging.warning(
+            "source weighting UNAVAILABLE: no dataset state directory at %s — every "
+            "source votes at full base authority (freshness/health/coverage factors "
+            "NOT applied); stamped sourceWeighting.unavailableReason=%s",
+            state_dir,
+            SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING,
+        )
+        return {}, SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING
     keys = [str(s.get("key") or "") for s in _RANKING_SOURCES] + [_KTC_MARKET_KEY]
     stamps: list[tuple[str, int]] = []
     for key in keys:
@@ -4986,12 +5104,101 @@ def _load_source_weighting(
     cache_key = (as_of.isoformat(), str(state_dir), tuple(stamps), cfg_mtime)
     cached = _SOURCE_WEIGHTING_CACHE.get(cache_key)
     if cached is not None:
-        return cached
+        return cached, None
     weighting = _freshness.load_source_weightings(keys, state_dir=state_dir, as_of=as_of)
     if len(_SOURCE_WEIGHTING_CACHE) > 16:
         _SOURCE_WEIGHTING_CACHE.clear()
     _SOURCE_WEIGHTING_CACHE[cache_key] = weighting
-    return weighting
+    return weighting, None
+
+
+def _load_source_weighting(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> dict[str, Any]:
+    """``{source_key: SourceWeighting}`` for every registered voter + KTC Market.
+
+    Memoized on (as_of, state-file mtimes, config mtime): the overrides
+    endpoint rebuilds the board often and the inputs change only when a
+    refresh records a new dataset state.  ``{}`` (base weights) when the
+    board has no time or no state directory — the latter is logged loudly
+    and, on the contract path, stamped (:func:`_source_weighting_resolution`).
+    """
+    return _source_weighting_resolution(as_of, csv_root)[0]
+
+
+#: ``sourceSeasonalState.basis`` / per-source ``basis`` when the seasonal
+#: policy file could not be read and the exclusions came from the recorded
+#: seasonal states instead (fail closed — see
+#: :func:`_seasonal_inactive_resolution`).
+SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE = "recorded_state_policy_unreadable"
+
+
+def _recorded_seasonal_inactive_sources(
+    state_dir: Path, as_of: "datetime"
+) -> dict[str, dict[str, Any]]:
+    """Seasonal exclusions from the fetcher's RECORDED states alone.
+
+    The last-known exclusions when the declaration file is unreadable.  Only
+    a registered ranking source whose state file was written UNDER a
+    declaration counts — ``record_inactive_observation`` stamps the file's
+    own ``sourceKey`` and ``policyId``, so a hand-written or undeclared state
+    file (no ``policyId``) still switches nothing off.  The state in force at
+    the board's own time decides, exactly as on the healthy path.
+    """
+    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+    out: dict[str, dict[str, Any]] = {}
+    for src in _RANKING_SOURCES:
+        key = str(src.get("key") or "")
+        state = _seasonal.load_state(_seasonal.state_path(state_dir, key))
+        if not state or state.get("sourceKey") != key or not state.get("policyId"):
+            continue
+        if _seasonal.state_as_of(state, as_of) != _seasonal.SEASONALLY_INACTIVE:
+            continue
+        out[key] = {
+            "state": _seasonal.SEASONALLY_INACTIVE,
+            "policyId": state.get("policyId"),
+            "since": state.get("since"),
+            "classYear": state.get("classYear"),
+            "lastInactiveVerifiedAt": state.get("lastInactiveVerifiedAt"),
+            "basis": SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE,
+        }
+    return out
+
+
+def _seasonal_inactive_resolution(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> tuple[dict[str, dict[str, Any]], str | None]:
+    """``(inactive, policy_error)``; see :func:`_seasonally_inactive_sources`.
+
+    FAIL CLOSED on an unreadable / malformed policy file.  Applying NO
+    exclusions — the previous behaviour — would let a seasonally inactive
+    source's stale historical CSV (the 48-row ``flockFantasySfRookies`` board
+    from the graduated class) vote again as if it were current, on nothing
+    but a config typo.  Instead the exclusions fall back to the recorded
+    seasonal states (:func:`_recorded_seasonal_inactive_sources` — the
+    last-known exclusions, still read as of the board's time), the error is
+    logged, and ``policy_error`` is returned so the contract stamps
+    ``sourceSeasonalState.policyError`` and the validator reports
+    ``seasonal_policy_unreadable`` + ``degraded``.  Never a value invented:
+    a source with no recorded inactive state votes exactly as before.
+    """
+    if as_of is None:
+        return {}, None
+    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+    state_dir = _source_weighting_state_dir(csv_root)
+    try:
+        return _seasonal.inactive_sources_as_of(state_dir, as_of), None
+    except _seasonal.SeasonalPolicyError as exc:
+        fallback = _recorded_seasonal_inactive_sources(state_dir, as_of)
+        logging.error(
+            "seasonal policy UNREADABLE (%s); failing closed to the recorded seasonal "
+            "states: %s held inactive; stamped sourceSeasonalState.policyError",
+            exc,
+            sorted(fallback) or "none",
+        )
+        return fallback, str(exc)
 
 
 def _seasonally_inactive_sources(
@@ -5007,8 +5214,9 @@ def _seasonally_inactive_sources(
     source weighting, so a replay of a historical tree uses that tree's own
     state and a board built for time T sees the state in force at T.
 
-    A malformed policy file is logged and treated as "no declarations" —
-    every source then behaves as it did before the policy existed.
+    A malformed or unreadable policy file FAILS CLOSED to the recorded
+    seasonal states (:func:`_seasonal_inactive_resolution`), never to "no
+    exclusions" — which would let a stale seasonal board vote again.
 
     A board with no observation time (``as_of`` None — a payload without
     ``scrapeTimestamp``) gets NO seasonal exclusions, mirroring
@@ -5017,15 +5225,7 @@ def _seasonally_inactive_sources(
     make the board depend on whatever state the checkout happens to carry.
     The production path always stamps ``scrapeTimestamp``.
     """
-    if as_of is None:
-        return {}
-    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
-
-    try:
-        return _seasonal.inactive_sources_as_of(_source_weighting_state_dir(csv_root), as_of)
-    except _seasonal.SeasonalPolicyError as exc:
-        logging.warning("seasonal policy unreadable (%s); no seasonal exclusions applied", exc)
-        return {}
+    return _seasonal_inactive_resolution(as_of, csv_root)[0]
 
 
 def _iso_or_none(dt: "datetime | None") -> str | None:
@@ -10334,6 +10534,7 @@ def _compute_unified_rankings(
     seasonally_inactive_sources: Iterable[str] | None = None,
     absent_private_sources: Iterable[str] | None = None,
     shadow_private_sources: Iterable[str] | None = None,
+    policy_held_sources: Iterable[str] | None = None,
     freshness_as_of: "datetime | None" = None,
     csv_root: "Path | None" = None,
 ) -> dict[str, str]:
@@ -10578,6 +10779,12 @@ def _compute_unified_rankings(
     # Reusing this one gate is what keeps "absent by design" from reading as
     # a matching failure anywhere downstream.
     _seasonal_off |= {str(k) for k in (absent_private_sources or ())}
+    # A PUBLIC source under a declared owner-policy vote hold
+    # (``POLICY_SOURCE_VOTE_HOLDS`` — today the DLF IDP boards, owner
+    # directive 2026-10-16) takes the same posture through the same gate:
+    # collected and displayed, no vote, not expected, not an eligible family.
+    _policy_held = {str(k) for k in (policy_held_sources or ())}
+    _seasonal_off |= _policy_held
     # SHADOW private sources (Signals IDP, 2026-10-04): a subset of the
     # absent ones above.  They cast no vote and are expected on no row —
     # exactly the posture above — but Phase 1 still translates them so
@@ -11587,12 +11794,13 @@ def _compute_unified_rankings(
     # Identify every cross-market source (2026-04-20 multi-anchor
     # upgrade).  Formerly a single ``is_anchor=True`` source (IDPTC)
     # with ~90% weight on IDP/pick rows; now every source flagged
-    # ``is_cross_market=True`` — IDPTC, DraftSharks SF, DraftSharks
-    # IDP, FootballGuys SF, FootballGuys IDP — contributes to the
+    # ``is_cross_market=True`` — today IDPTC, DraftSharks SF, DraftSharks
+    # IDP and The IDP Show Combined (the FootballGuys SF / IDP boards that
+    # were once on this list are retired) — contributes to the
     # anchor via a simple mean of their per-player value
     # contributions.  Each source prices offense and IDP on ONE
     # combined scale (IDPTC natively; DS via the combined-rank
-    # pre-pass; FBG via the scraper's preserved combined rank), so
+    # pre-pass; IDP Show via its native combined rank), so
     # averaging their values is a straightforward cross-market
     # consensus.  Subgroup = every other source, α=0.10 against the
     # averaged anchor.  See the hierarchical-blend block further
@@ -12304,6 +12512,15 @@ def _compute_unified_rankings(
             )
             players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
 
+        if not all_values and anchor_value is None and subgroup_center is None:
+            # Every observation on this row was withheld (freshness / health
+            # weight 0), so nothing voted.  ``center_value`` above is a literal
+            # 0.0 placeholder, not a blend: entering the ranked pool with it
+            # published a rank and ``rankDerivedValue`` 0 for a row with no
+            # evidence.  MISSING IS NEVER ZERO — the row stays unpriced exactly
+            # like a row nothing matched; its withheld observations remain on
+            # the record in ``sourceRankMeta``.
+            continue
         row_normalized.append((blended_value, row_idx))
 
     if _sparse_candidates:
@@ -12919,7 +13136,7 @@ def _compute_unified_rankings(
     _apply_two_way_player_boost(
         players_array,
         players_by_name,
-        excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())),
+        excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())) | _policy_held,
     )
     # ── Confidence describes the value that SHIPPED (B11) ──
     #
@@ -13931,14 +14148,30 @@ def build_api_data_contract(
     # Freshness × health × coverage per source, evaluated at the board's OWN
     # scrape time (src/sources/freshness.py; owner directive 2026-09-23).
     freshness_as_of = _payload_as_of(raw_payload)
-    source_weighting = _load_source_weighting(freshness_as_of, csv_root)
-    seasonally_inactive = _seasonally_inactive_sources(freshness_as_of, csv_root)
+    source_weighting, source_weighting_unavailable = _source_weighting_resolution(
+        freshness_as_of, csv_root
+    )
+    seasonally_inactive, seasonal_policy_error = _seasonal_inactive_resolution(
+        freshness_as_of, csv_root
+    )
     # Private, box-local sources (Signals): absent BY DESIGN where the
     # collector has never run, or rolled back by flag.  Not a vote, not an
     # expected source, not an error — and stamped on the payload so the
     # validator and every reader can tell "not provisioned here" from a
     # source that disappeared.
-    private_availability = _private_source_vote_state(csv_root)
+    # One read of every non-default vote state (``_source_vote_state``): the
+    # private sources, plus public sources under an in-force owner-policy
+    # vote hold (DLF IDP, owner directive 2026-10-16) — same gate, separate
+    # name, and the stamp below publishes exactly what the gate used.
+    source_vote_state = _source_vote_state(csv_root)
+    private_availability = {
+        k: v
+        for k, v in source_vote_state.items()
+        if v.get("holdKind") != VOTE_HOLD_KIND_OWNER_POLICY
+    }
+    policy_held = frozenset(
+        k for k, v in source_vote_state.items() if v.get("holdKind") == VOTE_HOLD_KIND_OWNER_POLICY
+    )
     absent_private = frozenset(k for k, v in private_availability.items() if not v["votes"])
     shadow_private = frozenset(
         k for k, v in private_availability.items() if v.get("voteState") == VOTE_STATE_SHADOW
@@ -13962,6 +14195,7 @@ def build_api_data_contract(
         seasonally_inactive_sources=frozenset(seasonally_inactive),
         absent_private_sources=absent_private,
         shadow_private_sources=shadow_private,
+        policy_held_sources=policy_held,
         freshness_as_of=freshness_as_of,
         csv_root=csv_root,
     )
@@ -14370,8 +14604,27 @@ def build_api_data_contract(
         # a value.  ``validate_api_data_contract`` reads it so a build that
         # CANNOT hold private data (CI) is not failed for lacking it, while
         # a provisioned host whose board vanished still is.
-        "privateSourceAvailability": {k: dict(v) for k, v in sorted(private_availability.items())},
+        #
+        # Also carries one entry per PUBLIC source under an in-force
+        # owner-policy vote hold (``_source_vote_state``; ``private: False``,
+        # ``holdKind: "owner_policy"``) so the same readers show it as
+        # collected-not-voting and the coverage gates excuse its absence
+        # from ``sourceRankMeta`` by the board's own declaration.
+        "privateSourceAvailability": {k: dict(v) for k, v in sorted(source_vote_state.items())},
     }
+    # Degraded-input diagnostics (fail-closed fallbacks).  Stamped ONLY when
+    # the fallback fired, so a healthy build's payload is byte-identical; the
+    # validator turns each into a warning + ``degraded``.
+    if source_weighting_unavailable:
+        contract_payload["sourceWeighting"] = {
+            **(contract_payload.get("sourceWeighting") or {}),
+            "unavailableReason": source_weighting_unavailable,
+        }
+    if seasonal_policy_error:
+        contract_payload["sourceSeasonalState"]["policyError"] = seasonal_policy_error
+        contract_payload["sourceSeasonalState"]["basis"] = (
+            SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE
+        )
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
     for row in players_array:
@@ -15733,6 +15986,20 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     if picks_provider_unknown:
         warnings.append(f"pick_evidence_provider_unknown:{picks_provider_unknown}")
     if withheld_rows:
+        degraded = True
+
+    # ── Fail-closed input fallbacks ─────────────────────────────────────
+    # Each is stamped by ``build_api_data_contract`` only when its fallback
+    # fired.  DEGRADED, never an error: the board is valid (base weights /
+    # the recorded seasonal exclusions), but an operator must see that the
+    # healthy input was not read.
+    _weighting_block = payload.get("sourceWeighting")
+    if isinstance(_weighting_block, dict) and _weighting_block.get("unavailableReason"):
+        warnings.append(f"source_weighting_unavailable:{_weighting_block['unavailableReason']}")
+        degraded = True
+    _seasonal_block = payload.get("sourceSeasonalState")
+    if isinstance(_seasonal_block, dict) and _seasonal_block.get("policyError"):
+        warnings.append("seasonal_policy_unreadable")
         degraded = True
 
     # ── Cross-wire sourceRunSummary.partialRun into contractHealth ──────

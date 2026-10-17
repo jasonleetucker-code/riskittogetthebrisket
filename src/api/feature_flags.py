@@ -9,13 +9,13 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-20 of the 39 entries in ``_DEFAULTS`` below are ``True`` —
+21 of the 40 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
-``signals_active_source``,
+``signals_active_source``, ``dlf_offense_only_vote``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates`` and
 ``trade_screenshot_import`` — several with comments
@@ -136,6 +136,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # gate in docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10 passes.
     # Rollback: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart.
     "signals_idp_shared_market": False,
+    # DLF vote offense-only (owner directive 2026-10-16; docs/
+    # OWNER_REQUESTED_TODO.md).  ON: the DLF IDP boards (``dlfIdp``,
+    # ``dlfRookieIdp``) stay ingested and displayed but are held from the
+    # vote through the existing vote-hold gate
+    # (``data_contract.POLICY_SOURCE_VOTE_HOLDS`` -> the same active-source
+    # gate seasonal inactivity and private holds use); ``dlfSf`` /
+    # ``dlfRookieSf`` vote unchanged.  Value-moving: IDP rows (and the
+    # current-year picks tethered to the IDP rookie pool) re-blend without
+    # the DLF family.  OFF (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart):
+    # the DLF IDP boards vote again, byte for byte the prior board.
+    "dlf_offense_only_vote": True,
     # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
     # owner decision B 2026-10-01) -- two separately promotable halves, both
     # OFF until the owner approves that specific candidate (valuation
@@ -756,6 +767,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
+    # dlf_offense_only_vote gates the owner-policy vote hold on the DLF IDP
+    # boards in ``data_contract._policy_source_vote_holds``, read by
+    # ``build_api_data_contract`` on every board build, which reaches a
+    # request through ``/api/data`` and every engine that reads the board.
+    "dlf_offense_only_vote": LIVE,
     # source_universe_freshness caps each row's freshness clock at its own asset
     # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
     "source_universe_freshness": LIVE,

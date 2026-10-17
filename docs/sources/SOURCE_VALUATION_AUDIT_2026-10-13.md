@@ -88,6 +88,13 @@ this repository DLF contributes four *ranking* boards — `dlfSf`, `dlfRookieSf`
 held from voting. Nothing was changed here; if the owner's policy means DLF IDP boards should
 stop voting, that is an explicit decision to record (OWNER_DECISION).
 
+> **Decided 2026-10-16 (owner directive: "DLF vote is offense-only").** `dlfIdp` and
+> `dlfRookieIdp` stay ingested and displayed but no longer vote — held through the existing
+> vote-hold gate (`src/api/data_contract.py::POLICY_SOURCE_VOTE_HOLDS`, flag
+> `dlf_offense_only_vote`, rollback `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart).
+> `dlfSf` / `dlfRookieSf` vote unchanged; DLF Values stays held. Record:
+> `docs/OWNER_REQUESTED_TODO.md` ("DLF vote offense-only").
+
 ### 2c. Observed trades
 
 `src/trade/market_trade_*`, `src/sources/ktc_trades.py`, the own-league and Sharp ledgers capture

@@ -79,7 +79,10 @@ def _raw_payload() -> dict:
             }
             market -= 23
         if i < N_IDP:
-            sites = {"idpTradeCalc": market, "draftSharksIdp": market, "dlfIdp": market}
+            # ``fantasyProsIdp`` is the fixture's shared-market IDP specialist
+            # (it was ``dlfIdp`` until the DLF IDP boards were held from the
+            # vote by owner policy, 2026-10-16 — same translation path).
+            sites = {"idpTradeCalc": market, "draftSharksIdp": market, "fantasyProsIdp": market}
             players[_idp(i)] = {
                 "_canonicalSiteValues": dict(sites),
                 **sites,
@@ -455,7 +458,7 @@ class TestSharedMarketFamilyCrosswalk:
         the backbone ranked IDP #4 contributed 9,484 against 5,238-5,668 from
         the row's other sources.  The fixture's sources all agree on order,
         so every Signals IDP vote must now sit within a few percent of the
-        shared-market specialist (``dlfIdp``) on the same row, and none may
+        shared-market specialist (``fantasyProsIdp``) on the same row, and none may
         be outlier-dropped."""
         compared = 0
         for row in boards[0]["playersArray"]:
@@ -467,7 +470,7 @@ class TestSharedMarketFamilyCrosswalk:
             if int(str(row["displayName"])[-3:]) >= 10:
                 continue
             metas = row.get("sourceRankMeta") or {}
-            peer = metas.get("dlfIdp")
+            peer = metas.get("fantasyProsIdp")
             for key in SIGNALS_KEYS[1:]:
                 meta = metas.get(key)
                 if not meta or not peer or "valueContribution" not in peer:

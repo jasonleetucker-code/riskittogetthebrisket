@@ -167,6 +167,38 @@ def _raw_payload() -> dict:
     }
 
 
+@contextlib.contextmanager
+def _dlf_idp_votes():
+    """Lift the DLF IDP owner-policy vote hold for this fixture.
+
+    These tests exercise the shared-market / rookie-ladder TRANSLATION of an
+    IDP-only rank source, and ``dlfIdp`` / ``dlfRookieIdp`` are the fixture's
+    translated sources (``dlfRookieIdp`` is the only IDP rookie-ladder source
+    in the registry).  Since 2026-10-16 the DLF IDP boards are held from the
+    vote by owner policy (``data_contract.POLICY_SOURCE_VOTE_HOLDS``), which
+    leaves that machinery dormant on the default board but one rollback flag
+    away (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0``) — so it keeps its
+    coverage here with the hold lifted.  The hold itself is pinned by
+    ``tests/api/test_dlf_offense_only_vote.py``.
+    """
+    import os
+
+    from src.api import feature_flags
+
+    env = "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE"
+    prior = os.environ.get(env)
+    os.environ[env] = "0"
+    feature_flags.reload()
+    try:
+        yield
+    finally:
+        if prior is None:
+            os.environ.pop(env, None)
+        else:
+            os.environ[env] = prior
+        feature_flags.reload()
+
+
 def _build(overrides_json: str | None = None) -> dict[str, dict]:
     """Build the contract through the production entry point.
 
@@ -175,7 +207,11 @@ def _build(overrides_json: str | None = None) -> dict[str, dict]:
     Returns rows keyed by display name.
     """
     overrides = json.loads(overrides_json) if overrides_json else None
-    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        contextlib.redirect_stdout(io.StringIO()),
+        _dlf_idp_votes(),
+    ):
         contract = build_api_data_contract(
             _raw_payload(),
             csv_root=Path(tmp),
