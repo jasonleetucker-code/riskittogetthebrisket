@@ -3,6 +3,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  PACKAGE_MODELS,
   TRADE_VALUE_MODE,
   STORAGE_KEY,
   meterVerdict,
@@ -39,6 +41,7 @@ import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import {
   buildShareUrl,
+  describeShareModelChange,
   describeShareTruncation,
   parseShareParam,
   shareLinkLimits,
@@ -674,11 +677,13 @@ export default function TradePage() {
       };
       setSides((prev) => {
         const base = ensureSides(prev);
+        const resolvedDests = base.map(() => []);
         const resolvedBySide = base.map((side, i) => {
           const incoming = state.sides[i];
           if (!incoming) return [];
           const resolved = [];
           const ids = incoming.assetIds || [];
+          const dests = incoming.destinations || [];
           (incoming.players || []).forEach((name, j) => {
             // Direct rowByName lookup catches every player and any
             // pick that happens to be in canonical form
@@ -700,6 +705,7 @@ export default function TradePage() {
             // the board row.  Repeated names are copies and ALL load, for
             // every kind of asset (owner decision 2026-10-03).
             const assetId = ids[j];
+            resolvedDests[i].push(dests[j] ?? null);
             resolved.push(
               assetId
                 ? {
@@ -717,24 +723,40 @@ export default function TradePage() {
           const resolved = resolvedBySide[i];
           const nextDestinations = {};
           if (base.length > 2) {
-            for (const row of resolved) {
-              nextDestinations[tradeEntryKey(row)] = defaultDestination(i, base.length);
-            }
+            // The link's own routing when it carries one (TC-A); otherwise
+            // the default.  A destination off the trade, or onto the side
+            // itself, falls back to the default.
+            resolved.forEach((row, j) => {
+              const key = tradeEntryKey(row);
+              if (nextDestinations[key] != null) return;
+              const d = resolvedDests[i]?.[j];
+              nextDestinations[key] =
+                Number.isInteger(d) && d >= 0 && d < base.length && d !== i
+                  ? d
+                  : defaultDestination(i, base.length);
+            });
           }
           return { ...side, assets: resolved, destinations: nextDestinations };
         });
       });
       setValueOverrides({});
       if (state.teamContext === false) setUseTeamContext(false);
+      const modelNote = describeShareModelChange(
+        state.packageModel,
+        ACTIVE_PACKAGE_MODEL_ID,
+        PACKAGE_MODELS,
+      );
       setShareStatus(
         state.truncated
           ? {
               tone: "warning",
               text: `Loaded only part of the shared trade: the link had ${describeShareTruncation(
                 state.truncationReasons,
-              )}, beyond what a share link may carry.`,
+              )}, beyond what a share link may carry.${modelNote ? ` ${modelNote}` : ""}`,
             }
-          : { tone: "positive", text: "Loaded shared trade from link." },
+          : modelNote
+            ? { tone: "warning", text: `Loaded shared trade from link. ${modelNote}` }
+            : { tone: "positive", text: "Loaded shared trade from link." },
       );
     } catch {
       setShareStatus({ tone: "warning", text: "Share link was malformed — ignored." });
@@ -1577,9 +1599,20 @@ export default function TradePage() {
           name: s.label ? `Side ${s.label}` : "",
           players: (s.assets || []).map((a) => a.name),
           assetIds: (s.assets || []).map((a) => a.assetId || null),
+          // 3+-team routing travels with the link (TC-A); a 2-team trade
+          // routes implicitly and carries none.
+          destinations:
+            sides.length > 2
+              ? (s.assets || []).map((a) => {
+                  const d = s.destinations?.[tradeEntryKey(a)];
+                  return Number.isInteger(d) ? d : null;
+                })
+              : [],
         })),
         // #842: the analysis mode travels with the link.
         teamContext: useTeamContext,
+        // TC-A: the package model these totals were computed under.
+        packageModel: ACTIVE_PACKAGE_MODEL_ID,
       };
       const url = buildShareUrl(payload);
       // A link that cannot carry the whole trade is still offered, but the
