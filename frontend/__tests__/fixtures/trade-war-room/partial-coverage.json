@@ -70,11 +70,11 @@
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
-      "classification": "INCUMBENT",
-      "family": "ktc",
-      "id": "ktc_2026_04",
-      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-      "version": "2026-04"
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
      },
      "rawGap": 7000,
      "receivingAdjusted": 7000.0,
@@ -86,7 +86,7 @@
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 7000,
-     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -458,11 +458,11 @@
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
-      "classification": "INCUMBENT",
-      "family": "ktc",
-      "id": "ktc_2026_04",
-      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-      "version": "2026-04"
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
      },
      "rawGap": 7000,
      "receivingAdjusted": 7000.0,
@@ -474,7 +474,7 @@
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 7000,
-     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -720,7 +720,7 @@
   },
   "reasonsAgainst": [],
   "reasonsFor": [
-   "+7,000 package value after KTC Value Adjustment (stretch gap)",
+   "+7,000 package value after Value Adjustment (stretch gap)",
    "Fits without a cut (1 open spot after)"
   ],
   "recommendation": "MAKE",

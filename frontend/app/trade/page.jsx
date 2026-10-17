@@ -847,7 +847,8 @@ export default function TradePage() {
   // STACK-NOTE-ONLY:END
 
   // ── Computed totals for all sides ────────────────────────────────────
-  // Both 2-team and N-team trades use the KTC-style Value Adjustment.
+  // Both 2-team and N-team trades use the ACTIVE package Value Adjustment
+  // (packageAdjustPair — the geometric model, q = 0.78, since 2026-10-17).
   // For N ≥ 3, each side's VA is computed against the merged opposition
   // (every other side's assets flattened) — see
   // ``computeMultiSideAdjustments`` in trade-logic.js.  The draft-capital

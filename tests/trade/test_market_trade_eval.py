@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 
 from src.trade import market_trade_eval as E
-from src.trade.ktc_va import adjusted_pair_totals
+from src.valuation_math.package_model import adjusted_pair_totals
 
 
 def P(cid, position="WR"):
@@ -112,6 +112,7 @@ BOARD = FakeBoard(
 def test_residual_uses_value_adjustment_not_raw_sums():
     t = trade([[P("player:2"), P("player:3")], [P("player:1")]])
     r = E.trade_residual(t, BOARD, "canonical")
+    # The canonical package owner's ACTIVE model (geom_q078_v1 since 2026-10-17).
     adj_a, adj_b, _, _ = adjusted_pair_totals([6000.0], [3000.0, 2800.0])
     assert r["adjustedA"] == round(adj_a, 1) and r["adjustedB"] == round(adj_b, 1)
     assert r["valueAdjustment"] > 0, "the consolidation side is credited"
@@ -190,7 +191,9 @@ def test_latent_readiness_reports_counts_and_builds_no_model():
 
 def test_residual_report_can_evaluate_a_shadow_package_model_without_changing_the_default():
     """PR 4 (owner VA package 2026-10-17): the same trades under the shadow
-    challenger, selected explicitly; the default stays the active model."""
+    model, selected explicitly; the default stays the active model.  Since the
+    owner's promotion the active model is the geometric one and the shadow is
+    the KTC rollback model."""
     from src.trade import market_trade_eval as mte
     from src.valuation_math import package_model
 
@@ -200,8 +203,8 @@ def test_residual_report_can_evaluate_a_shadow_package_model_without_changing_th
 
     trade = {"sides": [["a"], ["b", "c"]]}
     default = mte.trade_residual(trade, _Board(), "x")
-    shadow = mte.trade_residual(trade, _Board(), "x", model_id="geom_q078_v1")
-    # KTC VA credits the single stud +2900; GEOM's adjusted gap is UA - UB = 810.
-    assert default["adjustedA"] - default["adjustedB"] == pytest.approx(3600.0)
-    assert shadow["adjustedA"] - shadow["adjustedB"] == pytest.approx(810.0, abs=1.0)
-    assert package_model.active_model_id() == "ktc_2026_04"
+    shadow = mte.trade_residual(trade, _Board(), "x", model_id=package_model.KTC_2026_04)
+    # GEOM's adjusted gap is UA - UB = 810; KTC VA credits the single stud +2900.
+    assert default["adjustedA"] - default["adjustedB"] == pytest.approx(810.0, abs=1.0)
+    assert shadow["adjustedA"] - shadow["adjustedB"] == pytest.approx(3600.0)
+    assert package_model.active_model_id() == package_model.GEOM_Q078_V1

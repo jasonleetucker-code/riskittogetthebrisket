@@ -176,12 +176,25 @@ def test_ktc_is_not_monotone_on_the_same_suite():
     assert worsened > 0
 
 
-def test_adjusted_pair_totals_matches_ktc_va_for_the_incumbent():
+def test_adjusted_pair_totals_matches_ktc_va_for_the_ktc_rollback_model():
     from src.trade import ktc_va
 
     for case in FIXTURE["cases"]:
         a, b = case["team1"], case["team2"]
-        assert pm.adjusted_pair_totals(a, b) == ktc_va.adjusted_pair_totals(a, b)
+        assert pm.adjusted_pair_totals(
+            a, b, model_id=pm.KTC_2026_04
+        ) == ktc_va.adjusted_pair_totals(a, b)
+
+
+def test_adjusted_pair_totals_default_is_the_active_geometric_model():
+    # Default dispatch == explicit geom, and the adjusted difference is the
+    # geometric utility difference up to integer rounding.
+    for case in FIXTURE["cases"]:
+        a, b = case["team1"], case["team2"]
+        got = pm.adjusted_pair_totals(a, b)
+        assert got == pm.adjusted_pair_totals(a, b, model_id=pm.GEOM_Q078_V1)
+        if [v for v in a if v and v > 0] and [v for v in b if v and v > 0]:
+            assert abs((got[0] - got[1]) - (pm.geom_utility(a) - pm.geom_utility(b))) <= 0.5 + 1e-9
 
 
 # ── no consumer bypasses the dispatch ──────────────────────────────────

@@ -39,10 +39,12 @@ export default function TradeVerdictHelpBody() {
 
       <h3>Value Adjustment</h3>
       <p>
-        A KeepTradeCut-style premium for concentrated value, generally
-        credited to the side sending the better individual pieces. Never on a
-        1-for-1, and not applied under 3.3% of the combined value. Adjusted total =
-        raw + VA. When you pick each side&apos;s team for a trade with picks, a
+        A premium for concentrated value, generally credited to the side
+        sending the better individual pieces. Each side&apos;s pieces are ranked
+        best-first and each further piece counts at 78% of the one before it
+        (geometric Value Adjustment, q = 0.78); the side that loses less to
+        that discount is credited the difference. Never on a 1-for-1. Adjusted
+        total = raw + VA. When you pick each side&apos;s team for a trade with picks, a
         draft-capital stack effect is shown under the meter as experimental
         context: it is not calibrated, and it is not included in the totals or
         the verdict.

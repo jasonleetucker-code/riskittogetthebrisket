@@ -375,23 +375,26 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
   });
 
   it("names ONE winner — winner/loser and the grades read the same board", () => {
-    // Four 4000-value pieces for one 9000 stud.  The pile side is +7000
-    // on raw sums, but KTC's value adjustment hands 8622 back to the
-    // consolidating side, so the canonical net is −1622 and the pile
-    // side's OWN grade is "Overpay" at −9.2%.
+    // Thirty 1333-value pieces for one 9999 stud (scenario rebuilt for
+    // the geometric active package model, geom_q078_v1, 2026-10-17 — the
+    // KTC-era 4 x 4000 vs 9000 shape no longer separates the two nets).
+    // The pile side is +29,991 on raw sums, but the geometric value
+    // adjustment discounts the k-th piece by 0.78^(k-1): thirty 1333s are
+    // worth only ~6,060 of package utility against the stud's 9,999, so
+    // the canonical net favours the stud side and the pile side's OWN
+    // grade is "Overpay" (about −9%).
     //
-    // The alpha-weighted net disagrees, and not marginally: 4 ×
-    // 4000^1.65 beats 9000^1.65 by ~165,000.  Ranking sides on
-    // ``netWeighted`` — which is what ``winner``/``loser`` did until
-    // the 2026-08-04 math audit (finding C3) — therefore crowned the
-    // pile team while every other field on the same card, including
-    // ``winnerGrade``, called them the loser.  One trade, two notions
-    // of who won.
+    // The alpha-weighted net disagrees: 30 x 1333^1.65 beats
+    // 9999^1.65.  Ranking sides on ``netWeighted`` — which is what
+    // ``winner``/``loser`` did until the 2026-08-04 math audit (finding
+    // C3) — therefore crowned the pile team while every other field on
+    // the same card, including ``winnerGrade``, called them the loser.
+    // One trade, two notions of who won.
     const bigRows = [
-      { name: "Test Elite", pos: "WR", values: { full: 9000, raw: 9000 } },
-      { name: "Test Piece", pos: "RB", values: { full: 4000, raw: 4000 } },
+      { name: "Test Elite", pos: "WR", values: { full: 9999, raw: 9999 } },
+      { name: "Test Piece", pos: "RB", values: { full: 1333, raw: 1333 } },
     ];
-    const pile = ["Test Piece", "Test Piece", "Test Piece", "Test Piece"];
+    const pile = Array.from({ length: 30 }, () => "Test Piece");
     const rawData = {
       sleeper: {
         teams: [

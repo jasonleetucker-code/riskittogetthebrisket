@@ -122,19 +122,29 @@ def ktc_adjust_package(team1_vals: Iterable[float], team2_vals: Iterable[float])
     return {"value": value, "side": side, "displayed": displayed}
 
 
-def trade_va_net(got_values: list[float], gave_values: list[float]) -> float:
-    """Signed KTC value adjustment for ONE team's got-vs-gave equation.
+def trade_va_net(
+    got_values: list[float],
+    gave_values: list[float],
+    *,
+    model_id: str | None = None,
+) -> float:
+    """Signed package value adjustment for ONE team's got-vs-gave equation.
 
     Positive means this team RECEIVED the stud premium; negative means
     they gave the studs away.  Mirrors ``computeTradeVANet`` in
-    ``frontend/lib/league-analysis.js``: got is KTC's team1, gave is
-    team2, so ``side === 1`` is a bonus and ``side === 2`` a penalty.
+    ``frontend/lib/league-analysis.js``: got is the dispatch's team1, gave
+    is team2, so ``side === 1`` is a bonus and ``side === 2`` a penalty.
+
+    ``model_id=None`` uses the ACTIVE package model
+    (``src.valuation_math.package_model``); an explicit id (e.g. the KTC
+    rollback model) selects that model — same twin parameter as the JS
+    ``opts.modelId``.
     """
     if not got_values or not gave_values:
         return 0.0
     got = [float(v) for v in got_values if _finite(v) and float(v) > 0]
     gave = [float(v) for v in gave_values if _finite(v) and float(v) > 0]
-    value, side, displayed = _package_adjust_pair(got, gave)
+    value, side, displayed = _package_adjust_pair(got, gave, model_id=model_id)
     if not displayed or value <= 0:
         return 0.0
     return float(value) if side == 1 else -float(value)

@@ -1197,11 +1197,23 @@ which shipped on two surfaces at once.
   of any asset in it, and it is what every fairness verdict, meter and gap
   in this repo is measured on.
 
+**Which model computes VA (owner decision 2026-10-17):** the ACTIVE package
+model is the geometric ``geom_q078_v1`` (sorted package utility
+``U = Σ q^(i-1)·v_i``, q = 0.78, shown as a positive-only adjustment so
+``adjustedA − adjustedB = U_A − U_B``); KTC's ``adjustPackage`` port
+(``ktc_2026_04``) is retained as the explicit rollback model.  Every consumer
+goes through the one dispatch (``src/valuation_math/package_model.py`` /
+``trade-logic.js::packageAdjustPair``, active id in
+``config/trade/package_model.json``); record:
+``docs/valuation/PACKAGE_MODEL_OWNER_ACTIVATION_2026-10-17.md``.  The
+equalizer evidence below was measured under KTC.
+
 **The consequence that is easy to get wrong: VA is a function of BOTH sides'
 complete value arrays.**  Adding a piece of raw value *V* does NOT move the
-adjusted gap by *V* — it re-runs ``ktc_adjust_package`` from scratch, so the
-piece count changes, the progressive-nerf ladder shifts, the recipient side
-can flip, and the 1-v-1 / 3.3% display gates snap on or off.  Anything that
+adjusted gap by *V* — it re-runs the package model from scratch, so the piece
+order and discounts change, the recipient side can flip, and (under the KTC
+rollback model) the progressive-nerf ladder shifts and the 1-v-1 / 3.3%
+display gates snap on or off.  Anything that
 wants to close a gap must **simulate the post-add adjusted gap**, never
 subtract a raw value from it.
 
@@ -1254,8 +1266,10 @@ Owners:
 
 | concept | owner |
 |---|---|
-| Value Adjustment (Python) | ``src/trade/ktc_va.py`` — ``market_value_adjustment.py`` is a re-export |
-| Value Adjustment (JS) | ``frontend/lib/trade-logic.js::ktcAdjustPackage`` |
+| package model dispatch (Python) | ``src/valuation_math/package_model.py`` — ACTIVE ``geom_q078_v1``; KTC rollback ``ktc_2026_04`` |
+| package model dispatch (JS) | ``frontend/lib/trade-logic.js::packageAdjustPair`` (same ids) |
+| KTC rollback model (Python) | ``src/trade/ktc_va.py`` / ``ktc_va_core.py`` — ``market_value_adjustment.py`` is a re-export |
+| KTC rollback model (JS) | ``frontend/lib/trade-logic.js::ktcAdjustPackage`` |
 | adjusted gap / imbalance | ``tradeGapAdjusted`` + ``tradeImbalance`` (JS), ``_va_gap`` (Python) |
 | equalizer / balancers | ``findBalancers`` (JS), ``suggestions._find_balancers`` (Python) |
 
