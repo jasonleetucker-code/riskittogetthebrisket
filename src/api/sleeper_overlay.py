@@ -53,7 +53,7 @@ from typing import Any
 
 from src.identity import picks as _pick_identity
 from src.utils.name_clean import strip_display_suffix
-from src.utils.owner_names import owner_label
+from src.utils.owner_names import owner_label, owner_name_for_user_id
 
 log = logging.getLogger(__name__)
 
@@ -1326,6 +1326,59 @@ NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = (
     "idToPlayer",
     "fantasyPositions",
 )
+
+
+def relabel_sleeper_block(sleeper: Mapping[str, Any] | None) -> dict[str, str]:
+    """Bring a baked ``sleeper`` block's team labels up to the names keyed
+    by permanent Sleeper user id (``config/leagues/owner_names.json``
+    ``_byUserId``).  Mutates the block in place; returns ``{old: new}``.
+
+    A contract built from an export scraped before a name was configured
+    carries the old label (a raw handle) until the next scrape, while the
+    live overlay ``/api/data`` splices on already uses the configured name
+    — so server-side engines (Team Strength, trade tools) and the page
+    would name the same roster two ways.  Labels are display; identity is
+    ``ownerId`` / ``roster_id`` and is never touched.  A rename is skipped
+    when another team already carries the new label (labels must stay
+    unambiguous within the league).
+    """
+    if not isinstance(sleeper, dict):
+        return {}
+    teams = [t for t in (sleeper.get("teams") or []) if isinstance(t, dict)]
+    current = {t.get("name") for t in teams}
+    renames: dict[str, str] = {}
+    for team in teams:
+        new = owner_name_for_user_id(team.get("ownerId"))
+        old = team.get("name")
+        if new and isinstance(old, str) and old and old != new:
+            renames[old] = new
+    # Never rename onto a label another team already carries.
+    renames = {o: n for o, n in renames.items() if n not in current}
+    if not renames:
+        return {}
+    for team in teams:
+        if team.get("name") in renames:
+            team["name"] = renames[team["name"]]
+        if isinstance(team.get("picks"), list):
+            team["picks"] = [_pick_identity.relabel_pick_origin(p, renames) for p in team["picks"]]
+        for pick in team.get("pickDetails") or []:
+            if not isinstance(pick, dict):
+                continue
+            if pick.get("fromTeam") in renames:
+                pick["fromTeam"] = renames[pick["fromTeam"]]
+            pick["label"] = _pick_identity.relabel_pick_origin(pick.get("label"), renames)
+    for trade in sleeper.get("trades") or []:
+        if not isinstance(trade, dict):
+            continue
+        for side in trade.get("sides") or []:
+            if not isinstance(side, dict):
+                continue
+            if side.get("team") in renames:
+                side["team"] = renames[side["team"]]
+            for key in ("got", "gave"):
+                if isinstance(side.get(key), list):
+                    side[key] = [_pick_identity.relabel_pick_origin(x, renames) for x in side[key]]
+    return renames
 
 
 def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:

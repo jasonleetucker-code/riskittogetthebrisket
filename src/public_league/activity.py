@@ -275,7 +275,9 @@ def _normalize_trade(
     total_assets = 0
     total_notable = 0
     for rid in roster_ids:
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+        owner_id = metrics.resolve_owner(
+            snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+        )
         received_player_ids = [pid for pid, r in adds_map.items() if int(r) == rid]
         sent_player_ids = [pid for pid, r in drops_map.items() if int(r) == rid]
         received_picks = picks_by_owner.get(rid, [])
