@@ -226,3 +226,307 @@ export function summaryTiles(profile) {
     },
   ];
 }
+
+// ── activity: recent trades, acquisitions, feed (Batches B1 + B2) ───────
+//
+// Same rule as above: GET /api/manager-intel/activity computes every value,
+// total, package comparison, at-time grade and coverage state.  These helpers
+// only filter, label and build links.  An unpriced asset stays "—", a missing
+// date stays "Undated", and an unread league is named, never hidden.
+
+export const ACTIVITY_WINDOWS = [
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "90d", label: "90 days" },
+  { value: "season", label: "Season" },
+];
+
+export const TRADE_DIRECTIONS = [
+  { value: "any", label: "In or out" },
+  { value: "in", label: "Acquired" },
+  { value: "out", label: "Sent" },
+];
+
+export function activityQuery(
+  username,
+  { window = "30d", season = "", league = "", scope = "dynasty" } = {},
+) {
+  const params = new URLSearchParams({
+    username: String(username || "").trim(),
+  });
+  if (window && window !== "30d") params.set("window", window);
+  if (season) params.set("season", String(season));
+  if (league) params.set("league", String(league));
+  if (scope && scope !== "dynasty") params.set("scope", scope);
+  return `/api/manager-intel/activity?${params.toString()}`;
+}
+
+/** The current season and the two before it, newest first. */
+export function seasonOptions(currentSeason) {
+  const year = Number.parseInt(currentSeason, 10);
+  if (!Number.isFinite(year)) return [];
+  return [year, year - 1, year - 2].map(String);
+}
+
+/** "Oct 12, 2026", or "Undated" — an absent stamp is never epoch zero. */
+export function formatDate(ms) {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms <= 0)
+    return "Undated";
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime())
+    ? "Undated"
+    : d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+}
+
+/** A dated event's date; an undated one says so (with its bound, if any). */
+export function eventDateText(item) {
+  if (typeof item?.occurredAt === "number") return formatDate(item.occurredAt);
+  const bound = item?.occurredBound?.notAfter;
+  return typeof bound === "number"
+    ? `Undated (on or before ${formatDate(bound)})`
+    : "Undated";
+}
+
+export function assetLabel(asset) {
+  if (!asset) return "";
+  if (asset.kind === "pick") return asset.label || "Unknown pick";
+  return asset.name || `Player ${asset.playerId}`;
+}
+
+const VALUE_REASONS = {
+  board_unavailable: "board not loaded",
+  not_on_board: "not on the board",
+  unpriced_by_board: "board does not price him",
+  pick_already_used: "pick already used",
+  draft_status_unknown: "draft status unknown",
+  no_board_row_for_ref: "no board value for this pick",
+  outside_board_grammar: "pick outside the board",
+  pick_unparseable: "unreadable pick",
+  row_present_but_unpriced: "board does not price it",
+  alias_target_missing: "no board value for this pick",
+};
+
+export function valueReasonText(reason) {
+  return VALUE_REASONS[reason] || (reason ? String(reason) : "");
+}
+
+export function sideAssets(side, direction) {
+  if (!side) return [];
+  return direction === "in"
+    ? [...(side.playersIn || []), ...(side.picksIn || [])]
+    : [...(side.playersOut || []), ...(side.picksOut || [])];
+}
+
+export function faabText(amount) {
+  return typeof amount === "number" ? `$${amount} FAAB` : "";
+}
+
+function assetMatches(asset, q) {
+  return assetLabel(asset).toLowerCase().includes(q);
+}
+
+/**
+ * Filter trades by league and by a player/pick text, optionally only among
+ * what the MANAGER acquired ("in") or sent ("out").
+ */
+export function filterTrades(
+  trades,
+  { league = "", query = "", direction = "any" } = {},
+) {
+  const q = String(query || "")
+    .trim()
+    .toLowerCase();
+  return (trades || []).filter((t) => {
+    if (league && t.leagueId !== league) return false;
+    if (!q) return true;
+    const me = (t.sides || []).find((s) => s.isManager);
+    if (!me) return false;
+    const pool =
+      direction === "in"
+        ? sideAssets(me, "in")
+        : direction === "out"
+          ? sideAssets(me, "out")
+          : [...sideAssets(me, "in"), ...sideAssets(me, "out")];
+    return pool.some((a) => assetMatches(a, q));
+  });
+}
+
+export function filterAcquisitions(
+  acquisitions,
+  { league = "", method = "", query = "" } = {},
+) {
+  const q = String(query || "")
+    .trim()
+    .toLowerCase();
+  return (acquisitions || []).filter((a) => {
+    if (league && a.leagueId !== league) return false;
+    if (method && a.method !== method) return false;
+    if (q && !assetLabel(a.player).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+export function filterFeed(feed, { league = "" } = {}) {
+  return (feed || []).filter((f) => !league || f.leagueId === league);
+}
+
+const METHOD_LABELS = {
+  TRADE: "Trade",
+  WAIVER: "Waiver",
+  FREE_AGENT: "Free agent",
+  DRAFT: "Draft",
+  OTHER: "Commissioner",
+};
+
+export function methodLabel(method) {
+  return METHOD_LABELS[method] || "Other";
+}
+
+/** "Waiver · $12 FAAB" / "Draft · 2.06" / "Free agent". */
+export function methodDetail(acq) {
+  const base = methodLabel(acq?.method);
+  if (acq?.method === "WAIVER" && typeof acq.faabBid === "number")
+    return `${base} · $${acq.faabBid}`;
+  if (acq?.method === "DRAFT" && acq.draft) {
+    const d = acq.draft;
+    if (typeof d.auctionAmount === "number")
+      return `${base} · $${d.auctionAmount}`;
+    if (d.round != null && d.slot != null)
+      return `${base} · ${d.round}.${String(d.slot).padStart(2, "0")}`;
+    if (d.round != null) return `${base} · round ${d.round}`;
+  }
+  return base;
+}
+
+const FEED_KIND_LABELS = {
+  trade: "Trade",
+  waiver: "Waiver claim",
+  free_agent: "Free-agent add",
+  drop: "Drop",
+  commissioner: "Commissioner move",
+  draft: "Draft pick",
+};
+
+export function feedKindLabel(kind) {
+  return FEED_KIND_LABELS[kind] || "Move";
+}
+
+const SUBSEQUENT_LABELS = {
+  still_rostered: "Still rostered",
+  traded_away: "Later traded away",
+  dropped: "Later dropped",
+  unknown: "Left roster — not seen how",
+};
+
+export function subsequentLabel(subsequent) {
+  return SUBSEQUENT_LABELS[subsequent?.state] || "Unknown";
+}
+
+export function rosterStatusText(acq) {
+  if (acq?.stillRostered === true) return slotLabel(acq.currentSlot);
+  if (acq?.stillRostered === false) return "Not rostered";
+  return "Unknown";
+}
+
+const ATTRIBUTION_TEXT = {
+  previous_owner_possible:
+    "Possibly the roster's previous owner — not counted as this manager's acquisition.",
+  attribution_uncertain:
+    "No party's current owner made this trade — it may predate an ownership change.",
+};
+
+export function attributionNote(attribution) {
+  return attribution?.uncertain
+    ? ATTRIBUTION_TEXT[attribution.basis] || "Attribution uncertain."
+    : "";
+}
+
+const COVERAGE_LABELS = {
+  complete: "Read",
+  partial: "Partly read",
+  none: "Not read",
+  unavailable: "Could not be read",
+  rate_limited: "Rate-limited",
+};
+
+export function coverageLabel(state) {
+  return COVERAGE_LABELS[state] || "Unknown";
+}
+
+/** Leagues whose transactions or drafts were not fully read. */
+export function coverageProblems(activity) {
+  return (activity?.coverage?.leagues || [])
+    .filter(
+      (l) =>
+        l.rosterHeld !== false &&
+        (l.transactions !== "complete" || l.drafts !== "complete"),
+    )
+    .map((l) => ({
+      leagueId: l.leagueId,
+      name: l.name || "Unnamed league",
+      text:
+        l.transactions !== "complete"
+          ? `transactions ${coverageLabel(l.transactions).toLowerCase()}${
+              l.weeksFailed
+                ? ` (${l.weeksFailed} week${l.weeksFailed === 1 ? "" : "s"} missing)`
+                : ""
+            }`
+          : `drafts ${coverageLabel(l.drafts).toLowerCase()}`,
+    }));
+}
+
+/** "+1,234" / "−1,234" / "0" / "—". */
+export function signedValue(n) {
+  if (typeof n !== "number" || !Number.isFinite(n)) return "—";
+  if (n === 0) return "0";
+  return `${n > 0 ? "+" : "−"}${Math.abs(n).toLocaleString("en-US")}`;
+}
+
+/**
+ * The Trade Calculator link for one trade.  Each calculator side lists what
+ * that team SENDS (the calculator's convention — see TradeDeskView), named
+ * the way the calculator resolves rows: players by their board row name,
+ * picks by the board row the backend valued them from.  An asset the board
+ * cannot name is left out and reported, and FAAB has no calculator asset,
+ * so ``complete`` is false whenever anything could not travel.
+ */
+export function tradeCalculatorShare(trade) {
+  const missing = [];
+  const sides = (trade?.sides || []).map((side) => {
+    const players = [];
+    for (const asset of sideAssets(side, "out")) {
+      const name = asset.kind === "pick" ? asset.boardRowName : asset.boardName;
+      if (name) players.push(name);
+      else missing.push(assetLabel(asset));
+    }
+    return { name: side.displayName || `Roster ${side.rosterId}`, players };
+  });
+  const faab = (trade?.sides || []).some((s) => typeof s.faabOut === "number");
+  return {
+    trade: { sides },
+    missing,
+    faabOmitted: faab,
+    complete: missing.length === 0 && !faab,
+  };
+}
+
+/**
+ * ``/trade?share=…`` for one trade, or null when nothing in it can be named
+ * on the calculator.  ``encode`` is ``lib/trade-share``'s ``encodeTrade``
+ * (injected, so this module stays a dependency-free helper set; the
+ * activity view passes it).
+ */
+export function tradeCalculatorUrl(trade, encode) {
+  const share = tradeCalculatorShare(trade);
+  if (typeof encode !== "function") return null;
+  if (!share.trade.sides.some((s) => s.players.length)) return null;
+  try {
+    return `/trade?share=${encode(share.trade)}`;
+  } catch {
+    return null;
+  }
+}
