@@ -392,3 +392,17 @@ describe("panel", () => {
     );
   });
 });
+
+describe("an adjustment the model cannot produce is not a zero adjustment", () => {
+  it("non-finite or missing adjustments leave the row without a numeric verdict", () => {
+    const sides = [[WR], [RB]].map((as) =>
+      as.map((r) => resolveOpinionAsset({ row: r, mainSubs: IDPTC })),
+    );
+    for (const bad of [() => [NaN, 0], () => [0], () => null]) {
+      const o = evaluateOpinion(sides, bad);
+      expect(o.state).toBe(OPINION_STATE.INCOMPLETE);
+      expect(o.leaderIdx).toBeNull();
+      expect(o.adjustedTotals).toBeNull();
+    }
+  });
+});

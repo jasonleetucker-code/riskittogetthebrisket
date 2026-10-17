@@ -314,21 +314,29 @@ export function evaluateOpinion(resolutionsBySide, adjust) {
   const counts = opinionCounts(resolutionsBySide);
   const state = opinionState(counts);
   const base = { state, counts, resolutionsBySide };
-  if (state === OPINION_STATE.INCOMPLETE) {
-    return {
-      ...base,
-      rawTotals: null,
-      adjustments: null,
-      adjustedTotals: null,
-      rawLeaderIdx: null,
-      leaderIdx: null,
-      marginPct: null,
-      swing: false,
-    };
-  }
+  const noVerdict = (s) => ({
+    ...base,
+    state: s,
+    rawTotals: null,
+    adjustments: null,
+    adjustedTotals: null,
+    rawLeaderIdx: null,
+    leaderIdx: null,
+    marginPct: null,
+    swing: false,
+  });
+  if (state === OPINION_STATE.INCOMPLETE) return noVerdict(state);
   const sideValues = resolutionsBySide.map((rs) => rs.map((r) => r.value));
   const rawTotals = sideValues.map((vs) => vs.reduce((s, v) => s + v, 0));
-  const adjustments = adjust(sideValues).map((v) => Number(v) || 0);
+  // An adjustment the package model cannot produce is not a zero adjustment:
+  // the row gets no numeric verdict rather than a silently unadjusted one.
+  const adjustments = (adjust(sideValues) || []).map(Number);
+  if (
+    adjustments.length !== sideValues.length ||
+    adjustments.some((v) => !Number.isFinite(v))
+  ) {
+    return noVerdict(OPINION_STATE.INCOMPLETE);
+  }
   const adjustedTotals = rawTotals.map((t, i) => t + adjustments[i]);
   const raw = leaderOf(rawTotals);
   const adjusted = leaderOf(adjustedTotals);
