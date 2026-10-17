@@ -217,10 +217,12 @@ def collect(
             census["unresolved"] += 1
             continue
         prior = prev_by_espn.get(a["espnId"], (None, None))[1]
+        observed = (prior or {}).get("observedAtEpoch")
         fresh = (
             prior
             and prior.get("rosterInjuryDate") == a["injuryDate"]
-            and now - float(prior.get("observedAtEpoch") or 0) < REFETCH_AFTER_SECONDS
+            and isinstance(observed, (int, float))  # unknown age is never fresh
+            and now - observed < REFETCH_AFTER_SECONDS
         )
         if fresh:
             players[sid] = dict(prior)

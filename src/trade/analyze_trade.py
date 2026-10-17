@@ -632,7 +632,10 @@ def _availability_note(avail: dict) -> str:
     parts = []
     if avail.get("unavailableWeeks"):
         parts.append(f"out {avail['unavailableWeeks']}")
-    unsure = (avail.get("uncertainWeeks") or 0) + (avail.get("unknownWeeks") or 0)
+    # Counts only: an absent count names nothing, it is not summed as zero.
+    unsure = sum(
+        int(avail[k]) for k in ("uncertainWeeks", "unknownWeeks") if isinstance(avail.get(k), int)
+    )
     if unsure:
         parts.append(f"availability uncertain in {unsure}")
     return f" ({'; '.join(parts)})" if parts else ""

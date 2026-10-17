@@ -179,9 +179,9 @@ def team_game_dates_from_schedule(
         if str(row.get("game_type") or "REG").upper() != "REG":
             continue
         try:
-            wk = int(float(row.get("week") or 0))
-        except (TypeError, ValueError):
-            continue
+            wk = int(float(row["week"]))
+        except (KeyError, TypeError, ValueError):
+            continue  # a row with no week places no game
         gd = _parse_date(row.get("gameday"))
         for side in ("home_team", "away_team"):
             team = _norm_team(row.get(side))
@@ -225,9 +225,13 @@ def load_overrides(path: Path = OVERRIDES_PATH) -> list[dict[str, Any]]:
 
 def _override_for(overrides: Sequence[Mapping[str, Any]], pid: str, season: int, week: int):
     for e in overrides:
-        if str(e.get("sleeperId") or "") != pid or int(e.get("season") or 0) != season:
+        try:
+            entry_season = int(e["season"])
+        except (KeyError, TypeError, ValueError):
+            continue  # an undated entry removes nothing
+        if str(e.get("sleeperId", "")) != pid or entry_season != season:
             continue
-        lo = int(e.get("fromWeek") or 1)
+        lo = int(e["fromWeek"]) if e.get("fromWeek") is not None else 1  # declared: from week 1
         hi = e.get("throughWeek")
         if week >= lo and (hi is None or week <= int(hi)):
             return e
