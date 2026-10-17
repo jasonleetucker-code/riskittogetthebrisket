@@ -111,6 +111,7 @@ class FakeSleeper:
         self.drafts: dict[str, Any] = {}
         self.picks: dict[str, Any] = {}
         self.tx: dict[tuple[str, int], Any] = {}
+        self.traded: dict[str, Any] = {}
         self.calls: list[tuple[str, Any]] = []
 
     @staticmethod
@@ -149,6 +150,10 @@ class FakeSleeper:
         self.calls.append(("tx", (lid, week)))
         return self._answer(self.tx.get((lid, week)), [])
 
+    def fetch_traded_picks(self, lid):
+        self.calls.append(("traded_picks", lid))
+        return self._answer(self.traded.get(lid), [])
+
     def build(self, username="dynastyfan", **kwargs):
         params = {
             "contract": CONTRACT,
@@ -160,6 +165,7 @@ class FakeSleeper:
             "fetch_transactions": self.fetch_transactions,
             "fetch_drafts": self.fetch_drafts,
             "fetch_draft_picks": self.fetch_draft_picks,
+            "fetch_traded_picks": self.fetch_traded_picks,
             "fetch_state": lambda: STATE,
             "fetch_directory": lambda: DIRECTORY,
             "now": lambda: NOW_S,
@@ -477,9 +483,9 @@ def test_unreadable_rosters_make_the_league_unavailable(fake):
 
 
 def test_budget_exhaustion_is_flagged(fake):
-    out = fake.build(call_budget=5)  # rosters + users + drafts + 2 weeks
+    out = fake.build(call_budget=6)  # rosters + users + drafts + traded_picks + 2 weeks
     cov = out["coverage"]
-    assert cov["budgetExhausted"] is True and cov["callsSpent"] == 5
+    assert cov["budgetExhausted"] is True and cov["callsSpent"] == 6
     assert cov["leagues"][0]["transactions"] == "partial"
     assert out["status"] == "partial"
     assert sum(1 for c in fake.calls if c[0] == "tx") == 2
@@ -786,6 +792,7 @@ def test_activity_payload_memo_keeps_only_ok_answers(fake):
         "fetch_transactions": counting,
         "fetch_drafts": fake.fetch_drafts,
         "fetch_draft_picks": fake.fetch_draft_picks,
+        "fetch_traded_picks": fake.fetch_traded_picks,
         "fetch_state": lambda: STATE,
         "fetch_directory": lambda: DIRECTORY,
         "now": lambda: NOW_S,

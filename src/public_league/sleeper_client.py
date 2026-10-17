@@ -353,6 +353,20 @@ def fetch_draft_picks_classified(draft_id: str) -> tuple[str, Any]:
     )
 
 
+def fetch_traded_picks_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, traded_picks)`` for ``/league/{id}/traded_picks``.
+
+    A JSON ``null`` / 404 is NOT read as "no traded picks" (unlike the
+    transaction list): an existing league answers ``[]`` for that, so a missing
+    body proves nothing and ownership must stay unknown (``not_found``).
+    Callers still pass an ``ok`` body through
+    ``picks.traded_picks_observation`` — the one rule every pick-ownership
+    producer uses."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/traded_picks", missing_is_empty=False
+    )
+
+
 def fetch_league(league_id: str) -> dict[str, Any] | None:
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}")
     return data if isinstance(data, dict) else None
