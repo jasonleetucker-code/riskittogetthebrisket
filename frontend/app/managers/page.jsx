@@ -13,7 +13,8 @@
  * and value is backend-computed (`src/intel/manager_portfolio.py`).  A
  * player the board does not price shows "—", never 0.
  *
- * Batches B1 + B2 add Recent trades / Acquisitions / Activity tabs
+ * Batches B1 + B2 add Recent trades / Acquisitions / Activity tabs, and
+ * B3 a Draft capital tab plus Tendencies under Recent trades
  * (./ManagerActivity.jsx).  Their DATA is fetched only when one of them is
  * first opened, so the portfolio never waits on it.  The code is imported
  * statically on purpose: a React.lazy split was measured to re-group shared
@@ -68,6 +69,7 @@ const RESULT_TABS = [
   { id: "trades", label: "Recent trades" },
   { id: "acquisitions", label: "Acquisitions" },
   { id: "activity", label: "Activity" },
+  { id: "draft", label: "Draft capital" },
 ];
 const TAB_PREFIX = "manager-intel";
 
@@ -387,7 +389,7 @@ export default function ManagersPage() {
       {state.phase === "idle" ? (
         <EmptyState
           title="Look up a manager"
-          description="Ownership, exposure and canonical value across all of a manager's leagues, plus their recent trades, acquisitions and activity. Draft capital and career records arrive in later batches."
+          description="Ownership, exposure and canonical value across all of a manager's leagues, plus their recent trades, acquisitions, activity, draft capital and trade tendencies. Career records arrive in a later batch."
         />
       ) : null}
 
@@ -568,8 +570,8 @@ export default function ManagersPage() {
             <details className={styles.about}>
               <summary>What this includes</summary>
               <p>
-                Current-season leagues only. Recent trades, acquisitions and
-                activity are in their own tabs; draft capital and career records
+                Current-season leagues only. Recent trades, acquisitions,
+                activity and draft capital are in their own tabs; career records
                 are not included yet. Data comes from Sleeper&apos;s public API
                 at lookup time
                 {profile.cached ? " (cached for up to 15 minutes)" : ""}.

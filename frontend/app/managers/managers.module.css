@@ -394,6 +394,41 @@
   overflow-wrap: anywhere;
 }
 
+/* B3 — Tendencies */
+.tendencyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.tendencyBlock {
+  margin-top: var(--space-3);
+}
+
+.tendencyBlock h4 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.tendencyBlock [data-insufficient] {
+  font-style: italic;
+}
+
+.shapeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shapeList li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--border-default);
+}
+
 @media (max-width: 480px) {
   .analytics {
     grid-template-columns: 1fr;

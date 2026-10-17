@@ -189,6 +189,165 @@ export const ACQUISITIONS = [
   },
 ];
 
+// Batch B3 (src/intel/manager_trade_intel.py).
+const heldPick = (season, round, extra = {}) => ({
+  kind: "pick",
+  season,
+  round,
+  originRosterId: 1,
+  pickId: `pick:sleeper-l1:${season}:r${round}:o1`,
+  label: `${season} Round ${round}`,
+  boardRowName: season === 2027 ? `${season} Round ${round}` : null,
+  value: season === 2027 ? 3500 : null,
+  valueBasis: season === 2027 ? "board_row" : null,
+  valueReason: season === 2027 ? null : "no_board_row_for_ref",
+  originOwnerName: "Dynasty Fan",
+  currentOwnerRosterId: 1,
+  currentOwnerName: "Dynasty Fan",
+  own: true,
+  ...extra,
+});
+
+export const DRAFT_CAPITAL = {
+  available: true,
+  reason: null,
+  valueNote: "Pick values are the canonical board's at the generic grade.",
+  totals: {
+    leaguesObserved: 1,
+    leaguesUnavailable: 1,
+    picksHeld: 3,
+    acquiredHeld: 1,
+    ownTradedAway: 1,
+    pricedPickCount: 2,
+    unpricedPickCount: 1,
+    pricedValue: 7000,
+  },
+  leagues: [
+    {
+      leagueId: "L1",
+      name: "Alpha Dynasty",
+      season: "2026",
+      format: FORMAT,
+      coverage: "complete",
+      pickOwnershipState: "observed",
+      pickOwnershipReason: null,
+      draftYears: {
+        ownedPickSeasons: [2027, 2028],
+        heldSeasons: [2027, 2028],
+        retiredSeasons: [2026],
+        draftCompleteSeasons: [],
+      },
+      picks: [
+        heldPick(2027, 1),
+        heldPick(2027, 1, {
+          originRosterId: 2,
+          pickId: "pick:sleeper-l1:2027:r1:o2",
+          originOwnerName: "Rival Two",
+          own: false,
+        }),
+        heldPick(2028, 1),
+      ],
+      ownPicksTradedAway: [
+        heldPick(2027, 2, {
+          value: 1200,
+          currentOwnerRosterId: 3,
+          currentOwnerName: "Rival Three",
+        }),
+      ],
+      counts: { held: 3, own: 2, acquired: 1, ownTradedAway: 1 },
+      pricedValue: 7000,
+      pricedPickCount: 2,
+      unpricedPickCount: 1,
+    },
+    {
+      leagueId: "L2",
+      name: "Beta League",
+      season: "2026",
+      format: FORMAT,
+      coverage: "rate_limited",
+      pickOwnershipState: "unavailable",
+      pickOwnershipReason: "traded_picks_fetch_failed",
+      draftYears: {
+        ownedPickSeasons: [2027, 2028],
+        heldSeasons: [2027, 2028],
+        retiredSeasons: [],
+        draftCompleteSeasons: [],
+      },
+      picks: null,
+      ownPicksTradedAway: null,
+      counts: null,
+      pricedValue: null,
+      pricedPickCount: null,
+      unpricedPickCount: null,
+    },
+  ],
+  movements: {
+    acquired: 1,
+    sent: 0,
+    rows: [
+      {
+        id: "tx:t1:acquired:pick:sleeper-l1:2027:r1:o2",
+        tradeId: "tx:t1",
+        direction: "acquired",
+        leagueId: "L1",
+        leagueName: "Alpha Dynasty",
+        occurredAt: Date.UTC(2026, 9, 10),
+        pick: PICK,
+        counterparty: { rosterId: 2, displayName: "Rival Two" },
+        stillHeld: true,
+        stillHeldReason: null,
+      },
+    ],
+  },
+};
+
+const flow = (count, pricedValue, unpricedCount = 0) => ({
+  count,
+  pricedValue,
+  pricedCount: count - unpricedCount,
+  unpricedCount,
+});
+
+export const TENDENCIES = {
+  window: "30d",
+  season: "2026",
+  tradeCount: 2,
+  excludedUncertain: 0,
+  minSample: 3,
+  minSampleBasis: "PRIOR",
+  pickPlayer: {
+    n: 2,
+    minSample: 3,
+    sufficientSample: false,
+    unit: "trades",
+    counts: { picks_for_players: 1, mixed: 1 },
+  },
+  pieces: {
+    n: 2,
+    minSample: 3,
+    sufficientSample: false,
+    unit: "trades",
+    counts: { consolidation: 1, depth: 0, even: 1 },
+  },
+  positions: {
+    n: 4,
+    minSample: 3,
+    sufficientSample: true,
+    unit: "players",
+    rows: [
+      { key: "RB", acquired: flow(2, 7500), sent: flow(0, null) },
+      { key: "WR", acquired: flow(0, null), sent: flow(2, 4000, 1) },
+    ],
+  },
+  ages: {
+    n: 4,
+    minSample: 3,
+    sufficientSample: true,
+    unit: "players",
+    rows: [{ key: "24-26", acquired: flow(2, 7500), sent: flow(2, 4000, 1) }],
+  },
+};
+
 export const ACTIVITY = {
   status: "partial",
   query: "dynastyfan",
@@ -216,6 +375,7 @@ export const ACTIVITY = {
         rosterHeld: true,
         transactions: "complete",
         drafts: "complete",
+        tradedPicks: "complete",
         weeksFetched: 8,
         weeksFailed: 0,
       },
@@ -225,6 +385,7 @@ export const ACTIVITY = {
         rosterHeld: true,
         transactions: "partial",
         drafts: "complete",
+        tradedPicks: "rate_limited",
         weeksFetched: 7,
         weeksFailed: 1,
       },
@@ -298,5 +459,7 @@ export const ACTIVITY = {
     ],
   },
   valueBasis: { note: "Current values are the canonical board's." },
+  draftCapital: DRAFT_CAPITAL,
+  tendencies: TENDENCIES,
   cached: false,
 };

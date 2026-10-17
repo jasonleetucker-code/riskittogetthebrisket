@@ -7,6 +7,11 @@
  * published.  Missing stays missing: a null value renders "—", never 0.
  */
 
+import {
+  describePickOwnershipReason,
+  pickOwnershipUnavailableReason,
+} from "@/lib/pick-ownership";
+
 export const SCOPES = [
   { value: "dynasty", label: "Dynasty" },
   { value: "keeper", label: "Keeper" },
@@ -457,13 +462,21 @@ export function coverageLabel(state) {
   return COVERAGE_LABELS[state] || "Unknown";
 }
 
-/** Leagues whose transactions or drafts were not fully read. */
+/**
+ * Leagues whose transactions, drafts or (when draft capital is served)
+ * traded picks were not fully read.
+ */
 export function coverageProblems(activity) {
+  const picksServed = activity?.draftCapital?.available === true;
+  const picksProblem = (l) =>
+    picksServed && l.tradedPicks != null && l.tradedPicks !== "complete";
   return (activity?.coverage?.leagues || [])
     .filter(
       (l) =>
         l.rosterHeld !== false &&
-        (l.transactions !== "complete" || l.drafts !== "complete"),
+        (l.transactions !== "complete" ||
+          l.drafts !== "complete" ||
+          picksProblem(l)),
     )
     .map((l) => ({
       leagueId: l.leagueId,
@@ -475,7 +488,9 @@ export function coverageProblems(activity) {
                 ? ` (${l.weeksFailed} week${l.weeksFailed === 1 ? "" : "s"} missing)`
                 : ""
             }`
-          : `drafts ${coverageLabel(l.drafts).toLowerCase()}`,
+          : l.drafts !== "complete"
+            ? `drafts ${coverageLabel(l.drafts).toLowerCase()}`
+            : `traded picks ${coverageLabel(l.tradedPicks).toLowerCase()}`,
     }));
 }
 
@@ -529,4 +544,132 @@ export function tradeCalculatorUrl(trade, encode) {
   } catch {
     return null;
   }
+}
+
+// ── draft capital, pick movement, tendencies (Batch B3) ─────────────────
+//
+// The activity payload's ``draftCapital`` / ``tendencies`` blocks are
+// backend-computed (``src/intel/manager_trade_intel.py``): which picks are
+// held, their values, totals and every count.  These helpers only filter and
+// label.  Unknown pick ownership is read through ``lib/pick-ownership`` (the
+// one frontend reader of that stamp) and is never shown as "no picks".
+
+/** Draft-capital league entries, optionally one league. */
+export function draftCapitalLeagues(draftCapital, league = "") {
+  return (draftCapital?.leagues || []).filter(
+    (e) => !league || e.leagueId === league,
+  );
+}
+
+/** Why a league's picks are unknown (a sentence), or "" when they are known. */
+export function pickOwnershipText(entry) {
+  const reason = pickOwnershipUnavailableReason(entry);
+  if (!reason) return "";
+  if (reason === "rosters_unavailable")
+    return "This league's rosters could not be read, so its picks are unknown.";
+  if (entry?.coverage === "rate_limited")
+    return "Sleeper rate-limited the traded-picks read, so who owns which pick is unknown.";
+  if (entry?.coverage === "none")
+    return "The traded-picks feed was not read in this lookup (budget reached), so picks are unknown.";
+  return describePickOwnershipReason(reason);
+}
+
+/** "Own" for the manager's own pick, else whose pick it originally was. */
+export function pickOriginText(pick) {
+  if (!pick) return "";
+  if (pick.own) return "Own";
+  return `From ${pick.originOwnerName || `roster ${pick.originRosterId}`}`;
+}
+
+/** "2027–2029 · 2026 draft complete" — which classes the list covers. */
+export function draftYearsText(draftYears) {
+  const held = draftYears?.heldSeasons || [];
+  if (!held.length) return "No upcoming classes";
+  const span =
+    held.length === 1 ? `${held[0]}` : `${held[0]}–${held[held.length - 1]}`;
+  const done = [
+    ...(draftYears.retiredSeasons || []),
+    ...(draftYears.draftCompleteSeasons || []),
+  ];
+  const unique = [...new Set(done)].sort();
+  return unique.length ? `${span} · ${unique.join(", ")} draft complete` : span;
+}
+
+/** "3 held · 1 acquired · 2 own traded away", or "" when unknown. */
+export function capitalCountsText(entry) {
+  const c = entry?.counts;
+  if (!c) return "";
+  return `${c.held} held · ${c.acquired} acquired · ${c.ownTradedAway} own traded away`;
+}
+
+/** The priced-only total with what it leaves out ("7,000 · 4 unpriced"). */
+export function capitalValueText(entry) {
+  if (!entry || entry.picks == null) return "—";
+  const total = formatValue(entry.pricedValue);
+  return entry.unpricedPickCount
+    ? `${total} · ${entry.unpricedPickCount} unpriced`
+    : total;
+}
+
+/** Pick-movement rows (windowed trade stream), optionally one league. */
+export function pickMovementRows(draftCapital, league = "") {
+  return (draftCapital?.movements?.rows || []).filter(
+    (r) => !league || r.leagueId === league,
+  );
+}
+
+export function stillHeldText(row) {
+  if (row?.stillHeld === true) return "Still held";
+  if (row?.stillHeld === false) return "No longer held";
+  if (row?.stillHeldReason === "class_not_in_owned_horizon")
+    return "Class drafted or outside horizon";
+  return "Unknown";
+}
+
+/** "n = 5 trades · last 30 days" or the insufficient-sample sentence. */
+export function tendencySampleText(block, tendencies) {
+  if (!block) return "";
+  const unit = block.unit === "players" ? "players" : "trades";
+  const win = windowText(tendencies);
+  if (!block.sufficientSample)
+    return `Insufficient sample — n = ${block.n} ${unit} (at least ${block.minSample} needed) · ${win}`;
+  return `n = ${block.n} ${unit} · ${win}`;
+}
+
+function windowText(tendencies) {
+  const w = tendencies?.window;
+  if (w === "season") return `${tendencies?.season || "this"} season`;
+  return typeof w === "string" ? `last ${w.replace("d", " days")}` : "";
+}
+
+/** "2 · 7,500" (count · priced value); the value reads "—" when none priced. */
+export function tendencyFlowText(flow) {
+  if (!flow || !flow.count) return "0";
+  const unpriced = flow.unpricedCount
+    ? ` (${flow.unpricedCount} unpriced)`
+    : "";
+  return `${flow.count} · ${formatValue(flow.pricedValue)}${unpriced}`;
+}
+
+const SHAPE_LABELS = {
+  picks_for_players: "Picks for players",
+  players_for_picks: "Players for picks",
+  players_for_players: "Players for players",
+  picks_for_picks: "Picks for picks",
+  mixed: "Players and picks",
+  other: "Other",
+  consolidation: "Consolidation (fewer pieces in)",
+  depth: "Depth (more pieces in)",
+  even: "Even piece count",
+};
+
+export function shapeLabel(key) {
+  return SHAPE_LABELS[key] || key;
+}
+
+/** ``[{key, label, count}]`` for a counts block, zero rows dropped. */
+export function shapeRows(counts) {
+  return Object.entries(counts || {})
+    .filter(([, n]) => n > 0)
+    .map(([key, count]) => ({ key, label: shapeLabel(key), count }));
 }
