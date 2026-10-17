@@ -974,8 +974,17 @@ def evaluate_final_roster_utility(
     season: int | None,
     scoring_settings: Mapping[str, Any] | None,
     draws: int | None = None,
+    league_settings: Mapping[str, Any] | None = None,
+    availability_context: Any = None,
 ) -> dict[str, Any]:
     """#1173 best-ball utility for the FINAL LEGAL roster (C3-CAP-01's last step).
+
+    Availability (owner master package 2026-10-17, P0): when the league's
+    remaining fantasy weeks resolve, every player carries his per-week
+    availability from ``src.ros.availability`` and the simulation runs over
+    those real weeks — a player out for all of them enters no lineup.
+    ``availability_context`` is injectable for tests; by default it is
+    assembled from the box's caches (no network).
 
     Same rosters ``simulate_final_legal_roster`` solves (``final_legal_roster``),
     evaluated by ``src.roster_intel.best_ball_utility`` on league-scored
@@ -1014,6 +1023,22 @@ def evaluate_final_roster_utility(
             "basis": basis,
         }
 
+    from src.ros import availability as av  # noqa: PLC0415
+
+    ctx = availability_context
+    if ctx is None:
+        ctx = av.load_context(season=int(season), league_settings=league_settings)
+    weeks = list(ctx.weeks) if ctx.weeks else None
+    meta = _players_meta_for(sorted({a.player_id for a in all_assets})) if weeks else {}
+    states = (
+        {
+            a.player_id: av.player_week_states(a.player_id, meta.get(a.player_id), ctx)
+            for a in all_assets
+        }
+        if weeks
+        else {}
+    )
+
     def _players(assets: Sequence[RosterAsset]) -> list[bbu.UtilityPlayer]:
         return [
             bbu.UtilityPlayer(
@@ -1022,6 +1047,14 @@ def evaluate_final_roster_utility(
                 position=a.position,
                 ppg=ppg.get(a.player_id),
                 fantasy_positions=tuple(a.fantasy_positions or ()),
+                availability=(
+                    {w: st.state for w, st in states[a.player_id].items()}
+                    if a.player_id in states
+                    else None
+                ),
+                availability_summary=(
+                    av.summarize(states[a.player_id]) if a.player_id in states else None
+                ),
             )
             for a in assets
         ]
@@ -1041,7 +1074,17 @@ def evaluate_final_roster_utility(
         slot_eligibility=context.slot_eligibility,
         draws=draws or bbu.DEFAULT_DRAWS,
         basis=basis,
+        weeks=weeks,
+        availability_basis=ctx.basis,
     )
+    if not weeks:
+        # No remaining-week calendar resolved: the legacy calendar-free
+        # simulation ran, and the response says why rather than implying
+        # availability was checked.
+        result.setdefault("basis", {})["availability"] = {
+            **dict(ctx.basis),
+            "state": "not_applied",
+        }
     result["cleanup"] = {
         "state": "uncertain" if uncertain else "applied" if cleanup_applied else "none",
         "forcedDropIds": list(rosters.forced_drop_ids) if cleanup_applied else [],
@@ -1051,6 +1094,19 @@ def evaluate_final_roster_utility(
         "isUpperBound": capacity.certainty != "exact",
     }
     return result
+
+
+def _players_meta_for(player_ids: Sequence[str]) -> dict[str, Any]:
+    """Sleeper player records for availability (the same players-DB read the
+    projection join uses).  An unreadable DB answers ``{}`` — every player is
+    then ``unknown``, never ``available``."""
+    try:
+        from src.api.matchup_intel import players_meta_for_rosters  # noqa: PLC0415
+
+        meta = players_meta_for_rosters([{"players": list(player_ids)}])
+    except Exception:  # noqa: BLE001 — degraded input, surfaced as unknown
+        return {}
+    return meta if isinstance(meta, dict) else {}
 
 
 def assess_roster_capacity(

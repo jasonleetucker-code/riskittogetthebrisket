@@ -115,8 +115,27 @@
       "the lineup is re-solved exactly for every simulated week (best ball)"
      ],
      "basis": {
+      "availability": {
+       "currentWeek": null,
+       "currentWeekSource": "unresolved",
+       "lastWeek": 18,
+       "lastWeekSource": "nfl_regular_season_league_unknown",
+       "overrides": 0,
+       "reason": "current_week_unresolved",
+       "returnEvidence": {
+        "asOf": null,
+        "players": 0,
+        "source": "espn_athlete_current_injury",
+        "state": "unavailable"
+       },
+       "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+       "schedule": "unavailable",
+       "state": "not_applied",
+       "weeks": []
+      },
       "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
       "draws": 400,
+      "drawsPerWeek": null,
       "families": [
        "synthetic"
       ],
@@ -146,7 +165,8 @@
       "season": 2026,
       "seed": 1173,
       "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
-      "state": "available"
+      "state": "available",
+      "weeks": null
      },
      "before": {
       "expectedLineupPpg": 57.24,
@@ -192,6 +212,7 @@
      "neutralBandPpg": 1.31,
      "players": [
       {
+       "availability": null,
        "lineupEntryPctAfter": 100.0,
        "lineupEntryPctBefore": null,
        "name": "WR Buf Star",
@@ -203,6 +224,7 @@
        "usablePpgBefore": null
       },
       {
+       "availability": null,
        "lineupEntryPctAfter": null,
        "lineupEntryPctBefore": 85.8,
        "name": "WR Kc",
@@ -214,6 +236,7 @@
        "usablePpgBefore": 13.05
       },
       {
+       "availability": null,
        "lineupEntryPctAfter": null,
        "lineupEntryPctBefore": 75.0,
        "name": "WR Phi",
@@ -225,6 +248,7 @@
        "usablePpgBefore": 8.31
       },
       {
+       "availability": null,
        "lineupEntryPctAfter": 100.0,
        "lineupEntryPctBefore": 39.2,
        "name": "TE Free",
@@ -543,8 +567,27 @@
       "the lineup is re-solved exactly for every simulated week (best ball)"
      ],
      "basis": {
+      "availability": {
+       "currentWeek": null,
+       "currentWeekSource": "unresolved",
+       "lastWeek": 18,
+       "lastWeekSource": "nfl_regular_season_league_unknown",
+       "overrides": 0,
+       "reason": "current_week_unresolved",
+       "returnEvidence": {
+        "asOf": null,
+        "players": 0,
+        "source": "espn_athlete_current_injury",
+        "state": "unavailable"
+       },
+       "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+       "schedule": "unavailable",
+       "state": "not_applied",
+       "weeks": []
+      },
       "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
       "draws": 400,
+      "drawsPerWeek": null,
       "families": [
        "synthetic"
       ],
@@ -574,7 +617,8 @@
       "season": 2026,
       "seed": 1173,
       "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
-      "state": "available"
+      "state": "available",
+      "weeks": null
      },
      "before": {
       "expectedLineupPpg": 57.24,
@@ -620,6 +664,7 @@
      "neutralBandPpg": 1.31,
      "players": [
       {
+       "availability": null,
        "lineupEntryPctAfter": 100.0,
        "lineupEntryPctBefore": null,
        "name": "WR Buf Star",
@@ -631,6 +676,7 @@
        "usablePpgBefore": null
       },
       {
+       "availability": null,
        "lineupEntryPctAfter": null,
        "lineupEntryPctBefore": 85.8,
        "name": "WR Kc",
@@ -642,6 +688,7 @@
        "usablePpgBefore": 13.05
       },
       {
+       "availability": null,
        "lineupEntryPctAfter": null,
        "lineupEntryPctBefore": 75.0,
        "name": "WR Phi",
@@ -653,6 +700,7 @@
        "usablePpgBefore": 8.31
       },
       {
+       "availability": null,
        "lineupEntryPctAfter": 100.0,
        "lineupEntryPctBefore": 39.2,
        "name": "TE Free",
@@ -1382,8 +1430,27 @@
   ],
   "available": true,
   "basis": {
+   "availability": {
+    "currentWeek": null,
+    "currentWeekSource": "unresolved",
+    "lastWeek": 18,
+    "lastWeekSource": "nfl_regular_season_league_unknown",
+    "overrides": 0,
+    "reason": "current_week_unresolved",
+    "returnEvidence": {
+     "asOf": null,
+     "players": 0,
+     "source": "espn_athlete_current_injury",
+     "state": "unavailable"
+    },
+    "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+    "schedule": "unavailable",
+    "state": "not_applied",
+    "weeks": []
+   },
    "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
    "draws": 400,
+   "drawsPerWeek": null,
    "families": [
     "synthetic"
    ],
@@ -1413,7 +1480,8 @@
    "season": 2026,
    "seed": 1173,
    "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
-   "state": "available"
+   "state": "available",
+   "weeks": null
   },
   "before": {
    "expectedLineupPpg": 57.24,
@@ -1462,6 +1530,7 @@
   },
   "players": [
    {
+    "availability": null,
     "lineupEntryPctAfter": 100.0,
     "lineupEntryPctBefore": null,
     "name": "WR Buf Star",
@@ -1473,6 +1542,7 @@
     "usablePpgBefore": null
    },
    {
+    "availability": null,
     "lineupEntryPctAfter": null,
     "lineupEntryPctBefore": 85.8,
     "name": "WR Kc",
@@ -1484,6 +1554,7 @@
     "usablePpgBefore": 13.05
    },
    {
+    "availability": null,
     "lineupEntryPctAfter": null,
     "lineupEntryPctBefore": 75.0,
     "name": "WR Phi",
@@ -1495,6 +1566,7 @@
     "usablePpgBefore": 8.31
    },
    {
+    "availability": null,
     "lineupEntryPctAfter": 100.0,
     "lineupEntryPctBefore": 39.2,
     "name": "TE Free",

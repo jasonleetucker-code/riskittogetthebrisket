@@ -855,6 +855,7 @@ def simulate_trade(
                     outgoing_players=players_out,
                     season=current_nfl_season(),
                     scoring_settings=(sleeper or {}).get("scoringSettings") or {},
+                    league_settings=(sleeper or {}).get("leagueSettings") or {},
                 )
             except Exception as exc:  # noqa: BLE001
                 # Degrade, never fail: the package answer stands without it,
