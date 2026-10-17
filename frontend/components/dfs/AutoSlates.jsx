@@ -73,21 +73,24 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
   const hasSelection = useRef(Boolean(selectedHash));
   hasSelection.current = Boolean(selectedHash);
 
-  const select = useCallback(
-    async (autoSlateId) => {
-      setBusyId(autoSlateId);
-      setError(null);
-      const r = await api("/auto/slates/select", { method: "POST", body: JSON.stringify({ autoSlateId }) });
-      setBusyId(null);
-      if (!r.ok) {
-        setError(errorMessage(r.body, "That slate could not be opened."));
-        return;
-      }
-      setSelectedAutoId(autoSlateId);
-      onSelected(r.body);
-    },
-    [onSelected],
-  );
+  // The parent's callback is read through a ref so `select` keeps one identity.
+  // It used to depend on `onSelected`, and the load effect depends on `select`:
+  // a parent passing a fresh function each render (an inline arrow) made every
+  // selection re-run the effect, blank the list and refetch every slate.
+  const onSelectedRef = useRef(onSelected);
+  onSelectedRef.current = onSelected;
+  const select = useCallback(async (autoSlateId) => {
+    setBusyId(autoSlateId);
+    setError(null);
+    const r = await api("/auto/slates/select", { method: "POST", body: JSON.stringify({ autoSlateId }) });
+    setBusyId(null);
+    if (!r.ok) {
+      setError(errorMessage(r.body, "That slate could not be opened."));
+      return;
+    }
+    setSelectedAutoId(autoSlateId);
+    onSelectedRef.current(r.body);
+  }, []);
 
   useEffect(() => {
     let live = true;
