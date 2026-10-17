@@ -177,5 +177,5 @@ no other component computes a final verdict.
 
 | Batch | State |
 |---|---|
-| TC-0 audit + research | IN PROGRESS (lane `claude/trade-calculator-completion`) |
+| TC-0 audit + research | DONE — feature matrix, competitive analysis, UX audit, decision-engine audit committed (docs PR) |
 | TC-A … TC-F | QUEUED, in order; each starts as its dependencies land |
