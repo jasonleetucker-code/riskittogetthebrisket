@@ -1745,7 +1745,24 @@ functional benchmark only: no copied code, branding or interface assets, no payw
 | Site is **non-commercial**, so Sleeper's free public API terms apply; ship enabled for signed-in users, rate-limited | DECIDED — owner, 2026-10-17 |
 | Never fabricate unavailable data; inferred tendencies are labelled as evidence, never as fact or as a guarantee of acceptance; no collusion/abandonment accusations | DECIDED — binding (prompt) |
 | Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
-| Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
+| Implementation | Batch A MERGED #1762 (`048bcbf8a`, 2026-10-17); Batches B–F per the 2026-10-17 addendum below |
+
+## Added 2026-10-17 — Manager Intelligence addendum: Batches B–F (Recent Trades and Recently Acquired Players first)
+
+Owner master implementation addendum, 2026-10-17. It extends the 2026-10-16 Manager Intelligence directive above;
+it is **not** a replacement for work already underway. Workstream, deliverables, dependencies, tests and
+completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`.
+
+| Item | Disposition |
+|---|---|
+| Add Batches B–F to the active queue without displacing the injury-availability fixes, IDP source rehabilitation or the approved Value Adjustment activation | DECIDED — binding (addendum) |
+| B1 Recent Trades first: cross-league completed trades only. Each shows date, league, season, format, partners, players / picks / FAAB in and out, status, current values, incoming / outgoing totals, a package-adjusted comparison under the ACTIVE model, and a Trade Calculator link. Point-in-time values, grades and aging appear only when trustworthy, otherwise explicitly unavailable. Filters: 7 / 30 / 90 days, season, historical, league, acquired / sent players or picks. Newest first; multi-team trades supported | DECIDED — binding (addendum) |
+| B2 Recently Acquired Players: method (trade / waiver with FAAB / free agent / draft with slot / other) from real transaction or draft evidence only. Each shows current value and rank, still rostered, slot status and what was given up. Analytics: most valuable, by position, by method, adds vs drops, repeat targets, rookies, IDP, later traded or dropped. League-level events plus a player-level summary | DECIDED — binding (addendum) |
+| Unified activity feed: trades, waivers, free-agent adds, drops, draft picks and pick movements; an add and its drop are one event; deduplicated by a stable id; no pending offers; correct attribution through co-ownership and ownership changes | DECIDED — binding (addendum) |
+| B3 draft capital + trade intelligence, C league-wide opponent scouting, D trade-tool integration (canonical board, active package model), E career / archetypes / comparisons, F saved managers / alerts / scoped leaderboards, in that order | DECIDED — binding (addendum) |
+| Reuse existing systems; bounded incremental retrieval; explicit complete / partial / none / unavailable / rate-limited states; missing ≠ zero; never invent trades, acquisition dates, current ownership or historical values; private endpoints authenticated, read-only, rate-limited; PSI Direction A | DECIDED — binding (addendum) |
+| Routine implementation details proceed without owner approval; merge and deploy gates and required owner approvals still apply | DECIDED — binding (addendum) |
+| Implementation | IN PROGRESS — B1 + B2 + feed lane `claude/manager-intel-b` |
 
 ## Added 2026-10-17 — League Tycoon migration research (owner research directive)
 
