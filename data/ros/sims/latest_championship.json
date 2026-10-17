@@ -1,128 +1,7 @@
 {
-  "computedAt": "2026-10-17T12:31:39.729779+00:00",
-  "championshipOdds": [
-    {
-      "ownerId": "1002085133723299840",
-      "displayName": "Brent",
-      "championshipOdds": 0.9941,
-      "finalsOdds": 0.9983,
-      "semifinalOdds": 1.0,
-      "playoffOdds": 1.0,
-      "expectedFinish": 1.01,
-      "contenderTier": "Favorite"
-    },
-    {
-      "ownerId": "1012114412049731584",
-      "displayName": "Joey",
-      "championshipOdds": 0.0027,
-      "finalsOdds": 0.2906,
-      "semifinalOdds": 0.8164,
-      "playoffOdds": 1.0,
-      "expectedFinish": 3.36,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "468418790212759552",
-      "displayName": "Jason",
-      "championshipOdds": 0.0026,
-      "finalsOdds": 0.6127,
-      "semifinalOdds": 0.9892,
-      "playoffOdds": 1.0,
-      "expectedFinish": 2.41,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "609821340567941120",
-      "displayName": "Eric",
-      "championshipOdds": 0.0004,
-      "finalsOdds": 0.0783,
-      "semifinalOdds": 0.5634,
-      "playoffOdds": 1.0,
-      "expectedFinish": 4.61,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "831633191830933504",
-      "displayName": "Collin",
-      "championshipOdds": 0.0002,
-      "finalsOdds": 0.0197,
-      "semifinalOdds": 0.5614,
-      "playoffOdds": 1.0,
-      "expectedFinish": 4.67,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "714912789268865024",
-      "displayName": "MaKayla",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0004,
-      "semifinalOdds": 0.0648,
-      "playoffOdds": 0.9993,
-      "expectedFinish": 5.94,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "473973924808355840",
-      "displayName": "Ty",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0034,
-      "playoffOdds": 0.6554,
-      "expectedFinish": 6.04,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "1208452010173538304",
-      "displayName": "Kich",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0014,
-      "playoffOdds": 0.3453,
-      "expectedFinish": 6.96,
-      "contenderTier": "Fringe Playoff Team"
-    },
-    {
-      "ownerId": "1303549304882892800",
-      "displayName": "Blaine",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 9.97,
-      "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "472206636534984704",
-      "displayName": "Roy",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 12.0,
-      "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "711452264774041600",
-      "displayName": "Ed",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 9.14,
-      "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "735693375101108224",
-      "displayName": "jnesselhauf",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 10.89,
-      "contenderTier": "Rebuilder / Seller"
-    }
-  ],
-  "n_simulations": 10000,
+  "computedAt": "2026-10-17T16:03:23.093537+00:00",
+  "championshipOdds": [],
+  "n_simulations": 0,
   "playoffSeeds": 7,
   "byeSeeds": 1,
   "playoffStructure": {
@@ -136,12 +15,26 @@
   },
   "rosStrengthAvailable": true,
   "engine": "src.ros.playoff_sim",
-  "season": 2026,
   "standingsRule": {
     "medianGame": true,
     "state": "counted",
     "threshold": "median",
     "tieRule": "exact_median_is_tie",
     "source": "https://support.sleeper.com/en/articles/3971690-extra-game-each-week-against-league-median"
+  },
+  "unsimulable": {
+    "reason": "median_game_week_unsimulable",
+    "weeks": [
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "detail": "this league counts a weekly median game, but a remaining week does not pair every team with a score distribution, so its median cannot be simulated over the whole league. This is not a 0% chance for anyone."
   }
 }
