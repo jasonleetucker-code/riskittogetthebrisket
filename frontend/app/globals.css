@@ -3471,6 +3471,14 @@ body:has(.trade-sticky-tray) .screenshot-fab {
   white-space: normal;
   background: rgba(79, 155, 236, 0.03);
 }
+/* The drilldown scrolls inside the visible width on a phone instead of
+   making the reader pan the whole Second Opinions table to reach it. */
+.source-breakdown-assets-wrap {
+  overflow-x: auto;
+  max-width: min(100%, calc(100vw - 4rem));
+  position: sticky;
+  left: 0;
+}
 .source-breakdown-assets {
   width: 100%;
   border-collapse: collapse;

@@ -352,85 +352,87 @@ export default function TradeSourceBreakdown({
                       {expanded && (
                         <tr className="source-breakdown-detail">
                           <td colSpan={sideLabels.length + 3}>
-                            <table
-                              className="source-breakdown-assets"
-                              aria-label={`Asset values for ${row.label}`}
-                            >
-                              <thead>
-                                <tr>
-                                  <th style={{ textAlign: "left" }}>Asset</th>
-                                  <th style={{ textAlign: "right" }}>
-                                    Source value
-                                  </th>
-                                  <th style={{ textAlign: "right" }}>
-                                    Chase fallback
-                                  </th>
-                                  <th style={{ textAlign: "right" }}>
-                                    Value used
-                                  </th>
-                                  <th style={{ textAlign: "left" }}>
-                                    Provenance
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {o.resolutionsBySide.flatMap((rs, si) =>
-                                  rs.map((r, ai) => (
-                                    <tr key={`${row.key}-${si}-${ai}`}>
-                                      <td style={{ textAlign: "left" }}>
-                                        {r.name}{" "}
-                                        <span className="muted">
-                                          (Side {sideLabels[si]})
-                                        </span>
-                                      </td>
-                                      <td
-                                        style={{
-                                          textAlign: "right",
-                                          fontFamily: "var(--mono)",
-                                        }}
-                                      >
-                                        {fmt(r.sourceValue)}
-                                        {r.nativeValue != null && (
-                                          <span
-                                            className="muted"
-                                            style={{
-                                              display: "block",
-                                              fontSize: "0.6rem",
-                                            }}
-                                          >
-                                            native {fmt(r.nativeValue)}
+                            <div className="source-breakdown-assets-wrap">
+                              <table
+                                className="source-breakdown-assets"
+                                aria-label={`Asset values for ${row.label}`}
+                              >
+                                <thead>
+                                  <tr>
+                                    <th style={{ textAlign: "left" }}>Asset</th>
+                                    <th style={{ textAlign: "right" }}>
+                                      Source value
+                                    </th>
+                                    <th style={{ textAlign: "right" }}>
+                                      Chase fallback
+                                    </th>
+                                    <th style={{ textAlign: "right" }}>
+                                      Value used
+                                    </th>
+                                    <th style={{ textAlign: "left" }}>
+                                      Provenance
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {o.resolutionsBySide.flatMap((rs, si) =>
+                                    rs.map((r, ai) => (
+                                      <tr key={`${row.key}-${si}-${ai}`}>
+                                        <td style={{ textAlign: "left" }}>
+                                          {r.name}{" "}
+                                          <span className="muted">
+                                            (Side {sideLabels[si]})
                                           </span>
-                                        )}
-                                      </td>
-                                      <td
-                                        style={{
-                                          textAlign: "right",
-                                          fontFamily: "var(--mono)",
-                                        }}
-                                      >
-                                        {fmt(r.fallbackValue)}
-                                      </td>
-                                      <td
-                                        style={{
-                                          textAlign: "right",
-                                          fontFamily: "var(--mono)",
-                                        }}
-                                      >
-                                        {fmt(r.value)}
-                                      </td>
-                                      <td style={{ textAlign: "left" }}>
-                                        {r.origin === OPINION_ORIGIN.SOURCE
-                                          ? "Source"
-                                          : r.origin ===
-                                              OPINION_ORIGIN.CHASE_UPSIDE_FALLBACK
-                                            ? `Chase Upside fallback — ${FALLBACK_REASON_LABEL[r.reason]}`
-                                            : `Unpriced — ${FALLBACK_REASON_LABEL[r.reason]}`}
-                                      </td>
-                                    </tr>
-                                  )),
-                                )}
-                              </tbody>
-                            </table>
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            fontFamily: "var(--mono)",
+                                          }}
+                                        >
+                                          {fmt(r.sourceValue)}
+                                          {r.nativeValue != null && (
+                                            <span
+                                              className="muted"
+                                              style={{
+                                                display: "block",
+                                                fontSize: "0.6rem",
+                                              }}
+                                            >
+                                              native {fmt(r.nativeValue)}
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            fontFamily: "var(--mono)",
+                                          }}
+                                        >
+                                          {fmt(r.fallbackValue)}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            fontFamily: "var(--mono)",
+                                          }}
+                                        >
+                                          {fmt(r.value)}
+                                        </td>
+                                        <td style={{ textAlign: "left" }}>
+                                          {r.origin === OPINION_ORIGIN.SOURCE
+                                            ? "Source"
+                                            : r.origin ===
+                                                OPINION_ORIGIN.CHASE_UPSIDE_FALLBACK
+                                              ? `Chase Upside fallback — ${FALLBACK_REASON_LABEL[r.reason]}`
+                                              : `Unpriced — ${FALLBACK_REASON_LABEL[r.reason]}`}
+                                        </td>
+                                      </tr>
+                                    )),
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
                           </td>
                         </tr>
                       )}
