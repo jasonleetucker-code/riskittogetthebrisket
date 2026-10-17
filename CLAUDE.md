@@ -2466,7 +2466,15 @@ producers now read the response through `picks.traded_picks_observation` — a
 list, even empty, is an observation; anything else is `None`:
 `sleeper_overlay._build_pick_ownership`, the scraper's `fetch_sleeper_rosters`,
 and `draft_capital_fallback.build_sleeper_derived` (which refuses the whole
-board with `picks.PICK_OWNERSHIP_UNAVAILABLE_ERROR`).  **A fourth producer is
+board with `picks.PICK_OWNERSHIP_UNAVAILABLE_ERROR`).  The public `/league`
+snapshot joined them 2026-10-17 (P0: the Draft tab showed one manager eight
+2027 firsts): `sleeper_client.fetch_traded_picks_observed` feeds
+`SeasonSnapshot.traded_picks_state`, persisted as `tradedPicksState` (a
+snapshot without it loads as `pick_ownership_unstated`), and
+`public_league/draft.py::pick_inventory` is a view of `build_pick_ownership`
+over the CURRENT league's `/traded_picks` only — older leagues' rows are past
+ownership STATES and never redefine the present; movement counts come from
+completed trade transactions, de-duplicated by id.  **A further producer is
 NOT fixed** and is a named follow-up: `server.py::_fetch_draft_capital`, the
 default-league workbook path (`apply_sleeper_trades`, ~line 10637), still turns
 a failed fetch into `traded = []` and silently keeps the workbook's own

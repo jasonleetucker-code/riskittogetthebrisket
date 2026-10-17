@@ -387,6 +387,7 @@ class SnapshotStripsEmptyWeeksTests(unittest.TestCase):
             "fetch_rosters": sleeper_client.fetch_rosters,
             "fetch_drafts": sleeper_client.fetch_drafts,
             "fetch_traded_picks": sleeper_client.fetch_traded_picks,
+            "fetch_traded_picks_observed": sleeper_client.fetch_traded_picks_observed,
             "fetch_winners_bracket": sleeper_client.fetch_winners_bracket,
             "fetch_losers_bracket": sleeper_client.fetch_losers_bracket,
             "fetch_matchups": sleeper_client.fetch_matchups,
@@ -396,6 +397,7 @@ class SnapshotStripsEmptyWeeksTests(unittest.TestCase):
         sleeper_client.fetch_rosters = lambda _lid: []
         sleeper_client.fetch_drafts = lambda _lid: []
         sleeper_client.fetch_traded_picks = lambda _lid: []
+        sleeper_client.fetch_traded_picks_observed = lambda _lid: []
         sleeper_client.fetch_winners_bracket = lambda _lid: []
         sleeper_client.fetch_losers_bracket = lambda _lid: []
         sleeper_client.fetch_matchups = lambda _lid, wk: matchups_by_week.get(wk) or []
@@ -436,6 +438,7 @@ class SnapshotStripsEmptyWeeksTests(unittest.TestCase):
             "fetch_rosters": sleeper_client.fetch_rosters,
             "fetch_drafts": sleeper_client.fetch_drafts,
             "fetch_traded_picks": sleeper_client.fetch_traded_picks,
+            "fetch_traded_picks_observed": sleeper_client.fetch_traded_picks_observed,
             "fetch_winners_bracket": sleeper_client.fetch_winners_bracket,
             "fetch_losers_bracket": sleeper_client.fetch_losers_bracket,
             "fetch_matchups": sleeper_client.fetch_matchups,
@@ -445,6 +448,7 @@ class SnapshotStripsEmptyWeeksTests(unittest.TestCase):
         sleeper_client.fetch_rosters = lambda _lid: []
         sleeper_client.fetch_drafts = lambda _lid: []
         sleeper_client.fetch_traded_picks = lambda _lid: []
+        sleeper_client.fetch_traded_picks_observed = lambda _lid: []
         sleeper_client.fetch_winners_bracket = lambda _lid: []
         sleeper_client.fetch_losers_bracket = lambda _lid: []
         sleeper_client.fetch_matchups = lambda _lid, wk: matchups_by_week.get(wk) or []

@@ -10,6 +10,12 @@ import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
 import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
+import {
+  PickChips,
+  PickChipsLegend,
+  PickOwnershipUnavailableNote,
+  draftOwnershipUnavailableReason,
+} from "../../pick-chips.jsx";
 import { ImpactValue, ScheduleImpactSummary } from "@/components/league/ScheduleImpact";
 import { teamRowFor } from "@/lib/schedule-impact";
 import { fetchBackendJson } from "@/lib/server-backend";
@@ -189,34 +195,24 @@ export default async function FranchisePage({ params }) {
 
       {fr.draftCapital && (
         <Card title="Draft capital">
-          <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
-            Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
-          </div>
-          {(fr.draftCapital.picks || []).length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {(fr.draftCapital.picks || []).map((p, i) => (
-                <span
-                  key={i}
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: "0.7rem",
-                    border: "1px solid var(--border)",
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    color: p.isTraded ? "var(--amber)" : "var(--text)",
-                  }}
-                >
-                  {p.label}{p.isTraded ? "*" : ""}
-                </span>
-              ))}
-            </div>
+          {draftOwnershipUnavailableReason(fr.draftCapital) ? (
+            <PickOwnershipUnavailableNote reason={draftOwnershipUnavailableReason(fr.draftCapital)} />
+          ) : (
+            <>
+              <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
+                Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
+              </div>
+              {(fr.draftCapital.picks || []).length > 0 && (
+                <PickChips picks={fr.draftCapital.picks} size="sm" />
+              )}
+            </>
           )}
-          <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 6 }}>
-            * acquired via trade ·{" "}
+          <PickChipsLegend>
+            {" "}·{" "}
             <Link href="/league?tab=draft" style={{ color: "var(--cyan)" }}>
               Full draft center →
             </Link>
-          </div>
+          </PickChipsLegend>
         </Card>
       )}
 

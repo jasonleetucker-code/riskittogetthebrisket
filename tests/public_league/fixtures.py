@@ -322,8 +322,13 @@ WINNERS_BRACKET_2024 = [
 ]
 
 
-def build_stub_client():
-    """Return a dict of functions overriding sleeper_client entry points."""
+def build_stub_client(*, traded_picks_unreadable: frozenset[str] = frozenset()):
+    """Return a dict of functions overriding sleeper_client entry points.
+
+    ``traded_picks_unreadable`` names league ids whose ``/traded_picks`` read
+    FAILS (the observed fetcher answers ``None``) — the case that must surface
+    as unknown pick ownership, never as "no trades".
+    """
     league_by_id = {"L2025": LEAGUE_2025, "L2024": LEAGUE_2024}
     users_by_id = {"L2025": USERS_2025, "L2024": USERS_2024}
     rosters_by_id = {"L2025": ROSTERS_2025, "L2024": ROSTERS_2024}
@@ -355,6 +360,9 @@ def build_stub_client():
         "fetch_drafts": lambda lid: drafts_by_id.get(lid, []),
         "fetch_draft_picks": lambda did: draft_picks_by_id.get(did, []),
         "fetch_traded_picks": lambda lid: traded_picks_by_id.get(lid, []),
+        "fetch_traded_picks_observed": lambda lid: (
+            None if lid in traded_picks_unreadable else traded_picks_by_id.get(lid, [])
+        ),
         "fetch_winners_bracket": lambda lid: winners_by_id.get(lid, []),
         "fetch_losers_bracket": lambda lid: [],
         "fetch_draft_detail": lambda did: None,

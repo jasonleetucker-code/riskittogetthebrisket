@@ -114,8 +114,11 @@ def _activity_counts(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, int]
     return out
 
 
-def _pick_weight_totals(snapshot: PublicLeagueSnapshot) -> dict[str, int]:
+def _pick_weight_totals(snapshot: PublicLeagueSnapshot) -> dict[str, int] | None:
+    """Weighted current pick score per owner; ``None`` when ownership is unknown."""
     ownership = _pick_ownership_map(snapshot)
+    if ownership is None:
+        return None
     return {
         owner_id: sum(pick_weight(p["round"]) for p in picks)
         for owner_id, picks in ownership.items()
@@ -153,7 +156,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "rookies": comp["rookies"],
                 "trades": activity.get(owner_id, {}).get("trades", 0),
                 "waivers": activity.get(owner_id, {}).get("waivers", 0),
-                "weightedPickScore": weighted.get(owner_id, 0),
+                "weightedPickScore": weighted.get(owner_id, 0) if weighted is not None else None,
                 "balanceScore": round(_balance_score(comp), 4),
             }
         )
@@ -161,34 +164,36 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     def _winner(ranked: list[dict[str, Any]]) -> dict[str, Any] | None:
         return ranked[0] if ranked else None
 
-    by_qb = _ranking(
-        rows, lambda r: r["qb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
+    # Unknown pick ownership: pick-based rankings are withheld and the pick
+    # tiebreak is not applied (``_ranking`` treats a ``None`` key as absent) —
+    # an unknown stockpile is never ranked as an empty one.
+    picks_known = weighted is not None
+    pick_tiebreak = (lambda r: r["weightedPickScore"]) if picks_known else None
+
+    by_qb = _ranking(rows, lambda r: r["qb"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_rb = _ranking(rows, lambda r: r["rb"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_wr = _ranking(rows, lambda r: r["wr"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_te = _ranking(rows, lambda r: r["te"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_idp = _ranking(rows, lambda r: r["idp"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_picks = (
+        _ranking(rows, lambda r: r["weightedPickScore"], lambda r: r["rosterSize"])
+        if picks_known
+        else []
     )
-    by_rb = _ranking(
-        rows, lambda r: r["rb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
-    )
-    by_wr = _ranking(
-        rows, lambda r: r["wr"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
-    )
-    by_te = _ranking(
-        rows, lambda r: r["te"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
-    )
-    by_idp = _ranking(
-        rows, lambda r: r["idp"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
-    )
-    by_picks = _ranking(rows, lambda r: r["weightedPickScore"], lambda r: r["rosterSize"])
-    by_rookies = _ranking(
-        rows, lambda r: r["rookies"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"]
-    )
+    by_rookies = _ranking(rows, lambda r: r["rookies"], lambda r: r["rosterSize"], pick_tiebreak)
     by_active = _ranking(
         rows, lambda r: r["trades"] + r["waivers"], lambda r: r["trades"], lambda r: r["waivers"]
     )
     # future-focused: pick-heavy + rookie-heavy blended
-    by_future = _ranking(
-        rows,
-        lambda r: r["weightedPickScore"] * 2 + r["rookies"],
-        lambda r: r["weightedPickScore"],
-        lambda r: r["rookies"],
+    by_future = (
+        _ranking(
+            rows,
+            lambda r: r["weightedPickScore"] * 2 + r["rookies"],
+            lambda r: r["weightedPickScore"],
+            lambda r: r["rookies"],
+        )
+        if picks_known
+        else []
     )
     # Most balanced is ASCENDING balance score (lower = more balanced).
     by_balanced = sorted(rows, key=lambda r: (r["balanceScore"], r["ownerId"]))
