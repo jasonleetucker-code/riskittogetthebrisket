@@ -5,6 +5,11 @@ Every definition, constant and the decision rule below is fixed by
 (committed before any outcome was computed). If this module and that document
 disagree, the document wins and this module is the defect.
 
+The rank-space Hampel challenger
+(``docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md``)
+inherits every definition here unchanged except the bootstrap seed (17), which
+is carried by ``EvaluationConfig.seed``.
+
 Pure functions over ledger records and observation panels; no I/O.
 """
 
@@ -366,7 +371,7 @@ def _ci(result: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def summarize_horizon(result: Mapping[str, Any]) -> dict[str, Any]:
+def summarize_horizon(result: Mapping[str, Any], *, seed: int = BOOTSTRAP_SEED) -> dict[str, Any]:
     obs: list[ObservationOutcome] = result["observations"]
     rows: list[RowOutcome] = result["rows"]
     by_side = {
@@ -380,16 +385,18 @@ def summarize_horizon(result: Mapping[str, Any]) -> dict[str, Any]:
             "n": len(units),
             "originDays": len({u.day for u in units}),
             "meanLeadShare": _ci(
-                block_bootstrap(units, _side_mean(side), block_of=lambda u: u.block)
+                block_bootstrap(units, _side_mean(side), block_of=lambda u: u.block, seed=seed)
             ),
             "classes": dict(sorted(classes.items())),
             "meanRetreatShare": _round(_mean(r_values)),
             "delisted": sum(1 for u in units if u.delisted),
         }
     judged = by_side[SIDE_RESCUED] + by_side[SIDE_REJECTED]
-    out["delta"] = _ci(block_bootstrap(judged, _delta, block_of=lambda u: u.block))
+    out["delta"] = _ci(block_bootstrap(judged, _delta, block_of=lambda u: u.block, seed=seed))
     out["g1"] = _ci(
-        block_bootstrap(rows, lambda us: _mean([u.g1 for u in us]), block_of=lambda u: u.block)
+        block_bootstrap(
+            rows, lambda us: _mean([u.g1 for u in us]), block_of=lambda u: u.block, seed=seed
+        )
     )
     persistence = [u for u in rows if u.g1_persistence is not None]
     out["g1PersistenceRelative"] = _ci(
@@ -397,6 +404,7 @@ def summarize_horizon(result: Mapping[str, Any]) -> dict[str, Any]:
             persistence,
             lambda us: _mean([u.g1_persistence for u in us]),
             block_of=lambda u: u.block,
+            seed=seed,
         )
     )
     out["g1Rows"] = len(rows)
@@ -477,6 +485,7 @@ class EvaluationConfig:
     asset_class: str | None = None
     ktc_split_only: bool = False
     require_same_fingerprint: bool = True
+    seed: int = BOOTSTRAP_SEED
     horizons: tuple[int, ...] = field(default=(PRIMARY_HORIZON, *SECONDARY_HORIZONS))
 
 
@@ -529,7 +538,7 @@ def evaluate(boards: Sequence[Board], config: EvaluationConfig | None = None) ->
                 ],
                 "rows": [u for u in result["rows"] if u.asset_class == cfg.asset_class],
             }
-        horizons[h] = summarize_horizon(result)
+        horizons[h] = summarize_horizon(result, seed=cfg.seed)
     primary = horizons.get(PRIMARY_HORIZON)
     decision = (
         decide(primary, {h: horizons[h] for h in SECONDARY_HORIZONS if h in horizons})

@@ -23,6 +23,15 @@ Subcommands:
                 broken-scale cases on real rows (function level and, with
                 ``--full-pipeline``, through the whole build).
 ``summary``     a compact per-board census for committing as evidence.
+``diagnostics`` the rank-space preregistration's §3 F1 diagnostics D1-D5 over
+                the ``f1Rows`` the rank-space backfill stores per board.
+
+``--challenger {joint,rank_space}`` selects the challenger (default ``joint``,
+byte-identical to the single-challenger recorder). Each challenger has its own
+preregistration, bootstrap seed and ledger directory (``rank_space`` defaults to
+``data/robust_filter_shadow_rank_space/``). ``rank_space`` is preregistered for
+the historical replay only, so ``record`` and ``adversarial`` refuse it (exit 1)
+-- its learning receipts would otherwise be filed under the joint filter.
 
 Learning receipts (AL-1a, ``src/model_registry/producer_receipts.py``): ``record``
 emits OBSERVATION / FEATURES / MODEL / CHALLENGER / one PREDICTION per filter for
@@ -162,7 +171,7 @@ def _league_snapshots() -> dict[str, str]:
     return {p.name: R.file_sha256(p) for p in sorted(leagues.glob("*.json"))}
 
 
-def _base_pins() -> dict[str, Any]:
+def _base_pins(challenger: str = R.CHALLENGER_JOINT) -> dict[str, Any]:
     from src.api import data_contract as dc  # noqa: PLC0415
     from src.api import feature_flags  # noqa: PLC0415
     from src.api import value_replay as vr  # noqa: PLC0415
@@ -172,10 +181,7 @@ def _base_pins() -> dict[str, Any]:
         "workingTreeDirty": vr._dirty(),
         "pipelineFingerprint": R.pipeline_fingerprint(REPO_ROOT),
         "flagsAtRecord": feature_flags.snapshot(),
-        "variants": {
-            "incumbent": {R.CHALLENGER_FLAG: False, R.SPARSE_FLAG: False},
-            "challenger": {R.CHALLENGER_FLAG: True, R.SPARSE_FLAG: False},
-        },
+        "variants": R.variant_flags(challenger),
         "hampel": {
             "k": dc._HAMPEL_K,
             "minN": dc._HAMPEL_MIN_N,
@@ -199,12 +205,20 @@ def record_board(
     pins: dict[str, Any],
     base: Path,
     csv_root: Path | None,
+    challenger_name: str = R.CHALLENGER_JOINT,
 ) -> tuple[dict[str, Any], bool] | None:
     """Build both variants, append the record, write the panel."""
-    incumbent, challenger = R.build_pair(raw, csv_root)
+    if challenger_name == R.CHALLENGER_JOINT:
+        incumbent, challenger = R.build_pair(raw, csv_root)
+    else:
+        incumbent, challenger = R.build_pair(raw, csv_root, challenger_name)
     if not (_check_contract(incumbent) and _check_contract(challenger)):
         return None
-    comparison = R.shadow_record(incumbent, challenger)
+    comparison = R.shadow_record(incumbent, challenger, challenger_kind=challenger_name)
+    if challenger_name == R.CHALLENGER_RANK_SPACE:
+        from src.robust_filter_shadow.f1_diagnostics import f1_rows  # noqa: PLC0415
+
+        comparison["f1Rows"] = f1_rows(incumbent, challenger)
     panel = R.observation_panel(incumbent)
     from src.api.data_contract import correlation_group_for  # noqa: PLC0415
 
@@ -219,7 +233,12 @@ def record_board(
         "boardHashChallenger": _board_hash(challenger),
     }
     rec = R.assemble_record(
-        mode=mode, board=board, pins=pins, comparison=comparison, recorded_at=_now()
+        mode=mode,
+        board=board,
+        pins=pins,
+        comparison=comparison,
+        recorded_at=_now(),
+        challenger=challenger_name,
     )
     path, _written_panel = L.write_panel(base, R.panel_identity(board, pins), panel)
     rec["panel"] = str(path.relative_to(base)).replace("\\", "/")
@@ -253,7 +272,20 @@ def newest_live_payload() -> tuple[Path, bytes, dict] | None:
     return None
 
 
+def _refuse_unregistered(args: argparse.Namespace, what: str) -> bool:
+    """True (and logged) when ``what`` is not preregistered for the challenger."""
+    if getattr(args, "challenger", R.CHALLENGER_JOINT) == R.CHALLENGER_JOINT:
+        return False
+    log(
+        f"{what} is not preregistered for challenger {args.challenger!r} "
+        "(historical replay only: backfill / evaluate / summary / diagnostics)"
+    )
+    return True
+
+
 def cmd_record(args: argparse.Namespace) -> int:
+    if _refuse_unregistered(args, "record"):
+        return 1
     found = newest_live_payload()
     if found is None:
         log("no payload under exports/latest or data/ -- nothing to record")
@@ -584,7 +616,8 @@ def cmd_backfill(args: argparse.Namespace) -> int:
             continue
         plan.append((cut, path, data, raw, site, completeness, commit))
     plan.sort(key=lambda item: item[0])
-    base_pins = _base_pins()
+    challenger = getattr(args, "challenger", R.CHALLENGER_JOINT)
+    base_pins = _base_pins() if challenger == R.CHALLENGER_JOINT else _base_pins(challenger)
     replayer = StateReplayer()
     written = skipped = 0
     try:
@@ -614,7 +647,13 @@ def cmd_backfill(args: argparse.Namespace) -> int:
                     "completeness": completeness,
                 }
                 result = record_board(
-                    raw, mode=R.MODE_REPLAY, board=board, pins=pins, base=args.dir, csv_root=root
+                    raw,
+                    mode=R.MODE_REPLAY,
+                    board=board,
+                    pins=pins,
+                    base=args.dir,
+                    csv_root=root,
+                    challenger_name=challenger,
                 )
             if result is None:
                 log(f"{path.name}: built contract had no playersArray")
@@ -664,28 +703,43 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     if not boards:
         log(f"no {args.mode} records with panels -- nothing to evaluate")
         return 1
+    challenger = getattr(args, "challenger", R.CHALLENGER_JOINT)
+    spec = R.challenger_spec(challenger)
+    seed = int(spec["bootstrapSeed"])
     result: dict[str, Any] = {
         "schema": f"{R.SCHEMA}/evaluation",
         "mode": args.mode,
         "label": R.LABELS[args.mode],
-        "preregistration": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md",
+        "preregistration": spec["preregistration"],
         "computedAt": _now(),
         "codeRevisions": sorted(
             {str((b.record.get("pins") or {}).get("codeRevision")) for b in boards}
         ),
-        "primary": O.evaluate(boards),
+        "primary": O.evaluate(boards, O.EvaluationConfig(seed=seed)),
     }
+    if challenger != R.CHALLENGER_JOINT:
+        result["challenger"] = challenger
+        result["challengerVersion"] = spec["version"]
+        result["bootstrapSeed"] = seed
     if getattr(args, "sensitivities", False):
         degraded = tuple(
             sorted({(b.record.get("board") or {}).get("completeness") for b in boards})
         )
         result["sensitivities"] = {
-            "S1_all_archives": O.evaluate(boards, O.EvaluationConfig(completeness=degraded)),
-            "S2_episode_dedupe": O.evaluate(boards, O.EvaluationConfig(episode_dedupe=True)),
-            "S3_offense": O.evaluate(boards, O.EvaluationConfig(asset_class="offense")),
-            "S3_idp": O.evaluate(boards, O.EvaluationConfig(asset_class="idp")),
-            "S4_ktc_split_era": O.evaluate(boards, O.EvaluationConfig(ktc_split_only=True)),
-            "S6_ktc_merged_targets": O.evaluate(boards, O.EvaluationConfig(merge_ktc=True)),
+            "S1_all_archives": O.evaluate(
+                boards, O.EvaluationConfig(completeness=degraded, seed=seed)
+            ),
+            "S2_episode_dedupe": O.evaluate(
+                boards, O.EvaluationConfig(episode_dedupe=True, seed=seed)
+            ),
+            "S3_offense": O.evaluate(boards, O.EvaluationConfig(asset_class="offense", seed=seed)),
+            "S3_idp": O.evaluate(boards, O.EvaluationConfig(asset_class="idp", seed=seed)),
+            "S4_ktc_split_era": O.evaluate(
+                boards, O.EvaluationConfig(ktc_split_only=True, seed=seed)
+            ),
+            "S6_ktc_merged_targets": O.evaluate(
+                boards, O.EvaluationConfig(merge_ktc=True, seed=seed)
+            ),
         }
     out = args.out or (args.dir / f"evaluation_{args.mode}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -742,8 +796,55 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_diagnostics(args: argparse.Namespace) -> int:
+    """§3 F1 diagnostics D1-D5 over the ``f1Rows`` of the ledger's records."""
+    from src.robust_filter_shadow import f1_diagnostics as F  # noqa: PLC0415
+
+    seen: dict[Any, dict] = {}
+    for rec in L.iter_records(L.ledger_path(args.dir)):
+        if rec.get("mode") == args.mode and isinstance(rec.get("f1Rows"), dict):
+            seen[(rec.get("board") or {}).get("payloadSha256")] = rec
+    records = sorted(
+        seen.values(), key=lambda r: str((r.get("board") or {}).get("scrapeTimestamp"))
+    )
+    if not records:
+        log(f"no {args.mode} records carrying f1Rows -- nothing to diagnose")
+        return 1
+    complete = [r for r in records if (r.get("board") or {}).get("completeness") == "complete"]
+    newest = complete[-1] if complete else records[-1]
+
+    def board_name(rec: dict) -> str:
+        return str(
+            (rec.get("board") or {}).get("archive") or (rec.get("board") or {}).get("source")
+        )
+
+    payload = {
+        "schema": f"{R.SCHEMA}/f1-diagnostics",
+        "mode": args.mode,
+        "label": R.LABELS[args.mode],
+        "preregistration": R.challenger_spec(getattr(args, "challenger", R.CHALLENGER_JOINT))[
+            "preregistration"
+        ],
+        "codeRevisions": sorted({str((r.get("pins") or {}).get("codeRevision")) for r in records}),
+        "completeBoards": F.aggregate([r["f1Rows"] for r in complete]),
+        "newestCompleteBoard": {
+            "board": board_name(newest),
+            **F.aggregate([newest["f1Rows"]]),
+        },
+        "allBoards": F.aggregate([r["f1Rows"] for r in records]),
+    }
+    out = args.out or (args.dir / f"diagnostics_{args.mode}.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    log(f"diagnostics over {len(complete)} complete / {len(records)} boards -> {out}")
+    return 0
+
+
 def cmd_adversarial(args: argparse.Namespace) -> int:
     from src.robust_filter_shadow import adversarial as A  # noqa: PLC0415
+
+    if _refuse_unregistered(args, "adversarial"):
+        return 1
 
     archives = list(iter_archives(False))
     if not archives:
@@ -775,7 +876,18 @@ def cmd_adversarial(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     os.environ.setdefault("PYTHONUTF8", "1")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--dir", type=Path, default=L.DEFAULT_DIR, help="ledger directory")
+    parser.add_argument(
+        "--dir",
+        type=Path,
+        default=None,
+        help="ledger directory (default: the challenger's own, see --challenger)",
+    )
+    parser.add_argument(
+        "--challenger",
+        default=R.CHALLENGER_JOINT,
+        choices=sorted(R.CHALLENGERS),
+        help="which challenger the ledger records (default: joint)",
+    )
     parser.add_argument(
         "--learning-store",
         type=Path,
@@ -800,15 +912,21 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("summary")
     p.add_argument("--mode", default=R.MODE_REPLAY, choices=sorted(R.LABELS))
     p.add_argument("--out", type=Path)
+    p = sub.add_parser("diagnostics")
+    p.add_argument("--mode", default=R.MODE_REPLAY, choices=sorted(R.LABELS))
+    p.add_argument("--out", type=Path)
     p = sub.add_parser("adversarial")
     p.add_argument("--full-pipeline", action="store_true")
     p.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
+    if args.dir is None:
+        args.dir = L.challenger_dir(args.challenger)
     handlers = {
         "record": cmd_record,
         "backfill": cmd_backfill,
         "evaluate": cmd_evaluate,
         "summary": cmd_summary,
+        "diagnostics": cmd_diagnostics,
         "adversarial": cmd_adversarial,
     }
     try:
