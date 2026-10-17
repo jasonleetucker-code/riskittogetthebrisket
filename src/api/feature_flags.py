@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-21 of the 40 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 41 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -17,8 +17,8 @@ end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
 ``signals_active_source``, ``dlf_offense_only_vote``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
-``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates`` and
-``trade_screenshot_import`` — several with comments
+``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
+``trade_screenshot_import`` and ``manager_intelligence`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -449,6 +449,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # the status endpoint reports ``enabled: false``.
     # Rollback: RISKIT_FEATURE_TRADE_SCREENSHOT_IMPORT=0 + restart.
     "trade_screenshot_import": True,
+    # Manager Intelligence (owner directive 2026-10-16): ``GET
+    # /api/manager-intel/profile`` resolves any Sleeper username and
+    # aggregates that manager's league rosters into one player portfolio,
+    # priced by the canonical board.  Private (signed-in users only),
+    # rate-limited, read-only, writes nothing.  Default ON: the owner
+    # confirmed 2026-10-17 the site is non-commercial, so Sleeper's free
+    # public API terms apply.  Off → 503 feature_disabled and the nav item
+    # disappears.  Rollback: RISKIT_FEATURE_MANAGER_INTELLIGENCE=0 + restart.
+    "manager_intelligence": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -745,6 +754,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # trade_screenshot_import gates /api/trade/import-screenshot inline in
     # server.py: off → 404 feature_disabled, on → the extraction payload.
     "trade_screenshot_import": LIVE,
+    # manager_intelligence gates the /api/manager-intel router mounted in
+    # server.py: off → 503 feature_disabled, on → the profile.
+    "manager_intelligence": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,

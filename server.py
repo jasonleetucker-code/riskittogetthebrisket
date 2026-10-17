@@ -4088,6 +4088,18 @@ _manager_scout_api.configure(
 )
 app.include_router(_manager_scout_api.router)
 
+# Manager Intelligence (owner directive 2026-10-16): PRIVATE lookup of any
+# Sleeper username -> leagues + aggregated player portfolio, priced by the
+# canonical board.  /api/manager-intel stays behind ``_private_api_gate``;
+# guest passes refused; rate-limited per user.  Read-only.
+from src.intel import manager_intel_api as _manager_intel_api  # noqa: E402
+
+_manager_intel_api.configure(
+    session_provider=lambda request: _get_auth_session(request),
+    contract_provider=lambda: latest_contract_data,
+)
+app.include_router(_manager_intel_api.router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):
@@ -15460,11 +15472,18 @@ def _consensus_edge_available() -> bool:
     return is_available()
 
 
+def _manager_intelligence_available() -> bool:
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("manager_intelligence")
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
     # thing the adminOnly Ops filter exists to prevent.
     "consensusEdge": _consensus_edge_available,
+    "managerIntelligence": _manager_intelligence_available,
 }
 
 

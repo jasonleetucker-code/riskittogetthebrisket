@@ -103,6 +103,7 @@ const ROUTES = [
   "/intel",
   "/league-comparison",
   "/league/insider-trading",
+  "/managers",
   "/market/sharp-people",
   "/market/sharp-roster-percentage",
   "/market/sharp-tracker",

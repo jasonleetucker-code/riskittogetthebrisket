@@ -1,0 +1,189 @@
+/* Manager Intelligence — PSI editorial structure (Direction A, Lane 6).
+   Tokens only; thin rules separate regions; no cards, pills, radii or
+   shadows.  Unknown values are text ("—"), never colour alone. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  /* Same full-bleed paint as /market/trade-database: .psi-editorial scopes
+     the editorial tokens but does not repaint the section. */
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(
+        -1 *
+          (
+            var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) +
+              var(--space-md)
+          )
+      );
+    padding: var(--space-sm) var(--space-sm)
+      calc(
+        var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)
+      );
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+.search,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.search > *:first-child {
+  flex: 1 1 14rem;
+}
+
+.filters {
+  margin-bottom: var(--space-3);
+}
+
+.recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.recent ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.chip {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-strong);
+  padding: 0 0 var(--space-1);
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.chip:focus-visible,
+.expand:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+
+.identity {
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--space-3);
+}
+
+.identity h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xl, 1.4rem);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--space-3);
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-3) 0;
+}
+
+.playerCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.expand {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  width: 1.4rem;
+  height: 1.4rem;
+  line-height: 1;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  flex: none;
+}
+
+.detailRow td {
+  background: var(--surface-1, transparent);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.detailList,
+.leagueList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.detailList li,
+.leagueList li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+}
+
+.leagueList li + li {
+  border-top: 1px solid var(--border-default);
+}
+
+.leagueName {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.about {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.about summary {
+  cursor: pointer;
+}
