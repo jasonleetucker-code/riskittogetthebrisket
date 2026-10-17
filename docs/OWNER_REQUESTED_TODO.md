@@ -1747,6 +1747,25 @@ functional benchmark only: no copied code, branding or interface assets, no payw
 | Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
 | Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
 
+## Added 2026-10-17 — Trade Calculator completion: audit, redesign, unified YES/NO decision engine
+
+Owner master directive 2026-10-17 ("MASTER AUDIT, REDESIGN & COMPLETION DIRECTIVE — The Ultimate Dynasty Trade
+Calculator") plus the owner's queue instruction: **added to the current active implementation queue**, not a separate
+project. In-flight work (injury-aware simulations, IDP rehabilitation, geometric VA activation, Manager Intelligence,
+draft-pick ownership) keeps its order. Workstream, batches, dependencies and completion criteria:
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`.
+
+| Item | Disposition |
+|---|---|
+| Audit every Trade Calculator requirement ever discussed into one durable feature matrix with implementation / CI / merge / deploy / production-verification states kept distinct | DECIDED — binding (directive) |
+| Competitive research of leading trade calculators from public, permitted evidence only, leading to adopted and avoided patterns | DECIDED — binding (directive) |
+| Redesign `/trade`'s information architecture (builder → immediate result → final decision → supporting intelligence → advanced tools) with genuine desktop and mobile parity, PSI Direction A | DECIDED — binding (directive) |
+| One authoritative decision engine, extended in place, giving **YES — MAKE THE TRADE / NO — DO NOT MAKE THE TRADE** with confidence, primary reason, supporting factors, main counterargument and what would change it; when essential evidence is missing it says no reliable recommendation can be made. Refines `C7-DESK-01`'s five-level MAKE…PASS headline into the binary headline plus an honest insufficient-evidence state | DECIDED — owner, 2026-10-17 |
+| Personalized, not arbitrary: objective package value, personal roster benefit, strategic fit (win-now / balanced / rebuild; an inferred posture shown and adjustable) and feasibility stay separate explainable components; no invented weights; no double counting (independent / correlated / contextual / explanatory evidence classes) | DECIDED — binding (directive) |
+| All package math through the active model (`geom_q078_v1`, q = 0.78, once #1771 is deployed); KTC stays as the named rollback / historical comparison; KTC-calibrated thresholds re-evaluated or labelled provisional | DECIDED — binding (directive) |
+| Not authorized by it: changing q or the package model, promoting experimental models, League Tycoon contract features, purchases; merges, deploys and promotions keep their gates | DECIDED — binding (directive) |
+| Implementation | IN PROGRESS — TC-0 audit + research lane `claude/trade-calculator-completion`; TC-A…TC-F queued by dependency |
+
 ## Added 2026-10-17 — League Tycoon migration research (owner research directive)
 
 Owner master research prompt, 2026-10-17: determine exactly what it would take for this Calculator to keep full
