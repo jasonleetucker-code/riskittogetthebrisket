@@ -37,6 +37,26 @@ export function TradeMeterEmpty() {
   );
 }
 
+/**
+ * "Incomplete — no verdict" (TC-A, MISSING IS NEVER ZERO).  An unpriced asset
+ * adds 0 to a side's total as an arithmetic neutral; a band, a share bar or a
+ * "% more" computed over that 0 would grade a trade nobody has valued.
+ */
+export function TradeMeterIncomplete({ unpriced, sides }) {
+  const names = (unpriced || [])
+    .map((u) => `${u.name} (Side ${sides?.[u.side]?.label || "ABCDE"[u.side] || "?"})`)
+    .join(", ");
+  return (
+    <div className="trade-meter-bottom" data-trade-state={TRADE_EVAL_STATE.INCOMPLETE}>
+      <span className="trade-meter-verdict">INCOMPLETE</span>
+      <span className="trade-meter-pct">
+        No verdict: {unpriced.length} unpriced asset{unpriced.length === 1 ? "" : "s"} —{" "}
+        {names}. Unknown is not worth 0; type a value on the row to price it.
+      </span>
+    </div>
+  );
+}
+
 export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false }) {
   const sideCount = sides.length;
   if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
@@ -59,9 +79,11 @@ export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false
  * leaves it off and keeps its original wording.
  */
 export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
-  if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
+  const evalState = tradeEvaluationState(sides);
+  if (evalState.state === TRADE_EVAL_STATE.EMPTY) {
     return <TradeMeterEmpty />;
   }
+  const incomplete = evalState.state === TRADE_EVAL_STATE.INCOMPLETE;
   const pwA = sideTotals[0]?.adjusted || 0;
   const pwB = sideTotals[1]?.adjusted || 0;
   const gap = pwA - pwB;
@@ -98,37 +120,45 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
         <span className="trade-meter-side-val">{Math.round(pwA).toLocaleString()}</span>
         <span className="trade-meter-vs">vs</span>
         <span className="trade-meter-side-val">{Math.round(pwB).toLocaleString()}</span>
-        <span className="trade-meter-gap">Gap: {Math.round(absGap).toLocaleString()}</span>
-      </div>
-
-      {/* Horizontal balance bar */}
-      <div className="trade-meter-bar">
-        <div
-          className="trade-meter-fill trade-meter-fill-a"
-          style={{ width: `${shareA}%` }}
-        />
-        <div
-          className="trade-meter-fill trade-meter-fill-b"
-          style={{ width: `${shareB}%` }}
-        />
-        <div className="trade-meter-center" />
-      </div>
-      <div className="trade-meter-bar-labels">
-        <span className="muted" style={{ fontSize: "0.66rem" }}>
-          {sides[0]?.label ? `Side ${sides[0].label}` : "Side A"}
-        </span>
-        <span className="muted" style={{ fontSize: "0.66rem" }}>
-          {sides[1]?.label ? `Side ${sides[1].label}` : "Side B"}
+        <span className="trade-meter-gap">
+          {incomplete ? "Gap: not computed" : `Gap: ${Math.round(absGap).toLocaleString()}`}
         </span>
       </div>
 
-      {/* Verdict badge + percentage */}
-      <div className="trade-meter-bottom">
-        <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
-          {verdict.label}
-        </span>
-        <span className="trade-meter-pct">{winnerText}</span>
-      </div>
+      {incomplete ? (
+        <TradeMeterIncomplete unpriced={evalState.unpriced} sides={sides} />
+      ) : (
+        <>
+          {/* Horizontal balance bar */}
+          <div className="trade-meter-bar">
+            <div
+              className="trade-meter-fill trade-meter-fill-a"
+              style={{ width: `${shareA}%` }}
+            />
+            <div
+              className="trade-meter-fill trade-meter-fill-b"
+              style={{ width: `${shareB}%` }}
+            />
+            <div className="trade-meter-center" />
+          </div>
+          <div className="trade-meter-bar-labels">
+            <span className="muted" style={{ fontSize: "0.66rem" }}>
+              {sides[0]?.label ? `Side ${sides[0].label}` : "Side A"}
+            </span>
+            <span className="muted" style={{ fontSize: "0.66rem" }}>
+              {sides[1]?.label ? `Side ${sides[1].label}` : "Side B"}
+            </span>
+          </div>
+
+          {/* Verdict badge + percentage */}
+          <div className="trade-meter-bottom">
+            <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
+              {verdict.label}
+            </span>
+            <span className="trade-meter-pct">{winnerText}</span>
+          </div>
+        </>
+      )}
 
       {/* Monte Carlo simulator — renders nothing when flag off, a
           button when flag on and trade has assets, or a "flag off"
@@ -142,6 +172,15 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
 }
 
 export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
+  const evalState = tradeEvaluationState(sides);
+  if (evalState.state === TRADE_EVAL_STATE.EMPTY) return <TradeMeterEmpty />;
+  if (evalState.state === TRADE_EVAL_STATE.INCOMPLETE) {
+    return (
+      <div className="trade-meter">
+        <TradeMeterIncomplete unpriced={evalState.unpriced} sides={sides} />
+      </div>
+    );
+  }
   // In 3+-team trades the fairness story is per-side NET (received −
   // given), not the sum-of-totals share used by ``multiTeamAnalysis``.
   // A side that gives away a 9000-value QB and receives a 9000-value

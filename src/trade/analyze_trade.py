@@ -190,14 +190,32 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
     """Canonical package values + the active package VA.  Calls the owner directly."""
     receiving = simulation.get("receiving") or []
     sending = simulation.get("sending") or []
-    sending_values = [a["value"] for a in sending if a.get("value") is not None]
-    receiving_values = [a["value"] for a in receiving if a.get("value") is not None]
+
+    # MISSING IS NEVER ZERO (TC-A): a board row the canonical pipeline
+    # declined to price resolves with ``value`` None or 0.  It is not an asset
+    # worth nothing, so it never enters the package math as a 0 -- and it is
+    # never dropped silently either: it is named in ``unpricedIn`` /
+    # ``unpricedOut`` and in the uncertainty list (which caps confidence).
+    def _priced(a: dict[str, Any]) -> bool:
+        v = a.get("value")
+        return isinstance(v, (int, float)) and v > 0
+
+    def _name(a: dict[str, Any]) -> str:
+        return str(a.get("name") or a.get("sourceLabel") or "")
+
+    sending_values = [a["value"] for a in sending if _priced(a)]
+    receiving_values = [a["value"] for a in receiving if _priced(a)]
+    unpriced_in = [_name(a) for a in receiving if not _priced(a)]
+    unpriced_out = [_name(a) for a in sending if not _priced(a)]
     if not sending_values and not receiving_values:
         return DimensionResult(
             name="equity",
             available=False,
             unavailable_reason="no_priced_assets_either_side",
             lineage=LINEAGE_CANONICAL_VALUE,
+            detail={"unpricedIn": unpriced_in, "unpricedOut": unpriced_out}
+            if unpriced_in or unpriced_out
+            else {},
         )
     verdict = equity_verdict(sending_values, receiving_values)
     return DimensionResult(
@@ -219,6 +237,16 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "packageModel": package_model.receipt(),
             "unresolvedIn": list(simulation.get("unresolvedIn") or []),
             "unresolvedOut": list(simulation.get("unresolvedOut") or []),
+            # On the board but unpriced: excluded from the package math above
+            # (never counted as 0) and reported here.
+            "unpricedIn": unpriced_in,
+            "unpricedOut": unpriced_out,
+            "incomplete": bool(
+                unpriced_in
+                or unpriced_out
+                or simulation.get("unresolvedIn")
+                or simulation.get("unresolvedOut")
+            ),
             # Wave A: owned picks this team does not hold are reported by
             # the simulator and left out of ``sending`` -- named here so the
             # explanation can say why they are not counted.
@@ -793,6 +821,15 @@ def _uncertainty(
     ]
     if unresolved:
         out.append("Not on the board, so not priced: " + ", ".join(unresolved))
+    unpriced = [
+        *((market.detail or {}).get("unpricedIn") or []),
+        *((market.detail or {}).get("unpricedOut") or []),
+    ]
+    if unpriced:
+        out.append(
+            "On the board but unpriced — unknown, not worth 0, so left out of the "
+            "package math: " + ", ".join(unpriced)
+        )
     hypothetical = (market.detail or {}).get("hypotheticalPicksOut") or []
     if hypothetical:
         out.append(

@@ -123,6 +123,30 @@ export function validAnalyzePayload(
   return true;
 }
 
+/**
+ * Every traded asset the analysis could not price, by name: not on the board
+ * (``unresolvedIn/Out``) or on it but unpriced (``unpricedIn/Out``, TC-A).
+ * The market lens leaves them out of the package math -- never as 0 -- and
+ * the War Room must say so rather than drop them silently.
+ */
+export function notPricedNames(analysis, payload) {
+  const market = analysis?.lenses?.market?.detail || {};
+  const out = [];
+  const add = (xs) => {
+    for (const x of xs || []) {
+      const n = String(x || "").trim();
+      if (n && !out.includes(n)) out.push(n);
+    }
+  };
+  add(payload?.unresolvedIn);
+  add(payload?.unresolvedOut);
+  add(market.unresolvedIn);
+  add(market.unresolvedOut);
+  add(market.unpricedIn);
+  add(market.unpricedOut);
+  return out;
+}
+
 // ── Formatting ───────────────────────────────────────────────────────────
 
 export function formatSignedPpg(value) {

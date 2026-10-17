@@ -28,8 +28,9 @@ export default function TradeVerdictHelpBody() {
         Every asset counts its canonical board value — the same 1–9,999
         number Rankings shows. A side&apos;s <strong>Raw</strong> total is the
         plain sum of those values, before Value Adjustment. An asset the board
-        does not price adds 0 to the sum and the side is marked
-        &quot;Incomplete&quot; — that means unknown, not worthless.
+        does not price is unknown, not worthless: its side is marked
+        &quot;Incomplete&quot; and no verdict is given until it is priced (type
+        a value on its row to price it yourself).
       </p>
 
       <h3>Value Adjustment</h3>

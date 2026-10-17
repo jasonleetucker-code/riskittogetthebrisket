@@ -49,6 +49,7 @@ import {
   formatSignedValue,
   formatValue,
   comparablesSummary,
+  notPricedNames,
   postureSummary,
   rosterImpactRows,
   simulatedWeeksLabel,
@@ -335,6 +336,7 @@ function Details({ analysis, raw }) {
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
   const comps = comparablesSummary(analysis.lenses?.comparables);
+  const notPriced = notPricedNames(analysis, raw);
   return (
     <CollapsiblePanel
       title="How this was decided"
@@ -466,13 +468,12 @@ function Details({ analysis, raw }) {
             ))}
           </ul>
         </section>
-        {raw?.unresolvedIn?.length || raw?.unresolvedOut?.length ? (
+        {notPriced.length ? (
           <section>
             <h4 className={styles.detailsTitle}>Not priced</h4>
-            <p>
-              {[...(raw.unresolvedIn || []), ...(raw.unresolvedOut || [])].join(
-                ", ",
-              )}
+            <p data-testid="war-room-not-priced">
+              {notPriced.join(", ")} — unknown, not worth 0, so left out of
+              the package math.
             </p>
           </section>
         ) : null}

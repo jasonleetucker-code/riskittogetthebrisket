@@ -926,6 +926,9 @@ export default function TradePage() {
   // Can the headline speak at all?  Empty → no verdict anywhere (P0-6).
   const evalState = useMemo(() => tradeEvaluationState(sidesWithOverrides), [sidesWithOverrides]);
   const tradeIsEmpty = evalState.state === TRADE_EVAL_STATE.EMPTY;
+  // An unpriced asset adds 0 to its side as an arithmetic neutral; no band,
+  // gap verdict or balancer is computed over that 0 (MISSING IS NEVER ZERO).
+  const tradeIsIncomplete = evalState.state === TRADE_EVAL_STATE.INCOMPLETE;
 
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
   const pwTotalA = sideTotals[0]?.adjusted || 0;
@@ -991,6 +994,7 @@ export default function TradePage() {
 
   const balancers = useMemo(() => {
     if (sides.length !== 2) return { list: [], teamName: null };
+    if (tradeIsIncomplete) return { list: [], teamName: null };
     if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
     // Behind side = the one whose total is LOWER.
     const behindSideIdx = pwGap > 0 ? 1 : 0;
@@ -1007,6 +1011,7 @@ export default function TradePage() {
     return { list, teamName };
   }, [
     pwGap,
+    tradeIsIncomplete,
     sides,
     sidesWithOverrides,
     settings,
@@ -1024,6 +1029,7 @@ export default function TradePage() {
   // question entirely.
   const multiBalancers = useMemo(() => {
     if (sides.length <= 2) return null;
+    if (tradeIsIncomplete) return null;
     const nets = sideFlows.map((f) => f.net);
     const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
     const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
@@ -1049,6 +1055,7 @@ export default function TradePage() {
     };
   }, [
     sides,
+    tradeIsIncomplete,
     sidesWithOverrides,
     sideFlows,
     settings,
@@ -2348,7 +2355,9 @@ export default function TradePage() {
           {/* The plain-English reading of the meter above — it explains
               the verdict, so it belongs with it rather than folded away
               among the alternative-currency second opinions. */}
-          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
+          {tradeIsIncomplete ? null : (
+            <TradeFairnessExplanation sides={sidesWithOverrides} sideTotals={sideTotals} />
+          )}
 
           {/* ── SECOND OPINIONS ──────────────────────────────────
               Panels that each re-answer "is this fair?" in a different
@@ -2456,7 +2465,7 @@ export default function TradePage() {
                   {/* Verdict bar: marker position is layout math from
                       verdictBarPosition(), the same helper the pre-R4
                       tray used. */}
-                  {tradeIsEmpty ? null : (
+                  {tradeIsEmpty || tradeIsIncomplete ? null : (
                     <div className={styles.verdictTrack} aria-hidden="true">
                       <div className={styles.verdictField} />
                       <div
@@ -2479,6 +2488,10 @@ export default function TradePage() {
                   {tradeIsEmpty ? (
                     <div className="verdict" data-trade-state={evalState.state}>
                       Add assets to compare
+                    </div>
+                  ) : tradeIsIncomplete ? (
+                    <div className="verdict" data-trade-state={evalState.state}>
+                      Incomplete — {evalState.unpriced.length} unpriced, no verdict
                     </div>
                   ) : (
                     <>

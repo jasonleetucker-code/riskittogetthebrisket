@@ -52,3 +52,72 @@ describe("empty trade", () => {
     expect(tray).toMatch(/Add assets to compare/);
   });
 });
+
+describe("incomplete trade (an unpriced asset) — no verdict over a 0", () => {
+  const priced = (name, v) => ({ name, rankDerivedValue: v, values: { full: v } });
+  const ghost = (name) => ({ name, rankDerivedValue: null, values: { full: 0 } });
+  const sides = (a, b) => [
+    { id: 0, label: "A", assets: a },
+    { id: 1, label: "B", assets: b },
+  ];
+
+  it("is classified incomplete and names the unpriced asset by side", () => {
+    const st = tradeEvaluationState(sides([priced("Star", 6000)], [ghost("Ghost Rookie")]));
+    expect(st.state).toBe(TRADE_EVAL_STATE.INCOMPLETE);
+    expect(st.unpriced).toEqual([{ side: 1, name: "Ghost Rookie" }]);
+  });
+
+  it("a user override prices the row and completes the trade", () => {
+    const st = tradeEvaluationState(
+      sides([priced("Star", 6000)], [{ ...ghost("Ghost Rookie"), customValue: 1200 }]),
+    );
+    expect(st.state).toBe(TRADE_EVAL_STATE.COMPLETE);
+  });
+
+  it("the meter shows INCOMPLETE and no band, gap or winner text", () => {
+    render(
+      <TradeMeter
+        sides={sides([priced("Star", 6000)], [ghost("Ghost Rookie")])}
+        sideTotals={[{ adjusted: 6000 }, { adjusted: 0 }]}
+        sidesSend
+      />,
+    );
+    expect(screen.getByText("INCOMPLETE")).toBeTruthy();
+    expect(screen.getByText(/Ghost Rookie \(Side B\)/)).toBeTruthy();
+    expect(screen.queryByText(/LOPSIDED|FAIR|SLIGHT EDGE|UNFAIR/)).toBeNull();
+    expect(screen.queryByText(/worth \d+% more/)).toBeNull();
+    expect(screen.getByText("Gap: not computed")).toBeTruthy();
+    expect(document.querySelector(".trade-meter-bar")).toBeNull();
+  });
+
+  it("the multi-team meter refuses too", () => {
+    render(
+      <TradeMeter
+        sides={[...sides([priced("Star", 6000)], [ghost("Ghost")]), { id: 2, label: "C", assets: [priced("X", 100)] }]}
+        sideTotals={zeroTotals(3)}
+        flows={zeroTotals(3)}
+      />,
+    );
+    expect(screen.getByText("INCOMPLETE")).toBeTruthy();
+  });
+
+  it("the page's tray, balancers and explanation are gated on it", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(path.resolve(__dirname, "../../app/trade/page.jsx"), "utf8");
+    expect(src).toMatch(/if \(tradeIsIncomplete\) return \{ list: \[\], teamName: null \};/);
+    expect(src).toMatch(/if \(tradeIsIncomplete\) return null;/);
+    expect(src).toMatch(/Incomplete — \{evalState\.unpriced\.length\} unpriced, no verdict/);
+    expect(src).toMatch(/tradeIsIncomplete \? null : \(\s*<TradeFairnessExplanation/);
+  });
+});
+
+describe("War Room names every unpriced asset", () => {
+  it("collects not-on-board and on-board-unpriced names once each", async () => {
+    const { notPricedNames } = await import("@/lib/trade-war-room");
+    const analysis = {
+      lenses: { market: { detail: { unpricedIn: ["Ghost"], unresolvedOut: ["Typo Name"] } } },
+    };
+    expect(notPricedNames(analysis, { unresolvedOut: ["Typo Name"] })).toEqual(["Typo Name", "Ghost"]);
+  });
+});
