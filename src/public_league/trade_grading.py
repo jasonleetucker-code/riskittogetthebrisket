@@ -65,13 +65,18 @@ def grade_from_pct(pct: float, is_winner: bool) -> dict[str, str]:
     """
     if pct < _GRADE_PCT_FAIR:
         return {"grade": "A", "color": "var(--green)", "label": "Fair trade"}
+    # Letters are MONOTONE in the margin (TC-A, 2026-10-17): a bigger win
+    # never earns a lower letter, a bigger overpay never a higher one.  The
+    # winner letters used to run A, A, A-, B+, A+ (a Clear win below a Slight
+    # win; B+ meaning both "Clear win" and "Slight overpay").  Cut points are
+    # unchanged (PRIOR, owner recalibration pending).
     if is_winner:
         if pct < _GRADE_PCT_SLIGHT:
             return {"grade": "A", "color": "var(--green)", "label": "Slight win"}
         if pct < _GRADE_PCT_GOOD:
-            return {"grade": "A-", "color": "var(--green)", "label": "Good win"}
+            return {"grade": "A", "color": "var(--green)", "label": "Good win"}
         if pct < _GRADE_PCT_CLEAR:
-            return {"grade": "B+", "color": "#2ecc71", "label": "Clear win"}
+            return {"grade": "A+", "color": "#00ff88", "label": "Clear win"}
         return {"grade": "A+", "color": "#00ff88", "label": "Big win"}
     if pct < _GRADE_PCT_SLIGHT:
         return {"grade": "B+", "color": "#2ecc71", "label": "Slight overpay"}

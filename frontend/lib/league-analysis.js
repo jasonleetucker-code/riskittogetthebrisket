@@ -84,12 +84,18 @@ export function filterTradesToRollingWindow(trades, windowDays = 365) {
 }
 
 // ── Trade Grading ───────────────────────────────────────────────────────
+// Letters are MONOTONE in the margin (TC-A, 2026-10-17): a bigger win never
+// earns a lower letter, a bigger overpay never a higher one.  The winner
+// letters used to run A, A, A-, B+, A+ -- a Clear win graded below a Slight
+// win, and B+ meant both "Clear win" and "Slight overpay".  Cut points are
+// unchanged (PRIOR, owner recalibration pending).  Twin:
+// src/public_league/trade_grading.py::grade_from_pct.
 export function gradeTradeHistorySide(pct, isWinner) {
   if (pct < 3) return { grade: "A", color: "var(--green)", label: "Fair trade" };
   if (isWinner) {
     if (pct < 8) return { grade: "A", color: "var(--green)", label: "Slight win" };
-    if (pct < 15) return { grade: "A-", color: "var(--green)", label: "Good win" };
-    if (pct < 25) return { grade: "B+", color: "#2ecc71", label: "Clear win" };
+    if (pct < 15) return { grade: "A", color: "var(--green)", label: "Good win" };
+    if (pct < 25) return { grade: "A+", color: "#00ff88", label: "Clear win" };
     return { grade: "A+", color: "#00ff88", label: "Big win" };
   }
   if (pct < 8) return { grade: "B+", color: "#2ecc71", label: "Slight overpay" };
