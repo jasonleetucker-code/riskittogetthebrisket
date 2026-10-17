@@ -520,9 +520,9 @@ export function ktcAdjustPackage(team1Vals, team2Vals, opts = {}) {
 // tests/valuation_math/test_package_model.py — promoting a challenger changes
 // both in one PR, and only with the owner's explicit approval.
 //
-// * ktc_2026_04 — incumbent: ktcAdjustPackage above, unchanged (its known
+// * ktc_2026_04 — rollback: ktcAdjustPackage above, unchanged (its known
 //   non-monotone cases are pinned as KNOWN_DEFECT in trade-logic.test.js).
-// * geom_q078_v1 — SHADOW challenger: sorted package utility
+// * geom_q078_v1 — owner-approved ACTIVE (2026-10-17): sorted package utility
 //   U = sum q^(i-1) * v_i (q = 0.78, a PRIOR), shown as a positive-only
 //   adjustment to the side that discarded less depth, so
 //   adjustedA - adjustedB === U_A - U_B (up to integer rounding).
@@ -538,19 +538,19 @@ export const PACKAGE_MODELS = Object.freeze({
     family: "ktc",
     version: "2026-04",
     label: "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-    classification: "INCUMBENT",
+    classification: "FALLBACK",
   }),
   [PACKAGE_MODEL_IDS.GEOM_Q078_V1]: Object.freeze({
     id: PACKAGE_MODEL_IDS.GEOM_Q078_V1,
     family: "geom",
     version: "1",
     q: 0.78,
-    label: "Sorted package utility, q = 0.78 (shadow challenger)",
-    classification: "PRIOR",
+    label: "Geometric Value Adjustment (q = 0.78)",
+    classification: "ACTIVE",
   }),
 });
 
-export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS.KTC_2026_04;
+export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS.GEOM_Q078_V1;
 
 export function packageModelReceipt(modelId = ACTIVE_PACKAGE_MODEL_ID) {
   const spec = PACKAGE_MODELS[modelId];
