@@ -17,7 +17,7 @@ from typing import Any
 
 from . import metrics
 from .rivalries import build_section as build_rivalries
-from .draft import weighted_stockpile_for_owner
+from .draft import pick_inventory, weighted_stockpile_for_owner
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
@@ -252,9 +252,12 @@ def build_section(
     detail: dict[str, dict[str, Any]] = {}
     index: list[dict[str, Any]] = []
 
+    # One canonical fold for every franchise — the same inventory the Draft
+    # tab publishes, so the two can never disagree.
+    inventory = pick_inventory(snapshot)
     for owner_id, manager in snapshot.managers.by_owner_id.items():
         cum = cumulative.get(owner_id, {})
-        capital = weighted_stockpile_for_owner(snapshot, owner_id)
+        capital = weighted_stockpile_for_owner(snapshot, owner_id, inventory=inventory)
         fr = {
             **manager.to_public_dict(),
             "cumulative": {

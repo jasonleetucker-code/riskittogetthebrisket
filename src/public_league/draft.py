@@ -10,6 +10,7 @@ Weighting (from prompt):
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any
 
 from . import metrics
@@ -105,85 +106,243 @@ def _draft_summary(
     }
 
 
-def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, Any]]]:
-    """Current pick ownership per owner_id, organized by future season.
+@dataclass(frozen=True)
+class PickInventory:
+    """Current league pick ownership for the public draft surfaces.
 
-    Sleeper's ``traded_picks`` lists only picks that have changed
-    hands.  We reconstruct the full future pick inventory per roster
-    using the current rosters + draft_rounds from league settings,
-    then apply the traded_picks diff to derive present ownership.
+    ``by_owner`` is ``None`` when ownership is UNKNOWN (the current league's
+    ``/traded_picks`` was not observed) — never a seeded default inventory.
+    Every current manager is a key, including managers who hold no picks.
     """
-    current = snapshot.current_season
-    if current is None:
-        return {}
 
-    from src.identity.pick_lifecycle import league_draft_rounds
+    state: str
+    reason: str | None
+    by_owner: dict[str, list[dict[str, Any]]] | None
+    unattributed: list[dict[str, Any]]
+    integrity: dict[str, Any] | None
 
-    draft_rounds = league_draft_rounds(current.league.get("settings") or {})
+    @property
+    def available(self) -> bool:
+        return self.by_owner is not None
 
-    future_years = _owned_pick_seasons(snapshot)
-    original_by_rid: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    for r in current.rosters:
+    def state_fields(self) -> dict[str, Any]:
+        from src.identity.picks import PICK_OWNERSHIP_REASON_FIELD, PICK_OWNERSHIP_STATE_FIELD
+
+        return {PICK_OWNERSHIP_STATE_FIELD: self.state, PICK_OWNERSHIP_REASON_FIELD: self.reason}
+
+
+def _registry_league_key(sleeper_league_id: str) -> str | None:
+    try:
+        from src.api.league_registry import league_key_for_sleeper_id
+
+        return league_key_for_sleeper_id(sleeper_league_id)
+    except Exception:  # noqa: BLE001 — an unreadable registry stamps no asset id
+        return None
+
+
+def _roster_ids(rosters: list[dict[str, Any]]) -> list[int]:
+    out: list[int] = []
+    for r in rosters or []:
         try:
             rid = int(r.get("roster_id"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError):
             continue
-        for yr in future_years:
-            for rnd in range(1, draft_rounds + 1):
-                original_by_rid[rid].append(
-                    {
-                        "season": yr,
-                        "round": rnd,
-                        "fromRosterId": rid,
-                        "ownerRosterId": rid,
-                    }
-                )
+        if rid >= 1 and rid not in out:
+            out.append(rid)
+    return sorted(out)
 
-    # Apply traded picks (chronological across all seasons so the most
-    # recent ownership wins).
-    for season in snapshot.seasons:
-        for tp in season.traded_picks:
-            try:
-                yr = str(tp.get("season") or "")
-                rnd = int(tp.get("round"))
-                origin_rid = int(tp.get("roster_id"))
-                current_owner_rid = int(tp.get("owner_id"))
-            except (TypeError, ValueError):
-                continue
-            if yr not in future_years:
-                continue
-            for bucket in original_by_rid.values():
-                for pick in bucket:
-                    if (
-                        pick["season"] == yr
-                        and pick["round"] == rnd
-                        and pick["fromRosterId"] == origin_rid
-                    ):
-                        pick["ownerRosterId"] = current_owner_rid
 
-    by_owner: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for bucket in original_by_rid.values():
-        for pick in bucket:
-            owner_id = metrics.resolve_owner(
-                snapshot.managers, current.league_id, pick["ownerRosterId"]
-            )
-            original_owner_id = metrics.resolve_owner(
-                snapshot.managers, current.league_id, pick["fromRosterId"]
-            )
-            if not owner_id:
-                continue
-            by_owner[owner_id].append(
-                {
-                    "season": pick["season"],
-                    "round": pick["round"],
-                    "originalOwnerId": original_owner_id,
-                    "isTraded": owner_id != original_owner_id,
-                    "label": f"{pick['season']} R{pick['round']}",
-                }
-            )
-    for owner_id, lst in by_owner.items():
-        lst.sort(key=lambda p: (p["season"], p["round"]))
-    return dict(by_owner)
+def pick_inventory(snapshot: PublicLeagueSnapshot) -> PickInventory:
+    """Current pick ownership, from the CANONICAL fold.
+
+    Ownership is ``src.identity.picks.build_pick_ownership`` over the CURRENT
+    league's rosters, draft rounds, canonical owned-pick seasons and its own
+    ``/traded_picks`` — and nothing else.  Sleeper's ``traded_picks`` is an
+    ownership STATE per league, not an event log: an older league in the
+    chain describes who held a pick back then, so replaying it over the
+    current state rewinds ownership (the 2026-10-17 P0: twelve picks shown on
+    the manager who had since traded them away).  Older seasons' rows may
+    still feed history features; they never redefine present ownership.
+
+    Identity is ``leagueKey + season + round + origin roster``; the holder is
+    state.  A pick whose holder roster has no resolvable manager is kept in
+    ``unattributed`` (reported, never dropped).
+    """
+    from src.identity.picks import (
+        PICK_OWNERSHIP_OBSERVED,
+        PICK_OWNERSHIP_REASON_UNSTATED,
+        PICK_OWNERSHIP_UNAVAILABLE,
+        build_pick_ownership,
+    )
+    from src.identity.pick_lifecycle import league_draft_rounds
+
+    current = snapshot.current_season
+    if current is None:
+        return PickInventory(
+            state=PICK_OWNERSHIP_UNAVAILABLE,
+            reason=PICK_OWNERSHIP_REASON_UNSTATED,
+            by_owner=None,
+            unattributed=[],
+            integrity=None,
+        )
+    if current.traded_picks_state != PICK_OWNERSHIP_OBSERVED:
+        return PickInventory(
+            state=PICK_OWNERSHIP_UNAVAILABLE,
+            reason=current.traded_picks_reason or PICK_OWNERSHIP_REASON_UNSTATED,
+            by_owner=None,
+            unattributed=[],
+            integrity=None,
+        )
+
+    league_id = current.league_id
+    league_key = _registry_league_key(league_id)
+    roster_ids = _roster_ids(current.rosters)
+    rounds = league_draft_rounds(current.league.get("settings") or {})
+    seasons = [int(y) for y in _owned_pick_seasons(snapshot)]
+    owned = build_pick_ownership(
+        league_key or "unregistered-league",
+        roster_ids,
+        current.traded_picks,
+        seasons=seasons,
+        rounds=rounds,
+    )
+
+    def owner_of(rid: int) -> str:
+        return metrics.resolve_owner(snapshot.managers, league_id, rid)
+
+    by_owner: dict[str, list[dict[str, Any]]] = {}
+    for rid in roster_ids:
+        oid = owner_of(rid)
+        if oid:
+            by_owner.setdefault(oid, [])
+    unattributed: list[dict[str, Any]] = []
+    for entry in owned:
+        ident = entry.identity
+        origin = ident.origin_roster_id
+        holder = entry.state.owner_roster_id
+        original_owner_id = owner_of(origin)
+        origin_name = (
+            metrics.display_name_for(snapshot, original_owner_id) if original_owner_id else ""
+        )
+        is_traded = holder != origin
+        season = str(ident.season)
+        row = {
+            "assetId": ident.canonical_id if league_key else None,
+            "season": season,
+            "round": ident.round_num,
+            "originRosterId": origin,
+            "originalOwnerId": original_owner_id,
+            "originDisplayName": origin_name,
+            "originLabel": (
+                "Own"
+                if not is_traded
+                else (f"From {origin_name}" if origin_name else "From an unassigned roster")
+            ),
+            "isTraded": is_traded,
+            "label": f"{season} R{ident.round_num}",
+        }
+        holder_owner = owner_of(holder) if holder is not None else ""
+        if holder_owner:
+            by_owner.setdefault(holder_owner, []).append(row)
+        else:
+            unattributed.append({**row, "holderRosterId": holder})
+    for picks in by_owner.values():
+        picks.sort(key=lambda p: (p["season"], p["round"], p["originRosterId"]))
+    unattributed.sort(key=lambda p: (p["season"], p["round"], p["originRosterId"]))
+
+    return PickInventory(
+        state=PICK_OWNERSHIP_OBSERVED,
+        reason=None,
+        by_owner=by_owner,
+        unattributed=unattributed,
+        integrity=_inventory_integrity(
+            by_owner,
+            unattributed,
+            roster_ids=roster_ids,
+            seasons=seasons,
+            rounds=rounds,
+            traded_picks=current.traded_picks,
+        ),
+    )
+
+
+def _inventory_integrity(
+    by_owner: dict[str, list[dict[str, Any]]],
+    unattributed: list[dict[str, Any]],
+    *,
+    roster_ids: list[int],
+    seasons: list[int],
+    rounds: int,
+    traded_picks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """League-wide reconciliation, keyed on pick IDENTITY (never the label).
+
+    Every season × round must hold exactly one pick per originating roster,
+    each held by exactly one team.  ``ignoredTradedPickRows`` counts current
+    ``/traded_picks`` rows inside the inventoried seasons/rounds that the
+    canonical fold could not apply (an origin or holder that is not a current
+    roster) — surfaced, so bad input is visible rather than absorbed.
+    """
+    rid_set = set(roster_ids)
+    seen: dict[tuple[str, int, int], int] = defaultdict(int)
+    for picks in list(by_owner.values()) + [unattributed]:
+        for p in picks:
+            seen[(p["season"], p["round"], p["originRosterId"])] += 1
+    expected = {
+        (str(y), r, rid) for y in seasons for r in range(1, rounds + 1) for rid in roster_ids
+    }
+    duplicates = sorted(k for k, n in seen.items() if n > 1)
+    missing = sorted(expected - set(seen))
+    extra = sorted(set(seen) - expected)
+    mismatched = []
+    for y in seasons:
+        for r in range(1, rounds + 1):
+            n = sum(c for (s, rr, _o), c in seen.items() if s == str(y) and rr == r)
+            if n != len(roster_ids):
+                mismatched.append({"season": str(y), "round": r, "count": n})
+    season_set = {int(y) for y in seasons}
+    ignored = 0
+    for tp in traded_picks or []:
+        try:
+            yr, rnd = int(tp.get("season")), int(tp.get("round"))
+            origin, owner = int(tp.get("roster_id")), int(tp.get("owner_id"))
+        except (TypeError, ValueError, AttributeError):
+            ignored += 1
+            continue
+        if (
+            yr in season_set
+            and 1 <= rnd <= rounds
+            and (origin not in rid_set or owner not in rid_set)
+        ):
+            ignored += 1
+
+    def fmt(keys):
+        return [{"season": s, "round": r, "originRosterId": o} for s, r, o in keys]
+
+    return {
+        "ok": not (duplicates or missing or extra or mismatched or unattributed),
+        "seasons": [str(y) for y in seasons],
+        "rounds": rounds,
+        "rosterCount": len(roster_ids),
+        "expectedPerSeasonRound": len(roster_ids),
+        "expectedAssetCount": len(expected),
+        "assetCount": sum(seen.values()),
+        "duplicateAssets": fmt(duplicates),
+        "missingAssets": fmt(missing),
+        "unexpectedAssets": fmt(extra),
+        "mismatchedSeasonRounds": mismatched,
+        "unattributedCount": len(unattributed),
+        "ignoredTradedPickRows": ignored,
+    }
+
+
+def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, Any]]] | None:
+    """Current picks per owner id, or ``None`` when ownership is unknown.
+
+    Kept for existing consumers (awards, superlatives); it is now only a view
+    of :func:`pick_inventory` — the canonical fold — never a second engine.
+    """
+    return pick_inventory(snapshot).by_owner
 
 
 def _owned_pick_seasons(snapshot: PublicLeagueSnapshot) -> list[str]:
@@ -231,19 +390,37 @@ def _owned_pick_seasons(snapshot: PublicLeagueSnapshot) -> list[str]:
     return [str(y) for y in years.owned_pick_seasons]
 
 
-def weighted_stockpile_for_owner(snapshot: PublicLeagueSnapshot, owner_id: str) -> dict[str, Any]:
-    """Public-safe weighted draft capital summary for one owner."""
-    ownership = _pick_ownership_map(snapshot)
-    picks = ownership.get(owner_id, [])
-    weight = sum(pick_weight(p["round"]) for p in picks)
+def weighted_stockpile_for_owner(
+    snapshot: PublicLeagueSnapshot,
+    owner_id: str,
+    *,
+    inventory: PickInventory | None = None,
+) -> dict[str, Any]:
+    """Public-safe weighted draft capital summary for one owner.
+
+    Pass ``inventory`` when summarizing many owners from one snapshot so the
+    canonical fold runs once.  When ownership is unknown every count is
+    ``None`` (never ``0``) and the state fields say why.
+    """
+    inv = inventory if inventory is not None else pick_inventory(snapshot)
+    if not inv.available:
+        return {
+            "totalPicks": None,
+            "weightedScore": None,
+            "byRound": None,
+            "picks": None,
+            **inv.state_fields(),
+        }
+    picks = inv.by_owner.get(owner_id, [])
     by_round: dict[int, int] = defaultdict(int)
     for p in picks:
         by_round[p["round"]] += 1
     return {
         "totalPicks": len(picks),
-        "weightedScore": weight,
+        "weightedScore": sum(pick_weight(p["round"]) for p in picks),
         "byRound": {str(r): n for r, n in sorted(by_round.items())},
         "picks": picks,
+        **inv.state_fields(),
     }
 
 
@@ -260,65 +437,116 @@ def _stockpile_leaderboard(
                 "weightedScore": sum(pick_weight(p["round"]) for p in picks),
             }
         )
-    rows.sort(key=lambda r: (-r["weightedScore"], -r["totalPicks"]))
+    rows.sort(key=lambda r: (-r["weightedScore"], -r["totalPicks"], r["displayName"], r["ownerId"]))
     return rows
 
 
-def _most_traded_pick(snapshot: PublicLeagueSnapshot) -> dict[str, Any] | None:
-    """Pick whose ownership has moved the most times across the chain."""
-    moves: dict[tuple[str, int, int], int] = defaultdict(int)
-    for season in snapshot.seasons:
-        for tp in season.traded_picks:
-            try:
-                yr = str(tp.get("season") or "")
-                rnd = int(tp.get("round"))
-                origin_rid = int(tp.get("roster_id"))
-            except (TypeError, ValueError):
+def _trade_pick_legs(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
+    """Every draft pick moved by a COMPLETED trade, one row per (trade, pick).
+
+    The evidence is the trade transactions themselves, de-duplicated by
+    ``transaction_id`` across the whole league chain — never ``traded_picks``
+    rows, which restate ownership once per league-season and so would count
+    one move several times.  Origin roster ids are stable across Sleeper's
+    ``previous_league_id`` chain, so ``(season, round, origin)`` names the
+    same pick in every league of the chain.
+    """
+    seen: set[str] = set()
+    legs: list[dict[str, Any]] = []
+    # Oldest league first; ``trades()`` is chronological within a season, so
+    # ``legs`` comes out in trade order without a second sort.
+    for season in reversed(snapshot.seasons):
+        for tx in season.trades():
+            tx_id = str(tx.get("transaction_id") or "")
+            if not tx_id or tx_id in seen:
                 continue
-            moves[(yr, rnd, origin_rid)] += 1
+            seen.add(tx_id)
+            week = tx.get("_leg")
+            for dp in tx.get("draft_picks") or []:
+                if not isinstance(dp, dict):
+                    continue
+                try:
+                    yr = int(dp.get("season"))
+                    rnd = int(dp.get("round"))
+                    origin = int(dp.get("roster_id"))
+                except (TypeError, ValueError):
+                    continue
+                legs.append(
+                    {
+                        "season": str(yr),
+                        "round": rnd,
+                        "originRosterId": origin,
+                        "fromRosterId": dp.get("previous_owner_id"),
+                        "toRosterId": dp.get("owner_id"),
+                        "leagueId": season.league_id,
+                        "sourceSeason": season.season,
+                        "week": week,
+                    }
+                )
+    return legs
+
+
+def _most_traded_pick(snapshot: PublicLeagueSnapshot) -> dict[str, Any] | None:
+    """The pick moved by the most distinct completed trades, or ``None``.
+
+    ``moveCount`` counts unique trade transactions (see
+    :func:`_trade_pick_legs`); ``coverage`` is the history walk's state, so a
+    truncated chain reads as a lower bound rather than a complete count.
+    """
+    moves: dict[tuple[str, int, int], int] = defaultdict(int)
+    for leg in _trade_pick_legs(snapshot):
+        moves[(leg["season"], leg["round"], leg["originRosterId"])] += 1
     if not moves:
         return None
-    (yr, rnd, origin_rid), count = max(moves.items(), key=lambda kv: kv[1])
+    (yr, rnd, origin_rid), count = min(
+        moves.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1], kv[0][2])
+    )
     current = snapshot.current_season
     league_id = current.league_id if current else ""
     original_owner_id = metrics.resolve_owner(snapshot.managers, league_id, origin_rid)
     return {
         "season": yr,
         "round": rnd,
+        "originRosterId": origin_rid,
         "originalOwnerId": original_owner_id,
+        "originDisplayName": (
+            metrics.display_name_for(snapshot, original_owner_id) if original_owner_id else ""
+        ),
         "label": f"{yr} R{rnd}",
         "moveCount": count,
+        "evidence": "completed_trades",
+        "coverage": (snapshot.history_coverage or {}).get("state"),
     }
 
 
 def _pick_movement_trail(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
-    """Every traded pick with original vs current owner."""
+    """Every completed trade leg that moved a pick, oldest first.
+
+    Owners resolve in the league and week the trade happened, so a roster
+    hand-off credits the manager who actually made the trade.
+    """
     current = snapshot.current_season
-    league_id = current.league_id if current else ""
+    current_league_id = current.league_id if current else ""
     out: list[dict[str, Any]] = []
-    for season in snapshot.seasons:
-        for tp in season.traded_picks:
-            try:
-                yr = str(tp.get("season") or "")
-                rnd = int(tp.get("round"))
-                origin_rid = int(tp.get("roster_id"))
-                current_owner_rid = int(tp.get("owner_id"))
-            except (TypeError, ValueError):
-                continue
-            original_owner_id = metrics.resolve_owner(snapshot.managers, league_id, origin_rid)
-            current_owner_id = metrics.resolve_owner(
-                snapshot.managers, league_id, current_owner_rid
-            )
-            out.append(
-                {
-                    "season": yr,
-                    "round": rnd,
-                    "label": f"{yr} R{rnd}",
-                    "originalOwnerId": original_owner_id,
-                    "currentOwnerId": current_owner_id,
-                    "sourceSeason": season.season,
-                }
-            )
+    for leg in _trade_pick_legs(snapshot):
+        lid, week = leg["leagueId"], leg["week"]
+        out.append(
+            {
+                "season": leg["season"],
+                "round": leg["round"],
+                "label": f"{leg['season']} R{leg['round']}",
+                "originRosterId": leg["originRosterId"],
+                "originalOwnerId": metrics.resolve_owner(
+                    snapshot.managers, current_league_id, leg["originRosterId"]
+                ),
+                "fromOwnerId": metrics.resolve_owner(
+                    snapshot.managers, lid, leg["fromRosterId"], week
+                ),
+                "toOwnerId": metrics.resolve_owner(snapshot.managers, lid, leg["toRosterId"], week),
+                "sourceSeason": leg["sourceSeason"],
+                "week": week,
+            }
+        )
     return out
 
 
@@ -329,14 +557,22 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             drafts.append(_draft_summary(snapshot, season, draft))
     drafts.sort(key=lambda d: (d["season"], d.get("startTime") or 0), reverse=True)
 
-    ownership = _pick_ownership_map(snapshot)
-    leaderboard = _stockpile_leaderboard(snapshot, ownership)
-    most_picks = leaderboard[0] if leaderboard else None
-    fewest_picks = leaderboard[-1] if leaderboard else None
+    inventory = pick_inventory(snapshot)
+    if inventory.available:
+        leaderboard = _stockpile_leaderboard(snapshot, inventory.by_owner)
+        most_picks = leaderboard[0] if leaderboard else None
+        fewest_picks = leaderboard[-1] if leaderboard else None
+    else:
+        # Unknown ownership publishes no inventory and no ranking — not an
+        # empty board that reads as "nobody owns anything".
+        leaderboard = most_picks = fewest_picks = None
 
     return {
         "drafts": drafts,
-        "pickOwnership": ownership,
+        **inventory.state_fields(),
+        "pickOwnership": inventory.by_owner,
+        "unattributedPicks": inventory.unattributed,
+        "pickInventoryIntegrity": inventory.integrity,
         "stockpileLeaderboard": leaderboard,
         "mostPicksOwned": most_picks,
         "fewestPicksOwned": fewest_picks,
