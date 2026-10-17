@@ -544,6 +544,18 @@
     "signals-onbox-verification.yml::verify::Upload report": {
       "category": "blocking"
     },
+    "idpshow-onbox-verification.yml::verify::Checkout": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Configure production SSH": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Run IDP Show verification on the host": {
+      "category": "blocking"
+    },
+    "idpshow-onbox-verification.yml::verify::Upload report": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
       "category": "blocking"
     },

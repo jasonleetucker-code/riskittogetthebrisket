@@ -444,6 +444,24 @@ jobs:
             # surface as an indistinguishable "paywall" failure.
             if python -c "import json,sys; d=json.load(open('idpshow_session.json')); sys.exit(0 if d.get('cookies') else 1)" 2>/dev/null; then
               run_fetcher idpShow "IDP Show" python scripts/fetch_idpshow.py
+              # The COMBINED board is the provider family's VOTING board.
+              # Fetching it here as well makes the secret a complete
+              # credential path when the prod timer's jar has lapsed
+              # (2026-10-17: the timer committed nothing after 10-07).
+              # Its dataset state is recorded only on a successful fetch,
+              # exactly as the timer does (the general recording step
+              # below keeps skipping it so one failed run cannot write a
+              # false state).  A success stamp proves a FETCH; whether the
+              # vendor published anything new is the upstream clock in
+              # idpShowCombined_upstream.json, which freshness weighting
+              # reads — a re-fetch of an unchanged chart stays stale.
+              if python scripts/fetch_idpshow.py --combined 2>&1; then
+                date -u +%s > data/scrape_state/idpShowCombined_last_success
+                python scripts/record_source_datasets.py --only idpShowCombined \
+                  || echo "::warning title=IDP Show (combined) dataset state::recording failed; state left at its last observation"
+              else
+                echo "::warning title=IDP Show (combined) fetch failed::Non-fatal — continuing with the committed board"
+              fi
             else
               echo "::warning title=IDP Show secret malformed::IDPSHOW_SESSION_JSON is set but is not JSON with a non-empty 'cookies' array. Skipping; the prod timer still covers idpShow."
             fi
