@@ -215,5 +215,5 @@ private gate is enforced.
 | Batch | Branch / PR | State |
 |---|---|---|
 | A | #1762 | MERGED (`048bcbf8a`) |
-| B1 + B2 + feed | `claude/manager-intel-b` | IN PROGRESS |
+| B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3, C, D, E, F | — | QUEUED in this order |
