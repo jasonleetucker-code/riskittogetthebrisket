@@ -99,9 +99,9 @@ from src.packages import SEND as _SEND
 from src.packages import UNCONSTRAINED_OUTGOING as _UNCONSTRAINED_OUTGOING
 from src.packages import EligibilityPolicy as _EligibilityPolicy
 from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
-from src.trade.ktc_va import (
+from src.valuation_math.package_model import adjust_pair as _adjust_pair
+from src.valuation_math.package_model import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
-    ktc_adjust_package,
 )
 from src.utils.name_clean import normalize_position as _normalize_position
 
@@ -123,12 +123,12 @@ _IDP_FAMILIES: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
 
 def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
-    """KTC's VA from the perspective of ``small`` as team1.
+    """The active package model's VA from the perspective of ``small`` as team1.
 
-    Returns the VA magnitude when KTC awards it to the ``small`` side
+    Returns the VA magnitude when the model awards it to the ``small`` side
     (``small`` is team1 → side==1), else 0.0.  Thin compat shim around
-    :func:`ktc_adjust_package` so existing callers (tests, importers)
-    keep working with the legacy float-return signature.
+    :func:`src.valuation_math.package_model.adjust_pair` so existing callers
+    (tests, importers) keep working with the legacy float-return signature.
 
     The legacy V2 implementation lived inline here; it was replaced
     with KTC's actual algorithm via :mod:`src.trade.ktc_va` so the
@@ -139,10 +139,10 @@ def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
     large_sorted = sorted((float(v) for v in large), reverse=True)
     if not small_sorted or not large_sorted:
         return 0.0
-    result = ktc_adjust_package(small_sorted, large_sorted)
-    if not result.displayed or result.value <= 0 or result.side != 1:
+    value, side, displayed = _adjust_pair(small_sorted, large_sorted)
+    if not displayed or value <= 0 or side != 1:
         return 0.0
-    return float(result.value)
+    return float(value)
 
 
 def _is_idp_position(position: Any) -> bool:

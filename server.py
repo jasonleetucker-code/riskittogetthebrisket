@@ -100,6 +100,7 @@ from src.api.schemas.leagues import (
     PublicLeaguesResponse,
 )
 from src.api import sleeper_overlay as _sleeper_overlay
+from src.valuation_math import package_model as _package_model
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
@@ -2912,6 +2913,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                 meta_block = contract_payload.setdefault("meta", {})
                 meta_block["leagueKey"] = _default_cfg.key
                 meta_block["scoringProfile"] = _default_cfg.scoring_profile
+                meta_block["packageModel"] = _package_model.receipt()
                 _fp = _contract_scoring_fingerprint(contract_payload)
                 if _fp:
                     meta_block["scoringFingerprint"] = _fp
@@ -11272,6 +11274,11 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
     if not isinstance(result, dict):
         return
     result["valuationMode"] = mode
+    # Which package Value Adjustment model produced any package-equity number
+    # in this response (owner package 2026-10-17): every engine reaches the
+    # model through src/valuation_math/package_model.py, so the stamp is the
+    # same everywhere the valuation mode is.
+    result["packageModel"] = _package_model.receipt()
     if note:
         result["valuationNote"] = note
         warnings = result.get("warnings")
@@ -13487,7 +13494,81 @@ def _build_public_activity_valuation():
     """
     if not _history_store.DB_PATH.exists():
         return None
-    return _build_asof_valuation
+    return _PublicActivityValuation(_current_board_valuation())
+
+
+class _PublicActivityValuation:
+    """The activity resolver factory plus today's-board resolver.
+
+    Calling it is exactly ``build_asof_valuation`` (the at-the-time grade).
+    ``current_valuation`` is the same trade's assets on TODAY's canonical
+    board, for the public current-grade band (owner decision 2026-10-17);
+    ``activity.build_section`` reads it off the factory so no caller signature
+    changes.  ``None`` when no contract is loaded — the band is then omitted,
+    never guessed.
+    """
+
+    def __init__(self, current_valuation):
+        self.current_valuation = current_valuation
+
+    def __call__(self, requests):
+        return _build_asof_valuation(requests)
+
+
+_CURRENT_BOARD_VALUATION_MEMO: dict = {}
+
+
+def _current_board_valuation():
+    """``asset -> value | None`` over the loaded contract, memoised per
+    contract generation (``latest_data_etag``).  A miss is ``None``, never 0."""
+    from src.api.public_activity_valuation import build_valuation_from_contract  # noqa: PLC0415
+
+    etag = latest_data_etag
+    hit = _CURRENT_BOARD_VALUATION_MEMO.get("entry")
+    if hit is not None and hit[0] == etag:
+        return hit[1]
+    base = build_valuation_from_contract(latest_contract_data)
+    resolver = None
+    if base is not None:
+
+        def resolver(asset):
+            value = base(asset)
+            return value if value and value > 0 else None
+
+    _CURRENT_BOARD_VALUATION_MEMO["entry"] = (etag, resolver)
+    return resolver
+
+
+@app.post("/api/trades/asof-grades")
+async def post_trades_asof_grades(request: Request):
+    """At-the-Time grades for the private /trades page (owner package 2026-10-17).
+
+    PRIVATE (``_private_api_gate``: not on any public allowlist).  Body
+    ``{trades: [{id, createdAt, sides: [{receivedAssets, sentAssets}]}]}`` in
+    the public-activity asset shape.  Each side is graded against the
+    canonical temporal ledger strictly before the trade's own instant, through
+    the same resolver and grade math as the public ``/league`` activity grade,
+    under the active package model — so private and public at-the-time grades
+    agree by construction.  Missing evidence is ``available: false`` with the
+    assets named; never a partial total, today's value or zero.
+    """
+    from src.api import trade_history_asof as _asof  # noqa: PLC0415
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — malformed JSON is a client error
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    trades = body.get("trades") if isinstance(body, dict) else None
+    if not isinstance(trades, list) or len(trades) > _asof.MAX_TRADES:
+        return JSONResponse(status_code=400, content={"error": "invalid_trades"})
+    trades = [t for t in trades if isinstance(t, dict)]
+    factory = _build_public_activity_valuation()
+    resolve = None
+    if factory is not None:
+        resolve = await run_in_threadpool(factory, _asof.asof_requests(trades))
+    return JSONResponse(
+        content=_asof.response(trades, resolve), headers={"Cache-Control": "no-store"}
+    )
 
 
 # ── Public contract response memo ────────────────────────────────────
@@ -13928,6 +14009,9 @@ async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=No
     cache_key = (
         getattr(snapshot, "root_league_id", ""),
         getattr(snapshot, "generated_at", ""),
+        # The activity section's current-grade band reads today's board, so
+        # a new contract generation must invalidate it (owner 2026-10-17).
+        latest_data_etag,
     )
     cached = _heavy_section_cache.get(section)
     if cached is not None and cached[0] == cache_key:
@@ -17862,6 +17946,8 @@ async def post_trade_simulate_mc(request: Request):
                 ),
             },
         )
+    if isinstance(enriched, dict):
+        enriched["packageModel"] = _package_model.receipt()
     return JSONResponse(content=enriched)
 
 

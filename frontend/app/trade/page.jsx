@@ -2352,7 +2352,11 @@ export default function TradePage() {
           >
           {/* No valueMode: Second Opinions owns its own comparison
               basis and must not inherit a display toggle. */}
-          <TradeSourceBreakdown sides={sides} settings={settings} />
+          <TradeSourceBreakdown
+            sides={sides}
+            settings={settings}
+            hasOverrides={Object.keys(valueOverrides).length > 0}
+          />
           <RosTradeFitPanel sides={sides} settings={settings} />
           <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
 

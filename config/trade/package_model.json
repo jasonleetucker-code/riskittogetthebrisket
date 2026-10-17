@@ -1,0 +1,5 @@
+{
+  "_comment": "ONE source of truth for which package Value Adjustment model is ACTIVE sitewide (owner package 2026-10-17, CLAUDE_MASTER_IMPLEMENTATION_PROMPT_TRADE_CALCULATOR). Every package-equity consumer (calculator headline, balancers, finder, suggestions, angle, analyze, Monte Carlo, trade history, public league grades) resolves the model through src/valuation_math/package_model.py (Python) and frontend/lib/trade-logic.js::ACTIVE_PACKAGE_MODEL_ID (JS, pinned equal to this file by tests/valuation_math/test_package_model.py). KTC stays active until the owner explicitly approves a challenger on independent evidence; changing 'active' is that promotion and must change both languages in one PR.",
+  "active": "ktc_2026_04",
+  "shadow": ["geom_q078_v1"]
+}
