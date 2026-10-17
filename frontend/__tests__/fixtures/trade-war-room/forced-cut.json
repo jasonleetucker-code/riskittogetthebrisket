@@ -68,6 +68,7 @@
     "available": true,
     "detail": {
      "hypotheticalPicksOut": [],
+     "incomplete": false,
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
@@ -84,6 +85,8 @@
      "sendingAdjusted": 3566.0,
      "sendingValue": 3500,
      "sendingValueAdjustment": 66.0,
+     "unpricedIn": [],
+     "unpricedOut": [],
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 3734,
@@ -523,6 +526,7 @@
     "available": true,
     "detail": {
      "hypotheticalPicksOut": [],
+     "incomplete": false,
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
@@ -539,6 +543,8 @@
      "sendingAdjusted": 3566.0,
      "sendingValue": 3500,
      "sendingValueAdjustment": 66.0,
+     "unpricedIn": [],
+     "unpricedOut": [],
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 3734,

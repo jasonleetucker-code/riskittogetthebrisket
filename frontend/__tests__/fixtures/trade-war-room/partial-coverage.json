@@ -67,6 +67,7 @@
     "available": true,
     "detail": {
      "hypotheticalPicksOut": [],
+     "incomplete": true,
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
@@ -83,6 +84,10 @@
      "sendingAdjusted": 0,
      "sendingValue": 0,
      "sendingValueAdjustment": 0.0,
+     "unpricedIn": [],
+     "unpricedOut": [
+      "RB Unpriced"
+     ],
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 7000,
@@ -480,6 +485,7 @@
     "available": true,
     "detail": {
      "hypotheticalPicksOut": [],
+     "incomplete": true,
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
@@ -496,6 +502,10 @@
      "sendingAdjusted": 0,
      "sendingValue": 0,
      "sendingValueAdjustment": 0.0,
+     "unpricedIn": [],
+     "unpricedOut": [
+      "RB Unpriced"
+     ],
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 7000,
@@ -792,7 +802,8 @@
    }
   ],
   "uncertainty": [
-   "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero"
+   "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero",
+   "On the board but unpriced \u2014 unknown, not worth 0, so left out of the package math: RB Unpriced"
   ],
   "version": "analyze_trade_v2"
  },
