@@ -128,10 +128,25 @@ def test_completed_rookie_draft_class_is_not_held(fake):
     assert all(p["season"] != 2026 for p in entry["picks"])
 
 
+def test_startup_only_league_complete_draft_class_is_not_held(fake):
+    # One completed NON-rookie (startup) draft for 2026: the canonical
+    # lifecycle leaves 2026 "unknown", but that league's 2026 draft has run,
+    # so no 2026 pick is held.
+    fake.drafts["11"] = [{**ROOKIE_DRAFT_2026, "settings": {"player_type": 0, "teams": 3}}]
+    fake.picks["d26"] = [{**p, "metadata": {"years_exp": 4}} for p in _rookie_picks()]
+    entry = _capital(fake.build())
+    years = entry["draftYears"]
+    assert years["retiredSeasons"] == [] and 2026 in years["ownedPickSeasons"]
+    assert years["draftCompleteSeasons"] == [2026]
+    assert years["heldSeasons"] == [2027, 2028, 2029]
+    assert all(p["season"] != 2026 for p in entry["picks"])
+
+
 def test_upcoming_class_is_held_while_its_draft_has_not_run(fake):
     fake.drafts["11"] = [{**ROOKIE_DRAFT_2026, "status": "pre_draft"}]
     entry = _capital(fake.build())
     assert entry["draftYears"]["ownedPickSeasons"] == [2026, 2027, 2028, 2029]
+    assert entry["draftYears"]["heldSeasons"] == [2026, 2027, 2028, 2029]
     assert any(p["season"] == 2026 for p in entry["picks"])
 
 

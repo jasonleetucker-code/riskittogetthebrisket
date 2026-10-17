@@ -133,11 +133,20 @@ def league_draft_capital(
     coverage: str,
     calendar_year: int,
     observed_at: str,
+    pick_used: Any,
 ) -> dict[str, Any]:
     """One league's picks for the searched manager (see the module docstring).
 
     ``traded_picks`` is the ``/traded_picks`` OBSERVATION (a list, or
     ``None`` when not observed); ``coverage`` is that fetch's coverage state.
+    ``pick_used(season, league)`` is the activity pricer's own "was this
+    season's draft in this league already run" answer (``True`` / ``False`` /
+    ``None`` = unknown).  The canonical lifecycle retires a class only on a
+    completed ROOKIE draft whose picks are rostered, so a startup-only league
+    (one completed non-rookie draft for the season) leaves the class
+    ``unknown`` there; its picks still cannot be spent again, so a season whose
+    draft this league has COMPLETED is not held (``draftCompleteSeasons``).
+    Unknown never drops a season.
     """
     from src.identity import picks as pick_identity  # noqa: PLC0415
     from src.identity.pick_lifecycle import league_draft_rounds  # noqa: PLC0415
@@ -149,13 +158,20 @@ def league_draft_capital(
         league, calendar_year=calendar_year, observed_at=observed_at
     )
     mine = sorted(league.manager_roster_ids())
+    held_seasons = [y for y in years.owned_pick_seasons if pick_used(y, league) is not True]
+    complete_seasons = [y for y in years.owned_pick_seasons if pick_used(y, league) is True]
     entry: dict[str, Any] = {
         **league.entry(),
         "coverage": coverage,
         "managerRosterIds": mine,
         "rounds": rounds,
         "roundsSource": "league_settings" if raw_rounds == rounds else "default",
-        "draftYears": {**years.to_dict(), "evidence": evidence_source},
+        "draftYears": {
+            **years.to_dict(),
+            "evidence": evidence_source,
+            "heldSeasons": held_seasons,
+            "draftCompleteSeasons": complete_seasons,
+        },
         "picks": None,
         "ownPicksTradedAway": None,
         "counts": None,
@@ -177,7 +193,7 @@ def league_draft_capital(
             league.key,
             roster_ids,
             traded_picks,
-            seasons=years.owned_pick_seasons,
+            seasons=held_seasons,
             rounds=rounds,
         )
     except ValueError:
@@ -328,7 +344,7 @@ def pick_movements(
                     if cap.get("picks") is not None
                     else None
                 )
-                owned_seasons = set((cap.get("draftYears") or {}).get("ownedPickSeasons") or [])
+                owned_seasons = set((cap.get("draftYears") or {}).get("heldSeasons") or [])
                 if held_ids is None:
                     still, still_reason = None, "pick_ownership_unavailable"
                 elif pick.get("season") not in owned_seasons:

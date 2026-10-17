@@ -1364,6 +1364,7 @@ def _draft_capital(
                 coverage=state,
                 calendar_year=calendar_year,
                 observed_at=observed_at,
+                pick_used=_pick_used,
             )
         )
     by_league = {e["leagueId"]: e for e in entries}

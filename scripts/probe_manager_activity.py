@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""READ-ONLY live probe of Manager Intelligence activity (Batches B1 + B2).
+"""READ-ONLY live probe of Manager Intelligence activity (Batches B1 + B2 + B3).
 
 Runs ``build_manager_activity`` against REAL Sleeper for one username and
 prints a short summary: counts, coverage, and the first trades /
@@ -136,7 +136,66 @@ def main() -> int:
         f"addsVsDrops={a['addsVsDrops']} repeat={len(a['repeatTargets'])} "
         f"rookies={a['rookies']['count']} idp={a['idp']['count']}"
     )
+    _print_draft_capital(out.get("draftCapital") or {})
+    _print_tendencies(out.get("tendencies") or {})
     return 0
+
+
+def _print_draft_capital(dc: dict) -> None:
+    """Batch B3: picks held per league, pick movement."""
+    if not dc.get("available"):
+        print(f"\ndraftCapital: unavailable ({dc.get('reason')})")
+        return
+    print(f"\ndraftCapital totals={dc.get('totals')}")
+    for e in dc.get("leagues") or []:
+        years = e.get("draftYears") or {}
+        print(
+            f"  {e.get('name')!s:40.40} ownership={e.get('pickOwnershipState')}"
+            f"/{e.get('pickOwnershipReason')} coverage={e.get('coverage')} "
+            f"held={years.get('heldSeasons')} retired={years.get('retiredSeasons')} draftComplete={years.get('draftCompleteSeasons')} "
+            f"evidence={years.get('evidence')} rounds={e.get('rounds')}({e.get('roundsSource')})"
+        )
+        if e.get("picks") is None:
+            continue
+        print(
+            f"    counts={e['counts']} pricedValue={e['pricedValue']} "
+            f"priced/unpriced={e['pricedPickCount']}/{e['unpricedPickCount']} "
+            f"unpricedReasons={e['unpricedReasons']}"
+        )
+        for p in e["picks"]:
+            origin = "own" if p["own"] else f"from {p.get('originOwnerName')}"
+            print(f"    HELD {_asset(p)} [{origin}] basis={p.get('valueBasis')}")
+        for p in e["ownPicksTradedAway"]:
+            print(f"    AWAY {p['label']} -> {p.get('currentOwnerName')}")
+    mv = dc.get("movements") or {}
+    print(f"  movements acquired={mv.get('acquired')} sent={mv.get('sent')}")
+    for r in (mv.get("rows") or [])[:6]:
+        print(
+            f"    {r['direction']:8} {_asset(r['pick'])} {r['leagueName']} at={r['occurredAt']} "
+            f"with={r['counterparty'].get('displayName')} stillHeld={r['stillHeld']}"
+            f"{'' if r['stillHeldReason'] is None else ' (' + r['stillHeldReason'] + ')'}"
+        )
+
+
+def _print_tendencies(t: dict) -> None:
+    if not t:
+        return
+
+    def _n(block: dict) -> str:
+        return f"n={block['n']}{'' if block['sufficientSample'] else ' INSUFFICIENT'}"
+
+    print(
+        f"\ntendencies window={t['window']} trades={t['tradeCount']} "
+        f"excludedUncertain={t['excludedUncertain']} minSample={t['minSample']} ({t['minSampleBasis']})"
+    )
+    print(f"  pickPlayer {_n(t['pickPlayer'])} {t['pickPlayer']['counts']}")
+    print(f"  pieces {_n(t['pieces'])} {t['pieces']['counts']} shapes={t['pieces']['shapes']}")
+    for name in ("positions", "ages"):
+        block = t[name]
+        rows = " ".join(
+            f"{r['key']}:+{r['acquired']['count']}/-{r['sent']['count']}" for r in block["rows"]
+        )
+        print(f"  {name} {_n(block)} {rows}")
 
 
 if __name__ == "__main__":
