@@ -15,10 +15,18 @@ describe("tradeWorkspaceToCSV", () => {
     // comma in name must be quoted
     expect(lines[2]).toBe('B,"Bijan, Jr.",RB,ATL,7000,Market consensus,');
   });
-  it("raw mode falls back to full when raw missing", () => {
+  it("never exports the legacy composite, whatever mode is passed (TC-A P0-4)", () => {
     const csv = tradeWorkspaceToCSV(sides, "raw");
-    expect(csv).toContain("A,Josh Allen,QB,BUF,7900");
+    expect(csv).toContain("A,Josh Allen,QB,BUF,8000");
+    expect(csv).not.toContain("7900");
     expect(csv).toContain('"Bijan, Jr.",RB,ATL,7000');
+  });
+  it("a missing canonical value is a blank cell, never the composite", () => {
+    const only = [
+      { label: "A", assets: [{ name: "Ghost", pos: "WR", team: "FA", values: { raw: 5000 } }], destinations: {} },
+    ];
+    const csv = tradeWorkspaceToCSV(only, "full", "Market consensus");
+    expect(csv.trim().split("\n")[1]).toBe("A,Ghost,WR,FA,,Market consensus,");
   });
   it("says 'unspecified' rather than guessing when no basis is passed", () => {
     // An export outlives the app: a market board and a league-adjusted

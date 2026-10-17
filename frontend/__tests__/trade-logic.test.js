@@ -128,9 +128,9 @@ describe("package model dispatch is the geometric model by default", () => {
 // ── Constants ────────────────────────────────────────────────────────
 
 describe("constants", () => {
-  it("VALUE_MODES has 2 modes", () => {
-    expect(VALUE_MODES.length).toBe(2);
-    expect(VALUE_MODES.map((m) => m.key)).toEqual(["full", "raw"]);
+  it("VALUE_MODES is canonical only — the legacy-composite Raw mode is retired (TC-A P0-4)", () => {
+    expect(VALUE_MODES.length).toBe(1);
+    expect(VALUE_MODES.map((m) => m.key)).toEqual(["full"]);
   });
 
   it("storage keys are stable strings", () => {
@@ -765,7 +765,8 @@ describe("deserializeWorkspace", () => {
       sideB: ["Ja'Marr Chase"],
     };
     const result = deserializeWorkspace(parsed, rowByName);
-    expect(result.valueMode).toBe("raw");
+    // A workspace saved under the retired "Raw" mode restores canonical.
+    expect(result.valueMode).toBe("full");
     expect(result.activeSide).toBe("B");
     expect(result.sideA.length).toBe(1);
     expect(result.sideA[0].name).toBe("Josh Allen");
@@ -1940,7 +1941,7 @@ describe("deserializeWorkspaceMulti", () => {
     expect(result.sides[1].label).toBe("B");
     expect(result.sides[1].assets[0].name).toBe("Ja'Marr Chase");
     expect(result.activeSide).toBe(1); // "B" → 1
-    expect(result.valueMode).toBe("raw");
+    expect(result.valueMode).toBe("full"); // retired "raw" restores canonical
   });
 
   it("migrates legacy format with activeSide A", () => {

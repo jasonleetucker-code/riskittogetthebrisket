@@ -23,10 +23,19 @@ import {
 } from "./trade-assets.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
-export const VALUE_MODES = [
-  { key: "full", label: "Our Value" },
-  { key: "raw", label: "Raw" },
-];
+// Trade math runs on ONE value: the canonical ``rankDerivedValue`` carried as
+// ``values.full``.  The "Raw" mode is RETIRED (TC-A, UX audit P0-4): it read
+// ``values.raw`` -- the legacy scraper ``rawComposite`` (0.27x-2.08x of
+// canonical) -- so a display toggle rewired the meter, the tray, the
+// balancers and the CSV onto a non-canonical number, while the side cards'
+// "Raw" (canonical BEFORE Value Adjustment) meant something else and the War
+// Room, Monte Carlo and Second Opinions stayed canonical.  "Raw" on /trade
+// now means only canonical-before-VA, shown on the side cards.  A workspace
+// saved with ``valueMode: "raw"`` restores as ``"full"``.
+export const VALUE_MODES = [{ key: "full", label: "Our Value" }];
+
+/** The value mode trade math uses: always canonical. */
+export const TRADE_VALUE_MODE = "full";
 
 // ── Persistence Keys ─────────────────────────────────────────────────────
 export const STORAGE_KEY = "next_trade_workspace_v1";
@@ -1947,7 +1956,11 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") 
   };
   const pickVal = (r) => {
     const vals = (r && r.values) || {};
-    const v = valueMode === "raw" ? (vals.raw ?? vals.full) : (vals.full ?? vals.raw);
+    // Canonical only (TC-A P0-4): the legacy composite (``values.raw``) is
+    // never exported as the trade value, whatever mode a caller passes, and
+    // a missing canonical value is a blank cell, never the composite.
+    void valueMode;
+    const v = vals.full;
     return v == null ? "" : Math.round(Number(v));
   };
   const basis = valueBasis || "unspecified";

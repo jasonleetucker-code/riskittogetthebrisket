@@ -354,8 +354,7 @@ function Details({ analysis, raw }) {
               "package model"}
             ) is a separate market lens; roster fit never changes an
             asset&apos;s value. It prices every asset at its board value, so
-            value overrides and the Raw value mode in the builder are not
-            applied here.
+            value overrides typed in the builder are not applied here.
           </p>
         </section>
         {basis.source ? (

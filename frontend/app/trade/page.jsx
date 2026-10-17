@@ -3,7 +3,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
-  VALUE_MODES,
+  TRADE_VALUE_MODE,
   STORAGE_KEY,
   meterVerdict,
   colorFromGap,
@@ -68,7 +68,6 @@ import {
   Panel,
   PageHeader,
   SegmentedControl,
-  Select,
   SkeletonTable,
 } from "@/components/ds";
 import {
@@ -209,7 +208,10 @@ export default function TradePage() {
     update: updateSetting,
   } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
-  const [valueMode, setValueMode] = useState("full");
+  // Trade math is canonical, always (TC-A P0-4): the retired "Raw" mode read
+  // the legacy scraper composite.  Kept as a name so every call site states
+  // the basis it computes on.
+  const valueMode = TRADE_VALUE_MODE;
 
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
@@ -593,9 +595,6 @@ export default function TradePage() {
         const parsed = JSON.parse(raw);
         const restored = deserializeWorkspaceMulti(parsed, rowByName);
         if (restored) {
-          const nextMode = String(restored.valueMode || "full");
-          if (VALUE_MODES.some((m) => m.key === nextMode))
-            setValueMode(nextMode);
           setActiveSide(restored.activeSide);
           setSides(restored.sides);
           setValueOverrides({});
@@ -2031,17 +2030,6 @@ export default function TradePage() {
         <>
           <Panel dense className="trade-controls">
             <div className={styles.controls}>
-              <Select
-                value={valueMode}
-                onChange={(e) => setValueMode(e.target.value)}
-                aria-label="Value mode"
-              >
-                {VALUE_MODES.map((m) => (
-                  <option key={m.key} value={m.key}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
               <Button onClick={swapSides}>
                 {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
               </Button>

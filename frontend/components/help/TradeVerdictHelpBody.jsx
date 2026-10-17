@@ -25,16 +25,11 @@ export default function TradeVerdictHelpBody() {
 
       <h3>Package value</h3>
       <p>
-        With the value mode on <strong>Our Value</strong>, every asset counts
-        its canonical board value — the same 1–9,999 number Rankings shows. A
-        side&apos;s <strong>Raw</strong> total is the plain sum. An asset the
-        board does not price adds 0 to the sum and the side is marked
+        Every asset counts its canonical board value — the same 1–9,999
+        number Rankings shows. A side&apos;s <strong>Raw</strong> total is the
+        plain sum of those values, before Value Adjustment. An asset the board
+        does not price adds 0 to the sum and the side is marked
         &quot;Incomplete&quot; — that means unknown, not worthless.
-      </p>
-      <p>
-        The <strong>Raw</strong> value mode swaps in the older scraper
-        composite, a different and larger scale. The verdict bands below are
-        set on the board value, so read the verdict in Our Value.
       </p>
 
       <h3>Value Adjustment</h3>
@@ -79,8 +74,8 @@ export default function TradeVerdictHelpBody() {
       <ul>
         <li>
           <strong>Market</strong> — the package gap after Value Adjustment. It
-          prices the assets at their board values, so value overrides and the Raw
-          mode in the builder are not applied there. Its
+          prices the assets at their board values, so value overrides typed in the
+          builder are not applied there. Its
           own &quot;even&quot; band is tighter (a gap under 256).
         </li>
         <li>
