@@ -60,6 +60,7 @@ const TITLE = {
   "/market/sharp-tracker": "Sharp Tracker",
   "/market/sharp-roster-percentage": "Sharp Roster Percentage",
   "/market/trade-database": "Trade Database",
+  "/managers": "Manager Intelligence",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",
