@@ -1378,6 +1378,104 @@ def _draft_capital(
     }
 
 
+def _read_league_activity(
+    readable: list[_League],
+    legs: list[int],
+    current_leg: int,
+    *,
+    budget: _Budget,
+    fetch_transactions: Fetch,
+    fetch_draft_picks: Fetch,
+    now: float,
+    workers: int,
+) -> None:
+    """Read every requested transaction leg and every live/complete draft's
+    picks of ``readable`` leagues — through the per-(league, week) memo and
+    the request's call budget.  Shared by the manager activity lookup and the
+    league scouting view (Batch C), so both spend the same memo."""
+    jobs: list[tuple[str, _League, Any]] = []
+    for lg in readable:
+        for leg in legs:
+            jobs.append(("week", lg, leg))
+        for draft in lg.drafts or []:
+            if str(draft.get("status") or "") in ("complete", "drafting", "paused"):
+                jobs.append(("draft", lg, draft))
+
+    def _run(job: tuple[str, _League, Any]) -> None:
+        what, lg, arg = job
+        if what == "week":
+            ttl = WEEK_TTL_CURRENT_SECONDS if arg == current_leg else WEEK_TTL_COMPLETED_SECONDS
+            k, txs = _budgeted(
+                fetch_transactions,
+                (lg.league_id, arg),
+                budget=budget,
+                memo_key=("tx", lg.league_id, str(arg)),
+                ttl=ttl,
+                now=now,
+            )
+            lg.week_kinds[arg] = k
+            if k == sleeper_client.FETCH_OK:
+                lg.transactions.extend(t for t in txs or [] if isinstance(t, dict))
+            return
+        draft_id = str(arg.get("draft_id") or "")
+        complete = str(arg.get("status") or "") == "complete"
+        k, picks = _budgeted(
+            fetch_draft_picks,
+            (draft_id,),
+            budget=budget,
+            memo_key=("draftpicks", draft_id),
+            ttl=WEEK_TTL_COMPLETED_SECONDS if complete else WEEK_TTL_CURRENT_SECONDS,
+            now=now,
+        )
+        lg.draft_pick_kinds.append(k)
+        if k == sleeper_client.FETCH_OK:
+            lg.draft_picks[draft_id] = [p for p in picks or [] if isinstance(p, dict)]
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        list(pool.map(_run, jobs))
+
+
+def _league_coverage(lg: _League, legs: list[int], want_picks: bool) -> dict[str, Any]:
+    """One league's coverage row (rosters / transactions / drafts / traded
+    picks / users) plus whether it is incomplete for the searched roster(s)."""
+    if lg.rosters_state != COV_COMPLETE:
+        tx_state = drafts_state = lg.rosters_state
+        weeks_ok = weeks_failed = 0
+    elif not lg.manager_roster_ids():
+        tx_state = drafts_state = COV_NONE
+        weeks_ok = weeks_failed = 0
+    else:
+        kinds = [lg.week_kinds.get(leg, FETCH_BUDGET) for leg in legs]
+        tx_state = _coverage_state(kinds)
+        weeks_ok = sum(1 for k in kinds if k == sleeper_client.FETCH_OK)
+        weeks_failed = len(kinds) - weeks_ok
+        if lg.drafts_kind != sleeper_client.FETCH_OK:
+            drafts_state = _failed_state(lg.drafts_kind)
+        elif not lg.draft_pick_kinds:
+            drafts_state = COV_COMPLETE
+        else:
+            drafts_state = _coverage_state(lg.draft_pick_kinds)
+    picks_state = _traded_picks_state(lg, want_picks)
+    held = bool(lg.manager_roster_ids()) if lg.rosters_state == COV_COMPLETE else None
+    incomplete = held is not False and (
+        tx_state != COV_COMPLETE
+        or drafts_state != COV_COMPLETE
+        or (want_picks and picks_state != COV_COMPLETE)
+    )
+    return {
+        **lg.entry(),
+        "rosterHeld": held,
+        "rosters": lg.rosters_state,
+        "transactions": tx_state,
+        "drafts": drafts_state,
+        "tradedPicks": picks_state,
+        "weeksFetched": weeks_ok,
+        "weeksFailed": weeks_failed,
+        "leagueUsers": "complete" if lg.users_read else "unavailable",
+        "incomplete": incomplete,
+    }
+
+
 def _status_payload(status: str, username: str, **extra: Any) -> dict[str, Any]:
     return {"status": status, "query": username, **extra}
 
@@ -1480,46 +1578,16 @@ def build_manager_activity(
 
     legs, current_leg = _legs(state, season, current_season)
     readable = [lg for lg in ctx if lg.rosters_state == COV_COMPLETE and lg.manager_roster_ids()]
-    jobs: list[tuple[str, _League, Any]] = []
-    for lg in readable:
-        for leg in legs:
-            jobs.append(("week", lg, leg))
-        for draft in lg.drafts or []:
-            if str(draft.get("status") or "") in ("complete", "drafting", "paused"):
-                jobs.append(("draft", lg, draft))
-
-    def _run(job: tuple[str, _League, Any]) -> None:
-        what, lg, arg = job
-        if what == "week":
-            ttl = WEEK_TTL_CURRENT_SECONDS if arg == current_leg else WEEK_TTL_COMPLETED_SECONDS
-            k, txs = _budgeted(
-                fetch_transactions,
-                (lg.league_id, arg),
-                budget=budget,
-                memo_key=("tx", lg.league_id, str(arg)),
-                ttl=ttl,
-                now=t_now,
-            )
-            lg.week_kinds[arg] = k
-            if k == sleeper_client.FETCH_OK:
-                lg.transactions.extend(t for t in txs or [] if isinstance(t, dict))
-            return
-        draft_id = str(arg.get("draft_id") or "")
-        complete = str(arg.get("status") or "") == "complete"
-        k, picks = _budgeted(
-            fetch_draft_picks,
-            (draft_id,),
-            budget=budget,
-            memo_key=("draftpicks", draft_id),
-            ttl=WEEK_TTL_COMPLETED_SECONDS if complete else WEEK_TTL_CURRENT_SECONDS,
-            now=t_now,
-        )
-        lg.draft_pick_kinds.append(k)
-        if k == sleeper_client.FETCH_OK:
-            lg.draft_picks[draft_id] = [p for p in picks or [] if isinstance(p, dict)]
-
-    with ThreadPoolExecutor(max_workers=pool_size) as pool:
-        list(pool.map(_run, jobs))
+    _read_league_activity(
+        readable,
+        legs,
+        current_leg,
+        budget=budget,
+        fetch_transactions=fetch_transactions,
+        fetch_draft_picks=fetch_draft_picks,
+        now=t_now,
+        workers=pool_size,
+    )
 
     directory = fetch_directory() or {}
     pricer = _Pricer(contract, directory)
@@ -1561,44 +1629,9 @@ def build_manager_activity(
     coverage = []
     any_incomplete = False
     for lg in ctx:
-        if lg.rosters_state != COV_COMPLETE:
-            tx_state = drafts_state = lg.rosters_state
-            weeks_ok = weeks_failed = 0
-        elif not lg.manager_roster_ids():
-            tx_state = drafts_state = COV_NONE
-            weeks_ok = weeks_failed = 0
-        else:
-            kinds = [lg.week_kinds.get(leg, FETCH_BUDGET) for leg in legs]
-            tx_state = _coverage_state(kinds)
-            weeks_ok = sum(1 for k in kinds if k == sleeper_client.FETCH_OK)
-            weeks_failed = len(kinds) - weeks_ok
-            if lg.drafts_kind != sleeper_client.FETCH_OK:
-                drafts_state = _failed_state(lg.drafts_kind)
-            elif not lg.draft_pick_kinds:
-                drafts_state = COV_COMPLETE
-            else:
-                drafts_state = _coverage_state(lg.draft_pick_kinds)
-        picks_state = _traded_picks_state(lg, want_picks)
-        held = bool(lg.manager_roster_ids()) if lg.rosters_state == COV_COMPLETE else None
-        incomplete = held is not False and (
-            tx_state != COV_COMPLETE
-            or drafts_state != COV_COMPLETE
-            or (want_picks and picks_state != COV_COMPLETE)
-        )
-        any_incomplete = any_incomplete or incomplete
-        coverage.append(
-            {
-                **lg.entry(),
-                "rosterHeld": held,
-                "rosters": lg.rosters_state,
-                "transactions": tx_state,
-                "drafts": drafts_state,
-                "tradedPicks": picks_state,
-                "weeksFetched": weeks_ok,
-                "weeksFailed": weeks_failed,
-                "leagueUsers": "complete" if lg.users_read else "unavailable",
-            }
-        )
+        row = _league_coverage(lg, legs, want_picks)
+        any_incomplete = any_incomplete or row.pop("incomplete")
+        coverage.append(row)
 
     from src.valuation_math import package_model  # noqa: PLC0415
 
