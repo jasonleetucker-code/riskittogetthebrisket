@@ -1747,6 +1747,29 @@ functional benchmark only: no copied code, branding or interface assets, no payw
 | Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
 | Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
 
+## Added 2026-10-17 — League Tycoon migration research (owner research directive)
+
+Owner master research prompt, 2026-10-17: determine exactly what it would take for this Calculator to keep full
+league intelligence if the dynasty league moves from Sleeper to League Tycoon, and to use League Tycoon's
+contract-dynasty data. Research and planning only: implement nothing, change no production or Sleeper behaviour,
+and do not cut over without explicit owner approval. Blueprint:
+`docs/research/league-tycoon-migration-2026-10-17/README.md` (+ `SLEEPER_DEPENDENCY_INVENTORY.md`,
+`PARITY_MATRIX.md`, `OWNER_EVIDENCE_CAPTURE.md`).
+
+| Item | Disposition |
+|---|---|
+| Owner authorizes read-only collection of **their own** League Tycoon league's data, including via the owner's signed-in session; never other leagues/accounts, never writes | DECIDED — owner, 2026-10-17 (restated in session) |
+| League Tycoon's Terms of Use §4 prohibit automated access; written permission from League Tycoon is the recommended first step | DONE — 2026-10-17. League Tycoon support (George, support@leaguetycoon.com) replied to the owner in writing that scraping is "totally fine … to get all of the same information that you were able to get from Sleeper's API". The owner keeps the original email with headers |
+| Which league moves and from which season (proposed: `dynasty_main`, 2027) | OWNER DECISION NEEDED (OD-1) |
+| Standard vs contract dynasty on League Tycoon | OWNER DECISION NEEDED (OD-2) |
+| League Tycoon support for IDP and best ball is unconfirmed publicly; both define `dynasty_main` | OWNER ACTION — ask League Tycoon (OD-3) |
+| Access posture: written permission vs owner-accepted risk | DECIDED — written permission received 2026-10-17 (OD-4). Contract/cap pages are not Sleeper-equivalent data, so confirm them with League Tycoon before Batch 6 |
+| Contract-league modelling stays R60 DEFER until the owner lifts it | OWNER DECISION NEEDED (OD-5) |
+| Sleeper remains the record for seasons up to the cutover (League Tycoon does not import Sleeper transactions/trades) | RECOMMENDED (OD-6) |
+| Rookie-draft format and draft-order rule on League Tycoon | OWNER DECISION NEEDED (OD-7) |
+| One signed-in evidence capture by the owner (`OWNER_EVIDENCE_CAPTURE.md`) | OWNER ACTION — blocks every VERIFIED access claim |
+| Implementation (Batches 1–10) | NOT AUTHORIZED — needs `docs/EXECUTION_PLAN.md` |
+
 ## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
 
 Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.zip` (three binding docs:
