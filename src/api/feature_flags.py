@@ -156,6 +156,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # evidence; never manufactures a single-family row).  Needs
     # source_family_cap; with the cap off it stands down to the incumbent.
     "joint_outlier_sparse_challenger": False,
+    # Rank-space Hampel challenger (owner master package 2026-10-17, audit F1;
+    # docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md):
+    # the same per-player outlier filter computed in the Hill curve's
+    # percentile coordinates instead of values.  Shadow evaluation only;
+    # promotion is an owner decision after the preregistered rule passes.
+    "rank_space_hampel_challenger": False,
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
@@ -796,6 +802,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).
     "joint_outlier_sparse_challenger": LIVE,
+    # rank_space_hampel_challenger swaps the per-player outlier filter's
+    # coordinate system in data_contract._compute_unified_rankings (reaches a
+    # request through /api/data); ships OFF (challenger).
+    "rank_space_hampel_challenger": LIVE,
     # joint_sparse_limited_evidence replaces the single-source haircut with a
     # limitedEvidence stamp in the same function; ships OFF (challenger).
     "joint_sparse_limited_evidence": LIVE,
