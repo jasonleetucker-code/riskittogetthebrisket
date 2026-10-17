@@ -1791,3 +1791,26 @@ Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.z
 | Private trade history prices picks as of the trade date at the ledger's generic season/round value, the same rule as public | DECIDED — owner, 2026-10-17 |
 | Winners & Losers default Net value = the sum of per-trade adjusted nets; the alpha metric survives only as a separately labelled legacy index | DECIDED — binding |
 | Implementation | IN PROGRESS — PR 1 dispatch (`claude/package-model-dispatch`); PR 2 Second Opinions; PR 3 Trade History; PR 4 quant evaluation + model memo |
+
+## Added 2026-10-17 — Geometric Value Adjustment activation (owner approval)
+
+| Item | Disposition |
+|---|---|
+| Activate `geom_q078_v1` (q = 0.78) as the sitewide ACTIVE package Value Adjustment; keep `ktc_2026_04` registered for rollback; do not change the approved formula | DECIDED — owner, 2026-10-17 (supersedes "promotion NOT authorized" in the entry above); PR #1771 |
+| Take over #1771: finish CI and regression tests, fix failures, verify Second Opinions / Trade History / Trade Finder / Analyze Trade use it consistently, merge and deploy once release gates pass, verify production uses it | AUTHORIZED — owner approval to merge and deploy, 2026-10-17 |
+
+## Added 2026-10-17 — Injury-aware simulations, IDP source rehabilitation, valuation accuracy (owner master package)
+
+Owner master package 2026-10-17 ("Injury-Aware Simulations, Complete IDP Source Rehabilitation,
+Valuation Accuracy & Trade Model Validation").  Focused PRs; no automatic merge or deploy; no
+activation of a source that fails its gate.
+
+| Item | Disposition |
+|---|---|
+| P0: a player confirmed out for all remaining weeks enters zero simulated lineups; byes and verified player-week availability in forward simulations; Analyze Trade uses the corrected results | IN PROGRESS — #1772 (roster utility + Analyze Trade), #1774 (playoff sim presim), #1775 (Game Day byes) |
+| Every non-voting source has a reason, evidence, recovery action, owner, next trigger, promotion gate and visible status; no source sits in shadow indefinitely | IN PROGRESS — `config/sources/rehabilitation.json` (this PR) |
+| Signals IDP: run the on-box promotion gate; never weaken thresholds; diagnose failures | DONE (round 1 FAILED 6 and 6b; hold stays) — #1773; next candidate needs an owner preregistration decision |
+| The IDP Show: verify production authentication, fresh collection, upstream freshness; repair collection | IN PROGRESS — #1770 (on-box verifier + secret path); needs a working session from the owner |
+| FantasyPros IDP and other freshness problems: repair engineering defects; never force weight by editing clocks | IN PROGRESS — parser repairs; explicit upstream clock proposal needs owner approval |
+| Re-evaluate DLF IDP's incremental evidence; present a reversal only with evidence and explicit approval | PENDING |
+| Source independence, IDP normalization, outlier challenger (preregistered), DLF Values gate re-run, package-model evaluation on the production trade archive | PENDING |
