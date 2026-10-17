@@ -30,19 +30,17 @@ function gap(a, b, modelId) {
 }
 
 describe("package model dispatch", () => {
-  it("the active model is the KTC incumbent", () => {
-    expect(ACTIVE_PACKAGE_MODEL_ID).toBe("ktc_2026_04");
-    expect(packageModelReceipt().classification).toBe("INCUMBENT");
-    expect(packageModelReceipt(GEOM).classification).toBe("PRIOR");
+  it("the active model is owner-approved GEOM q=0.78", () => {
+    expect(ACTIVE_PACKAGE_MODEL_ID).toBe("geom_q078_v1");
+    expect(packageModelReceipt().classification).toBe("ACTIVE");
+    expect(packageModelReceipt(KTC).classification).toBe("FALLBACK");
     expect(() => packageModelReceipt("nope")).toThrow();
   });
 
-  it("the active path is exactly ktcAdjustPackage", () => {
+  it("the active path is exactly the geometric model", () => {
     for (const { team1, team2 } of fixture.cases) {
       expect(packageAdjustPair(team1, team2)).toEqual(
-        team1.length && team2.length
-          ? ktcAdjustPackage(team1, team2)
-          : { value: 0, side: 0, displayed: false },
+        packageAdjustPair(team1, team2, { modelId: GEOM }),
       );
     }
   });
@@ -56,28 +54,28 @@ describe("package model dispatch", () => {
     }
   });
 
-  it("consumers route through the dispatch (same numbers as before)", () => {
+  it("consumers route through the promoted model", () => {
     const row = (v) => ({ values: { full: v }, rankDerivedValue: v });
     const va = computeValueAdjustment(
       [row(7200)],
       [row(6000), row(500)],
       "full",
     );
-    expect(va).toEqual({ adjustment: 2900, recipientIdx: 0 });
+    expect(va).toEqual({ adjustment: 110, recipientIdx: 0 });
     expect(valueAdjustmentFromSideArrays([[7200], [6000, 500]])).toEqual([
-      2900, 0,
+      110, 0,
     ]);
-    expect(computeTradeVANet([7200], [6000, 500])).toBe(2900);
+    expect(computeTradeVANet([7200], [6000, 500])).toBe(110);
     const totals = adjustedSideTotals(
       [row(7200)],
       [row(6000), row(500)],
       "full",
     );
-    expect(totals[0].adjusted - totals[1].adjusted).toBe(3600);
+    expect(totals[0].adjusted - totals[1].adjusted).toBe(810);
   });
 });
 
-describe("incumbent KNOWN_DEFECT pins (not fixed under the KTC label)", () => {
+describe("legacy KTC KNOWN_DEFECT pins (preserved for rollback parity)", () => {
   it("adding a positive asset to B widens A's lead", () => {
     expect(gap([7200], [6000], KTC)).toBe(1200);
     expect(gap([7200], [6000, 500], KTC)).toBe(3600);
@@ -91,7 +89,7 @@ describe("incumbent KNOWN_DEFECT pins (not fixed under the KTC label)", () => {
   });
 });
 
-describe("shadow challenger: structural guarantees, zero failures", () => {
+describe("promoted geometric model: structural guarantees, zero failures", () => {
   it("closed form", () => {
     expect(geomPackageUtility([6000, 500])).toBeCloseTo(6390, 6);
     expect(gap([7200], [6000, 500], GEOM)).toBe(810);
