@@ -9,7 +9,8 @@ import { percentageGap } from "@/lib/trade-logic";
  * the adjusted gap (raw + VA) between the two PACKAGES (each side lists what it
  * sends, so the bigger package is the side giving up more).  The per-source
  * figures are RAW sums of `sourceRankMeta[key].valueContribution` — no
- * Value Adjustment — and every contributing source key is cited on its own
+ * Value Adjustment — over sources that priced EVERY piece (partial sources
+ * are counted, never cited; 2026-10-17), and each source key is cited on its own
  * (correlated sources are not collapsed into one family here).  The copy
  * says both things instead of implying the per-source numbers are the
  * verdict's own basis.  The previous docstring claimed this read "the same
@@ -59,12 +60,19 @@ function sourceLabel(key) {
   return def?.columnLabel || def?.displayName || key;
 }
 
+// A source's raw package sum, or null unless it priced EVERY piece with an
+// eligible observation (one that contributed to our blend).  A partial sum
+// is not a smaller package, so a source that covers only part of the trade
+// is never narrated as a driver or a dissenter (owner package 2026-10-17:
+// the explanation must use actual full-coverage facts).
 function sumSideContribution(assets, key) {
   let total = 0;
   for (const a of assets || []) {
-    const meta = a?.sourceRankMeta || {};
-    const v = Number(meta[key]?.valueContribution);
-    if (Number.isFinite(v) && v > 0) total += v;
+    const meta = a?.sourceRankMeta?.[key];
+    const v = Number(meta?.valueContribution);
+    const eligible = meta && meta.contributedToBlend !== false && meta.appliedWeight !== 0;
+    if (!(Number.isFinite(v) && v > 0) || !eligible) return null;
+    total += v;
   }
   return total;
 }
@@ -78,14 +86,16 @@ function buildPerSourceGaps(sideA, sideB) {
     }
   }
   const out = [];
+  let partial = 0;
   for (const key of sourceSet) {
     const a = sumSideContribution(sideA?.assets, key);
     const b = sumSideContribution(sideB?.assets, key);
-    // Require both sides to have at least one contribution from this
-    // source before we'd cite it.  A source that ranks only one side's
-    // pieces (e.g. KTC has Side A's player but not Side B's) is a
-    // coverage gap, not a disagreement worth narrating.
-    if (a <= 0 || b <= 0) continue;
+    // Only a source that priced every piece on both sides is cited; the
+    // rest are counted and named as partial coverage, never narrated.
+    if (a == null || b == null || a <= 0 || b <= 0) {
+      partial += 1;
+      continue;
+    }
     out.push({
       key,
       label: sourceLabel(key),
@@ -94,7 +104,7 @@ function buildPerSourceGaps(sideA, sideB) {
       sideBSum: b,
     });
   }
-  return out;
+  return { gaps: out, partial };
 }
 
 export default function TradeFairnessExplanation({ sides, sideTotals }) {
@@ -113,8 +123,16 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     const pctGap = percentageGap(totalA, totalB);
     const overallSign = overallGap === 0 ? 0 : overallGap > 0 ? 1 : -1;
 
-    const perSource = buildPerSourceGaps(sideA, sideB);
-    if (perSource.length === 0) return null;
+    const { gaps: perSource, partial } = buildPerSourceGaps(sideA, sideB);
+    const partialNote =
+      partial > 0
+        ? ` ${partial} source${partial === 1 ? "" : "s"} price${partial === 1 ? "s" : ""} only part of this trade and ${partial === 1 ? "is" : "are"} not cited.`
+        : "";
+    if (perSource.length === 0) {
+      return partial > 0
+        ? `No source prices every piece of this trade, so none is cited as a driver.${partialNote}`
+        : null;
+    }
 
     // Sort by absolute gap descending for "biggest disagreement"
     const byMagnitude = [...perSource].sort(
@@ -127,10 +145,10 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
       // a single source over the blend.
       const biggest = byMagnitude[0];
       if (!biggest || Math.abs(biggest.gap) < MIN_NOTABLE_GAP) {
-        return "The packages are within 3% after adjustments, and every covered source has them close to even.";
+        return `The packages are within 3% after adjustments, and every fully covering source has them close to even.${partialNote}`;
       }
       const winnerLabel = biggest.gap > 0 ? labelA : labelB;
-      return `The packages are within 3% after adjustments. Biggest single-source difference (raw, before Value Adjustment): ${biggest.label} values ${winnerLabel}'s package ${Math.round(Math.abs(biggest.gap)).toLocaleString()} higher.`;
+      return `The packages are within 3% after adjustments. Biggest single-source difference (raw, before Value Adjustment): ${biggest.label} values ${winnerLabel}'s package ${Math.round(Math.abs(biggest.gap)).toLocaleString()} higher.${partialNote}`;
     }
 
     // Lean trade — driver = source most aligned with the overall
@@ -148,7 +166,7 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     if (aligned.length === 0) {
       // Edge case: overall gap exists but no individual source has a
       // gap aligned with it (could happen with weights / VA effects).
-      return `${winnerLabel}'s package is worth ${pctGap}% more after adjustments. No single source drives it; the difference comes from Value Adjustment or small differences across sources.`;
+      return `${winnerLabel}'s package is worth ${pctGap}% more after adjustments. No single source drives it; the difference comes from Value Adjustment or small differences across sources.${partialNote}`;
     }
 
     const driver = aligned[0];
@@ -164,7 +182,7 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
       );
     }
 
-    return parts.join(" ");
+    return parts.join(" ") + partialNote;
   }, [sides, sideTotals]);
 
   if (!sentence) return null;
