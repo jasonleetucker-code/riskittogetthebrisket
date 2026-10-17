@@ -39,6 +39,7 @@ later batch (saved managers, alerts) keys on — never the username.
 
 from __future__ import annotations
 
+import math
 import statistics
 import threading
 import time
@@ -129,7 +130,9 @@ def _record(roster: dict[str, Any]) -> dict[str, Any]:
         "wins": _int("wins"),
         "losses": _int("losses"),
         "ties": _int("ties"),
-        "pointsFor": (fpts + (dec or 0) / 100.0) if fpts is not None else None,
+        # Sleeper splits points into an integer and a hundredths field; a
+        # missing hundredths field means the integer is all we know.
+        "pointsFor": (None if fpts is None else float(fpts) if dec is None else fpts + dec / 100.0),
     }
 
 
@@ -221,7 +224,14 @@ def aggregate_portfolio(
             "share": round(owned / denominator, 4) if denominator else None,
         }
         players.append(entry)
-    players.sort(key=lambda p: (-p["leaguesOwned"], -(p["value"] or 0), p["name"] or ""))
+    # Unpriced players sort after every priced one (an absent value is not 0).
+    players.sort(
+        key=lambda p: (
+            -p["leaguesOwned"],
+            -p["value"] if p["value"] is not None else math.inf,
+            p["name"] or "",
+        )
+    )
 
     return {"players": players, "summary": _summary(read, players)}
 
@@ -270,7 +280,12 @@ def _summary(read: list[dict[str, Any]], players: list[dict[str, Any]]) -> dict[
 
     return {
         "leaguesRead": len(read),
-        "rosterSpots": sum(int(lg.get("rosterSpots") or 0) for lg in read) or None,
+        # A total is published only when every read league states its size.
+        "rosterSpots": (
+            sum(int(lg["rosterSpots"]) for lg in read)
+            if read and all(lg.get("rosterSpots") for lg in read)
+            else None
+        ),
         "ownedInstances": instances,
         "uniquePlayers": len(players),
         "playersByPosition": dict(sorted(by_position.items())),
@@ -390,7 +405,7 @@ def build_manager_profile(
     truncated = len(in_scope) > max_leagues
     in_scope = in_scope[:max_leagues]
 
-    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(in_scope) or 1))) as pool:
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, len(in_scope)))) as pool:
         read = list(pool.map(lambda lg: _read_league(lg, user_id, fetch_rosters), in_scope))
 
     board = build_player_index(contract)
