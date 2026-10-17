@@ -145,7 +145,13 @@ const BUDGETS_KB = {
   // PR, ALL client JS the route loads: /trades 268.5 -> 271.0 KB raw
   // (+1.2 KB gzip), /trade 347.1 -> 345.9 KB.  The budget measures only the
   // page chunk, so it read a relocation as growth; 22 keeps ~7% headroom.
-  "/trades/page": 22,
+  // 22 -> 26 (2026-10-17, owner VA package PR 3): 20.6 -> 23.6 KB raw
+  // (8.9 KB gzip) for real new code — the At-the-Time grade client
+  // (lib/trade-history-grades.js, components/useTradeAsofGrades.js), the
+  // Today / When traded / aging card copy and the Winners & Losers metric
+  // switch.  lib/trade-retro-value.js + the rank-history fetch it needed
+  // left the route.  26 = 23.6 + ~10%.
+  "/trades/page": 26,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
   // rebuild's measured size + headroom so the claim desk can't drift
   // unnoticed like it had been.

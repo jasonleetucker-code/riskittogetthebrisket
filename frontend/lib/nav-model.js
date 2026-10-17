@@ -247,6 +247,18 @@ export const NAV_MODEL = [
         hint: "Browse recorded real dynasty trades by asset, date and format",
         keywords: ["trade database", "real trades", "comps", "comparable trades", "ktc trades"],
       },
+      // Manager Intelligence (C6-MGR-02): any Sleeper username's dynasty
+      // portfolio across all their leagues.  Market, not League: it reads
+      // leagues far outside ours.  CAPABILITY-GATED on the
+      // `manager_intelligence` flag so a switched-off deployment never
+      // offers a page whose API answers 503.
+      {
+        href: "/managers",
+        label: "Manager Intelligence",
+        hint: "Look up any Sleeper manager's dynasty portfolio",
+        keywords: ["manager", "sleeper", "portfolio", "exposure", "username", "scout", "stalker"],
+        capability: "managerIntelligence",
+      },
     ],
   },
   {

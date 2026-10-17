@@ -34,7 +34,9 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any, Callable
 
-from .market_value_adjustment import PackageAdjustment, ktc_adjust_package
+from src.valuation_math.package_model import adjust_pair
+
+from .market_value_adjustment import PackageAdjustment
 
 
 def _market_values(assets: list[Any]) -> list[int]:
@@ -70,7 +72,10 @@ def _adjustment_for(give: list[Any], receive: list[Any]) -> PackageAdjustment:
     all_assets = [*give, *receive]
     if not all_assets or not all(asset.has_market for asset in all_assets):
         return PackageAdjustment()
-    return ktc_adjust_package(_market_values(give), _market_values(receive))
+    value, side, displayed = adjust_pair(_market_values(give), _market_values(receive))
+    if not displayed:
+        return PackageAdjustment()
+    return PackageAdjustment(value=value, side=side, displayed=True)
 
 
 def score_with_value_adjustment(

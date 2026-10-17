@@ -70,6 +70,13 @@
      "hypotheticalPicksOut": [],
      "magnitude": "stretch",
      "notOwnedBySender": [],
+     "packageModel": {
+      "classification": "INCUMBENT",
+      "family": "ktc",
+      "id": "ktc_2026_04",
+      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
+      "version": "2026-04"
+     },
      "rawGap": 1000,
      "receivingAdjusted": 10227.0,
      "receivingValue": 7000,
@@ -80,7 +87,7 @@
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 4227,
-     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -187,6 +194,13 @@
      "hypotheticalPicksOut": [],
      "magnitude": "stretch",
      "notOwnedBySender": [],
+     "packageModel": {
+      "classification": "INCUMBENT",
+      "family": "ktc",
+      "id": "ktc_2026_04",
+      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
+      "version": "2026-04"
+     },
      "rawGap": 1000,
      "receivingAdjusted": 10227.0,
      "receivingValue": 7000,
@@ -197,7 +211,7 @@
      "unresolvedIn": [],
      "unresolvedOut": [],
      "vaAdjustedGap": 4227,
-     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
     },
     "dimension": "equity",
     "direction": "favors",

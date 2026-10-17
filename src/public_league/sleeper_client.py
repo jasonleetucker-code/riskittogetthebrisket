@@ -262,6 +262,50 @@ def fetch_nfl_state() -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def fetch_user_classified(username_or_id: str) -> tuple[str, Any]:
+    """``(kind, user)`` for ``/user/{username_or_id}`` — see
+    :func:`request_json_classified` for the kinds.
+
+    Sleeper resolves either a username or a numeric user id here, and
+    answers a JSON ``null`` (``not_found``) for one that does not exist.
+    The handle is URL-quoted; it is never trusted to be URL-safe.
+    """
+    from urllib.parse import quote  # noqa: PLC0415
+
+    handle = quote(str(username_or_id or "").strip(), safe="")
+    if not handle:
+        return FETCH_NOT_FOUND, None
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/user/{handle}")
+    if kind == FETCH_OK and not (isinstance(payload, dict) and payload.get("user_id")):
+        return FETCH_NOT_FOUND, None
+    return kind, payload
+
+
+def fetch_user_leagues_classified(user_id: str, season: str | int) -> tuple[str, Any]:
+    """``(kind, leagues)`` for ``/user/{user_id}/leagues/nfl/{season}``.
+
+    ``ok`` always carries a list (possibly empty — a real answer: the user is
+    in no league that season), so callers can tell "no leagues" apart from a
+    failed fetch.
+    """
+    kind, payload = request_json_classified(
+        f"{SLEEPER_BASE}/user/{str(user_id).strip()}/leagues/nfl/{str(season).strip()}"
+    )
+    if kind == FETCH_NOT_FOUND:
+        return FETCH_OK, []
+    if kind == FETCH_OK and not isinstance(payload, list):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
+def fetch_rosters_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, rosters)`` for ``/league/{league_id}/rosters``."""
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/league/{league_id}/rosters")
+    if kind == FETCH_OK and not isinstance(payload, list):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
 def fetch_league(league_id: str) -> dict[str, Any] | None:
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}")
     return data if isinstance(data, dict) else None

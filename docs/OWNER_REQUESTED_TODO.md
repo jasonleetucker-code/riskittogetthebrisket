@@ -1769,3 +1769,25 @@ and do not cut over without explicit owner approval. Blueprint:
 | Rookie-draft format and draft-order rule on League Tycoon | OWNER DECISION NEEDED (OD-7) |
 | One signed-in evidence capture by the owner (`OWNER_EVIDENCE_CAPTURE.md`) | OWNER ACTION — blocks every VERIFIED access claim |
 | Implementation (Batches 1–10) | NOT AUTHORIZED — needs `docs/EXECUTION_PLAN.md` |
+
+## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
+
+Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.zip` (three binding docs:
+`CLAUDE_MASTER_IMPLEMENTATION_PROMPT_TRADE_CALCULATOR_2026-10-17.md`,
+`SITEWIDE_TRADE_ADJUSTMENT_AND_HISTORY_INTEGRATION_SPEC_2026-10-17.md`,
+`SECOND_OPINIONS_CANONICAL_FALLBACK_SPEC_2026-10-17.md`), plus owner answers 2026-10-17.
+
+| Item | Disposition |
+|---|---|
+| The calculator's headline package valuation is roster-neutral (no Sleeper / League Tycoon roster, lineup, roster size or forced drops in the Value Adjustment); roster-fit tools stay separate lenses | DECIDED — binding (owner package) |
+| One named, versioned package model is used by every surface that publishes package-level trade equity (calculator, balancers, finder, suggestions, angle, analyze, Monte Carlo, trade history, public league grades); responses carry a `packageModel` receipt | DECIDED — binding; dispatch `src/valuation_math/package_model.py` + `frontend/lib/trade-logic.js::packageAdjustPair`, config `config/trade/package_model.json` (lane `claude/package-model-dispatch`) |
+| KTC (`ktc_2026_04`) stays the production incumbent; its known non-monotone cases are pinned as KNOWN_DEFECT, not silently changed | DECIDED — binding |
+| Sorted package utility q = 0.78 (`geom_q078_v1`) is a SHADOW challenger (PRIOR); promotion needs credible held-out market evidence AND separate explicit owner approval, and changes every consumer at once | DECIDED — binding; promotion NOT authorized |
+| No structural winner bias: a candidate must be audited for star-side, fewer-pieces, more-pieces and Side A/B bias against KTC on identical scenarios; no 50/50 target | DECIDED — binding |
+| Second Opinions: each source's normalized values for covered assets + the EXACT published Chase Upside canonical value for every missing asset (never the user's override), with OUR active Value Adjustment applied once; rows using any fallback are HYBRID_ESTIMATE and never vote; independent tally = full-source rows only | DECIDED — binding |
+| Trade History: Current Grade, At-the-Time Grade and How It Aged use the identical model; the at-time grade uses the canonical ledger (no look-ahead, missing ⇒ unavailable) | DECIDED — binding; supersedes `docs/TRADE_HISTORY_AGING_SPEC.md` §8's hold on promoting Value Adjustment into aging |
+| How It Aged verdict = change in the side's ADJUSTED net (today − at-trade, same model); the ±200 cutoff stays a labelled PRIOR until calibrated | DECIDED — owner, 2026-10-17 |
+| Public `/league` adds a current-grade band (label only, no numbers) beside its existing at-time grade, computed by the same function as private Current Grade | DECIDED — owner, 2026-10-17 |
+| Private trade history prices picks as of the trade date at the ledger's generic season/round value, the same rule as public | DECIDED — owner, 2026-10-17 |
+| Winners & Losers default Net value = the sum of per-trade adjusted nets; the alpha metric survives only as a separately labelled legacy index | DECIDED — binding |
+| Implementation | IN PROGRESS — PR 1 dispatch (`claude/package-model-dispatch`); PR 2 Second Opinions; PR 3 Trade History; PR 4 quant evaluation + model memo |

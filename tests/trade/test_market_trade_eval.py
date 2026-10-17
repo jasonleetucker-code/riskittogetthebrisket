@@ -186,3 +186,22 @@ def test_latent_readiness_reports_counts_and_builds_no_model():
     t1 = trade([[P("player:1")], [P("player:2")]])
     out = E.latent_fit_readiness([t1, t1])
     assert out["clean1for1Trades"] == 2 and out["shadowPrototypeBuilt"] is False
+
+
+def test_residual_report_can_evaluate_a_shadow_package_model_without_changing_the_default():
+    """PR 4 (owner VA package 2026-10-17): the same trades under the shadow
+    challenger, selected explicitly; the default stays the active model."""
+    from src.trade import market_trade_eval as mte
+    from src.valuation_math import package_model
+
+    class _Board:
+        def values(self, asset):
+            return {"x": {"a": 7200.0, "b": 6000.0, "c": 500.0}[asset]}
+
+    trade = {"sides": [["a"], ["b", "c"]]}
+    default = mte.trade_residual(trade, _Board(), "x")
+    shadow = mte.trade_residual(trade, _Board(), "x", model_id="geom_q078_v1")
+    # KTC VA credits the single stud +2900; GEOM's adjusted gap is UA - UB = 810.
+    assert default["adjustedA"] - default["adjustedB"] == pytest.approx(3600.0)
+    assert shadow["adjustedA"] - shadow["adjustedB"] == pytest.approx(810.0, abs=1.0)
+    assert package_model.active_model_id() == "ktc_2026_04"

@@ -171,6 +171,41 @@ def _apply_trade_grades(
             side["grade"] = result["grade"]
 
 
+def _apply_current_grades(
+    feed: list[dict[str, Any]],
+    current: Callable[[dict[str, Any]], "float | None"],
+) -> None:
+    """Attach a ``currentGrade`` block: the same trade at TODAY's board.
+
+    Owner decision 2026-10-17: public ``/league`` shows a current-grade band
+    beside the at-the-time grade, computed by the same
+    ``trade_grading.grade_trade_sides`` (and so the same active package
+    model) as the private /trades Current Grade.  Band and label only — the
+    values never leave the backend.  A side with any asset today's board does
+    not price is ``available: False``; never a partial total, never zero.
+    """
+
+    def today(asset: dict[str, Any], _instant: Any) -> "float | None":
+        return current(asset)
+
+    for trade in feed:
+        sides = trade.get("sides") or []
+        if len(sides) < 2:
+            continue
+        for side in sides:
+            got, got_missing = _resolve_side(side.get("receivedAssets"), today, None)
+            gave, gave_missing = _resolve_side(side.get("sentAssets"), today, None)
+            missing = got_missing + gave_missing
+            if missing:
+                side["currentGrade"] = {
+                    **_unavailable_grade("unpriced_today", missing),
+                    "label": "Current value unavailable",
+                }
+                continue
+            (result,) = trade_grading.grade_trade_sides([(got, gave)])
+            side["currentGrade"] = result["grade"]
+
+
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     season = pick.get("season")
     round_ = pick.get("round")
@@ -403,7 +438,15 @@ _SERVED_SECTION_KEYS = (
     "positionMixMoved",
 )
 _SERVED_TRADE_KEYS = ("transactionId", "season", "week", "createdAt", "totalAssets", "sides")
-_SERVED_SIDE_KEYS = ("rosterId", "ownerId", "displayName", "teamName", "receivedAssets", "grade")
+_SERVED_SIDE_KEYS = (
+    "rosterId",
+    "ownerId",
+    "displayName",
+    "teamName",
+    "receivedAssets",
+    "grade",
+    "currentGrade",
+)
 # ``season`` / ``round`` stay on picks: ``TradeCard`` falls back to them
 # when a pick has no ``label``.
 _SERVED_ASSET_KEYS = ("kind", "playerName", "position", "label", "season", "round")
@@ -434,8 +477,11 @@ def serving_view(section: dict[str, Any]) -> dict[str, Any]:
                     _pick(a, _SERVED_ASSET_KEYS) if isinstance(a, dict) else a
                     for a in side["receivedAssets"] or []
                 ]
-            if isinstance(side.get("grade"), dict):
-                s["grade"] = _pick(side["grade"], _SERVED_GRADE_KEYS)
+            # Both grade blocks (at-the-time and today's band) serve the same
+            # four public keys; values and diagnostics never leave.
+            for gk in ("grade", "currentGrade"):
+                if isinstance(side.get(gk), dict):
+                    s[gk] = _pick(side[gk], _SERVED_GRADE_KEYS)
             sides.append(s)
         if "sides" in out:
             out["sides"] = sides
@@ -501,6 +547,11 @@ def build_section(
                     requests.append((asset, instant))
         resolve = valuation_factory(requests)
         _apply_trade_grades(feed, resolve)
+        # Today's-board resolver rides on the factory (``server.py``'s
+        # ``_PublicActivityValuation``) so no caller signature changes.
+        current = getattr(valuation_factory, "current_valuation", None)
+        if callable(current):
+            _apply_current_grades(feed, current)
     by_manager = _by_manager_counts(feed)
     partner_pairs = _partner_pairs(feed)
     blockbusters = _biggest_blockbusters(feed)

@@ -25,7 +25,7 @@ from typing import Any
 
 from src.canonical.calibration import to_display_value
 from src.packages import PackageAsset, adapt_assets, side_key, topology_is_allowed
-from src.trade.ktc_va import adjusted_pair_totals
+from src.valuation_math.package_model import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.ros.lineup import resolve_league_slot_demand
 from src.roster_intel.weakness import position_depth
@@ -1575,7 +1575,7 @@ def _find_balancers(
     That arithmetic is only valid if adding a piece worth ``V`` moves
     the adjusted gap by ``V``, and it does not.  VA is a function of
     BOTH sides' complete value arrays, so adding a piece re-runs
-    :func:`src.trade.ktc_va.ktc_adjust_package` from scratch — the piece
+    :func:`src.valuation_math.package_model.adjust_pair` from scratch — the piece
     count changes, the progressive-nerf ladder shifts, the recipient
     side can flip, and the 1-v-1 / 3.3% display gates snap on or off.
 

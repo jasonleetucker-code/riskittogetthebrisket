@@ -96,3 +96,41 @@ describe("TradeCard grade badge", () => {
     expect(screen.queryByText("Fair trade")).toBeNull();
   });
 });
+
+describe("TradeCard current-grade band (owner 2026-10-17)", () => {
+  it("shows the at-the-time grade and today's grade side by side", () => {
+    const trade = tradeWith([
+      {
+        ownerId: "a",
+        teamName: "Team A",
+        receivedAssets: [{ kind: "player", playerName: "Player One", position: "WR" }],
+        grade: { grade: "B", color: "var(--green)", label: "Won the trade" },
+        currentGrade: { grade: "D", color: "var(--red)", label: "Lost the trade" },
+      },
+      {
+        ownerId: "zeta",
+        teamName: "Team Z",
+        receivedAssets: [{ kind: "player", playerName: "Player Two", position: "RB" }],
+        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+        currentGrade: {
+          grade: null,
+          color: null,
+          label: "Current value unavailable",
+          available: false,
+          reason: "unpriced_today",
+        },
+      },
+    ]);
+    render(<TradeCard trade={trade} managers={new Map()} onNavigate={() => {}} />);
+    const atTrade = screen.getAllByTestId("activity-grade-at-trade");
+    const today = screen.getAllByTestId("activity-grade-today");
+    expect(atTrade).toHaveLength(2);
+    expect(today).toHaveLength(2);
+    expect(atTrade[0]).toHaveTextContent("When traded");
+    expect(atTrade[0]).toHaveTextContent("B");
+    expect(today[0]).toHaveTextContent("Today");
+    expect(today[0]).toHaveTextContent("D");
+    expect(today[1]).toHaveTextContent("Current value unavailable");
+    expect(screen.getByTitle(/no value on today's board/i)).toBeInTheDocument();
+  });
+});

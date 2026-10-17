@@ -190,7 +190,8 @@ def _apply_consolidation_adjustment(
 ) -> tuple[list[TradePlayer], list[TradePlayer], dict[str, Any]]:
     """Apply KTC consolidation premium to whichever side earns it.
 
-    Uses each player's p50 as the raw value fed to ktc_adjust_package.
+    Uses each player's p50 as the raw value fed to the active package model
+    (``src.valuation_math.package_model.adjust_pair``).
     When VA is awarded, the bonus is distributed proportionally (by p50
     share) across the receiving side's players as an additive band shift
     — p10/p50/p90 all move up by the same amount per player, preserving
@@ -202,11 +203,13 @@ def _apply_consolidation_adjustment(
     (1v1, < 3.3% variance, or equal packages) the original lists are
     returned unchanged and ``applied`` is False.
     """
-    from src.trade.ktc_va import ktc_adjust_package
+    from src.trade.ktc_va import KtcVAResult
+    from src.valuation_math.package_model import adjust_pair
 
     a_p50s = [p.p50 for p in side_a]
     b_p50s = [p.p50 for p in side_b]
-    result = ktc_adjust_package(a_p50s, b_p50s)
+    value, side, displayed = adjust_pair(a_p50s, b_p50s)
+    result = KtcVAResult(value=value, side=side, displayed=displayed)
 
     applied = result.displayed and result.value > 0
     va_info: dict[str, Any] = {

@@ -510,6 +510,91 @@ export function ktcAdjustPackage(team1Vals, team2Vals, opts = {}) {
   return { value: Math.round(value), side, displayed: true };
 }
 
+// ── Package Value Adjustment model dispatch ──────────────────────────────
+//
+// Owner package 2026-10-17: every surface that publishes package-level trade
+// equity uses the SAME named, versioned model.  This is the JS half of the
+// dispatch (Python twin: src/valuation_math/package_model.py, parity pinned by
+// tests/fixtures/package_model_parity_cases.json).  ACTIVE_PACKAGE_MODEL_ID is
+// pinned equal to config/trade/package_model.json "active" by
+// tests/valuation_math/test_package_model.py — promoting a challenger changes
+// both in one PR, and only with the owner's explicit approval.
+//
+// * ktc_2026_04 — incumbent: ktcAdjustPackage above, unchanged (its known
+//   non-monotone cases are pinned as KNOWN_DEFECT in trade-logic.test.js).
+// * geom_q078_v1 — SHADOW challenger: sorted package utility
+//   U = sum q^(i-1) * v_i (q = 0.78, a PRIOR), shown as a positive-only
+//   adjustment to the side that discarded less depth, so
+//   adjustedA - adjustedB === U_A - U_B (up to integer rounding).
+
+export const PACKAGE_MODEL_IDS = Object.freeze({
+  KTC_2026_04: "ktc_2026_04",
+  GEOM_Q078_V1: "geom_q078_v1",
+});
+
+export const PACKAGE_MODELS = Object.freeze({
+  [PACKAGE_MODEL_IDS.KTC_2026_04]: Object.freeze({
+    id: PACKAGE_MODEL_IDS.KTC_2026_04,
+    family: "ktc",
+    version: "2026-04",
+    label: "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
+    classification: "INCUMBENT",
+  }),
+  [PACKAGE_MODEL_IDS.GEOM_Q078_V1]: Object.freeze({
+    id: PACKAGE_MODEL_IDS.GEOM_Q078_V1,
+    family: "geom",
+    version: "1",
+    q: 0.78,
+    label: "Sorted package utility, q = 0.78 (shadow challenger)",
+    classification: "PRIOR",
+  }),
+});
+
+export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS.KTC_2026_04;
+
+export function packageModelReceipt(modelId = ACTIVE_PACKAGE_MODEL_ID) {
+  const spec = PACKAGE_MODELS[modelId];
+  if (!spec) throw new Error(`unknown package model ${modelId}`);
+  const { id, family, version, label, classification } = spec;
+  return { id, family, version, label, classification };
+}
+
+function positiveDesc(values) {
+  return [...(values || [])]
+    .map((v) => Number(v) || 0)
+    .filter((v) => v > 0)
+    .sort((a, b) => b - a);
+}
+
+/** sum q^i * v_i over positive values sorted descending. */
+export function geomPackageUtility(values, q = PACKAGE_MODELS.geom_q078_v1.q) {
+  return positiveDesc(values).reduce((acc, v, i) => acc + v * q ** i, 0);
+}
+
+/**
+ * {value, side, displayed} for one package pairing under a model — KTC's
+ * shape (side 1 = team1 receives, 2 = team2, 0 = none), so every consumer
+ * keeps its contract.  modelId defaults to the ACTIVE model.
+ */
+export function packageAdjustPair(team1Vals, team2Vals, opts = {}) {
+  const modelId = opts.modelId ?? ACTIVE_PACKAGE_MODEL_ID;
+  const spec = PACKAGE_MODELS[modelId];
+  if (!spec) throw new Error(`unknown package model ${modelId}`);
+  const t1 = positiveDesc(team1Vals);
+  const t2 = positiveDesc(team2Vals);
+  if (t1.length === 0 || t2.length === 0) {
+    return { value: 0, side: 0, displayed: false };
+  }
+  if (spec.family === "ktc") return ktcAdjustPackage(t1, t2);
+  const sum = (a) => a.reduce((q, v) => q + v, 0);
+  const depth1 = sum(t1) - geomPackageUtility(t1, spec.q);
+  const depth2 = sum(t2) - geomPackageUtility(t2, spec.q);
+  // Math.round is half-up for positive numbers, matching ktc_va_core.js_round.
+  const value = Math.round(Math.abs(depth1 - depth2));
+  if (value <= 0) return { value: 0, side: 0, displayed: false };
+  return { value, side: depth2 > depth1 ? 1 : 2, displayed: true };
+}
+
 /**
  * Compute the KTC-style Value Adjustment between two sides.
  *
@@ -539,7 +624,7 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
   // Direct port path: ktcAdjustPackage returns side ∈ {0, 1, 2}
   // matching KTC's team1/team2 convention.  Map to our 0-indexed
   // recipientIdx.
-  const result = ktcAdjustPackage(aValues, bValues);
+  const result = packageAdjustPair(aValues, bValues);
   if (!result.displayed || result.value <= 0 || result.side === 0) {
     return { adjustment: 0, recipientIdx: null };
   }
@@ -592,7 +677,7 @@ export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
       if (j !== i) others.push(...allValues[j]);
     }
     if (others.length === 0) return 0;
-    const result = ktcAdjustPackage(thisSide, others);
+    const result = packageAdjustPair(thisSide, others);
     if (!result.displayed || result.value <= 0) return 0;
     // side === 1 means team1 (i.e. thisSide) gets the VA
     return result.side === 1 ? result.value : 0;
@@ -631,7 +716,7 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
   // every other side into the opposing array, mirroring
   // computeMultiSideAdjustments.
   if (sorted.length === 2) {
-    const result = ktcAdjustPackage(sorted[0], sorted[1]);
+    const result = packageAdjustPair(sorted[0], sorted[1]);
     if (!result.displayed || result.value <= 0) return [0, 0];
     return result.side === 1 ? [result.value, 0] : [0, result.value];
   }
@@ -642,7 +727,7 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
       if (j !== i) others.push(...sorted[j]);
     }
     if (others.length === 0) return 0;
-    const result = ktcAdjustPackage(thisSide, others);
+    const result = packageAdjustPair(thisSide, others);
     if (!result.displayed || result.value <= 0) return 0;
     return result.side === 1 ? result.value : 0;
   });

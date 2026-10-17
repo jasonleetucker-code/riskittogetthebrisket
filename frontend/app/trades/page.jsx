@@ -14,11 +14,12 @@ import {
   Movement,
   PageHeader,
   Panel,
+  SegmentedControl,
   Select,
   SkeletonTable,
 } from "@/components/ds";
 import { PlayerImage } from "@/components/ui";
-import { TRADE_ALPHA } from "@/lib/trade-logic";
+import { TRADE_ALPHA, packageModelReceipt } from "@/lib/trade-logic";
 import {
   analyzeSleeperTradeHistory,
   buildCombinedPairTrade,
@@ -30,35 +31,36 @@ import {
   stateText,
 } from "@/lib/manager-scout";
 import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
-import { useRankHistory } from "@/components/useRankHistory";
-import { buildHistoryLookup } from "@/lib/value-history";
-import { gradeRetro } from "@/lib/trade-retro-value";
+import { useTradeAsofGrades } from "@/components/useTradeAsofGrades";
+import {
+  AGING,
+  AGING_LABEL,
+  AGING_REASON_TEXT,
+  AGING_STABLE_BAND_PRIOR,
+  sideAging,
+  tradeKey,
+} from "@/lib/trade-history-grades";
 import styles from "./trades.module.css";
 
 // ── /trades — the trade ledger ────────────────────────────────────────
 //
 // Every analyzed league trade, the running winners/losers table, and
-// per-manager tendencies.  All grading, value, and retro math lives in
-// lib/league-analysis + lib/trade-retro-value + lib/value-history; the
+// per-manager tendencies.  Current grades come from lib/league-analysis
+// (today's board), At-the-Time grades from the canonical ledger via
+// POST /api/trades/asof-grades, and aging from lib/trade-history-grades —
+// all three under the ONE active package model (owner 2026-10-17).  The
 // tendencies come from the private Manager Scout owner
 // (`/api/manager-scout`, src/intel/manager_scout.py — C6-MGR-01) and are
 // only formatted here.  This file only arranges the results.
 
-// ``unknown`` is a rendered state, not an omission.  A trade whose
+// ``unavailable`` is a rendered state, not an omission.  A trade whose
 // at-the-time value could not be established must not silently look like a
 // trade nobody graded — and it must never borrow one of the three verdicts.
-const RETRO_LABEL = {
-  aged_well: "Aged well",
-  aged_poorly: "Aged poorly",
-  stable: "Stable",
-  unknown: "Aging unknown",
-};
-
-const RETRO_TONE = {
-  aged_well: "positive",
-  aged_poorly: "negative",
-  stable: "neutral",
-  unknown: "neutral",
+const AGING_TONE = {
+  [AGING.AGED_WELL]: "positive",
+  [AGING.AGED_POORLY]: "negative",
+  [AGING.STABLE]: "neutral",
+  [AGING.UNAVAILABLE]: "neutral",
 };
 
 function fmtSigned(n) {
@@ -68,7 +70,12 @@ function fmtSigned(n) {
 
 // ── Winners & losers ──────────────────────────────────────────────────
 
-function TeamScoresPanel({ teamScores, alpha }) {
+function TeamScoresPanel({ teamScores, alpha, modelLabel }) {
+  // Default: Σ of each trade's adjusted net (raw + package adjustment) — the
+  // same per-trade number the cards show, summed (owner package
+  // 2026-10-17).  The alpha-weighted won/lost-only sum is a DIFFERENT
+  // metric, kept only as an opt-in "legacy concentration index".
+  const [metric, setMetric] = useState("adjusted");
   const rows = useMemo(
     () =>
       Object.entries(teamScores).map(([key, s]) => ({
@@ -77,14 +84,14 @@ function TeamScoresPanel({ teamScores, alpha }) {
         trades: s.trades,
         won: s.won,
         lost: s.lost,
-        totalGain: s.totalGain,
-        // Same de-scaling the legacy card did: undo the alpha exponent
-        // so the number reads on the display value scale.
+        incompleteTrades: s.incompleteTrades || 0,
         netValue:
-          Math.sign(s.totalGain) *
-          Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha)),
+          metric === "legacy"
+            ? // Undo the alpha exponent so the index reads on the display scale.
+              Math.sign(s.totalGain) * Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha))
+            : Math.round(s.netAdjustedTotal),
       })),
-    [teamScores, alpha],
+    [teamScores, alpha, metric],
   );
 
   const columns = useMemo(
@@ -111,16 +118,19 @@ function TeamScoresPanel({ teamScores, alpha }) {
       },
       {
         key: "netValue",
-        header: "Net value",
+        header: metric === "legacy" ? "Legacy index" : "Net value",
         numeric: true,
         sortable: true,
         accessor: (r) => r.netValue,
         render: (r) => (
-          <Movement delta={r.netValue} format={(n) => n.toLocaleString()} />
+          <span title={r.incompleteTrades ? `${r.incompleteTrades} trade(s) include an asset today's board cannot price` : undefined}>
+            <Movement delta={r.netValue} format={(n) => n.toLocaleString()} />
+            {r.incompleteTrades ? "*" : ""}
+          </span>
         ),
       },
     ],
-    [],
+    [metric],
   );
 
   if (!rows.length) return null;
@@ -129,7 +139,22 @@ function TeamScoresPanel({ teamScores, alpha }) {
     <Panel
       flush
       title="Trade winners & losers"
-      subtitle={`Cumulative net value across every analyzed trade (alpha=${alpha}).`}
+      subtitle={
+        metric === "legacy"
+          ? `Legacy concentration index — alpha-weighted (alpha=${alpha}), won and lost trades only. A different metric from net value.`
+          : `Sum of every trade's adjusted net (raw value + package adjustment, ${modelLabel}) at today's values. * = includes an asset today's board cannot price.`
+      }
+      actions={
+        <SegmentedControl
+          label="Winners & losers metric"
+          value={metric}
+          onChange={setMetric}
+          options={[
+            { value: "adjusted", label: "Net value" },
+            { value: "legacy", label: "Legacy index" },
+          ]}
+        />
+      }
     >
       <DataTable
         caption="Per-team cumulative trade net value, best first"
@@ -377,7 +402,25 @@ function AssetGroup({ label, items, total }) {
   );
 }
 
-function TradeEntry({ analysis: a, retroSides = [] }) {
+function GradeLine({ when, grade, testId }) {
+  return (
+    <span className={styles.entryDate} data-testid={testId}>
+      {when}:{" "}
+      {grade && grade.grade ? (
+        <>
+          <span className={styles.sideGrade}>{grade.grade}</span> {grade.label}
+        </>
+      ) : (
+        <em>{grade?.label || "unavailable"}</em>
+      )}
+    </span>
+  );
+}
+
+// ``atTimeSides`` / ``asofStatus`` come from the at-the-time endpoint;
+// ``null`` sides mean "not graded at the time" (combined head-to-head
+// trades span several dates, so they have no single at-the-time instant).
+function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", modelMatches = true }) {
   // Headline reflects the largest grievance — winner OR loser, whichever
   // has the biggest magnitude pctGap.  Under ±3% the trade reads fair.
   const showBadge = a.pctGap >= 3 && a.headlineSide;
@@ -426,23 +469,29 @@ function TradeEntry({ analysis: a, retroSides = [] }) {
         data-sides={a.sides.length > 2 ? "3" : "2"}
       >
         {a.sides.map((side, i) => {
-          const retro = retroSides[i];
-          const retroLabel = retro ? RETRO_LABEL[retro.verdict] : null;
-          const retroDelta = Number.isFinite(retro?.verdictDelta)
-            ? Math.round(retro.verdictDelta)
+          const atTime = atTimeSides ? atTimeSides[i] : null;
+          const aging = atTimeSides
+            ? sideAging(side, atTime, { modelMatches })
             : null;
-          // The V13-adjusted net is the meaningful "did this team win"
-          // quantity; VA contribution shown inline when it moved things.
+          const agingDelta = Number.isFinite(aging?.delta) ? Math.round(aging.delta) : null;
+          // The adjusted net (raw + package adjustment) is the "did this team
+          // win" quantity; the adjustment is shown inline when it moved things.
           const net = side.netAdjusted ?? side.netValue;
+          const atTimeGrade =
+            asofStatus === "loading"
+              ? { label: "loading…" }
+              : atTime && atTime.available === true
+                ? atTime.grade
+                : { label: "unavailable" };
           return (
             <div key={i} className={styles.side}>
               <div className={styles.sideHead}>
                 <span className={styles.sideTeam}>{side.team}</span>
                 {side.grade ? (
-                  <>
-                    <span className={styles.sideGrade}>{side.grade.grade}</span>
-                    <span className={styles.entryDate}>{side.grade.label}</span>
-                  </>
+                  <GradeLine when="Today" grade={side.grade} testId="trade-grade-today" />
+                ) : null}
+                {atTimeSides ? (
+                  <GradeLine when="When traded" grade={atTimeGrade} testId="trade-grade-at-trade" />
                 ) : null}
               </div>
               <AssetGroup label="Gave" items={side.gave} total={side.gaveValue} />
@@ -454,12 +503,21 @@ function TradeEntry({ analysis: a, retroSides = [] }) {
                     ({fmtSigned(side.vaNet)} VA)
                   </span>
                 ) : null}
-                {retroLabel ? (
-                  <Badge tone={RETRO_TONE[retro.verdict] || "neutral"}>
-                    {retroDelta != null
-                      ? `${retroLabel} (${fmtSigned(retroDelta)})`
-                      : retroLabel}
-                  </Badge>
+                {aging && asofStatus !== "loading" ? (
+                  <span
+                    data-testid="trade-aging"
+                    title={
+                      aging.verdict === AGING.UNAVAILABLE
+                        ? `Aging unavailable: ${AGING_REASON_TEXT[aging.reason] || aging.reason}.`
+                        : `Change in adjusted net since the trade (today − when traded). Within ±${AGING_STABLE_BAND_PRIOR} reads Stable — a provisional band, not yet calibrated.`
+                    }
+                  >
+                    <Badge tone={AGING_TONE[aging.verdict] || "neutral"}>
+                      {agingDelta != null
+                        ? `${AGING_LABEL[aging.verdict]} (${fmtSigned(agingDelta)})`
+                        : AGING_LABEL[aging.verdict]}
+                    </Badge>
+                  </span>
                 ) : null}
               </div>
             </div>
@@ -521,7 +579,7 @@ function CombinedSection({ combined, teamA, teamB }) {
   }
   return (
     <div className={styles.ledger}>
-      <TradeEntry analysis={combined} retroSides={[]} />
+      <TradeEntry analysis={combined} />
     </div>
   );
 }
@@ -542,37 +600,17 @@ export default function TradesPage() {
     [rawData, rows, windowDays, alpha],
   );
 
-  // Rank history lets each trade be valued at the date it happened.
-  // ``useRankHistory`` is single-flight + cached for 60s.
-  const { history: rankHistory } = useRankHistory({ days: 365 });
-  const historyLookup = useMemo(() => buildHistoryLookup(rankHistory), [rankHistory]);
-
-  const retroByTrade = useMemo(() => {
-    if (!analysis?.analyzed?.length) return new Map();
-    const out = new Map();
-    for (const a of analysis.analyzed) {
-      // NOT ``|| Date.now()``.  An undated trade graded "as of now" makes the
-      // at-trade total equal the current total, so verdictDelta is 0 by
-      // construction and the badge reads "Stable" — a measured finding where
-      // there is no measurement.  Non-finite reaches gradeRetro, which
-      // refuses.
-      const explicit = Number(a.trade?._statusUpdatedMs);
-      const parsed = Date.parse(a.date);
-      const ts = Number.isFinite(explicit) && explicit > 0 ? explicit : parsed;
-      out.set(
-        a.id,
-        (a.sides || []).map((side) =>
-          gradeRetro({
-            side,
-            currentNet: side.netValue,
-            asOfMs: ts,
-            historyLookup,
-          }),
-        ),
-      );
-    }
-    return out;
-  }, [analysis, historyLookup]);
+  // At-the-Time grades: the canonical ledger as of each trade's own instant,
+  // one request for the whole window (src/api/trade_history_asof.py).
+  const asof = useTradeAsofGrades(analysis.analyzed);
+  const activeModel = useMemo(() => packageModelReceipt(), []);
+  // Aging compares two nets, so both must come from the same package model.
+  const modelMatches = !asof.packageModel || asof.packageModel.id === activeModel.id;
+  const keyByEntry = useMemo(() => {
+    const m = new Map();
+    analysis.analyzed.forEach((a, i) => m.set(a, tradeKey(a, i)));
+    return m;
+  }, [analysis]);
 
   const teams = useMemo(() => {
     const set = new Set();
@@ -639,7 +677,7 @@ export default function TradesPage() {
               ? "Trade history unavailable — the board data failed to load."
               : combineMode
                 ? `Combined head-to-head: ${teamFilter} ↔ ${teamFilterB} — assets that bounced back cancel out.`
-                : `${analysis.analyzed.length} trades in the last ${windowDays} days, graded at alpha=${alpha}.`
+                : `${analysis.analyzed.length} trades in the last ${windowDays} days, graded under ${activeModel.label}.`
         }
       />
 
@@ -726,18 +764,30 @@ export default function TradesPage() {
             />
           ) : (
             <>
-              <TeamScoresPanel teamScores={analysis.teamScores} alpha={alpha} />
+              <TeamScoresPanel
+                teamScores={analysis.teamScores}
+                alpha={alpha}
+                modelLabel={activeModel.label}
+              />
               <TendenciesPanel />
 
               {filtered.length > 0 ? (
                 <div className={styles.ledger}>
-                  {filtered.map((a, idx) => (
-                    <TradeEntry
-                      key={a.id ?? idx}
-                      analysis={a}
-                      retroSides={retroByTrade.get(a.id) || []}
-                    />
-                  ))}
+                  {filtered.map((a, idx) => {
+                    const key = keyByEntry.get(a) ?? `f:${idx}`;
+                    return (
+                      <TradeEntry
+                        key={key}
+                        analysis={a}
+                        atTimeSides={
+                          asof.byTrade.get(key) ||
+                          a.sides.map(() => ({ available: false, reason: asof.reason || "at_time_unavailable" }))
+                        }
+                        asofStatus={asof.status}
+                        modelMatches={modelMatches}
+                      />
+                    );
+                  })}
                 </div>
               ) : null}
 
