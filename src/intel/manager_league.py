@@ -145,8 +145,9 @@ def _roster_summary(
         )
     players.sort(
         key=lambda p: (
-            p["value"] is None,
-            -(p["value"] or 0),
+            # Unpriced players sort after every priced one (an ORDER key,
+            # never a published value).
+            (1, 0) if p["value"] is None else (0, -p["value"]),
             p["name"] or p["playerId"],
         )
     )
@@ -558,8 +559,8 @@ def build_league_scouting(
 
     rows.sort(
         key=lambda r: (
-            r["valueRank"] is None,
-            r["valueRank"] or 0,
+            # Unranked rows sort last (an ORDER key, never a published rank).
+            (1, 0) if r["valueRank"] is None else (0, r["valueRank"]),
             (r["displayName"] or "").lower(),
             r["rosterId"],
         )
