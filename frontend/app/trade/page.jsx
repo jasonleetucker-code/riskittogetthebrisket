@@ -2452,7 +2452,7 @@ export default function TradePage() {
             settings={settings}
             hasOverrides={Object.keys(valueOverrides).length > 0}
           />
-          <RosTradeFitPanel sides={sides} settings={settings} />
+          <RosTradeFitPanel sides={sides} settings={settings} leagueKey={selectedLeagueKey || ""} />
           <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
 
           {sides.length === 2 ? (
