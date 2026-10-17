@@ -171,6 +171,17 @@ private gate is enforced.
 
 **Depends on:** B1. **Tests:** ownership folds, the unavailable state, pick valuation and its grade.
 
+**As implemented (`src/intel/manager_trade_intel.py`)**
+- Served as `draftCapital` and `tendencies` blocks on `GET /api/manager-intel/activity`, not a second
+  endpoint, so one request shares one call budget, memo and rate-limit bucket. `/traded_picks` is one
+  extra call per league, current season only; coverage reports it as `tradedPicks`.
+- Seasons: the canonical `league_draft_years_for` over evidence assembled from this request's own drafts,
+  completed-draft picks and rosters (no previous-league hop: no new fetch path). A season whose draft this
+  league has already completed is also not held (`draftCompleteSeasons`). This covers startup-only
+  leagues, where the canonical lifecycle correctly leaves the class `unknown`. Unknown never drops a season.
+- Tendencies leave out uncertain-attribution trades and count them. Ages are current ages, not ages at
+  the time of the trade. `TENDENCY_MIN_SAMPLE = 3` and the age buckets are declared PRIORs.
+
 ## Batch C — League-wide opponent scouting
 
 **Deliverables**
@@ -216,4 +227,5 @@ private gate is enforced.
 |---|---|---|
 | A | #1762 | MERGED (`048bcbf8a`) |
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
-| B3, C, D, E, F | — | QUEUED in this order |
+| B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
+| C, D, E, F | — | QUEUED in this order |
