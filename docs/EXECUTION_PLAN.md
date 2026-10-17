@@ -121,6 +121,16 @@ authorized by it:** promoting GEOM (separate owner decision on held-out evidence
 calculator inputs, Market Edge Lab. The train also carried the DFS AutoSlates fix (selection reloaded the
 whole slate list; its flaky test had failed the #1761 deploy).
 
+## Trade Calculator completion — owner directive, 2026-10-17
+
+**AUTHORIZED NOW, added to the active queue alongside (not ahead of) the in-flight injury-availability, IDP
+rehabilitation, geometric VA activation and Manager Intelligence work.** Audit every Trade Calculator requirement,
+research competitors, redesign `/trade` for desktop and mobile, finish the missing functionality, and complete one
+unified YES / NO decision engine (extending `C7-DESK-01` / `analyze_trade`). Batches TC-0 (audit + research) → TC-A
+correctness → TC-B missing functionality → TC-C decision engine → TC-D redesign → TC-E reliability → TC-F release, per
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`. **Not authorized by it:** changing the approved package model
+or q, promoting experimental models, League Tycoon contract features, purchases. Merges and deploys keep their gates.
+
 ## Manager Intelligence (Batch A) — owner directive, 2026-10-16
 
 **AUTHORIZED; MERGED #1762 (`048bcbf8a`, 2026-10-17).** Sleeper username lookup → cross-league dynasty
