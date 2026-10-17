@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-05-18T20:23:44Z",
-     "broad": false,
-     "rowsAdded": 0,
-     "rowsChanged": 7,
-     "rowsRemoved": 0,
-     "rowsTotal": 448
-    },
-    {
      "at": "2026-05-19T17:34:49Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 4,
      "rowsRemoved": 0,
      "rowsTotal": 386
+    },
+    {
+     "at": "2026-10-17T07:18:28Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 386
     }
    ],
-   "contentSince": "2026-10-17T00:53:07Z",
-   "fingerprint": "21196d91ebc93c2d72e92f38",
+   "contentSince": "2026-10-17T07:18:28Z",
+   "fingerprint": "78bbe80bc7df26bdef3199ec",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-17T00:53:07Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-17T07:18:28Z",
    "lastBroadDatasetChangeAt": "2026-10-16T21:50:03Z",
    "rowChangedAt": {
     "a.j. brown": "2026-10-13T21:39:21Z",
@@ -2072,7 +2072,7 @@
     "emeka egbuka": "2026-10-16T21:50:03Z",
     "emmett johnson": "2026-10-16T21:50:03Z",
     "erick all": "2026-10-13T21:39:21Z",
-    "evan engram": "2026-10-13T21:39:21Z",
+    "evan engram": "2026-10-17T07:18:28Z",
     "fernando mendoza": "2026-10-16T21:50:03Z",
     "garrett nussmeier": "2026-10-13T21:39:21Z",
     "garrett wilson": "2026-10-16T21:50:03Z",
@@ -2240,7 +2240,7 @@
     "omar cooper jr.": "2026-10-16T21:50:03Z",
     "omarion hampton": "2026-10-16T21:50:03Z",
     "oronde gadsden ii": "2026-10-13T21:39:21Z",
-    "oscar delp": "2026-10-13T21:39:21Z",
+    "oscar delp": "2026-10-17T07:18:28Z",
     "parker washington": "2026-10-15T21:54:25Z",
     "pat bryant": "2026-10-16T21:50:03Z",
     "pat freiermuth": "2026-10-16T18:28:35Z",
@@ -2291,7 +2291,7 @@
     "terry mclaurin": "2026-10-16T21:50:03Z",
     "tetairoa mcmillan": "2026-10-13T21:39:21Z",
     "tez johnson": "2026-10-16T21:50:03Z",
-    "theo johnson": "2026-10-13T21:39:21Z",
+    "theo johnson": "2026-10-17T07:18:28Z",
     "tip reiman": "2026-10-16T21:50:03Z",
     "tommy tremble": "2026-10-16T13:45:40Z",
     "tony pollard": "2026-10-16T21:50:03Z",
@@ -2336,7 +2336,7 @@
    "rowCountHistory": [
     392,
     392,
-    392,
+    386,
     386,
     386,
     386,
@@ -2493,7 +2493,7 @@
     "emeka egbuka": "b234c23324",
     "emmett johnson": "10129d7cdf",
     "erick all": "d5549c0831",
-    "evan engram": "5bd13ca1e3",
+    "evan engram": "4373957397",
     "fernando mendoza": "d6e8de2bf2",
     "garrett nussmeier": "0723c01ac7",
     "garrett wilson": "8749c83fe9",
@@ -2661,7 +2661,7 @@
     "omar cooper jr.": "37a1bd7063",
     "omarion hampton": "de73c44b38",
     "oronde gadsden ii": "b9963b841f",
-    "oscar delp": "1f860087c3",
+    "oscar delp": "186aeeed3c",
     "parker washington": "ea73161363",
     "pat bryant": "c63213d144",
     "pat freiermuth": "482a3d3e3a",
@@ -2712,7 +2712,7 @@
     "terry mclaurin": "3f7ba2bc80",
     "tetairoa mcmillan": "4fc654179d",
     "tez johnson": "7c72f81089",
-    "theo johnson": "186aeeed3c",
+    "theo johnson": "5bd13ca1e3",
     "tip reiman": "6e496f7f30",
     "tommy tremble": "623f104014",
     "tony pollard": "dfaa3b6f6c",
