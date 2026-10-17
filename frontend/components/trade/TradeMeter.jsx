@@ -17,12 +17,31 @@
  *   - ResilientSection from components/ResilientSection
  */
 
-import { meterVerdict, percentageGap } from "@/lib/trade-logic";
+import {
+  TRADE_EVAL_STATE,
+  meterVerdict,
+  percentageGap,
+  tradeEvaluationState,
+} from "@/lib/trade-logic";
 import { MonteCarloButton } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
 
+/** The meter's "nothing to compare yet" state — never a band (UX audit P0-6). */
+export function TradeMeterEmpty() {
+  return (
+    <div className="trade-meter" data-trade-state={TRADE_EVAL_STATE.EMPTY}>
+      <p className="muted" style={{ margin: 0 }}>
+        Add assets to compare the packages. No verdict until there is a trade.
+      </p>
+    </div>
+  );
+}
+
 export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false }) {
   const sideCount = sides.length;
+  if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
+    return <TradeMeterEmpty />;
+  }
   if (sideCount === 2) {
     return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} sidesSend={sidesSend} />;
   }
@@ -40,6 +59,9 @@ export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false
  * leaves it off and keeps its original wording.
  */
 export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
+  if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
+    return <TradeMeterEmpty />;
+  }
   const pwA = sideTotals[0]?.adjusted || 0;
   const pwB = sideTotals[1]?.adjusted || 0;
   const gap = pwA - pwB;

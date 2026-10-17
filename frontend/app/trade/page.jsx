@@ -12,6 +12,8 @@ import {
   multiAdjustedSideTotals,
   sideTotal,
   tradeSignature,
+  tradeEvaluationState,
+  TRADE_EVAL_STATE,
   applyImportedSides,
   defaultDestination,
   findBalancers,
@@ -921,6 +923,10 @@ export default function TradePage() {
     });
     return bestHits > 0 ? bestIdx : -1;
   }, [sides, selectedTeam, teamRosterNames]);
+
+  // Can the headline speak at all?  Empty → no verdict anywhere (P0-6).
+  const evalState = useMemo(() => tradeEvaluationState(sidesWithOverrides), [sidesWithOverrides]);
+  const tradeIsEmpty = evalState.state === TRADE_EVAL_STATE.EMPTY;
 
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
   const pwTotalA = sideTotals[0]?.adjusted || 0;
@@ -2462,30 +2468,41 @@ export default function TradePage() {
                   {/* Verdict bar: marker position is layout math from
                       verdictBarPosition(), the same helper the pre-R4
                       tray used. */}
-                  <div className={styles.verdictTrack} aria-hidden="true">
-                    <div className={styles.verdictField} />
-                    <div
-                      className={`${styles.verdictMarker} ${
-                        colorFromGap(pwGap) === "green"
-                          ? styles.verdictMarkerPositive
-                          : colorFromGap(pwGap) === "red"
-                            ? styles.verdictMarkerNegative
-                            : ""
-                      }`}
-                      style={{
-                        "--marker-pos": `${verdictBarPosition(pwGap)}%`,
-                      }}
-                    />
-                  </div>
+                  {tradeIsEmpty ? null : (
+                    <div className={styles.verdictTrack} aria-hidden="true">
+                      <div className={styles.verdictField} />
+                      <div
+                        className={`${styles.verdictMarker} ${
+                          colorFromGap(pwGap) === "green"
+                            ? styles.verdictMarkerPositive
+                            : colorFromGap(pwGap) === "red"
+                              ? styles.verdictMarkerNegative
+                              : ""
+                        }`}
+                        style={{
+                          "--marker-pos": `${verdictBarPosition(pwGap)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                   {/* Same vocabulary as the meter's badge — one set of
-                      verdict words per page (meterVerdict, 350/900/1800). */}
-                  <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
-                    {meterVerdict(Math.abs(pwGap)).label}
-                    {pctGap > 0 ? ` (${pctGap}%)` : ""}
-                  </div>
-                  <div className={styles.controlsNote}>
-                    Gap {Math.round(pwGap).toLocaleString()}
-                  </div>
+                      verdict words per page (meterVerdict, 350/900/1800).
+                      No band on an empty trade (UX audit P0-6). */}
+                  {tradeIsEmpty ? (
+                    <div className="verdict" data-trade-state={evalState.state}>
+                      Add assets to compare
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
+                        {meterVerdict(Math.abs(pwGap)).label}
+                        {pctGap > 0 ? ` (${pctGap}%)` : ""}
+                      </div>
+                      <div className={styles.controlsNote}>
+                        Gap {Math.round(pwGap).toLocaleString()}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <div className="label">Side B</div>

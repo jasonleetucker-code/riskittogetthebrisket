@@ -188,6 +188,41 @@ export function unpricedAssetsOnSide(side) {
   );
 }
 
+/**
+ * Whether a trade can be evaluated at all — the gate every headline verdict
+ * (meter badge, winner text, sticky tray) passes before it may speak.
+ *
+ *   empty       no asset on any side: "nothing to evaluate" is not an
+ *               evaluation, so no band is rendered (UX audit P0-6).
+ *   incomplete  some asset is unpriced by the board (and not overridden):
+ *               its 0 inside the totals is an arithmetic neutral, not a
+ *               value, so no verdict is computed over it (MISSING IS
+ *               NEVER ZERO).  ``unpriced`` names each one by side.
+ *   complete    every asset carries a value.
+ *
+ * Pass the OVERRIDE-APPLIED sides: a user value on an unpriced row prices it.
+ */
+export const TRADE_EVAL_STATE = Object.freeze({
+  EMPTY: "empty",
+  INCOMPLETE: "incomplete",
+  COMPLETE: "complete",
+});
+
+export function tradeEvaluationState(sides) {
+  const list = Array.isArray(sides) ? sides : [];
+  if (!list.some((s) => (s?.assets || []).length > 0)) {
+    return { state: TRADE_EVAL_STATE.EMPTY, unpriced: [] };
+  }
+  const unpriced = [];
+  list.forEach((s, side) => {
+    for (const r of unpricedAssetsOnSide(s?.assets)) {
+      unpriced.push({ side, name: r?.name || r?.displayName || "An asset" });
+    }
+  });
+  if (unpriced.length) return { state: TRADE_EVAL_STATE.INCOMPLETE, unpriced };
+  return { state: TRADE_EVAL_STATE.COMPLETE, unpriced: [] };
+}
+
 /** Descending-sorted effective values for a side. */
 function sortedSideValues(side, valueMode, settings) {
   return side

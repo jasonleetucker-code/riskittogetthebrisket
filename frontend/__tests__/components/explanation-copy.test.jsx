@@ -47,9 +47,11 @@ async function openHelp(user, buttonName, dialogName) {
   return dialog;
 }
 
+// Priced assets on both sides: an EMPTY trade renders no verdict at all
+// (TC-A / UX audit P0-6), so the wording tests need a real trade.
 const sides = [
-  { id: 0, label: "A", assets: [] },
-  { id: 1, label: "B", assets: [] },
+  { id: 0, label: "A", assets: [{ name: "Alpha", rankDerivedValue: 5000, values: { full: 5000 } }] },
+  { id: 1, label: "B", assets: [{ name: "Beta", rankDerivedValue: 4000, values: { full: 4000 } }] },
 ];
 
 describe("trade verdict wording follows the side model", () => {
