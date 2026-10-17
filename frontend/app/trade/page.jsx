@@ -43,7 +43,7 @@ import {
   parseShareParam,
   shareLinkLimits,
 } from "@/lib/trade-share";
-import { tradeRequestForTeam } from "@/lib/trade-war-room";
+import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
 import {
   canAddEntry,
   countEntries,
@@ -904,8 +904,24 @@ export default function TradePage() {
   // the user always knows which side is "I'm giving" vs. "I'm
   // receiving" — fixes the audit's U-2-style "team affordance
   // disappears once the tray scrolls" finding.
+  // The user's explicit "I'm Side A / B" answer, for trades whose roster
+  // evidence does not decide it (TC-A / UX audit P0-5).  null = not chosen.
+  const [explicitMySide, setExplicitMySide] = useState(null);
+  useEffect(() => {
+    setExplicitMySide(null);
+  }, [selectedTeam?.name, selectedLeagueKey]);
+  // ONE answer to "which side is the selected team's" for 2-side trades —
+  // the War Room, Simulate impact and the "You" badge all read it.
+  const teamSide = useMemo(
+    () =>
+      selectedTeam && sides.length === 2
+        ? resolveTeamSide(sides, teamRosterNames(selectedTeam), explicitMySide)
+        : { side: null, basis: "ambiguous" },
+    [sides, selectedTeam, teamRosterNames, explicitMySide],
+  );
   const mySideIdx = useMemo(() => {
     if (!selectedTeam) return -1;
+    if (sides.length === 2) return teamSide.side ?? -1;
     const myRoster = teamRosterNames(selectedTeam);
     if (!myRoster.size) return -1;
     let bestIdx = -1;
@@ -921,7 +937,7 @@ export default function TradePage() {
       }
     });
     return bestHits > 0 ? bestIdx : -1;
-  }, [sides, selectedTeam, teamRosterNames]);
+  }, [sides, selectedTeam, teamRosterNames, teamSide]);
 
   // Can the headline speak at all?  Empty → no verdict anywhere (P0-6).
   const evalState = useMemo(() => tradeEvaluationState(sidesWithOverrides), [sidesWithOverrides]);
@@ -1194,10 +1210,13 @@ export default function TradePage() {
       prev.map((s) => ({ ...s, assets: [], destinations: {} })),
     );
     setValueOverrides({});
+    setExplicitMySide(null);
   }
 
   function swapSides() {
     if (sides.length === 2) {
+      // The user's side moves with its assets.
+      setExplicitMySide((s) => (s === 0 ? 1 : s === 1 ? 0 : null));
       setSides((prev) => [
         { ...prev[1], id: 0, label: "A" },
         { ...prev[0], id: 1, label: "B" },
@@ -1572,10 +1591,21 @@ export default function TradePage() {
   const warRoomRequest = useMemo(
     () =>
       selectedTeam && sides.length === 2
-        ? tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam.name)
+        ? tradeRequestForTeam(
+            sides,
+            teamRosterNames(selectedTeam),
+            selectedTeam.name,
+            explicitMySide,
+          )
         : null,
-    [sides, selectedTeam, teamRosterNames],
+    [sides, selectedTeam, teamRosterNames, explicitMySide],
   );
+  // Both sides hold assets but nothing says which one is the team's: ask.
+  const sideChoiceNeeded =
+    Boolean(selectedTeam) &&
+    sides.length === 2 &&
+    teamSide.side == null &&
+    sides.every((s) => (s.assets || []).length > 0);
 
   // The question "Simulate impact" answered.  Any trade edit, Clear Trade,
   // team or league change invalidates the shown result (TC-A / UX audit
@@ -1595,7 +1625,12 @@ export default function TradePage() {
     // The ONE side mapping (`lib/trade-war-room.js`), shared with the Trade
     // War Room so the two can never disagree about which way a trade points:
     // the side holding more of this team's players is the side it GIVES.
-    const request = tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam?.name);
+    const request = tradeRequestForTeam(
+      sides,
+      teamRosterNames(selectedTeam),
+      selectedTeam?.name,
+      explicitMySide,
+    );
     if (!request) return;
     const { playersIn, playersOut, picksIn, picksOut, pickAssetIdsIn, pickAssetIdsOut } =
       request;
@@ -1611,7 +1646,7 @@ export default function TradePage() {
       },
       { signature: simSignature },
     );
-  }, [sides, selectedTeam, teamRosterNames, simulateTrade, simSignature]);
+  }, [sides, selectedTeam, teamRosterNames, simulateTrade, simSignature, explicitMySide]);
 
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
@@ -2114,7 +2149,7 @@ export default function TradePage() {
                 <Button
                   variant="primary"
                   onClick={runSimulateTrade}
-                  disabled={simLoading || !hasAssets}
+                  disabled={simLoading || !hasAssets || !warRoomRequest}
                   loading={simLoading}
                   title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
                 >
@@ -2299,6 +2334,10 @@ export default function TradePage() {
               useTeamContext={useTeamContext}
               onTeamContextChange={setUseTeamContext}
               overrideCount={Object.keys(valueOverrides).length}
+              teamName={selectedTeam?.name || ""}
+              sideChoiceNeeded={sideChoiceNeeded}
+              chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
+              onChooseSide={setExplicitMySide}
             />
           ) : null}
 

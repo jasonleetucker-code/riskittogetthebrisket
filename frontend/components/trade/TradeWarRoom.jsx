@@ -31,6 +31,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Banner,
+  Button,
   CollapsiblePanel,
   SegmentedControl,
   SkeletonText,
@@ -489,8 +490,45 @@ export default function TradeWarRoom({
   useTeamContext = true,
   onTeamContextChange,
   overrideCount = 0,
+  teamName = "",
+  sideChoiceNeeded = false,
+  chosenSide = null,
+  onChooseSide,
 }) {
   const basisNotice = overrideBasisNotice(overrideCount);
+  // TC-A / UX audit P0-5: when roster evidence does not say which side is
+  // the team's, the War Room ASKS — it never analyses an assumed side.
+  const sideChooser = (
+    <div className={styles.note} role="group" aria-label="Which side is your team">
+      <p className={styles.note} data-testid="war-room-side-choice">
+        {chosenSide != null
+          ? `Analysing Side ${chosenSide === 0 ? "A" : "B"} as ${teamName || "your team"} (you chose this).`
+          : `Which side is ${teamName || "your team"}? Neither side holds more of its roster, so the War Room will not guess.`}
+      </p>
+      <Button
+        size="sm"
+        variant={chosenSide === 0 ? "primary" : "ghost"}
+        onClick={() => onChooseSide?.(0)}
+      >
+        I give Side A
+      </Button>{" "}
+      <Button
+        size="sm"
+        variant={chosenSide === 1 ? "primary" : "ghost"}
+        onClick={() => onChooseSide?.(1)}
+      >
+        I give Side B
+      </Button>
+      {chosenSide != null ? (
+        <>
+          {" "}
+          <Button size="sm" variant="ghost" onClick={() => onChooseSide?.(null)}>
+            Use roster evidence
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
   const [state, setState] = useState({
     status: "idle",
     payload: null,
@@ -620,11 +658,15 @@ export default function TradeWarRoom({
           </h2>
           {toggle}
         </header>
-        <p className={styles.note}>
-          {request
-            ? "Add assets to both sides to see what this trade does to your roster."
-            : "Pick your team to see what this trade does to your roster."}
-        </p>
+        {sideChoiceNeeded ? (
+          sideChooser
+        ) : (
+          <p className={styles.note}>
+            {request
+              ? "Add assets to both sides to see what this trade does to your roster."
+              : "Pick your team to see what this trade does to your roster."}
+          </p>
+        )}
       </section>
     );
   }
@@ -652,6 +694,7 @@ export default function TradeWarRoom({
           included in this analysis.
         </p>
       ) : null}
+      {chosenSide != null ? sideChooser : null}
       {basisNotice ? (
         <p className={styles.modeNote} data-testid="war-room-basis-notice">
           {basisNotice}

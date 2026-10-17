@@ -36,23 +36,44 @@ export const RECOMMENDATION_TONES = {
 const PICK_NAME = /\d{4}/;
 
 /**
- * The simulate/analyze body for the selected team.  The side holding more of
- * the team's rostered assets is the side it GIVES; with no match at all it
- * defaults to side A (Swap Sides flips it).  Owned picks send their ownership
+ * Which side of a two-side trade is the selected team's — the side it GIVES.
+ *
+ *   explicit   the user said so (``explicitSide`` 0 / 1); always wins;
+ *   roster     one side holds strictly more of the team's rostered assets;
+ *   ambiguous  a tie, including 0-0 (the team owns none of the assets, or the
+ *              same number on both sides): ``side: null``.  NEVER assumed.
+ *
+ * TC-A / UX audit P0-5: a 0-0 tie used to resolve silently to Side A, so the
+ * War Room analysed "For Jason… PASS" on a picks-only trade Jason owned
+ * nothing in, while no side card carried the "You" badge.  One resolver for
+ * the War Room, Simulate impact and the "You" badge, so they cannot disagree.
+ */
+export function resolveTeamSide(sides, rosterNames, explicitSide = null) {
+  if (!Array.isArray(sides) || sides.length !== 2) return { side: null, basis: "ambiguous" };
+  if (explicitSide === 0 || explicitSide === 1) return { side: explicitSide, basis: "explicit" };
+  const owned = rosterNames instanceof Set ? rosterNames : new Set(rosterNames || []);
+  const scores = sides.map((s) =>
+    (s.assets || []).reduce((n, a) => n + (owned.has(a.name) ? 1 : 0), 0),
+  );
+  if (scores[0] === scores[1]) return { side: null, basis: "ambiguous" };
+  return { side: scores[0] > scores[1] ? 0 : 1, basis: "roster" };
+}
+
+/**
+ * The simulate/analyze body for the selected team.  The side it GIVES comes
+ * from ``resolveTeamSide``: explicit choice, else roster evidence; with no
+ * evidence either way it returns ``null`` — the caller asks the user rather
+ * than assuming a side.  Owned picks send their ownership
  * label AND their canonical owned id (``pickAssetIdsIn`` / ``pickAssetIdsOut``,
  * parallel to the pick lists, ``null`` for a generic pick): the backend checks
  * the id against the canonical ownership record, debits the team only for a
  * pick it actually holds, and reports one it does not (Wave A).  A generic
  * pick carries no id and never debits a real pick.
  */
-export function tradeRequestForTeam(sides, rosterNames, teamName) {
+export function tradeRequestForTeam(sides, rosterNames, teamName, explicitSide = null) {
   if (!Array.isArray(sides) || sides.length !== 2 || !teamName) return null;
-  const owned =
-    rosterNames instanceof Set ? rosterNames : new Set(rosterNames || []);
-  const scores = sides.map((s) =>
-    (s.assets || []).reduce((n, a) => n + (owned.has(a.name) ? 1 : 0), 0),
-  );
-  const mySide = scores[0] >= scores[1] ? 0 : 1;
+  const { side: mySide, basis: sideBasis } = resolveTeamSide(sides, rosterNames, explicitSide);
+  if (mySide == null) return null;
   const otherSide = mySide === 0 ? 1 : 0;
   const label = (a) => (a.assetId && a.assetLabel ? a.assetLabel : a.name);
   const playersOut = [];
@@ -82,6 +103,7 @@ export function tradeRequestForTeam(sides, rosterNames, teamName) {
     pickAssetIdsIn,
     pickAssetIdsOut,
     mySide,
+    sideBasis,
   };
 }
 
