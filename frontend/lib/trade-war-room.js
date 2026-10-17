@@ -323,7 +323,10 @@ export function availabilityNote(player) {
   const parts = [];
   if (a.unavailableWeeks > 0)
     parts.push(`out ${a.unavailableWeeks} of ${a.weeks} weeks`);
-  const unsure = (a.uncertainWeeks || 0) + (a.unknownWeeks || 0);
+  // Counts only: an absent count names nothing (never summed as zero).
+  const unsure = [a.uncertainWeeks, a.unknownWeeks]
+    .filter((n) => Number.isFinite(n))
+    .reduce((acc, n) => acc + n, 0);
   if (unsure > 0) parts.push(`uncertain ${unsure}`);
   return parts.length ? parts.join(", ") : null;
 }
