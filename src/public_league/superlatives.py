@@ -164,33 +164,23 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     def _winner(ranked: list[dict[str, Any]]) -> dict[str, Any] | None:
         return ranked[0] if ranked else None
 
-    by_qb = _ranking(
-        rows, lambda r: r["qb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"] or 0
-    )
-    by_rb = _ranking(
-        rows, lambda r: r["rb"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"] or 0
-    )
-    by_wr = _ranking(
-        rows, lambda r: r["wr"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"] or 0
-    )
-    by_te = _ranking(
-        rows, lambda r: r["te"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"] or 0
-    )
-    by_idp = _ranking(
-        rows, lambda r: r["idp"], lambda r: r["rosterSize"], lambda r: r["weightedPickScore"] or 0
-    )
+    # Unknown pick ownership: pick-based rankings are withheld and the pick
+    # tiebreak is not applied (``_ranking`` treats a ``None`` key as absent) —
+    # an unknown stockpile is never ranked as an empty one.
     picks_known = weighted is not None
+    pick_tiebreak = (lambda r: r["weightedPickScore"]) if picks_known else None
+
+    by_qb = _ranking(rows, lambda r: r["qb"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_rb = _ranking(rows, lambda r: r["rb"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_wr = _ranking(rows, lambda r: r["wr"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_te = _ranking(rows, lambda r: r["te"], lambda r: r["rosterSize"], pick_tiebreak)
+    by_idp = _ranking(rows, lambda r: r["idp"], lambda r: r["rosterSize"], pick_tiebreak)
     by_picks = (
-        _ranking(rows, lambda r: r["weightedPickScore"] or 0, lambda r: r["rosterSize"])
+        _ranking(rows, lambda r: r["weightedPickScore"], lambda r: r["rosterSize"])
         if picks_known
         else []
     )
-    by_rookies = _ranking(
-        rows,
-        lambda r: r["rookies"],
-        lambda r: r["rosterSize"],
-        lambda r: r["weightedPickScore"] or 0,
-    )
+    by_rookies = _ranking(rows, lambda r: r["rookies"], lambda r: r["rosterSize"], pick_tiebreak)
     by_active = _ranking(
         rows, lambda r: r["trades"] + r["waivers"], lambda r: r["trades"], lambda r: r["waivers"]
     )
@@ -198,8 +188,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     by_future = (
         _ranking(
             rows,
-            lambda r: (r["weightedPickScore"] or 0) * 2 + r["rookies"],
-            lambda r: r["weightedPickScore"] or 0,
+            lambda r: r["weightedPickScore"] * 2 + r["rookies"],
+            lambda r: r["weightedPickScore"],
             lambda r: r["rookies"],
         )
         if picks_known

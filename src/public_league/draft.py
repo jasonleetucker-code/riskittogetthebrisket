@@ -453,7 +453,9 @@ def _trade_pick_legs(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
     """
     seen: set[str] = set()
     legs: list[dict[str, Any]] = []
-    for season in snapshot.seasons:
+    # Oldest league first; ``trades()`` is chronological within a season, so
+    # ``legs`` comes out in trade order without a second sort.
+    for season in reversed(snapshot.seasons):
         for tx in season.trades():
             tx_id = str(tx.get("transaction_id") or "")
             if not tx_id or tx_id in seen:
@@ -479,10 +481,8 @@ def _trade_pick_legs(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                         "leagueId": season.league_id,
                         "sourceSeason": season.season,
                         "week": week,
-                        "created": int(tx.get("created") or tx.get("status_updated") or 0),
                     }
                 )
-    legs.sort(key=lambda leg: (leg["created"], leg["season"], leg["round"], leg["originRosterId"]))
     return legs
 
 
