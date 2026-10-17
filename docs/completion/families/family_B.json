@@ -111,17 +111,17 @@
       "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
       "productFamily": "Trade",
       "capability": "One recommendation-constraint owner applied during generation, fail-closed",
-      "disposition": "PARTIAL",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "userVisibleOutcome": "One recommendation-constraint owner applied during generation, fail-closed",
       "backendOwner": "src/trade/constraints.py; server.py::_constraints_for_request",
       "frontendOwner": "frontend/app/arbitrage/page.jsx",
       "dependsOn": [
         "C3-PKG-01"
       ],
-      "reality": "src/trade/constraints.py is the single owner (V1-130/V1-34 VERIFIED, #929 817d9abe4) and server.py::_constraints_for_request feeds it to 3 generators (suggestions, finder, angle). But /arbitrage's session exclusions travel through a finder-local ARBITRAGE_CONTROL_KEY envelope (finder.py ~L1045 excludePlayers) instead of the owner's refinement input, i.e. a second constraint path; _constraints_for_request never passes a refinement block.",
-      "prOrBranch": "#929",
-      "evidence": "tests/trade/test_recommendation_constraints.py + test_constraint_generation.py (41, mutation-proven)",
-      "nextAction": "Route /arbitrage excludePlayers through resolve_constraints(refinement={'exclude': ...}) and delete the finder-local exclusion envelope; wire the owner into /api/gameplan package generation",
+      "reality": "Trade discovery batch 1: the constraint owner reaches every generator — finder, suggestions, angle acquire, /api/gameplan?partner= and /api/bdvm/trades — and angle acquire + gameplan apply constraints BEFORE their pool caps. Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+      "prOrBranch": "#1739 (138b0d08a)",
+      "evidence": "tests/trade constraint suites on #1739; Validate PR + Release Candidate run 38625418889 green on 5a357f62a",
+      "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
       "blocker": null,
       "weight": 2
     },
@@ -159,17 +159,17 @@
       "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
       "productFamily": "Trade",
       "capability": "Generated-package LOCK / EXCLUDE refinement controls, applied during generation",
-      "disposition": "PARTIAL",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "userVisibleOutcome": "Generated-package LOCK / EXCLUDE refinement controls, applied during generation",
       "backendOwner": "src/trade/constraints.py",
       "frontendOwner": "frontend/app/arbitrage/page.jsx",
       "dependsOn": [
         "C3-CON-01"
       ],
-      "reality": "resolve_constraints implements lock/exclude precedence (exclude wins; persistent outranks lock), but no request carries a refinement block. Only /arbitrage has a session-only 'Exclude' button using its own envelope; no LOCK control anywhere; no persistence until cleared.",
-      "prOrBranch": null,
-      "evidence": "frontend/__tests__/components/arbitrage-refinement.test.jsx (exclude only)",
-      "nextAction": "Add lock/exclude per-player controls on generated packages (arbitrage, angle, suggestions) posting a refinement block consumed by _constraints_for_request; implement the 9 acceptance tests from the #835 spec",
+      "reality": "LOCK / EXCLUDE wired end to end through the one constraint owner (validate_refinement / resolve_locked_outgoing; a lock is never silently dropped; substrate enumerate_packages(required_send=)); /arbitrage + /angle controls, localStorage-only so a temporary EXCLUDE never becomes a saved protection. Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+      "prOrBranch": "#1739 (138b0d08a)",
+      "evidence": "#1739 tests; Release Candidate run 38625418889",
+      "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
       "blocker": null,
       "weight": 2
     },
@@ -400,7 +400,7 @@
       "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-07",
       "productFamily": "Trade",
       "capability": "Recent accepted dynasty trades shown inside the calculator with league-format tags",
-      "disposition": "AUTHORIZED_AND_READY",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "userVisibleOutcome": "Recent accepted dynasty trades shown inside the calculator with league-format tags",
       "backendOwner": "src/trade/market_trade_report.py; src/trade/market_trade_ledger.py",
       "frontendOwner": null,
@@ -408,10 +408,10 @@
         "C4-MTL-01",
         "C4-MTL-03"
       ],
-      "reality": "No recent-trades panel exists in /trade. The substrate exists and runs in production: the completed-trade ledger (KTC + Sharp Sleeper + own-league, format dispositions) and /api/market/trades (own-league only, no frontend consumer).",
-      "prOrBranch": null,
-      "evidence": null,
-      "nextAction": "Add a read endpoint over underlying_trades.sqlite filtered to trades touching the calculator's assets (public KTC rows + own league only; respect the private boundary), render a 'Recent real trades' panel with format tags and UNKNOWN fields left unknown",
+      "reality": "Recent real trades panel inside /trade over the canonical underlying-trade ledger with league-format tags; unknown fields stay unknown. Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+      "prOrBranch": "#1721 via train #1740 (923dda997)",
+      "evidence": "Release Candidate run 38613645306 green on 925237250",
+      "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
       "blocker": null,
       "weight": 2
     },
@@ -424,7 +424,7 @@
       "sourceDoc": "docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md#TC-08",
       "productFamily": "Trade",
       "capability": "Dedicated searchable Dynasty Trade Database page",
-      "disposition": "AUTHORIZED_AND_READY",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "userVisibleOutcome": "Dedicated searchable Dynasty Trade Database page",
       "backendOwner": "src/trade/market_trade_report.py",
       "frontendOwner": null,
@@ -432,10 +432,10 @@
         "C4-MTL-01",
         "C3-CALC-01/TC-07+TC-10"
       ],
-      "reality": "No page exists (no frontend route for market trades). Ledger, dedupe and format fingerprint exist in src/trade/market_trade_*.",
-      "prOrBranch": null,
-      "evidence": null,
-      "nextAction": "Build /market/trades over the canonical underlying-trade ledger with player/pick/date/format/topology filters and deep links; private-boundary review of which lanes may display contents",
+      "reality": "/market/trade-database browses the canonical underlying-trade ledger with fact filters (unknown excluded AND counted), via src/trade/market_trade_database.py and GET /api/market/trades/database. Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+      "prOrBranch": "#1742 via train #1744 (b8576e6d2)",
+      "evidence": "Validate PR run 38741557446, E2E run 38741557442, Release Candidate run 38741560571 green on 00c57f43e",
+      "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
       "blocker": null,
       "weight": 3
     },
@@ -1320,17 +1320,17 @@
       "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md",
       "productFamily": "Market evidence",
       "capability": "Comparable-trade matching (indexed, format-aware, recency-aware; never averaged into canonical value)",
-      "disposition": "IMPLEMENTED_NOT_INTEGRATED",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "userVisibleOutcome": "Comparable-trade matching (indexed, format-aware, recency-aware; never averaged into canonical value)",
       "backendOwner": "src/trade/comparable_trades.py",
       "frontendOwner": null,
       "dependsOn": [
         "C4-MTL-01"
       ],
-      "reality": "src/trade/comparable_trades.py (#961) implements four of five spec match tiers but has NO caller (no endpoint, no UI) and still searches only own registered leagues, not the broad ledger built since (#1586).",
-      "prOrBranch": "#961",
-      "evidence": null,
-      "nextAction": "Point comparable_trades at the canonical underlying-trade ledger (all lanes, dispositions respected), expose it on an authenticated endpoint used by TC-07 and Second Opinions, measure latency + relevance",
+      "reality": "src/trade/comparable_trades.py rewritten as the one comparable-trade owner over the canonical underlying-trade ledger (declared-prior similarity, PRIOR_UNVALIDATED); GET /api/market/trades/comparable; /trade 'Most comparable' mode; Analyze Trade marketCorroboration lens (votes=False). Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+      "prOrBranch": "#1742 via train #1744 (b8576e6d2); Analyze Trade lens #1752 via train #1753 (47a9f561b)",
+      "evidence": "Release Candidate runs 38741560571 (#1744) and 38822695870 (#1753)",
+      "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
       "blocker": null,
       "weight": 2
     },
@@ -1859,7 +1859,7 @@
       "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
       "productFamily": "Manager intelligence",
       "capability": "Manager Scout / manager tendencies derived from canonical transaction, waiver and lineup history",
-      "disposition": "AUTHORIZED_AND_READY",
+      "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
       "userVisibleOutcome": "Manager Scout / manager tendencies derived from canonical transaction, waiver and lineup history",
       "backendOwner": "src/intel/; src/acquisition/; src/trade/faab_history.py",
       "frontendOwner": null,
@@ -1867,10 +1867,10 @@
         "C1-ACQ-01",
         "C4-MTL-01"
       ],
-      "reality": "Absent as a product (no manager-scout module/route). Substrate exists: acquisition ledger, intel ledger, FAAB bid predictor that learns per-manager tendencies from resolved losing bids (#1146). Listed here because the family brief names manager tendencies; C6 family may also carry it.",
-      "prOrBranch": null,
-      "evidence": null,
-      "nextAction": "Build a per-manager tendency profile (trade frequency, positions bought/sold, FAAB aggressiveness) from canonical stores with tendency tests; private surface only",
+      "reality": "Manager Scout: private per-manager tendency profiles from canonical stores (/api/manager-scout), consumed descriptively on Best Offer / Package Builder cards. Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+      "prOrBranch": "#1722 via train #1740 (923dda997); Best Offer evidence #1745 (77d4c60b9)",
+      "evidence": "Release Candidate runs 38613645306 (#1740) and 38805671413 (#1745)",
+      "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
       "blocker": null,
       "weight": 3
     },
@@ -2199,6 +2199,32 @@
       "nextAction": null,
       "blocker": null,
       "weight": 1
+    },
+    {
+      "id": "C3-IMPORT-IMAGE",
+      "aliases": [
+        "Universal Trade Screenshot Import"
+      ],
+      "sourceDoc": "docs/OWNER_REQUESTED_TODO.md#added-2026-10-15--universal-trade-screenshot-import-c3-import-image-owner-directive",
+      "productFamily": "Trade calculator",
+      "capability": "Import a trade into /trade from a screenshot of any calculator or platform (local Tesseract OCR, review step, our values only)",
+      "disposition": "OWNER_ACTION_REQUIRED",
+      "userVisibleOutcome": "Upload/paste a screenshot, review the recognized sides, import into the calculator",
+      "backendOwner": "src/trade/screenshot_import/",
+      "frontendOwner": "frontend/app/trade/trade-screenshot-import.jsx",
+      "dependsOn": [],
+      "reality": "Code merged via #1751 in train #1753 (47a9f561b) and deployed (prod build.commit 47a9f561b; /api/trade/import-screenshot routes answer 401 auth_required anonymously; /api/metrics screenshot_import block present). Recognition is unavailable in production until tesseract-ocr is installed on the VPS (the deploy's sudo allowlist cannot apt-install); the UI says so. Accuracy measured on synthetic fixtures only.",
+      "prOrBranch": "#1751 via train #1753 (47a9f561b)",
+      "evidence": "scripts/screenshot_import_eval.py (4 synthetic fixtures: extraction recall/precision 1.0, resolution 1.0); real-OCR Playwright on desktop-1366 + mobile-chromium; Release Candidate run 38822695870",
+      "nextAction": null,
+      "blocker": {
+        "what": "Install tesseract-ocr on the production VPS",
+        "whyReal": "System packages need root on the box; deploy runs under a sudo allowlist (systemctl/journalctl/install/chown)",
+        "doneAround": "Feature deployed and reports unavailable honestly; KTC URL import remains",
+        "ownerOrExternalAction": "Owner runs `sudo apt-get install -y tesseract-ocr` once on the VPS",
+        "afterUnblock": "Signed-in status shows available; measure real-screenshot accuracy; production-verify; then COMPLETE_AND_PROVEN"
+      },
+      "weight": 2
     }
   ]
 }
