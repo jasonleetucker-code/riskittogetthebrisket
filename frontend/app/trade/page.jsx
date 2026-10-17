@@ -2292,8 +2292,11 @@ export default function TradePage() {
           <div className={styles.verdictHelpRow}>
             <TradeVerdictHelp />
           </div>
+          {/* sidesWithOverrides, not sides: the Monte Carlo panel inside the
+              meter simulates around the SAME per-asset values the meter's
+              totals are built from (TC-A / UX audit P0-1). */}
           <TradeMeter
-            sides={sides}
+            sides={sidesWithOverrides}
             sideTotals={sideTotals}
             flows={sideFlows}
             valueMode={valueMode}

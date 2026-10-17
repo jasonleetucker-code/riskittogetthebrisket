@@ -146,7 +146,8 @@ def enrich_with_decision_shape(
     fields the user's prompt requires the trade calculator to show:
 
         * valueDelta           — raw p50 sum of A − sum of B
-        * adjustedDelta        — same but weighted by confidence
+        * adjustedDelta        — valueDelta plus the active package VA
+                                 (the meter's adjusted gap)
         * winPct               — alias of winProbA, expressed 0–100
         * riskLevel            — low / medium / high bucket
         * tierImpact           — high-level "big" / "lateral" / "overpay"
@@ -157,33 +158,23 @@ def enrich_with_decision_shape(
     b_p50 = sum(p.p50 for p in side_b)
     raw_delta = a_p50 - b_p50
 
-    # Adjusted delta: when the consolidation adjustment was applied,
-    # use the VA bonus directly — it reflects the package-level premium
-    # KTC awards to the consolidated side.  Without VA, fall back to the
-    # spread-ratio heuristic (shrinks the less-confident side's valuation).
+    # Adjusted delta: raw p50 delta plus the ACTIVE package Value
+    # Adjustment, exactly the quantity the /trade meter publishes
+    # (``adjusted = raw + VA``, ``tradeGapAdjusted``).  TC-A / UX audit P0-1:
+    # this used to (a) report the p50-clamped ``effectiveValue`` instead of
+    # the model's adjustment and (b) fall back, whenever no adjustment was
+    # awarded (every 1-for-1), to a spread-ratio heuristic that shrank each
+    # side by 30% of its band width -- a third, unnamed quantity published
+    # under the name "adjusted".  No adjustment means adjusted == raw.
     va_adj = symmetric_result.get("vaAdjustment") or {}
+    adjusted_delta = raw_delta
     if va_adj.get("applied"):
-        # Use effectiveValue (post-clamp actual shift) so adjustedDelta
-        # matches what the simulation actually experienced, not the raw
-        # KTC award which may have been partially absorbed by the 9999 cap.
-        va_val = float(va_adj.get("effectiveValue") or va_adj.get("value") or 0)
+        va_val = float(va_adj.get("value") or 0)
         va_side = va_adj.get("side", 0)
         if va_side == 1:
-            adjusted_delta = (a_p50 + va_val) - b_p50
-        else:
-            adjusted_delta = a_p50 - (b_p50 + va_val)
-    else:
-
-        def _spread_ratio(side):
-            total = sum(p.p50 for p in side) or 1.0
-            spread = sum((p.p90 - p.p10) for p in side)
-            return spread / total if total > 0 else 0.0
-
-        a_spread = _spread_ratio(side_a)
-        b_spread = _spread_ratio(side_b)
-        a_adjusted = a_p50 * (1.0 - 0.3 * a_spread)
-        b_adjusted = b_p50 * (1.0 - 0.3 * b_spread)
-        adjusted_delta = a_adjusted - b_adjusted
+            adjusted_delta = raw_delta + va_val
+        elif va_side == 2:
+            adjusted_delta = raw_delta - va_val
 
     win_pct = symmetric_result.get("winProbA", 0.5) * 100.0
 
@@ -230,4 +221,4 @@ def _summary(win_pct: float, raw_delta: float, risk: str, impact: str) -> str:
     if 49.0 <= win_pct <= 51.0:
         return f"Coin-flip trade (~50%, Δ={raw_delta:+.0f} {impact}, risk {risk})"
     side = "Side A" if win_pct >= 50 else "Side B"
-    return f"{side} favored at {win_pct:.0f}% " f"(Δ={raw_delta:+.0f} {impact}, risk {risk})"
+    return f"{side} favored at {win_pct:.0f}% (Δ={raw_delta:+.0f} {impact}, risk {risk})"
