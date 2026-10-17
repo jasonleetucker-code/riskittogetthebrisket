@@ -537,6 +537,13 @@ def _tx_kind(tx: dict[str, Any], manager_rids: set[int]) -> str:
     return "waiver" if ttype == "waiver" else "free_agent"
 
 
+def _tx_order(tx: dict[str, Any]) -> tuple[int, int]:
+    """Chronological processing order.  An unstamped transaction sorts first
+    explicitly (``(0, 0)``) — an ORDER key, never a published time."""
+    stamp = _ms(tx.get("status_updated") or tx.get("created"))
+    return (0, 0) if stamp is None else (1, stamp)
+
+
 def _pick_dicts(tx: dict[str, Any]) -> list[dict[str, Any]]:
     return [p for p in tx.get("draft_picks") or [] if isinstance(p, dict)]
 
@@ -558,7 +565,7 @@ class _Assembler:
         owners = league.owner_by_roster()
         txs = sorted(
             {str(t.get("transaction_id")): t for t in league.transactions}.values(),
-            key=lambda t: (_ms(t.get("status_updated") or t.get("created")) or 0),
+            key=_tx_order,
         )
         for tx in txs:
             if str(tx.get("status") or "") != "complete":
@@ -1410,7 +1417,6 @@ def build_manager_activity(
     pricer = _Pricer(contract, directory)
     asm = _Assembler(user_id, pricer)
     for lg in readable:
-        lg.transactions.sort(key=lambda t: _int(t.get("leg")) or 0)
         asm.league(lg)
 
     # Window (after subsequent-state, which reads the whole season read).
