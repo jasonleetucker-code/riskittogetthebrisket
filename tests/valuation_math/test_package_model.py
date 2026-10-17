@@ -1,14 +1,14 @@
 """Package-model dispatch (owner package 2026-10-17).
 
 Pins:
-* the ACTIVE model is the KTC incumbent, identical in the committed config,
+* the ACTIVE model is owner-approved GEOM q=0.78, identical in committed config,
   the Python owner and the JS owner (one promotion point, both languages);
 * the KTC path IS ``ktc_va_core.adjust_package_raw`` — routing every consumer
   through the dispatch changed no number;
 * JS/Python parity on the shared fixture for every registered model;
 * the incumbent's known non-monotone cases, pinned as KNOWN_DEFECT rather
   than "fixed" under the KTC label;
-* the shadow challenger's structural guarantees with ZERO failures over a
+* the promoted geometric model's structural guarantees with ZERO failures over a
   seeded random suite (the bar any promotion candidate must clear).
 """
 
@@ -40,13 +40,13 @@ def _gap(a, b, model_id):
 # ── one active model, one promotion point ──────────────────────────────
 
 
-def test_active_model_is_the_incumbent_in_config_python_and_js():
+def test_active_model_is_geom_in_config_python_and_js():
     config = json.loads((REPO / "config/trade/package_model.json").read_text(encoding="utf-8"))
-    assert config["active"] == pm.KTC_2026_04 == pm.active_model_id()
+    assert config["active"] == pm.GEOM_Q078_V1 == pm.active_model_id()
     js = (REPO / "frontend/lib/trade-logic.js").read_text(encoding="utf-8")
     m = re.search(r"export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS\.(\w+);", js)
-    assert m and m.group(1) == "KTC_2026_04"
-    assert pm.shadow_model_ids() == [pm.GEOM_Q078_V1]
+    assert m and m.group(1) == "GEOM_Q078_V1"
+    assert pm.shadow_model_ids() == [pm.KTC_2026_04]
 
 
 def test_js_registry_mirrors_python_registry():
@@ -61,13 +61,13 @@ def test_js_registry_mirrors_python_registry():
 def test_receipt_names_the_model():
     r = pm.receipt()
     assert r == {
-        "id": "ktc_2026_04",
-        "family": "ktc",
-        "version": "2026-04",
-        "label": pm.PACKAGE_MODELS["ktc_2026_04"]["label"],
-        "classification": "INCUMBENT",
+        "id": "geom_q078_v1",
+        "family": "geom",
+        "version": "1",
+        "label": pm.PACKAGE_MODELS["geom_q078_v1"]["label"],
+        "classification": "ACTIVE",
     }
-    assert pm.receipt(pm.GEOM_Q078_V1)["classification"] == "PRIOR"
+    assert pm.receipt(pm.KTC_2026_04)["classification"] == "FALLBACK"
     with pytest.raises(ValueError):
         pm.receipt("nope")
 
