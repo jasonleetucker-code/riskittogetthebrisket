@@ -71,23 +71,23 @@
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
-      "classification": "INCUMBENT",
-      "family": "ktc",
-      "id": "ktc_2026_04",
-      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-      "version": "2026-04"
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
      },
      "rawGap": 3800,
-     "receivingAdjusted": 9304.0,
+     "receivingAdjusted": 7300.0,
      "receivingValue": 7300,
-     "receivingValueAdjustment": 2004.0,
-     "sendingAdjusted": 3500.0,
+     "receivingValueAdjustment": 0.0,
+     "sendingAdjusted": 3566.0,
      "sendingValue": 3500,
-     "sendingValueAdjustment": 0.0,
+     "sendingValueAdjustment": 66.0,
      "unresolvedIn": [],
      "unresolvedOut": [],
-     "vaAdjustedGap": 5804,
-     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
+     "vaAdjustedGap": 3734,
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -526,23 +526,23 @@
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
-      "classification": "INCUMBENT",
-      "family": "ktc",
-      "id": "ktc_2026_04",
-      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-      "version": "2026-04"
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
      },
      "rawGap": 3800,
-     "receivingAdjusted": 9304.0,
+     "receivingAdjusted": 7300.0,
      "receivingValue": 7300,
-     "receivingValueAdjustment": 2004.0,
-     "sendingAdjusted": 3500.0,
+     "receivingValueAdjustment": 0.0,
+     "sendingAdjusted": 3566.0,
      "sendingValue": 3500,
-     "sendingValueAdjustment": 0.0,
+     "sendingValueAdjustment": 66.0,
      "unresolvedIn": [],
      "unresolvedOut": [],
-     "vaAdjustedGap": 5804,
-     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
+     "vaAdjustedGap": 3734,
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -840,7 +840,7 @@
    "Roster full \u2014 1 cut required: likely Ghost Player"
   ],
   "reasonsFor": [
-   "+5,804 package value after KTC Value Adjustment (stretch gap)",
+   "+3,734 package value after Value Adjustment (stretch gap)",
    "+12.5 expected best-ball points per week in the legal lineup",
    "WR Buf Star enters the optimal lineup in 82% of simulated weeks"
   ],

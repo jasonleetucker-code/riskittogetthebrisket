@@ -11,7 +11,12 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { meterVerdict, ktcAdjustPackage } from "@/lib/trade-logic";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  meterVerdict,
+  packageAdjustPair,
+  PACKAGE_MODEL_IDS,
+} from "@/lib/trade-logic";
 import TradeMeter from "@/components/trade/TradeMeter";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 import {
@@ -140,17 +145,21 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
 });
 
 describe("ValueAdjustmentTip", () => {
-  it("describes the gates ktcAdjustPackage applies, not a roster-spot bonus", async () => {
+  it("describes the ACTIVE (geometric) package model, not a roster-spot bonus", async () => {
     const user = userEvent.setup();
     render(<ValueAdjustmentTip />);
     await user.click(screen.getByRole("button", { name: "What is Value Adjustment (VA)?" }));
     const region = screen.getByRole("region", { name: "Value Adjustment (VA)" });
+    expect(ACTIVE_PACKAGE_MODEL_ID).toBe(PACKAGE_MODEL_IDS.GEOM_Q078_V1);
     expect(region.textContent).toContain("Never applied to a 1-for-1");
-    expect(region.textContent).toContain("3.3%");
+    expect(region.textContent).toContain("q = 0.78");
+    // The 3.3% display gate is KTC's (the rollback model); the active
+    // geometric model has none, so the copy must not claim it.
+    expect(region.textContent).not.toContain("3.3%");
     expect(region.textContent).not.toMatch(/roster spot/i);
-    // The gates are real: 1-for-1 never adjusts; a 2-for-1 can.
-    expect(ktcAdjustPackage([8000], [4000]).displayed).toBe(false);
-    expect(ktcAdjustPackage([8000], [4000, 4000]).displayed).toBe(true);
+    // The statements are real: 1-for-1 never adjusts; a 2-for-1 can.
+    expect(packageAdjustPair([8000], [4000]).displayed).toBe(false);
+    expect(packageAdjustPair([8000], [4000, 4000]).displayed).toBe(true);
   });
 });
 

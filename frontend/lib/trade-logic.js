@@ -39,13 +39,17 @@ const VERDICT_LEAN = 900;
 const VERDICT_STRONG_LEAN = 1800;
 
 // ── Legacy Power-Weighted Alpha (trade history only) ─────────────────────
-// The Trade Calculator no longer uses this; it has moved to the KTC-style
-// Value Adjustment model below.  `TRADE_ALPHA` is kept as a retrospective
-// grading exponent for past trades on the `/trades` history page, where a
-// consolidation premium can't be attributed after the fact.
+// The Trade Calculator no longer uses this; it has moved to the package
+// Value Adjustment model below (packageAdjustPair).  `TRADE_ALPHA` is kept
+// as a retrospective grading exponent for past trades on the `/trades`
+// history page, where a consolidation premium can't be attributed after
+// the fact.
 export const TRADE_ALPHA = 1.65;
 
-// ── Value Adjustment: ONE owner, and it is ktcAdjustPackage ─────────────
+// ── Value Adjustment: ONE owner — the packageAdjustPair dispatch ────────
+//
+// (ACTIVE model: geom_q078_v1 since 2026-10-17; ktcAdjustPackage is the
+// retained KTC rollback model behind the same dispatch.)
 //
 // RETIRED 2026-08-18: the V2 scarcity constants (VA_SCARCITY_SLOPE,
 // VA_SCARCITY_INTERCEPT, VA_SCARCITY_CAP, VA_PER_EXTRA_BOOST,
@@ -520,9 +524,9 @@ export function ktcAdjustPackage(team1Vals, team2Vals, opts = {}) {
 // tests/valuation_math/test_package_model.py — promoting a challenger changes
 // both in one PR, and only with the owner's explicit approval.
 //
-// * ktc_2026_04 — incumbent: ktcAdjustPackage above, unchanged (its known
+// * ktc_2026_04 — rollback: ktcAdjustPackage above, unchanged (its known
 //   non-monotone cases are pinned as KNOWN_DEFECT in trade-logic.test.js).
-// * geom_q078_v1 — SHADOW challenger: sorted package utility
+// * geom_q078_v1 — owner-approved ACTIVE (2026-10-17): sorted package utility
 //   U = sum q^(i-1) * v_i (q = 0.78, a PRIOR), shown as a positive-only
 //   adjustment to the side that discarded less depth, so
 //   adjustedA - adjustedB === U_A - U_B (up to integer rounding).
@@ -538,19 +542,19 @@ export const PACKAGE_MODELS = Object.freeze({
     family: "ktc",
     version: "2026-04",
     label: "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-    classification: "INCUMBENT",
+    classification: "FALLBACK",
   }),
   [PACKAGE_MODEL_IDS.GEOM_Q078_V1]: Object.freeze({
     id: PACKAGE_MODEL_IDS.GEOM_Q078_V1,
     family: "geom",
     version: "1",
     q: 0.78,
-    label: "Sorted package utility, q = 0.78 (shadow challenger)",
-    classification: "PRIOR",
+    label: "Geometric Value Adjustment (q = 0.78)",
+    classification: "ACTIVE",
   }),
 });
 
-export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS.KTC_2026_04;
+export const ACTIVE_PACKAGE_MODEL_ID = PACKAGE_MODEL_IDS.GEOM_Q078_V1;
 
 export function packageModelReceipt(modelId = ACTIVE_PACKAGE_MODEL_ID) {
   const spec = PACKAGE_MODELS[modelId];
@@ -596,14 +600,15 @@ export function packageAdjustPair(team1Vals, team2Vals, opts = {}) {
 }
 
 /**
- * Compute the KTC-style Value Adjustment between two sides.
+ * Compute the package Value Adjustment between two sides under the ACTIVE
+ * package model (packageAdjustPair — the owner-approved geometric model,
+ * geom_q078_v1, since 2026-10-17; KTC's adjustPackage port is the
+ * rollback model).
  *
- * Uses V12 — KTC's actual published formula.  The side with the
- * bigger raw_adjustment_sum receives the displayed VA bonus.  KTC's
- * algorithm is symmetric: equal-count trades (e.g. 2v2 stud-vs-pile)
- * fire VA when one side has bigger studs, and unequal-count trades
- * (the canonical 1v2/1v3) fire VA on the consolidator side.  The
- * one empirical exception is 1v1 trades, where KTC suppresses VA.
+ * Under the geometric model each side's pieces are sorted best-first and
+ * discounted by q^(i-1); the side that discarded less depth receives the
+ * difference, so adjustedA - adjustedB === U_A - U_B.  Equal-count trades
+ * can fire; a 1-for-1 never does.
  *
  * Returns { adjustment, recipientIdx } where:
  *   - adjustment: ≥ 0 bonus to apply to the receiving side's total
@@ -621,8 +626,8 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
   if (aValues.length === 0 || bValues.length === 0) {
     return { adjustment: 0, recipientIdx: null };
   }
-  // Direct port path: ktcAdjustPackage returns side ∈ {0, 1, 2}
-  // matching KTC's team1/team2 convention.  Map to our 0-indexed
+  // packageAdjustPair returns side ∈ {0, 1, 2} in the team1/team2
+  // convention (inherited from KTC's port).  Map to our 0-indexed
   // recipientIdx.
   const result = packageAdjustPair(aValues, bValues);
   if (!result.displayed || result.value <= 0 || result.side === 0) {
@@ -648,10 +653,8 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
  * order as the input.  A side's adjustment is ≥ 0; sides without a
  * piece-count advantage over the rest of the trade receive 0.
  *
- * Caveat: the V2 coefficients were calibrated against 2-side KTC
- * observations.  Multi-side output is a structural extension of that
- * calibration, NOT a separately fit formula.  If KTC's real multi-team
- * VA diverges from this, we'll know when we have multi-team KTC data.
+ * Caveat: the package model is a 2-side model.  Multi-side output is a
+ * structural extension of it, NOT a separately fit formula.
  *
  * @param {object[][]} sides  — array of asset arrays, one per side
  * @param {string} valueMode
@@ -666,8 +669,8 @@ export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
     sortedSideValues(side, valueMode, settings),
   );
   // For each side, fold the rest into one synthetic opposing side and
-  // ask ktcAdjustPackage if THIS side is the recipient.  This is the
-  // direct N-side generalization of the 2-side ktcAdjustPackage call,
+  // ask the package model if THIS side is the recipient.  This is the
+  // direct N-side generalization of the 2-side packageAdjustPair call,
   // matching the prior _vaFromSortedSides semantic of "what does this
   // side receive given the rest as opposition".
   return allValues.map((thisSide, i) => {
@@ -842,7 +845,7 @@ export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
   });
 }
 
-/** Gap = Side A adjusted total − Side B adjusted total (KTC-style). */
+/** Gap = Side A adjusted total − Side B adjusted total (active package model). */
 export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
   const totals = adjustedSideTotals(sideA, sideB, valueMode, settings);
   return totals[0].adjusted - totals[1].adjusted;

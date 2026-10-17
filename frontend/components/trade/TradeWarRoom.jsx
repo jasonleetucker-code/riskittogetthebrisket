@@ -8,12 +8,12 @@
  *   1. the recommendation, its confidence, the strongest reasons for and
  *      against, and the most important uncertainty;
  *   2. three DIFFERENT questions, never one gauge:
- *        MARKET       what does the market charge?        (canonical + KTC VA)
+ *        MARKET       what does the market charge?        (canonical + package VA)
  *        ROSTER       what does my actual team gain/lose? (#1173 best-ball)
  *        FEASIBILITY  can it legally fit, what must go?   (#843 capacity)
  *   3. Roster Construction Impact — lineup-entry changes, promoted/displaced
  *      players, redundancy, depth, forced cuts, roster slots;
- *   4. details, collapsed: KTC VA, projection basis, assumptions, what is not
+ *   4. details, collapsed: package VA, projection basis, assumptions, what is not
  *      included and why.
  *
  * DISPLAY ONLY: every number is `POST /api/trade/analyze`'s, formatted by
@@ -100,7 +100,7 @@ function MarketAnswer({ lens }) {
         {gap ? (
           <>
             <span className={styles.bigNum}>{gap}</span>{" "}
-            <span className={styles.unit}>after KTC Value Adjustment</span>
+            <span className={styles.unit}>after Value Adjustment</span>
           </>
         ) : (
           <span className={styles.lensMuted}>
@@ -343,15 +343,19 @@ function Details({ analysis, raw }) {
     >
       <div className={styles.detailsBody}>
         <section>
-          <h4 className={styles.detailsTitle}>Market — KTC Value Adjustment</h4>
+          <h4 className={styles.detailsTitle}>Market — Value Adjustment</h4>
           <p>
             Adjusted totals: you get{" "}
             {formatValue(market.receivingAdjusted) ?? "—"}, you give{" "}
             {formatValue(market.sendingAdjusted) ?? "—"} (
-            {market.magnitude || "—"} gap). KTC VA is a separate market lens;
-            roster fit never changes an asset&apos;s value. It prices every
-            asset at its board value, so value overrides and the Raw value mode
-            in the builder are not applied here.
+            {market.magnitude || "—"} gap). Value Adjustment (
+            {market.packageModel?.label ||
+              market.valueAdjustment ||
+              "package model"}
+            ) is a separate market lens; roster fit never changes an
+            asset&apos;s value. It prices every asset at its board value, so
+            value overrides and the Raw value mode in the builder are not
+            applied here.
           </p>
         </section>
         {basis.source ? (

@@ -9,13 +9,13 @@ KTC's port directly and nothing could say which model produced a number.
 
 Two models are registered:
 
-* ``ktc_2026_04`` — the production incumbent: KTC's ``adjustPackage``
+* ``ktc_2026_04`` — the retained rollback model: KTC's ``adjustPackage``
   (``ktc_va_core.adjust_package_raw``), unchanged.  Its known non-monotone
   cases (adding a positive asset can WORSEN the adding side, e.g. ``[7200]``
   vs ``[6000, 500]``) are pinned as known defects, not fixed silently, because
   the method label promises KTC's behaviour.
-* ``geom_q078_v1`` — SHADOW challenger, never active without explicit owner
-  approval on held-out evidence.  Sorted package utility
+* ``geom_q078_v1`` — owner-approved active model (2026-10-17); independent
+  held-out real-trade results remain inconclusive. Sorted package utility
   ``U(P) = sum q**(i-1) * v_i`` (values descending, ``q = 0.78`` — a PRIOR,
   not a fitted constant), shown as KTC's familiar positive-only adjustment:
   with ``D = raw - U`` per side, the side that discarded less depth receives
@@ -51,15 +51,15 @@ PACKAGE_MODELS: dict[str, dict[str, Any]] = {
         "family": "ktc",
         "version": "2026-04",
         "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-        "classification": "INCUMBENT",
+        "classification": "FALLBACK",
     },
     GEOM_Q078_V1: {
         "id": GEOM_Q078_V1,
         "family": "geom",
         "version": "1",
         "q": 0.78,
-        "label": "Sorted package utility, q = 0.78 (shadow challenger)",
-        "classification": "PRIOR",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "classification": "ACTIVE",
     },
 }
 

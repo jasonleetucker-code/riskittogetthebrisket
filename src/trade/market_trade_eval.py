@@ -7,9 +7,9 @@ Answers, per underlying trade (never per raw observation):
    ``package_va_required`` / ``unsuitable`` with every reason named.
 3. **How far apart do our board and each source price its two sides?**  Only
    where the topology is identifiable, only on the format the board is built
-   for, and always through the Value Adjustment owner
-   (``src.trade.ktc_va.adjusted_pair_totals``) — a 3-for-1 is never read as an
-   equality of raw sums.
+   for, and always through the package Value Adjustment owner
+   (``src.valuation_math.package_model.adjusted_pair_totals``, ACTIVE model
+   unless one is named) — a 3-for-1 is never read as an equality of raw sums.
 
 WHAT A RESIDUAL HERE IS, AND IS NOT
 ───────────────────────────────────
@@ -260,8 +260,9 @@ def trade_residual(
     """VA-adjusted relative gap for one trade under one source, or ``None``
     when the source does not price every asset (coverage is all-or-nothing:
     a partially priced side is not a smaller side).  ``model_id`` selects a
-    registered package model (default: the active one) so a shadow challenger
-    can be evaluated on the same trades without touching production."""
+    registered package model (default: the active one) so a shadow model
+    (the KTC rollback model today) can be evaluated on the same trades
+    without touching production."""
     sides = trade.get("sides") or []
     if len(sides) != 2:
         return None

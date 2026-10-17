@@ -43,6 +43,10 @@ import {
   SIDE_LABELS,
   MAX_SIDES,
   MIN_SIDES,
+  ACTIVE_PACKAGE_MODEL_ID,
+  PACKAGE_MODEL_IDS,
+  packageAdjustPair,
+  geomPackageUtility,
 } from "@/lib/trade-logic";
 
 // ── Test fixtures ────────────────────────────────────────────────────
@@ -61,6 +65,65 @@ const MAHOMES = makeRow("Patrick Mahomes", 8800);
 const CHASE = makeRow("Ja'Marr Chase", 8500, "WR");
 const PARSONS = makeRow("Micah Parsons", 5000, "LB", "idp");
 const PICK_2026 = makeRow("2026 Early 1st", 7000, "PICK", "pick");
+
+// ── Package-model helpers ────────────────────────────────────────────
+//
+// The owner promoted geom_q078_v1 (q = 0.78) to the ACTIVE package Value
+// Adjustment on 2026-10-17; KTC's adjustPackage port (ktc_2026_04) is kept
+// as the rollback model.  Tests of KTC's OWN formula select it explicitly
+// through the canonical dispatch; consumer tests assert against the
+// dispatch's ACTIVE answer rather than against KTC numbers.
+const KTC = Object.freeze({ modelId: PACKAGE_MODEL_IDS.KTC_2026_04 });
+const sumOf = (vals) => vals.reduce((t, v) => t + v, 0);
+
+// The canonical owner's {value, side} mapped onto computeValueAdjustment's
+// {adjustment, recipientIdx} shape, for raw value arrays.
+function ownerAdjustment(aVals, bVals, opts = {}) {
+  const r = packageAdjustPair(aVals, bVals, opts);
+  if (!r.displayed || r.value <= 0 || r.side === 0) {
+    return { adjustment: 0, recipientIdx: null };
+  }
+  return { adjustment: r.value, recipientIdx: r.side === 1 ? 0 : 1 };
+}
+
+// raw gap + the owner's signed adjustment: what tradeGapAdjusted must read.
+function ownerGap(aVals, bVals, opts = {}) {
+  const raw = sumOf(aVals) - sumOf(bVals);
+  const { adjustment, recipientIdx } = ownerAdjustment(aVals, bVals, opts);
+  if (recipientIdx === null) return raw;
+  return recipientIdx === 0 ? raw + adjustment : raw - adjustment;
+}
+
+// computeMultiSideAdjustments' fold, against the owner: each side versus
+// the flattened union of every other side, credited only when it receives.
+function ownerFold(valueSides, opts = {}) {
+  return valueSides.map((side, i) => {
+    const others = valueSides.flatMap((s, j) => (j === i ? [] : s));
+    if (side.length === 0 || others.length === 0) return 0;
+    const r = packageAdjustPair(side, others, opts);
+    return r.displayed && r.value > 0 && r.side === 1 ? r.value : 0;
+  });
+}
+
+describe("package model dispatch is the geometric model by default", () => {
+  it("ACTIVE is geom_q078_v1 and consumers read it", () => {
+    expect(ACTIVE_PACKAGE_MODEL_ID).toBe(PACKAGE_MODEL_IDS.GEOM_Q078_V1);
+    for (const [a, b] of [
+      [[9999], [4000, 3000]],
+      [[9000, 1500], [5000, 4500]],
+      [[9000], [8500, 7000]],
+    ]) {
+      expect(computeValueAdjustment(a.map(mockRow), b.map(mockRow), "full")).toEqual(
+        ownerAdjustment(a, b),
+      );
+      expect(tradeGapAdjusted(a.map(mockRow), b.map(mockRow), "full")).toBe(ownerGap(a, b));
+      // Geometric identity: adjusted gap === U_A - U_B up to integer rounding.
+      expect(
+        Math.abs(ownerGap(a, b) - (geomPackageUtility(a) - geomPackageUtility(b))),
+      ).toBeLessThanOrEqual(0.5 + 1e-9);
+    }
+  });
+});
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -174,7 +237,7 @@ describe("tradeGapAdjusted (KTC-style)", () => {
     expect(gap).toBeGreaterThan(rawGap); // VA added to single side → less negative
   });
 
-  it("1-vs-2 with near-matching top assets is too lopsided for V12 to even (VA=0)", () => {
+  it("KTC rollback model: 1-vs-2 with near-matching top assets is too lopsided for V12 to even (VA=0)", () => {
     // ALLEN (9000) vs [CHASE (8500), PICK_2026 (7000)].  V12 sees:
     //   raw_A = raw(9000) ≈ 3415  (lone stud, t=9000)
     //   raw_B = raw(8500) + raw(7000) ≈ 5058  (multi side wins on raw)
@@ -185,9 +248,19 @@ describe("tradeGapAdjusted (KTC-style)", () => {
     // "trades that are just lopsided"; KTC shows raw value comparison
     // only.  Pin: gap stays at the raw value gap (no VA closes any
     // of it).
-    const gap = tradeGapAdjusted([ALLEN], [CHASE, PICK_2026], "full");
     const rawGap = 9000 - (8500 + 7000); // −6500
-    expect(gap).toBe(rawGap);
+    expect(ownerGap([9000], [8500, 7000], KTC)).toBe(rawGap);
+  });
+
+  it("geometric (active) model: the same 1-vs-2 credits the lone stud with the depth the pair discards", () => {
+    // geom_q078_v1 has no fairness-suppression gate: the side that
+    // discarded less depth receives |D_A - D_B|.  [8500, 7000] discards
+    // 7000 x (1 - 0.78) = 1540; [9000] discards nothing, so side A is
+    // credited 1540 and the gap is −6500 + 1540 = −4960 (geom q=0.78).
+    const gap = tradeGapAdjusted([ALLEN], [CHASE, PICK_2026], "full");
+    expect(gap).toBe(ownerGap([9000], [8500, 7000]));
+    expect(gap).toBe(-4960);
+    expect(gap).toBeCloseTo(geomPackageUtility([9000]) - geomPackageUtility([8500, 7000]), 6);
   });
 
   it("returns 0 for empty vs empty", () => {
@@ -249,24 +322,44 @@ describe("computeValueAdjustment", () => {
     expect(r.adjustment).toBeGreaterThan(0);
   });
 
-  it("suppresses VA on intensity-balanced consolidation trades", () => {
+  it("KTC rollback model: suppresses VA on intensity-balanced consolidation trades", () => {
     // [ALLEN (9000)] vs [CHASE (8500) + PICK_2026 (7000)] — by KTC's
     // actual algorithm this is a "Fair Trade": Side A's raw_adj
     // intensity (raw_adj / total) is comparable to Side B's, so KTC
     // suppresses the VA badge entirely.  The previous V13 regression
-    // fit fired here, but KTC.com does not.  Mirror returns null too.
-    const r1 = computeValueAdjustment([ALLEN], [CHASE, PICK_2026], "full");
+    // fit fired here, but KTC.com does not.
+    const r1 = ownerAdjustment([9000], [8500, 7000], KTC);
     expect(r1.recipientIdx).toBeNull();
     expect(r1.adjustment).toBe(0);
-    const r2 = computeValueAdjustment([CHASE, PICK_2026], [ALLEN], "full");
+    const r2 = ownerAdjustment([8500, 7000], [9000], KTC);
     expect(r2.recipientIdx).toBeNull();
     expect(r2.adjustment).toBe(0);
     // [CHASE (8500)] vs [ALLEN (9000) + PICK_2026 (7000)] — same
     // intensity-balanced shape, different stud assignment.  KTC also
     // suppresses.
-    const r3 = computeValueAdjustment([CHASE], [ALLEN, PICK_2026], "full");
+    const r3 = ownerAdjustment([8500], [9000, 7000], KTC);
     expect(r3.recipientIdx).toBeNull();
     expect(r3.adjustment).toBe(0);
+  });
+
+  it("geometric (active) model: the same shapes give a positive-only adjustment equal to the utility difference", () => {
+    // geom_q078_v1 has no suppression band: the lone side receives the
+    // depth the pair discards, 0.22 x its smaller piece (geom q=0.78).
+    const r1 = computeValueAdjustment([ALLEN], [CHASE, PICK_2026], "full");
+    expect(r1).toEqual({ adjustment: 1540, recipientIdx: 0 });
+    const r2 = computeValueAdjustment([CHASE, PICK_2026], [ALLEN], "full");
+    expect(r2).toEqual({ adjustment: 1540, recipientIdx: 1 });
+    const r3 = computeValueAdjustment([CHASE], [ALLEN, PICK_2026], "full");
+    expect(r3).toEqual({ adjustment: 1540, recipientIdx: 0 });
+    for (const [r, a, b] of [
+      [r1, [9000], [8500, 7000]],
+      [r2, [8500, 7000], [9000]],
+      [r3, [8500], [9000, 7000]],
+    ]) {
+      const raw = sumOf(a) - sumOf(b);
+      const adjustedGap = r.recipientIdx === 0 ? raw + r.adjustment : raw - r.adjustment;
+      expect(adjustedGap).toBeCloseTo(geomPackageUtility(a) - geomPackageUtility(b), 6);
+    }
   });
 
   // ── KTC live-fixture reference cases ─────────────────────────────────
@@ -278,16 +371,12 @@ describe("computeValueAdjustment", () => {
   // inputs.  Reference checks now pin against captured KTC.com
   // outputs (scripts/ktc_va_observations.json) — RMS error across
   // the 139-trade fixture is ~27 absolute, basically bit-exact.
-  describe("KTC live-fixture reference (port ground truth)", () => {
+  describe("KTC rollback model: live-fixture reference (port ground truth)", () => {
     it("Chase-style 1v2 stud-vs-mids: VA fires on the stud side", () => {
       // [8200] vs [5500, 4900]: KTC's current algorithm produces
       // ~3636 (we tolerate ±5% to absorb tiny iterative-search
       // rounding differences between Node and KTC's live JS).
-      const r = computeValueAdjustment(
-        [mockRow(8200)],
-        [mockRow(5500), mockRow(4900)],
-        "full",
-      );
+      const r = ownerAdjustment([8200], [5500, 4900], KTC);
       expect(r.recipientIdx).toBe(0);
       expect(r.adjustment).toBeGreaterThan(3400);
       expect(r.adjustment).toBeLessThan(3900);
@@ -313,8 +402,8 @@ describe("computeValueAdjustment", () => {
       }
     });
 
-    it("VA always ≥ 0 (non-negativity invariant)", () => {
-      // Sweep a range of trade shapes; V12 must never return negative.
+    it("VA always ≥ 0 (non-negativity invariant — KTC and the active model)", () => {
+      // Sweep a range of trade shapes; neither model may return negative.
       const shapes = [
         [[9999], [5000, 3000]],
         [[5000], [9000, 7000]],
@@ -329,30 +418,41 @@ describe("computeValueAdjustment", () => {
           "full",
         );
         expect(r.adjustment).toBeGreaterThanOrEqual(0);
+        expect(ownerAdjustment(a, b, KTC).adjustment).toBeGreaterThanOrEqual(0);
       }
     });
 
     it("VA is monotonic in stud value (bigger stud → bigger VA, all else equal)", () => {
       // Same 1v2 shape with the lone stud ramped up.  Larger studs
       // should produce larger VAs because raw(p) grows faster than p.
-      const va6000 = computeValueAdjustment([mockRow(6000)], [mockRow(4000), mockRow(3000)], "full").adjustment;
-      const va8000 = computeValueAdjustment([mockRow(8000)], [mockRow(4000), mockRow(3000)], "full").adjustment;
-      const va9999 = computeValueAdjustment([mockRow(9999)], [mockRow(4000), mockRow(3000)], "full").adjustment;
+      const va6000 = ownerAdjustment([6000], [4000, 3000], KTC).adjustment;
+      const va8000 = ownerAdjustment([8000], [4000, 3000], KTC).adjustment;
+      const va9999 = ownerAdjustment([9999], [4000, 3000], KTC).adjustment;
       expect(va8000).toBeGreaterThan(va6000);
       expect(va9999).toBeGreaterThan(va8000);
     });
   });
 
+  it("geometric (active) model: a lone stud's adjustment is the depth the pair discards, whatever the stud", () => {
+    // KTC's VA grows with the stud; the geometric model's does not — a
+    // lone piece discards nothing, so it receives exactly what the other
+    // side discards: [4000, 3000] -> 3000 x 0.22 = 660 (geom q=0.78).
+    for (const stud of [6000, 8000, 9999]) {
+      expect(computeValueAdjustment([mockRow(stud)], [mockRow(4000), mockRow(3000)], "full")).toEqual({
+        adjustment: 660,
+        recipientIdx: 0,
+      });
+    }
+  });
+
   // ── V13 suppression rules (calibrated 2026-04 from 39 borderline trades) ──
-  describe("V13 suppression (KTC 'fair trade' gates)", () => {
+  // KTC's own 'fair trade' gates — the geometric active model has no
+  // suppression band, so these pin the KTC rollback model explicitly.
+  describe("KTC rollback model: V13 suppression ('fair trade' gates)", () => {
     it("suppresses VA when raw_diff is below the close-trade threshold", () => {
       // Two near-identical 2v2 sides — raw_diff under 100, no firing.
       // Captured analog: BORD_2v2_f, BORD_2v2_c → KTC reported VA=0.
-      const r = computeValueAdjustment(
-        [mockRow(6896), mockRow(3486)],
-        [mockRow(6888), mockRow(3387)],
-        "full",
-      );
+      const r = ownerAdjustment([6896, 3486], [6888, 3387], KTC);
       expect(r.adjustment).toBe(0);
     });
 
@@ -366,11 +466,7 @@ describe("computeValueAdjustment", () => {
       //
       // Side A holds best (7765) AND worst (1963); side B has 3
       // moderate-tier pieces.  KTC's UI suppresses.
-      const r = computeValueAdjustment(
-        [mockRow(7765), mockRow(3880), mockRow(2540), mockRow(1963)],
-        [mockRow(6642), mockRow(4915), mockRow(4874)],
-        "full",
-      );
+      const r = ownerAdjustment([7765, 3880, 2540, 1963], [6642, 4915, 4874], KTC);
       expect(r.adjustment).toBe(0);
     });
 
@@ -378,11 +474,7 @@ describe("computeValueAdjustment", () => {
       // BORD_3v3_e analog: stud + mid + throw vs three mids/strong.
       // Same-side rule alone doesn't suppress when the raw gap is
       // big enough that KTC fires anyway.
-      const r = computeValueAdjustment(
-        [mockRow(9979), mockRow(4868), mockRow(3387)],
-        [mockRow(6888), mockRow(6642), mockRow(4921)],
-        "full",
-      );
+      const r = ownerAdjustment([9979, 4868, 3387], [6888, 6642, 4921], KTC);
       expect(r.adjustment).toBeGreaterThan(0);
     });
 
@@ -390,11 +482,7 @@ describe("computeValueAdjustment", () => {
       // Best on side A, worst on side B → same-side rule doesn't
       // apply.  Falls through to V12's article math.  Captured
       // analog: BORD_3v3_c which fires VA=2428.
-      const r = computeValueAdjustment(
-        [mockRow(6642), mockRow(5309), mockRow(3486)],
-        [mockRow(4921), mockRow(4868), mockRow(3387)],
-        "full",
-      );
+      const r = ownerAdjustment([6642, 5309, 3486], [4921, 4868, 3387], KTC);
       expect(r.adjustment).toBeGreaterThan(0);
     });
   });
@@ -426,41 +514,51 @@ describe("computeMultiSideAdjustments", () => {
     expect(twoSide.recipientIdx).toBe(0);
   });
 
-  it("returns zero for every side when all have equal piece counts (2 ea)", () => {
-    const out = computeMultiSideAdjustments(
-      [
-        [mockRow(5000), mockRow(3000)],
-        [mockRow(4800), mockRow(3100)],
-        [mockRow(4900), mockRow(2900)],
-      ],
-      "full",
-    );
-    // Each side has count=2, opposition count=4 → guard passes, but
-    // small.length < large.length only because opposition is larger.
-    // However topGap is computed per side — most sides will have top
-    // ≤ merged top, so VA stays at zero.  At most the side with the
-    // strictly-highest top gets a non-zero VA.
-    const nonZero = out.filter((v) => v > 0).length;
+  it("KTC rollback model: at most one side earns VA when all have equal piece counts (2 ea)", () => {
+    const vals = [
+      [5000, 3000],
+      [4800, 3100],
+      [4900, 2900],
+    ];
+    // Each side has count=2, opposition count=4.  Under KTC most sides
+    // have top ≤ merged top, so VA stays at zero; at most the side with
+    // the strictly-highest top gets a non-zero VA.
+    const nonZero = ownerFold(vals, KTC).filter((v) => v > 0).length;
     expect(nonZero).toBeLessThanOrEqual(1);
+  });
+
+  it("geometric (active) model: every side that discards less depth than its opposition earns the difference", () => {
+    const vals = [
+      [5000, 3000],
+      [4800, 3100],
+      [4900, 2900],
+    ];
+    const out = computeMultiSideAdjustments(vals.map((s) => s.map(mockRow)), "full");
+    // Two pieces against the merged four: each side discards less depth
+    // than the rest of the trade, so all three receive a positive-only
+    // adjustment of |D_side - D_rest| (geom q=0.78: [3134, 3095, 3208]).
+    expect(out).toEqual(ownerFold(vals));
+    expect(out).toEqual([3134, 3095, 3208]);
+    for (const v of out) expect(v).toBeGreaterThan(0);
   });
 
   it("in 3-team with one clear stud holder, that side gets the premium", () => {
     // Side A has a single 9999 stud.  Sides B and C each have 2
-    // medium pieces.  A should earn significant VA for consolidation;
-    // B and C may earn little or none (their tops are below A's stud).
-    const out = computeMultiSideAdjustments(
-      [
-        [mockRow(9999)],
-        [mockRow(5000), mockRow(3500)],
-        [mockRow(4800), mockRow(3200)],
-      ],
-      "full",
-    );
+    // medium pieces.  A should earn the largest premium for consolidation.
+    const vals = [[9999], [5000, 3500], [4800, 3200]];
+    const out = computeMultiSideAdjustments(vals.map((s) => s.map(mockRow)), "full");
     expect(out[0]).toBeGreaterThan(1000);
-    // B and C: their top < merged top (includes A's 9999), so their
+    expect(out[0]).toBe(Math.max(...out));
+    // Active (geom) model: B and C each discard less depth than the
+    // merged rest, so they earn smaller positive premiums
+    // (geom q=0.78: [4108, 1539, 1767]).
+    expect(out).toEqual(ownerFold(vals));
+    // KTC rollback model: B's and C's tops sit below A's stud, so their
     // topGap is 0 and they earn 0 VA.
-    expect(out[1]).toBe(0);
-    expect(out[2]).toBe(0);
+    const ktc = ownerFold(vals, KTC);
+    expect(ktc[0]).toBeGreaterThan(1000);
+    expect(ktc[1]).toBe(0);
+    expect(ktc[2]).toBe(0);
   });
 
   it("never produces negative adjustments", () => {
@@ -798,35 +896,35 @@ describe("full trade scenario", () => {
 
     expect(totalA).toBe(17500);
     expect(totalB).toBe(15800);
-    // V12: equal counts fire VA when one side has the bigger studs.
-    // Allen+Chase (raw_adj_sum ≈ 6429) outranks Mahomes+pick (raw_adj
-    // ≈ 5306), so side A is the recipient and gets a substantial VA
-    // bonus on top of the raw 1700 lead.  The combined gap pushes
-    // into the "Major gap" verdict zone (>1800).
-    expect(gap).toBeGreaterThan(1700);
-    expect(verdictFromGap(gap)).toBe("Major gap");
+    // Active (geom q=0.78) model: Allen+Chase discards 8500 x 0.22 =
+    // 1870 of depth, Mahomes+pick 7000 x 0.22 = 1540, so side B — the
+    // side that discarded less — is credited 330 against side A's raw
+    // 1700 lead.  Gap = 1370, a "Strong lean" to side A.
+    expect(gap).toBe(ownerGap([9000, 8500], [8800, 7000]));
+    expect(gap).toBe(1370);
+    expect(verdictFromGap(gap)).toBe("Strong lean");
     expect(colorFromGap(gap)).toBe("green"); // Side A wins
 
-    // Swap sides — V12 fires the same VA on whichever side has the
-    // bigger raw_sum, so the gap simply flips sign.
+    // Swap sides — the model is side-symmetric, so the gap simply
+    // flips sign.
     const [newA, newB] = [sideB, sideA];
     const swappedGap = tradeGapAdjusted(newA, newB, "full");
-    expect(swappedGap).toBeLessThan(-1700);
-    expect(verdictFromGap(swappedGap)).toBe("Major gap");
+    expect(swappedGap).toBe(-gap);
+    expect(verdictFromGap(swappedGap)).toBe("Strong lean");
     expect(colorFromGap(swappedGap)).toBe("red"); // Now Side B wins
 
     // Remove an asset — newA has 2 pieces (8800+7000), trimmedB has 1 (9000)
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
     const newGap = tradeGapAdjusted(newA, trimmedB, "full");
-    // V12: newA (Mahomes 8800 + Pick 7000, raw ≈ 5306) vs trimmedB
-    // (Allen 9000 alone, raw ≈ 3415).  newA has more raw → newA is
-    // the recipient.  newA's total (15800) is already bigger than
-    // trimmedB's 9000, so adding VA pushes the gap further positive.
-    // Pin the directional invariant: newGap stays positive (newA
-    // wins) and is ≥ raw 6800.
+    // newA (Mahomes 8800 + Pick 7000) discards 1540 of depth; the lone
+    // Allen discards none, so trimmedB is credited 1540.  newA's raw
+    // lead (6800) is far larger, so newA still wins: 6800 − 1540 = 5260
+    // (geom q=0.78).
     const rawNewGap = (8800 + 7000) - 9000;
     expect(rawNewGap).toBe(6800);
-    expect(newGap).toBeGreaterThanOrEqual(rawNewGap);
+    expect(newGap).toBe(ownerGap([8800, 7000], [9000]));
+    expect(newGap).toBe(5260);
+    expect(newGap).toBeGreaterThan(0);
 
     // Serialize and restore
     const serialized = serializeWorkspace(newA, trimmedB, "full", "A");
@@ -1144,28 +1242,37 @@ describe("findBalancers", () => {
   ];
 
   it("returns players that actually close the gap — which is not the one whose value matches it", () => {
+    // Scenario rebuilt for the geometric active model (2026-10-17).  The
+    // KTC-era version (P3 = 2000) relied on KTC's premium making the
+    // value-matched piece WORSE; under geom q=0.78 adding any positive
+    // piece narrows the gap, so the distinguishing property is now which
+    // piece lands nearest even — and it is still not the value match.
     const rosterRows = [
       { name: "P1", pos: "WR", values: { full: 500 } },
       { name: "P2", pos: "RB", values: { full: 1000 } },
-      { name: "P3", pos: "QB", values: { full: 2000 } },
+      { name: "P3", pos: "QB", values: { full: 1282 } },
     ];
-    // Side B is behind by exactly 1,000 on a 1-for-1 (KTC suppresses VA
-    // on 1v1, so raw and adjusted coincide at the start).
+    // Side B is behind by exactly 1,000 on a 1-for-1 (no package
+    // adjustment on 1-for-1, so raw and adjusted coincide at the start).
     const sides = sidesOf([5000], [4000]);
     const result = findBalancers(sides, 1, rosterRows, "full");
 
     // The retired rule matched raw value to the gap and would have
     // picked P2 (1,000 against a 1,000 gap).  But the moment side B
-    // holds two pieces the consolidation premium fires and credits
-    // 2,032 to side A: the gap goes 1,000 → 2,032.  The "perfect" match
-    // makes the trade twice as lopsided.
+    // holds two pieces, its second piece is discounted by q = 0.78 and
+    // side A is credited 0.22 x that piece, so a 1,000 add only closes
+    // 780 of the gap.  The piece that actually closes it is 1000 / 0.78.
     //
-    //   P1 (500)  → gap 2,500   worse
-    //   P2 (1000) → gap 2,032   worse
-    //   P3 (2000) → gap   727   better
-    expect(result.map((r) => r.name)).toEqual(["P3"]);
+    //   P3 (1282) → gap   0     even
+    //   P2 (1000) → gap 220     the "perfect" value match falls short
+    //   P1 (500)  → gap 610
+    expect(result.map((r) => r.name)).toEqual(["P3", "P2", "P1"]);
     expect(Math.round(result[0].gapBefore)).toBe(1000);
-    expect(Math.round(result[0].gapAfter)).toBe(727);
+    expect(Math.round(result[0].gapAfter)).toBe(0);
+    expect(Math.round(result[1].gapAfter)).toBe(220);
+    for (const r of result) {
+      expect(r.gapAfter).toBe(ownerGap([5000], [4000, r.value]));
+    }
   });
 
   it("returns empty for a near-even trade", () => {
@@ -1570,14 +1677,28 @@ describe("computeSideFlows", () => {
       { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": 1 } },
     ];
     const flows = computeSideFlows(sides, "full");
-    // Side A consolidates one 9,000 piece against 8,500 + 5,000 across
-    // the rest of the trade, so it earns a 1,005 package premium that
-    // travels with Allen to side C.  Before 2026-08-18 the multi-team
-    // flow carried no Value Adjustment at all and these were the raw
-    // totals — the same shape graded differently at 2 teams and at 3.
-    expect(flows[0]).toEqual({ given: 10005, received: 8500, net: -1505, adjustment: 1005 });
-    expect(flows[1]).toEqual({ given: 8500, received: 5000, net: -3500, adjustment: 0 });
-    expect(flows[2]).toEqual({ given: 5000, received: 10005, net: 5005, adjustment: 1005 - 1005 });
+    // Each side's package premium travels with the assets it sends.
+    // Before 2026-08-18 the multi-team flow carried no Value Adjustment
+    // at all and these were the raw totals — the same shape graded
+    // differently at 2 teams and at 3.  Under the active geometric model
+    // each one-piece side discards less depth than the two pieces it
+    // faces: A and B are credited 5000 x 0.22 = 1100, C 8500 x 0.22 =
+    // 1870 (geom q=0.78) — read from the canonical owner below.
+    const [adjA, adjB, adjC] = ownerFold([[9000], [8500], [5000]]);
+    expect([adjA, adjB, adjC]).toEqual([1100, 1100, 1870]);
+    const gA = 9000 + adjA; // Allen → C
+    const gB = 8500 + adjB; // Chase → A
+    const gC = 5000 + adjC; // Parsons → B
+    const expected = [
+      { given: gA, received: gB, net: gB - gA, adjustment: adjA },
+      { given: gB, received: gC, net: gC - gB, adjustment: adjB },
+      { given: gC, received: gA, net: gA - gC, adjustment: adjC },
+    ];
+    flows.forEach((f, i) => {
+      for (const k of ["given", "received", "net", "adjustment"]) {
+        expect(f[k], `side ${i} ${k}`).toBeCloseTo(expected[i][k], 6);
+      }
+    });
   });
 
   it("3-team trade: missing destination falls back to next-side default", () => {
@@ -1587,9 +1708,12 @@ describe("computeSideFlows", () => {
       { id: 2, label: "C", assets: [PARSONS], destinations: {} }, // no dest → default to 0
     ];
     const flows = computeSideFlows(sides, "full");
-    expect(flows[0].received).toBe(5000); // Parsons from C
-    expect(flows[1].received).toBe(10005); // Allen from A, carrying A's premium
-    expect(flows[2].received).toBe(8500); // Chase from B
+    // Every asset carries its sender's package premium (owner-derived;
+    // geom q=0.78: A 1100, B 1100, C 1870).
+    const [adjA, adjB, adjC] = ownerFold([[9000], [8500], [5000]]);
+    expect(flows[0].received).toBeCloseTo(5000 + adjC, 6); // Parsons from C
+    expect(flows[1].received).toBeCloseTo(9000 + adjA, 6); // Allen from A
+    expect(flows[2].received).toBeCloseTo(8500 + adjB, 6); // Chase from B
   });
 
   it("3-team trade: self-referencing or out-of-range destination falls back to default", () => {
@@ -1600,9 +1724,12 @@ describe("computeSideFlows", () => {
     ];
     const flows = computeSideFlows(sides, "full");
     // All fall back to defaults: A→1, B→2, C→0
-    expect(flows[0].received).toBe(5000); // Parsons from C
-    expect(flows[1].received).toBe(10005); // Allen from A, carrying A's premium
-    expect(flows[2].received).toBe(8500); // Chase from B
+    // Every asset carries its sender's package premium (owner-derived;
+    // geom q=0.78: A 1100, B 1100, C 1870).
+    const [adjA, adjB, adjC] = ownerFold([[9000], [8500], [5000]]);
+    expect(flows[0].received).toBeCloseTo(5000 + adjC, 6); // Parsons from C
+    expect(flows[1].received).toBeCloseTo(9000 + adjA, 6); // Allen from A
+    expect(flows[2].received).toBeCloseTo(8500 + adjB, 6); // Chase from B
   });
 
   it("returns zero-shaped arrays for empty / single-side inputs", () => {

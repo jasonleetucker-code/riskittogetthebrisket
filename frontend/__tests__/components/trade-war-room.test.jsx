@@ -133,10 +133,12 @@ describe("TradeWarRoom — the packet, verbatim", () => {
     expect(within(table).getByText("No projection")).toBeInTheDocument();
   });
 
-  it("details disclose KTC VA, the projection basis and what is not included", async () => {
+  it("details disclose the package VA model, the projection basis and what is not included", async () => {
     await renderWith(CONSOLIDATION);
     fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
-    expect(screen.getByText(/KTC VA is a separate market lens/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Value Adjustment \(Geometric Value Adjustment \(q = 0\.78\)\) is a separate market lens/),
+    ).toBeInTheDocument();
     expect(screen.getByText(/SYNTHETIC_FIXTURE_PROJECTIONS/)).toBeInTheDocument();
     expect(screen.getByText("currentSeasonEquity")).toBeInTheDocument();
   });
