@@ -11,7 +11,6 @@ import {
   adjustedSideTotals,
   computeValueAdjustment,
   geomPackageUtility,
-  ktcAdjustPackage,
   packageAdjustPair,
   packageModelReceipt,
   valueAdjustmentFromSideArrays,
