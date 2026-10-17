@@ -11,6 +11,7 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   sideTotal,
+  tradeSignature,
   applyImportedSides,
   defaultDestination,
   findBalancers,
@@ -286,6 +287,7 @@ export default function TradePage() {
     loading: simLoading,
     error: simError,
     reset: resetSim,
+    signature: simResultSignature,
   } = useTradeSimulator();
   // useTeam is already league-aware: ``selectedTeam`` resolves
   // against the active league, ``idpEnabled`` comes from the
@@ -1563,6 +1565,17 @@ export default function TradePage() {
     [sides, selectedTeam, teamRosterNames],
   );
 
+  // The question "Simulate impact" answered.  Any trade edit, Clear Trade,
+  // team or league change invalidates the shown result (TC-A / UX audit
+  // P0-2); the hook's request sequence drops a late answer for an old one.
+  const simSignature = useMemo(
+    () => JSON.stringify([tradeSignature(sides), selectedTeam?.name || "", selectedLeagueKey || ""]),
+    [sides, selectedTeam, selectedLeagueKey],
+  );
+  useEffect(() => {
+    resetSim();
+  }, [simSignature, resetSim]);
+
   const runSimulateTrade = useCallback(() => {
     if (sides.length !== 2) return;
     if (!selectedTeam) return;
@@ -1574,16 +1587,19 @@ export default function TradePage() {
     if (!request) return;
     const { playersIn, playersOut, picksIn, picksOut, pickAssetIdsIn, pickAssetIdsOut } =
       request;
-    simulateTrade({
-      teamName: selectedTeam?.name,
-      playersIn,
-      playersOut,
-      picksIn,
-      picksOut,
-      pickAssetIdsIn,
-      pickAssetIdsOut,
-    });
-  }, [sides, selectedTeam, teamRosterNames, simulateTrade]);
+    simulateTrade(
+      {
+        teamName: selectedTeam?.name,
+        playersIn,
+        playersOut,
+        picksIn,
+        picksOut,
+        pickAssetIdsIn,
+        pickAssetIdsOut,
+      },
+      { signature: simSignature },
+    );
+  }, [sides, selectedTeam, teamRosterNames, simulateTrade, simSignature]);
 
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
@@ -2118,7 +2134,7 @@ export default function TradePage() {
 
           {/* Gated here, not only inside the panel: rendering the lazy
               component is what requests its chunk. */}
-          {simResult || simError ? (
+          {(simResult || simError) && simResultSignature === simSignature ? (
             <SimulationPanel
               simResult={simResult}
               simError={simError}

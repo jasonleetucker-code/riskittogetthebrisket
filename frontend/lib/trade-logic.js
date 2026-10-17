@@ -113,6 +113,21 @@ export function effectiveValue(row, valueMode, _settings) {
   return Number(row.values?.[valueMode] || 0);
 }
 
+/**
+ * Identity of a trade's CONTENTS: every side's lines in order (name, owned
+ * pick id, override) plus 3+-team routing.  Expensive results computed for
+ * a trade (Simulate impact, Monte Carlo) are keyed to it, so a result is
+ * never shown under a trade it was not computed for (TC-A / UX audit P0-2).
+ */
+export function tradeSignature(sides) {
+  return JSON.stringify(
+    (sides || []).map((s) => [
+      (s?.assets || []).map((a) => [a?.name ?? "", a?.assetId ?? null, a?.customValue ?? null]),
+      s?.destinations || {},
+    ]),
+  );
+}
+
 /** Simple linear total (sum of values). */
 export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
