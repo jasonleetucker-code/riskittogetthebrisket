@@ -11,7 +11,15 @@
 //     `teamTotalsByYear[season]` (src/api/draft_capital_years.py), which
 //     SUMS the same per-pick dollars the all-years total is made of — the
 //     $1200 pool is never re-spread per season;
-//   * "All Years" is the existing `teamTotals`, untouched.
+//   * "All Years" is the backend's `allYearsTeamTotals` — every class the
+//     year views cover, each pick once — falling back to `teamTotals` on a
+//     payload that predates it.
+//
+// Owner directive 2026-10-17: every Sleeper draft class the league still owns
+// picks in is listed.  The default league's workbook carries ONE class in
+// `picks`; the others arrive in `additionalClassPicks` (Sleeper ownership +
+// canonical values) and are part of every view here except `teamTotals`,
+// which stays the upcoming auction's budgets for /draft and /trade.
 //
 // When the payload predates the per-season views (a deploy-skew window), no
 // season is offered and the page stays on All Years rather than re-deriving
@@ -58,11 +66,25 @@ export function serializeDraftCapitalYear(year) {
   return n === null ? null : String(n);
 }
 
-/** Team rows for the selected view; All Years is the existing `teamTotals`. */
+/** Team rows for the selected view; All Years spans every listed class. */
 export function draftCapitalTeamRows(data, year) {
-  if (year === null || year === undefined) return data?.teamTotals || [];
+  if (year === null || year === undefined) {
+    const all = data?.allYearsTeamTotals;
+    return Array.isArray(all) ? all : data?.teamTotals || [];
+  }
   const rows = data?.teamTotalsByYear?.[String(year)];
   return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * Every owned pick on the board: the builder's `picks` plus the classes its
+ * `teamTotals` do not cover.  Each pick appears once — the two arrays never
+ * share a class.
+ */
+export function draftCapitalAllPicks(data) {
+  const base = Array.isArray(data?.picks) ? data.picks : [];
+  const extra = Array.isArray(data?.additionalClassPicks) ? data.additionalClassPicks : [];
+  return extra.length ? [...base, ...extra] : base;
 }
 
 /** Picks belonging to `year` (All Years → every pick). */
@@ -72,10 +94,30 @@ export function draftCapitalPicksForYear(picks, year, boardSeason) {
   return all.filter((p) => Number(p?.season ?? boardSeason) === Number(year));
 }
 
-/** League-level summary for a season, or null. */
+/** League-level summary for a season (All Years → `allYearsSummary`), or null. */
 export function draftCapitalYearSummary(data, year) {
-  if (year === null || year === undefined) return null;
+  if (year === null || year === undefined) return data?.allYearsSummary || null;
   return data?.yearSummaries?.[String(year)] || null;
+}
+
+/**
+ * The budget basis the payload's dollars were computed on.  Two bases exist
+ * (see src/api/draft_capital_classes.py): each class its own pool, or one
+ * pool shared across every class.  A payload without `budgetPolicy` is the
+ * legacy shared pool.
+ */
+export function draftCapitalBudgetPolicy(data) {
+  const bp = data?.budgetPolicy;
+  const budget = Number(bp?.budget ?? data?.totalBudget) || 0;
+  if (bp?.basis === "per_class_pool") {
+    return {
+      perClass: true,
+      budget,
+      allYearsBudget: Number(bp.allYearsBudget) || budget,
+      note: bp.note || null,
+    };
+  }
+  return { perClass: false, budget, allYearsBudget: budget, note: bp?.note || null };
 }
 
 /**
@@ -89,18 +131,35 @@ export function isUnpricedPick(p) {
 }
 
 /**
- * True when the board's pick "slots" are not draft positions.  The
- * Sleeper-derived fallback numbers every pick by its ORIGINAL roster
- * (a stand-in — future draft order is unknown) and prices it at the round's
- * generic value, so showing "1.05" would claim a slot nobody knows.
+ * True when a pick's slot is not a draft position: the class has no draft
+ * order yet, so the row is round-only and carries the round's value.
  */
-export function draftCapitalSlotsAreStandIns(data) {
-  return data?.source === "sleeper_derived";
+export function isSlotUnknown(p) {
+  return p?.slotStatus === "unknown";
 }
 
-/** Display label for one pick: "1.05", or round-only when slots are stand-ins. */
+/** True when a pick's slot is an estimate (e.g. workbook / standings order). */
+export function isSlotProjected(p) {
+  return p?.slotStatus === "projected";
+}
+
+/**
+ * True when the board's (or one season's) pick "slots" are not draft
+ * positions.  The Sleeper-derived fallback numbers every pick by its
+ * ORIGINAL roster (a stand-in), and a future class with no draft order is
+ * round-only, so showing "1.05" would claim a slot nobody knows.  Pass the
+ * picks on screen to answer for them; without picks it answers for the board.
+ */
+export function draftCapitalSlotsAreStandIns(data, picks) {
+  if (data?.source === "sleeper_derived") return true;
+  if (!Array.isArray(picks) || picks.length === 0) return false;
+  return picks.every(isSlotUnknown);
+}
+
+/** Display label for one pick: "1.05", or round-only when the slot is unknown. */
 export function draftCapitalPickLabel(p, { slotsAreStandIns = false, withSeason = false } = {}) {
-  const base = slotsAreStandIns ? `R${p?.round}` : String(p?.pick ?? "");
+  const base =
+    slotsAreStandIns || isSlotUnknown(p) ? `R${p?.round}` : String(p?.pick ?? "");
   if (!withSeason || p?.season == null) return base;
   return `'${String(p.season).slice(-2)} ${base}`;
 }

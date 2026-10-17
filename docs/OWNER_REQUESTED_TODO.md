@@ -1335,7 +1335,7 @@ hard-coded. The selector changes which picks count, never how they are valued.
 | Unpriced picks stay excluded and visibly counted; an all-unpriced team-year reads "—"/unranked, never $0; zero-pick teams stay with "No {year} picks" | IMPLEMENTED |
 | Future picks never imply known slots: Sleeper-derived boards show round only, labelled estimated | IMPLEMENTED |
 | Optional compact per-team year breakdown in All Years | IMPLEMENTED (multi-year boards only) |
-| Real data does not contain 2029 for either live league (dynasty_main workbook covers 2027 only; dynasty_new fallback covers 2027–2028) although Sleeper reports traded 2028/2029 picks and the canonical board prices generic 2027–2029 rows | OWNER DECISION NEEDED — extending either inventory changes how the $1200 pool is spread (All Years totals would move) |
+| Real data does not contain 2029 for either live league (dynasty_main workbook covers 2027 only; dynasty_new fallback covers 2027–2028) although Sleeper reports traded 2028/2029 picks and the canonical board prices generic 2027–2029 rows | OWNER DECISION NEEDED — extending either inventory changes how the $1200 pool is spread (All Years totals would move) *Superseded in part, 2026-10-17: the owner directed extending to every Sleeper draft year (see "Added 2026-10-17 — P1: all Sleeper draft years in League Draft Capital"); the $1,200 basis question stays open there.* |
 
 ## Added 2026-10-01 — Adaptive Learning / Continuous Improvement Master Roadmap (owner directive)
 
@@ -1791,3 +1791,18 @@ Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.z
 | Private trade history prices picks as of the trade date at the ledger's generic season/round value, the same rule as public | DECIDED — owner, 2026-10-17 |
 | Winners & Losers default Net value = the sum of per-trade adjusted nets; the alpha metric survives only as a separately labelled legacy index | DECIDED — binding |
 | Implementation | IN PROGRESS — PR 1 dispatch (`claude/package-model-dispatch`); PR 2 Second Opinions; PR 3 Trade History; PR 4 quant evaluation + model memo |
+
+## Added 2026-10-17 — P1: all Sleeper draft years in League Draft Capital
+
+Owner directive (2026-10-17): on `/league?tab=draft-capital` for Risk It to Get the Brisket (`dynasty_main`, 12 teams,
+6 rounds) the year selector showed only "All Years / 2027" although the league owns 2027, 2028 and 2029 capital.
+Supersedes the 2026-10-01 "OWNER DECISION NEEDED" row on extending the inventory (the owner chose to extend); the
+$1,200 budget-basis half of that row stays open (below).
+
+| Item | Disposition |
+|---|---|
+| Selector `All Years / 2027 / 2028 / 2029`, data-driven from the league-scoped resolver (`pick_lifecycle.league_draft_years`); a newly eligible class appears automatically; a completed (drafted and rostered) class never shows as future capital | DECIDED — owner; implementation IN PROGRESS (`claude/draft-capital-all-years`) |
+| Each year view: per-year team ranking, every owned pick with original + current owner (Sleeper is the source of truth), round, slot known / projected / unknown (never invented), estimated dollar value, team totals, picks owned / acquired / traded away, uncertainty labels; All Years combined with no double counting | DECIDED — owner; implementation IN PROGRESS |
+| Canonical pick identity, canonical pick values (`pick_value_resolution`, generic grade for classes without a draft order), unpriced = null + label never $0, public/private boundary, existing simulator and auction budgets preserved | DECIDED — owner; implementation IN PROGRESS |
+| The default-league workbook path's failed `/traded_picks` fetch must not keep the workbook's ownership silently (CLAUDE.md named follow-up) | DECIDED — owner; implementation IN PROGRESS (refuses the board, same shape as the fallback) |
+| $1,200 auction-power basis: one $1,200 pool per draft class, or one $1,200 pool shared across every listed class? The default league keeps the workbook class at $1,200 and prices each later class as its own $1,200 pool (the only basis that keeps the live auction budgets unchanged); the Sleeper-derived fallback keeps its established single shared pool. Stamped on the payload as `budgetPolicy` (`owner_confirmation_pending`) | OWNER DECISION NEEDED |

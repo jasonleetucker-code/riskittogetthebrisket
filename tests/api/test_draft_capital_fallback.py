@@ -20,19 +20,27 @@ def _stub_fetch_json(responses):
     return fake
 
 
+def _pick_row(name, value):
+    """A board pick row as the canonical resolver indexes it."""
+    return {
+        "displayName": name,
+        "canonicalName": name,
+        "rankDerivedValue": value,
+        "assetClass": "pick",
+    }
+
+
 def _contract_with_picks():
+    # ``Pick R.06`` is the current class's GENERIC grade (centre-slot
+    # convention, ``pick_value_resolution``): the fallback's slots are
+    # stand-ins, so every pick of a round prices at that row.  The 1.01 /
+    # 2.05 rows stay for the slot-lookup unit tests below.
     return {
         "playersArray": [
-            {
-                "displayName": "2026 Pick 1.01",
-                "rankDerivedValue": 9000,
-                "assetClass": "pick",
-            },
-            {
-                "displayName": "2026 Pick 2.05",
-                "rankDerivedValue": 4500,
-                "assetClass": "pick",
-            },
+            _pick_row("2026 Pick 1.01", 9000),
+            _pick_row("2026 Pick 2.05", 4500),
+            _pick_row("2026 Pick 1.06", 9000),
+            _pick_row("2026 Pick 2.06", 4500),
         ]
     }
 
@@ -70,16 +78,20 @@ def test_basic_build_returns_expected_shape(monkeypatch):
     # nothing for 2027, so 2027 is NOT covered — the consumer sources
     # those picks from the board instead.
     assert result["coveredPickYears"] == [2026]
-    # 10 teams × 4 rounds × 2 seasons = 80 picks, of which the fixture
-    # contract can price exactly two (1.01 and 2.05, both 2026).
-    assert len(result["picks"]) == 80
-    assert result["pricedPickCount"] == 2
-    assert result["unpricedPickCount"] == 78
+    # 10 teams × 4 rounds × 4 owned classes (the league-scoped horizon, no
+    # evidence retiring any) = 160 picks.  The fixture prices the 2026 round-1
+    # and round-2 generic grades only, so every 2026 R1 / R2 pick is priced —
+    # identically within its round, because the slots are stand-ins.
+    assert sorted({p["season"] for p in result["picks"]}) == [2026, 2027, 2028, 2029]
+    assert len(result["picks"]) == 160
+    assert result["pricedPickCount"] == 20
+    assert result["unpricedPickCount"] == 140
     # Sum of per-pick dollars = total budget, spread across the priced
-    # picks alone: 9000 and 4500 out of 13500 → $800 and $400.
+    # picks alone: 10 × 9000 + 10 × 4500 = 135000 → $80 and $40 each.
     priced = [p for p in result["picks"] if not p["isUnpriced"]]
-    assert sorted(p["adjustedDollarValue"] for p in priced) == [400, 800]
+    assert sorted({p["adjustedDollarValue"] for p in priced}) == [40, 80]
     assert sum(p["adjustedDollarValue"] for p in priced) == 1200
+    assert all(p["slotStatus"] == "unknown" for p in result["picks"])
     # Team totals sum to total budget.
     team_total = sum(t["auctionDollars"] for t in result["teamTotals"])
     assert team_total == 1200
@@ -149,24 +161,20 @@ def test_pick_value_from_contract_returns_none_on_a_miss():
 def test_unpriced_picks_are_excluded_from_the_dollar_pool(monkeypatch):
     """The C1 regression, with hand-computed dollars.
 
-    Two teams, one round, and a contract that prices ONLY the current
-    season — exactly the live shape (the contract carries 2026 slot
-    picks and nothing for 2027).  Four picks are generated::
+    Two teams, one round, four owned classes, and a contract that prices
+    2026 (generic grade 9000) and 2028 (generic grade 3000) but NOT 2027 or
+    2029.  Eight picks are generated; the four priced ones share the pool::
 
-        2026 1.01  raw 9000   (priced)
-        2026 1.02  raw 3000   (priced)
-        2027 1.01  ---        (unpriced)
-        2027 1.02  ---        (unpriced)
+        2026 R1 x2  raw 9000   (priced)
+        2027 R1 x2  ---        (unpriced)
+        2028 R1 x2  raw 3000   (priced)
+        2029 R1 x2  ---        (unpriced)
 
-    Correct: the $1200 pool is split between the two priced picks in
-    9000:3000 ratio → 9000/12000 × 1200 = $900 and 3000/12000 × 1200 =
-    $300.  Both are exact, so largest-remainder rounding has nothing to
-    distribute.
+    Correct: 24000 of priced value → $450 per 2026 pick and $150 per 2028
+    pick, all exact.
 
-    Before the fix the two 2027 picks each took the flat table's round-1
-    constant of 7000, so the pool was 9000+3000+7000+7000 = 26000 and
-    1.01 collected 9000/26000 × 1200 = $415 — a real pick's dollar value
-    cut by more than half by two numbers nobody computed."""
+    Before the C1 fix unpriced picks took the flat table's round-1
+    constant of 7000 and diluted every real pick's dollars."""
     responses = {
         "/rosters": [
             {"roster_id": 1, "owner_id": "u1"},
@@ -181,8 +189,9 @@ def test_unpriced_picks_are_excluded_from_the_dollar_pool(monkeypatch):
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(responses))
     contract = {
         "playersArray": [
-            {"displayName": "2026 Pick 1.01", "rankDerivedValue": 9000, "assetClass": "pick"},
-            {"displayName": "2026 Pick 1.02", "rankDerivedValue": 3000, "assetClass": "pick"},
+            _pick_row("2026 Pick 1.01", 12000),  # a stand-in slot must NOT read this
+            _pick_row("2026 Pick 1.06", 9000),
+            _pick_row("2028 Round 1", 3000),
         ]
     }
     result = dcf.build_sleeper_derived(
@@ -190,39 +199,42 @@ def test_unpriced_picks_are_excluded_from_the_dollar_pool(monkeypatch):
         contract,
         current_season=2026,
         # ``num_teams`` was removed in #655 — the count comes from the roster
-        # feed, which the stub above declares as two.  The arithmetic this test
-        # pins is unchanged.
+        # feed, which the stub above declares as two.
         draft_rounds=1,
     )
     by_key = {(p["season"], p["pick"]): p for p in result["picks"]}
 
-    assert by_key[(2026, "1.01")]["dollarValue"] == 900
-    assert by_key[(2026, "1.01")]["adjustedDollarValue"] == 900
-    assert by_key[(2026, "1.01")]["isUnpriced"] is False
-    assert by_key[(2026, "1.02")]["dollarValue"] == 300
+    for label in ("1.01", "1.02"):
+        assert by_key[(2026, label)]["dollarValue"] == 450
+        assert by_key[(2026, label)]["adjustedDollarValue"] == 450
+        assert by_key[(2026, label)]["isUnpriced"] is False
+        assert by_key[(2026, label)]["valueBasis"] == "canonical_generic_round"
+        assert by_key[(2028, label)]["dollarValue"] == 150
 
     # The unpriced picks are emitted (ownership is still real) but carry
     # no dollars and say so.
-    for pick_label in ("1.01", "1.02"):
-        row = by_key[(2027, pick_label)]
-        assert row["dollarValue"] is None
-        assert row["adjustedDollarValue"] is None
-        assert row["isUnpriced"] is True
+    for season in (2027, 2029):
+        for pick_label in ("1.01", "1.02"):
+            row = by_key[(season, pick_label)]
+            assert row["dollarValue"] is None
+            assert row["adjustedDollarValue"] is None
+            assert row["isUnpriced"] is True
 
     # The whole budget still lands, on the priced picks alone.
     assert sum(p["dollarValue"] for p in result["picks"] if not p["isUnpriced"]) == 1200
 
     # Coverage tells the truth about what was priced, not about the
     # loop bounds.
-    assert result["coveredPickYears"] == [2026]
-    assert result["unpricedPickCount"] == 2
-    assert result["pricedPickCount"] == 2
-    assert result["unpricedPickYears"] == [2027]
+    assert result["coveredPickYears"] == [2026, 2028]
+    assert result["unpricedPickCount"] == 4
+    assert result["pricedPickCount"] == 4
+    assert result["unpricedPickYears"] == [2027, 2029]
 
-    # Team totals follow the priced dollars: slot 1 → Alpha, slot 2 →
-    # Beta, and the 2027 picks add nothing to either.
+    # Team totals follow the priced dollars, and the unpriced picks add
+    # nothing to either team.
     totals = {t["team"]: t["auctionDollars"] for t in result["teamTotals"]}
-    assert totals == {"Alpha": 900, "Beta": 300}
+    assert totals == {"Alpha": 600, "Beta": 600}
+    assert result["budgetPolicy"]["basis"] == "shared_multi_class_pool"
 
 
 def test_a_fully_unpriced_board_prices_nothing(monkeypatch):
@@ -246,7 +258,7 @@ def test_a_fully_unpriced_board_prices_nothing(monkeypatch):
     )
     assert result["coveredPickYears"] == []
     assert result["pricedPickCount"] == 0
-    assert result["unpricedPickCount"] == 8  # 1 team × 4 rounds × 2 seasons
+    assert result["unpricedPickCount"] == 16  # 1 team × 4 rounds × 4 owned classes
     assert all(p["dollarValue"] is None for p in result["picks"])
     assert all(t["auctionDollars"] == 0 for t in result["teamTotals"])
 

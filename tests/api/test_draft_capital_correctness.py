@@ -314,9 +314,16 @@ def test_fallback_payload_stamps_coverage_upcoming_year_team_keys_and_asset_ids(
     monkeypatch.setattr(
         "src.api.league_registry.league_key_for_sleeper_id", lambda lid: "wave_a_league"
     )
+    # The upcoming class's GENERIC grade (centre-slot row): the fallback's
+    # slots are stand-ins, so every pick of the round prices at it.
     contract = {
         "playersArray": [
-            {"displayName": f"{YEAR + 1} Pick 1.0{s}", "rankDerivedValue": 1000 * s} for s in (1, 2)
+            {
+                "displayName": f"{YEAR + 1} Pick 1.06",
+                "canonicalName": f"{YEAR + 1} Pick 1.06",
+                "assetClass": "pick",
+                "rankDerivedValue": 1500,
+            }
         ]
     }
     years = league_draft_years(YEAR, None)

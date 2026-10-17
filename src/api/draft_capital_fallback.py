@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.identity import picks as _pick_identity
-from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
+from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS, OWNED_PICK_HORIZON_CLASSES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -353,19 +353,57 @@ def build_sleeper_derived(
                 continue
             traded_map[(season, round_n, original_rid)] = new_rid
 
+    # Which classes: every class this league still owns picks in, from the
+    # league-scoped resolver (owner directive 2026-10-17 — this used to be the
+    # loop bounds ``(current, current + 1)``, which dropped the third future
+    # class Sleeper already trades).  A class the league has drafted and
+    # rostered is retired by the resolver and never generated here.  Without
+    # a resolver answer, the same horizon from ``current_season`` (no evidence
+    # retires nothing).
+    owned_seasons = (
+        [int(y) for y in league_draft_years.owned_pick_seasons]
+        if hasattr(league_draft_years, "owned_pick_seasons")
+        else list(range(int(current_season), int(current_season) + OWNED_PICK_HORIZON_CLASSES))
+    )
+    # ``current_season`` IS the league's upcoming draft (the caller derived it
+    # from the same resolver), so nothing before it is owned capital.
+    owned_seasons = sorted(
+        {int(current_season), *(y for y in owned_seasons if y >= int(current_season))}
+    )
+
     # Build picks.  Sleeper doesn't expose per-slot ownership for
-    # FUTURE drafts (pick order not set), so we assume reverse
-    # standings — which for this view is fine (ordering is not the
-    # point, value + ownership is).
+    # FUTURE drafts (pick order not set).  ``slot`` below is a STAND-IN for
+    # display ordering only (slot N = original roster N) — it is never a
+    # draft position, so every pick is priced at its round's GENERIC grade
+    # (``draft_capital_classes.canonical_pick_value`` with no slot).  It used
+    # to look up the current class's exact slot row by that stand-in, which
+    # priced roster 1's pick as the 1.01.
+    from src.api.draft_capital_classes import (  # noqa: PLC0415
+        canonical_pick_value,
+        pick_rows_index,
+    )
+
+    rows_index = pick_rows_index(contract)
+    value_cache: dict[tuple[int, int], float | None] = {}
     picks: list[SleeperDerivedPick] = []
     owner_rids: list[tuple[int, int]] = []  # (origin, current) per pick, same order
-    for season in (current_season, current_season + 1):
+    for season in owned_seasons:
         for round_n in range(1, draft_rounds + 1):
+            if (season, round_n) not in value_cache:
+                v, _basis = canonical_pick_value(
+                    contract,
+                    season=season,
+                    round_num=round_n,
+                    slot=None,
+                    rows_by_name=rows_index,
+                    league_size=actual_num_teams,
+                )
+                value_cache[(season, round_n)] = float(v) if v is not None else None
             for slot in range(1, actual_num_teams + 1):
                 original_rid = slot  # stand-in: slot N = original owner roster N
                 current_rid = traded_map.get((season, round_n, original_rid), original_rid)
                 is_traded = current_rid != original_rid
-                value = _pick_value_from_contract(contract, season, round_n, slot)
+                value = value_cache[(season, round_n)]
                 owner_rids.append((original_rid, current_rid))
                 picks.append(
                     SleeperDerivedPick(
@@ -477,6 +515,21 @@ def build_sleeper_derived(
             if league_key
             else None
         )
+    # The fallback's own ``teamTotals`` already span every class, so there
+    # are no additional classes; its established budget basis is ONE $1200
+    # pool across every priced pick (see ``draft_capital_classes``).
+    from src.api.draft_capital_classes import (  # noqa: PLC0415
+        ADDITIONAL_CLASSES_OBSERVED,
+        BUDGET_POLICY_SHARED,
+        budget_policy_block,
+    )
+
+    result["additionalClassPicks"] = []
+    result["additionalClassesState"] = ADDITIONAL_CLASSES_OBSERVED
+    result["additionalClassesReason"] = None
+    result["budgetPolicy"] = budget_policy_block(
+        BUDGET_POLICY_SHARED, _TARGET_TOTAL_BUDGET, owned_seasons
+    )
     # Per-season views for the /league year selector: a season's capital is
     # the sum of the SAME normalized per-pick dollars that make up
     # ``teamTotals`` (one $1200 pool across every priced pick — never
@@ -521,6 +574,11 @@ def _serialize_pick(
         "adjustedDollarValue": p.dollar_value,
         "dollarValue": p.dollar_value,
         "isUnpriced": p.raw_value is None,
+        # ``slot`` is a display stand-in (original roster order), never a draft
+        # position; the value is the round's generic grade.
+        "slotStatus": "unknown",
+        "valueBasis": "canonical_generic_round" if p.raw_value is not None else None,
+        "dollarValueEstimated": True,
     }
     if p.season != int(current_season):
         return row

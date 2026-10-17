@@ -527,9 +527,30 @@ Error behavior on endpoints:
     ownership and there is no partial board worth serving.  Success is
     byte-identical.  Known caveat: the route caches error results for its
     300 s TTL like any other result.  The DEFAULT-league workbook path
-    (`server.py::_fetch_draft_capital`, `apply_sleeper_trades`) is NOT
-    fixed: a failed fetch there still becomes `traded = []` and the
-    workbook's ownership is kept silently — named follow-up.
+    (`server.py::_fetch_draft_capital`) follows the same rule since
+    2026-10-17: with `apply_sleeper_trades` on, an unobserved
+    `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
+    it) refuses the board with the same `pick_ownership_unavailable` shape
+    instead of serving the workbook's hand-entered ownership.
+  - **Every owned class is listed** (owner directive 2026-10-17).  The
+    workbook is ONE draft, so the default league used to offer only that
+    class in the /league year selector.  The league's other owned classes
+    (`league_draft_years.owned_pick_seasons`) now arrive in
+    `additionalClassPicks` — canonical fold (`build_pick_ownership`) over the
+    observed `/traded_picks`, canonical generic-grade values
+    (`src/api/draft_capital_classes.py`), round-only (`slotStatus:
+    "unknown"`), `dollarValueEstimated: true`.  `picks` / `teamTotals` /
+    `coveredPickYears` are unchanged (the workbook class = the auction
+    budgets /draft, the auction room and the /trade stack read); the year
+    views, `allYearsTeamTotals` and `allYearsSummary` cover every class,
+    each pick once.  The fallback generates the same owned seasons (it used
+    `(current, current + 1)`) and now prices every pick at its round's
+    generic grade (its slots are stand-ins; it used to read the current
+    class's exact slot row by roster number).  **The $1200 basis is an OPEN
+    owner question**, stamped as `budgetPolicy`: the default league prices
+    each later class as its own $1200 pool (`per_class_pool`, the only basis
+    that keeps the workbook class's dollars intact); the fallback keeps its
+    established single pool across every class (`shared_multi_class_pool`).
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring
@@ -2488,11 +2509,12 @@ snapshot without it loads as `pick_ownership_unstated`), and
 `public_league/draft.py::pick_inventory` is a view of `build_pick_ownership`
 over the CURRENT league's `/traded_picks` only — older leagues' rows are past
 ownership STATES and never redefine the present; movement counts come from
-completed trade transactions, de-duplicated by id.  **A further producer is
-NOT fixed** and is a named follow-up: `server.py::_fetch_draft_capital`, the
-default-league workbook path (`apply_sleeper_trades`, ~line 10637), still turns
-a failed fetch into `traded = []` and silently keeps the workbook's own
-ownership columns.  On `None` the two `sleeper.teams` producers do not fold:
+completed trade transactions, de-duplicated by id.  The default-league
+workbook path `server.py::_fetch_draft_capital` joined them 2026-10-17: an
+unobserved `/traded_picks` refuses the board (`pick_ownership_unavailable`)
+instead of keeping the workbook's own ownership columns, and its later owned
+classes are folded by `build_pick_ownership`.  On `None` the two
+`sleeper.teams` producers do not fold:
 every team publishes
 `picks: null` / `pickDetails: null` (never `[]`, which says "owns no picks")
 with `pickOwnershipState: "unavailable"` + `pickOwnershipReason:

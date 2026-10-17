@@ -82,9 +82,29 @@ def _pin_draft_year(monkeypatch):
     monkeypatch.setattr(dc, "current_rookie_draft_year", lambda *a, **k: 2027)
 
 
+def _two_classes(season):
+    """A league that owns picks in exactly two classes (the canonical
+    league-scoped resolver's answer, injected so these tests stay about two
+    seasons; the horizon itself is pinned in test_draft_capital_all_years)."""
+    from src.identity.pick_lifecycle import LeagueDraftYears
+
+    return LeagueDraftYears(
+        anchor_year=season,
+        upcoming_draft_year=season,
+        owned_pick_seasons=(season, season + 1),
+        retired_seasons=(),
+    )
+
+
 def _build(monkeypatch, *, traded=None, n=4, contract=_TWO_SEASON_CONTRACT, season=2027):
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(_league(n, traded)))
-    return dcf.build_sleeper_derived("L1", contract, current_season=season, draft_rounds=2)
+    return dcf.build_sleeper_derived(
+        "L1",
+        contract,
+        current_season=season,
+        draft_rounds=2,
+        league_draft_years=_two_classes(season),
+    )
 
 
 def _team(result, name):
@@ -351,7 +371,12 @@ def test_public_redaction_strips_rookie_fields_and_never_mutates_the_cache(monke
     ]
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(_league()))
     result = dcf.build_sleeper_derived(
-        "L1", _TWO_SEASON_CONTRACT, current_season=2027, draft_rounds=2, rookies=rookies
+        "L1",
+        _TWO_SEASON_CONTRACT,
+        current_season=2027,
+        draft_rounds=2,
+        rookies=rookies,
+        league_draft_years=_two_classes(2027),
     )
     before = copy.deepcopy(result)
     public = server._redact_draft_capital_for_public(result)
@@ -362,7 +387,15 @@ def test_public_redaction_strips_rookie_fields_and_never_mutates_the_cache(monke
     # The season views carry only public quantities.
     for rows in public["teamTotalsByYear"].values():
         for r in rows:
-            assert set(r) == {"team", "auctionDollars", "pickCount", "unpricedPickCount", "rank"}
+            assert set(r) == {
+                "team",
+                "auctionDollars",
+                "pickCount",
+                "unpricedPickCount",
+                "acquiredPickCount",
+                "tradedAwayPickCount",
+                "rank",
+            }
     for t in public["teamTotals"]:
         assert not (set(t) & private)
     for p in public["picks"]:
