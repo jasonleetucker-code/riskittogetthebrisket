@@ -87,6 +87,7 @@ from src.ros.game_day_week import (
     GameDayWeekRefusal,
     ObservedSlate,
     actual_lineup,
+    bye_teams_for_week,
     merge_game_evidence,
     observed_game_evidence,
     resolve_scoring_week,
@@ -1176,6 +1177,7 @@ def assemble_league_week(
             estimate_source=estimates.source_label,
             game_evidence=evidence,
             now=now,
+            bye_teams=bye_teams_for_week(inputs.schedule_rows, season=season, week=week),
         )
     except GameDayWeekRefusal as exc:
         if "already begun" in str(exc):
