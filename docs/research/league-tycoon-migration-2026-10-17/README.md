@@ -14,8 +14,15 @@ Edge Lab repository is out of scope and was not touched.
 - The authorization does not cover other leagues, other users' accounts, platform administration, or any
   write to League Tycoon.
 - The owner restated it during this session: "I have permission to scrape my own league."
-- See §1.5 for how this interacts with League Tycoon's own Terms of Use. That is the single largest risk in
-  this document.
+- See §1.5 for how this interacts with League Tycoon's own Terms of Use. That was the single largest risk in
+  this document, and it is now **resolved by League Tycoon's written permission** (next bullet).
+- **League Tycoon's written permission (2026-10-17).** support@leaguetycoon.com, signed "George", replied to the
+  owner's "League Scrape Inquiry" (addressed to the owner, 9:11 AM; shared as a screenshot of the owner's mail
+  client): *"Yeah that is totally
+  fine, you can scrape our site sir whatever you need to get all of the same information that you were able to
+  get from Sleeper's API."*
+  - **Retention.** The owner keeps the original email, with full headers, outside the repo. That copy is the
+    durable evidence.
 
 **What this research could and could not do:**
 
@@ -62,8 +69,9 @@ severity:
      *"league standings, draft picks, contracts"* (§3/§4).
    - The owner's permission covers the league's data. It cannot waive the platform's terms on the owner's
      own account.
-   - Every automated method below is therefore **feasible but carries account risk**, until League Tycoon
-     grants written permission or a sanctioned feed. §1.5 gives the mitigation.
+   - **UPDATE 2026-10-17: League Tycoon support granted written permission** to scrape for "all of the same
+     information that you were able to get from Sleeper's API". Method B is now sanctioned rather than
+     risk-accepted. See §1.5 for the scope boundary (contract/cap data is not Sleeper data).
 2. **The league's format may not survive the move.** Nothing public confirms League Tycoon supports:
    - **IDP** (DL/LB/DB starters), or
    - **best ball**.
@@ -109,7 +117,7 @@ These are high-value inputs **if** the league runs as *contract dynasty* (paid, 
   - single owners for identity, picks, lineup and history.
 - The blockers are **not** engineering:
   - a platform-format answer (IDP / best ball);
-  - an access-posture decision (written permission vs. accepted risk);
+  - ~~an access-posture decision~~ (resolved 2026-10-17: League Tycoon granted written permission);
   - one owner-run evidence capture.
 
   Until those land, no data-access claim in this document is better than DOCUMENTED, and **no integration
@@ -173,18 +181,18 @@ no method is verified yet.
 | Rank | Method | Coverage | Reliability | Auth complexity | Maintenance | Refresh | Op. cost | Risk |
 |---|---|---|---|---|---|---|---|---|
 | **1 (if obtainable)** | **A. Sanctioned access**: written permission from League Tycoon, ideally a read token, export or partner feed | 5 | 5 | 3 | 5 | 4 | 5 | **None.** Removes the §1.5 risk |
-| **2 (primary otherwise)** | **B. Owner-session network capture**: an owner-run collector loads the app under the owner's own signed-in session and keeps the JSON the app already fetches, or replays those exact read requests at low rate | 4 | 3 | 2 | 2 (≈2 releases/week) | 3 | 4 | **Medium–high**: Terms §4. Detectable only by behaviour, so keep it human-paced and read-only |
+| **2 (primary; sanctioned 2026-10-17)** | **B. Owner-session network capture**: an owner-run collector loads the app under the owner's own signed-in session and keeps the JSON the app already fetches, or replays those exact read requests at low rate | 4 | 3 | 2 | 2 (≈2 releases/week) | 3 | 4 | **Low** since League Tycoon's written permission (§1.5). Still human-paced and read-only |
 | 3 | **C. Browser automation of the rendered UI** | 2 | 1 | 2 | 1 | 2 | 3 | Same Terms risk as B, worse data. Flutter web draws to a canvas, so there is no DOM table to read; only the semantics/accessibility tree, if enabled (INFERRED) |
 | **4 (fallback)** | **D. Manual-assisted**: owner screenshots (reusing our shipped Screenshot Import / Tesseract OCR lane), owner-entered contract CSV, commissioner HoF | 3 | 4 | 5 | 4 | 1 | 2 (owner time) | **None** on Terms. Bounded by owner effort |
 
 **Recommendation:**
 
-1. **Ask first.** Email support@leaguetycoon.com and post in their Discord. Request written permission for
-   read-only, low-rate access to the owner's own league, and ask whether an export or read endpoint exists.
-   Ask the IDP / best-ball question in the same message.
-2. **Primary:** Method **B**, scoped and paced as in §4. Run it only after the owner accepts the residual risk
-   in writing, or after League Tycoon grants permission. If permission comes with a sanctioned feed, Method A
-   replaces B.
+1. **Ask first.** DONE 2026-10-17: League Tycoon support granted written permission (§1.5). Still open:
+   - the IDP / best-ball question (OD-3);
+   - whether an export or read endpoint exists, which would make Method A available;
+   - confirmation that contract/cap pages are in scope.
+2. **Primary:** Method **B**, scoped and paced as in §4. Permission is granted. If League Tycoon later offers a
+   sanctioned feed, Method A replaces B.
 3. **Fallback:** Method **D** for anything B cannot reach, and as the continuity plan if the account is ever
    challenged. Contract tables change mainly at a few calendar moments (rollover, drafts, trades), so manual
    capture is a credible floor for the contract domain.
@@ -205,6 +213,22 @@ This blueprint therefore:
 - keeps request volume at or below what a human browsing the app would generate (§4.4);
 - keeps every League Tycoon fetch **behind a single kill switch**, so the integration can be stopped instantly;
 - treats written permission from League Tycoon as the cheapest risk removal available. One email.
+
+**Resolution (2026-10-17).** League Tycoon support replied in writing:
+
+> "Yeah that is totally fine, you can scrape our site sir whatever you need to get all of the same information
+> that you were able to get from Sleeper's API." (George, support@leaguetycoon.com)
+
+What this changes, and the boundary we keep:
+
+- **Sanctioned scope.** Everything with a Sleeper counterpart is now sanctioned to collect: the whole of
+  `PARITY_MATRIX.md` §A1–§A5. Method B is the primary method, and option S3 (§4.2) is no longer excluded on
+  Terms grounds.
+- **Contract and cap data.** §A6 has no Sleeper counterpart. "Whatever you need" plausibly covers it, but the
+  literal measure is Sleeper parity. Before Batch 6 collects contracts, send a one-line follow-up asking League
+  Tycoon to confirm that contract/cap pages are included.
+- **Unchanged.** The permission is to scrape *for this league's data*. The read-only, single-league, kill-switch
+  and pacing rules in §4.4 stay: they are good citizenship and keep us clear of "unreasonable load" (§4).
 
 ---
 
@@ -263,7 +287,7 @@ owner capture. Any row that says otherwise is wrong.
 |---|---|---|
 | **S1. Owner-machine collector** (recommended first) | Owner runs `scripts/league_tycoon/collect.py` (future) on their own computer. Playwright opens a **persistent profile** the owner signed into by hand. The script visits a fixed page list, keeps the app's own JSON responses, sanitizes, and uploads a signed bundle to our backend | Credentials and tokens never leave the owner's machine. Refresh is "whenever the owner's computer runs it" (a scheduled task). Lowest secret risk |
 | S2. Server-side persistent profile | Same, on the VPS. The owner signs in once through a remote browser session | Google sign-in commonly blocks automated/headless browsers ("this browser may not be secure"). Fragile, and puts a live session on the server |
-| S3. Server-side token refresh | If capture proves Firebase Auth, store **only** the refresh token as a deploy secret and mint 1-h ID tokens server-side | Most automatic. Also the most sensitive, and the most clearly "automated means". Only with written permission from League Tycoon |
+| S3. Server-side token refresh | If capture proves Firebase Auth, store **only** the refresh token as a deploy secret and mint 1-h ID tokens server-side | Most automatic, and the most sensitive (a long-lived secret on the server). Since the 2026-10-17 permission it is no longer excluded on Terms grounds. Choose S1 vs S3 on secret-handling grounds after the capture |
 
 **Never:** collect or store Google/Apple passwords. Paste tokens, cookies or unredacted HARs into chat, issues,
 commits or repo files. Reuse a session against any league but the authorized one.
@@ -512,7 +536,7 @@ Full table: `PARITY_MATRIX.md` §B. Four classes:
 
 | Risk | Severity | Mitigation / fallback |
 |---|---|---|
-| **Terms of Use §4 (automation) → account termination, forfeiting the league** | **Critical** | Written permission first. Human-paced, read-only, single-league, kill switch. Method D fallback keeps the product alive without automation |
+| Terms of Use §4 (automation) → account termination, forfeiting the league | **Reduced → Low** (written permission 2026-10-17, §1.5) | Keep the original email. Confirm contract/cap scope before Batch 6. Human-paced, read-only, single-league, kill switch. Method D fallback remains |
 | League Tycoon lacks IDP and/or best ball | **Critical** (format change) | Ask League Tycoon before import. Use the import preview's unmapped-rule list. If missing, the owner decides the league's future format, and we model *that* league, not today's |
 | No machine access verified | High | Owner capture (`OWNER_EVIDENCE_CAPTURE.md`) is Batch 1. Nothing proceeds without it |
 | Interface churn (≈2 releases/week, private interface) | High | Schema validation per field read, quarantine on drift, raw evidence retained for replay, parser tests on captured fixtures |
@@ -666,7 +690,7 @@ Remaining tests and when they can run:
 | OD-1 | Which league moves, and from which season? (League Tycoon imports always target the next *fresh* season) | Confirm `dynasty_main`, 2027 season; `dynasty_new` stays on Sleeper unless stated |
 | OD-2 | Standard dynasty (free) or contract dynasty (paid) on League Tycoon? | Owner's league decision. Contract features exist only on contract dynasty |
 | OD-3 | Does League Tycoon support IDP (DL/LB/DB + the 17 IDP scoring keys), best ball, 2 TE + SUPER_FLEX + K, 58-man rosters, TE premium (`bonus_rec_te`)? | Ask League Tycoon support before importing |
-| OD-4 | Access posture: request League Tycoon written permission (recommended) or proceed on owner-accepted risk? | Request permission; it costs one email |
+| OD-4 | Access posture: request League Tycoon written permission (recommended) or proceed on owner-accepted risk? | **DECIDED 2026-10-17:** League Tycoon support granted written permission (§1.5). Follow-up still needed to confirm contract/cap pages before Batch 6 |
 | OD-5 | Lift R60 (contract-league modelling) from DEFER? | Only after OD-2 = contract dynasty |
 | OD-6 | Keep Sleeper as the record for ≤ cutover seasons? | Yes |
 | OD-7 | Rookie auction → League Tycoon rookie draft format; draft-order rule (League Tycoon lottery/inverse/MPF vs our reverse-record + PF rule) | League decision; `draft_order_rules.json` records it |

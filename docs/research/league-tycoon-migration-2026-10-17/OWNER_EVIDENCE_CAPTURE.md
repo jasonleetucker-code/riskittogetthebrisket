@@ -5,7 +5,11 @@ what the league owner does, what each step enables, and what must **never** leav
 
 ## Before anything else (no computer work)
 
-1. **Ask League Tycoon.** Send one message to support@leaguetycoon.com, or post in their Discord. Template:
+1. **Ask League Tycoon.**
+   - **Status:** DONE 2026-10-17 for scraping permission (README §1.5).
+   - **Still worth a follow-up:** IDP / best ball, export, and contract/cap scope.
+
+   The original template:
 
    > I'm the commissioner of a dynasty league moving from Sleeper. Three questions:
    > (1) Do you support IDP (DL/LB/DB starters, IDP scoring like tackles/sacks/TFL/PD) and best-ball lineups?
