@@ -71,23 +71,23 @@
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
-      "classification": "INCUMBENT",
-      "family": "ktc",
-      "id": "ktc_2026_04",
-      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-      "version": "2026-04"
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
      },
      "rawGap": 1000,
-     "receivingAdjusted": 10227.0,
+     "receivingAdjusted": 7440.0,
      "receivingValue": 7000,
-     "receivingValueAdjustment": 3227.0,
+     "receivingValueAdjustment": 440.0,
      "sendingAdjusted": 6000.0,
      "sendingValue": 6000,
      "sendingValueAdjustment": 0.0,
      "unresolvedIn": [],
      "unresolvedOut": [],
-     "vaAdjustedGap": 4227,
-     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
+     "vaAdjustedGap": 1440,
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -445,23 +445,23 @@
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
-      "classification": "INCUMBENT",
-      "family": "ktc",
-      "id": "ktc_2026_04",
-      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
-      "version": "2026-04"
+      "classification": "ACTIVE",
+      "family": "geom",
+      "id": "geom_q078_v1",
+      "label": "Geometric Value Adjustment (q = 0.78)",
+      "version": "1"
      },
      "rawGap": 1000,
-     "receivingAdjusted": 10227.0,
+     "receivingAdjusted": 7440.0,
      "receivingValue": 7000,
-     "receivingValueAdjustment": 3227.0,
+     "receivingValueAdjustment": 440.0,
      "sendingAdjusted": 6000.0,
      "sendingValue": 6000,
      "sendingValueAdjustment": 0.0,
      "unresolvedIn": [],
      "unresolvedOut": [],
-     "vaAdjustedGap": 4227,
-     "valueAdjustment": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)"
+     "vaAdjustedGap": 1440,
+     "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
     },
     "dimension": "equity",
     "direction": "favors",
@@ -698,7 +698,7 @@
    "Bench insurance declines: a missing starter costs 3.8 more points per week"
   ],
   "reasonsFor": [
-   "+4,227 package value after KTC Value Adjustment (stretch gap)",
+   "+1,440 package value after Value Adjustment (stretch gap)",
    "+1.5 expected best-ball points per week in the legal lineup",
    "WR Buf Star enters the optimal lineup in 100% of simulated weeks",
    "Fits without a cut (2 open spots after)"

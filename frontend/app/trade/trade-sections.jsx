@@ -660,7 +660,8 @@ export function SideCard({
               separately under the meter).  VA is shown as the difference of the
               rounded figures, so the visible parts always add up to the headline.
               The retired `title=` said VA was a roster-spot bonus for the side
-              with fewer pieces — ktcAdjustPackage credits concentration, fires on
+              with fewer pieces — the package model (packageAdjustPair; geometric
+              q = 0.78 since 2026-10-17) credits concentration, fires on
               equal counts too, and a hover title never reached touch users. */}
           <div className={styles.sideTotalMeta}>
             Raw {Math.round(total.raw).toLocaleString()}

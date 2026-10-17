@@ -29,7 +29,7 @@ from src.trade.analyze_trade import (
     _market_lens,
     analyze_trade,
 )
-from src.trade.ktc_va import adjusted_pair_totals
+from src.valuation_math.package_model import adjusted_pair_totals
 
 
 def _utility(ppg, *, se=0.3, coverage="full", players=None, depth=None, cleanup=None, pre=None):
@@ -103,7 +103,9 @@ def _sim(recv, send, *, utility=None, capacity=None, strength=None, context=None
 
 
 class TestMarketLensUsesTheCanonicalOwner:
-    def test_gap_matches_ktc_va_directly(self):
+    def test_gap_matches_the_canonical_package_owner(self):
+        # The lens must read the ACTIVE package model through the canonical
+        # dispatch (geom_q078_v1 since 2026-10-17), not KTC's port directly.
         sending, receiving = [3000.0, 500.0], [5000.0]
         send_adj, recv_adj, _, _ = adjusted_pair_totals(sending, receiving)
         lens = _market_lens(_sim(receiving, sending))

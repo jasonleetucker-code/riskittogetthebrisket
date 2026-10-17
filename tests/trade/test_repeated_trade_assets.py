@@ -24,22 +24,36 @@ import pytest
 from src.api import terminal, trade_simulator
 from src.trade.ktc_va import ktc_adjust_package
 from src.trade.suggestions import _va_gap
+from src.valuation_math import package_model
 
 # (side A values, side B values, JS ktcAdjustPackage value, JS side, JS
-# tradeGapAdjusted(A, B)) — computed from frontend/lib/trade-logic.js.
+# adjusted gap under the KTC ROLLBACK model, JS tradeGapAdjusted(A, B)
+# under the ACTIVE model) — computed from frontend/lib/trade-logic.js.
+# The ACTIVE column is the geometric model (geom_q078_v1, q = 0.78) since
+# the owner's 2026-10-17 promotion; the KTC columns pin the retained
+# rollback model.
 _JS_REPEATED_VALUE_CASES = [
-    ([5606, 5606], [9000], 4240, 2, -2028),
-    ([5606, 5606, 5606], [9000, 3000], 3339, 2, 1479),
-    ([4000, 4000, 2500], [7000, 3500], 3759, 2, -3759),
-    ([5606], [9000], 0, 0, -3394),
+    ([5606, 5606], [9000], 4240, 2, -2028, 979),
+    ([5606, 5606, 5606], [9000, 3000], 3339, 2, 1479, 2049),
+    ([4000, 4000, 2500], [7000, 3500], 3759, 2, -3759, -1089),
+    ([5606], [9000], 0, 0, -3394, -3394),
 ]
 
 
-@pytest.mark.parametrize(("side_a", "side_b", "va", "side", "gap"), _JS_REPEATED_VALUE_CASES)
-def test_python_va_matches_js_owner_on_repeated_values(side_a, side_b, va, side, gap):
+@pytest.mark.parametrize(
+    ("side_a", "side_b", "va", "side", "ktc_gap", "gap"),
+    _JS_REPEATED_VALUE_CASES,
+)
+def test_python_va_matches_js_owner_on_repeated_values(side_a, side_b, va, side, ktc_gap, gap):
+    # KTC rollback model: the formula port and its adjusted gap.
     result = ktc_adjust_package(side_a, side_b)
     assert result.value == va
     assert result.side == side
+    a_adj, b_adj, _, _ = package_model.adjusted_pair_totals(
+        side_a, side_b, model_id=package_model.KTC_2026_04
+    )
+    assert int(round(a_adj - b_adj)) == ktc_gap
+    # ACTIVE model: the consumer gap every surface reads.
     assert _va_gap(side_a, side_b) == gap
 
 

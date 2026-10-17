@@ -941,17 +941,18 @@ def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> b
 
 
 def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
-    """Trade gap after KTC's Value Adjustment.
+    """Trade gap after the ACTIVE package Value Adjustment.
 
-    The trade analyzer applies KTC's VA before computing its
-    "Major gap" verdict (frontend/lib/trade-logic.js, backed by the
-    same src.trade.ktc_va port).  Suggestions must use the identical
-    math or they propose packages that look even on raw totals but
-    show a major gap once loaded into the builder — e.g. 2-for-1
-    consolidations where KTC's quantity discount inflates the
+    The trade analyzer applies the package VA before computing its
+    "Major gap" verdict (frontend/lib/trade-logic.js::packageAdjustPair,
+    twin of src.valuation_math.package_model — the geometric model,
+    q = 0.78, since 2026-10-17; KTC retained as rollback).  Suggestions
+    must use the identical math or they propose packages that look even
+    on raw totals but show a major gap once loaded into the builder —
+    e.g. 2-for-1 consolidations where the per-piece discount inflates the
     single-stud side.  Callers MUST pass the individual piece values
     (not a pre-summed total) so the per-piece discount actually
-    triggers; for genuine 1-for-1s KTC suppresses VA, so the result
+    triggers; a genuine 1-for-1 carries no adjustment, so the result
     equals the raw difference.
     """
     give_adj, recv_adj, _, _ = adjusted_pair_totals(give_vals, recv_vals)

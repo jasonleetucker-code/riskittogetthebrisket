@@ -28,6 +28,7 @@ from src.api import trade_history_asof
 from src.api.public_activity_valuation import build_asof_valuation
 from src.history import store
 from src.public_league import activity, public_contract, trade_grading
+from src.valuation_math import package_model
 
 URL = "/api/trades/asof-grades"
 
@@ -205,7 +206,13 @@ def test_route_grades_and_never_caches(ledger, monkeypatch):
         assert res.headers["cache-control"] == "no-store"
         body = res.json()
         assert body["available"] is True
-        assert body["packageModel"]["id"] == "ktc_2026_04"
+        # The receipt names the ACTIVE package model (geom_q078_v1 since the
+        # owner's 2026-10-17 promotion).
+        assert (
+            body["packageModel"]["id"]
+            == package_model.active_model_id()
+            == package_model.GEOM_Q078_V1
+        )
         assert body["trades"][0]["sides"][0]["available"] is True
 
         assert client.post(URL, json={"trades": "nope"}).status_code == 400

@@ -11,8 +11,10 @@ formula per consumer.
 The packet answers separate questions in separate LENSES
 ───────────────────────────────────────────────────────
 * **market** — what does the market charge?  Canonical asset values, the raw
-  package difference, and exact KTC Value Adjustment
-  (``src.trade.ktc_va.adjusted_pair_totals``) as its own market lens.  VOTES.
+  package difference, and the ACTIVE package Value Adjustment
+  (``src.valuation_math.package_model.adjusted_pair_totals`` — the
+  owner-approved geometric model ``geom_q078_v1`` since 2026-10-17, KTC
+  retained as rollback) as its own market lens.  VOTES.
 * **roster** — what does THIS roster gain or lose?  #1173 best-ball utility on
   the final legal roster (``rosterUtility``), priced by LEAGUE-SCORED
   PROJECTIONS.  VOTES.  Team Strength (``finalRosterSimulation``) is shown
@@ -157,7 +159,7 @@ class DimensionResult:
 def equity_verdict(sending_values: list[float], receiving_values: list[float]) -> dict[str, Any]:
     """The calculator's canonical equity verdict for one package pair.
 
-    Canonical values (``rankDerivedValue``) + the exact KTC Value Adjustment —
+    Canonical values (``rankDerivedValue``) + the ACTIVE package Value Adjustment —
     the same quantity every fairness verdict in this repository is measured
     on.  ``win`` is the selected team coming out ahead by MORE than the
     market's own fairness band (an "even" gap neither favours nor opposes).
@@ -185,7 +187,7 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
 
 
 def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
-    """Canonical package values + exact KTC VA.  Calls the owner directly."""
+    """Canonical package values + the active package VA.  Calls the owner directly."""
     receiving = simulation.get("receiving") or []
     sending = simulation.get("sending") or []
     sending_values = [a["value"] for a in sending if a.get("value") is not None]
@@ -622,10 +624,10 @@ def _reasons(
         gap = market.detail["vaAdjustedGap"]
         mag = market.detail["magnitude"]
         if market.direction == "favors":
-            reasons_for.append(f"+{gap:,} package value after KTC Value Adjustment ({mag} gap)")
+            reasons_for.append(f"+{gap:,} package value after Value Adjustment ({mag} gap)")
         elif market.direction == "opposes":
             reasons_against.append(
-                f"{gap:,} package value against you after KTC Value Adjustment ({mag} gap)"
+                f"{gap:,} package value against you after Value Adjustment ({mag} gap)"
             )
 
     detail = roster.detail or {}

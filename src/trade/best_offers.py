@@ -10,7 +10,7 @@ honest "No qualifying trade found".  A CONSUMER, not a second trade finder:
 * recommendation constraints (saved protections, LOCK / EXCLUDE) are the one
   owner's (``src/trade/constraints``), applied DURING enumeration;
 * the canonical verdict is the calculator's own (``analyze_trade.equity_verdict``:
-  ``rankDerivedValue`` + exact KTC Value Adjustment);
+  ``rankDerivedValue`` + the ACTIVE package Value Adjustment);
 * external qualification is the market owner's
   (``cross_market.external_package_verdicts``): the opponent must be even or
   better on at least one approved calculator that natively prices EVERY asset;

@@ -48,6 +48,8 @@ import {
   findBalancers,
   ktcAdjustPackage,
   MAX_SIDES,
+  PACKAGE_MODEL_IDS,
+  packageAdjustPair,
   removeAssetFromSide,
   serializeWorkspaceMulti,
   sideTotal,
@@ -225,14 +227,22 @@ describe("math counts every copy", () => {
   });
   it("[10] Value Adjustment sees every copy as a piece", () => {
     // Pinned against Python in tests/trade/test_repeated_trade_assets.py.
+    // KTC rollback model (the formula port itself):
     expect(ktcAdjustPackage([5606, 5606], [9000])).toEqual({
       value: 4240,
       side: 2,
       displayed: true,
     });
+    // ACTIVE model (geom_q078_v1, q = 0.78): the second copy is the second
+    // piece, discounted by 0.78 — 5606 x 0.22 = 1233 credited to Chase.
+    expect(packageAdjustPair([5606, 5606], [9000])).toEqual({
+      value: 1233,
+      side: 2,
+      displayed: true,
+    });
     // A player repeated is a repeated piece too: 2 x Jefferson vs 1 x Chase
     // must equal the VA over the explicit [7000, 7000] package.
-    const expected = ktcAdjustPackage([9000], [7000, 7000]);
+    const expected = packageAdjustPair([9000], [7000, 7000]);
     const gap = tradeGapAdjusted([CHASE], copies(JEFFERSON, 2), "full");
     const raw = 9000 - 14000;
     const va = expected.side === 1 ? expected.value : -expected.value;
@@ -240,9 +250,18 @@ describe("math counts every copy", () => {
   });
   it("two copies reach the adjusted gap as two pieces", () => {
     expect(tradeGapAdjusted([MID_1ST], [CHASE], "full")).toBe(5606 - 9000);
-    expect(tradeGapAdjusted([MID_1ST, MID_1ST], [CHASE], "full")).toBe(-2028);
-    expect(tradeGapAdjusted([OWN, OWN], [CHASE], "full")).toBe(-2028);
-    expect(tradeGapAdjusted([OWN, FROM], [CHASE], "full")).toBe(-2028);
+    // ACTIVE geometric model (geom q=0.78): 11212 − 9000 − 1233 = 979,
+    // pinned against Python's _va_gap in test_repeated_trade_assets.py.
+    // (Under the KTC rollback model the same two copies read −2028.)
+    const twoCopies = 2 * 5606 - 9000 - packageAdjustPair([5606, 5606], [9000]).value;
+    expect(twoCopies).toBe(979);
+    expect(tradeGapAdjusted([MID_1ST, MID_1ST], [CHASE], "full")).toBe(twoCopies);
+    expect(tradeGapAdjusted([OWN, OWN], [CHASE], "full")).toBe(twoCopies);
+    expect(tradeGapAdjusted([OWN, FROM], [CHASE], "full")).toBe(twoCopies);
+    const ktc = packageAdjustPair([5606, 5606], [9000], {
+      modelId: PACKAGE_MODEL_IDS.KTC_2026_04,
+    });
+    expect(2 * 5606 - 9000 - ktc.value).toBe(-2028);
   });
   it("3-team flows route every copy of a line to that line's destination", () => {
     const sides = [

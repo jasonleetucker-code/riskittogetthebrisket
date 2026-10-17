@@ -11,7 +11,7 @@
  *   - SharedTradeMeter        ← components/trade/TradeMeter
  *   - SharedTradeSourceBreakdown ← components/trade/TradeSourceBreakdown
  *   - effectiveValue + sideTotal + adjustedSideTotals from
- *     lib/trade-logic (KTC V13 Value Adjustment math)
+ *     lib/trade-logic (active package Value Adjustment math)
  *   - ResilientSection wrapper for crash isolation
  *
  * Why a purpose-built waiver picker (and not a generic SideAssetList
@@ -382,7 +382,7 @@ export default function ManualAddDrop({
     [dropRow, addRow],
   );
 
-  // Both sides populated ⇒ full KTC V13 Value Adjustment.  Otherwise a
+  // Both sides populated ⇒ full package Value Adjustment (active model).  Otherwise a
   // flat sum so the meter still renders a sensible "0 vs N" preview.
   const sideTotals = useMemo(() => {
     const both = sides[0].assets.length > 0 && sides[1].assets.length > 0;

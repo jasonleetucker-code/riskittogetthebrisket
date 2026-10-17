@@ -122,24 +122,30 @@ _IDP_POSITIONS: frozenset[str] = frozenset(
 _IDP_FAMILIES: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
 
-def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
+def _value_adjustment(
+    small: Sequence[float],
+    large: Sequence[float],
+    *,
+    model_id: str | None = None,
+) -> float:
     """The active package model's VA from the perspective of ``small`` as team1.
 
     Returns the VA magnitude when the model awards it to the ``small`` side
     (``small`` is team1 → side==1), else 0.0.  Thin compat shim around
     :func:`src.valuation_math.package_model.adjust_pair` so existing callers
     (tests, importers) keep working with the legacy float-return signature.
+    ``model_id=None`` is the ACTIVE model; an explicit id (e.g. the KTC
+    rollback model) passes straight through to the dispatch.
 
     The legacy V2 implementation lived inline here; it was replaced
-    with KTC's actual algorithm via :mod:`src.trade.ktc_va` so the
-    Angle Finder grades trades the same way the trade calculator
-    displays them (PR follow-up to #335).
+    with the package-model dispatch so the Angle Finder grades trades the
+    same way the trade calculator displays them (PR follow-up to #335).
     """
     small_sorted = sorted((float(v) for v in small), reverse=True)
     large_sorted = sorted((float(v) for v in large), reverse=True)
     if not small_sorted or not large_sorted:
         return 0.0
-    value, side, displayed = _adjust_pair(small_sorted, large_sorted)
+    value, side, displayed = _adjust_pair(small_sorted, large_sorted, model_id=model_id)
     if not displayed or value <= 0 or side != 1:
         return 0.0
     return float(value)
