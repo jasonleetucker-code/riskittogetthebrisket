@@ -444,3 +444,118 @@
     border-top-color: var(--accent);
   }
 }
+
+/* Batch C — League scouting (/managers/league/[leagueId]).  Same editorial
+   grammar: a sortable table on wide screens, the same rows stacked on
+   narrow ones (one sort shared by both); "—" for a withheld total. */
+.stackOnly,
+.scoutStack {
+  display: none;
+}
+
+.scoutStack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scoutStack > li {
+  border-top: 1px solid var(--border-default);
+  padding: var(--space-2) 0;
+  min-width: 0;
+}
+
+.scoutStack summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.scoutStackFacts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.scoutStackFacts div {
+  display: contents;
+}
+
+.scoutStackFacts dt {
+  color: var(--text-secondary);
+}
+
+.scoutStackFacts dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.scoutDetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  min-width: 0;
+}
+
+.scoutDetail h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.scoutDetailHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.scoutDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.scoutDetailGrid section {
+  min-width: 0;
+}
+
+.miniTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.miniTable th,
+.miniTable td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.miniTable td {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.miniTable thead th {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .tableOnly {
+    display: none;
+  }
+
+  .stackOnly {
+    display: block;
+  }
+
+  .scoutStack {
+    display: block;
+  }
+}

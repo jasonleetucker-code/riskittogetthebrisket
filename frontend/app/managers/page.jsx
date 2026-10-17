@@ -15,7 +15,8 @@
  *
  * Batches B1 + B2 add Recent trades / Acquisitions / Activity tabs, and
  * B3 a Draft capital tab plus Tendencies under Recent trades
- * (./ManagerActivity.jsx).  Their DATA is fetched only when one of them is
+ * (./ManagerActivity.jsx).  Batch C: each league in the Leagues list links
+ * to its league scouting view (./league/[leagueId]/page.jsx).  Their DATA is fetched only when one of them is
  * first opened, so the portfolio never waits on it.  The code is imported
  * statically on purpose: a React.lazy split was measured to re-group shared
  * ds chunks (PageHeader / Select / Field moved out of a shared chunk into
@@ -28,6 +29,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banner,
   Button,
+  CollapsiblePanel,
   DataTable,
   EmptyState,
   Field,
@@ -51,6 +53,7 @@ import {
   filterPlayers,
   formatBadge,
   formatValue,
+  leagueScoutHref,
   leagueStateLabel,
   playerLeagueRows,
   profileQuery,
@@ -542,11 +545,12 @@ export default function ManagersPage() {
               <p className={styles.note}>{profile.valueBasis?.note}</p>
             </Panel>
 
-            <Panel
+            {/* A controlled Panel with `collapsed` and no toggle handler could
+                never open; CollapsiblePanel owns the state.  Open by default
+                now that each league carries its "Scout this league" link. */}
+            <CollapsiblePanel
               title="Leagues"
-              subtitle={`${leagues.length} in scope`}
-              collapsible
-              collapsed
+              subtitle={`${leagues.length} in scope · scout any league`}
             >
               <ul className={styles.leagueList}>
                 {leagues.map((l) => (
@@ -562,10 +566,21 @@ export default function ManagersPage() {
                         ? `${recordText(l.record)} · ${formatValue(l.playerCount)} players${l.coOwned ? " · co-owner" : ""}`
                         : leagueStateLabel(l.state)}
                     </span>
+                    {leagueScoutHref(l.leagueId) ? (
+                      <a
+                        href={leagueScoutHref(l.leagueId)}
+                        className={styles.link}
+                      >
+                        Scout this league
+                        <span className={styles.srOnly}>
+                          : {l.name || "unnamed league"}
+                        </span>
+                      </a>
+                    ) : null}
                   </li>
                 ))}
               </ul>
-            </Panel>
+            </CollapsiblePanel>
 
             <details className={styles.about}>
               <summary>What this includes</summary>
