@@ -147,6 +147,27 @@ export function notPricedNames(analysis, payload) {
   return out;
 }
 
+/**
+ * The basis notice for a surface that prices on the canonical board while the
+ * builder holds user value overrides (TC-A, UX audit P0-7).  The meter and its
+ * Monte Carlo panel apply overrides; Analyze (War Room) and Simulate impact
+ * price server-side on canonical ``rankDerivedValue`` and do not.  Until
+ * TC-C unifies the basis, every such surface says so instead of silently
+ * disagreeing with the meter.  ``null`` when there is nothing to disclose.
+ *
+ * (User source weights need no notice: the server ignores them and serves the
+ * canonical board -- ``normalize_source_overrides``, disabled 2026-08-14 --
+ * so they move no surface.)
+ */
+export function overrideBasisNotice(overrideCount) {
+  const n = Number(overrideCount) || 0;
+  if (n <= 0) return null;
+  return (
+    `Uses canonical board values — your ${n} value override${n === 1 ? "" : "s"} in the ` +
+    `builder ${n === 1 ? "is" : "are"} not applied here, so these numbers can differ from the meter's.`
+  );
+}
+
 // ── Formatting ───────────────────────────────────────────────────────────
 
 export function formatSignedPpg(value) {

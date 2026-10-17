@@ -2141,6 +2141,7 @@ export default function TradePage() {
               simError={simError}
               selectedTeam={selectedTeam}
               onReset={resetSim}
+              overrideCount={Object.keys(valueOverrides).length}
             />
           ) : null}
 
@@ -2297,6 +2298,7 @@ export default function TradePage() {
               leagueKey={selectedLeagueKey || ""}
               useTeamContext={useTeamContext}
               onTeamContextChange={setUseTeamContext}
+              overrideCount={Object.keys(valueOverrides).length}
             />
           ) : null}
 

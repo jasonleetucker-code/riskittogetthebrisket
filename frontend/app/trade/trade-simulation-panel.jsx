@@ -12,6 +12,7 @@
 import { useId } from "react";
 import { Badge, Banner, Button, DataTable, Movement, Panel, StatTile } from "@/components/ds";
 import styles from "./trade.module.css";
+import { overrideBasisNotice } from "@/lib/trade-war-room";
 
 function fmtSigned(n) {
   const v = Math.round(Number(n) || 0);
@@ -61,8 +62,9 @@ function strengthText(v) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) {
+export function SimulationPanel({ simResult, simError, selectedTeam, onReset, overrideCount = 0 }) {
   if (!simResult && !simError) return null;
+  const basisNotice = overrideBasisNotice(overrideCount);
 
   const teamName =
     simResult?.team?.name || selectedTeam?.name || "your team";
@@ -91,6 +93,11 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
         </Button>
       }
     >
+      {basisNotice ? (
+        <p className={styles.suggestMeta} data-testid="simulation-basis-notice">
+          {basisNotice}
+        </p>
+      ) : null}
       {simError ? (
         <Banner tone="negative" title="Simulation failed">
           {simError}

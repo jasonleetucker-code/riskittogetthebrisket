@@ -50,6 +50,7 @@ import {
   formatValue,
   comparablesSummary,
   notPricedNames,
+  overrideBasisNotice,
   postureSummary,
   rosterImpactRows,
   simulatedWeeksLabel,
@@ -487,7 +488,9 @@ export default function TradeWarRoom({
   leagueKey = "",
   useTeamContext = true,
   onTeamContextChange,
+  overrideCount = 0,
 }) {
+  const basisNotice = overrideBasisNotice(overrideCount);
   const [state, setState] = useState({
     status: "idle",
     payload: null,
@@ -647,6 +650,11 @@ export default function TradeWarRoom({
         <p className={styles.modeNote}>
           Asset-Only: roster fit, lineup impact and roster capacity are not
           included in this analysis.
+        </p>
+      ) : null}
+      {basisNotice ? (
+        <p className={styles.modeNote} data-testid="war-room-basis-notice">
+          {basisNotice}
         </p>
       ) : null}
       <p role="status" className={styles.status}>
