@@ -133,6 +133,9 @@ def _registry_from_dict(d: dict[str, Any]) -> ManagerRegistry:
             continue
         if lid and owner:
             reg.roster_to_owner[(lid, rid)] = owner
+    # A snapshot persisted before a hand-off was recorded has no entry for
+    # the outgoing owner; re-derive it so a cold start serves their weeks.
+    _identity.register_handed_off_owners(reg)
     return reg
 
 
