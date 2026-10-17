@@ -611,7 +611,9 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
 
     // Per-side W/L for team scores.  3% is the fairness threshold —
     // any trade where every team's net rounds below 3% shouldn't
-    // count as a win or loss for anyone.
+    // count as a win or loss for anyone.  ``totalGain`` (alpha-weighted,
+    // won/lost trades only) survives solely as the opt-in "legacy
+    // concentration index" — a different metric, never the default.
     for (const s of entry.sides) {
       const key = sideAggregationKey(s);
       if (!teamScores[key]) {
@@ -622,10 +624,21 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
           won: 0,
           lost: 0,
           totalGain: 0,
+          // Σ of every trade side's adjusted net (raw + package adjustment,
+          // active model) — the default Winners & Losers "Net value" (owner
+          // package 2026-10-17).  Summed over EVERY trade, fair ones
+          // included, so it is exactly the sum of the nets the cards show.
+          netAdjustedTotal: 0,
+          // Sides whose today's total excludes an asset the board cannot
+          // price — the sum is over incomplete packages and says so.
+          incompleteTrades: 0,
           trades: 0,
         };
       }
       teamScores[key].trades++;
+      const netAdj = Number(s.netAdjusted);
+      if (Number.isFinite(netAdj)) teamScores[key].netAdjustedTotal += netAdj;
+      if (Number(s.unresolvedAssets) > 0) teamScores[key].incompleteTrades++;
       if (s.pctGap >= 3) {
         teamScores[key].won++;
         teamScores[key].totalGain += s.netWeighted;
