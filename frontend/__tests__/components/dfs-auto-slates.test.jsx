@@ -183,6 +183,10 @@ describe("AutoSlates — daily sports (DFS-AUTO-19)", () => {
       await waitFor(() => expect(screen.getByText("DraftKings NFL · Full week").closest("li")).toHaveTextContent("In use"));
       expect(screen.getAllByRole("button", { name: "In use" })).toHaveLength(1);
       expect(mainRow).toHaveTextContent("Use this slate");
+      // Selecting must not reload the slate list (it used to, because the
+      // inline onSelected changed identity): the row is the same DOM node.
+      expect(mainRow.isConnected).toBe(true);
+      expect(fetch.mock.calls.filter(([u]) => String(u).includes("/auto/slates?"))).toHaveLength(1);
     });
 
     it("activeAutoSlateId picks one row for an externally loaded hash", () => {

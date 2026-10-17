@@ -143,8 +143,13 @@ separately evidence-gated and owner-approved.
 ## Trade History — three distinct questions
 
 Full methodology in `docs/TRADE_HISTORY_AGING_SPEC.md`.
-Not currently authorized for implementation. The guardrails that must survive
-any future work:
+**Authorized and implemented by owner decision 2026-10-17** (sitewide trade Value
+Adjustment package): all three questions use the ONE active package model;
+At-the-Time reads the canonical ledger via `POST /api/trades/asof-grades`
+(`src/api/trade_history_asof.py`, the public `/league` grade's own resolver and
+grading function); How It Aged = change in ADJUSTED net with ±200 as a labelled
+PRIOR; Winners & Losers = Σ per-trade adjusted nets.  The guardrails that
+still hold:
 
 - **Current Grade** — this trade evaluated with today's canonical values and
   today's canonical trade methodology.

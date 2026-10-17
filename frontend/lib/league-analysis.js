@@ -9,7 +9,7 @@ import {
   parsePickToken,
   getPlayerEdge,
   resolvePickRow,
-  ktcAdjustPackage,
+  packageAdjustPair,
 } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition } from "@/lib/starter-slots";
 import { pickOwnershipUnavailableReason } from "@/lib/pick-ownership";
@@ -388,17 +388,18 @@ function resolveTradeSideList(rawList, ctx) {
   return { items, linear, weighted, values, unresolvedCount };
 }
 
-// KTC value adjustment for one team's "got vs gave" comparison —
-// routes through ``ktcAdjustPackage``, the verbatim port of KTC's
-// site.min.js algorithm (PR #335).  Treat got/gave as a 2-side trade:
+// Package value adjustment for one team's "got vs gave" comparison —
+// routes through ``packageAdjustPair``, the sitewide package-model
+// dispatch (ACTIVE model: KTC's verbatim adjustPackage port, PR #335,
+// until the owner promotes a challenger).  Treat got/gave as a 2-side trade:
 // positive ``vaNet`` means this team RECEIVED the stud premium (got
 // side wins on KTC's intensity-adjusted raw_adj); negative means they
 // GAVE the studs away.  Pure: value arrays only, no React/row refs.
 export function computeTradeVANet(gotValues, gaveValues) {
   if (!gotValues.length || !gaveValues.length) return 0;
-  const result = ktcAdjustPackage(gotValues, gaveValues);
+  const result = packageAdjustPair(gotValues, gaveValues);
   if (!result.displayed || result.value <= 0) return 0;
-  // ktcAdjustPackage's `side` follows KTC's team1/team2 convention.
+  // packageAdjustPair's `side` follows KTC's team1/team2 convention.
   // We pass got=team1, gave=team2.  side=1 means got receives the VA
   // (positive); side=2 means gave receives it (penalty for got).
   return result.side === 1 ? result.value : -result.value;
@@ -610,7 +611,9 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
 
     // Per-side W/L for team scores.  3% is the fairness threshold —
     // any trade where every team's net rounds below 3% shouldn't
-    // count as a win or loss for anyone.
+    // count as a win or loss for anyone.  ``totalGain`` (alpha-weighted,
+    // won/lost trades only) survives solely as the opt-in "legacy
+    // concentration index" — a different metric, never the default.
     for (const s of entry.sides) {
       const key = sideAggregationKey(s);
       if (!teamScores[key]) {
@@ -621,10 +624,21 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
           won: 0,
           lost: 0,
           totalGain: 0,
+          // Σ of every trade side's adjusted net (raw + package adjustment,
+          // active model) — the default Winners & Losers "Net value" (owner
+          // package 2026-10-17).  Summed over EVERY trade, fair ones
+          // included, so it is exactly the sum of the nets the cards show.
+          netAdjustedTotal: 0,
+          // Sides whose today's total excludes an asset the board cannot
+          // price — the sum is over incomplete packages and says so.
+          incompleteTrades: 0,
           trades: 0,
         };
       }
       teamScores[key].trades++;
+      const netAdj = Number(s.netAdjusted);
+      if (Number.isFinite(netAdj)) teamScores[key].netAdjustedTotal += netAdj;
+      if (Number(s.unresolvedAssets) > 0) teamScores[key].incompleteTrades++;
       if (s.pctGap >= 3) {
         teamScores[key].won++;
         teamScores[key].totalGain += s.netWeighted;

@@ -1659,7 +1659,7 @@
    "sourceDoc": "docs/C_SERIES_SCOPE_MANIFEST.md#C6",
    "productFamily": "Analyst intelligence",
    "capability": "Manager Scout from canonical transaction/waiver/lineup history",
-   "disposition": "AUTHORIZED_AND_READY",
+   "disposition": "DEPLOYED_NOT_PRODUCTION_VERIFIED",
    "userVisibleOutcome": "Private tendencies per rival manager",
    "backendOwner": "src/intel/ (new tendency module)",
    "frontendOwner": null,
@@ -1667,10 +1667,10 @@
     "C1-ACQ-01",
     "C4-MTL-01"
    ],
-   "reality": "No module or product. Inputs are merged: src/acquisition (#878), waiver ledger + Market Trade Ledger (#961 892df5686), completed-trade ledger (#1586). Only a client-side analyzeTradeTendencies exists on /trades, which is not a canonical owner.",
-   "prOrBranch": null,
-   "evidence": null,
-   "nextAction": "Server-side tendency module over acquisition + waiver + trade ledgers with tendency and private-boundary tests; retire the client-side analyzer as owner",
+   "reality": "Manager Scout: private per-manager tendency profiles from canonical stores (/api/manager-scout), consumed descriptively on Best Offer / Package Builder cards. Production serves build.commit 47a9f561b (verified 2026-10-16 via /api/status), which contains this merge.",
+   "prOrBranch": "#1722 via train #1740 (923dda997); Best Offer evidence #1745 (77d4c60b9)",
+   "evidence": "Release Candidate runs 38613645306 (#1740) and 38805671413 (#1745)",
+   "nextAction": "Production-verify on the authenticated surface once v1-authenticated-verification is re-enabled (release train 4 / docs/ops/AUTH_VERIFICATION_REENABLE.md); then COMPLETE_AND_PROVEN.",
    "blocker": null,
    "weight": 2
   },

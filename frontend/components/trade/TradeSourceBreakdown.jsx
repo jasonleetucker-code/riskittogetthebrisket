@@ -1,33 +1,29 @@
 "use client";
 
 /**
- * TradeSourceBreakdown — per-vendor winner table.  Extracted from
- * frontend/app/trade/page.jsx (commit 2026-04-30) so /trade,
- * /waivers, and any future N-side comparison surface can render
- * the identical breakdown without duplicating the V13 Value
- * Adjustment math.
+ * TradeSourceBreakdown — Second Opinions: each source's view of THIS trade.
  *
- * Inputs:
- *   - ``sides``: array of ``{label, assets}`` (length 2+; 2 is the
- *     waiver case, 3+ is the multi-team trade case).
- *   - ``settings``: kept as a memo dep so the component re-runs
- *     when source weights / overrides change; the math itself
- *     reads from ``RANKING_SOURCES`` registry directly.
+ * Owner package 2026-10-17 (SECOND_OPINIONS_CANONICAL_FALLBACK_SPEC). Per
+ * source (grouped by vendor): the source's normalized values for the pieces
+ * it prices, Chase Upside's EXACT published value for every piece it does
+ * not, and OUR ACTIVE package model applied once to the assembled packages —
+ * the same model as the headline. Every number is on one canonical 1-9999
+ * basis; vendor-native values appear only in the per-asset drilldown.
  *
- * The component walks ``RANKING_SOURCES`` grouped by vendor (KTC
- * TE+, DLF, Flock, …), computes per-vendor side totals using
- * ``sourceRankMeta[key].valueContribution`` (or raw KTC values
- * for the V13-calibrated KTC vendor), applies VA via
- * ``valueAdjustmentFromSideArrays``, and renders a row per vendor
- * with each side's value, the winner, and the margin %.
+ * Row states (lib/second-opinions.js):
+ *   FULL_SOURCE         all pieces source-priced — votes (one per family)
+ *   HYBRID_ESTIMATE     some pieces are our value — shown, labelled, no vote
+ *   CHASE_ONLY_BASELINE source priced nothing here — listed, never an opinion
+ *   INCOMPLETE          a piece nobody prices — no numeric verdict
  *
- * Empty-rows diagnostic copy is preserved: when no vendor covers
- * the trade, render the card chrome so users know the section is
- * wired up — distinguishes "stale cache / bundle missing" from
- * "data path missing per-source stamps."
+ * Inputs: ``sides`` (``{label, assets}``, 2+ sides; also rendered by the
+ * waivers add/drop panel), ``settings`` (memo dep), and ``hasOverrides``:
+ * /trade passes BARE sides on purpose — a manual override changes the
+ * user's headline, never what a source is said to see — and this flag lets
+ * the panel say so.
  */
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import {
   RANKING_SOURCES,
@@ -35,52 +31,60 @@ import {
   vendorForSource,
 } from "@/lib/dynasty-data";
 import {
-  VENDOR_VERDICT,
-  assetCoverage,
-  resolveVendorAssetValue,
-  summariseSide,
-  tallySecondOpinions,
-  vendorVerdict,
-  verdictReason,
+  FALLBACK_REASON_LABEL,
+  OPINION_ORIGIN,
+  OPINION_STATE,
+  evaluateOpinion,
+  resolveOpinionAsset,
+  tallyOpinions,
 } from "@/lib/second-opinions";
+import {
+  packageModelReceipt,
+  valueAdjustmentFromSideArrays,
+} from "@/lib/trade-logic";
 
 import SignalsRankOpinion from "./SignalsRankOpinion";
 
-const KTC_RAW_NATIVE_VENDORS = new Set([
-  "ktcSfTep",
-  "ktcCrowdSfTep",
-  "ktcTradesSfTep",
-  "ktcCrowdTradesSfTep",
-]);
-const VENDOR_NATIVE_VENDORS = new Set(["dlf"]);
+const fmt = (v) => (v == null ? "—" : Math.round(v).toLocaleString());
 
-// NOTE: this component deliberately takes NO ``valueMode``.
-//
-// It used to, and passed it to ``effectiveValue`` for the
-// uncovered-asset fallback — so flipping the Trade Calculator's
-// display toggle to "Raw" swapped the fallback onto the legacy scraper
-// composite while every vendor number beside it stayed canonical.
-// Measured: rawComposite/canonical runs 0.266-2.082 across 805 rows.
-// A user's diagnostic selection may not change the unit system the
-// arithmetic runs in, so the basis is owned by
-// ``lib/second-opinions.js`` and nothing here can override it.
-export default function TradeSourceBreakdown({ sides, settings }) {
-  // When ON (default), pieces a vendor does not cover are filled with
-  // our CANONICAL value — explicitly, via ``resolveVendorAssetValue``,
-  // never through a display mode.  Imputed cells get an italic style +
-  // dotted underline + tooltip.  Toggle OFF for strict "what does this
-  // vendor literally say" mode, which now reports the uncovered pieces
-  // as unresolved rather than summing them as zeros.
-  const [imputeUncovered, setImputeUncovered] = useState(true);
+function stateLabel(opinion, sideLabels) {
+  const lead =
+    opinion.leaderIdx == null
+      ? "Even"
+      : `Side ${sideLabels[opinion.leaderIdx]}`;
+  if (opinion.state === OPINION_STATE.INCOMPLETE) return "Incomplete";
+  if (opinion.state === OPINION_STATE.HYBRID_ESTIMATE) return `${lead} (est.)`;
+  return lead;
+}
+
+function coverageText(counts) {
+  const parts = [`${counts.source}/${counts.total} source`];
+  if (counts.fallback) parts.push(`${counts.fallback} Chase fallback`);
+  if (counts.unpriced) parts.push(`${counts.unpriced} unpriced`);
+  return parts.join(" · ");
+}
+
+function tallyText(t, sideLabels) {
+  return [
+    ...sideLabels.map((lbl, i) => `Side ${lbl} ${t.wins[i]}`),
+    t.even ? `Even ${t.even}` : null,
+    t.split ? `Split ${t.split}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export default function TradeSourceBreakdown({
+  sides,
+  settings,
+  hasOverrides = false,
+}) {
+  const [open, setOpen] = useState(() => new Set());
+  const model = packageModelReceipt();
 
   const rows = useMemo(() => {
     const assetsBySide = sides.map((s) => s.assets || []);
-    const hasAny = assetsBySide.some((a) => a.length > 0);
-    if (!hasAny) return [];
-
-    // Walk RANKING_SOURCES in its canonical order, grouping each
-    // source under its vendor.  Vendors appear in the order their
-    // first sub-source is registered.
+    if (!assetsBySide.some((a) => a.length > 0)) return [];
     const vendorOrder = [];
     const vendorSubs = new Map();
     for (const src of RANKING_SOURCES) {
@@ -91,179 +95,56 @@ export default function TradeSourceBreakdown({ sides, settings }) {
       }
       vendorSubs.get(vendor).push(src);
     }
-
-    return vendorOrder
-      .map((vendor) => {
-        const subs = vendorSubs.get(vendor);
-        // Sub-board priority rule: main boards win over rookie-
-        // specialty boards.  Once a rookie is promoted onto a
-        // vendor's main SF/IDP board (typically post-NFL-draft), the
-        // main board reflects that vendor's current opinion and the
-        // rookie board is a historical pre-draft artifact.  So for
-        // each vendor + player we look at non-rookie sub-boards
-        // first; only if none of them cover the player do we fall
-        // back to the vendor's rookie sub-boards.  In either tier,
-        // covered sub-boards are averaged together — unbiased in the
-        // rare case of multi-board overlap within the same tier, and
-        // equivalent to "pick whichever one covered" in the common
-        // case where only one sub-board covers a given player.
-        const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
-        const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
-        // Per-asset value resolution lives in ``lib/second-opinions.js``,
-        // which returns a BASIS with every number and refuses to return a
-        // quantity it cannot justify.  KTC is the one vendor whose covered
-        // assets use its own native values (V13 VA was calibrated on
-        // them), and it is therefore the one vendor we will not impute
-        // into — canonical and KTC-native are not interchangeable
-        // (median ratio 1.091, drifting 0.947 at the top of the board to
-        // 1.142 in the tail, range 0.400-1.491).
-        const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
-        const useVendorNative = VENDOR_NATIVE_VENDORS.has(vendor);
-        const resolutionsBySide = assetsBySide.map((assets) =>
-          assets.map((row) =>
-            resolveVendorAssetValue({
-              row,
-              mainSubs,
-              rookieSubs,
-              useKtcNative: useRawNative,
-              useVendorNative,
-              impute: imputeUncovered,
-            }),
-          ),
-        );
-        const sideSummaries = resolutionsBySide.map(summariseSide);
-        // WHY each piece is or is not covered — a vendor that does not
-        // price IDP at all is a different statement from a vendor whose
-        // row failed to match, and only a fully native row is an opinion.
-        const coverageBySide = assetsBySide.map((assets, si) =>
-          assets.map((row, ai) =>
-            assetCoverage({
-              row,
-              subs,
-              resolution: resolutionsBySide[si][ai],
-            }),
-          ),
-        );
-        const verdict = vendorVerdict(coverageBySide, sideSummaries);
-        const sideValues = sideSummaries.map((s) => s.values);
-        const imputedCounts = sideSummaries.map((s) => s.imputed);
-        const nativeCounts = sideSummaries.map((s) => s.native);
-        const unresolvedCounts = sideSummaries.map((s) => s.unresolved);
-        const incomplete = sideSummaries.some((s) => s.incomplete);
-        const rawTotals = sideValues.map((vs) =>
-          vs.reduce((sum, v) => sum + v, 0),
-        );
-        const coverage = nativeCounts.map((n, i) => n + imputedCounts[i]);
-
-        // External second opinions are vendor-literal atomic sums.  The old
-        // implementation applied our historical KTC Value Adjustment port to
-        // every vendor, and an interim repair still applied it to KTC.  KTC's
-        // September 2026 three-source launch also changed the calculator
-        // behavior, so parity with that historical port is no longer proven.
-        // Until a current vendor-native package algorithm is independently
-        // verified, no row claims one. Our own canonical trade methodology is
-        // applied separately by the Trade Analyzer owner.
-        const adjustments = sideValues.map(() => 0);
-        const adjustedTotals = rawTotals.map(
-          (t, i) => t + (adjustments[i] || 0),
-        );
-
-        // Winner + margin.  For 2-team trades the margin is |A − B|.
-        // For N ≥ 3 the winner is whoever's adjusted total is biggest.
-        let winnerIdx = 0;
-        for (let i = 1; i < adjustedTotals.length; i++) {
-          if (adjustedTotals[i] > adjustedTotals[winnerIdx]) winnerIdx = i;
-        }
-        const runnerUp = adjustedTotals
-          .filter((_, i) => i !== winnerIdx)
-          .reduce((max, v) => Math.max(max, v), 0);
-        const rawMargin = adjustedTotals[winnerIdx] - runnerUp;
-        const winnerTotal = adjustedTotals[winnerIdx];
-        const marginPct = winnerTotal > 0 ? (rawMargin / winnerTotal) * 100 : 0;
-        const tied = rawMargin < 1;
-
-        // Display label: use SOURCE_VENDOR_LABELS for multi-board
-        // vendors (DLF, Flock, FBG, DraftSharks, FantasyPros);
-        // single-board vendors fall back to their sub-source's
-        // columnLabel/displayName (ktc → "KTC", dynastyDaddySf →
-        // "DD", etc.).
-        const primary = subs[0];
-        const label =
+    return vendorOrder.map((vendor) => {
+      const subs = vendorSubs.get(vendor);
+      const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
+      const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
+      const resolutionsBySide = assetsBySide.map((assets) =>
+        assets.map((row) => ({
+          name: row?.name || "Unknown asset",
+          ...resolveOpinionAsset({ row, mainSubs, rookieSubs }),
+        })),
+      );
+      const opinion = evaluateOpinion(
+        resolutionsBySide,
+        valueAdjustmentFromSideArrays,
+      );
+      const primary = subs[0];
+      return {
+        key: vendor,
+        family: primary.correlationGroup || vendor,
+        label:
           SOURCE_VENDOR_LABELS[vendor] ||
           primary.columnLabel ||
           primary.displayName ||
-          vendor;
-        const displayName = SOURCE_VENDOR_LABELS[vendor]
+          vendor,
+        displayName: SOURCE_VENDOR_LABELS[vendor]
           ? subs.map((s) => s.displayName || s.key).join(" + ")
-          : primary.displayName || primary.key;
-
-        return {
-          key: vendor,
-          family: primary.correlationGroup || vendor,
-          verdict,
-          reason: verdictReason(verdict),
-          label,
-          displayName,
-          rawTotals,
-          adjustments,
-          adjustedTotals,
-          coverage,
-          imputedCounts,
-          nativeCounts,
-          unresolvedCounts,
-          incomplete,
-          signalType: useRawNative
-            ? "native_value"
-            : useVendorNative
-              ? "native_value"
-              : "translated_rank",
-          packageAdjustment: "none",
-          winnerIdx: tied ? null : winnerIdx,
-          winnerLabel: tied ? "Even" : sides[winnerIdx]?.label || "?",
-          marginPct,
-        };
-      })
-      .filter(Boolean);
-    // ``settings`` is kept in the dep list for memo invalidation
-    // when source weights / overrides change downstream.
+          : primary.displayName || primary.key,
+        signal: subs.every((s) => s.isRankSignal === false)
+          ? "vendor value"
+          : "translated rank (modeled)",
+        opinion,
+      };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sides, settings, imputeUncovered]);
+  }, [sides, settings]);
 
-  // Empty-rows diagnostic — historically this branch returned null,
-  // which made it impossible to distinguish "card not rendering at
-  // all" (the iOS-PWA-stale-cache symptom) from "card rendering but
-  // no per-vendor coverage" (a data path symptom).  We now render
-  // the card chrome even when rows is empty so users can SEE the
-  // section is wired up, and ops can grep the rendered DOM for the
-  // diagnostic copy below to confirm the bundle shipped.  Cheap
-  // (one extra .card on a page with ~20 already) and self-documenting.
-  // A vendor that published nothing for any piece is not a second
-  // opinion: every number it would show is ours. It leaves the table and
-  // is named below it, with the reason, instead of posting a verdict.
-  const shownRows = rows.filter(
-    (r) => r.verdict.state !== VENDOR_VERDICT.NO_COVERAGE,
-  );
-  const uncoveredRows = rows.filter(
-    (r) => r.verdict.state === VENDOR_VERDICT.NO_COVERAGE,
-  );
-  const hasRows = shownRows.length > 0;
   const sideLabels = sides.map((s) => s.label);
-  const tally = tallySecondOpinions(shownRows, sides.length);
-  const outOfScopeOnly = uncoveredRows.filter(
-    (r) => r.verdict.counts.outOfScope === r.verdict.counts.total,
+  const shown = rows.filter(
+    (r) => r.opinion.state !== OPINION_STATE.CHASE_ONLY_BASELINE,
   );
-  const otherUncovered = uncoveredRows.filter(
-    (r) => r.verdict.counts.outOfScope !== r.verdict.counts.total,
+  const baseline = rows.filter(
+    (r) => r.opinion.state === OPINION_STATE.CHASE_ONLY_BASELINE,
   );
-  const scopeWords = [
-    ...new Set(
-      outOfScopeOnly.flatMap((r) =>
-        r.verdict.outOfScopeClasses.map((c) =>
-          c === "idp" ? "IDP" : c === "excluded" ? "kickers" : c,
-        ),
-      ),
-    ),
-  ];
+  const tally = tallyOpinions(rows, sides.length);
+  const toggle = (key) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <div className="card source-breakdown-card" style={{ marginTop: 14 }}>
@@ -273,263 +154,307 @@ export default function TradeSourceBreakdown({ sides, settings }) {
             className="source-breakdown-title"
             style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700 }}
           >
-            Per-source winner
+            Per-source view
           </span>
           <span
             className="muted source-breakdown-subtitle"
             style={{ fontSize: "0.72rem" }}
+            data-testid="second-opinions-notice"
           >
-            Vendor-literal second opinions. KTC and DLF use native atomic values; ranking-only sources use translated rank values. No external row borrows our package adjustment. Margin shows the winner&apos;s edge.
+            Second Opinion = that source&apos;s priced assets + Chase
+            Upside&apos;s {model.label} package adjustment. It may not match
+            that website&apos;s own calculator. Pieces a source does not price
+            use Chase Upside&apos;s published value and are marked estimated.
           </span>
         </span>
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: "0.72rem",
-            color: "var(--muted, #c7b8dc)",
-            cursor: "pointer",
-            userSelect: "none",
-            marginLeft: "auto",
-          }}
-          title="When ON: vendors that don't rank a piece (e.g. DLF on picks) get our blended value as a stand-in so side totals are comparable across rows.  Imputed cells render in italic.  Toggle OFF for strict 'what does this vendor literally say' mode."
-        >
-          <input
-            type="checkbox"
-            checked={imputeUncovered}
-            onChange={(e) => setImputeUncovered(e.target.checked)}
-          />
-          <span>Fill uncovered pieces with our value</span>
-        </label>
       </div>
-      {!hasRows && (
+      {hasOverrides && (
+        <p
+          className="muted"
+          data-testid="second-opinions-override-note"
+          style={{ margin: "4px 0", fontSize: "0.72rem" }}
+        >
+          Your manual value overrides change the headline only; these rows use
+          published values.
+        </p>
+      )}
+      {shown.length === 0 ? (
         <div
           className="muted"
           style={{ padding: "10px 0", fontSize: "0.78rem", lineHeight: 1.45 }}
         >
-          No per-source coverage for this trade yet — add at least one player to
-          each side and the breakdown will fill in. If both sides already have
-          players, none of them carry per-source values on the current board,
-          which usually means they sit outside the sources&apos; published
-          range.
+          No per-source view for this trade yet — add at least one asset to each
+          side.
         </div>
-      )}
-      {hasRows && (
-        <p
-          className="source-breakdown-tally"
-          data-testid="second-opinions-tally"
-          style={{ margin: "6px 0 4px", fontSize: "0.78rem" }}
-        >
-          {tally.families > 0 ? (
-            <>
-              <strong>
-                {sideLabels
-                  .map((lbl, i) => `Side ${lbl} ${tally.wins[i]}`)
-                  .join(" · ")}
-                {tally.even > 0 ? ` · Even ${tally.even}` : ""}
-                {tally.split > 0 ? ` · Split ${tally.split}` : ""}
-              </strong>
+      ) : (
+        <>
+          <p
+            className="source-breakdown-tally"
+            data-testid="second-opinions-tally"
+            style={{ margin: "6px 0 2px", fontSize: "0.78rem" }}
+          >
+            {tally.independent.families > 0 ? (
+              <>
+                <strong>{tallyText(tally.independent, sideLabels)}</strong>
+                <span className="muted">
+                  {" "}
+                  — independent votes, one per source family (
+                  {tally.independent.families} of {tally.independent.eligible}{" "}
+                  families priced every piece)
+                </span>
+              </>
+            ) : (
               <span className="muted">
-                {" "}
-                — one vote per independent source family ({tally.families})
+                No complete independent votes available — no source priced every
+                piece.
               </span>
-            </>
-          ) : (
-            <span className="muted">
-              No source prices every piece of this trade natively, so there
-              is no vote to count.
-            </span>
+            )}
+          </p>
+          {tally.modeled.families > 0 && (
+            <p
+              className="muted"
+              data-testid="second-opinions-modeled-tally"
+              style={{ margin: "0 0 4px", fontSize: "0.74rem" }}
+            >
+              Estimates (not independent — they share our values):{" "}
+              {tallyText(tally.modeled, sideLabels)}
+            </p>
           )}
-          {tally.notCounted.estimate +
-            tally.notCounted.notApplicable +
-            tally.notCounted.incomplete >
-            0 && (
-            <span className="muted">
-              {" "}
-              Not counted:{" "}
-              {[
-                tally.notCounted.notApplicable &&
-                  `${tally.notCounted.notApplicable} not applicable`,
-                tally.notCounted.incomplete &&
-                  `${tally.notCounted.incomplete} incomplete`,
-                tally.notCounted.estimate &&
-                  `${tally.notCounted.estimate} estimated`,
-              ]
-                .filter(Boolean)
-                .join(", ")}
-              .
-            </span>
-          )}
-        </p>
-      )}
-      {hasRows && (
-        <div
-          id="source-breakdown-body"
-          className="source-breakdown-body"
-          style={{ overflowX: "auto" }}
-        >
-          <table className="source-breakdown-table">
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>Source</th>
-                {sideLabels.map((lbl, i) => (
-                  <th key={`h-${i}`} style={{ textAlign: "right" }}>
-                    Side {lbl}
-                  </th>
-                ))}
-                <th style={{ textAlign: "center" }}>Winner</th>
-                <th style={{ textAlign: "right" }}>Margin</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shownRows.map((row) => (
-                <tr key={row.key}>
-                  <td
-                    style={{ textAlign: "left", whiteSpace: "nowrap" }}
-                    title={row.displayName}
-                  >
-                    {row.label}
-                    <span
-                      className="muted"
-                      style={{ display: "block", fontSize: "0.62rem", fontWeight: 400 }}
-                    >
-                      {row.signalType === "native_value" ? "native value" : "translated rank"}
-                      {row.packageAdjustment !== "none" ? ` + ${row.packageAdjustment}` : ""}
-                    </span>
-                  </td>
-                  {row.adjustedTotals.map((total, i) => {
-                    const hasAdj = (row.adjustments[i] || 0) > 0;
-                    const imputedN = row.imputedCounts?.[i] || 0;
-                    const titleParts = [];
-                    titleParts.push(
-                      `raw ${Math.round(row.rawTotals[i]).toLocaleString()}`,
-                    );
-                    if (hasAdj) {
-                      titleParts.push(
-                        `+ VA ${Math.round(row.adjustments[i]).toLocaleString()}`,
-                      );
-                    }
-                    if (imputedN > 0) {
-                      titleParts.push(
-                        `${imputedN} piece${imputedN === 1 ? "" : "s"} imputed with our value (vendor doesn't rank ${imputedN === 1 ? "it" : "them"})`,
-                      );
-                    }
-                    return (
-                      <td
-                        key={`v-${row.key}-${i}`}
-                        style={{
-                          textAlign: "right",
-                          fontFamily: "var(--mono)",
-                          opacity: row.coverage[i] === 0 ? 0.35 : 1,
-                          fontWeight: row.winnerIdx === i ? 700 : 400,
-                          fontStyle: imputedN > 0 ? "italic" : "normal",
-                          textDecoration:
-                            imputedN > 0 ? "underline dotted" : "none",
-                          textUnderlineOffset: imputedN > 0 ? 2 : undefined,
-                          textDecorationColor:
-                            imputedN > 0 ? "var(--muted, #c7b8dc)" : undefined,
-                        }}
-                        title={titleParts.join(" ")}
-                      >
-                        {Math.round(total).toLocaleString()}
-                        {hasAdj && (
+          <div
+            id="source-breakdown-body"
+            className="source-breakdown-body"
+            style={{ overflowX: "auto" }}
+          >
+            <table className="source-breakdown-table">
+              <caption className="ds-visually-hidden">
+                Each source&apos;s raw and adjusted package totals with
+                per-asset provenance.
+              </caption>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>Source</th>
+                  {sideLabels.map((lbl, i) => (
+                    <th key={`h-${i}`} style={{ textAlign: "right" }}>
+                      Side {lbl}
+                    </th>
+                  ))}
+                  <th style={{ textAlign: "center" }}>Leader</th>
+                  <th style={{ textAlign: "right" }}>Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((row) => {
+                  const o = row.opinion;
+                  const expanded = open.has(row.key);
+                  const numeric = o.state !== OPINION_STATE.INCOMPLETE;
+                  return (
+                    <Fragment key={row.key}>
+                      <tr data-state={o.state}>
+                        <td
+                          style={{ textAlign: "left", whiteSpace: "nowrap" }}
+                          title={row.displayName}
+                        >
+                          <button
+                            type="button"
+                            className="source-breakdown-expand"
+                            aria-expanded={expanded}
+                            aria-label={`${expanded ? "Hide" : "Show"} asset values for ${row.label}`}
+                            onClick={() => toggle(row.key)}
+                          >
+                            {expanded ? "−" : "+"}
+                          </button>{" "}
+                          {row.label}
                           <span
+                            className="muted"
                             style={{
-                              color: "var(--cyan)",
-                              fontSize: "0.68rem",
-                              marginLeft: 4,
-                              fontStyle: "normal",
+                              display: "block",
+                              fontSize: "0.62rem",
+                              fontWeight: 400,
                             }}
                           >
-                            +VA
+                            {row.signal} · {coverageText(o.counts)}
                           </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td
-                    style={{
-                      textAlign: "center",
-                      fontWeight: 700,
-                      color:
-                        row.winnerIdx === null ||
-                        row.verdict.state === VENDOR_VERDICT.NOT_APPLICABLE ||
-                        row.verdict.state === VENDOR_VERDICT.INCOMPLETE
-                          ? "var(--muted)"
-                          : row.winnerIdx === 0
-                            ? "var(--green)"
-                            : row.winnerIdx === 1
-                              ? "var(--red)"
-                              : "var(--cyan)",
-                    }}
-                  >
-                    {row.verdict.state === VENDOR_VERDICT.NOT_APPLICABLE ? (
-                      "Not applicable"
-                    ) : row.verdict.state === VENDOR_VERDICT.INCOMPLETE ? (
-                      "Incomplete"
-                    ) : row.winnerIdx === null ? (
-                      "Even"
-                    ) : row.verdict.state === VENDOR_VERDICT.ESTIMATE ? (
-                      `Side ${row.winnerLabel} (est.)`
-                    ) : (
-                      `Side ${row.winnerLabel}`
-                    )}
-                    {row.reason && (
-                      <span
-                        className="muted"
-                        style={{
-                          display: "block",
-                          fontSize: "0.62rem",
-                          fontWeight: 400,
-                        }}
-                      >
-                        {row.reason}
-                      </span>
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      textAlign: "right",
-                      fontFamily: "var(--mono)",
-                      color:
-                        row.winnerIdx === null ? "var(--muted)" : "var(--text)",
-                    }}
-                  >
-                    {row.verdict.state === VENDOR_VERDICT.NOT_APPLICABLE ||
-                    row.verdict.state === VENDOR_VERDICT.INCOMPLETE ||
-                    row.winnerIdx === null
-                      ? "—"
-                      : `${row.marginPct.toFixed(1)}%`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                        </td>
+                        {sideLabels.map((_, i) => (
+                          <td
+                            key={`v-${row.key}-${i}`}
+                            style={{
+                              textAlign: "right",
+                              fontFamily: "var(--mono)",
+                              fontWeight: o.leaderIdx === i ? 700 : 400,
+                              fontStyle:
+                                o.state === OPINION_STATE.HYBRID_ESTIMATE
+                                  ? "italic"
+                                  : "normal",
+                            }}
+                          >
+                            {numeric ? fmt(o.adjustedTotals[i]) : "—"}
+                            {numeric && (
+                              <span
+                                className="muted"
+                                style={{
+                                  display: "block",
+                                  fontSize: "0.62rem",
+                                  fontStyle: "normal",
+                                }}
+                              >
+                                raw {fmt(o.rawTotals[i])}
+                                {o.adjustments[i] > 0
+                                  ? ` + VA ${fmt(o.adjustments[i])}`
+                                  : ""}
+                              </span>
+                            )}
+                          </td>
+                        ))}
+                        <td style={{ textAlign: "center", fontWeight: 700 }}>
+                          {stateLabel(o, sideLabels)}
+                          {numeric && o.swing && (
+                            <span
+                              className="muted"
+                              style={{
+                                display: "block",
+                                fontSize: "0.62rem",
+                                fontWeight: 400,
+                              }}
+                            >
+                              adjustment flipped raw leader (
+                              {o.rawLeaderIdx == null
+                                ? "even"
+                                : `Side ${sideLabels[o.rawLeaderIdx]}`}
+                              )
+                            </span>
+                          )}
+                          {o.state === OPINION_STATE.INCOMPLETE && (
+                            <span
+                              className="muted"
+                              style={{
+                                display: "block",
+                                fontSize: "0.62rem",
+                                fontWeight: 400,
+                              }}
+                            >
+                              {o.counts.unpriced} piece
+                              {o.counts.unpriced === 1 ? "" : "s"} nobody prices
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          style={{
+                            textAlign: "right",
+                            fontFamily: "var(--mono)",
+                          }}
+                        >
+                          {numeric && o.leaderIdx != null
+                            ? `${o.marginPct.toFixed(1)}%`
+                            : "—"}
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="source-breakdown-detail">
+                          <td colSpan={sideLabels.length + 3}>
+                            <div className="source-breakdown-assets-wrap">
+                              <table
+                                className="source-breakdown-assets"
+                                aria-label={`Asset values for ${row.label}`}
+                              >
+                                <thead>
+                                  <tr>
+                                    <th style={{ textAlign: "left" }}>Asset</th>
+                                    <th style={{ textAlign: "right" }}>
+                                      Source value
+                                    </th>
+                                    <th style={{ textAlign: "right" }}>
+                                      Chase fallback
+                                    </th>
+                                    <th style={{ textAlign: "right" }}>
+                                      Value used
+                                    </th>
+                                    <th style={{ textAlign: "left" }}>
+                                      Provenance
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {o.resolutionsBySide.flatMap((rs, si) =>
+                                    rs.map((r, ai) => (
+                                      <tr key={`${row.key}-${si}-${ai}`}>
+                                        <td style={{ textAlign: "left" }}>
+                                          {r.name}{" "}
+                                          <span className="muted">
+                                            (Side {sideLabels[si]})
+                                          </span>
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            fontFamily: "var(--mono)",
+                                          }}
+                                        >
+                                          {fmt(r.sourceValue)}
+                                          {r.nativeValue != null && (
+                                            <span
+                                              className="muted"
+                                              style={{
+                                                display: "block",
+                                                fontSize: "0.6rem",
+                                              }}
+                                            >
+                                              native {fmt(r.nativeValue)}
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            fontFamily: "var(--mono)",
+                                          }}
+                                        >
+                                          {fmt(r.fallbackValue)}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            fontFamily: "var(--mono)",
+                                          }}
+                                        >
+                                          {fmt(r.value)}
+                                        </td>
+                                        <td style={{ textAlign: "left" }}>
+                                          {r.origin === OPINION_ORIGIN.SOURCE
+                                            ? "Source"
+                                            : r.origin ===
+                                                OPINION_ORIGIN.CHASE_UPSIDE_FALLBACK
+                                              ? `Chase Upside fallback — ${FALLBACK_REASON_LABEL[r.reason]}`
+                                              : `Unpriced — ${FALLBACK_REASON_LABEL[r.reason]}`}
+                                        </td>
+                                      </tr>
+                                    )),
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
-      {uncoveredRows.length > 0 && (
+      {baseline.length > 0 && (
         <p
           className="muted"
           data-testid="second-opinions-uncovered"
           style={{ margin: "6px 0 0", fontSize: "0.72rem", lineHeight: 1.45 }}
         >
-          {outOfScopeOnly.length > 0 && (
-            <>
-              Not applicable — {outOfScopeOnly.map((r) => r.label).join(", ")}{" "}
-              {outOfScopeOnly.length === 1 ? "doesn't" : "don't"} price{" "}
-              {scopeWords.join(" or ") || "these assets"}.{" "}
-            </>
-          )}
-          {otherUncovered.length > 0 && (
-            <>
-              No values published for any piece —{" "}
-              {otherUncovered.map((r) => r.label).join(", ")}.
-            </>
-          )}
+          Chase Upside values only — priced none of these pieces, so not an
+          opinion: {baseline.map((r) => r.label).join(", ")}.
         </p>
       )}
-      {/* Rank-only, non-voting: never part of `rows` or the tally above. */}
+      {/* Rank-only, non-voting: never part of `rows` or the tallies above. */}
       <SignalsRankOpinion sides={sides} />
     </div>
   );

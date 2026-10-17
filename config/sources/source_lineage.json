@@ -538,8 +538,8 @@
     {
       "id": "idptc-frozen-current-year-slot-picks",
       "sources": ["idpTradeCalc"],
-      "status": "open",
-      "summary": "The IDP Trade Calculator still publishes 48 '2026 Pick R.SS' slot rows unchanged since at least 2026-04-16 (1.01 = 8013 < 1.02 = 8323), months after the 2026 rookie draft; a live fetch 2026-10-01 confirms they are the vendor's current rows (genuine non-publication, not a parser or fetch defect). They are the rows that make the data-derived current draft year resolve to 2026 (derive_current_draft_year_from_names); horizon advancement is owner decision #1442.",
+      "status": "fixed",
+      "summary": "The IDP Trade Calculator still publishes 48 '2026 Pick R.SS' slot rows unchanged since at least 2026-04-16 (1.01 = 8013 < 1.02 = 8323), months after the 2026 rookie draft; a live fetch 2026-10-01 confirms they are the vendor's current rows (genuine non-publication, not a parser or fetch defect). They are the rows that make the data-derived current draft year resolve to 2026 (derive_current_draft_year_from_names); horizon advancement is owner decision #1442. RESOLVED UPSTREAM 2026-10-10: the vendor rolled its pick classes (CSVs/site_raw/idpTradeCalc.csv on main carries 0 '2026' rows and 60 '2027' rows); recorded 2026-10-16 (records reconciliation).",
       "evidence": ["src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
       "recordedAt": "2026-10-01"
     },
