@@ -80,6 +80,7 @@ import csv
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -417,6 +418,44 @@ def _build_rows(
     return out, anchors_by_family
 
 
+#: Vendor-stated publication metadata for this board (evidence for
+#: ``scripts/record_source_datasets.py::_upstream_sidecar``).  FantasyPros'
+#: page carries ``last_updated_ts`` — when its experts last moved the
+#: consensus.  Recorded so "we fetched it" and "they published it" read
+#: differently (2026-10-17: fetched every 2 h, experts last updated 09-04).
+#: Recording it changes no weight; only an explicit freshness-style choice
+#: in config/sources/freshness_v1.json would read it as the clock.
+UPSTREAM_PATH = REPO_ROOT / "data" / "scrape_state" / "fantasyProsIdp_upstream.json"
+
+
+def upstream_metadata(ecr: dict[str, Any]) -> dict[str, Any] | None:
+    """``{publishedAt, lastUpdatedLabel, expertsIncluded, expertsTotal}`` from
+    the combined page's ecrData, or ``None`` when it states no time."""
+    ts = ecr.get("last_updated_ts")
+    try:
+        published = datetime.fromtimestamp(float(ts), tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+    avail = ecr.get("experts_available") if isinstance(ecr.get("experts_available"), dict) else {}
+    included = avail.get("included")
+    return {
+        "publishedAt": published.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "lastUpdatedLabel": ecr.get("last_updated"),
+        "expertsIncluded": len(included) if isinstance(included, list) else None,
+        "expertsTotal": avail.get("total"),
+    }
+
+
+def _write_upstream(ecr: dict[str, Any]) -> None:
+    meta = upstream_metadata(ecr)
+    if meta is None:
+        print("[fetch_fantasypros_idp] page states no last_updated_ts; upstream clock not recorded")
+        return
+    UPSTREAM_PATH.parent.mkdir(parents=True, exist_ok=True)
+    UPSTREAM_PATH.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"[fetch_fantasypros_idp] upstream: experts last updated {meta['publishedAt']}")
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = [
@@ -564,6 +603,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _write_csv(args.dest, rows)
     print(f"[fetch_fantasypros_idp] wrote {len(rows)} rows -> {args.dest}")
+    _write_upstream(combined_data)
 
     if args.mirror_data_dir:
         try:
