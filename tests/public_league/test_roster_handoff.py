@@ -21,7 +21,8 @@ from pathlib import Path
 import pytest
 
 from src.acquisition.events import events_from_draft_picks, events_from_transaction
-from src.api import faab_analytics
+from src.identity import picks
+from src.api import faab_analytics, sleeper_overlay
 from src.api.team_assignment import _resolve_favorite_key
 from src.public_league import metrics, ownership, snapshot_store
 from src.public_league.identity import build_manager_registry, register_handed_off_owners
@@ -198,3 +199,74 @@ def test_faab_analytics_attributes_by_week():
     assert faab_analytics._owner_for_roster(_Season, ROSTER, 2) == JOEL
     assert faab_analytics._owner_for_roster(_Season, ROSTER, 9) == JOHN
     assert faab_analytics._owner_for_roster(_Season, ROSTER) == JOHN
+
+
+# ── baked contract labels ──────────────────────────────────────────────
+
+
+def test_relabel_pick_origin_touches_only_a_renamed_annotation():
+    renames = {"jnesselhauf": "John"}
+    assert picks.relabel_pick_origin("2027 Mid 2nd (from jnesselhauf)", renames) == (
+        "2027 Mid 2nd (from John)"
+    )
+    assert picks.relabel_pick_origin("2027 Mid 2nd (own)", renames) == "2027 Mid 2nd (own)"
+    assert picks.relabel_pick_origin("2027 Mid 2nd (from Roy)", renames) == (
+        "2027 Mid 2nd (from Roy)"
+    )
+    assert picks.relabel_pick_origin(None, renames) is None
+
+
+def test_a_contract_baked_before_the_name_was_configured_is_relabelled():
+    """The committed export names roster 11 by handle until the next scrape."""
+    sleeper = {
+        "teams": [
+            {
+                "ownerId": JOHN,
+                "roster_id": ROSTER,
+                "name": "jnesselhauf",
+                "picks": ["2027 Mid 1st (own)"],
+                "pickDetails": [
+                    {"fromTeam": "jnesselhauf", "label": "2027 Mid 1st (own)", "fromRosterId": 11}
+                ],
+            },
+            {
+                "ownerId": "468418790212759552",
+                "roster_id": 1,
+                "name": "Jason",
+                "picks": ["2027 Mid 2nd (from jnesselhauf)"],
+                "pickDetails": [
+                    {"fromTeam": "jnesselhauf", "label": "2027 Mid 2nd (from jnesselhauf)"}
+                ],
+            },
+        ],
+        "trades": [
+            {
+                "sides": [
+                    {"team": "jnesselhauf", "got": [], "gave": ["2027 Mid 2nd (from jnesselhauf)"]}
+                ]
+            }
+        ],
+    }
+    assert sleeper_overlay.relabel_sleeper_block(sleeper) == {"jnesselhauf": "John"}
+    john, jason = sleeper["teams"]
+    assert john["name"] == "John" and john["ownerId"] == JOHN and john["roster_id"] == ROSTER
+    assert john["pickDetails"][0]["fromTeam"] == "John"
+    assert jason["name"] == "Jason"
+    assert jason["picks"] == ["2027 Mid 2nd (from John)"]
+    assert jason["pickDetails"][0] == {"fromTeam": "John", "label": "2027 Mid 2nd (from John)"}
+    side = sleeper["trades"][0]["sides"][0]
+    assert side["team"] == "John" and side["gave"] == ["2027 Mid 2nd (from John)"]
+    # Idempotent, and a no-op on an already-current block.
+    assert sleeper_overlay.relabel_sleeper_block(sleeper) == {}
+
+
+def test_relabel_never_creates_a_duplicate_team_label():
+    sleeper = {
+        "teams": [
+            {"ownerId": JOHN, "name": "jnesselhauf"},
+            {"ownerId": "999", "name": "John"},
+        ]
+    }
+    assert sleeper_overlay.relabel_sleeper_block(sleeper) == {}
+    assert sleeper["teams"][0]["name"] == "jnesselhauf"
+    assert sleeper_overlay.relabel_sleeper_block(None) == {}
