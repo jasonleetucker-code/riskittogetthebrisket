@@ -438,7 +438,15 @@ _SERVED_SECTION_KEYS = (
     "positionMixMoved",
 )
 _SERVED_TRADE_KEYS = ("transactionId", "season", "week", "createdAt", "totalAssets", "sides")
-_SERVED_SIDE_KEYS = ("rosterId", "ownerId", "displayName", "teamName", "receivedAssets", "grade")
+_SERVED_SIDE_KEYS = (
+    "rosterId",
+    "ownerId",
+    "displayName",
+    "teamName",
+    "receivedAssets",
+    "grade",
+    "currentGrade",
+)
 # ``season`` / ``round`` stay on picks: ``TradeCard`` falls back to them
 # when a pick has no ``label``.
 _SERVED_ASSET_KEYS = ("kind", "playerName", "position", "label", "season", "round")
@@ -469,8 +477,11 @@ def serving_view(section: dict[str, Any]) -> dict[str, Any]:
                     _pick(a, _SERVED_ASSET_KEYS) if isinstance(a, dict) else a
                     for a in side["receivedAssets"] or []
                 ]
-            if isinstance(side.get("grade"), dict):
-                s["grade"] = _pick(side["grade"], _SERVED_GRADE_KEYS)
+            # Both grade blocks (at-the-time and today's band) serve the same
+            # four public keys; values and diagnostics never leave.
+            for gk in ("grade", "currentGrade"):
+                if isinstance(side.get(gk), dict):
+                    s[gk] = _pick(side[gk], _SERVED_GRADE_KEYS)
             sides.append(s)
         if "sides" in out:
             out["sides"] = sides

@@ -295,3 +295,22 @@ def test_build_section_reads_the_current_resolver_off_the_factory(ledger):
     for side in section["feed"][0]["sides"]:
         assert "grade" in side
         assert "currentGrade" in side
+
+
+def test_the_served_public_view_keeps_the_current_band_with_public_keys_only():
+    """``serving_view`` allowlists side keys; the band must survive it (found
+    by the real-browser check: it was dropped) and carry only band keys."""
+    feed = _feed()
+    activity._apply_current_grades(
+        feed, lambda a: None if a.get("playerId") == "dart" else _today(a)
+    )
+    served = activity.serving_view({"feed": feed})
+    for side in served["feed"][0]["sides"]:
+        assert set(side["currentGrade"]) == {"available", "grade", "color", "label"}
+        assert "missingAssets" not in side["currentGrade"]
+        assert "reason" not in side["currentGrade"]
+    feed = _feed()
+    activity._apply_current_grades(feed, _today)
+    served = activity.serving_view({"feed": feed})
+    assert all(side["currentGrade"]["grade"] for side in served["feed"][0]["sides"])
+    public_contract.assert_public_payload_safe(served)
