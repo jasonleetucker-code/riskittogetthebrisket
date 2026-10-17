@@ -958,8 +958,12 @@ def _bad_beat_scores(
     return rows
 
 
-def _pick_hoarder_scores(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
+def _pick_hoarder_scores(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]] | None:
+    """Weighted current stockpile per owner; ``None`` when pick ownership is
+    unknown (never a board of zeros)."""
     ownership = _pick_ownership_map(snapshot)
+    if ownership is None:
+        return None
     rows = []
     for owner_id, picks in ownership.items():
         weight = sum(pick_weight(p["round"]) for p in picks)
@@ -1012,9 +1016,11 @@ def _best_rebuild_scores(
     cur_record, cur_points, cur_rookies = _rank_lookup(current)
     prev_record, prev_points, prev_rookies = _rank_lookup(previous)
 
-    current_weighted = {
-        row["ownerId"]: row["weightedScore"] for row in _pick_hoarder_scores(snapshot)
-    }
+    hoarders = _pick_hoarder_scores(snapshot)
+    # Unknown pick ownership drops the stockpile term instead of scoring it 0.
+    current_weighted = (
+        {row["ownerId"]: row["weightedScore"] for row in hoarders} if hoarders is not None else None
+    )
 
     rows = []
     for owner_id in snapshot.managers.by_owner_id:
@@ -1022,13 +1028,13 @@ def _best_rebuild_scores(
             continue
         record_delta = prev_record[owner_id] - cur_record[owner_id]
         points_delta = prev_points[owner_id] - cur_points[owner_id]
-        stockpile = current_weighted.get(owner_id, 0)
+        stockpile = current_weighted.get(owner_id, 0) if current_weighted is not None else None
         rookies_delta = cur_rookies.get(owner_id, 0) - prev_rookies.get(owner_id, 0)
 
         composite = (
             0.40 * points_delta
             + 0.30 * record_delta
-            + 0.20 * (stockpile / 4.0)
+            + (0.20 * (stockpile / 4.0) if stockpile is not None else 0.0)
             + 0.10 * rookies_delta
         )
         rows.append(

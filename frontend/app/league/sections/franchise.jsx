@@ -6,6 +6,12 @@
 import { useEffect, useState } from "react";
 import { Avatar, Card, EmptyCard, Stat, fmtNumber } from "../shared.jsx";
 import FranchiseTrajectory from "@/components/graphs/FranchiseTrajectory";
+import {
+  PickChips,
+  PickChipsLegend,
+  PickOwnershipUnavailableNote,
+  draftOwnershipUnavailableReason,
+} from "../pick-chips.jsx";
 
 function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }) {
   const index = data?.index || [];
@@ -110,31 +116,19 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
           {fr.draftCapital && (
             <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10, marginBottom: 14 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>Draft capital</div>
-              <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
-                Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
-              </div>
-              {(fr.draftCapital.picks || []).length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {(fr.draftCapital.picks || []).map((p, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontFamily: "var(--mono)",
-                        fontSize: "0.7rem",
-                        border: "1px solid var(--border)",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        color: p.isTraded ? "var(--amber)" : "var(--text)",
-                      }}
-                    >
-                      {p.label}{p.isTraded ? "*" : ""}
-                    </span>
-                  ))}
-                </div>
+              {draftOwnershipUnavailableReason(fr.draftCapital) ? (
+                <PickOwnershipUnavailableNote reason={draftOwnershipUnavailableReason(fr.draftCapital)} />
+              ) : (
+                <>
+                  <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
+                    Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
+                  </div>
+                  {(fr.draftCapital.picks || []).length > 0 && (
+                    <PickChips picks={fr.draftCapital.picks} size="sm" />
+                  )}
+                  <PickChipsLegend />
+                </>
               )}
-              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 6 }}>
-                * acquired via trade
-              </div>
             </div>
           )}
 
