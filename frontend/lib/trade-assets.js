@@ -43,6 +43,10 @@
  * here values anything either — rows keep their canonical board values.
  */
 
+// Explicit .js extension: vitest's node environment does not resolve
+// extensionless relative imports (see lib/trade-logic.js).
+import { pickOwnershipUnavailableReason } from "./pick-ownership.js";
+
 /** True for an entry carrying a canonical owned league-pick identity. */
 export function isOwnedPickEntry(entry) {
   return Boolean(entry && entry.assetId);
@@ -184,8 +188,38 @@ export function ownedPickEntry(row, detail) {
  *        (the page passes the existing ``resolvePickRow`` resolver)
  */
 export function teamPickEntries(team, resolveRow) {
+  return teamPickInventory(team, resolveRow).entries;
+}
+
+/**
+ * A team's pick labels, or ``null`` when its pick ownership is UNKNOWN
+ * (``pickOwnershipState: "unavailable"`` / ``picks: null`` after a failed
+ * /traded_picks fetch, #1618).  Unknown is never ``[]`` ("owns no picks").
+ * The one reader is lib/pick-ownership.js.
+ */
+export function teamPickLabels(team) {
+  if (!team || pickOwnershipUnavailableReason(team)) return null;
+  return Array.isArray(team.picks) ? team.picks : [];
+}
+
+/**
+ * ``teamPickEntries`` plus the reason its inventory is unknown, so /trade can
+ * render "pick ownership unavailable" rather than an empty list that reads
+ * as "this team owns no picks" (TC-A; CLAUDE.md "League pick OWNERSHIP is
+ * observed or unknown").
+ */
+export function teamPickInventory(team, resolveRow) {
+  const unavailableReason = team ? pickOwnershipUnavailableReason(team) : null;
   const out = [];
-  if (!team || typeof resolveRow !== "function") return out;
+  if (!team || unavailableReason || typeof resolveRow !== "function") {
+    return { entries: out, unavailableReason };
+  }
+  out.push(...teamPickEntriesKnown(team, resolveRow));
+  return { entries: out, unavailableReason: null };
+}
+
+function teamPickEntriesKnown(team, resolveRow) {
+  const out = [];
   const details = Array.isArray(team.pickDetails) ? team.pickDetails : [];
   if (details.length) {
     for (const detail of details) {

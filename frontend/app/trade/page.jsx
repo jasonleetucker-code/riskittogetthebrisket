@@ -45,11 +45,17 @@ import {
 } from "@/lib/trade-share";
 import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
 import {
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  describePickOwnershipReason,
+  pickOwnershipUnavailableReason,
+} from "@/lib/pick-ownership";
+import {
   canAddEntry,
   countEntries,
   heldAssetKeysInTrade,
   removeOneEntry,
   teamPickEntries,
+  teamPickLabels,
   tradeEntryKey,
   unusedTeamPickEntries,
 } from "@/lib/trade-assets";
@@ -351,7 +357,9 @@ export default function TradePage() {
         if (!p) continue;
         if (rowByName.has(p)) names.add(p);
       }
-      for (const pickLabel of team.picks || []) {
+      // Unknown pick ownership (null) contributes no pick names -- and is
+      // disclosed by the banner below, never read as "owns no picks".
+      for (const pickLabel of teamPickLabels(team) || []) {
         const row = resolvePickRow(pickLabel, rowByLowerName, pickAliases);
         if (row) names.add(row.name);
       }
@@ -479,6 +487,21 @@ export default function TradePage() {
       ),
     );
   }, [sides, inferTeamForSide, sideTeamLocked]);
+
+  // Teams in this trade's context whose pick ownership is UNKNOWN (a failed
+  // /traded_picks fetch): their owned picks cannot be listed, searched or
+  // suggested, and the page says so instead of rendering "no picks" (TC-A;
+  // the frontend's one reader is lib/pick-ownership.js).
+  const pickOwnershipUnknown = useMemo(() => {
+    const relevant = new Set([selectedTeam?.name, ...sideTeamNames].filter(Boolean));
+    const out = [];
+    for (const team of sleeperTeams || []) {
+      if (!relevant.has(team?.name)) continue;
+      const reason = pickOwnershipUnavailableReason(team);
+      if (reason) out.push({ name: team.name, reason });
+    }
+    return out;
+  }, [sleeperTeams, selectedTeam, sideTeamNames]);
 
   const tradeHasPicks = useMemo(
     () =>
@@ -1667,7 +1690,7 @@ export default function TradePage() {
     }
 
     const team = sleeperTeams[i];
-    const picks = (team.picks || []).map((p) => {
+    const picks = (teamPickLabels(team) || []).map((p) => {
       const m = p.match(/^(\d{4})\s+(\d)\./);
       if (m) {
         const round =
@@ -2161,6 +2184,14 @@ export default function TradePage() {
               ) : null}
             </div>
           </Panel>
+
+          {pickOwnershipUnknown.length ? (
+            <Banner tone="warning" title={PICK_OWNERSHIP_UNAVAILABLE_LABEL}>
+              {describePickOwnershipReason(pickOwnershipUnknown[0].reason)} Owned picks for{" "}
+              {pickOwnershipUnknown.map((t) => t.name).join(", ")} cannot be listed or
+              suggested; market picks (e.g. a Mid 1st) can still be added.
+            </Banner>
+          ) : null}
 
           {shareStatus ? (
             <Banner tone={shareStatus.tone} onDismiss={() => setShareStatus(null)}>
