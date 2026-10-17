@@ -85,8 +85,8 @@ def _build_h2h_index(
     """
     idx: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for season, wk, a, b, is_playoff in metrics.walk_matchup_pairs(snapshot):
-        oa = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-        ob = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+        oa = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"), wk)
+        ob = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"), wk)
         if not oa or not ob or oa == ob:
             continue
         pa = metrics.matchup_points(a)
@@ -151,7 +151,7 @@ def _recent_form_for_owner(
             rid = metrics.roster_id_of(me)
             if rid is None:
                 continue
-            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid, wk)
             if oid != owner_id:
                 continue
             my_pts = metrics.matchup_points(me)
@@ -318,8 +318,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     out_matchups: list[dict[str, Any]] = []
     is_playoff = week >= current.playoff_week_start
     for a, b in pairs:
-        oa = metrics.resolve_owner(snapshot.managers, current.league_id, a.get("roster_id"))
-        ob = metrics.resolve_owner(snapshot.managers, current.league_id, b.get("roster_id"))
+        oa = metrics.resolve_owner(snapshot.managers, current.league_id, a.get("roster_id"), week)
+        ob = metrics.resolve_owner(snapshot.managers, current.league_id, b.get("roster_id"), week)
         if not oa or not ob:
             continue
         key = _pair_key(oa, ob)
