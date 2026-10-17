@@ -171,6 +171,41 @@ def _apply_trade_grades(
             side["grade"] = result["grade"]
 
 
+def _apply_current_grades(
+    feed: list[dict[str, Any]],
+    current: Callable[[dict[str, Any]], "float | None"],
+) -> None:
+    """Attach a ``currentGrade`` block: the same trade at TODAY's board.
+
+    Owner decision 2026-10-17: public ``/league`` shows a current-grade band
+    beside the at-the-time grade, computed by the same
+    ``trade_grading.grade_trade_sides`` (and so the same active package
+    model) as the private /trades Current Grade.  Band and label only — the
+    values never leave the backend.  A side with any asset today's board does
+    not price is ``available: False``; never a partial total, never zero.
+    """
+
+    def today(asset: dict[str, Any], _instant: Any) -> "float | None":
+        return current(asset)
+
+    for trade in feed:
+        sides = trade.get("sides") or []
+        if len(sides) < 2:
+            continue
+        for side in sides:
+            got, got_missing = _resolve_side(side.get("receivedAssets"), today, None)
+            gave, gave_missing = _resolve_side(side.get("sentAssets"), today, None)
+            missing = got_missing + gave_missing
+            if missing:
+                side["currentGrade"] = {
+                    **_unavailable_grade("unpriced_today", missing),
+                    "label": "Current value unavailable",
+                }
+                continue
+            (result,) = trade_grading.grade_trade_sides([(got, gave)])
+            side["currentGrade"] = result["grade"]
+
+
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     season = pick.get("season")
     round_ = pick.get("round")
@@ -499,6 +534,11 @@ def build_section(
                     requests.append((asset, instant))
         resolve = valuation_factory(requests)
         _apply_trade_grades(feed, resolve)
+        # Today's-board resolver rides on the factory (``server.py``'s
+        # ``_PublicActivityValuation``) so no caller signature changes.
+        current = getattr(valuation_factory, "current_valuation", None)
+        if callable(current):
+            _apply_current_grades(feed, current)
     by_manager = _by_manager_counts(feed)
     partner_pairs = _partner_pairs(feed)
     blockbusters = _biggest_blockbusters(feed)
