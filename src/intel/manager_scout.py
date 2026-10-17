@@ -903,15 +903,15 @@ def build_manager_scout(
             "ageProfile": "no_canonical_age_at_transaction_owner",
         },
         "limitations": {
-            # Upstream attribution, not this module's: both the acquisition
-            # collector (scripts/build_acquisition_ledger.py, _owner_by_roster)
-            # and the FAAB history fetch (src/trade/faab_history.py, the
-            # roster_to_owner map) attribute a season's transactions through
-            # the roster->owner map as Sleeper reports it WHEN FETCHED.  A
-            # mid-season takeover therefore credits the departed manager's
-            # earlier moves in that season to the incoming one.  Across
-            # seasons attribution is correct (each season's own map).
-            "withinSeasonTakeover": "attributed_to_owner_at_fetch_time",
+            # Upstream attribution, not this module's: the acquisition
+            # collector and the FAAB history fetch map rosters to owners as
+            # Sleeper reports them WHEN FETCHED, corrected by the recorded
+            # mid-season hand-offs in config/leagues/roster_ownership_changes.json
+            # (src/public_league/ownership.py: weeks before a hand-off belong
+            # to the outgoing owner).  A takeover nobody recorded is still
+            # credited to the incoming owner.  Across seasons attribution is
+            # correct (each season's own map).
+            "withinSeasonTakeover": "recorded_handoffs_by_week_else_owner_at_fetch_time",
         },
         "managers": managers,
     }

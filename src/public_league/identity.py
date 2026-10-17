@@ -22,7 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
-from src.utils.owner_names import owner_label
+from src.public_league import ownership
+from src.utils.owner_names import owner_label, owner_name_for_user_id
 
 # ── Retired owner IDs ────────────────────────────────────────────────
 # Sleeper owner_ids of former league members who have left the league
@@ -125,13 +126,22 @@ class ManagerRegistry:
     # or earlier owner.
     roster_to_owner: dict[tuple[str, int], str] = field(default_factory=dict)
 
-    def owner_for_roster(self, league_id: str, roster_id: Any) -> str:
-        """Look up the owner_id for (league_id, roster_id), or ``""``."""
+    def owner_for_roster(self, league_id: str, roster_id: Any, week: Any = None) -> str:
+        """Look up the owner_id for (league_id, roster_id), or ``""``.
+
+        ``week`` attributes a mid-season hand-off (``ownership.owner_at``):
+        weeks before a recorded hand-off belong to the outgoing owner.
+        Without it the answer is the roster's current owner.
+        """
         try:
             rid_int = int(roster_id)
         except (TypeError, ValueError):
             return ""
-        return self.roster_to_owner.get((str(league_id or ""), rid_int), "")
+        lid = str(league_id or "")
+        current = self.roster_to_owner.get((lid, rid_int), "")
+        if not current:
+            return ""
+        return ownership.owner_at(lid, rid_int, current, week)
 
     def ordered_managers(self, *, include_retired: bool = False) -> list[Manager]:
         """Managers for forward-facing directories (dropdowns, listings).
@@ -245,6 +255,8 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
             if rid_int is not None and league_id:
                 registry.roster_to_owner[(league_id, rid_int)] = owner_id
 
+    register_handed_off_owners(registry)
+
     # Dedupe aliases by (season, league_id, team_name) preserving first
     # occurrence so rescans don't multiply entries.
     for manager in registry.by_owner_id.values():
@@ -259,3 +271,43 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
         manager.aliases = deduped
 
     return registry
+
+
+def register_handed_off_owners(registry: ManagerRegistry) -> None:
+    """Give each outgoing owner of a mid-season hand-off a manager entry.
+
+    Sleeper lists only the CURRENT owner of a roster, so a manager who left
+    mid-season appears in no season's ``users``/``rosters`` and would have
+    no identity for their own weeks to attribute to.  They get one here,
+    keyed by user id, with the season they actually played.  They are
+    retired from forward-facing directories.  Idempotent, so a registry
+    reloaded from a persisted snapshot can be passed through it again.
+    """
+    for change in ownership.all_changes():
+        league_id = change["leagueId"]
+        if not any(lid == league_id for lid, _rid in registry.roster_to_owner):
+            continue  # this snapshot does not include that league-season
+        owner_id = change["fromOwnerId"]
+        name = owner_name_for_user_id(owner_id) or change["fromUsername"] or f"Team {owner_id}"
+        alias = TeamAlias(
+            season=change["season"],
+            league_id=league_id,
+            team_name=change["fromUsername"] or name,
+            display_name=name,
+            roster_id=change["rosterId"],
+        )
+        manager = registry.by_owner_id.get(owner_id)
+        if manager is None:
+            registry.by_owner_id[owner_id] = Manager(
+                owner_id=owner_id,
+                display_name=name,
+                aliases=[alias],
+                is_retired=True,
+            )
+        elif not any(
+            a.season == alias.season
+            and a.league_id == alias.league_id
+            and a.roster_id == alias.roster_id
+            for a in manager.aliases
+        ):
+            manager.aliases.append(alias)

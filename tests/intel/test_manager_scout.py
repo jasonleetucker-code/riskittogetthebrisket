@@ -526,7 +526,10 @@ def test_no_board_means_value_unavailable_and_no_trades_insufficient(db):
 
 def test_within_season_takeover_limitation_is_named(db):
     payload = _build(db)
-    assert payload["limitations"]["withinSeasonTakeover"] == "attributed_to_owner_at_fetch_time"
+    assert (
+        payload["limitations"]["withinSeasonTakeover"]
+        == "recorded_handoffs_by_week_else_owner_at_fetch_time"
+    )
 
 
 def test_the_payload_is_deterministic(db):

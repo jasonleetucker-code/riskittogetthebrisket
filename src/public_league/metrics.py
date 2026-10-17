@@ -12,6 +12,7 @@ import time
 from collections import defaultdict
 from typing import Any, Iterable
 
+from . import ownership
 from .identity import ManagerRegistry
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -330,16 +331,40 @@ def final_weeks(season: SeasonSnapshot) -> list[int]:
     ]
 
 
+def tx_week(tx: dict[str, Any]) -> int | None:
+    """The week a Sleeper transaction belongs to (its ``leg``), or ``None``."""
+    for key in ("leg", "_leg"):
+        try:
+            week = int(tx.get(key))
+        except (TypeError, ValueError):
+            continue
+        if week > 0:
+            return week
+    return None
+
+
 def resolve_owner(
     registry: ManagerRegistry,
     league_id: str,
     roster_id: Any,
+    week: Any = None,
 ) -> str:
+    """Owner of ``roster_id`` — in ``week`` when given.
+
+    Pass the week whenever the event belongs to one (a matchup, a
+    transaction's ``leg``) so a mid-season hand-off attributes earlier weeks
+    to the outgoing owner (``ownership.owner_at``).  Season-level facts (the
+    roster's standings line) leave it out and resolve to the current owner.
+    """
     try:
         rid_int = int(roster_id)
     except (TypeError, ValueError):
         return ""
-    return registry.roster_to_owner.get((str(league_id or ""), rid_int), "")
+    lid = str(league_id or "")
+    current = registry.roster_to_owner.get((lid, rid_int), "")
+    if not current:
+        return ""
+    return ownership.owner_at(lid, rid_int, current, week)
 
 
 # ── Standings ────────────────────────────────────────────────────────────

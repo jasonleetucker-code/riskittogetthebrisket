@@ -47,6 +47,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from src.public_league import ownership
 from src.trade import faab_comparability as _comparability
 from src.utils.config_loader import repo_root, save_json
 
@@ -210,7 +211,14 @@ def fetch_bid_history(
             r.get("roster_id"): str(r.get("owner_id") or "") for r in rosters if isinstance(r, dict)
         }
         for row in rows:
-            row["ownerId"] = roster_to_owner.get(row.get("rosterId")) or ""
+            # ``week`` attributes a recorded mid-season hand-off to the owner
+            # who placed the bid, not whoever holds the roster today.
+            row["ownerId"] = ownership.owner_at(
+                league_id,
+                row.get("rosterId"),
+                roster_to_owner.get(row.get("rosterId")) or "",
+                row.get("week"),
+            )
 
         seasons.append(
             {
