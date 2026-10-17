@@ -30,7 +30,7 @@ and it is equally capable on desktop and mobile. When essential evidence is miss
   double counting, and point-in-time integrity.
 - **Package model.** Every package-equity number comes from the one active model through
   `src/valuation_math/package_model.py` / `trade-logic.js::packageAdjustPair`.
-  - The approved model is `geom_q078_v1`, q = 0.78, activated by #1771.
+  - The approved model is `geom_q078_v1`, q = 0.78. Its activation is PR #1771, owner-approved and in CI; until #1771 merges and deploys, `main` and production still run `ktc_2026_04`.
   - KTC (`ktc_2026_04`) stays available only as the named rollback / historical comparison.
   - The model and q are never changed as part of this work.
 - **One decision engine.** The decision is extended in place, not rebuilt beside the old one: `src/trade/analyze_trade.py` (`/api/trade/analyze`) plus the War Room UI.
