@@ -100,6 +100,7 @@ from src.api.schemas.leagues import (
     PublicLeaguesResponse,
 )
 from src.api import sleeper_overlay as _sleeper_overlay
+from src.valuation_math import package_model as _package_model
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
@@ -2897,6 +2898,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                 meta_block = contract_payload.setdefault("meta", {})
                 meta_block["leagueKey"] = _default_cfg.key
                 meta_block["scoringProfile"] = _default_cfg.scoring_profile
+                meta_block["packageModel"] = _package_model.receipt()
                 _fp = _contract_scoring_fingerprint(contract_payload)
                 if _fp:
                     meta_block["scoringFingerprint"] = _fp
@@ -11245,6 +11247,11 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
     if not isinstance(result, dict):
         return
     result["valuationMode"] = mode
+    # Which package Value Adjustment model produced any package-equity number
+    # in this response (owner package 2026-10-17): every engine reaches the
+    # model through src/valuation_math/package_model.py, so the stamp is the
+    # same everywhere the valuation mode is.
+    result["packageModel"] = _package_model.receipt()
     if note:
         result["valuationNote"] = note
         warnings = result.get("warnings")
@@ -17828,6 +17835,8 @@ async def post_trade_simulate_mc(request: Request):
                 ),
             },
         )
+    if isinstance(enriched, dict):
+        enriched["packageModel"] = _package_model.receipt()
     return JSONResponse(content=enriched)
 
 

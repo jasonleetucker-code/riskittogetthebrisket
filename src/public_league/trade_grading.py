@@ -46,6 +46,7 @@ from typing import Any, Iterable
 
 from src.valuation_math.ktc_va_core import KTC_VARIANCE_PCT as _KTC_VARIANCE_PCT
 from src.valuation_math.ktc_va_core import adjust_package_raw as _adjust_package_raw
+from src.valuation_math.package_model import adjust_pair as _package_adjust_pair
 
 # ── Band table ───────────────────────────────────────────────────────────
 # Mirrors ``gradeTradeHistorySide`` in ``frontend/lib/league-analysis.js``
@@ -131,10 +132,12 @@ def trade_va_net(got_values: list[float], gave_values: list[float]) -> float:
     """
     if not got_values or not gave_values:
         return 0.0
-    result = ktc_adjust_package(got_values, gave_values)
-    if not result["displayed"] or result["value"] <= 0:
+    got = [float(v) for v in got_values if _finite(v) and float(v) > 0]
+    gave = [float(v) for v in gave_values if _finite(v) and float(v) > 0]
+    value, side, displayed = _package_adjust_pair(got, gave)
+    if not displayed or value <= 0:
         return 0.0
-    return float(result["value"]) if result["side"] == 1 else -float(result["value"])
+    return float(value) if side == 1 else -float(value)
 
 
 # ── The canonical grade ──────────────────────────────────────────────────

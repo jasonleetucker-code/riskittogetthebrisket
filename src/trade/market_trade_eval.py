@@ -47,7 +47,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity.picks import parse_market_pick_id
 from src.sources.ktc_market import KTC_MARKET_KEY
-from src.trade.ktc_va import adjusted_pair_totals
+from src.valuation_math.package_model import adjusted_pair_totals
 
 TOPO_1_FOR_1 = "two_team_1_for_1"
 TOPO_2_FOR_1 = "two_team_2_for_1"

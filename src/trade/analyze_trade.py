@@ -57,7 +57,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from src.trade.ktc_va import adjusted_pair_totals
+from src.valuation_math import package_model
+from src.valuation_math.package_model import adjusted_pair_totals
 from src.trade.suggestions import _fairness_label
 
 #: The five product-facing verdicts (plan §C, "Product job").
@@ -212,7 +213,8 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "receivingAdjusted": verdict["receivingAdjusted"],
             "sendingValueAdjustment": verdict["sendingValueAdjustment"],
             "receivingValueAdjustment": verdict["receivingValueAdjustment"],
-            "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)",
+            "valueAdjustment": package_model.receipt()["label"],
+            "packageModel": package_model.receipt(),
             "unresolvedIn": list(simulation.get("unresolvedIn") or []),
             "unresolvedOut": list(simulation.get("unresolvedOut") or []),
             # Wave A: owned picks this team does not hold are reported by
