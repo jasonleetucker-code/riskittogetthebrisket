@@ -609,6 +609,35 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
+_AVAILABILITY_REASON_TEXT = {
+    "expected_return_after_game": "injury; expected return is after those games",
+    "expected_return_after_season": "injury; expected return is after the season",
+    "bye": "bye week",
+    "owner_override": "recorded unavailability",
+}
+
+
+def _availability_reason(avail: dict) -> str:
+    reasons = avail.get("reasons") or {}
+    if not reasons:
+        return "availability evidence"
+    top = max(reasons.items(), key=lambda kv: kv[1])[0]
+    if top.startswith("host_designation_"):
+        return f"listed {top.removeprefix('host_designation_').upper()} this week"
+    return _AVAILABILITY_REASON_TEXT.get(top, top.replace("_", " "))
+
+
+def _availability_note(avail: dict) -> str:
+    """A suffix naming the weeks a lineup share does NOT rest on certainty."""
+    parts = []
+    if avail.get("unavailableWeeks"):
+        parts.append(f"out {avail['unavailableWeeks']}")
+    unsure = (avail.get("uncertainWeeks") or 0) + (avail.get("unknownWeeks") or 0)
+    if unsure:
+        parts.append(f"availability uncertain in {unsure}")
+    return f" ({'; '.join(parts)})" if parts else ""
+
+
 def _reasons(
     market: DimensionResult,
     roster: DimensionResult,
@@ -645,15 +674,26 @@ def _reasons(
             entry = p.get("lineupEntryPctAfter")
             if p.get("role") != "incoming" or not isinstance(entry, (int, float)):
                 continue  # unprojected: no lineup-entry claim either way
+            avail = p.get("availability") or {}
+            weeks = avail.get("weeks")
+            if weeks and avail.get("eligibleWeeks") == 0:
+                # Out for every remaining week: no lineup claim at all.
+                reasons_against.append(
+                    f"{p['name']} is unavailable for all {weeks} remaining weeks "
+                    f"({_availability_reason(avail)})"
+                )
+                continue
+            span = f"of the {weeks} remaining weeks simulated" if weeks else "of simulated weeks"
             if entry >= 50:
                 reasons_for.append(
                     f"{p['name']} enters the optimal lineup in "
-                    f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks"
+                    f"{_pct(p['lineupEntryPctAfter'])} {span}{_availability_note(avail)}"
                 )
             else:
                 reasons_against.append(
                     f"{p['name']} would reach the lineup in only "
-                    f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks (redundant here)"
+                    f"{_pct(p['lineupEntryPctAfter'])} {span}"
+                    f"{_availability_note(avail) or ' (redundant here)'}"
                 )
         # Only players whose lineup usage was measured: an unprojected player's
         # usage is unknown, not 0%, and never counts toward "rarely used".

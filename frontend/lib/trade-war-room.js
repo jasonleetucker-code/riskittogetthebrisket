@@ -47,7 +47,8 @@ const PICK_NAME = /\d{4}/;
  */
 export function tradeRequestForTeam(sides, rosterNames, teamName) {
   if (!Array.isArray(sides) || sides.length !== 2 || !teamName) return null;
-  const owned = rosterNames instanceof Set ? rosterNames : new Set(rosterNames || []);
+  const owned =
+    rosterNames instanceof Set ? rosterNames : new Set(rosterNames || []);
   const scores = sides.map((s) =>
     (s.assets || []).reduce((n, a) => n + (owned.has(a.name) ? 1 : 0), 0),
   );
@@ -106,7 +107,10 @@ export function analyzeRequestKey(request, leagueKey, useTeamContext) {
  * A 200 is only an answer to THIS question when it echoes the league, the
  * mode and a packet.  Anything else is refused rather than rendered.
  */
-export function validAnalyzePayload(body, { leagueKey = "", useTeamContext = true } = {}) {
+export function validAnalyzePayload(
+  body,
+  { leagueKey = "", useTeamContext = true } = {},
+) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return false;
   const analysis = body.analysis;
   if (!analysis || typeof analysis !== "object") return false;
@@ -114,7 +118,8 @@ export function validAnalyzePayload(body, { leagueKey = "", useTeamContext = tru
   if (!analysis.lenses || typeof analysis.lenses !== "object") return false;
   if (leagueKey && body.leagueKey && body.leagueKey !== leagueKey) return false;
   const applied = body.teamContext?.applied;
-  if (typeof applied !== "boolean" || applied !== (useTeamContext !== false)) return false;
+  if (typeof applied !== "boolean" || applied !== (useTeamContext !== false))
+    return false;
   return true;
 }
 
@@ -158,20 +163,25 @@ const UNAVAILABLE_WORDS = {
   partial_projection_coverage: "Abstains — a traded player has no projection",
   season_unresolved: "No current-season projection applies",
   starter_slots_unresolved: "This league's starting slots did not resolve",
-  projection_basis_no_projection_snapshot: "No league-scored projection snapshot yet",
-  projection_basis_scoring_card_missing: "This league's scoring card is missing",
+  projection_basis_no_projection_snapshot:
+    "No league-scored projection snapshot yet",
+  projection_basis_scoring_card_missing:
+    "This league's scoring card is missing",
   roster_capacity_unavailable: "Roster capacity could not be computed",
   uncertain: "Cut count uncertain (taxi occupancy unknown)",
   unknown_limit: "This league's roster limit is unknown",
   no_priced_assets_either_side: "Neither side has a priced asset",
   not_computed: "Not computed",
   league_bundle_not_warm: "League roster intelligence is still loading",
-  team_not_in_league_bundle: "This team is not in the league's roster intelligence",
+  team_not_in_league_bundle:
+    "This team is not in the league's roster intelligence",
   roster_snapshot_missing: "No roster snapshot for this league yet",
   starter_slots_missing: "This league's starting slots are not configured",
-  trade_ledger_not_built: "The recorded-trade ledger is not built on the server",
+  trade_ledger_not_built:
+    "The recorded-trade ledger is not built on the server",
   trade_ledger_unavailable: "The recorded-trade ledger could not be read",
-  no_identifiable_assets: "No asset in this trade could be identified in the trade ledger",
+  no_identifiable_assets:
+    "No asset in this trade could be identified in the trade ledger",
   comparables_error: "Comparable trades could not be computed right now",
 };
 
@@ -193,7 +203,10 @@ function formatShare(value) {
 /** The posture lens as display text.  Every number is the packet's. */
 export function postureSummary(lens) {
   if (!lens || !lens.available) {
-    return { available: false, reasonText: unavailableText(lens?.unavailableReason) };
+    return {
+      available: false,
+      reasonText: unavailableText(lens?.unavailableReason),
+    };
   }
   const d = lens.detail || {};
   const probs = d.probabilities || {};
@@ -207,17 +220,20 @@ export function postureSummary(lens) {
       ? "Hold — no competitiveness evidence yet"
       : POSTURE_WORDS[d.label] || d.label || "—",
     confidence: formatShare(d.confidence),
-    split: POSTURE_ORDER.filter((k) => typeof probs[k] === "number").map((k) => ({
-      label: k,
-      pct: formatShare(probs[k]),
-    })),
-    timing: timing.phase === "offseason"
-      ? "Offseason"
-      : timing.phase === "post_deadline"
-        ? "After the trade deadline"
-        : typeof timing.week === "number"
-          ? `Week ${timing.week}${timing.tradeDeadlineWeek ? ` of a week-${timing.tradeDeadlineWeek} deadline` : ""}`
-          : "Season timing unknown",
+    split: POSTURE_ORDER.filter((k) => typeof probs[k] === "number").map(
+      (k) => ({
+        label: k,
+        pct: formatShare(probs[k]),
+      }),
+    ),
+    timing:
+      timing.phase === "offseason"
+        ? "Offseason"
+        : timing.phase === "post_deadline"
+          ? "After the trade deadline"
+          : typeof timing.week === "number"
+            ? `Week ${timing.week}${timing.tradeDeadlineWeek ? ` of a week-${timing.tradeDeadlineWeek} deadline` : ""}`
+            : "Season timing unknown",
     ownFirst:
       d.components?.ownFirstRoundPickHeld === true
         ? "Holds its own next first-round pick"
@@ -236,7 +252,10 @@ export function postureSummary(lens) {
  */
 export function comparablesSummary(lens) {
   if (!lens || !lens.available) {
-    return { available: false, reasonText: unavailableText(lens?.unavailableReason) };
+    return {
+      available: false,
+      reasonText: unavailableText(lens?.unavailableReason),
+    };
   }
   const d = lens.detail || {};
   const rows = (d.comparableTrades || []).map((t, i) => ({
@@ -264,7 +283,8 @@ export function comparablesSummary(lens) {
 export function unavailableText(reason) {
   if (!reason) return "Unavailable";
   if (UNAVAILABLE_WORDS[reason]) return UNAVAILABLE_WORDS[reason];
-  if (String(reason).startsWith("error:")) return "Could not be computed right now";
+  if (String(reason).startsWith("error:"))
+    return "Could not be computed right now";
   return `Unavailable (${String(reason).replace(/_/g, " ")})`;
 }
 
@@ -293,9 +313,40 @@ export const ROLE_WORDS = {
 };
 
 /** The player rows worth a line, in a stable reading order. */
+// Availability beside a lineup share (owner master package 2026-10-17, P0):
+// the share is over the league's REMAINING weeks, and a player who cannot
+// play some of them says so — never a bare percentage that reads as health.
+export function availabilityNote(player) {
+  const a = player?.availability;
+  if (!a || !Number.isFinite(a.weeks) || a.weeks <= 0) return null;
+  if (a.eligibleWeeks === 0) return `Out all ${a.weeks} remaining weeks`;
+  const parts = [];
+  if (a.unavailableWeeks > 0)
+    parts.push(`out ${a.unavailableWeeks} of ${a.weeks} weeks`);
+  const unsure = (a.uncertainWeeks || 0) + (a.unknownWeeks || 0);
+  if (unsure > 0) parts.push(`uncertain ${unsure}`);
+  return parts.length ? parts.join(", ") : null;
+}
+
+export function simulatedWeeksLabel(basis) {
+  const weeks = Array.isArray(basis?.weeks) ? basis.weeks : null;
+  if (!weeks || !weeks.length) return null;
+  return weeks.length === 1
+    ? `week ${weeks[0]}`
+    : `weeks ${weeks[0]}–${weeks[weeks.length - 1]}`;
+}
+
 export function rosterImpactRows(rosterDetail) {
-  const order = { incoming: 0, outgoing: 1, forcedDrop: 2, promoted: 3, displaced: 4 };
+  const order = {
+    incoming: 0,
+    outgoing: 1,
+    forcedDrop: 2,
+    promoted: 3,
+    displaced: 4,
+  };
   return [...(rosterDetail?.players || [])].sort(
-    (a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || String(a.name).localeCompare(String(b.name)),
+    (a, b) =>
+      (order[a.role] ?? 9) - (order[b.role] ?? 9) ||
+      String(a.name).localeCompare(String(b.name)),
   );
 }
