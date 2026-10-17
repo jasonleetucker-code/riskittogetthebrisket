@@ -1052,6 +1052,17 @@ export function getPlayerEdge(row) {
 const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "6": "6th" };
 
 /**
+ * "early" | "mid" | "late" for a slot number — the frontend's ONE slot→tier
+ * rule (12-team convention).  Mirrors the tier OWNER,
+ * src/picks/site_pick_map.py::slot_tier_ranges(12); the literal is pinned
+ * and checked against the owner by
+ * tests/identity/test_pick_grammar_frontend_parity.py.
+ */
+export function tierForSlot(slot) {
+  return slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
+}
+
+/**
  * Parse a pick token string into structured parts.
  * Handles: "2026 1.06", "2026 early 1st", "2026 1st", "2026 mid 2nd"
  * @returns {{ year: string, round: string, tier: string|null, slot: number|null }}
@@ -1064,8 +1075,7 @@ export function parsePickToken(token) {
   if (slotMatch) {
     const round = ROUND_LABELS[slotMatch[2]] || `${slotMatch[2]}th`;
     const slot = parseInt(slotMatch[3], 10);
-    const tier = slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
-    return { year: slotMatch[1], round, tier, slot };
+    return { year: slotMatch[1], round, tier: tierForSlot(slot), slot };
   }
 
   // "2026 early 1st" or "2026 1st" format
@@ -1238,6 +1248,91 @@ export function isUnpricedBoardRow(row) {
   return !Number(row.values?.full);
 }
 
+// ── Structured pick search ──────────────────────────────────────────────
+//
+// TC-A / UX audit P1-8: "2027 1st", "2027 Mid" and "2027 Round 1" returned
+// "No matches" — the current class is priced on SLOT rows ("2027 Pick 1.05")
+// and its tier rows are suppressed aliases, so plain text matching could not
+// connect a round / tier / generic query to the rows that price it.  A pick
+// query is parsed with the same grammar as ``parsePickToken`` and matched
+// against each pick row's own shape (slot / tier / generic grade).  Nothing
+// here prices anything: it only decides which existing board rows a query
+// names.
+
+/** A board pick row name → its {year, round, tier, slot}, or null. */
+export function pickRowShape(name) {
+  const s = String(name || "").trim();
+  const generic = s.match(/^(\d{4})\s+round\s+([1-6])$/i);
+  if (generic) return { year: generic[1], round: ROUND_LABELS[generic[2]], tier: null, slot: null };
+  const parsed = parsePickToken(s.replace(/^(\d{4})\s+pick\s+/i, "$1 "));
+  if (!parsed) return null;
+  return { year: parsed.year, round: parsed.round, tier: parsed.tier || null, slot: parsed.slot ?? null };
+}
+
+/**
+ * Parse a search query as a pick query, or null when it is not one.  Accepts
+ * any order of: a year ("2027"), a slot ("1.05"), a tier ("early/mid/late"), a
+ * round ("1st", "round 1", "rd 1", "r1"), and the word "pick(s)".  It must
+ * name a round, slot or tier, plus a year unless it gives a slot or round
+ * (a bare "mid" is not a pick query).  Any other word → null.
+ */
+export function parsePickQuery(query) {
+  let q = String(query || "").toLowerCase().trim();
+  if (!q) return null;
+  const out = { year: null, round: null, tier: null, slot: null };
+  const take = (re, fn) => {
+    const m = q.match(re);
+    if (!m) return;
+    fn(m);
+    q = q.replace(m[0], " ");
+  };
+  take(/\b(\d)\.(\d{1,2})\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]] || null;
+    out.slot = parseInt(m[2], 10);
+  });
+  take(/\b(19|20)(\d{2})\b/, (m) => {
+    out.year = `${m[1]}${m[2]}`;
+  });
+  take(/\b(early|mid|late)\b/, (m) => {
+    out.tier = m[1];
+  });
+  take(/\b([1-6])(st|nd|rd|th)\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]];
+  });
+  take(/\b(?:round|rd|r)\s*([1-6])\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]];
+  });
+  q = q.replace(/\bpicks?\b/g, " ");
+  if (q.trim()) return null;
+  if (!out.round && !out.slot && !out.tier) return null;
+  if (!out.year && !out.round && !out.slot) return null;
+  return out;
+}
+
+/** Does a pick row (by name) satisfy a parsed pick query? */
+export function pickRowMatchesQuery(name, pq) {
+  if (!pq) return false;
+  const shape = pickRowShape(name);
+  if (!shape) return false;
+  if (pq.year && shape.year !== pq.year) return false;
+  if (pq.round && shape.round !== pq.round) return false;
+  if (pq.slot != null) {
+    // An exact slot row, or -- when the query names its year -- the tier
+    // row that slot belongs to (future classes are priced at tier grade).
+    // Never a generic row.
+    if (shape.slot != null) return shape.slot === pq.slot;
+    if (!pq.year || !shape.tier || shape.tier !== tierForSlot(pq.slot)) return false;
+  }
+  if (pq.tier) {
+    const rowTier = shape.slot != null ? tierForSlot(shape.slot) : shape.tier;
+    if (rowTier !== pq.tier) return false;
+  }
+  return true;
+}
+
+// Structured pick matches rank with the loosest text matches (tier 3).
+const PICK_QUERY_MATCH_TIER = 3;
+
 /**
  * Board rows matching a search query, most relevant first.
  *
@@ -1256,10 +1351,14 @@ export function isUnpricedBoardRow(row) {
  */
 export function searchTradeAssets(rows, query, limit = 5) {
   if (!String(query || "").trim()) return [];
+  const pq = parsePickQuery(query);
   const scored = [];
   for (const r of rows || []) {
     if (!r || !isTradeableBoardRow(r)) continue;
-    const tier = searchMatchTier(r.name, query);
+    let tier = searchMatchTier(r.name, query);
+    if (tier < 0 && pq && r.assetClass === "pick" && pickRowMatchesQuery(r.name, pq)) {
+      tier = PICK_QUERY_MATCH_TIER;
+    }
     if (tier >= 0) scored.push({ r, tier });
   }
   scored.sort(
@@ -1299,10 +1398,12 @@ export function searchCalculatorAssets(
   { boardLimit = SEARCH_BOARD_LIMIT, ownedLimit = SEARCH_OWNED_LIMIT } = {},
 ) {
   const board = searchTradeAssets(rows, query, boardLimit);
+  const pq = parsePickQuery(query);
   const owned = searchPickEntries(
     (ownedEntries || []).filter((e) => e && e.assetId),
     query,
     ownedLimit,
+    pq ? (e) => pickRowMatchesQuery(e.name, pq) : null,
   );
   return [...board, ...owned];
 }

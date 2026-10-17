@@ -297,12 +297,15 @@ function bestTier(texts, query) {
  * ``searchMatchTier`` over the ownership label and the board name; ties
  * keep the team's own order).  Already-added picks stay searchable.
  */
-export function searchPickEntries(entries, query, limit = 5) {
+export function searchPickEntries(entries, query, limit = 5, structuredMatch = null) {
   if (!normalizeSearchText(query)) return [];
   const scored = [];
   (entries || []).forEach((entry, i) => {
     if (!entry) return;
-    const tier = bestTier([entry.assetLabel, entry.name], query);
+    let tier = bestTier([entry.assetLabel, entry.name], query);
+    // A structured pick query ("2027 1st") that the label text cannot match
+    // (TC-A): the caller's grammar decides, ranked with the loosest matches.
+    if (tier < 0 && typeof structuredMatch === "function" && structuredMatch(entry)) tier = 3;
     if (tier >= 0) scored.push({ entry, tier, i });
   });
   scored.sort((a, b) => a.tier - b.tier || a.i - b.i);
