@@ -543,7 +543,11 @@ def _rationale(
             (abs(window_fit) * 1000, f"Trade {word} a {posture} window ({window_fit:+.1f})")
         )
     if abs(equity) >= 500:
-        bullets.append((abs(equity) * 0.3, f"Net KTC equity {equity:+d}"))
+        # ``equity`` is the RAW canonical sum (receiving - sending), before
+        # any package Value Adjustment -- never a KTC number (TC-A).  It used
+        # to read "Net KTC equity", naming a vendor for a quantity that is
+        # neither KTC nor the active package model's adjusted gap.
+        bullets.append((abs(equity) * 0.3, f"Net raw equity {equity:+d} (before Value Adjustment)"))
     if abs(fit_score) >= 5:
         bullets.append((abs(fit_score) * 5, f"Roster-shape fit score {fit_score:+.0f}"))
     bullets.sort(key=lambda b: b[0], reverse=True)

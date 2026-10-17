@@ -1853,7 +1853,7 @@
   "postureSource": "canonical",
   "rationale": [
    "Shifts WR starter quality (+5000.0)",
-   "Net KTC equity +3800",
+   "Net raw equity +3800 (before Value Adjustment)",
    "Adds bench depth at saturated RB (-overflow)",
    "Adds bench depth at saturated WR (-overflow)",
    "Acquired RB Buf Depth (RB) doesn't start \u2014 duplicate"

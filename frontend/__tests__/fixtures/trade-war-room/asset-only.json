@@ -999,7 +999,7 @@
   "rationale": [
    "Shifts WR starter quality (+1000.0)",
    "Adds a starting TE (+500.0 starter value)",
-   "Net KTC equity +1000",
+   "Net raw equity +1000 (before Value Adjustment)",
    "Roster-shape fit score +34"
   ],
   "redundancy": [],

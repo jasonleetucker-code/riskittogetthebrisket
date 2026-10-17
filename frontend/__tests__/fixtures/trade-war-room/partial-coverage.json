@@ -1683,7 +1683,7 @@
   "postureSource": "canonical",
   "rationale": [
    "Shifts WR starter quality (+5000.0)",
-   "Net KTC equity +7000",
+   "Net raw equity +7000 (before Value Adjustment)",
    "Adds bench depth at saturated WR (-overflow)",
    "Roster-shape fit score +69"
   ],

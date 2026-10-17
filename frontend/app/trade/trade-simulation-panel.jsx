@@ -169,9 +169,13 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset, ov
                   label="Fit"
                   value={`${ti.fitScore >= 0 ? "+" : ""}${ti.fitScore.toFixed(1)}`}
                 />
+                {/* The equity score is built on the RAW canonical sum, before
+                    Value Adjustment (team_impact.py) — named so it is not read
+                    as the meter's adjusted gap (TC-A). */}
                 <StatTile
-                  label="Equity"
+                  label="Raw equity"
                   value={`${ti.equityScore >= 0 ? "+" : ""}${ti.equityScore.toFixed(1)}`}
+                  meta="before Value Adjustment"
                 />
                 {/* Wave B: window fit follows the canonical Competitive
                     Posture (C7-POST-01). Without one it is NOT computed —
@@ -360,7 +364,8 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset, ov
           ) : null}
 
           <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
-            Equity (receiving − sending): {fmtSigned(simResult.equity)}
+            Raw equity (receiving − sending, before Value Adjustment):{" "}
+            {fmtSigned(simResult.equity)}
           </p>
 
           {/* Secondary context, deliberately AFTER every verdict-bearing
