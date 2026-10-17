@@ -63,14 +63,18 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, 
     for season in snapshot.seasons:
         for tx in season.trades():
             for rid in tx.get("roster_ids") or []:
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                )
                 if not owner_id:
                     continue
                 counts.setdefault(owner_id, {"trades": 0, "waivers": 0})
                 counts[owner_id]["trades"] += 1
         for tx in season.waivers():
             for rid in tx.get("roster_ids") or []:
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                )
                 if not owner_id:
                     continue
                 counts.setdefault(owner_id, {"trades": 0, "waivers": 0})
@@ -96,7 +100,7 @@ def _weekly_scoring_by_owner(
         roster_id = metrics.roster_id_of(entry)
         if roster_id is None:
             continue
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, roster_id)
+        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, roster_id, wk)
         if not owner_id:
             continue
         out.setdefault(owner_id, []).append(

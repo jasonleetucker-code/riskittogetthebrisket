@@ -2869,6 +2869,21 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             # contract response.  The glyph degrades gracefully when
             # rankHistory is absent.
             log.warning("rank_history: append/stamp failed: %s", exc)
+        # Team labels follow permanent Sleeper user ids
+        # (``owner_names.json`` ``_byUserId``).  An export scraped before a
+        # name was configured still carries the old label; relabel the baked
+        # block so server-side engines name each roster the way the live
+        # overlay on /api/data does.  Display only — ids are untouched.
+        try:
+            _renamed = _sleeper_overlay.relabel_sleeper_block(
+                (contract_payload or {}).get("sleeper")
+                if isinstance(contract_payload, dict)
+                else None
+            )
+            if _renamed:
+                log.info("owner_names: relabelled baked sleeper teams %s", _renamed)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("owner_names: relabel failed: %s", exc)
         # Tag the contract with the league + scoring profile it was
         # built for.  Two different roles:
         #

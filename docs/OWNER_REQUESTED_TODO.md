@@ -1711,6 +1711,42 @@ OWNER_DECISION. Lane `claude/dlf-offense-only-vote`.
 | Re-measured after release train 4 merged (2026-10-16 ~14:58 UTC, same code — train changed the board by 0 rows; the shift is today's DLF/KTC data refresh): 228 values moved (172 IDP / 55 picks / 1 offense), confidence 13 up / 63 down — 49 high → medium because DLF IDP was the row's fifth voting family; 0 newly single-source / unpriced | APPROVED — owner 2026-10-16 ("Merge as-is") |
 
 
+## Added 2026-10-16 — League manager replacement: Joel (jstuedle) → John (jnesselhauf), dynasty_main roster 11
+
+Owner directive 2026-10-16 ("Additional owner directive — league manager replacement"), corrected by the owner
+2026-10-17: the incoming Sleeper user `jnesselhauf` is **John**, not Joel. Verified against Sleeper: user_id
+`735693375101108224` holds `dynasty_main` roster 11 (team "281 BBQ smoke n fire"); the outgoing manager is
+**Joel**, `jstuedle`, user_id `712035316776669184`, who joined in the 2026 expansion and only ever held roster 11.
+Identity is keyed by user id everywhere. Lane `claude/manager-replacement-jnesselhauf`.
+
+| Item | Disposition |
+|---|---|
+| jnesselhauf (735693375101108224) displays as **John**; jstuedle (712035316776669184) stays **Joel**; both by user id in `config/leagues/owner_names.json` `_byUserId` (the mistyped `jstudle` key removed) | DECIDED — owner, 2026-10-17 (name correction) |
+| Roster 11 hand-off effective **week 6**: Joel keeps 2026 weeks 1–5 (matchups, waivers, trades, draft), John owns week 6 onward; the team's season record stays with the roster | DECIDED — owner, 2026-10-17 |
+| Mid-season hand-offs recorded by user id in `config/leagues/roster_ownership_changes.json`, owned by `src/public_league/ownership.py`; consumed by public league sections, acquisition events, FAAB history/analytics and Manager Scout | IMPLEMENTED — lane `claude/manager-replacement-jnesselhauf` |
+| John is also ineligible for the 2026 Waiver King (same override as Joel and Blaine) | DECIDED — owner, 2026-10-17 |
+| John does not inherit Joel's favourite NFL team (KC); his is unset until the owner supplies one | RECORDED — binding (directive: do not transfer the outgoing manager's personal data) |
+| Joel's genuine history (his weeks, his award-eligibility record, immutable power snapshots weeks 00–05) is preserved, not transferred | RECORDED — binding (directive) |
+
+## Added 2026-10-16 — Manager Intelligence: Sleeper username lookup, dynasty portfolio and manager scouting (CE-03 extension)
+
+Owner master implementation prompt, 2026-10-16 ("SleeperStalker competitive feature replication + complete Sleeper
+dynasty manager portfolio & intelligence system"): search any Sleeper username and see that manager's dynasty
+leagues, every owned player aggregated across leagues (ownership count, exposure, value), trades and buy/sell
+tendencies, draft capital, career record, league-wide opponent scouting, saved managers and alerts, and manager
+leaderboards — native to this app and wired into the canonical values and trade tools. SleeperStalker is a
+functional benchmark only: no copied code, branding or interface assets, no paywall/auth bypass.
+
+| Item | Disposition |
+|---|---|
+| Batch order A → F: (A) username lookup + dynasty portfolio, (B) trades + draft capital, (C) league-wide scouting, (D) canonical trade-tool integration, (E) career/archetypes/comparisons, (F) monitoring + leaderboards; each batch ships as working, tested software | DECIDED — binding (prompt) |
+| Reuse the canonical Sleeper client, league filter, identity, values and trade engines; no second pipeline, valuation engine or identity system | DECIDED — binding (prompt) |
+| Private decision intelligence: signed-in users only; never on public `/league` endpoints | DECIDED — binding (prompt; MASTER_PRODUCT_PLAN §5) |
+| Site is **non-commercial**, so Sleeper's free public API terms apply; ship enabled for signed-in users, rate-limited | DECIDED — owner, 2026-10-17 |
+| Never fabricate unavailable data; inferred tendencies are labelled as evidence, never as fact or as a guarantee of acceptance; no collusion/abandonment accusations | DECIDED — binding (prompt) |
+| Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
+| Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
+
 ## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
 
 Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.zip` (three binding docs:
