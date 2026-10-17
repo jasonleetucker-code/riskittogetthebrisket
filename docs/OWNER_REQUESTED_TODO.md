@@ -1695,3 +1695,77 @@ with no manual re-entry of clearly recognized assets. Runbook: `docs/ops/SCREENS
 | Accuracy on real phone screenshots (Sleeper/ESPN/Yahoo/dark mode) measured after the VPS install; no universal-accuracy claim | PENDING — after the owner action |
 | Implementation | DEPLOYED 2026-10-16 — PR #1751 via release train #1753 (`47a9f561b`); recognition switches on after the owner action above |
 
+
+## Added 2026-10-16 — DLF vote offense-only (owner decision)
+
+Owner directive 2026-10-16: "DLF vote is offense-only." Settles the interpretation
+`docs/sources/SOURCE_VALUATION_AUDIT_2026-10-13.md` §2b ("DLF naming note") left open as an
+OWNER_DECISION. Lane `claude/dlf-offense-only-vote`.
+
+| Item | Disposition |
+|---|---|
+| DLF vote offense-only: `dlfIdp` and `dlfRookieIdp` remain ingested and displayed but never vote; `dlfSf` / `dlfRookieSf` unchanged; DLF Values (`dlfValuesSfTep`) held | DECIDED — owner directive 2026-10-16 |
+| Implemented through the existing vote-hold gate (`data_contract.POLICY_SOURCE_VOTE_HOLDS`, same gate as seasonal inactivity / private holds); rollback `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart | IMPLEMENTED — lane `claude/dlf-offense-only-vote` |
+| KTC Crowd / KTC Trades / KTC Market separation | UNCHANGED — owner policy 2026-09-23 |
+| Confidence semantics of the hold: a policy-held board is NOT an eligible confidence family (same as seasonal inactivity / the Signals IDP hold), not seated as lost evidence. Measured on the pinned 2026-10-16 export: 34 IDP rows rise low → medium (DLF IDP was itself each row's weakest family — 33 agreement, 1 freshness; none from shrunken coverage or independence) | APPROVED — owner 2026-10-16 ("Approve the 34 confidence rises on #1758") |
+| Re-measured after release train 4 merged (2026-10-16 ~14:58 UTC, same code — train changed the board by 0 rows; the shift is today's DLF/KTC data refresh): 228 values moved (172 IDP / 55 picks / 1 offense), confidence 13 up / 63 down — 49 high → medium because DLF IDP was the row's fifth voting family; 0 newly single-source / unpriced | APPROVED — owner 2026-10-16 ("Merge as-is") |
+
+
+## Added 2026-10-16 — League manager replacement: Joel (jstuedle) → John (jnesselhauf), dynasty_main roster 11
+
+Owner directive 2026-10-16 ("Additional owner directive — league manager replacement"), corrected by the owner
+2026-10-17: the incoming Sleeper user `jnesselhauf` is **John**, not Joel. Verified against Sleeper: user_id
+`735693375101108224` holds `dynasty_main` roster 11 (team "281 BBQ smoke n fire"); the outgoing manager is
+**Joel**, `jstuedle`, user_id `712035316776669184`, who joined in the 2026 expansion and only ever held roster 11.
+Identity is keyed by user id everywhere. Lane `claude/manager-replacement-jnesselhauf`.
+
+| Item | Disposition |
+|---|---|
+| jnesselhauf (735693375101108224) displays as **John**; jstuedle (712035316776669184) stays **Joel**; both by user id in `config/leagues/owner_names.json` `_byUserId` (the mistyped `jstudle` key removed) | DECIDED — owner, 2026-10-17 (name correction) |
+| Roster 11 hand-off effective **week 6**: Joel keeps 2026 weeks 1–5 (matchups, waivers, trades, draft), John owns week 6 onward; the team's season record stays with the roster | DECIDED — owner, 2026-10-17 |
+| Mid-season hand-offs recorded by user id in `config/leagues/roster_ownership_changes.json`, owned by `src/public_league/ownership.py`; consumed by public league sections, acquisition events, FAAB history/analytics and Manager Scout | IMPLEMENTED — lane `claude/manager-replacement-jnesselhauf` |
+| John is also ineligible for the 2026 Waiver King (same override as Joel and Blaine) | DECIDED — owner, 2026-10-17 |
+| John does not inherit Joel's favourite NFL team (KC); his is unset until the owner supplies one | RECORDED — binding (directive: do not transfer the outgoing manager's personal data) |
+| Joel's genuine history (his weeks, his award-eligibility record, immutable power snapshots weeks 00–05) is preserved, not transferred | RECORDED — binding (directive) |
+
+## Added 2026-10-16 — Manager Intelligence: Sleeper username lookup, dynasty portfolio and manager scouting (CE-03 extension)
+
+Owner master implementation prompt, 2026-10-16 ("SleeperStalker competitive feature replication + complete Sleeper
+dynasty manager portfolio & intelligence system"): search any Sleeper username and see that manager's dynasty
+leagues, every owned player aggregated across leagues (ownership count, exposure, value), trades and buy/sell
+tendencies, draft capital, career record, league-wide opponent scouting, saved managers and alerts, and manager
+leaderboards — native to this app and wired into the canonical values and trade tools. SleeperStalker is a
+functional benchmark only: no copied code, branding or interface assets, no paywall/auth bypass.
+
+| Item | Disposition |
+|---|---|
+| Batch order A → F: (A) username lookup + dynasty portfolio, (B) trades + draft capital, (C) league-wide scouting, (D) canonical trade-tool integration, (E) career/archetypes/comparisons, (F) monitoring + leaderboards; each batch ships as working, tested software | DECIDED — binding (prompt) |
+| Reuse the canonical Sleeper client, league filter, identity, values and trade engines; no second pipeline, valuation engine or identity system | DECIDED — binding (prompt) |
+| Private decision intelligence: signed-in users only; never on public `/league` endpoints | DECIDED — binding (prompt; MASTER_PRODUCT_PLAN §5) |
+| Site is **non-commercial**, so Sleeper's free public API terms apply; ship enabled for signed-in users, rate-limited | DECIDED — owner, 2026-10-17 |
+| Never fabricate unavailable data; inferred tendencies are labelled as evidence, never as fact or as a guarantee of acceptance; no collusion/abandonment accusations | DECIDED — binding (prompt) |
+| Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
+| Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
+
+## Added 2026-10-17 — League Tycoon migration research (owner research directive)
+
+Owner master research prompt, 2026-10-17: determine exactly what it would take for this Calculator to keep full
+league intelligence if the dynasty league moves from Sleeper to League Tycoon, and to use League Tycoon's
+contract-dynasty data. Research and planning only: implement nothing, change no production or Sleeper behaviour,
+and do not cut over without explicit owner approval. Blueprint:
+`docs/research/league-tycoon-migration-2026-10-17/README.md` (+ `SLEEPER_DEPENDENCY_INVENTORY.md`,
+`PARITY_MATRIX.md`, `OWNER_EVIDENCE_CAPTURE.md`).
+
+| Item | Disposition |
+|---|---|
+| Owner authorizes read-only collection of **their own** League Tycoon league's data, including via the owner's signed-in session; never other leagues/accounts, never writes | DECIDED — owner, 2026-10-17 (restated in session) |
+| League Tycoon's Terms of Use §4 prohibit automated access; written permission from League Tycoon is the recommended first step | DONE — 2026-10-17. League Tycoon support (George, support@leaguetycoon.com) replied to the owner in writing that scraping is "totally fine … to get all of the same information that you were able to get from Sleeper's API". The owner keeps the original email with headers |
+| Which league moves and from which season (proposed: `dynasty_main`, 2027) | OWNER DECISION NEEDED (OD-1) |
+| Standard vs contract dynasty on League Tycoon | OWNER DECISION NEEDED (OD-2) |
+| League Tycoon support for IDP and best ball is unconfirmed publicly; both define `dynasty_main` | OWNER ACTION — ask League Tycoon (OD-3) |
+| Access posture: written permission vs owner-accepted risk | DECIDED — written permission received 2026-10-17 (OD-4). Contract/cap pages are not Sleeper-equivalent data, so confirm them with League Tycoon before Batch 6 |
+| Contract-league modelling stays R60 DEFER until the owner lifts it | OWNER DECISION NEEDED (OD-5) |
+| Sleeper remains the record for seasons up to the cutover (League Tycoon does not import Sleeper transactions/trades) | RECOMMENDED (OD-6) |
+| Rookie-draft format and draft-order rule on League Tycoon | OWNER DECISION NEEDED (OD-7) |
+| One signed-in evidence capture by the owner (`OWNER_EVIDENCE_CAPTURE.md`) | OWNER ACTION — blocks every VERIFIED access claim |
+| Implementation (Batches 1–10) | NOT AUTHORIZED — needs `docs/EXECUTION_PLAN.md` |

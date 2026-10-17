@@ -141,7 +141,11 @@ export default function AppShellWrapper({ children }) {
 
   return (
     <AuthContext.Provider value={auth}>
-      <AppShell authenticated={auth.authenticated === true} capabilities={auth.features}>
+      <AppShell
+        authenticated={auth.authenticated === true}
+        capabilities={auth.features}
+        isAdmin={auth.authenticated === true && auth.isAdmin === true}
+      >
         <ShellChrome>{children}</ShellChrome>
       </AppShell>
     </AuthContext.Provider>

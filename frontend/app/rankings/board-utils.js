@@ -222,6 +222,28 @@ export function formatSourceCell(row, src, rawData) {
         observation,
       };
     }
+    // A source the backend HOLDS from the vote by declaration (e.g. the DLF
+    // IDP boards under the owner's "DLF vote is offense-only" policy,
+    // ``privateSourceAvailability[*].holdKind === "owner_policy"``) still
+    // listed this player when its CSV value is present — it simply did not
+    // vote.  Say that, never "did not list" (missing is never zero, and held
+    // is not broken).  The raw value of a rank-signal source is a synthetic
+    // encoding, so no number is shown.
+    const heldAvail = rawData?.privateSourceAvailability?.[src.key] || null;
+    if (hasRaw && heldAvail && heldAvail.votes === false) {
+      const state = sourceVoteState(heldAvail);
+      const label = VOTE_STATE_LABELS[state] || "not voting";
+      return {
+        hasVal: false,
+        mutedText: "not voting",
+        primary: "—",
+        rankLabel: "—",
+        title: `${src.displayName}: listed this player — ${label}${
+          heldAvail.heldFromVote ? ` (${heldAvail.heldFromVote})` : ""
+        }`,
+        observation,
+      };
+    }
     return {
       hasVal: false,
       primary: "—",

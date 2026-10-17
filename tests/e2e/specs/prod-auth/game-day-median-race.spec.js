@@ -49,19 +49,13 @@ test.describe("Live Median Race (production)", () => {
     expect(new Set(ids)).toEqual(new Set((body.leagueTeams || []).map((t) => t.rosterId)));
     const selected = race.teams.find((t) => t.rosterId === race.selectedRosterId);
     expect(selected.beatMedianPct).toBe(body.team.outcome ? body.team.outcome.beatMedianPct : null);
-    annotate(
-      testInfo,
-      "median-race",
-      [
-        `league=${body.leagueKey} week=${body.week} mode=${body.mode} state=${race.state}`,
-        `current=${race.currentMedian}(${race.currentMedianState})`,
-        `projected=${race.projectedMedianMean} [${race.projectedMedianP10}-${race.projectedMedianP90}]`,
-        `final=${race.finalMedian}`,
-        `bubble=${(race.bubble || []).join(",")}`,
-        `movement=${race.movement ? race.movement.comparedToGenerationId : "none"}`,
-        `top=${race.teams.slice(0, 3).map((t) => `${t.rosterId}:${t.beatMedianPct}`).join(" ")}`,
-      ].join(" "),
-    );
+    // Public artifact (security S3): states and counts only — never medians,
+    // projections, bubble teams or per-team chances (private forecasts).
+    annotate(testInfo, "median-race-league", String(body.leagueKey));
+    annotate(testInfo, "median-race-week", String(body.week));
+    annotate(testInfo, "median-race-mode", String(body.mode));
+    annotate(testInfo, "median-race-state", String(race.state));
+    annotate(testInfo, "median-race-teams", String(race.teams.length));
 
     await page.goto(prodUrl(`/game-day?team=${encodeURIComponent(team)}`), { waitUntil: "domcontentloaded" });
     const section = page.locator('section[aria-labelledby="median-race-title"]');

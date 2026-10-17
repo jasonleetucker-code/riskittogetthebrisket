@@ -252,6 +252,74 @@ def rostered_name_set(sleeper_teams: list[dict[str, Any]] | None) -> set[str]:
     return rostered
 
 
+def waiver_positions(include_kicker_def: bool = False) -> set[str]:
+    """The positions the waiver add pool offers."""
+    positions = set(_BASE_POSITIONS)
+    if include_kicker_def:
+        positions.update({"K", "DEF"})
+    return positions
+
+
+def waiver_candidate_exclusion(
+    row: dict[str, Any],
+    *,
+    positions: set[str],
+    min_value: int = MIN_WAIVER_VALUE,
+    rookies_eligible: bool,
+) -> str | None:
+    """Why the waiver add pool refuses this (unrostered) row, or ``None``.
+
+    THE add-pool filter.  ``find_waiver_targets`` applies it to choose
+    candidates; Perfect Waivers applies it to REPORT who was filtered and
+    why, so a player outside the pool is counted rather than invisible.
+    One definition, so the two cannot disagree about who was eligible.
+    """
+    pos = str(row.get("position") or "").upper()
+    if pos not in positions:
+        return "kicker_def_excluded" if pos in {"K", "DEF"} else "position_not_offered"
+    consensus = row.get("rankDerivedValue")
+    if not isinstance(consensus, (int, float)):
+        return "unpriced"
+    if consensus < min_value:
+        return "below_min_value"
+    # Two-source minimum.  A player backed by a single ranking
+    # source has no corroboration — these produced the "weird"
+    # waiver suggestions whose value rested on one list.  Never
+    # surface them as a pickup regardless of position.  ``sourceCount``
+    # is the matched-source count stamped by the canonical pipeline.
+    try:
+        source_count = int(row.get("sourceCount") or 0)
+    except (TypeError, ValueError):
+        source_count = 0
+    if source_count < 2:
+        return "single_source"
+    is_rookie = bool(row.get("rookie") or row.get("_formatFitRookie"))
+    if is_rookie and not rookies_eligible:
+        return "rookie_gate"
+    return None
+
+
+def waiver_pool_exclusion_census(
+    rows: list[dict[str, Any]],
+    *,
+    min_value: int = MIN_WAIVER_VALUE,
+    include_kicker_def: bool = False,
+) -> dict[str, int]:
+    """Counts, by reason, of the given unrostered rows the add pool refuses."""
+    positions = waiver_positions(include_kicker_def)
+    rookies_eligible = _rookies_eligible_today()
+    out: dict[str, int] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        reason = waiver_candidate_exclusion(
+            row, positions=positions, min_value=min_value, rookies_eligible=rookies_eligible
+        )
+        if reason is not None:
+            out[reason] = out.get(reason, 0) + 1
+    return out
+
+
 def find_waiver_targets(
     contract: dict[str, Any],
     sleeper_teams: list[dict[str, Any]] | None,
@@ -301,9 +369,7 @@ def find_waiver_targets(
     rostered = rostered_name_set(sleeper_teams)
 
     rookies_eligible = _rookies_eligible_today()
-    positions = set(_BASE_POSITIONS)
-    if include_kicker_def:
-        positions.update({"K", "DEF"})
+    positions = waiver_positions(include_kicker_def)
 
     candidates_by_position: dict[str, list[WaiverCandidate]] = {}
 
@@ -318,26 +384,19 @@ def find_waiver_targets(
         if not name or _normalize_name(name) in rostered:
             continue
 
+        if (
+            waiver_candidate_exclusion(
+                row,
+                positions=positions,
+                min_value=min_value,
+                rookies_eligible=rookies_eligible,
+            )
+            is not None
+        ):
+            continue
+
         consensus = row.get("rankDerivedValue")
-        if not isinstance(consensus, (int, float)) or consensus < min_value:
-            continue
-
-        # Two-source minimum.  A player backed by a single ranking
-        # source has no corroboration — these produced the "weird"
-        # waiver suggestions whose value rested on one list.  Never
-        # surface them as a pickup regardless of position.  ``sourceCount``
-        # is the matched-source count stamped by the canonical pipeline.
-        try:
-            source_count = int(row.get("sourceCount") or 0)
-        except (TypeError, ValueError):
-            source_count = 0
-        if source_count < 2:
-            continue
-
         is_rookie = bool(row.get("rookie") or row.get("_formatFitRookie"))
-        if is_rookie and not rookies_eligible:
-            continue
-
         cand = WaiverCandidate(
             name=name,
             position=pos,

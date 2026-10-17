@@ -583,12 +583,17 @@ class TestOffenseAndIdpResponseToOverrides(unittest.TestCase):
         base = build_api_data_contract(_fixture_raw_payload())
         override = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"dlfIdp": {"include": False}},
+            source_overrides={"fantasyProsIdp": {"include": False}},
         )
         base_by_name = _by_name(base)
         override_by_name = _by_name(override)
-        self.assertIn("dlfIdp", base_by_name["Myles Garrett"].get("sourceRanks") or {})
-        self.assertNotIn("dlfIdp", override_by_name["Myles Garrett"].get("sourceRanks") or {})
+        # ``fantasyProsIdp``, not ``dlfIdp``: the DLF IDP boards are held from
+        # the vote by owner policy (2026-10-16), so they are on no row's
+        # stamp to begin with.
+        self.assertIn("fantasyProsIdp", base_by_name["Myles Garrett"].get("sourceRanks") or {})
+        self.assertNotIn(
+            "fantasyProsIdp", override_by_name["Myles Garrett"].get("sourceRanks") or {}
+        )
 
 
 class TestBuildRankingsDeltaPayload(unittest.TestCase):

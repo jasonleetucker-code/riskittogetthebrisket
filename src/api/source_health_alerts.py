@@ -463,8 +463,6 @@ def check_and_alert(
          "skipped_cooldown": int}
     """
     state_user = "_system_source_health"
-    state = user_kv.get_user_state(state_user, path=kv_path)
-    alert_state = dict(state.get("sourceHealthAlertState") or {})
     now = time.time()
     stale = detect_stale_sources(
         source_health,
@@ -474,60 +472,67 @@ def check_and_alert(
     ) + detect_content_alerts(source_weighting)
     stale_sources = {a.source for a in stale}
 
-    # Detect recovery transitions — sources in alert_state marked stale
-    # that are NO longer stale now.
-    recovery_alerts: list[StaleSourceAlert] = []
-    for src, entry in list(alert_state.items()):
-        if not isinstance(entry, dict):
-            continue
-        if entry.get("currentlyStale") and src not in stale_sources:
-            recovery_alerts.append(
-                StaleSourceAlert(
-                    source=src,
-                    last_seen_iso=str(entry.get("lastAlertedAt") or ""),
-                    hours_stale=0.0,
-                    threshold_hours=0.0,
-                    transition="recovered",
-                )
-            )
-
     summary = {"stale": 0, "recovered": 0, "delivered": 0, "skipped_cooldown": 0}
     to_send: list[StaleSourceAlert] = []
 
-    # Stale alerts — apply cooldown.
-    for alert in stale:
-        prev = alert_state.get(alert.source) or {}
-        last_alerted = float(prev.get("lastAlertedAt") or 0)
-        cooldown_sec = cooldown_hours * 3600.0
-        if prev.get("currentlyStale") and (now - last_alerted) < cooldown_sec:
-            summary["skipped_cooldown"] += 1
-            continue
-        to_send.append(alert)
-        alert_state[alert.source] = {
-            "currentlyStale": True,
-            "lastAlertedAt": now,
-            "lastSeenIso": alert.last_seen_iso,
-            "hoursStale": alert.hours_stale,
-        }
-        summary["stale"] += 1
+    # The cooldown / recovery decision is made on the CURRENT state, inside
+    # the user_kv write lock, and persisted in the same transaction BEFORE
+    # sending (so a delivery crash doesn't cause re-alerts next pass).
+    # Deciding on a copy read earlier let two overlapping sweeps both send
+    # the same alert, and the later write discarded the earlier's state.
+    def _decide(state: dict[str, Any]) -> None:
+        to_send.clear()
+        for k in ("stale", "recovered", "skipped_cooldown"):
+            summary[k] = 0
+        alert_state = dict(state.get("sourceHealthAlertState") or {})
 
-    # Recovery alerts always fire (they're inherently rate-limited by
-    # the "was previously stale" precondition).
-    for r in recovery_alerts:
-        to_send.append(r)
-        alert_state[r.source] = {
-            "currentlyStale": False,
-            "lastAlertedAt": now,
-        }
-        summary["recovered"] += 1
+        # Detect recovery transitions — sources in alert_state marked stale
+        # that are NO longer stale now.
+        recovery_alerts: list[StaleSourceAlert] = []
+        for src, entry in list(alert_state.items()):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("currentlyStale") and src not in stale_sources:
+                recovery_alerts.append(
+                    StaleSourceAlert(
+                        source=src,
+                        last_seen_iso=str(entry.get("lastAlertedAt") or ""),
+                        hours_stale=0.0,
+                        threshold_hours=0.0,
+                        transition="recovered",
+                    )
+                )
 
-    # Persist state BEFORE sending so a delivery crash doesn't cause
-    # re-alerts next pass.
-    user_kv.merge_user_state(
-        state_user,
-        {"sourceHealthAlertState": alert_state},
-        path=kv_path,
-    )
+        # Stale alerts — apply cooldown.
+        for alert in stale:
+            prev = alert_state.get(alert.source) or {}
+            last_alerted = float(prev.get("lastAlertedAt") or 0)
+            cooldown_sec = cooldown_hours * 3600.0
+            if prev.get("currentlyStale") and (now - last_alerted) < cooldown_sec:
+                summary["skipped_cooldown"] += 1
+                continue
+            to_send.append(alert)
+            alert_state[alert.source] = {
+                "currentlyStale": True,
+                "lastAlertedAt": now,
+                "lastSeenIso": alert.last_seen_iso,
+                "hoursStale": alert.hours_stale,
+            }
+            summary["stale"] += 1
+
+        # Recovery alerts always fire (they're inherently rate-limited by
+        # the "was previously stale" precondition).
+        for r in recovery_alerts:
+            to_send.append(r)
+            alert_state[r.source] = {
+                "currentlyStale": False,
+                "lastAlertedAt": now,
+            }
+            summary["recovered"] += 1
+
+        state["sourceHealthAlertState"] = alert_state
+
+    user_kv.mutate_user_state(state_user, _decide, path=kv_path)
 
     if not to_send:
         return summary

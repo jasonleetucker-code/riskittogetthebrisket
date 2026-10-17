@@ -27,5 +27,14 @@
   "contentStaleness": {
     "defaultDays": 14,
     "bySource": {}
+  },
+  "_comment_acknowledged": "acknowledgedFetchOutages: an owner-tracked, DATED downgrade of one source's FETCH outage from FAIL to DEGRADED in scripts/watchdog_freshness.py — nothing else. It is not a vendor-publication gap (a stale _last_success stamp is a fetch failure by construction; content staleness belongs to src/sources/freshness.py), and it never touches the live alert engine, the on-site banner or the contract's warnings. Honoured only while: the entry names a tracking 'issue', carries zoned 'acknowledgedAt'/'expiresAt' at most 14 days apart, now is inside that window, AND the board the same run built shows the source casting NO vote (sourceWeighting.sources[key].votingRows == 0, excludedRows >= 1). A stale source that still votes, an expired/malformed entry, or an unbuildable board stays a hard failure with the refusal named. Exact keys only (no vendor prefix). Renewing an entry is an owner decision, never a way to quiet the job. idpShowCombined (2026-10-16): the prod timer (deploy/idpshow_fetch_and_push.sh, which re-stamps on every successful fetch) has committed nothing since 2026-10-07T20:32Z — every 2h before that it did — so the FETCH is down on the box (most likely the hand-minted IDP Show cookie lapsed: both fetches failing makes the script exit before committing, which also leaves last_status.json at its last HEALTHY write). Separately the vendor's Datawrapper chart has not changed since 2026-08-19, so the freshness weighting already QUARANTINES the board and it votes on 0 of the rows it appears on — the outage cannot move a value. Expires 2026-10-23: re-mint the session on the box, or the job goes red again.",
+  "acknowledgedFetchOutages": {
+    "idpShowCombined": {
+      "issue": "#1726",
+      "reason": "prod idpshow-fetch timer silent since 2026-10-07T20:32Z (fetch outage, likely lapsed session cookie); board already withheld from voting (vendor content frozen since 2026-08-19, QUARANTINED)",
+      "acknowledgedAt": "2026-10-16T00:00:00Z",
+      "expiresAt": "2026-10-23T00:00:00Z"
+    }
   }
 }

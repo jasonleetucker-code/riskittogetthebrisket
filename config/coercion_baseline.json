@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 633,
+ "count": 630,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -111,8 +111,6 @@
   "frontend/lib/league-analysis.js::meta: r.values?.full || 0,",
   "frontend/lib/league-analysis.js::normalizeTradeTimestampMs(a.trade?.timestamp) || Date.parse(a.date) || 0;",
   "frontend/lib/league-analysis.js::value: row.values?.full || 0,",
-  "frontend/lib/market-movers.js::return (b.value || 0) - (a.value || 0);",
-  "frontend/lib/market-movers.js::value: Number(r.rankDerivedValue || r.values?.full || 0),",
   "frontend/lib/movers.js::value: Number(r.rankDerivedValue || r.values?.full || 0),",
   "frontend/lib/news-service.js::const ta = Date.parse(a) || 0;",
   "frontend/lib/news-service.js::const tb = Date.parse(b) || 0;",
@@ -211,7 +209,6 @@
   "server.py::fetched_at = float(cached.get(\"_cached_at\") or 0)",
   "server.py::float(rec.get(\"objective\", {}).get(\"pctOfOriginalBudget\") or 0.0)",
   "server.py::if cached and (now - float(cached.get(\"fetched_at\") or 0)) < _SLEEPER_NAME_TTL_SEC:",
-  "server.py::int(v or 0) for k, v in _starters.items() if str(k).upper() != \"K\"",
   "server.py::key=lambda e: (-e[\"delta\"], -(e[\"valueNow\"] or 0), e[\"name\"], e[\"assetClass\"] or \"\")",
   "server.py::key=lambda e: (e[\"delta\"], -(e[\"valueNow\"] or 0), e[\"name\"], e[\"assetClass\"] or \"\")",
   "server.py::last_failure_at = float(_public_league_cache.get(\"last_failure_at\") or 0.0)",

@@ -87,11 +87,12 @@ def _side_block(
     season: SeasonSnapshot,
     entry: dict[str, Any],
     pre_standings_lookup: dict[str, dict[str, Any]],
+    week: int | None = None,
 ) -> dict[str, Any] | None:
     rid = metrics.roster_id_of(entry)
     if rid is None:
         return None
-    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
 
     # An unresolved owner USED TO return None here, which killed the whole
     # recap — `build_matchup_recap` bails when either side is None, so
@@ -193,8 +194,8 @@ def build_matchup_recap(
     pre_lookup = {r["ownerId"]: r for r in pre_standings}
 
     pair_sorted = sorted(pair, key=lambda e: int(e.get("roster_id") or 0))
-    home = _side_block(snapshot, season, pair_sorted[0], pre_lookup)
-    away = _side_block(snapshot, season, pair_sorted[1], pre_lookup)
+    home = _side_block(snapshot, season, pair_sorted[0], pre_lookup, week)
+    away = _side_block(snapshot, season, pair_sorted[1], pre_lookup, week)
     if home is None or away is None:
         return None
 

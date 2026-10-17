@@ -51,7 +51,8 @@ explanations, 14-day backtest). Board as of `2026-09-23T18:41:31Z`.
 | ktcCrowdTradesSfTep | KeepTradeCut published Crowd+Trades | value | — | offense + picks | **no** | **KTC Market** |
 | idpTradeCalc | IDP Trade Calculator | value | idpTradeCalc | full roster + picks | yes | — |
 | idpShowCombined | The IDP Show (Adamidp) Combined | rank | idpShow | IDP | yes | — |
-| dlfSf / dlfRookieSf / dlfIdp / dlfRookieIdp | Dynasty League Football | rank | dlf | offense / IDP | yes | — |
+| dlfSf / dlfRookieSf | Dynasty League Football | rank | dlf | offense | yes | — |
+| dlfIdp / dlfRookieIdp | Dynasty League Football IDP | rank | dlf | IDP | **no** — held by owner policy 2026-10-16 ("DLF vote is offense-only"; `POLICY_SOURCE_VOTE_HOLDS`, rollback `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`) | — |
 | dynastyNerdsSfTep | Dynasty Nerds | rank | own | offense | yes | — |
 | fantasyCalc | FantasyCalc | rank | own | offense | yes | — |
 | otcffbSf | OTC Fantasy Football | rank | own | offense | yes | — |

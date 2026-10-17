@@ -113,6 +113,17 @@ def test_every_flag_defaults_off_except_safe_additive():
         # 4 top-200 membership changes; IDP and picks unchanged.  Rollback:
         # RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0.
         "source_universe_freshness",
+        # Owner directive 2026-10-16 ("DLF vote is offense-only"): the DLF IDP
+        # boards (dlfIdp, dlfRookieIdp) are held from the vote.  Blast radius
+        # MEASURED on the 2026-10-16 export (scripts/board_diff.py, golden
+        # capture ON vs OFF): 213 values move — 175 IDP, 37 current-year
+        # (2027) slot picks that re-tether to the merged rookie pool, and
+        # Travis Hunter via the two-way boost's IDP alt-family value; no other
+        # offense value; 0 rows newly unpriced, 0 zeroed; 65 IDP confidence
+        # buckets flip (34 up, all where DLF IDP itself was the disagreeing /
+        # stale family; 31 down).  Rollback:
+        # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.
+        "dlf_offense_only_vote",
         # Owner addendum 2026-10-03: Signals' authenticated native values vote
         # (value-ordered rank, FantasyCalc family).  Inert wherever the
         # box-local private store is absent (CI, dev).  Whole-board impact
