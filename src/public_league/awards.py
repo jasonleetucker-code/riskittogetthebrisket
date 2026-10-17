@@ -483,7 +483,7 @@ def _attach_canonical_standings(
 
     def _team_week_row(tw: tuple[float, int, int]) -> dict[str, Any]:
         pts, rid, week = tw
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid) or ""
+        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week) or ""
         return {"ownerId": owner_id, "points": round(pts, 2), "week": week}
 
     lists: dict[str, dict[str, Any]] = {
@@ -574,7 +574,9 @@ def _trader_of_the_year_scores(
             continue
 
         for rid in roster_ids:
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(
+                snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+            )
             if not owner_id:
                 continue
             received = [pid for pid, r in adds.items() if int(r) == rid]
@@ -713,7 +715,9 @@ def _waiver_king_scores(
                 rid_int = int(rid)
             except (TypeError, ValueError):
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid_int)
+            owner_id = metrics.resolve_owner(
+                snapshot.managers, season.league_id, rid_int, leg_int or None
+            )
             if not owner_id:
                 continue
             rec = _ensure(owner_id)
@@ -789,8 +793,12 @@ def _silent_assassin_scores(
             if pa <= 0 and pb <= 0:
                 continue
             margin = abs(pa - pb)
-            owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-            owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+            owner_a = metrics.resolve_owner(
+                snapshot.managers, season.league_id, a.get("roster_id"), week
+            )
+            owner_b = metrics.resolve_owner(
+                snapshot.managers, season.league_id, b.get("roster_id"), week
+            )
             if not owner_a or not owner_b:
                 continue
             for owner in (owner_a, owner_b):
@@ -864,7 +872,7 @@ def _weekly_hammer_scores(
             continue
         top_pts = max(pts for _, pts in scored)
         for rid, pts in scored:
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             rec = _ensure(owner_id)
@@ -917,8 +925,12 @@ def _bad_beat_scores(
             pb = metrics.matchup_points(b)
             if pa <= 0 and pb <= 0:
                 continue
-            owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-            owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+            owner_a = metrics.resolve_owner(
+                snapshot.managers, season.league_id, a.get("roster_id"), week
+            )
+            owner_b = metrics.resolve_owner(
+                snapshot.managers, season.league_id, b.get("roster_id"), week
+            )
             if not owner_a or not owner_b:
                 continue
             if pa < pb:
@@ -1066,7 +1078,7 @@ def _starter_scoring_walk(
             rid = metrics.roster_id_of(entry)
             if rid is None:
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             pp = entry.get("players_points")
@@ -1952,7 +1964,9 @@ def _mr_consistent_scores(
     if not qualifiers:
         return []
 
-    weekly: dict[int, list[float]] = defaultdict(list)
+    # Keyed by the OWNER of each team-week, not the roster: a roster that
+    # changed hands mid-season is two managers' weeks, never one series.
+    weekly: dict[str, list[float]] = defaultdict(list)
     final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
         if week >= season.playoff_week_start or week not in final_weeks:
@@ -1964,10 +1978,12 @@ def _mr_consistent_scores(
             pts = metrics.matchup_points(entry)
             if pts <= 0:
                 continue
-            weekly[rid].append(pts)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
+            if owner_id:
+                weekly[owner_id].append(pts)
 
     rows: list[dict[str, Any]] = []
-    for rid, scores in weekly.items():
+    for owner_id, scores in weekly.items():
         if len(scores) < min_weeks:
             continue
         mean = sum(scores) / len(scores)
@@ -1975,9 +1991,6 @@ def _mr_consistent_scores(
             continue
         var = sum((x - mean) ** 2 for x in scores) / len(scores)
         cv = (var**0.5) / mean
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
-        if not owner_id:
-            continue
         rows.append(
             {
                 "ownerId": owner_id,
@@ -2125,8 +2138,12 @@ def _rivalry_of_the_year(
             pb = metrics.matchup_points(b)
             if pa <= 0 and pb <= 0:
                 continue
-            oa = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-            ob = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+            oa = metrics.resolve_owner(
+                snapshot.managers, season.league_id, a.get("roster_id"), week
+            )
+            ob = metrics.resolve_owner(
+                snapshot.managers, season.league_id, b.get("roster_id"), week
+            )
             if not oa or not ob or oa == ob:
                 continue
             rec = _ensure(oa, ob)

@@ -6,7 +6,7 @@
  * Every expectation is read from the live `/api/public/league/awards`
  * payload first and then checked on the rendered page, so the run is its
  * own evidence whatever week it lands in:
- *   - 2026 Waiver King: Joel / Blaine never hold the award or an award-race
+ *   - 2026 Waiver King: Joel / Blaine / John never hold the award or an award-race
  *     rank; their real metric is in the standings, labelled ineligible; the
  *     leader is the best eligible manager;
  *   - a player award (League MVP, else Top QB) expands to the API's rows in
@@ -18,6 +18,9 @@
 const { test, expect, ORIGIN, prodUrl, getJson, annotate } = require("./helpers");
 
 const JOEL = "712035316776669184";
+// John (jnesselhauf) took over Joel's roster from week 6; owner decision
+// 2026-10-17 makes him ineligible for the 2026 Waiver King too.
+const JOHN = "735693375101108224";
 const BLAINE = "1303549304882892800";
 
 function configured() {
@@ -52,7 +55,7 @@ async function expand(page, key) {
 }
 
 test.describe("Awards standings + 2026 Waiver King eligibility (production)", () => {
-  test("API and page agree; Joel/Blaine cannot win 2026 Waiver King; every expansion is the backend's ranking", async ({
+  test("API and page agree; Joel/Blaine/John cannot win 2026 Waiver King; every expansion is the backend's ranking", async ({
     page,
   }, testInfo) => {
     test.skip(!configured(), "PROD_ORIGIN is not configured");
@@ -71,13 +74,14 @@ test.describe("Awards standings + 2026 Waiver King eligibility (production)", ()
     const seasonRow = (data.bySeason || []).find((s) => s.season === "2026");
     const wkAward = seasonRow && (seasonRow.awards || []).find((a) => a.key === "waiver_king");
     if (wkAward && !wkAward.awaitingEvidence) {
-      expect([JOEL, BLAINE]).not.toContain(wkAward.ownerId);
+      expect([JOEL, BLAINE, JOHN]).not.toContain(wkAward.ownerId);
     }
     if (season === "2026" && wk && !wk.awaitingEvidence) {
       expect(wk.leaders.map((l) => l.ownerId)).not.toContain(JOEL);
       expect(wk.leaders.map((l) => l.ownerId)).not.toContain(BLAINE);
+      expect(wk.leaders.map((l) => l.ownerId)).not.toContain(JOHN);
       for (const row of wk.standings || []) {
-        if (row.ownerId === JOEL || row.ownerId === BLAINE) {
+        if (row.ownerId === JOEL || row.ownerId === BLAINE || row.ownerId === JOHN) {
           expect(row.eligible).toBe(false);
           expect(row.awardRank).toBeNull();
           expect(row.ineligibleLabel).toBe("Ineligible for 2026 award");

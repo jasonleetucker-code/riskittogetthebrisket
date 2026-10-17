@@ -37,8 +37,12 @@ def _normalize_pick(
         pick_no = int(pick.get("pick_no") or 0)
     except (TypeError, ValueError):
         pick_no = 0
+    # A draft pick is made before the season's first week, so a roster that
+    # changed hands mid-season made its picks under the OUTGOING owner.
     owner_id = (
-        metrics.resolve_owner(snapshot.managers, season.league_id, rid) if rid is not None else ""
+        metrics.resolve_owner(snapshot.managers, season.league_id, rid, 0)
+        if rid is not None
+        else ""
     )
     metadata = pick.get("metadata") or {}
     first = str(metadata.get("first_name") or "").strip()

@@ -1,0 +1,17 @@
+{
+  "_comment": "Mid-season roster hand-offs. A Sleeper roster keeps its roster_id when its owner changes, and Sleeper's /rosters reports only the CURRENT owner, so without this file every week of the season is attributed to whoever holds the roster at fetch time. Each entry: weeks < effectiveWeek belong to fromOwnerId, weeks >= effectiveWeek to toOwnerId. Owner by Sleeper user_id, never by name. Read by src/public_league/ownership.py.",
+  "changes": [
+    {
+      "leagueKey": "dynasty_main",
+      "leagueId": "1312006700437352448",
+      "season": "2026",
+      "rosterId": 11,
+      "fromOwnerId": "712035316776669184",
+      "fromUsername": "jstuedle",
+      "toOwnerId": "735693375101108224",
+      "toUsername": "jnesselhauf",
+      "effectiveWeek": 6,
+      "source": "owner directive 2026-10-16; cutover week confirmed by owner 2026-10-17 (jstuedle's last roster-11 transaction 2026-10-11, week 5)"
+    }
+  ]
+}
