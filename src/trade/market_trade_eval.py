@@ -47,6 +47,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity.picks import parse_market_pick_id
 from src.sources.ktc_market import KTC_MARKET_KEY
+from src.valuation_math import package_model
 from src.valuation_math.package_model import adjusted_pair_totals
 
 TOPO_1_FOR_1 = "two_team_1_for_1"
@@ -250,11 +251,17 @@ def _orient(sides: Sequence[Sequence[Mapping[str, Any]]], board: BoardIndex) -> 
 
 
 def trade_residual(
-    trade: Mapping[str, Any], board: BoardIndex, source: str
+    trade: Mapping[str, Any],
+    board: BoardIndex,
+    source: str,
+    *,
+    model_id: str | None = None,
 ) -> dict[str, Any] | None:
     """VA-adjusted relative gap for one trade under one source, or ``None``
     when the source does not price every asset (coverage is all-or-nothing:
-    a partially priced side is not a smaller side)."""
+    a partially priced side is not a smaller side).  ``model_id`` selects a
+    registered package model (default: the active one) so a shadow challenger
+    can be evaluated on the same trades without touching production."""
     sides = trade.get("sides") or []
     if len(sides) != 2:
         return None
@@ -263,7 +270,7 @@ def trade_residual(
     vb = [board.values(x).get(source) for x in b]
     if not va or not vb or any(v is None for v in va + vb):
         return None
-    adj_a, adj_b, va_a, va_b = adjusted_pair_totals(va, vb)
+    adj_a, adj_b, va_a, va_b = adjusted_pair_totals(va, vb, model_id=model_id)
     mean = (adj_a + adj_b) / 2.0
     if mean <= 0:
         return None
@@ -355,6 +362,7 @@ def residual_report(
     board_date: date | None,
     sources: Iterable[str] | None = None,
     max_board_lag_days: int = DEFAULT_MAX_BOARD_LAG_DAYS,
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     """Per-source residual summaries over identifiable trades only.
 
@@ -402,7 +410,7 @@ def residual_report(
         by_tep: dict[str, list[float]] = {}
         not_covered = 0
         for t in eligible:
-            r = trade_residual(t, board, src)
+            r = trade_residual(t, board, src, model_id=model_id)
             if r is None:
                 not_covered += 1
                 continue
@@ -436,9 +444,10 @@ def residual_report(
         "excludedByReason": dict(sorted(excluded.items())),
         "boardDate": board_date.isoformat() if board_date else None,
         "maxBoardLagDays": max_board_lag_days,
+        "packageModel": package_model.receipt(model_id),
         "perSource": per_source,
         "notes": [
-            "residual = (VA-adjusted stud side - VA-adjusted other side) / mean, via src.trade.ktc_va",
+            "residual = (VA-adjusted stud side - VA-adjusted other side) / mean, via the package model named in packageModel",
             "a completed trade cleared at 'even' for its two managers; the residual measures a source's disagreement with that clearing",
             "KTC Trades / KTC Market (and the canonical board, which votes KTC Trades) are partly in-sample on KTC rows; see rowsNotYetConsumedByKtcTrades",
             "isUsedInVft is a PROCESSING flag: measured 2026-10-01, 10 of 200 rows flipped False -> True within ~25 minutes of first appearing, so False mostly means not yet consumed (the latest archived revision governs), not deliberately excluded",
