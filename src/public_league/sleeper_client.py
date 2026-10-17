@@ -347,8 +347,25 @@ def fetch_draft_picks(draft_id: str) -> list[dict[str, Any]]:
 
 
 def fetch_traded_picks(league_id: str) -> list[dict[str, Any]]:
+    """Legacy collapsing read: a failed fetch reads as ``[]``.
+
+    Ownership must NOT be derived from this — use
+    :func:`fetch_traded_picks_observed`, which keeps "no trades" and "could not
+    read" apart.  Kept for callers that only want rows when they exist.
+    """
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}/traded_picks")
     return data if isinstance(data, list) else []
+
+
+def fetch_traded_picks_observed(league_id: str) -> list[dict[str, Any]] | None:
+    """``/traded_picks`` as an ownership OBSERVATION: a list (even empty) when
+    Sleeper answered, ``None`` when the read failed or was malformed — the
+    ``picks.traded_picks_observation`` rule every pick-ownership producer uses."""
+    from src.identity.picks import traded_picks_observation
+
+    return traded_picks_observation(
+        _request_json(f"{SLEEPER_BASE}/league/{league_id}/traded_picks")
+    )
 
 
 def fetch_winners_bracket(league_id: str) -> list[dict[str, Any]]:

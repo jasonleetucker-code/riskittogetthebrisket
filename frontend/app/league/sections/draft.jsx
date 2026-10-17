@@ -5,6 +5,12 @@
 
 import { useEffect, useState } from "react";
 import { Card, EmptyCard } from "../shared.jsx";
+import {
+  PickChips,
+  PickChipsLegend,
+  PickOwnershipUnavailableNote,
+  draftOwnershipUnavailableReason,
+} from "../pick-chips.jsx";
 
 function DraftSection({ data, initialOwner, setOwner }) {
   if (!data) return <EmptyCard label="Drafts" />;
@@ -25,79 +31,81 @@ function DraftSection({ data, initialOwner, setOwner }) {
   }
   const drafts = data.drafts || [];
   const ownerPicks = ownership[selectedOwner] || [];
+  const unavailableReason = draftOwnershipUnavailableReason(data);
+  const mostTraded = data.mostTradedPick;
 
   return (
     <>
-      <Card title="Weighted pick stockpile" subtitle="1st round = 4 pts, 2nd = 3, 3rd = 2, 4th+ = 1">
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Manager</th>
-                <th style={{ textAlign: "right" }}>Total picks</th>
-                <th style={{ textAlign: "right" }}>Weighted</th>
-              </tr>
-            </thead>
-            <tbody>
-              {board.map((row, i) => (
-                <tr
-                  key={row.ownerId}
-                  onClick={() => selectOwner(row.ownerId)}
-                  style={{
-                    cursor: "pointer",
-                    background: selectedOwner === row.ownerId ? "rgba(79, 155, 236, 0.08)" : "transparent",
-                  }}
-                >
-                  <td style={{ fontWeight: 600 }}>
-                    <span style={{ color: "var(--subtext)", marginRight: 6, fontFamily: "var(--mono)" }}>{i + 1}.</span>
-                    {row.displayName}
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.totalPicks}</td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--cyan)" }}>{row.weightedScore}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {selectedOwner && (
-        <Card
-          title="Pick inventory"
-          subtitle={`Picks owned by ${board.find((r) => r.ownerId === selectedOwner)?.displayName || "this manager"}`}
-        >
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {ownerPicks.length === 0 && (
-              <div style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>No tracked picks.</div>
-            )}
-            {ownerPicks.map((p, i) => (
-              <span
-                key={i}
-                style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: "0.72rem",
-                  border: "1px solid var(--border)",
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  color: p.isTraded ? "var(--amber)" : "var(--text)",
-                }}
-              >
-                {p.label}{p.isTraded ? "*" : ""}
-              </span>
-            ))}
-          </div>
-          <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 6 }}>
-            Amber picks (*) were acquired via trade.
-          </div>
+      {unavailableReason ? (
+        <Card title="Pick inventory">
+          <PickOwnershipUnavailableNote
+            reason={unavailableReason}
+            withheld="Pick counts and the stockpile ranking are withheld rather than shown as if every team held only its own picks."
+          />
         </Card>
+      ) : (
+        <>
+          <Card title="Weighted pick stockpile" subtitle="1st round = 4 pts, 2nd = 3, 3rd = 2, 4th+ = 1">
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Manager</th>
+                    <th style={{ textAlign: "right" }}>Total picks</th>
+                    <th style={{ textAlign: "right" }}>Weighted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.map((row, i) => (
+                    <tr
+                      key={row.ownerId}
+                      onClick={() => selectOwner(row.ownerId)}
+                      style={{
+                        cursor: "pointer",
+                        background: selectedOwner === row.ownerId ? "rgba(79, 155, 236, 0.08)" : "transparent",
+                      }}
+                    >
+                      <td style={{ fontWeight: 600 }}>
+                        <span style={{ color: "var(--subtext)", marginRight: 6, fontFamily: "var(--mono)" }}>{i + 1}.</span>
+                        {row.displayName}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.totalPicks}</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--cyan)" }}>{row.weightedScore}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {selectedOwner && (
+            <Card
+              title="Pick inventory"
+              subtitle={`Picks owned by ${board.find((r) => r.ownerId === selectedOwner)?.displayName || "this manager"}`}
+            >
+              {ownerPicks.length === 0 ? (
+                <div style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>Holds no picks in the tracked draft years.</div>
+              ) : (
+                <PickChips picks={ownerPicks} />
+              )}
+              <PickChipsLegend />
+            </Card>
+          )}
+        </>
       )}
 
-      {data.mostTradedPick && (
+      {mostTraded && (
         <Card title="Most-traded pick">
           <div>
-            <div style={{ fontWeight: 700, fontSize: "0.94rem" }}>{data.mostTradedPick.label}</div>
+            <div style={{ fontWeight: 700, fontSize: "0.94rem" }}>
+              {mostTraded.label}
+              {mostTraded.originDisplayName ? (
+                <span style={{ fontWeight: 500, color: "var(--subtext)" }}> · {mostTraded.originDisplayName}&apos;s original</span>
+              ) : null}
+            </div>
             <div style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>
-              Changed hands {data.mostTradedPick.moveCount} time{data.mostTradedPick.moveCount === 1 ? "" : "s"}
+              Moved in {mostTraded.coverage && mostTraded.coverage !== "complete" ? "at least " : ""}
+              {mostTraded.moveCount} completed trade{mostTraded.moveCount === 1 ? "" : "s"}
             </div>
           </div>
         </Card>

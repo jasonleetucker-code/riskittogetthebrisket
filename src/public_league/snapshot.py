@@ -70,6 +70,13 @@ class SeasonSnapshot:
     traded_picks: list[dict[str, Any]]
     winners_bracket: list[dict[str, Any]]
     losers_bracket: list[dict[str, Any]]
+    # Whether ``traded_picks`` is an OBSERVATION of this league's pick
+    # ownership state (``picks.PICK_OWNERSHIP_OBSERVED``) or not
+    # (``PICK_OWNERSHIP_UNAVAILABLE`` + a reason).  An empty ``traded_picks``
+    # means "no traded picks" only when observed — a failed read stores ``[]``
+    # with state unavailable, so it can never fabricate default ownership.
+    traded_picks_state: str = "observed"
+    traded_picks_reason: str | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -278,7 +285,7 @@ def _fetch_season(
     users_fut = executor.submit(sleeper_client.fetch_users, league_id)
     rosters_fut = executor.submit(sleeper_client.fetch_rosters, league_id)
     drafts_fut = executor.submit(sleeper_client.fetch_drafts, league_id)
-    traded_picks_fut = executor.submit(sleeper_client.fetch_traded_picks, league_id)
+    traded_picks_fut = executor.submit(sleeper_client.fetch_traded_picks_observed, league_id)
     winners_fut = executor.submit(sleeper_client.fetch_winners_bracket, league_id)
     losers_fut = executor.submit(sleeper_client.fetch_losers_bracket, league_id)
 
@@ -329,6 +336,10 @@ def _fetch_season(
             draft_picks_by_draft[draft_id] = fut.result() or []
 
     season_key = str(league_obj.get("season") or "")
+    from src.identity.picks import pick_ownership_fields
+
+    traded_picks = traded_picks_fut.result()
+    traded_picks_fields = pick_ownership_fields(traded_picks is not None)
     return SeasonSnapshot(
         season=season_key,
         league_id=league_id,
@@ -339,9 +350,11 @@ def _fetch_season(
         transactions_by_week=transactions,
         drafts=drafts,
         draft_picks_by_draft=draft_picks_by_draft,
-        traded_picks=traded_picks_fut.result(),
+        traded_picks=traded_picks if traded_picks is not None else [],
         winners_bracket=winners_fut.result(),
         losers_bracket=losers_fut.result(),
+        traded_picks_state=traded_picks_fields["pickOwnershipState"],
+        traded_picks_reason=traded_picks_fields["pickOwnershipReason"],
     )
 
 
