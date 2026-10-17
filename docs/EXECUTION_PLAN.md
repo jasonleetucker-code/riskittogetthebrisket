@@ -118,6 +118,9 @@ scheduled-refresh staleness watchdog must not fail on a vendor-frozen source alr
 source-policy fallbacks; (D) this records reconciliation. Not authorized by it: re-enabling the disabled
 verification workflows (owner action), any other value/methodology change, League Tycoon (parked — owner PR
 #1755), Market Edge Lab.
+**Merged:** A #1759 (`15cbad9e4`, 2026-10-16, deploy verified); B #1757 (`d4520198b`, 2026-10-16); C #1758
+(`a7c732e1e`, 2026-10-17, owner-approved re-measured impact; deploy verified — `voteHold` on dlfIdp /
+dlfRookieIdp); D this records reconciliation (#1756).
 
 ## Repository stabilization / truth-reconciliation campaign — owner directive, 2026-10-07
 
