@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-10-17T16:03:23.935637+00:00",
-  "forecastSha256": "44afa40c584e068865cf544e9e44921a7ddbacc12c478318adee1447f47db84f",
+  "computedAt": "2026-10-17T18:57:23.700946+00:00",
+  "forecastSha256": "e344d32714185e11e4b8cacb5150a22af9999c901a5d401319e4a98400744212",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "9f09d4a2e68bb35d17ef690229598032fb2ad86182941e8ad8267027c4792be7",
-    "leagueSnapshotGeneratedAt": "2026-10-17T16:03:23+00:00",
+    "inputsSha256": "e8f8581141ac9561e8647b7c60d003f1783409d95a792e62e09e8d3a729e5b34",
+    "leagueSnapshotGeneratedAt": "2026-10-17T18:57:22+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -16,17 +16,17 @@
     ],
     "leagueSnapshotSha256": "5c7d95674347541951e32d0ce04fd8da251fd8eaa547bb0a74c7d72bfffa589f",
     "pointsModelFileSha256": null,
-    "rosAggregateSha256": "49e3468dc4ace534e65c3f7c48a3b114e3219cd46bb2253bf13c2c82a01007b1",
-    "rosAggregatedAt": "2026-10-17T16:03:11.678210+00:00",
+    "rosAggregateSha256": "f7d422cf1fb1e58827c9b02f230f2e2da4ca88502e5621a12a69e1b657148d17",
+    "rosAggregatedAt": "2026-10-17T18:57:12.215826+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "39bca8d0b56a74f908c77501715afd1871b60d8491819b758b007cfc08938922"
+    "teamStrengthFileSha256": "8d4eec7cbd91d683de0c6d28633717f8db53487a1c2e1a245ca446d76857b2ef"
   },
   "kind": "championship",
   "lastScoredWeek": 5,
   "leagueKey": "dynasty_new",
   "model": {
-    "codeSha": "00d652bd21664adf5f27f46ed3f8e0a0240866fb",
-    "codeShaCapturedAt": "2026-10-17T16:03:09.152357+00:00",
+    "codeSha": "be594b1d896aeede47d8bc5eb1afb1eb34824bca",
+    "codeShaCapturedAt": "2026-10-17T18:57:09.325118+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": false,
@@ -93,7 +93,7 @@
     },
     "simParamsSha256": "d3df98e8802910d0fd25f984ed77cbccbf94a1144b2eeee0c91c2c77d8dde20e"
   },
-  "nSimulations": 6000,
+  "nSimulations": 7000,
   "nullReasons": {
     "inputs.contractGeneration": "not_an_input_of_the_playoff_or_title_simulators",
     "inputs.pointsModelFileSha256": "file_absent"
