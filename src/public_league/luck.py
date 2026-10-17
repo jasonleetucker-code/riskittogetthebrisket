@@ -120,7 +120,7 @@ def _season_weekly_scores(
         for entry in season.matchups_by_week.get(wk) or []:
             if entry.get("points") is None:
                 continue
-            owner_id = metrics.resolve_owner(registry, season.league_id, entry.get("roster_id"))
+            owner_id = metrics.resolve_owner(registry, season.league_id, entry.get("roster_id"), wk)
             if not owner_id:
                 continue
             rows.append((owner_id, metrics.matchup_points(entry)))
@@ -147,8 +147,8 @@ def _actual_week_results(
         if not metrics.is_scored(a) and not metrics.is_scored(b):
             continue
         pa, pb = metrics.matchup_points(a), metrics.matchup_points(b)
-        oa = metrics.resolve_owner(registry, season.league_id, a.get("roster_id"))
-        ob = metrics.resolve_owner(registry, season.league_id, b.get("roster_id"))
+        oa = metrics.resolve_owner(registry, season.league_id, a.get("roster_id"), week)
+        ob = metrics.resolve_owner(registry, season.league_id, b.get("roster_id"), week)
         if oa:
             pair_pts[oa] = (pa, pb)
         if ob:
