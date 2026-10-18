@@ -83,6 +83,10 @@ changes. The stabilization campaign below has integrated (train #1686, `37ccfbb6
 non-conflicting blockers (#1667 train: deploy/rollback blockers B1–B4, fix PR #1681), so the IC batch's start
 condition is met. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07 — Calculator completion campaign").
 
+## DFS IMPLEMENTATION PAUSED — owner directive, 2026-10-18 (supersedes earlier DFS build-now instructions)
+
+**OWNER SHELVED ALL DFS IMPLEMENTATION.** Until the owner explicitly resumes DFS, do not start, continue, merge or deploy DFS-specific feature, optimizer, projection, model, slate/feed, connector, UI, research, or evidence-expansion work. Do not buy/subscribe to a feed or pursue DFS provider onboarding. Freeze the DFS roadmap and DFS-related owner-decision requests; they are **deferred, not rejected, complete, or forgotten**. No further DFS changes belong in an otherwise authorized release train. Keep all existing live DFS routes, data, records, test coverage and flags intact; do not turn the deployed product off or delete scope merely because work is paused. Existing sitewide maintenance and urgent security/production break-fix remain allowed where strictly necessary and must not be used as a pretext for feature expansion. The general Calculator completion directive remains active for every **non-DFS** lane; all prior spending, methodology, credential, league-write and merge gates still apply. Track this as a reversible *owner pause* in the dashboard/reconciliation instead of incorrectly counting paused work as completed.
+
 ## Draft valuation automation — owner directive, 2026-10-18
 
 **AUTHORIZED; IN PROGRESS (PR #1786, not merged)** — added to the active queue alongside existing work; it displaces nothing, and
