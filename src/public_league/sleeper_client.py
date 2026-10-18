@@ -306,6 +306,77 @@ def fetch_rosters_classified(league_id: str) -> tuple[str, Any]:
     return kind, payload
 
 
+def _classified_list(url: str, *, missing_is_empty: bool) -> tuple[str, Any]:
+    """``(kind, list)`` — ``ok`` always carries a list; a non-list body is an
+    ``error``.  ``missing_is_empty``: Sleeper answers a JSON ``null`` (or 404)
+    for "nothing here" on some list endpoints, which is then a real empty
+    answer rather than a missing object."""
+    kind, payload = request_json_classified(url)
+    if kind == FETCH_NOT_FOUND and missing_is_empty:
+        return FETCH_OK, []
+    if kind == FETCH_OK and not isinstance(payload, list):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
+def fetch_transactions_classified(league_id: str, week: int) -> tuple[str, Any]:
+    """``(kind, transactions)`` for ``/league/{id}/transactions/{week}``.
+
+    Unlike :func:`fetch_transactions`, a 429 is ``rate_limited`` and a
+    transport failure ``error`` — neither ever reads as "no transactions"."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/transactions/{int(week)}",
+        missing_is_empty=True,
+    )
+
+
+def fetch_league_users_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, users)`` for ``/league/{id}/users`` (display names and the
+    commissioner's ``is_owner`` flag)."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/users", missing_is_empty=False
+    )
+
+
+def fetch_drafts_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, drafts)`` for ``/league/{id}/drafts``; an empty list is a real
+    "this league has no draft"."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/drafts", missing_is_empty=True
+    )
+
+
+def fetch_draft_picks_classified(draft_id: str) -> tuple[str, Any]:
+    """``(kind, picks)`` for ``/draft/{id}/picks``."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/draft/{str(draft_id).strip()}/picks", missing_is_empty=True
+    )
+
+
+def fetch_traded_picks_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, traded_picks)`` for ``/league/{id}/traded_picks``.
+
+    A JSON ``null`` / 404 is NOT read as "no traded picks" (unlike the
+    transaction list): an existing league answers ``[]`` for that, so a missing
+    body proves nothing and ownership must stay unknown (``not_found``).
+    Callers still pass an ``ok`` body through
+    ``picks.traded_picks_observation`` — the one rule every pick-ownership
+    producer uses."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/traded_picks", missing_is_empty=False
+    )
+
+
+def fetch_league_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, league)`` for ``/league/{id}``.  Sleeper answers a JSON
+    ``null`` for an id that does not exist (``not_found``); an ``ok`` body
+    without a ``league_id`` is an ``error``, never a league."""
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/league/{str(league_id).strip()}")
+    if kind == FETCH_OK and not (isinstance(payload, dict) and payload.get("league_id")):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
 def fetch_league(league_id: str) -> dict[str, Any] | None:
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}")
     return data if isinstance(data, dict) else None

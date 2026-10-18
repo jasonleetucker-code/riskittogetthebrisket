@@ -67,6 +67,10 @@ describe("private pages", () => {
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
+      // Manager Intelligence and its league scouting view (Batch C) are
+      // private decision intelligence.
+      "/managers",
+      "/managers/league/1312006700437352448",
     ]) {
       expect(isPublicPath(path), path).toBe(false);
     }
