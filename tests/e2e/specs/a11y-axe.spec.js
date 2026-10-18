@@ -151,6 +151,15 @@ const DYNAMIC_ROUTES = [
     resolve: async () => "/rankings/qb",
   },
   {
+    // Manager Intelligence league scouting (C6-MGR-02, Batch C). The page
+    // renders whatever state its session-gated API answers (scouting rows,
+    // or its explicit unavailable / not-found states), so a fixed, valid
+    // league id scans the real page without depending on live Sleeper data.
+    // dynasty_main's id is already public in config/leagues/registry.json.
+    family: "/managers/league/[leagueId]",
+    resolve: async () => "/managers/league/1312006700437352448",
+  },
+  {
     family: "/players/[playerId]",
     resolve: async (page) => {
       // The app view strips `playersArray`; its legacy dict carries the
