@@ -180,7 +180,7 @@ function ShareTrendChart({ bySeason }) {
             ))}
             {/* Series lines + markers */}
             {series.map((s, idx) => {
-              const color = categoricalColor(idx);
+              const color = categoricalColor(idx, { count: series.length });
               const pts = s.points.map((v, i) => [xScale(i), yScale(v)]);
               return (
                 <g key={s.pos}>
@@ -203,7 +203,7 @@ function ShareTrendChart({ bySeason }) {
           <g transform={`translate(${margin.left}, ${height - 4})`}>
             {series.map((s, idx) => (
               <g key={s.pos} transform={`translate(${idx * 56}, -18)`}>
-                <rect x={0} y={-7} width={10} height={3} fill={categoricalColor(idx)} />
+                <rect x={0} y={-7} width={10} height={3} fill={categoricalColor(idx, { count: series.length })} />
                 <text x={14} y={-4} fontSize={10} fill={CHART_COLORS.axisLabel}>{s.pos}</text>
               </g>
             ))}
