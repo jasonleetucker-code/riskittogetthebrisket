@@ -4,8 +4,9 @@ The /league Draft Capital tab must show EVERY class the league still owns
 picks in — for ``dynasty_main`` in October 2026 that is 2027, 2028 and 2029 —
 not only the class the default league's workbook happens to carry.  This
 module produces the owned-pick rows for the classes a builder does not
-already cover, and prices them with the canonical pick values.  It decides
-nothing about which classes exist, who owns a pick, or what a pick is worth:
+already cover and prices them on the canonical rookie-auction curve.  It
+decides nothing about which classes exist, who owns a pick, or what the curve
+is:
 
 * **Which classes** — the league-scoped resolver
   (``pick_lifecycle.league_draft_years`` via
@@ -16,80 +17,95 @@ nothing about which classes exist, who owns a pick, or what a pick is worth:
   ``identity.picks.build_pick_ownership``, over the league's own rosters and
   an OBSERVED ``/traded_picks`` diff (``picks.traded_picks_observation``).
   The caller must not pass ``[]`` for a failed fetch; ``None`` refuses.
-* **What a pick is worth** — the canonical board through
-  ``identity.picks.market_resolution`` + ``api.pick_value_resolution``.  A
-  class whose draft order is unknown resolves at the GENERIC grade (every
-  pick of one season + round prices identically); no slot is fabricated.
+* **What a class's 72 picks are worth** — the canonical rookie-auction
+  calculation (``src/draft/rookie_auction``): the owner-approved spreadsheet
+  formula over the class's rookie inputs and its three-completed-class spine,
+  made whole dollars by ``apportion.apportion_whole_dollars`` (the formula's
+  floors and caps) and resolved per draft year through
+  ``published.resolve_published_allocation`` (verified current, else THAT
+  year's last known good, else unavailable).  Never another year's
+  allocation, never $0.
 
 Dollars — the $1,200 budget basis (OWNER DECISION 2026-10-18)
 =============================================================
 
 "$1,200 per draft class": each rookie draft class is its own $1,200 auction
 pool (72 picks: 12 teams x 6 rounds).  **Scope: ``dynasty_main`` only**
-(owner scope correction 2026-10-18 — the approval does not extend to any
-other league).  Per-pick dollars are a linear share of their class's $1,200
-over canonical values; All Years is the sum of the classes, each pick counted
-once.
+(owner scope correction 2026-10-18 — any other league is "not configured"
+and its later classes stay UNPRICED with that reason, never adapted).  All
+Years is the sum of the classes, each pick counted once.
 
 * The default league's workbook class keeps the workbook's own dollars (they
-  are that class's $1,200 and the live auction budgets); its later classes
-  are each their own $1,200 here (:func:`price_per_class`).
+  are that class's $1,200 and the live auction budgets).
+* Every later class (Batch E, owner directive 2026-10-18) is priced on the
+  SAME formula: until Batch D promotes a class's real rookie inputs, its
+  inputs are the frozen owner-approved 2026 provisional baseline
+  (``inputMode: "frozen_fallback"``) and its spine is the three most recent
+  completed classes before it — a provisional estimate, labelled as such.
+  Two classes with identical inputs and spine produce identical dollars; each
+  is still resolved and stored under its OWN year.
 * The Sleeper-derived fallback (``draft_capital_fallback``, the path every
-  non-default league takes) is OUT OF SCOPE and deliberately unchanged: it
-  keeps its pre-decision single $1,200 pool and stamps no ``budgetPolicy``,
-  which the frontend reads as "no multi-class basis stated".
+  non-default league takes) is OUT OF SCOPE and deliberately unchanged.
 
-Every class with a priced pick totals EXACTLY $1,200 in WHOLE DOLLARS (owner
-decisions 2026-10-18): every final pick value is an integer from the
-canonical whole-dollar step (``src.draft.rookie_auction.apportion``), and
-every team total is the exact integer sum of the picks that team owns, so
-pick dollars, team totals, year totals and All Years reconcile exactly.  The
-workbook's half-dollar column survives only as reference data
-(``workbookReferenceDollarValue``).
+Slots.  A later class's dollars are by draft POSITION.  A pick whose class
+has a real Sleeper draft order takes its slot's dollars; a pick with no known
+slot is ROUND-LEVEL: the unclaimed slots of its round are shared equally
+among its round's unknown-slot picks in whole dollars (they can differ by $1
+so the round keeps its exact dollars; the extra dollars go in a fixed,
+roster-neutral order).  No slot is ever invented.
 
-The SHAPE of a class's dollars is two different value domains, labelled per
-class (``curveMethod``) and never presented as one methodology: the workbook
-class follows the sheet's rookie-auction curve (``workbook_rookie_auction``);
-every other class spreads canonical generic future-pick MARKET values
-linearly (``interim_generic_market``) — an explicitly labelled INTERIM
-("provisional estimate — final rookie-auction curve pending") until the
-separate Draft Valuation workstream's spreadsheet-driven curve replaces it.
-``budget_policy_block`` stamps the decided basis on every payload.
+Every class with a priced pick totals EXACTLY $1,200 in WHOLE DOLLARS, and
+every team total is the exact integer sum of the picks that team owns.
 
-MISSING IS NEVER ZERO: a pick the board cannot price carries
-``dollarValue: None`` + ``isUnpriced: True`` and stays out of its pool.
+MISSING IS NEVER ZERO: a pick that cannot be priced carries
+``dollarValue: None`` + ``isUnpriced: True`` + ``unpricedReason`` and stays
+out of every total.
 """
 
 from __future__ import annotations
 
+import hashlib
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity import picks as _picks
 
-#: Budget-basis vocabulary (stamped on every payload as ``budgetPolicy.basis``).
-#: The only basis since the owner decision of 2026-10-18 ("$1,200 per draft
-#: class").  ``shared_multi_class_pool`` — one $1,200 spread across every
-#: class — is retired; a payload carrying it predates the decision.
+#: Budget-basis vocabulary (stamped on every payload as ``budgetPolicy.basis``
+#: and per class as ``budgetPolicy.classes[year].budgetBasis``).  The only
+#: basis since the owner decision of 2026-10-18 ("$1,200 per draft class").
+#: ``shared_multi_class_pool`` — one $1,200 spread across every class — is
+#: retired; a payload carrying it predates the decision.
 BUDGET_POLICY_PER_CLASS = "per_class_pool"
 BUDGET_POLICY_STATUS_CONFIRMED = "owner_confirmed"
 BUDGET_POLICY_DECIDED_BY = "owner"
 BUDGET_POLICY_DECIDED_AT = "2026-10-18"
 
-#: How a class's dollars are SHAPED across its picks (owner addendum
-#: 2026-10-18).  Two different value domains, never presented as one:
-#:
-#: * ``workbook_rookie_auction`` — the default league's workbook class: the
-#:   sheet's own rookie-auction curve and dollars.
-#: * ``interim_generic_market`` — the default league's later classes: canonical
-#:   generic future-pick MARKET values spread linearly over the class's
-#:   $1,200.  An explicitly labelled INTERIM, not the final methodology — the
-#:   spreadsheet-driven rookie-auction curve is a separate Draft Valuation
-#:   workstream that will replace it.
+#: How a class's dollars are SHAPED across its picks.  Since Batch E every
+#: ``dynasty_main`` class is shaped by the one owner-approved formula — the
+#: workbook's rookie-auction curve (``src/draft/rookie_auction``).  The former
+#: ``interim_generic_market`` label (canonical generic future-pick MARKET
+#: values spread linearly, #1785) is RETIRED with the code that produced it;
+#: a payload carrying it predates Batch E.
 CURVE_METHOD_WORKBOOK = "workbook_rookie_auction"
-CURVE_METHOD_INTERIM_GENERIC_MARKET = "interim_generic_market"
-CURVE_METHOD_INTERIM_LABEL = "provisional estimate — final rookie-auction curve pending"
+#: A class whose curve could not be resolved (unconfigured league, no
+#: verified allocation): it carries no dollars, so it has no curve either.
+CURVE_METHOD_NONE = "none"
+
+#: Which rookie inputs fed a class's curve (``inputMode``).  ``frozen_fallback``
+#: is the owner-approved PROVISIONAL 2026 baseline (``Draft Data!B2:B73``,
+#: frozen with provenance) — every class priced on it is a provisional
+#: estimate.  ``actual`` is the class's own rookie values, which only Batch D's
+#: promotion can supply.  ``None`` = the served record does not say (unknown,
+#: never guessed).
+INPUT_MODE_FROZEN_FALLBACK = "frozen_fallback"
+INPUT_MODE_ACTUAL = "actual"
+PROVISIONAL_CURVE_LABEL = (
+    "provisional estimate — the rookie-auction formula on the frozen 2026 provisional "
+    "rookie inputs (actual class inputs pending)"
+)
 
 #: Whether ``teamTotals`` (the UPCOMING class's per-team dollars — the
 #: auction-budget basis /draft, the auction room, the /league simulator and
@@ -102,69 +118,26 @@ TEAM_TOTALS_AVAILABLE = "available"
 TEAM_TOTALS_UNAVAILABLE = "unavailable"
 #: Whether a row's slot is a real draft position.
 SLOT_KNOWN = "known"  # the league's draft order for that class is set on Sleeper
-SLOT_PROJECTED = "projected"  # an estimated order (workbook / standings), labelled
+#: The order follows the league's draft-order rule over VERIFIED final
+#: regular-season standings (``src/api/draft_capital_order.py``).
+SLOT_FINAL_STANDINGS = "final_standings"
+SLOT_PROJECTED = "projected"  # an estimated order (workbook / standings to date), labelled
 SLOT_UNKNOWN = "unknown"  # no order exists yet — the row is round-only
 
 #: How a row's value was derived.
 VALUE_BASIS_WORKBOOK = "workbook"
-VALUE_BASIS_CANONICAL_PREFIX = "canonical_"
+#: A later-class pick at a known slot: that slot's whole dollars.
+VALUE_BASIS_ROOKIE_AUCTION_SLOT = "rookie_auction_slot"
+#: A later-class pick with no known slot: an equal whole-dollar share of its
+#: round's unclaimed slot dollars.
+VALUE_BASIS_ROOKIE_AUCTION_ROUND = "rookie_auction_round_share"
+#: How a round's unclaimed dollars are shared among its unknown-slot picks.
+ROUND_SHARE_RULE = "equal_whole_dollar_share__extra_dollars_by_sha256_of_asset_id"
 
 #: Why a builder could not add the classes it does not cover.
 ADDITIONAL_CLASSES_OBSERVED = "observed"
 ADDITIONAL_CLASSES_NOT_REQUESTED = "not_requested"
 ADDITIONAL_CLASSES_UNAVAILABLE = "unavailable"
-
-
-def _current_draft_year(contract: Mapping[str, Any] | None) -> int:
-    raw = (contract or {}).get("currentDraftYear") if isinstance(contract, Mapping) else None
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        from src.api.data_contract import current_rookie_draft_year  # noqa: PLC0415
-
-        return int(current_rookie_draft_year())
-
-
-def canonical_pick_value(
-    contract: Mapping[str, Any] | None,
-    *,
-    season: int,
-    round_num: int,
-    slot: int | None,
-    rows_by_name: dict[str, dict[str, Any]] | None = None,
-    league_size: int = 12,
-) -> tuple[int | None, str | None]:
-    """``(canonical value, valueBasis)`` for one league pick, or ``(None, reason)``.
-
-    ``slot`` must be a REAL draft slot or ``None`` — a stand-in ordering never
-    reaches here, because the canonical answer for an unknown slot is the
-    generic grade.
-    """
-    if not isinstance(contract, Mapping) or not contract:
-        return None, "no_contract_loaded"
-    from src.api.pick_value_resolution import resolve_pick_value  # noqa: PLC0415
-
-    res = _picks.market_resolution(
-        year=int(season),
-        round_num=int(round_num),
-        slot=slot,
-        current_draft_year=_current_draft_year(contract),
-        league_size=league_size,
-    )
-    out = resolve_pick_value(dict(contract), res.ref, rows_by_name=rows_by_name)
-    if out.value is None:
-        return None, out.reason
-    grade = {"exact_slot": "slot", "tier_from_slot": "tier", "unknown_slot": "generic_round"}
-    return int(out.value), VALUE_BASIS_CANONICAL_PREFIX + grade.get(res.basis, res.basis)
-
-
-def pick_rows_index(contract: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
-    """Index the contract's pick rows once for a batch of lookups."""
-    if not isinstance(contract, Mapping) or not contract:
-        return {}
-    from src.api.pick_value_resolution import _pick_rows_by_name  # noqa: PLC0415
-
-    return _pick_rows_by_name(dict(contract))
 
 
 def build_class_picks(
@@ -174,16 +147,13 @@ def build_class_picks(
     traded_picks: list[Any] | None,
     seasons: Iterable[int],
     rounds: int,
-    contract: Mapping[str, Any] | None,
     slot_by_origin: Mapping[tuple[int, int], int] | None = None,
 ) -> list[dict[str, Any]]:
-    """Owned-pick rows for ``seasons``, valued but not yet in dollars.
+    """Owned-pick rows for ``seasons`` — identity and ownership, no dollars yet.
 
     Raises ``ValueError`` when ``traded_picks`` is ``None`` — an unobserved
     trade diff must never be folded as "nobody traded" (the caller decides
-    how to refuse).  Each row carries a private ``_canonicalValue`` that
-    :func:`price_per_class` turns into dollars and then removes, so the raw
-    board value is never published.
+    how to refuse).  :func:`price_classes_on_curve` adds the dollars.
     """
     if traded_picks is None:
         raise ValueError("traded_picks_not_observed")
@@ -199,9 +169,6 @@ def build_class_picks(
         rounds=int(rounds),
         slot_by_origin=slot_by_origin,
     )
-    index = pick_rows_index(contract)
-    league_size = max(len(rids), 1)
-    value_cache: dict[tuple[int, int, int | None], tuple[int | None, str | None]] = {}
     rows: list[dict[str, Any]] = []
     for op in sorted(
         owned,
@@ -209,17 +176,6 @@ def build_class_picks(
     ):
         ident, state = op.identity, op.state
         slot = state.slot if isinstance(state.slot, int) and state.slot > 0 else None
-        key = (ident.season, ident.round_num, slot)
-        if key not in value_cache:
-            value_cache[key] = canonical_pick_value(
-                contract,
-                season=ident.season,
-                round_num=ident.round_num,
-                slot=slot,
-                rows_by_name=index,
-                league_size=league_size,
-            )
-        value, basis = value_cache[key]
         origin = int(ident.origin_roster_id)
         owner = int(state.owner_roster_id) if state.owner_roster_id is not None else None
         rows.append(
@@ -239,13 +195,356 @@ def build_class_picks(
                 "assetId": ident.canonical_id,
                 "isTraded": owner is not None and owner != origin,
                 "isExpansion": False,
-                "valueBasis": basis if value is not None else None,
-                "unpricedReason": None if value is not None else basis,
                 "dollarValueEstimated": True,
-                "_canonicalValue": value,
             }
         )
     return rows
+
+
+# --- the later classes' curve (Batch E) ------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ClassCurveInputs:
+    """The rookie inputs one class's curve is computed from, and what they are."""
+
+    values: tuple[Decimal, ...]
+    input_mode: str
+    inputs_id: str
+    actual_input_class_year: int | None
+    provenance: Mapping[str, Any]
+
+
+def class_curve_inputs(league_key: str, draft_year: int) -> ClassCurveInputs:
+    """The FALLBACK candidate's rookie inputs for one class.
+
+    Owner decision 3 / the Batch E row: every class uses the frozen
+    owner-approved 2026 provisional inputs until THAT class's real inputs pass
+    Batch D (readiness + owner-gated promotion).  This module never decides
+    that a class is ready: Batch D's promotion publishes a promoted generation
+    that ``published.resolve_published_allocation`` serves ahead of any
+    candidate, so the frozen-fallback candidate built from these inputs is
+    only ever used when no promoted generation is active for that year.
+    Raises ``LeagueNotConfiguredError`` for any league but ``dynasty_main``
+    and ``SnapshotIntegrityError`` for a tampered baseline.
+    """
+    from src.draft.rookie_auction.class_snapshot import frozen_fallback_snapshot  # noqa: PLC0415
+
+    snap = frozen_fallback_snapshot(int(draft_year), league_key=league_key)
+    prov = dict(snap.provenance)
+    return ClassCurveInputs(
+        values=tuple(e.value for e in snap.entries),
+        input_mode=str(snap.mode),
+        inputs_id=str(prov.get("frozenSnapshotId") or "unknown"),
+        actual_input_class_year=snap.actual_input_class_year,
+        provenance=prov,
+    )
+
+
+def curve_id(
+    formula_version: str, input_mode: str | None, inputs_id: str | None, spine_years: Sequence[int]
+) -> str:
+    """A readable identity for one class curve: formula | inputs | spine."""
+    spine = "-".join(str(int(y)) for y in spine_years)
+    return f"{formula_version}|{input_mode}:{inputs_id}|spine:{spine}"
+
+
+def resolve_class_curve_allocation(
+    league_key: str,
+    draft_year: int,
+    *,
+    now: str | None = None,
+    config_dir: Any = None,
+    store_dirs: Sequence[Any] | None = None,
+    write_dir: Any = None,
+    persist: bool = True,
+):
+    """The published 72-pick whole-dollar allocation for one later class.
+
+    Computes the class's own candidate — the spreadsheet formula
+    (``curve.compute_curve``) over :func:`class_curve_inputs` and the three
+    most recent completed classes strictly before ``draft_year``
+    (``snapshots.select_spine_years``) — and hands it to the canonical
+    resolver, which makes whole dollars with the formula's floors and caps,
+    verifies them independently, stores them create-only under THIS year, and
+    otherwise serves THIS year's last known good or ``unavailable`` with a
+    named reason.  Never another year's allocation, never $0.
+    """
+    from src.draft.rookie_auction import snapshots as _snap  # noqa: PLC0415
+    from src.draft.rookie_auction.curve import (  # noqa: PLC0415
+        FORMULA_VERSION,
+        CurveInputError,
+        CurveInvariantError,
+        compute_curve,
+        curve_receipt,
+    )
+    from src.draft.rookie_auction.league_scope import (  # noqa: PLC0415
+        LeagueNotConfiguredError,
+        league_scope,
+    )
+    from src.draft.rookie_auction.published import (  # noqa: PLC0415
+        AllocationCandidate,
+        CandidateFailure,
+        resolve_published_allocation,
+    )
+
+    year = int(draft_year)
+    key = str(league_key) if league_key else ""
+    at = now or datetime.now(timezone.utc).isoformat()
+    resolver_kwargs: dict[str, Any] = {"persist": persist}
+    if store_dirs is not None:
+        resolver_kwargs["store_dirs"] = store_dirs
+    if write_dir is not None:
+        resolver_kwargs["write_dir"] = write_dir
+    try:
+        league_scope(key)
+    except LeagueNotConfiguredError:
+        # The resolver answers ``unavailable`` / ``league_not_configured``.
+        return resolve_published_allocation(key, year, candidate=None, **resolver_kwargs)
+    cfg = config_dir if config_dir is not None else _snap.CONFIG_DIR
+    candidate: Any
+    try:
+        inputs = class_curve_inputs(key, year)
+        spine_years = _snap.select_spine_years(year, league_key=key, config_dir=cfg)
+        spine = [
+            _snap.load_completed_class_curve(y, league_key=key, config_dir=cfg) for y in spine_years
+        ]
+        result = compute_curve(list(inputs.values), [c.dollars for c in spine])
+    except (
+        CurveInputError,
+        CurveInvariantError,
+        _snap.SnapshotIntegrityError,
+        _snap.SpineUnavailableError,
+        LeagueNotConfiguredError,
+        OSError,
+    ) as exc:
+        candidate = CandidateFailure(
+            draft_year=year, reason=f"class_curve_unavailable:{type(exc).__name__}:{exc}", at=at
+        )
+    else:
+        cid = curve_id(FORMULA_VERSION, inputs.input_mode, inputs.inputs_id, spine_years)
+        receipt = curve_receipt(
+            result, spine_years=spine_years, input_provenance=dict(inputs.provenance)
+        )
+        candidate = AllocationCandidate.from_curve(
+            result,
+            draft_year=year,
+            effective_at=at,
+            provenance={
+                "source": "rookie_auction_curve",
+                "curveId": cid,
+                "inputsMode": inputs.input_mode,
+                "inputsId": inputs.inputs_id,
+                "frozenInputsChecksum": inputs.provenance.get("frozenChecksum"),
+                "actualInputClassYear": inputs.actual_input_class_year,
+                "spineYears": list(spine_years),
+                "spineChecksums": {str(c.draft_class): c.checksum for c in spine},
+                "curveReceiptSha256": receipt["receiptSha256"],
+            },
+        )
+    return resolve_published_allocation(key, year, candidate=candidate, **resolver_kwargs)
+
+
+def _share_order_key(row: Mapping[str, Any]) -> tuple[str, int]:
+    """A fixed, roster-neutral order for a round's extra dollars.
+
+    Sorting by roster id would hand the same low-id rosters every extra dollar
+    in every round of every class; a hash of the canonical pick id spreads
+    them with no systematic tilt, and is reproducible from the payload.
+    """
+    ident = str(row.get("assetId") or "")
+    return hashlib.sha256(ident.encode("utf-8")).hexdigest(), int(row.get("originRosterId") or 0)
+
+
+def _unprice(row: dict[str, Any], reason: str, curve_method: str) -> None:
+    row["dollarValue"] = None
+    row["adjustedDollarValue"] = None
+    row["isUnpriced"] = True
+    row["valueBasis"] = None
+    row["unpricedReason"] = reason
+    row["curveMethod"] = curve_method
+
+
+def _price_one_class(
+    rows: list[dict[str, Any]], published: Any, team_count: int, rounds: int, input_mode: Any
+) -> str | None:
+    """Price one class's rows in place; ``None`` on success, else the reason."""
+    from src.draft.rookie_auction.apportion import (  # noqa: PLC0415
+        ApportionmentRefused,
+        apportion_whole_dollars,
+    )
+
+    if published is None or getattr(published, "final_whole_dollars", None) is None:
+        return (
+            f"no_verified_class_allocation:{getattr(published, 'unavailable_reason', None)}"
+            if published is not None
+            else "no_class_allocation_resolved"
+        )
+    dollars = list(published.final_whole_dollars)
+    if len(dollars) != team_count * rounds:
+        return f"class_shape_mismatch:allocation_has_{len(dollars)}_picks"
+    by_round: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_round.setdefault(int(r["round"]), []).append(r)
+    if sorted(by_round) != list(range(1, rounds + 1)) or any(
+        len(v) != team_count for v in by_round.values()
+    ):
+        counts = {k: len(v) for k, v in sorted(by_round.items())}
+        return f"class_shape_mismatch:expected_{team_count}x{rounds}:got_{counts}"
+    assigned: dict[int, tuple[int, str, float | None]] = {}
+    for rnd, round_rows in by_round.items():
+        slot_dollars = dollars[(rnd - 1) * team_count : rnd * team_count]
+        claimed: set[int] = set()
+        unknown: list[dict[str, Any]] = []
+        for r in round_rows:
+            slot = r.get("slot")
+            if isinstance(slot, int) and not isinstance(slot, bool) and slot > 0:
+                if slot > team_count or slot in claimed:
+                    return f"slot_conflict:round_{rnd}_slot_{slot}"
+                claimed.add(slot)
+                assigned[id(r)] = (slot_dollars[slot - 1], VALUE_BASIS_ROOKIE_AUCTION_SLOT, None)
+            else:
+                unknown.append(r)
+        if not unknown:
+            continue
+        pool = [d for s, d in enumerate(slot_dollars, start=1) if s not in claimed]
+        total = sum(pool)
+        unknown.sort(key=_share_order_key)
+        k = len(unknown)
+        try:
+            share = apportion_whole_dollars([Fraction(total, k)] * k, total)
+        except ApportionmentRefused as exc:  # cannot happen for equal shares; fail closed
+            return f"round_share_refused:round_{rnd}:{exc}"
+        average = round(total / k, 4)
+        for r, d in zip(unknown, share.dollars):
+            assigned[id(r)] = (int(d), VALUE_BASIS_ROOKIE_AUCTION_ROUND, average)
+    for r in rows:
+        d, basis, average = assigned[id(r)]
+        r["dollarValue"] = d
+        r["adjustedDollarValue"] = d
+        r["isUnpriced"] = False
+        r["valueBasis"] = basis
+        r["unpricedReason"] = None
+        r["curveMethod"] = CURVE_METHOD_WORKBOOK
+        r["inputMode"] = input_mode
+        if average is not None:
+            # The exact round-level expectation the whole-dollar share rounds
+            # (reference only — never spendable).
+            r["roundShareReferenceDollars"] = average
+            r["roundShareRule"] = ROUND_SHARE_RULE
+    return None
+
+
+def price_classes_on_curve(
+    rows: list[dict[str, Any]],
+    allocations: Mapping[int, Any],
+    *,
+    team_count: int,
+    rounds: int,
+) -> list[dict[str, Any]]:
+    """Put whole dollars on every later-class row, one class at a time.
+
+    ``allocations`` maps a season to its :class:`PublishedAllocation`
+    (:func:`resolve_class_curve_allocation`).  A class prices only when its
+    allocation is verified AND the league's class is exactly the formula's
+    shape (``team_count`` x ``rounds`` owned picks, every round full); a pick
+    at a known slot takes that slot's dollars and the round's unknown-slot
+    picks share its unclaimed slots equally.  Otherwise EVERY pick in the
+    class is unpriced with the reason — never partly priced, never $0, never
+    another class's dollars.  The class then totals exactly its allocation's
+    $1,200.
+    """
+    by_season: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_season.setdefault(int(r["season"]), []).append(r)
+    for season, class_rows in by_season.items():
+        published = allocations.get(season)
+        mode = class_input_mode(published)
+        reason = _price_one_class(class_rows, published, int(team_count), int(rounds), mode)
+        if reason is not None:
+            for r in class_rows:
+                _unprice(r, reason, CURVE_METHOD_NONE)
+                r["inputMode"] = None
+    return rows
+
+
+def _record_provenance(published: Any) -> Mapping[str, Any]:
+    receipt = getattr(published, "receipt", None) or {}
+    prov = receipt.get("provenance") if isinstance(receipt, Mapping) else None
+    return prov if isinstance(prov, Mapping) else {}
+
+
+#: Provenance ``source`` of an allocation computed from a class's OWN
+#: canonical rookie snapshot (Batch D's promotion path).
+PROMOTED_CLASS_SNAPSHOT_SOURCE = "canonical_class_snapshot"
+
+
+def class_input_mode(published: Any) -> str | None:
+    """The ``inputMode`` of the SERVED record (a last-known-good record says
+    what IT was computed from), or ``None`` when it does not say."""
+    prov = _record_provenance(published)
+    mode = prov.get("inputsMode")
+    if mode in (INPUT_MODE_FROZEN_FALLBACK, INPUT_MODE_ACTUAL):
+        return str(mode)
+    if prov.get("source") == PROMOTED_CLASS_SNAPSHOT_SOURCE:
+        return INPUT_MODE_ACTUAL
+    return None
+
+
+def class_valuation_block(
+    published: Any, *, draft_year: int, budget: int, priced: bool
+) -> dict[str, Any]:
+    """The per-year API block: ``budgetBasis``, ``curveId``, ``spineYears``,
+    ``inputMode`` and which allocation was served.
+
+    Read from the SERVED record's provenance — never from what this request
+    tried to compute — so a ``last_known_good`` answer describes the curve
+    actually published.  A field the record does not carry is ``None``.
+    """
+    prov = _record_provenance(published)
+    receipt = getattr(published, "receipt", None) or {}
+    formula = receipt.get("formulaVersion") if isinstance(receipt, Mapping) else None
+    spine = prov.get("spineYears")
+    spine_years = [int(y) for y in spine] if isinstance(spine, list) else None
+    mode = class_input_mode(published)
+    cid = prov.get("curveId")
+    if not cid and published is not None and getattr(published, "record_checksum", None):
+        if formula and mode and spine_years:
+            source = (
+                prov.get("inputsId")
+                or ("workbook" if prov.get("workbookSha256") else None)
+                or str(prov.get("classSnapshotSha256") or "")[:16]
+                or None
+            )
+            cid = curve_id(str(formula), mode, source, spine_years)
+        else:
+            cid = f"{formula}|record:{str(published.record_checksum)[:16]}"
+    state = getattr(published, "allocation_state", None) if published is not None else None
+    return {
+        "draftYear": int(draft_year),
+        "budgetBasis": BUDGET_POLICY_PER_CLASS,
+        "budget": int(budget),
+        "curveMethod": CURVE_METHOD_WORKBOOK if priced else CURVE_METHOD_NONE,
+        "curveId": cid if priced else None,
+        "formulaVersion": formula if priced else None,
+        "spineYears": spine_years if priced else None,
+        "inputMode": mode if priced else None,
+        "actualInputClassYear": prov.get("actualInputClassYear") if priced else None,
+        # Frozen inputs = a provisional estimate; unknown inputs are not
+        # claimed to be actual either.
+        "provisional": (mode != INPUT_MODE_ACTUAL) if priced else None,
+        "allocationState": state,
+        "effectiveAt": getattr(published, "effective_at", None),
+        "lastValidAt": getattr(published, "last_valid_at", None),
+        "failedRefresh": (
+            dict(published.failed_refresh)
+            if published is not None and getattr(published, "failed_refresh", None)
+            else None
+        ),
+        "unavailableReason": getattr(published, "unavailable_reason", None),
+        "warning": getattr(published, "warning", None),
+        "recordChecksum": getattr(published, "record_checksum", None),
+    }
 
 
 #: How the final whole-dollar allocation is made (owner decision 2026-10-18,
@@ -266,41 +565,6 @@ def _exact(value: Any) -> Fraction:
         # expansion; non-finite values are refused by Decimal → Fraction.
         return Fraction(Decimal(str(value)))
     return Fraction(value)
-
-
-def allocate_class_budget(values: list[float], budget: int) -> list[int]:
-    """Spread ``budget`` WHOLE dollars over ``values`` linearly, EXACTLY.
-
-    Owner decisions 2026-10-18: a class totals exactly its budget, in whole
-    dollars only.  Each value's exact share (``value x budget / sum``, in
-    Fractions — never floats) goes through THE canonical whole-dollar step,
-    ``src.draft.rookie_auction.apportion.apportion_whole_dollars``: floor
-    every share, then the integer residual by largest fractional remainder,
-    ties to the earlier position.  The step requires draft-position order to
-    be non-increasing, so shares are apportioned in value-descending order (a
-    stable sort keeps the caller's season / round / origin order among equal
-    values) and mapped back.  Two picks of identical value can differ by $1;
-    that is the price of an exact whole-dollar total, and it is deterministic.
-
-    ``[]`` → ``[]`` (nothing priced: no distribution is manufactured); a
-    non-positive total gives every value 0.  Raises
-    ``ApportionmentRefused`` rather than publish a total other than ``budget``.
-    """
-    from src.draft.rookie_auction.apportion import apportion_whole_dollars  # noqa: PLC0415
-
-    if not values:
-        return []
-    exact = [_exact(v) for v in values]
-    total = sum(exact, Fraction(0))
-    if total <= 0:
-        return [0] * len(values)
-    shares = [v * int(budget) / total for v in exact]
-    order = sorted(range(len(shares)), key=lambda i: -shares[i])
-    result = apportion_whole_dollars([shares[i] for i in order], int(budget))
-    out = [0] * len(values)
-    for pos, i in enumerate(order):
-        out[i] = int(result.dollars[pos])
-    return out
 
 
 #: The workbook class has no verified whole-dollar allocation to publish.
@@ -413,53 +677,24 @@ def workbook_class_whole_dollars(
     return [int(d) for d in result.dollars], receipt
 
 
-def price_per_class(rows: list[dict[str, Any]], budget: int) -> list[dict[str, Any]]:
-    """Spread ``budget`` over each class's PRICED picks, linearly in value.
-
-    One pool per season (``per_class_pool``), allocated by
-    :func:`allocate_class_budget`, so every class with a priced pick totals
-    exactly ``budget``.  Unpriced rows get ``None`` and no share.  Every row
-    is stamped with the class's ``curveMethod`` (interim, see
-    :data:`CURVE_METHOD_INTERIM_GENERIC_MARKET`).
-    """
-    by_season: dict[int, list[int]] = {}
-    for i, r in enumerate(rows):
-        v = r.get("_canonicalValue")
-        if isinstance(v, (int, float)) and v > 0:
-            by_season.setdefault(int(r["season"]), []).append(i)
-    dollars_by_index: dict[int, int | float] = {}
-    for indices in by_season.values():
-        alloc = allocate_class_budget([float(rows[i]["_canonicalValue"]) for i in indices], budget)
-        dollars_by_index.update(zip(indices, alloc))
-    for i, r in enumerate(rows):
-        r.pop("_canonicalValue", None)
-        r["curveMethod"] = CURVE_METHOD_INTERIM_GENERIC_MARKET
-        if i in dollars_by_index:
-            r["dollarValue"] = dollars_by_index[i]
-            r["adjustedDollarValue"] = dollars_by_index[i]
-            r["isUnpriced"] = False
-        else:
-            r["dollarValue"] = None
-            r["adjustedDollarValue"] = None
-            r["isUnpriced"] = True
-    return rows
-
-
 def budget_policy_block(
     budget: int,
     seasons: Iterable[int],
     *,
     workbook_season: int | None = None,
     priced_seasons: Iterable[int] | None = None,
+    classes: Mapping[int, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """What ``budgetPolicy`` says about a payload's dollars.
 
-    One basis (owner decision 2026-10-18, ``dynasty_main`` only): each listed class
-    is its own ``budget`` pool and All Years is their sum.  ``priced_seasons``
-    (default: every listed class) names the classes with at least one priced
-    pick; a class the board cannot price at all holds no dollars, so it is
-    listed in ``unpricedClasses`` and left out of ``allYearsBudget`` rather
-    than counted as a $1,200 nobody can see.
+    One basis (owner decision 2026-10-18, ``dynasty_main`` only): each listed
+    class is its own ``budget`` pool and All Years is their sum.
+    ``priced_seasons`` (default: every listed class) names the classes with at
+    least one priced pick; a class that cannot be priced holds no dollars, so
+    it is listed in ``unpricedClasses`` and left out of ``allYearsBudget``
+    rather than counted as a $1,200 nobody can see.  ``classes`` carries the
+    per-year blocks (:func:`class_valuation_block`) — ``budgetBasis``,
+    ``curveId``, ``spineYears``, ``inputMode`` — keyed by season.
     """
     seasons = sorted({int(s) for s in seasons})
     priced = (
@@ -467,7 +702,29 @@ def budget_policy_block(
         if priced_seasons is None
         else sorted({int(s) for s in priced_seasons} & set(seasons))
     )
-    estimated = [s for s in seasons if workbook_season is None or s != int(workbook_season)]
+    per_class = {int(k): dict(v) for k, v in (classes or {}).items() if int(k) in seasons}
+    provisional = [s for s in seasons if per_class.get(s, {}).get("provisional") is True]
+    methods = {
+        str(s): (
+            per_class[s].get("curveMethod")
+            if s in per_class
+            else (CURVE_METHOD_WORKBOOK if s in priced else CURVE_METHOD_NONE)
+        )
+        for s in seasons
+    }
+    note = "Each draft class is its own $%d pool; All Years adds the classes together." % budget
+    if workbook_season is not None:
+        note += " The %d class uses the league workbook's dollars." % int(workbook_season)
+    if provisional:
+        note += " %s dollars: %s." % (
+            ", ".join(str(s) for s in provisional),
+            PROVISIONAL_CURVE_LABEL,
+        )
+    unpriced = [s for s in seasons if s not in priced]
+    if unpriced:
+        note += " %s: not priced (no verified class allocation)." % ", ".join(
+            str(s) for s in unpriced
+        )
     return {
         "basis": BUDGET_POLICY_PER_CLASS,
         "budget": int(budget),
@@ -476,29 +733,14 @@ def budget_policy_block(
         "decidedBy": BUDGET_POLICY_DECIDED_BY,
         "decidedAt": BUDGET_POLICY_DECIDED_AT,
         "classBudgets": {str(s): int(budget) for s in seasons},
-        "unpricedClasses": [s for s in seasons if s not in priced],
+        "unpricedClasses": unpriced,
         "allYearsBudget": int(budget) * len(priced),
-        "classCurveMethods": {
-            str(s): (
-                CURVE_METHOD_WORKBOOK
-                if workbook_season is not None and s == int(workbook_season)
-                else CURVE_METHOD_INTERIM_GENERIC_MARKET
-            )
-            for s in seasons
-        },
-        "interimCurveLabel": CURVE_METHOD_INTERIM_LABEL if estimated else None,
-        "note": (
-            "Each draft class is its own $%d pool; All Years adds the classes together. " % budget
-            + (
-                "The %d class uses the league workbook's dollars; " % int(workbook_season)
-                if workbook_season is not None
-                else ""
-            )
-            + (
-                "%s dollars are a %s (interim generic market values)."
-                % (", ".join(str(s) for s in estimated), CURVE_METHOD_INTERIM_LABEL)
-                if estimated
-                else ""
-            )
-        ).strip(),
+        "classCurveMethods": methods,
+        # Retired with the interim generic-market curve (Batch E); kept as
+        # ``None`` so an older reader sees "no interim class", not a KeyError.
+        "interimCurveLabel": None,
+        "provisionalClasses": provisional,
+        "provisionalCurveLabel": PROVISIONAL_CURVE_LABEL if provisional else None,
+        "classes": {str(s): per_class[s] for s in seasons if s in per_class},
+        "note": note,
     }

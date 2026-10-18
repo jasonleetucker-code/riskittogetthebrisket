@@ -12372,6 +12372,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # the Sleeper fetch raises early.
     effective_slot_to_rid: dict[int, int] = {}
     live_standings_active: bool = False
+    # The draft-order answer behind ``effective_slot_to_rid`` (Batch E), or
+    # ``None`` when the workbook / last draft's order stands.
+    standings_order = None
     first_name_to_rid: dict[str, int] = {}
     # Wave A: the league-scoped draft years (set inside the try once the
     # league is known) and the stable roster/owner keys for teamTotals.
@@ -12579,9 +12582,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # ── Effective slot → roster_id mapping ──────────────────────
         # Pre-season we trust the most-recent completed draft's
         # slot→roster_id map (also the workbook's slot ordering).
-        # Once any team has non-zero points (= the season has
-        # started), we reorder so the team with the fewest points
-        # occupies slot 1, second-fewest slot 2, etc.
+        # Once the season has started, we reorder by the league's
+        # draft-order rule (worst record first, ties on record by LOWER
+        # Points For — ``draft_capital_order.class_slot_order``).
         #
         # This single mapping is the source of truth for EVERY
         # slot-keyed downstream view:
@@ -12613,7 +12616,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # invariant that an untraded pick has originalOwner ==
         # currentOwner.
         #
-        # Additionally, restrict the live-fpts reshuffle to the
+        # Additionally, restrict the live-standings reshuffle to the
         # roster IDs that are actually in ``slot_to_roster`` —
         # Sleeper sometimes exposes more rosters than the workbook
         # tracks (expansion/inactive rosters), and pulling one of
@@ -12643,15 +12646,40 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # bridge is complete for every roster the reshuffle can place.
         _workbook_slots: set[int] = {int(s) for s in slot_to_original}
         _bridged_slot_keys: set[int] = {int(s) for s in slot_to_roster}
-        live_standings_active = (
-            any(v > 0 for v in _bridged_fppts.values())
-            and bool(slot_to_original)
+        _bridge_complete = (
+            bool(slot_to_original)
             and _workbook_slots.issubset(_bridged_slot_keys)
             and len(_bridged_fppts) >= len(slot_to_original)
         )
+        # Batch E (owner 2026-10-18): the reshuffle follows THE draft-order
+        # owner (``src/public_league/draft_order.py``, ``reverse_record_lower_pf``
+        # — worst record first, ties on record by LOWER Points For) through
+        # ``draft_capital_order.class_slot_order``.  VERIFIED final standings
+        # give ``final_standings`` slots; standings to date are a labelled
+        # forecast (``projected``).  It used to sort on Points For alone, which
+        # is not the league's rule.  No standings (no rule, no game played, a
+        # roster without a record) → the existing order, still ``projected``.
+        standings_order = None
+        if _bridge_complete:
+            from src.api.draft_capital_order import class_slot_order  # noqa: PLC0415
+
+            try:
+                _order_key = _league_registry.league_key_for_sleeper_id(_league_id_for_draft)
+            except Exception:  # noqa: BLE001 — unregistered league: no recorded rule
+                _order_key = None
+            standings_order = class_slot_order(
+                league_key=_order_key,
+                league_meta=league_meta if isinstance(league_meta, dict) else None,
+                rosters=rosters if isinstance(rosters, list) else None,
+                class_year=int(league_season),
+                roster_ids=_bridged_rids,
+            )
+        live_standings_active = standings_order is not None
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
-        if live_standings_active:
-            _sorted_rids = sorted(_bridged_fppts, key=lambda r: _bridged_fppts[r])
+        if standings_order is not None:
+            _sorted_rids = sorted(
+                standings_order.slot_by_roster, key=lambda r: standings_order.slot_by_roster[r]
+            )
             effective_slot_to_rid = {
                 int(i): int(rid)
                 for i, rid in enumerate(_sorted_rids[: len(slot_to_original)], start=1)
@@ -12972,10 +13000,15 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "assetId": _workbook_asset_id(rnd, origin_rid),
                 "isTraded": is_traded,
                 "isExpansion": slot <= 2,
-                # The workbook's slot order is an ESTIMATE until Sleeper sets
-                # this class's draft order: last draft's order pre-season, the
-                # live points-for reshuffle in-season.  Labelled, never a fact.
-                "slotStatus": "projected",
+                # The workbook's slot order is an ESTIMATE until the league's
+                # regular season is final: last draft's order pre-season, the
+                # draft-order rule over standings to date in-season.  Only
+                # VERIFIED final standings make it the rule's real order.
+                "slotStatus": (
+                    "final_standings"
+                    if standings_order is not None and standings_order.final
+                    else "projected"
+                ),
                 "valueBasis": "workbook",
                 "dollarValueEstimated": False,
                 # The sheet's own rookie-auction curve (owner addendum
@@ -13128,8 +13161,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # The workbook is ONE draft.  The league's other owned-pick classes
     # (``league_draft_years.owned_pick_seasons`` — 2028 and 2029 beside the
     # workbook's 2027 for dynasty_main) come from Sleeper ownership through
-    # the canonical fold and the canonical pick values, in
-    # ``additionalClassPicks``.  ``picks`` / ``teamTotals`` /
+    # the canonical fold, in ``additionalClassPicks``, priced on the canonical
+    # rookie-auction curve (Batch E): each class its own 72-pick whole-dollar
+    # allocation resolved under its OWN year (``published`` last-known-good),
+    # frozen 2026 provisional inputs + that class's spine until Batch D
+    # promotes its real inputs.  ``picks`` / ``teamTotals`` /
     # ``coveredPickYears`` are untouched: they stay the workbook class, which
     # is what /draft, the auction room and the /trade stack read as the
     # upcoming auction's budgets.
@@ -13139,6 +13175,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     additional_state = _dcc.ADDITIONAL_CLASSES_NOT_REQUESTED
     additional_reason = None
     additional_seasons: list[int] = []
+    class_allocations: dict[int, Any] = {}
     if apply_sleeper_trades:
         additional_seasons = [
             int(y)
@@ -13165,7 +13202,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 else draft_rounds
             )
             # A class whose Sleeper draft object already carries its order has
-            # KNOWN slots; anything else stays round-only.
+            # KNOWN slots; anything else is round-level (a later class's
+            # standings are unplayed, so no slot is forecast or invented).
             slot_by_origin: dict[tuple[int, int], int] = {}
             for _d in all_drafts:
                 try:
@@ -13179,17 +13217,22 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                         slot_by_origin[(_season, int(_rid))] = int(_slot)
                     except (TypeError, ValueError):
                         continue
-            additional_picks = _dcc.price_per_class(
+            class_allocations = {
+                y: _dcc.resolve_class_curve_allocation(_pick_league_key, y)
+                for y in additional_seasons
+            }
+            additional_picks = _dcc.price_classes_on_curve(
                 _dcc.build_class_picks(
                     league_key=_pick_league_key,
                     roster_name_by_id=roster_name_by_id,
                     traded_picks=traded_observed,
                     seasons=additional_seasons,
                     rounds=rounds_for_classes,
-                    contract=latest_contract_data,
                     slot_by_origin=slot_by_origin or None,
                 ),
-                DRAFT_TOTAL_BUDGET,
+                class_allocations,
+                team_count=num_teams,
+                rounds=draft_rounds,
             )
             additional_state = _dcc.ADDITIONAL_CLASSES_OBSERVED
     result["additionalClassPicks"] = additional_picks
@@ -13197,14 +13240,34 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     result["additionalClassesReason"] = additional_reason
     # Owner decision 2026-10-18 ("$1,200 per draft class"): the workbook
     # class is its own $1,200 (the sheet's dollars, unchanged) and each later
-    # class its own $1,200 pool.
+    # class its own $1,200 pool.  Per year (Batch E): ``budgetBasis``,
+    # ``curveId``, ``spineYears``, ``inputMode`` and the served allocation.
+    _priced_extra = sorted(
+        {int(p["season"]) for p in additional_picks if p.get("isUnpriced") is False}
+    )
+    _class_blocks: dict[int, dict] = {}
+    if draft_valuation_state is not None:
+        _class_blocks[int(league_season)] = _dcc.class_valuation_block(
+            published, draft_year=int(league_season), budget=DRAFT_TOTAL_BUDGET, priced=True
+        )
+    for _y in sorted({int(p["season"]) for p in additional_picks}):
+        _class_blocks[_y] = _dcc.class_valuation_block(
+            class_allocations.get(_y),
+            draft_year=_y,
+            budget=DRAFT_TOTAL_BUDGET,
+            priced=_y in _priced_extra,
+        )
     result["budgetPolicy"] = _dcc.budget_policy_block(
         DRAFT_TOTAL_BUDGET,
         [league_season] + sorted({int(p["season"]) for p in additional_picks}),
         workbook_season=int(league_season),
-        priced_seasons=[league_season]
-        + sorted({int(p["season"]) for p in additional_picks if p.get("isUnpriced") is False}),
+        priced_seasons=[league_season] + _priced_extra,
+        classes=_class_blocks,
     )
+    # How this board's slots were ordered (Batch E): the draft-order rule over
+    # verified final standings, the rule over standings to date (forecast), or
+    # ``None`` — the workbook / last draft's order (also a forecast).
+    result["draftOrder"] = standings_order.to_dict() if standings_order is not None else None
     # The workbook class's final whole-dollar step (owner decision 2026-10-18):
     # how the half-dollar reference became the published integers.
     result["wholeDollarAllocation"] = whole_dollar_receipt

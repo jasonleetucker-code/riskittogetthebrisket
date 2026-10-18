@@ -69,7 +69,7 @@ PRODUCTION-VERIFIED (each a separate claim).
 | **B — canonical rookie values + frozen fallbacks** (PROMPT B) | Frozen 2026 provisional baseline `config/draft_valuation/frozen_inputs/2026_spreadsheet_baseline.json` + checksum-refusing loader `src/draft/rookie_auction/snapshots.py` (**done**); then a `RookieClassSnapshot` contract (target vs actual input class, mode `actual` / `frozen_fallback`, league, scoring fingerprint, IDP eligibility, generation hash, 72 entries with stable IDs, coverage, missing reasons); class-identity states (`class_eligible_for_curve` / `rosterable_on_sleeper` / `unsupported_class_identity`); sorted, de-duplicated top-72 from canonical `rankDerivedValue`; read-only readiness detector | A | frozen-snapshot tests (checksum pinned, edits refused, relabel refused, 2027 spine, curve from frozen inputs = workbook 72/72); later: class-identity, IDP / non-IDP, duplicate-alias, 72-uniqueness, stale-evidence tests | stable 72 ordered values or explicit NOT_READY; frozen fallback never mutates; no premature 2027 promotion | `src/draft/rookie_pool.py::select_rookie_rows` (the one "who is in this auction" owner — reuse; note it proves `rookie` + Sleeper id, not class year); `src/api/draft_class_evidence.py` | **TESTS GREEN** on PR #1786: frozen baseline; `class_snapshot.py` (class identity, sorted top 72, hashes, frozen template); report-only `readiness.py` (`PROMOTION_ENABLED = False`; measured 2026-10-18: 2027 class 0/72 eligible → `FALLBACK_VERIFIED`) |
 | **C — historical spine snapshots + rollover** (PROMPT C) | Completed-class curves 2024/2025/2026 as spreadsheet-sourced snapshots (**done**, unknown inputs/spine/formula/completion `null` with reasons); `select_spine_years` (**done**); then an append-only ledger of generated class curves keyed by (league, class, formula version, cutoff), written only on verified completion + roster consumption, idempotent, with an as-of replay command | A, B | spine selection 2027 → {2024, 2025, 2026}, 2028 → {2025, 2026, 2027} only once 2027 exists; later: completed-not-rostered, two jobs, reopened draft, supersession, failed write | dynamic last-three resolver; immutable ledger; no hindsight substitution; 2024 retained after leaving the window | `src/identity/pick_lifecycle.py` (completion AND roster consumption — the #1414 rule), `src/api/draft_class_evidence.py`, `src/history/` (temporal ledger conventions) | **TESTS GREEN** on PR #1786: published allocations with last-known-good safety (`published.py`, runtime verifier `verify.py`); imported curves under `historical_curves/dynasty_main/`, `ledger.finalize_completed_class` (create-only, verified completion via `pick_lifecycle`, pre-draft cutoff, idempotent, conflict-refusing), `replay_spine` + CLI. Not wired to any job (Batch D) |
 | **D — automated class readiness / promotion** (PROMPT D) | Scheduled readiness check after each fresh canonical build; state machine `FALLBACK_VERIFIED → CANDIDATE_INCOMPLETE → CANDIDATE_READY → VALIDATED → PROMOTABLE → ACTIVE` + error/rollback; thresholds preregistered before any 2027 candidate is looked at; atomic generation publish with last-good pointer and one-command rollback; operator diagnostic | A–C | mocked time jump fallback → eligible 2027; every failure keeps the previous generation; no repeated alerts | dry-run only in its PR; first live switch follows normal owner gates | `.github/workflows/scheduled-refresh.yml` (2-hour cadence, already syncs the workbook), existing alert/health plumbing | NOT STARTED |
-| **E — multi-year draft capital** (PROMPT E) | Integrate with #1785 (no second ownership resolver or year selector); $1,200 per class for `dynasty_main`; replace #1785's interim generic-market future-class curve with the workbook curve (frozen 2026 inputs + spine for each class until that class's real inputs pass Batch D); draft order = `reverse_record_lower_pf` (`src/public_league/draft_order.py`) for verified final standings, forecasts labelled, later years round-level only; real Sleeper standings and pick ownership for `dynasty_main` | A–C (#1785 merged) | 216 unique 2027–2029 identities for `dynasty_main`; per-class totals exactly $1,200; no 2027 double count in `/trade` | per-year API with `budgetBasis`, `curveId`, `spineYears`, `inputMode`; UI unchanged except labels | **#1785** (open, `claude/draft-capital-all-years`): every Sleeper class on `/league` Draft Capital, `?year=`, per-class $1,200 pool (`budgetPolicy per_class_pool`), canonical ownership fold, refuses an unobserved `/traded_picks`; **#1579** year selector; **#1626** draft-capital correctness / lifecycle; **#1769** canonical public pick ownership; `src/identity/picks.py`, `pick_lifecycle.league_draft_years` | NOT STARTED (waits on #1785) |
+| **E — multi-year draft capital** (PROMPT E) | Integrate with #1785 (no second ownership resolver or year selector); $1,200 per class for `dynasty_main`; replace #1785's interim generic-market future-class curve with the workbook curve (frozen 2026 inputs + spine for each class until that class's real inputs pass Batch D); draft order = `reverse_record_lower_pf` (`src/public_league/draft_order.py`) for verified final standings, forecasts labelled, later years round-level only; real Sleeper standings and pick ownership for `dynasty_main` | A–C (#1785 merged) | 216 unique 2027–2029 identities for `dynasty_main`; per-class totals exactly $1,200; no 2027 double count in `/trade` | per-year API with `budgetBasis`, `curveId`, `spineYears`, `inputMode`; UI unchanged except labels | **#1785** (open, `claude/draft-capital-all-years`): every Sleeper class on `/league` Draft Capital, `?year=`, per-class $1,200 pool (`budgetPolicy per_class_pool`), canonical ownership fold, refuses an unobserved `/traded_picks`; **#1579** year selector; **#1626** draft-capital correctness / lifecycle; **#1769** canonical public pick ownership; `src/identity/picks.py`, `pick_lifecycle.league_draft_years` | **TESTS GREEN; PR open** (`claude/draft-valuation-batch-e`, not merged) — see "Batch E — evidence" below |
 | **F — sitewide integration, automation, monitoring, cache** (PROMPT F) | Consumer census; one `DraftCapitalGeneration` reader; swap `server.py::_rookie_dollars_from_values` and the L2:L73 read onto the canonical curve (same quantity only); keep canonical 0–9999 pick values and the trade package model untouched; receipts (`generationHash`, `curveVersion`, `targetDraftYear`, `actualInputClassYear`, `spineYears`, …); alerts; stale-while-revalidate on the last valid generation | A–E | consumer matrix with exact functions/tests; before/after payloads under pinned data | every consumer of auction dollars reads one generation; no silent value change | `src/api/pick_value_resolution.py` (market values — must stay separate), `src/api/draft_capital_years.py`, `frontend/lib/draft-capital-years.js` | NOT STARTED |
 | **G — end-to-end verification + release** (PROMPT G) | Independent checker (no production imports) over pinned goldens and generated classes; adversarial dataset; as-of replay; read-only Sleeper reconciliation (216 ids); staged rollout, exact-head CI, deploy, desktop 1440 / mobile 375 smoke; rollback drill | A–F | PASS / FAIL / BLOCKED / NOT_TESTED report | production proof, not self-consistency | Batch A's reference transcription and fixtures are the start of the independent checker | NOT STARTED |
 
@@ -112,6 +112,91 @@ workbook-derived allocation (seeded: 2027, effective 2026-10-17, the workbook's
 72 whole dollars). Production-computed allocations are written by the resolver
 to the box-local, gitignored `data/draft_valuation/published_allocations/` —
 the same open storage/privacy question as the ledger (see UNRESOLVED).
+
+## Batch E — evidence (2026-10-18)
+
+**What changed.** `src/api/draft_capital_classes.py` prices every later class
+(2028, 2029 for `dynasty_main`) on the canonical rookie-auction curve instead
+of #1785's interim generic-market curve, which is deleted
+(`price_per_class`, `allocate_class_budget`, `canonical_pick_value`):
+
+* **Curve.** Per class: the spreadsheet formula (`curve.compute_curve`) over
+  the frozen 2026 provisional inputs (`class_snapshot.frozen_fallback_snapshot`)
+  and the three most recent completed classes strictly before it
+  (`snapshots.select_spine_years` — 2024/2025/2026 for both 2028 and 2029
+  until 2027 completes), handed to `published.resolve_published_allocation`
+  for that year: whole dollars with the formula's floors and caps, the
+  independent verifier, create-only storage, and that year's last known good
+  (or `unavailable`; never another year, never $0).  Batch D's promoted
+  generation, when it lands, is served by the resolver ahead of this
+  frozen-fallback candidate — Batch E decides no readiness.  Repo seeds:
+  `config/draft_valuation/published_allocations/dynasty_main/2028/` and
+  `2029/` (effective 2026-10-18).
+* **Identical today, by construction.** 2027, 2028 and 2029 have the same
+  inputs (frozen baseline) and the same spine, so their 72 whole dollars are
+  identical ($135 … $1); each is still a separate record under its own year
+  (different checksums).  They diverge when the spine rolls (2027 completes)
+  or Batch D promotes a class's real inputs.
+* **Slots.** A later class with no Sleeper draft order is ROUND-LEVEL: each
+  round keeps its exact curve dollars, shared equally in whole dollars among
+  its 12 picks (shares <= $1 apart; the extra dollars go in sha256-of-assetId
+  order, so no roster is systematically favoured).  A class whose Sleeper
+  draft object carries an order takes slot dollars (`known`).
+* **Draft order.** `src/api/draft_capital_order.py` adapts Sleeper standings
+  to THE owner (`src/public_league/draft_order.py`, `reverse_record_lower_pf`).
+  Verified final standings (league `post_season`/`complete`, every team at
+  the full regular-season game count incl. the median game) → the rule's
+  order, `slotStatus: "final_standings"`; standings to date → the rule as a
+  labelled forecast (`projected`).  This replaces the workbook class's
+  Points-For-only in-season reshuffle (not the league's rule).
+  `playoff_sim`'s `draftSlotDistribution` is not used (not available cheaply
+  in this request; one order is needed, not a distribution).
+* **API.** `budgetPolicy.classes[year]` carries `budgetBasis`
+  (`per_class_pool`), `curveId`, `spineYears`, `inputMode`, `provisional`,
+  `allocationState`, `failedRefresh`, `lastValidAt`, `recordChecksum` — read
+  from the SERVED record.  `classCurveMethods` is `workbook_rookie_auction`
+  for every priced class; `interimCurveLabel` is `null`;
+  `provisionalClasses` / `provisionalCurveLabel` added; top-level
+  `draftOrder`.  Per pick: `inputMode`, `roundShareReferenceDollars`,
+  `roundShareRule`.  Existing shape kept.  Any league but `dynasty_main`:
+  later classes UNPRICED (`league_not_configured`).
+* **UI.** `/league` labels only: provisional-curve note, round-share wording,
+  the projected note names the rule, a final-standings note.
+
+**Before / after — `dynasty_main`, live Sleeper 2026-10-18** (per-pick
+dollars by round; every class $1,200):
+
+| class | before (interim generic market) | after (rookie-auction curve, round-level) |
+|---|---|---|
+| 2028 | R1 $32, R2 $21, R3 $15, R4 $11, R5 $11, R6 $10 | R1 $69–70, R2 $19–20, R3 $5–6, R4 $2–3, R5 $2, R6 $1 |
+| 2029 | R1 $32, R2 $21, R3 $16, R4 $11, R5 $10, R6 $10 | R1 $69–70, R2 $19–20, R3 $5–6, R4 $2–3, R5 $2, R6 $1 |
+
+Team totals 2028, before → after: Chargers Team Doctor 308 → 545, Medical
+Murrayjuana 274 → 144, CollinFoz 100 → 100, PorchHonkey 99 → 100, Smoke n fire
+100 → 99, Unsolicited Diggs Pics 85 → 94, Queso Fresco 79 → 81, The fags
+62 → 16, Pop Trunk 58 → 13, Rage Against The Achane 35 → 8, two teams 0 → 0.
+2029: Chargers Team Doctor 185 → 259, Smoke n fire 153 → 190, Rage Against
+The Achane 110 → 101, Pop Trunk 100 → 101, PorchHonkey 100 → 100, Unsolicited
+Diggs Pics 100 → 100, Queso Fresco 100 → 99, The fags 100 → 99, CollinFoz
+90 → 99, Medical Murrayjuana 122 → 46, BA's BJ's 2/1 Special 20 → 3,
+JasonTuckerSheepFollower 20 → 3.  The 2027 workbook class moves only through
+the draft-order rule (record first, then lower PF, instead of PF alone):
+largest change ±$5 (Chargers Team Doctor 366 → 361, Smoke n fire 112 → 117).
+
+**Independent reconciliation.** `python3 -I scripts/check_draft_capital_multi_year.py
+--payload <dump>` imports nothing from the repo, fetches Sleeper itself, folds
+ownership itself and re-derives the formula from its written definition:
+36/36 PASS on the live board — 216 unique identities equal to its fold,
+every current owner equal to its fold, each class $1,200 in whole dollars,
+All Years $3,600, per-year / All Years / `teamTotals` exact sums, no 2027
+double count under /trade's stack rule, the 2028/2029 stored records and the
+payload equal to its own re-derivation (and the 2027 workbook class's slot
+dollars too).  Mutation probes (a $1 change, a round reshuffle, an owner
+swap, a duplicated 2027 pick, a missing `coveredPickYears`) each fail it.
+
+**Named follow-up on this path?** `server.py::_parse_csv_rookies` is not on
+the Batch E path (it feeds only the KTC rookie-name fallback, not any pick
+dollar) — left for Batch F as recorded below.
 
 ## Coordination
 

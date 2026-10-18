@@ -33,7 +33,9 @@ SEED_AT = "2026-10-17T00:00:00+00:00"
 @pytest.fixture()
 def stores(tmp_path):
     repo = tmp_path / "repo"
-    shutil.copytree(REPO_STORE, repo)
+    # Only the 2027 seed: these tests edit "the" stored record (Batch E seeds
+    # 2028 / 2029 beside it in the real store).
+    shutil.copytree(REPO_STORE / LEAGUE / "2027", repo / LEAGUE / "2027")
     box = tmp_path / "box"
     return {"store_dirs": [repo, box], "write_dir": box}
 
