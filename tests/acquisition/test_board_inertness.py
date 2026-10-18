@@ -87,11 +87,21 @@ class TestTheValuationPathCannotReachAcquisitionHistory:
         stated rule ("historical ownership is downstream of value"). Each
         is named here by exact path rather than folded into a prefix
         allowance, so a third module reaching for the same import still
-        has to earn its own line."""
+        has to earn its own line.
+
+        ``src/intel/manager_activity.py`` (C6-MGR-02 B1/B2, owner addendum
+        2026-10-17) is the third, added deliberately: it reuses the canonical
+        transaction normalizer (``events_from_transaction`` /
+        ``events_from_draft_picks``) to project ANY Sleeper user's completed
+        transactions into a private, read-only activity feed instead of
+        writing a second parser.  Like the two ledgers it is downstream of
+        value: it reads canonical values to display, never writes them, and
+        nothing on ``_VALUATION_PATH`` imports it."""
         allowed_prefixes = ("src/acquisition/",)
         allowed_exact = {
             "src/trade/waiver_ledger.py",
             "src/trade/market_trade_ledger.py",
+            "src/intel/manager_activity.py",
         }
         offenders = []
         for path in (REPO / "src").rglob("*.py"):
@@ -103,8 +113,8 @@ class TestTheValuationPathCannotReachAcquisitionHistory:
         assert not offenders, (
             f"unexpected src-tree consumers of src.acquisition: {offenders}. "
             "The authorized consumers are the offline collector and health probe under "
-            "scripts/, plus src/trade/waiver_ledger.py and "
-            "src/trade/market_trade_ledger.py; anything else needs a deliberate decision, "
+            "scripts/, plus src/trade/waiver_ledger.py, "
+            "src/trade/market_trade_ledger.py and src/intel/manager_activity.py; anything else needs a deliberate decision, "
             "not an import."
         )
         for rel in allowed_exact:

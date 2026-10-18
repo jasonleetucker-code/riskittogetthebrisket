@@ -1745,7 +1745,57 @@ functional benchmark only: no copied code, branding or interface assets, no payw
 | Site is **non-commercial**, so Sleeper's free public API terms apply; ship enabled for signed-in users, rate-limited | DECIDED — owner, 2026-10-17 |
 | Never fabricate unavailable data; inferred tendencies are labelled as evidence, never as fact or as a guarantee of acceptance; no collusion/abandonment accusations | DECIDED — binding (prompt) |
 | Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
-| Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
+| Implementation | Batch A MERGED #1762 (`048bcbf8a`, 2026-10-17); Batches B–F per the 2026-10-17 addendum below |
+
+## Added 2026-10-17 — Manager Intelligence addendum: Batches B–F (Recent Trades and Recently Acquired Players first)
+
+Owner master implementation addendum, 2026-10-17. It extends the 2026-10-16 Manager Intelligence directive above;
+it is **not** a replacement for work already underway. Workstream, deliverables, dependencies, tests and
+completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`.
+
+| Item | Disposition |
+|---|---|
+| Add Batches B–F to the active queue without displacing the injury-availability fixes, IDP source rehabilitation or the approved Value Adjustment activation | DECIDED — binding (addendum) |
+| B1 Recent Trades first: cross-league completed trades only. Each shows date, league, season, format, partners, players / picks / FAAB in and out, status, current values, incoming / outgoing totals, a package-adjusted comparison under the ACTIVE model, and a Trade Calculator link. Point-in-time values, grades and aging appear only when trustworthy, otherwise explicitly unavailable. Filters: 7 / 30 / 90 days, season, historical, league, acquired / sent players or picks. Newest first; multi-team trades supported | DECIDED — binding (addendum) |
+| B2 Recently Acquired Players: method (trade / waiver with FAAB / free agent / draft with slot / other) from real transaction or draft evidence only. Each shows current value and rank, still rostered, slot status and what was given up. Analytics: most valuable, by position, by method, adds vs drops, repeat targets, rookies, IDP, later traded or dropped. League-level events plus a player-level summary | DECIDED — binding (addendum) |
+| Unified activity feed: trades, waivers, free-agent adds, drops, draft picks and pick movements; an add and its drop are one event; deduplicated by a stable id; no pending offers; correct attribution through co-ownership and ownership changes | DECIDED — binding (addendum) |
+| B3 draft capital + trade intelligence, C league-wide opponent scouting, D trade-tool integration (canonical board, active package model), E career / archetypes / comparisons, F saved managers / alerts / scoped leaderboards, in that order | DECIDED — binding (addendum) |
+| Reuse existing systems; bounded incremental retrieval; explicit complete / partial / none / unavailable / rate-limited states; missing ≠ zero; never invent trades, acquisition dates, current ownership or historical values; private endpoints authenticated, read-only, rate-limited; PSI Direction A | DECIDED — binding (addendum) |
+| Routine implementation details proceed without owner approval; merge and deploy gates and required owner approvals still apply | DECIDED — binding (addendum) |
+| Implementation | IN PROGRESS — B1 + B2 + feed lane `claude/manager-intel-b` |
+
+## Added 2026-10-17 — Trade Calculator completion: audit, redesign, unified YES/NO decision engine
+
+Owner master directive 2026-10-17 ("MASTER AUDIT, REDESIGN & COMPLETION DIRECTIVE — The Ultimate Dynasty Trade
+Calculator") plus the owner's queue instruction: **added to the current active implementation queue**, not a separate
+project. In-flight work (injury-aware simulations, IDP rehabilitation, geometric VA activation, Manager Intelligence,
+draft-pick ownership) keeps its order. Workstream, batches, dependencies and completion criteria:
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`.
+
+| Item | Disposition |
+|---|---|
+| Audit every Trade Calculator requirement ever discussed into one durable feature matrix with implementation / CI / merge / deploy / production-verification states kept distinct | DECIDED — binding (directive) |
+| Competitive research of leading trade calculators from public, permitted evidence only, leading to adopted and avoided patterns | DECIDED — binding (directive) |
+| Redesign `/trade`'s information architecture (builder → immediate result → final decision → supporting intelligence → advanced tools) with genuine desktop and mobile parity, PSI Direction A | DECIDED — binding (directive) |
+| One authoritative decision engine, extended in place, giving **YES — MAKE THE TRADE / NO — DO NOT MAKE THE TRADE** with confidence, primary reason, supporting factors, main counterargument and what would change it; when essential evidence is missing it says no reliable recommendation can be made. Refines `C7-DESK-01`'s five-level MAKE…PASS headline into the binary headline plus an honest insufficient-evidence state | DECIDED — owner, 2026-10-17 |
+| Personalized, not arbitrary: objective package value, personal roster benefit, strategic fit (win-now / balanced / rebuild; an inferred posture shown and adjustable) and feasibility stay separate explainable components; no invented weights; no double counting (independent / correlated / contextual / explanatory evidence classes) | DECIDED — binding (directive) |
+| All package math through the active model (`geom_q078_v1`, q = 0.78, once #1771 is deployed); KTC stays as the named rollback / historical comparison; KTC-calibrated thresholds re-evaluated or labelled provisional | DECIDED — binding (directive) |
+| Not authorized by it: changing q or the package model, promoting experimental models, League Tycoon contract features, purchases; merges, deploys and promotions keep their gates | DECIDED — binding (directive) |
+| Implementation | IN PROGRESS — TC-0 audit + research lane `claude/trade-calculator-completion`; TC-A…TC-F queued by dependency |
+
+## Added 2026-10-17 — Follow-up experiment: per-vote rank-space outlier filter
+
+Owner instruction 2026-10-17, after the original rank-space Hampel challenger failed its preregistered test (#1778,
+verdict NOT BETTER, kept as a standalone historical record). The original implementation inverted each row through one
+curve instead of each vote's own source-specific curve, so the intended methodology was evaluated separately and fairly.
+
+| Item | Disposition |
+|---|---|
+| Keep the production Hampel filter unchanged; do not promote the challenger | DECIDED — owner, 2026-10-17 |
+| Preserve the original experiment and its negative result in #1778; #1778's merge does not depend on this follow-up | DECIDED — owner, 2026-10-17 |
+| New preregistration, committed and pushed before any implementation or run, labelled a follow-up (not a correction) | DONE — `d8116ee121`, pushed 2026-10-17 22:25:07 UTC |
+| Per-vote inverse through each vote's own point-in-time curve, TE multiplier inverted first; offense / TE / IDP reported separately; Puka Nacua diagnostic only, no tuning | DONE — `docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/` |
+| Outcome | CLOSED — preregistered verdict INCONCLUSIVE (h = 7 Δ −0.0071 [−0.0229, +0.0076]; G1 non-inferior). Under the preregistration this closes the experiment: production filter retained, `rank_space_hampel_per_vote_challenger` stays OFF, no owner review required |
 
 ## Added 2026-10-17 — League Tycoon migration research (owner research directive)
 
@@ -1838,3 +1888,26 @@ $1,200 budget-basis half of that row was decided on 2026-10-18 ("$1,200 per draf
 | **Historical spine + constraint-aware whole dollars (2026-10-18), `dynasty_main`.** (1) Keep `referenceDollars` (original-precision spreadsheet curve; the historical spine uses it) and `finalWholeDollars` (published integers; every allocation, budget, display and auction) for each completed class, immutably with receipts — never fractional spendable budget. (2) Use largest-remainder rounding when it is valid; otherwise solve the constrained integer allocation (exact $1,200, integers, floors/caps, non-increasing, minimum total deviation from the reference, deterministic earlier-position ties, no dollars created or removed) by a documented, independently testable method before refusing; refuse only on genuine infeasibility, missing data or failed verification; keep safe refusal / last-known-good. Re-run the 250 simulated classes (incl. the 30 refused) and report recovered / infeasible / changes / deviations / invariant proof / 2027 unchanged; tests showing simple rounding can fail where a constrained allocation exists | DECIDED — owner, 2026-10-18. Implementation in the canonical calculation (#1786), reconciled in #1785. Not blanket merge approval: exact-head CI and final validation still required |
 | **Last-known-good draft valuation safety (2026-10-18 addendum), `dynasty_main`.** Keep the most recent independently verified, complete 72-pick whole-dollar allocation per eligible draft year (exactly $1,200; formula version, provenance, effective date, draft year, validation receipt). A new calculation that fails validation keeps the same year's previous verified allocation while still eligible, with a warning naming the failed refresh and the last valid timestamp. The dollar curve and Sleeper pick OWNERSHIP are separate: never substitute old ownership; unverifiable ownership → ownership and team totals unavailable; never $0 budgets because a refresh failed; never another year's allocation without a validated provisional-class policy; no applicable verified allocation → fail closed with a specific reason. Tests: failure, recovery, source outage, changed ownership, stale snapshot, missing fallback, successful republish. Immutable history; never overwrite approved reference curves | DECIDED — owner, 2026-10-18. Store + resolver in the canonical calculation (#1786); consumer wiring in #1785. Keep #1786 → #1785 order; separate merge approval after exact-head CI |
 | **IDP Show session (2026-10-18).** Owner states the login cookies were supplied; verify they are installed through the existing secure mechanism and that collection, upstream timestamps, ingestion and voting safeguards work — never commit or log cookie contents | VERIFIED 2026-10-18: the production collector (`dynasty-idpshow-fetch` on the box) has authenticated and fetched every 2 h since 2026-10-17 20:32 UTC (gap 2026-10-07 → 10-17 before it). Combined board 665 rows (paywalled article), IDP-only board 350 rows (content changed 10-17). Ingestion live (`idpShowCombined` 656 served rows). The voting board's own vendor timestamp (Datawrapper chart `lastModifiedAt` 2026-08-19) is ~59 days old, so freshness weighting withholds its votes (QUARANTINED) — the established safeguard, which lifts automatically when the vendor republishes. No credential action outstanding |
+
+## Added 2026-10-17 — Geometric Value Adjustment activation (owner approval)
+
+| Item | Disposition |
+|---|---|
+| Activate `geom_q078_v1` (q = 0.78) as the sitewide ACTIVE package Value Adjustment; keep `ktc_2026_04` registered for rollback; do not change the approved formula | DECIDED — owner, 2026-10-17 (supersedes "promotion NOT authorized" in the entry above); PR #1771 |
+| Take over #1771: finish CI and regression tests, fix failures, verify Second Opinions / Trade History / Trade Finder / Analyze Trade use it consistently, merge and deploy once release gates pass, verify production uses it | AUTHORIZED — owner approval to merge and deploy, 2026-10-17 |
+
+## Added 2026-10-17 — Injury-aware simulations, IDP source rehabilitation, valuation accuracy (owner master package)
+
+Owner master package 2026-10-17 ("Injury-Aware Simulations, Complete IDP Source Rehabilitation,
+Valuation Accuracy & Trade Model Validation").  Focused PRs; no automatic merge or deploy; no
+activation of a source that fails its gate.
+
+| Item | Disposition |
+|---|---|
+| P0: a player confirmed out for all remaining weeks enters zero simulated lineups; byes and verified player-week availability in forward simulations; Analyze Trade uses the corrected results | IN PROGRESS — #1772 (roster utility + Analyze Trade), #1774 (playoff sim presim), #1775 (Game Day byes) |
+| Every non-voting source has a reason, evidence, recovery action, owner, next trigger, promotion gate and visible status; no source sits in shadow indefinitely | IN PROGRESS — `config/sources/rehabilitation.json` (this PR) |
+| Signals IDP: run the on-box promotion gate; never weaken thresholds; diagnose failures | DONE (round 1 FAILED 6 and 6b; hold stays) — #1773; next candidate needs an owner preregistration decision |
+| The IDP Show: verify production authentication, fresh collection, upstream freshness; repair collection | IN PROGRESS — #1770 (on-box verifier + secret path); needs a working session from the owner |
+| FantasyPros IDP and other freshness problems: repair engineering defects; never force weight by editing clocks | IN PROGRESS — parser repairs; explicit upstream clock proposal needs owner approval |
+| Re-evaluate DLF IDP's incremental evidence; present a reversal only with evidence and explicit approval | PENDING |
+| Source independence, IDP normalization, outlier challenger (preregistered), DLF Values gate re-run, package-model evaluation on the production trade archive | PENDING |

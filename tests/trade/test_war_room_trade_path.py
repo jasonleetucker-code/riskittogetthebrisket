@@ -219,3 +219,54 @@ def test_analyze_survives_a_comparables_failure(two_league_registry, monkeypatch
     assert res.status_code == 200
     lens = res.json()["analysis"]["lenses"]["comparables"]
     assert lens["available"] is False and lens["unavailableReason"] == "comparables_error"
+
+
+# ── P0 (owner master package 2026-10-17): availability on the trade path ──
+
+
+def test_a_season_ending_incoming_player_enters_no_lineup_end_to_end(monkeypatch):
+    """The Dart case through simulate_trade -> roster capacity -> utility ->
+    Analyze Trade: a high-projection incoming player whose stated return is
+    after every remaining week enters zero simulated lineups, and Analyze
+    Trade says he is unavailable instead of "enters the optimal lineup"."""
+    from src.ros import availability as av
+    from src.trade import analyze_trade as at
+    from src.trade import roster_capacity
+
+    league = {"leg": 6, "playoff_week_start": 15, "playoff_teams": 7}
+    ctx = av.build_context(
+        season=2026,
+        league_settings=league,
+        evidence_payload={
+            "asOf": "2026-10-17T20:00:00Z",
+            "players": {
+                "WR Buf Star": {
+                    "current": {
+                        "statusCode": "IR",
+                        "returnDate": "2027-01-17",
+                        "reportedAt": "2026-09-30T20:35Z",
+                    }
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(av, "load_context", lambda **kw: ctx)
+    monkeypatch.setattr(
+        roster_capacity,
+        "_players_meta_for",
+        lambda ids: {
+            i: {"team": "BUF", "injury_status": "IR" if i == "WR Buf Star" else None} for i in ids
+        },
+    )
+    r = _sim(["WR Buf Star"], ["WR Phi"], include_roster_utility=True)
+    u = r["rosterUtility"]
+    assert u["basis"]["weeks"] == list(range(6, 18))
+    star = next(p for p in u["players"] if p["name"] == "WR Buf Star")
+    assert star["lineupEntryPctAfter"] == 0.0
+    assert star["availability"]["eligibleWeeks"] == 0
+    reasons = at._reasons(
+        at._market_lens(r), at._roster_lens(r, at._config()), at._feasibility_lens(r), at._config()
+    )
+    flat = " ".join(reasons[0] + reasons[1])
+    assert "WR Buf Star enters the optimal lineup" not in flat
+    assert "WR Buf Star is unavailable for all 12 remaining weeks" in flat

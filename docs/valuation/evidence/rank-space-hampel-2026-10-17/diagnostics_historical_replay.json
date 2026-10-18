@@ -1,0 +1,857 @@
+{
+ "allBoards": {
+  "D1_market_rejection_share": {
+   "1-24": {
+    "challenger": {
+     "rejected": 826,
+     "share": 0.1155,
+     "voting": 7152
+    },
+    "champion": {
+     "rejected": 538,
+     "share": 0.0752,
+     "voting": 7152
+    }
+   },
+   "1-800": {
+    "challenger": {
+     "rejected": 2163,
+     "share": 0.0138,
+     "voting": 156490
+    },
+    "champion": {
+     "rejected": 1323,
+     "share": 0.0085,
+     "voting": 156490
+    }
+   },
+   "101-200": {
+    "challenger": {
+     "rejected": 32,
+     "share": 0.0015,
+     "voting": 21430
+    },
+    "champion": {
+     "rejected": 198,
+     "share": 0.0092,
+     "voting": 21430
+    }
+   },
+   "201-400": {
+    "challenger": {
+     "rejected": 127,
+     "share": 0.003,
+     "voting": 42609
+    },
+    "champion": {
+     "rejected": 207,
+     "share": 0.0049,
+     "voting": 42609
+    }
+   },
+   "25-50": {
+    "challenger": {
+     "rejected": 208,
+     "share": 0.0293,
+     "voting": 7097
+    },
+    "champion": {
+     "rejected": 106,
+     "share": 0.0149,
+     "voting": 7097
+    }
+   },
+   "401-800": {
+    "challenger": {
+     "rejected": 877,
+     "share": 0.0133,
+     "voting": 65921
+    },
+    "champion": {
+     "rejected": 98,
+     "share": 0.0015,
+     "voting": 65921
+    }
+   },
+   "51-100": {
+    "challenger": {
+     "rejected": 93,
+     "share": 0.0076,
+     "voting": 12281
+    },
+    "champion": {
+     "rejected": 176,
+     "share": 0.0143,
+     "voting": 12281
+    }
+   }
+  },
+  "D2_rows_with_market_rejected": {
+   "1-24": {
+    "challenger": 584,
+    "champion": 396,
+    "rows": 3312
+   },
+   "101-200": {
+    "challenger": 32,
+    "champion": 183,
+    "rows": 12617
+   },
+   "201-400": {
+    "challenger": 127,
+    "champion": 196,
+    "rows": 25870
+   },
+   "25-50": {
+    "challenger": 199,
+    "champion": 106,
+    "rows": 3401
+   },
+   "401-800": {
+    "challenger": 873,
+    "champion": 98,
+    "rows": 46049
+   },
+   "51-100": {
+    "challenger": 93,
+    "champion": 174,
+    "rows": 6289
+   }
+  },
+  "D3_value_movement": {
+   "idp": {
+    "maxRel": 1.62724,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.17502,
+    "p90RelAll": 0.0,
+    "p90RelMoved": 0.48502,
+    "rows": 53206,
+    "rowsMoved": 2107,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 65,
+      "in": 148,
+      "out": 25
+     },
+     "200": {
+      "boardsChanged": 94,
+      "in": 254,
+      "out": 73
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   },
+   "offense": {
+    "maxRel": 1.03333,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.0152,
+    "p90RelAll": 0.01015,
+    "p90RelMoved": 0.04859,
+    "rows": 64753,
+    "rowsMoved": 9680,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 72,
+      "in": 36,
+      "out": 138
+     },
+     "200": {
+      "boardsChanged": 102,
+      "in": 59,
+      "out": 219
+     },
+     "24": {
+      "boardsChanged": 27,
+      "in": 27,
+      "out": 27
+     }
+    }
+   }
+  },
+  "D4_family_wiped": {
+   "familiesWiped": {
+    "challenger": {
+     "dlf": 1967,
+     "draftSharks": 4826,
+     "dynastyDaddySf": 336,
+     "dynastyNerdsSfTep": 1122,
+     "fantasyCalc": 198,
+     "fantasyPros": 775,
+     "flockFantasy": 411,
+     "idpShow": 661,
+     "idpTradeCalc": 1381,
+     "ktcCrowd": 63,
+     "ktcTrades": 349,
+     "otcffbSf": 69,
+     "pfkDynasty": 657,
+     "yahooBoone": 1676
+    },
+    "champion": {
+     "dlf": 1825,
+     "draftSharks": 6930,
+     "dynastyDaddySf": 121,
+     "dynastyNerdsSfTep": 672,
+     "fantasyCalc": 160,
+     "fantasyPros": 737,
+     "flockFantasy": 529,
+     "idpShow": 544,
+     "idpTradeCalc": 665,
+     "ktcCrowd": 61,
+     "ktcTrades": 157,
+     "otcffbSf": 100,
+     "pfkDynasty": 582,
+     "yahooBoone": 1380
+    }
+   },
+   "rowsByBand": {
+    "1-24": {
+     "challenger": 2375,
+     "champion": 2150,
+     "filterRows": 3312
+    },
+    "101-200": {
+     "challenger": 2515,
+     "champion": 2370,
+     "filterRows": 10244
+    },
+    "201-400": {
+     "challenger": 1481,
+     "champion": 1696,
+     "filterRows": 19574
+    },
+    "25-50": {
+     "challenger": 1909,
+     "champion": 1811,
+     "filterRows": 3283
+    },
+    "401-800": {
+     "challenger": 1484,
+     "champion": 2258,
+     "filterRows": 27911
+    },
+    "51-100": {
+     "challenger": 2193,
+     "champion": 1977,
+     "filterRows": 5764
+    },
+    "all": {
+     "challenger": 12154,
+     "champion": 12397,
+     "filterRows": 75106
+    }
+   }
+  },
+  "D5_model_vs_ktc_market_median": {
+   "1-24": {
+    "challenger": 0.0711,
+    "champion": 0.0691,
+    "rows": 1944
+   },
+   "101-200": {
+    "challenger": -0.0619,
+    "champion": -0.0631,
+    "rows": 5196
+   },
+   "201-400": {
+    "challenger": -0.1267,
+    "champion": -0.1276,
+    "rows": 9820
+   },
+   "25-50": {
+    "challenger": 0.025,
+    "champion": 0.0207,
+    "rows": 1954
+   },
+   "401-800": {
+    "challenger": -0.1159,
+    "champion": -0.1168,
+    "rows": 12808
+   },
+   "51-100": {
+    "challenger": -0.0329,
+    "champion": -0.0374,
+    "rows": 3419
+   }
+  },
+  "boards": 138,
+  "notes": [
+   "bands by the incumbent's canonicalConsensusRank for both filters",
+   "D1/D2/D4 exclude pick rows (the filter never runs on picks)",
+   "D5 is model/ktcMarket.normalizedValue - 1 over ranked rows carrying the benchmark; a DIAGNOSTIC, never a target"
+  ]
+ },
+ "codeRevisions": [
+  "996f70b7d9eeae5abbbe8b764cb611894d90e159"
+ ],
+ "completeBoards": {
+  "D1_market_rejection_share": {
+   "1-24": {
+    "challenger": {
+     "rejected": 789,
+     "share": 0.125,
+     "voting": 6312
+    },
+    "champion": {
+     "rejected": 516,
+     "share": 0.0817,
+     "voting": 6312
+    }
+   },
+   "1-800": {
+    "challenger": {
+     "rejected": 2001,
+     "share": 0.015,
+     "voting": 133402
+    },
+    "champion": {
+     "rejected": 1224,
+     "share": 0.0092,
+     "voting": 133402
+    }
+   },
+   "101-200": {
+    "challenger": {
+     "rejected": 31,
+     "share": 0.0017,
+     "voting": 18266
+    },
+    "champion": {
+     "rejected": 181,
+     "share": 0.0099,
+     "voting": 18266
+    }
+   },
+   "201-400": {
+    "challenger": {
+     "rejected": 98,
+     "share": 0.0027,
+     "voting": 36142
+    },
+    "champion": {
+     "rejected": 203,
+     "share": 0.0056,
+     "voting": 36142
+    }
+   },
+   "25-50": {
+    "challenger": {
+     "rejected": 145,
+     "share": 0.0232,
+     "voting": 6247
+    },
+    "champion": {
+     "rejected": 66,
+     "share": 0.0106,
+     "voting": 6247
+    }
+   },
+   "401-800": {
+    "challenger": {
+     "rejected": 850,
+     "share": 0.0153,
+     "voting": 55734
+    },
+    "champion": {
+     "rejected": 98,
+     "share": 0.0018,
+     "voting": 55734
+    }
+   },
+   "51-100": {
+    "challenger": {
+     "rejected": 88,
+     "share": 0.0082,
+     "voting": 10701
+    },
+    "champion": {
+     "rejected": 160,
+     "share": 0.015,
+     "voting": 10701
+    }
+   }
+  },
+  "D2_rows_with_market_rejected": {
+   "1-24": {
+    "challenger": 547,
+    "champion": 374,
+    "rows": 2472
+   },
+   "101-200": {
+    "challenger": 31,
+    "champion": 166,
+    "rows": 9419
+   },
+   "201-400": {
+    "challenger": 98,
+    "champion": 192,
+    "rows": 19252
+   },
+   "25-50": {
+    "challenger": 136,
+    "champion": 66,
+    "rows": 2551
+   },
+   "401-800": {
+    "challenger": 846,
+    "champion": 98,
+    "rows": 34513
+   },
+   "51-100": {
+    "challenger": 88,
+    "champion": 158,
+    "rows": 4679
+   }
+  },
+  "D3_value_movement": {
+   "idp": {
+    "maxRel": 1.62724,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.17502,
+    "p90RelAll": 0.0,
+    "p90RelMoved": 0.48502,
+    "rows": 40225,
+    "rowsMoved": 2107,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 64,
+      "in": 148,
+      "out": 24
+     },
+     "200": {
+      "boardsChanged": 92,
+      "in": 254,
+      "out": 71
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   },
+   "offense": {
+    "maxRel": 0.81992,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.01501,
+    "p90RelAll": 0.01117,
+    "p90RelMoved": 0.04412,
+    "rows": 49366,
+    "rowsMoved": 7851,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 68,
+      "in": 32,
+      "out": 136
+     },
+     "200": {
+      "boardsChanged": 94,
+      "in": 49,
+      "out": 211
+     },
+     "24": {
+      "boardsChanged": 25,
+      "in": 25,
+      "out": 25
+     }
+    }
+   }
+  },
+  "D4_family_wiped": {
+   "familiesWiped": {
+    "challenger": {
+     "dlf": 857,
+     "draftSharks": 4308,
+     "dynastyDaddySf": 335,
+     "dynastyNerdsSfTep": 866,
+     "fantasyCalc": 189,
+     "fantasyPros": 700,
+     "flockFantasy": 185,
+     "idpShow": 661,
+     "idpTradeCalc": 1219,
+     "ktcCrowd": 49,
+     "ktcTrades": 349,
+     "otcffbSf": 68,
+     "pfkDynasty": 634,
+     "yahooBoone": 1311
+    },
+    "champion": {
+     "dlf": 728,
+     "draftSharks": 6019,
+     "dynastyDaddySf": 116,
+     "dynastyNerdsSfTep": 512,
+     "fantasyCalc": 151,
+     "fantasyPros": 674,
+     "flockFantasy": 235,
+     "idpShow": 544,
+     "idpTradeCalc": 566,
+     "ktcCrowd": 33,
+     "ktcTrades": 157,
+     "otcffbSf": 92,
+     "pfkDynasty": 577,
+     "yahooBoone": 1056
+    }
+   },
+   "rowsByBand": {
+    "1-24": {
+     "challenger": 1906,
+     "champion": 1762,
+     "filterRows": 2472
+    },
+    "101-200": {
+     "challenger": 2264,
+     "champion": 2188,
+     "filterRows": 8444
+    },
+    "201-400": {
+     "challenger": 986,
+     "champion": 1250,
+     "filterRows": 16040
+    },
+    "25-50": {
+     "challenger": 1537,
+     "champion": 1467,
+     "filterRows": 2515
+    },
+    "401-800": {
+     "challenger": 1005,
+     "champion": 1366,
+     "filterRows": 22576
+    },
+    "51-100": {
+     "challenger": 1807,
+     "champion": 1606,
+     "filterRows": 4429
+    },
+    "all": {
+     "challenger": 9702,
+     "champion": 9771,
+     "filterRows": 61376
+    }
+   }
+  },
+  "D5_model_vs_ktc_market_median": {
+   "1-24": {
+    "challenger": 0.0711,
+    "champion": 0.0691,
+    "rows": 1944
+   },
+   "101-200": {
+    "challenger": -0.0619,
+    "champion": -0.0631,
+    "rows": 5196
+   },
+   "201-400": {
+    "challenger": -0.1267,
+    "champion": -0.1276,
+    "rows": 9820
+   },
+   "25-50": {
+    "challenger": 0.025,
+    "champion": 0.0207,
+    "rows": 1954
+   },
+   "401-800": {
+    "challenger": -0.1159,
+    "champion": -0.1168,
+    "rows": 12808
+   },
+   "51-100": {
+    "challenger": -0.0329,
+    "champion": -0.0374,
+    "rows": 3419
+   }
+  },
+  "boards": 103,
+  "notes": [
+   "bands by the incumbent's canonicalConsensusRank for both filters",
+   "D1/D2/D4 exclude pick rows (the filter never runs on picks)",
+   "D5 is model/ktcMarket.normalizedValue - 1 over ranked rows carrying the benchmark; a DIAGNOSTIC, never a target"
+  ]
+ },
+ "label": "archived inputs rebuilt through today's pipeline code -- NOT what production served that day",
+ "mode": "historical_replay",
+ "newestCompleteBoard": {
+  "D1_market_rejection_share": {
+   "1-24": {
+    "challenger": {
+     "rejected": 16,
+     "share": 0.2222,
+     "voting": 72
+    },
+    "champion": {
+     "rejected": 10,
+     "share": 0.1389,
+     "voting": 72
+    }
+   },
+   "1-800": {
+    "challenger": {
+     "rejected": 19,
+     "share": 0.0129,
+     "voting": 1470
+    },
+    "champion": {
+     "rejected": 13,
+     "share": 0.0088,
+     "voting": 1470
+    }
+   },
+   "101-200": {
+    "challenger": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 209
+    },
+    "champion": {
+     "rejected": 1,
+     "share": 0.0048,
+     "voting": 209
+    }
+   },
+   "201-400": {
+    "challenger": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 389
+    },
+    "champion": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 389
+    }
+   },
+   "25-50": {
+    "challenger": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 76
+    },
+    "champion": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 76
+    }
+   },
+   "401-800": {
+    "challenger": {
+     "rejected": 3,
+     "share": 0.005,
+     "voting": 606
+    },
+    "champion": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 606
+    }
+   },
+   "51-100": {
+    "challenger": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 118
+    },
+    "champion": {
+     "rejected": 2,
+     "share": 0.0169,
+     "voting": 118
+    }
+   }
+  },
+  "D2_rows_with_market_rejected": {
+   "1-24": {
+    "challenger": 10,
+    "champion": 7,
+    "rows": 24
+   },
+   "101-200": {
+    "challenger": 0,
+    "champion": 1,
+    "rows": 91
+   },
+   "201-400": {
+    "challenger": 0,
+    "champion": 0,
+    "rows": 187
+   },
+   "25-50": {
+    "challenger": 0,
+    "champion": 0,
+    "rows": 26
+   },
+   "401-800": {
+    "challenger": 3,
+    "champion": 0,
+    "rows": 331
+   },
+   "51-100": {
+    "challenger": 0,
+    "champion": 2,
+    "rows": 46
+   }
+  },
+  "D3_value_movement": {
+   "idp": {
+    "maxRel": 0.0,
+    "medianRelAll": 0.0,
+    "medianRelMoved": null,
+    "p90RelAll": 0.0,
+    "p90RelMoved": null,
+    "rows": 396,
+    "rowsMoved": 0,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "200": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   },
+   "offense": {
+    "maxRel": 0.12465,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.01651,
+    "p90RelAll": 0.00814,
+    "p90RelMoved": 0.03959,
+    "rows": 490,
+    "rowsMoved": 67,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "200": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   }
+  },
+  "D4_family_wiped": {
+   "familiesWiped": {
+    "challenger": {
+     "dlf": 7,
+     "draftSharks": 34,
+     "dynastyDaddySf": 3,
+     "dynastyNerdsSfTep": 7,
+     "flockFantasy": 1,
+     "idpTradeCalc": 8,
+     "ktcCrowd": 1,
+     "ktcTrades": 5,
+     "otcffbSf": 1,
+     "yahooBoone": 6
+    },
+    "champion": {
+     "dlf": 7,
+     "draftSharks": 48,
+     "dynastyNerdsSfTep": 4,
+     "flockFantasy": 2,
+     "idpTradeCalc": 5,
+     "ktcCrowd": 1,
+     "ktcTrades": 1,
+     "otcffbSf": 1,
+     "pfkDynasty": 1,
+     "yahooBoone": 7
+    }
+   },
+   "rowsByBand": {
+    "1-24": {
+     "challenger": 18,
+     "champion": 18,
+     "filterRows": 24
+    },
+    "101-200": {
+     "challenger": 7,
+     "champion": 5,
+     "filterRows": 59
+    },
+    "201-400": {
+     "challenger": 5,
+     "champion": 6,
+     "filterRows": 103
+    },
+    "25-50": {
+     "challenger": 13,
+     "champion": 15,
+     "filterRows": 25
+    },
+    "401-800": {
+     "challenger": 4,
+     "champion": 9,
+     "filterRows": 153
+    },
+    "51-100": {
+     "challenger": 9,
+     "champion": 12,
+     "filterRows": 36
+    },
+    "all": {
+     "challenger": 57,
+     "champion": 66,
+     "filterRows": 466
+    }
+   }
+  },
+  "D5_model_vs_ktc_market_median": {
+   "1-24": {
+    "challenger": 0.0953,
+    "champion": 0.0929,
+    "rows": 24
+   },
+   "101-200": {
+    "challenger": -0.0494,
+    "champion": -0.0504,
+    "rows": 68
+   },
+   "201-400": {
+    "challenger": -0.118,
+    "champion": -0.1205,
+    "rows": 115
+   },
+   "25-50": {
+    "challenger": 0.0399,
+    "champion": 0.0391,
+    "rows": 25
+   },
+   "401-800": {
+    "challenger": -0.105,
+    "champion": -0.1057,
+    "rows": 157
+   },
+   "51-100": {
+    "challenger": -0.0233,
+    "champion": -0.0285,
+    "rows": 40
+   }
+  },
+  "board": "dynasty_export_20261017_185402.zip",
+  "boards": 1,
+  "notes": [
+   "bands by the incumbent's canonicalConsensusRank for both filters",
+   "D1/D2/D4 exclude pick rows (the filter never runs on picks)",
+   "D5 is model/ktcMarket.normalizedValue - 1 over ranked rows carrying the benchmark; a DIAGNOSTIC, never a target"
+  ]
+ },
+ "preregistration": "docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md",
+ "schema": "joint-filter-shadow/v1/f1-diagnostics"
+}
