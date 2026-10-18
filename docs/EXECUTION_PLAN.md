@@ -118,6 +118,24 @@ leagues is superseded. Draft valuation Batches A–G are scoped to `dynasty_main
 72 picks per class, 2027/2028/2029). Intake: `docs/OWNER_REQUESTED_TODO.md` ("OWNER SCOPE CORRECTION
 (2026-10-18)"). Applied in #1785 by restoring the Sleeper-derived fallback path to `main`.
 
+## Whole-dollar rookie-draft allocation — owner directive, 2026-10-18 (binding, `dynasty_main`)
+
+The `dynasty_main` rookie auction uses **whole dollars only**; the earlier recommendation to publish
+half-dollar team totals is **rejected**. For every draft class: 12 teams x 6 rounds = 72 picks; exactly
+$1,200; every final pick-dollar amount an integer; every manager budget an integer equal to the exact
+sum of the picks that manager owns; the 12 budgets total exactly $1,200; All Years reconciles the three
+separate $1,200 classes with each pick counted once. Rounding and budget conservation happen in ONE
+step: the spreadsheet's 60/40 formula, spine, decay, floors and caps are unchanged (intermediate
+fractions allowed; the workbook's half-dollar column — 28 picks ending in 50 cents — is kept as
+mathematical reference data), then a separately identified, deterministic, exact-arithmetic final step
+floors every pick, distributes the integer residual by largest fractional remainder (ties to the
+earlier draft position), verifies non-increasing order, floors, caps, integrality and the exact total,
+and REFUSES publication on any conflict — the $1,200 is never changed. The spreadsheet RANK tie at the
+award cutoff (which could publish $1,206) is resolved the same way: earlier draft position first. One
+canonical owner: the rookie-auction calculation (`src/draft/rookie_auction/`, #1786); #1785 consumes it
+for the workbook class and the later classes — team budgets are never rounded independently of their
+picks. Intake: `docs/OWNER_REQUESTED_TODO.md` ("WHOLE-DOLLAR ALLOCATION (2026-10-18)").
+
 ## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
 
 **AUTHORIZED; MERGED via release train #1768 (`00d652bd2`).** One versioned package model for every
