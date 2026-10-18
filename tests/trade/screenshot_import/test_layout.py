@@ -139,7 +139,10 @@ def test_stacked_mobile_with_anchors():
     assert _texts(lay.sides[1].lines) == ["Patrick Mahomes"]
 
 
-def test_lines_above_the_anchors_are_unassigned_not_guessed():
+def test_lines_above_the_anchors_are_outside_the_trade_region():
+    # A pair of side labels defines the trade region; text above it is page
+    # furniture — ignored with a reason, never guessed onto a side and never
+    # offered as "needs a side".
     lines = build_lines(
         page(
             ("Bijan Robinson", 60, 10),
@@ -149,7 +152,9 @@ def test_lines_above_the_anchors_are_unassigned_not_guessed():
         )
     )
     lay = detect_layout(lines, W)
-    assert _texts(lay.unassigned) == ["Bijan Robinson"]
+    assert lay.unassigned == ()
+    assert _texts(lay.sides[0].lines) == ["Patrick Mahomes"]
+    assert ("Bijan Robinson", "outside_trade_region") in [(ln.text, r) for ln, r in lay.ignored]
 
 
 def test_equalizer_region_is_ignored_within_its_side_only():
