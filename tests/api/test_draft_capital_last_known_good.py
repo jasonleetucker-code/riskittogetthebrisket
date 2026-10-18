@@ -8,6 +8,12 @@ used.  The canonical store / resolver is ``src/draft/rookie_auction/published``
 (its own tests: ``tests/draft_valuation/test_published_allocation.py``); these
 tests pin how the ROUTE consumes it.  The real workbook is used read-only; the
 box-local store is redirected per test by ``tests/runtime_data_isolation``.
+
+Batch F: the class's dollars come from THE generation reader
+(``generation.read_class_generation``, via
+``draft_capital_classes.resolve_class_curve_allocation``), not from the
+workbook's L2:L73 — so a failed refresh is injected through the canonical
+candidate's inputs, and the L column is only a parity diagnostic.
 """
 
 from __future__ import annotations
@@ -26,6 +32,21 @@ SEED_YEAR = 2027  # the repo-tracked dynasty_main allocation (effective 2026-10-
 def _seed_year_only():
     if YEAR + 1 != SEED_YEAR:
         pytest.skip("the repo seed allocation is for the 2027 class")
+
+
+def _break_class_inputs(monkeypatch, year=SEED_YEAR, message="frozen baseline edited"):
+    """Make the class candidate fail for ``year`` (a failed refresh)."""
+    from src.api import draft_capital_classes as dcc
+    from src.draft.rookie_auction.snapshots import SnapshotIntegrityError
+
+    real = dcc.class_curve_inputs
+
+    def broken(league_key, draft_year):
+        if int(draft_year) == int(year):
+            raise SnapshotIntegrityError(message)
+        return real(league_key, draft_year)
+
+    monkeypatch.setattr(dcc, "class_curve_inputs", broken)
 
 
 def _run_with_reference(transform, *, rostered=("P1",)):
@@ -73,30 +94,52 @@ def test_verified_refresh_publishes_current():
     _assert_reconciled(out)
 
 
-def test_failed_refresh_keeps_the_same_years_last_verified_allocation():
-    """A refresh whose curve no longer totals $1,200 fails validation; the
-    2027 class keeps its last verified whole dollars, labelled, never $0."""
+def test_failed_refresh_keeps_the_same_years_last_verified_allocation(monkeypatch):
+    """A refresh whose class curve cannot be computed keeps the 2027 class on
+    its last verified whole dollars, labelled, never $0."""
     good = _run_with_reference(lambda values: values)
-    broken = _run_with_reference(lambda values: [values[0] + 1, *values[1:]])
+    _break_class_inputs(monkeypatch)
+    broken = _run_with_reference(lambda values: values)
     assert "error" not in broken, broken
     state = broken["draftValuation"]
     assert state["allocationState"] == "last_known_good"
-    assert state["failedRefresh"]["reason"]
+    assert "frozen baseline edited" in state["failedRefresh"]["reason"]
     assert state["lastValidAt"]
     assert state["warning"]
     assert [p["dollarValue"] for p in broken["picks"]] == [p["dollarValue"] for p in good["picks"]]
+    # The receipt describes the record actually served (the same year's seed).
+    receipt = broken["draftValuationGeneration"]
+    assert receipt["allocationState"] == "last_known_good"
+    assert receipt["targetDraftYear"] == SEED_YEAR
+    assert receipt["generationHash"] == state["recordChecksum"]
     _assert_reconciled(broken)
 
 
-def test_missing_reference_column_falls_back_too():
-    out = _run_with_reference(lambda values: [])
-    assert "error" not in out, out
-    assert out["draftValuation"]["allocationState"] == "last_known_good"
-    assert "missing" in out["draftValuation"]["failedRefresh"]["reason"]
-    _assert_reconciled(out)
+def test_the_workbook_column_no_longer_decides_the_dollars():
+    """L2:L73 is the SAME quantity as the canonical curve for the class it was
+    built for, so it is a diagnostic only: a missing or edited column changes
+    no dollar and is reported in ``workbookParity``."""
+    good = _run_with_reference(lambda values: values)
+    assert good["workbookParity"]["state"] == "matches"
+    assert good["workbookParity"]["mismatchCount"] == 0
+
+    missing = _run_with_reference(lambda values: [])
+    assert "error" not in missing, missing
+    assert missing["draftValuation"]["allocationState"] == "current"
+    assert missing["workbookParity"]["state"] == "not_compared"
+    assert missing["workbookParity"]["reason"] == "workbook_column_missing"
+
+    edited = _run_with_reference(lambda values: [values[0] + 1, *values[1:]])
+    assert "error" not in edited, edited
+    assert edited["draftValuation"]["allocationState"] == "current"
+    assert edited["workbookParity"]["state"] == "differs"
+    assert edited["workbookParity"]["mismatchedPicks"][0]["pick"] == "1.01"
+    for out in (missing, edited):
+        assert [p["dollarValue"] for p in out["picks"]] == [p["dollarValue"] for p in good["picks"]]
+        _assert_reconciled(out)
 
 
-def test_ownership_comes_from_live_sleeper_even_on_fallback():
+def test_ownership_comes_from_live_sleeper_even_on_fallback(monkeypatch):
     """The stored curve carries no ownership: a pick traded on Sleeper moves
     to its new owner under ``last_known_good`` exactly as under ``current``."""
     import server
@@ -105,7 +148,7 @@ def test_ownership_comes_from_live_sleeper_even_on_fallback():
     real = server._parse_draft_data()
     if len(real[1]) != 72:
         pytest.skip("Draft Data workbook unavailable")
-    broken = (*real[:5], [real[5][0] + 1, *real[5][1:]])
+    _break_class_inputs(monkeypatch)
     original_stub = base._workbook_stub
 
     def stub_with_trade(url_map):
@@ -115,10 +158,7 @@ def test_ownership_comes_from_live_sleeper_even_on_fallback():
         ]
         return original_stub(url_map)
 
-    with (
-        patch.object(server, "_parse_draft_data", return_value=broken),
-        patch.object(base, "_workbook_stub", stub_with_trade),
-    ):
+    with patch.object(base, "_workbook_stub", stub_with_trade):
         out = base._workbook_run(_retired_evidence(YEAR, ["P1"]))
     assert "error" not in out, out
     assert out["draftValuation"]["allocationState"] == "last_known_good"
@@ -128,12 +168,17 @@ def test_ownership_comes_from_live_sleeper_even_on_fallback():
 
 
 def test_no_applicable_allocation_fails_closed_never_zero():
-    """A class with no stored allocation and a failed refresh refuses the
-    board with a named reason — it never borrows another year's curve and
-    never publishes $0 budgets."""
-    out = _run_with_reference(lambda values: [values[0] + 1, *values[1:]], rostered=())
+    """A class with no stored allocation and no computable curve refuses the
+    board with a named reason — it never borrows another year's curve (not
+    the 2027 seed, not the workbook's 2027-built L column) and never publishes
+    $0 budgets."""
+    out = _run_with_reference(lambda values: values, rostered=())
     # ``rostered=()`` keeps the board on the anchor year (YEAR), for which no
-    # allocation is stored: the 2027 seed must not answer for it.
+    # allocation is stored and whose spine (three completed classes before
+    # it) is not on file: the 2027 seed must not answer for it.
     assert out.get("error") == "draft_dollars_unavailable", out
     assert out["unavailableReason"]
+    assert out["draftYear"] == YEAR
+    assert out["draftValuationGeneration"]["targetDraftYear"] == YEAR
+    assert out["draftValuationGeneration"]["generationHash"] is None
     assert "teamTotals" not in out

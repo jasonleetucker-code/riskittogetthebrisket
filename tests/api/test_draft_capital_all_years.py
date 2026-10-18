@@ -13,8 +13,11 @@ a stubbed workbook, and pin:
   does not), each pick exactly once, with origin + current owner + assetId;
 * the workbook class keeps its dollars, ``teamTotals`` and ``coveredPickYears``
   (the auction budgets /draft, the auction room and /trade read);
-* later classes come from Sleeper ownership + canonical round values, one
-  $1200 pool per class, unpriced picks ``None`` never 0;
+* later classes come from Sleeper ownership; their dollars come from the
+  canonical rookie-auction curve, which is configured for ``dynasty_main``
+  only — this fixture league is NOT configured, so its later classes fail
+  closed (unpriced with the reason, ``None`` never 0).  The priced
+  ``dynasty_main`` path is pinned by ``test_draft_capital_multi_year.py``;
 * per-year views filter, All Years sums without double counting;
 * a failed /traded_picks refuses the board (no silent workbook ownership);
 * the public projection stays free of rookie-board fields and raw Sleeper ids.
@@ -195,13 +198,6 @@ def test_future_classes_never_claim_a_slot(server_mod, monkeypatch):
         assert p["slotStatus"] == "unknown"
         assert p["slot"] is None and p["pickInRound"] is None
         assert p["pick"] == f"R{p['round']}"
-    # Every pick of one future season + round prices identically.
-    r1 = {
-        p["dollarValue"]
-        for p in result["additionalClassPicks"]
-        if p["season"] == YEAR + 2 and p["round"] == 1
-    }
-    assert len(r1) == 1
     # The workbook class's slots are an estimate, labelled as such.
     assert all(p["slotStatus"] == "projected" for p in result["picks"])
 
@@ -218,95 +214,59 @@ def test_workbook_class_and_auction_budgets_are_unchanged(server_mod, monkeypatc
     assert all(p["valueBasis"] == "workbook" for p in result["picks"])
 
 
-def test_later_classes_are_one_pool_each_and_unpriced_is_none(server_mod, monkeypatch):
+def test_unconfigured_league_later_classes_fail_closed(server_mod, monkeypatch):
+    """Owner scope correction 2026-10-18: the rookie-auction curve is
+    configured for ``dynasty_main`` only.  Any other league's later classes
+    are listed (ownership is real) but UNPRICED with the reason — never
+    adapted, never $0, never the workbook class's dollars."""
     result = _run(server_mod, monkeypatch)
-    # Owner decision 2026-10-18: "$1,200 per draft class".
     policy = result["budgetPolicy"]
     assert policy["basis"] == "per_class_pool"
     assert policy["status"] == "owner_confirmed"
     assert (policy["decidedBy"], policy["decidedAt"]) == ("owner", "2026-10-18")
     assert policy["classBudgets"] == {str(YEAR + k): 1200 for k in (1, 2, 3)}
-    assert policy["unpricedClasses"] == []
-    assert policy["allYearsBudget"] == 3600
-    y2 = [p for p in result["additionalClassPicks"] if p["season"] == YEAR + 2]
-    # 2 x 4000 + 2 x 2000 = 12000 of value → $400 per first, $200 per second.
-    assert sorted(p["dollarValue"] for p in y2) == [200, 200, 400, 400]
-    assert result["yearSummaries"][str(YEAR + 2)]["totalDollars"] == 1200
-    y3 = [p for p in result["additionalClassPicks"] if p["season"] == YEAR + 3]
-    priced = [p for p in y3 if not p["isUnpriced"]]
-    unpriced = [p for p in y3 if p["isUnpriced"]]
-    assert [p["round"] for p in unpriced] == [2, 2]
-    for p in unpriced:
-        assert p["dollarValue"] is None and p["adjustedDollarValue"] is None
-        assert p["valueBasis"] is None and p["unpricedReason"]
-    assert sorted(p["dollarValue"] for p in priced) == [600, 600]
-    assert result["yearSummaries"][str(YEAR + 3)]["unpricedPickCount"] == 2
-    # Raw canonical values are never published.
-    assert all("_canonicalValue" not in p for p in result["additionalClassPicks"])
-    # Owner addendum 2026-10-18: two value domains, labelled per class — the
-    # later classes are an INTERIM generic-market curve, never the workbook's.
+    assert policy["unpricedClasses"] == [YEAR + 2, YEAR + 3]
+    assert policy["allYearsBudget"] == 1200
     assert policy["classCurveMethods"] == {
         str(YEAR + 1): "workbook_rookie_auction",
-        str(YEAR + 2): "interim_generic_market",
-        str(YEAR + 3): "interim_generic_market",
+        str(YEAR + 2): "none",
+        str(YEAR + 3): "none",
     }
-    assert policy["interimCurveLabel"] == (
-        "provisional estimate — final rookie-auction curve pending"
-    )
+    assert policy["interimCurveLabel"] is None
+    later = result["additionalClassPicks"]
+    assert len(later) == 8
+    for p in later:
+        assert p["isUnpriced"] is True
+        assert p["dollarValue"] is None and p["adjustedDollarValue"] is None
+        assert p["valueBasis"] is None and p["curveMethod"] == "none"
+        assert p["unpricedReason"].startswith("no_verified_class_allocation:league_not_configured")
+    for season in (YEAR + 2, YEAR + 3):
+        block = policy["classes"][str(season)]
+        assert block["budgetBasis"] == "per_class_pool"
+        assert block["allocationState"] == "unavailable"
+        assert block["curveId"] is None and block["inputMode"] is None
+        assert result["yearSummaries"][str(season)]["unpricedPickCount"] == 4
+        assert result["yearSummaries"][str(season)]["totalDollars"] == 0
     assert all(p["curveMethod"] == "workbook_rookie_auction" for p in result["picks"])
-    assert all(p["curveMethod"] == "interim_generic_market" for p in result["additionalClassPicks"])
+    # The retired interim market curve never comes back.
+    assert all("_canonicalValue" not in p for p in later)
+    assert "interim_generic_market" not in json.dumps(result)
 
 
 def _cents(v):
     return round(v * 100)
 
 
-def test_every_class_reconciles_exactly_in_integer_cents(server_mod, monkeypatch):
-    """Owner addendum 2026-10-18: exactly $1,200.00 per class — pick dollars,
-    team totals, year totals and All Years, with no rounding drift.  The
-    workbook class (YEAR+1) stays the exact workbook dollars."""
+def test_workbook_class_reconciles_exactly_in_integer_cents(server_mod, monkeypatch):
+    """Owner addendum 2026-10-18: exactly $1,200.00 for the priced class, and
+    All Years counts only priced classes."""
     result = _run(server_mod, monkeypatch)
-    every = result["picks"] + result["additionalClassPicks"]
-    for season in (YEAR + 1, YEAR + 2, YEAR + 3):
-        rows = result["teamTotalsByYear"][str(season)]
-        assert sum(_cents(r["auctionDollars"]) for r in rows) == 120000
-        assert _cents(result["yearSummaries"][str(season)]["totalDollars"]) == 120000
-        if season != YEAR + 1:  # workbook class: totals come from the sheet
-            assert (
-                sum(
-                    _cents(p["dollarValue"])
-                    for p in every
-                    if p["season"] == season and not p["isUnpriced"]
-                )
-                == 120000
-            )
+    rows = result["teamTotalsByYear"][str(YEAR + 1)]
+    assert sum(_cents(r["auctionDollars"]) for r in rows) == 120000
+    assert _cents(result["yearSummaries"][str(YEAR + 1)]["totalDollars"]) == 120000
     assert sum(_cents(t["auctionDollars"]) for t in result["teamTotals"]) == 120000
-    assert sum(_cents(r["auctionDollars"]) for r in result["allYearsTeamTotals"]) == 360000
-    assert _cents(result["allYearsSummary"]["totalDollars"]) == 360000
-
-
-@pytest.mark.parametrize("n_values", [1, 3, 7, 40, 72])
-def test_allocator_is_exact_whole_dollars_and_deterministic(n_values):
-    """Owner decisions 2026-10-18: values that do not divide $1,200 evenly
-    still total exactly $1,200, every allocation is a WHOLE dollar, and the
-    same input always allocates the same way (canonical whole-dollar step)."""
-    from fractions import Fraction
-
-    from src.api import draft_capital_classes as dcc
-
-    values = [1000.0 + (i % 5) * 333.3 for i in range(n_values)]
-    out = dcc.allocate_class_budget(values, 1200)
-    assert all(isinstance(d, int) for d in out)
-    assert sum(out) == 1200
-    assert out == dcc.allocate_class_budget(values, 1200)
-    # Linear in value: never a whole dollar or more off the exact share.
-    total = sum(Fraction(str(v)) for v in values)
-    for v, d in zip(values, out):
-        assert abs(d - Fraction(str(v)) * 1200 / total) < 1
-    # Equal values differ by at most $1, and the earlier position wins ties.
-    same = dcc.allocate_class_budget([7.0] * 7, 1200)
-    assert same == [172, 172, 172, 171, 171, 171, 171]
-    assert dcc.allocate_class_budget([], 1200) == []
+    assert sum(_cents(r["auctionDollars"]) for r in result["allYearsTeamTotals"]) == 120000
+    assert _cents(result["allYearsSummary"]["totalDollars"]) == 120000
 
 
 def test_per_year_filtering_counts_and_all_years_without_double_count(server_mod, monkeypatch):
@@ -315,8 +275,9 @@ def test_per_year_filtering_counts_and_all_years_without_double_count(server_mod
     ann, bob = _row(y2, "Team-Ann"), _row(y2, "Team-Bob")
     assert (ann["pickCount"], ann["acquiredPickCount"], ann["tradedAwayPickCount"]) == (3, 1, 0)
     assert (bob["pickCount"], bob["acquiredPickCount"], bob["tradedAwayPickCount"]) == (1, 0, 1)
-    assert ann["auctionDollars"] == 1000 and ann["rank"] == 1
-    assert bob["auctionDollars"] == 200 and bob["rank"] == 2
+    # Unpriced (unconfigured league): unknown capital, never 0, no rank.
+    assert ann["auctionDollars"] is None and ann["rank"] is None
+    assert bob["auctionDollars"] is None and bob["rank"] is None
     # Each season's team capital is the sum of that season's picks it holds.
     for season in (YEAR + 2, YEAR + 3):
         for r in result["teamTotalsByYear"][str(season)]:
@@ -325,7 +286,8 @@ def test_per_year_filtering_counts_and_all_years_without_double_count(server_mod
                 for p in result["additionalClassPicks"]
                 if p["season"] == season and p["currentOwner"] == r["team"] and not p["isUnpriced"]
             ]
-            assert r["auctionDollars"] == pytest.approx(sum(held))
+            assert r["auctionDollars"] is None if r["pickCount"] else r["auctionDollars"] == 0
+            assert held == []
     # All Years: every class once.
     all_rows = result["allYearsTeamTotals"]
     assert result["allYearsSummary"]["pickCount"] == 12
@@ -335,8 +297,8 @@ def test_per_year_filtering_counts_and_all_years_without_double_count(server_mod
             sum(v for v in r["draftCapitalByYear"].values() if v is not None)
         )
     total = sum(r["auctionDollars"] for r in all_rows)
-    # workbook 1200 + YEAR+2 1200 + YEAR+3 1200 (priced picks only).
-    assert total == pytest.approx(3600)
+    # Only the workbook class is priced for an unconfigured league.
+    assert total == pytest.approx(1200)
 
 
 def test_failed_traded_picks_refuses_the_board(server_mod, monkeypatch):
@@ -404,6 +366,9 @@ def test_whole_dollars_reconcile_everywhere(server_mod, monkeypatch):
         assert t["auctionDollars"] == owned_by_year.get((t["team"], upcoming), 0)
     for season, rows in result["teamTotalsByYear"].items():
         for r in rows:
+            if int(season) not in by_class and r["pickCount"]:
+                assert r["auctionDollars"] is None  # unpriced class: unknown, never 0
+                continue
             assert r["auctionDollars"] == owned_by_year.get((r["team"], int(season)), 0)
     for r in result["allYearsTeamTotals"]:
         assert r["auctionDollars"] == owned.get(r["team"], 0)

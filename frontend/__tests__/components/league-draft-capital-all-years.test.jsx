@@ -12,7 +12,10 @@
  *   - future classes show round only (no invented slot) and are labelled
  *     estimated; the workbook class's slots are labelled projected;
  *   - acquired / traded-away counts come from the backend;
- *   - unpriced is "?" / "—", never $0.
+ *   - unpriced is "?" / "—", never $0;
+ *   - Batch E: every class is on the rookie-auction formula; classes on the
+ *     frozen 2026 inputs carry the provisional label; a legacy payload's
+ *     retired interim curve keeps its own label.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +28,7 @@ import {
   draftCapitalBudgetPolicy,
   draftCapitalInterimSeasons,
   draftCapitalPickLabel,
+  draftCapitalProvisionalSeasons,
   draftCapitalSlotsAreStandIns,
   draftCapitalTeamRows,
   draftCapitalYearSummary,
@@ -64,6 +68,8 @@ function futurePick(season, round, origin, owner, dollars) {
     adjustedDollarValue: dollars,
     isUnpriced: dollars == null,
     dollarValueEstimated: true,
+    curveMethod: dollars == null ? "none" : "workbook_rookie_auction",
+    inputMode: dollars == null ? null : "frozen_fallback",
   };
 }
 
@@ -85,8 +91,27 @@ const PAYLOAD = {
     decidedAt: "2026-10-18",
     classCurveMethods: {
       2027: "workbook_rookie_auction",
-      2028: "interim_generic_market",
-      2029: "interim_generic_market",
+      2028: "workbook_rookie_auction",
+      2029: "workbook_rookie_auction",
+    },
+    interimCurveLabel: null,
+    provisionalClasses: [2028, 2029],
+    classes: {
+      2027: { budgetBasis: "per_class_pool", inputMode: null, provisional: false },
+      2028: {
+        budgetBasis: "per_class_pool",
+        inputMode: "frozen_fallback",
+        provisional: true,
+        spineYears: [2024, 2025, 2026],
+        curveId: "draft_data_workbook_v1|frozen_fallback:2026_spreadsheet_baseline|spine:2024-2025-2026",
+      },
+      2029: {
+        budgetBasis: "per_class_pool",
+        inputMode: "frozen_fallback",
+        provisional: true,
+        spineYears: [2024, 2025, 2026],
+        curveId: "draft_data_workbook_v1|frozen_fallback:2026_spreadsheet_baseline|spine:2024-2025-2026",
+      },
     },
   },
   picks: [
@@ -174,9 +199,30 @@ describe("draft-capital-years lib — every class", () => {
     expect(draftCapitalSlotsAreStandIns(PAYLOAD, PAYLOAD.picks)).toBe(false);
   });
 
-  it("names the interim-curve seasons from the payload, per class", () => {
-    expect(draftCapitalInterimSeasons(PAYLOAD, draftCapitalAllPicks(PAYLOAD))).toEqual([2028, 2029]);
-    expect(draftCapitalInterimSeasons(PAYLOAD, PAYLOAD.picks)).toEqual([]);
+  it("names the provisional seasons from the per-class blocks, limited to the screen", () => {
+    expect(draftCapitalProvisionalSeasons(PAYLOAD, draftCapitalAllPicks(PAYLOAD))).toEqual([
+      2028, 2029,
+    ]);
+    expect(draftCapitalProvisionalSeasons(PAYLOAD, PAYLOAD.picks)).toEqual([]);
+    // Without the per-class blocks, the list, then the per-pick stamp answers.
+    expect(
+      draftCapitalProvisionalSeasons(
+        { budgetPolicy: { provisionalClasses: [2029] } },
+        PAYLOAD.additionalClassPicks,
+      ),
+    ).toEqual([2029]);
+    expect(draftCapitalProvisionalSeasons({}, PAYLOAD.additionalClassPicks)).toEqual([2028, 2029]);
+    // The retired interim curve: absent from a current payload.
+    expect(draftCapitalInterimSeasons(PAYLOAD, draftCapitalAllPicks(PAYLOAD))).toEqual([]);
+  });
+
+  it("a legacy payload still names its interim-curve seasons", () => {
+    const legacy = {
+      budgetPolicy: {
+        classCurveMethods: { 2027: "workbook_rookie_auction", 2028: "interim_generic_market" },
+      },
+    };
+    expect(draftCapitalInterimSeasons(legacy, [{ season: 2028 }])).toEqual([2028]);
     // Without the per-class map, the per-pick stamp answers.
     expect(
       draftCapitalInterimSeasons({}, [
@@ -248,10 +294,12 @@ describe("DraftCapitalSection — every Sleeper draft year", () => {
       /Each draft class is its own \$1200 pool/,
     );
     expect(screen.getByTestId("draft-capital-projected-note").textContent).toMatch(/2027 slots are projected/);
-    // Owner addendum 2026-10-18: the later classes' curve is a labelled interim.
-    expect(screen.getByTestId("draft-capital-interim-curve-note").textContent).toMatch(
-      /^2028, 2029 dollars: provisional estimate — final rookie-auction curve pending/,
+    // Batch E: the later classes are the rookie-auction formula on the frozen
+    // 2026 provisional inputs — labelled provisional, never the retired interim.
+    expect(screen.getByTestId("draft-capital-provisional-curve-note").textContent).toMatch(
+      /^2028, 2029 dollars: provisional estimate — the rookie-auction formula on the frozen 2026/,
     );
+    expect(screen.queryByTestId("draft-capital-interim-curve-note")).toBeNull();
     expect(screen.getByTestId("draft-capital-round-only-note")).toBeInTheDocument();
   });
 
@@ -274,10 +322,42 @@ describe("DraftCapitalSection — every Sleeper draft year", () => {
     expect(screen.getAllByText(/the 2028 class's own \$1200 pool/).length).toBeGreaterThan(0);
   });
 
-  it("the workbook class alone carries no interim-curve label", async () => {
+  it("a class not on the frozen inputs carries no provisional label", async () => {
     render(<DraftCapitalSection yearParam="2027" setYear={() => {}} />);
     await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
     expect(screen.queryByTestId("draft-capital-interim-curve-note")).toBeNull();
+    expect(screen.queryByTestId("draft-capital-provisional-curve-note")).toBeNull();
+  });
+
+  it("a legacy interim payload keeps the interim label", async () => {
+    stubFetch({
+      ...PAYLOAD,
+      budgetPolicy: {
+        ...PAYLOAD.budgetPolicy,
+        classes: undefined,
+        provisionalClasses: undefined,
+        classCurveMethods: { 2027: "workbook_rookie_auction", 2028: "interim_generic_market" },
+      },
+      additionalClassPicks: PAYLOAD.additionalClassPicks.map((p) => ({ ...p, inputMode: undefined })),
+    });
+    render(<DraftCapitalSection yearParam="2028" setYear={() => {}} />);
+    await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
+    expect(screen.getByTestId("draft-capital-interim-curve-note").textContent).toMatch(
+      /^2028 dollars: provisional estimate — final rookie-auction curve pending/,
+    );
+  });
+
+  it("slots ordered by verified final standings are labelled as such", async () => {
+    stubFetch({
+      ...PAYLOAD,
+      picks: PAYLOAD.picks.map((p) => ({ ...p, slotStatus: "final_standings" })),
+    });
+    render(<DraftCapitalSection yearParam="2027" setYear={() => {}} />);
+    await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
+    expect(screen.getByTestId("draft-capital-final-order-note").textContent).toMatch(
+      /2027 slots follow final regular-season standings/,
+    );
+    expect(screen.queryByTestId("draft-capital-projected-note")).toBeNull();
   });
 
   it("?year=2029 keeps unpriced picks visible and never $0", async () => {

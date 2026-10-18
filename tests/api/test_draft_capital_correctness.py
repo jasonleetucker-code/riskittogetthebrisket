@@ -414,8 +414,13 @@ def test_workbook_season_without_proven_retirement_stays_on_the_anchor():
     (the lifecycle owner's rule), so the workbook season is not bumped by a
     local rule either."""
     out = _workbook_run(_retired_evidence(YEAR, []))
-    assert "error" not in out
-    assert out["upcomingDraftYear"] == out["season"] == YEAR
+    # Batch F: the YEAR class has no canonical curve on file (its spine needs
+    # three completed classes before it) and no stored allocation, so the
+    # board is refused for THAT year rather than published with the
+    # workbook's next-class (L2:L73) curve.  The season decision is what this
+    # test pins, and the refusal names it.
+    assert out.get("error") == "draft_dollars_unavailable", out
+    assert out["draftYear"] == YEAR
 
 
 # ── Defect 3: a team is never debited for a pick it does not hold ────────
