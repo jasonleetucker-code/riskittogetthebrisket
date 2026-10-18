@@ -87,6 +87,25 @@ def _now_ms(now: Callable[[], float]) -> int:
     return int(now() * 1000)
 
 
+def _epoch_ms(value: Any) -> int | None:
+    """A stored epoch-ms stamp, or ``None`` when absent or malformed —
+    never a fabricated 0 (missing is "never" / "unknown", not 1970)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def last_checked_at(alert: dict[str, Any] | None) -> int | None:
+    """When this (user, manager) was last checked; ``None`` = never."""
+    return _epoch_ms((alert or {}).get("lastCheckedAt"))
+
+
+def stalest_first_key(checked: int | None, uid: str) -> tuple[bool, int | None, str]:
+    """Sort key: never-checked (``None``) first, then oldest check first.
+    Two ``None`` stamps compare equal, so the id breaks the tie."""
+    return (checked is not None, checked, uid)
+
+
 # ── pure evaluation ─────────────────────────────────────────────────────
 
 
@@ -195,7 +214,10 @@ def evaluate(
 
     existed = bool(prior.get("seededAt"))
     seen_raw = prior.get("seenIds") if isinstance(prior.get("seenIds"), dict) else {}
-    seen: dict[str, int] = {str(k): int(v or 0) for k, v in seen_raw.items()}
+    # A seen id whose stamp is missing or malformed is still SEEN (it must
+    # never re-fire); only its age is unknown, so retention keeps it while
+    # the feed can show it and cannot prove it young enough after that.
+    seen: dict[str, int | None] = {str(k): _epoch_ms(v) for k, v in seen_raw.items()}
     seeded = {str(x) for x in prior.get("seededLeagues") or []}
     read = read_league_ids(payload)
 
@@ -218,9 +240,14 @@ def evaluate(
 
     # Retention: never drop an id the feed can still show.
     cutoff = now_ms - SEEN_RETENTION_MS
-    kept = {k: v for k, v in seen.items() if k in current_ids or v >= cutoff}
+    kept = {k: v for k, v in seen.items() if k in current_ids or (v is not None and v >= cutoff)}
     if len(kept) > MAX_SEEN_IDS:
-        order = sorted(kept.items(), key=lambda kv: (kv[0] in current_ids, kv[1]), reverse=True)
+        # Visible ids first, then dated ones newest first; unknown-age last.
+        order = sorted(
+            kept.items(),
+            key=lambda kv: (kv[0] in current_ids, kv[1] is not None, kv[1]),
+            reverse=True,
+        )
         kept = dict(order[:MAX_SEEN_IDS])
 
     nxt = {
@@ -326,9 +353,10 @@ def _followers(
     user_states: dict[str, dict[str, Any]],
 ) -> tuple[dict[str, list[str]], dict[str, int]]:
     """``{managerId: [kv users with alerts on]}`` and each manager's oldest
-    ``lastCheckedAt`` across those users (``0`` = never checked)."""
+    ``lastCheckedAt`` across those users (``None`` = some follower has never
+    had it checked, which sorts before any date)."""
     followers: dict[str, list[str]] = {}
-    staleness: dict[str, int] = {}
+    staleness: dict[str, int | None] = {}
     for kv_user, state in user_states.items():
         if not isinstance(state, dict):
             continue
@@ -338,8 +366,13 @@ def _followers(
                 continue
             uid = entry["userId"]
             followers.setdefault(uid, []).append(kv_user)
-            checked = int((alerts.get(uid) or {}).get("lastCheckedAt") or 0)
-            staleness[uid] = min(staleness.get(uid, checked), checked)
+            checked = last_checked_at(alerts.get(uid))
+            if uid not in staleness:
+                staleness[uid] = checked
+            elif checked is None or staleness[uid] is None:
+                staleness[uid] = None
+            else:
+                staleness[uid] = min(staleness[uid], checked)
     return followers, staleness
 
 
@@ -377,9 +410,13 @@ def run_sweep(
     else:
         states = _user_kv.all_user_states(path=path) if path else _user_kv.all_user_states()
     followers, staleness = _followers(states)
-    order = sorted(followers, key=lambda uid: (staleness.get(uid, 0), uid))
+    order = sorted(followers, key=lambda uid: stalest_first_key(staleness.get(uid), uid))
     t0 = clock()
+    # Calls are summed only over reads that report them.  A read that does
+    # not is counted apart and, for the budget only, charged its whole
+    # per-manager allowance (an upper bound, never reported as spent).
     spent = 0
+    unreported = 0
     read: list[str] = []
     skipped: dict[str, str] = {}
     per_user: dict[str, list[tuple[str, list[dict[str, Any]], str]]] = {}
@@ -391,7 +428,8 @@ def run_sweep(
         if rate_limited:
             skipped[uid] = "rate_limited"
             continue
-        if spent >= total_call_budget:
+        charged = spent + unreported * call_budget_per_manager
+        if charged >= total_call_budget:
             skipped[uid] = "sweep_call_budget"
             continue
         if clock() - t0 >= wall_seconds:
@@ -401,9 +439,13 @@ def run_sweep(
             activity_provider,
             uid,
             contract,
-            min(call_budget_per_manager, total_call_budget - spent),
+            min(call_budget_per_manager, total_call_budget - charged),
         )
-        spent += int((payload.get("coverage") or {}).get("callsSpent") or 0)
+        calls = (payload.get("coverage") or {}).get("callsSpent")
+        if isinstance(calls, int) and not isinstance(calls, bool):
+            spent += calls
+        else:
+            unreported += 1
         if payload.get("status") == mp.STATUS_RATE_LIMITED:
             rate_limited = True
             skipped[uid] = "rate_limited"
@@ -461,6 +503,7 @@ def run_sweep(
         "managersRead": len(read),
         "skipped": skipped,
         "callsSpent": spent,
+        "readsWithoutCallCount": unreported,
         "rateLimited": rate_limited,
         # Each manager is read about every ceil(eligible / max) daily runs;
         # slower than the 7-day window, events can age out unseen.
@@ -487,7 +530,7 @@ def refresh_for_user(
     alerts = ms.alert_states(state)
     order = sorted(
         entries,
-        key=lambda e: (int((alerts.get(e["userId"]) or {}).get("lastCheckedAt") or 0), e["userId"]),
+        key=lambda e: stalest_first_key(last_checked_at(alerts.get(e["userId"])), e["userId"]),
     )
     checked = []
     rate_limited = False

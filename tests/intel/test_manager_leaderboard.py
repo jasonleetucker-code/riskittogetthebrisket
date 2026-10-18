@@ -155,3 +155,11 @@ def test_saved_population_with_no_managers_is_an_empty_named_board():
 
 def test_there_is_no_all_of_sleeper_population():
     assert set(mlb.POPULATIONS) == {"league", "saved"}
+
+
+def test_an_undated_snapshot_has_unknown_freshness_and_is_unranked():
+    alerts = {"1": {"snapshot": {"metrics": {"trades": 3}, "reasons": {}}}}
+    out = mlb.saved_leaderboards(_saved("1"), alerts, now=lambda: NOW_MS / 1000)
+    board = _board(out, "trades")
+    assert board["rows"] == [] and board["unranked"][0]["reason"] == "snapshot_undated"
+    assert board["unranked"][0]["asOf"] is None and out["population"]["withData"] == 0

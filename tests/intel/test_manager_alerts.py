@@ -362,3 +362,43 @@ def test_a_failing_saved_manager_leg_never_fails_the_sweep(monkeypatch):
     _server, res = _server_sweep(monkeypatch, boom)
     assert res.status_code == 200
     assert res.json()["managerIntelAlerts"] == {"error": "kaput"}
+
+
+# ── missing stamps are unknown, never 0 ─────────────────────────────────
+
+
+def test_a_seen_id_with_a_missing_stamp_never_refires_and_ages_out_only_when_gone():
+    prior = {
+        "seededAt": 1,
+        "seededLeagues": ["L1"],
+        "seenIds": {"tx:visible": None, "tx:gone": "bad", "tx:recent": 5 * DAY_MS},
+    }
+    fresh, _m, state = mal.evaluate(prior, payload([ev("tx:visible")]), 6 * DAY_MS)
+    assert fresh == []  # still seen, whatever its stamp
+    # Unknown age: kept while visible, never proven young enough afterwards.
+    assert state["seenIds"] == {"tx:visible": None, "tx:recent": 5 * DAY_MS}
+
+
+def test_stalest_first_sorts_never_checked_before_any_date():
+    keys = [
+        mal.stalest_first_key(10, "b"),
+        mal.stalest_first_key(None, "z"),
+        mal.stalest_first_key(None, "a"),
+        mal.stalest_first_key(5, "c"),
+    ]
+    assert [k[2] for k in sorted(keys)] == ["a", "z", "c", "b"]
+    assert mal.last_checked_at({"lastCheckedAt": None}) is None
+    assert mal.last_checked_at({"lastCheckedAt": True}) is None
+    assert mal.last_checked_at(None) is None
+
+
+def test_reads_without_a_call_count_are_counted_apart_not_as_zero(kv):
+    for uid in ("601", "602", "603"):
+        _save(kv, uid=uid, name=f"m{uid}")
+    no_count = payload([])
+    no_count["coverage"].pop("callsSpent")
+    provider = Provider({"601": no_count, "602": payload([], calls=40), "603": payload([])})
+    out = _sweep(kv, provider, Mailer(), total_call_budget=230, call_budget_per_manager=200)
+    assert out["callsSpent"] == 40 and out["readsWithoutCallCount"] == 1
+    # The unreported read is charged its whole allowance for the budget only.
+    assert out["skipped"] == {"603": "sweep_call_budget"}

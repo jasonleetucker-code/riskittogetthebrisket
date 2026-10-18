@@ -47,6 +47,9 @@ describe("saved list helpers", () => {
     expect(savedCapText(SAVED)).toBe("1 of 50 saved");
     expect(atCap(SAVED)).toBe(false);
     expect(atCap({ count: 50, limit: 50 })).toBe(true);
+    // Unknown count or limit is unknown fullness — never "full".
+    expect(atCap({ limit: 50 })).toBe(false);
+    expect(atCap({ count: 50 })).toBe(false);
   });
 
   it("labels name freshness and former usernames", () => {
@@ -151,6 +154,11 @@ describe("leaderboards", () => {
       "Current teams in Alleys · 1 team",
     );
     expect(boardCountText({ n: 2, unranked: [{}] }, { n: 3 })).toBe("2 of 3 ranked");
+    expect(boardCountText({ n: 2 }, {})).toBe("2 ranked");
+    expect(boardCountText({}, { n: 3 })).toBe("Ranked count unknown");
+    expect(populationText({ kind: "saved", label: "Your saved managers" })).toBe(
+      "Your saved managers · size unknown",
+    );
   });
 
   it("lists ranked rows then unranked ones with the reason, never 0", () => {

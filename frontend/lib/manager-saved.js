@@ -51,8 +51,14 @@ export function savedCapText(saved) {
   return typeof limit === "number" ? `${count} of ${limit} saved` : `${count} saved`;
 }
 
+/** True only when both the count and the limit are known and the list is full;
+ *  an unknown count is unknown fullness, never "full". */
 export function atCap(saved) {
-  return typeof saved?.limit === "number" && (saved?.count ?? 0) >= saved.limit;
+  return (
+    typeof saved?.count === "number" &&
+    typeof saved?.limit === "number" &&
+    saved.count >= saved.limit
+  );
 }
 
 const NAME_STATE_TEXT = {
@@ -173,21 +179,27 @@ export function readLeaderboardParams(search) {
 /** "Your saved managers · 12 managers (9 with data)" — population and n. */
 export function populationText(population) {
   if (!population) return "";
-  const n = population.n ?? 0;
   const noun = population.kind === "league" ? "team" : "manager";
-  const base = `${population.label} · ${n} ${noun}${n === 1 ? "" : "s"}`;
+  const n = population.n;
+  const base =
+    typeof n === "number"
+      ? `${population.label} · ${n} ${noun}${n === 1 ? "" : "s"}`
+      : `${population.label} · size unknown`;
   if (population.kind === "saved" && typeof population.withData === "number")
     return `${base} (${population.withData} with recent data)`;
   return base;
 }
 
 export function boardCountText(board, population) {
-  const total = population?.n ?? (board?.n || 0) + (board?.unranked?.length || 0);
-  return `${board?.n ?? 0} of ${total} ranked`;
+  const ranked = typeof board?.n === "number" ? board.n : null;
+  const total = typeof population?.n === "number" ? population.n : null;
+  if (ranked === null) return "Ranked count unknown";
+  return total === null ? `${ranked} ranked` : `${ranked} of ${total} ranked`;
 }
 
 const REASON_TEXT = {
   not_yet_read: "not read yet",
+  snapshot_undated: "last read date unknown",
   snapshot_stale: "last read over 72 hours ago",
   activity_partially_read: "activity not fully read",
   pick_ownership_unavailable: "pick ownership unknown",

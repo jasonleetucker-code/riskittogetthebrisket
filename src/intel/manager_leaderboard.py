@@ -152,17 +152,25 @@ def saved_leaderboards(
         uid = m["userId"]
         snap = (alerts.get(uid) or {}).get("snapshot")
         snap = snap if isinstance(snap, dict) else None
-        fresh = snap is not None and now_ms - int(snap.get("asOf") or 0) <= mal.SNAPSHOT_STALE_MS
+        # An undated snapshot has unknown freshness: never ranked as current.
+        as_of = mal._epoch_ms(snap.get("asOf")) if snap else None  # noqa: SLF001
+        fresh = as_of is not None and now_ms - as_of <= mal.SNAPSHOT_STALE_MS
         snapshots[uid] = snap if fresh else None
         with_data += 1 if fresh else 0
+        if snap is None:
+            unread_reason = "not_yet_read"
+        elif as_of is None:
+            unread_reason = "snapshot_undated"
+        else:
+            unread_reason = "snapshot_stale"
         members.append(
             {
                 "id": uid,
                 "userId": uid,
                 "username": m.get("username"),
                 "displayName": m.get("displayName") or m.get("username"),
-                "asOf": snap.get("asOf") if snap else None,
-                "_stale": snap is not None and not fresh,
+                "asOf": as_of,
+                "_unread": None if fresh else unread_reason,
             }
         )
     boards = []
@@ -174,7 +182,7 @@ def saved_leaderboards(
             snap = snapshots.get(uid)
             if snap is None:
                 values[uid] = None
-                reasons[uid] = "snapshot_stale" if mem["_stale"] else "not_yet_read"
+                reasons[uid] = mem["_unread"]
                 continue
             v = (snap.get("metrics") or {}).get(key)
             values[uid] = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
@@ -183,7 +191,7 @@ def saved_leaderboards(
                 if values[uid] is not None
                 else ((snap.get("reasons") or {}).get(key) or "unavailable")
             )
-        public = [{k: v for k, v in mem.items() if k != "_stale"} for mem in members]
+        public = [{k: v for k, v in mem.items() if k != "_unread"} for mem in members]
         boards.append(_board(key, label, public, values, reasons))
     as_ofs = [s["asOf"] for s in snapshots.values() if s and s.get("asOf")]
     return {
