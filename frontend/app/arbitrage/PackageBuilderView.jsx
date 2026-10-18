@@ -42,6 +42,8 @@ import {
   noResultText,
   requestErrorText,
   resultCountText,
+  seedOpponentTeam,
+  seedProblemText,
   togglePosition,
 } from "@/lib/package-builder";
 import {
@@ -88,6 +90,9 @@ export default function PackageBuilderView({
   ownerKey,
   teams = [],
   discovery = null,
+  // A seed from a link (Manager Intelligence Batch D): the counterparty's
+  // owner id and an optional target — `parseBuilderSeed` in lib/package-builder.
+  seed = null,
 }) {
   const storageKey = refinementKey({
     owner: ownerKey,
@@ -126,6 +131,22 @@ export default function PackageBuilderView({
     setError("");
     setRefinement(loadRefinement(storageKey));
   }, [storageKey]);
+
+  // Applied AFTER the reset above (effects run in order), so a seeded
+  // counterparty survives the team / league resolving on load.  It re-applies
+  // only when the team, league or seed changes — never over the user's own
+  // choice of opponent afterwards.
+  const seededOpponent = seedOpponentTeam(seed, teams, myTeam);
+  const seedTarget = seededOpponent ? seed?.target || "" : "";
+  useEffect(() => {
+    if (!seededOpponent) return;
+    setOpponent(seededOpponent);
+    if (seedTarget) {
+      setMode("acquire");
+      setTarget(seedTarget);
+    }
+  }, [storageKey, seededOpponent, seedTarget]);
+  const seedProblem = seedProblemText(seed, { teams, myTeam, leagueKey });
 
   const myRoster = useMemo(
     () => (teams.find((t) => t.name === myTeam)?.players || []).slice().sort(),
@@ -214,6 +235,13 @@ export default function PackageBuilderView({
         size and picks shape what is generated — they are not filters on a
         finished list. Recommendations only — nothing is sent.
       </p>
+      {seedProblem ? <Banner tone="warning">{seedProblem}</Banner> : null}
+      {seededOpponent ? (
+        <p className={styles.lede} role="status">
+          Pre-filled from Manager Intelligence: trading with {seededOpponent}
+          {seedTarget ? `, acquiring ${seedTarget}` : ""}.
+        </p>
+      ) : null}
       <SegmentedControl
         label="What do you want to do?"
         options={BUILDER_MODES}

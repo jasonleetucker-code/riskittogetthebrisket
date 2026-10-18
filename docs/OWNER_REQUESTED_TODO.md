@@ -1762,7 +1762,7 @@ completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`.
 | B3 draft capital + trade intelligence, C league-wide opponent scouting, D trade-tool integration (canonical board, active package model), E career / archetypes / comparisons, F saved managers / alerts / scoped leaderboards, in that order | DECIDED — binding (addendum) |
 | Reuse existing systems; bounded incremental retrieval; explicit complete / partial / none / unavailable / rate-limited states; missing ≠ zero; never invent trades, acquisition dates, current ownership or historical values; private endpoints authenticated, read-only, rate-limited; PSI Direction A | DECIDED — binding (addendum) |
 | Routine implementation details proceed without owner approval; merge and deploy gates and required owner approvals still apply | DECIDED — binding (addendum) |
-| Implementation | IN PROGRESS — B1 + B2 + feed lane `claude/manager-intel-b` |
+| Implementation | IN PROGRESS — B1 + B2 + feed lane `claude/manager-intel-b`; D (trade-tool integration) lane `claude/manager-intel-d` |
 
 ## Added 2026-10-17 — Trade Calculator completion: audit, redesign, unified YES/NO decision engine
 
