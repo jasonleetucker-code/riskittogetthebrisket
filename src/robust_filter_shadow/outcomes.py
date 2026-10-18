@@ -8,7 +8,10 @@ disagree, the document wins and this module is the defect.
 The rank-space Hampel challenger
 (``docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md``)
 inherits every definition here unchanged except the bootstrap seed (17), which
-is carried by ``EvaluationConfig.seed``.
+is carried by ``EvaluationConfig.seed``. The per-vote follow-up
+(``docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/PREREGISTRATION.md``)
+does the same with seed 2027 and adds report-only segments
+(``EvaluationConfig.segment``: offense non-TE / TE / IDP).
 
 Pure functions over ledger records and observation panels; no I/O.
 """
@@ -39,6 +42,21 @@ KTC_SPLIT_SOURCES = ("ktcCrowdSfTep", "ktcTradesSfTep")
 SIDE_RESCUED = "K"  # incumbent drops, challenger keeps
 SIDE_REJECTED = "X"  # incumbent keeps, challenger drops
 SIDE_AGREED = "R"  # both drop
+SEGMENT_OFFENSE_NON_TE = "offense_non_te"
+SEGMENT_TE = "te"
+SEGMENT_IDP = "idp"
+SEGMENTS = (SEGMENT_OFFENSE_NON_TE, SEGMENT_TE, SEGMENT_IDP)
+
+
+def segment_of(asset_class: str | None, position: str | None) -> str | None:
+    """Report segment of a row; ``None`` when it cannot be established (an
+    offense row with no recorded position is never guessed into either half)."""
+    if asset_class == "idp":
+        return SEGMENT_IDP
+    if asset_class != "offense" or not position:
+        return None
+    return SEGMENT_TE if str(position).upper() == "TE" else SEGMENT_OFFENSE_NON_TE
+
 
 VERDICT_ELIGIBLE = "PROMOTION_ELIGIBLE_PENDING_INDEPENDENT_REVIEW"
 VERDICT_NOT_BETTER = "NOT_BETTER"
@@ -161,6 +179,7 @@ class ObservationOutcome:
     m: float
     r: float | None
     delisted: bool
+    position: str | None = None
 
     @property
     def outcome_class(self) -> str:
@@ -181,10 +200,17 @@ class RowOutcome:
     asset_class: str | None
     g1: float
     g1_persistence: float | None
+    position: str | None = None
 
 
-def _sides(record: Mapping[str, Any]) -> Iterable[tuple[str, str, str, str | None]]:
-    """``(side, name, source, asset_class)`` for every judged observation."""
+def _sides(
+    record: Mapping[str, Any],
+) -> Iterable[tuple[str, str, str, str | None, str | None]]:
+    """``(side, name, source, asset_class, position)`` for every judged observation.
+
+    Position comes from the row, or for agreed drops from the record's
+    ``positions`` map (per-vote records only; ``None`` elsewhere)."""
+    positions = record.get("positions") or {}
     for row in record.get("rows") or []:
         if not row.get("filterRow"):
             continue
@@ -198,9 +224,15 @@ def _sides(record: Mapping[str, Any]) -> Iterable[tuple[str, str, str, str | Non
                 side = SIDE_AGREED
             else:
                 continue
-            yield side, str(row["name"]), str(obs["source"]), row.get("assetClass")
+            yield (
+                side,
+                str(row["name"]),
+                str(obs["source"]),
+                row.get("assetClass"),
+                row.get("position"),
+            )
     for name, source, asset_class in record.get("agreedDrops") or []:
-        yield SIDE_AGREED, str(name), str(source), asset_class
+        yield SIDE_AGREED, str(name), str(source), asset_class, positions.get(str(name))
 
 
 def outcomes_at_horizon(
@@ -227,7 +259,7 @@ def outcomes_at_horizon(
             continue
         census["pairs"] += 1
         block = (day - first_day).days // BLOCK_DAYS
-        for side, name, source, asset_class in _sides(origin.record):
+        for side, name, source, asset_class, position in _sides(origin.record):
             census[f"judged{side}"] += 1
             v0 = origin.votes(name)
             if source not in v0:
@@ -257,6 +289,7 @@ def outcomes_at_horizon(
                     m=_clip((c1 - c0) / gap),
                     r=r,
                     delisted=later is None,
+                    position=position,
                 )
             )
         for row in origin.record.get("rows") or []:
@@ -285,6 +318,7 @@ def outcomes_at_horizon(
                     asset_class=row.get("assetClass"),
                     g1=g1,
                     g1_persistence=None if g0 is None else g1 - g0,
+                    position=row.get("position"),
                 )
             )
     return {"observations": observations, "rows": rows, "census": dict(census)}
@@ -484,6 +518,8 @@ class EvaluationConfig:
     episode_dedupe: bool = False
     asset_class: str | None = None
     ktc_split_only: bool = False
+    #: Report-only segment (``SEGMENTS``); ``None`` is the whole population.
+    segment: str | None = None
     require_same_fingerprint: bool = True
     seed: int = BOOTSTRAP_SEED
     horizons: tuple[int, ...] = field(default=(PRIMARY_HORIZON, *SECONDARY_HORIZONS))
@@ -537,6 +573,28 @@ def evaluate(boards: Sequence[Board], config: EvaluationConfig | None = None) ->
                     u for u in result["observations"] if u.asset_class == cfg.asset_class
                 ],
                 "rows": [u for u in result["rows"] if u.asset_class == cfg.asset_class],
+            }
+        if cfg.segment:
+            result = {
+                **result,
+                "observations": [
+                    u
+                    for u in result["observations"]
+                    if segment_of(u.asset_class, u.position) == cfg.segment
+                ],
+                "rows": [
+                    u
+                    for u in result["rows"]
+                    if segment_of(u.asset_class, u.position) == cfg.segment
+                ],
+                "census": {
+                    **result["census"],
+                    "segmentUnclassifiedObservations": sum(
+                        1
+                        for u in result["observations"]
+                        if segment_of(u.asset_class, u.position) is None
+                    ),
+                },
             }
         horizons[h] = summarize_horizon(result, seed=cfg.seed)
     primary = horizons.get(PRIMARY_HORIZON)

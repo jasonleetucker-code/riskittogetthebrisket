@@ -10244,6 +10244,180 @@ def _hampel_filter_rank_space(
     return kept, dropped_keys
 
 
+# ── Per-vote rank-space Hampel CHALLENGER (default OFF) ──────────────────
+#
+# ``rank-space-hampel-per-vote-v1``, preregistered in
+# ``docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/PREREGISTRATION.md``
+# BEFORE it was implemented.  A follow-up to ``rank-space-hampel-v1`` (above),
+# which inverts every vote on a row through ONE scope curve; this one inverts
+# each vote through the forward map that actually produced it.  The original
+# challenger and its negative result are untouched.
+#
+# A vote's forward map is ``(c, s, te_kind, te_param)``, recorded by the blend
+# loop at the moment it prices the vote (never re-derived):
+#   * ``(c, s)`` -- the Hill curve the build resolved for that (row, source)
+#     (``_curve_for_rank`` -> ``curve_for_pool``);
+#   * ``te_kind`` -- ``None`` (no TE transform), ``"basis"`` (``te_param`` =
+#     ``(from_basis, to_basis)`` of ``convert_te_value``) or ``"flat"``
+#     (``te_param`` = the multiplier); both TE kinds are followed by
+#     ``_te_lift_under_ceiling``.
+# Value-direct votes carry the curve of their own source's pool on that row.
+PER_VOTE_TE_BASIS = "basis"
+PER_VOTE_TE_FLAT = "flat"
+
+
+def _te_lift_inverse(value: float, *, knee: float = _TE_LIFT_SOFT_KNEE) -> float:
+    """Exact inverse of :func:`_te_lift_under_ceiling` on its range.
+
+    Identity at or below ``knee``; above it ``knee − span · ln((9999 − v)/span)``.
+    A value at or above the ceiling is outside the map's range (``inf``)."""
+    v = float(value)
+    if v <= knee:
+        return v
+    ceiling = float(_DISPLAY_SCALE_MAX)
+    span = ceiling - knee
+    if span <= 0 or v >= ceiling:
+        return math.inf
+    return knee - span * math.log((ceiling - v) / span)
+
+
+def _per_vote_te_forward(value: float, te_kind: str | None, te_param: Any) -> float:
+    if te_kind is None:
+        return float(value)
+    if te_kind == PER_VOTE_TE_BASIS:
+        from src.league_intel.te_premium import convert_te_value  # noqa: PLC0415
+
+        from_basis, to_basis = te_param
+        return _te_lift_under_ceiling(
+            float(convert_te_value(float(value), from_basis=from_basis, to_basis=to_basis))
+        )
+    if te_kind == PER_VOTE_TE_FLAT:
+        return _te_lift_under_ceiling(float(value) * float(te_param))
+    raise ValueError(f"unknown TE transform {te_kind!r}")
+
+
+def _per_vote_te_inverse(value: float, te_kind: str | None, te_param: Any) -> float:
+    """Undo the post-curve TE transform (multiplier first, before the curve)."""
+    if te_kind is None:
+        return float(value)
+    lifted = _te_lift_inverse(value)
+    if not math.isfinite(lifted):
+        return math.inf
+    if te_kind == PER_VOTE_TE_BASIS:
+        from src.league_intel.te_premium import convert_te_value  # noqa: PLC0415
+
+        from_basis, to_basis = te_param
+        return float(convert_te_value(lifted, from_basis=to_basis, to_basis=from_basis))
+    if te_kind == PER_VOTE_TE_FLAT:
+        m = float(te_param)
+        return lifted / m if m > 0 else math.inf
+    raise ValueError(f"unknown TE transform {te_kind!r}")
+
+
+def _per_vote_forward(u: float, forward_map: tuple) -> float:
+    """F = T ∘ H for one vote: percentile coordinate → board-scale vote."""
+    c, s, te_kind, te_param = forward_map
+    h = 9999.0 if u <= 0 else 9999.0 / (1.0 + (u / c) ** s)
+    return _per_vote_te_forward(h, te_kind, te_param)
+
+
+def _per_vote_inverse(value: float, forward_map: tuple | None) -> float:
+    """u = H⁻¹(T⁻¹(v)); ``inf`` (no coordinate -- never 0) when it has none."""
+    if forward_map is None:
+        return math.inf
+    v = float(value)
+    if not math.isfinite(v) or v <= 0.0:
+        return math.inf
+    c, s, te_kind, te_param = forward_map
+    x = _per_vote_te_inverse(v, te_kind, te_param)
+    if not math.isfinite(x):
+        # Above every value the map can reach: the top of the curve.
+        return 0.0 if x > 0 else math.inf
+    return _hill_inverse(x, c, s)
+
+
+def _per_vote_floor(u_med: float, forward_map: tuple, min_threshold: float) -> float:
+    """The incumbent's ``min_threshold`` vote points carried into this vote's
+    own coordinate at the row median (preregistration §1.5)."""
+    top = _per_vote_forward(0.0, forward_map)
+    w = _per_vote_forward(u_med, forward_map)
+    hi = _per_vote_inverse(max(1.0, w - min_threshold / 2.0), forward_map)
+    upper = w + min_threshold / 2.0
+    lo = 0.0 if upper >= top else _per_vote_inverse(upper, forward_map)
+    return abs(hi - lo) if math.isfinite(hi) and math.isfinite(lo) else math.inf
+
+
+def rank_space_per_vote_assessment(
+    pairs: list[tuple[str, float]],
+    forward_maps: Mapping[str, tuple],
+    *,
+    k: float = _HAMPEL_K,
+    min_n: int = _HAMPEL_MIN_N,
+    min_threshold: float = _HAMPEL_MIN_THRESHOLD,
+) -> dict[str, Any]:
+    """The per-vote rank-space Hampel decision with its working.
+
+    Returns ``{"coords", "median", "mad", "thresholds", "dropped", "filtered"}``
+    -- ``coords`` / ``thresholds`` keyed by source (``inf`` / ``None`` for a vote
+    with no coordinate, which is never dropped); ``filtered`` is False when a
+    guard stood the filter down.
+    """
+    coords = {sk: _per_vote_inverse(v, forward_maps.get(sk)) for sk, v in pairs}
+    out: dict[str, Any] = {
+        "coords": coords,
+        "median": None,
+        "mad": None,
+        "thresholds": {},
+        "dropped": [],
+        "filtered": False,
+    }
+    if len(pairs) < min_n:
+        return out
+    finite = sorted(u for u in coords.values() if math.isfinite(u))
+    if len(finite) < min_n:
+        return out
+    m = len(finite)
+    median = finite[m // 2] if m % 2 else (finite[m // 2 - 1] + finite[m // 2]) / 2.0
+    devs = sorted(abs(u - median) for u in finite)
+    mad = devs[m // 2] if m % 2 else (devs[m // 2 - 1] + devs[m // 2]) / 2.0
+    out["median"], out["mad"] = median, mad
+    dropped: list[str] = []
+    for sk, _v in pairs:
+        u = coords[sk]
+        if not math.isfinite(u):
+            out["thresholds"][sk] = None
+            continue
+        threshold = max(k * mad, _per_vote_floor(median, forward_maps[sk], min_threshold))
+        out["thresholds"][sk] = threshold
+        if abs(u - median) > threshold:
+            dropped.append(sk)
+    if len(pairs) - len(dropped) < 2:
+        return out
+    out["dropped"] = dropped
+    out["filtered"] = True
+    return out
+
+
+def _hampel_filter_rank_space_per_vote(
+    pairs: list[tuple[str, float]],
+    *,
+    forward_maps: Mapping[str, tuple],
+    k: float = _HAMPEL_K,
+    min_n: int = _HAMPEL_MIN_N,
+    min_threshold: float = _HAMPEL_MIN_THRESHOLD,
+) -> tuple[list[tuple[str, float]], list[str]]:
+    """CHALLENGER ``rank-space-hampel-per-vote-v1`` (default OFF): the incumbent
+    filter's K, min_n and guards on each vote's own percentile coordinate.
+    ``(kept_pairs, dropped_keys)`` with original ordering, like the incumbent."""
+    result = rank_space_per_vote_assessment(
+        pairs, forward_maps, k=k, min_n=min_n, min_threshold=min_threshold
+    )
+    gone = set(result["dropped"])
+    if not gone:
+        return list(pairs), []
+    return [(sk, v) for sk, v in pairs if sk not in gone], [sk for sk, _ in pairs if sk in gone]
+
+
 def count_aware_mean_median_blend(
     values: list[float],
 ) -> tuple[float, float | None]:
@@ -11721,6 +11895,15 @@ def _compute_unified_rankings(
     _rank_space_challenger = not _joint_challenger and _feature_flags.is_enabled(
         "rank_space_hampel_challenger"
     )
+    # Per-vote rank-space Hampel challenger (default OFF, shadow only;
+    # docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/): each vote
+    # inverted through the forward map that produced it.  The two challengers
+    # above take precedence, so no two challengers ever mix.
+    _rank_space_per_vote = (
+        not _joint_challenger
+        and not _rank_space_challenger
+        and _feature_flags.is_enabled("rank_space_hampel_per_vote_challenger")
+    )
     # Sparse half, separately promotable (default OFF): one voting family is
     # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
     _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
@@ -11931,6 +12114,9 @@ def _compute_unified_rankings(
         # produced which values and rebuild the three lists from the
         # surviving subset.
         all_value_pairs: list[tuple[str, float, bool]] = []
+        # Per-vote forward maps ``(c, s, te_kind, te_param)``, recorded only for
+        # the per-vote rank-space challenger (default OFF).
+        vote_forward_maps: dict[str, tuple] = {}
         # Per-row EFFECTIVE weight of each voting source (base × dynamic).
         row_weight: dict[str, float] = {}
         freshness_excluded: list[str] = []
@@ -12059,6 +12245,10 @@ def _compute_unified_rankings(
             # double-count guard, and it is why the API takes two bases
             # rather than returning a multiplier.
             tep_basis_uplift: float | None = None
+            # The TE transform this branch applied, RECORDED for the per-vote
+            # rank-space challenger's inverse (``(kind, param)``; never read
+            # by the incumbent).
+            te_transform: tuple[str | None, Any] = (None, None)
             if row_is_te and source_key not in _TE_BLANKET_KTC_EXEMPT_KEYS:
                 if source_key in tep_boosted_source_keys:
                     pre_te_value = value
@@ -12074,14 +12264,20 @@ def _compute_unified_rankings(
                         )
                         if pre_te_value > 0:
                             tep_basis_uplift = value / pre_te_value
+                        te_transform = (
+                            PER_VOTE_TE_BASIS,
+                            (_TE_SOURCE_DEFAULT_BASIS, _BOARD_TE_BASIS),
+                        )
                     else:
                         value = _te_lift_under_ceiling(value * effective_non_tep_multiplier)
+                        te_transform = (PER_VOTE_TE_FLAT, effective_non_tep_multiplier)
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
                     # Unchanged: only base <-> tepp is measured, so a
                     # TEP-native board has no conversion to make without
                     # inventing an intermediate uplift.
                     value = _te_lift_under_ceiling(value * effective_native_multiplier)
+                    te_transform = (PER_VOTE_TE_FLAT, effective_native_multiplier)
                     tep_native_corrected = True
             base_weight = blend_weight_by_source.get(source_key, 1.0)
             dyn_factor, dyn_stamp = _dynamic_weight_factor(
@@ -12119,6 +12315,8 @@ def _compute_unified_rankings(
             anchor_keys = pick_anchor_keys if row_is_pick else cross_market_keys
             is_anchor_source = source_key in anchor_keys
             all_value_pairs.append((source_key, value, is_anchor_source))
+            if _rank_space_per_vote:
+                vote_forward_maps[source_key] = (hill_c, hill_s, *te_transform)
             if is_anchor_source:
                 cross_market_values.append(value)
                 cross_market_weights.append(src_blend_weight)
@@ -12224,6 +12422,14 @@ def _compute_unified_rankings(
                         else (_pv.HILL_PERCENTILE_C, _pv.HILL_PERCENTILE_S)
                     ),
                     k=_HAMPEL_K,
+                )
+            elif _rank_space_per_vote:
+                kept_pairs, hampel_dropped_keys = _hampel_filter_rank_space_per_vote(
+                    [(k, v) for k, v, _ in all_value_pairs],
+                    forward_maps=vote_forward_maps,
+                    k=_HAMPEL_K,
+                    min_n=_HAMPEL_MIN_N,
+                    min_threshold=_HAMPEL_MIN_THRESHOLD,
                 )
             else:
                 kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(

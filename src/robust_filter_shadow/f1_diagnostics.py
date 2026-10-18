@@ -259,3 +259,131 @@ def aggregate(
             "benchmark; a DIAGNOSTIC, never a target",
         ],
     }
+
+
+# ── per-vote follow-up reports (its preregistration §3; report-only) ─────
+
+
+def _rel_move(row: list) -> float | None:
+    vi, vc = row[_VI], row[_VC]
+    if not vi or not vc or vi <= 0 or vc <= 0:
+        return None
+    return abs(vc / vi - 1.0)
+
+
+def _move_entry(board: str, name: str, row: list, positions: Mapping[str, Any]) -> dict:
+    return {
+        "board": board,
+        "name": name,
+        "assetClass": row[_C],
+        "position": positions.get(name),
+        "valueIncumbent": row[_VI],
+        "valueChallenger": row[_VC],
+        "relMove": _r(_rel_move(row), 5),
+        "rankIncumbent": row[_RI],
+        "rankChallenger": row[_RC],
+        "droppedIncumbent": row[_DI],
+        "droppedChallenger": row[_DC],
+    }
+
+
+def largest_value_moves(
+    boards: Sequence[tuple[str, Mapping[str, list], Mapping[str, Any]]], top: int = 20
+) -> list[dict]:
+    """The ``top`` board-rows with the largest |V_ch / V_inc − 1|."""
+    scored = []
+    for board, table, positions in boards:
+        for name, row in table.items():
+            if row[_C] == "pick":
+                continue
+            rel = _rel_move(row)
+            if rel:
+                scored.append((rel, board, name, row, positions))
+    scored.sort(key=lambda t: (-t[0], t[1], t[2]))
+    return [_move_entry(b, n, row, pos) for _rel, b, n, row, pos in scored[:top]]
+
+
+def top24_market_rejections(table: Mapping[str, list]) -> list[dict]:
+    """Every value-direct market vote either filter rejects on a top-24 row
+    (the incumbent's rank), on one board."""
+    out = []
+    for name, row in sorted(table.items(), key=lambda kv: (kv[1][_RI] or 10**9, kv[0])):
+        if row[_C] == "pick" or row[_RI] is None or row[_RI] > 24:
+            continue
+        for source in row[_OBS]:
+            if source not in MARKET_SOURCES:
+                continue
+            champ, chall = source in row[_DI], source in row[_DC]
+            if champ or chall:
+                out.append(
+                    {
+                        "name": name,
+                        "rankIncumbent": row[_RI],
+                        "source": source,
+                        "champion": "drop" if champ else "keep",
+                        "challenger": "drop" if chall else "keep",
+                    }
+                )
+    return out
+
+
+def top24_market_rejection_counts(tables: Sequence[Mapping[str, list]], top: int = 30) -> list:
+    """Pooled (player, source) rejection counts on top-24 rows, both filters."""
+    counts: dict[tuple[str, str], Counter] = defaultdict(Counter)
+    for table in tables:
+        for entry in top24_market_rejections(table):
+            cell = counts[(entry["name"], entry["source"])]
+            cell["champion"] += entry["champion"] == "drop"
+            cell["challenger"] += entry["challenger"] == "drop"
+            cell["boards"] += 1
+    ranked = sorted(
+        counts.items(), key=lambda kv: (-(kv[1]["champion"] + kv[1]["challenger"]), kv[0])
+    )
+    return [{"name": n, "source": s, **dict(c)} for (n, s), c in ranked[:top]]
+
+
+def coordinate_census_total(censuses: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """D6 pooled: votes / drops per curve family with drop shares; mixed rows."""
+    fam: dict[str, Counter] = defaultdict(Counter)
+    rows: Counter = Counter()
+    for census in censuses:
+        for label, cell in (census.get("byFamily") or {}).items():
+            fam[label].update(cell)
+        rows.update(census.get("rows") or {})
+    return {
+        "byFamily": {
+            label: {
+                **dict(cell),
+                "shareDroppedIncumbent": _share(cell["droppedIncumbent"], cell["votes"]),
+                "shareDroppedChallenger": _share(cell["droppedChallenger"], cell["votes"]),
+            }
+            for label, cell in sorted(fam.items())
+        },
+        "rows": {
+            **dict(rows),
+            "shareMixedCurve": _share(rows["mixedCurveRows"], rows["filterRows"]),
+        },
+    }
+
+
+def player_series(
+    boards: Sequence[tuple[str, Mapping[str, list]]], name: str
+) -> list[dict[str, Any]]:
+    """One player's drop sets and both values on every board that lists him."""
+    out = []
+    for board, table in boards:
+        row = table.get(name)
+        if row is None:
+            continue
+        out.append(
+            {
+                "board": board,
+                "valueIncumbent": row[_VI],
+                "valueChallenger": row[_VC],
+                "rankIncumbent": row[_RI],
+                "rankChallenger": row[_RC],
+                "droppedIncumbent": row[_DI],
+                "droppedChallenger": row[_DC],
+            }
+        )
+    return out

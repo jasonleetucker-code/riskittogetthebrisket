@@ -31,6 +31,7 @@ DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "robust_filter_shad
 CHALLENGER_DIRS = {
     "joint": DEFAULT_DIR,
     "rank_space": DEFAULT_DIR.parent / "robust_filter_shadow_rank_space",
+    "rank_space_per_vote": DEFAULT_DIR.parent / "robust_filter_shadow_rank_space_per_vote",
 }
 LEDGER_NAME = "ledger.jsonl"
 PANEL_DIR = "panels"

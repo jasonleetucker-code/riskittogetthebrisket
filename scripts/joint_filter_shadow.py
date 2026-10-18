@@ -26,12 +26,14 @@ Subcommands:
 ``diagnostics`` the rank-space preregistration's §3 F1 diagnostics D1-D5 over
                 the ``f1Rows`` the rank-space backfill stores per board.
 
-``--challenger {joint,rank_space}`` selects the challenger (default ``joint``,
-byte-identical to the single-challenger recorder). Each challenger has its own
-preregistration, bootstrap seed and ledger directory (``rank_space`` defaults to
-``data/robust_filter_shadow_rank_space/``). ``rank_space`` is preregistered for
-the historical replay only, so ``record`` and ``adversarial`` refuse it (exit 1)
--- its learning receipts would otherwise be filed under the joint filter.
+``--challenger {joint,rank_space,rank_space_per_vote}`` selects the challenger
+(default ``joint``, byte-identical to the single-challenger recorder). Each
+challenger has its own preregistration, bootstrap seed and ledger directory
+(``rank_space`` defaults to ``data/robust_filter_shadow_rank_space/``,
+``rank_space_per_vote`` to ``data/robust_filter_shadow_rank_space_per_vote/``).
+Both rank-space challengers are preregistered for the historical replay only, so
+``record`` and ``adversarial`` refuse them (exit 1) -- their learning receipts
+would otherwise be filed under the joint filter.
 
 Learning receipts (AL-1a, ``src/model_registry/producer_receipts.py``): ``record``
 emits OBSERVATION / FEATURES / MODEL / CHALLENGER / one PREDICTION per filter for
@@ -215,10 +217,14 @@ def record_board(
     if not (_check_contract(incumbent) and _check_contract(challenger)):
         return None
     comparison = R.shadow_record(incumbent, challenger, challenger_kind=challenger_name)
-    if challenger_name == R.CHALLENGER_RANK_SPACE:
+    if challenger_name in R.RANK_SPACE_KINDS:
         from src.robust_filter_shadow.f1_diagnostics import f1_rows  # noqa: PLC0415
 
         comparison["f1Rows"] = f1_rows(incumbent, challenger)
+    if challenger_name == R.CHALLENGER_PER_VOTE:
+        comparison["coordinateCensus"] = R.coordinate_census(incumbent, challenger)
+        comparison["positions"] = R.row_positions(incumbent)
+        comparison["diagnosticRows"] = R.diagnostic_rows(incumbent, challenger)
     panel = R.observation_panel(incumbent)
     from src.api.data_contract import correlation_group_for  # noqa: PLC0415
 
@@ -741,6 +747,12 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
                 boards, O.EvaluationConfig(merge_ktc=True, seed=seed)
             ),
         }
+        if challenger == R.CHALLENGER_PER_VOTE:
+            # per-vote PREREGISTRATION §2: required segment reports (report-only).
+            result["segments"] = {
+                seg: O.evaluate(boards, O.EvaluationConfig(segment=seg, seed=seed))
+                for seg in O.SEGMENTS
+            }
     out = args.out or (args.dir / f"evaluation_{args.mode}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
@@ -833,6 +845,37 @@ def cmd_diagnostics(args: argparse.Namespace) -> int:
         },
         "allBoards": F.aggregate([r["f1Rows"] for r in records]),
     }
+    if getattr(args, "challenger", R.CHALLENGER_JOINT) == R.CHALLENGER_PER_VOTE:
+        # per-vote PREREGISTRATION §3: D6, player-level disagreements, Puka Nacua.
+        def entry(rec: dict) -> tuple[str, dict, dict]:
+            return board_name(rec), rec["f1Rows"], rec.get("positions") or {}
+
+        payload["D6_coordinate_census"] = {
+            "completeBoards": F.coordinate_census_total(
+                r.get("coordinateCensus") or {} for r in complete
+            ),
+            "newestCompleteBoard": F.coordinate_census_total(
+                [newest.get("coordinateCensus") or {}]
+            ),
+        }
+        payload["playerLevel"] = {
+            "largestValueMovesCompleteBoards": F.largest_value_moves([entry(r) for r in complete]),
+            "largestValueMovesNewestBoard": F.largest_value_moves([entry(newest)]),
+            "top24MarketRejectionsNewestBoard": F.top24_market_rejections(newest["f1Rows"]),
+            "top24MarketRejectionCountsCompleteBoards": F.top24_market_rejection_counts(
+                [r["f1Rows"] for r in complete]
+            ),
+        }
+        payload["diagnosticPlayers"] = {
+            name: {
+                "newestCompleteBoard": (newest.get("diagnosticRows") or {}).get(name),
+                "seriesCompleteBoards": F.player_series(
+                    [(board_name(r), r["f1Rows"]) for r in complete], name
+                ),
+                "note": "diagnostic only; no parameter is tuned toward any player's valuation",
+            }
+            for name in R.DIAGNOSTIC_PLAYERS
+        }
     out = args.out or (args.dir / f"diagnostics_{args.mode}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")

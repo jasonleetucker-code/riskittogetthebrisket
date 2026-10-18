@@ -1783,6 +1783,20 @@ draft-pick ownership) keeps its order. Workstream, batches, dependencies and com
 | Not authorized by it: changing q or the package model, promoting experimental models, League Tycoon contract features, purchases; merges, deploys and promotions keep their gates | DECIDED — binding (directive) |
 | Implementation | IN PROGRESS — TC-0 audit + research lane `claude/trade-calculator-completion`; TC-A…TC-F queued by dependency |
 
+## Added 2026-10-17 — Follow-up experiment: per-vote rank-space outlier filter
+
+Owner instruction 2026-10-17, after the original rank-space Hampel challenger failed its preregistered test (#1778,
+verdict NOT BETTER, kept as a standalone historical record). The original implementation inverted each row through one
+curve instead of each vote's own source-specific curve, so the intended methodology was evaluated separately and fairly.
+
+| Item | Disposition |
+|---|---|
+| Keep the production Hampel filter unchanged; do not promote the challenger | DECIDED — owner, 2026-10-17 |
+| Preserve the original experiment and its negative result in #1778; #1778's merge does not depend on this follow-up | DECIDED — owner, 2026-10-17 |
+| New preregistration, committed and pushed before any implementation or run, labelled a follow-up (not a correction) | DONE — `d8116ee121`, pushed 2026-10-17 22:25:07 UTC |
+| Per-vote inverse through each vote's own point-in-time curve, TE multiplier inverted first; offense / TE / IDP reported separately; Puka Nacua diagnostic only, no tuning | DONE — `docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/` |
+| Outcome | CLOSED — preregistered verdict INCONCLUSIVE (h = 7 Δ −0.0071 [−0.0229, +0.0076]; G1 non-inferior). Under the preregistration this closes the experiment: production filter retained, `rank_space_hampel_per_vote_challenger` stays OFF, no owner review required |
+
 ## Added 2026-10-17 — League Tycoon migration research (owner research directive)
 
 Owner master research prompt, 2026-10-17: determine exactly what it would take for this Calculator to keep full

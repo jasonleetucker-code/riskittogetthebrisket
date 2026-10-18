@@ -1,0 +1,156 @@
+{
+ "boards": {
+  "dynasty_export_20261005_152048.zip": {
+   "forwardInverseValueRoundTrip": {
+    "GLOBAL+te+value_direct|roundtrip_value": {
+     "max": 9.094947017729282e-13,
+     "n": 72
+    },
+    "GLOBAL+te|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 136
+    },
+    "GLOBAL+value_direct|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 816
+    },
+    "GLOBAL|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 1457
+    },
+    "OFFENSE+te|roundtrip_value": {
+     "max": 2.425440470688045e-08,
+     "n": 723
+    },
+    "OFFENSE+value_direct|roundtrip_value": {
+     "max": 9.094947017729282e-13,
+     "n": 994
+    },
+    "OFFENSE|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 3543
+    }
+   },
+   "pctErrVsRecordedPercentile": {
+    "GLOBAL": {
+     "max": 0.0007612256720079813,
+     "median": 0.00012088801965171037,
+     "n": 1457
+    },
+    "GLOBAL+te": {
+     "max": 0.0011086875376131733,
+     "median": 8.512082296052714e-05,
+     "n": 136
+    },
+    "OFFENSE": {
+     "max": 0.0004796339468966515,
+     "median": 3.8489874807118296e-05,
+     "n": 3543
+    },
+    "OFFENSE+te": {
+     "max": 0.02004,
+     "median": 6.153068858433253e-05,
+     "n": 723
+    }
+   },
+   "reproductionFromStamps": {
+    "checked": 678,
+    "matched": 678
+   },
+   "segments": {
+    "idp": {
+     "chDrops": 41,
+     "filterRows": 212,
+     "incDrops": 28,
+     "rowsDisagree": 39
+    },
+    "offense_non_te": {
+     "chDrops": 288,
+     "filterRows": 385,
+     "incDrops": 92,
+     "rowsDisagree": 209
+    },
+    "te": {
+     "chDrops": 51,
+     "filterRows": 81,
+     "incDrops": 22,
+     "rowsDisagree": 46
+    }
+   }
+  },
+  "dynasty_export_20261017_185402.zip": {
+   "forwardInverseValueRoundTrip": {
+    "GLOBAL+te+value_direct|roundtrip_value": {
+     "max": 9.094947017729282e-13,
+     "n": 77
+    },
+    "GLOBAL+te|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 73
+    },
+    "GLOBAL+value_direct|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 829
+    },
+    "GLOBAL|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 862
+    },
+    "OFFENSE+te|roundtrip_value": {
+     "max": 2.425440470688045e-08,
+     "n": 716
+    },
+    "OFFENSE+value_direct|roundtrip_value": {
+     "max": 9.094947017729282e-13,
+     "n": 1018
+    },
+    "OFFENSE|roundtrip_value": {
+     "max": 1.8189894035458565e-12,
+     "n": 3535
+    }
+   },
+   "pctErrVsRecordedPercentile": {
+    "GLOBAL": {
+     "max": 0.0007612256720079813,
+     "median": 0.00013191127839962125,
+     "n": 862
+    },
+    "GLOBAL+te": {
+     "max": 0.0004089907725748354,
+     "median": 4.80668245992355e-05,
+     "n": 73
+    },
+    "OFFENSE": {
+     "max": 0.0004796339468966515,
+     "median": 3.702667661203973e-05,
+     "n": 3535
+    },
+    "OFFENSE+te": {
+     "max": 0.018036,
+     "median": 6.454978458403371e-05,
+     "n": 716
+    }
+   },
+   "reproductionFromStamps": {
+    "checked": 466,
+    "matched": 465
+   },
+   "segments": {
+    "offense_non_te": {
+     "chDrops": 237,
+     "filterRows": 385,
+     "incDrops": 82,
+     "rowsDisagree": 188
+    },
+    "te": {
+     "chDrops": 30,
+     "filterRows": 81,
+     "incDrops": 16,
+     "rowsDisagree": 37
+    }
+   }
+  }
+ },
+ "label": "PRE-RUN IMPLEMENTATION CHECK (preregistration \u00a73) -- not evidence; computed on two archives before the full run with the implementation commit 32f45c10e",
+ "note": "pctErrVsRecordedPercentile compares H^-1(T^-1(v)) on the INTEGER valueContribution stamps with the build own stamped percentile; the 0.018/0.020 OFFENSE+te maxima are top tight ends whose lifted vote (~9998.6) rounds to the 9999 stamp. In the pipeline the challenger inverts the unrounded float votes."
+}

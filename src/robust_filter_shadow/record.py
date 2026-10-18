@@ -12,6 +12,10 @@ preregistration and its own ledger directory:
 * ``rank_space`` -- ``rank_space_hampel_challenger`` (``rank-space-hampel-v1``).
   Both builds pin the joint filter and its sparse half OFF; only the
   rank-space flag differs.
+* ``rank_space_per_vote`` -- ``rank_space_hampel_per_vote_challenger``
+  (``rank-space-hampel-per-vote-v1``, a separate follow-up experiment). Both
+  builds pin the joint filter, its sparse half and ``rank_space_hampel_challenger``
+  OFF; only the per-vote flag differs.
 
 Everything recorded is read from what the pipeline itself stamped
 (``sourceRankMeta``, ``droppedSources``, ``jointFilterReasons``,
@@ -37,8 +41,13 @@ CHALLENGER_FLAG = "joint_outlier_sparse_challenger"
 SPARSE_FLAG = "joint_sparse_limited_evidence"
 RANK_SPACE_FLAG = "rank_space_hampel_challenger"
 RANK_SPACE_VERSION = "rank-space-hampel-v1"
+PER_VOTE_FLAG = "rank_space_hampel_per_vote_challenger"
+PER_VOTE_VERSION = "rank-space-hampel-per-vote-v1"
 CHALLENGER_JOINT = "joint"
 CHALLENGER_RANK_SPACE = "rank_space"
+CHALLENGER_PER_VOTE = "rank_space_per_vote"
+#: Challengers whose records carry the rank-space F1 diagnostics table.
+RANK_SPACE_KINDS = (CHALLENGER_RANK_SPACE, CHALLENGER_PER_VOTE)
 #: One entry per registered challenger: the flags each build pins, the version
 #: stamped in ``pins.challengerVersion`` (and so in the record key), the
 #: preregistration that fixes its evaluation, and its bootstrap seed.
@@ -63,6 +72,26 @@ CHALLENGERS: dict[str, dict[str, Any]] = {
         # rank-space PREREGISTRATION §2: seed 17, so the two evaluations are
         # never mistaken for one another.
         "bootstrapSeed": 17,
+    },
+    CHALLENGER_PER_VOTE: {
+        "version": PER_VOTE_VERSION,
+        "incumbent": [
+            (CHALLENGER_FLAG, False),
+            (SPARSE_FLAG, False),
+            (RANK_SPACE_FLAG, False),
+            (PER_VOTE_FLAG, False),
+        ],
+        "challenger": [
+            (CHALLENGER_FLAG, False),
+            (SPARSE_FLAG, False),
+            (RANK_SPACE_FLAG, False),
+            (PER_VOTE_FLAG, True),
+        ],
+        "preregistration": (
+            "docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/PREREGISTRATION.md"
+        ),
+        # per-vote PREREGISTRATION §2: seed 2027 (neither 1571 nor 17).
+        "bootstrapSeed": 2027,
     },
 }
 
@@ -255,6 +284,173 @@ def rank_space_statistics(
     }
 
 
+def per_vote_forward_maps(row: Mapping[str, Any]) -> dict[str, tuple]:
+    """``{source: (c, s, te_kind, te_param)}`` rebuilt from the row's STAMPS.
+
+    For the reproduction check only (the decision itself uses the maps the blend
+    loop recorded while pricing). The curve is the stamped
+    ``rankCoordinatePool`` (else the source's native pool -- the pipeline's own
+    fallback); the TE transform is read from ``tepBasisFrom``/``tepBasisTo``,
+    ``tepMultiplier`` or ``tepNativeCorrection``.
+    """
+    from src.canonical.rank_coordinates import (  # noqa: PLC0415
+        curve_for_pool,
+        native_pool_for_source,
+    )
+
+    registry = {str(s.get("key")): s for s in dc._RANKING_SOURCES}
+    out: dict[str, tuple] = {}
+    for source, m in (row.get("sourceRankMeta") or {}).items():
+        if not isinstance(m, Mapping):
+            continue
+        pool = str(m.get("rankCoordinatePool") or "") or native_pool_for_source(
+            registry.get(str(source), {})
+        )
+        c, s = curve_for_pool(pool)
+        kind: str | None = None
+        param: Any = None
+        if m.get("tepBoostApplied"):
+            if m.get("tepBasisFrom") and m.get("tepBasisTo"):
+                kind, param = dc.PER_VOTE_TE_BASIS, (m["tepBasisFrom"], m["tepBasisTo"])
+            else:
+                kind, param = dc.PER_VOTE_TE_FLAT, float(m.get("tepMultiplier"))
+        elif m.get("tepNativeCorrectionApplied"):
+            kind, param = dc.PER_VOTE_TE_FLAT, float(m.get("tepNativeCorrection"))
+        out[str(source)] = (c, s, kind, param)
+    return out
+
+
+def curve_family(forward_map: tuple, source: str, meta: Mapping[str, Any]) -> str:
+    """Census label: curve (GLOBAL/OFFENSE/IDP), plus ``+te`` and ``+value_direct``."""
+    from src.canonical import rank_coordinates as rc  # noqa: PLC0415
+
+    c, s = forward_map[0], forward_map[1]
+    label = next(
+        (rc.curve_label_for_pool(pool) for pool, cs in rc._CURVE_BY_POOL.items() if cs == (c, s)),
+        "UNKNOWN",
+    )
+    if forward_map[2] is not None:
+        label += "+te"
+    if meta.get("valueContributionPath") == "value_direct":
+        label += "+value_direct"
+    return label
+
+
+def per_vote_statistics(
+    observations: Mapping[str, float], forward_maps: Mapping[str, tuple]
+) -> dict[str, Any]:
+    """Median, MAD and each vote's coordinate / threshold (percentile units)."""
+    import math  # noqa: PLC0415
+
+    res = dc.rank_space_per_vote_assessment(sorted(observations.items()), forward_maps)
+
+    def r(x: float | None) -> float | None:
+        return None if x is None or not math.isfinite(x) else round(x, 6)
+
+    return {
+        "centre": r(res["median"]),
+        "scale": r(res["mad"]),
+        "perVote": {
+            s: [r(res["coords"].get(s)), r((res["thresholds"] or {}).get(s))]
+            for s in sorted(observations)
+        },
+        "dropped": sorted(res["dropped"]),
+    }
+
+
+def coordinate_census(
+    incumbent: Mapping[str, Any], challenger: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Preregistration §3 D6: votes and drops per curve family; mixed-curve rows."""
+    ch_rows = {str(r.get("displayName")): r for r in challenger.get("playersArray") or []}
+    fam: dict[str, Counter[str]] = {}
+    rows = Counter()
+    for row in incumbent.get("playersArray") or []:
+        obs = voting_observations(row)
+        if not is_filter_row(row, obs):
+            continue
+        other = ch_rows.get(str(row.get("displayName"))) or {}
+        maps = per_vote_forward_maps(row)
+        meta = row.get("sourceRankMeta") or {}
+        inc_drop = set(row.get("droppedSources") or [])
+        ch_drop = set(other.get("droppedSources") or [])
+        curves = set()
+        for s in obs:
+            if s not in maps:
+                continue
+            label = curve_family(maps[s], s, meta.get(s) or {})
+            curves.add(maps[s][:2])
+            cell = fam.setdefault(label, Counter())
+            cell["votes"] += 1
+            cell["droppedIncumbent"] += s in inc_drop
+            cell["droppedChallenger"] += s in ch_drop
+        rows["filterRows"] += 1
+        rows["mixedCurveRows"] += len(curves) > 1
+    return {"byFamily": {k: dict(v) for k, v in sorted(fam.items())}, "rows": dict(rows)}
+
+
+#: Rows the per-vote preregistration §3 names for a full diagnostic. Diagnostic
+#: only: nothing is tuned toward any player's valuation.
+DIAGNOSTIC_PLAYERS = ("Puka Nacua",)
+
+
+def diagnostic_rows(
+    incumbent: Mapping[str, Any],
+    challenger: Mapping[str, Any],
+    names: Iterable[str] = DIAGNOSTIC_PLAYERS,
+) -> dict[str, Any]:
+    """Every vote of each named row with its curve, TE transform, coordinate,
+    threshold and both filters' verdicts, plus both published values."""
+    wanted = set(names)
+    ch_rows = {str(r.get("displayName")): r for r in challenger.get("playersArray") or []}
+    out: dict[str, Any] = {}
+    for row in incumbent.get("playersArray") or []:
+        name = str(row.get("displayName"))
+        if name not in wanted or name in out:
+            continue
+        other = ch_rows.get(name) or {}
+        obs = voting_observations(row)
+        maps = per_vote_forward_maps(row)
+        meta = row.get("sourceRankMeta") or {}
+        stats = per_vote_statistics(obs, maps)
+        inc_drop = set(row.get("droppedSources") or [])
+        ch_drop = set(other.get("droppedSources") or [])
+        market = row.get("ktcMarket") if isinstance(row.get("ktcMarket"), Mapping) else {}
+        out[name] = {
+            "position": row.get("position"),
+            "valueIncumbent": _value(row),
+            "valueChallenger": _value(other),
+            "rankIncumbent": _rank(row),
+            "rankChallenger": _rank(other),
+            "ktcMarketNormalized": market.get("normalizedValue"),
+            "incumbentStats": incumbent_statistics(obs.values()) if obs else None,
+            "challengerStats": {k: stats[k] for k in ("centre", "scale")},
+            "votes": [
+                {
+                    "source": s,
+                    "value": round(v, 1),
+                    "curve": curve_family(maps[s], s, meta.get(s) or {}) if s in maps else None,
+                    "teTransform": list(maps[s][2:]) if s in maps else None,
+                    "u": stats["perVote"].get(s, [None, None])[0],
+                    "threshold": stats["perVote"].get(s, [None, None])[1],
+                    "incumbent": "drop" if s in inc_drop else "keep",
+                    "challenger": "drop" if s in ch_drop else "keep",
+                }
+                for s, v in sorted(obs.items())
+            ],
+        }
+    return out
+
+
+def row_positions(contract: Mapping[str, Any]) -> dict[str, str | None]:
+    """``{name: position}`` for every non-pick row (segment reports)."""
+    return {
+        str(r.get("displayName")): r.get("position")
+        for r in contract.get("playersArray") or []
+        if r.get("assetClass") != "pick"
+    }
+
+
 def _rank(row: Mapping[str, Any] | None) -> int | None:
     value = (row or {}).get("canonicalConsensusRank")
     return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
@@ -358,7 +554,11 @@ def shadow_record(
         }
         if filter_row:
             entry["incumbentStats"] = incumbent_statistics(observations.values())
-            if challenger_kind == CHALLENGER_RANK_SPACE:
+            if challenger_kind == CHALLENGER_PER_VOTE:
+                stats = per_vote_statistics(observations, per_vote_forward_maps(inc_row))
+                ch_check = set(stats["dropped"])
+                entry["challengerStats"] = stats
+            elif challenger_kind == CHALLENGER_RANK_SPACE:
                 curve = rank_space_curve(inc_row)
                 _ch_kept, ch_dropped = dc._hampel_filter_rank_space(
                     sorted(observations.items()), curve=curve, k=dc._HAMPEL_K
