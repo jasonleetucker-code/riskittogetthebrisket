@@ -29,8 +29,12 @@ same snapshot; different content for an existing class is refused
 cannot rewrite history.  Nothing is ever deleted: a class that leaves the
 three-year window stays readable for replay.
 
-Not wired to anything.  Which job calls this, and how a snapshot written on
-the production box becomes a tracked file, is Batch D's (owner-gated) design.
+Called by Batch D (owner decision 12, 2026-10-18): ``promotion.py``'s
+finalization step runs it from the scheduled refresh (live mode only; dry run
+reports what it would file), and the snapshot lands in the repo-tracked
+``historical_curves/`` that the workflow commits.  The pre-draft cutoff comes
+from Sleeper's draft ``start_time`` (:func:`pre_draft_cutoff_from_sleeper`),
+never a constant; unknown refuses.
 """
 
 from __future__ import annotations
@@ -40,9 +44,9 @@ import os
 from fractions import Fraction
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from src.draft.rookie_auction.class_snapshot import STATUS_COMPLETE, RookieClassSnapshot
 from src.draft.rookie_auction.curve import (
@@ -77,8 +81,11 @@ __all__ = [
     "ImmutableSnapshotConflict",
     "LedgerRefusal",
     "finalize_completed_class",
+    "pre_draft_cutoff_from_sleeper",
     "replay_spine",
 ]
+
+_ROOKIE_DRAFT_REASON = "rookie_draft_complete:"
 
 
 class LedgerRefusal(RuntimeError):
@@ -335,3 +342,49 @@ def replay_spine(
         "spineUnavailable": error,
         "ledger": classes,
     }
+
+
+def pre_draft_cutoff_from_sleeper(
+    evidence: LeagueDraftEvidence | None,
+    draft_class: int,
+    *,
+    fetch: Callable[[str], Any] | None = None,
+) -> str:
+    """The pre-draft cutoff for ``draft_class``: Sleeper's draft ``start_time``.
+
+    The rookie draft(s) are the ones ``pick_lifecycle`` itself named when it
+    verified completion (its ``rookie_draft_complete:<ids>`` reason), so this
+    never picks a different draft than the completion verdict did.  Each
+    draft's ``/draft/{id}`` object is read through the draft-evidence fetch
+    path and its ``start_time`` (epoch milliseconds) taken; with several, the
+    EARLIEST (a board observed after any of them started is not pre-draft).
+    A missing, non-positive or unreadable ``start_time`` refuses
+    (``pre_draft_cutoff_unknown``) — never a constant, never the clock.
+    """
+    from src.api import draft_class_evidence as dce  # noqa: PLC0415
+
+    lifecycle = draft_class_lifecycle(int(draft_class), evidence)
+    if not is_retired(lifecycle):
+        raise LedgerRefusal(
+            "class_not_verified_complete", f"{lifecycle.status}: {list(lifecycle.reasons)}"
+        )
+    ids: list[str] = []
+    for reason in lifecycle.reasons:
+        if reason.startswith(_ROOKIE_DRAFT_REASON):
+            ids.extend(i for i in reason[len(_ROOKIE_DRAFT_REASON) :].split(",") if i)
+    if not ids:
+        raise LedgerRefusal("pre_draft_cutoff_unknown", "no completed rookie draft identified")
+    get = fetch or dce._default_fetch
+    starts: list[int] = []
+    for draft_id in ids:
+        try:
+            draft = get(f"{dce.SLEEPER_API}/draft/{draft_id}")
+        except Exception as exc:  # noqa: BLE001 — any fetch failure is "unknown"
+            raise LedgerRefusal("pre_draft_cutoff_unknown", f"draft {draft_id}: {exc}") from exc
+        raw = draft.get("start_time") if isinstance(draft, dict) else None
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw <= 0:
+            raise LedgerRefusal(
+                "pre_draft_cutoff_unknown", f"draft {draft_id} has no usable start_time ({raw!r})"
+            )
+        starts.append(int(raw))
+    return datetime.fromtimestamp(min(starts) / 1000, tz=timezone.utc).isoformat()

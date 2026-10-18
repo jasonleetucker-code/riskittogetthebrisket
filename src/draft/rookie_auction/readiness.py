@@ -64,9 +64,11 @@ __all__ = [
     "evaluate_class_readiness",
 ]
 
-#: The first switch policy is an owner decision.  Nothing in this module (or
-#: anywhere) may flip this; a future, owner-approved Batch D adds a separate
-#: promotion path rather than editing this constant.
+#: This module never promotes, and nothing may flip this.  The owner-approved
+#: Batch D promotion path (decision 12, 2026-10-18) is separate and
+#: policy-driven: ``promotion.py`` evaluates the policy gates below against the
+#: preregistered ``config/draft_valuation/promotion_policy.json`` and owns the
+#: live/dry-run switch.  This module stays the structural, report-only half.
 PROMOTION_ENABLED = False
 
 PASS, FAIL, NOT_EVALUATED = "PASS", "FAIL", "NOT_EVALUATED"
@@ -77,13 +79,14 @@ STATE_FALLBACK = "FALLBACK_VERIFIED"
 STATE_INCOMPLETE = "CANDIDATE_INCOMPLETE"
 STATE_READY = "CANDIDATE_READY"
 
-#: Gates whose thresholds must be preregistered by the owner before any
-#: candidate is looked at (PROMPT D item 2).  Reported, never passed.
+#: Policy gates (thresholds preregistered 2026-10-18, owner decision 12).  This
+#: report-only module never evaluates them — ``promotion.py`` does, under the
+#: policy file.  Reported here as NOT_EVALUATED, never passed.
 POLICY_GATES = (
-    ("source_freshness", "awaiting owner-preregistered freshness thresholds"),
-    ("stability_vs_prior_generation", "awaiting owner-preregistered stability band"),
-    ("bounded_variation_vs_fallback", "awaiting owner-preregistered review band"),
-    ("first_switch_approval", "the first switch from the frozen fallback needs owner approval"),
+    ("source_freshness", "evaluated by promotion.py under the preregistered policy"),
+    ("stability_vs_prior_generation", "evaluated by promotion.py under the preregistered policy"),
+    ("bounded_variation_vs_fallback", "evaluated by promotion.py under the preregistered policy"),
+    ("first_switch_approval", "evaluated by promotion.py under the preregistered policy"),
 )
 
 
