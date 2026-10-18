@@ -428,7 +428,7 @@ export function packageComposition(assets) {
   for (const entry of assets || []) {
     const label = compositionGroup(entry);
     if (!label) continue;
-    counts.set(label, (counts.get(label) || 0) + 1);
+    counts.set(label, counts.has(label) ? counts.get(label) + 1 : 1);
   }
   const rank = (label) => {
     const i = COMPOSITION_ORDER.indexOf(label);
