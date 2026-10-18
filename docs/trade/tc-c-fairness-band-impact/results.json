@@ -1,5 +1,5 @@
 {
- "export": "exports/latest/dynasty_data_2026-10-17.json",
+ "export": "exports/latest/dynasty_data_2026-10-17.json (restored from git d22bd38576^, rotated out of exports/latest)",
  "boardGeneratedAt": null,
  "sleeperLeagueId": "1312006700437352448",
  "teams": 12,
@@ -23,20 +23,20 @@
   },
   "cardPairs": 132,
   "candidateCanonicalWin": {
-   "judged": 1355025,
-   "winBoth": 642064,
-   "winNewOnly": 467,
-   "winOldOnly": 2410
+   "judged": 1368084,
+   "winBoth": 652842,
+   "winNewOnly": 612,
+   "qualifiedByMeaningfulGainOnly": 2589
   },
   "candidatesNowWinning": {
-   "count": 467,
-   "small": 35,
-   "idp": 450,
+   "count": 612,
+   "small": 36,
+   "idp": 545,
    "pick": 0,
-   "consolidation": 408,
-   "relativePctMedian": 5.4,
+   "consolidation": 538,
+   "relativePctMedian": 4.61,
    "relativePctRange": [
-    3.52,
+    1.21,
     14.29
    ],
    "absGapRange": [
@@ -45,20 +45,11 @@
    ]
   },
   "candidatesNoLongerWinning": {
-   "count": 2410,
+   "count": 0,
    "small": 0,
-   "idp": 1153,
+   "idp": 0,
    "pick": 0,
-   "consolidation": 2036,
-   "relativePctMedian": 2.88,
-   "relativePctRange": [
-    1.25,
-    3.5
-   ],
-   "absGapRange": [
-    256,
-    774
-   ]
+   "consolidation": 0
   },
   "changedCards": []
  },
@@ -70,34 +61,34 @@
    "dropped": 1
   },
   "candidateAccepted": {
-   "judged": 186945
+   "judged": 188094
   },
   "candidatesNowAccepted": {
-   "count": 467,
+   "count": 460,
    "small": 0,
-   "idp": 182,
+   "idp": 184,
    "pick": 0,
-   "consolidation": 461,
-   "relativePctMedian": 3.15,
+   "consolidation": 453,
+   "relativePctMedian": 3.16,
    "relativePctRange": [
     2.33,
     3.5
    ],
    "absGapRange": [
     256,
-    377
+    379
    ]
   },
   "candidatesNoLongerAccepted": {
-   "count": 64,
+   "count": 65,
    "small": 0,
-   "idp": 44,
+   "idp": 43,
    "pick": 0,
    "consolidation": 63,
-   "relativePctMedian": 4.67,
+   "relativePctMedian": 4.69,
    "relativePctRange": [
-    3.62,
-    6.1
+    3.53,
+    6.12
    ],
    "absGapRange": [
     250,
@@ -107,34 +98,25 @@
  },
  "bestOffersQualification": {
   "qualification": {
-   "qualifiedOld": 44376,
-   "qualifiedNew": 43413,
-   "kept": 43208,
+   "qualifiedOld": 45055,
+   "qualifiedNew": 45328,
+   "kept": 45055,
    "dropped": {
-    "count": 1168,
+    "count": 0,
     "small": 0,
-    "idp": 460,
+    "idp": 0,
     "pick": 0,
-    "consolidation": 974,
-    "relativePctMedian": 2.87,
-    "relativePctRange": [
-     1.25,
-     3.5
-    ],
-    "absGapRange": [
-     256,
-     774
-    ]
+    "consolidation": 0
    },
    "added": {
-    "count": 205,
-    "small": 8,
-    "idp": 190,
+    "count": 273,
+    "small": 9,
+    "idp": 232,
     "pick": 0,
-    "consolidation": 183,
-    "relativePctMedian": 4.98,
+    "consolidation": 240,
+    "relativePctMedian": 4.5,
     "relativePctRange": [
-     3.53,
+     1.21,
      12.33
     ],
     "absGapRange": [
@@ -142,249 +124,26 @@
      255
     ]
    },
-   "droppedExamples": [
-    {
-     "me": "Joey",
-     "opponent": "Brent",
-     "give": [
-      "Jahmyr Gibbs",
-      "Jaxon Smith-Njigba"
-     ],
-     "receive": [
-      "Joe Burrow",
-      "Patrick Mahomes",
-      "Chris Olave"
-     ],
-     "gap": 774,
-     "larger": 22581,
-     "relativePct": 3.43,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Eric",
-     "give": [
-      "Jahmyr Gibbs",
-      "Jaxon Smith-Njigba"
-     ],
-     "receive": [
-      "CeeDee Lamb",
-      "Kenneth Walker",
-      "Colston Loveland"
-     ],
-     "gap": 754,
-     "larger": 22423,
-     "relativePct": 3.36,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Jason",
-     "give": [
-      "Jahmyr Gibbs",
-      "Bijan Robinson"
-     ],
-     "receive": [
-      "Brock Bowers",
-      "Jaxson Dart",
-      "Justin Herbert"
-     ],
-     "gap": 751,
-     "larger": 21873,
-     "relativePct": 3.43,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Brent",
-     "give": [
-      "Jaxon Smith-Njigba",
-      "Trey McBride"
-     ],
-     "receive": [
-      "Joe Burrow",
-      "Drake London",
-      "Chris Olave"
-     ],
-     "gap": 751,
-     "larger": 22178,
-     "relativePct": 3.39,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Eric",
-     "give": [
-      "Bijan Robinson",
-      "Jaxon Smith-Njigba"
-     ],
-     "receive": [
-      "CeeDee Lamb",
-      "Jeremiyah Love",
-      "Colston Loveland"
-     ],
-     "gap": 748,
-     "larger": 22216,
-     "relativePct": 3.37,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Brent",
-     "give": [
-      "Jahmyr Gibbs",
-      "Bijan Robinson"
-     ],
-     "receive": [
-      "Joe Burrow",
-      "Patrick Mahomes",
-      "Chris Olave"
-     ],
-     "gap": 701,
-     "larger": 22581,
-     "relativePct": 3.1,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Eric",
-     "give": [
-      "Bijan Robinson",
-      "Trey McBride"
-     ],
-     "receive": [
-      "CeeDee Lamb",
-      "Trevor Lawrence",
-      "Colston Loveland"
-     ],
-     "gap": 699,
-     "larger": 22101,
-     "relativePct": 3.16,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Jason",
-     "give": [
-      "Trey McBride",
-      "Ashton Jeanty"
-     ],
-     "receive": [
-      "Justin Jefferson",
-      "Carson Schwesinger",
-      "George Pickens"
-     ],
-     "gap": 685,
-     "larger": 20305,
-     "relativePct": 3.37,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Eric",
-     "give": [
-      "Jahmyr Gibbs",
-      "Bijan Robinson"
-     ],
-     "receive": [
-      "CeeDee Lamb",
-      "Kenneth Walker",
-      "Colston Loveland"
-     ],
-     "gap": 680,
-     "larger": 22423,
-     "relativePct": 3.03,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "MaKayla",
-     "give": [
-      "Trey McBride",
-      "Ashton Jeanty"
-     ],
-     "receive": [
-      "Malik Nabers",
-      "Tetairoa McMillan",
-      "De'Von Achane"
-     ],
-     "gap": 675,
-     "larger": 20291,
-     "relativePct": 3.33,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "MaKayla",
-     "give": [
-      "Trey McBride",
-      "Ashton Jeanty"
-     ],
-     "receive": [
-      "Malik Nabers",
-      "Tyler Warren",
-      "De'Von Achane"
-     ],
-     "gap": 672,
-     "larger": 20288,
-     "relativePct": 3.31,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Jason",
-     "opponent": "MaKayla",
-     "give": [
-      "Brock Bowers",
-      "George Pickens"
-     ],
-     "receive": [
-      "Tetairoa McMillan",
-      "Zay Flowers",
-      "De'Von Achane"
-     ],
-     "gap": 668,
-     "larger": 19129,
-     "relativePct": 3.49,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    }
-   ],
+   "droppedExamples": [],
    "addedExamples": [
+    {
+     "me": "Blaine",
+     "opponent": "Jason",
+     "give": [
+      "Jalen Hurts"
+     ],
+     "receive": [
+      "Cam Ward",
+      "Eli Stowers"
+     ],
+     "gap": 255,
+     "larger": 7164,
+     "relativePct": 3.56,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
     {
      "me": "Blaine",
      "opponent": "Eric",
@@ -405,17 +164,53 @@
     },
     {
      "me": "Brent",
-     "opponent": "Collin",
+     "opponent": "John",
      "give": [
-      "Aidan Hutchinson"
+      "Chris Olave"
      ],
      "receive": [
-      "DJ Moore",
-      "Montez Sweat"
+      "Makai Lemon",
+      "Baker Mayfield"
      ],
      "gap": 255,
-     "larger": 5561,
-     "relativePct": 4.59,
+     "larger": 7984,
+     "relativePct": 3.19,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Brent",
+     "opponent": "John",
+     "give": [
+      "Jonathan Taylor"
+     ],
+     "receive": [
+      "Denzel Boston",
+      "Chuba Hubbard"
+     ],
+     "gap": 255,
+     "larger": 7931,
+     "relativePct": 3.22,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Brent",
+     "opponent": "Kich",
+     "give": [
+      "Omarion Hampton"
+     ],
+     "receive": [
+      "Ty Simpson",
+      "Greg Rousseau"
+     ],
+     "gap": 255,
+     "larger": 6267,
+     "relativePct": 4.07,
      "small": false,
      "idp": true,
      "pick": false,
@@ -423,17 +218,17 @@
     },
     {
      "me": "Brent",
-     "opponent": "Joey",
+     "opponent": "Collin",
      "give": [
-      "Maxx Crosby",
-      "Derwin James"
+      "Omarion Hampton"
      ],
      "receive": [
-      "Jared Goff"
+      "Jadarian Price",
+      "Montez Sweat"
      ],
      "gap": 255,
-     "larger": 5816,
-     "relativePct": 4.38,
+     "larger": 6058,
+     "relativePct": 4.21,
      "small": false,
      "idp": true,
      "pick": false,
@@ -441,17 +236,53 @@
     },
     {
      "me": "Collin",
-     "opponent": "Jason",
+     "opponent": "Brent",
      "give": [
+      "Ja'Marr Chase",
       "Breece Hall"
      ],
      "receive": [
-      "Blake Cashman",
-      "De'Zhaun Stribling"
+      "Joe Burrow",
+      "Patrick Mahomes"
      ],
      "gap": 255,
-     "larger": 6482,
-     "relativePct": 3.93,
+     "larger": 15696,
+     "relativePct": 1.62,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": false
+    },
+    {
+     "me": "Collin",
+     "opponent": "Joey",
+     "give": [
+      "DJ Moore"
+     ],
+     "receive": [
+      "Ernest Jones"
+     ],
+     "gap": 255,
+     "larger": 3891,
+     "relativePct": 6.55,
+     "small": false,
+     "idp": true,
+     "pick": false,
+     "consolidation": false
+    },
+    {
+     "me": "Collin",
+     "opponent": "Blaine",
+     "give": [
+      "DJ Moore"
+     ],
+     "receive": [
+      "Nick Herbig",
+      "Payton Wilson"
+     ],
+     "gap": 255,
+     "larger": 4362,
+     "relativePct": 5.85,
      "small": false,
      "idp": true,
      "pick": false,
@@ -461,15 +292,15 @@
      "me": "Collin",
      "opponent": "John",
      "give": [
-      "Breece Hall"
+      "DeVonta Smith"
      ],
      "receive": [
-      "Denzel Boston",
-      "Xavier Watts"
+      "Baker Mayfield",
+      "Yaya Diaby"
      ],
      "gap": 255,
-     "larger": 6249,
-     "relativePct": 4.08,
+     "larger": 5757,
+     "relativePct": 4.43,
      "small": false,
      "idp": true,
      "pick": false,
@@ -494,112 +325,21 @@
      "consolidation": true
     },
     {
-     "me": "Ed",
-     "opponent": "Collin",
+     "me": "Collin",
+     "opponent": "Jason",
      "give": [
-      "A.J. Brown"
+      "Jadarian Price"
      ],
      "receive": [
-      "Michael Penix",
-      "Chamarri Conner"
+      "TreVeyon Henderson"
      ],
      "gap": 255,
-     "larger": 5342,
-     "relativePct": 4.77,
+     "larger": 4387,
+     "relativePct": 5.81,
      "small": false,
-     "idp": true,
+     "idp": false,
      "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Ed",
-     "opponent": "Collin",
-     "give": [
-      "Daniel Jones"
-     ],
-     "receive": [
-      "Nick Cross",
-      "Derrick Brown"
-     ],
-     "gap": 255,
-     "larger": 4022,
-     "relativePct": 6.34,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Ed",
-     "opponent": "Eric",
-     "give": [
-      "Drake Thomas",
-      "Mason Graham"
-     ],
-     "receive": [
-      "Jamien Sherwood"
-     ],
-     "gap": 255,
-     "larger": 3993,
-     "relativePct": 6.39,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Ed",
-     "opponent": "John",
-     "give": [
-      "Fred Warner"
-     ],
-     "receive": [
-      "Mike Evans",
-      "Chris Jones"
-     ],
-     "gap": 255,
-     "larger": 4878,
-     "relativePct": 5.23,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Ed",
-     "opponent": "Roy",
-     "give": [
-      "Micah Parsons"
-     ],
-     "receive": [
-      "Demetrius Knight",
-      "Carl Granderson"
-     ],
-     "gap": 255,
-     "larger": 4164,
-     "relativePct": 6.12,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Ed",
-     "opponent": "Joey",
-     "give": [
-      "Zach Charbonnet"
-     ],
-     "receive": [
-      "Akheem Mesidor",
-      "Jeremy Chinn"
-     ],
-     "gap": 255,
-     "larger": 3669,
-     "relativePct": 6.95,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
+     "consolidation": false
     }
    ]
   },
@@ -612,19 +352,19 @@
  },
  "packageBuilderQualification": {
   "qualification": {
-   "qualifiedOld": 72941,
-   "qualifiedNew": 73353,
-   "kept": 72877,
+   "qualifiedOld": 72980,
+   "qualifiedNew": 73375,
+   "kept": 72915,
    "dropped": {
-    "count": 64,
+    "count": 65,
     "small": 0,
-    "idp": 44,
+    "idp": 43,
     "pick": 0,
     "consolidation": 63,
-    "relativePctMedian": 4.67,
+    "relativePctMedian": 4.69,
     "relativePctRange": [
-     3.62,
-     6.1
+     3.53,
+     6.12
     ],
     "absGapRange": [
      250,
@@ -632,35 +372,35 @@
     ]
    },
    "added": {
-    "count": 476,
+    "count": 460,
     "small": 0,
-    "idp": 183,
+    "idp": 184,
     "pick": 0,
-    "consolidation": 470,
-    "relativePctMedian": 3.15,
+    "consolidation": 453,
+    "relativePctMedian": 3.16,
     "relativePctRange": [
      2.33,
      3.5
     ],
     "absGapRange": [
      256,
-     377
+     379
     ]
    },
    "droppedExamples": [
     {
      "me": "Collin",
-     "opponent": "Ed",
+     "opponent": "John",
      "give": [
       "Jordan Love"
      ],
      "receive": [
-      "Omar Cooper",
-      "Zach Charbonnet"
+      "Baker Mayfield",
+      "Mac Jones"
      ],
      "gap": -255,
-     "larger": 6418,
-     "relativePct": 3.97,
+     "larger": 6209,
+     "relativePct": 4.11,
      "small": false,
      "idp": false,
      "pick": false,
@@ -668,17 +408,53 @@
     },
     {
      "me": "Ed",
-     "opponent": "John",
+     "opponent": "Joey",
+     "give": [
+      "Christian Watson"
+     ],
+     "receive": [
+      "Eli Raridon",
+      "Brian Branch"
+     ],
+     "gap": -255,
+     "larger": 5853,
+     "relativePct": 4.36,
+     "small": false,
+     "idp": true,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Ed",
+     "opponent": "Joey",
+     "give": [
+      "Christian Watson"
+     ],
+     "receive": [
+      "Terry McLaurin",
+      "Oscar Delp"
+     ],
+     "gap": -255,
+     "larger": 5777,
+     "relativePct": 4.41,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Ed",
+     "opponent": "Collin",
      "give": [
       "Fernando Mendoza"
      ],
      "receive": [
-      "Dallas Goedert",
-      "Xavier Watts"
+      "Foyesade Oluokun",
+      "Braelon Allen"
      ],
      "gap": -255,
-     "larger": 5781,
-     "relativePct": 4.41,
+     "larger": 5938,
+     "relativePct": 4.29,
      "small": false,
      "idp": true,
      "pick": false,
@@ -686,16 +462,16 @@
     },
     {
      "me": "John",
-     "opponent": "Ed",
+     "opponent": "Ty",
      "give": [
       "Cam Skattebo"
      ],
      "receive": [
-      "J.K. Dobbins",
-      "Quinnen Williams"
+      "Malachi Fields",
+      "Cody Simon"
      ],
      "gap": -255,
-     "larger": 4586,
+     "larger": 4590,
      "relativePct": 5.56,
      "small": false,
      "idp": true,
@@ -703,90 +479,18 @@
      "consolidation": true
     },
     {
-     "me": "John",
-     "opponent": "Ty",
-     "give": [
-      "Denzel Boston"
-     ],
-     "receive": [
-      "Courtland Sutton",
-      "Emmanuel McNeil-Warren"
-     ],
-     "gap": -255,
-     "larger": 4552,
-     "relativePct": 5.6,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "John",
+     "me": "Kich",
      "opponent": "Eric",
-     "give": [
-      "Makai Lemon"
-     ],
-     "receive": [
-      "Danielle Hunter",
-      "Kayshon Boutte"
-     ],
-     "gap": -255,
-     "larger": 4531,
-     "relativePct": 5.63,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "John",
-     "opponent": "Kich",
-     "give": [
-      "Makai Lemon"
-     ],
-     "receive": [
-      "George Karlaftis",
-      "Xavier Legette"
-     ],
-     "gap": -255,
-     "larger": 4454,
-     "relativePct": 5.73,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Kich",
-     "opponent": "John",
-     "give": [
-      "Christian McCaffrey"
-     ],
-     "receive": [
-      "Makai Lemon",
-      "Chris Jones"
-     ],
-     "gap": -255,
-     "larger": 5899,
-     "relativePct": 4.32,
-     "small": false,
-     "idp": true,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Kich",
-     "opponent": "Ty",
      "give": [
       "Derrick Henry"
      ],
      "receive": [
-      "Josh Hines-Allen",
-      "Khalil Shakir"
+      "Jared Verse",
+      "Ricky Pearsall"
      ],
      "gap": -255,
-     "larger": 5327,
-     "relativePct": 4.79,
+     "larger": 5333,
+     "relativePct": 4.78,
      "small": false,
      "idp": true,
      "pick": false,
@@ -794,73 +498,109 @@
     },
     {
      "me": "Roy",
-     "opponent": "Blaine",
+     "opponent": "Ty",
      "give": [
       "Devin Lloyd"
      ],
      "receive": [
-      "Dylan Sampson",
-      "Cole Bishop"
+      "Trey Hendrickson",
+      "Kaytron Allen"
      ],
      "gap": -255,
-     "larger": 4207,
-     "relativePct": 6.06,
+     "larger": 4164,
+     "relativePct": 6.12,
      "small": false,
      "idp": true,
      "pick": false,
      "consolidation": true
     },
     {
-     "me": "Jason",
-     "opponent": "Kich",
+     "me": "Ty",
+     "opponent": "Jason",
      "give": [
-      "Carson Schwesinger"
+      "Nico Collins"
      ],
      "receive": [
-      "Derrick Henry",
-      "Alex Anzalone"
+      "Kyler Murray",
+      "Josh Downs"
+     ],
+     "gap": -255,
+     "larger": 7216,
+     "relativePct": 3.53,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Blaine",
+     "opponent": "Eric",
+     "give": [
+      "Tee Higgins"
+     ],
+     "receive": [
+      "Blake Corum",
+      "Robert Spillane"
      ],
      "gap": -254,
-     "larger": 6536,
-     "relativePct": 3.89,
+     "larger": 5392,
+     "relativePct": 4.71,
      "small": false,
      "idp": true,
      "pick": false,
      "consolidation": true
     },
     {
-     "me": "Jason",
-     "opponent": "Collin",
+     "me": "Blaine",
+     "opponent": "John",
      "give": [
-      "Carson Schwesinger"
+      "Tee Higgins"
      ],
      "receive": [
-      "Jadarian Price",
-      "MarShawn Lloyd"
+      "Dallas Goedert",
+      "Kalif Raymond"
      ],
      "gap": -254,
-     "larger": 6727,
-     "relativePct": 3.78,
+     "larger": 5263,
+     "relativePct": 4.83,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Collin",
+     "opponent": "Eric",
+     "give": [
+      "Jordan Love"
+     ],
+     "receive": [
+      "Zack Baun",
+      "Jared Verse"
+     ],
+     "gap": -254,
+     "larger": 6340,
+     "relativePct": 4.01,
      "small": false,
      "idp": true,
      "pick": false,
      "consolidation": true
     },
     {
-     "me": "John",
-     "opponent": "Ty",
+     "me": "Ed",
+     "opponent": "Eric",
      "give": [
-      "Denzel Boston"
+      "Fernando Mendoza"
      ],
      "receive": [
-      "Darren Waller",
-      "Trey Hendrickson"
+      "David Montgomery",
+      "Mike Washington"
      ],
      "gap": -254,
-     "larger": 4612,
-     "relativePct": 5.51,
+     "larger": 5924,
+     "relativePct": 4.29,
      "small": false,
-     "idp": true,
+     "idp": false,
      "pick": false,
      "consolidation": true
     }
@@ -876,9 +616,9 @@
       "Jack Campbell",
       "DeVonta Smith"
      ],
-     "gap": -377,
-     "larger": 10860,
-     "relativePct": 3.47,
+     "gap": -379,
+     "larger": 10859,
+     "relativePct": 3.49,
      "small": false,
      "idp": true,
      "pick": false,
@@ -894,9 +634,27 @@
       "Justin Herbert",
       "Ladd McConkey"
      ],
-     "gap": -375,
-     "larger": 10992,
-     "relativePct": 3.41,
+     "gap": -378,
+     "larger": 10991,
+     "relativePct": 3.44,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Jason",
+     "opponent": "Brent",
+     "give": [
+      "Brock Bowers"
+     ],
+     "receive": [
+      "Harold Fannin",
+      "Omarion Hampton"
+     ],
+     "gap": -378,
+     "larger": 11165,
+     "relativePct": 3.39,
      "small": false,
      "idp": false,
      "pick": false,
@@ -922,35 +680,17 @@
     },
     {
      "me": "Jason",
-     "opponent": "Brent",
+     "opponent": "Blaine",
      "give": [
       "Brock Bowers"
      ],
      "receive": [
-      "Harold Fannin",
-      "Omarion Hampton"
+      "Jalen Hurts",
+      "Saquon Barkley"
      ],
-     "gap": -374,
-     "larger": 11167,
-     "relativePct": 3.35,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Joey",
-     "opponent": "Eric",
-     "give": [
-      "Jahmyr Gibbs"
-     ],
-     "receive": [
-      "Parker Washington",
-      "Luther Burden"
-     ],
-     "gap": -374,
-     "larger": 10989,
-     "relativePct": 3.4,
+     "gap": -375,
+     "larger": 10954,
+     "relativePct": 3.42,
      "small": false,
      "idp": false,
      "pick": false,
@@ -966,9 +706,9 @@
       "Tucker Kraft",
       "DeVonta Smith"
      ],
-     "gap": -371,
-     "larger": 10860,
-     "relativePct": 3.42,
+     "gap": -373,
+     "larger": 10859,
+     "relativePct": 3.43,
      "small": false,
      "idp": false,
      "pick": false,
@@ -981,12 +721,12 @@
       "Josh Allen"
      ],
      "receive": [
-      "Patrick Mahomes",
-      "Deshaun Watson"
+      "Chris Olave",
+      "Travis Etienne"
      ],
-     "gap": -367,
-     "larger": 10489,
-     "relativePct": 3.5,
+     "gap": -366,
+     "larger": 10720,
+     "relativePct": 3.41,
      "small": false,
      "idp": false,
      "pick": false,
@@ -1002,9 +742,27 @@
       "Bo Nix",
       "Jared Goff"
      ],
-     "gap": -367,
-     "larger": 11149,
-     "relativePct": 3.29,
+     "gap": -366,
+     "larger": 11150,
+     "relativePct": 3.28,
+     "small": false,
+     "idp": false,
+     "pick": false,
+     "consolidation": true
+    },
+    {
+     "me": "Joey",
+     "opponent": "Eric",
+     "give": [
+      "Jahmyr Gibbs"
+     ],
+     "receive": [
+      "Trevor Lawrence",
+      "Blake Corum"
+     ],
+     "gap": -365,
+     "larger": 10549,
+     "relativePct": 3.46,
      "small": false,
      "idp": false,
      "pick": false,
@@ -1048,35 +806,17 @@
     },
     {
      "me": "Joey",
-     "opponent": "Eric",
+     "opponent": "Jason",
      "give": [
       "Jahmyr Gibbs"
      ],
      "receive": [
-      "Trevor Lawrence",
-      "Blake Corum"
+      "Justin Herbert",
+      "Jordyn Tyson"
      ],
      "gap": -364,
-     "larger": 10548,
-     "relativePct": 3.45,
-     "small": false,
-     "idp": false,
-     "pick": false,
-     "consolidation": true
-    },
-    {
-     "me": "Blaine",
-     "opponent": "Brent",
-     "give": [
-      "Josh Allen"
-     ],
-     "receive": [
-      "Chris Olave",
-      "Travis Etienne"
-     ],
-     "gap": -363,
-     "larger": 10720,
-     "relativePct": 3.39,
+     "larger": 10921,
+     "relativePct": 3.33,
      "small": false,
      "idp": false,
      "pick": false,
@@ -1092,24 +832,24 @@
   }
  },
  "suggestions": {
-  "kept": 37,
+  "kept": 38,
   "added": 7,
-  "dropped": 8,
+  "dropped": 7,
   "keptWithRankChange": 4,
   "relabels": {
    "stretch->lean": 1,
-   "lean->stretch": 4
+   "lean->stretch": 6
   },
   "relabelled": {
-   "count": 5,
+   "count": 7,
    "small": 0,
-   "idp": 3,
-   "pick": 1,
-   "consolidation": 5,
+   "idp": 4,
+   "pick": 0,
+   "consolidation": 7,
    "relativePctMedian": 9.52,
    "relativePctRange": [
     8.25,
-    10.17
+    10.14
    ],
    "absGapRange": [
     380,
@@ -1122,10 +862,10 @@
    "idp": 3,
    "pick": 1,
    "consolidation": 7,
-   "relativePctMedian": 8.7,
+   "relativePctMedian": 8.66,
    "relativePctRange": [
     3.42,
-    9.69
+    9.82
    ],
    "absGapRange": [
     278,
@@ -1133,19 +873,19 @@
    ]
   },
   "droppedCharacter": {
-   "count": 8,
+   "count": 7,
    "small": 0,
    "idp": 3,
    "pick": 1,
-   "consolidation": 8,
-   "relativePctMedian": 9.02,
+   "consolidation": 7,
+   "relativePctMedian": 7.69,
    "relativePctRange": [
     1.05,
-    9.83
+    10.14
    ],
    "absGapRange": [
     83,
-    767
+    808
    ]
   },
   "droppedExamples": [
@@ -1154,16 +894,16 @@
     "type": "consolidation",
     "give": [
      "Dak Prescott",
-     "Mark Andrews"
+     "Josh Jacobs"
     ],
     "receive": [
      "Caleb Williams"
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 9595,
-    "gap": 593,
-    "relativePct": 6.18,
+    "larger": 9613,
+    "gap": 530,
+    "relativePct": 5.51,
     "small": false,
     "idp": false,
     "pick": false
@@ -1180,9 +920,9 @@
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 7989,
-    "gap": 759,
-    "relativePct": 9.5,
+    "larger": 7988,
+    "gap": 760,
+    "relativePct": 9.51,
     "small": false,
     "idp": false,
     "pick": false
@@ -1192,25 +932,6 @@
     "type": "consolidation",
     "give": [
      "Brian Thomas",
-     "Jordan Addison"
-    ],
-    "receive": [
-     "Jonathan Taylor"
-    ],
-    "fairness": "lean",
-    "consolidation": true,
-    "larger": 7589,
-    "gap": 746,
-    "relativePct": 9.83,
-    "small": false,
-    "idp": false,
-    "pick": false
-   },
-   {
-    "team": "Jason",
-    "type": "consolidation",
-    "give": [
-     "Eli Stowers",
      "Ladd McConkey"
     ],
     "receive": [
@@ -1218,9 +939,9 @@
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 8770,
-    "gap": 645,
-    "relativePct": 7.35,
+    "larger": 8842,
+    "gap": 680,
+    "relativePct": 7.69,
     "small": false,
     "idp": false,
     "pick": false
@@ -1229,17 +950,17 @@
     "team": "Jason",
     "type": "consolidation",
     "give": [
-     "Jameson Williams",
-     "Kyler Murray"
+     "Cam Ward",
+     "Eli Stowers"
     ],
     "receive": [
-     "Patrick Mahomes"
+     "Trevor Lawrence"
     ],
-    "fairness": "lean",
+    "fairness": "stretch",
     "consolidation": true,
-    "larger": 8503,
-    "gap": 767,
-    "relativePct": 9.02,
+    "larger": 7972,
+    "gap": 808,
+    "relativePct": 10.14,
     "small": false,
     "idp": false,
     "pick": false
@@ -1275,9 +996,9 @@
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 5120,
-    "gap": 390,
-    "relativePct": 7.62,
+    "larger": 5122,
+    "gap": 392,
+    "relativePct": 7.65,
     "small": false,
     "idp": true,
     "pick": true
@@ -1315,7 +1036,7 @@
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 10203,
+    "larger": 10201,
     "gap": 903,
     "relativePct": 8.85,
     "small": false,
@@ -1326,17 +1047,17 @@
     "team": "Brent",
     "type": "consolidation",
     "give": [
-     "Mark Andrews",
+     "Josh Jacobs",
      "Travis Hunter"
     ],
     "receive": [
-     "James Cook"
+     "Tetairoa McMillan"
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 7561,
-    "gap": 629,
-    "relativePct": 8.32,
+    "larger": 7580,
+    "gap": 567,
+    "relativePct": 7.48,
     "small": false,
     "idp": false,
     "pick": false
@@ -1346,16 +1067,16 @@
     "type": "consolidation",
     "give": [
      "Brian Thomas",
-     "Jameson Williams"
+     "Jordan Addison"
     ],
     "receive": [
-     "Jayden Daniels"
+     "Jonathan Taylor"
     ],
-    "fairness": "lean",
+    "fairness": "stretch",
     "consolidation": true,
-    "larger": 8259,
-    "gap": 743,
-    "relativePct": 9.0,
+    "larger": 7588,
+    "gap": 745,
+    "relativePct": 9.82,
     "small": false,
     "idp": false,
     "pick": false
@@ -1372,9 +1093,9 @@
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 9266,
-    "gap": 806,
-    "relativePct": 8.7,
+    "larger": 9268,
+    "gap": 803,
+    "relativePct": 8.66,
     "small": false,
     "idp": false,
     "pick": false
@@ -1410,9 +1131,9 @@
     ],
     "fairness": "lean",
     "consolidation": true,
-    "larger": 5177,
-    "gap": 407,
-    "relativePct": 7.86,
+    "larger": 5175,
+    "gap": 405,
+    "relativePct": 7.83,
     "small": false,
     "idp": true,
     "pick": true
@@ -1429,13 +1150,19 @@
     ],
     "fairness": "stretch",
     "consolidation": true,
-    "larger": 3860,
-    "gap": 374,
-    "relativePct": 9.69,
+    "larger": 3858,
+    "gap": 372,
+    "relativePct": 9.64,
     "small": false,
     "idp": true,
     "pick": false
    }
   ]
+ },
+ "bestOffersRule": {
+  "rule": "best_offers_positive_gain_v1",
+  "decision": "owner 2026-10-18, Option B (#1791)",
+  "new": "band win OR positive VA-adjusted gain >= fairness_bands.absoluteMinimum",
+  "old": "retired absolute band win (even < 256)"
  }
 }

@@ -101,7 +101,11 @@ test("trade war room: recommendation, three answers, Asset-Only round trip, no s
   const room = page.locator('[data-war-room="ok"]');
   await expect(room).toBeVisible({ timeout: 30_000 });
   const consolidation = load("consolidation");
-  await expect(room.getByText("Make the trade")).toBeVisible();
+  // TC-C: the ONE decision headline, verbatim from the backend, plus the graded
+  // leaning in the bands note (both contain "make the trade", so each is
+  // addressed by its own test id rather than by text).
+  await expect(room.getByTestId("decision-headline")).toHaveText(consolidation.analysis.decision.headlineText);
+  await expect(room.getByTestId("decision-bands")).toContainText("graded leaning: Make the trade");
   for (const lens of ["market", "roster", "feasibility"]) {
     await expect(room.locator(`[data-lens="${lens}"]`)).toBeVisible();
   }

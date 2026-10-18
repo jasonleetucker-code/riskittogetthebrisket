@@ -357,13 +357,21 @@ Method:
 - **Coverage:** Best Offers for all 132 opponent cards; the Package Builder for 36 "sell a player" requests;
   suggestions for every team.
 
-**Qualification**, reported separately from ranking:
+**Qualification**, reported separately from ranking. Measured AFTER the owner's Best Offers decision (2026-10-18, Option B,
+below); the board is rebuilt from the same export with current code, so the OLD baselines differ slightly from the
+pre-decision run:
 
 | surface | qualified OLD → NEW | kept | dropped | added |
 |---|---|---|---|---|
-| Best Offers | 44,376 → 43,413 | 43,208 | 1,168 (0 small, 460 IDP, 0 picks, 974 consolidation; 1.25–3.50% / 256–774 pts) | 205 (8 small, 190 IDP, 0 picks, 183 consolidation; 3.53–12.3% / 250–255 pts) |
-| Package Builder | 72,941 → 73,353 | 72,877 | 64 (250–255 pts against, 3.6–6.1%) | 476 (256–377 pts against, ≤ 3.5%) |
-| Suggestions | 45 → 44 | 37 | 8 (7 consolidations re-badged lean → stretch at about 9–10%, replaced) | 7 |
+| Best Offers | 45,055 → 45,328 | 45,055 | 0 | 273 (9 small, 232 IDP, 0 picks, 240 consolidation; 1.21–12.3% / 250–255 pts) |
+| Package Builder | 72,980 → 73,375 | 72,915 | 65 (250–255 pts against, 3.5–6.1%) | 460 (256–379 pts against, ≤ 3.5%) |
+| Suggestions | 45 → 45 | 38 | 7 (consolidations re-badged lean → stretch at about 9–10%, replaced) | 7 |
+
+Best Offers candidates judged: 1,368,084; 2,589 qualified ONLY by the meaningful-gain rule (band FAIR, gain ≥ 250).
+
+**Pre-decision figures (superseded, kept for the record — NOT post-decision measurements):** Best Offers 44,376 →
+43,413 (43,208 kept; 1,168 dropped: 0 small, 460 IDP, 974 consolidation, 1.25–3.50% / 256–774 pts; 205 added: 3.53–12.3% /
+250–255 pts); Package Builder 72,941 → 73,353 (64 dropped / 476 added); suggestions 45 → 44 (8 dropped / 7 added).
 
 **Ranking among trades qualified under both:**
 - **Best Offers and Package Builder:** 0 order changes in 140 / 139 groups and 0 top-trade changes. Their ranking
@@ -375,14 +383,19 @@ Method:
 - **Best Offers:** 131 of 132 cards serve the same offer under both bands, and the last one has no offer either way.
 - **Package Builder:** for the best package per opponent, 377 kept, 3 added, 1 dropped.
 
-**Exclusions.** The only material removal is Best Offers' 1,168 "canonical wins" on large packages (larger side about
-20,000+) that are ahead by under 3.5%. Largest example: Joey gives Gibbs + Smith-Njigba for Burrow + Mahomes + Olave,
-+774 on 22,581 (3.43%). Under decision 3 these are FAIR, so the removal is consistent with the decision, and none was
-a served offer.
+**Exclusions (pre-decision).** Before the owner's decision the only material removal was Best Offers' 1,168 "canonical
+wins" on large packages (larger side about 20,000+) ahead by under 3.5% — largest example: Joey gives Gibbs +
+Smith-Njigba for Burrow + Mahomes + Olave, +774 on 22,581 (3.43%). None was a served offer.
 
-**For the owner, not applied.** Should a Best Offers WIN still count a clear absolute edge (≥ the 250 minimum) that is
-inside the relative fair band? The smallest fix is one comparison in the WIN rule, reusing the band owner's
-`absoluteMinimum`, with the band itself untouched.
+**Owner decision (2026-10-18, Option B) — APPLIED, Best Offers only.** A positive VA-adjusted canonical gain of at
+least the band owner's `absoluteMinimum` (currently 250) qualifies a Best Offers package as a meaningful opportunity
+even when the band rates it FAIR. `best_offers.best_offers_qualification` names the basis (`canonical_win` /
+`meaningful_gain`) on each offer (`qualification`); the FAIR label, the thresholds, `equity_verdict` and its `win` flag
+are unchanged; the card states the actual gain and band ("+774 … a meaningful gain (at least 250 points), though the
+fairness band rates the package FAIR, 3.43% …"), never "clear win" for a FAIR package. Every other hard gate is kept
+(plausible shape, whole-package native coverage, opponent even or better, constraints, protections). Not applied to
+the Trade Calculator YES/NO, the fairness meter or the Package Builder. Post-decision result above: the 1,168 come back,
+nothing is dropped. Tests: `tests/trade/test_best_offers_meaningful_gain.py`.
 
 **Validation status: NOT validated, still PROVISIONAL.** Missing:
 - a defined target (realized trades valued at the time, or an owner-labelled fair / unfair set);

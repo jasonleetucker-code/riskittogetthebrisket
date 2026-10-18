@@ -73,6 +73,21 @@ def old_bands():
         fb.classify = real
 
 
+@contextlib.contextmanager
+def old_rules():
+    """The retired rules as a whole: the absolute band AND Best Offers' old
+    qualification, which had no meaningful-gain path (a band win only).  The
+    NEW Best Offers rule is ``best_offers_qualification`` (owner decision
+    2026-10-18, Option B)."""
+    real_q = bo.best_offers_qualification
+    bo.best_offers_qualification = lambda eq: real_q(eq) if eq["win"] else None
+    try:
+        with old_bands():
+            yield
+    finally:
+        bo.best_offers_qualification = real_q
+
+
 def _asset_tags(assets: list[Any]) -> set[str]:
     tags = set()
     for a in assets:
@@ -153,9 +168,18 @@ class _Recorder:
             key = (tuple(sorted(sending)), tuple(sorted(receiving)))
             if key not in rec.seen:
                 assets = [*last.get("give", []), *last.get("receive", [])]
+                # Best Offers' NEW rule is its own qualification (owner
+                # decision 2026-10-18, Option B: band win OR a positive gain >=
+                # absoluteMinimum); the OLD rule is the retired band's win.
+                new_ok = (
+                    bo.best_offers_qualification(new) is not None
+                    if rec.accept == "win"
+                    else rec._ok(new)
+                )
                 rec.seen[key] = {
-                    "new": rec._ok(new),
+                    "new": new_ok,
                     "old": rec._ok(old),
+                    "meaningfulGainOnly": rec.accept == "win" and new_ok and not new["win"],
                     "sending": list(sending),
                     "receiving": list(receiving),
                     "tags": _asset_tags(assets),
@@ -325,7 +349,7 @@ def measure_qualification(players, teams, contract) -> dict[str, Any]:
         modes = {}
         for mode in ("new", "old"):
             rows: dict[tuple, dict] = {}
-            ctx = old_bands() if mode == "old" else contextlib.nullcontext()
+            ctx = old_rules() if mode == "old" else contextlib.nullcontext()
             with ctx:
                 for team in teams:
                     me = team["name"]
@@ -385,6 +409,8 @@ def measure_best_offers(players, teams, contract) -> dict[str, Any]:
             finals["new"][(me, card["team"])] = _offer_key(card.get("offer"))
         for v in rec.seen.values():
             cand["judged"] += 1
+            if v.get("meaningfulGainOnly"):
+                cand["qualifiedByMeaningfulGainOnly"] += 1
             if v["new"] and v["old"]:
                 cand["winBoth"] += 1
             elif v["new"]:
@@ -395,7 +421,7 @@ def measure_best_offers(players, teams, contract) -> dict[str, Any]:
             if v["new"] != v["old"]:
                 row = _character(v["sending"], v["receiving"], v["tags"])
                 (flips_gained if v["new"] else flips_lost).append(row)
-        with old_bands():
+        with old_rules():
             res_old = bo.build_best_offers(
                 players, me, teams, contract=contract, use_team_context=False
             )
