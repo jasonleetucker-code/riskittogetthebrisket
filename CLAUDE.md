@@ -561,7 +561,17 @@ Error behavior on endpoints:
     $1200), receipt in `wholeDollarAllocation`; every team budget is the exact
     integer sum of the picks it owns — never rounded on its own (the retired
     `server._round_to_budget` rounded team totals independently of their
-    picks).  Each later class's priced picks are
+    picks).  **Last-known-good** (owner addendum 2026-10-18): the 72-pick
+    class is resolved through `src/draft/rookie_auction/published.py` — a
+    verified fresh curve publishes `current`; a refresh that fails validation
+    keeps the SAME year's last verified allocation (`draftValuation.allocationState:
+    "last_known_good"`, `failedRefresh`, `lastValidAt`, `warning`); with
+    nothing applicable the board is refused (`draft_dollars_unavailable`),
+    never $0 and never another year's curve.  The store holds dollar curves
+    only — ownership always comes from the live Sleeper fold (repo seed
+    `config/draft_valuation/published_allocations/`, box-local
+    `data/draft_valuation/published_allocations/`, redirected per test by
+    `tests/runtime_data_isolation.py`).  Each later class's priced picks are
     normalized to $1200 independently (unpriced picks stay null, outside
     their class's pool; a wholly unpriced class holds no dollars and is
     listed in `budgetPolicy.unpricedClasses`).  Stamped as `budgetPolicy`

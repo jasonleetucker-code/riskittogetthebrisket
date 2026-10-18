@@ -303,6 +303,76 @@ def allocate_class_budget(values: list[float], budget: int) -> list[int]:
     return out
 
 
+#: The workbook class has no verified whole-dollar allocation to publish.
+DRAFT_DOLLARS_UNAVAILABLE_ERROR = "draft_dollars_unavailable"
+
+
+def formula_pick_count() -> int:
+    """Picks in the formula's own class (dynasty_main: 12 x 6 = 72)."""
+    from src.draft.rookie_auction.curve import WORKBOOK_PARAMS  # noqa: PLC0415
+
+    return int(WORKBOOK_PARAMS.pick_count)
+
+
+def resolve_workbook_allocation(league_key: Any, draft_year: int, reference_values: Any):
+    """The published allocation for the workbook's 72-pick class.
+
+    Owner decisions / addendum 2026-10-18: the fresh workbook curve
+    (``referenceDollars`` = the sheet's L2:L73) is the candidate; the
+    canonical resolver verifies it (constraint-aware whole dollars, exact
+    $1,200, independent verifier) and otherwise keeps the SAME year's last
+    verified allocation, or answers unavailable with a named reason.  Values
+    cross as exact decimal strings — never floats.
+    """
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    from src.draft.rookie_auction.published import (  # noqa: PLC0415
+        AllocationCandidate,
+        CandidateFailure,
+        resolve_published_allocation,
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    year = int(draft_year)
+    key = str(league_key) if league_key else ""
+    if not reference_values:
+        candidate: Any = CandidateFailure(
+            draft_year=year, reason="workbook_reference_column_missing", at=now
+        )
+    else:
+        try:
+            exact = [str(Decimal(str(v))) for v in reference_values]
+        except (ArithmeticError, ValueError, TypeError) as exc:
+            candidate = CandidateFailure(
+                draft_year=year, reason=f"workbook_reference_unreadable:{exc}", at=now
+            )
+        else:
+            candidate = AllocationCandidate(
+                draft_year=year,
+                reference_dollars=exact,
+                effective_at=now,
+                provenance={
+                    "source": "draft_data_workbook",
+                    "range": "Draft Data!L2:L73",
+                },
+            )
+    return resolve_published_allocation(key, year, candidate=candidate)
+
+
+def draft_valuation_state_block(published: Any) -> dict[str, Any]:
+    """The payload's ``draftValuation`` block: which allocation was published
+    and why — never ownership, never the per-pick arrays twice."""
+    return {
+        "allocationState": published.allocation_state,
+        "draftYear": published.draft_year,
+        "effectiveAt": published.effective_at,
+        "lastValidAt": published.last_valid_at,
+        "failedRefresh": dict(published.failed_refresh) if published.failed_refresh else None,
+        "warning": published.warning,
+        "recordChecksum": published.record_checksum,
+    }
+
+
 def workbook_class_whole_dollars(
     reference_values: list[Any], budget: int
 ) -> tuple[list[int], dict[str, Any]]:
