@@ -94,9 +94,12 @@ module.exports = defineConfig({
   //
   // prod-auth-safe-reporter.js writes tests/e2e/prod-auth-results.json —
   // still the EVIDENCE artifact: specs record which branch of a multi-state
-  // render ran via `testInfo.annotations` (helpers.js::annotate), and the
-  // safe report keeps every annotation, the status and the FIRST LINE of
-  // any failure. Nothing else. Pinned by
+  // render ran via `testInfo.annotations` (helpers.js::annotate). Since
+  // #1725 (schema prod-auth-safe-report/v2) the safe report keeps the
+  // status, an `errorClass` enum on failure (never the message), and only
+  // the annotations tests/e2e/prod-auth-annotation-allowlist.js allows for
+  // that spec with a declared value kind; everything else is withheld and
+  // counted. Nothing else. Pinned by
   // tests/e2e/test_prod_auth_artifact_safety.py.
   reporter: [[path.join(__dirname, "prod-auth-safe-reporter.js")]],
   use: {

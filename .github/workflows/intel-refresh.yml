@@ -37,7 +37,9 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    # Trigger (<= 10 x (30 s curl + 30 s wait) = 10 min worst case) plus
+    # the ~12 min status poll, plus setup.  16 could not hold both.
+    timeout-minutes: 24
     steps:
       - name: Resolve target URL
         id: url
@@ -128,10 +130,28 @@ jobs:
               echo "::error title=Intel refresh auth failed::HTTP 401 from ${URL}/api/intel/refresh — token mismatch or server-side token not configured; see step log for the checklist"
               exit 1
             fi
+            # A TRANSPORT failure (curl 000: timeout / connection refused)
+            # or a gateway 5xx says nothing about the endpoint — the
+            # 2026-10-18 run died on ONE 30 s connect timeout on attempt 1
+            # and filed #1795.  Retry those inside the same bounded loop.
+            # Safe to repeat: if the timed-out POST did start the crawl, the
+            # retry gets 409 with leagueKey "all" and adopts it above, so a
+            # retry can never start a second all-league run.  Every other
+            # code (4xx, 500) is a real answer and still fails at once.
+            if [[ "${code}" == "000" || "${code}" == "502" || "${code}" == "503" || "${code}" == "504" ]]; then
+              last_transient="${code}"
+              echo "Transient trigger failure (HTTP ${code}) — waiting 30s before retrying."
+              sleep 30
+              continue
+            fi
             echo "::error title=Intel refresh trigger failed::HTTP ${code} from ${URL}/api/intel/refresh"
             exit 1
           done
           if [[ -z "${started}" ]]; then
+            if [[ -n "${last_transient:-}" ]]; then
+              echo "::error title=Intel refresh trigger failed::Backend unreachable or erroring through every retry (last HTTP ${last_transient}) from ${URL}/api/intel/refresh"
+              exit 1
+            fi
             echo "::error title=Intel refresh trigger failed::Another (non-all) run kept the lock through every retry"
             exit 1
           fi
