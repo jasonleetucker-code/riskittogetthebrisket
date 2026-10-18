@@ -137,6 +137,15 @@ export function tradeSignature(sides) {
   );
 }
 
+/**
+ * The question "Simulate impact" answers: the trade's contents plus the team
+ * and league it is simulated for.  The page shows a result only while this
+ * still matches the trade on screen (TC-A / UX audit P0-2).
+ */
+export function simulationSignature(sides, teamName = "", leagueKey = "") {
+  return JSON.stringify([tradeSignature(sides), teamName || "", leagueKey || ""]);
+}
+
 /** Simple linear total (sum of values). */
 export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);

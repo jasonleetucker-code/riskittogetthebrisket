@@ -13,7 +13,7 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   sideTotal,
-  tradeSignature,
+  simulationSignature,
   tradeEvaluationState,
   TRADE_EVAL_STATE,
   applyImportedSides,
@@ -1672,7 +1672,7 @@ export default function TradePage() {
   // team or league change invalidates the shown result (TC-A / UX audit
   // P0-2); the hook's request sequence drops a late answer for an old one.
   const simSignature = useMemo(
-    () => JSON.stringify([tradeSignature(sides), selectedTeam?.name || "", selectedLeagueKey || ""]),
+    () => simulationSignature(sides, selectedTeam?.name, selectedLeagueKey),
     [sides, selectedTeam, selectedLeagueKey],
   );
   useEffect(() => {

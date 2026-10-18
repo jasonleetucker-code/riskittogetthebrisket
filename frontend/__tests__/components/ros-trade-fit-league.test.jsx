@@ -18,8 +18,8 @@ afterEach(() => {
 
 describe("RosTradeFitPanel league scoping", () => {
   it("builds the league-scoped URL", () => {
-    expect(mod.rosTradeDeadlineUrl("dynasty_new")).toBe(
-      "/api/public/league/rosTradeDeadline?leagueKey=dynasty_new",
+    expect(mod.rosTradeDeadlineUrl("dynasty_main")).toBe(
+      "/api/public/league/rosTradeDeadline?leagueKey=dynasty_main",
     );
     expect(mod.rosTradeDeadlineUrl("")).toBe("/api/public/league/rosTradeDeadline");
   });
