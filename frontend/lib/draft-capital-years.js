@@ -106,14 +106,21 @@ export function draftCapitalYearSummary(data, year) {
  * pool shared across every class.  A payload without `budgetPolicy` is the
  * legacy shared pool.
  */
+function finiteOrNull(value) {
+  const n = Number(value);
+  return value != null && Number.isFinite(n) ? n : null;
+}
+
 export function draftCapitalBudgetPolicy(data) {
   const bp = data?.budgetPolicy;
-  const budget = Number(bp?.budget ?? data?.totalBudget) || 0;
+  // An absent budget stays null (rendered as "budget unknown"), never $0.
+  const budget = finiteOrNull(bp?.budget ?? data?.totalBudget);
   if (bp?.basis === "per_class_pool") {
+    const allYears = finiteOrNull(bp.allYearsBudget);
     return {
       perClass: true,
       budget,
-      allYearsBudget: Number(bp.allYearsBudget) || budget,
+      allYearsBudget: allYears ?? budget,
       note: bp.note || null,
     };
   }

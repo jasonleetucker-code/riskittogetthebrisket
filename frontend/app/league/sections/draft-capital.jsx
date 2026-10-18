@@ -139,6 +139,7 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
 
   const multiYear = years.length > 1;
   const policy = draftCapitalBudgetPolicy(data);
+  const budgetText = (v) => (v == null ? "an unknown" : `$${v}`);
   // Every owned pick of every listed class, each once (the workbook class in
   // `picks`, the league's other classes in `additionalClassPicks`).
   const allPicks = draftCapitalAllPicks(data);
@@ -175,10 +176,10 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
   if (policy.perClass) {
     budgetLabel =
       selectedYear != null && summary
-        ? `${fmtCapital(summary.totalDollars)} · the ${selectedYear} class's own $${policy.budget} pool`
+        ? `${fmtCapital(summary.totalDollars)} · the ${selectedYear} class's own ${budgetText(policy.budget)} pool`
         : multiYear
-          ? `$${policy.allYearsBudget} = ${years.length} classes × $${policy.budget}`
-          : `$${policy.budget} total budget`;
+          ? `${budgetText(policy.allYearsBudget)} = ${years.length} classes × ${budgetText(policy.budget)}`
+          : `${budgetText(policy.budget)} total budget`;
   } else {
     budgetLabel =
       selectedYear != null && summary
@@ -242,7 +243,7 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
             {(selectedYear != null || multiYear) &&
               (policy.perClass ? (
                 <li data-testid="draft-capital-budget-note">
-                  Each draft class is its own ${policy.budget} pool; All Years adds
+                  Each draft class is its own {budgetText(policy.budget)} pool; All Years adds
                   the classes together, each pick counted once.
                   {estimatedSeasons.length > 0 && (
                     <>
