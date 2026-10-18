@@ -260,7 +260,9 @@ def _compare_qualified(
             top_changed += 1
 
     def ex(keys, src):
-        rows = sorted((src[k] for k in keys), key=lambda r: -abs(r["character"]["gap"]))
+        rows = [
+            src[k] for k in sorted(keys, key=lambda k: (-abs(src[k]["character"]["gap"]), repr(k)))
+        ]
         return [
             {
                 "me": r["me"],
@@ -534,7 +536,7 @@ def measure_suggestions(teams, contract) -> dict[str, Any]:
             if new[k]["fairness"] != old[k]["fairness"]:
                 labels[f"{old[k]['fairness']}->{new[k]['fairness']}"] += 1
                 relabel_rows.append(_sugg_character(new[k], by_key))
-        for k in new.keys() - old.keys():
+        for k in sorted(new.keys() - old.keys(), key=repr):
             added += 1
             add_rows.append(_sugg_character(new[k], by_key))
             add_ex.append(
@@ -547,7 +549,7 @@ def measure_suggestions(teams, contract) -> dict[str, Any]:
                     **add_rows[-1],
                 }
             )
-        for k in old.keys() - new.keys():
+        for k in sorted(old.keys() - new.keys(), key=repr):
             dropped += 1
             drop_rows.append(_sugg_character(old[k], by_key))
             drop_ex.append(
