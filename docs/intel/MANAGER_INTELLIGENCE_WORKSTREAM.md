@@ -299,6 +299,40 @@ private gate is enforced.
 
 **Depends on:** B1–E. **Tests:** rename stability, alert idempotence, population labelling.
 
+**As implemented (`src/intel/manager_saved.py`, `manager_alerts.py`, `manager_leaderboard.py`)**
+- Saved managers: per signed-in user in `user_kv` (`managerIntelSaved`, written only under the user_kv write lock),
+  capped at `MAX_SAVED = 50`, keyed by the permanent Sleeper user id. The route resolves the manager on Sleeper and
+  stores that id; a client-supplied name is never stored. Every list re-reads each id (`/user/<id>`, memoised 1 h,
+  failures 60 s) and refreshes the display mirror, so a rename keeps the entry and shows the new name with
+  `previousUsernames`; a failed re-read serves the stored name with `nameState` `stored` / `not_found` /
+  `id_mismatch`, never as freshly verified. `GET` / `POST` / `DELETE /api/manager-intel/saved` — same gates as every
+  route (flag, session, guest 403, no-store), own bucket (60 per 10 minutes); a full list is a 409.
+- Alerts (`managerIntelAlertState`): the detector reads the B1/B2 feed with `window=7d` and reports events whose id
+  (`tx:<id>` / `draft:<id>:<pick>`) it has not seen, so it is idempotent. The first evaluation for a (user, manager)
+  records everything silently, and so does the first full read of each league (a new or previously unreadable
+  league never floods). A league whose transactions or drafts were not fully read is neither recorded nor alerted;
+  an unreadable lookup leaves the state untouched; a move with uncertain attribution is recorded, never alerted.
+  Seen ids are kept while the feed can show them, then 45 days.
+- Delivery rides the daily `POST /api/signal-alerts/run` sweep and its email channel (`server.py`, one section
+  after the signal loop; a failure there degrades to `managerIntelAlerts.error`). Bounded: each distinct saved
+  manager is read once per run for all its followers, stalest first, at most 12 per run, 200 calls each and 2,400 in
+  all, inside a time budget sized from the timer's 300 s limit, stopping at Sleeper's first 429 (nothing recorded
+  for that manager). Users without email notifications are still evaluated (their seen state stays current) but
+  are sent nothing. `coverageGapPossible` is reported when the rotation is slower than the 7-day window.
+  `POST /api/manager-intel/saved/refresh` (4 per 10 minutes) runs the same detector in-app for the signed-in user's
+  three stalest managers; what it reports counts as seen.
+- Leaderboards (`GET /api/manager-intel/leaderboard`): `population=league` ranks the current teams of one league
+  over the Batch C rows and the Batch E metric paths (`manager_compare.LEAGUE_METRICS`); `population=saved` ranks the
+  user's saved managers over the snapshot the detector stores with each read (activity counts — the Batch C
+  definitions — and B3 picks held / pick value), spending no Sleeper call; a snapshot older than 72 hours is
+  unranked `snapshot_stale`, never read `not_yet_read`. Anything else is a 400. Every board names its population
+  and n and uses competition ranking; a missing value is unranked with its reason (activity over a partly read
+  stream is unranked, not counted low). No "discovered network" population exists for Manager Intelligence, so
+  none is offered; career totals are not on the saved board (a career read is 360 calls per manager).
+- Frontend: a Save manager control on `/managers` (by user id), the Saved managers panel (empty / unavailable states,
+  alerts toggle, remove, "Check for new activity", leaderboards link), a League leaderboard link per readable league,
+  and the private `/managers/leaderboards` (in the axe a11y scan's static `ROUTES`).
+
 ## Status
 
 | Batch | Branch / PR | State |
@@ -307,6 +341,6 @@ private gate is enforced.
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
 | C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
-| D | `claude/manager-intel-d` | IMPLEMENTED — PR #1797 (link and seed round-trips, model receipt, unresolved handling and the league gate covered by vitest + pytest) |
-| E | `claude/manager-intel-e` (on `main`; B1–C merged via release train 5) | IMPLEMENTED — PR #1796 open, not merged; read-only live probe 2026-10-18 (jnesselhauf career 72/360 calls, 26 seasons / 14 counted, one chain truncated at the 6-season bound; compare vs Aguilar315; dynasty_main league percentile) recorded in the PR |
-| F | `claude/manager-intel-f` | IMPLEMENTED — PR #1801 (stacked on E) |
+| D | `claude/manager-intel-d` | MERGED via release train 7 #1803 (`24e218205e`, 2026-10-18) — #1797 |
+| E | `claude/manager-intel-e` (on `main`; B1–C merged via release train 5) | MERGED via release train 7 #1803 (`24e218205e`, 2026-10-18) — #1796 |
+| F | `claude/manager-intel-f` (#1801, on `main` since D and E merged) | IMPLEMENTED — PR #1801 open, not merged; alerts wired into the daily signal-alert sweep |

@@ -18600,6 +18600,9 @@ async def run_signal_alerts(request: Request):
     Cron clients authenticate via the shared ``SIGNAL_ALERT_CRON_TOKEN``
     as a Bearer token; browser clients still need a password session.
     """
+    # The timer's curl gives up at 300 s; later sections size their own
+    # time budget from this.
+    _sweep_started = time.monotonic()
     # Two auth paths: (1) a password-session admin from the browser,
     # (2) an opaque bearer token for cron / systemd timers.  Either is
     # sufficient on its own.  Failure mode: if no session AND no token
@@ -18848,6 +18851,29 @@ async def run_signal_alerts(request: Request):
         }
 
     result = await run_in_threadpool(_run_sweep)
+
+    # Manager Intelligence saved-manager activity alerts (Batch F) ride the
+    # same sweep and email channel.  Bounded (distinct managers, call and
+    # time budgets, stop on Sleeper's 429), flag-gated, and a failure here
+    # degrades to an error field — never a failed sweep.
+    try:
+        from src.api import feature_flags as _mi_ff  # noqa: PLC0415
+        from src.intel import manager_alerts as _mi_alerts  # noqa: PLC0415
+
+        result["managerIntelAlerts"] = await run_in_threadpool(
+            lambda: _mi_alerts.run_sweep(
+                contract=latest_contract_data,
+                delivery=_deliver_email_smtp,
+                enabled=_mi_ff.is_enabled("manager_intelligence"),
+                wall_seconds=min(
+                    _mi_alerts.SWEEP_WALL_SECONDS,
+                    max(0.0, 240.0 - (time.monotonic() - _sweep_started)),
+                ),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("manager intel saved-manager alerts failed: %s", exc)
+        result["managerIntelAlerts"] = {"error": str(exc)}
 
     # Operator alerts piggyback on the signal-alert cron so we don't
     # need another timer.  Checks: scrape success rate, circuit

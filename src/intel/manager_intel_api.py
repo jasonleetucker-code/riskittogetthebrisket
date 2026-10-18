@@ -6,7 +6,11 @@ budget, memo and rate-limit bucket rather than a second endpoint) and
 with its own per-user rate-limit bucket), ``GET /api/manager-intel/career``
 (Batch E — multi-season record and archetypes) and
 ``GET /api/manager-intel/compare`` (Batch E — two managers side by side, or
-one manager against one league), each with its own bucket.
+one manager against one league), each with its own bucket, and Batch F:
+``GET`` / ``POST`` / ``DELETE /api/manager-intel/saved`` (the signed-in
+user's saved managers, keyed by Sleeper user id), ``POST
+/api/manager-intel/saved/refresh`` (an in-app new-activity check) and
+``GET /api/manager-intel/leaderboard`` (boards over a named population).
 
 PRIVATE decision intelligence (MASTER_PRODUCT_PLAN §5; owner directive
 2026-10-16).  ``server.py::_private_api_gate`` 401s any request without a
@@ -36,10 +40,13 @@ from starlette.concurrency import run_in_threadpool
 
 from src.intel import (
     manager_activity,
+    manager_alerts,
     manager_career,
     manager_compare,
+    manager_leaderboard,
     manager_league,
     manager_portfolio,
+    manager_saved,
 )
 
 log = logging.getLogger("manager_intel.api")
@@ -75,6 +82,19 @@ CAREER_RATE_WINDOW_SECONDS = 600.0
 #: tightest bucket.
 COMPARE_RATE_CAPACITY = 4
 COMPARE_RATE_WINDOW_SECONDS = 600.0
+
+#: Saved-manager reads and writes (Batch F) re-read names by id through a
+#: memo; a generous bucket of its own.
+SAVED_RATE_CAPACITY = 60
+SAVED_RATE_WINDOW_SECONDS = 600.0
+
+#: The in-app new-activity check reads up to three managers' activity.
+SAVED_REFRESH_RATE_CAPACITY = 4
+SAVED_REFRESH_RATE_WINDOW_SECONDS = 600.0
+
+#: A league leaderboard reads one league in full (the Batch C read).
+LEADERBOARD_RATE_CAPACITY = 6
+LEADERBOARD_RATE_WINDOW_SECONDS = 600.0
 
 _session_provider: Callable[[Request], Any] | None = None
 _contract_provider: Callable[[], Any] | None = None
@@ -481,3 +501,249 @@ async def get_compare(request: Request) -> JSONResponse:
         else manager_portfolio.STATUS_PARTIAL
     )
     return JSONResponse(out, headers=_NO_STORE)
+
+
+# ── Batch F: saved managers, new-activity check, leaderboards ───────────
+
+
+def _kv_user(session: dict[str, Any]) -> str:
+    """The user_kv key — the same one the watchlist and Trade Desk use."""
+    return str(session.get("username") or "").strip()
+
+
+def _who(session: dict[str, Any]) -> str:
+    return str(session.get("username") or "").strip().lower()
+
+
+def _saved_error(err: manager_saved.SavedError) -> JSONResponse:
+    if err.code == "saved_limit_reached":
+        return _error(
+            "saved_limit_reached",
+            f"You can save up to {manager_saved.MAX_SAVED} managers — remove one first.",
+            409,
+            limit=manager_saved.MAX_SAVED,
+        )
+    return _error(err.code, "That manager could not be saved.", 400)
+
+
+@router.get("/saved")
+async def get_saved(request: Request) -> JSONResponse:
+    """The signed-in user's saved managers, each name re-read by user id."""
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    kv_user = _kv_user(session)
+    if not kv_user:
+        return _error("auth_required", "Sign-in required.", 401)
+    limited = _rate_limited(
+        f"manager-intel-saved:{_who(session)}", SAVED_RATE_CAPACITY, SAVED_RATE_WINDOW_SECONDS
+    )
+    if limited is not None:
+        return limited
+    try:
+        payload = await run_in_threadpool(manager_saved.list_saved, kv_user)
+    except Exception:  # noqa: BLE001
+        log.exception("manager intel saved list failed")
+        return _error("saved_unavailable", "Saved managers could not be read.", 503)
+    return JSONResponse(payload, headers=_NO_STORE)
+
+
+@router.post("/saved")
+async def post_saved(request: Request) -> JSONResponse:
+    """Save a manager.  Body: ``{"userId": "<sleeper user id>"}`` or
+    ``{"username": "<sleeper username>"}``, optional ``"alerts": bool``.
+
+    The manager is resolved on Sleeper by the server and stored by its
+    permanent user id; a client-supplied display name is never stored.
+    Saving one already saved updates it (200, ``created: false``)."""
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    kv_user = _kv_user(session)
+    if not kv_user:
+        return _error("auth_required", "Sign-in required.", 401)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = None
+    if not isinstance(body, dict):
+        return _error("invalid_body", "Send a JSON object.", 400)
+    unknown = sorted(set(body) - {"userId", "username", "alerts"})
+    if unknown:
+        return _error("invalid_body", "Unknown fields.", 400, unknownFields=unknown)
+    user_id = str(body.get("userId") or "").strip()
+    username = str(body.get("username") or "").strip()
+    alerts = body.get("alerts")
+    if alerts is not None and not isinstance(alerts, bool):
+        return _error("invalid_body", "alerts must be true or false.", 400)
+    if user_id:
+        if not manager_saved.USER_ID_RE.match(user_id):
+            return _error("invalid_user_id", "userId must be a Sleeper user id.", 400)
+        handle = user_id
+    elif _USERNAME_RE.match(username):
+        handle = username
+    else:
+        return _error(
+            "invalid_username",
+            "Send a Sleeper userId or username (letters, numbers and underscores).",
+            400,
+        )
+    limited = _rate_limited(
+        f"manager-intel-saved:{_who(session)}", SAVED_RATE_CAPACITY, SAVED_RATE_WINDOW_SECONDS
+    )
+    if limited is not None:
+        return limited
+
+    from src.public_league import sleeper_client  # noqa: PLC0415
+
+    try:
+        kind, user = await run_in_threadpool(
+            manager_saved.resolve_user, handle, fetch_user=sleeper_client.fetch_user_classified
+        )
+    except Exception:  # noqa: BLE001
+        log.exception("manager intel saved resolve failed")
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
+    failed = _upstream_failure(
+        {
+            sleeper_client.FETCH_OK: manager_portfolio.STATUS_OK,
+            sleeper_client.FETCH_NOT_FOUND: manager_portfolio.STATUS_NOT_FOUND,
+            sleeper_client.FETCH_RATE_LIMITED: manager_portfolio.STATUS_RATE_LIMITED,
+        }.get(kind, manager_portfolio.STATUS_UPSTREAM_UNAVAILABLE),
+        f"No Sleeper user {handle!r}.",
+    )
+    if failed is not None:
+        return failed
+    if user_id and str(user.get("user_id") or "") != user_id:
+        # A numeric handle that resolved to someone else is never saved.
+        return _error("not_found", f"No Sleeper user with id {user_id!r}.", 404)
+    try:
+        entry, created, entries = await run_in_threadpool(
+            manager_saved.save_manager, kv_user, user, alerts=alerts
+        )
+    except manager_saved.SavedError as err:
+        return _saved_error(err)
+    state = await run_in_threadpool(_kv_state, kv_user)
+    payload = manager_saved.saved_payload(entries, manager_saved.alert_states(state))
+    payload.update({"saved": entry, "created": created})
+    return JSONResponse(payload, status_code=201 if created else 200, headers=_NO_STORE)
+
+
+def _kv_state(kv_user: str) -> dict[str, Any]:
+    from src.api import user_kv  # noqa: PLC0415
+
+    return user_kv.get_user_state(kv_user)
+
+
+@router.delete("/saved")
+async def delete_saved(request: Request) -> JSONResponse:
+    """Remove a saved manager (``?userId=``) and its alert state."""
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    kv_user = _kv_user(session)
+    if not kv_user:
+        return _error("auth_required", "Sign-in required.", 401)
+    user_id = str(request.query_params.get("userId") or "").strip()
+    if not manager_saved.USER_ID_RE.match(user_id):
+        return _error("invalid_user_id", "userId must be a Sleeper user id.", 400)
+    limited = _rate_limited(
+        f"manager-intel-saved:{_who(session)}", SAVED_RATE_CAPACITY, SAVED_RATE_WINDOW_SECONDS
+    )
+    if limited is not None:
+        return limited
+    removed, entries = await run_in_threadpool(manager_saved.remove_manager, kv_user, user_id)
+    state = await run_in_threadpool(_kv_state, kv_user)
+    payload = manager_saved.saved_payload(entries, manager_saved.alert_states(state))
+    payload["removed"] = removed
+    return JSONResponse(payload, headers=_NO_STORE)
+
+
+@router.post("/saved/refresh")
+async def post_saved_refresh(request: Request) -> JSONResponse:
+    """In-app new-activity check over the signed-in user's stalest saved
+    managers (at most ``manager_alerts.REFRESH_MAX_MANAGERS``).  No email."""
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    kv_user = _kv_user(session)
+    if not kv_user:
+        return _error("auth_required", "Sign-in required.", 401)
+    limited = _rate_limited(
+        f"manager-intel-saved-refresh:{_who(session)}",
+        SAVED_REFRESH_RATE_CAPACITY,
+        SAVED_REFRESH_RATE_WINDOW_SECONDS,
+    )
+    if limited is not None:
+        return limited
+    contract = _contract_provider()
+    try:
+        payload = await run_in_threadpool(
+            manager_alerts.refresh_for_user, kv_user, contract=contract
+        )
+    except Exception:  # noqa: BLE001
+        log.exception("manager intel saved refresh failed")
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
+    return JSONResponse(payload, headers=_NO_STORE)
+
+
+@router.get("/leaderboard")
+async def get_leaderboard(request: Request) -> JSONResponse:
+    """Leaderboards over ONE named population (Batch F).
+
+    Query: ``population`` = ``saved`` (the signed-in user's saved managers;
+    no Sleeper call) or ``league`` (the current teams of ``leagueId``; the
+    Batch C read, optional ``window``).  Anything else is a 400 — there is
+    no "all of Sleeper" board.
+    """
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    q = request.query_params
+    population = str(q.get("population") or "").strip().lower()
+    if population not in manager_leaderboard.POPULATIONS:
+        return _error(
+            "invalid_population",
+            f"population must be one of {list(manager_leaderboard.POPULATIONS)}.",
+            400,
+        )
+    if population == manager_leaderboard.POPULATION_SAVED:
+        kv_user = _kv_user(session)
+        if not kv_user:
+            return _error("auth_required", "Sign-in required.", 401)
+        limited = _rate_limited(
+            f"manager-intel-saved:{_who(session)}",
+            SAVED_RATE_CAPACITY,
+            SAVED_RATE_WINDOW_SECONDS,
+        )
+        if limited is not None:
+            return limited
+        payload = await run_in_threadpool(manager_leaderboard.saved_population, kv_user)
+        return JSONResponse(payload, headers=_NO_STORE)
+
+    league_id = str(q.get("leagueId") or "").strip()
+    if not _LEAGUE_ID_RE.match(league_id):
+        return _error("invalid_league", "leagueId must be a Sleeper league id.", 400)
+    window = str(q.get("window") or manager_activity.DEFAULT_WINDOW).lower()
+    if window not in manager_activity.WINDOWS:
+        return _error(
+            "invalid_window", f"window must be one of {list(manager_activity.WINDOWS)}.", 400
+        )
+    limited = _rate_limited(
+        f"manager-intel-leaderboard:{_who(session)}",
+        LEADERBOARD_RATE_CAPACITY,
+        LEADERBOARD_RATE_WINDOW_SECONDS,
+    )
+    if limited is not None:
+        return limited
+    contract = _contract_provider()
+    try:
+        scouting = await run_in_threadpool(
+            manager_league.cached_league_scouting, league_id, contract=contract, window=window
+        )
+    except Exception:  # noqa: BLE001
+        log.exception("manager intel leaderboard failed")
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
+    failed = _upstream_failure(scouting.get("status"), "No Sleeper league with that id.")
+    if failed is not None:
+        return failed
+    return JSONResponse(manager_leaderboard.league_leaderboards(scouting), headers=_NO_STORE)

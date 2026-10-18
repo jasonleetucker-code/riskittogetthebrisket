@@ -74,6 +74,9 @@ describe("private pages", () => {
       // Batch E's comparison view is private too.
       "/managers/compare",
       "/managers/compare?a=x&b=y",
+      // Batch F's leaderboards rank the user's saved managers: private.
+      "/managers/leaderboards",
+      "/managers/leaderboards?population=league&league=1",
     ]) {
       expect(isPublicPath(path), path).toBe(false);
     }

@@ -19,20 +19,33 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// The Saved managers panel (Batch F) reads the saved list on mount; these
+// assertions are about the lookup's own requests.
+function lookupCalls() {
+  return global.fetch.mock.calls
+    .map((c) => String(c[0]))
+    .filter((url) => !url.startsWith("/api/manager-intel/saved"));
+}
+
 async function search(user, name = "dynastyfan") {
   await user.type(screen.getByLabelText("Sleeper username"), name);
   await user.click(screen.getByRole("button", { name: "Look up" }));
 }
 
 describe("Manager Intelligence page", () => {
-  it("starts idle and does not fetch", () => {
-    global.fetch = vi.fn();
+  it("starts idle and reads nothing but the saved list", async () => {
+    global.fetch = vi.fn(async () =>
+      jsonResponse(200, { managers: [], count: 0, limit: 50 }),
+    );
     render(<ManagersPage />);
     expect(
       screen.getByRole("heading", { name: "Manager Intelligence" }),
     ).toBeTruthy();
     expect(screen.getByText("Look up a manager")).toBeTruthy();
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(await screen.findByText("No saved managers yet")).toBeTruthy();
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      "/api/manager-intel/saved",
+    ]);
   });
 
   it("looks up a manager and renders the portfolio, with unpriced players as —", async () => {
@@ -41,7 +54,7 @@ describe("Manager Intelligence page", () => {
     render(<ManagersPage />);
     await search(user);
     await screen.findByRole("heading", { name: "Dynasty Fan" });
-    expect(global.fetch.mock.calls[0][0]).toBe(
+    expect(lookupCalls()[0]).toBe(
       "/api/manager-intel/profile?username=dynastyfan",
     );
 
@@ -103,11 +116,13 @@ describe("Manager Intelligence page", () => {
   });
 
   it("shows the backend's error for an unknown user and rejects invalid names without fetching", async () => {
-    global.fetch = vi.fn(async () =>
-      jsonResponse(404, {
-        error: "not_found",
-        message: "No Sleeper user named 'ghost'.",
-      }),
+    global.fetch = vi.fn(async (url) =>
+      String(url).startsWith("/api/manager-intel/saved")
+        ? jsonResponse(200, { managers: [], count: 0, limit: 50 })
+        : jsonResponse(404, {
+            error: "not_found",
+            message: "No Sleeper user named 'ghost'.",
+          }),
     );
     const user = userEvent.setup();
     render(<ManagersPage />);
@@ -122,7 +137,7 @@ describe("Manager Intelligence page", () => {
     await waitFor(() =>
       expect(screen.getByText(/letters, numbers and underscores/)).toBeTruthy(),
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(lookupCalls()).toEqual([]);
   });
 
   it("auto-runs a deep-linked ?username=", async () => {
@@ -130,7 +145,7 @@ describe("Manager Intelligence page", () => {
     global.fetch = vi.fn(async () => jsonResponse(200, PROFILE));
     render(<ManagersPage />);
     await screen.findByRole("heading", { name: "Dynasty Fan" });
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(lookupCalls()).toHaveLength(1);
   });
 
   it("links each league to its private scouting view (Batch C)", async () => {
@@ -163,14 +178,14 @@ describe("Manager Intelligence page", () => {
     await search(user);
     await screen.findByRole("heading", { name: "Dynasty Fan" });
     // The career is not read until its tab opens.
-    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+    expect(lookupCalls()).toEqual([
       "/api/manager-intel/profile?username=dynastyfan",
     ]);
     const compare = screen.getByRole("link", { name: "Compare with another manager" });
     expect(compare.getAttribute("href")).toMatch(/^\/managers\/compare\?a=/);
     await user.click(screen.getByRole("tab", { name: "Career" }));
     await screen.findByRole("table", { name: /Every season this manager held/ });
-    expect(global.fetch.mock.calls[1][0]).toMatch(/^\/api\/manager-intel\/career\?username=/);
+    expect(lookupCalls()[1]).toMatch(/^\/api\/manager-intel\/career\?username=/);
     // The portfolio panel is hidden while Career is open.
     expect(screen.getByRole("tabpanel", { name: "Career" })).toBeTruthy();
   });

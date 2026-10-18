@@ -29,6 +29,10 @@
  * /trades' page chunk, 23.6 KB -> 25.4 KB against a 26 KB budget) — the same
  * collateral class as CLAUDE.md's Perfect Draft note.  /managers carries no
  * budget; the static import leaves every budgeted page byte-identical.
+ *
+ * Batch F: a Save manager control (by permanent Sleeper user id), the
+ * Saved managers panel with its new-activity check (./SavedManagers.jsx),
+ * and links to the scoped leaderboards (./leaderboards/page.jsx).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -72,6 +76,12 @@ import {
 } from "@/lib/manager-intel";
 import ManagerActivity from "./ManagerActivity";
 import ManagerCareer from "./ManagerCareer";
+import { leaderboardHref } from "@/lib/manager-saved";
+import {
+  SaveManagerButton,
+  SavedManagersPanel,
+  useSavedManagers,
+} from "./SavedManagers";
 import styles from "./managers.module.css";
 
 const PAGE_TITLE = "Manager Intelligence";
@@ -113,6 +123,7 @@ export default function ManagersPage() {
   // on Portfolio), so switching tabs never refetches.
   const [activityOpened, setActivityOpened] = useState(false);
   const [careerOpened, setCareerOpened] = useState(false);
+  const savedManagers = useSavedManagers();
 
   const lookup = useCallback(async (username, nextScope) => {
     const name = String(username || "").trim();
@@ -389,6 +400,14 @@ export default function ManagersPage() {
         </div>
       ) : null}
 
+      <SavedManagersPanel
+        savedState={savedManagers}
+        onOpen={(name) => {
+          setInput(name);
+          lookup(name, scope);
+        }}
+      />
+
       {state.phase === "error" ? (
         <Banner tone="negative" title="Lookup failed">
           {state.error}
@@ -435,6 +454,11 @@ export default function ManagersPage() {
                 Compare with another manager
               </a>
             ) : null}
+            <SaveManagerButton
+              savedState={savedManagers}
+              userId={manager?.userId}
+              name={manager?.displayName || manager?.username}
+            />
           </section>
 
           {profile.status === "partial" ? (
@@ -613,6 +637,21 @@ export default function ManagersPage() {
                         className={styles.link}
                       >
                         Compare with this league
+                        <span className={styles.srOnly}>
+                          : {l.name || "unnamed league"}
+                        </span>
+                      </a>
+                    ) : null}
+                    {l.state === "ok" &&
+                    leaderboardHref({ population: "league", leagueId: l.leagueId }) ? (
+                      <a
+                        href={leaderboardHref({
+                          population: "league",
+                          leagueId: l.leagueId,
+                        })}
+                        className={styles.link}
+                      >
+                        League leaderboard
                         <span className={styles.srOnly}>
                           : {l.name || "unnamed league"}
                         </span>
