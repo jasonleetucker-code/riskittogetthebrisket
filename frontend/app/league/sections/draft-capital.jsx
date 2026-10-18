@@ -58,10 +58,9 @@ function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
   if (!Number.isFinite(n)) return "$0";
-  // Match the Google Sheet's display: currency format with 0 decimals
-  // rounds half-dollars up ($1.5 → $2, $28.5 → $29).  The underlying
-  // value the server returns stays half-dollar so team-totals math
-  // remains accurate; only the per-cell display is rounded.
+  // The server publishes WHOLE dollars (owner decision 2026-10-18: picks
+  // and team budgets are integers that reconcile exactly), so this round is
+  // a no-op guard, never a display-only fix.
   return `$${Math.round(n)}`;
 }
 

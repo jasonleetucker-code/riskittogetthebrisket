@@ -39,10 +39,13 @@ once.
   keeps its pre-decision single $1,200 pool and stamps no ``budgetPolicy``,
   which the frontend reads as "no multi-class basis stated".
 
-Every class with a priced pick totals EXACTLY $1,200.00 (owner addendum
-2026-10-18): :func:`allocate_class_budget` allocates in integer units with a
-deterministic largest-remainder residual, so pick dollars, team totals, year
-totals and All Years reconcile with no rounding drift.
+Every class with a priced pick totals EXACTLY $1,200 in WHOLE DOLLARS (owner
+decisions 2026-10-18): every final pick value is an integer from the
+canonical whole-dollar step (``src.draft.rookie_auction.apportion``), and
+every team total is the exact integer sum of the picks that team owns, so
+pick dollars, team totals, year totals and All Years reconcile exactly.  The
+workbook's half-dollar column survives only as reference data
+(``workbookReferenceDollarValue``).
 
 The SHAPE of a class's dollars is two different value domains, labelled per
 class (``curveMethod``) and never presented as one methodology: the workbook
@@ -59,6 +62,8 @@ MISSING IS NEVER ZERO: a pick the board cannot price carries
 
 from __future__ import annotations
 
+from decimal import Decimal
+from fractions import Fraction
 from typing import Any, Iterable, Mapping
 
 from src.identity import picks as _picks
@@ -243,46 +248,99 @@ def build_class_picks(
     return rows
 
 
-#: Allocation unit for an estimated class, in cents.  Whole dollars: the same
-#: unit as the workbook's auction budgets (``teamTotals`` are integers) and the
-#: fallback's established rounding.  Any unit that is a whole number of cents
-#: keeps every total exact in integer cents.
-ALLOCATION_UNIT_CENTS = 100
+#: How the final whole-dollar allocation is made (owner decision 2026-10-18,
+#: "whole dollars only"), stamped on payloads as ``wholeDollarAllocation.method``.
+WHOLE_DOLLAR_METHOD = "floor_then_largest_remainder_earlier_pick_first"
+
+#: Why the workbook class could not be published in whole dollars.
+WHOLE_DOLLAR_REFUSED_ERROR = "draft_dollars_refused"
 
 
-def allocate_class_budget(
-    values: list[float], budget: int, *, unit_cents: int = ALLOCATION_UNIT_CENTS
-) -> list[int | float]:
-    """Spread ``budget`` dollars over ``values`` linearly, EXACTLY.
+def _exact(value: Any) -> Fraction:
+    """An exact rational for a board / workbook number (no float arithmetic)."""
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"not a number: {value!r}")
+    if isinstance(value, float):
+        # Decimal(str()) keeps the number as written in the source (the
+        # workbook caches half-dollars such as 134.5) rather than its binary
+        # expansion; non-finite values are refused by Decimal → Fraction.
+        return Fraction(Decimal(str(value)))
+    return Fraction(value)
 
-    Owner addendum 2026-10-18: a class totals exactly its budget — no
-    $1,199.88.  Allocation is in integer units of ``unit_cents`` with
-    deterministic largest-remainder distribution of the residual (ties go to
-    the earlier index, i.e. the caller's season / round / origin order), so
-    ``sum(round(d * 100)) == budget * 100`` holds by construction.  Two picks
-    of identical value can therefore differ by one unit; that is the price of
-    an exact total, and it is deterministic.
+
+def allocate_class_budget(values: list[float], budget: int) -> list[int]:
+    """Spread ``budget`` WHOLE dollars over ``values`` linearly, EXACTLY.
+
+    Owner decisions 2026-10-18: a class totals exactly its budget, in whole
+    dollars only.  Each value's exact share (``value x budget / sum``, in
+    Fractions — never floats) goes through THE canonical whole-dollar step,
+    ``src.draft.rookie_auction.apportion.apportion_whole_dollars``: floor
+    every share, then the integer residual by largest fractional remainder,
+    ties to the earlier position.  The step requires draft-position order to
+    be non-increasing, so shares are apportioned in value-descending order (a
+    stable sort keeps the caller's season / round / origin order among equal
+    values) and mapped back.  Two picks of identical value can differ by $1;
+    that is the price of an exact whole-dollar total, and it is deterministic.
 
     ``[]`` → ``[]`` (nothing priced: no distribution is manufactured); a
-    non-positive total gives every value 0 units.
+    non-positive total gives every value 0.  Raises
+    ``ApportionmentRefused`` rather than publish a total other than ``budget``.
     """
+    from src.draft.rookie_auction.apportion import apportion_whole_dollars  # noqa: PLC0415
+
     if not values:
         return []
-    total = float(sum(values))
-    units_total = int(budget) * 100 // int(unit_cents)
+    exact = [_exact(v) for v in values]
+    total = sum(exact, Fraction(0))
     if total <= 0:
         return [0] * len(values)
-    scaled = [float(v) * units_total / total for v in values]
-    floors = [int(x) for x in scaled]
-    remainder = units_total - sum(floors)
-    order = sorted(range(len(scaled)), key=lambda i: -(scaled[i] - floors[i]))
-    for i in order[:remainder]:
-        floors[i] += 1
-    out: list[int | float] = []
-    for units in floors:
-        cents = units * int(unit_cents)
-        out.append(cents // 100 if cents % 100 == 0 else cents / 100)
+    shares = [v * int(budget) / total for v in exact]
+    order = sorted(range(len(shares)), key=lambda i: -shares[i])
+    result = apportion_whole_dollars([shares[i] for i in order], int(budget))
+    out = [0] * len(values)
+    for pos, i in enumerate(order):
+        out[i] = int(result.dollars[pos])
     return out
+
+
+def workbook_class_whole_dollars(
+    reference_values: list[Any], budget: int
+) -> tuple[list[int], dict[str, Any]]:
+    """The workbook class's final whole-dollar pick values + a receipt.
+
+    ``reference_values`` is the sheet's half-dollar "Final Dollar Per Pick"
+    column (L2:L73) in draft order — kept as mathematical REFERENCE data.
+    The operational dollars are the canonical rookie-auction calculation's
+    separately identified final step (``apportion_whole_dollars`` with the
+    formula's own floors and caps, ``curve.whole_dollar_constraints``).  Any
+    violated constraint raises ``ApportionmentRefused``: the caller refuses
+    the board rather than change the $1,200.
+    """
+    from src.draft.rookie_auction.apportion import apportion_whole_dollars  # noqa: PLC0415
+    from src.draft.rookie_auction.curve import whole_dollar_constraints  # noqa: PLC0415
+
+    floors, caps = whole_dollar_constraints()
+    # The formula's round floors / caps are defined for its own 72-pick
+    # draft (12 x 6, dynasty_main).  A workbook of any other size still gets
+    # integers, the exact total and the non-increasing check; the receipt
+    # says the round bounds did not apply rather than pretending they did.
+    bounds_apply = len(reference_values) == len(floors)
+    result = apportion_whole_dollars(
+        [_exact(v) for v in reference_values],
+        int(budget),
+        floors=floors if bounds_apply else None,
+        caps=caps if bounds_apply else None,
+    )
+    receipt = {
+        "method": WHOLE_DOLLAR_METHOD,
+        "referenceColumn": "Draft Data!L2:L73 (half-dollar reference)",
+        "roundBoundsApplied": bounds_apply,
+        "floored": sum(result.floored),
+        "residual": result.residual,
+        "plusOneOverallPicks": [i + 1 for i in result.plus_one_indices],
+        "total": result.total,
+    }
+    return [int(d) for d in result.dollars], receipt
 
 
 def price_per_class(rows: list[dict[str, Any]], budget: int) -> list[dict[str, Any]]:

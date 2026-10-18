@@ -12173,24 +12173,6 @@ def _parse_draft_data():
     return pick_dollars, workbook_picks, slot_to_original, wb_totals, rookies, pick_values_l
 
 
-def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
-    """Round a list of floats to integers that sum to exactly *budget*.
-
-    Uses largest-remainder rounding: floor each value, then distribute
-    the deficit to the values with the largest fractional parts.
-    """
-    import math
-
-    floors = [math.floor(v) for v in values]
-    remainders = [(v - math.floor(v), i) for i, v in enumerate(values)]
-    deficit = budget - sum(floors)
-    # Sort by fractional part descending; break ties by index
-    remainders.sort(key=lambda x: (-x[0], x[1]))
-    for k in range(int(deficit)):
-        floors[remainders[k][1]] += 1
-    return floors
-
-
 def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades: bool = True):
     """Compute draft capital per team.
 
@@ -12234,6 +12216,29 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         if pick_values_l and len(pick_values_l) >= len(workbook_picks)
         else [wp["value"] for wp in workbook_picks]
     )
+    # Owner decision 2026-10-18 — WHOLE DOLLARS ONLY.  The sheet's half-dollar
+    # column stays as mathematical REFERENCE data; every operational pick
+    # dollar is the canonical rookie-auction calculation's final whole-dollar
+    # step (floor, then the integer residual by largest fractional remainder,
+    # earlier pick first; floors / caps / order verified), and every team
+    # budget below is the exact integer sum of the picks that team owns.  A
+    # violated constraint refuses the board — the $1,200 is never changed.
+    from src.api import draft_capital_classes as _dcc_wd  # noqa: PLC0415
+    from src.draft.rookie_auction.apportion import ApportionmentRefused  # noqa: PLC0415
+
+    try:
+        whole_dollars_per_slot, whole_dollar_receipt = _dcc_wd.workbook_class_whole_dollars(
+            pick_values_per_slot[: len(workbook_picks)], DRAFT_TOTAL_BUDGET
+        )
+    except ApportionmentRefused as exc:
+        return {
+            "error": _dcc_wd.WHOLE_DOLLAR_REFUSED_ERROR,
+            "message": (
+                "The workbook's pick dollars cannot be published as whole dollars "
+                f"totalling ${DRAFT_TOTAL_BUDGET}: {exc}"
+            ),
+            "conflict": exc.conflict,
+        }
 
     # ── First-name → Sleeper team-name mapping ──
     # Built by joining sheet standings (slot → first name) with
@@ -12714,7 +12719,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
 
     # ── Build pick list + team totals from sheet ownership ──
     all_picks: list[dict] = []
-    team_totals_decimal: dict[str, float] = {}
+    team_totals_decimal: dict[str, int] = {}
 
     # Seed every known team at $0 so teams that own no picks still
     # show up in the output (the /draft dashboard relies on this to
@@ -12728,10 +12733,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # the seeded keys match the picks-loop keys.
     if all_team_names and first_name_to_team:
         for t in all_team_names:
-            team_totals_decimal.setdefault(t, 0.0)
+            team_totals_decimal.setdefault(t, 0)
     else:
         for first_name in slot_to_original.values():
-            team_totals_decimal.setdefault(display(first_name), 0.0)
+            team_totals_decimal.setdefault(display(first_name), 0)
 
     for overall_idx, wp in enumerate(workbook_picks):
         rnd = wp["round"]
@@ -12799,9 +12804,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         else:
             is_traded = origin_team != owner_team
 
-        # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
-        # dollar from the sheet — half-dollar precision preserved.
-        dollar = (
+        # The final whole-dollar value (above); L2:L73's half-dollar figure
+        # travels beside it as reference data only.
+        dollar = whole_dollars_per_slot[overall_idx]
+        reference_dollar = (
             float(pick_values_per_slot[overall_idx])
             if overall_idx < len(pick_values_per_slot)
             else float(val)
@@ -12823,6 +12829,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # between expansion-averaged Q and unaveraged grid no
                 # longer applies — L is unaveraged by construction.
                 "originalDollarValue": dollar,
+                # The sheet's half-dollar "Final Dollar Per Pick" (L2:L73):
+                # mathematical reference data, never an operational dollar.
+                "workbookReferenceDollarValue": reference_dollar,
                 "originalOwner": origin_team,
                 "currentOwner": owner_team,
                 # Stable ids beside the display names (Wave A).  ``None`` when
@@ -12847,16 +12856,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "rookieKtcValue": None,
             }
         )
-        team_totals_decimal.setdefault(owner_team, 0.0)
-        team_totals_decimal[owner_team] += float(val)
+        team_totals_decimal.setdefault(owner_team, 0)
+        team_totals_decimal[owner_team] += dollar
 
-    # Round team totals to integers summing to exactly 1200, matching the
-    # workbook's SUMIF-over-decimals approach.
+    # Each team's budget is the EXACT integer sum of the whole-dollar picks it
+    # owns (owner decision 2026-10-18) — never rounded on its own, so picks,
+    # budgets and every view reconcile, and the 12 budgets total $1,200
+    # because the 72 picks do.  (This used to sum the sheet's Q column and
+    # round the team totals independently of their picks.)
     team_names = sorted(team_totals_decimal, key=lambda t: -team_totals_decimal[t])
-    team_decimal_list = [team_totals_decimal[t] for t in team_names]
-    team_int_list = _round_to_budget(team_decimal_list, DRAFT_TOTAL_BUDGET)
-    team_totals = {t: v for t, v in zip(team_names, team_int_list)}
-    total_budget = sum(team_int_list)
+    team_totals = {t: int(team_totals_decimal[t]) for t in team_names}
+    total_budget = sum(team_totals.values())
 
     # Rookie pool — prefer our top-72 from the live contract (filtered
     # to rostered rookies via Sleeper ID), fall back to KTC if the
@@ -13064,6 +13074,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         priced_seasons=[league_season]
         + sorted({int(p["season"]) for p in additional_picks if p.get("isUnpriced") is False}),
     )
+    # The workbook class's final whole-dollar step (owner decision 2026-10-18):
+    # how the half-dollar reference became the published integers.
+    result["wholeDollarAllocation"] = whole_dollar_receipt
 
     # Per-season views for the /league year selector.  The workbook carries
     # ONE season, and its team totals are the sheet's Q-column decimals

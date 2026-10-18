@@ -286,20 +286,26 @@ def test_every_class_reconciles_exactly_in_integer_cents(server_mod, monkeypatch
 
 
 @pytest.mark.parametrize("n_values", [1, 3, 7, 40, 72])
-def test_allocator_is_exact_and_deterministic(n_values):
-    """Values that do not divide $1,200 evenly still total exactly $1,200.00,
-    and the same input always allocates the same way."""
+def test_allocator_is_exact_whole_dollars_and_deterministic(n_values):
+    """Owner decisions 2026-10-18: values that do not divide $1,200 evenly
+    still total exactly $1,200, every allocation is a WHOLE dollar, and the
+    same input always allocates the same way (canonical whole-dollar step)."""
+    from fractions import Fraction
+
     from src.api import draft_capital_classes as dcc
 
     values = [1000.0 + (i % 5) * 333.3 for i in range(n_values)]
-    for unit in (1, 50, 100):
-        out = dcc.allocate_class_budget(values, 1200, unit_cents=unit)
-        assert sum(_cents(v) for v in out) == 120000
-        assert out == dcc.allocate_class_budget(values, 1200, unit_cents=unit)
-        # Linear in value: never more than one unit off the exact share.
-        total = sum(values)
-        for v, d in zip(values, out):
-            assert abs(_cents(d) - v * 120000 / total) <= unit
+    out = dcc.allocate_class_budget(values, 1200)
+    assert all(isinstance(d, int) for d in out)
+    assert sum(out) == 1200
+    assert out == dcc.allocate_class_budget(values, 1200)
+    # Linear in value: never a whole dollar or more off the exact share.
+    total = sum(Fraction(str(v)) for v in values)
+    for v, d in zip(values, out):
+        assert abs(d - Fraction(str(v)) * 1200 / total) < 1
+    # Equal values differ by at most $1, and the earlier position wins ties.
+    same = dcc.allocate_class_budget([7.0] * 7, 1200)
+    assert same == [172, 172, 172, 171, 171, 171, 171]
     assert dcc.allocate_class_budget([], 1200) == []
 
 
@@ -370,3 +376,36 @@ def test_public_projection_is_safe(server_mod, monkeypatch):
     blob = json.dumps(public)
     assert LEAGUE_ID not in blob  # no raw Sleeper league id anywhere
     assert "rankDerivedValue" not in blob and "_canonicalValue" not in blob
+
+
+def test_whole_dollars_reconcile_everywhere(server_mod, monkeypatch):
+    """Owner decision 2026-10-18 — whole dollars only, reconciled at once:
+    every pick of every class is an integer; each class totals exactly
+    $1,200; every team figure (budgets, per-year, All Years) is an integer
+    equal to the exact sum of the picks that team owns; nothing is counted
+    twice."""
+    from collections import defaultdict
+
+    result = _run(server_mod, monkeypatch)
+    every = result["picks"] + result["additionalClassPicks"]
+    priced = [p for p in every if not p.get("isUnpriced")]
+    assert priced and all(isinstance(p["dollarValue"], int) for p in priced)
+    by_class = defaultdict(int)
+    owned = defaultdict(int)
+    owned_by_year = defaultdict(int)
+    for p in priced:
+        by_class[p["season"]] += p["dollarValue"]
+        owned[p["currentOwner"]] += p["dollarValue"]
+        owned_by_year[(p["currentOwner"], p["season"])] += p["dollarValue"]
+    assert set(by_class.values()) == {1200}
+    upcoming = int(result["season"])
+    for t in result["teamTotals"]:
+        assert isinstance(t["auctionDollars"], int)
+        assert t["auctionDollars"] == owned_by_year.get((t["team"], upcoming), 0)
+    for season, rows in result["teamTotalsByYear"].items():
+        for r in rows:
+            assert r["auctionDollars"] == owned_by_year.get((r["team"], int(season)), 0)
+    for r in result["allYearsTeamTotals"]:
+        assert r["auctionDollars"] == owned.get(r["team"], 0)
+    assert result["allYearsSummary"]["totalDollars"] == 1200 * len(by_class)
+    assert result["wholeDollarAllocation"]["total"] == 1200

@@ -551,17 +551,26 @@ Error behavior on endpoints:
     each pick once.  **Budget basis — OWNER DECISION 2026-10-18: "$1,200 per
     draft class"** for `dynasty_main` (12 teams x 6 rounds = 72 picks per
     class).  Each class is its own $1200 pool; All Years sums the classes,
-    each pick once.  The workbook class keeps the sheet's dollars (its own
-    $1200 — the live auction budgets); each later class's priced picks are
+    each pick once.  **Whole dollars only** (owner decision 2026-10-18): the
+    workbook class's half-dollar L2:L73 column is mathematical REFERENCE data
+    (`workbookReferenceDollarValue`); its published pick dollars come from the
+    canonical rookie-auction calculation's final whole-dollar step
+    (`src/draft/rookie_auction/apportion.py`: floor, integer residual by
+    largest fractional remainder, earlier pick first, floors / caps / order
+    verified, refusal `draft_dollars_refused` rather than any total other than
+    $1200), receipt in `wholeDollarAllocation`; every team budget is the exact
+    integer sum of the picks it owns — never rounded on its own (the retired
+    `server._round_to_budget` rounded team totals independently of their
+    picks).  Each later class's priced picks are
     normalized to $1200 independently (unpriced picks stay null, outside
     their class's pool; a wholly unpriced class holds no dollars and is
     listed in `budgetPolicy.unpricedClasses`).  Stamped as `budgetPolicy`
     (`basis: "per_class_pool"`, `status: "owner_confirmed"`).  **Exact**
     (owner addendum 2026-10-18): every class with a priced pick totals
-    exactly $1,200.00 — `draft_capital_classes.allocate_class_budget`
-    allocates in whole-dollar units with a deterministic largest-remainder
-    residual, so pick dollars, year totals and All Years reconcile in integer
-    cents.  **Two value domains, labelled per class** (`curveMethod`,
+    exactly $1,200 in whole dollars — `draft_capital_classes.allocate_class_budget`
+    takes each pick's exact (Fraction) share through the same canonical
+    whole-dollar step, so pick dollars, team totals, year totals and All Years
+    reconcile exactly.  **Two value domains, labelled per class** (`curveMethod`,
     `budgetPolicy.classCurveMethods`): the workbook class is
     `workbook_rookie_auction` (the sheet's own curve); the later classes are
     `interim_generic_market` (canonical generic future-pick market values,
