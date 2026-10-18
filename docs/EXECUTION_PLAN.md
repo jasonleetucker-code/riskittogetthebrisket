@@ -133,6 +133,7 @@ or q, promoting experimental models, League Tycoon contract features, purchases.
 **Owner decisions 2026-10-18 (all five TC-C questions DECIDED):** near tie → "NO — TOO CLOSE"; default strategy
 inferred from competitive posture and overridable; fairness bands → relative with an absolute minimum, provisional
 until validated; Second Opinions even = within 1%; `teamImpact.verdict` retired (text in the workstream TC-C section).
+**Owner decision 2026-10-18 (final):** RETOOL → BALANCED (PUSH → win now, REBUILD → long-term, HOLD → balanced).
 
 ## Manager Intelligence (Batch A) — owner directive, 2026-10-16
 

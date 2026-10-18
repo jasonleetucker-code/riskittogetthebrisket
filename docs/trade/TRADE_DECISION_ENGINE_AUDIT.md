@@ -469,7 +469,7 @@ Additive. Every v2 field stays, so the Trade Desk and Best Offers consumers of `
 |---|---|---|---|---|
 | **A. Objective package value** | do I receive more dynasty value than I give, after package adjustment and after the releases this trade forces? | canonical value points and % of the larger adjusted package | market lens (`equity_verdict`); **marginal** `roster_capacity.forced_drop_cost` (`:629-702`) for `A_net = gap − addedReleaseCost` (same canonical scale, the finder's existing rule); package-model receipt; unpriced share per side | relative gap with an absolute floor, replacing pure 256 / 769 after §5 re-evaluation; `stretch` reused only as "large" |
 | **B. Personal roster benefit** | does my best legal lineup score more in the remaining weeks? | expected best-ball PPG (ROS, availability-aware after #1772) | roster lens unchanged (band = max(1.0, 2·SE), `large` = 3×); [later] `currentSeasonEquity` once `playoff_sim.simulate_trade_impact` is wired with availability (#1774/#1775) | as today (`config/trade/analyze_trade.json`) |
-| **C. Strategic fit** | which of A and B should decide when they disagree, given my goal? | categorical (goal) + posture probabilities | user goal input (new request field `teamGoal`, default = inferred from posture: PUSH→WIN_NOW, REBUILD/RETOOL→REBUILD, HOLD→BALANCED, no evidence→BALANCED); canonical posture shown and overridable | none. C **never votes a direction** (posture is correlated with B, S10). It selects the precedence rule |
+| **C. Strategic fit** | which of A and B should decide when they disagree, given my goal? | categorical (goal) + posture probabilities | user goal input (new request field `teamGoal`, default = inferred from posture: PUSH→WIN_NOW, REBUILD/RETOOL→REBUILD, HOLD→BALANCED, no evidence→BALANCED); canonical posture shown and overridable. **Superseded for RETOOL (owner, 2026-10-18, final): RETOOL → BALANCED**, never relabelled a rebuilder (see §7.10) | none. C **never votes a direction** (posture is correlated with B, S10). It selects the precedence rule |
 | **D. Feasibility** | can this trade be executed as built, and what must go? | gates + categorical | capacity state (existing); pick ownership (`ownedPickChecks`, `pickOwnership`); trade deadline (league settings); constraints owner `C3-CON-01`; [later] counterparty acceptance via `cross_market.external_package_verdicts` + `counterparty_capacity_block` | gate states, not points |
 
 Release cost is charged **once**: its dynasty value is in A_net and its lineup effect is in B. Feasibility therefore
@@ -651,7 +651,8 @@ All five were decided by the owner on 2026-10-18 and are binding. Each question 
 2. The default goal when the user picks none: inferred posture mapping (proposed) or BALANCED.
    **Decided:** inferred from the existing competitive-posture classification plus league evidence: contender → win
    now, rebuilder → long-term value, uncertain / balanced → BALANCED. Always displayed; manual override always
-   allowed.
+   allowed. **Final (owner, 2026-10-18): RETOOL → BALANCED** (PUSH → win now, REBUILD → long-term, HOLD →
+   balanced); RETOOL is never reported as a rebuilder, and the balanced rule weighs both components symmetrically.
 3. Re-evaluated A bands under geom: absolute → relative-with-floor (proposed), values as PRIORs.
    **Decided:** re-evaluate for the geometric model as a relative difference with an absolute minimum; validate on
    offense, IDP, picks, consolidation and large packages; numbers provisional until tested; never modify q = 0.78.

@@ -146,7 +146,11 @@ These answer the five questions in `TRADE_DECISION_ENGINE_AUDIT.md` §7.10. They
    when material information is missing or uncertainty prevents a defensible recommendation.
 2. **Default strategy.** Inferred from the existing competitive-posture classification plus league evidence:
    contender → **win now**, rebuilder → **long-term value**, uncertain / balanced → **BALANCED**. The strategy in use
-   is always displayed and can always be overridden manually.
+   is always displayed and can always be overridden manually. **Refined (owner, 2026-10-18, final): RETOOL →
+   BALANCED.** PUSH → win now, RETOOL → balanced, REBUILD → long-term, HOLD → balanced; RETOOL stays its own
+   classification and is never called a rebuilder; a balanced decision weighs current competitiveness and long-term
+   value and does not automatically prefer future picks over meaningful current production; the inferred
+   classification, the strategy and the reasoning appear in the recommendation and the receipt.
 3. **Fairness bands.** Re-evaluated for the geometric model as a **relative difference with an absolute minimum**,
    validated on offense, IDP, picks, consolidation and large packages. The numbers stay provisional until tested.
    q = 0.78 is never modified.
@@ -282,8 +286,10 @@ Implements the five owner decisions above on `claude/trade-calculator-tc-c` (sta
 
 ### How it decides (no weights)
 
-1. **Strategy** (decision 2): `teamGoal` override, else posture PUSH → WIN_NOW, RETOOL / REBUILD → LONG_TERM, HOLD →
-   BALANCED (a no-evidence HOLD is BALANCED and says so); posture unavailable → unknown.
+1. **Strategy** (decision 2 + the final RETOOL decision): `teamGoal` override, else posture PUSH → WIN_NOW, RETOOL →
+   BALANCED, REBUILD → LONG_TERM, HOLD → BALANCED (a no-evidence HOLD is BALANCED and says so); posture unavailable →
+   unknown. BALANCED is symmetric: a large gain in one component with a modest loss in the other is a YES either way;
+   WIN_NOW takes any large lineup gain; LONG_TERM takes any value gain.
 2. **Execution gate:** no legal roster cleanup → NO.
 3. **Evidence gates** (decision 1) → NOT ENOUGH EVIDENCE: no priced assets; off-board, unpriced, unheld, quarantined
    or stale traded assets; unknown pick ownership with picks traded; unknown roster, roster limit or posture; an
