@@ -147,8 +147,12 @@ of #1785's interim generic-market curve, which is deleted
   Verified final standings (league `post_season`/`complete`, every team at
   the full regular-season game count incl. the median game) → the rule's
   order, `slotStatus: "final_standings"`; standings to date → the rule as a
-  labelled forecast (`projected`).  This replaces the workbook class's
-  Points-For-only in-season reshuffle (not the league's rule).
+  labelled forecast (`projected`).  A missing win / loss / tie / PF field
+  makes the order `unavailable` (reason named in `draftOrder`, existing
+  projected order kept); a missing `playoff_week_start` / `start_week` /
+  `league_average_match` means "final" is never claimed — nothing is
+  defaulted.  This replaces the workbook class's Points-For-only in-season
+  reshuffle (not the league's rule).
   `playoff_sim`'s `draftSlotDistribution` is not used (not available cheaply
   in this request; one order is needed, not a distribution).
 * **API.** `budgetPolicy.classes[year]` carries `budgetBasis`

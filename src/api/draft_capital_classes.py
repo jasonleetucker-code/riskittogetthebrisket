@@ -345,15 +345,17 @@ def resolve_class_curve_allocation(
     return resolve_published_allocation(key, year, candidate=candidate, **resolver_kwargs)
 
 
-def _share_order_key(row: Mapping[str, Any]) -> tuple[str, int]:
+def _share_order_key(row: Mapping[str, Any]) -> tuple[str, str]:
     """A fixed, roster-neutral order for a round's extra dollars.
 
     Sorting by roster id would hand the same low-id rosters every extra dollar
     in every round of every class; a hash of the canonical pick id spreads
-    them with no systematic tilt, and is reproducible from the payload.
+    them with no systematic tilt, and is reproducible from the payload.  The
+    caller guarantees every row has a canonical ``assetId`` (a row without one
+    refuses its class — there is no identity to order it by).
     """
-    ident = str(row.get("assetId") or "")
-    return hashlib.sha256(ident.encode("utf-8")).hexdigest(), int(row.get("originRosterId") or 0)
+    ident = str(row["assetId"])
+    return hashlib.sha256(ident.encode("utf-8")).hexdigest(), ident
 
 
 def _unprice(row: dict[str, Any], reason: str, curve_method: str) -> None:
@@ -407,6 +409,8 @@ def _price_one_class(
                 unknown.append(r)
         if not unknown:
             continue
+        if any(not isinstance(r.get("assetId"), str) or not r["assetId"] for r in unknown):
+            return f"asset_id_missing:round_{rnd}"
         pool = [d for s, d in enumerate(slot_dollars, start=1) if s not in claimed]
         total = sum(pool)
         unknown.sort(key=_share_order_key)

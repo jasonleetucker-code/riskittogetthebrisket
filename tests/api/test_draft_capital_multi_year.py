@@ -418,8 +418,45 @@ def test_verified_final_standings_are_the_rules_order(server_mod, monkeypatch):
 
 def test_no_games_played_keeps_the_existing_projected_order(server_mod, monkeypatch):
     result = _run(server_mod, monkeypatch)
-    assert result["draftOrder"] is None
+    assert result["draftOrder"]["basis"] == "unavailable"
+    assert result["draftOrder"]["reason"] == "no_games_played"
     assert _slot_of(result, 1) == (1, "projected")
+
+
+@pytest.mark.parametrize("field", ["wins", "losses", "ties", "fpts", "fpts_decimal"])
+def test_board_with_a_missing_record_field_keeps_projected_order_with_reason(
+    server_mod, monkeypatch, field
+):
+    """An unknown win / loss / tie / PF makes the standings unverifiable: the
+    draft order is ``unavailable`` with the reason, the slots stay the existing
+    projected order — the missing value is never read as 0."""
+    responses = _sleeper(traded=TRADED, records=_records(final=True))
+    meta = responses["meta"]
+    meta["status"] = "post_season"
+    del responses[f"/league/{LEAGUE_ID}/rosters"][6]["settings"][field]  # roster 7
+    monkeypatch.setattr(server_mod.urllib.request, "urlopen", _urlopen(responses))
+    result = server_mod._fetch_draft_capital(LEAGUE_KEY)
+    assert "error" not in result, result
+    assert result["draftOrder"]["basis"] == "unavailable"
+    assert result["draftOrder"]["reason"] == f"standings_record_missing:roster_7:{field}"
+    assert {p["slotStatus"] for p in result["picks"]} == {"projected"}
+    # Roster 7 has the worst record, yet without its full record it is NOT moved
+    # to slot 1: the last draft's order stands.
+    assert _slot_of(result, 7) == (7, "projected")
+    assert sum(t["auctionDollars"] for t in result["teamTotals"]) == 1200
+
+
+@pytest.mark.parametrize("field", ["playoff_week_start", "start_week", "league_average_match"])
+def test_board_with_unknown_season_length_is_never_final(server_mod, monkeypatch, field):
+    responses = _sleeper(traded=TRADED, records=_records(final=True), status="post_season")
+    del responses["meta"]["settings"][field]
+    monkeypatch.setattr(server_mod.urllib.request, "urlopen", _urlopen(responses))
+    result = server_mod._fetch_draft_capital(LEAGUE_KEY)
+    assert "error" not in result, result
+    order = result["draftOrder"]
+    assert order["basis"] == "standings_to_date" and order["final"] is False
+    assert order["reason"] == f"regular_season_length_unknown:{field}"
+    assert {p["slotStatus"] for p in result["picks"]} == {"projected"}
 
 
 # --- the adapters, as units ---------------------------------------------------------
@@ -443,47 +480,96 @@ def _meta(status="complete", season=2026):
     }
 
 
+def _rows(rosters):
+    rows, reason = dco.sleeper_standings_rows(rosters)
+    assert reason is None
+    return rows
+
+
 def test_final_standings_need_every_regular_season_game():
     rec = _records(final=True)
-    rows = dco.sleeper_standings_rows(_rosters(rec))
+    rows = _rows(_rosters(rec))
     assert dco.regular_season_final(_meta(), rows)[0] is True
     assert dco.regular_season_final(_meta(status="in_season"), rows)[0] is False
     short = dict(rec)
     short[3] = (11, 16, 0, 1736)  # 27 games
-    rows = dco.sleeper_standings_rows(_rosters(short))
-    ok, reason = dco.regular_season_final(_meta(), rows)
+    ok, reason = dco.regular_season_final(_meta(), _rows(_rosters(short)))
     assert ok is False and reason.startswith("records_not_final:expected_28_games:3")
-    no_median = dict(_meta())
-    no_median["settings"] = {"playoff_week_start": 15, "start_week": 1}
-    assert dco.regular_season_final(no_median, dco.sleeper_standings_rows(_rosters(rec)))[0] is (
-        False
-    )
 
 
-def test_a_missing_record_is_unknown_never_zero():
+@pytest.mark.parametrize("field", ["playoff_week_start", "start_week", "league_average_match"])
+def test_unknown_season_length_is_not_defaulted(field):
+    """An unknown game count is never 1 game a week or week 1: without it,
+    "final" cannot be verified."""
+    meta = _meta()
+    del meta["settings"][field]
+    ok, reason = dco.regular_season_final(meta, _rows(_rosters(_records(final=True))))
+    assert ok is False and reason == f"regular_season_length_unknown:{field}"
+
+
+def test_inconsistent_season_length_is_not_final():
+    meta = _meta()
+    meta["settings"]["league_average_match"] = 7
+    ok, reason = dco.regular_season_final(meta, _rows(_rosters(_records(final=True))))
+    assert ok is False and reason == "regular_season_length_unknown:inconsistent_settings"
+
+
+@pytest.mark.parametrize("field", ["wins", "losses", "ties", "fpts", "fpts_decimal"])
+def test_a_missing_record_field_is_unknown_never_zero(field):
     rosters = _rosters(_records())
-    del rosters[4]["settings"]["wins"]
-    assert dco.sleeper_standings_rows(rosters) is None
-    assert (
-        dco.class_slot_order(
-            league_key="dynasty_main",
-            league_meta=_meta(status="in_season"),
-            rosters=rosters,
-            class_year=2027,
-            roster_ids=range(1, 13),
-        )
-        is None
+    del rosters[4]["settings"][field]  # roster 5
+    rows, reason = dco.sleeper_standings_rows(rosters)
+    assert rows is None and reason == f"standings_record_missing:roster_5:{field}"
+    order = dco.class_slot_order(
+        league_key="dynasty_main",
+        league_meta=_meta(status="in_season"),
+        rosters=rosters,
+        class_year=2027,
+        roster_ids=range(1, 13),
     )
+    assert order.basis == "unavailable" and order.slot_by_roster is None
+    assert order.ordered is False and order.final is False
+    assert order.reason == f"standings_record_missing:roster_5:{field}"
+
+
+def test_a_missing_roster_is_unknown():
+    rosters = [r for r in _rosters(_records()) if r["roster_id"] != 9]
+    rows, reason = dco.sleeper_standings_rows(rosters, range(1, 13))
+    assert rows is None and reason == "standings_roster_missing:9"
 
 
 def test_class_slot_order_is_scoped_to_the_rule_and_the_next_class():
     rosters = _rosters(_records())
     kw = {"league_meta": _meta(status="in_season"), "rosters": rosters, "roster_ids": range(1, 13)}
-    assert dco.class_slot_order(league_key="dynasty_new", class_year=2027, **kw) is None
-    assert dco.class_slot_order(league_key="dynasty_main", class_year=2028, **kw) is None
+    other = dco.class_slot_order(league_key="dynasty_new", class_year=2027, **kw)
+    assert other.basis == "unavailable" and other.reason.startswith("no_recorded_draft_order_rule")
+    later = dco.class_slot_order(league_key="dynasty_main", class_year=2028, **kw)
+    assert later.basis == "unavailable"
+    assert later.reason == "standings_of_2026_do_not_decide_class_2028"
+    no_season = dco.class_slot_order(
+        league_key="dynasty_main",
+        league_meta={"status": "in_season"},
+        rosters=rosters,
+        class_year=2027,
+        roster_ids=range(1, 13),
+    )
+    assert no_season.basis == "unavailable" and no_season.reason == "league_season_unknown"
     order = dco.class_slot_order(league_key="dynasty_main", class_year=2027, **kw)
-    assert order is not None and order.final is False
+    assert order.ordered and order.final is False
     assert order.slot_by_roster[7] == 1 and order.slot_by_roster[12] == 2
+
+
+def test_round_share_refuses_a_class_with_an_unidentified_pick():
+    alloc = _allocation(2028)
+    rows = [
+        {"season": 2028, "round": r, "slot": None, "assetId": f"pick:x:2028:r{r}:o{o}"}
+        for r in range(1, 7)
+        for o in range(1, 13)
+    ]
+    rows[3]["assetId"] = None
+    dcc.price_classes_on_curve(rows, {2028: alloc}, team_count=12, rounds=6)
+    assert all(r["dollarValue"] is None and r["isUnpriced"] for r in rows)
+    assert rows[0]["unpricedReason"] == "asset_id_missing:round_1"
 
 
 def test_final_tie_on_record_and_points_for_is_not_called_final():

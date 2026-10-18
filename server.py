@@ -12674,12 +12674,13 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 class_year=int(league_season),
                 roster_ids=_bridged_rids,
             )
-        live_standings_active = standings_order is not None
+        # ``unavailable`` (reason named in ``draftOrder``) keeps the existing
+        # projected order — an unverifiable standings row is never read as 0.
+        live_standings_active = standings_order is not None and standings_order.ordered
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
-        if standings_order is not None:
-            _sorted_rids = sorted(
-                standings_order.slot_by_roster, key=lambda r: standings_order.slot_by_roster[r]
-            )
+        if live_standings_active:
+            _slots = standings_order.slot_by_roster
+            _sorted_rids = sorted(_slots, key=lambda r: _slots[r])
             effective_slot_to_rid = {
                 int(i): int(rid)
                 for i, rid in enumerate(_sorted_rids[: len(slot_to_original)], start=1)
@@ -13006,7 +13007,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # VERIFIED final standings make it the rule's real order.
                 "slotStatus": (
                     "final_standings"
-                    if standings_order is not None and standings_order.final
+                    if live_standings_active and standings_order.final
                     else "projected"
                 ),
                 "valueBasis": "workbook",
@@ -13266,7 +13267,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     )
     # How this board's slots were ordered (Batch E): the draft-order rule over
     # verified final standings, the rule over standings to date (forecast), or
-    # ``None`` — the workbook / last draft's order (also a forecast).
+    # ``unavailable`` with the reason (the workbook / last draft's order stands,
+    # also a forecast); ``None`` only when the Sleeper bridge was incomplete.
     result["draftOrder"] = standings_order.to_dict() if standings_order is not None else None
     # The workbook class's final whole-dollar step (owner decision 2026-10-18):
     # how the half-dollar reference became the published integers.
