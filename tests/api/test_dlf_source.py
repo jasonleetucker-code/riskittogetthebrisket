@@ -248,7 +248,31 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
     weight.  When both IDPTradeCalc and DLF rank a player, the coverage-
     weighted Hill-curve blend must consider both; IDPTradeCalc remains
     the backbone for ladder translation.
+
+    The synthetic boards here use the IDP Trade Calculator as an OFFENSE
+    voter, as scaffolding for the shared-market ladder.  The owner closeout
+    of 2026-10-18 (Decision 3) excludes that vote by default
+    (``idptc_offense_vote_excluded``) and the policy is pinned in
+    ``tests/api/test_source_independence_closeout.py``, so this class runs on
+    the documented rollback path, which still carries the vote.
     """
+
+    @classmethod
+    def setUpClass(cls):
+        from src.api import feature_flags as _ff
+
+        cls._env = mock.patch.dict(
+            "os.environ", {"RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED": "0"}
+        )
+        cls._env.start()
+        _ff.reload()
+
+    @classmethod
+    def tearDownClass(cls):
+        from src.api import feature_flags as _ff
+
+        cls._env.stop()
+        _ff.reload()
 
     def test_dlf_is_registered_as_overall_idp_non_backbone(self):
         dlf = next(s for s in _RANKING_SOURCES if s["key"] == "dlfIdp")
