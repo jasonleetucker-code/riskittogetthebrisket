@@ -1,5 +1,10 @@
 # DLF IDP — re-evaluation of incremental evidence (2026-10-17)
 
+> **Refreshed and corrected 2026-10-18:** `docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md` §2.
+> The "1 outlier drop" below counts only DLF's own rejected votes. Lifting the hold also
+> re-activates the outlier filter on 158 IDP rows (0 today), which drops 32 other-source
+> votes. Every IDP move above 5.2% comes from that, not from DLF's own vote.
+
 Owner master package 2026-10-17, Workstream F.  The 2026-10-16 owner policy (DLF votes on offense
 only, #1758) is **unchanged**.  This is the evidence for a possible reversal, presented for an
 explicit decision — nothing here switches DLF IDP back on.
