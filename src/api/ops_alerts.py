@@ -9,6 +9,8 @@ when any of these conditions hold:
     * Signal-alert cron hasn't run in > 36h (expected every 12h)
     * Session-store SQLite integrity check fails
     * Data freshness > 3 × scrape interval
+    * A draft-capital dollars generation serving last-known-good or
+      unavailable (Batch F, one alert per league + draft class)
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
@@ -174,6 +176,57 @@ def _check_data_freshness(
     )
 
 
+def _check_draft_valuation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """Draft-capital dollars generations that are not serving a fresh answer.
+
+    One alert per (league, draft class), keyed ``draft_valuation:<league>:<year>``
+    so the existing cooldown and recovery bookkeeping apply per class.  A row
+    comes from ``src/draft/rookie_auction/generation.generation_health``:
+    ``last_known_good`` (a refresh failed; the class still serves its last
+    verified allocation) is a warning; ``unavailable`` for an unexpected
+    reason (no verified allocation at all — the board is refused) is
+    critical.  Expected answers (retired class, unconfigured league) arrive
+    with ``degraded: False`` and never alert.  No rows means "not checked",
+    never "healthy".
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict) or not row.get("degraded"):
+            continue
+        league = row.get("leagueKey")
+        year = row.get("draftYear")
+        state = row.get("allocationState")
+        reason = row.get("reason") or "unknown"
+        if state == "last_known_good":
+            alerts.append(
+                OpsAlert(
+                    severity="warning",
+                    category=f"draft_valuation:{league}:{year}",
+                    title=f"Draft capital {year} ({league}) serving last known good",
+                    detail=(
+                        f"The {year} class's rookie-auction refresh failed ({reason}); the last "
+                        f"verified whole-dollar allocation from {row.get('lastValidAt')} is "
+                        "being served, labelled last_known_good.  Check "
+                        "/api/draft-capital budgetPolicy.classes."
+                    ),
+                )
+            )
+        else:
+            alerts.append(
+                OpsAlert(
+                    severity="critical",
+                    category=f"draft_valuation:{league}:{year}",
+                    title=f"Draft capital {year} ({league}) unavailable",
+                    detail=(
+                        f"No verified whole-dollar allocation exists for the {year} class "
+                        f"({reason}).  Its picks are unpriced or the board is refused — "
+                        "never $0, never another year's curve."
+                    ),
+                )
+            )
+    return alerts
+
+
 def _load_ops_state(path: Any = None) -> dict[str, Any]:
     state = user_kv.get_user_state(_OPS_STATE_USER, path=path)
     return dict(state.get("opsAlertState") or {})
@@ -304,6 +357,7 @@ def check_and_alert(
     contract_health: dict[str, Any] | None = None,
     data_age_hours: float | None = None,
     scrape_interval_hours: float = 2.0,
+    draft_valuation: list[dict[str, Any]] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -323,10 +377,15 @@ def check_and_alert(
     df = _check_data_freshness(data_age_hours, scrape_interval_hours)
     if df:
         alerts.append(df)
+    alerts.extend(_check_draft_valuation(draft_valuation or []))
 
     active_categories = {a.category for a in alerts}
     now = time.time()
     state = _load_ops_state(path=kv_path)
+    if draft_valuation is None:
+        # Not checked this sweep is UNKNOWN, not recovered: keep any firing
+        # draft-valuation class out of the recovery notices.
+        active_categories |= {c for c in state if str(c).startswith("draft_valuation:")}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.

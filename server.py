@@ -11527,6 +11527,51 @@ _DRAFT_CAPITAL_CACHE: dict[str, tuple[float, dict]] = {}
 _DRAFT_CAPITAL_TTL_SEC = 300.0
 _DRAFT_CAPITAL_LOCKS: dict[str, asyncio.Lock] = {}
 
+# Stale-while-revalidate for the dollars generation (Batch F).  The last VALID
+# board per league (never an error payload) is kept here, untouched by the
+# scrape-promotion cache clear, so a request whose draft-dollar generation
+# fails is answered with that board — labelled ``staleWhileRevalidate`` —
+# instead of an error, and the failure is retried after
+# ``_DRAFT_CAPITAL_STALE_RETRY_SEC``.  Guards: same league; the SAME draft
+# year as the failed generation (never another year's curve); no older than
+# the repo's staleness budget (3 x the scrape interval).  Only the dollars
+# generation's own failures qualify: ownership / Sleeper refusals
+# (``pick_ownership_unavailable``, ``sleeper_unreachable``) keep refusing,
+# because those boards were deliberately made all-or-nothing.
+_DRAFT_CAPITAL_LAST_VALID: dict[str, tuple[float, dict]] = {}
+_DRAFT_CAPITAL_STALE_RETRY_SEC = 60.0
+_DRAFT_CAPITAL_GENERATION_ERRORS = frozenset({"draft_dollars_unavailable", "draft_dollars_refused"})
+
+
+def _draft_capital_stale_fallback(league_key: str, failed: Any, now: float) -> dict | None:
+    """The last valid board to serve in place of a failed dollars generation, or ``None``."""
+    if not isinstance(failed, dict) or failed.get("error") not in _DRAFT_CAPITAL_GENERATION_ERRORS:
+        return None
+    year = failed.get("draftYear")
+    if isinstance(year, bool) or not isinstance(year, int):
+        return None
+    slot = _DRAFT_CAPITAL_LAST_VALID.get(league_key)
+    if not slot:
+        return None
+    served_at, good = slot
+    max_age = float(SCRAPE_INTERVAL_HOURS) * 3 * 3600.0
+    if now - served_at > max_age or good.get("season") != year:
+        return None
+    out = dict(good)
+    out["staleWhileRevalidate"] = {
+        "state": "serving_last_valid_board",
+        "servedFromAt": datetime.fromtimestamp(served_at, timezone.utc).isoformat(),
+        "ageSeconds": int(now - served_at),
+        "failedAt": datetime.fromtimestamp(now, timezone.utc).isoformat(),
+        "failedError": failed.get("error"),
+        "failedReason": failed.get("unavailableReason") or failed.get("message"),
+        "failedGeneration": failed.get("draftValuationGeneration"),
+        "draftYear": year,
+        "revalidateAfterSec": _DRAFT_CAPITAL_STALE_RETRY_SEC,
+    }
+    return out
+
+
 # Per-pick fields that carry OUR board, not public Sleeper data.  They
 # are filled from ``_our_rookie_pool()``, which reads
 # ``latest_contract_data['playersArray']`` ordered by
@@ -11922,23 +11967,29 @@ def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
     """Return (spine[E2:E_n+1], r5_bonus_total) from the workbook so
     ``_rookie_dollars_from_values`` faithfully matches the sheet's
     formula.  Spine is the per-pick historical anchor (median + mean
-    of 2023–2025 L values divided by 2).  R5-bonus total is the $12
-    floor injection for picks 5.01–5.12 (== 12 in a 12-team league).
+    of the three completed classes' L values divided by 2).  R5-bonus
+    total is the $12 floor injection for picks 5.01–5.12 (== 12 in a
+    12-team league).
 
-    Falls back to a flat spine and zero R5 bonus if the workbook is
-    unreadable so callers don't blow up.
+    Returns ``([], 0)`` when the workbook or any spine cell is unreadable
+    (Batch F).  It used to return a FLAT ``[1.0] * n`` spine, which makes the
+    40% spine term vanish and produces a plausible-looking wrong curve
+    (map §6, scenario D: 44 of 72 picks wrong, up to $22.50) — missing is
+    never a made-up spine.
     """
     try:
         wb = _load_draft_workbook()
         if wb is None:
-            return [1.0] * n, 0
+            return [], 0
         ws = wb["Draft Data"]
         spine: list[float] = []
         for r in range(2, 2 + n):
             v = ws.cell(r, 5).value  # E = column 5
-            spine.append(float(v) if v is not None else 1.0)
+            if v is None:
+                return [], 0
+            spine.append(float(v))
     except Exception:
-        return [1.0] * n, 0
+        return [], 0
     return spine, n  # R5 bonus = +$1 × 12 picks = $12 total floor add
 
 
@@ -11948,6 +11999,17 @@ def _rookie_dollars_from_values(
     """Convert raw rookie values to dollar amounts using the sheet's
     Hill-curve formula (column C → I → J → K → D in Draft Data.xlsx),
     summing to ``total``.
+
+    REMAINING ROLE (Batch F consumer census).  The auction's own 72-rookie
+    pre-draft ladder no longer comes from here: it is
+    ``src/draft/rookie_auction/generation.rookie_ladder`` (the canonical
+    curve, exact arithmetic, canonical spine, refuses anything but 72
+    rookies).  This float copy survives only for quantities the canonical
+    formula does not define — a vendor's PARTIAL rookie list
+    (``_vendor_dollars_for_rookies``: KTC / IDPTradeCalc rank fewer than 72
+    rookies, and this stretches the curve over however many there are) and
+    the out-of-scope non-default-league fallback (owner scope correction
+    2026-10-18: ``dynasty_main`` only).  Do not add a consumer.
 
     Faithful reproduction of the Google Sheet formula:
 
@@ -11980,7 +12042,8 @@ def _rookie_dollars_from_values(
 
     spine, r5_bonus_count = _read_sheet_spine_and_floor(n)
     if len(spine) < n:
-        spine = list(spine) + [1.0] * (n - len(spine))
+        # No spine, no curve (Batch F) — never a flat [1.0] stand-in.
+        return []
 
     head = values[: min(6, n)]
     head_mean = sum(head) / len(head) if head else 0.0
@@ -12048,8 +12111,53 @@ def _rookie_dollars_from_values(
     return dollars
 
 
+def _csv_number(text: Any) -> float | None:
+    """A finite number from one workbook-export CSV cell, or ``None``.
+
+    The scheduled export writes every number as a float (``"1.0"``,
+    ``"5103.0"``), so ``int(text)`` raised on all of them.  Empty, text,
+    NaN and infinity are ``None`` — never 0.
+    """
+    raw = str(text or "").strip().replace(",", "")
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _csv_column_block(rows: list[list[str]], header_idx: int, col: int) -> list[str]:
+    """The contiguous non-empty cells of ``col`` directly below its header row."""
+    out: list[str] = []
+    for row in rows[header_idx + 1 :]:
+        cell = row[col].strip() if len(row) > col and row[col] else ""
+        if not cell:
+            break
+        out.append(cell)
+    return out
+
+
 def _parse_csv_rookies():
-    """Parse rookie rankings from the draft data CSV (cols 22-25)."""
+    """Parse the KTC rookie list from the draft data CSV (sheet ``W137:Z217``,
+    CSV columns 22-25: Rank / Player / Pos and a ``Composite`` value).
+
+    Two defects fixed (Batch F; ``docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`` §3):
+
+    * the export writes numbers as ``"1.0"`` / ``"5103.0"`` and this called
+      ``int()`` on them, so EVERY row was skipped and the CSV fallback of
+      ``_get_ktc_rookies`` returned nothing;
+    * the ``Composite`` column is two rows out of step with the names: its
+      header sits at ``Z137`` while ``Rank`` / ``Player`` / ``Pos`` sit at
+      ``W139:Y139``, so reading the value on a name's own row gave rank 1
+      (Jeremiyah Love) the THIRD value (5103) and left the first two (6817,
+      5203 — on the blank row and the header row) on no player.  Each block is now read below ITS OWN header and the two are
+      paired by position.  The pairing is refused (``[]``) unless both blocks
+      have the same length and the values never rise — a mismatched count
+      means a row was added or removed on one side only, and guessing which
+      would attach a value to the wrong rookie.
+    """
     import csv
 
     if not DRAFT_DATA_CSV.exists():
@@ -12060,30 +12168,57 @@ def _parse_csv_rookies():
     except Exception:
         return []
 
-    rookies = []
     rank_header_idx = None
     for i, row in enumerate(rows):
         if len(row) > 22 and row[22].strip() == "Rank":
             rank_header_idx = i
             break
-    if rank_header_idx is not None:
-        for row in rows[rank_header_idx + 1 :]:
-            if len(row) < 26:
-                continue
-            rank_str = row[22].strip() if row[22] else ""
-            player = row[23].strip() if row[23] else ""
-            pos = row[24].strip() if row[24] else ""
-            value_str = row[25].strip() if row[25] else ""
-            if not rank_str or not player:
-                continue
-            try:
-                int(rank_str)
-                value = int(value_str)
-            except (ValueError, TypeError):
-                continue
-            if value > 0:
-                rookies.append({"name": player, "pos": pos, "value": value})
-    return rookies
+    if rank_header_idx is None:
+        return []
+    # The value column's own header: the nearest non-numeric label in column
+    # 25 at or above the names' header row.
+    value_header_idx = None
+    for i in range(rank_header_idx, -1, -1):
+        row = rows[i]
+        cell = row[25].strip() if len(row) > 25 and row[25] else ""
+        if cell and _csv_number(cell) is None:
+            value_header_idx = i
+            break
+    if value_header_idx is None:
+        return []
+
+    names: list[tuple[str, str]] = []
+    for row in rows[rank_header_idx + 1 :]:
+        rank_str = row[22].strip() if len(row) > 22 and row[22] else ""
+        player = row[23].strip() if len(row) > 23 and row[23] else ""
+        if not rank_str and not player:
+            break
+        rank = _csv_number(rank_str)
+        if rank is None or rank <= 0 or rank != int(rank) or not player:
+            logging.warning("draft CSV rookie list: unreadable row %r — list refused", row[22:26])
+            return []
+        pos = row[24].strip() if len(row) > 24 and row[24] else ""
+        names.append((player, pos))
+
+    values: list[float] = []
+    for cell in _csv_column_block(rows, value_header_idx, 25):
+        v = _csv_number(cell)
+        if v is None or v <= 0:
+            logging.warning("draft CSV rookie list: non-positive value %r — list refused", cell)
+            return []
+        values.append(v)
+
+    if len(names) != len(values) or any(values[i] > values[i - 1] for i in range(1, len(values))):
+        logging.warning(
+            "draft CSV rookie list: %d names vs %d values (or values rise) — list refused",
+            len(names),
+            len(values),
+        )
+        return []
+    return [
+        {"name": player, "pos": pos, "value": int(v) if v == int(v) else v}
+        for (player, pos), v in zip(names, values)
+    ]
 
 
 def _parse_draft_xlsx():
@@ -12849,18 +12984,26 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             origin_roster_id=int(origin_rid),
         ).canonical_id
 
+    draft_valuation_generation: dict | None = None
+    workbook_parity: dict | None = None
     if whole_dollars_per_slot is None:
-        # The formula's 72-pick class: the published allocation for THIS
-        # league's draft year — the fresh workbook curve when it verifies,
-        # else the same year's last verified allocation (labelled), else
-        # refuse.  The resolver stores dollar curves only; ownership below
-        # always comes from the live Sleeper fold, never from a stored curve.
-        _dv_league_key = _pick_league_key or league_key or _league_registry.default_league_key()
-        published = _dcc_wd.resolve_workbook_allocation(
-            _dv_league_key,
-            int(league_season),
-            pick_values_l if pick_values_l and len(pick_values_l) >= len(workbook_picks) else None,
+        # The formula's 72-pick class, through THE generation reader (Batch F,
+        # ``src/draft/rookie_auction/generation.py``) — the same reader every
+        # later class uses: the canonical curve for THIS league's draft year
+        # (frozen 2026 provisional inputs + that class's spine until Batch D
+        # promotes its own inputs), verified and stored create-only, else the
+        # same year's last verified allocation (labelled), else refuse.  The
+        # workbook's L2:L73 is the SAME quantity for the class it was built
+        # for, so it is no longer read as dollars — only compared below
+        # (``workbookParity``).  The resolver stores dollar curves only;
+        # ownership always comes from the live Sleeper fold below.
+        from src.draft.rookie_auction.generation import (  # noqa: PLC0415
+            DraftCapitalGeneration as _DCGen,
         )
+
+        _dv_league_key = _pick_league_key or league_key or _league_registry.default_league_key()
+        published = _dcc_wd.resolve_class_curve_allocation(_dv_league_key, int(league_season))
+        _generation = _DCGen(str(_dv_league_key or ""), int(league_season), published)
         if published.final_whole_dollars is None:
             return {
                 "error": _dcc_wd.DRAFT_DOLLARS_UNAVAILABLE_ERROR,
@@ -12872,10 +13015,22 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "failedRefresh": (
                     dict(published.failed_refresh) if published.failed_refresh else None
                 ),
+                # Which class was refused, so a cache can never answer it with
+                # another year's board (stale-while-revalidate, Batch F).
+                "draftYear": int(league_season),
+                "draftValuationGeneration": _generation.receipt(),
             }
         whole_dollars_per_slot = list(published.final_whole_dollars)
         whole_dollar_receipt = dict(published.receipt or {})
         draft_valuation_state = _dcc_wd.draft_valuation_state_block(published)
+        draft_valuation_generation = _generation.receipt()
+        workbook_parity = _dcc_wd.workbook_parity_block(
+            pick_values_l if pick_values_l and len(pick_values_l) >= len(workbook_picks) else None,
+            published.reference_dollars,
+        )
+        # The half-dollar reference the rows carry beside the whole dollars
+        # is the SERVED record's (it is what the published integers round).
+        pick_values_per_slot = [float(v) for v in published.reference_dollars]
 
     # ── Build pick list + team totals from sheet ownership ──
     all_picks: list[dict] = []
@@ -12989,8 +13144,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # between expansion-averaged Q and unaveraged grid no
                 # longer applies — L is unaveraged by construction.
                 "originalDollarValue": dollar,
-                # The sheet's half-dollar "Final Dollar Per Pick" (L2:L73):
-                # mathematical reference data, never an operational dollar.
+                # The served record's half-dollar reference curve — identical
+                # to the sheet's "Final Dollar Per Pick" (L2:L73) for the class
+                # it was built for (``workbookParity``); name kept for
+                # existing readers.  Mathematical reference, never spendable.
                 "workbookReferenceDollarValue": reference_dollar,
                 "originalOwner": origin_team,
                 "currentOwner": owner_team,
@@ -13035,23 +13192,41 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
 
     # Rookie pool — prefer our top-72 from the live contract (filtered
     # to rostered rookies via Sleeper ID), fall back to KTC if the
-    # contract isn't loaded yet.  Each rookie's dollar value comes from
-    # the sheet's Hill-curve formula applied to OUR values, so the pool
-    # totals to $1200 and tail rookies bottom out at $1.
+    # contract isn't loaded yet.  Each rookie's pre-draft dollars come from
+    # THE canonical rookie-auction curve (Batch F,
+    # ``generation.rookie_ladder``): the class formula evaluated over the
+    # ranked rookie values with the canonical spine of THIS class — the same
+    # quantity ``_rookie_dollars_from_values`` used to compute in floats off
+    # the workbook's cached spine.  A list that is not the formula's 72 picks
+    # (or any refused input) leaves the dollars MISSING, never a flat-spine
+    # or stretched curve and never $0.
+    from src.draft.rookie_auction.generation import rookie_ladder as _rookie_ladder  # noqa: PLC0415
+
+    _ladder_league_key = _pick_league_key or league_key or _league_registry.default_league_key()
     our_rookies = _our_rookie_pool(_KTC_TOTAL_PICKS)
     rookie_source = "ours_filtered"
-    rookie_dollar_overrides: list[float] = []
+    rookie_dollar_overrides: list[float | None] = []
     ktc_by_name: dict[str, float] = {}
     idp_by_name: dict[str, float] = {}
+    rookie_ladder_receipt: dict | None = None
     if our_rookies:
         raw_values = [r["value"] for r in our_rookies]
-        rookie_dollar_overrides = _rookie_dollars_from_values(
+        _ladder = _rookie_ladder(
             raw_values,
-            DRAFT_TOTAL_BUDGET,
+            league_key=str(_ladder_league_key or ""),
+            draft_year=int(league_season),
+            input_source="canonical_board_rank_derived_value",
+        )
+        rookie_ladder_receipt = dict(_ladder.receipt)
+        rookie_dollar_overrides = (
+            list(_ladder.dollars) if _ladder.dollars is not None else [None] * len(our_rookies)
         )
         # Vendor $ on the same $1200 scale (KTC sorted by KTC raw,
         # IDPTC sorted by IDPTC raw) so the frontend's gap math is
         # honest dollar-vs-dollar instead of dollar-vs-raw-thousand.
+        # A DIFFERENT quantity from the auction ladder (a vendor's partial
+        # list, usually fewer than 72 rookies), so it stays on the legacy
+        # partial-list ladder — see the Batch F consumer census.
         ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(
             our_rookies,
             DRAFT_TOTAL_BUDGET,
@@ -13079,6 +13254,29 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         ]
     else:
         rookie_source = "ktc_fallback"
+        # KTC's rookie VALUES (live, else the workbook CSV) are not dollars.
+        # They used to be published under ``rookieKtcValue`` — the dollar
+        # field /draft reads as each rookie's pre-draft price — and padded to
+        # 72 with synthetic "Rookie #N" rows extrapolated by
+        # ``_ktc_decay_curve``.  Now: only real KTC rookies, converted by the
+        # same canonical ladder; fewer than 72 real rookies → dollars missing.
+        _real = [r for r in (rookies or []) if not str(r.get("name") or "").startswith("Rookie #")]
+        _real = _real[:_KTC_TOTAL_PICKS]
+        if _real:
+            _ladder = _rookie_ladder(
+                [r["value"] for r in _real],
+                league_key=str(_ladder_league_key or ""),
+                draft_year=int(league_season),
+                input_source="ktc_rookie_values",
+            )
+            rookie_ladder_receipt = dict(_ladder.receipt)
+            _dollars = list(_ladder.dollars) if _ladder.dollars is not None else [None] * len(_real)
+            rookies = [
+                {"name": r["name"], "pos": r.get("pos"), "value": d}
+                for r, d in zip(_real, _dollars)
+            ]
+        else:
+            rookies = []
 
     # Fill rookie rankings into picks (rookie i → pick i; pick i is the
     # i-th overall slot in draft order).  ``rookieKtcValue`` retains its
@@ -13156,6 +13354,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "ktcRookieCount": ktc_count,
         "ktcTotalFilled": len(rookies),
         "rookieSource": rookie_source,
+        # How ``rookieKtcValue`` was produced (Batch F): the canonical ladder's
+        # receipt — curve version, target class, spine years, or the refusal.
+        "rookieDollarLadder": rookie_ladder_receipt,
     }
     # ── Every other class this league owns picks in (owner directive
     # 2026-10-17) ──────────────────────────────────────────────────────
@@ -13277,6 +13478,14 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # 2026-10-18): ``current`` or ``last_known_good`` with the failed refresh
     # and the last valid timestamp named.  ``None`` for a non-formula workbook.
     result["draftValuation"] = draft_valuation_state
+    # The Batch F receipt of the upcoming class's served generation
+    # (``generationHash``, ``curveVersion``, ``targetDraftYear``,
+    # ``actualInputClassYear``, ``spineYears``, ``inputMode``,
+    # ``allocationState``) — read from the served record.  Every later class
+    # carries the same fields in ``budgetPolicy.classes[year]``.
+    result["draftValuationGeneration"] = draft_valuation_generation
+    # The workbook's L2:L73 against the served curve (diagnostic only).
+    result["workbookParity"] = workbook_parity
 
     # Per-season views for the /league year selector.  The workbook carries
     # ONE season, and its team totals are the sheet's Q-column decimals
@@ -13290,6 +13499,33 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         result,
         capital_by_team_year={t: {league_season: v} for t, v in team_totals.items()},
     )
+
+
+def _draft_valuation_health() -> list[dict] | None:
+    """Per-class health of the draft-capital dollars generations (Batch F alerts).
+
+    Every configured league (``league_scope`` — ``dynasty_main`` only) is read
+    for each class it owns picks in (``league_draft_years_for``, the same
+    league-scoped answer the route uses) through THE generation reader.
+    ``None`` — "not checked", never "healthy" — when nothing could be read.
+    """
+    try:
+        from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+        from src.draft.rookie_auction.generation import generation_health  # noqa: PLC0415
+        from src.draft.rookie_auction.league_scope import SCOPED_LEAGUES  # noqa: PLC0415
+
+        rows: list[dict] = []
+        for key in SCOPED_LEAGUES:
+            cfg = _league_registry.get_league_by_key(key)
+            if cfg is None or not getattr(cfg, "sleeper_league_id", None):
+                continue
+            years = league_draft_years_for(cfg.sleeper_league_id)
+            if years is not None and years.owned_pick_seasons:
+                rows.extend(generation_health(key, list(years.owned_pick_seasons)))
+        return rows or None
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("draft valuation health check failed: %s", exc)
+        return None
 
 
 @app.get("/api/draft-capital")
@@ -13520,7 +13756,22 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                 result = await run_in_threadpool(_compute)
                 if isinstance(result, dict):
                     result["leagueKey"] = league_cfg.key
-                    _DRAFT_CAPITAL_CACHE[league_cfg.key] = (time.time(), result)
+                    stamp = time.time()
+                    if "error" not in result:
+                        _DRAFT_CAPITAL_LAST_VALID[league_cfg.key] = (stamp, result)
+                        _DRAFT_CAPITAL_CACHE[league_cfg.key] = (stamp, result)
+                    else:
+                        stale = _draft_capital_stale_fallback(league_cfg.key, result, stamp)
+                        if stale is not None:
+                            # Served now; the failure is retried once the short
+                            # revalidation window lapses (not the full TTL).
+                            result = stale
+                            _DRAFT_CAPITAL_CACHE[league_cfg.key] = (
+                                stamp - _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_STALE_RETRY_SEC,
+                                result,
+                            )
+                        else:
+                            _DRAFT_CAPITAL_CACHE[league_cfg.key] = (stamp, result)
         return JSONResponse(
             content=result if viewer_is_authed else _redact_draft_capital_for_public(result),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
@@ -18615,6 +18866,7 @@ async def run_signal_alerts(request: Request):
             contract_health=contract_health,
             data_age_hours=data_age_hours,
             scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
+            draft_valuation=await run_in_threadpool(_draft_valuation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )

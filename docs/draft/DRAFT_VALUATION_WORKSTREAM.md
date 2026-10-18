@@ -70,7 +70,7 @@ PRODUCTION-VERIFIED (each a separate claim).
 | **C — historical spine snapshots + rollover** (PROMPT C) | Completed-class curves 2024/2025/2026 as spreadsheet-sourced snapshots (**done**, unknown inputs/spine/formula/completion `null` with reasons); `select_spine_years` (**done**); then an append-only ledger of generated class curves keyed by (league, class, formula version, cutoff), written only on verified completion + roster consumption, idempotent, with an as-of replay command | A, B | spine selection 2027 → {2024, 2025, 2026}, 2028 → {2025, 2026, 2027} only once 2027 exists; later: completed-not-rostered, two jobs, reopened draft, supersession, failed write | dynamic last-three resolver; immutable ledger; no hindsight substitution; 2024 retained after leaving the window | `src/identity/pick_lifecycle.py` (completion AND roster consumption — the #1414 rule), `src/api/draft_class_evidence.py`, `src/history/` (temporal ledger conventions) | **TESTS GREEN** on PR #1786: published allocations with last-known-good safety (`published.py`, runtime verifier `verify.py`); imported curves under `historical_curves/dynasty_main/`, `ledger.finalize_completed_class` (create-only, verified completion via `pick_lifecycle`, pre-draft cutoff, idempotent, conflict-refusing), `replay_spine` + CLI. Not wired to any job (Batch D) |
 | **D — automated class readiness / promotion** (PROMPT D) | Scheduled readiness check after each fresh canonical build; state machine `FALLBACK_VERIFIED → CANDIDATE_INCOMPLETE → CANDIDATE_READY → VALIDATED → PROMOTABLE → ACTIVE` + error/rollback; thresholds preregistered before any 2027 candidate is looked at; atomic generation publish with last-good pointer and one-command rollback; operator diagnostic | A–C | mocked time jump fallback → eligible 2027; every failure keeps the previous generation; no repeated alerts | dry-run only in its PR; first live switch follows normal owner gates | `.github/workflows/scheduled-refresh.yml` (2-hour cadence, already syncs the workbook), existing alert/health plumbing | NOT STARTED |
 | **E — multi-year draft capital** (PROMPT E) | Integrate with #1785 (no second ownership resolver or year selector); $1,200 per class for `dynasty_main`; replace #1785's interim generic-market future-class curve with the workbook curve (frozen 2026 inputs + spine for each class until that class's real inputs pass Batch D); draft order = `reverse_record_lower_pf` (`src/public_league/draft_order.py`) for verified final standings, forecasts labelled, later years round-level only; real Sleeper standings and pick ownership for `dynasty_main` | A–C (#1785 merged) | 216 unique 2027–2029 identities for `dynasty_main`; per-class totals exactly $1,200; no 2027 double count in `/trade` | per-year API with `budgetBasis`, `curveId`, `spineYears`, `inputMode`; UI unchanged except labels | **#1785** (open, `claude/draft-capital-all-years`): every Sleeper class on `/league` Draft Capital, `?year=`, per-class $1,200 pool (`budgetPolicy per_class_pool`), canonical ownership fold, refuses an unobserved `/traded_picks`; **#1579** year selector; **#1626** draft-capital correctness / lifecycle; **#1769** canonical public pick ownership; `src/identity/picks.py`, `pick_lifecycle.league_draft_years` | **TESTS GREEN; PR open** (`claude/draft-valuation-batch-e`, not merged) — see "Batch E — evidence" below |
-| **F — sitewide integration, automation, monitoring, cache** (PROMPT F) | Consumer census; one `DraftCapitalGeneration` reader; swap `server.py::_rookie_dollars_from_values` and the L2:L73 read onto the canonical curve (same quantity only); keep canonical 0–9999 pick values and the trade package model untouched; receipts (`generationHash`, `curveVersion`, `targetDraftYear`, `actualInputClassYear`, `spineYears`, …); alerts; stale-while-revalidate on the last valid generation | A–E | consumer matrix with exact functions/tests; before/after payloads under pinned data | every consumer of auction dollars reads one generation; no silent value change | `src/api/pick_value_resolution.py` (market values — must stay separate), `src/api/draft_capital_years.py`, `frontend/lib/draft-capital-years.js` | NOT STARTED |
+| **F — sitewide integration, automation, monitoring, cache** (PROMPT F) | Consumer census; one `DraftCapitalGeneration` reader; swap `server.py::_rookie_dollars_from_values` and the L2:L73 read onto the canonical curve (same quantity only); keep canonical 0–9999 pick values and the trade package model untouched; receipts (`generationHash`, `curveVersion`, `targetDraftYear`, `actualInputClassYear`, `spineYears`, …); alerts; stale-while-revalidate on the last valid generation | A–E | consumer matrix with exact functions/tests; before/after payloads under pinned data | every consumer of auction dollars reads one generation; no silent value change | `src/api/pick_value_resolution.py` (market values — must stay separate), `src/api/draft_capital_years.py`, `frontend/lib/draft-capital-years.js` | **TESTS GREEN; PR open** (`claude/draft-valuation-batch-f`, stacked on Batch E, not merged) — see "Batch F — consumer census and evidence" below |
 | **G — end-to-end verification + release** (PROMPT G) | Independent checker (no production imports) over pinned goldens and generated classes; adversarial dataset; as-of replay; read-only Sleeper reconciliation (216 ids); staged rollout, exact-head CI, deploy, desktop 1440 / mobile 375 smoke; rollback drill | A–F | PASS / FAIL / BLOCKED / NOT_TESTED report | production proof, not self-consistency | Batch A's reference transcription and fixtures are the start of the independent checker | NOT STARTED |
 
 ## API for PR #1785
@@ -214,16 +214,132 @@ dollar) — left for Batch F as recorded below.
   `config/draft_valuation/`, `tests/draft_valuation/`, two scripts, these
   docs) plus records rows.
 
-## Named follow-ups (recorded, not fixed here)
+## Named follow-ups
 
-* **`server.py::_parse_csv_rookies` returns 0 rookies on the current CSV.**
-  The scheduled export writes `1.0` / `5103.0`, and the parser calls
-  `int()` on them, so every row is skipped and the KTC-rookie CSV fallback in
-  `_get_ktc_rookies` is dead. The same rows are also misaligned in the sheet
-  (`Composite` two rows above the names; map §3). Not fixed in `server.py`
-  here: PR #1785 owns that area. Fix when Batch F swaps the rookie path.
-* `server.py::_rookie_dollars_from_values` and the L2:L73 read move onto the
-  canonical curve in Batch F (map §6 lists the measured divergences).
+* ~~**`server.py::_parse_csv_rookies` returns 0 rookies on the current CSV.**~~
+  **FIXED in Batch F** (float cells parsed; the `Composite` block read below
+  its own header and paired by position, refused on a count mismatch or a
+  rising value).
+* ~~`server.py::_rookie_dollars_from_values` and the L2:L73 read move onto the
+  canonical curve in Batch F~~ — **DONE in Batch F** for the same quantity
+  (the upcoming class's dollars; the auction's 72-rookie ladder).  The legacy
+  function remains for the vendor partial-list ladders and the out-of-scope
+  fallback league only (census rows 6 and 9 below).
+* **`scripts/backtest_perfect_draft.py --record-snapshot`** still records the
+  pre-draft rookie ladder through the legacy `_rookie_dollars_from_values`
+  (a dev snapshot tool, not served; it has no league draft year to give the
+  canonical ladder).  Swap it when the backtest is unblocked.
+* **The `rookieKtcValue` field name** carries the canonical ladder dollars
+  (ours or KTC-derived, `rookieSource` says which), not a KTC value — a
+  legacy name kept for /draft; renaming is a coordinated frontend change.
+
+## Batch F — consumer census and evidence (2026-10-18)
+
+**One reader.** `src/draft/rookie_auction/generation.py`:
+`read_class_generation(league, year)` (the class's canonical candidate —
+spreadsheet formula over the frozen 2026 provisional inputs and THAT class's
+spine — resolved by `published.resolve_published_allocation`: current, else
+that year's last known good, else unavailable; Batch D's promoted generation
+is served ahead of the candidate), `generation_receipt` (the receipt, read
+from the SERVED record), `rookie_ladder` (the same formula over a ranked
+72-rookie list) and `generation_health` (alert rows).
+`draft_capital_classes.resolve_class_curve_allocation` is a thin wrapper over
+it (its `class_curve_inputs` seam kept); `resolve_workbook_allocation` is
+deleted.
+
+### Consumer matrix
+
+| # | Consumer | Exact function | Quantity | Reads after Batch F | Tests |
+|---|---|---|---|---|---|
+| 1 | `/api/draft-capital` upcoming (workbook) class — 72 pick dollars | `server.py::_fetch_draft_capital` → `draft_capital_classes.resolve_class_curve_allocation` → `generation.read_class_generation` | auction dollars, same quantity as L2:L73 | **SWAPPED** from the L2:L73 candidate (`resolve_workbook_allocation`, deleted) onto the canonical reader; L2:L73 is `workbookParity` (diagnostic) | `tests/api/test_draft_capital_last_known_good.py`, `test_draft_capital_batch_f.py`, `test_draft_capital_multi_year.py`, `test_draft_capital_all_years.py`, `tests/draft_valuation/test_generation_reader.py` |
+| 2 | later classes (2028/2029) `additionalClassPicks` | `draft_capital_classes.resolve_class_curve_allocation` + `price_classes_on_curve` | auction dollars | THE reader (already canonical since Batch E) | `test_draft_capital_multi_year.py` |
+| 3 | team budgets `teamTotals[].auctionDollars`, `totalBudget` | `_fetch_draft_capital` (exact sum of owned whole-dollar picks) | derived from #1 | unchanged arithmetic over #1 | `test_draft_capital_last_known_good.py::_assert_reconciled` |
+| 4 | per-season / All Years views | `src/api/draft_capital_years.py::attach_year_views` | sums builder dollars | unchanged (no dollars of its own) | `tests/api/test_draft_capital_years.py` |
+| 5 | `/draft` per-rookie pre-draft ladder `picks[].rookieKtcValue` (ours) | `_fetch_draft_capital` → `generation.rookie_ladder` | auction dollars over the auction's rookie values (same formula) | **SWAPPED** from `_rookie_dollars_from_values` (float, workbook E cache, flat-spine fallback, any length) onto the canonical curve; exactly 72 rookies or `None`; receipt `rookieDollarLadder` | `test_draft_capital_batch_f.py`, `test_generation_reader.py` |
+| 6 | `/draft` vendor ladders `rookieKtcDollar` / `rookieIdpDollar` | `server.py::_vendor_dollars_for_rookies` → `_rookie_dollars_from_values` | a vendor's PARTIAL list stretched over $1,200 (44 KTC / 70 IDPTC rookies on the pinned board) — a DIFFERENT quantity the canonical formula does not define | **LEFT** on the legacy ladder (named in its docstring); its flat `[1.0]` spine fallback now fails closed (`[]` → vendor dollars `None`) | `tests/draft/test_rookie_board_value.py` |
+| 7 | `/draft` ladder when the contract is not loaded (`rookieSource: "ktc_fallback"`) | `_fetch_draft_capital` | was RAW KTC values (0-9999) under the dollar field, padded with synthetic "Rookie #N" rows | **CHANGED**: canonical ladder over the first 72 REAL KTC rookies; fewer → `None`; synthetic rows dropped | `test_draft_capital_batch_f.py` |
+| 8 | KTC rookie list (inputs to #7) | `server.py::_get_ktc_rookies` → `_fetch_ktc_rookies_live` / `_parse_csv_rookies` → `_ktc_decay_curve` | KTC rookie VALUES (inputs, not dollars) | `_parse_csv_rookies` **FIXED** (was 0 rows) | `test_draft_capital_batch_f.py` (real CSV + synthetic layouts) |
+| 9 | non-default league `/api/draft-capital` (Sleeper-derived fallback) + its rookie ladder | `get_draft_capital._compute` → `_rookie_dollars_from_values`; `src/api/draft_capital_fallback.py::build_sleeper_derived` | out of scope (owner scope correction 2026-10-18) | **LEFT** unchanged (legacy ladder); on live data its rookie block is already withheld by the scoring-identity gate | `tests/api/test_draft_capital_fallback*.py` |
+| 10 | non-72-pick workbook | `draft_capital_classes.workbook_class_whole_dollars` | not the formula's class (no canonical curve defined) | **LEFT** (integers + exact total, round bounds not applied, receipt says so) | `tests/api/test_draft_capital.py` |
+| 11 | auction room budgets | `src/auction/api.py::_draft_capital_payload` → `src/auction/sources.py::join_budgets` | reads `teamTotals` | unchanged dollars; provenance now snapshots `draftValuationGeneration` + `staleWhileRevalidate` | `test_draft_capital_batch_f.py::test_auction_budgets_snapshot_the_generation_receipt` |
+| 12 | `/league` Draft Capital tab, year selector, simulator | `frontend/app/league/sections/draft-capital.jsx`, `_trade-simulator.jsx`, `frontend/lib/draft-capital-years.js`, `frontend/lib/draft-capital-budgets.js`, `frontend/lib/auction-power.js` / `src/api/auction_power.py` | renders payload dollars | unchanged (no frontend change) | `frontend/__tests__/draft-capital-*.test.js`, `components/league-draft-capital-*.test.jsx` |
+| 13 | `/draft` budgets + rookie pool sync, Perfect Draft | `frontend/app/draft/page.jsx`, `frontend/lib/draft-logic.js`, `draft-feed.js`, `components/useSleeperDraftSync.js`, `frontend/lib/perfect-draft.js` | renders / optimizes over payload dollars | unchanged (reads #3, #5, #6) | `frontend/__tests__/draft-logic.test.js`, `draft-feed.test.js`, `perfect-draft.test.js`, `components/PerfectDraftPanel.test.jsx` |
+| 14 | `/trade` stack note | `frontend/lib/pick-stack.js` | informational only (owner directive 2026-09-29) | unchanged | `frontend/__tests__/pick-stack.test.js`, `trade-stack-withdrawn.test.js` |
+| 15 | Perfect Draft roster context | `server.py::get_draft_roster_context` → `src/draft/context.py` | board values, not dollars | not a consumer | `tests/draft/test_roster_context.py` |
+| 16 | canonical 0-9999 pick values, trade package model, Manager Intel pick pricing | `src/api/pick_value_resolution.py`, contract pick rows, `src/trade/ktc_va.py`, `src/intel/manager_trade_intel.py::league_draft_capital` | market value — a DIFFERENT quantity | untouched | — |
+| 17 | BDVM / Pick Projector | `src/bdvm/service.py` (`draft_capital` = NFL draft capital), `src/ros/pick_projection.py` | no auction dollars | not consumers | — |
+| 18 | evidence / dev scripts | `scripts/draft_valuation_parity_report.py` (lifts the legacy function), `scripts/backtest_perfect_draft.py` | legacy ladder | unchanged; backtest is a named follow-up | — |
+
+### Receipts, alerts, cache
+
+* **Receipt** on every response, read from the served record:
+  `draftValuationGeneration` (upcoming class), the same fields inside
+  `draftValuation` and every `budgetPolicy.classes[year]` — `generationHash`
+  (served record checksum), `curveVersion`, `targetDraftYear`,
+  `actualInputClassYear`, `spineYears`, `inputMode`, `allocationState`.  A
+  refused board (`draft_dollars_unavailable`) carries `draftYear` and the
+  receipt of what it could not serve.
+* **Alerts** through the existing `ops_alerts` sweep (piggybacking
+  `/api/signal-alerts/run`): `server._draft_valuation_health` reads every
+  configured league's owned classes through `generation_health`;
+  `last_known_good` → warning, unexpected `unavailable` → critical, category
+  `draft_valuation:<league>:<year>` (4-hour cooldown, one recovery notice);
+  "not checked" never counts as recovered.
+* **Stale-while-revalidate.** The resolver already serves the SAME year's last
+  verified allocation on a failed refresh (Batch A/C).  On top of it the route
+  keeps the last valid board per league (untouched by the scrape-promotion
+  cache clear) and answers a failed dollars generation (`draft_dollars_*`)
+  with it, labelled `staleWhileRevalidate` (served-from time, failure reason,
+  `revalidateAfterSec: 60`), only for the SAME draft year and only within 6 h
+  (3 x the scrape interval).  Ownership / Sleeper refusals keep refusing.
+
+### Before / after under pinned data
+
+Pinned inputs: the 2026-10-18 export (`exports/latest/dynasty_data_2026-10-18.json`
+built into a contract — 72-rookie pool), the real workbook, stubbed Sleeper
+(the Batch E harness: 12 teams, trades, 2027 retired; and the correctness
+harness: the real workbook's owners), a temporary box store, live KTC off.
+Base `67d8f3a5b9` (Batch E) vs this branch, every field diffed:
+
+* **Zero value change** on every consumer: all 72 upcoming-class pick dollars,
+  `teamTotals`, the 2028/2029 classes, All Years, `workbookReferenceDollarValue`,
+  all 72 `rookieKtcValue` (canonical ladder = legacy float function exactly),
+  the vendor ladders (unchanged code).  The canonical 2027 candidate is
+  content-identical to the 2027 seed record, so the seed (same checksum)
+  keeps serving and nothing new is written.
+* **Added:** the receipt fields, `draftValuationGeneration`, `workbookParity`
+  (`matches`, 0 of 72 differ), `rookieDollarLadder`.
+* **Reworded:** `budgetPolicy.note` "The 2027 class uses the league workbook's
+  dollars." → "The 2027 class is the league's upcoming auction."
+
+**Value changes (all off the live path):**
+
+1. *Contract not loaded and live KTC unavailable* (census #7/#8): before, the
+   CSV fallback parsed 0 rookies, so every pick had `rookieName: null`; after,
+   78 KTC rookies parse and the first 72 get canonical ladder dollars
+   (Jeremiyah Love $134, Carnell Tate $102, Fernando Mendoza $92.5 … $1;
+   total $1,200).
+2. *Contract not loaded, live KTC available* (#7): `rookieKtcValue` was the raw
+   KTC value (e.g. 6817 read as $6,817 by /draft) plus synthetic "Rookie #N"
+   rows; now ladder dollars over real rookies, or `None` below 72.
+3. *A board of fewer than 72 rookies* (#5): was a curve stretched over N picks
+   (map §6 scenario E); now `rookieKtcValue: None`, `rookieDollarLadder.state:
+   "refused"`.
+4. *Workbook unreadable* (#6, #9): the vendor / fallback ladders were computed
+   over a flat `[1.0]` spine (map §6 scenario D); now no dollars.
+5. *A workbook season with no canonical curve* (e.g. a class whose spine is
+   not on file and has no stored allocation): was published with the
+   workbook's 2027-built L2:L73 under that year; now refused
+   (`draft_dollars_unavailable` with `draftYear`) — never another year's curve.
+
+**`_parse_csv_rookies` and the misaligned rows** (map §3).  The names block
+(`W139:Y217`, header "Rank", 78 names; ranks 2 and 77 absent from the
+numbering) and the `Composite` block (`Z137` header, `Z138:Z215`, 78 values)
+have the same length and the values never rise, so pairing by position under
+each block's own header is consistent: Love 6817, Tate 5203, Mendoza 5103.
+That is an inference from the sheet's structure (equal counts, monotone
+values, header offset = data offset), not an owner statement; any count
+mismatch refuses the list.
 
 ## UNRESOLVED
 
@@ -245,5 +361,11 @@ dollar) — left for Batch F as recorded below.
   and consumption but not the draft's start time, so the ledger takes the
   cutoff from its caller; Batch D must source it from Sleeper's draft
   `start_time` rather than a constant.
+* **Whole or half dollars for the per-rookie ladder?** Batch F keeps
+  `rookieKtcValue` at the formula's half-dollar reference precision (zero
+  value change).  Owner decision 9 makes `finalWholeDollars` the unit of every
+  pick allocation, budget and auction transaction; whether a rookie's
+  pre-draft price ESTIMATE on /draft must also be whole dollars is an owner
+  call (the canonical ladder already computes both).
 * **Google Sheets engine** — parity is against the Sheets export cache (10
   digits) and LibreOffice (full precision); no live Google Sheets evaluation.

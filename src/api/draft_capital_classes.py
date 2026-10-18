@@ -35,8 +35,11 @@ pool (72 picks: 12 teams x 6 rounds).  **Scope: ``dynasty_main`` only**
 and its later classes stay UNPRICED with that reason, never adapted).  All
 Years is the sum of the classes, each pick counted once.
 
-* The default league's workbook class keeps the workbook's own dollars (they
-  are that class's $1,200 and the live auction budgets).
+* The default league's upcoming class (the one the workbook describes) is
+  priced by the SAME canonical reader as every later class (Batch F,
+  ``generation.read_class_generation``); the workbook's L2:L73 column is a
+  parity diagnostic only.  Its dollars are that class's $1,200 and the live
+  auction budgets.
 * Every later class (Batch E, owner directive 2026-10-18) is priced on the
   SAME formula: until Batch D promotes a class's real rookie inputs, its
   inputs are the frozen owner-approved 2026 provisional baseline
@@ -65,12 +68,20 @@ out of every total.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal
 from fractions import Fraction
 from typing import Any, Iterable, Mapping, Sequence
 
+from src.draft.rookie_auction.generation import (  # noqa: F401 — re-exported names
+    INPUT_MODE_ACTUAL,
+    INPUT_MODE_FROZEN_FALLBACK,
+    PROMOTED_CLASS_SNAPSHOT_SOURCE,
+    ClassCurveInputs,
+    class_curve_inputs,
+    curve_id,
+    generation_receipt,
+    input_mode_of,
+)
 from src.identity import picks as _picks
 
 #: Budget-basis vocabulary (stamped on every payload as ``budgetPolicy.basis``
@@ -100,8 +111,6 @@ CURVE_METHOD_NONE = "none"
 #: estimate.  ``actual`` is the class's own rookie values, which only Batch D's
 #: promotion can supply.  ``None`` = the served record does not say (unknown,
 #: never guessed).
-INPUT_MODE_FROZEN_FALLBACK = "frozen_fallback"
-INPUT_MODE_ACTUAL = "actual"
 PROVISIONAL_CURVE_LABEL = (
     "provisional estimate — the rookie-auction formula on the frozen 2026 provisional "
     "rookie inputs (actual class inputs pending)"
@@ -201,52 +210,12 @@ def build_class_picks(
     return rows
 
 
-# --- the later classes' curve (Batch E) ------------------------------------------------
+# --- the later classes' curve (Batch E) — read through THE generation reader (Batch F) ---
 
-
-@dataclass(frozen=True)
-class ClassCurveInputs:
-    """The rookie inputs one class's curve is computed from, and what they are."""
-
-    values: tuple[Decimal, ...]
-    input_mode: str
-    inputs_id: str
-    actual_input_class_year: int | None
-    provenance: Mapping[str, Any]
-
-
-def class_curve_inputs(league_key: str, draft_year: int) -> ClassCurveInputs:
-    """The FALLBACK candidate's rookie inputs for one class.
-
-    Owner decision 3 / the Batch E row: every class uses the frozen
-    owner-approved 2026 provisional inputs until THAT class's real inputs pass
-    Batch D (readiness + owner-gated promotion).  This module never decides
-    that a class is ready: Batch D's promotion publishes a promoted generation
-    that ``published.resolve_published_allocation`` serves ahead of any
-    candidate, so the frozen-fallback candidate built from these inputs is
-    only ever used when no promoted generation is active for that year.
-    Raises ``LeagueNotConfiguredError`` for any league but ``dynasty_main``
-    and ``SnapshotIntegrityError`` for a tampered baseline.
-    """
-    from src.draft.rookie_auction.class_snapshot import frozen_fallback_snapshot  # noqa: PLC0415
-
-    snap = frozen_fallback_snapshot(int(draft_year), league_key=league_key)
-    prov = dict(snap.provenance)
-    return ClassCurveInputs(
-        values=tuple(e.value for e in snap.entries),
-        input_mode=str(snap.mode),
-        inputs_id=str(prov.get("frozenSnapshotId") or "unknown"),
-        actual_input_class_year=snap.actual_input_class_year,
-        provenance=prov,
-    )
-
-
-def curve_id(
-    formula_version: str, input_mode: str | None, inputs_id: str | None, spine_years: Sequence[int]
-) -> str:
-    """A readable identity for one class curve: formula | inputs | spine."""
-    spine = "-".join(str(int(y)) for y in spine_years)
-    return f"{formula_version}|{input_mode}:{inputs_id}|spine:{spine}"
+# The class candidate, its inputs and its receipt are owned by
+# ``src/draft/rookie_auction/generation.py`` (one reader for every consumer of
+# auction dollars); ``ClassCurveInputs`` / ``class_curve_inputs`` /
+# ``curve_id`` are re-exported from it for existing callers.
 
 
 def resolve_class_curve_allocation(
@@ -259,90 +228,28 @@ def resolve_class_curve_allocation(
     write_dir: Any = None,
     persist: bool = True,
 ):
-    """The published 72-pick whole-dollar allocation for one later class.
+    """The published 72-pick whole-dollar allocation for one class.
 
-    Computes the class's own candidate — the spreadsheet formula
-    (``curve.compute_curve``) over :func:`class_curve_inputs` and the three
-    most recent completed classes strictly before ``draft_year``
-    (``snapshots.select_spine_years``) — and hands it to the canonical
-    resolver, which makes whole dollars with the formula's floors and caps,
-    verifies them independently, stores them create-only under THIS year, and
-    otherwise serves THIS year's last known good or ``unavailable`` with a
-    named reason.  Never another year's allocation, never $0.
+    Delegates to THE reader (``generation.read_class_generation``): the
+    spreadsheet formula over :func:`class_curve_inputs` and the class's own
+    three-completed-class spine, handed to the canonical resolver (whole
+    dollars, independent verifier, create-only storage under THIS year, else
+    THIS year's last known good or ``unavailable``).  Never another year's
+    allocation, never $0.  ``class_curve_inputs`` is looked up in this module
+    at call time, so a caller (or test) that replaces it here is honoured.
     """
-    from src.draft.rookie_auction import snapshots as _snap  # noqa: PLC0415
-    from src.draft.rookie_auction.curve import (  # noqa: PLC0415
-        FORMULA_VERSION,
-        CurveInputError,
-        CurveInvariantError,
-        compute_curve,
-        curve_receipt,
-    )
-    from src.draft.rookie_auction.league_scope import (  # noqa: PLC0415
-        LeagueNotConfiguredError,
-        league_scope,
-    )
-    from src.draft.rookie_auction.published import (  # noqa: PLC0415
-        AllocationCandidate,
-        CandidateFailure,
-        resolve_published_allocation,
-    )
+    from src.draft.rookie_auction.generation import read_class_generation  # noqa: PLC0415
 
-    year = int(draft_year)
-    key = str(league_key) if league_key else ""
-    at = now or datetime.now(timezone.utc).isoformat()
-    resolver_kwargs: dict[str, Any] = {"persist": persist}
-    if store_dirs is not None:
-        resolver_kwargs["store_dirs"] = store_dirs
-    if write_dir is not None:
-        resolver_kwargs["write_dir"] = write_dir
-    try:
-        league_scope(key)
-    except LeagueNotConfiguredError:
-        # The resolver answers ``unavailable`` / ``league_not_configured``.
-        return resolve_published_allocation(key, year, candidate=None, **resolver_kwargs)
-    cfg = config_dir if config_dir is not None else _snap.CONFIG_DIR
-    candidate: Any
-    try:
-        inputs = class_curve_inputs(key, year)
-        spine_years = _snap.select_spine_years(year, league_key=key, config_dir=cfg)
-        spine = [
-            _snap.load_completed_class_curve(y, league_key=key, config_dir=cfg) for y in spine_years
-        ]
-        result = compute_curve(list(inputs.values), [c.dollars for c in spine])
-    except (
-        CurveInputError,
-        CurveInvariantError,
-        _snap.SnapshotIntegrityError,
-        _snap.SpineUnavailableError,
-        LeagueNotConfiguredError,
-        OSError,
-    ) as exc:
-        candidate = CandidateFailure(
-            draft_year=year, reason=f"class_curve_unavailable:{type(exc).__name__}:{exc}", at=at
-        )
-    else:
-        cid = curve_id(FORMULA_VERSION, inputs.input_mode, inputs.inputs_id, spine_years)
-        receipt = curve_receipt(
-            result, spine_years=spine_years, input_provenance=dict(inputs.provenance)
-        )
-        candidate = AllocationCandidate.from_curve(
-            result,
-            draft_year=year,
-            effective_at=at,
-            provenance={
-                "source": "rookie_auction_curve",
-                "curveId": cid,
-                "inputsMode": inputs.input_mode,
-                "inputsId": inputs.inputs_id,
-                "frozenInputsChecksum": inputs.provenance.get("frozenChecksum"),
-                "actualInputClassYear": inputs.actual_input_class_year,
-                "spineYears": list(spine_years),
-                "spineChecksums": {str(c.draft_class): c.checksum for c in spine},
-                "curveReceiptSha256": receipt["receiptSha256"],
-            },
-        )
-    return resolve_published_allocation(key, year, candidate=candidate, **resolver_kwargs)
+    return read_class_generation(
+        league_key,
+        draft_year,
+        now=now,
+        config_dir=config_dir,
+        inputs_fn=class_curve_inputs,
+        store_dirs=store_dirs,
+        write_dir=write_dir,
+        persist=persist,
+    ).allocation
 
 
 def _share_order_key(row: Mapping[str, Any]) -> tuple[str, str]:
@@ -478,21 +385,11 @@ def _record_provenance(published: Any) -> Mapping[str, Any]:
     return prov if isinstance(prov, Mapping) else {}
 
 
-#: Provenance ``source`` of an allocation computed from a class's OWN
-#: canonical rookie snapshot (Batch D's promotion path).
-PROMOTED_CLASS_SNAPSHOT_SOURCE = "canonical_class_snapshot"
-
-
 def class_input_mode(published: Any) -> str | None:
     """The ``inputMode`` of the SERVED record (a last-known-good record says
-    what IT was computed from), or ``None`` when it does not say."""
-    prov = _record_provenance(published)
-    mode = prov.get("inputsMode")
-    if mode in (INPUT_MODE_FROZEN_FALLBACK, INPUT_MODE_ACTUAL):
-        return str(mode)
-    if prov.get("source") == PROMOTED_CLASS_SNAPSHOT_SOURCE:
-        return INPUT_MODE_ACTUAL
-    return None
+    what IT was computed from), or ``None`` when it does not say.  One
+    definition: ``generation.input_mode_of``."""
+    return input_mode_of(published)
 
 
 def class_valuation_block(
@@ -524,8 +421,13 @@ def class_valuation_block(
         else:
             cid = f"{formula}|record:{str(published.record_checksum)[:16]}"
     state = getattr(published, "allocation_state", None) if published is not None else None
+    # The Batch F receipt — one definition (``generation.generation_receipt``).
+    gr = generation_receipt(published, int(draft_year))
     return {
         "draftYear": int(draft_year),
+        "targetDraftYear": gr["targetDraftYear"],
+        "generationHash": gr["generationHash"],
+        "curveVersion": gr["curveVersion"] if priced else None,
         "budgetBasis": BUDGET_POLICY_PER_CLASS,
         "budget": int(budget),
         "curveMethod": CURVE_METHOD_WORKBOOK if priced else CURVE_METHOD_NONE,
@@ -533,7 +435,7 @@ def class_valuation_block(
         "formulaVersion": formula if priced else None,
         "spineYears": spine_years if priced else None,
         "inputMode": mode if priced else None,
-        "actualInputClassYear": prov.get("actualInputClassYear") if priced else None,
+        "actualInputClassYear": gr["actualInputClassYear"] if priced else None,
         # Frozen inputs = a provisional estimate; unknown inputs are not
         # claimed to be actual either.
         "provisional": (mode != INPUT_MODE_ACTUAL) if priced else None,
@@ -582,55 +484,63 @@ def formula_pick_count() -> int:
     return int(WORKBOOK_PARAMS.pick_count)
 
 
-def resolve_workbook_allocation(league_key: Any, draft_year: int, reference_values: Any):
-    """The published allocation for the workbook's 72-pick class.
+#: ``workbookParity.state`` vocabulary (Batch F).
+WORKBOOK_PARITY_MATCHES = "matches"
+WORKBOOK_PARITY_DIFFERS = "differs"
+WORKBOOK_PARITY_NOT_COMPARED = "not_compared"
 
-    Owner decisions / addendum 2026-10-18: the fresh workbook curve
-    (``referenceDollars`` = the sheet's L2:L73) is the candidate; the
-    canonical resolver verifies it (constraint-aware whole dollars, exact
-    $1,200, independent verifier) and otherwise keeps the SAME year's last
-    verified allocation, or answers unavailable with a named reason.  Values
-    cross as exact decimal strings — never floats.
+
+def workbook_parity_block(workbook_values: Any, served_reference: Any) -> dict[str, Any]:
+    """Does the workbook's L2:L73 still equal the served class curve?
+
+    Batch F reads the upcoming class's dollars from the canonical generation
+    reader; the workbook's "Final Dollar Per Pick" column is the SAME quantity
+    for the class it was built for, so it is kept as a diagnostic only.  A
+    difference is reported (``differs`` + the picks), never silently applied
+    in either direction.  Exact comparison — no float tolerance.
     """
-    from datetime import datetime, timezone  # noqa: PLC0415
+    from src.draft.rookie_auction.curve import iter_labels  # noqa: PLC0415
 
-    from src.draft.rookie_auction.published import (  # noqa: PLC0415
-        AllocationCandidate,
-        CandidateFailure,
-        resolve_published_allocation,
-    )
-
-    now = datetime.now(timezone.utc).isoformat()
-    year = int(draft_year)
-    key = str(league_key) if league_key else ""
-    if not reference_values:
-        candidate: Any = CandidateFailure(
-            draft_year=year, reason="workbook_reference_column_missing", at=now
-        )
-    else:
+    base: dict[str, Any] = {"range": "Draft Data!L2:L73", "authority": "diagnostic_only"}
+    if served_reference is None:
+        return {**base, "state": WORKBOOK_PARITY_NOT_COMPARED, "reason": "no_served_allocation"}
+    if not workbook_values:
+        return {**base, "state": WORKBOOK_PARITY_NOT_COMPARED, "reason": "workbook_column_missing"}
+    served = list(served_reference)
+    sheet = list(workbook_values)[: len(served)]
+    if len(sheet) != len(served):
+        return {
+            **base,
+            "state": WORKBOOK_PARITY_NOT_COMPARED,
+            "reason": f"workbook_column_has_{len(sheet)}_of_{len(served)}_picks",
+        }
+    labels = list(iter_labels())
+    mismatched: list[dict[str, Any]] = []
+    for i, (w, r) in enumerate(zip(sheet, served)):
         try:
-            exact = [str(Decimal(str(v))) for v in reference_values]
-        except (ArithmeticError, ValueError, TypeError) as exc:
-            candidate = CandidateFailure(
-                draft_year=year, reason=f"workbook_reference_unreadable:{exc}", at=now
+            same = _exact(w) == _exact(r)
+        except (ArithmeticError, ValueError, TypeError):
+            same = False
+        if not same:
+            mismatched.append(
+                {"pick": labels[i] if i < len(labels) else str(i + 1), "workbook": w, "served": r}
             )
-        else:
-            candidate = AllocationCandidate(
-                draft_year=year,
-                reference_dollars=exact,
-                effective_at=now,
-                provenance={
-                    "source": "draft_data_workbook",
-                    "range": "Draft Data!L2:L73",
-                },
-            )
-    return resolve_published_allocation(key, year, candidate=candidate)
+    return {
+        **base,
+        "state": WORKBOOK_PARITY_DIFFERS if mismatched else WORKBOOK_PARITY_MATCHES,
+        "reason": None,
+        "comparedPicks": len(served),
+        "mismatchCount": len(mismatched),
+        "mismatchedPicks": mismatched[:12],
+    }
 
 
 def draft_valuation_state_block(published: Any) -> dict[str, Any]:
     """The payload's ``draftValuation`` block: which allocation was published
-    and why — never ownership, never the per-pick arrays twice."""
+    and why, plus the Batch F receipt — never ownership, never the per-pick
+    arrays twice."""
     return {
+        **generation_receipt(published, int(published.draft_year)),
         "allocationState": published.allocation_state,
         "draftYear": published.draft_year,
         "effectiveAt": published.effective_at,
@@ -718,7 +628,7 @@ def budget_policy_block(
     }
     note = "Each draft class is its own $%d pool; All Years adds the classes together." % budget
     if workbook_season is not None:
-        note += " The %d class uses the league workbook's dollars." % int(workbook_season)
+        note += " The %d class is the league's upcoming auction." % int(workbook_season)
     if provisional:
         note += " %s dollars: %s." % (
             ", ".join(str(s) for s in provisional),

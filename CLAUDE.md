@@ -462,8 +462,11 @@ Error behavior on endpoints:
 - `/api/draft-capital` — 503 `data_not_ready` only when NO contract is
   loaded, and only on the non-default path.  It deliberately does NOT
   503 on a league *mismatch*.
-  - The default league is served from `CSVs/Draft Data.xlsx` and never
-    consults the contract, so contract readiness is irrelevant to it.
+  - The default league takes its ownership grid and standings from
+    `CSVs/Draft Data.xlsx` and its pick dollars from the canonical
+    rookie-auction generation reader (Batch F, below) — neither consults the
+    contract, so contract readiness is irrelevant to its budgets (only the
+    per-rookie ladder reads the contract's rookie pool).
   - A non-default league takes the Sleeper-derived fallback
     (`src/api/draft_capital_fallback.py`), which fetches **that
     league's own** rosters and traded picks.  It needs the contract
@@ -553,9 +556,25 @@ Error behavior on endpoints:
     each pick once.  **Budget basis — OWNER DECISION 2026-10-18: "$1,200 per
     draft class"** for `dynasty_main` (12 teams x 6 rounds = 72 picks per
     class).  Each class is its own $1200 pool; All Years sums the classes,
-    each pick once.  **Whole dollars only** (owner decision 2026-10-18): the
-    workbook class's half-dollar L2:L73 column is mathematical REFERENCE data
-    (`workbookReferenceDollarValue`); its published pick dollars come from the
+    each pick once.  **One reader (Batch F, `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`
+    consumer census):** every consumer of rookie-auction dollars reads
+    `src/draft/rookie_auction/generation.py` — the upcoming (workbook) class
+    as much as the later ones.  The workbook's L2:L73 is the SAME quantity for
+    the class it was built for, so it is no longer read as dollars, only
+    compared (`workbookParity`, diagnostic).  Every class carries the receipt
+    `generationHash` / `curveVersion` / `targetDraftYear` /
+    `actualInputClassYear` / `spineYears` / `inputMode` / `allocationState`
+    from its SERVED record (`draftValuationGeneration`, `draftValuation`,
+    `budgetPolicy.classes[year]`); `rookieKtcValue` is
+    `generation.rookie_ladder` (canonical curve, exactly 72 rookies, else
+    missing — `rookieDollarLadder` says which).  A failed dollars generation
+    is answered with the SAME year's last valid board, labelled
+    `staleWhileRevalidate` (≤ 6 h, retried after 60 s); ownership / Sleeper
+    refusals still refuse.  Degraded classes alert through `ops_alerts`
+    (`draft_valuation:<league>:<year>`).  **Whole dollars only** (owner
+    decision 2026-10-18): the class's half-dollar reference curve
+    (`workbookReferenceDollarValue`, the served record's) is mathematical
+    REFERENCE data; its published pick dollars come from the
     canonical rookie-auction calculation's final whole-dollar step
     (`src/draft/rookie_auction/apportion.py`: floor, integer residual by
     largest fractional remainder, earlier pick first, floors / caps / order
@@ -565,7 +584,7 @@ Error behavior on endpoints:
     `server._round_to_budget` rounded team totals independently of their
     picks).  **Last-known-good** (owner addendum 2026-10-18): the 72-pick
     class is resolved through `src/draft/rookie_auction/published.py` — a
-    verified fresh curve publishes `current`; a refresh that fails validation
+    verified fresh canonical curve publishes `current`; a refresh that fails
     keeps the SAME year's last verified allocation (`draftValuation.allocationState:
     "last_known_good"`, `failedRefresh`, `lastValidAt`, `warning`); with
     nothing applicable the board is refused (`draft_dollars_unavailable`),
