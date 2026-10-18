@@ -141,8 +141,6 @@ _NO_RESULT_TEXT = {
     ),
 }
 
-_PLAYER_FAMILIES = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
-
 
 def normalize_return_positions(raw: Any) -> tuple[frozenset[str] | None, list[str]]:
     """``(families | None, unknown)`` — ``None`` means "any position"."""
