@@ -1,0 +1,276 @@
+{
+ "_comment": [
+  "TC-C fairness-band validation cases (owner decision 3). Expected levels are derived from",
+  "config/trade/fairness_bands.json's stated formula (relative to the larger ADJUSTED side, absolute",
+  "minimum), never captured from either implementation. Package cases reuse",
+  "tests/fixtures/trade_package_equity_parity_cases.json (adjusted gap + larger adjusted side under",
+  "geom_q078_v1). ktcEraMeterLevel is the retired absolute 350/900/1800 meter band, kept so the",
+  "flip from the KTC-era bands is visible per case. Asserted by tests/valuation_math/test_fairness_bands.py",
+  "and frontend/__tests__/fairness-bands.test.js."
+ ],
+ "bands": "fairness_bands_v1",
+ "cases": [
+  {
+   "id": "one_for_one",
+   "assetMix": "offense",
+   "sideA": [
+    7200
+   ],
+   "sideB": [
+    6000
+   ],
+   "adjustedGap": 1200,
+   "largerAdjusted": 7200,
+   "expectedLevel": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "stud_for_two",
+   "assetMix": "offense",
+   "sideA": [
+    8200
+   ],
+   "sideB": [
+    5500,
+    4900
+   ],
+   "adjustedGap": -1122,
+   "largerAdjusted": 10400,
+   "expectedLevel": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "stud_for_pile",
+   "assetMix": "offense consolidation",
+   "sideA": [
+    9000
+   ],
+   "sideB": [
+    2000,
+    2000,
+    2000,
+    2000
+   ],
+   "adjustedGap": 3274,
+   "largerAdjusted": 11274,
+   "expectedLevel": "lopsided",
+   "ktcEraMeterLevel": "lopsided"
+  },
+  {
+   "id": "two_for_three_offense",
+   "assetMix": "offense",
+   "sideA": [
+    6500,
+    3100
+   ],
+   "sideB": [
+    4200,
+    3900,
+    2600
+   ],
+   "adjustedGap": 94,
+   "largerAdjusted": 10794,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "idp_consolidation",
+   "assetMix": "idp consolidation",
+   "sideA": [
+    4100
+   ],
+   "sideB": [
+    2300,
+    1900,
+    900
+   ],
+   "adjustedGap": -230,
+   "largerAdjusted": 5100,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "picks_and_player",
+   "assetMix": "picks",
+   "sideA": [
+    5200,
+    3400
+   ],
+   "sideB": [
+    4800,
+    2700,
+    1500
+   ],
+   "adjustedGap": 33,
+   "largerAdjusted": 9033,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "large_packages_5v6",
+   "assetMix": "large packages",
+   "sideA": [
+    3000,
+    2800,
+    2500,
+    2100,
+    1800
+   ],
+   "sideB": [
+    3300,
+    2600,
+    2400,
+    2000,
+    1500,
+    1200
+   ],
+   "adjustedGap": -271,
+   "largerAdjusted": 13000,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "near_even_2v1",
+   "assetMix": "offense",
+   "sideA": [
+    6000,
+    300
+   ],
+   "sideB": [
+    6100
+   ],
+   "adjustedGap": 134,
+   "largerAdjusted": 6300,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "star_1for1_3pct",
+   "assetMix": "offense",
+   "adjustedGap": 300,
+   "largerAdjusted": 9300,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "star_1for1_5pct",
+   "assetMix": "offense",
+   "adjustedGap": 450,
+   "largerAdjusted": 9000,
+   "expectedLevel": "slight",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "bench_1for1_300",
+   "assetMix": "offense bench",
+   "adjustedGap": 300,
+   "largerAdjusted": 1500,
+   "expectedLevel": "lopsided",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "bench_1for1_200",
+   "assetMix": "offense bench",
+   "adjustedGap": 200,
+   "largerAdjusted": 1200,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "idp_1for1_12pct",
+   "assetMix": "idp",
+   "adjustedGap": 400,
+   "largerAdjusted": 3300,
+   "expectedLevel": "unfair",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "pick_round1_vs_round2",
+   "assetMix": "picks",
+   "adjustedGap": 1400,
+   "largerAdjusted": 3200,
+   "expectedLevel": "lopsided",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "pick_slots_close",
+   "assetMix": "picks",
+   "adjustedGap": 120,
+   "largerAdjusted": 3100,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "consolidation_10pct",
+   "assetMix": "consolidation",
+   "adjustedGap": 1100,
+   "largerAdjusted": 11000,
+   "expectedLevel": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "large_30k_2pct",
+   "assetMix": "large packages",
+   "adjustedGap": 600,
+   "largerAdjusted": 30000,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "large_30k_20pct",
+   "assetMix": "large packages",
+   "adjustedGap": 6000,
+   "largerAdjusted": 30000,
+   "expectedLevel": "lopsided",
+   "ktcEraMeterLevel": "lopsided"
+  },
+  {
+   "id": "boundary_slight",
+   "assetMix": "boundary",
+   "adjustedGap": 350,
+   "largerAdjusted": 10000,
+   "expectedLevel": "slight",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "boundary_unfair",
+   "assetMix": "boundary",
+   "adjustedGap": 900,
+   "largerAdjusted": 10000,
+   "expectedLevel": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "boundary_lopsided",
+   "assetMix": "boundary",
+   "adjustedGap": 1800,
+   "largerAdjusted": 10000,
+   "expectedLevel": "lopsided",
+   "ktcEraMeterLevel": "lopsided"
+  },
+  {
+   "id": "below_absolute_minimum",
+   "assetMix": "boundary",
+   "adjustedGap": 249,
+   "largerAdjusted": 1000,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "at_absolute_minimum",
+   "assetMix": "boundary",
+   "adjustedGap": 250,
+   "largerAdjusted": 1000,
+   "expectedLevel": "lopsided",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "empty",
+   "assetMix": "boundary",
+   "adjustedGap": 0,
+   "largerAdjusted": 0,
+   "expectedLevel": "fair",
+   "ktcEraMeterLevel": "fair"
+  }
+ ]
+}
