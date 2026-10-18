@@ -1820,6 +1820,30 @@ and do not cut over without explicit owner approval. Blueprint:
 | One signed-in evidence capture by the owner (`OWNER_EVIDENCE_CAPTURE.md`) | OWNER ACTION — blocks every VERIFIED access claim |
 | Implementation (Batches 1–10) | NOT AUTHORIZED — needs `docs/EXECUTION_PLAN.md` |
 
+## Added 2026-10-18 — Draft valuation automation (spreadsheet → canonical engine)
+
+Owner master execution directive + addendum, 2026-10-18, and the owner implementation package of 2026-10-17
+(`START_HERE_OWNER_DECISIONS_AND_CURRENT_QUEUE.md` — final and superseding the audit's open questions —
+`chase_upside_draft_forensic_audit_2026-10-17.md`, PROMPT 0 and A–G, `chase_upside_draft_goldens_2026-10-17.json`).
+The owner's `Draft Data` spreadsheet formula is the approved methodology; reproduce it exactly, then automate
+rookie-class inputs, the three-year spine and multi-year draft capital. An addition to the active queue, not a
+stop-work. Workstream record: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; workbook map and parity evidence:
+`docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`.
+
+| Item | Disposition |
+|---|---|
+| Each rookie draft class gets its own independent $1,200 pool — every year, indefinitely, for `dynasty_main` (league scope corrected by the owner 2026-10-18; see the scope-correction entry recorded with PR #1785); never one $1,200 split across 2027–2029 (All Years = $3,600 nominal with three complete classes). Resolves the annual-vs-pooled question in PROMPT 0 / PROMPT E and in "Added 2026-10-17 — P1: all Sleeper draft years" | DECIDED — owner, 2026-10-18 (final) |
+| The workbook's existing 2026 values are the approved provisional rookie-value fallback: frozen with provenance and an effective snapshot date; column B kept distinct from column H (historical 2026 dollar curve); never relabelled as a pre-draft observation; daily value changes never rewrite it; retired 2026 pick assets never reactivated | DECIDED — owner, 2026-10-18 (final) |
+| Spine = the three most recent completed rookie drafts (2027 → 2024/2025/2026), rolling only on verified draft completion; immutable snapshots | DECIDED — binding |
+| `dynasty_main` is 12 × 6 = 72 picks per class; any other league is not configured (fail closed). A 40-pick `dynasty_new` adaptation is not pursued | OUT OF SCOPE — owner correction, 2026-10-18 |
+| Package Value Adjustment never applies to pick auction dollars; canonical 0–9999 pick values stay a separate concept | DECIDED — binding |
+| A RANK tie at the award cutoff makes the literal spreadsheet publish a non-$1,200 total (measured: $1,206); tied remainders at the cutoff now go to the earlier draft position, so the half-dollar curve always totals exactly $1,200 (unchanged on the real workbook) | DECIDED — owner, 2026-10-18 |
+| The `dynasty_main` rookie auction uses whole dollars only: 72 integer pick values totalling exactly $1,200, every manager budget the exact integer sum of owned picks; the half-dollar L curve stays the mathematical reference and the whole-dollar allocation is a separate final step (floor, residual to largest remainders, ties to the earlier pick, verify or refuse) | DECIDED — owner, 2026-10-18; implemented on PR #1786 (`src/draft/rookie_auction/apportion.py`) |
+| Each completed class keeps two immutable values: `referenceDollars` (original-precision spreadsheet curve, used for the three-year spine) and `finalWholeDollars` (published integers, used for every allocation, budget, display and auction transaction); fractional dollars are never spendable | DECIDED — owner, 2026-10-18; implemented on PR #1786 |
+| Whole dollars: largest-remainder rounding is used unchanged when it satisfies every constraint; otherwise an exact constrained minimum-deviation allocation (Σ\|d−r\|, floors/caps/non-increasing kept, ties to earlier picks); refuse only on genuine infeasibility, bad data or failed verification | DECIDED — owner, 2026-10-18; implemented on PR #1786 (250/250 synthetic classes publish; 2027 workbook unchanged) |
+| Last-known-good draft valuation safety: newest verified 72-pick allocation per draft year kept immutably; a failed refresh serves that same year's last verified allocation with `failedRefresh` / `lastValidAt` warnings, else `unavailable` with a named reason; never zero, never cross-year, never ownership | DECIDED — owner addendum, 2026-10-18; implemented on PR #1786 (`src/draft/rookie_auction/published.py`) |
+| Implementation | IN PROGRESS — PR #1786 (`claude/draft-valuation-engine`, not merged): Batch A exact parity, Batch B frozen fallback + class snapshot + report-only readiness, Batch C rollover ledger, tests green; Batches D–G follow (E integrates PR #1785) |
+
 ## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
 
 Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.zip` (three binding docs:
