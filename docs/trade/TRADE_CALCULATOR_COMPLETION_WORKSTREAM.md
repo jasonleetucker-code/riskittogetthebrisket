@@ -342,11 +342,71 @@ finder ratios, the Monte Carlo headline bands, history letter grades (out of `/t
 - `build:nocheck` + `check:bundles`: all pages under budget; `/trade` 87.8 KB of 93 KB (TC-A head: 85.1 KB).
 - Playwright and a real-stack run on `dynasty_main`: NOT run (no browsers or local stack here).
 
+### Fairness-band impact, measured on real data (decision 3)
+
+`scripts/measure_fairness_band_change.py` (read-only). Raw output: `docs/trade/tc-c-fairness-band-impact/results.json`.
+
+Method:
+- **Board:** rebuilt from `exports/latest/dynasty_data_2026-10-17.json` with its own rosters (`dynasty_main`, 12
+  teams).
+- **Old vs new:** each surface runs under the NEW bands and under the retired absolute rule (even < 256, lean < 769),
+  restored by monkeypatching the one `fairness_bands.classify`.
+- **Qualified candidates:** captured at the engines' own seam (`best_offers._factors`, called once per candidate
+  that passed every hard rule).
+- **Mode:** Asset-only for Best Offers and the Package Builder (the band enters only through `equity_verdict`).
+- **Coverage:** Best Offers for all 132 opponent cards; the Package Builder for 36 "sell a player" requests;
+  suggestions for every team.
+
+**Qualification**, reported separately from ranking:
+
+| surface | qualified OLD → NEW | kept | dropped | added |
+|---|---|---|---|---|
+| Best Offers | 44,376 → 43,413 | 43,208 | 1,168 (0 small, 460 IDP, 0 picks, 974 consolidation; 1.25–3.50% / 256–774 pts) | 205 (8 small, 190 IDP, 0 picks, 183 consolidation; 3.53–12.3% / 250–255 pts) |
+| Package Builder | 72,941 → 73,353 | 72,877 | 64 (250–255 pts against, 3.6–6.1%) | 476 (256–377 pts against, ≤ 3.5%) |
+| Suggestions | 45 → 44 | 37 | 8 (7 consolidations re-badged lean → stretch at about 9–10%, replaced) | 7 |
+
+**Ranking among trades qualified under both:**
+- **Best Offers and Package Builder:** 0 order changes in 140 / 139 groups and 0 top-trade changes. Their ranking
+  does not take the band as an input.
+- **Suggestions:** 4 of 37 kept trades changed rank, and 5 were relabelled. Their ranking uses the band through the
+  rank bonus.
+
+**What a user would see:**
+- **Best Offers:** 131 of 132 cards serve the same offer under both bands, and the last one has no offer either way.
+- **Package Builder:** for the best package per opponent, 377 kept, 3 added, 1 dropped.
+
+**Exclusions.** The only material removal is Best Offers' 1,168 "canonical wins" on large packages (larger side about
+20,000+) that are ahead by under 3.5%. Largest example: Joey gives Gibbs + Smith-Njigba for Burrow + Mahomes + Olave,
++774 on 22,581 (3.43%). Under decision 3 these are FAIR, so the removal is consistent with the decision, and none was
+a served offer.
+
+**For the owner, not applied.** Should a Best Offers WIN still count a clear absolute edge (≥ the 250 minimum) that is
+inside the relative fair band? The smallest fix is one comparison in the WIN rule, reusing the band owner's
+`absoluteMinimum`, with the band itself untouched.
+
+**Validation status: NOT validated, still PROVISIONAL.** Missing:
+- a defined target (realized trades valued at the time, or an owner-labelled fair / unfair set);
+- a fit of the cut points against that target, with a holdout;
+- more than one board date;
+- Team Context runs.
+
+**Trade Finder lane.** TC-A and TC-C changed **0 lines** in `best_offers.py`, `golden_upgrades.py`,
+`package_builder.py`, `finder.py` and the `/arbitrage` views. Best Offers and the Package Builder reach the band owner
+only through `analyze_trade.equity_verdict`. Golden Upgrades uses no band and no package model: its pairs are
+1-for-1, and its inversion minimums are a separate PRIOR.
+
 ### What TC-C does not do
 
-- "What would change it" (perturbation search) is not implemented; `mainCounterargument` is.
 - Monte Carlo still shows its own "favored" sentence (relabel planned in TC-D, audit §7.8).
-- Historical replay and decision receipts (audit §7.7 / §7.9 items 3–4) are not built.
+- Historical replay is **asset-only** (`src/trade/decision_replay.py`, values from `src/history` as-of reads).
+  Team-context replay is DEFERRED: no as-of store exists for rosters, roster rules, projections or posture.
+
+Built since the first TC-C head:
+- `whatWouldChange`: the smallest flip found by re-running the decision;
+- the ten-dimension `coverage` record;
+- the decision `receipt`;
+- decision receipts through AL-P5 (`src/trade/trade_decision_log.py` → `producer_receipts` section 6 → the existing
+  `scripts/trade_decision_receipts.py`).
 - Second Opinions dispersion and comparables do not yet lower the agreement axis.
 - The fairness bands are provisional: no validation target exists yet to fit them against.
 
