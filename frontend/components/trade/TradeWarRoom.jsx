@@ -216,6 +216,9 @@ function DecisionHeadline({ decision, teamLabel, goalChoice, onGoalChange, showS
     <div className={styles.verdict} data-decision={decision.headline}>
       <p className={styles.verdictEyebrow}>For {teamLabel}</p>
       <p className={styles.verdictLine}>
+        {/* Screen-reader name for the answer (TC-E): "Final decision: YES —
+            MAKE THE TRADE", not a bare badge. */}
+        <span className="ds-visually-hidden">Final decision: </span>
         <Badge
           tone={DECISION_TONES[decision.headline]}
           className={styles.verdictBadge}
@@ -645,6 +648,9 @@ export default function TradeWarRoom({
     contextKey: "",
   });
   const controllerRef = useRef(null);
+  // "Try again" after an error (TC-E): re-asks the SAME question; the
+  // request key and the abort/sequence rule are unchanged.
+  const [attempt, setAttempt] = useState(0);
   const key = useMemo(
     () => analyzeRequestKey(request, leagueKey, useTeamContext, teamGoal),
     [request, leagueKey, useTeamContext, teamGoal],
@@ -740,7 +746,7 @@ export default function TradeWarRoom({
     return () => clearTimeout(timer);
     // `request` identity is folded into `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, ready]);
+  }, [key, ready, attempt]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -840,7 +846,10 @@ export default function TradeWarRoom({
           {basisNotice}
         </p>
       ) : null}
-      <p role="status" className={styles.status}>
+      {/* Visible progress, deliberately NOT a live region (TC-E design
+          choice): only the final decision change is announced, once, by the
+          page's verdict announcer -- "Analyzing…" on every edit is noise. */}
+      <p className={styles.status}>
         {state.status === "loading"
           ? "Analyzing this trade…"
           : stale
@@ -851,7 +860,10 @@ export default function TradeWarRoom({
       {state.status === "error" ? (
         <Banner tone="warning">
           Analysis unavailable right now ({state.error}). The package totals and
-          verdict below are unaffected.
+          verdict below are unaffected.{" "}
+          <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
+            Try again
+          </Button>
         </Banner>
       ) : null}
 

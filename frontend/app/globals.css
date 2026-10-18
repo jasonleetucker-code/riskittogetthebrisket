@@ -1400,6 +1400,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .trade-side-search-input {
   width: 100%;
 }
+/* TC-E: the side search shows the shared focus ring, not only a border tint. */
+.trade-side-search-input:focus-visible {
+  box-shadow: var(--focus-ring);
+}
 
 .trade-side-search-results {
   margin-top: 6px;
@@ -1432,8 +1436,17 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-bottom: none;
 }
 .trade-side-search-result:hover,
-.trade-side-search-result:active {
+.trade-side-search-result:active,
+.trade-side-search-result[data-active="true"] {
   background: rgba(79, 155, 236, 0.08);
+}
+/* TC-E: the keyboard-active option (aria-activedescendant) and a Tab-focused
+   sheet row carry the shared focus ring, so the active row is visible without
+   colour alone. */
+.trade-side-search-result[data-active="true"],
+.trade-side-search-result:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
 }
 
 .trade-side-search-result-body {

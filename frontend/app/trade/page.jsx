@@ -1,6 +1,15 @@
 "use client";
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { isFairGap } from "@/lib/fairness-bands";
 import {
@@ -37,6 +46,7 @@ import {
   MIN_SIDES,
   computeStackAdjustments,
   multiTeamNetSummary,
+  tradeSignature,
 } from "@/lib/trade-logic";
 import { valuationBasisLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -98,6 +108,7 @@ import {
   SUMMARY_STATE_TEXT,
   TradeIntelTabs,
   TradeSectionNav,
+  TradeVerdictAnnouncer,
   useNarrowViewport,
 } from "./trade-layout";
 import styles from "./trade.module.css";
@@ -114,6 +125,8 @@ import styles from "./trade.module.css";
 // responses — no trade math was moved, added, or reimplemented here.
 
 const ROSTER_KEY = "next_trade_roster_v1";
+// The balancer answer while the deferred search is catching up (TC-E).
+const NO_BALANCERS = Object.freeze({ list: [], teamName: null });
 const TEAM_KEY = "next_trade_team_v1";
 
 // TradeMeter + TradeSourceBreakdown live as shared components under
@@ -144,8 +157,29 @@ const TradeMeter = SharedTradeMeter;
 // chunk hashes the first time it opens one of these.  React.lazy caches the
 // rejected import, so a remount would re-throw; `recovery="reload"` offers a
 // page reload instead.
-const dyn = (loader, name) => {
+// `loadingText` (TC-E): a panel that is the WHOLE content of a drilldown tab
+// says it is loading while its chunk arrives, instead of leaving the tab
+// blank.  Every other section keeps the null fallback (no layout shift), each
+// still inside its own boundary.
+const dyn = (loader, name, loadingText = null) => {
   const LazyPanel = lazy(loader);
+  if (loadingText) {
+    return function OnDemandTabPanel(props) {
+      return (
+        <ResilientSection name={name} recovery="reload">
+          <Suspense
+            fallback={
+              <p className={styles.intelLead} aria-busy="true" data-testid="trade-panel-loading">
+                {loadingText}
+              </p>
+            }
+          >
+            <LazyPanel {...props} />
+          </Suspense>
+        </ResilientSection>
+      );
+    };
+  }
   return function OnDemandSection(props) {
     return (
       <ResilientSection name={name} recovery="reload">
@@ -160,7 +194,11 @@ const TradeSourceBreakdown = dyn(
   () => import("@/components/trade/TradeSourceBreakdown"),
   "Per-source breakdown",
 );
-const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"), "Rest-of-season fit");
+const RosTradeFitPanel = dyn(
+  () => import("@/components/RosTradeFitPanel"),
+  "Rest-of-season fit",
+  "Loading rest-of-season fit…",
+);
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundamentals check");
 // TC-B2 / TCM-M01, M02, M04, M05: how each package is built (stacked value
 // bars, Quick Trade Facts, concentration) -- the Value tab's first panel.  It
@@ -169,12 +207,14 @@ const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundame
 const TradePackageBreakdown = dyn(
   () => import("@/components/trade/TradePackageBreakdown"),
   "Package breakdown",
+  "Loading the package breakdown…",
 );
 // TC-D2: the Reasoning tab -- the decision's own coverage record and "what
 // would change it", rendered only when that tab is open.
 const TradeDecisionReasoning = dyn(
   () => import("@/components/trade/TradeDecisionReasoning"),
   "Decision reasoning",
+  "Loading the decision reasoning…",
 );
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
 // TC-07 / TC-10: recorded real trades that moved an asset on the calculator.
@@ -183,6 +223,7 @@ const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "
 const RecentRealTrades = dyn(
   () => import("@/components/trade/RecentRealTrades"),
   "Recent real trades",
+  "Loading recorded real trades…",
 );
 // TC-B / TCM-K03: the immediate Second Opinions tally beside the meter.  On
 // screen whenever two sides hold assets, but lazy: the opinion machinery is
@@ -268,6 +309,15 @@ export default function TradePage() {
 
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
+  // The trade on screen, for request sequencing (TC-E): an async answer
+  // compares the trade it was asked about with this before it may land.
+  const sidesSignature = useMemo(() => tradeSignature(sides), [sides]);
+  const sidesSignatureRef = useRef(sidesSignature);
+  useEffect(() => {
+    sidesSignatureRef.current = sidesSignature;
+  }, [sidesSignature]);
+  const ktcImportSeqRef = useRef(0);
+  const ktcExportSeqRef = useRef(0);
   const [activeSide, setActiveSide] = useState(0); // index into sides
   // TC-D2: the open Supporting-intelligence drilldown (only it is mounted).
   const [intelTab, setIntelTab] = useState("value");
@@ -276,6 +326,15 @@ export default function TradePage() {
   const [sheetSideIdx, setSheetSideIdx] = useState(null);
   // TC-D2: CSV / JSON / Copy KTC URL live in the toolbar's "More" group.
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  // Toolbar disclosures (Import trade, More) return focus to their trigger
+  // when they close (Escape or a chosen action), so a keyboard user is never
+  // dropped onto <body> when the focused option unmounts (TC-E).
+  const moreMenuButtonRef = useRef(null);
+  const importMenuButtonRef = useRef(null);
+  const closeToolbarGroup = useCallback((setOpen, triggerRef) => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus?.({ preventScroll: true }));
+  }, []);
   // TC-D: the War Room's decision, reported up (onDecision) for the sticky
   // desktop echo and the mobile verdict bar.  The War Room owns the request.
   const [decisionSummary, setDecisionSummary] = useState({ status: "idle", decision: null });
@@ -513,6 +572,8 @@ export default function TradePage() {
   // owner-approved methodology meeting issue #1529's prerequisites.  Picks
   // still need a resolved team on every side they touch for the note.
   const [draftCapital, setDraftCapital] = useState(null);
+  // A failed draft-capital read is stated, never a silently missing note (TC-E).
+  const [draftCapitalFailed, setDraftCapitalFailed] = useState(false);
   useEffect(() => {
     // Wait for the league key to resolve: fetching while it is still ""
     // and again once it lands requested /api/draft-capital twice on every
@@ -527,12 +588,17 @@ export default function TradePage() {
       ? `?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
       : "";
     setDraftCapital(null);
+    setDraftCapitalFailed(false);
     fetch(`/api/draft-capital${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (alive && d && Array.isArray(d.picks)) setDraftCapital(d);
+        if (!alive) return;
+        if (d && Array.isArray(d.picks)) setDraftCapital(d);
+        else setDraftCapitalFailed(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setDraftCapitalFailed(true);
+      });
     return () => {
       alive = false;
     };
@@ -1166,37 +1232,67 @@ export default function TradePage() {
     [sides, rows, teamRosterNames, pickEntriesByTeam],
   );
 
-  const balancers = useMemo(() => {
-    if (sides.length !== 2) return { list: [], teamName: null };
-    if (tradeIsIncomplete) return { list: [], teamName: null };
-    if (pwGapIsFair) return { list: [], teamName: null };
+  // TC-E — immediate math vs expensive analysis.  The meter, the tray and the
+  // sticky result are synchronous local math; the balancer search is not: it
+  // re-simulates the whole trade once per candidate (and once per pair), which
+  // measured 33 ms per run over a 120-asset roster pool and 76 ms over the
+  // full board (Node, warm; several times that on a phone).  It used to run in
+  // the SAME render as the verdict, so every edit paid for it before the new
+  // band could paint.  It now reads a deferred snapshot (useDeferredValue, the
+  // Perfect Draft pattern): the verdict commits first and the search follows
+  // at low priority.  Suggestions are shown only while the snapshot is the
+  // trade on screen -- a stale suggestion for the previous trade is never
+  // rendered under the new one (request-sequencing rule, applied to a
+  // deferred computation).
+  const balancerInput = useMemo(
+    () => ({
+      sides,
+      sidesWithOverrides,
+      sideFlows,
+      pwGap,
+      pwGapIsFair,
+      tradeIsIncomplete,
+      multiLarger,
+      inferTeamForSide,
+      balancerPool,
+    }),
+    [
+      sides,
+      sidesWithOverrides,
+      sideFlows,
+      pwGap,
+      pwGapIsFair,
+      tradeIsIncomplete,
+      multiLarger,
+      inferTeamForSide,
+      balancerPool,
+    ],
+  );
+  const deferredBalancerInput = useDeferredValue(balancerInput);
+  const balancersCurrent = deferredBalancerInput === balancerInput;
+
+  const deferredBalancers = useMemo(() => {
+    const b = deferredBalancerInput;
+    if (b.sides.length !== 2) return { list: [], teamName: null };
+    if (b.tradeIsIncomplete) return { list: [], teamName: null };
+    if (b.pwGapIsFair) return { list: [], teamName: null };
     // Behind side = the one whose total is LOWER.
-    const behindSideIdx = pwGap > 0 ? 1 : 0;
-    const behindSide = sides[behindSideIdx];
-    const behindTeam = inferTeamForSide(behindSide);
-    const { pool, teamName } = balancerPool(behindSideIdx, behindTeam);
+    const behindSideIdx = b.pwGap > 0 ? 1 : 0;
+    const behindSide = b.sides[behindSideIdx];
+    const behindTeam = b.inferTeamForSide(behindSide);
+    const { pool, teamName } = b.balancerPool(behindSideIdx, behindTeam);
     // The gap is NOT passed in.  ``findBalancers`` takes the trade and
     // measures the post-add gap through the same path the meter renders,
     // so a raw value can never be matched against an adjusted target
     // (defect #800).
     // combos: when no single asset lands inside the fair band, a pair from
     // the same roster is tried too (TC-B / TCM-F03), simulated whole.
-    const list = findBalancers(sidesWithOverrides, behindSideIdx, pool, valueMode, {
+    const list = findBalancers(b.sidesWithOverrides, behindSideIdx, pool, valueMode, {
       settings,
       combos: true,
     });
     return { list, teamName };
-  }, [
-    pwGap,
-    pwGapIsFair,
-    tradeIsIncomplete,
-    sides,
-    sidesWithOverrides,
-    settings,
-    valueMode,
-    inferTeamForSide,
-    balancerPool,
-  ]);
+  }, [deferredBalancerInput, settings, valueMode]);
 
   // For 3+ teams, find balancers for the team getting the best deal
   // (they should add more to their give to even things out).  Uses
@@ -1205,22 +1301,23 @@ export default function TradePage() {
   // chosen destination.  Falling back to the raw total index would
   // pick whoever put the fewest pieces on the table — a different
   // question entirely.
-  const multiBalancers = useMemo(() => {
-    if (sides.length <= 2) return null;
-    if (tradeIsIncomplete) return null;
-    const nets = sideFlows.map((f) => f.net);
+  const deferredMultiBalancers = useMemo(() => {
+    const b = deferredBalancerInput;
+    if (b.sides.length <= 2) return null;
+    if (b.tradeIsIncomplete) return null;
+    const nets = b.sideFlows.map((f) => f.net);
     const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
     const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
     const gap = nets[bestIdx] - nets[worstIdx];
-    if (isFairGap(gap, multiLarger)) return null;
+    if (isFairGap(gap, b.multiLarger)) return null;
     // Panel renders on the side that needs to GIVE more (the one with
     // the best deal right now).  Filter the suggestion pool to that
     // side's Sleeper team so the "add more" list is players they
     // actually own.  Same fallback to full pool when inference fails.
-    const underpayingSide = sides[bestIdx];
-    const underpayingTeam = inferTeamForSide(underpayingSide);
-    const { pool, teamName } = balancerPool(bestIdx, underpayingTeam);
-    const suggestions = findBalancers(sidesWithOverrides, bestIdx, pool, valueMode, {
+    const underpayingSide = b.sides[bestIdx];
+    const underpayingTeam = b.inferTeamForSide(underpayingSide);
+    const { pool, teamName } = b.balancerPool(bestIdx, underpayingTeam);
+    const suggestions = findBalancers(b.sidesWithOverrides, bestIdx, pool, valueMode, {
       settings,
       toSideIdx: worstIdx,
       combos: true,
@@ -1232,17 +1329,17 @@ export default function TradePage() {
       suggestions,
       teamName,
     };
-  }, [
-    sides,
-    tradeIsIncomplete,
-    sidesWithOverrides,
-    sideFlows,
-    multiLarger,
-    settings,
-    valueMode,
-    inferTeamForSide,
-    balancerPool,
-  ]);
+  }, [deferredBalancerInput, settings, valueMode]);
+
+  const balancers = balancersCurrent ? deferredBalancers : NO_BALANCERS;
+  const multiBalancers = balancersCurrent ? deferredMultiBalancers : null;
+  // "Is the 3+-team trade fair?" is immediate math (the same rule the deferred
+  // search starts from), so it never waits for the suggestions.
+  const multiGapIsFair = useMemo(() => {
+    if (sides.length <= 2 || tradeIsIncomplete) return true;
+    const nets = sideFlows.map((f) => f.net);
+    return isFairGap(Math.max(...nets) - Math.min(...nets), multiLarger);
+  }, [sides.length, tradeIsIncomplete, sideFlows, multiLarger]);
 
   // Inline search helper.  Nothing already in the trade is hidden: every
   // asset is repeatable in the calculator (owner decision 2026-10-03), so
@@ -1503,6 +1600,12 @@ export default function TradePage() {
       return;
     }
 
+    // Request sequencing (TC-E): only the newest import may land, Cancel
+    // retires one in flight, and an import never replaces a trade the user
+    // edited while it was loading -- that would overwrite a newer trade with
+    // an older request's answer.
+    const seq = (ktcImportSeqRef.current += 1);
+    const startedOn = sidesSignatureRef.current;
     setKtcImportBusy(true);
     setKtcImportError("");
     setKtcImportStatus("");
@@ -1514,6 +1617,13 @@ export default function TradePage() {
         cache: "no-store",
       });
       const data = await res.json().catch(() => ({}));
+      if (seq !== ktcImportSeqRef.current) return;
+      if (sidesSignatureRef.current !== startedOn) {
+        setKtcImportError(
+          "The trade changed while the import was loading, so nothing was replaced. Load it again to replace sides A and B.",
+        );
+        return;
+      }
       if (!res.ok || data?.ok === false) {
         setKtcImportError(data?.error || `HTTP ${res.status}`);
         return;
@@ -1591,9 +1701,10 @@ export default function TradePage() {
         setKtcImportOpen(false);
       }
     } catch (err) {
+      if (seq !== ktcImportSeqRef.current) return;
       setKtcImportError(err?.message || "Import failed");
     } finally {
-      setKtcImportBusy(false);
+      if (seq === ktcImportSeqRef.current) setKtcImportBusy(false);
     }
   }, [ktcImportUrl, rows, rowByLowerName, pickAliases]);
 
@@ -1643,6 +1754,10 @@ export default function TradePage() {
       setExportStatus("Nothing to export.");
       return;
     }
+    // Sequenced like the import (TC-E): a link for an older trade is never
+    // copied after the trade changed, and only the newest request reports.
+    const seq = (ktcExportSeqRef.current += 1);
+    const startedOn = sidesSignatureRef.current;
     try {
       const res = await fetch("/api/trade/export-ktc", {
         method: "POST",
@@ -1650,7 +1765,12 @@ export default function TradePage() {
         body: JSON.stringify({ sideOne, sideTwo }),
         cache: "no-store",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (seq !== ktcExportSeqRef.current) return;
+      if (sidesSignatureRef.current !== startedOn) {
+        setExportStatus("The trade changed before the KTC link was ready, so nothing was copied. Copy it again.");
+        return;
+      }
       if (!res.ok || !data.ok) {
         setExportStatus(data?.error || "KTC export failed.");
         return;
@@ -1669,6 +1789,7 @@ export default function TradePage() {
           (miss.length ? ` \u2014 unmatched: ${miss.join(", ")}` : ""),
       );
     } catch (e) {
+      if (seq !== ktcExportSeqRef.current) return;
       setExportStatus("KTC export failed: " + (e?.message || e));
     }
   }, [sides]);
@@ -1903,6 +2024,8 @@ export default function TradePage() {
   // alone.  ``lastBody`` is reset on the precondition-fail branch so a
   // fresh timer arms when the user returns to a valid state.
   const proactiveFetchRef = useRef({ lastBody: null, timer: null });
+  const suggestionsSeqRef = useRef(0);
+  const suggestionsInFlightRef = useRef(false);
   useEffect(() => {
     const cancelPending = () => {
       if (proactiveFetchRef.current.timer) {
@@ -1910,6 +2033,12 @@ export default function TradePage() {
         proactiveFetchRef.current.timer = null;
       }
       proactiveFetchRef.current.lastBody = null;
+      // A fetch still in flight answers a state that no longer holds.
+      if (suggestionsInFlightRef.current) {
+        suggestionsSeqRef.current += 1;
+        suggestionsInFlightRef.current = false;
+        setSuggestionsLoading(false);
+      }
     };
     if (loading || teamLoading) {
       cancelPending();
@@ -1966,7 +2095,9 @@ export default function TradePage() {
     // while we fetch fresh ones.  Without this reset, a user who
     // switches teams via the topbar TeamSwitcher would see the
     // OLD team's "Recommended right now" cards until they manually
-    // hit "Get Suggestions."
+    // hit "Get Suggestions."  The bump retires any fetch still in flight for
+    // the previous roster (TC-E): it must not land during the debounce.
+    suggestionsSeqRef.current += 1;
     setSuggestions(null);
     setSuggestionsError(null);
     setSuggestionsPending(true);
@@ -2007,6 +2138,11 @@ export default function TradePage() {
   }, []);
 
   async function fetchSuggestions() {
+    // Request sequencing (TC-E): a team switch fires a fresh fetch while the
+    // previous team's may still be in flight; only the newest may publish, so
+    // a slow answer for the OLD roster can never replace the new one.
+    const seq = (suggestionsSeqRef.current += 1);
+    const current = () => seq === suggestionsSeqRef.current;
     const roster = parseRoster();
     if (roster.length < 3) {
       setSuggestionsError("Enter at least 3 player names to get suggestions.");
@@ -2014,6 +2150,7 @@ export default function TradePage() {
       return;
     }
     setSuggestionsLoading(true);
+    suggestionsInFlightRef.current = true;
     setSuggestionsError(null);
     setSuggestions(null);
     localStorage.setItem(ROSTER_KEY, rosterInput);
@@ -2038,17 +2175,22 @@ export default function TradePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(withValuationMode(body)),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!current()) return;
       if (!res.ok) {
         setSuggestionsError(data.error || `Server error (${res.status})`);
         return;
       }
       setSuggestions(data);
     } catch (err) {
+      if (!current()) return;
       setSuggestionsError("Could not reach suggestion service.");
     } finally {
-      setSuggestionsLoading(false);
-      setSuggestionsPending(false);
+      if (current()) {
+        suggestionsInFlightRef.current = false;
+        setSuggestionsLoading(false);
+        setSuggestionsPending(false);
+      }
     }
   }
 
@@ -2198,6 +2340,12 @@ export default function TradePage() {
               result and the decision echo in a sticky right column; below
               that it is one column with this section nav and the verdict
               bar at the foot of the screen. */}
+          {/* TC-E: the one polite announcement of a final decision change.
+              Outside every responsive container, so it is never inside a
+              display:none column at any width. */}
+          <TradeVerdictAnnouncer
+            summary={sides.length === 2 ? decisionSummary : { status: "multi", decision: null }}
+          />
           <TradeSectionNav />
           <div className={styles.workspace}>
             {/* ── 1. TRADE BUILDER ─────────────────────────────── */}
@@ -2225,6 +2373,7 @@ export default function TradePage() {
                     <Button onClick={addTeam}>Add Team</Button>
                   ) : null}
                   <Button
+                    ref={importMenuButtonRef}
                     onClick={toggleImportMenu}
                     aria-expanded={importMenuOpen}
                     aria-controls="trade-import-options"
@@ -2243,6 +2392,9 @@ export default function TradePage() {
                       role="group"
                       aria-label="Import trade from"
                       className={styles.importOptions}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") closeToolbarGroup(setImportMenuOpen, importMenuButtonRef);
+                      }}
                     >
                       <Button
                         variant="ghost"
@@ -2275,6 +2427,7 @@ export default function TradePage() {
                   {/* TC-D2 (UX audit P2-8): the export actions sit in one
                       "More" group instead of three primary toolbar buttons. */}
                   <Button
+                    ref={moreMenuButtonRef}
                     onClick={() => setMoreMenuOpen((open) => !open)}
                     aria-expanded={moreMenuOpen}
                     aria-controls="trade-more-options"
@@ -2289,13 +2442,13 @@ export default function TradePage() {
                       aria-label="More trade actions"
                       className={styles.importOptions}
                       onKeyDown={(e) => {
-                        if (e.key === "Escape") setMoreMenuOpen(false);
+                        if (e.key === "Escape") closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
                       }}
                     >
                       <Button
                         variant="ghost"
                         onClick={() => {
-                          setMoreMenuOpen(false);
+                          closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
                           exportKtcUrl();
                         }}
                         disabled={sides.length !== 2 || !hasAssets}
@@ -2305,7 +2458,7 @@ export default function TradePage() {
                       <Button
                         variant="ghost"
                         onClick={() => {
-                          setMoreMenuOpen(false);
+                          closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
                           exportCsv();
                         }}
                         disabled={!hasAssets}
@@ -2315,7 +2468,7 @@ export default function TradePage() {
                       <Button
                         variant="ghost"
                         onClick={() => {
-                          setMoreMenuOpen(false);
+                          closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
                           exportJson();
                         }}
                         disabled={!hasAssets}
@@ -2324,9 +2477,11 @@ export default function TradePage() {
                       </Button>
                     </span>
                   ) : null}
-                  {exportStatus ? (
-                    <span className={styles.controlsNote}>{exportStatus}</span>
-                  ) : null}
+                  {/* The answer to an action the user just took (copy / download),
+                      read out politely (TC-E). */}
+                  <span className={styles.controlsNote} role="status">
+                    {exportStatus}
+                  </span>
                 </div>
               </Panel>
 
@@ -2367,6 +2522,9 @@ export default function TradePage() {
                   error={ktcImportError}
                   onSubmit={importKtcTradeUrl}
                   onCancel={() => {
+                    // Cancel retires an import still in flight (TC-E).
+                    ktcImportSeqRef.current += 1;
+                    setKtcImportBusy(false);
                     setKtcImportOpen(false);
                     setKtcImportError("");
                     setKtcImportUrl("");
@@ -2573,6 +2731,12 @@ export default function TradePage() {
                     . Not included in the totals or verdict.
                   </p>
                 ) : null}
+                {draftCapitalFailed && tradeHasPicks ? (
+                  <p className={styles.controlsNote} data-testid="draft-capital-unavailable">
+                    Draft-capital note unavailable: this league&apos;s draft-capital board could not
+                    be read. The totals and verdict never use it.
+                  </p>
+                ) : null}
                 {stackLibFailed && stackLibWanted ? (
                   <p className={styles.controlsNote}>
                     Draft-capital note unavailable: its model could not be loaded.
@@ -2755,6 +2919,7 @@ export default function TradePage() {
                           simError={simError}
                           selectedTeam={selectedTeam}
                           onReset={resetSim}
+                          onRetry={runSimulateTrade}
                           overrideCount={Object.keys(valueOverrides).length}
                         />
                       ) : null}
@@ -2811,7 +2976,7 @@ export default function TradePage() {
                   mySideIdx={sides.length === 2 ? teamSide.side : null}
                   sideTeamNames={sideTeamNames}
                   evalState={evalState.state}
-                  isFair={sides.length === 2 ? pwGapIsFair : multiBalancers == null}
+                  isFair={sides.length === 2 ? pwGapIsFair : multiGapIsFair}
                   balancerSideLabel={balancerSideLabel}
                   decisionRunId={
                     sides.length === 2 && decisionSummary.status === "ok"

@@ -679,6 +679,125 @@ shell-owned (UX audit §2.1 row 18) and belongs to the shell lane.
   (`idpShowCombined`, `fantasyNavigatorSf`) reading "Unavailable — stale or unhealthy source, excluded from our
   blend" on the seeded board, where they used to be scored with our values.
 
+## TC-E notes (2026-10-18)
+
+Branch `claude/trade-calculator-tc-e`, started on TC-B2/D2 (#1814) and merged with `main` once after release train 9
+(#1820, `a079ae938c`, which carries #1814). Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`. Not merged,
+not deployed, not observed in production. Decision 10 priority 3. The share-link format is untouched. There is still one
+package-value owner and one decision owner; nothing here computes a value, a band or a verdict.
+
+### 1. Immediate math vs expensive analysis
+
+Already separate before TC-E, and re-checked: the meter, the tray, the sticky result table and the band word are
+synchronous local math (`adjustedSideTotals`, `meterVerdict`). Analyze waits for a 700 ms debounce and its own lazy
+chunk. Monte Carlo and Simulate impact run only on a click. A drilldown tab mounts only while it is open.
+
+**Found:** the balancer search (`findBalancers`, simulating the whole trade once per candidate and once per pair) ran in
+the same render as the verdict. Measured in Node on the served contract: 33 ms per run with a 120-asset roster pool,
+76 ms with the full board (the no-team fallback). It is slower still on a phone. **Fix:** both balancer memos read a
+`useDeferredValue` snapshot (the Perfect Draft pattern), so the verdict commits first and the search follows at low
+priority. While the snapshot lags, no suggestion renders, so a balancer for the previous trade never shows under the new
+one. The 3+-team "is it fair?" input to Next steps is immediate math and does not wait for the search.
+
+### 2. Request sequencing — every async read on /trade
+
+| request | before TC-E | after | out-of-order test |
+|---|---|---|---|
+| `POST /api/trade/analyze` (War Room) | AbortController + request key (TC-A) | unchanged; error has Try again | `trade-war-room.test.jsx` "late answer…", `trade-tce-components` |
+| `POST /api/trade/simulate` | sequence + trade signature (TC-A) | unchanged; error has Try again | `trade-stale-results.test.jsx` |
+| `POST /api/trade/simulate-mc` | sequence + result key (TC-A); the **error** was not keyed, so "Can't simulate: X" outlived removing X | error keyed to its trade | `trade-tce-components` |
+| Second opinions | per-source table and tally read the contract, no fetch; Signals rank is trade-independent; the **BDVM check** kept the previous trade's answer on screen through the next debounce, and a body that arrived after abort could land | answer stored with its trade signature, plus an aborted guard | `trade-tce-components` |
+| Comparables (`/api/market/trades/{reference,comparable}`) | abort + URL key, but a body that arrived after abort could replace the newer state | aborted guard; unavailable has Try again | `trade-tce-components` |
+| Partner evidence (`/api/manager-scout/offer-evidence`) | abort + key | unchanged; error has Try again | `trade-tce-components` |
+| Trade desk (Save to Trade Desk) | none: a save that answered after the card moved on said "Saved" for the new package | identity guard | `trade-tce-components` |
+| Suggestions (`/api/trade/suggestions`, rail + desk) | none: the previous team's answer could replace the new team's | sequence; a roster change retires the fetch in flight | `trade-tce-page` |
+| KTC import (`/api/trade/import-ktc`) | none: a late import replaced a trade edited while it loaded; Cancel was disabled while loading | sequence + trade signature ("nothing was replaced"); Cancel retires it | `trade-tce-page` |
+| KTC export (`/api/trade/export-ktc`) | none: an older trade's link could be copied | sequence + trade signature ("nothing was copied") | `trade-tce-page` |
+| Screenshot import | per-image AbortController; applied only on the user's confirm against the current sides | unchanged | `trade-screenshot-import*.test.jsx` |
+| `/api/draft-capital` | alive flag (TC-A); a failure was silent | failure stated on the (informational) stack note | — |
+| ROS fit (`rosTradeDeadline`, `ros/player-values`) | active flag; a failure read as "no teams" | explicit states (below) | `trade-tce-components` (league switch) |
+
+Each new test resolves the responses by hand in the wrong order. 13 of the component cases and 4 of the page cases fail
+on the pre-TC-E code (checked by reverting the guarded files) and pass after.
+
+### 3. Budgets, measured
+
+Method: the production build on a local stack (backend `:8400` from the seeded snapshot, Next `:3400` / `:3401`),
+Chromium 1243 unthrottled, test session. **A/B, interleaved:** the base (`claude/trade-calculator-tc-b2-d2`, built
+into a separate dist dir) and this branch were served at the same time and measured in alternating rounds, so both saw
+the same machine load. A first sequential "before" run measured right after the backend booted gave cold p95 4.0 s; it
+was startup warm-up, not the page, and is not used. Percentiles are nearest-rank.
+
+- Initial load: `frontend/scripts/measure-route-baselines.mjs --routes /trade --runs 5 --viewport both`, ×2 rounds per
+  arm (n = 10 cold + 10 warm per viewport). "Useful" = controls visible plus a result row for a fixed search.
+- Interaction: `frontend/scripts/measure-trade-interaction.mjs --runs 5 --viewport both`, ×2 rounds per arm (new; a
+  real team's trade from the served contract with that team selected). Search: 8 fixed queries, keystroke → first row
+  in the DOM on an animation frame (n = 40 per round). Trade: the pick that completes Side B → the meter's band word /
+  the War Room's decision headline, one clock (n = 5 per round). Each figure below is the range over the two rounds.
+
+| measure | viewport | before (base) | after (TC-E) |
+|---|---|---|---|
+| first useful state, cold p50 / p95 | desktop 1366 | 1,512 / 1,799 ms | 1,406 / 1,838 ms |
+| | phone 390 | 1,473 / 1,990 ms | 1,592 / 1,801 ms |
+| first useful state, warm p50 / p95 | desktop | 1,035 / 1,335 ms | 1,163 / 1,293 ms |
+| | phone | 1,274 / 1,706 ms | 1,320 / 1,674 ms |
+| search, keystroke → results, p50 / p95 | desktop | 14.5–14.8 / 25.7–31.4 ms | 13.9–15.0 / 30.8–32.3 ms |
+| | phone (sheet) | 17.0–17.1 / 19.4–24.4 ms | 16.9–17.0 / 20.1–22.6 ms |
+| completing pick → immediate verdict, p50 / p95 | desktop | 31.4–38.5 / 43.8–49.4 ms | 25.0–25.5 / 28.0–29.7 ms |
+| | phone | 29.0–39.0 / 30.4–41.3 ms | 29.3–34.3 / 35.0–39.1 ms |
+| completing pick → final decision, p50 / p95 | desktop | 874–898 / 918–919 ms | 860–884 / 892–895 ms |
+| | phone | 863–873 / 905–1,181 ms | 859–875 / 890–923 ms |
+
+Reading: initial load, search and the decision did not change (none was expected to). The desktop immediate verdict is
+faster and tighter (p95 about 44–49 → 28–30 ms) because the balancer search left the verdict's render. The phone viewport
+(Chromium emulation on the same CPU) shows no clear difference at n = 5 per round. The measured trade uses a selected
+team, so the pool is that roster; the no-team, full-board pool (76 ms in Node) is where the deferral matters most, and it
+was not measured in the browser. TCM-Q04's own target (3–5 s cold, 1–2 s warm) is met locally; the global standard's stricter warm ≤ 1 s is not.
+These are local numbers, not production.
+
+- **Bundle:** `/trade` 82.2 → **86.7 KB of 93** (raw on-disk page chunk; +4.5 KB for the sequencing guards, the combobox,
+  the announcer, the deferred balancer memos and the state copy; 6.3 KB headroom left). `/league` 49.8 of 50, unchanged.
+- **Loading / error / partial states:** the War Room, Simulate impact, partner evidence and recorded real trades have
+  Try again. ROS fit says loading, unavailable (Try again), partial (one of its two reads failed, named), nothing to
+  read, or switched off in Settings; it used to render nothing in all five cases, which left the Season tab blank. A
+  failed draft-capital read says so on the stack note. A drilldown tab whose panel chunk is still arriving says it is
+  loading instead of rendering blank. Missing stays missing: no state renders a 0. Deliberately unchanged: the BDVM check
+  still vanishes silently on a non-ok answer (a CLAUDE.md-documented contract for that panel, inside Second opinions
+  beside the always-rendered per-source table), and Signals rank still vanishes when its endpoint is unreachable (#1555).
+
+### 4. Accessibility
+
+- **Builder keyboard path:** the inline side search is a WAI-ARIA combobox (`role=combobox`, `aria-expanded`,
+  `aria-controls`, `aria-activedescendant`; listbox of options). ArrowDown / ArrowUp move the active option, Enter adds
+  it, and Escape clears the query. Focus never leaves the input; before, a Tab blurred it and the list unmounted, and
+  Enter on a row did nothing because rows picked on mousedown only, so keyboard users could not add from search. Each add
+  is read back ("Added X to Side A."), like the phone sheet. Phone sheet: the opener and rows are buttons, the ds Drawer
+  traps focus and restores it to the opener (verified in e2e).
+- **Visible focus:** the shared `--focus-ring` on the active option, a focused sheet row, the side search input and the
+  section-nav links. Before, these showed only a colour or border tint. No new visual token.
+- **Sheets, tabs, More menu:** the tabs keep the ds roving tabindex (Arrow / Home / End, e2e). The More and Import
+  groups close on Escape and return focus to their trigger, also after choosing an action. Before, focus fell to
+  `<body>` when the focused option unmounted. The export/copy result is a polite status.
+- **Meter and verdict semantics:** the meter is a named group ("Package comparison" / "Net value per side"), the balance
+  bar has one image name ("Side A 60% and Side B 40% of the combined adjusted value"), and the band reads "Quick
+  verdict: FAIR". The War Room answer and its desktop echo read "Final decision: …" (visually hidden prefix; the badge
+  text stays the backend's verbatim).
+- **What is announced — DESIGN CHOICE, not an owner decision** (the conservative accessibility default). TC-D2 left
+  "R01 — what to announce and where" open. The answer: **only the final decision change, politely, once.** One visually
+  hidden `role=status aria-live=polite aria-atomic` region (`TradeVerdictAnnouncer`) sits outside every responsive column.
+  It reads the War Room's own decision (`onDecision`) after it has held for 1 s, on top of the War Room's 700 ms request
+  debounce. It never reads the meter band (that moves on every edit and is read in place), never reads "Analyzing…" (the
+  War Room and echo progress lines are no longer live regions), never reads a decision replaced before it settled, and
+  never repeats the same decision — unless the trade was cleared and rebuilt. 3+-team trades announce nothing.
+  Note: matrix row **TCM-R01** is a different requirement, a dismissible announcement / CTA *banner* (TC-24). It remains
+  NOT IMPLEMENTED and still needs its owner decision (what to announce, where); this choice does not close it.
+- **axe:** `tests/e2e/specs/trade-tce.spec.js` scans a populated /trade (desktop with the search list open, then both
+  viewports with the War Room answer on screen), and `a11y-axe.spec.js` scans the empty page. See the gates.
+
+### Gates run on the TC-E head (2026-10-18)
+
+GATES_PLACEHOLDER
+
 ## Coordination with in-flight work
 
 | In-flight | Overlap | Rule |
@@ -699,4 +818,5 @@ shell-owned (UX audit §2.1 row 18) and belongs to the shell lane.
 | TC-B missing functionality | TC-B1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b` (`2bd2986ddd`, `8625ab7b77`, PR to main): of the 31 inventoried rows, 12 moved to IMPLEMENTED BUT UNVERIFIED (A02, A03, D14, F03, G09, I04, K03, K13, L05, O11, O12, O13) and 4 advanced but kept their class (B04, G18, H12 partial; L01 gained its database link); the other 15 are listed under "Remaining in TC-B". RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-B notes" |
 | TC-B2 / TC-D2 | IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b2-d2`, PR stacked on release train 8 (#1809). Owner decisions 9 (K06) and 10 DECIDED (closeout 2026-10-18) and folded in. To IMPLEMENTED BUT UNVERIFIED: K06, D09, H13, P03, M01, M02, M04, M05, N03 (banner), G18; K15 superseded by M01. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Open: the 1920 cap (owner UI decision), the FAB (shell lane), A05 / C04 unknown-version (share format frozen), F05 / R01 (owner decisions), M03 / M06 / M07, H03, H12, B04. See "TC-B2 / TC-D2 notes" |
 | TC-D redesign | D1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-d` (`ecbde07821`), stacked on TC-B1 (#1800): War Room code split (`/trade` 91.7 → 77.9 KB of 93 KB) and the five-layer layout, with a desktop sticky result + decision echo and a mobile section nav + verdict bar. TCM-P01 / P02 moved to IMPLEMENTED BUT UNVERIFIED; P03, P05, Q03, F06, H13 and K03 advanced. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. D2 remains (see "TC-D notes") |
-| TC-E … TC-F | QUEUED, in order; each starts as its dependencies land |
+| TC-E reliability + polish | IMPLEMENTATION HEAD on `claude/trade-calculator-tc-e` (PR to `main`, merged with `main` after train 9 #1820). Request sequencing across every /trade read (out-of-order tests), the balancer search moved off the verdict render (desktop immediate-verdict p95 about 44–49 → 28–30 ms, local A/B), error-with-retry / partial / unavailable states, keyboard combobox builder, focus return, meter / verdict semantics, one polite final-decision announcement (design choice). To IMPLEMENTED BUT UNVERIFIED: TCM-Q01, P08, Q04 (row target met locally; production unmeasured); Q02, Q03, Q05, Q07 re-evidenced. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-E notes" |
+| TC-F | QUEUED; starts as its dependencies land |
