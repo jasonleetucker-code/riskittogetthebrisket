@@ -151,7 +151,7 @@ def test_snapshot_records_the_full_provenance(cfg):
     assert (
         p["provenance"]["preDraftCutoff"] == CUTOFF and p["provenance"]["inputsAsOf"] == PRE_DRAFT
     )
-    assert p["validation"]["totalDollars"] == "1200" and len(p["dollars"]) == 72
+    assert p["validation"]["totalDollars"] == "1200" and len(p["referenceDollars"]) == 72
     whole = [row["dollars"] for row in p["finalWholeDollars"]]
     assert sum(whole) == 1200 and all(isinstance(d, int) for d in whole)
     assert p["validation"]["wholeDollars"]["finalWholeDollars"] == whole

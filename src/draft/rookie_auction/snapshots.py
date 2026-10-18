@@ -110,6 +110,10 @@ class CompletedClassCurve:
     dollars: tuple[Decimal, ...]
     kind: str
     provenance: dict[str, Any]
+    #: ``referenceDollars`` (above, as ``dollars``) builds the spine;
+    #: ``finalWholeDollars`` is what was published and spendable — ``None``
+    #: for a spreadsheet-imported class whose published allocation is unknown.
+    final_whole_dollars: tuple[int, ...] | None
     completion_observed_at: str | None
     checksum: str
 
@@ -188,6 +192,29 @@ def load_frozen_rookie_inputs(
     )
 
 
+def _whole_dollars(payload, kind, path: Path, params: CurveParams) -> tuple[int, ...] | None:
+    raw = payload.get("finalWholeDollars")
+    if raw is None:
+        if kind == KIND_GENERATED:
+            raise SnapshotIntegrityError(
+                f"{path.name}: a generated curve must carry finalWholeDollars"
+            )
+        if not payload.get("finalWholeDollarsUnavailableReason"):
+            raise SnapshotIntegrityError(f"{path.name}: finalWholeDollars missing without a reason")
+        return None
+    labels = list(iter_labels(params))
+    if not isinstance(raw, list) or [r.get("pick") for r in raw if isinstance(r, dict)] != labels:
+        raise SnapshotIntegrityError(f"{path.name}: finalWholeDollars pick list broken")
+    whole = [r.get("dollars") for r in raw]
+    if any(isinstance(d, bool) or not isinstance(d, int) or d < 0 for d in whole):
+        raise SnapshotIntegrityError(f"{path.name}: finalWholeDollars must be whole dollars")
+    if sum(whole) != params.budget_dollars:
+        raise SnapshotIntegrityError(f"{path.name}: finalWholeDollars do not sum to the pool")
+    if any(whole[i] > whole[i - 1] for i in range(1, len(whole))):
+        raise SnapshotIntegrityError(f"{path.name}: finalWholeDollars rise")
+    return tuple(whole)
+
+
 def _curve_dir(config_dir: Path, league_key: str) -> Path:
     league_scope(league_key)  # fail closed: only configured leagues have a ledger
     key = str(league_key or "").strip()
@@ -218,7 +245,8 @@ def load_completed_class_curve(
             raise SnapshotIntegrityError(
                 f"{path.name}: a generated class curve needs verified draft completion"
             )
-    picks, dollars = _decimal_list(payload.get("dollars"), "dollars", path, params)
+    picks, dollars = _decimal_list(payload.get("referenceDollars"), "dollars", path, params)
+    whole = _whole_dollars(payload, kind, path, params)
     units = [d * params.units_per_dollar for d in dollars]
     if any(u != u.to_integral_value() for u in units):
         raise SnapshotIntegrityError(f"{path.name}: dollars are not whole units")
@@ -233,6 +261,7 @@ def load_completed_class_curve(
         dollars=dollars,
         kind=str(kind),
         provenance=dict(payload.get("provenance") or {}),
+        final_whole_dollars=whole,
         completion_observed_at=(payload.get("draftCompletion") or {}).get("observedAt")
         if isinstance(payload.get("draftCompletion"), dict)
         else None,

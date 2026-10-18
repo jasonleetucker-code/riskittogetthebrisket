@@ -35,7 +35,7 @@
   "nonIncreasing": true,
   "halfDollarUnits": true
  },
- "dollars": [
+ "referenceDollars": [
   {
    "pick": "1.01",
    "dollars": "122.5"
@@ -325,9 +325,11 @@
    "dollars": "1"
   }
  ],
+ "finalWholeDollars": null,
+ "finalWholeDollarsUnavailableReason": "historical class imported from the spreadsheet: its published allocation is not recorded in the workbook, and deriving one now would present a reconstruction as what was published",
  "checksum": {
   "algorithm": "sha256",
   "scope": "canonical JSON (sort_keys, separators (',',':'), UTF-8) of every top-level key except 'checksum'",
-  "value": "524a53df99b5afe0e403d4a31e13a10a9b59a81a8b226a2a063ebd659ee79bb3"
+  "value": "9c6df8ecc73aba3de859125c64255860d98dcadf2ae9701cb723c466ef190468"
  }
 }

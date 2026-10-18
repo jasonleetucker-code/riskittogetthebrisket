@@ -171,9 +171,12 @@ def _build_payload(
         # identical evidence always yields an identical snapshot.
         "createdAt": evidence.observed_at,
         "validation": receipt,
-        # ``dollars`` is the half-dollar mathematical reference curve — the
-        # quantity the spine is built from, like the workbook's F/G/H.
-        "dollars": [
+        # Owner decision 2026-10-18 — two values per completed class:
+        # ``referenceDollars`` (the spreadsheet curve at its original
+        # precision) builds the three-year spine, as the F/G/H formula was
+        # designed around; ``finalWholeDollars`` is what was published and
+        # spendable.  Fractional dollars are never spendable budget.
+        "referenceDollars": [
             {"pick": label, "dollars": format(d.normalize(), "f")}
             for label, d in zip(labels, result.dollars)
         ],

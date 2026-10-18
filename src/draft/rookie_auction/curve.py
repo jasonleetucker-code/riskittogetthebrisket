@@ -263,6 +263,11 @@ class CurveResult:
         return tuple(r.final_dollars for r in self.rows)
 
     @property
+    def reference_dollars(self) -> tuple[Decimal, ...]:
+        """``referenceDollars``: the spreadsheet curve at its original precision."""
+        return self.dollars
+
+    @property
     def units(self) -> tuple[int, ...]:
         return tuple(r.final_units for r in self.rows)
 
@@ -719,6 +724,11 @@ def curve_receipt(
             else _dstr(result.precision_margin),
             "validation": {"sumsToBudget": True, "nonNegative": True, "nonIncreasing": True},
             "tieRule": TIE_RULE_EARLIER_PICK_FIRST,
+            # Owner decision 2026-10-18: both values, under these names.
+            "referenceDollars": [_dstr(r.final_dollars) for r in rows],
+            "finalWholeDollars": (
+                list(result.whole_dollars.dollars) if result.whole_dollars is not None else None
+            ),
             "wholeDollars": (
                 result.whole_dollars.receipt([r.label for r in rows])
                 if result.whole_dollars is not None
