@@ -12838,6 +12838,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "slotStatus": "projected",
                 "valueBasis": "workbook",
                 "dollarValueEstimated": False,
+                # The sheet's own rookie-auction curve (owner addendum
+                # 2026-10-18) — a different value domain from the later
+                # classes' interim generic market values.
+                "curveMethod": "workbook_rookie_auction",
                 "rookieName": None,
                 "rookiePos": None,
                 "rookieKtcValue": None,
@@ -13046,11 +13050,15 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     result["additionalClassPicks"] = additional_picks
     result["additionalClassesState"] = additional_state
     result["additionalClassesReason"] = additional_reason
+    # Owner decision 2026-10-18 ("$1,200 per draft class"): the workbook
+    # class is its own $1,200 (the sheet's dollars, unchanged) and each later
+    # class its own $1,200 pool.
     result["budgetPolicy"] = _dcc.budget_policy_block(
-        _dcc.BUDGET_POLICY_PER_CLASS,
         DRAFT_TOTAL_BUDGET,
         [league_season] + sorted({int(p["season"]) for p in additional_picks}),
         workbook_season=int(league_season),
+        priced_seasons=[league_season]
+        + sorted({int(p["season"]) for p in additional_picks if p.get("isUnpriced") is False}),
     )
 
     # Per-season views for the /league year selector.  The workbook carries

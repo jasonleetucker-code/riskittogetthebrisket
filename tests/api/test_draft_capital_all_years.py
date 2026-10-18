@@ -220,8 +220,14 @@ def test_workbook_class_and_auction_budgets_are_unchanged(server_mod, monkeypatc
 
 def test_later_classes_are_one_pool_each_and_unpriced_is_none(server_mod, monkeypatch):
     result = _run(server_mod, monkeypatch)
-    assert result["budgetPolicy"]["basis"] == "per_class_pool"
-    assert result["budgetPolicy"]["status"] == "owner_confirmation_pending"
+    # Owner decision 2026-10-18: "$1,200 per draft class".
+    policy = result["budgetPolicy"]
+    assert policy["basis"] == "per_class_pool"
+    assert policy["status"] == "owner_confirmed"
+    assert (policy["decidedBy"], policy["decidedAt"]) == ("owner", "2026-10-18")
+    assert policy["classBudgets"] == {str(YEAR + k): 1200 for k in (1, 2, 3)}
+    assert policy["unpricedClasses"] == []
+    assert policy["allYearsBudget"] == 3600
     y2 = [p for p in result["additionalClassPicks"] if p["season"] == YEAR + 2]
     # 2 x 4000 + 2 x 2000 = 12000 of value → $400 per first, $200 per second.
     assert sorted(p["dollarValue"] for p in y2) == [200, 200, 400, 400]
@@ -237,6 +243,64 @@ def test_later_classes_are_one_pool_each_and_unpriced_is_none(server_mod, monkey
     assert result["yearSummaries"][str(YEAR + 3)]["unpricedPickCount"] == 2
     # Raw canonical values are never published.
     assert all("_canonicalValue" not in p for p in result["additionalClassPicks"])
+    # Owner addendum 2026-10-18: two value domains, labelled per class — the
+    # later classes are an INTERIM generic-market curve, never the workbook's.
+    assert policy["classCurveMethods"] == {
+        str(YEAR + 1): "workbook_rookie_auction",
+        str(YEAR + 2): "interim_generic_market",
+        str(YEAR + 3): "interim_generic_market",
+    }
+    assert policy["interimCurveLabel"] == (
+        "provisional estimate — final rookie-auction curve pending"
+    )
+    assert all(p["curveMethod"] == "workbook_rookie_auction" for p in result["picks"])
+    assert all(p["curveMethod"] == "interim_generic_market" for p in result["additionalClassPicks"])
+
+
+def _cents(v):
+    return round(v * 100)
+
+
+def test_every_class_reconciles_exactly_in_integer_cents(server_mod, monkeypatch):
+    """Owner addendum 2026-10-18: exactly $1,200.00 per class — pick dollars,
+    team totals, year totals and All Years, with no rounding drift.  The
+    workbook class (YEAR+1) stays the exact workbook dollars."""
+    result = _run(server_mod, monkeypatch)
+    every = result["picks"] + result["additionalClassPicks"]
+    for season in (YEAR + 1, YEAR + 2, YEAR + 3):
+        rows = result["teamTotalsByYear"][str(season)]
+        assert sum(_cents(r["auctionDollars"]) for r in rows) == 120000
+        assert _cents(result["yearSummaries"][str(season)]["totalDollars"]) == 120000
+        if season != YEAR + 1:  # workbook class: totals come from the sheet
+            assert (
+                sum(
+                    _cents(p["dollarValue"])
+                    for p in every
+                    if p["season"] == season and not p["isUnpriced"]
+                )
+                == 120000
+            )
+    assert sum(_cents(t["auctionDollars"]) for t in result["teamTotals"]) == 120000
+    assert sum(_cents(r["auctionDollars"]) for r in result["allYearsTeamTotals"]) == 360000
+    assert _cents(result["allYearsSummary"]["totalDollars"]) == 360000
+
+
+@pytest.mark.parametrize("n_values", [1, 3, 7, 40, 72])
+def test_allocator_is_exact_and_deterministic(n_values):
+    """Values that do not divide $1,200 evenly still total exactly $1,200.00,
+    and the same input always allocates the same way."""
+    from src.api import draft_capital_classes as dcc
+
+    values = [1000.0 + (i % 5) * 333.3 for i in range(n_values)]
+    for unit in (1, 50, 100):
+        out = dcc.allocate_class_budget(values, 1200, unit_cents=unit)
+        assert sum(_cents(v) for v in out) == 120000
+        assert out == dcc.allocate_class_budget(values, 1200, unit_cents=unit)
+        # Linear in value: never more than one unit off the exact share.
+        total = sum(values)
+        for v, d in zip(values, out):
+            assert abs(_cents(d) - v * 120000 / total) <= unit
+    assert dcc.allocate_class_budget([], 1200) == []
 
 
 def test_per_year_filtering_counts_and_all_years_without_double_count(server_mod, monkeypatch):
@@ -327,11 +391,55 @@ def test_fallback_lists_every_owned_class(monkeypatch):
         owned_pick_seasons=(YEAR + 1, YEAR + 2, YEAR + 3),
         retired_seasons=(YEAR,),
     )
+    contract = _contract()
+    # The fallback has no workbook: price the upcoming class from the board too.
+    contract["playersArray"] += [
+        {
+            "displayName": f"{YEAR + 1} Round {r}",
+            "canonicalName": f"{YEAR + 1} Round {r}",
+            "assetClass": "pick",
+            "rankDerivedValue": v,
+        }
+        for r, v in ((1, 5000), (2, 2500))
+    ]
     out = dcf.build_sleeper_derived(
-        "L1", _contract(), current_season=YEAR + 1, draft_rounds=2, league_draft_years=years
+        "L1", contract, current_season=YEAR + 1, draft_rounds=2, league_draft_years=years
     )
     assert out["availableYears"] == [YEAR + 1, YEAR + 2, YEAR + 3]
-    assert YEAR not in {p["season"] for p in out["picks"]}
-    assert out["budgetPolicy"]["basis"] == "shared_multi_class_pool"
-    assert out["additionalClassPicks"] == []
+    # Same shape as the workbook path: the upcoming class in ``picks`` (the
+    # auction budgets), later classes in ``additionalClassPicks``.
+    assert {p["season"] for p in out["picks"]} == {YEAR + 1}
+    assert {p["season"] for p in out["additionalClassPicks"]} == {YEAR + 2, YEAR + 3}
+    assert out["coveredPickYears"] == [YEAR + 1]
     assert out["allYearsSummary"]["pickCount"] == 12
+    # One $1,200 pool PER CLASS (owner decision 2026-10-18), same as the
+    # default league: YEAR+1 / YEAR+2 are priced fully and YEAR+3 round 1
+    # only, so every priced class lands exactly $1,200.
+    policy = out["budgetPolicy"]
+    assert policy["basis"] == "per_class_pool"
+    assert policy["status"] == "owner_confirmed"
+    for season in (YEAR + 1, YEAR + 2, YEAR + 3):
+        assert out["yearSummaries"][str(season)]["totalDollars"] == 1200
+    assert sum(t["auctionDollars"] for t in out["teamTotals"]) == 1200
+    assert out["allYearsSummary"]["totalDollars"] == 3600
+    assert policy["allYearsBudget"] == 3600
+    # Unpriced picks stay null and outside their class's pool.
+    y3_unpriced = [
+        p for p in out["additionalClassPicks"] if p["season"] == YEAR + 3 and p["isUnpriced"]
+    ]
+    assert y3_unpriced and all(p["dollarValue"] is None for p in y3_unpriced)
+    # Exact in integer cents, and every fallback class is the labelled interim.
+    for season in (YEAR + 1, YEAR + 2, YEAR + 3):
+        assert (
+            sum(
+                round(p["dollarValue"] * 100)
+                for p in out["picks"] + out["additionalClassPicks"]
+                if p["season"] == season and not p["isUnpriced"]
+            )
+            == 120000
+        )
+    assert set(policy["classCurveMethods"].values()) == {"interim_generic_market"}
+    assert all(
+        p["curveMethod"] == "interim_generic_market"
+        for p in out["picks"] + out["additionalClassPicks"]
+    )

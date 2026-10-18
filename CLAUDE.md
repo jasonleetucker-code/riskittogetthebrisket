@@ -509,9 +509,10 @@ Error behavior on endpoints:
     generated "slot" is a reverse-standings stand-in, not a known slot
     (every pick of one future season+round prices identically; no
     fabricated slot certainty, no owned-pick forecasting — that is
-    C1-U7).  Consequence: the $1200 pool redistributes across BOTH
-    generated seasons again, with real generic values rather than the
-    deleted constants.
+    C1-U7).  Since the owner decision of 2026-10-18 ("$1,200 per draft
+    class") each generated class is normalized to its OWN $1200 from real
+    generic values (never the deleted constants); see "Every owned class is
+    listed" below.
   - Pinned by `tests/api/test_draft_capital_data_not_ready.py` (which
     fails if a future change re-resolves D-2 by accident in either
     direction) and `tests/api/test_draft_capital_fallback.py` (which
@@ -544,13 +545,32 @@ Error behavior on endpoints:
     budgets /draft, the auction room and the /trade stack read); the year
     views, `allYearsTeamTotals` and `allYearsSummary` cover every class,
     each pick once.  The fallback generates the same owned seasons (it used
-    `(current, current + 1)`) and now prices every pick at its round's
-    generic grade (its slots are stand-ins; it used to read the current
-    class's exact slot row by roster number).  **The $1200 basis is an OPEN
-    owner question**, stamped as `budgetPolicy`: the default league prices
-    each later class as its own $1200 pool (`per_class_pool`, the only basis
-    that keeps the workbook class's dollars intact); the fallback keeps its
-    established single pool across every class (`shared_multi_class_pool`).
+    `(current, current + 1)`), prices every pick at its round's generic
+    grade (its slots are stand-ins; it used to read the current class's
+    exact slot row by roster number), and has the SAME shape: the upcoming
+    class in `picks` / `teamTotals` / `coveredPickYears`, later classes in
+    `additionalClassPicks`.  **Budget basis — OWNER DECISION 2026-10-18:
+    "$1,200 per draft class"**, for every league.  Each class is its own
+    $1200 pool (72 picks in a 12-team, 6-round league); All Years sums the
+    classes, each pick once.  The workbook class keeps the sheet's dollars
+    (its own $1200 — the live auction budgets); the fallback normalizes each
+    class's priced picks to $1200 independently (unpriced picks stay null,
+    outside their class's pool; a wholly unpriced class holds no dollars and
+    is listed in `budgetPolicy.unpricedClasses`).  Stamped as `budgetPolicy`
+    (`basis: "per_class_pool"`, `status: "owner_confirmed"`).  **Exact**
+    (owner addendum 2026-10-18): every class with a priced pick totals
+    exactly $1,200.00 — `draft_capital_classes.allocate_class_budget`
+    allocates in whole-dollar units with a deterministic largest-remainder
+    residual, so pick dollars, team totals, year totals and All Years
+    reconcile in integer cents.  **Two value domains, labelled per class**
+    (`curveMethod`, `budgetPolicy.classCurveMethods`): the workbook class is
+    `workbook_rookie_auction` (the sheet's own curve); every other class —
+    the default league's later classes and every class of the fallback — is
+    `interim_generic_market` (canonical generic future-pick market values,
+    spread linearly), shown as "provisional estimate — final rookie-auction
+    curve pending".  It is an interim, NOT the final methodology: the
+    spreadsheet-driven rookie-auction curve is a separate Draft Valuation
+    workstream that will replace it.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring

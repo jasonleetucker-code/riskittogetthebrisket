@@ -21,25 +21,33 @@ nothing about which classes exist, who owns a pick, or what a pick is worth:
   class whose draft order is unknown resolves at the GENERIC grade (every
   pick of one season + round prices identically); no slot is fabricated.
 
-Dollars — the $1,200 budget basis
-=================================
+Dollars — the $1,200 budget basis (OWNER DECISION 2026-10-18)
+=============================================================
 
-Per-pick dollars are a linear share of a $1,200 pool over canonical values,
-the same rule ``draft_capital_fallback`` already uses.  WHICH picks share one
-pool is the open owner question recorded beside ``budgetPolicy``:
+"$1,200 per draft class": each rookie draft class is its own $1,200 auction
+pool (72 picks for a 12-team, 6-round league), for EVERY league.  Per-pick
+dollars are a linear share of their class's $1,200 over canonical values;
+All Years is the sum of the classes, each pick counted once.
 
-* ``per_class_pool`` — each draft class is its own $1,200 pool (the
-  owner-confirmed rookie-auction framework: 72 picks, one $1,200 league-wide
-  pool per draft).  The default league uses this, because it is the only
-  basis under which the workbook's current-class dollars — the live auction
-  budgets — stay exactly as published.
-* ``shared_multi_class_pool`` — one $1,200 across every priced pick of every
-  class.  The Sleeper-derived fallback has always normalized this way and
-  keeps doing so.
+* The default league's workbook class keeps the workbook's own dollars (they
+  are that class's $1,200 and the live auction budgets); its later classes
+  are each their own $1,200 here (:func:`price_per_class`).
+* The Sleeper-derived fallback normalizes each class to $1,200 on its own
+  (``draft_capital_fallback``).
 
-This module implements the per-class pricing; it does not switch either
-builder's established basis.  ``budget_policy_block`` stamps which one a
-payload used so the page can say so.
+Every class with a priced pick totals EXACTLY $1,200.00 (owner addendum
+2026-10-18): :func:`allocate_class_budget` allocates in integer units with a
+deterministic largest-remainder residual, so pick dollars, team totals, year
+totals and All Years reconcile with no rounding drift.
+
+The SHAPE of a class's dollars is two different value domains, labelled per
+class (``curveMethod``) and never presented as one methodology: the workbook
+class follows the sheet's rookie-auction curve (``workbook_rookie_auction``);
+every other class spreads canonical generic future-pick MARKET values
+linearly (``interim_generic_market``) — an explicitly labelled INTERIM
+("provisional estimate — final rookie-auction curve pending") until the
+separate Draft Valuation workstream's spreadsheet-driven curve replaces it.
+``budget_policy_block`` stamps the decided basis on every payload.
 
 MISSING IS NEVER ZERO: a pick the board cannot price carries
 ``dollarValue: None`` + ``isUnpriced: True`` and stays out of its pool.
@@ -52,8 +60,28 @@ from typing import Any, Iterable, Mapping
 from src.identity import picks as _picks
 
 #: Budget-basis vocabulary (stamped on every payload as ``budgetPolicy.basis``).
+#: The only basis since the owner decision of 2026-10-18 ("$1,200 per draft
+#: class").  ``shared_multi_class_pool`` — one $1,200 spread across every
+#: class — is retired; a payload carrying it predates the decision.
 BUDGET_POLICY_PER_CLASS = "per_class_pool"
-BUDGET_POLICY_SHARED = "shared_multi_class_pool"
+BUDGET_POLICY_STATUS_CONFIRMED = "owner_confirmed"
+BUDGET_POLICY_DECIDED_BY = "owner"
+BUDGET_POLICY_DECIDED_AT = "2026-10-18"
+
+#: How a class's dollars are SHAPED across its picks (owner addendum
+#: 2026-10-18).  Two different value domains, never presented as one:
+#:
+#: * ``workbook_rookie_auction`` — the default league's workbook class: the
+#:   sheet's own rookie-auction curve and dollars.
+#: * ``interim_generic_market`` — every other class (the default league's
+#:   later classes, and every class of a non-default league): canonical
+#:   generic future-pick MARKET values spread linearly over the class's
+#:   $1,200.  An explicitly labelled INTERIM, not the final methodology — the
+#:   spreadsheet-driven rookie-auction curve is a separate Draft Valuation
+#:   workstream that will replace it.
+CURVE_METHOD_WORKBOOK = "workbook_rookie_auction"
+CURVE_METHOD_INTERIM_GENERIC_MARKET = "interim_generic_market"
+CURVE_METHOD_INTERIM_LABEL = "provisional estimate — final rookie-auction curve pending"
 
 #: Whether a row's slot is a real draft position.
 SLOT_KNOWN = "known"  # the league's draft order for that class is set on Sleeper
@@ -203,32 +231,72 @@ def build_class_picks(
     return rows
 
 
-def _money(v: float) -> float | int:
-    r = round(float(v), 2)
-    return int(r) if r.is_integer() else r
+#: Allocation unit for an estimated class, in cents.  Whole dollars: the same
+#: unit as the workbook's auction budgets (``teamTotals`` are integers) and the
+#: fallback's established rounding.  Any unit that is a whole number of cents
+#: keeps every total exact in integer cents.
+ALLOCATION_UNIT_CENTS = 100
+
+
+def allocate_class_budget(
+    values: list[float], budget: int, *, unit_cents: int = ALLOCATION_UNIT_CENTS
+) -> list[int | float]:
+    """Spread ``budget`` dollars over ``values`` linearly, EXACTLY.
+
+    Owner addendum 2026-10-18: a class totals exactly its budget — no
+    $1,199.88.  Allocation is in integer units of ``unit_cents`` with
+    deterministic largest-remainder distribution of the residual (ties go to
+    the earlier index, i.e. the caller's season / round / origin order), so
+    ``sum(round(d * 100)) == budget * 100`` holds by construction.  Two picks
+    of identical value can therefore differ by one unit; that is the price of
+    an exact total, and it is deterministic.
+
+    ``[]`` → ``[]`` (nothing priced: no distribution is manufactured); a
+    non-positive total gives every value 0 units.
+    """
+    if not values:
+        return []
+    total = float(sum(values))
+    units_total = int(budget) * 100 // int(unit_cents)
+    if total <= 0:
+        return [0] * len(values)
+    scaled = [float(v) * units_total / total for v in values]
+    floors = [int(x) for x in scaled]
+    remainder = units_total - sum(floors)
+    order = sorted(range(len(scaled)), key=lambda i: -(scaled[i] - floors[i]))
+    for i in order[:remainder]:
+        floors[i] += 1
+    out: list[int | float] = []
+    for units in floors:
+        cents = units * int(unit_cents)
+        out.append(cents // 100 if cents % 100 == 0 else cents / 100)
+    return out
 
 
 def price_per_class(rows: list[dict[str, Any]], budget: int) -> list[dict[str, Any]]:
     """Spread ``budget`` over each class's PRICED picks, linearly in value.
 
-    One pool per season (``per_class_pool``).  Picks with equal canonical
-    value get equal dollars (rounded to the cent; no largest-remainder nudge
-    that would price two identical generic picks differently), so a class
-    total can differ from ``budget`` by rounding cents — the year summary
-    publishes the actual sum.  Unpriced rows get ``None`` and no share.
+    One pool per season (``per_class_pool``), allocated by
+    :func:`allocate_class_budget`, so every class with a priced pick totals
+    exactly ``budget``.  Unpriced rows get ``None`` and no share.  Every row
+    is stamped with the class's ``curveMethod`` (interim, see
+    :data:`CURVE_METHOD_INTERIM_GENERIC_MARKET`).
     """
-    totals: dict[int, float] = {}
-    for r in rows:
+    by_season: dict[int, list[int]] = {}
+    for i, r in enumerate(rows):
         v = r.get("_canonicalValue")
         if isinstance(v, (int, float)) and v > 0:
-            totals[int(r["season"])] = totals.get(int(r["season"]), 0.0) + float(v)
-    for r in rows:
-        v = r.pop("_canonicalValue", None)
-        total = totals.get(int(r["season"]))
-        if isinstance(v, (int, float)) and v > 0 and total:
-            dollars = _money(float(v) * float(budget) / total)
-            r["dollarValue"] = dollars
-            r["adjustedDollarValue"] = dollars
+            by_season.setdefault(int(r["season"]), []).append(i)
+    dollars_by_index: dict[int, int | float] = {}
+    for indices in by_season.values():
+        alloc = allocate_class_budget([float(rows[i]["_canonicalValue"]) for i in indices], budget)
+        dollars_by_index.update(zip(indices, alloc))
+    for i, r in enumerate(rows):
+        r.pop("_canonicalValue", None)
+        r["curveMethod"] = CURVE_METHOD_INTERIM_GENERIC_MARKET
+        if i in dollars_by_index:
+            r["dollarValue"] = dollars_by_index[i]
+            r["adjustedDollarValue"] = dollars_by_index[i]
             r["isUnpriced"] = False
         else:
             r["dollarValue"] = None
@@ -238,35 +306,59 @@ def price_per_class(rows: list[dict[str, Any]], budget: int) -> list[dict[str, A
 
 
 def budget_policy_block(
-    basis: str, budget: int, seasons: Iterable[int], *, workbook_season: int | None = None
+    budget: int,
+    seasons: Iterable[int],
+    *,
+    workbook_season: int | None = None,
+    priced_seasons: Iterable[int] | None = None,
 ) -> dict[str, Any]:
-    """What ``budgetPolicy`` says about a payload's dollars."""
+    """What ``budgetPolicy`` says about a payload's dollars.
+
+    One basis for every league (owner decision 2026-10-18): each listed class
+    is its own ``budget`` pool and All Years is their sum.  ``priced_seasons``
+    (default: every listed class) names the classes with at least one priced
+    pick; a class the board cannot price at all holds no dollars, so it is
+    listed in ``unpricedClasses`` and left out of ``allYearsBudget`` rather
+    than counted as a $1,200 nobody can see.
+    """
     seasons = sorted({int(s) for s in seasons})
-    block: dict[str, Any] = {
-        "basis": basis,
+    priced = (
+        seasons
+        if priced_seasons is None
+        else sorted({int(s) for s in priced_seasons} & set(seasons))
+    )
+    estimated = [s for s in seasons if workbook_season is None or s != int(workbook_season)]
+    return {
+        "basis": BUDGET_POLICY_PER_CLASS,
         "budget": int(budget),
         "seasons": seasons,
-        # The question is open: see the module docstring.  Stated on the
-        # payload so the page can label the numbers instead of implying a
-        # settled methodology.
-        "status": "owner_confirmation_pending",
-    }
-    if basis == BUDGET_POLICY_PER_CLASS:
-        block["classBudgets"] = {str(s): int(budget) for s in seasons}
-        block["allYearsBudget"] = int(budget) * len(seasons)
-        block["note"] = (
-            "Each draft class is its own $%d pool. " % budget
+        "status": BUDGET_POLICY_STATUS_CONFIRMED,
+        "decidedBy": BUDGET_POLICY_DECIDED_BY,
+        "decidedAt": BUDGET_POLICY_DECIDED_AT,
+        "classBudgets": {str(s): int(budget) for s in seasons},
+        "unpricedClasses": [s for s in seasons if s not in priced],
+        "allYearsBudget": int(budget) * len(priced),
+        "classCurveMethods": {
+            str(s): (
+                CURVE_METHOD_WORKBOOK
+                if workbook_season is not None and s == int(workbook_season)
+                else CURVE_METHOD_INTERIM_GENERIC_MARKET
+            )
+            for s in seasons
+        },
+        "interimCurveLabel": CURVE_METHOD_INTERIM_LABEL if estimated else None,
+        "note": (
+            "Each draft class is its own $%d pool; All Years adds the classes together. " % budget
             + (
-                "The %d class uses the league workbook's dollars; " % workbook_season
+                "The %d class uses the league workbook's dollars; " % int(workbook_season)
                 if workbook_season is not None
                 else ""
             )
-            + "later classes are estimated from canonical round values."
-        )
-    else:
-        block["allYearsBudget"] = int(budget)
-        block["note"] = (
-            "One $%d pool is shared across every listed class; a year view "
-            "adds up that year's share of it." % budget
-        )
-    return block
+            + (
+                "%s dollars are a %s (interim generic market values)."
+                % (", ".join(str(s) for s in estimated), CURVE_METHOD_INTERIM_LABEL)
+                if estimated
+                else ""
+            )
+        ).strip(),
+    }

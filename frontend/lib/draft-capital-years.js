@@ -9,17 +9,18 @@
 //     with no change here — no year is hard-coded);
 //   * a season's per-team capital and ranking are the backend's
 //     `teamTotalsByYear[season]` (src/api/draft_capital_years.py), which
-//     SUMS the same per-pick dollars the all-years total is made of — the
-//     $1200 pool is never re-spread per season;
+//     SUMS the same per-pick dollars the all-years total is made of — never
+//     re-spread client-side.  Each draft class is its own $1200 pool (owner
+//     decision 2026-10-18, "$1,200 per draft class"), on every league;
 //   * "All Years" is the backend's `allYearsTeamTotals` — every class the
 //     year views cover, each pick once — falling back to `teamTotals` on a
 //     payload that predates it.
 //
 // Owner directive 2026-10-17: every Sleeper draft class the league still owns
-// picks in is listed.  The default league's workbook carries ONE class in
-// `picks`; the others arrive in `additionalClassPicks` (Sleeper ownership +
-// canonical values) and are part of every view here except `teamTotals`,
-// which stays the upcoming auction's budgets for /draft and /trade.
+// picks in is listed.  Both builders carry the upcoming class in `picks`;
+// the others arrive in `additionalClassPicks` (Sleeper ownership + canonical
+// values) and are part of every view here except `teamTotals`, which stays
+// the upcoming auction's budgets for /draft and /trade.
 //
 // When the payload predates the per-season views (a deploy-skew window), no
 // season is offered and the page stays on All Years rather than re-deriving
@@ -101,10 +102,12 @@ export function draftCapitalYearSummary(data, year) {
 }
 
 /**
- * The budget basis the payload's dollars were computed on.  Two bases exist
- * (see src/api/draft_capital_classes.py): each class its own pool, or one
- * pool shared across every class.  A payload without `budgetPolicy` is the
- * legacy shared pool.
+ * The budget basis the payload's dollars were computed on.  ONE basis exists
+ * (owner decision 2026-10-18, src/api/draft_capital_classes.py): each draft
+ * class is its own pool and All Years adds the classes.  `perClass: false`
+ * only reads a LEGACY payload (no `budgetPolicy`, or the retired shared-pool
+ * basis) served across a deploy-skew window; the page then states no
+ * multi-class basis at all rather than describing a retired policy.
  */
 function finiteOrNull(value) {
   const n = Number(value);
@@ -121,10 +124,24 @@ export function draftCapitalBudgetPolicy(data) {
       perClass: true,
       budget,
       allYearsBudget: allYears ?? budget,
+      // Classes holding priced dollars (a class the board cannot price at
+      // all is in `unpricedClasses` and outside `allYearsBudget`).
+      pricedClassCount:
+        Array.isArray(bp.seasons) && Array.isArray(bp.unpricedClasses)
+          ? bp.seasons.length - bp.unpricedClasses.length
+          : null,
+      decided: bp.status === "owner_confirmed",
       note: bp.note || null,
     };
   }
-  return { perClass: false, budget, allYearsBudget: budget, note: bp?.note || null };
+  return {
+    perClass: false,
+    budget,
+    allYearsBudget: budget,
+    pricedClassCount: null,
+    decided: false,
+    note: null,
+  };
 }
 
 /**
@@ -169,4 +186,34 @@ export function draftCapitalPickLabel(p, { slotsAreStandIns = false, withSeason 
     slotsAreStandIns || isSlotUnknown(p) ? `R${p?.round}` : String(p?.pick ?? "");
   if (!withSeason || p?.season == null) return base;
   return `'${String(p.season).slice(-2)} ${base}`;
+}
+
+/** The owner-addendum (2026-10-18) label for a class on the interim curve. */
+export const INTERIM_CURVE_LABEL = "provisional estimate — final rookie-auction curve pending";
+
+/**
+ * Seasons whose dollars are spread on the INTERIM generic-market curve (not
+ * the workbook's rookie-auction curve), ascending.  Read from the payload's
+ * per-class `budgetPolicy.classCurveMethods` when present, else from the
+ * per-pick `curveMethod` of the picks on screen.
+ */
+export function draftCapitalInterimSeasons(data, picks) {
+  const out = new Set();
+  const methods = data?.budgetPolicy?.classCurveMethods;
+  const onScreen = new Set(
+    (Array.isArray(picks) ? picks : []).map((p) => Number(p?.season)).filter(Number.isFinite),
+  );
+  if (methods && typeof methods === "object") {
+    for (const [season, method] of Object.entries(methods)) {
+      const n = Number(season);
+      if (method === "interim_generic_market" && (onScreen.size === 0 || onScreen.has(n))) {
+        out.add(n);
+      }
+    }
+  } else {
+    for (const p of Array.isArray(picks) ? picks : []) {
+      if (p?.curveMethod === "interim_generic_market") out.add(Number(p.season));
+    }
+  }
+  return [...out].filter(Number.isFinite).sort((a, b) => a - b);
 }

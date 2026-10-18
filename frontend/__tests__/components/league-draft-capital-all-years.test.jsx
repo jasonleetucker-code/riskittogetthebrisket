@@ -23,6 +23,7 @@ import DraftCapitalSection from "@/app/league/sections/draft-capital.jsx";
 import {
   draftCapitalAllPicks,
   draftCapitalBudgetPolicy,
+  draftCapitalInterimSeasons,
   draftCapitalPickLabel,
   draftCapitalSlotsAreStandIns,
   draftCapitalTeamRows,
@@ -77,7 +78,16 @@ const PAYLOAD = {
     basis: "per_class_pool",
     budget: 1200,
     allYearsBudget: 3600,
-    status: "owner_confirmation_pending",
+    seasons: [2027, 2028, 2029],
+    unpricedClasses: [],
+    status: "owner_confirmed",
+    decidedBy: "owner",
+    decidedAt: "2026-10-18",
+    classCurveMethods: {
+      2027: "workbook_rookie_auction",
+      2028: "interim_generic_market",
+      2029: "interim_generic_market",
+    },
   },
   picks: [
     wbPick(1, 1, "Ann", "Ann", 700),
@@ -164,9 +174,45 @@ describe("draft-capital-years lib — every class", () => {
     expect(draftCapitalSlotsAreStandIns(PAYLOAD, PAYLOAD.picks)).toBe(false);
   });
 
-  it("reads the budget basis from the payload", () => {
-    expect(draftCapitalBudgetPolicy(PAYLOAD)).toMatchObject({ perClass: true, allYearsBudget: 3600 });
-    expect(draftCapitalBudgetPolicy({ totalBudget: 1200 })).toMatchObject({ perClass: false, allYearsBudget: 1200 });
+  it("names the interim-curve seasons from the payload, per class", () => {
+    expect(draftCapitalInterimSeasons(PAYLOAD, draftCapitalAllPicks(PAYLOAD))).toEqual([2028, 2029]);
+    expect(draftCapitalInterimSeasons(PAYLOAD, PAYLOAD.picks)).toEqual([]);
+    // Without the per-class map, the per-pick stamp answers.
+    expect(
+      draftCapitalInterimSeasons({}, [
+        { season: 2028, curveMethod: "interim_generic_market" },
+        { season: 2027, curveMethod: "workbook_rookie_auction" },
+      ]),
+    ).toEqual([2028]);
+  });
+
+  it("reads the owner-decided per-class basis from the payload", () => {
+    // Owner decision 2026-10-18: "$1,200 per draft class".
+    expect(draftCapitalBudgetPolicy(PAYLOAD)).toMatchObject({
+      perClass: true,
+      allYearsBudget: 3600,
+      pricedClassCount: 3,
+      decided: true,
+    });
+    // A class the board cannot price at all holds no dollars.
+    expect(
+      draftCapitalBudgetPolicy({
+        budgetPolicy: { ...PAYLOAD.budgetPolicy, allYearsBudget: 2400, unpricedClasses: [2029] },
+      }),
+    ).toMatchObject({ perClass: true, allYearsBudget: 2400, pricedClassCount: 2 });
+    // Legacy payloads (no policy, or the retired shared pool) state no basis.
+    expect(draftCapitalBudgetPolicy({ totalBudget: 1200 })).toMatchObject({
+      perClass: false,
+      allYearsBudget: 1200,
+      decided: false,
+      note: null,
+    });
+    expect(
+      draftCapitalBudgetPolicy({
+        totalBudget: 1200,
+        budgetPolicy: { basis: "shared_multi_class_pool", budget: 1200, note: "One $1200 pool" },
+      }),
+    ).toMatchObject({ perClass: false, note: null });
   });
 });
 
@@ -202,6 +248,10 @@ describe("DraftCapitalSection — every Sleeper draft year", () => {
       /Each draft class is its own \$1200 pool/,
     );
     expect(screen.getByTestId("draft-capital-projected-note").textContent).toMatch(/2027 slots are projected/);
+    // Owner addendum 2026-10-18: the later classes' curve is a labelled interim.
+    expect(screen.getByTestId("draft-capital-interim-curve-note").textContent).toMatch(
+      /^2028, 2029 dollars: provisional estimate — final rookie-auction curve pending/,
+    );
     expect(screen.getByTestId("draft-capital-round-only-note")).toBeInTheDocument();
   });
 
@@ -224,12 +274,29 @@ describe("DraftCapitalSection — every Sleeper draft year", () => {
     expect(screen.getAllByText(/the 2028 class's own \$1200 pool/).length).toBeGreaterThan(0);
   });
 
+  it("the workbook class alone carries no interim-curve label", async () => {
+    render(<DraftCapitalSection yearParam="2027" setYear={() => {}} />);
+    await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
+    expect(screen.queryByTestId("draft-capital-interim-curve-note")).toBeNull();
+  });
+
   it("?year=2029 keeps unpriced picks visible and never $0", async () => {
     render(<DraftCapitalSection yearParam="2029" setYear={() => {}} />);
     await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
     expect(screen.getByTestId("draft-capital-notes").textContent).toMatch(/2 of 4 picks could not be priced/);
     expect(within(rowFor("Ann")).getByText("R2?")).toBeInTheDocument();
     expect(screen.getAllByText("unpriced").length).toBe(2);
+  });
+
+  it("a legacy shared-pool payload never renders the retired shared-pool note", async () => {
+    stubFetch({
+      ...PAYLOAD,
+      budgetPolicy: { basis: "shared_multi_class_pool", budget: 1200, allYearsBudget: 1200 },
+    });
+    render(<DraftCapitalSection yearParam="2028" setYear={() => {}} />);
+    await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
+    expect(screen.queryByTestId("draft-capital-budget-note")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/pool is spread across every listed pick/);
   });
 
   it("selecting 2029 writes it through setYear", async () => {

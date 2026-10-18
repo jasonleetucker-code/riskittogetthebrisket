@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 630,
+ "count": 629,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -252,7 +252,6 @@
   "src/api/data_contract.py::str(s.get(\"key\") or \"\"): max(0.0, float(s.get(\"weight\") or 1.0)) for s in active_sources",
   "src/api/data_contract.py::value = float(row.get(\"rankDerivedValue\") or 0.0)",
   "src/api/data_contract.py::w = float(s.get(\"weight\") or 0.0)",
-  "src/api/draft_capital_fallback.py::team_totals[p.current_owner] = team_totals.get(p.current_owner, 0) + (p.dollar_value or 0)",
   "src/api/faab_analytics.py::\"createdAt\": int(tx.get(\"status_updated\") or tx.get(\"created\") or 0),",
   "src/api/faab_analytics.py::bid = int(settings.get(\"waiver_bid\") or 0)",
   "src/api/faab_analytics.py::if r.get(\"roster_id\") == roster_id or r.get(\"roster_id\") == int(roster_id or 0):",

@@ -24,11 +24,13 @@ import {
   availableDraftCapitalYears,
   draftCapitalAllPicks,
   draftCapitalBudgetPolicy,
+  draftCapitalInterimSeasons,
   draftCapitalPickLabel,
   draftCapitalPicksForYear,
   draftCapitalSlotsAreStandIns,
   draftCapitalTeamRows,
   draftCapitalYearSummary,
+  INTERIM_CURVE_LABEL,
   isSlotProjected,
   isSlotUnknown,
   isUnpricedPick,
@@ -162,9 +164,7 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
   const projectedSeasons = [
     ...new Set(viewPicks.filter(isSlotProjected).map((p) => p.season)),
   ].sort();
-  const estimatedSeasons = [
-    ...new Set(viewPicks.filter((p) => p.dollarValueEstimated === true).map((p) => p.season)),
-  ].sort();
+  const interimSeasons = draftCapitalInterimSeasons(data, viewPicks);
 
   const scopeLabel =
     selectedYear != null
@@ -178,13 +178,15 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
       selectedYear != null && summary
         ? `${fmtCapital(summary.totalDollars)} · the ${selectedYear} class's own ${budgetText(policy.budget)} pool`
         : multiYear
-          ? `${budgetText(policy.allYearsBudget)} = ${years.length} classes × ${budgetText(policy.budget)}`
+          ? `${budgetText(policy.allYearsBudget)} = ${policy.pricedClassCount ?? years.length} classes × ${budgetText(policy.budget)}`
           : `${budgetText(policy.budget)} total budget`;
   } else {
+    // Legacy payload (deploy skew, pre-2026-10-18): state the figures only,
+    // never the retired shared-pool basis.
     budgetLabel =
       selectedYear != null && summary
-        ? `${fmtCapital(summary.totalDollars)} of the $${data.totalBudget} pool`
-        : `$${data.totalBudget} total budget`;
+        ? `${fmtCapital(summary.totalDollars)} · ${selectedYear} picks`
+        : `${budgetText(policy.budget)} total budget`;
   }
 
   const yearOptions = [
@@ -229,6 +231,7 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
           multiYear ||
           slotsAreStandIns ||
           hasRoundOnly ||
+          interimSeasons.length > 0 ||
           unpricedCount > 0) && (
           <ul
             data-testid="draft-capital-notes"
@@ -240,26 +243,18 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
               lineHeight: 1.5,
             }}
           >
-            {(selectedYear != null || multiYear) &&
-              (policy.perClass ? (
-                <li data-testid="draft-capital-budget-note">
-                  Each draft class is its own {budgetText(policy.budget)} pool; All Years adds
-                  the classes together, each pick counted once.
-                  {estimatedSeasons.length > 0 && (
-                    <>
-                      {" "}
-                      {estimatedSeasons.join(", ")} dollars are estimated from the
-                      canonical round values (provisional basis).
-                    </>
-                  )}
-                </li>
-              ) : (
-                <li data-testid="draft-capital-budget-note">
-                  One ${data.totalBudget} pool is spread across every listed pick; a
-                  year view adds up that year&apos;s share of it. Values are not
-                  rescaled per year.
-                </li>
-              ))}
+            {(selectedYear != null || multiYear) && policy.perClass && (
+              <li data-testid="draft-capital-budget-note">
+                Each draft class is its own {budgetText(policy.budget)} pool; All Years adds
+                the classes together, each pick counted once.
+              </li>
+            )}
+            {interimSeasons.length > 0 && (
+              <li data-testid="draft-capital-interim-curve-note">
+                {interimSeasons.join(", ")} dollars: {INTERIM_CURVE_LABEL} (interim generic
+                market values spread over each class&apos;s pool).
+              </li>
+            )}
             {hasRoundOnly && (
               <li data-testid="draft-capital-round-only-note">
                 Estimated: classes without a draft order show their round only

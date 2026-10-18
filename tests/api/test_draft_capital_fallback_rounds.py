@@ -80,8 +80,10 @@ def test_the_board_is_built_for_the_number_of_rounds_the_league_runs(_no_network
     out = fb.build_sleeper_derived("123", {}, current_season=2026)
     assert out["draftRounds"] == 6
     assert out["draftRoundsSource"] == "sleeper"
-    # 4 owned classes (league-scoped horizon) x 6 rounds x 2 teams.
-    assert len(out["picks"]) == 48
+    # 4 owned classes (league-scoped horizon) x 6 rounds x 2 teams: the
+    # upcoming class in ``picks``, the three later classes beside it.
+    assert len(out["picks"]) == 12
+    assert len(out["picks"]) + len(out["additionalClassPicks"]) == 48
 
 
 # Prices every current-season slot up to six rounds.  A contract is REQUIRED to
@@ -123,7 +125,7 @@ def test_the_round_count_rescales_every_team_total(_no_network):
 
     assert six["draftRounds"] == 6
     assert four["draftRounds"] == 4
-    # The same $1200 is spread over a different number of picks, so per-pick
+    # The class's own $1200 is spread over a different number of picks, so per-pick
     # dollars — and therefore every team's auction budget composition — differ.
     assert len(six["picks"]) != len(four["picks"])
     six_priced = _priced(six)
@@ -207,9 +209,11 @@ def test_next_seasons_slots_get_no_rookie_names(_no_network):
     _no_network.update(_sleeper(1))
     rookies = [{"name": "A", "pos": "RB", "dollar": 1, "boardValue": 1000}] * 4
     out = fb.build_sleeper_derived("123", {}, current_season=2026, rookies=rookies)
-    future = [p for p in out["picks"] if p["season"] == 2027]
+    future = [p for p in out["additionalClassPicks"] if p["season"] == 2027]
     assert future
     assert all("rookieName" not in p for p in future)
+    # Each class numbers its own draft from 1.
+    assert [p["overallPick"] for p in future] == [1, 2]
 
 
 def test_omitting_the_rookie_board_leaves_the_payload_exactly_as_before(_no_network):

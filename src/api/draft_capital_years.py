@@ -13,13 +13,16 @@ season each pick belongs to.
 
 **No per-year renormalization here.**  A season's view is the SUM of the
 per-pick dollars the builder already assigned; this module never re-spreads
-them.  How a builder assigns them is its own budget basis (``budgetPolicy``,
-``src/api/draft_capital_classes.py``): the fallback spreads ONE $1200 across
-every class, so its seasons add back up to ``auctionDollars``; the default
-league's workbook class is $1200 and each later class (in
-``additionalClassPicks``, owner directive 2026-10-17) its own $1200 pool, so
-its seasons add up to ``allYearsTeamTotals`` while ``auctionDollars`` stays
-the workbook class alone.
+them.  The budget basis is owner-decided (2026-10-18, "$1,200 per draft
+class", ``budgetPolicy`` in ``src/api/draft_capital_classes.py``): every
+class is its own $1200 pool on BOTH builders, so each season's league total
+is that class's $1200 whenever any of its picks is priced (unpriced picks
+are left out of the class's normalization, never counted as $0) and All
+Years is the sum of the classes, each pick once.  Both builders carry the upcoming class in
+``picks`` / ``teamTotals`` (``auctionDollars`` = the auction budgets) and
+every later class in ``additionalClassPicks``, so the seasons add up to
+``allYearsTeamTotals`` while ``auctionDollars`` stays the upcoming class
+alone.
 
 **A partially priced season ranks on its PRICED dollars.**  Unpriced picks
 (``dollarValue: null``) are excluded from a season's sum exactly as the
@@ -93,7 +96,7 @@ def attach_year_views(
     one season by construction, so it passes that season's existing total.
     When omitted, a season's capital is the sum of the priced per-pick
     ``dollarValue`` the team currently owns in it — exactly how the fallback
-    forms ``auctionDollars``, so the seasons add back up to it.
+    forms ``auctionDollars`` for the upcoming class.
 
     Adds:
 
@@ -110,8 +113,8 @@ def attach_year_views(
         return result
     picks = result.get("picks")
     picks = list(picks) if isinstance(picks, list) else []
-    # Classes the builder's ``teamTotals`` do not cover (the default league's
-    # workbook holds ONE class; ``draft_capital_classes`` adds the rest).  They
+    # Classes the builder's ``teamTotals`` do not cover (both builders carry
+    # the upcoming class there and every later class here).  They
     # take part in every per-year view and in ``allYearsTeamTotals``, never in
     # ``teamTotals`` / ``coveredPickYears`` — those keep meaning "the dollars
     # the auction budgets are made of".
@@ -265,10 +268,9 @@ def attach_year_views(
         }
 
     # All Years = every class the year views cover, each pick counted once
-    # (one row per pick, no class repeated).  For a builder whose
-    # ``teamTotals`` already span every class this equals ``auctionDollars``;
-    # for the workbook path it adds the classes ``additionalClassPicks``
-    # carries on top of the workbook class.
+    # (one row per pick, no class repeated): the upcoming class in
+    # ``teamTotals`` plus the classes ``additionalClassPicks`` carries, each
+    # its own $1200 pool (owner decision 2026-10-18).
     all_rows = _ranked(
         [
             {
