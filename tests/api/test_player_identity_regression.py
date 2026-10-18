@@ -365,8 +365,18 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "DaRon Bland": "Veteran CB only ranked by FootballGuys IDP",
     "Jordan Davis": "Veteran DL only ranked by FootballGuys IDP",
     "Marlon Humphrey": "Veteran CB only ranked by FootballGuys IDP",
-    "Mike Jackson": "Veteran CB only ranked by FootballGuys IDP",
-    "Nahshon Wright": "Veteran CB only ranked by FootballGuys IDP",
+    # Mike Jackson and Nahshon Wright removed 2026-10-18: neither is on the
+    # board any more, so the post-condition below flagged them as stale.
+    # Checked, not assumed: in the committed export archive both raw rows
+    # were ``_fallbackReason: "rostered_guarantee"`` single-site floors
+    # (``_composite`` 503, Sleeper ids 6025 / 7687) — they were in the pool
+    # only because a league roster held them.  Nahshon Wright left the raw
+    # pool in the 2026-09-24 export and Mike Jackson by the 2026-10-04
+    # export; neither Sleeper id appears in the 2026-10-18 ``sleeper``
+    # block.  FantasyPros IDP still lists both ("Mike Jackson Sr.",
+    # "Nahshon Wright"), but CSV sources graft onto pool rows and never
+    # mint one (``_enrich_from_source_csvs``).  Restore an entry if the
+    # player re-enters the top board as a 1-src row.
 }
 
 

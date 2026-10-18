@@ -32,6 +32,13 @@ beforeAll(async () => {
 /** Budget for a wait that reveals a lazy panel for the first time in this file. */
 const COLD_LAZY_REVEAL = { timeout: 10_000 };
 
+// The per-test timeout must EXCEED the wait budget, or the budget is
+// fictional: vitest's default testTimeout is 5 s, so a 10 s reveal budget
+// was cut off at 5 s ("Test timed out in 5000ms") exactly when the suite
+// was loaded enough to need it.  Same setting as trade-asset-quantity /
+// trade-screenshot-import-page.
+vi.setConfig({ testTimeout: 30_000 });
+
 function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }

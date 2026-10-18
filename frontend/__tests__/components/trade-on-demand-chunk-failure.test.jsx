@@ -153,6 +153,8 @@ describe("/trade on-demand section whose chunk fails to load", () => {
   it("a main action's section (the Simulate impact result) fails in place too", async () => {
     sim.result = { team: { name: "Team A" }, unresolvedIn: [], unresolvedOut: [] };
     render(<TradePage />);
+    // TC-D2 / TCM-H13: the result lives in the Roster drilldown.
+    await userEvent.click(await screen.findByRole("tab", { name: "Roster" }));
     expect(await screen.findByText("Simulation result unavailable", {}, COLD_LAZY_REVEAL)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Clear Trade" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Trade War Room" })).toBeTruthy();

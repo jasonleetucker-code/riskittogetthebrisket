@@ -6,23 +6,151 @@ ownership is overlaid live from Sleeper's ``/traded_picks`` API; the
 workbook's R45:R116 column is the fallback when Sleeper is
 unreachable.  Tests that need to assert workbook-only behavior pass
 ``apply_sleeper_trades=False``.
+
+Every test that drives ``_fetch_draft_capital`` runs against a HERMETIC
+``dynasty_main`` league (``_dynasty_main_league``): the suite's conftest
+configures no league at all, and since the canonical rookie-auction reader
+(draft valuation Batches E/F) prices only a configured league's upcoming
+class, these tests used to get ``draft_dollars_unavailable`` and SKIP — 15 of
+them, silently, on every run.  The harness maps the stubbed Sleeper league to
+``dynasty_main`` and models the league as it really is between drafts: this
+season's rookie draft complete and its picks rostered, so the workbook class
+is NEXT season's (the upcoming class), and the slot map comes from the
+completed draft.  An error from the builder is now a FAILURE, not a skip.
 """
 
 from __future__ import annotations
 
+import io
+import json
 import sys
 import unittest
+from contextlib import ExitStack, contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO))
 
+TEST_LEAGUE = "TEST_LEAGUE"
+ROUNDS = 6
+
 
 def _load():
     import server
 
     return server._parse_draft_data()
+
+
+def _players(rid: int) -> list[str]:
+    return [f"p{rid}_{k}" for k in range(ROUNDS)]
+
+
+def _retire(url_map: dict, season: int, rids) -> None:
+    """Make draft ``D1`` (season ``season``) a COMPLETE rookie draft whose picks
+    are all on rosters — the canonical "retired class" evidence
+    (``pick_lifecycle``: completion AND roster consumption).  The upcoming
+    class is then ``season + 1``."""
+    for d in url_map["/drafts"]:
+        if d["draft_id"] == "D1":
+            assert int(d["season"]) == int(season)
+            d["status"] = "complete"
+            d["settings"] = {"rounds": ROUNDS, "player_type": 1}
+    for r in url_map["/rosters"]:
+        if int(r["roster_id"]) in set(rids):
+            r["players"] = _players(int(r["roster_id"]))
+    picks = [
+        {"player_id": p, "metadata": {"years_exp": "0"}}
+        for rid in sorted(rids)
+        for p in _players(rid)
+    ]
+    # Inserted FIRST: the stub matches by substring in insertion order, and
+    # "/draft/D1" would otherwise answer ".../draft/D1/picks".
+    rest = dict(url_map)
+    url_map.clear()
+    url_map["/draft/D1/picks"] = picks
+    url_map.update(rest)
+
+
+def _stub_urlopen(url_to_payload):
+    """A urllib.request.urlopen stub.  ``url_to_payload`` maps a URL substring
+    to a payload; the special key ``"__LEAGUE_META__"`` answers the bare
+    ``/v1/league/{id}`` endpoint (no trailing resource)."""
+    meta_payload = url_to_payload.get("__LEAGUE_META__")
+    substring_map = {k: v for k, v in url_to_payload.items() if k != "__LEAGUE_META__"}
+
+    def fake_urlopen(url, *args, **kwargs):
+        target = url.full_url if hasattr(url, "full_url") else str(url)
+        # League meta = "/v1/league/{id}" with no trailing path
+        # segment.  A normal "/v1/league/{id}/rosters" URL has at
+        # least one trailing segment, which is how we distinguish.
+        tail = target.split("/v1/league/", 1)[-1] if "/v1/league/" in target else ""
+        if meta_payload is not None and "/v1/league/" in target and "/" not in tail:
+            return io.BytesIO(json.dumps(meta_payload).encode())
+        for key, payload in substring_map.items():
+            if key in target:
+                return io.BytesIO(json.dumps(payload).encode())
+        raise AssertionError(f"unexpected urlopen({target})")
+
+    return fake_urlopen
+
+
+@contextmanager
+def _dynasty_main_league(url_map, parsed=None):
+    """Drive ``_fetch_draft_capital`` hermetically for a stubbed Sleeper league
+    registered as ``dynasty_main`` (no live Sleeper, no live KTC, no stored
+    draft-class evidence)."""
+    import server
+    import src.api.draft_class_evidence as dce
+
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(server.urllib.request, "urlopen", _stub_urlopen(url_map)))
+        stack.enter_context(
+            patch.object(server, "_sleeper_league_id_for_draft", return_value=TEST_LEAGUE)
+        )
+        stack.enter_context(
+            patch.object(
+                server._league_registry,
+                "league_key_for_sleeper_id",
+                side_effect=lambda lid: "dynasty_main" if lid == TEST_LEAGUE else None,
+            )
+        )
+        stack.enter_context(patch.object(dce, "read_snapshot", return_value=None))
+        stack.enter_context(patch.object(server, "_our_rookie_pool", return_value=[]))
+        stack.enter_context(patch.object(server, "_get_ktc_rookies", return_value=[]))
+        if parsed is not None:
+            stack.enter_context(patch.object(server, "_parse_draft_data", return_value=parsed))
+        yield server
+
+
+def _plain_league(season: int) -> dict:
+    """The workbook's 12 teams as a Sleeper league whose ``season`` rookie draft
+    is complete and rostered (the upcoming class is ``season + 1``), no trades."""
+    _, _, slot_to_original, _, _, _ = _load()
+    rids = [int(s) for s in slot_to_original]
+    url_map = {
+        "/rosters": [{"roster_id": rid, "owner_id": f"u{rid}"} for rid in rids],
+        "/users": [
+            {"user_id": f"u{int(s)}", "display_name": f"Team-{fn}", "metadata": {}}
+            for s, fn in slot_to_original.items()
+        ],
+        "/drafts": [{"draft_id": "D1", "season": season}],
+        "/traded_picks": [],
+        "/draft/D1": {"slot_to_roster_id": {str(rid): rid for rid in rids}},
+        "__LEAGUE_META__": {"season": str(season)},
+    }
+    _retire(url_map, season, rids)
+    return url_map
+
+
+def _hermetic_fetch(*, apply_sleeper_trades: bool):
+    season = datetime.now(timezone.utc).year
+    with _dynasty_main_league(_plain_league(season)) as server:
+        result = server._fetch_draft_capital(apply_sleeper_trades=apply_sleeper_trades)
+    assert "error" not in result, result
+    assert result["season"] == season + 1, result.get("season")
+    return result
 
 
 class TestDraftDataParsing(unittest.TestCase):
@@ -53,11 +181,7 @@ class TestApiOutput(unittest.TestCase):
         workbook's half-dollar L2:L73 figure travels beside it as reference
         data (an integer multiple of 0.5), and the published value is never
         more than a dollar from it."""
-        import server
-
-        result = server._fetch_draft_capital(apply_sleeper_trades=False)
-        if "error" in result:
-            self.skipTest(f"Unavailable: {result['error']}")
+        result = _hermetic_fetch(apply_sleeper_trades=False)
         self.assertEqual(sum(p["dollarValue"] for p in result["picks"]), 1200)
         for p in result["picks"]:
             v = p["dollarValue"]
@@ -66,24 +190,25 @@ class TestApiOutput(unittest.TestCase):
             ref = p["workbookReferenceDollarValue"]
             self.assertAlmostEqual(ref * 2, round(ref * 2), places=6)
             self.assertLess(abs(v - ref), 1, f"{p['pick']}: {v} vs reference {ref}")
-        receipt = result["wholeDollarAllocation"]
+        # The 72-pick class's receipt is the SERVED record's (Batch F): the
+        # whole-dollar step lives in ``validation.apportionment``.  The flat
+        # ``total`` / ``floored`` / ``residual`` shape this test used to read
+        # belongs to ``workbook_class_whole_dollars``, which now serves only a
+        # workbook of another size (census row 10, still pinned by
+        # ``test_draft_capital_all_years.py``).
+        validation = result["wholeDollarAllocation"]["validation"]
+        receipt = validation["apportionment"]
         self.assertEqual(receipt["total"], 1200)
-        self.assertEqual(receipt["floored"] + receipt["residual"], 1200)
+        self.assertEqual(receipt["flooredSum"] + receipt["residual"], 1200)
+        self.assertEqual(receipt["finalWholeDollars"], [p["dollarValue"] for p in result["picks"]])
+        self.assertEqual(validation["verifier"]["result"], "pass")
 
     def test_api_total_budget_1200(self):
-        import server
-
-        result = server._fetch_draft_capital(apply_sleeper_trades=False)
-        if "error" in result:
-            self.skipTest(f"Unavailable: {result['error']}")
+        result = _hermetic_fetch(apply_sleeper_trades=False)
         self.assertEqual(result["totalBudget"], 1200)
 
     def test_api_team_totals_sum_to_1200(self):
-        import server
-
-        result = server._fetch_draft_capital(apply_sleeper_trades=False)
-        if "error" in result:
-            self.skipTest(f"Unavailable: {result['error']}")
+        result = _hermetic_fetch(apply_sleeper_trades=False)
         total = sum(t["auctionDollars"] for t in result["teamTotals"])
         self.assertEqual(total, 1200, f"Team total sum = {total}")
 
@@ -116,12 +241,9 @@ class TestTeamTotalsMirrorSheet(unittest.TestCase):
 
         Pinned to ``apply_sleeper_trades=False`` so the workbook's R45:R116
         ownership column is the sole owner-of-record."""
-        import server
         from collections import defaultdict
 
-        result = server._fetch_draft_capital(apply_sleeper_trades=False)
-        if "error" in result:
-            self.skipTest(f"Unavailable: {result['error']}")
+        result = _hermetic_fetch(apply_sleeper_trades=False)
         owned = defaultdict(int)
         for p in result["picks"]:
             owned[p["currentOwner"]] += p["dollarValue"]
@@ -139,35 +261,17 @@ class TestSleeperTradeOverlay(unittest.TestCase):
     """
 
     def _stub_urlopen(self, url_to_payload):
-        """Build a urllib.request.urlopen stub.  ``url_to_payload`` is
-        a {key: payload} dict where ``key`` is either a URL substring
-        match or the special sentinel ``"__LEAGUE_META__"`` for the
-        bare ``/v1/league/{id}`` endpoint (matched by checking the
-        path ends in the league id with no trailing resource).
-        """
-        import io
-        import json as _json
-
-        meta_payload = url_to_payload.get("__LEAGUE_META__")
-        substring_map = {k: v for k, v in url_to_payload.items() if k != "__LEAGUE_META__"}
-
-        def fake_urlopen(url, *args, **kwargs):
-            target = url.full_url if hasattr(url, "full_url") else str(url)
-            # League meta = "/v1/league/{id}" with no trailing path
-            # segment.  A normal "/v1/league/{id}/rosters" URL has at
-            # least one trailing segment, which is how we distinguish.
-            tail = target.split("/v1/league/", 1)[-1] if "/v1/league/" in target else ""
-            if meta_payload is not None and "/v1/league/" in target and "/" not in tail:
-                return io.BytesIO(_json.dumps(meta_payload).encode())
-            for key, payload in substring_map.items():
-                if key in target:
-                    return io.BytesIO(_json.dumps(payload).encode())
-            raise AssertionError(f"unexpected urlopen({target})")
-
-        return fake_urlopen
+        """See the module-level ``_stub_urlopen``."""
+        return _stub_urlopen(url_to_payload)
 
     def _build_overlay_fixture(
-        self, draft_season, *, league_meta_season=None, drafts_seasons=None, traded_pick_season=None
+        self,
+        draft_season,
+        *,
+        league_meta_season=None,
+        drafts_seasons=None,
+        traded_pick_season=None,
+        retired=False,
     ):
         """Construct mocked Sleeper responses for a single traded pick.
 
@@ -188,7 +292,11 @@ class TestSleeperTradeOverlay(unittest.TestCase):
             ``[draft_season]``.  Use ``[older_season]`` to simulate
             the pre-rollover offseason window.
         ``traded_pick_season`` — season stamped on the traded-pick
-            entry.  Defaults to ``draft_season``.
+            entry.  Defaults to ``draft_season`` (``draft_season + 1``
+            when ``retired``: the upcoming class is the one traded).
+        ``retired`` — ``draft_season``'s rookie draft is complete and its
+            picks rostered, so the workbook class is ``draft_season + 1``
+            (the league as it really is between drafts).
         """
         _, workbook_picks, slot_to_original, _, _, _ = _load()
         if not workbook_picks or not slot_to_original:
@@ -230,7 +338,7 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         if drafts_seasons is None:
             drafts_seasons = [draft_season]
         if traded_pick_season is None:
-            traded_pick_season = draft_season
+            traded_pick_season = draft_season + 1 if retired else draft_season
         if league_meta_season is None:
             league_meta_season = draft_season
 
@@ -264,6 +372,8 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         for did in [d["draft_id"] for d in drafts]:
             url_map[f"/draft/{did}"] = draft_detail
         url_map["__LEAGUE_META__"] = league_meta_payload
+        if retired:
+            _retire(url_map, draft_season, [int(r["roster_id"]) for r in rosters])
         return url_map, wp, orig_first, other_first
 
     def _run_overlay(self, draft_season, **fixture_kwargs):
@@ -273,21 +383,17 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         ``drafts_seasons``, ``traded_pick_season``).  Returns
         (with_overlay_result, without_overlay_result, wp,
         orig_first, other_first) or None if the workbook is
-        unavailable."""
-        import server
-
+        unavailable.  A builder error FAILS the test (hermetic
+        ``dynasty_main`` league — nothing environmental is left to skip on)."""
         fixture = self._build_overlay_fixture(draft_season, **fixture_kwargs)
         if fixture is None:
             return None
         url_map, wp, orig_first, other_first = fixture
-        with (
-            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
-            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
-        ):
+        with _dynasty_main_league(url_map) as server:
             with_overlay = server._fetch_draft_capital(apply_sleeper_trades=True)
             without_overlay = server._fetch_draft_capital(apply_sleeper_trades=False)
-        if "error" in with_overlay or "error" in without_overlay:
-            return None
+        self.assertNotIn("error", with_overlay, with_overlay)
+        self.assertNotIn("error", without_overlay, without_overlay)
         return with_overlay, without_overlay, wp, orig_first, other_first
 
     @staticmethod
@@ -301,10 +407,13 @@ class TestSleeperTradeOverlay(unittest.TestCase):
     def test_traded_pick_moves_dollars_between_teams(self):
         """When Sleeper reports a pick was traded, the receiving team's
         dollar total must increase and the original owner's must
-        decrease — independent of whatever R45:R116 says."""
-        from datetime import datetime, timezone
+        decrease — independent of whatever R45:R116 says.
 
-        run = self._run_overlay(datetime.now(timezone.utc).year)
+        The league as it is between drafts: this season's rookie draft is
+        complete and rostered, the workbook prices NEXT season's class, and
+        the traded pick is in that class."""
+        season = datetime.now(timezone.utc).year
+        run = self._run_overlay(season, retired=True)
         if run is None:
             self.skipTest("Workbook unavailable")
         with_overlay, without_overlay, wp, orig_first, other_first = run
@@ -422,10 +531,32 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         self.assertEqual(with_overlay["season"], sleeper_season)
 
 
+def _reverse_standings():
+    """Standings where roster 12 is worst and roster 1 best — by RECORD first
+    (the league's rule, ``reverse_record_lower_pf``) with Points For agreeing,
+    so the rule puts roster r in slot 13 - r."""
+    fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+    records = {rid: (12 - rid, rid - 1, 0) for rid in range(1, 13)}
+    return fpts, records
+
+
 class TestLiveStandingsOverride(unittest.TestCase):
-    """Mid-season live-standings reshuffle: fewest fpts → slot 1,
-    second-fewest → slot 2, etc.  Validates that every slot-derived
-    field stays consistent under the override:
+    """Mid-season standings reshuffle of the upcoming class's slots.
+
+    The reshuffle follows THE league draft-order rule
+    (``src/public_league/draft_order.py``, ``reverse_record_lower_pf``: worst
+    record first, ties on record by LOWER Points For) via
+    ``draft_capital_order.class_slot_order`` since draft valuation Batch E.
+    The PF-only ordering this class was written against ("fewest fpts → slot
+    1") is RETIRED; the rule itself is pinned by
+    ``tests/api/test_draft_capital_multi_year.py``
+    (``test_standings_to_date_are_a_labelled_forecast_by_the_owner_rule``,
+    ``test_verified_final_standings_are_the_rules_order``).  What this class
+    still owns is the slot-BRIDGE consistency every reshuffle must keep, so its
+    fixture now supplies records (``_reverse_standings``) and a completed,
+    rostered draft for the current season (the workbook class is the next).
+    Validates that every slot-derived field stays consistent under the
+    override:
 
       • originalOwner follows the new mapping (the feature itself);
       • for untraded picks, currentOwner follows the same mapping
@@ -450,12 +581,17 @@ class TestLiveStandingsOverride(unittest.TestCase):
         drop_slots_from_draft_detail=None,
         remap_slot_keys=None,
         extra_unbridged_rosters=None,
+        records_by_rid=None,
     ):
-        """Mocked Sleeper fixture with explicit per-roster fpts so the
+        """Mocked Sleeper fixture with explicit per-roster standings so the
         live-standings override fires.
 
-        ``fpts_by_rid`` maps roster_id (1..N) → integer fpts.  At
-        least one entry must be > 0 to trigger the override.
+        ``fpts_by_rid`` maps roster_id (1..N) → integer fpts and
+        ``records_by_rid`` → ``(wins, losses, ties)`` (default 0-0-0).
+        The league rule needs a record for every bridged roster; no game
+        played (all zero) keeps the existing order.  ``draft_season``'s
+        rookie draft is complete and rostered, so the workbook class —
+        and every ``trades`` entry — is ``draft_season + 1``.
         ``trades`` is an optional list of
         ``{"round": int, "original_rid": int, "new_rid": int}``
         entries that get rendered into /traded_picks.
@@ -468,7 +604,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         simulates a partial draft payload (some slots present, some
         missing) that the Codex P1 follow-up flagged.
         ``extra_unbridged_rosters`` is an iterable of
-        ``(rid, fpts)`` tuples to append to ``/rosters`` WITHOUT
+        ``(rid, fpts)`` or ``(rid, fpts, (wins, losses, ties))`` tuples to append to ``/rosters`` WITHOUT
         adding them to the draft slot_to_roster_id map — simulates
         the Codex regression where Sleeper exposes more rosters
         than the workbook bridges (expansion / inactive), and a
@@ -489,9 +625,13 @@ class TestLiveStandingsOverride(unittest.TestCase):
         for slot, first_name in slot_to_original.items():
             rid = int(slot)
             owner_uid = f"u{rid}"
+            wins, losses, ties = (records_by_rid or {}).get(rid, (0, 0, 0))
             settings = {
                 "fpts": int(fpts_by_rid.get(rid, 0)),
                 "fpts_decimal": 0,
+                "wins": wins,
+                "losses": losses,
+                "ties": ties,
             }
             rosters.append(
                 {
@@ -514,13 +654,21 @@ class TestLiveStandingsOverride(unittest.TestCase):
         # doesn't bridge.  These get a real /rosters entry (so they
         # show up in roster_fppts) but are intentionally absent
         # from the slot_to_roster_id draft map.
-        for rid, fpts in extra_unbridged_rosters or ():
+        for extra in extra_unbridged_rosters or ():
+            rid, fpts = extra[0], extra[1]
+            wins, losses, ties = extra[2] if len(extra) > 2 else (0, 0, 0)
             owner_uid = f"u{rid}"
             rosters.append(
                 {
                     "roster_id": int(rid),
                     "owner_id": owner_uid,
-                    "settings": {"fpts": int(fpts), "fpts_decimal": 0},
+                    "settings": {
+                        "fpts": int(fpts),
+                        "fpts_decimal": 0,
+                        "wins": wins,
+                        "losses": losses,
+                        "ties": ties,
+                    },
                 }
             )
             users.append(
@@ -551,7 +699,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         for t in trades or []:
             traded_picks_payload.append(
                 {
-                    "season": draft_season,
+                    "season": draft_season + 1,
                     "round": t["round"],
                     "roster_id": t["original_rid"],
                     "owner_id": t["new_rid"],
@@ -567,22 +715,18 @@ class TestLiveStandingsOverride(unittest.TestCase):
             "/draft/D1": draft_detail,
             "__LEAGUE_META__": {"season": str(draft_season)},
         }
+        _retire(url_map, draft_season, [int(s) for s in slot_to_original])
         return url_map, workbook_picks, slot_to_original, first_name_by_rid
 
     def _run(self, draft_season, **fixture_kwargs):
-        import server
-
         fixture = self._build_fixture(draft_season, **fixture_kwargs)
         if fixture is None:
             return None
         url_map, workbook_picks, slot_to_original, first_name_by_rid = fixture
-        with (
-            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
-            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
-        ):
+        with _dynasty_main_league(url_map) as server:
             result = server._fetch_draft_capital(apply_sleeper_trades=True)
-        if "error" in result:
-            return None
+        self.assertNotIn("error", result, result)
+        self.assertEqual(result["season"], draft_season + 1)
         return result, workbook_picks, slot_to_original, first_name_by_rid
 
     def test_untraded_pick_does_not_get_misflagged_isTraded(self):
@@ -597,8 +741,8 @@ class TestLiveStandingsOverride(unittest.TestCase):
         season = datetime.now(timezone.utc).year
         # Reverse the standings: roster 12 fewest points → slot 1,
         # roster 11 next → slot 2, ..., roster 1 most → slot 12.
-        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
-        run = self._run(season, fpts_by_rid=fpts, trades=[])
+        fpts, records = _reverse_standings()
+        run = self._run(season, fpts_by_rid=fpts, records_by_rid=records, trades=[])
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
@@ -626,7 +770,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
 
         season = datetime.now(timezone.utc).year
         # Same reversed standings: rid r → slot (13 - r).
-        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        fpts, records = _reverse_standings()
         # Trade: roster 1's round-1 pick goes to roster 5.  After
         # the reshuffle, roster 1 has the MOST points so it occupies
         # workbook slot 12; roster 12 has the FEWEST and occupies
@@ -636,7 +780,7 @@ class TestLiveStandingsOverride(unittest.TestCase):
         # slot 1, which post-reshuffle is roster 12's pick, leaving
         # both slot 1 and slot 12 with wrong currentOwners.
         trades = [{"round": 1, "original_rid": 1, "new_rid": 5}]
-        run = self._run(season, fpts_by_rid=fpts, trades=trades)
+        run = self._run(season, fpts_by_rid=fpts, records_by_rid=records, trades=trades)
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
@@ -703,15 +847,9 @@ class TestLiveStandingsOverride(unittest.TestCase):
             if user["user_id"] in ("u1", "u12"):
                 user["display_name"] = shared_label
 
-        import server
-
-        with (
-            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
-            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
-        ):
+        with _dynasty_main_league(url_map) as server:
             result = server._fetch_draft_capital(apply_sleeper_trades=True)
-        if "error" in result:
-            self.skipTest(f"Unavailable: {result['error']}")
+        self.assertNotIn("error", result, result)
 
         # The pick at roster 1's slot (workbook slot 1, since live
         # override is off) should report the trade.  Both sides now
@@ -746,15 +884,16 @@ class TestLiveStandingsOverride(unittest.TestCase):
 
         season = datetime.now(timezone.utc).year
         # All 12 workbook rosters have meaningful fpts.
-        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        fpts, records = _reverse_standings()
         # Inject one "extra" Sleeper roster (rid 99) with the
         # absolute fewest points so it would otherwise be sorted
         # into live-slot 1 and break the bridge.
         run = self._run(
             season,
             fpts_by_rid=fpts,
+            records_by_rid=records,
             trades=[],
-            extra_unbridged_rosters=[(99, 1)],
+            extra_unbridged_rosters=[(99, 1, (0, 11, 0))],
         )
         if run is None:
             self.skipTest("Workbook unavailable")
@@ -787,10 +926,16 @@ class TestLiveStandingsOverride(unittest.TestCase):
         from datetime import datetime, timezone
 
         season = datetime.now(timezone.utc).year
-        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        fpts, records = _reverse_standings()
         # Drop two slots from the draft detail to simulate a partial
         # bridge (10 of 12 workbook slots covered).
-        run = self._run(season, fpts_by_rid=fpts, trades=[], drop_slots_from_draft_detail=[7, 8])
+        run = self._run(
+            season,
+            fpts_by_rid=fpts,
+            records_by_rid=records,
+            trades=[],
+            drop_slots_from_draft_detail=[7, 8],
+        )
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
@@ -819,8 +964,10 @@ class TestLiveStandingsOverride(unittest.TestCase):
         from datetime import datetime, timezone
 
         season = datetime.now(timezone.utc).year
-        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
-        run = self._run(season, fpts_by_rid=fpts, trades=[], empty_draft_detail=True)
+        fpts, records = _reverse_standings()
+        run = self._run(
+            season, fpts_by_rid=fpts, records_by_rid=records, trades=[], empty_draft_detail=True
+        )
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
@@ -854,10 +1001,16 @@ class TestLiveStandingsOverride(unittest.TestCase):
         from datetime import datetime, timezone
 
         season = datetime.now(timezone.utc).year
-        fpts = {rid: (13 - rid) * 100 for rid in range(1, 13)}
+        fpts, records = _reverse_standings()
         # Same entry count (12) but slots 11 & 12 re-keyed to
         # out-of-range 101/102 so they no longer cover the workbook.
-        run = self._run(season, fpts_by_rid=fpts, trades=[], remap_slot_keys={11: 101, 12: 102})
+        run = self._run(
+            season,
+            fpts_by_rid=fpts,
+            records_by_rid=records,
+            trades=[],
+            remap_slot_keys={11: 101, 12: 102},
+        )
         if run is None:
             self.skipTest("Workbook unavailable")
         result, workbook_picks, slot_to_original, first_name_by_rid = run
@@ -942,11 +1095,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
             "/users": users,
             "/drafts": [{"draft_id": "D1", "season": season}],
             "/draft/D1": {"slot_to_roster_id": slot_to_roster},
-            # Trade keep_slot roster's round-1 pick to dup_slot roster
-            # (the other roster carrying ``shared_first``).
+            # Trade keep_slot roster's round-1 pick (upcoming class) to
+            # dup_slot roster (the other roster carrying ``shared_first``).
             "/traded_picks": [
                 {
-                    "season": season,
+                    "season": season + 1,
                     "round": 1,
                     "roster_id": keep_rid,
                     "owner_id": dup_rid,
@@ -955,14 +1108,11 @@ class TestLiveStandingsOverride(unittest.TestCase):
             ],
             "__LEAGUE_META__": {"season": str(season)},
         }
-        with (
-            patch.object(server, "_parse_draft_data", return_value=mutated),
-            patch.object(server.urllib.request, "urlopen", self._stub_urlopen(url_map)),
-            patch.object(server, "_sleeper_league_id_for_draft", return_value="TEST_LEAGUE"),
-        ):
+        # This season's draft is complete and rostered: the workbook class is next season's.
+        _retire(url_map, season, [int(s) for s in slot_to_original])
+        with _dynasty_main_league(url_map, parsed=mutated) as server:
             result = server._fetch_draft_capital(apply_sleeper_trades=True)
-        if "error" in result:
-            self.skipTest(f"Unavailable: {result['error']}")
+        self.assertNotIn("error", result, result)
 
         by_pick = {p["pick"]: p for p in result["picks"]}
         keep_pick = f"1.{str(keep_slot).zfill(2)}"

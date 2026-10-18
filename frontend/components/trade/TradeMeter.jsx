@@ -21,6 +21,7 @@
 import {
   TRADE_EVAL_STATE,
   meterVerdict,
+  multiTeamNetSummary,
   percentageGap,
   tradeEvaluationState,
 } from "@/lib/trade-logic";
@@ -194,22 +195,15 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
   const flowList = Array.isArray(flows) && flows.length === sides.length
     ? flows
     : sides.map(() => ({ given: 0, received: 0, net: 0 }));
-  const nets = flowList.map((f) => f.net);
-  // The band base: the largest adjusted package any side sends (the same
+  // The band base is the largest adjusted package any side sends (the same
   // base ``tradeImbalance`` uses), so a 3-team trade is graded on the same
-  // relative scale as a 2-team one (ONE fairness-band owner, TC-C).
-  const largerSide = Math.max(
-    0,
-    ...flowList.map((f) => Number(f.given)).filter((v) => Number.isFinite(v)),
-  );
+  // relative scale as a 2-team one (ONE fairness-band owner, TC-C).  The
+  // overall verdict is the worst-offender absolute net through that band —
+  // one helper, shared with the page's persistent 3+-team summary (TC-D2).
+  const { nets, largerSide, worst, verdict } = multiTeamNetSummary(flowList);
   const isEvenNet = (n) => meterVerdict(n, largerSide).level === "fair";
   // Display scale only (the bar's full width), never a verdict.
   const absMax = Math.max(1, ...nets.map((n) => Math.abs(n)));
-
-  // Overall verdict: worst-offender absolute net, through the same band as
-  // the 2-team bar.
-  const worst = Math.max(...nets.map((n) => Math.abs(n)));
-  const verdict = meterVerdict(worst, largerSide);
 
   const fmtSigned = (n) => {
     const sign = n > 0 ? "+" : n < 0 ? "−" : "";

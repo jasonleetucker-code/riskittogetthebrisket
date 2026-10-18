@@ -19,7 +19,7 @@ from src.trade.screenshot_import.image_input import decode_image
 from src.trade.screenshot_import.ocr import TesseractEngine
 from src.trade.screenshot_import.service import extract_trade
 
-from .conftest import FIXTURES
+from .conftest import FIXTURES, fixture_image
 
 pytestmark = [
     pytest.mark.tesseract,
@@ -37,14 +37,24 @@ def _extract(png_bytes, identity_ctx, board):
 
 
 def test_fixture_set_is_present():
-    assert {"light_two_column", "dark_two_column", "stacked_mobile"} <= set(SCENARIOS)
+    assert {
+        "light_two_column",
+        "dark_two_column",
+        "stacked_mobile",
+        "ktc_fullpage_browser",
+        "ktc_cropped",
+        "fullpage_desktop_multi",
+        "fullpage_mobile_stacked",
+        "fullpage_single_header",
+        "fullpage_no_headers",
+    } <= set(SCENARIOS)
 
 
 @pytest.mark.parametrize("name", SCENARIOS)
 def test_fixture_screenshot_reads_sides_and_assets(name, identity_ctx, board):
     d = FIXTURES / name
     expected = json.loads((d / "expected.json").read_text(encoding="utf-8"))
-    prep, out = _extract((d / "image.png").read_bytes(), identity_ctx, board)
+    prep, out = _extract(fixture_image(d).read_bytes(), identity_ctx, board)
     assert out["engine"]["name"] == "tesseract" and out["engine"]["version"]
     assert out["layout"]["kind"] == expected["layoutKind"]
     assert [s["label"] for s in out["sides"]] == [s["label"] for s in expected["sides"]]
@@ -53,13 +63,20 @@ def test_fixture_screenshot_reads_sides_and_assets(name, identity_ctx, board):
         assert [it["status"] for it in side["items"]] == [
             a.get("status", "resolved") for a in exp["assets"]
         ]
-    assert out["unassigned"] == []
+    # EXACTLY the expected "needs a side" items: page noise never lands there.
+    assert sorted(str(it["boardName"]) for it in out["unassigned"]) == sorted(
+        str(a["boardName"]) for a in expected.get("unassigned", [])
+    )
     ignored_text = " | ".join(ig["raw"] for ig in out["ignored"])
     for name_ in expected["mustBeIgnored"]:
         assert name_ in ignored_text
     if expected["mustBeIgnored"]:
         # Other-site values never become items.
         assert any(ig["reason"] == "value_number" for ig in out["ignored"])
+    for warning in expected.get("requiredWarnings", []):
+        assert warning in out["warnings"]
+    for warning in expected.get("forbiddenWarnings", []):
+        assert warning not in out["warnings"]
     if name.startswith("dark"):
         assert prep.inverted is True
 
@@ -87,3 +104,49 @@ def test_fresh_render_end_to_end(identity_ctx, board):
     assert give["items"][0]["status"] == "needs_confirmation"  # two Byron Youngs
     assert {c["sleeperId"] for c in give["items"][0]["candidates"]} == {"10917", "10925"}
     assert [it["boardName"] for it in get["items"]] == ["Bijan Robinson", "2027 Early 1st"]
+
+
+def test_real_fullpage_fixture_is_redacted():
+    """The committed real screenshot is a REDACTED derivative: the browser
+    tab strip and bookmark bar are solid fill, so OCR finds no text there."""
+    from PIL import Image
+
+    path = fixture_image(FIXTURES / "ktc_fullpage_browser")
+    with Image.open(path) as img:
+        assert img.size == (2000, 1250)
+    prep = decode_image(path.read_bytes())
+    words = TesseractEngine().read(prep.png, timeout_s=30)
+    assert words, "the fixture must still OCR"
+    blanked = [(0, 55), (115, 166)]  # tab strip, bookmark bar (fixture pixels)
+    leaked = [
+        w
+        for w in words
+        if any(top <= (w.top + w.bottom) / 2 / prep.scaled <= bottom for top, bottom in blanked)
+    ]
+    assert leaked == []
+
+
+def test_unreadable_images_import_nothing(identity_ctx, board):
+    """Noise and an illegibly blurred screenshot: no side, nothing resolved —
+    or, for pure noise, an explicit OCR timeout (a 504 to the user), never
+    an invented asset."""
+    import random
+
+    from PIL import Image, ImageFilter
+
+    from src.trade.screenshot_import.ocr import OcrTimeout
+
+    rnd = random.Random(7)
+    noise = Image.new("L", (400, 300))
+    noise.putdata([rnd.randrange(256) for _ in range(400 * 300)])
+    with Image.open(fixture_image(FIXTURES / "light_two_column")) as src:
+        blurred = src.convert("L").filter(ImageFilter.GaussianBlur(9))
+    for img in (noise, blurred):
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        try:
+            _prep, out = _extract(buf.getvalue(), identity_ctx, board)
+        except OcrTimeout:
+            continue
+        assert out["sides"] == []
+        assert all(it["status"] != "resolved" for it in out["unassigned"])

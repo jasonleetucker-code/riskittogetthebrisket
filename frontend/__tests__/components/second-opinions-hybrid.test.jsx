@@ -171,7 +171,7 @@ describe("4. a fully covered source has no fallback and may vote", () => {
   it("is FULL_SOURCE", () => {
     const o = evaluate([[WR], [RB, LB]], IDPTC);
     expect(o.state).toBe(OPINION_STATE.FULL_SOURCE);
-    expect(o.counts).toEqual({ total: 3, source: 3, fallback: 0, unpriced: 0 });
+    expect(o.counts).toEqual({ total: 3, source: 3, fallback: 0, unpriced: 0, unavailable: 0 });
   });
 });
 
@@ -244,23 +244,30 @@ describe("8. no numeric translation available: fall back, labelled — no invent
 });
 
 describe("9. stale / zero-weight / held sources are not source evidence", () => {
-  it("a held observation falls back with STALE_OR_HELD and cannot make a row FULL_SOURCE", () => {
+  // Owner closeout 2026-10-18, decision 9 (TCM-K06): an excluded observation
+  // makes the source UNAVAILABLE with its actual reason; our canonical value
+  // never stands in for its vote (it used to fall back as STALE_OR_HELD).
+  it("a held observation is Unavailable with its reason and cannot make a row FULL_SOURCE", () => {
     const held = row("WR Held", 7000, {
       ktcCrowdSfTep: {
         valueContribution: 7100,
         contributedToBlend: false,
         appliedWeight: 0,
+        excludedReason: "freshness_or_health_zero_weight",
       },
     });
     const r = resolveOpinionAsset({ row: held, mainSubs: KTC });
     expect(r).toMatchObject({
-      origin: OPINION_ORIGIN.CHASE_UPSIDE_FALLBACK,
-      value: 7000,
-      reason: FALLBACK_REASON.STALE_OR_HELD,
+      origin: OPINION_ORIGIN.UNAVAILABLE,
+      value: null,
+      fallbackValue: null,
+      reason: "freshness_or_health_zero_weight",
     });
-    expect(evaluate([[held], [RB]], KTC).state).toBe(
-      OPINION_STATE.HYBRID_ESTIMATE,
-    );
+    const o = evaluate([[held], [RB]], KTC);
+    expect(o.state).toBe(OPINION_STATE.UNAVAILABLE);
+    expect(o.leaderIdx).toBeNull();
+    expect(o.adjustedTotals).toBeNull();
+    expect(o.unavailableReasons).toEqual(["freshness_or_health_zero_weight"]);
   });
 });
 
@@ -332,6 +339,7 @@ describe("12. independent and modeled tallies never contaminate each other", () 
       hybrid: 2,
       baseline: 0,
       incomplete: 0,
+      unavailable: 0,
     });
   });
 });

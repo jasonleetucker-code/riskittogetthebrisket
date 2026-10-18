@@ -20,7 +20,6 @@
  * re-export puts them straight back into the page chunk.
  */
 
-import { useRef, useState } from "react";
 import {
   Badge,
   Banner,
@@ -74,23 +73,35 @@ export const SUGG_TYPES = [
   { key: "positionalUpgrades", label: "Upgrades" },
 ];
 
-/** A search result row, shared by the mobile quick-add and per-side search. */
-function SearchResultRow({ row, settings, onPick, keyPrefix }) {
+/**
+ * A search result row, shared by the per-side search and the phone sheet.
+ * `activateOn="press"` (the inline dropdown) picks on mouse/touch DOWN so the
+ * input never blurs and the dropdown never unmounts under the finger;
+ * `"click"` (the phone sheet, TC-D2) picks on a completed tap, so a scroll
+ * gesture that starts on a row in the sheet's long list adds nothing.
+ */
+function SearchResultRow({ row, settings, onPick, keyPrefix, activateOn = "press" }) {
+  const handlers =
+    activateOn === "click"
+      ? { onClick: () => onPick(row) }
+      : {
+          onMouseDown: (e) => {
+            // Prevent input blur so focus stays in the search field after a
+            // tap — the mobile keyboard doesn't dismiss between additions.
+            e.preventDefault();
+            onPick(row);
+          },
+          onTouchStart: (e) => {
+            e.preventDefault();
+            onPick(row);
+          },
+        };
   return (
     <button
       key={`${keyPrefix}-${tradeEntryKey(row)}`}
       type="button"
       className="trade-side-search-result button-reset"
-      onMouseDown={(e) => {
-        // Prevent input blur so focus stays in the search field after a
-        // tap — the mobile keyboard doesn't dismiss between additions.
-        e.preventDefault();
-        onPick(row);
-      }}
-      onTouchStart={(e) => {
-        e.preventDefault();
-        onPick(row);
-      }}
+      {...handlers}
     >
       <PlayerImage
         playerId={row.raw?.playerId}
@@ -121,7 +132,7 @@ function SearchResultRow({ row, settings, onPick, keyPrefix }) {
  * are present, so a plain player search looks exactly as before.  Keys
  * carry the group so a row offered in both groups cannot collide.
  */
-function SearchResultList({ results, settings, onPick, keyPrefix }) {
+export function SearchResultList({ results, settings, onPick, keyPrefix, activateOn }) {
   return groupTradeSearchResults(results).map((group) => (
     <div key={`${keyPrefix}-${group.key}`} role="group" aria-label={group.label || undefined}>
       {group.label ? <div className={styles.searchGroupLabel}>{group.label}</div> : null}
@@ -132,96 +143,11 @@ function SearchResultList({ results, settings, onPick, keyPrefix }) {
           settings={settings}
           onPick={onPick}
           keyPrefix={`${keyPrefix}-${group.key}`}
+          activateOn={activateOn}
         />
       ))}
     </div>
   ));
-}
-
-// ── Mobile quick-add ──────────────────────────────────────────────────
-
-/**
- * Mobile-only sticky quick-add bar.  The per-side search inputs live
- * deep in the page; on a 390px viewport that is ~600-800px of scroll
- * before a user can type a name.  This surfaces one search at the top
- * with an explicit active-side indicator and a one-tap side toggle.
- */
-export function MobileQuickAddBar({
-  activeSide,
-  sides,
-  onAddToActiveSide,
-  searchAssets,
-  settings,
-  onSetActiveSide,
-}) {
-  const [query, setQuery] = useState("");
-  const [focused, setFocused] = useState(false);
-  const inputRef = useRef(null);
-
-  const trimmed = query.trim();
-  const results = focused && trimmed ? searchAssets(query) : [];
-  const showResults = focused && trimmed.length > 0;
-  const sideLabel = sides[activeSide]?.label || sides[0]?.label || "A";
-
-  function handleAdd(row) {
-    onAddToActiveSide(row);
-    setQuery("");
-    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
-  }
-
-  return (
-    <div
-      className="mobile-quick-add mobile-only"
-      role="region"
-      aria-label="Quick add player to trade"
-    >
-      <div className="mobile-quick-add-row">
-        <button
-          type="button"
-          className="mobile-quick-add-side-badge"
-          onClick={() => {
-            if (sides.length >= 2) onSetActiveSide((activeSide + 1) % sides.length);
-          }}
-          aria-label={`Currently adding to Side ${sideLabel}. Activate to switch sides.`}
-          disabled={sides.length < 2}
-        >
-          <span className="mobile-quick-add-side-letter">{sideLabel}</span>
-          {sides.length >= 2 ? (
-            <Icon name="swap" aria-hidden="true" />
-          ) : null}
-        </button>
-        <input
-          ref={inputRef}
-          className="input mobile-quick-add-input"
-          placeholder={`Quick add to Side ${sideLabel}…`}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 120)}
-          inputMode="search"
-          enterKeyHint="search"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck="false"
-          aria-label={`Quick add a player to Side ${sideLabel}`}
-        />
-      </div>
-      {showResults ? (
-        <div className="mobile-quick-add-results">
-          {results.length === 0 ? (
-            <div className="mobile-quick-add-empty muted">No matches.</div>
-          ) : (
-            <SearchResultList
-              results={results}
-              settings={settings}
-              onPick={handleAdd}
-              keyPrefix="mobile-quick"
-            />
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 // ── Proactive suggestion rail ─────────────────────────────────────────
@@ -403,7 +329,14 @@ function AssetRow({
       : defaultDestination(sideIdx, sides.length);
 
   return (
-    <div className={styles.assetRow}>
+    // A routed row (3+ teams) carries a destination select; on a phone its
+    // actions wrap under the name instead of clipping the name away (UI
+    // contract §6: never clip player names into ambiguity).
+    <div
+      className={
+        sides.length > 2 ? `${styles.assetRow} ${styles.assetRowRouted}` : styles.assetRow
+      }
+    >
       <div className={styles.assetMain}>
         <PlayerImage
           playerId={row.raw?.playerId}
@@ -638,6 +571,8 @@ export function SideCard({
   onAddBalancer,
   registerInputRef,
   canRemoveTeam,
+  sheetMode = false,
+  onOpenSheet,
 }) {
   const showResults = isFocused && (sideQuery || "").trim().length > 0;
   // Assets the board declined to price contribute 0 to this side's
@@ -716,36 +651,51 @@ export function SideCard({
         </div>
       </div>
 
-      {/* Inline search — type 2-3 letters, a compact dropdown of the top
-          matches appears, tap one to add and keep typing. */}
-      <div className="trade-side-search">
-        <input
-          ref={(el) => registerInputRef(sideIdx, el)}
-          className="input trade-side-search-input"
-          placeholder={`Search to add to Side ${side.label}…`}
-          value={sideQuery || ""}
-          onChange={(e) => onSideQueryChange(sideIdx, e.target.value)}
-          onFocus={() => onSideFocus(sideIdx)}
-          onBlur={() => onSideBlur(sideIdx)}
-          aria-label={`Search to add a player to Side ${side.label}`}
-        />
-        {showResults ? (
-          /* Bounded + scrollable (globals.css) so the market group stays
-             reachable above an open phone keyboard. */
-          <div className="trade-side-search-results">
-            {searchResults.length === 0 ? (
-              <div className="trade-side-search-empty muted">No matches.</div>
-            ) : (
-              <SearchResultList
-                results={searchResults}
-                settings={settings}
-                onPick={(row) => onAddFromSearch(row, sideIdx)}
-                keyPrefix={`search-${side.label}`}
-              />
-            )}
+      {sheetMode ? (
+        /* Phones (TC-D2): one bottom-sheet search per side instead of an
+           inline dropdown that runs under the keyboard. */
+        <Button
+          className={styles.sheetAdd}
+          icon={<Icon name="search" size={14} />}
+          onClick={() => onOpenSheet?.(sideIdx)}
+          aria-haspopup="dialog"
+        >
+          Add to Side {side.label}
+        </Button>
+      ) : (
+        <>
+          {/* Inline search — type 2-3 letters, a compact dropdown of the top
+              matches appears, tap one to add and keep typing. */}
+          <div className="trade-side-search">
+            <input
+              ref={(el) => registerInputRef(sideIdx, el)}
+              className="input trade-side-search-input"
+              placeholder={`Search to add to Side ${side.label}…`}
+              value={sideQuery || ""}
+              onChange={(e) => onSideQueryChange(sideIdx, e.target.value)}
+              onFocus={() => onSideFocus(sideIdx)}
+              onBlur={() => onSideBlur(sideIdx)}
+              aria-label={`Search to add a player to Side ${side.label}`}
+            />
+            {showResults ? (
+              /* Bounded + scrollable (globals.css) so the market group stays
+                 reachable above an open phone keyboard. */
+              <div className="trade-side-search-results">
+                {searchResults.length === 0 ? (
+                  <div className="trade-side-search-empty muted">No matches.</div>
+                ) : (
+                  <SearchResultList
+                    results={searchResults}
+                    settings={settings}
+                    onPick={(row) => onAddFromSearch(row, sideIdx)}
+                    keyPrefix={`search-${side.label}`}
+                  />
+                )}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </>
+      )}
 
       {sides.length > 2 ? (
         <div className={styles.sideGroupLabel}>Giving</div>

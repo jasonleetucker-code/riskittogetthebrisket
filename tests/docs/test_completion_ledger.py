@@ -141,3 +141,46 @@ def test_owner_rows_need_a_structured_blocker(tmp_path):
     manifest.write_text("# 4. The manifest\n# 5. Counts\n", encoding="utf-8")
     _ledger, _md, errors = mod.build(fam, manifest)
     assert any("structured blocker" in e for e in errors)
+
+
+def test_owner_paused_rows_are_outside_the_denominator_and_explained(tmp_path):
+    """Owner closeout 2026-10-18: a paused requirement is neither complete nor
+    rejected. It leaves the weighted denominator, is reported on its own line,
+    and must still name its resume condition."""
+    mod = _module()
+    fam = tmp_path / "families"
+    fam.mkdir()
+    base = {
+        "aliases": [],
+        "sourceDoc": "x",
+        "productFamily": "Trade",
+        "capability": "c",
+        "userVisibleOutcome": "u",
+        "backendOwner": None,
+        "frontendOwner": None,
+        "dependsOn": [],
+        "reality": "r",
+        "prOrBranch": None,
+        "evidence": "e",
+        "blocker": None,
+        "weight": 2,
+    }
+    rows = [
+        {**base, "id": "T-1", "disposition": "COMPLETE_AND_PROVEN", "nextAction": None},
+        {**base, "id": "T-2", "disposition": "PARTIAL", "nextAction": "finish"},
+        {**base, "id": "T-3", "disposition": "OWNER_PAUSED", "nextAction": "resume on directive"},
+    ]
+    (fam / "a.json").write_text(json.dumps({"family": "a", "rows": rows}), encoding="utf-8")
+    manifest = tmp_path / "m.md"
+    manifest.write_text("# 4. The manifest\n# 5. Counts\n", encoding="utf-8")
+    ledger, md, errors = mod.build(fam, manifest)
+    assert errors == []
+    summary = ledger["summary"]
+    assert summary["weightedBuckets"]["ownerPaused"] == 2
+    assert summary["weightedCompletionPct"] == 50.0  # 2 complete of 4 in-denominator weight
+    assert "OWNER PAUSED" in md
+
+    rows[2] = {**rows[2], "nextAction": None}
+    (fam / "a.json").write_text(json.dumps({"family": "a", "rows": rows}), encoding="utf-8")
+    _ledger, _md, errors = mod.build(fam, manifest)
+    assert any("T-3" in e and "neither nextAction nor blocker" in e for e in errors)

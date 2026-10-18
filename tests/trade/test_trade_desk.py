@@ -165,3 +165,99 @@ def test_the_duplicate_check_survives_a_rename():
     with pytest.raises(desk.DeskError) as e:
         desk.add_item(entry, b)
     assert e.value.code == "duplicate"
+
+
+# ── TC-B2 / TCM-G18: the War Room decision a calculator save carries ──────
+
+_RUN = "0123456789abcdef0123"
+_LINE = {
+    "runId": _RUN,
+    "recordedAt": "2026-10-18T12:00:00+00:00",
+    "leagueKey": "main",
+    "team": "Us",
+    "headline": "YES",
+    "confidenceLevel": "MEDIUM",
+    "strategy": {"used": "BALANCED", "source": "posture"},
+    "teamContext": True,
+    "decisionVersion": "trade_decision_v2",
+    "receipt": {"packageModel": {"id": "geom_q078_v1"}},
+}
+
+
+def _calc(**over):
+    return _body(**{"source": "calculator", "sourceRunId": None, "decisionRunId": _RUN, **over})
+
+
+def test_a_calculator_save_carries_the_logged_decision_never_a_client_verdict():
+    seen = []
+
+    def lookup(run_id):
+        seen.append(run_id)
+        return _LINE
+
+    item = desk.new_item(
+        _calc(), team_names=TEAMS, now=T0, league_key="main", decision_lookup=lookup
+    )
+    assert seen == [_RUN]
+    assert item["decision"] == {
+        "runId": _RUN,
+        "recordedAt": "2026-10-18T12:00:00+00:00",
+        "headline": "YES",
+        # The words come from the decision owner, not the request.
+        "headlineText": "YES — MAKE THE TRADE",
+        "confidenceLevel": "MEDIUM",
+        "strategy": "BALANCED",
+        "teamContext": True,
+        "decisionVersion": "trade_decision_v2",
+        "packageModel": "geom_q078_v1",
+    }
+    assert "decisionUnavailable" not in item
+    # A snapshot is evidence: the status is still the user's.
+    assert item["status"] == "candidate"
+
+
+@pytest.mark.parametrize(
+    ("line", "reason"),
+    [
+        (None, "decision_run_not_found"),
+        ({**_LINE, "leagueKey": "other"}, "decision_run_other_league"),
+        ({**_LINE, "team": "Them"}, "decision_run_other_team"),
+        ({**_LINE, "headline": "MAYBE"}, "decision_run_unreadable"),
+    ],
+)
+def test_an_unverifiable_decision_is_not_attached_and_the_package_still_saves(line, reason):
+    item = desk.new_item(
+        _calc(), team_names=TEAMS, league_key="main", decision_lookup=lambda _r: line
+    )
+    assert "decision" not in item
+    assert item["decisionUnavailable"] == reason
+    assert item["send"] and item["receive"]
+
+
+def test_a_decision_run_is_refused_outside_calculator_saves_or_malformed():
+    with pytest.raises(desk.DeskError) as e:
+        desk.new_item(_body(decisionRunId=_RUN), team_names=TEAMS)
+    assert e.value.code == "invalid_body"
+    with pytest.raises(desk.DeskError):
+        desk.new_item(_calc(decisionRunId="not hex!"), team_names=TEAMS)
+    assert desk.unknown_keys(_calc(), create=True) == []
+
+
+def test_find_decision_run_reads_the_server_log(tmp_path):
+    from src.trade import trade_decision_log as log
+
+    run = log.record_decision(
+        {"decision": {"headline": "NO", "version": "v"}, "version": "p"},
+        league_key="main",
+        team="Us",
+        log_dir=tmp_path,
+    )
+    assert run
+    found = log.find_decision_run(run, log_dir=tmp_path)
+    assert found["runId"] == run and found["headline"] == "NO"
+    assert log.find_decision_run("ffffffffffffffffffff", log_dir=tmp_path) is None
+    assert log.find_decision_run("", log_dir=tmp_path) is None
+    assert log.find_decision_run(run, log_dir=tmp_path / "missing") is None
+    # A torn line is skipped, never fatal.
+    (tmp_path / "runs-2099-01.jsonl").write_text('{"runId": "' + run + '"\n')
+    assert log.find_decision_run(run, log_dir=tmp_path)["runId"] == run

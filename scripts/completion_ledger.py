@@ -19,6 +19,11 @@ Checks (exit 1 on failure, so CI can run ``--check``):
   * every non-complete row carries a nextAction or a blocker;
   * OWNER_ACTION_REQUIRED / EXTERNAL rows carry a structured blocker.
 
+OWNER_PAUSED (owner decision closeout 2026-10-18; DFS and League Tycoon) is a
+reversible owner pause: outside the completion denominator, never counted as
+complete, rejected or superseded, reported on its own line, and still required
+to name its resume condition (``nextAction``).
+
 Completion is REQUIREMENT-WEIGHTED (row ``weight`` 1/2/3), never an issue count.
 The ledger is evidence, not authorization: ``docs/EXECUTION_PLAN.md`` authorizes.
 
@@ -51,6 +56,7 @@ DISPOSITIONS = (
     "DEPENDENCY_BLOCKED",
     "OWNER_ACTION_REQUIRED",
     "EXTERNAL_DATA_OR_PROVIDER_BLOCKED",
+    "OWNER_PAUSED",
     "INTENTIONALLY_FUTURE",
     "SUPERSEDED",
     "REJECTED",
@@ -62,6 +68,9 @@ COMPLETE = {"COMPLETE_AND_PROVEN"}
 BLOCKED = {"DEPENDENCY_BLOCKED"}
 OWNER = {"OWNER_ACTION_REQUIRED"}
 EXTERNAL = {"EXTERNAL_DATA_OR_PROVIDER_BLOCKED"}
+# A reversible owner pause: outside the denominator but reported separately, and
+# never folded into OUT_OF_DENOMINATOR (paused is not future, rejected or done).
+PAUSED = {"OWNER_PAUSED"}
 # Everything else in the denominator is engineering-actionable (ACTIVE).
 
 # The product families the 2026-10-07 completion directive verifies family by family.
@@ -192,6 +201,7 @@ _CONSERVATIVE_ORDER = (
     "INTEGRATED_NOT_DEPLOYED",
     "DEPLOYED_NOT_PRODUCTION_VERIFIED",
     "COMPLETE_AND_PROVEN",
+    "OWNER_PAUSED",
     "INTENTIONALLY_FUTURE",
     "SUPERSEDED",
     "REJECTED",
@@ -325,10 +335,15 @@ def validate(rows: list[dict], manifest: list[str]) -> list[str]:
     return sorted(set(errors))
 
 
+_OUTSIDE = ("outOfDenominator", "ownerPaused")
+
+
 def summarize(rows: list[dict]) -> dict:
     def bucket(disp: str) -> str:
         if disp in OUT_OF_DENOMINATOR:
             return "outOfDenominator"
+        if disp in PAUSED:
+            return "ownerPaused"
         if disp in COMPLETE:
             return "complete"
         if disp in OWNER:
@@ -354,6 +369,12 @@ def summarize(rows: list[dict]) -> dict:
         by_disp[r["disposition"]] += 1
 
     def pct(c: Counter) -> float | None:
+        denom = sum(v for k, v in c.items() if k not in _OUTSIDE)
+        return round(100.0 * c["complete"] / denom, 1) if denom else None
+
+    def pct_incl_paused(c: Counter) -> float | None:
+        # The same figure with paused weight counted as NOT complete, so a pause
+        # can never read as completion (owner closeout 2026-10-18).
         denom = sum(v for k, v in c.items() if k != "outOfDenominator")
         return round(100.0 * c["complete"] / denom, 1) if denom else None
 
@@ -363,11 +384,13 @@ def summarize(rows: list[dict]) -> dict:
         "rowBuckets": dict(total),
         "weightedBuckets": dict(total_w),
         "weightedCompletionPct": pct(total_w),
+        "weightedCompletionPctInclPaused": pct_incl_paused(total_w),
         "families": {
             f: {
                 "rows": dict(fam[f]),
                 "weighted": dict(fam_w[f]),
                 "weightedCompletionPct": pct(fam_w[f]),
+                "weightedCompletionPctInclPaused": pct_incl_paused(fam_w[f]),
             }
             for f in sorted(fam)
         },
@@ -405,12 +428,16 @@ def render(meta: list[dict], rows: list[dict], summary: dict) -> str:
         ("BLOCKED (dependency)", "dependencyBlocked"),
         ("OWNER ACTION", "ownerAction"),
         ("EXTERNAL WAIT", "externalWait"),
+        (
+            "OWNER PAUSED (reversible owner pause; outside denominator, never complete)",
+            "ownerPaused",
+        ),
         ("FUTURE / SUPERSEDED / REJECTED / NOT REQUIRED (outside denominator)", "outOfDenominator"),
     ]
     for label, key in labels:
         if key is None:
-            r = sum(v for k, v in rb.items() if k != "outOfDenominator")
-            w = sum(v for k, v in wb.items() if k != "outOfDenominator")
+            r = sum(v for k, v in rb.items() if k not in _OUTSIDE)
+            w = sum(v for k, v in wb.items() if k not in _OUTSIDE)
         else:
             r, w = rb.get(key, 0), wb.get(key, 0)
         L.append(f"| {label} | {r} | {w} |")
@@ -419,18 +446,28 @@ def render(meta: list[dict], rows: list[dict], summary: dict) -> str:
         f"**Weighted completion: {summary['weightedCompletionPct']}%** of the in-denominator requirement weight."
     )
     L.append("")
+    if wb.get("ownerPaused"):
+        L.append(
+            f"Owner-paused weight ({wb['ownerPaused']}) is outside the denominator, never complete. "
+            f"Counting it as incomplete, weighted completion is "
+            f"{summary['weightedCompletionPctInclPaused']}%."
+        )
+        L.append("")
     L.append("## By product family")
     L.append("")
     L.append(
-        "| family | complete % (weighted) | complete | active | dep-blocked | owner | external | outside |"
+        "| family | complete % (weighted) | complete | active | dep-blocked | owner | external | paused | outside |"
     )
-    L.append("|---|---:|---:|---:|---:|---:|---:|---:|")
+    L.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     for f, s in summary["families"].items():
         w = s["weighted"]
+        shown = s["weightedCompletionPct"]
+        if w.get("ownerPaused"):
+            shown = f"{shown} excl. paused ({s['weightedCompletionPctInclPaused']} incl.)"
         L.append(
-            f"| {f} | {s['weightedCompletionPct']} | {w.get('complete', 0)} | {w.get('active', 0)} | "
+            f"| {f} | {shown} | {w.get('complete', 0)} | {w.get('active', 0)} | "
             f"{w.get('dependencyBlocked', 0)} | {w.get('ownerAction', 0)} | {w.get('externalWait', 0)} | "
-            f"{w.get('outOfDenominator', 0)} |"
+            f"{w.get('ownerPaused', 0)} | {w.get('outOfDenominator', 0)} |"
         )
     L.append("")
     L.append("## By disposition")

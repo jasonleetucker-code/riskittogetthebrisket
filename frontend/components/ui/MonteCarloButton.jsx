@@ -99,22 +99,21 @@ export function _renderPlainSummary(result, sides, sidesSend = false) {
   // `winProbA` is how often Side A's TOTAL came out bigger.  On /trade
   // (`sidesSend`) each side lists what that team sends, so a bigger Side A
   // is Side A giving up more — calling it the "winner" named the team that
-  // overpays.  There the copy names the package and who receives it.
+  // overpays.  There the copy names the package, as a sensitivity count.
   let headline, subline, tone;
   if (sidesSend) {
+    // TC-D (decision-engine audit §7.8, V5): on /trade this is a
+    // value-sensitivity check, never a verdict.  No "winner", "favored",
+    // "clearly" or "probably" -- the one YES / NO is the War Room's -- and no
+    // strong/lean tone: the share is reported as a plain count.
     const lead = pct >= 50 ? "A" : "B";
-    const other = lead === "A" ? "B" : "A";
     const share = lead === "A" ? pct : 100 - pct;
-    if (pct >= 40 && pct < 60) {
-      headline = "Coin flip.";
-      tone = "even";
-      subline = `Side A's package came out bigger in ${pct}% of ${sims} simulations.`;
-    } else {
-      const strong = pct >= 80 || pct < 20;
-      headline = `Side ${lead}'s package is ${strong ? "clearly" : "probably"} worth more.`;
-      tone = strong ? "strong" : "lean";
-      subline = `It came out bigger in ${share}% of ${sims} simulations — Side ${other} would receive more value.`;
-    }
+    headline = "Value-sensitivity check";
+    tone = "even";
+    subline =
+      pct >= 40 && pct < 60
+        ? `Neither package is consistently bigger: Side A's came out bigger in ${pct}% of ${sims} simulations.`
+        : `Side ${lead}'s package came out bigger in ${share}% of ${sims} simulations.`;
   } else if (pct >= 80) {
     headline = "Side A is the clear winner.";
     tone = "strong";
@@ -141,6 +140,9 @@ export function _renderPlainSummary(result, sides, sidesSend = false) {
   let deltaLine;
   if (Math.abs(meanDelta) < 100) {
     deltaLine = "On average, the two sides are within 100 points of each other.";
+  } else if (sidesSend) {
+    const bigger = meanDelta > 0 ? "A" : "B";
+    deltaLine = `On average, Side ${bigger}'s package was ${Math.abs(meanDelta).toLocaleString()} points bigger.`;
   } else if (meanDelta > 0) {
     deltaLine = `On average, Side A's total beat Side B's by ${meanDelta.toLocaleString()} points.`;
   } else {
@@ -269,7 +271,11 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
         onClick={run}
         style={{ alignSelf: "flex-start" }}
       >
-        {state === "running" ? "Simulating..." : "Simulate (Monte Carlo)"}
+        {state === "running"
+          ? "Simulating..."
+          : sidesSend
+            ? "Simulate value sensitivity"
+            : "Simulate (Monte Carlo)"}
       </button>
       {err && (
         <div className="text-xs" style={{ color: "var(--amber)" }}>

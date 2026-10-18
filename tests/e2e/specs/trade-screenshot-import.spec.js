@@ -19,6 +19,7 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
+const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 const {
   pageUrl,
   awaitStreamSettled,
@@ -165,11 +166,11 @@ function resultNamed(page, name) {
 }
 
 async function addToSideA(page, name) {
-  const input = page.getByLabel("Search to add a player to Side A");
-  await input.click();
+  const input = await openTradeSearch(page, "A");
   await input.fill(name);
   await expect(resultNamed(page, name)).toBeVisible({ timeout: 15_000 });
   await resultNamed(page, name).click();
+  await closeTradeSheet(page);
   await expect(
     page.getByRole("button", { name: `Add another ${name} to Side A` }),
   ).toBeVisible();
@@ -399,7 +400,13 @@ test("real OCR: a committed screenshot lands on the right sides", async ({
     [sideB, expB],
   ]) {
     for (const asset of exp.assets) {
-      await expect(side.getByText(asset.text).first()).toBeVisible();
+      // The raw OCR line is shown as read: in a pick label "1st" may come
+      // back "Ist" (the pick grammar repairs exactly that, inside pick
+      // tokens only), so the raw-text check tolerates that one confusion.
+      const raw = isPick(asset)
+        ? new RegExp(asset.text.replace(/1(st)/, "[1Il|]$1"))
+        : asset.text;
+      await expect(side.getByText(raw).first()).toBeVisible();
       if (!isPick(asset)) {
         await expect(side.getByText(asset.boardName).first()).toBeVisible();
       }
@@ -409,4 +416,62 @@ test("real OCR: a committed screenshot lands on the right sides", async ({
     await expect(sideA.getByText(name)).toHaveCount(0);
     await expect(sideB.getByText(name)).toHaveCount(0);
   }
+});
+
+// The owner's real, UNCROPPED full-browser trade-calculator screenshot (a
+// redacted derivative: tab strip / bookmark bar blanked).  Browser chrome,
+// the site sidebar, an insights widget naming two OTHER players and ads
+// surround the trade; only the trade may be imported, and nothing may be
+// left in "Needs a side".  Real backend + real Tesseract; skips without OCR.
+test("real OCR: an uncropped full-page screenshot imports exactly the trade", async ({
+  authedPage: page,
+}) => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const status = await page.request.get("/api/trade/import-screenshot/status");
+  const body = status.ok() ? await status.json() : {};
+  test.skip(
+    !(body.enabled && body.available),
+    `server OCR not available (${body.reason || status.status()})`,
+  );
+
+  const dir = path.join(
+    __dirname,
+    "..",
+    "..",
+    "fixtures",
+    "screenshot_import",
+    "ktc_fullpage_browser",
+  );
+  const expected = JSON.parse(
+    fs.readFileSync(path.join(dir, "expected.json"), "utf8"),
+  );
+
+  await openTrade(page);
+  const dialog = await openScreenshotDialog(page);
+  await dialog.getByTestId("ds-dropzone-input").setInputFiles({
+    name: "full-page.webp",
+    mimeType: "image/webp",
+    buffer: fs.readFileSync(path.join(dir, "image.webp")),
+  });
+  const sideA = dialog.getByRole("region", { name: "Side A" });
+  const sideB = dialog.getByRole("region", { name: "Side B" });
+  await expect(sideA).toBeVisible({ timeout: 60_000 });
+
+  const [expA, expB] = expected.sides;
+  for (const [side, exp] of [
+    [sideA, expA],
+    [sideB, expB],
+  ]) {
+    for (const asset of exp.assets) {
+      await expect(side.getByText(asset.boardName).first()).toBeVisible();
+    }
+  }
+  for (const name of expected.mustBeIgnored) {
+    await expect(sideA.getByText(name)).toHaveCount(0);
+    await expect(sideB.getByText(name)).toHaveCount(0);
+  }
+  await expect(
+    dialog.getByRole("heading", { name: /^Needs a side$/ }),
+  ).toHaveCount(0);
 });

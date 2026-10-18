@@ -364,7 +364,7 @@ General effect of the switch:
 | finder ratios | `MULTI_FOR_ONE_MIN_RATIO 0.55`, `ELITE_MULTI_MIN_RATIO 0.65`, `PACKAGE_ANCHOR_MIN_PCT 0.35`, `JUNK_THRESHOLD 350` | `src/trade/finder.py:53-54, :146-148, :692-700` | finder acceptance (pre-VA model values) | hardening-pass priors | re-validate with geom-scored results |
 | TradeMeter / explanation | 3% relative; `MIN_NOTABLE_GAP 200` | `TradeMeter.jsx:65`; `TradeFairnessExplanation.jsx:56, :142` | V3, V4 | none | fold into the one band owner |
 | MC headline bands | 80 / 60 / 40 / 20 % | `MonteCarloButton.jsx:103-135` | V5 | none | relabel as sensitivity, or remove the "winner" headline |
-| Second Opinions even | gap < 1 point | `second-opinions.js:296` | V6 | historical (SECOND_OPINIONS_TODO "Open") | owner decision already listed as open |
+| Second Opinions even | gap < 1 point | `second-opinions.js:296` | V6 | historical (SECOND_OPINIONS_TODO "Open") | owner decision already listed as open — DECIDED 2026-10-18 (§7.10 decision 4: within 1%) |
 | team_impact composite | weights 0.55 / 0.45, norms 4000 / 2500, verdict ±8 / ±20 | `config/trade/team_impact.json`; `team_impact.py:86-118, :500-510` | V7 | unrecorded | retire the verdict (§7.8) |
 | history letter grades | 3 / 8 / 15 / 25 / 40 % | `league-analysis.js:87-100`; `trade_grading.py:54-84` | V11 | unrecorded. **Also non-monotone in letters:** winner A → A → A− → **B+** (15-25%) → A+ (≥25%), and B+ also means "slight overpay" | fix letter order; re-evaluate under geom |
 | aging stable band | ±200 adjusted | `trade-history-grades.js:31-34, :155-159` | V12 | declared PRIOR (TRADE_HISTORY_AGING_SPEC §5) | re-evaluate; cross-model aging comparisons are already prevented by `packageModel` receipts (#1771 config comment) |
@@ -609,7 +609,7 @@ trade.
 | V2 / V3 / V9 TradeMeter + tray | keep as **Immediate Result, package only**; read bands from the same owner as component A (Python + JS parity test); one vocabulary; relative and absolute shown together and never contradicting (badge derived from the relative band with absolute floor) |
 | V4 Fairness Explanation | keep; it explains V2; same band owner |
 | V5 Monte Carlo | drop the "winner / favored" headline; label as "value-sensitivity check"; feed the meter's own totals (overrides / valueMode) or say it uses board values; not an input to the decision until `valueUncertainty` is audited (synthesis plan §A) |
-| V6 Second Opinions tally | keep as dispersion, under the decision; adopt a declared "even" band (open owner decision); may only lower agreement confidence (§7.4) |
+| V6 Second Opinions tally | keep as dispersion, under the decision; adopt a declared "even" band (decided 2026-10-18, §7.10 decision 4); may only lower agreement confidence (§7.4) |
 | V7 `teamImpact.verdict` | **retire from UI and packet** (or rename to `legacyShapeScore`, hidden); keep `starterDelta` / `depthDelta` / `lineupDisplacement` as roster information; fix "Net KTC equity" copy |
 | V8 suggestions fairness | keep (generator label); same band owner |
 | V10 BDVM | keep as second opinion; candidate long-term input only after methodology approval |

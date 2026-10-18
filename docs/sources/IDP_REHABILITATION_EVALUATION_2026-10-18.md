@@ -12,6 +12,19 @@ package's two PENDING rows in `docs/OWNER_REQUESTED_TODO.md`:
 canonical value or Hill constant changes here. Every reversal or activation below is a
 recommendation for an explicit owner decision.
 
+> **Owner decisions, 2026-10-18 (closeout directive, `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`).**
+> Every owner decision this evaluation asked for is now made; the evidence below is unchanged.
+> * §2 DLF IDP: **option (b)** — the hold stays until `idp-hampel-n3-v1` meets its preregistered criteria and an
+>   independent full-board validation passes (D1).
+> * §3 IDP-scoped shared cap for IDP Trade Calculator + `idpShowCombined`: **approved** (defensive rows only,
+>   via the lineage / family-cap owners, replay + validated release before served values move) (D2); no unproven
+>   extra IDP Trade Calculator offense vote (D3).
+> * §3 N-1 deep-tail normalization: **challenger approved**, incumbent kept unless it convincingly improves (D6).
+> * §5 DLF Values: **rank-to-Hill approved conditionally**, raw/max rejected (D4).
+> * FantasyPros clock: **`EXPLICIT_UPSTREAM_TIMESTAMP` approved** (D5). Signals IDP hold maintained (D7).
+> * §6 package model: `geom_q078_v1` stays active; no recalibration from accepted trades (D8).
+> Status of each, live: `docs/owner/OWNER_DECISION_REGISTER.md`. Conditional items stay EVIDENCE_PENDING until their gates pass.
+
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
 ## Pins and reproduction
@@ -43,7 +56,7 @@ Reproduce, with no network required:
 | Rehabilitation registry | IN PROGRESS ("this PR") | `config/sources/rehabilitation.json` merged as #1776 in train 5; refreshed by this PR (below) | DONE (living registry) |
 | The IDP Show | IN PROGRESS: #1770; needs a session | #1770 merged in train 5. The production collector has authenticated and committed every 2 h since 2026-10-17 20:32Z (`cd0fd9b73e` through `932c61b4e3`, 11 refreshes by 14:32Z on 10-18): combined 665 rows, IDP-only 350, both `HEALTHY`. The voting board's vendor chart is still `U8I37/v4`, `lastModifiedAt` 2026-08-19, so freshness weighting gives it weight 0 (age 1,434 h on this board). The quarantine is by design and lifts when the vendor republishes | VERIFIED (collection); combined board upstream-inactive |
 | FantasyPros IDP | IN PROGRESS: parser repairs | #1777 merged: the page's own expert-update time is now persisted (`data/scrape_state/fantasyProsIdp_upstream.json`, `publishedAt` 2026-09-04, 2 of 6 experts). Dual-family dedup is still deferred: it is not freshness-neutral, and the CSV has 16 duplicate identities. On this board the source votes at freshness 0.59 | PARTIAL: evidence repair done; dedup deferred; the owner decision on `EXPLICIT_UPSTREAM_TIMESTAMP` is still open |
-| DLF IDP re-evaluation | PENDING | Delivered 2026-10-17 (`docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md`, merged in train 5); refreshed and corrected in §2 | DONE (evidence); OWNER DECISION NEEDED |
+| DLF IDP re-evaluation | PENDING | Delivered 2026-10-17 (`docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md`, merged in train 5); refreshed and corrected in §2 | DONE (evidence); ~~OWNER DECISION NEEDED~~ DECIDED 2026-10-18 (D1, option b) |
 | Independence / normalization / outlier / DLF Values / package model | PENDING | §3–§6 | see each section |
 
 Two more stale records found and corrected in this PR:
@@ -397,7 +410,8 @@ run on the box. The owner-league run above is a stand-in, not that evaluation.
   * Outlier challenger implementation and run: a separately authorized unit.
   * N-1 deep-tail pricing: owner methodology decision; challenger proposed.
 * **BLOCKERS:**
-  * Owner decisions:
+  * Owner decisions (all made 2026-10-18 — D1 option (b), D2 approved, D4 conditional, D5 approved; see the
+    banner at the top):
     * the DLF IDP reversal, (a) or (b) in §2;
     * the IDP-scoped IDP Show / IDP Trade Calculator lineage cap (§3);
     * DLF Values rank → Hill or non-voting (§5);
@@ -405,3 +419,41 @@ run on the box. The owner-league run above is a stand-in, not that evaluation.
   * Box access: Signals and `data/intel`.
 * **NEXT_ACTION:** owner decisions above; an on-box run of the package-model evaluation
   against `data/intel`; then the implementation unit for `idp-hampel-n3-v1`.
+
+## Owner closeout follow-through (2026-10-18, PART 2, Decisions 1, 6, 7 and 8)
+
+Evaluation only. Nothing was activated:
+
+* the DLF IDP vote hold stays;
+* production keeps the incumbent outlier filter and Hill method;
+* both new flags ship OFF, and a default board is byte-identical (golden board sha256
+  `3c77f550…` before and after).
+
+| decision | result | evidence |
+|---|---|---|
+| **D1 — `idp-hampel-n3-v1`** (run exactly as preregistered: 105 frozen complete archives, seed 2029, T1 = DLF IDP's later vote) | **INSUFFICIENT.** 117 evaluable disputed row-origins and 17 origin days, but only 3 of the required 4 week-blocks: the October cluster has no h = 7 target inside the frozen set. Descriptively, the challenger sits **further** from the holdout: P1 +0.112 [+0.101, +0.127], positive at every horizon. **The DLF IDP hold stays**; the PASS-only board-impact validation is not triggered | `docs/valuation/evidence/idp-outlier-n3-2026-10-18/README.md`, `evaluation_historical_replay.json` |
+| **D6 — `idp-deep-tail-native-v1`** (preregistered in `341099255b`, before implementation or results) | **PROMOTION-ELIGIBLE under the frozen rule** (see below), then **`AUTO_PROMOTION_BLOCKED: no_independent_validation_target`** (gate 7). **Incumbent retained**; recommendation: retain | `docs/valuation/evidence/idp-deep-tail-native-2026-10-18/README.md`, `evaluation_historical_replay.json` |
+| **D7 — Signals IDP** | **BLOCKED here**: `data/sources/signals/` is absent in this environment (box-local). Nothing fabricated. A read-only, aggregate-only on-box mode was added (`scripts/idp_rehab_eval.py --signals-dependence-only`). No activation, no threshold change | `docs/sources/evidence/IDP_CLOSEOUT_2026-10-18/OPERATOR_COMMANDS.md` §D7 |
+| **D8 — package model on the production trade archive** | **BLOCKED here**: `data/market_trades` / `data/intel` are absent; a dry run of the command returns 0 observations. Exact on-box command written: the existing `market_trade_eval.residual_report` for `geom_q078_v1` and `ktc_2026_04`. **No q change** | same file, §D8 |
+
+The D6 pass, in numbers:
+
+* **C1.** Calibration of deep votes against the IDP Trade Calculator's later value,
+  leave-player-out: −0.070 [−0.072, −0.068], over 16,223 votes. It is negative in DL,
+  LB and DB.
+* **R1.** Order against DLF's later order (the non-circular primary): −0.0008
+  [−0.0017, +0.0001]. Non-inferior, not better.
+* **H1.** Daily-move ratio 0.96 [0.93, 0.99].
+* **Rails.** All Autopilot board rails held on 105 / 105 boards.
+
+Why it is still not a convincing improvement:
+
+* C1 grades against the challenger's own provider;
+* the only independent target is flat, and slips in S1 and in LB;
+* the band edge introduces a ~5% step at rank 500, with 200 within-source order
+  inversions at the boundary over 105 boards.
+
+Activating anything would need an independent review, an owner decision and a new
+preregistered continuous variant. This run does not start any of them.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c

@@ -1,0 +1,30 @@
+{
+  "_comment": "The same real trade, cropped to the trade area (from ktc_fullpage_browser).",
+  "forbiddenWarnings": [
+    "missing_side",
+    "low_layout_confidence",
+    "trade_region_not_detected"
+  ],
+  "layoutKind": "two_column",
+  "mustBeIgnored": [],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Jaxson Dart",
+          "text": "Jaxson Dart"
+        }
+      ],
+      "label": "Team 1 gets"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "De'Von Achane",
+          "text": "De'Von Achane"
+        }
+      ],
+      "label": "Team 2 gets"
+    }
+  ]
+}

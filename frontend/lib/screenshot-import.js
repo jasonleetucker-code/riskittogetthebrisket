@@ -562,6 +562,8 @@ const WARNING_COPY = {
   pick_owner_not_established:
     "pick owners aren't shown, so picks import as market picks with no team owner.",
   no_assets_found: "no trade assets were found.",
+  trade_region_not_detected:
+    "the trade area wasn't recognised, so nothing was placed on a side. Move each asset to the side it belongs to.",
 };
 
 /** A server warning, prefixed with the screenshot it came from. */
