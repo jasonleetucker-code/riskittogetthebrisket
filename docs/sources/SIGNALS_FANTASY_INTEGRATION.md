@@ -691,3 +691,64 @@ Appended from the on-box evaluation (`scripts/verify_signals_onbox.py`, workflow
 here — counts, distributions and per-criterion pass/fail.  The watch list,
 largest disagreements and any per-player Signals number stay in the private
 on-box report (`data/sources/signals/reports/`); this repository is public.
+
+#### 10.8.1 Round 1 — Candidate A on production, 2026-10-17 (run 39066961689)
+
+Deployed commit `f9d1994e5`, one real collection first (`collect: true`, service result
+`success`).  Inputs: IDP release `contentSha256 6ec7bff6bd11` (asOf 2026-10-14, the newest; the
+2026-10-17 collection verified it unchanged), offense release `05e513c37a91` (2026-10-17).  Owner
+session state `renewal_due`.  An earlier run on 2026-10-08 (run 37732469435, release
+`c659770974af`) is recorded for comparison only; this run is the round-1 verdict.
+
+| family | collected on board | translated = votes | extrapolated | family mismatches (hard-withheld) | withheld beyond ladder | Hampel drops | signed bias (6b) | bridge rows Signals lacks / Signals rows bridge lacks |
+|---|---|---|---|---|---|---|---|---|
+| DL | 158 | 146 | 0 | 6 | 12 | 7 (4.8%) | +1.69% | 4 / 16 |
+| LB | 104 | 104 | 0 | 4 | 0 | 3 (2.9%) | **−6.24%** | 7 / 3 |
+| DB | 147 | 123 | 0 | 2 | 24 | 1 (0.8%) | **−9.95%** | 1 / 25 |
+
+Whole-board movement if promoted: 343 of 396 IDP rows move; relative value median 1.37%, **p90
+30.07%** (DL p90 228.97%, LB 16.96%, DB 6.64%); rank median 9; top-50 / top-100 / top-200
+membership 2 / 1 / 4 rows in and out; IDP top-100 8 in and out; top-200 family composition DL
+13 → 17, LB 24 → 21, DB 6 → 6; 104 confidence buckets change; **1 offense player row moves**;
+63 of 144 pick rows move (max 11.2%, the allowed Phase 5.2b tether coupling, reported separately).
+Completed trades: 0 scorable (313 `BROAD_CONTEXT`, 19 `TARGET_UNSUPPORTED`).
+
+| # | criterion | result |
+|---|---|---|
+| 1 | no Signals-created cross-family order | PASS (structural, tested) |
+| 2 | every vote in `shared_market` coordinates | PASS (all three families) |
+| 3 | the 9,484 watch-list LB within the row range +15% | PASS |
+| 4 | Hampel drops ≤ 5% | PASS (11 / 373 = 2.9%) |
+| 5 | family share of top-200 moves ≤ 3 pp | PASS (DL +2.0 pp, LB −1.5 pp, DB 0) |
+| 6 | IDP movement median ≤ 2% and p90 ≤ 8%; no offense player row moves | **FAIL** (p90 30.07%; 1 offense row) |
+| 6b | signed bias within ±5% per family | **FAIL** (LB −6.24%, DB −9.95%) |
+| 7 | independent fresh-context review | NOT REACHED (criteria 6 and 6b already fail) |
+| 8 | tests: missing ladder, bad identity, unsupported family, stale source | PASS (existing suite) |
+| 9 | completed trades | INSUFFICIENT (0 scored; does not block) |
+
+**Verdict: Candidate A FAILS round 1.  The hold stays; the shadow keeps running.**  No threshold
+was edited.
+
+Diagnosis (what the public projection supports, and what it does not):
+
+* **DB bias is consistent with the coverage mechanism 6b was written to catch**: Signals carries
+  25 DBs the bridge does not, so its family rank k counts players the ladder never sees and lands
+  each later Signals DB one or more market positions deeper — a consistent negative shift.
+* **LB bias is NOT explained by coverage**: the asymmetry runs the other way (the bridge holds 7
+  LBs Signals lacks, which would push Signals ranks UP), so the −6.24% is genuine disagreement:
+  Signals prices LBs below the market.  That is information about Signals, not a translation bug.
+* **The DL p90 is not the single-source haircut lifting**: on the same day's board only 4 of 119
+  ranked DLs rest on one evidence family.  The large DL movers must sit outside the ranked set or
+  be rows where Signals is far from the existing sources; the per-row detail is in the private
+  on-box report and is not reproduced here.  Next diagnostic: extend the public projection with a
+  counts-only decomposition (ranked vs off-cap rows, families before → after, haircut lifts).
+* **The one offense row** is most plausibly the two-way player (alt-position DB value feeding the
+  two-way boost); unconfirmed from the public projection.
+
+Next round, per §10.3.1: **no documented candidate is eligible yet.**  C needs a second
+independent shared-market reference (`multi_bridge_ladder` is OFF, IDP Trade Calculator is the
+only bridge); D needs 30 format-comparable IDP trades per family (0 today); E is diagnostic only.
+A coverage-corrected rank (Signals' family rank counted only over players the bridge also covers)
+would target the DB failure, but it is not among the declared candidates, so declaring it is an
+owner decision, and it could only be judged on a Signals release published after its
+preregistration.  The session-renewal state should be addressed so the collector keeps running.

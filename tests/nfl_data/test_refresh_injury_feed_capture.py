@@ -58,6 +58,9 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(nfl_cache, "_default_cache_dir", lambda: cache_dir)
     prior = tmp_path / "injuries_prior.json"
     monkeypatch.setattr(mod, "_PRIOR_PATH", prior)
+    # The per-player return-evidence pass is an independent network step with
+    # its own tests (tests/nfl_data/test_injury_return_evidence.py).
+    monkeypatch.setattr(mod, "_refresh_return_evidence", lambda: None)
     history = tmp_path / "history"
     monkeypatch.setenv("RISKIT_INJURY_HISTORY_DIR", str(history))
     merged: list = []
