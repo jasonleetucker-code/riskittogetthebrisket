@@ -12,7 +12,8 @@
  * surfaces can import without duplicating the math.
  *
  * Dependencies (kept identical):
- *   - meterVerdict, percentageGap from lib/trade-logic
+ *   - meterVerdict (the ONE fairness-band owner, lib/fairness-bands.js),
+ *     percentageGap from lib/trade-logic
  *   - MonteCarloButton from components/ui
  *   - ResilientSection from components/ResilientSection
  */
@@ -89,7 +90,10 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
   const gap = pwA - pwB;
   const absGap = Math.abs(gap);
   const pctGap = percentageGap(pwA, pwB);
-  const verdict = meterVerdict(absGap);
+  // ONE fairness-band owner (TC-C): relative to the larger adjusted side,
+  // with an absolute minimum.  The badge and the winner text read the SAME
+  // band, so "FAIR" can no longer sit beside "worth 7% more".
+  const verdict = meterVerdict(gap, Math.max(pwA, pwB));
   const total = pwA + pwB;
 
   // Fill percentages for the bar
@@ -106,7 +110,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
     ? `Side ${sides[1].label}`
     : "Side B";
   let winnerText = "Even";
-  if (pctGap >= 3) {
+  if (verdict.level !== "fair") {
     const [big, small] = gap > 0 ? [labelA, labelB] : [labelB, labelA];
     winnerText = sidesSend
       ? `${big}'s package is worth ${pctGap}% more — ${small} receives more value`
@@ -191,24 +195,32 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
     ? flows
     : sides.map(() => ({ given: 0, received: 0, net: 0 }));
   const nets = flowList.map((f) => f.net);
-  const absMax = Math.max(350, ...nets.map((n) => Math.abs(n)));
+  // The band base: the largest adjusted package any side sends (the same
+  // base ``tradeImbalance`` uses), so a 3-team trade is graded on the same
+  // relative scale as a 2-team one (ONE fairness-band owner, TC-C).
+  const largerSide = Math.max(
+    0,
+    ...flowList.map((f) => Number(f.given)).filter((v) => Number.isFinite(v)),
+  );
+  const isEvenNet = (n) => meterVerdict(n, largerSide).level === "fair";
+  // Display scale only (the bar's full width), never a verdict.
+  const absMax = Math.max(1, ...nets.map((n) => Math.abs(n)));
 
-  // Overall verdict: worst-offender absolute net.  Reuses the
-  // 350/900/1800 thresholds in ``meterVerdict`` so the label text
-  // matches the 2-team bar.
+  // Overall verdict: worst-offender absolute net, through the same band as
+  // the 2-team bar.
   const worst = Math.max(...nets.map((n) => Math.abs(n)));
-  const verdict = meterVerdict(worst);
+  const verdict = meterVerdict(worst, largerSide);
 
   const fmtSigned = (n) => {
     const sign = n > 0 ? "+" : n < 0 ? "−" : "";
     return `${sign}${Math.round(Math.abs(n)).toLocaleString()}`;
   };
   const netColor = (n) => {
-    if (Math.abs(n) < 350) return "var(--muted)";
+    if (isEvenNet(n)) return "var(--muted)";
     return n > 0 ? "var(--green)" : "var(--red)";
   };
   const netTag = (n) => {
-    if (Math.abs(n) < 350) return "Even";
+    if (isEvenNet(n)) return "Even";
     if (n > 0) return "Getting value";
     return "Losing value";
   };
@@ -248,7 +260,7 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
           const net = nets[i] || 0;
           const pct = absMax > 0 ? Math.min(100, (Math.abs(net) / absMax) * 100) : 0;
           const isPos = net > 0;
-          const isEven = Math.abs(net) < 350;
+          const isEven = isEvenNet(net);
           const fillColor = isEven
             ? "var(--muted)"
             : isPos

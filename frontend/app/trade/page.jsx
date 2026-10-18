@@ -2,6 +2,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import { isFairGap } from "@/lib/fairness-bands";
 import {
   ACTIVE_PACKAGE_MODEL_ID,
   PACKAGE_MODELS,
@@ -1006,6 +1007,16 @@ export default function TradePage() {
     Math.max(pwTotalA, pwTotalB) > 0
       ? Math.round((Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB)) * 100)
       : 0;
+  // The base the ONE fairness-band owner is relative to (TC-C, owner
+  // decision 3): the larger adjusted side.  Every 2-team band on this page
+  // (tray, balancers, the "add to balance" side) reads it.
+  const pwLarger = Math.max(pwTotalA, pwTotalB);
+  const pwGapIsFair = isFairGap(pwGap, pwLarger);
+  // 3+-team: the largest adjusted package any side sends (tradeImbalance's base).
+  const multiLarger = Math.max(
+    0,
+    ...sideFlows.map((f) => Number(f.given)).filter((v) => Number.isFinite(v)),
+  );
 
   // Balancing suggestions (2-team mode only).
   //
@@ -1061,7 +1072,7 @@ export default function TradePage() {
   const balancers = useMemo(() => {
     if (sides.length !== 2) return { list: [], teamName: null };
     if (tradeIsIncomplete) return { list: [], teamName: null };
-    if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
+    if (pwGapIsFair) return { list: [], teamName: null };
     // Behind side = the one whose total is LOWER.
     const behindSideIdx = pwGap > 0 ? 1 : 0;
     const behindSide = sides[behindSideIdx];
@@ -1077,6 +1088,7 @@ export default function TradePage() {
     return { list, teamName };
   }, [
     pwGap,
+    pwGapIsFair,
     tradeIsIncomplete,
     sides,
     sidesWithOverrides,
@@ -1100,7 +1112,7 @@ export default function TradePage() {
     const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
     const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
     const gap = nets[bestIdx] - nets[worstIdx];
-    if (gap < 350) return null;
+    if (isFairGap(gap, multiLarger)) return null;
     // Panel renders on the side that needs to GIVE more (the one with
     // the best deal right now).  Filter the suggestion pool to that
     // side's Sleeper team so the "add more" list is players they
@@ -1124,6 +1136,7 @@ export default function TradePage() {
     tradeIsIncomplete,
     sidesWithOverrides,
     sideFlows,
+    multiLarger,
     settings,
     valueMode,
     inferTeamForSide,
@@ -1986,7 +1999,7 @@ export default function TradePage() {
   // renders.  Returns null when that side has no balancer suggestion.
   function balancersForSide(sideIdx) {
     const isUnderpaying =
-      sides.length === 2 ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350) : false;
+      sides.length === 2 ? !pwGapIsFair && (sideIdx === 0 ? pwGap < 0 : pwGap > 0) : false;
     if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
       return {
         label: balancers.teamName
@@ -2580,9 +2593,9 @@ export default function TradePage() {
                       <div className={styles.verdictField} />
                       <div
                         className={`${styles.verdictMarker} ${
-                          colorFromGap(pwGap) === "green"
+                          colorFromGap(pwGap, pwLarger) === "green"
                             ? styles.verdictMarkerPositive
-                            : colorFromGap(pwGap) === "red"
+                            : colorFromGap(pwGap, pwLarger) === "red"
                               ? styles.verdictMarkerNegative
                               : ""
                         }`}
@@ -2593,7 +2606,8 @@ export default function TradePage() {
                     </div>
                   )}
                   {/* Same vocabulary as the meter's badge — one set of
-                      verdict words per page (meterVerdict, 350/900/1800).
+                      verdict words per page (meterVerdict, the ONE
+                      fairness-band owner, lib/fairness-bands.js).
                       No band on an empty trade (UX audit P0-6). */}
                   {tradeIsEmpty ? (
                     <div className="verdict" data-trade-state={evalState.state}>
@@ -2605,8 +2619,11 @@ export default function TradePage() {
                     </div>
                   ) : (
                     <>
-                      <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
-                        {meterVerdict(Math.abs(pwGap)).label}
+                      <div
+                        className={`verdict ${colorFromGap(pwGap, pwLarger)}`}
+                        data-trade-gap={pwGap}
+                      >
+                        {meterVerdict(pwGap, pwLarger).label}
                         {pctGap > 0 ? ` (${pctGap}%)` : ""}
                       </div>
                       <div className={styles.controlsNote}>

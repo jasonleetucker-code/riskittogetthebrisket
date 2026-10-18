@@ -12,6 +12,7 @@
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
+import { classifyGap, FAIRNESS_LABELS } from "./fairness-bands.js";
 import {
   canAddEntry,
   deserializeEntry,
@@ -42,10 +43,12 @@ export const STORAGE_KEY = "next_trade_workspace_v1";
 export const RECENT_KEY = "next_trade_recent_assets_v1";
 export const SETTINGS_KEY = "next_settings_v2";
 
-// ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
-const VERDICT_NEAR_EVEN = 350;
-const VERDICT_LEAN = 900;
-const VERDICT_STRONG_LEAN = 1800;
+// ── Verdict bands ────────────────────────────────────────────────────────
+// The KTC-era absolute bands (350 / 900 / 1800) are RETIRED (TC-C, owner
+// decision 3).  Every package-gap label on /trade comes from the ONE
+// fairness-band owner (./fairness-bands.js, pinned to
+// config/trade/fairness_bands.json): relative to the larger ADJUSTED side,
+// with an absolute minimum.  PROVISIONAL until validated.
 
 // ── Legacy Power-Weighted Alpha (trade history only) ─────────────────────
 // The Trade Calculator no longer uses this; it has moved to the package
@@ -920,16 +923,21 @@ export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
 }
 
 // ── Verdict ──────────────────────────────────────────────────────────────
-export function verdictFromGap(gap) {
-  const abs = Math.abs(gap);
-  if (abs < VERDICT_NEAR_EVEN) return "Near even";
-  if (abs < VERDICT_LEAN) return "Lean";
-  if (abs < VERDICT_STRONG_LEAN) return "Strong lean";
-  return "Major gap";
+// `largerSide` is the larger ADJUSTED package total: the band is relative
+// to it (TC-C, owner decision 3).
+const VERDICT_WORDS = {
+  fair: "Near even",
+  slight: "Lean",
+  unfair: "Strong lean",
+  lopsided: "Major gap",
+};
+
+export function verdictFromGap(gap, largerSide) {
+  return VERDICT_WORDS[classifyGap(gap, largerSide).level];
 }
 
-export function colorFromGap(gap) {
-  if (Math.abs(gap) < VERDICT_NEAR_EVEN) return "";
+export function colorFromGap(gap, largerSide) {
+  if (classifyGap(gap, largerSide).level === "fair") return "";
   return gap > 0 ? "green" : "red";
 }
 
@@ -1614,7 +1622,8 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
   }
 
   const before = tradeImbalance(sides, valueMode, settings);
-  if (before.imbalance < VERDICT_NEAR_EVEN) return [];
+  // Inside the fair band (the ONE fairness-band owner): nothing to balance.
+  if (classifyGap(before.imbalance, before.largerSide).level === "fair") return [];
 
   // In an N >= 3 trade an added asset needs somewhere to go.  Default to
   // the side currently netting the least — the team this side is
@@ -1928,8 +1937,13 @@ export function computeSideFlows(sides, valueMode, settings = null) {
  */
 export function tradeImbalance(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
-  if (n < 2) return { imbalance: 0, nets: [], gap: null };
-  const nets = computeSideFlows(sides, valueMode, settings).map((f) => f.net);
+  if (n < 2) return { imbalance: 0, nets: [], gap: null, largerSide: null };
+  const flows = computeSideFlows(sides, valueMode, settings);
+  const nets = flows.map((f) => f.net);
+  // The base the fairness band is relative to: the largest ADJUSTED package
+  // any side sends (given = raw + its adjustment).  For N = 2 this is the
+  // larger adjusted side total.
+  const largerSide = Math.max(...flows.map((f) => f.given));
   if (n === 2) {
     const gap = tradeGapAdjusted(
       Array.isArray(sides[0]?.assets) ? sides[0].assets : [],
@@ -1937,26 +1951,29 @@ export function tradeImbalance(sides, valueMode, settings = null) {
       valueMode,
       settings,
     );
-    return { imbalance: Math.abs(gap), nets, gap };
+    return { imbalance: Math.abs(gap), nets, gap, largerSide };
   }
   return {
     imbalance: Math.max(...nets) - Math.min(...nets),
     nets,
     gap: null,
+    largerSide,
   };
 }
 
 /**
- * Compute the granular trade-meter verdict label from an absolute gap.
- * More categories than verdictFromGap for the inline meter badge.
- * @param {number} absGap - Absolute point gap
- * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided' }}
+ * The meter badge for a package gap -- the Immediate Result, package only.
+ * Bands from the ONE fairness-band owner (./fairness-bands.js): relative to
+ * the larger ADJUSTED side, with an absolute minimum (TC-C, owner decision 3;
+ * it replaced the absolute 350 / 900 / 1800).  It labels the package gap; the
+ * trade DECISION is the backend's (POST /api/trade/analyze).
+ * @param {number} gap - package gap (sign ignored)
+ * @param {number} largerSide - larger adjusted side total
+ * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null }}
  */
-export function meterVerdict(absGap) {
-  if (absGap < 350) return { label: "FAIR", level: "fair" };
-  if (absGap < 900) return { label: "SLIGHT EDGE", level: "slight" };
-  if (absGap < 1800) return { label: "UNFAIR", level: "unfair" };
-  return { label: "LOPSIDED", level: "lopsided" };
+export function meterVerdict(gap, largerSide) {
+  const band = classifyGap(gap, largerSide);
+  return { label: FAIRNESS_LABELS[band.level], level: band.level, relativePct: band.relativePct };
 }
 
 /**

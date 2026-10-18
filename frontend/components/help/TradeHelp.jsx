@@ -17,8 +17,9 @@
  *                   canonical board value, `rankDerivedValue`).
  *   Value Adj.      trade-logic.js ktcAdjustPackage (JS) and
  *                   src/trade/ktc_va.py (Python, used by the War Room).
- *   Verdict bands   trade-logic.js meterVerdict (350 / 900 / 1,800) and
- *                   percentageGap (<3% shown as even).
+ *   Verdict bands   lib/fairness-bands.js (the ONE fairness-band owner,
+ *                   config/trade/fairness_bands.json): 3.5% / 9% / 18% of the
+ *                   larger adjusted side, fair under 250 points.
  *   War Room        src/trade/analyze_trade.py — market / roster /
  *                   feasibility lenses, rule table, unavailable dimensions.
  *   Capacity        src/trade/roster_capacity.py.
