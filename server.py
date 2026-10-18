@@ -17209,10 +17209,14 @@ async def post_trade_analyze(request: Request):
     not accept or need a separately-specified trade.
 
     Response: the ``/api/trade/simulate`` payload's fields, plus
-    ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output
-    (recommendation / confidence / reasonsFor / reasonsAgainst / dimensions /
-    unavailableDimensions), with comparable real trades for the package as
-    the non-voting ``marketCorroboration`` lens (TC-09).
+    ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output: the
+    ONE top-line ``decision`` (``src.trade.trade_decision``: YES / NO /
+    NO_TOO_CLOSE / NOT_ENOUGH_EVIDENCE with reasons, strategy, posture, bands
+    and a confidence statement), the graded leaning (``recommendation``),
+    reasonsFor / reasonsAgainst / dimensions / unavailableDimensions, with
+    comparable real trades for the package as the non-voting
+    ``marketCorroboration`` lens (TC-09).  Optional body field ``teamGoal``
+    overrides the posture-inferred strategy and is echoed back.
     """
     result, league_key, error = await _build_trade_simulation(request, for_analysis=True)
     if error is not None:
@@ -17236,7 +17240,15 @@ async def post_trade_analyze(request: Request):
     except Exception:  # noqa: BLE001 — evidence-only; the verdict never depends on it
         log.warning("analyze: comparable trades unavailable", exc_info=True)
         comparables = {"state": "unavailable", "reason": "comparables_error"}
-    result["analysis"] = analyze_trade(result, comparables=comparables)
+    # Owner decision 2 (TC-C): an explicit strategy override travels in the
+    # body as ``teamGoal`` (WIN_NOW / BALANCED / LONG_TERM); the decision
+    # echoes it back.  Absent -> inferred from competitive posture.
+    try:
+        _body = await request.json()
+    except Exception:  # noqa: BLE001 -- the simulation already parsed it
+        _body = {}
+    _team_goal = _body.get("teamGoal") if isinstance(_body, dict) else None
+    result["analysis"] = analyze_trade(result, comparables=comparables, team_goal=_team_goal)
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},

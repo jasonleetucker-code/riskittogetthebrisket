@@ -63,10 +63,117 @@
  "analysis": {
   "basis": "market_and_roster",
   "confidence": "HIGH",
+  "decision": {
+   "bands": {
+    "absoluteMinimum": 250.0,
+    "basis": "adjusted_package_totals",
+    "lopsidedPct": 18.0,
+    "slightPct": 3.5,
+    "status": "PROVISIONAL",
+    "unfairPct": 9.0,
+    "version": "fairness_bands_v1"
+   },
+   "components": {},
+   "confidence": {
+    "axes": {},
+    "bottleneck": [
+     "evidence"
+    ],
+    "isProbability": false,
+    "level": null,
+    "statement": "No confidence is stated: material information is missing."
+   },
+   "deciding": "evidenceGate",
+   "executes": false,
+   "headline": "NOT_ENOUGH_EVIDENCE",
+   "headlineText": "NOT ENOUGH EVIDENCE",
+   "leaning": "MAKE",
+   "mainCounterargument": null,
+   "missingEvidence": [
+    {
+     "code": "forced_drop_unpriced",
+     "evidence": {
+      "count": 1
+     },
+     "text": "1 forced cut(s) have no value, so the cost of the cut is unknown."
+    }
+   ],
+   "posture": {
+    "available": true,
+    "confidence": 0.9076,
+    "evidence": "measured",
+    "label": "PUSH",
+    "paramsVersion": "posture_v1_prior",
+    "probabilities": {
+     "HOLD": 0.0,
+     "PUSH": 0.9076,
+     "REBUILD": 0.0047,
+     "RETOOL": 0.0877
+    },
+    "role": "selects_strategy_never_votes"
+   },
+   "primaryReason": {
+    "component": "evidence",
+    "evidence": {
+     "count": 1
+    },
+    "kind": "gate",
+    "stance": "neutral",
+    "text": "1 forced cut(s) have no value, so the cost of the cut is unknown."
+   },
+   "reasons": [],
+   "recommendationOnly": true,
+   "strategy": {
+    "label": "Win now",
+    "options": [
+     {
+      "label": "Win now",
+      "value": "WIN_NOW"
+     },
+     {
+      "label": "Balanced",
+      "value": "BALANCED"
+     },
+     {
+      "label": "Long-term value",
+      "value": "LONG_TERM"
+     }
+    ],
+    "postureMap": {
+     "HOLD": "BALANCED",
+     "PUSH": "WIN_NOW",
+     "REBUILD": "LONG_TERM",
+     "RETOOL": "LONG_TERM"
+    },
+    "requested": null,
+    "requestedValid": null,
+    "source": "posture",
+    "used": "WIN_NOW"
+   },
+   "subtext": "A reliable recommendation cannot be made yet.",
+   "version": "trade_decision_v1"
+  },
   "dimensions": [
    {
     "available": true,
     "detail": {
+     "band": {
+      "absoluteGap": 3734.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 51.15,
+      "status": "PROVISIONAL"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "adjusted_package_totals",
+      "lopsidedPct": 18.0,
+      "slightPct": 3.5,
+      "status": "PROVISIONAL",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v1"
+     },
      "hypotheticalPicksOut": [],
      "incomplete": false,
      "magnitude": "stretch",
@@ -525,6 +632,23 @@
    "market": {
     "available": true,
     "detail": {
+     "band": {
+      "absoluteGap": 3734.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 51.15,
+      "status": "PROVISIONAL"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "adjusted_package_totals",
+      "lopsidedPct": 18.0,
+      "slightPct": 3.5,
+      "status": "PROVISIONAL",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v1"
+     },
      "hypotheticalPicksOut": [],
      "incomplete": false,
      "magnitude": "stretch",
@@ -869,7 +993,7 @@
    }
   ],
   "uncertainty": [],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -1492,10 +1616,12 @@
    "name": "WR Buf Star",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Buf Star",
    "tier": "high",
-   "value": 7000
+   "value": 7000,
+   "valueFreshness": null
   },
   {
    "age": null,
@@ -1506,10 +1632,12 @@
    "name": "RB Buf Depth",
    "playerId": null,
    "pos": "RB",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "RB Buf Depth",
    "tier": "depth",
-   "value": 300
+   "value": 300,
+   "valueFreshness": null
   }
  ],
  "rosterCapacity": {
@@ -1799,10 +1927,12 @@
    "name": "2027 Round 1",
    "playerId": null,
    "pos": "PICK",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "2027 Round 1",
    "tier": "mid",
-   "value": 3500
+   "value": 3500,
+   "valueFreshness": null
   }
  ],
  "team": {

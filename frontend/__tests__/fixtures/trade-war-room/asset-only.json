@@ -63,10 +63,163 @@
  "analysis": {
   "basis": "single_lens:equity",
   "confidence": "MEDIUM",
+  "decision": {
+   "bands": {
+    "absoluteMinimum": 250.0,
+    "basis": "adjusted_package_totals",
+    "lopsidedPct": 18.0,
+    "slightPct": 3.5,
+    "status": "PROVISIONAL",
+    "unfairPct": 9.0,
+    "version": "fairness_bands_v1"
+   },
+   "components": {
+    "objectiveValue": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "direction": "favors",
+     "evaluated": true,
+     "forcedReleaseCost": null,
+     "kind": "independent",
+     "largerAdjustedSide": 7440,
+     "magnitude": "large",
+     "netGap": 1440,
+     "unit": "canonical value points (adjusted package)",
+     "vaAdjustedGap": 1440
+    },
+    "rosterBenefit": {
+     "evaluated": false,
+     "kind": "independent",
+     "state": "excluded_by_mode"
+    }
+   },
+   "confidence": {
+    "axes": {
+     "agreement": "HIGH",
+     "assetEvidence": "MEDIUM",
+     "coverage": "MEDIUM",
+     "margin": "HIGH",
+     "precision": "HIGH"
+    },
+    "bottleneck": [
+     "coverage",
+     "assetEvidence"
+    ],
+    "isProbability": false,
+    "level": "MEDIUM",
+    "statement": "Medium confidence \u2014 limited by coverage: asset-only: roster and fit not considered; assetEvidence: a traded asset has low or no confidence stamp"
+   },
+   "deciding": "objectiveValue",
+   "executes": false,
+   "headline": "YES",
+   "headlineText": "YES \u2014 MAKE THE TRADE",
+   "leaning": "MAKE",
+   "mainCounterargument": null,
+   "missingEvidence": [],
+   "posture": {
+    "available": false,
+    "reason": "asset_only_mode"
+   },
+   "primaryReason": {
+    "component": "objectiveValue",
+    "evidence": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "forcedReleaseCost": null,
+     "largerAdjustedSide": 7440,
+     "netGap": 1440,
+     "vaAdjustedGap": 1440
+    },
+    "kind": "independent",
+    "stance": "for",
+    "text": "+1,440 package value for you after Value Adjustment \u2014 19.4% of the larger package, LOPSIDED band"
+   },
+   "reasons": [
+    {
+     "component": "objectiveValue",
+     "evidence": {
+      "band": {
+       "absoluteGap": 1440.0,
+       "bands": "fairness_bands_v1",
+       "label": "LOPSIDED",
+       "level": "lopsided",
+       "relativePct": 19.35,
+       "status": "PROVISIONAL"
+      },
+      "forcedReleaseCost": null,
+      "largerAdjustedSide": 7440,
+      "netGap": 1440,
+      "vaAdjustedGap": 1440
+     },
+     "kind": "independent",
+     "stance": "for",
+     "text": "+1,440 package value for you after Value Adjustment \u2014 19.4% of the larger package, LOPSIDED band"
+    }
+   ],
+   "recommendationOnly": true,
+   "strategy": {
+    "label": null,
+    "options": [
+     {
+      "label": "Win now",
+      "value": "WIN_NOW"
+     },
+     {
+      "label": "Balanced",
+      "value": "BALANCED"
+     },
+     {
+      "label": "Long-term value",
+      "value": "LONG_TERM"
+     }
+    ],
+    "postureMap": {
+     "HOLD": "BALANCED",
+     "PUSH": "WIN_NOW",
+     "REBUILD": "LONG_TERM",
+     "RETOOL": "LONG_TERM"
+    },
+    "requested": null,
+    "requestedValid": null,
+    "source": "asset_only",
+    "used": null
+   },
+   "subtext": null,
+   "version": "trade_decision_v1"
+  },
   "dimensions": [
    {
     "available": true,
     "detail": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "adjusted_package_totals",
+      "lopsidedPct": 18.0,
+      "slightPct": 3.5,
+      "status": "PROVISIONAL",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v1"
+     },
      "hypotheticalPicksOut": [],
      "incomplete": false,
      "magnitude": "stretch",
@@ -194,6 +347,23 @@
    "market": {
     "available": true,
     "detail": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "adjusted_package_totals",
+      "lopsidedPct": 18.0,
+      "slightPct": 3.5,
+      "status": "PROVISIONAL",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v1"
+     },
      "hypotheticalPicksOut": [],
      "incomplete": false,
      "magnitude": "stretch",
@@ -268,7 +438,7 @@
    }
   ],
   "uncertainty": [],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -868,10 +1038,12 @@
    "name": "WR Buf Star",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Buf Star",
    "tier": "high",
-   "value": 7000
+   "value": 7000,
+   "valueFreshness": null
   }
  ],
  "rosterCapacity": {
@@ -917,10 +1089,12 @@
    "name": "WR Kc",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Kc",
    "tier": "mid",
-   "value": 4000
+   "value": 4000,
+   "valueFreshness": null
   },
   {
    "age": null,
@@ -931,10 +1105,12 @@
    "name": "WR Phi",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Phi",
    "tier": "depth",
-   "value": 2000
+   "value": 2000,
+   "valueFreshness": null
   }
  ],
  "team": {

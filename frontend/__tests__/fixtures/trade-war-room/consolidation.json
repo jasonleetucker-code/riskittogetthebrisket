@@ -63,10 +63,219 @@
  "analysis": {
   "basis": "market_and_roster",
   "confidence": "HIGH",
+  "decision": {
+   "bands": {
+    "absoluteMinimum": 250.0,
+    "basis": "adjusted_package_totals",
+    "lopsidedPct": 18.0,
+    "slightPct": 3.5,
+    "status": "PROVISIONAL",
+    "unfairPct": 9.0,
+    "version": "fairness_bands_v1"
+   },
+   "components": {
+    "objectiveValue": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "direction": "favors",
+     "evaluated": true,
+     "forcedReleaseCost": null,
+     "kind": "independent",
+     "largerAdjustedSide": 7440,
+     "magnitude": "large",
+     "netGap": 1440,
+     "unit": "canonical value points (adjusted package)",
+     "vaAdjustedGap": 1440
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "evaluated": true,
+     "kind": "independent",
+     "magnitude": "modest",
+     "neutralBandPpg": 1.31,
+     "ppg": 1.52,
+     "standardError": 0.653,
+     "state": "evaluated",
+     "unit": "expected best-ball points per week (exact league scoring)"
+    }
+   },
+   "confidence": {
+    "axes": {
+     "agreement": "HIGH",
+     "assetEvidence": "MEDIUM",
+     "coverage": "HIGH",
+     "margin": "HIGH",
+     "precision": "MEDIUM"
+    },
+    "bottleneck": [
+     "assetEvidence",
+     "precision"
+    ],
+    "isProbability": false,
+    "level": "MEDIUM",
+    "statement": "Medium confidence \u2014 limited by assetEvidence: a traded asset has low or no confidence stamp; precision: roster estimate moderately precise"
+   },
+   "deciding": "both",
+   "executes": false,
+   "headline": "YES",
+   "headlineText": "YES \u2014 MAKE THE TRADE",
+   "leaning": "MAKE",
+   "mainCounterargument": null,
+   "missingEvidence": [],
+   "posture": {
+    "available": true,
+    "confidence": 0.9076,
+    "evidence": "measured",
+    "label": "PUSH",
+    "paramsVersion": "posture_v1_prior",
+    "probabilities": {
+     "HOLD": 0.0,
+     "PUSH": 0.9076,
+     "REBUILD": 0.0047,
+     "RETOOL": 0.0877
+    },
+    "role": "selects_strategy_never_votes"
+   },
+   "primaryReason": {
+    "component": "objectiveValue",
+    "evidence": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "forcedReleaseCost": null,
+     "largerAdjustedSide": 7440,
+     "netGap": 1440,
+     "vaAdjustedGap": 1440
+    },
+    "kind": "independent",
+    "stance": "for",
+    "text": "+1,440 package value for you after Value Adjustment \u2014 19.4% of the larger package, LOPSIDED band"
+   },
+   "reasons": [
+    {
+     "component": "objectiveValue",
+     "evidence": {
+      "band": {
+       "absoluteGap": 1440.0,
+       "bands": "fairness_bands_v1",
+       "label": "LOPSIDED",
+       "level": "lopsided",
+       "relativePct": 19.35,
+       "status": "PROVISIONAL"
+      },
+      "forcedReleaseCost": null,
+      "largerAdjustedSide": 7440,
+      "netGap": 1440,
+      "vaAdjustedGap": 1440
+     },
+     "kind": "independent",
+     "stance": "for",
+     "text": "+1,440 package value for you after Value Adjustment \u2014 19.4% of the larger package, LOPSIDED band"
+    },
+    {
+     "component": "rosterBenefit",
+     "evidence": {
+      "magnitude": "modest",
+      "neutralBandPpg": 1.31,
+      "ppg": 1.52,
+      "standardError": 0.653
+     },
+     "kind": "independent",
+     "stance": "for",
+     "text": "+1.5 expected best-ball points per week in your legal lineup"
+    },
+    {
+     "component": "feasibility",
+     "evidence": {
+      "forcedDropReleaseCost": null,
+      "forcedDrops": [],
+      "state": "fits_cleanly"
+     },
+     "kind": "contextual",
+     "stance": "neutral",
+     "text": "Fits your roster without a cut"
+    },
+    {
+     "component": "strategy",
+     "evidence": {
+      "postureLabel": "PUSH",
+      "postureProbabilities": {
+       "HOLD": 0.0,
+       "PUSH": 0.9076,
+       "REBUILD": 0.0047,
+       "RETOOL": 0.0877
+      },
+      "source": "posture",
+      "used": "WIN_NOW"
+     },
+     "kind": "contextual",
+     "stance": "context",
+     "text": "Strategy: Win now (inferred from competitive posture PUSH)"
+    }
+   ],
+   "recommendationOnly": true,
+   "strategy": {
+    "label": "Win now",
+    "options": [
+     {
+      "label": "Win now",
+      "value": "WIN_NOW"
+     },
+     {
+      "label": "Balanced",
+      "value": "BALANCED"
+     },
+     {
+      "label": "Long-term value",
+      "value": "LONG_TERM"
+     }
+    ],
+    "postureMap": {
+     "HOLD": "BALANCED",
+     "PUSH": "WIN_NOW",
+     "REBUILD": "LONG_TERM",
+     "RETOOL": "LONG_TERM"
+    },
+    "requested": null,
+    "requestedValid": null,
+    "source": "posture",
+    "used": "WIN_NOW"
+   },
+   "subtext": null,
+   "version": "trade_decision_v1"
+  },
   "dimensions": [
    {
     "available": true,
     "detail": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "adjusted_package_totals",
+      "lopsidedPct": 18.0,
+      "slightPct": 3.5,
+      "status": "PROVISIONAL",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v1"
+     },
      "hypotheticalPicksOut": [],
      "incomplete": false,
      "magnitude": "stretch",
@@ -468,6 +677,23 @@
    "market": {
     "available": true,
     "detail": {
+     "band": {
+      "absoluteGap": 1440.0,
+      "bands": "fairness_bands_v1",
+      "label": "LOPSIDED",
+      "level": "lopsided",
+      "relativePct": 19.35,
+      "status": "PROVISIONAL"
+     },
+     "bandsReceipt": {
+      "absoluteMinimum": 250.0,
+      "basis": "adjusted_package_totals",
+      "lopsidedPct": 18.0,
+      "slightPct": 3.5,
+      "status": "PROVISIONAL",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v1"
+     },
      "hypotheticalPicksOut": [],
      "incomplete": false,
      "magnitude": "stretch",
@@ -776,7 +1002,7 @@
    }
   ],
   "uncertainty": [],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -1376,10 +1602,12 @@
    "name": "WR Buf Star",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Buf Star",
    "tier": "high",
-   "value": 7000
+   "value": 7000,
+   "valueFreshness": null
   }
  ],
  "rosterCapacity": {
@@ -1606,10 +1834,12 @@
    "name": "WR Kc",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Kc",
    "tier": "mid",
-   "value": 4000
+   "value": 4000,
+   "valueFreshness": null
   },
   {
    "age": null,
@@ -1620,10 +1850,12 @@
    "name": "WR Phi",
    "playerId": null,
    "pos": "WR",
+   "quarantined": false,
    "rank": null,
    "sourceLabel": "WR Phi",
    "tier": "depth",
-   "value": 2000
+   "value": 2000,
+   "valueFreshness": null
   }
  ],
  "team": {
