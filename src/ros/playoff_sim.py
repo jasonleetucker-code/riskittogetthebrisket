@@ -425,11 +425,59 @@ def _bestball_weekly_score(
     return float(sum(player.ros_value for player in assignment.values()))
 
 
+def _presim_availability(
+    league_key: str | None,
+    league_settings: dict[str, Any] | None,
+    season: Any,
+    rosters: dict[str, dict[str, Any]],
+) -> tuple[list[int], set[tuple[str, int]], dict[str, Any]]:
+    """``(weeks, unavailable player-weeks, basis)`` for the presim.
+
+    Owner master package 2026-10-17 (P0 audit): the presim drew every rostered
+    player in every simulated week, so a player out for the season still
+    lifted his team's simulated scores.  Availability comes from the one
+    owner, ``src.ros.availability``; this only collects the (player, week)
+    pairs it calls ``unavailable``.  Any failure degrades to the previous
+    behaviour (no weeks) and the basis says so.
+    """
+    try:
+        from src.api.matchup_intel import players_meta_for_rosters  # noqa: PLC0415
+        from src.ros import availability as av  # noqa: PLC0415
+
+        ctx = av.load_context(season=int(season), league_settings=league_settings or {})
+        if not ctx.weeks:
+            return [], set(), {**ctx.basis, "state": "not_applied"}
+        ids = sorted(
+            {
+                str(p.get("playerId") or "")
+                for blob in rosters.values()
+                for p in (blob.get("starters") or []) + (blob.get("bench") or [])
+                if p.get("playerId")
+            }
+        )
+        meta = players_meta_for_rosters([{"players": ids}]) or {}
+        out: set[tuple[str, int]] = set()
+        for pid in ids:
+            for wk, st in av.player_week_states(pid, meta.get(pid), ctx).items():
+                if st.state == av.UNAVAILABLE:
+                    out.add((pid, wk))
+        return (
+            list(ctx.weeks),
+            out,
+            {**ctx.basis, "state": "applied", "unavailablePlayerWeeks": len(out)},
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to the calendar-free presim
+        LOG.warning("[ros] presim availability unavailable: %s", exc)
+        return [], set(), {"state": "not_applied", "reason": f"error:{type(exc).__name__}"}
+
+
 def _bestball_presim(
     rosters: dict[str, dict[str, Any]],
     starter_slots: list[str],
     rng: random.Random,
     points_model: PointsModel | None = None,
+    weeks: list[int] | None = None,
+    unavailable: set[tuple[str, int]] | None = None,
 ) -> dict[str, tuple[float, float]]:
     """Run best-ball weeks per team, return ``{ownerId: (mean, sd)}``.
 
@@ -449,7 +497,19 @@ def _bestball_presim(
             continue
         weekly: list[float] = []
         for i in range(BEST_BALL_PRESIM_MAX_WEEKS):
-            weekly.append(_bestball_weekly_score(roster, starter_slots, rng, model))
+            # With a calendar, draw i is remaining week weeks[i % n] and the
+            # players unavailable that week leave the pool (removed, not
+            # scored zero: a zero still fills a slot nobody else can).
+            if weeks:
+                wk = weeks[i % len(weeks)]
+                pool = [
+                    p
+                    for p in roster
+                    if (str(p.get("playerId") or ""), wk) not in (unavailable or ())
+                ]
+            else:
+                pool = roster
+            weekly.append(_bestball_weekly_score(pool, starter_slots, rng, model))
             # Check convergence on a cadence, never before a usable floor.
             if i + 1 >= BEST_BALL_PRESIM_MIN_WEEKS and (i + 1) % PRESIM_CHECK_EVERY == 0:
                 if _mean_is_converged(weekly, PRESIM_MEAN_TOLERANCE):
@@ -606,7 +666,20 @@ def _build_team_distributions(
         starter_slots = _load_starter_slots(league_key)
         if rosters and starter_slots:
             presim_rng = random.Random(20260428)  # deterministic per league
-            bestball_dists = _bestball_presim(rosters, starter_slots, presim_rng, points_model)
+            presim_weeks, unavailable, _avail_basis = _presim_availability(
+                league_key,
+                (current_season.league or {}).get("settings"),
+                current_season.season,
+                rosters,
+            )
+            bestball_dists = _bestball_presim(
+                rosters,
+                starter_slots,
+                presim_rng,
+                points_model,
+                weeks=presim_weeks,
+                unavailable=unavailable,
+            )
             LOG.info(
                 "[ros] best-ball presim: %d teams, adaptive %d-%d weeks (points model: %s)",
                 len(bestball_dists),

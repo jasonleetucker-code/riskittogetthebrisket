@@ -45,10 +45,23 @@ TRADED player is unprojected the utility is computed over the priced players
 and ``coverage.state`` says ``partial`` — the decision layer must abstain on
 it rather than read a partial number as complete.
 
-Not modelled, and said so in ``assumptions`` rather than invented: injury /
-availability probabilities, bye weeks, player-to-player correlation.  The
-depth measure is therefore a deterministic single-starter-absence scenario,
-not an injury forecast.
+Availability (owner master package 2026-10-17, P0).  When the caller passes
+the league's remaining fantasy ``weeks`` and each player's per-week
+availability (``src.ros.availability`` — the one owner of "can this player
+score in week w"), every simulated scenario is a real remaining week: draw
+``d`` is week ``weeks[d % len(weeks)]``, and a player that week's owner calls
+``unavailable`` (a bye, an injury whose stated return is after that game, an
+override) is REMOVED from that scenario's pool before the solve.  Removed, not
+given 0.0: a 0.0 player still fills a slot nobody else can and would count as a
+lineup entry.  ``uncertain`` / ``unknown`` weeks stay in the pool and are
+reported per player, so no number silently rests on a guess.  Without
+``weeks`` the legacy calendar-free behaviour is unchanged and the assumptions
+say availability was not modelled.
+
+Still not modelled, and said so in ``assumptions``: the probability that an
+``uncertain`` player plays, and player-to-player correlation.  The depth
+measure is a deterministic single-starter-absence scenario, not an injury
+forecast.
 """
 
 from __future__ import annotations
@@ -98,6 +111,12 @@ class UtilityPlayer:
     position: str
     ppg: float | None
     fantasy_positions: tuple[str, ...] = ()
+    #: week -> availability state (``src.ros.availability`` vocabulary).  Only
+    #: ``"unavailable"`` removes the player from that week; ``None`` means the
+    #: caller supplied no availability for him (legacy: always in the pool).
+    availability: Mapping[int, str] | None = None
+    #: The availability owner's per-player summary, reported verbatim.
+    availability_summary: Mapping[str, Any] | None = None
 
 
 class _Draws:
@@ -143,12 +162,29 @@ def _roster_player(p: UtilityPlayer, value: float) -> RosterPlayer:
     )
 
 
+UNAVAILABLE = "unavailable"
+
+
+def _plays(p: UtilityPlayer, week: int | None) -> bool:
+    """False only when the availability owner said this week is unavailable."""
+    if week is None or p.availability is None:
+        return True
+    return p.availability.get(week) != UNAVAILABLE
+
+
+def _eligible_share(p: UtilityPlayer, weeks: Sequence[int] | None) -> float:
+    if not weeks:
+        return 1.0
+    return sum(1 for w in weeks if _plays(p, w)) / len(weeks)
+
+
 def _run(
     roster: Sequence[UtilityPlayer],
     slots: Sequence[str],
     slot_eligibility: Mapping[str, Any] | None,
     draws: _Draws,
     n: int,
+    weeks: Sequence[int] | None = None,
 ) -> _RosterRun:
     priced = [p for p in roster if p.ppg is not None]
     unpriced = tuple(sorted(p.player_id for p in roster if p.ppg is None))
@@ -156,6 +192,8 @@ def _run(
         return _RosterRun(0.0, [0.0] * n, {}, {}, 0.0, 0, unpriced)
     series = {p.player_id: draws.of(p) for p in priced}
     template = [_roster_player(p, 0.0) for p in priced]
+    # Keyed by player id, so solving any SUBSET of this pool (a week's
+    # available players) against it is exact — absent ids are never read.
     eligibility = precompute_slot_eligibility(
         template, list(slots), slot_eligibility=slot_eligibility
     )
@@ -163,7 +201,8 @@ def _run(
     usable_sum: dict[str, float] = {p.player_id: 0.0 for p in priced}
     per_draw: list[float] = []
     for d in range(n):
-        pool = [_roster_player(p, series[p.player_id][d]) for p in priced]
+        week = weeks[d % len(weeks)] if weeks else None
+        pool = [_roster_player(p, series[p.player_id][d]) for p in priced if _plays(p, week)]
         assignment = solve_optimal_assignment(
             pool,
             list(slots),
@@ -182,7 +221,9 @@ def _run(
         per_draw=per_draw,
         lep={pid: c / n for pid, c in in_count.items()},
         usable={pid: s / n for pid, s in usable_sum.items()},
-        raw_ppg=sum(float(p.ppg) for p in priced),
+        # Raw production the roster could field, availability-weighted: a
+        # player out for every remaining week contributes nothing here either.
+        raw_ppg=sum(float(p.ppg) * _eligible_share(p, weeks) for p in priced),
         priced=len(priced),
         unpriced_ids=unpriced,
     )
@@ -192,10 +233,13 @@ def _expected_lineup_score(
     roster: Sequence[UtilityPlayer],
     slots: Sequence[str],
     slot_eligibility: Mapping[str, Any] | None,
+    week: int | None = None,
 ) -> tuple[float, list[str]]:
     """One solve on the MEANS — used only by the absence scenario, which asks a
     deterministic what-if and says so."""
-    pool = [_roster_player(p, float(p.ppg)) for p in roster if p.ppg is not None]
+    pool = [
+        _roster_player(p, float(p.ppg)) for p in roster if p.ppg is not None and _plays(p, week)
+    ]
     if not pool:
         return 0.0, []
     assignment = solve_optimal_assignment(
@@ -210,32 +254,58 @@ def _expected_lineup_score(
     )
 
 
-def _absence_depth(
+def _absence_depth_week(
     roster: Sequence[UtilityPlayer],
     slots: Sequence[str],
     slot_eligibility: Mapping[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Single-starter absence: remove each expected starter in turn, re-solve.
-
-    ``meanLossPpg`` — how much the expected lineup loses, on average, when one
-    starter is out.  Lower means deeper/more resilient.  A deterministic
-    scenario over the means, NOT an injury probability (none is modelled).
-    """
-    base, starters = _expected_lineup_score(roster, slots, slot_eligibility)
+    week: int | None,
+) -> tuple[float, list[tuple[float, str]]] | None:
+    base, starters = _expected_lineup_score(roster, slots, slot_eligibility, week)
     if not starters:
         return None
     losses: list[tuple[float, str]] = []
     for sid in starters:
         rest = [p for p in roster if p.player_id != sid]
-        without, _ = _expected_lineup_score(rest, slots, slot_eligibility)
+        without, _ = _expected_lineup_score(rest, slots, slot_eligibility, week)
         losses.append((base - without, sid))
-    worst = max(losses)
+    return base, losses
+
+
+def _starters_avg(per_week: Sequence[tuple[float, list[tuple[float, str]]]]) -> float | int:
+    avg = sum(len(ls) for _, ls in per_week) / len(per_week)
+    return int(avg) if avg == int(avg) else round(avg, 1)
+
+
+def _absence_depth(
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+    weeks: Sequence[int] | None = None,
+) -> dict[str, Any] | None:
+    """Single-starter absence: remove each expected starter in turn, re-solve.
+
+    ``meanLossPpg`` — how much the expected lineup loses, on average, when one
+    starter is out.  Lower means deeper/more resilient.  A deterministic
+    scenario over the means, NOT an injury probability.  With ``weeks`` it is
+    solved per remaining week over that week's available players and averaged.
+    """
+    per_week = [
+        r
+        for r in (
+            _absence_depth_week(roster, slots, slot_eligibility, w) for w in (weeks or [None])
+        )
+        if r is not None
+    ]
+    if not per_week:
+        return None
+    all_losses = [loss for _, losses in per_week for loss in losses]
+    worst = max(all_losses)
     return {
-        "expectedLineupPpg": round(base, 2),
-        "meanLossPpg": round(sum(loss for loss, _ in losses) / len(losses), 2),
+        "expectedLineupPpg": round(sum(b for b, _ in per_week) / len(per_week), 2),
+        "meanLossPpg": round(sum(loss for loss, _ in all_losses) / len(all_losses), 2),
         "worstLossPpg": round(worst[0], 2),
         "worstLossPlayerId": worst[1],
-        "starters": len(starters),
+        "starters": _starters_avg(per_week),
     }
 
 
@@ -274,8 +344,15 @@ def evaluate_trade_utility(
     draws: int = DEFAULT_DRAWS,
     seed: int = DEFAULT_SEED,
     basis: Mapping[str, Any] | None = None,
+    weeks: Sequence[int] | None = None,
+    availability_basis: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """BBLI and its explanation for one trade from one team's side.
+
+    ``weeks`` — the league's remaining fantasy weeks — turns on the calendar
+    (see the module docstring); each player's ``availability`` then decides
+    which weeks he can enter a lineup.  An empty ``weeks`` (the season is
+    over) is refused rather than simulated.
 
     ``after`` is the FINAL LEGAL roster (forced cleanup applied);
     ``after_before_cleanup`` is the roster the moment the trade lands, given
@@ -289,14 +366,22 @@ def evaluate_trade_utility(
             "unavailableReason": "starter_slots_unresolved",
             "unit": UNIT,
         }
+    if weeks is not None and not list(weeks):
+        return {
+            "available": False,
+            "unavailableReason": "no_remaining_fantasy_weeks",
+            "unit": UNIT,
+            "availability": dict(availability_basis or {}),
+        }
+    weeks = list(weeks) if weeks is not None else None
     model = points_model or load_points_model()
     n = max(2, int(draws))
     shared = _Draws(model, n, seed)
 
-    run_before = _run(before, slots, slot_eligibility, shared, n)
-    run_after = _run(after, slots, slot_eligibility, shared, n)
+    run_before = _run(before, slots, slot_eligibility, shared, n, weeks)
+    run_after = _run(after, slots, slot_eligibility, shared, n, weeks)
     run_pre = (
-        _run(after_before_cleanup, slots, slot_eligibility, shared, n)
+        _run(after_before_cleanup, slots, slot_eligibility, shared, n, weeks)
         if after_before_cleanup is not None
         else None
     )
@@ -337,6 +422,12 @@ def evaluate_trade_utility(
             "usablePpgAfter": None
             if pid not in run_after.usable
             else round(run_after.usable[pid], 2),
+            # How many of the simulated remaining weeks he could play, and
+            # why not — reported beside every lineup share so a share is
+            # never read without its denominator.
+            "availability": None
+            if p is None or p.availability_summary is None
+            else dict(p.availability_summary),
         }
 
     for pid, role in sorted(roles.items(), key=lambda kv: (kv[1], kv[0])):
@@ -359,8 +450,8 @@ def evaluate_trade_utility(
     n_out = sum(1 for r in roles.values() if r == "outgoing")
     shape = "consolidation" if n_out > n_in else "expansion" if n_in > n_out else "swap"
 
-    depth_before = _absence_depth(before, slots, slot_eligibility)
-    depth_after = _absence_depth(after, slots, slot_eligibility)
+    depth_before = _absence_depth(before, slots, slot_eligibility, weeks)
+    depth_after = _absence_depth(after, slots, slot_eligibility, weeks)
     depth_delta = (
         round(depth_after["meanLossPpg"] - depth_before["meanLossPpg"], 2)
         if depth_before and depth_after
@@ -418,15 +509,37 @@ def evaluate_trade_utility(
             "seed": seed,
             "pointsModel": model.to_dict(),
             "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+            "weeks": weeks,
+            "drawsPerWeek": None if not weeks else round(n / len(weeks), 1),
+            "availability": dict(availability_basis or {}) if weeks else None,
         },
-        "assumptions": [
-            "each week is drawn around the player's per-game projection with the league's "
-            "calibrated per-position variance; players are independent",
+        "assumptions": _assumptions(weeks),
+    }
+
+
+def _assumptions(weeks: Sequence[int] | None) -> list[str]:
+    draw = (
+        "each week is drawn around the player's per-game projection with the league's "
+        "calibrated per-position variance; players are independent"
+    )
+    solve = "the lineup is re-solved exactly for every simulated week (best ball)"
+    if not weeks:
+        return [
+            draw,
             "injury / availability probabilities are not modelled",
             "bye weeks are not modelled",
-            "the lineup is re-solved exactly for every simulated week (best ball)",
-        ],
-    }
+            solve,
+        ]
+    return [
+        draw,
+        solve,
+        f"simulated weeks are the league's remaining fantasy weeks ({weeks[0]}-{weeks[-1]})",
+        "a player is removed from a week on a bye, or when an injury's stated expected "
+        "return is after that week's game, or by a recorded override",
+        "uncertain availability (questionable, reserve list with no stated return) is "
+        "kept in the lineup pool and reported, not assigned a probability",
+        "the per-game projection is a full-season rate, not a weekly projection",
+    ]
 
 
 # ── Projection basis (trade path) ────────────────────────────────────────

@@ -187,3 +187,375 @@
 .about summary {
   cursor: pointer;
 }
+
+/* ── Batches B1 + B2: Recent trades / Acquisitions / Activity ──────────
+   Same editorial grammar: rules and alignment, no cards; values are
+   tabular and right-aligned; "—" and "Undated" are text, never colour. */
+
+.tabPanel,
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.tradeList {
+  display: flex;
+  flex-direction: column;
+}
+
+.trade {
+  border-top: 1px solid var(--border-strong);
+  padding: var(--space-3) 0;
+  min-width: 0;
+}
+
+.trade + .trade {
+  border-top-color: var(--border-default);
+}
+
+.tradeHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.tradeDate {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tradeSides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.tradeSide {
+  min-width: 0;
+  border-left: 1px solid var(--border-default);
+  padding-left: var(--space-3);
+}
+
+.tradeSide[data-manager] {
+  border-left-color: var(--accent);
+}
+
+.tradeSide h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.sideLabel {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.assetList,
+.problemList,
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.assetRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.assetName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.assetValue,
+.sideTotals dd,
+.tradeVerdict dd {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.assetValue {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sideTotals {
+  display: flex;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.sideTotals div,
+.tradeVerdict div {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sideTotals dt,
+.tradeVerdict dt,
+.analytics dt {
+  color: var(--text-secondary);
+}
+
+.sideTotals dd,
+.tradeVerdict dd,
+.analytics dd {
+  margin: 0;
+}
+
+.tradeVerdict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-default);
+  font-size: var(--font-size-sm);
+}
+
+.tradeVerdict div {
+  flex-wrap: wrap;
+}
+
+.tradeLinks {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--accent-hover);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.analytics {
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.analytics div {
+  display: contents;
+}
+
+.feedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+  font-size: var(--font-size-sm);
+}
+
+.feedKind {
+  font-weight: 600;
+}
+
+.feedBody {
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* B3 — Tendencies */
+.tendencyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.tendencyBlock {
+  margin-top: var(--space-3);
+}
+
+.tendencyBlock h4 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.tendencyBlock [data-insufficient] {
+  font-style: italic;
+}
+
+.shapeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shapeList li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--border-default);
+}
+
+@media (max-width: 480px) {
+  .analytics {
+    grid-template-columns: 1fr;
+  }
+
+  .tradeSide {
+    border-left: 0;
+    border-top: 1px solid var(--border-default);
+    padding: var(--space-2) 0 0;
+  }
+
+  .tradeSide[data-manager] {
+    border-top-color: var(--accent);
+  }
+}
+
+/* Batch C — League scouting (/managers/league/[leagueId]).  Same editorial
+   grammar: a sortable table on wide screens, the same rows stacked on
+   narrow ones (one sort shared by both); "—" for a withheld total. */
+.stackOnly,
+.scoutStack {
+  display: none;
+}
+
+.scoutStack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scoutStack > li {
+  border-top: 1px solid var(--border-default);
+  padding: var(--space-2) 0;
+  min-width: 0;
+}
+
+.scoutStack summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.scoutStackFacts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.scoutStackFacts div {
+  display: contents;
+}
+
+.scoutStackFacts dt {
+  color: var(--text-secondary);
+}
+
+.scoutStackFacts dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.scoutDetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  min-width: 0;
+}
+
+.scoutDetail h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.scoutDetailHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.scoutDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.scoutDetailGrid section {
+  min-width: 0;
+}
+
+.miniTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.miniTable th,
+.miniTable td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.miniTable td {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.miniTable thead th {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .tableOnly {
+    display: none;
+  }
+
+  .stackOnly {
+    display: block;
+  }
+
+  .scoutStack {
+    display: block;
+  }
+}

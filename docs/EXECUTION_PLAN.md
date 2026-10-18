@@ -137,12 +137,30 @@ authorized by it:** promoting GEOM (separate owner decision on held-out evidence
 calculator inputs, Market Edge Lab. The train also carried the DFS AutoSlates fix (selection reloaded the
 whole slate list; its flaky test had failed the #1761 deploy).
 
+## Trade Calculator completion — owner directive, 2026-10-17
+
+**AUTHORIZED NOW, added to the active queue alongside (not ahead of) the in-flight injury-availability, IDP
+rehabilitation, geometric VA activation and Manager Intelligence work.** Audit every Trade Calculator requirement,
+research competitors, redesign `/trade` for desktop and mobile, finish the missing functionality, and complete one
+unified YES / NO decision engine (extending `C7-DESK-01` / `analyze_trade`). Batches TC-0 (audit + research) → TC-A
+correctness → TC-B missing functionality → TC-C decision engine → TC-D redesign → TC-E reliability → TC-F release, per
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`. **Not authorized by it:** changing the approved package model
+or q, promoting experimental models, League Tycoon contract features, purchases. Merges and deploys keep their gates.
+
 ## Manager Intelligence (Batch A) — owner directive, 2026-10-16
 
 **AUTHORIZED; MERGED #1762 (`048bcbf8a`, 2026-10-17).** Sleeper username lookup → cross-league dynasty
 portfolio on `/managers`, signed-in users only, rate-limited; flag `manager_intelligence` default ON on
 the owner's non-commercial basis (`docs/OWNER_REQUESTED_TODO.md`). Batches B–F follow in the owner's
 order, each its own PR. League Tycoon stays parked.
+
+**Addendum 2026-10-17 — Batches B–F AUTHORIZED (queued behind the in-flight injury-availability, IDP
+rehabilitation and Value Adjustment activation work, which keep their order).** B1 Recent Trades and B2
+Recently Acquired Players first, with a unified activity feed. Then B3 draft capital and trade
+intelligence, C league-wide opponent scouting, D trade-tool integration, E career / archetypes /
+comparisons, F saved managers / alerts / scoped leaderboards. Deliverables, dependencies, tests and
+completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`. Merges and deploys keep their normal
+gates and owner approvals.
 
 ## League manager replacement — owner directive, 2026-10-16 (corrected 2026-10-17)
 

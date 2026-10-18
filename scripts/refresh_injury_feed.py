@@ -176,10 +176,40 @@ def _events_from_transitions(
     return events
 
 
+def _refresh_return_evidence() -> None:
+    """Per-player structured return dates (``src.nfl_data.injury_return_evidence``).
+
+    Independent of the league-wide feed below, whose endpoint caps each team
+    at 25 recently-updated entries and so drops long-term IR players — exactly
+    the "out for the season" cases player-week availability needs.  Non-fatal:
+    a failed run keeps the previous evidence file, which carries its own
+    ``asOf``.
+    """
+    from src.identity.directory_cache import get_default_sleeper_index  # noqa: PLC0415
+    from src.nfl_data import injury_return_evidence as ire  # noqa: PLC0415
+
+    try:
+        payload = ire.collect(
+            previous=ire.load_evidence(), sleeper_index=get_default_sleeper_index()
+        )
+        census = payload.get("census") or {}
+        if not census.get("rosterAthletes"):
+            _LOGGER.error(
+                "injury return evidence: no roster read (%s) — previous file kept", census
+            )
+            return
+        ire.write_evidence(payload)
+        _LOGGER.info("injury return evidence: %s", census)
+    except Exception as exc:  # noqa: BLE001 — never fails the feed refresh
+        _LOGGER.error("injury return evidence failed: %s — previous file kept", exc)
+
+
 def main(argv: list[str] | None = None) -> int:
     if not feature_flags.is_enabled("espn_injury_feed"):
         _LOGGER.info("espn_injury_feed flag OFF — skipping refresh")
         return 0
+
+    _refresh_return_evidence()
 
     started_at = time.time()
     current = fetch_injuries()
