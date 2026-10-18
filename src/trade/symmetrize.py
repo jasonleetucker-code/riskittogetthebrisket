@@ -168,13 +168,15 @@ def enrich_with_decision_shape(
     # under the name "adjusted".  No adjustment means adjusted == raw.
     va_adj = symmetric_result.get("vaAdjustment") or {}
     adjusted_delta = raw_delta
-    if va_adj.get("applied"):
-        va_val = float(va_adj.get("value") or 0)
+    va_val = va_adj.get("value")
+    # An "applied" adjustment with no numeric value is not an adjustment of 0:
+    # it is unknown, so the delta is left raw rather than shifted by a guess.
+    if va_adj.get("applied") and isinstance(va_val, (int, float)) and not isinstance(va_val, bool):
         va_side = va_adj.get("side", 0)
         if va_side == 1:
-            adjusted_delta = raw_delta + va_val
+            adjusted_delta = raw_delta + float(va_val)
         elif va_side == 2:
-            adjusted_delta = raw_delta - va_val
+            adjusted_delta = raw_delta - float(va_val)
 
     win_pct = symmetric_result.get("winProbA", 0.5) * 100.0
 

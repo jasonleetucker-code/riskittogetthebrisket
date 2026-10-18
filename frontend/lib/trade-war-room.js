@@ -182,8 +182,8 @@ export function notPricedNames(analysis, payload) {
  * so they move no surface.)
  */
 export function overrideBasisNotice(overrideCount) {
-  const n = Number(overrideCount) || 0;
-  if (n <= 0) return null;
+  const n = Number(overrideCount);
+  if (!Number.isFinite(n) || n <= 0) return null;
   return (
     `Uses canonical board values — your ${n} value override${n === 1 ? "" : "s"} in the ` +
     `builder ${n === 1 ? "is" : "are"} not applied here, so these numbers can differ from the meter's.`
