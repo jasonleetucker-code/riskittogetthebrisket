@@ -597,6 +597,7 @@ export default function TradeWarRoom({
   sideChoiceNeeded = false,
   chosenSide = null,
   onChooseSide,
+  onDecision,
 }) {
   const basisNotice = overrideBasisNotice(overrideCount);
   // Owner decision 2: the strategy is inferred unless the user overrides it;
@@ -742,6 +743,23 @@ export default function TradeWarRoom({
   }, [key, ready]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
+
+  // TC-D: the page echoes THIS decision in its sticky desktop column and the
+  // mobile verdict bar.  Reported, never recomputed: the echo reads the same
+  // payload this component renders, so the two cannot disagree.
+  const reportedDecision = state.payload?.analysis?.decision || null;
+  const hasTeamOrTrade = Boolean(request || teamName);
+  useEffect(() => {
+    if (!onDecision) return;
+    if (ready) {
+      onDecision({ status: state.status, decision: reportedDecision });
+    } else {
+      onDecision({
+        status: sideChoiceNeeded ? "side-choice" : hasTeamOrTrade ? "idle" : "no-team",
+        decision: null,
+      });
+    }
+  }, [onDecision, ready, state.status, reportedDecision, sideChoiceNeeded, hasTeamOrTrade]);
 
   const toggle = (
     <SegmentedControl

@@ -3,9 +3,14 @@
  * age, derived-pick PRIOR badge), the explicit 3+-team War Room limitation,
  * the immediate Second Opinions tally and the Next steps section.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  COLD_LAZY_REVEAL,
+  PREWARM_TIMEOUT_MS,
+  prewarmTradeSections,
+} from "../setup/trade-lazy-sections";
 
 const ROWS = [
   {
@@ -59,6 +64,12 @@ vi.mock("@/components/useSettings", () => ({
 }));
 
 let TradePage;
+
+// The War Room, tally and next steps are lazy sections: compile them before
+// any timed wait (../setup/trade-lazy-sections.js).
+beforeAll(async () => {
+  await prewarmTradeSections();
+}, PREWARM_TIMEOUT_MS);
 
 beforeEach(async () => {
   window.localStorage.clear();
@@ -114,7 +125,9 @@ describe("/trade TC-B multi-team War Room limitation (TCM-G09)", () => {
       { label: "B", assets: ["Puka Nacua"], destinations: {} },
     ]);
     render(<TradePage />);
-    expect(await screen.findByRole("heading", { name: "Trade War Room" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Trade War Room" }, COLD_LAZY_REVEAL),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("war-room-multi-team-limit")).toBeNull();
   });
 });
@@ -126,7 +139,7 @@ describe("/trade TC-B immediate tally and Next steps", () => {
       { label: "B", assets: ["Puka Nacua"], destinations: {} },
     ]);
     render(<TradePage />);
-    const tally = await screen.findByTestId("trade-opinion-tally");
+    const tally = await screen.findByTestId("trade-opinion-tally", {}, COLD_LAZY_REVEAL);
     expect(tally.textContent).toMatch(/Second opinions/);
     // The per-source panel is still folded: its table is not mounted.
     expect(screen.queryByTestId("second-opinions-tally")).toBeNull();
@@ -138,7 +151,7 @@ describe("/trade TC-B immediate tally and Next steps", () => {
       { label: "B", assets: [], destinations: {} },
     ]);
     render(<TradePage />);
-    const next = await screen.findByTestId("trade-next-actions");
+    const next = await screen.findByTestId("trade-next-actions", {}, COLD_LAZY_REVEAL);
     expect(within(next).getByTestId("trade-next-database").querySelector("a").getAttribute("href")).toBe(
       "/market/trade-database?players=9509",
     );
