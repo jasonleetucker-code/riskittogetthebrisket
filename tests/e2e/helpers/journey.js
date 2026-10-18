@@ -695,7 +695,11 @@ async function baselineUsefulState(page, path, timeout) {
   if (path === "/trade") {
     await waitVisible(page.locator(SEL.tradeControls));
     // Fixed, non-private query; any eligible match proves the pool is usable.
-    const search = page.locator('.mobile-quick-add-input:visible, .trade-side-search-input:visible').first();
+    // Desktop: the inline per-side search.  Phones (TC-D2): the side's
+    // "Add to Side A" button opens a bottom-sheet search first.
+    const addA = page.getByRole("button", { name: "Add to Side A", exact: true });
+    if (await addA.isVisible().catch(() => false)) await addA.click({ timeout: remaining() });
+    const search = page.locator('.trade-side-search-input:visible').first();
     await search.fill("a", { timeout: remaining() });
     checkDeadline();
     await waitVisible(page.locator('.trade-side-search-result:visible').first());

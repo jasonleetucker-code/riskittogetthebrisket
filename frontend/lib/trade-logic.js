@@ -2065,6 +2065,26 @@ export function multiTeamAnalysis(totals) {
   return { shares, overall, perTeam };
 }
 
+/**
+ * The 3+-team package reading the multi-team meter renders, as ONE helper so
+ * the meter and the persistent summary bar cannot drift (TC-D2): each side's
+ * NET flow (received − given, from ``computeSideFlows``), the band base (the
+ * largest adjusted package any side sends — ``tradeImbalance``'s base), the
+ * worst |net|, and the band of that worst gap from the ONE fairness-band
+ * owner.  Package-only; never a decision.
+ * @param {{given:number, received:number, net:number}[]} flows
+ */
+export function multiTeamNetSummary(flows) {
+  const list = Array.isArray(flows) ? flows : [];
+  const nets = list.map((f) => Number(f?.net) || 0);
+  const largerSide = Math.max(
+    0,
+    ...list.map((f) => Number(f?.given)).filter((v) => Number.isFinite(v)),
+  );
+  const worst = nets.length ? Math.max(...nets.map((n) => Math.abs(n))) : 0;
+  return { nets, largerSide, worst, verdict: meterVerdict(worst, largerSide) };
+}
+
 // ── Workspace Serialization ──────────────────────────────────────────────
 export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
   return {

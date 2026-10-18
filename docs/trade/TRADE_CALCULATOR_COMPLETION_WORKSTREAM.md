@@ -504,6 +504,10 @@ to lift; K06 waits for the owner decision; H03 belongs to the Trade Finder lane;
 on a desk item; H12 replacement level needs the waiver-pool projection join; B04 needs C1-U7; F05, M01–M07 and R01
 are P3.
 
+*Superseded by "TC-B2 / TC-D2 notes" below* — K06 is now DECIDED (owner closeout 2026-10-18, decision 9) and
+implemented; the share-link format stays frozen (decision 10), so N03 ships as a banner without a URL change, C04 ships
+its restore half, and A05 stays open.
+
 ## TC-D notes (2026-10-18)
 
 Branch `claude/trade-calculator-tc-d`, **stacked on TC-B1** (`claude/trade-calculator-tc-b`, #1800, head
@@ -582,6 +586,79 @@ are session artifacts, not committed.
 - The screenshot FAB still sits over the bottom-right of the sticky column on desktop; it is the pre-existing UX audit
   §2.1 row 18, and the FAB is shell-owned.
 
+*Superseded by "TC-B2 / TC-D2 notes" below*: every item above shipped in D2 except the 1920 cap and the FAB.
+
+## TC-B2 / TC-D2 notes (2026-10-18)
+
+Branch `claude/trade-calculator-tc-b2-d2`, **stacked on release train 8** (`integration/train-8-2026-10-18`, #1809,
+carrying TC-B1 #1800 and TC-D1 #1805). Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`. Not merged, not
+deployed, not observed in production.
+
+### Owner decisions folded in — DECIDED (owner closeout 2026-10-18, binding)
+
+- **Decision 9 (TCM-K06), DECIDED.** An external opinion excluded for freshness, access, identity or any other evidence
+  reason reads **"Unavailable — <actual reason>"**: never EVEN, never our canonical value as its vote, never a canonical
+  fallback counted as a second opinion, never 0, never hidden; the independent tally equals the independent opinions
+  shown. Implemented in the Second Opinions owners: `lib/second-opinions.js` (`OPINION_ORIGIN.UNAVAILABLE`,
+  `OPINION_STATE.UNAVAILABLE`, the backend's own `excludedReason` / `supersededBy` / row `freshnessExcludedSources`;
+  the retired `STALE_OR_HELD` fallback used our value in the source's place), `tallyOpinions` (`counts.unavailable`,
+  `unavailableFamilies`), `lib/second-opinions-rows.js` (coverage words), `TradeSourceBreakdown` (the row, "—" totals,
+  the unavailable count). Tests: `second-opinions-unavailable.test.jsx`, `second-opinions-hybrid.test.jsx` §9.
+  On the seeded contract, preflight already reports withheld votes (`fantasyNavigatorSf` on 448 rows,
+  `idpShowCombined` on 656), so this state is live, not hypothetical.
+- **Decision 10, DECIDED.** Priority order (evidence states → redesign → reliability → matrix gaps → verification)
+  followed here. **The share-link format stays frozen**: no URL change ships (an earlier draft of this batch added a
+  player-id field and `from=history` query parameters; both were reverted before commit). **3+-team trades** get a
+  YES / NO only when the engine can identify the user's side and account for every side, which today means two-team
+  trades; the War Room banner, the decision echo, the Reasoning tab and the persistent summary now say a reliable
+  YES / NO is unavailable. One package-value owner and one decision owner, unchanged.
+- Unchanged: `geom_q078_v1` (q 0.78), the 250-point Best Offers rule, the fairness bands. DFS untouched.
+
+### TC-D2 — what shipped
+
+| item | how (owners unchanged) |
+|---|---|
+| Builder bottom sheets on phones | `app/trade/trade-asset-sheet.jsx` (React.lazy, rendered only after a tap): the ds `Drawer` re-anchored to the bottom edge through its documented `className` override; one search per side (the page's `searchAssets`), stays open between adds and names each add, rows pick on a completed tap so a scroll gesture adds nothing. Below 768 px each side card shows a 44 px "Add to Side X" button instead of the inline dropdown; the quick-add bar is removed (the sheet replaces it). Desktop keeps the inline search. |
+| Toolbar overflow | CSV / JSON / Copy KTC URL sit in a "More" disclosure (same pattern as Import trade; Escape closes it). Toolbar buttons are 44 px on phones. |
+| Supporting-intelligence drilldowns | `TradeIntelTabs` (ds `Tabs`, roving tabindex): **Value** (package breakdown, multi-team flow, Second opinions folded), **Roster** (Simulate impact), **Season** (ROS fit), **Market** (Recent real trades), **Reasoning** (the decision's coverage + what would change it). Only the open tab is rendered, so a closed tab's chunk and request never load (the contract the folded panels had). Tabs are 44 px on phones. |
+| One roster-consequence surface (TCM-H13) | Simulate impact left the toolbar for the Roster tab, beside a pointer to the War Room's roster answer (the one that counts toward the decision). |
+| Persistent 3+-team summary | `MultiTeamSummaryBar` in the tray slot: each side's net flow and the band of the worst gap, from `multiTeamNetSummary` (new, `lib/trade-logic.js`), which the multi-team meter now also reads — one helper, so the two cannot drift. Links to the result; states that a reliable YES / NO is unavailable. |
+| Monte Carlo relabel (§7.8) | On /trade (`sidesSend`) the result is headed "Value-sensitivity check": no winner / favored / clearly / probably, neutral tone, "Side A's package came out bigger in N% of M simulations"; the button reads "Simulate value sensitivity". /waivers keeps its own wording. |
+| "My league" control (TCM-D09) | Removed; the contract-gated `ValueBasisNote` replaces the inline banner (renders nothing on the market board). |
+| Reasoning | `components/trade/TradeDecisionReasoning.jsx` (React.lazy): `decision.whatWouldChange` and `decision.coverage` (all ten dimensions: coverage state, evidence kind, role, freshness, the exclusion / approximation reason), verbatim from the War Room's own answer (`onDecision`). The War Room rendered neither. |
+
+Not shipped, named: **the 1920 cap** needs a wide-shell value — no token exists and `--shell-max` (1320) is shell-wide,
+so it is an **OWNER UI DECISION** (UI contract §2: a genuinely new visual decision); **the desktop FAB overlap** is
+shell-owned (UX audit §2.1 row 18) and belongs to the shell lane.
+
+### TC-B2 — rows
+
+| row | done here | left, and the exact reason |
+|---|---|---|
+| K06 | decision 9, above | — |
+| M01 / M02 / M04 / M05 | `TradePackageBreakdown` (Value tab) over `lib/trade-package-facts.js`: stacked raw-value bars per side on one scale with VA as its own hatched segment, every number in the legend; one marker number per line + the fixed chart series (first six; a neutral "other" series after, never colour alone); Quick Trade Facts (raw priced value, pieces, players · picks, average piece value, average player age, average backend-stamped consensus rank, not priced; every average names its coverage, a missing value is never averaged as 0); concentration as the largest piece's share and the inverse Herfindahl "behaves like N equal pieces", with no threshold and no better/worse reading. Supersedes the two-bar value split chart (TCM-K15; component deleted). | M04's Chase Upside-specific facts (confidence, starter impact, scarcity, fit, liquidity) are optional in TC-14 and not added |
+| N03 | Banner: "Opened from Trade History — today's view, not a replay", with the trade date. No URL change: `/trades` records a same-tab sessionStorage hand-off keyed to the exact share payload (`lib/trade-history-origin.js`); a link opened any other way shows nothing. | the as-of replay itself (dependency-gated, spec §2–§9) |
+| C04 | Restore half: names that no longer resolve are listed in the load notice, never dropped silently. | per-asset degrade on an unknown schema version — waits for the coordinated compatibility migration (decision 10) |
+| A05 | — | stable player ids change the share format; frozen by decision 10 until a compatibility migration is tested |
+| G18 | A calculator save names the served decision's run id; `trade_desk.new_item` attaches the server's OWN logged record (`trade_decision_log.find_decision_run`, headline words from the decision owner) or states why not; the desk shows "War Room answer when saved …, not refreshed". Never a client-typed verdict, never a status. | — |
+| H03 | — | Trade Finder lane (generator ranking), not this calculator lane |
+| H12 | — | replacement level needs the waiver-pool projection join in `best_ball_utility` (an engineering dependency, not an owner decision) |
+| B04 | — | C1-U7 owned-pick distributions (separate owner) |
+| M03 / M06 | — | need a private `src/history` read endpoint for trade assets plus a chart (a backend unit; methodology is in spec TC-13 / TC-16) |
+| M07 | — | the existing movers owner (rankings / terminal) has no 30-day horizon; needs a ledger-backed movers read |
+| F05 | — | "pick context" has no destination page: **owner decision needed** — which surface a pick links to (Rankings filtered to picks, the draft-capital tab, or a pick profile that does not exist) |
+| R01 | — | **owner decision needed** — what to announce and where (site-wide shell vs /trade); a mechanism with no content renders nothing |
+
+### Bundle
+
+`/trade` 77.9 → 81.8 KB of 93 KB (11.2 KB headroom); every new panel is `React.lazy` (`dyn`, never `next/dynamic`).
+`/league` 49.8 KB before and after (the train head is already at 49.8; this batch adds nothing to it). `/trades`
+23.6 → 24.5 KB of 26; `/arbitrage` 76.0 → 77.3 KB of 82.
+
+### Gates run on the TC-B2/D2 head (2026-10-18)
+
+GATES-PLACEHOLDER
+
 ## Coordination with in-flight work
 
 | In-flight | Overlap | Rule |
@@ -600,5 +677,6 @@ are session artifacts, not committed.
 | TC-A correctness | IMPLEMENTATION HEAD GREEN on local branch `claude/trade-calculator-tc-a` (local commits on `integration/train-5-2026-10-17` @ `ea054f386a`; not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Simulations consuming availability (#1772 follow-through) is not part of this batch. See "TC-A notes" |
 | TC-C decision engine | IMPLEMENTATION HEAD on local branch `claude/trade-calculator-tc-c`, stacked on TC-A (not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-C notes" |
 | TC-B missing functionality | TC-B1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b` (`2bd2986ddd`, `8625ab7b77`, PR to main): of the 31 inventoried rows, 12 moved to IMPLEMENTED BUT UNVERIFIED (A02, A03, D14, F03, G09, I04, K03, K13, L05, O11, O12, O13) and 4 advanced but kept their class (B04, G18, H12 partial; L01 gained its database link); the other 15 are listed under "Remaining in TC-B". RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-B notes" |
+| TC-B2 / TC-D2 | IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b2-d2`, PR stacked on release train 8 (#1809). Owner decisions 9 (K06) and 10 DECIDED (closeout 2026-10-18) and folded in. To IMPLEMENTED BUT UNVERIFIED: K06, D09, H13, P03, M01, M02, M04, M05, N03 (banner), G18; K15 superseded by M01. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Open: the 1920 cap (owner UI decision), the FAB (shell lane), A05 / C04 unknown-version (share format frozen), F05 / R01 (owner decisions), M03 / M06 / M07, H03, H12, B04. See "TC-B2 / TC-D2 notes" |
 | TC-D redesign | D1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-d` (`ecbde07821`), stacked on TC-B1 (#1800): War Room code split (`/trade` 91.7 → 77.9 KB of 93 KB) and the five-layer layout, with a desktop sticky result + decision echo and a mobile section nav + verdict bar. TCM-P01 / P02 moved to IMPLEMENTED BUT UNVERIFIED; P03, P05, Q03, F06, H13 and K03 advanced. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. D2 remains (see "TC-D notes") |
 | TC-E … TC-F | QUEUED, in order; each starts as its dependencies land |

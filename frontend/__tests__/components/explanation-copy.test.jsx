@@ -92,12 +92,21 @@ describe("trade verdict wording follows the side model", () => {
   });
 });
 
-describe("Monte Carlo summary on /trade names the package, not a winner", () => {
-  it("a bigger Side A package means Side B receives more", () => {
-    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides, true);
-    expect(s.headline).toBe("Side A's package is clearly worth more.");
-    expect(s.subline).toContain("Side B would receive more value");
-    expect(s.tone).toBe("strong");
+describe("Monte Carlo summary on /trade is a value-sensitivity check, never a verdict", () => {
+  // TC-D2 (decision-engine audit §7.8, V5): no winner / favored / clearly /
+  // probably headline and no strong tone; the War Room owns the one YES / NO.
+  it.each([0.9, 0.7, 0.5, 0.3, 0.05])("winProbA %s reads as a count, not a verdict", (p) => {
+    const s = _renderPlainSummary({ winProbA: p, nSims: 2000, meanDelta: 900 }, sides, true);
+    expect(s.headline).toBe("Value-sensitivity check");
+    expect(s.tone).toBe("even");
+    const text = `${s.headline} ${s.subline} ${s.deltaLine}`;
+    expect(text).not.toMatch(/winner|favou?red|clearly|probably|beat|wins?\b/i);
+    expect(s.subline).toMatch(/came out bigger in \d+% of 2,000 simulations/);
+  });
+  it("names the bigger package and its share", () => {
+    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000, meanDelta: -1200 }, sides, true);
+    expect(s.subline).toBe("Side A's package came out bigger in 90% of 2,000 simulations.");
+    expect(s.deltaLine).toBe("On average, Side B's package was 1,200 points bigger.");
   });
   it("keeps the original wording off /trade", () => {
     expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides).headline).toBe(

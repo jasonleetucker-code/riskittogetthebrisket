@@ -90,6 +90,7 @@ _CREATE_KEYS = frozenset(
         "sourceRunId",
         "status",
         "note",
+        "decisionRunId",
     }
 )
 _UPDATE_KEYS = frozenset({"leagueKey", "status", "note"})
@@ -191,17 +192,61 @@ def unknown_keys(body: Mapping[str, Any], *, create: bool) -> list[str]:
     return sorted(str(k) for k in body if k not in allowed)
 
 
+def decision_snapshot(
+    line: Mapping[str, Any] | None, *, league_key: str | None, my_team: str
+) -> tuple[dict[str, Any] | None, str | None]:
+    """The War Room decision a calculator save carries (TC-B2 / TCM-G18).
+
+    ``line`` is the server's OWN record of the served decision
+    (``trade_decision_log.find_decision_run``), never a verdict the client
+    sent.  Returns ``(snapshot, None)`` or ``(None, reason)``: a run that is
+    not logged, belongs to another league or team, or carries a headline the
+    decision owner does not define is not attached -- the package still saves.
+    The snapshot is what was answered WHEN SAVED; it is never refreshed and
+    never rewrites a status."""
+    from src.trade.trade_decision import HEADLINE_TEXT  # noqa: PLC0415
+
+    if not isinstance(line, Mapping):
+        return None, "decision_run_not_found"
+    if league_key and line.get("leagueKey") not in (None, league_key):
+        return None, "decision_run_other_league"
+    if str(line.get("team") or "") != my_team:
+        return None, "decision_run_other_team"
+    headline = line.get("headline")
+    if headline not in HEADLINE_TEXT:
+        return None, "decision_run_unreadable"
+    receipt = line.get("receipt") if isinstance(line.get("receipt"), Mapping) else {}
+    model = receipt.get("packageModel") if isinstance(receipt.get("packageModel"), Mapping) else {}
+    strategy = line.get("strategy") if isinstance(line.get("strategy"), Mapping) else {}
+    return {
+        "runId": str(line.get("runId") or ""),
+        "recordedAt": str(line.get("recordedAt") or ""),
+        "headline": headline,
+        "headlineText": HEADLINE_TEXT[headline],
+        "confidenceLevel": line.get("confidenceLevel"),
+        "strategy": strategy.get("used"),
+        "teamContext": line.get("teamContext"),
+        "decisionVersion": line.get("decisionVersion"),
+        "packageModel": model.get("id"),
+    }, None
+
+
 def new_item(
     body: Mapping[str, Any],
     *,
     team_names: Iterable[str],
     owner_ids: Mapping[str, str] | None = None,
     now: datetime | None = None,
+    league_key: str | None = None,
+    decision_lookup: Any = None,
 ) -> dict[str, Any]:
     """A validated new desk item from a create request.
 
     ``owner_ids`` maps this league's current team names to their Sleeper owner
-    ids; when known they are stored so the item survives a team rename."""
+    ids; when known they are stored so the item survives a team rename.
+    ``decisionRunId`` (calculator saves only) names a served War Room decision;
+    ``decision_lookup(run_id)`` reads it from the server's decision log, and
+    the item carries that record's snapshot (TC-B2 / TCM-G18)."""
     names = set(team_names)
     my_team = _text(body.get("myTeam"), "myTeam", MAX_NAME_LEN)
     opponent = _text(body.get("opponent"), "opponent", MAX_NAME_LEN)
@@ -215,6 +260,14 @@ def new_item(
     run_id = body.get("sourceRunId")
     if run_id not in (None, "") and (not isinstance(run_id, str) or not _RUN_ID_RE.match(run_id)):
         raise DeskError("invalid_body", {"field": "sourceRunId", "reason": "bad id"})
+    decision_run = body.get("decisionRunId")
+    if decision_run not in (None, ""):
+        if not isinstance(decision_run, str) or not _RUN_ID_RE.match(decision_run):
+            raise DeskError("invalid_body", {"field": "decisionRunId", "reason": "bad id"})
+        if source != "calculator":
+            raise DeskError(
+                "invalid_body", {"field": "decisionRunId", "reason": "calculator saves only"}
+            )
     status = _status(body.get("status") or DEFAULT_STATUS)
     stamp = _now_iso(now)
     item = {
@@ -232,6 +285,13 @@ def new_item(
     }
     if run_id:
         item["sourceRunId"] = run_id
+    if decision_run:
+        line = decision_lookup(decision_run) if callable(decision_lookup) else None
+        snapshot, reason = decision_snapshot(line, league_key=league_key, my_team=my_team)
+        if snapshot is not None:
+            item["decision"] = snapshot
+        else:
+            item["decisionUnavailable"] = reason
     for name, field in ((my_team, "myOwnerId"), (opponent, "opponentOwnerId")):
         owner = str((owner_ids or {}).get(name) or "")
         if owner:

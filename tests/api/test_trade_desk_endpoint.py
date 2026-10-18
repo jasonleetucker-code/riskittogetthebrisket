@@ -157,3 +157,32 @@ def test_a_session_without_a_username_is_401_not_500(desk_env, monkeypatch):
 def test_saved_items_record_owner_ids(desk_env):
     item = _save(desk_env).json()["items"][0]
     assert (item["myOwnerId"], item["opponentOwnerId"]) == ("1", "2")
+
+
+def test_a_calculator_save_attaches_the_logged_war_room_decision(desk_env, monkeypatch, tmp_path):
+    """TC-B2 / TCM-G18: the decision comes from the server's own decision log."""
+    from src.trade import trade_decision_log as log
+
+    monkeypatch.setenv(log.LOG_DIR_ENV, str(tmp_path))
+    run = log.record_decision(
+        {"decision": {"headline": "NO_TOO_CLOSE", "version": "trade_decision_v2"}},
+        league_key="main",
+        team="Us",
+    )
+    res = _save(desk_env, source="calculator", decisionRunId=run)
+    assert res.status_code == 201, res.text
+    item = res.json()["items"][0]
+    assert item["decision"]["runId"] == run
+    assert item["decision"]["headlineText"] == "NO — TOO CLOSE"
+
+    # A run that is not in the log saves the package without a decision.
+    res = _save(
+        desk_env,
+        source="calculator",
+        decisionRunId="ffffffffffffffffffff",
+        receive=[{"name": "Other RB"}],
+    )
+    assert res.status_code == 201, res.text
+    other = next(i for i in res.json()["items"] if i["receive"][0]["name"] == "Other RB")
+    assert "decision" not in other
+    assert other["decisionUnavailable"] == "decision_run_not_found"

@@ -35,6 +35,7 @@ const {
   strengthText,
   desktopOnly,
 } = require("./helpers");
+const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builder");
 
 /** Board display names (the trade search pool), lowercased → exact. */
 function boardNames(contract) {
@@ -173,10 +174,7 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
 
     // Add assets through the page's own search-and-pick flow.
     async function addToSide(sideLabel, name) {
-      const input = page.getByLabel(
-        `Search to add a player to Side ${sideLabel}`,
-      );
-      await input.click();
+      const input = await openTradeSearch(page, sideLabel);
       await input.fill(name);
       const result = page
         .locator(".trade-side-search-result")
@@ -193,6 +191,7 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
         `search should surface "${name}" verbatim`,
       ).toBeVisible({ timeout: 15_000 });
       await result.click();
+      await closeTradeSheet(page);
       await expect(
         page.getByRole("button", {
           name: `Remove ${name} from Side ${sideLabel}`,
@@ -212,6 +211,9 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
         res.request().method() === "POST",
       { timeout: 60_000 },
     );
+    // TC-D2 / TCM-H13: Simulate impact lives in Supporting intelligence's
+    // Roster tab (the one roster-consequence surface beside the decision).
+    await page.getByRole("tab", { name: "Roster", exact: true }).click();
     const simulateBtn = page.getByRole("button", { name: /^Simulate impact$/ });
     await expect(simulateBtn).toBeEnabled({ timeout: 15_000 });
     await simulateBtn.click();

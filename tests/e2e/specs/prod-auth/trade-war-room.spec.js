@@ -17,6 +17,7 @@
  * feasibility state) is annotated, so the run is its own evidence.
  */
 const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
+const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builder");
 
 const PICK_TOKEN = /\d{4}/;
 const LABELS = {
@@ -90,8 +91,7 @@ async function openWith(page, p, give, receive) {
     ["B", receive],
   ]) {
     for (const name of names) {
-      const input = page.getByLabel(`Search to add a player to Side ${side}`);
-      await input.click();
+      const input = await openTradeSearch(page, side);
       await input.fill(name);
       const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const hit = page
@@ -113,9 +113,11 @@ async function openWith(page, p, give, receive) {
           { timeout: 120_000 },
         );
         await hit.click();
+        await closeTradeSheet(page);
         return answer;
       }
       await hit.click();
+      await closeTradeSheet(page);
     }
   }
   return null;

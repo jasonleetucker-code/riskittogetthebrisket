@@ -32,6 +32,15 @@
  * opinions. A row with no source coverage at all is CHASE_ONLY_BASELINE (our
  * own numbers; diagnostic only). Only FULL_SOURCE rows vote, one vote per
  * correlation family.
+ *
+ * UNAVAILABLE IS NOT AN OPINION (owner closeout 2026-10-18, decision 9 /
+ * TCM-K06).  When a source DID publish a value for a piece but that
+ * observation was excluded from our blend for an evidence reason (stale or
+ * unhealthy source, superseded, any backend `excludedReason`), the source's
+ * row is UNAVAILABLE and says why: never EVEN, never our canonical value
+ * standing in for its vote, never a canonical fallback counted as a second
+ * opinion, never 0, never hidden.  The tally counts it as unavailable, so the
+ * independent votes equal the independent opinions shown.
  */
 
 /** The unit systems a Second Opinions number can be in. */
@@ -124,13 +133,30 @@ export const OPINION_ORIGIN = {
   SOURCE: "SOURCE",
   CHASE_UPSIDE_FALLBACK: "CHASE_UPSIDE_FALLBACK",
   UNPRICED: "UNPRICED",
+  /** The source published a value but it was excluded for an evidence reason. */
+  UNAVAILABLE: "UNAVAILABLE",
 };
+
+/**
+ * Plain words for the backend's exclusion reasons (`sourceRankMeta[key]
+ * .excludedReason`), shown as "Unavailable — <reason>".  An unrecognised code
+ * is shown as itself; an absent one says it was not published.
+ */
+export const UNAVAILABLE_REASON_LABEL = {
+  freshness_or_health_zero_weight: "stale or unhealthy source, excluded from our blend",
+  superseded_by_family: "superseded by its provider family in our blend",
+  excluded_from_blend: "excluded from our blend (reason not published)",
+};
+
+export function unavailableReasonText(reason) {
+  if (!reason) return UNAVAILABLE_REASON_LABEL.excluded_from_blend;
+  return UNAVAILABLE_REASON_LABEL[reason] || String(reason).replace(/_/g, " ");
+}
 
 /** Why Chase Upside's value stood in for the source. */
 export const FALLBACK_REASON = {
   OUT_OF_SCOPE: "OUT_OF_SCOPE",
   NOT_PUBLISHED: "NOT_PUBLISHED",
-  STALE_OR_HELD: "STALE_OR_HELD",
   NOT_ON_BOARD: "NOT_ON_BOARD",
   CANONICAL_VALUE_UNAVAILABLE: "CANONICAL_VALUE_UNAVAILABLE",
 };
@@ -138,7 +164,6 @@ export const FALLBACK_REASON = {
 export const FALLBACK_REASON_LABEL = {
   OUT_OF_SCOPE: "outside this source's coverage",
   NOT_PUBLISHED: "not published by this source",
-  STALE_OR_HELD: "source value held, stale or excluded from our blend",
   NOT_ON_BOARD: "not on the board",
   CANONICAL_VALUE_UNAVAILABLE: "no Chase Upside value either",
 };
@@ -154,18 +179,41 @@ function eligibleSourceValue(row, subs) {
   let sum = 0;
   let n = 0;
   let held = false;
+  let heldReason = null;
+  const freshnessExcluded = new Set(
+    Array.isArray(row?.freshnessExcludedSources)
+      ? row.freshnessExcludedSources
+      : Array.isArray(row?.raw?.freshnessExcludedSources)
+        ? row.raw.freshnessExcludedSources
+        : [],
+  );
   for (const sub of subs) {
     const meta = row?.sourceRankMeta?.[sub.key];
     const v = positive(meta?.valueContribution);
     if (!v) continue;
-    if (meta.contributedToBlend === false || meta.appliedWeight === 0) {
+    if (
+      meta.contributedToBlend === false ||
+      meta.appliedWeight === 0 ||
+      freshnessExcluded.has(sub.key)
+    ) {
       held = true;
+      // The backend's OWN reason, never a default (decision 9: "the actual
+      // reason"); the row-level freshness list implies its zero-weight reason.
+      heldReason =
+        heldReason ||
+        (meta.excludedReason
+          ? String(meta.excludedReason)
+          : meta.supersededBy
+            ? "superseded_by_family"
+            : freshnessExcluded.has(sub.key)
+              ? "freshness_or_health_zero_weight"
+              : "excluded_from_blend");
       continue;
     }
     sum += v;
     n += 1;
   }
-  return { value: n > 0 ? sum / n : null, held };
+  return { value: n > 0 ? sum / n : null, held, heldReason };
 }
 
 /** The vendor's own published number, when one exists — diagnostic only. */
@@ -218,10 +266,21 @@ export function resolveOpinionAsset({ row, mainSubs = [], rookieSubs = [] }) {
       nativeValue,
     };
   }
+  if (main.held || rookie.held) {
+    // Decision 9: an excluded observation is UNAVAILABLE with its actual
+    // reason -- our canonical value never stands in for the source's vote.
+    return {
+      value: null,
+      basis: VALUE_BASIS.MISSING,
+      origin: OPINION_ORIGIN.UNAVAILABLE,
+      reason: main.heldReason || rookie.heldReason,
+      sourceValue: null,
+      fallbackValue: null,
+      nativeValue,
+    };
+  }
   const reason =
-    main.held || rookie.held
-      ? FALLBACK_REASON.STALE_OR_HELD
-      : vendorAdmitsAssetClass(subs, row.assetClass) === false
+    vendorAdmitsAssetClass(subs, row.assetClass) === false
         ? FALLBACK_REASON.OUT_OF_SCOPE
         : FALLBACK_REASON.NOT_PUBLISHED;
   const canonical = publishedCanonicalValueOf(row);
@@ -257,27 +316,44 @@ export function resolveOpinionAsset({ row, mainSubs = [], rookieSubs = [] }) {
  *   CHASE_ONLY_BASELINE  the source priced nothing here: the numbers are ours
  *                        alone — diagnostic, never an opinion.
  *   INCOMPLETE           a piece nobody can price: no numeric verdict.
+ *   UNAVAILABLE          the source's value for a piece was excluded for an
+ *                        evidence reason: no numeric verdict, no vote, never
+ *                        EVEN, shown as "Unavailable — <reason>" (decision 9).
  */
 export const OPINION_STATE = {
   FULL_SOURCE: "FULL_SOURCE",
   HYBRID_ESTIMATE: "HYBRID_ESTIMATE",
   CHASE_ONLY_BASELINE: "CHASE_ONLY_BASELINE",
   INCOMPLETE: "INCOMPLETE",
+  UNAVAILABLE: "UNAVAILABLE",
 };
 
 export function opinionCounts(resolutionsBySide) {
   const all = resolutionsBySide.flat();
-  const counts = { total: all.length, source: 0, fallback: 0, unpriced: 0 };
+  const counts = { total: all.length, source: 0, fallback: 0, unpriced: 0, unavailable: 0 };
   for (const r of all) {
     if (r.origin === OPINION_ORIGIN.SOURCE) counts.source += 1;
     else if (r.origin === OPINION_ORIGIN.CHASE_UPSIDE_FALLBACK)
       counts.fallback += 1;
+    else if (r.origin === OPINION_ORIGIN.UNAVAILABLE) counts.unavailable += 1;
     else counts.unpriced += 1;
   }
   return counts;
 }
 
+/** The distinct actual reasons a row's pieces are unavailable, in order. */
+export function unavailableReasons(resolutionsBySide) {
+  const out = [];
+  for (const r of (resolutionsBySide || []).flat()) {
+    if (r?.origin !== OPINION_ORIGIN.UNAVAILABLE) continue;
+    const reason = r.reason || "excluded_from_blend";
+    if (!out.includes(reason)) out.push(reason);
+  }
+  return out;
+}
+
 export function opinionState(counts) {
+  if (counts.unavailable > 0) return OPINION_STATE.UNAVAILABLE;
   if (counts.total === 0 || counts.unpriced > 0)
     return OPINION_STATE.INCOMPLETE;
   if (counts.source === 0) return OPINION_STATE.CHASE_ONLY_BASELINE;
@@ -337,6 +413,9 @@ export function evaluateOpinion(resolutionsBySide, adjust) {
     swing: false,
   });
   if (state === OPINION_STATE.INCOMPLETE) return noVerdict(state);
+  if (state === OPINION_STATE.UNAVAILABLE) {
+    return { ...noVerdict(state), unavailableReasons: unavailableReasons(resolutionsBySide) };
+  }
   const sideValues = resolutionsBySide.map((rs) => rs.map((r) => r.value));
   const rawTotals = sideValues.map((vs) => vs.reduce((s, v) => s + v, 0));
   // An adjustment the package model cannot produce is not a zero adjustment:
@@ -380,7 +459,8 @@ export function tallyOpinions(rows, sideCount) {
   const independent = new Map();
   const modeled = new Map();
   const eligible = new Set();
-  const counts = { full: 0, hybrid: 0, baseline: 0, incomplete: 0 };
+  const counts = { full: 0, hybrid: 0, baseline: 0, incomplete: 0, unavailable: 0 };
+  const unavailable = new Set();
   for (const r of rows) {
     const fam = r.family || r.key;
     const state = r.opinion?.state;
@@ -395,6 +475,10 @@ export function tallyOpinions(rows, sideCount) {
       eligible.add(fam);
       if (!modeled.has(fam)) modeled.set(fam, new Set());
       modeled.get(fam).add(outcome);
+    } else if (state === OPINION_STATE.UNAVAILABLE) {
+      // Never a vote, never an estimate, never EVEN: counted as unavailable.
+      counts.unavailable += 1;
+      unavailable.add(fam);
     } else if (state === OPINION_STATE.CHASE_ONLY_BASELINE)
       counts.baseline += 1;
     else counts.incomplete += 1;
@@ -416,6 +500,10 @@ export function tallyOpinions(rows, sideCount) {
   return {
     independent: { ...fold(independent), eligible: eligible.size },
     modeled: fold(modeled),
+    // Families with a row excluded for an evidence reason and no other row
+    // that voted or estimated -- named, never folded into a vote.
+    unavailableFamilies: [...unavailable].filter((f) => !independent.has(f) && !modeled.has(f))
+      .length,
     counts,
   };
 }

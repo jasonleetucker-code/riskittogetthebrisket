@@ -748,18 +748,29 @@ export default function TradeWarRoom({
   // mobile verdict bar.  Reported, never recomputed: the echo reads the same
   // payload this component renders, so the two cannot disagree.
   const reportedDecision = state.payload?.analysis?.decision || null;
+  // The served decision's run id (its receipt in the server's decision log),
+  // so a Trade Desk save can carry this answer (TC-B2 / TCM-G18).
+  const reportedRunId = state.payload?.analysis?.decisionRunId || null;
   const hasTeamOrTrade = Boolean(request || teamName);
   useEffect(() => {
     if (!onDecision) return;
     if (ready) {
-      onDecision({ status: state.status, decision: reportedDecision });
+      onDecision({ status: state.status, decision: reportedDecision, runId: reportedRunId });
     } else {
       onDecision({
         status: sideChoiceNeeded ? "side-choice" : hasTeamOrTrade ? "idle" : "no-team",
         decision: null,
       });
     }
-  }, [onDecision, ready, state.status, reportedDecision, sideChoiceNeeded, hasTeamOrTrade]);
+  }, [
+    onDecision,
+    ready,
+    state.status,
+    reportedDecision,
+    reportedRunId,
+    sideChoiceNeeded,
+    hasTeamOrTrade,
+  ]);
 
   const toggle = (
     <SegmentedControl

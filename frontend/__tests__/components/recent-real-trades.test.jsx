@@ -309,12 +309,13 @@ describe("/trade wiring", () => {
     );
   });
 
-  it("is mounted only while its panel is open (no fetch, no refetch while folded)", () => {
-    const at = page.indexOf('title="Recent real trades"');
+  it("is mounted only while its tab is open (no fetch, no refetch while closed)", () => {
+    // TC-D2: it is the Market drilldown's panel, and TradeIntelTabs renders
+    // ONLY the active panel (pinned behaviourally in trade-tcd2.test.jsx).
+    expect(page.match(/<RecentRealTrades\b/g) || []).toHaveLength(1);
+    const at = page.indexOf("market: () => (");
     expect(at).toBeGreaterThan(-1);
-    const block = page.slice(at, page.indexOf("</Panel>", at));
-    expect(block).toMatch(/collapsed=\{!realTradesOpen\}/);
-    expect(block).toMatch(/\{realTradesOpen \? \(\s*<RecentRealTrades\b/);
-    expect(page).toMatch(/const \[realTradesOpen, setRealTradesOpen\] = useState\(false\)/);
+    expect(page.indexOf("<RecentRealTrades", at)).toBeLessThan(page.indexOf("reasoning: () =>", at));
+    expect(page).toMatch(/const \[intelTab, setIntelTab\] = useState\("value"\)/);
   });
 });

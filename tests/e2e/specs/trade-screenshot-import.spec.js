@@ -19,6 +19,7 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
+const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 const {
   pageUrl,
   awaitStreamSettled,
@@ -165,11 +166,11 @@ function resultNamed(page, name) {
 }
 
 async function addToSideA(page, name) {
-  const input = page.getByLabel("Search to add a player to Side A");
-  await input.click();
+  const input = await openTradeSearch(page, "A");
   await input.fill(name);
   await expect(resultNamed(page, name)).toBeVisible({ timeout: 15_000 });
   await resultNamed(page, name).click();
+  await closeTradeSheet(page);
   await expect(
     page.getByRole("button", { name: `Add another ${name} to Side A` }),
   ).toBeVisible();

@@ -145,6 +145,7 @@ export default function TradeNextActions({
   evalState = "empty",
   isFair = false,
   balancerSideLabel = null,
+  decisionRunId = null,
 }) {
   const parties = useMemo(
     () => tradeParties({ sides, mySideIdx, myTeam, sideTeamNames }),
@@ -152,8 +153,8 @@ export default function TradeNextActions({
   );
   const db = useMemo(() => tradeDatabaseHref(sides), [sides]);
   const desk = useMemo(
-    () => deskBodyFromCalculator({ sides, parties, leagueKey }),
-    [sides, parties, leagueKey],
+    () => deskBodyFromCalculator({ sides, parties, leagueKey, decisionRunId }),
+    [sides, parties, leagueKey, decisionRunId],
   );
   const balance = balanceStep({
     evalState,
@@ -250,7 +251,9 @@ export default function TradeNextActions({
           )}
           <p className={styles.itemNote}>
             {desk.body
-              ? "Private watchlist; saving never sends a trade."
+              ? desk.body.decisionRunId
+                ? "Private watchlist; saving never sends a trade. The War Room's current answer is saved with it."
+                : "Private watchlist; saving never sends a trade."
               : deskReasonText(desk.reason)}
           </p>
         </li>

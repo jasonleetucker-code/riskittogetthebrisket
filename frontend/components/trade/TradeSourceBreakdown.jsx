@@ -15,6 +15,9 @@
  *   HYBRID_ESTIMATE     some pieces are our value — shown, labelled, no vote
  *   CHASE_ONLY_BASELINE source priced nothing here — listed, never an opinion
  *   INCOMPLETE          a piece nobody prices — no numeric verdict
+ *   UNAVAILABLE         the source's value was excluded for an evidence
+ *                       reason — "Unavailable — <reason>", no vote, never
+ *                       EVEN (owner closeout 2026-10-18, decision 9)
  *
  * Inputs: ``sides`` (``{label, assets}``, 2+ sides; also rendered by the
  * waivers add/drop panel), ``settings`` (memo dep), and ``hasOverrides``:
@@ -30,6 +33,7 @@ import {
   OPINION_ORIGIN,
   OPINION_STATE,
   tallyOpinions,
+  unavailableReasonText,
 } from "@/lib/second-opinions";
 import { buildOpinionRows, opinionTallyText } from "@/lib/second-opinions-rows";
 import { packageModelReceipt } from "@/lib/trade-logic";
@@ -44,6 +48,21 @@ function stateLabel(opinion, sideLabels) {
       ? "Even"
       : `Side ${sideLabels[opinion.leaderIdx]}`;
   if (opinion.state === OPINION_STATE.INCOMPLETE) return "Incomplete";
+  // Decision 9: never "Even" -- the source could not be evaluated, and says
+  // why (the reason on its own wrapping line, so the column stays narrow).
+  if (opinion.state === OPINION_STATE.UNAVAILABLE) {
+    return (
+      <>
+        Unavailable —{" "}
+        <span
+          className="muted"
+          style={{ display: "block", fontSize: "0.62rem", fontWeight: 400, maxWidth: "14rem", margin: "0 auto" }}
+        >
+          {(opinion.unavailableReasons || [null]).map(unavailableReasonText).join("; ")}
+        </span>
+      </>
+    );
+  }
   if (opinion.state === OPINION_STATE.HYBRID_ESTIMATE) return `${lead} (est.)`;
   return lead;
 }
@@ -52,6 +71,7 @@ function coverageText(counts) {
   const parts = [`${counts.source}/${counts.total} source`];
   if (counts.fallback) parts.push(`${counts.fallback} Chase fallback`);
   if (counts.unpriced) parts.push(`${counts.unpriced} unpriced`);
+  if (counts.unavailable) parts.push(`${counts.unavailable} unavailable`);
   return parts.join(" · ");
 }
 
@@ -153,6 +173,16 @@ export default function TradeSourceBreakdown({
               </span>
             )}
           </p>
+          {tally.counts.unavailable > 0 && (
+            <p
+              className="muted"
+              data-testid="second-opinions-unavailable-tally"
+              style={{ margin: "0 0 4px", fontSize: "0.74rem" }}
+            >
+              Unavailable (not counted, not even): {tally.counts.unavailable} source
+              {tally.counts.unavailable === 1 ? "" : "s"} — see each row for the reason.
+            </p>
+          )}
           {tally.modeled.families > 0 && (
             <p
               className="muted"
@@ -189,7 +219,9 @@ export default function TradeSourceBreakdown({
                 {shown.map((row) => {
                   const o = row.opinion;
                   const expanded = open.has(row.key);
-                  const numeric = o.state !== OPINION_STATE.INCOMPLETE;
+                  const numeric =
+                    o.state !== OPINION_STATE.INCOMPLETE &&
+                    o.state !== OPINION_STATE.UNAVAILABLE;
                   return (
                     <Fragment key={row.key}>
                       <tr data-state={o.state}>
@@ -249,7 +281,14 @@ export default function TradeSourceBreakdown({
                             )}
                           </td>
                         ))}
-                        <td style={{ textAlign: "center", fontWeight: 700 }}>
+                        <td
+                          style={{ textAlign: "center", fontWeight: 700 }}
+                          data-testid={
+                            o.state === OPINION_STATE.UNAVAILABLE
+                              ? "second-opinions-unavailable"
+                              : undefined
+                          }
+                        >
                           {stateLabel(o, sideLabels)}
                           {numeric && o.swing && (
                             <span
@@ -368,7 +407,9 @@ export default function TradeSourceBreakdown({
                                             : r.origin ===
                                                 OPINION_ORIGIN.CHASE_UPSIDE_FALLBACK
                                               ? `Chase Upside fallback — ${FALLBACK_REASON_LABEL[r.reason]}`
-                                              : `Unpriced — ${FALLBACK_REASON_LABEL[r.reason]}`}
+                                              : r.origin === OPINION_ORIGIN.UNAVAILABLE
+                                                ? `Unavailable — ${unavailableReasonText(r.reason)}`
+                                                : `Unpriced — ${FALLBACK_REASON_LABEL[r.reason]}`}
                                         </td>
                                       </tr>
                                     )),

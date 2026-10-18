@@ -36,8 +36,9 @@ import {
   MAX_SIDES,
   MIN_SIDES,
   computeStackAdjustments,
+  multiTeamNetSummary,
 } from "@/lib/trade-logic";
-import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
+import { valuationBasisLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import {
@@ -48,6 +49,7 @@ import {
   shareLinkLimits,
 } from "@/lib/trade-share";
 import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
+import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
 import {
   PICK_OWNERSHIP_UNAVAILABLE_LABEL,
   describePickOwnershipReason,
@@ -73,14 +75,12 @@ import {
   Button,
   CollapsiblePanel,
   Icon,
-  InfoTip,
   Panel,
   PageHeader,
-  SegmentedControl,
   SkeletonTable,
+  ValueBasisNote,
 } from "@/components/ds";
 import {
-  MobileQuickAddBar,
   PickTeamSelectors,
   ProactiveSuggestionsRail,
   SuggestionsRailPlaceholder,
@@ -91,7 +91,15 @@ import { withValuationMode } from "@/lib/valuation-mode";
 import { buildKtcNameIndex, resolveKtcEntries } from "@/lib/ktc-import";
 import ResilientSection from "@/components/ResilientSection";
 import { draftCapitalBudgetsUnavailableReason } from "@/lib/draft-capital-budgets";
-import { DecisionSummary, ImmediateResultTable, TradeSectionNav } from "./trade-layout";
+import {
+  DecisionSummary,
+  ImmediateResultTable,
+  MultiTeamSummaryBar,
+  SUMMARY_STATE_TEXT,
+  TradeIntelTabs,
+  TradeSectionNav,
+  useNarrowViewport,
+} from "./trade-layout";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -154,9 +162,19 @@ const TradeSourceBreakdown = dyn(
 );
 const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"), "Rest-of-season fit");
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundamentals check");
-const TradeDeltaHistogram = dyn(
-  () => import("@/components/graphs/TradeDeltaHistogram"),
-  "Value split chart",
+// TC-B2 / TCM-M01, M02, M04, M05: how each package is built (stacked value
+// bars, Quick Trade Facts, concentration) -- the Value tab's first panel.  It
+// supersedes the two-bar value split chart, which repeated the meter's totals
+// (UX audit §7.1 "removed or merged outright").
+const TradePackageBreakdown = dyn(
+  () => import("@/components/trade/TradePackageBreakdown"),
+  "Package breakdown",
+);
+// TC-D2: the Reasoning tab -- the decision's own coverage record and "what
+// would change it", rendered only when that tab is open.
+const TradeDecisionReasoning = dyn(
+  () => import("@/components/trade/TradeDecisionReasoning"),
+  "Decision reasoning",
 );
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
 // TC-07 / TC-10: recorded real trades that moved an asset on the calculator.
@@ -210,6 +228,8 @@ const loadKtcImportPanel = () => import("./trade-ktc-import");
 // chooses Import trade -> From screenshot.
 const loadScreenshotImport = () => import("./trade-screenshot-import");
 const loadSuggestionsDesk = () => import("./trade-suggestions-desk");
+// TC-D2: the phone builder's bottom sheet -- rendered only after a tap.
+const loadAssetSheet = () => import("./trade-asset-sheet");
 // A prefetch failure is not handled here: the lazy render below retries
 // the import and surfaces any real failure the same way it always would.
 const prefetch = (loader) => {
@@ -227,6 +247,10 @@ const SuggestionsDesk = dyn(
   () => loadSuggestionsDesk().then((m) => ({ default: m.SuggestionsDesk })),
   "Trade suggestions",
 );
+const TradeAssetSheet = dyn(
+  () => loadAssetSheet().then((m) => ({ default: m.TradeAssetSheet })),
+  "Add to side",
+);
 const ScreenshotImportDialog = dyn(
   () =>
     loadScreenshotImport().then((m) => ({ default: m.ScreenshotImportDialog })),
@@ -235,11 +259,7 @@ const ScreenshotImportDialog = dyn(
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const {
-    settings,
-    hydrated: settingsHydrated,
-    update: updateSetting,
-  } = useSettings();
+  const { settings } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   // Trade math is canonical, always (TC-A P0-4): the retired "Raw" mode read
   // the legacy scraper composite.  Kept as a name so every call site states
@@ -249,7 +269,13 @@ export default function TradePage() {
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
   const [activeSide, setActiveSide] = useState(0); // index into sides
-  const [realTradesOpen, setRealTradesOpen] = useState(false);
+  // TC-D2: the open Supporting-intelligence drilldown (only it is mounted).
+  const [intelTab, setIntelTab] = useState("value");
+  // TC-D2: phones build through one bottom sheet per side (null = closed).
+  const narrow = useNarrowViewport();
+  const [sheetSideIdx, setSheetSideIdx] = useState(null);
+  // TC-D2: CSV / JSON / Copy KTC URL live in the toolbar's "More" group.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   // TC-D: the War Room's decision, reported up (onDecision) for the sticky
   // desktop echo and the mobile verdict bar.  The War Room owns the request.
   const [decisionSummary, setDecisionSummary] = useState({ status: "idle", decision: null });
@@ -267,6 +293,11 @@ export default function TradePage() {
     prefetch(loadSuggestionsDesk);
     prefetch(loadWarRoom);
   }, []);
+
+  // The phone sheet belongs to the phone layout: it closes if the viewport widens.
+  useEffect(() => {
+    if (!narrow) setSheetSideIdx(null);
+  }, [narrow]);
 
   // Per-player value overrides for this trade only.
   // Keyed by player name → number (the final effective value to use in trade math).
@@ -319,6 +350,10 @@ export default function TradePage() {
   // lost anything — on load (decoder bounds) or on copy (encoder/decoder
   // bounds) — so a truncated trade never reads as a clean success.
   const [shareStatus, setShareStatus] = useState(null);
+  // TC-B2 / TCM-N03: a completed trade opened from Trade History.  The page
+  // stays in LIVE mode (no as-of replay exists) and says so until dismissed
+  // or the trade is cleared.  ``{ tradedAt }`` or null.
+  const [historyOrigin, setHistoryOrigin] = useState(null);
   const [shareHydrated, setShareHydrated] = useState(false);
   // Use Team Context (#842): default ON.  A share link can carry Asset-Only.
   const [useTeamContext, setUseTeamContext] = useState(true);
@@ -360,6 +395,7 @@ export default function TradePage() {
     rows.forEach((r) => m.set(r.name, r));
     return m;
   }, [rows]);
+
 
   // Lowercased-name → row map for the Sleeper pick resolver; matches
   // the shape ``resolvePickRow`` expects.  Built alongside rowByName
@@ -700,6 +736,10 @@ export default function TradePage() {
       setShareHydrated(true);
       return;
     }
+    setHistoryOrigin(historyOriginFor(sharePayloadOf(window.location.search)));
+    // Per-asset degrade (TC-B2 / TCM-C04): a name the board cannot resolve is
+    // left out AND named, never silently dropped.
+    const unresolved = [];
     try {
       const neededSides = Math.max(2, state.sides.length);
       const ensureSides = (prev) => {
@@ -708,52 +748,56 @@ export default function TradePage() {
           next = [...next, createSide(next.length)];
         return next;
       };
+      // Resolved OUTSIDE the state updater (which React may run later, or
+      // twice), so the unresolved names are known before the status is set.
+      const resolvedDests = state.sides.map(() => []);
+      const resolvedBySide = state.sides.map((incoming, i) => {
+        if (!incoming) return [];
+        const resolved = [];
+        const ids = incoming.assetIds || [];
+        const dests = incoming.destinations || [];
+        (incoming.players || []).forEach((name, j) => {
+          // Direct rowByName lookup catches every player and any
+          // pick that happens to be in canonical form
+          // ("2026 Pick 1.04").
+          let row = rowByName.get(name);
+          if (!row) {
+            // Pick fallback: trade history items round-trip through
+            // share URLs using the SLEEPER format ("2026 1.04 (from
+            // Team X)" or "2027 Mid 1st (own)"), which doesn't
+            // match the canonical rowByName key.  Re-use the same
+            // ``resolvePickRow`` walker league-analysis uses so
+            // imported trades from /trades correctly hydrate picks.
+            if (parsePickToken(name)) {
+              row = resolvePickRow(name, rowByLowerName, pickAliases);
+            }
+          }
+          if (!row) {
+            if (!unresolved.includes(name)) unresolved.push(name);
+            return;
+          }
+          // An owned pick keeps its canonical id; everything else is
+          // the board row.  Repeated names are copies and ALL load, for
+          // every kind of asset (owner decision 2026-10-03).
+          const assetId = ids[j];
+          resolvedDests[i].push(dests[j] ?? null);
+          resolved.push(
+            assetId
+              ? {
+                  ...row,
+                  assetId,
+                  assetLabel: ownedPickLabelById.get(assetId) || row.name,
+                }
+              : row,
+          );
+        });
+        return resolved;
+      });
       setSides((prev) => {
         const base = ensureSides(prev);
-        const resolvedDests = base.map(() => []);
-        const resolvedBySide = base.map((side, i) => {
-          const incoming = state.sides[i];
-          if (!incoming) return [];
-          const resolved = [];
-          const ids = incoming.assetIds || [];
-          const dests = incoming.destinations || [];
-          (incoming.players || []).forEach((name, j) => {
-            // Direct rowByName lookup catches every player and any
-            // pick that happens to be in canonical form
-            // ("2026 Pick 1.04").
-            let row = rowByName.get(name);
-            if (!row) {
-              // Pick fallback: trade history items round-trip through
-              // share URLs using the SLEEPER format ("2026 1.04 (from
-              // Team X)" or "2027 Mid 1st (own)"), which doesn't
-              // match the canonical rowByName key.  Re-use the same
-              // ``resolvePickRow`` walker league-analysis uses so
-              // imported trades from /trades correctly hydrate picks.
-              if (parsePickToken(name)) {
-                row = resolvePickRow(name, rowByLowerName, pickAliases);
-              }
-            }
-            if (!row) return;
-            // An owned pick keeps its canonical id; everything else is
-            // the board row.  Repeated names are copies and ALL load, for
-            // every kind of asset (owner decision 2026-10-03).
-            const assetId = ids[j];
-            resolvedDests[i].push(dests[j] ?? null);
-            resolved.push(
-              assetId
-                ? {
-                    ...row,
-                    assetId,
-                    assetLabel: ownedPickLabelById.get(assetId) || row.name,
-                  }
-                : row,
-            );
-          });
-          return resolved;
-        });
         return base.map((side, i) => {
           if (!state.sides[i]) return { ...side, assets: [], destinations: {} };
-          const resolved = resolvedBySide[i];
+          const resolved = resolvedBySide[i] || [];
           const nextDestinations = {};
           if (base.length > 2) {
             // The link's own routing when it carries one (TC-A); otherwise
@@ -779,17 +823,28 @@ export default function TradePage() {
         ACTIVE_PACKAGE_MODEL_ID,
         PACKAGE_MODELS,
       );
+      const notes = [
+        unresolved.length
+          ? `Not on today's board, so left out: ${unresolved.join(", ")}.`
+          : "",
+        modelNote || "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const lossy = state.truncated || unresolved.length > 0;
       setShareStatus(
         state.truncated
           ? {
               tone: "warning",
               text: `Loaded only part of the shared trade: the link had ${describeShareTruncation(
                 state.truncationReasons,
-              )}, beyond what a share link may carry.${modelNote ? ` ${modelNote}` : ""}`,
+              )}, beyond what a share link may carry.${notes ? ` ${notes}` : ""}`,
             }
-          : modelNote
-            ? { tone: "warning", text: `Loaded shared trade from link. ${modelNote}` }
-            : { tone: "positive", text: "Loaded shared trade from link." },
+          : lossy
+            ? { tone: "warning", text: `Loaded part of the shared trade. ${notes}` }
+            : modelNote
+              ? { tone: "warning", text: `Loaded shared trade from link. ${modelNote}` }
+              : { tone: "positive", text: "Loaded shared trade from link." },
       );
     } catch {
       setShareStatus({ tone: "warning", text: "Share link was malformed — ignored." });
@@ -1054,11 +1109,11 @@ export default function TradePage() {
   // (tray, balancers, the "add to balance" side) reads it.
   const pwLarger = Math.max(pwTotalA, pwTotalB);
   const pwGapIsFair = isFairGap(pwGap, pwLarger);
-  // 3+-team: the largest adjusted package any side sends (tradeImbalance's base).
-  const multiLarger = Math.max(
-    0,
-    ...sideFlows.map((f) => Number(f.given)).filter((v) => Number.isFinite(v)),
-  );
+  // 3+-team: the multi-team meter's own reading (one helper, shared with the
+  // persistent summary bar) -- its base is the largest adjusted package any
+  // side sends (tradeImbalance's base).
+  const multiSummary = useMemo(() => multiTeamNetSummary(sideFlows), [sideFlows]);
+  const multiLarger = multiSummary.largerSide;
 
   // Balancing suggestions (2-team mode only).
   //
@@ -1320,6 +1375,7 @@ export default function TradePage() {
     );
     setValueOverrides({});
     setExplicitMySide(null);
+    setHistoryOrigin(null);
   }
 
   function swapSides() {
@@ -2096,53 +2152,14 @@ export default function TradePage() {
         eyebrow="Trades"
         title="Trade Calculator"
         description="Multi-team trade calculator with live fairness visualization."
-        actions={
-          <SegmentedControl
-            label="Value basis"
-            // Unchecked until settings hydrate — see the matching note on
-            // /rankings. It matters more here: a trade verdict rendered
-            // under a basis label the user did not choose is the single
-            // most dangerous thing this page can show.
-            value={settingsHydrated ? settings.valuationMode || "market" : null}
-            onChange={(v) => updateSetting("valuationMode", v)}
-            options={[
-              { value: "market", label: "Market" },
-              { value: "leagueAdjusted", label: "My league" },
-            ]}
-          />
-        }
       />
 
-      {/* A trade verdict that silently changed basis is the most
-          dangerous thing this page can do. Say which board it is on.
-
-          Gated on the CONTRACT, not on `settings.valuationMode`. The
-          setting is what the user asked for; the contract is what they
-          got, and the two diverge whenever the overlay fetch fails, the
-          scrape-version pin refuses, or the server finds no roster
-          snapshot. Reading the setting would label a market board
-          "league-adjusted" in exactly those cases.
-
-          `valuationBasisOf` also covers the server-composed path
-          (custom weights + the lens), which carries no client-applied
-          overlay object of its own. */}
-      {valuationBasisOf(rawData) === "leagueAdjusted" ? (
-        <Banner tone="info" title="Valued on your league's board">
-          Picks stay at market value.
-          <InfoTip label="your league&apos;s board">
-            <p>
-              Values and ranks are adjusted for positional scarcity measured
-              from this league&apos;s rosters.
-            </p>
-            <p>
-              Draft picks carry no scarcity measurement, so they hold their
-              market value while players move around them — which means a
-              player-for-pick trade reads differently here than on the market
-              board.
-            </p>
-          </InfoTip>
-        </Banner>
-      ) : null}
+      {/* TC-D2 / TCM-D09: the "Market / My league" control is gone -- the
+          league-adjusted lens is withdrawn server-side (#822; CLAUDE.md
+          "valuation_mode: accepted, ignored"), so the control changed
+          nothing.  The note below is gated on the CONTRACT, never the
+          setting, and renders nothing on the market board. */}
+      <ValueBasisNote contract={rawData} />
 
       {loading ? (
         // 4 rows ~= 213px, the measured height of the suggestions rail
@@ -2192,19 +2209,6 @@ export default function TradePage() {
               <h2 id="trade-builder-title" className={styles.layerTitle}>
                 Trade builder
               </h2>
-              {/* Mobile-only quick-add: the FIRST interactive element a
-                  phone user reaches, so populating a trade needs no
-                  scrolling.  In flow since TC-D (no longer sticky): the
-                  verdict bar is the one persistent strip. */}
-              <MobileQuickAddBar
-                activeSide={activeSide}
-                sides={sides}
-                onAddToActiveSide={addToActiveSide}
-                searchAssets={(q) => searchAssets(q, activeSide)}
-                settings={settings}
-                onSetActiveSide={setActiveSide}
-              />
-
               <Panel dense className="trade-controls">
                 <div className={styles.controls}>
                   <Button onClick={swapSides}>
@@ -2268,36 +2272,57 @@ export default function TradePage() {
                   <Button onClick={copyShareLink} disabled={!hasAssets}>
                     Copy share link
                   </Button>
+                  {/* TC-D2 (UX audit P2-8): the export actions sit in one
+                      "More" group instead of three primary toolbar buttons. */}
                   <Button
-                    onClick={exportKtcUrl}
-                    disabled={sides.length !== 2 || !hasAssets}
+                    onClick={() => setMoreMenuOpen((open) => !open)}
+                    aria-expanded={moreMenuOpen}
+                    aria-controls="trade-more-options"
+                    icon={<Icon name={moreMenuOpen ? "chevron-up" : "chevron-down"} size={12} />}
                   >
-                    Copy KTC URL
+                    More
                   </Button>
-                  <Button onClick={exportCsv} disabled={!hasAssets}>
-                    CSV
-                  </Button>
-                  <Button onClick={exportJson} disabled={!hasAssets}>
-                    JSON
-                  </Button>
-                  {sides.length === 2 && selectedTeam ? (
-                    <Button
-                      variant="primary"
-                      onClick={runSimulateTrade}
-                      disabled={simLoading || !hasAssets || !warRoomRequest}
-                      loading={simLoading}
-                      title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
+                  {moreMenuOpen ? (
+                    <span
+                      id="trade-more-options"
+                      role="group"
+                      aria-label="More trade actions"
+                      className={styles.importOptions}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setMoreMenuOpen(false);
+                      }}
                     >
-                      Simulate impact
-                    </Button>
-                  ) : null}
-                  {/* TC-D: the impact result renders under Supporting
-                      intelligence instead of pushing the builder down (UX
-                      audit §2.1 row 5), so the control links to it. */}
-                  {(simResult || simError) && simResultSignature === simSignature ? (
-                    <a href="#trade-simulation" className={styles.inlineLink}>
-                      View impact result
-                    </a>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          exportKtcUrl();
+                        }}
+                        disabled={sides.length !== 2 || !hasAssets}
+                      >
+                        Copy KTC URL
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          exportCsv();
+                        }}
+                        disabled={!hasAssets}
+                      >
+                        Download CSV
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          exportJson();
+                        }}
+                        disabled={!hasAssets}
+                      >
+                        Download JSON
+                      </Button>
+                    </span>
                   ) : null}
                   {exportStatus ? (
                     <span className={styles.controlsNote}>{exportStatus}</span>
@@ -2310,6 +2335,21 @@ export default function TradePage() {
                   {describePickOwnershipReason(pickOwnershipUnknown[0].reason)} Owned picks for{" "}
                   {pickOwnershipUnknown.map((t) => t.name).join(", ")} cannot be listed or
                   suggested; market picks (e.g. a Mid 1st) can still be added.
+                </Banner>
+              ) : null}
+
+              {historyOrigin ? (
+                <Banner
+                  tone="warning"
+                  title="Opened from Trade History — today's view, not a replay"
+                  onDismiss={() => setHistoryOrigin(null)}
+                >
+                  <span data-testid="trade-history-origin">
+                    This completed trade{historyOrigin.tradedAt ? ` (made ${historyOrigin.tradedAt})` : ""}{" "}
+                    is valued with today&apos;s board, rosters and roster needs. It is not
+                    what the trade looked like when it was made: an as-of replay is not
+                    built yet.
+                  </span>
                 </Banner>
               ) : null}
 
@@ -2462,9 +2502,25 @@ export default function TradePage() {
                     registerInputRef={(idx, el) => {
                       sideInputRefs.current[idx] = el;
                     }}
+                    sheetMode={narrow}
+                    onOpenSheet={(idx) => {
+                      setActiveSide(idx);
+                      setSheetSideIdx(idx);
+                    }}
                   />
                 ))}
               </div>
+              {/* Gated here: rendering the lazy sheet is what requests its chunk. */}
+              {narrow && sheetSideIdx != null && sides[sheetSideIdx] ? (
+                <TradeAssetSheet
+                  side={sides[sheetSideIdx]}
+                  sideIdx={sheetSideIdx}
+                  searchAssets={searchAssets}
+                  settings={settings}
+                  onAdd={addToSide}
+                  onClose={() => setSheetSideIdx(null)}
+                />
+              ) : null}
             </section>
 
             {/* ── 2. IMMEDIATE RESULT (+ the decision echo) ─────────
@@ -2586,11 +2642,12 @@ export default function TradePage() {
                 // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
                 // two-team trade.  A 3+-team trade gets no YES / NO, and the page
                 // says so instead of silently dropping the War Room.
-                <Banner tone="info" title="Trade War Room: two-team trades only">
+                <Banner tone="info" title="A reliable YES / NO is unavailable">
                   <span data-testid="war-room-multi-team-limit">
-                    The YES / NO decision covers two-team trades, so none is computed
-                    for this {sides.length}-team trade; the result meter compares
-                    each team&apos;s net flow.
+                    The decision engine can identify your side and account for every
+                    side only in a two-team trade, so no YES / NO is given for this{" "}
+                    {sides.length}-team trade (owner decision, 2026-10-18); the result
+                    meter compares each team&apos;s net flow.
                   </span>
                 </Banner>
               )}
@@ -2605,87 +2662,136 @@ export default function TradePage() {
               <h2 id="trade-intelligence-title" className={styles.layerTitle}>
                 Supporting intelligence
               </h2>
-              {/* Gated here, not only inside the panel: rendering the lazy
-                  component is what requests its chunk. */}
-              {(simResult || simError) && simResultSignature === simSignature ? (
-                <SimulationPanel
-                  id="trade-simulation"
-                  simResult={simResult}
-                  simError={simError}
-                  selectedTeam={selectedTeam}
-                  onReset={resetSim}
-                  overrideCount={Object.keys(valueOverrides).length}
-                />
-              ) : null}
-
-              {/* ── SECOND OPINIONS ──────────────────────────────────
-                  Panels that each re-answer "is this fair?" in a different
-                  currency: per-vendor breakdown, rest-of-season fit, BDVM
-                  fundamentals, and the value-delta chart.  Each
-                  is worth having and none is the verdict, so they fold
-                  away by default instead of pushing the builder off
-                  screen.  Collapsed state is per-panel, so opening the one
-                  you rely on sticks for the session. */}
-              <CollapsiblePanel
-                title="Second opinions"
-                subtitle="Per-source breakdown, rest-of-season fit, fundamentals and the value split"
-                defaultCollapsed
-                mountCollapsedChildren={false}
-              >
-              {/* No valueMode: Second Opinions owns its own comparison
-                  basis and must not inherit a display toggle. */}
-              <TradeSourceBreakdown
-                sides={sides}
-                settings={settings}
-                hasOverrides={Object.keys(valueOverrides).length > 0}
+              {/* TC-D2: one drilldown per question (UX audit §7.1 layer 4).
+                  Only the open tab is rendered, so each panel's chunk and
+                  request wait for the user -- the contract the folded panels
+                  had.  Nothing here computes a value, a band or a verdict. */}
+              <TradeIntelTabs
+                active={intelTab}
+                onChange={setIntelTab}
+                panels={{
+                  value: () => (
+                    <>
+                      <TradePackageBreakdown
+                        sides={sidesWithOverrides}
+                        sideTotals={sideTotals}
+                        valueMode={valueMode}
+                      />
+                      {/* Multi-team flow visual — 3+ sides only; the 2-team
+                          meter already makes flow obvious for a 1-on-1 deal. */}
+                      {sides.length >= 3 ? (
+                        <MultiTradeFlow
+                          sides={sides}
+                          sideFlowAssets={sideFlowAssets}
+                          valueMode={valueMode}
+                          settings={settings}
+                        />
+                      ) : null}
+                      {/* ── SECOND OPINIONS ──────────────────────────────
+                          Panels that each re-answer "is this fair?" in a
+                          different currency: the per-vendor breakdown and BDVM
+                          fundamentals.  Each is worth having and none is the
+                          verdict, so they stay folded until asked for. */}
+                      <CollapsiblePanel
+                        title="Second opinions"
+                        subtitle="Per-source breakdown and fundamentals"
+                        defaultCollapsed
+                        mountCollapsedChildren={false}
+                      >
+                        {/* No valueMode: Second Opinions owns its own comparison
+                            basis and must not inherit a display toggle. */}
+                        <TradeSourceBreakdown
+                          sides={sides}
+                          settings={settings}
+                          hasOverrides={Object.keys(valueOverrides).length > 0}
+                        />
+                        <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
+                      </CollapsiblePanel>
+                    </>
+                  ),
+                  // TCM-H13: the one roster-consequence surface beside the
+                  // decision -- Simulate impact lives here, not in the toolbar.
+                  roster: () => (
+                    <>
+                      {sides.length !== 2 ? (
+                        <p className={styles.intelLead}>
+                          Roster impact covers two-team trades; this {sides.length}-team trade
+                          has none.
+                        </p>
+                      ) : !selectedTeam ? (
+                        <p className={styles.intelLead}>
+                          Pick your team to see what this trade does to your roster.
+                        </p>
+                      ) : (
+                        <>
+                          <p className={styles.intelLead}>
+                            The roster answer that counts toward the decision is in the{" "}
+                            <a href="#trade-decision" className={styles.inlineLink}>
+                              Trade War Room
+                            </a>
+                            . Simulate impact applies this trade to your roster and shows the
+                            full before / after.
+                          </p>
+                          <span>
+                            <Button
+                              variant="primary"
+                              onClick={runSimulateTrade}
+                              disabled={simLoading || !hasAssets || !warRoomRequest}
+                              loading={simLoading}
+                              title="Apply this trade to your roster and see before/after roster value"
+                            >
+                              Simulate impact
+                            </Button>
+                          </span>
+                        </>
+                      )}
+                      {/* Gated here, not only inside the panel: rendering the
+                          lazy component is what requests its chunk.  Shown only
+                          for the trade, team and league it answered. */}
+                      {(simResult || simError) && simResultSignature === simSignature ? (
+                        <SimulationPanel
+                          id="trade-simulation"
+                          simResult={simResult}
+                          simError={simError}
+                          selectedTeam={selectedTeam}
+                          onReset={resetSim}
+                          overrideCount={Object.keys(valueOverrides).length}
+                        />
+                      ) : null}
+                    </>
+                  ),
+                  season: () => (
+                    <RosTradeFitPanel
+                      sides={sides}
+                      settings={settings}
+                      leagueKey={selectedLeagueKey || ""}
+                    />
+                  ),
+                  // Recorded real trades: mounted only while this tab is open,
+                  // so a closed tab never refetches on a trade edit.
+                  market: () => (
+                    <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
+                  ),
+                  reasoning: () => (
+                    <TradeDecisionReasoning
+                      decision={
+                        sides.length === 2 && decisionSummary.status === "ok"
+                          ? decisionSummary.decision
+                          : null
+                      }
+                      emptyText={
+                        sides.length !== 2
+                          ? SUMMARY_STATE_TEXT.multi
+                          : SUMMARY_STATE_TEXT[
+                              decisionSummary.status === "updating"
+                                ? "loading"
+                                : decisionSummary.status
+                            ] || SUMMARY_STATE_TEXT.idle
+                      }
+                    />
+                  ),
+                }}
               />
-              <RosTradeFitPanel sides={sides} settings={settings} leagueKey={selectedLeagueKey || ""} />
-              <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
-
-              {sides.length === 2 ? (
-                <Panel>
-                  <TradeDeltaHistogram
-                    sides={[
-                      {
-                        label: `Side ${sides[0]?.label || "A"}`,
-                        total: sideTotals[0]?.adjusted || 0,
-                      },
-                      {
-                        label: `Side ${sides[1]?.label || "B"}`,
-                        total: sideTotals[1]?.adjusted || 0,
-                      },
-                    ]}
-                  />
-                </Panel>
-              ) : null}
-
-              {/* Multi-team flow visual — 3+ sides only; the 2-team meter
-                  already makes flow obvious for a 1-on-1 deal. */}
-              {sides.length >= 3 ? (
-                <MultiTradeFlow
-                  sides={sides}
-                  sideFlowAssets={sideFlowAssets}
-                  valueMode={valueMode}
-                  settings={settings}
-                />
-              ) : null}
-
-              </CollapsiblePanel>
-
-              {/* Controlled, and the section is mounted ONLY while open: a
-                  mounted-but-folded section would refetch on every trade edit. */}
-              <Panel
-                title="Recent real trades"
-                subtitle="Recorded verified-dynasty trades that moved these assets, with each league's format"
-                collapsible
-                collapsed={!realTradesOpen}
-                onToggleCollapsed={() => setRealTradesOpen((v) => !v)}
-                bodyId="trade-recent-real-trades"
-              >
-                {realTradesOpen ? (
-                  <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
-                ) : null}
-              </Panel>
             </section>
 
             {/* ── 5. IDEAS & TOOLS ─────────────────────────────── */}
@@ -2707,6 +2813,11 @@ export default function TradePage() {
                   evalState={evalState.state}
                   isFair={sides.length === 2 ? pwGapIsFair : multiBalancers == null}
                   balancerSideLabel={balancerSideLabel}
+                  decisionRunId={
+                    sides.length === 2 && decisionSummary.status === "ok"
+                      ? decisionSummary.runId || null
+                      : null
+                  }
                 />
               ) : null}
 
@@ -2830,7 +2941,11 @@ export default function TradePage() {
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            // TC-D2: the persistent summary for a 3+-team trade (the multi-team
+            // meter's own net flows and band; no YES / NO exists for it).
+            <MultiTeamSummaryBar sides={sides} summary={multiSummary} evalState={evalState} />
+          )}
         </>
       ) : null}
     </div>

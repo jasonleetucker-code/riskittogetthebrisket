@@ -95,3 +95,44 @@ def iter_decision_log_lines(
     """``(file name, parsed line | None)`` for every complete line -- the same
     reader (and the same torn-line rule) as the Best Offers run log."""
     yield from _best_offers.iter_run_log_lines(log_dir or _default_dir())
+
+
+#: How many monthly log files a run-id lookup reads, newest first.  A bound on
+#: the scan, not a retention rule: a decision older than this is "not found".
+FIND_MAX_FILES = 3
+
+
+def find_decision_run(
+    run_id: str,
+    *,
+    log_dir: Path | None = None,
+    max_files: int = FIND_MAX_FILES,
+) -> Mapping[str, Any] | None:
+    """The logged line for ``run_id``, or ``None`` (TC-B2 / TCM-G18).
+
+    Read-only.  The Trade Desk attaches a saved idea's decision FROM this log,
+    so what it stores is the server's own record of a served decision, never a
+    verdict the client typed.  Any read failure is "not found".
+    """
+    if not isinstance(run_id, str) or not run_id:
+        return None
+    target = log_dir or _default_dir()
+    try:
+        files = sorted(target.glob("runs-*.jsonl"), reverse=True)[: max(1, int(max_files))]
+    except OSError:
+        return None
+    for path in files:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw in reversed(lines):
+            if run_id not in raw:
+                continue
+            try:
+                line = json.loads(raw)
+            except ValueError:
+                continue
+            if isinstance(line, dict) and line.get("runId") == run_id:
+                return line
+    return None

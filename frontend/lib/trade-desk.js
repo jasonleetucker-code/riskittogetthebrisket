@@ -131,6 +131,26 @@ export function rosterCheckText(check) {
   return `Roster changed: ${moved} no longer in place`;
 }
 
+/**
+ * The War Room answer a calculator save carries (TC-B2 / TCM-G18), as one
+ * line, or null.  The server attached it from its own decision log; it is
+ * what was answered WHEN SAVED and is never refreshed or read as a status.
+ */
+export function deskDecisionText(item, formatDate = (iso) => iso) {
+  const d = item?.decision;
+  if (d && d.headlineText) {
+    const confidence = d.confidenceLevel
+      ? ` · ${String(d.confidenceLevel).toLowerCase()} confidence`
+      : "";
+    const when = d.recordedAt ? ` on ${formatDate(d.recordedAt)}` : "";
+    return `War Room answer when saved${when}: ${d.headlineText}${confidence}. Not refreshed; open it in the calculator for today's answer.`;
+  }
+  if (item?.decisionUnavailable) {
+    return "No War Room answer attached: the one named could not be verified.";
+  }
+  return null;
+}
+
 /** The last time the user changed the status, for "you marked … on …". */
 export function lastMarked(item) {
   const history = Array.isArray(item?.statusHistory) ? item.statusHistory : [];

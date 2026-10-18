@@ -131,6 +131,8 @@ describe("/trade on-demand sections, rendered by the page", () => {
       unresolvedOut: [],
     };
     render(<TradePage />);
+    // TC-D2 / TCM-H13: the result lives in the Roster drilldown.
+    await userEvent.click(await screen.findByRole("tab", { name: "Roster" }));
     expect(
       await screen.findByRole("heading", { name: "Impact on Team A" }, COLD_LAZY_REVEAL),
     ).toBeTruthy();
@@ -139,6 +141,7 @@ describe("/trade on-demand sections, rendered by the page", () => {
   it("renders the simulation error the same way", async () => {
     sim.error = "simulate exploded";
     render(<TradePage />);
+    await userEvent.click(await screen.findByRole("tab", { name: "Roster" }));
     expect(await screen.findByText("Simulation failed", {}, COLD_LAZY_REVEAL)).toBeTruthy();
   });
 
