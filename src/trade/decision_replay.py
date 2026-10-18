@@ -17,7 +17,7 @@ What it does not answer, and why (recorded, not faked):
   replay would have to read today's state and present it as contemporaneous --
   the exact error point-in-time integrity forbids.
 * A value the ledger cannot provide at T is missing, so the replayed decision
-  is NOT ENOUGH EVIDENCE naming it -- never a value of 0, never today's value.
+  is the owner's missing-evidence headline naming it -- never a value of 0, never today's value.
 
 Pure apart from the read-only ledger query; it executes nothing.
 """
