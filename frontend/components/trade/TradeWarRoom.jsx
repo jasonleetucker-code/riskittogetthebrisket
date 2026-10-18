@@ -662,7 +662,10 @@ export default function TradeWarRoom({
           sideChooser
         ) : (
           <p className={styles.note}>
-            {request
+            {/* A selected team with no request yet is an incomplete or
+                side-ambiguous trade (tradeRequestForTeam answers null rather
+                than assume a side), never "no team". */}
+            {request || teamName
               ? "Add assets to both sides to see what this trade does to your roster."
               : "Pick your team to see what this trade does to your roster."}
           </p>

@@ -75,3 +75,17 @@ describe("War Room asks which side is the team's", () => {
     expect(src).toMatch(/sideChoiceNeeded=\{sideChoiceNeeded\}/);
   });
 });
+
+describe("idle copy with a selected team", () => {
+  it("an empty or one-sided trade asks for assets, not for a team the user already picked", () => {
+    // tradeRequestForTeam answers null for an empty (0-0) trade; that must not
+    // read as "no team selected".
+    render(<TradeWarRoom request={null} teamName="Jason" sideChoiceNeeded={false} />);
+    expect(screen.getByText(/Add assets to both sides/)).toBeTruthy();
+    expect(screen.queryByText(/Pick your team/)).toBeNull();
+  });
+  it("with no team it still asks for one", () => {
+    render(<TradeWarRoom request={null} teamName="" sideChoiceNeeded={false} />);
+    expect(screen.getByText(/Pick your team/)).toBeTruthy();
+  });
+});
