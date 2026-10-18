@@ -104,6 +104,8 @@ const ROUTES = [
   "/league-comparison",
   "/league/insider-trading",
   "/managers",
+  // Manager Intelligence Batch E comparison view (C6-MGR-02).
+  "/managers/compare",
   "/market/sharp-people",
   "/market/sharp-roster-percentage",
   "/market/sharp-tracker",

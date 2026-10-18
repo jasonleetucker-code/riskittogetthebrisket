@@ -9,6 +9,11 @@
  * drilldown per team and a link to look that manager up in Manager
  * Intelligence.  Reached from a manager's league list on /managers.
  *
+ * Batch D: each drilldown carries Trade tools (../../TradeTools.jsx) that
+ * seed the Trade Calculator, Analyze Trade and the Package Builder with
+ * chosen assets from that roster; `?manager=<user id>` opens that manager's
+ * row on load.
+ *
  * PRIVATE: it sits under /managers, which is on no public prefix
  * (lib/public-routes.js), so the middleware's session gate covers it; its
  * data comes from the session-gated GET /api/manager-intel/league.
@@ -20,7 +25,7 @@
  * screens the same rows stacked, sharing one sort.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   Banner,
@@ -50,6 +55,7 @@ import {
   pickOwnershipText,
   positionStrengthRows,
   rankText,
+  readFocusManager,
   recordText,
   rosterSlotsText,
   rosterValueText,
@@ -61,6 +67,7 @@ import {
   valueReasonText,
 } from "@/lib/manager-intel";
 import { Tendencies } from "../../ManagerActivity";
+import TradeTools from "../../TradeTools";
 import styles from "../../managers.module.css";
 
 function ScoutProfile({ scout }) {
@@ -116,7 +123,7 @@ function ManagerDetail({ manager, payload }) {
   const positions = positionStrengthRows(roster);
   const unknownPicks = capital?.picks == null ? pickOwnershipText(capital) : "";
   return (
-    <div className={styles.scoutDetail}>
+    <div className={styles.scoutDetail} data-focus-roster={manager.rosterId}>
       <div className={styles.scoutDetailHead}>
         <span className={styles.muted}>
           {recordText(manager.record)} record · {rosterSlotsText(roster)}
@@ -249,6 +256,8 @@ function ManagerDetail({ manager, payload }) {
         </section>
       </div>
 
+      <TradeTools manager={manager} tradeTools={payload?.tradeTools} />
+
       {manager.tendenciesSource === "manager_scout" ? (
         <section aria-label="Manager Scout">
           <h4>Manager Scout (our league&apos;s history)</h4>
@@ -280,6 +289,14 @@ export default function LeagueScoutPage() {
   });
   const [sort, setSort] = useState({ key: "valueRank", direction: "asc" });
   const [expanded, setExpanded] = useState(() => new Set());
+  // Batch D: `?manager=<user id>` (from a searched manager's league list)
+  // opens that manager's row — and with it the trade tools — once, on load.
+  const focusRef = useRef(null);
+  if (focusRef.current === null)
+    focusRef.current =
+      typeof window === "undefined"
+        ? ""
+        : readFocusManager(window.location.search);
 
   useEffect(() => {
     if (!valid) return undefined;
@@ -317,6 +334,20 @@ export default function LeagueScoutPage() {
     () => sortScoutRows(rows, sort.key, sort.direction),
     [rows, sort],
   );
+  useEffect(() => {
+    const focus = focusRef.current;
+    if (!focus || !rows.length) return;
+    focusRef.current = "";
+    const row = rows.find((r) => String(r.source?.ownerUserId || "") === focus);
+    if (!row) return;
+    setExpanded((prev) => new Set(prev).add(row.id));
+    requestAnimationFrame(() => {
+      const target = [
+        ...document.querySelectorAll(`[data-focus-roster="${row.rosterId}"]`),
+      ].find((el) => el.offsetParent !== null);
+      target?.scrollIntoView?.({ block: "start" });
+    });
+  }, [rows]);
   const ranked = data?.ranking?.rankedRosters || 0;
   const problems = useMemo(() => scoutCoverageProblems(data), [data]);
 
