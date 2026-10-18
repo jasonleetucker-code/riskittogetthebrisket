@@ -417,6 +417,44 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
         )
 
 
+def _assert_bucket_explained_by_axes(
+    case: unittest.TestCase, name: str, row: dict[str, Any]
+) -> None:
+    """B11: a published bucket is the WEAKEST of its five axes.
+
+    Quarantine may only LOWER it further (``_validate_and_quarantine_rows``
+    degrades to ``low``), never raise it.  So an unquarantined row's bucket
+    equals the bottleneck axis, and a quarantined row's bucket is at or below
+    it.  A bucket the axes cannot explain is a gate defect, whatever level it
+    happens to read.
+    """
+    from src.api.confidence import AXES, CONFIDENCE_LEVELS  # noqa: PLC0415
+
+    axes = row.get("confidenceAxes") or {}
+    bucket = str(row.get("confidenceBucket") or "")
+    case.assertEqual(
+        set(axes),
+        set(AXES),
+        f"{name}: confidenceAxes={axes!r} does not carry the five B11 axes",
+    )
+    order = {lvl: i for i, lvl in enumerate(CONFIDENCE_LEVELS)}
+    case.assertIn(bucket, order, f"{name}: unknown confidenceBucket {bucket!r}")
+    weakest = min((axes[a] for a in AXES), key=lambda lvl: order[lvl])
+    if row.get("quarantined"):
+        case.assertLessEqual(
+            order[bucket],
+            order[weakest],
+            f"{name}: quarantined row's bucket {bucket!r} exceeds its weakest axis {weakest!r}",
+        )
+    else:
+        case.assertEqual(
+            bucket,
+            weakest,
+            f"{name}: confidenceBucket={bucket!r} is not the weakest axis "
+            f"({weakest!r}) of {axes!r}",
+        )
+
+
 class TestPlayerRankingsUnchanged(unittest.TestCase):
     """Player ranks/values for known top players must not regress.
 
@@ -438,6 +476,10 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         ``confidenceBucket``.  Single-element tuple when the bucket
         must stay fixed, multi-element for players whose coverage
         legitimately oscillates between ``high`` and ``medium``.
+      * ``high_axes`` — B11 axes (``confidenceAxes``) that must stay
+        ``high``.  This is where a coverage regression is caught; the
+        bucket itself is the weakest axis and also moves with agreement
+        and with withheld (stale) families, which it is meant to report.
 
     Historically (April 2026) this test pinned exact ranks/values
     against a committed baseline fixture with ±5 rank / ±500 value
@@ -450,13 +492,67 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
 
     _ANCHORS: dict[str, dict[str, Any]] = {
         # ── Offense anchors ──
-        "Josh Allen": {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
-        "Drake Maye": {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
-        "Ja'Marr Chase": {"max_rank": 15, "min_value": 7000, "allowed_buckets": ("high",)},
-        "Bijan Robinson": {"max_rank": 15, "min_value": 6500, "allowed_buckets": ("high",)},
-        "Jahmyr Gibbs": {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
-        "Jayden Daniels": {"max_rank": 25, "min_value": 5500, "allowed_buckets": ("high",)},
-        "Puka Nacua": {"max_rank": 25, "min_value": 5500, "allowed_buckets": ("high",)},
+        # The elite offense anchors used to pin ``allowed_buckets=("high",)``.
+        # That pinned a LIVE-board outcome, not an invariant: under B11 the
+        # bucket is the weakest of five axes, and since the 2026-10-07 owner
+        # directive ("losing evidence never raises confidence") a withheld
+        # family is seated in every share axis' denominator.  Measured on the
+        # 2026-10-18 board: ``idpShowCombined`` was freshness-withheld on every
+        # row, so Drake Maye / Jayden Daniels read agreement 10 of 14 families
+        # (0.714 < EVIDENCE_SHARE_HIGH 0.75) -> "medium", with independence 13
+        # families and coverage 13 of 14 both "high".  The bucket legitimately
+        # moved; their evidence base did not.
+        #
+        # The intent the pin carried — catch a COVERAGE regression on a
+        # top player — is kept exactly, and stated on the axes that measure
+        # it: ``high_axes`` must stay "high" (>= 5 independent families,
+        # >= 75% of eligible families covering).  A join / scrape regression
+        # that strips a top player's sources still fails here; a market
+        # disagreement or a stale family, which the bucket is SUPPOSED to
+        # report, does not.  Every anchor's bucket must additionally be
+        # explained by its axes (``_assert_bucket_explained_by_axes``).
+        "Josh Allen": {
+            "max_rank": 20,
+            "min_value": 6000,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
+        "Drake Maye": {
+            "max_rank": 20,
+            "min_value": 6000,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
+        "Ja'Marr Chase": {
+            "max_rank": 15,
+            "min_value": 7000,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
+        "Bijan Robinson": {
+            "max_rank": 15,
+            "min_value": 6500,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
+        "Jahmyr Gibbs": {
+            "max_rank": 20,
+            "min_value": 6000,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
+        "Jayden Daniels": {
+            "max_rank": 25,
+            "min_value": 5500,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
+        "Puka Nacua": {
+            "max_rank": 25,
+            "min_value": 5500,
+            "allowed_buckets": ("high", "medium"),
+            "high_axes": ("independence", "coverage"),
+        },
         "Malik Nabers": {"max_rank": 30, "min_value": 5000, "allowed_buckets": ("high", "medium")},
         "Brock Bowers": {"max_rank": 40, "min_value": 5000, "allowed_buckets": ("high", "medium")},
         "Patrick Mahomes": {
@@ -601,6 +697,16 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
                     f"{name} confidenceBucket={cur_bucket!r} not in "
                     f"allowed {allowed_buckets} — likely coverage regression",
                 )
+                axes = row.get("confidenceAxes") or {}
+                for axis in bounds.get("high_axes", ()):
+                    self.assertEqual(
+                        axes.get(axis),
+                        "high",
+                        f"{name} confidenceAxes[{axis!r}]={axes.get(axis)!r} — "
+                        f"likely coverage regression (reasons: "
+                        f"{row.get('confidenceReasons')})",
+                    )
+                _assert_bucket_explained_by_axes(self, name, row)
         self.assertGreater(seen, 0, "no anchors verified")
 
     def test_top_five_offense_still_ranked(self) -> None:

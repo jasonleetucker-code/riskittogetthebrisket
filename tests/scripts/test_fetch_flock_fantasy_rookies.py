@@ -17,9 +17,34 @@ import csv
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from scripts import fetch_flock_fantasy_rookies as ffr
+from src.sources import seasonal_policy
+
+
+@pytest.fixture(autouse=True)
+def _isolated_seasonal_state_dir(tmp_path, monkeypatch):
+    """Every ``ffr.main`` call in this module records seasonal state in a temp dir.
+
+    ``main()`` defaults ``--state-dir`` to the TRACKED
+    ``data/scrape_state/``.  While the real Flock source is
+    ``seasonally_inactive`` (owner decision 2026-10-03; every October), a
+    test feeding a non-empty board took the reactivation path and rewrote
+    ``flockFantasySfRookies_seasonal.json`` to ``active`` — caught by the
+    runtime-data guard in ``tests/conftest.py`` (CI run 39158115282), and the
+    rewritten file then made the advisory source-health step report the
+    source as 438.7 h stale.  The argparse default is read from the module
+    global at call time, so redirecting it here covers every call, including
+    any a future test adds without ``--state-dir``.
+    """
+    state_dir = tmp_path / "scrape_state"
+    state_dir.mkdir()
+    monkeypatch.setattr(ffr, "DEFAULT_STATE_DIR", state_dir)
+    return state_dir
 
 
 def _make_api_response(
@@ -415,3 +440,51 @@ class TestRegistryMetadata(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSeasonalStateIsolation:
+    """The reactivation path writes to the state dir it was given — never the real one."""
+
+    def test_reactivation_is_recorded_in_the_isolated_state_dir(
+        self, tmp_path, _isolated_seasonal_state_dir
+    ):
+        state_dir = _isolated_seasonal_state_dir
+        policy = seasonal_policy.load_policies()[ffr.SOURCE_KEY]
+        empty = {"format": "PROSPECTS_SF", "year": 2026, "data": []}
+        observed = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
+        verdict = seasonal_policy.classify_empty_response(policy, empty, observed)
+        assert verdict.expected, verdict.reason
+        seasonal_policy.record_inactive_observation(state_dir, policy, verdict, observed)
+        state_file = seasonal_policy.state_path(state_dir, ffr.SOURCE_KEY)
+        assert json.loads(state_file.read_text())["state"] == "seasonally_inactive"
+
+        json_path = tmp_path / "flock_rookies.json"
+        json_path.write_text(
+            json.dumps(
+                _make_api_response(
+                    ("Jeremiyah Love", "RB", 1.0, False),
+                    ("Carnell Tate", "WR", 2.71, False),
+                    ("Fernando Mendoza", "QB", 4.43, False),
+                )
+            ),
+            encoding="utf-8",
+        )
+        orig_floor = ffr._FF_ROOKIE_ROW_COUNT_FLOOR
+        ffr._FF_ROOKIE_ROW_COUNT_FLOOR = 1
+        try:
+            rc = ffr.main(
+                [
+                    "--from-file",
+                    str(json_path),
+                    "--dest",
+                    str(tmp_path / "out.csv"),
+                    "--now",
+                    "2026-10-18T13:00:00Z",
+                ]
+            )
+        finally:
+            ffr._FF_ROOKIE_ROW_COUNT_FLOOR = orig_floor
+        assert rc == 0
+        # The transition landed in the redirected default, not data/scrape_state;
+        # the conftest runtime-data guard fails this test if the real file moved.
+        assert json.loads(state_file.read_text())["state"] == "active"

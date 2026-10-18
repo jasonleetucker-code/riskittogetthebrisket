@@ -91,6 +91,13 @@ beforeAll(async () => {
   await prewarmTradeSections();
 }, PREWARM_TIMEOUT_MS);
 
+// The per-test timeout must EXCEED the wait budget, or the budget is
+// fictional: vitest's default testTimeout is 5 s, so a 10 s reveal budget
+// was cut off at 5 s ("Test timed out in 5000ms") exactly when the suite
+// was loaded enough to need it.  Same setting as trade-asset-quantity /
+// trade-screenshot-import-page.
+vi.setConfig({ testTimeout: 30_000 });
+
 beforeEach(async () => {
   window.localStorage.clear();
   sim.result = null;
