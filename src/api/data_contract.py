@@ -523,7 +523,7 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # published value, ties sharing the better rank) through the ordinary
     # rank path; the native number stays visible in ``sourceNativeValues``.
     # raw / max x 9999 is rejected (Hampel drop ~0.90).  Never the pick rows:
-    # those live in ``dlfValuesSfTepPicks.csv`` (audit only).
+    # the fetcher writes those to a separate audit-only sidecar CSV.
     "dlfValuesSfTep": {
         "path": "CSVs/site_raw/dlfValuesSfTep.csv",
         "signal": "rank",
