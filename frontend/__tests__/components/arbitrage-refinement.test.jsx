@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/components/useDynastyData", () => ({
@@ -89,6 +89,12 @@ function payload(receiveName) {
   };
 }
 
+// Owner directive 2026-10-18: Golden Upgrades is the default tool, so the
+// Package Scan tab is opened first.
+function openPackageScan() {
+  fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
+}
+
 function requestBody(call) {
   return JSON.parse(call[1].body);
 }
@@ -129,6 +135,7 @@ describe("/arbitrage package refinement", () => {
       .mockResolvedValueOnce(response(payload("Target Bob")));
 
     render(<ArbitragePage />);
+    openPackageScan();
 
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
 
@@ -173,6 +180,7 @@ describe("/arbitrage package refinement", () => {
     const user = userEvent.setup();
     global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
     render(<ArbitragePage />);
+    openPackageScan();
 
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     await user.click(
@@ -214,6 +222,7 @@ describe("/arbitrage package refinement", () => {
     );
     global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
     render(<ArbitragePage />);
+    openPackageScan();
 
     expect(await screen.findByRole("button", { name: "Remove exclusion: Send Alpha" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
@@ -227,6 +236,7 @@ describe("/arbitrage package refinement", () => {
     const user = userEvent.setup();
     global.fetch = vi.fn().mockResolvedValue(response(payload("Target Bob")));
     render(<ArbitragePage />);
+    openPackageScan();
 
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     await screen.findByRole("button", { name: "Don't target Target Bob in this scan" });
@@ -254,6 +264,7 @@ describe("/arbitrage package refinement", () => {
     };
     global.fetch = vi.fn().mockResolvedValue(response(body));
     render(<ArbitragePage />);
+    openPackageScan();
 
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     const list = await screen.findByRole("list", { name: "Roster consequences" });
@@ -275,6 +286,7 @@ describe("/arbitrage package refinement", () => {
     });
     global.fetch = vi.fn().mockResolvedValue(response(body));
     render(<ArbitragePage />);
+    openPackageScan();
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     expect(await screen.findByText(/KTC tier average — slot unknown/)).toBeInTheDocument();
   });
@@ -293,6 +305,7 @@ describe("/arbitrage package refinement", () => {
       )
       .mockResolvedValueOnce(response(payload("Target Charlie")));
     render(<ArbitragePage />);
+    openPackageScan();
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     await screen.findByRole("button", { name: "Don't target Target Bob in this scan" });
 

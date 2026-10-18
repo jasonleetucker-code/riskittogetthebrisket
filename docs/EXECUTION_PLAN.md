@@ -99,6 +99,20 @@ pending authenticated verification:
   train #1753
 No canonical value, weight or methodology change. Recommendation only — nothing sends or executes.
 
+## Trade Finder meaningful discovery — owner directive, 2026-10-18 (under the 2026-10-14 trade-discovery authorization)
+
+**AUTHORIZED; IN PROGRESS.** `/arbitrage` discovery finds trades that matter: tools first (Golden Upgrades
+default), the player-level table moved below as research, one shared Target Quality (canonical overall rank,
+incoming only, at least one incoming player) / Players to target (Offense / Defense / Both via the canonical
+position owners) / Most Impactful vocabulary (`src/trade/discovery.py`, declared prior
+`config/trade/discovery_impact_prior.json`, `PRIOR_UNVALIDATED`) applied during candidate generation in
+Golden Upgrades, Package Scan and Best Offers (Batch 1, `claude/trade-finder-meaningful`), then Package
+Builder Sending / Receiving across all nine combinations (Batch 2, stacked). Consumes the canonical owners
+only (finder enumeration via the substrate's receive anchor, `equity_verdict` + the active package model,
+lineup solver, Team Weakness, B11 confidence, roster capacity). No canonical value, Value Adjustment, fairness
+band or engine qualification rule changes. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-18").
+Evaluation: `docs/trade/DISCOVERY_IMPACT_EVALUATION_2026-10-18.md`.
+
 ## Universal Trade Screenshot Import (C3-IMPORT-IMAGE) — owner directive, 2026-10-15
 
 **AUTHORIZED; DEPLOYED 2026-10-16** (#1751 via train #1753, `47a9f561b`). Reader = free local OCR

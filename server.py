@@ -9520,7 +9520,9 @@ async def post_trade_finder(request: Request):
     Accepts JSON body:
         {
           "myTeam": "Team Name",
-          "opponentTeams": ["Opponent 1", "Opponent 2"]   // or ["all"] for all teams
+          "opponentTeams": ["Opponent 1", "Opponent 2"],  // or ["all"] for all teams
+          "discovery": {"targetQuality": "top250", "playersToTarget": "both",
+                        "sort": "most_impactful"}   // optional (src/trade/discovery)
         }
 
     Requires live data to be loaded. Works against the production data payload
@@ -9638,6 +9640,19 @@ async def post_trade_finder(request: Request):
         if use_team_context
         else None
     )
+    # Owner directive 2026-10-18 — Target Quality / Players to target / sort
+    # (``src/trade/discovery``).  Absent = legacy behaviour for every other
+    # caller of this route.
+    from src.trade.discovery import parse_discovery_filters
+
+    finder_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
+    finder_lineup_delta = (
+        await run_in_threadpool(_discovery_lineup_delta, contract, league_cfg, "/api/trade/finder")
+        if finder_discovery is not None and use_team_context
+        else None
+    )
 
     try:
         result = await run_in_threadpool(
@@ -9657,6 +9672,8 @@ async def post_trade_finder(request: Request):
             use_team_context=use_team_context,
             postures=finder_postures,
             pick_forecasts=finder_pick_forecasts,
+            discovery=finder_discovery,
+            lineup_delta=finder_lineup_delta,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -9666,6 +9683,27 @@ async def post_trade_finder(request: Request):
         result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _discovery_lineup_delta(contract: dict, league_cfg: Any, surface: str) -> Any:
+    """The canonical lineup solver seam for a discovery ordering, or ``None``.
+
+    The same league bundle Best Offers and Golden Upgrades read
+    (``gameplan.get_league_bundle``, cached per league); a failure is an
+    unavailable lineup factor, never a failed route.
+    """
+    try:
+        from src.api import gameplan as _gp
+        from src.api.league_registry import get_scoring_profile
+        from src.trade import best_offers as _best_offers
+
+        bundle, _hit = _gp.get_league_bundle(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+        return _best_offers.lineup_delta_from_bundle(bundle)
+    except Exception as exc:  # noqa: BLE001 — context never fails the route
+        log.info("%s: lineup solver unavailable: %s", surface, exc)
+        return None
 
 
 def _generated_trade_team_context(
@@ -9804,7 +9842,9 @@ async def post_trade_best_offers(request: Request):
           "leagueKey": "...",                         // optional, standard resolver
           "useTeamContext": true,                      // C3-CTX-01, default ON
           "opponents": ["Team A"],                     // optional: regenerate cards
-          "refinementByOpponent": {"Team A": {"lock": [...], "exclude": [...]}}
+          "refinementByOpponent": {"Team A": {"lock": [...], "exclude": [...]}},
+          "discovery": {"targetQuality": "top250", "playersToTarget": "both",
+                        "sort": "most_impactful", "minIncomingValue": null}  // optional
         }
 
     Hard rules (``src/trade/best_offers``): a canonical WIN for us; the
@@ -9871,6 +9911,11 @@ async def post_trade_best_offers(request: Request):
         if error is not None:
             return error
         refinement_by_opp[str(opp)] = clean
+    from src.trade.discovery import parse_discovery_filters
+
+    best_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
 
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
@@ -9932,6 +9977,7 @@ async def post_trade_best_offers(request: Request):
             lineup_delta=lineup_delta,
             capacity_for=capacity_for,
             opponents=opponents,
+            discovery=best_discovery,
         )
         meta = contract.get("meta") if isinstance(contract, dict) else None
         stamp = (meta or {}).get("generatedAt") if isinstance(meta, dict) else None
@@ -9973,7 +10019,9 @@ async def post_trade_golden_upgrades(request: Request):
           "myTeam": "Team Name",
           "leagueKey": "...",                 // optional, standard resolver
           "useTeamContext": true,             // lineup impact via the canonical solver
-          "refinement": {"lock": [], "exclude": []}
+          "refinement": {"lock": [], "exclude": []},
+          "discovery": {"targetQuality": "top250", "playersToTarget": "both",
+                        "sort": "most_impactful"}   // optional (src/trade/discovery)
         }
 
     Owned player → opponent's target where our canonical board prefers the
@@ -10011,6 +10059,11 @@ async def post_trade_golden_upgrades(request: Request):
     refinement, error = _refinement_from_body(body)
     if error is not None:
         return error
+    from src.trade.discovery import parse_discovery_filters
+
+    golden_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
 
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
@@ -10050,6 +10103,7 @@ async def post_trade_golden_upgrades(request: Request):
             contract=contract,
             constraints=constraints,
             lineup_delta=lineup_delta,
+            discovery=golden_discovery,
         )
 
     try:

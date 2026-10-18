@@ -253,6 +253,10 @@ class TradeCandidate:
     #: The opponent team this package was generated against (Wave B): the
     #: counterparty whose roster capacity is reported beside the requester's.
     counterparty: str | None = None
+    #: Discovery metrics (owner directive 2026-10-18, ``src/trade/discovery``)
+    #: — set only when a request asked for a discovery ordering, so a legacy
+    #: payload is unchanged.
+    discovery: dict | None = None
 
     def markets_used(self) -> list[str]:
         """Which retail markets priced the assets in this trade.
@@ -330,6 +334,14 @@ class TradeCandidate:
             # wrapper installed over this method at import time; they are part
             # of the payload now, so the shape is readable here.
             **value_adjustment_payload(self),
+            **(
+                {
+                    "discovery": self.discovery,
+                    "whyItMatters": self.discovery.get("whyItMatters"),
+                }
+                if self.discovery is not None
+                else {}
+            ),
         }
 
 
@@ -934,6 +946,7 @@ def _generate_packages(
     required_receive: list[Asset] | tuple[Asset, ...] = (),
     max_per_side: int | None = None,
     max_packages: int | None = None,
+    receive_anchor: Callable[[Any], bool] | None = None,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -971,6 +984,11 @@ def _generate_packages(
     rejecting packages afterwards); ``max_packages`` is a per-shape-group
     emission budget, reported as ``budgetExhausted``.  Both unset by the
     finder itself.
+
+    ``receive_anchor`` (owner directive 2026-10-18, Target Quality) is the
+    substrate's per-asset receive-side requirement: every package must bring
+    back at least one asset it admits, checked during enumeration before any
+    scorer runs (``src/trade/discovery.quality_anchor``).  Unset = unchanged.
     """
     results: list[TradeCandidate] = []
 
@@ -1004,6 +1022,7 @@ def _generate_packages(
             required_send=required_send,
             **({"required_receive": required_receive} if required_receive else {}),
             **({"max_packages": max_packages} if max_packages is not None else {}),
+            **({"receive_anchor": receive_anchor} if receive_anchor is not None else {}),
         )
         for pair in packages:
             give, receive = pair.sources()
@@ -1320,6 +1339,7 @@ def _posture_pick_packages(
     equal_count_only: bool,
     required_send: list[Asset] | tuple[Asset, ...] = (),
     score: Any = None,
+    receive_anchor: Callable[[Any], bool] | None = None,
 ) -> tuple[list[TradeCandidate], str | None]:
     """Pick-inclusive packages for a COMPLEMENTARY posture pair only.
 
@@ -1365,6 +1385,9 @@ def _posture_pick_packages(
         pool_limit=_PICK_CORE_POOL_LIMIT,
         rank_key=substrate.by_value_desc,
         required_send=required_send,
+        # Target Quality: the CORE must already bring back a qualifying
+        # player — a received pick is not a player and never satisfies it.
+        **({"receive_anchor": receive_anchor} if receive_anchor is not None else {}),
     )
     score_fn = score or _score_trade
     out: list[TradeCandidate] = []
@@ -1409,6 +1432,8 @@ def find_trades(
     use_team_context: bool = True,
     postures: dict[str, str] | None = None,
     pick_forecasts: dict[int, tuple[int, Any]] | None = None,
+    discovery: Any | None = None,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1428,6 +1453,17 @@ def find_trades(
         ``pick_market.owned_pick_forecasts`` (route-resolved).  Moves an
         unknown-slot pick's market side from the plain KTC tier average
         toward its forecast tier distribution, by confidence.
+    discovery : DiscoveryFilters | None
+        Owner directive 2026-10-18 (``src/trade/discovery``).  Players to
+        target narrows every opponent's pool BEFORE enumeration; Target
+        Quality rides the substrate's receive anchor (at least one incoming
+        player meets it, per asset); ``sort`` orders the qualified trades by
+        the shared discovery orderings instead of the arbitrage score.  The
+        finder's own gates (per-market top-N, plausibility, opponent appeal,
+        ``board_delta > 0``) are unchanged.  ``None`` = legacy behaviour.
+    lineup_delta : callable | None
+        The canonical lineup solver seam (``best_offers.lineup_delta_from_bundle``),
+        read only for the discovery head under Team Context.
     use_team_context : bool
         V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
         "fills a need" arm consult the canonical Team Weakness owner
@@ -1510,6 +1546,12 @@ def find_trades(
     pool_by_name: dict[str, Asset] = {}
     for a in pool:
         pool_by_name[a.name] = a
+
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    disc_index = _disc.CanonicalIndex(contract) if discovery is not None else None
+    disc_report = _disc.DiscoveryReport()
+    disc_anchor = _disc.quality_anchor(discovery, disc_index) if disc_index is not None else None
 
     my_roster = _resolve_roster(my_team, sleeper_teams, pool_by_name)
     if not my_roster:
@@ -1793,6 +1835,9 @@ def find_trades(
             and a.name.strip().casefold() not in excluded_player_keys
             and a.name.strip().casefold() not in skip_target_keys
         ]
+        if disc_index is not None:
+            # Players to target, BEFORE enumeration (src/trade/discovery).
+            opp_filtered = _disc.filter_incoming(opp_filtered, discovery, disc_index, disc_report)
         if not opp_filtered:
             continue
         opponents_analyzed += 1
@@ -1807,7 +1852,14 @@ def find_trades(
             # Only when a lock is set, so an unrefined call keeps the exact
             # pre-LOCK call shape (test seams stub this signature).
             **({"required_send": locked_assets} if locked_assets else {}),
+            **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
         )
+        if disc_anchor is not None:
+            disc_report.anchor_rejected += sum(
+                int((g or {}).get("receiveAnchorRejected") or 0)
+                for g in enum_report.values()
+                if isinstance(g, dict)
+            )
         if pick_generation_on:
             # The opponent's picks are only ever ASKED for when we tilt future
             # and they PUSH; resolve them only then.
@@ -1834,6 +1886,7 @@ def find_trades(
                 outgoing_policy,
                 equal_count_only=equal_count_only,
                 **({"required_send": locked_assets} if locked_assets else {}),
+                **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
             )
             shaped.extend(with_picks)
             pick_generation["pairs"][opp_name] = {
@@ -1929,7 +1982,31 @@ def find_trades(
                 capacity_by_trade[key] = None
         return capacity_by_trade[key]
 
-    if use_team_context and capacity_context is not None:
+    disc_sort = getattr(discovery, "sort", None) if discovery is not None else None
+    if disc_sort is not None:
+        capped = _order_by_discovery(
+            ranked,
+            max_results=max_results,
+            sort=disc_sort,
+            filters=discovery,
+            index=disc_index,
+            needs=(
+                {
+                    pos
+                    for pos, n in weakness_by_position.items()
+                    if n.get("level") in ("critical", "high")
+                }
+                if team_context.get("applied")
+                else None
+            ),
+            capacity_for=(
+                _capacity_for if use_team_context and capacity_context is not None else None
+            ),
+            lineup_delta=lineup_delta if use_team_context else None,
+            owner_of={str(t.get("name") or ""): str(t.get("ownerId") or "") for t in sleeper_teams},
+            my_team=my_team,
+        )
+    elif use_team_context and capacity_context is not None:
         capped = _rerank_with_forced_drop_cost(ranked, max_results, _capacity_for)
     else:
         capped = ranked[:max_results]
@@ -2024,9 +2101,161 @@ def find_trades(
             # Deprecated aliases — the gate is per-market now.
             "ktcTopNFilter": market_top_n,
             "ktcCoveragePercent": round(market_coverage_pct * 100, 1),
+            **(
+                {
+                    "discovery": _discovery_metadata(
+                        discovery, disc_report, returned=len(capped), qualified=len(ranked)
+                    )
+                }
+                if discovery is not None
+                else {}
+            ),
         },
         "warnings": warnings,
     }
+
+
+def _discovery_metadata(
+    discovery: Any, report: Any, *, returned: int, qualified: int
+) -> dict[str, Any]:
+    """What the discovery filters did, and — on an empty result — which one
+    emptied it (never "no trades exist" when a filter is the cause)."""
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    prior = _disc.load_impact_prior()
+    out: dict[str, Any] = {
+        "version": _disc.DISCOVERY_VERSION,
+        "filters": discovery.to_dict(),
+        "report": report.to_dict(),
+        "impactPrior": {
+            "id": prior.get("id"),
+            "status": prior.get("status"),
+            "configPath": "config/trade/discovery_impact_prior.json",
+        },
+        "broaderQualityLevels": _disc.broader_quality_levels(discovery.quality),
+    }
+    if returned == 0:
+        if discovery.scope_active and report.targets_considered == 0:
+            out["emptyReason"] = "no_target_in_players_to_target"
+            out["emptyDetail"] = (
+                f"No opponent rosters a {discovery.scope} player in this market pool."
+            )
+        elif discovery.quality_active and report.targets_meeting_quality == 0:
+            out["emptyReason"] = "no_target_meets_quality"
+            out["emptyDetail"] = (
+                "No opponent player in this scan meets the Target Quality filter. "
+                "Broaden Target Quality to search deeper."
+            )
+        elif discovery.quality_active and report.anchor_rejected:
+            out["emptyReason"] = "no_package_within_target_quality"
+            out["emptyDetail"] = (
+                "Packages that bring back a player inside Target Quality all failed the "
+                "plausibility, board-gain or market-appeal rules. Broaden Target Quality to "
+                "search deeper."
+            )
+    return out
+
+
+def _order_by_discovery(
+    ranked: list[TradeCandidate],
+    *,
+    max_results: int,
+    sort: str,
+    filters: Any,
+    index: Any,
+    needs: set[str] | None,
+    capacity_for: Callable[[TradeCandidate], Any] | None,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None,
+    owner_of: dict[str, str],
+    my_team: str,
+) -> list[TradeCandidate]:
+    """Order qualified trades by the shared discovery orderings.
+
+    Two passes over the same declared prior: every qualified trade is scored
+    on what is free to read (VA-adjusted canonical gain, the incoming player,
+    the finder's own opponent appeal through the Best Offers comfort plateau,
+    the Team Weakness need share); then a bounded head
+    (``_FORCED_DROP_RERANK_WINDOW_MULT x max_results``) adds what costs a
+    solve — the forced-release cost (the same ``_forced_drop_factor`` the
+    legacy order charges) and the canonical lineup delta, which replaces the
+    need share as ``rosterFit`` when available (never both).  Full market
+    coverage still sorts ahead of partial.  Ordering only: the qualified set
+    is unchanged.
+    """
+    from src.trade import best_offers as _bo  # noqa: PLC0415
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    prior = _disc.load_impact_prior()
+    scales = _bo.load_ranking_prior().get("scales") or {}
+
+    def _metrics(tc: TradeCandidate, *, lineup=None, forced=None) -> dict[str, Any]:
+        fit_lineup = _disc.lineup_fit(lineup, prior)
+        fit_need = _disc.need_fit(tc.receive, needs)
+        return _disc.candidate_metrics(
+            tc.give,
+            tc.receive,
+            index=index,
+            prior=prior,
+            filters=filters,
+            roster_fit=fit_lineup if fit_lineup is not None else fit_need,
+            roster_fit_basis=(
+                "lineup"
+                if fit_lineup is not None
+                else ("team_weakness" if fit_need is not None else None)
+            ),
+            counterparty=_bo._comfort(float(tc.opponent_ktc_appeal) * 100.0, scales),
+            counterparty_basis="finder opponent market appeal (Best Offers comfort plateau)",
+            forced_drop=forced,
+            lineup=lineup,
+        )
+
+    def _key(tc: TradeCandidate) -> tuple:
+        return (
+            0 if tc.ktc_coverage == "full" else 1,
+            *_disc.sort_key(sort, tc.discovery or {}, _trade_key(tc)),
+        )
+
+    for tc in ranked:
+        tc.discovery = _metrics(tc)
+    _disc.score_impact([tc.discovery for tc in ranked], prior)
+    ranked = sorted(ranked, key=_key)
+    head = ranked[: max(1, max_results) * _FORCED_DROP_RERANK_WINDOW_MULT]
+    if capacity_for is not None or lineup_delta is not None:
+        for tc in head:
+            forced = None
+            if capacity_for is not None:
+                factor = _forced_drop_factor(tc, capacity_for(tc))
+                if tc.ranking_factors.get("forcedDropCost") is not None:
+                    forced = -factor / _BOARD_EDGE_WEIGHT
+            lineup = (
+                lineup_delta(
+                    owner_of.get(my_team, ""),
+                    owner_of.get(tc.counterparty or "", ""),
+                    [a.name for a in tc.give if not a.is_pick],
+                    [a.name for a in tc.receive if not a.is_pick],
+                )
+                if lineup_delta is not None
+                else None
+            )
+            tc.discovery = _metrics(tc, lineup=lineup, forced=forced)
+        _disc.score_impact([tc.discovery for tc in head], prior)
+        head = sorted(head, key=_key)
+    out = head[:max_results]
+    for tc in out:
+        tc.discovery["whyItMatters"] = _disc.why_it_matters(
+            tc.discovery, need_positions=needs or ()
+        )
+        if not tc.discovery.get("lineupImpact"):
+            tc.discovery.pop("lineupImpact", None)
+    return out
+
+
+def _trade_key(tc: TradeCandidate) -> tuple:
+    return (
+        tc.counterparty or "",
+        tuple(sorted(a.asset_id or a.name for a in tc.give)),
+        tuple(sorted(a.asset_id or a.name for a in tc.receive)),
+    )
 
 
 # ── Public seams for consumers of this enumeration (C7-BEST-TRADE) ────────

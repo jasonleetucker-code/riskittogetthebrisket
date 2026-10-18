@@ -137,6 +137,17 @@ _NO_RESULT_TEXT = {
         "Every package that wins for you leaves the other side behind on both approved "
         "calculators."
     ),
+    # Discovery filters (owner directive 2026-10-18, src/trade/discovery).
+    "no_target_in_players_to_target": (
+        "This team has no player in the chosen Players to target group in this scan."
+    ),
+    "no_target_meets_quality": (
+        "This team has no player inside the Target Quality filter. Broaden Target Quality to "
+        "see deeper offers."
+    ),
+    "no_package_within_target_quality": (
+        "No package of an allowed shape brings back a player inside the Target Quality filter."
+    ),
 }
 
 
@@ -166,6 +177,8 @@ class BestOfferCandidate:
     summary: str = ""
     lineup: dict[str, Any] | None = None
     capacity: Any = None
+    #: Discovery metrics (owner directive 2026-10-18), set under a discovery sort.
+    discovery: dict[str, Any] | None = None
 
     @property
     def has_pick(self) -> bool:
@@ -772,8 +785,15 @@ def build_best_offers(
     opponents: Sequence[str] | None = None,
     prior: Mapping[str, Any] | None = None,
     market_top_n: int | None = None,
+    discovery: Any | None = None,
 ) -> dict[str, Any]:
     """One best offer (or an explained no-result) per opponent.
+
+    ``discovery`` (owner directive 2026-10-18, ``src/trade/discovery``):
+    Players to target narrows each opponent's pool before enumeration, Target
+    Quality is the substrate's receive anchor, and ``sort`` chooses each
+    opponent's offer and orders the cards by the shared discovery orderings.
+    Every hard rule above still qualifies the candidates; ``None`` = legacy.
 
     ``constraints_for(opponent)`` returns the requester's resolved constraints
     for that opponent's card (saved protections + that card's LOCK / EXCLUDE).
@@ -802,6 +822,13 @@ def build_best_offers(
     pool_by_name = {a.name: a for a in pool}
     index = _row_index(contract)
     owner_of = {str(t.get("name") or ""): str(t.get("ownerId") or "") for t in sleeper_teams}
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    disc_index = _disc.CanonicalIndex(contract) if discovery is not None else None
+    disc_prior = _disc.load_impact_prior() if discovery is not None else None
+    disc_anchor = _disc.quality_anchor(discovery, disc_index) if disc_index is not None else None
+    disc_sort = getattr(discovery, "sort", None)
+    disc_report = _disc.DiscoveryReport()
 
     my_roster = finder.resolve_roster(my_team, sleeper_teams, pool_by_name)
     team_exists = any(str(t.get("name") or "") == my_team for t in sleeper_teams)
@@ -892,6 +919,21 @@ def build_best_offers(
             card.update(_no_result("opponent_roster_unresolved"))
             results.append(card)
             continue
+        if disc_index is not None:
+            opp_report = _disc.DiscoveryReport()
+            opp_roster = _disc.filter_incoming(opp_roster, discovery, disc_index, opp_report)
+            for k in ("excluded_by_scope", "unknown_position", "targets_considered"):
+                setattr(disc_report, k, getattr(disc_report, k) + getattr(opp_report, k))
+            disc_report.targets_meeting_quality += opp_report.targets_meeting_quality
+            disc_report.unknown_position_names.extend(opp_report.unknown_position_names)
+            if not opp_roster or opp_report.targets_considered == 0:
+                card.update(_no_result("no_target_in_players_to_target"))
+                results.append(card)
+                continue
+            if discovery.quality_active and opp_report.targets_meeting_quality == 0:
+                card.update(_no_result("no_target_meets_quality"))
+                results.append(card)
+                continue
 
         policy = outgoing_eligibility(my_roster, constraints)
         their_needs = (needs_by_owner or {}).get(owner_of.get(opp, "")) if use_ctx else None
@@ -911,7 +953,14 @@ def build_best_offers(
             equal_count_only=False,
             **({"required_send": list(lock.required)} if lock.required else {}),
             score=score,
+            **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
         )
+        anchor_rejected = sum(
+            int((g or {}).get("receiveAnchorRejected") or 0)
+            for g in enum_report.values()
+            if isinstance(g, dict)
+        )
+        disc_report.anchor_rejected += anchor_rejected
         pair = None
         if pick_on and postures.get(opp):
             opp_picks: list[Any] = []
@@ -935,6 +984,7 @@ def build_best_offers(
                 equal_count_only=False,
                 **({"required_send": list(lock.required)} if lock.required else {}),
                 score=score,
+                **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
             )
             cands.extend(with_picks)
 
@@ -949,9 +999,12 @@ def build_best_offers(
             key=lambda c: (-c.arbitrage_score, c.has_pick, c.package_key()),
         )
         if not ranked:
+            reason = _no_result_reason(diag)
+            if reason == "no_candidate_packages" and anchor_rejected:
+                reason = "no_package_within_target_quality"
             card.update(
                 _no_result(
-                    _no_result_reason(diag),
+                    reason,
                     constrained=bool(blocked or (constraints and constraints.locked_outgoing)),
                 )
             )
@@ -961,22 +1014,44 @@ def build_best_offers(
 
         # Roster-aware rerank of the top K: lineup impact (both sides) and the
         # cost of releases the trade forces.  Team Context only.
-        head = ranked[:top_k]
-        if use_ctx:
-            rerank_head(
-                head,
-                weights,
+        if disc_sort is not None:
+            best = select_by_discovery(
+                ranked,
+                sort=disc_sort,
+                top_k=top_k,
+                filters=discovery,
+                index=disc_index,
+                prior=disc_prior,
+                our_needs=our_needs,
+                use_ctx=use_ctx,
+                weights=weights,
                 lineup_delta=lineup_delta,
                 capacity_for=capacity_for,
                 my_owner=my_owner,
                 opp_owner=owner_of.get(opp, ""),
                 opp=opp,
             )
-        best = head[0]
+        else:
+            head = ranked[:top_k]
+            if use_ctx:
+                rerank_head(
+                    head,
+                    weights,
+                    lineup_delta=lineup_delta,
+                    capacity_for=capacity_for,
+                    my_owner=my_owner,
+                    opp_owner=owner_of.get(opp, ""),
+                    opp=opp,
+                )
+            best = head[0]
+        offer = _offer_dict(best, our_needs, their_needs, pair, prior)
+        if best.discovery is not None:
+            offer["discovery"] = best.discovery
+            offer["whyItMatters"] = best.discovery.get("whyItMatters")
         card.update(
             {
                 "status": "qualified",
-                "offer": _offer_dict(best, our_needs, their_needs, pair, prior),
+                "offer": offer,
                 "diagnostics": {**diag, "enumeration": enum_report},
             }
         )
@@ -999,16 +1074,115 @@ def build_best_offers(
     concentration = {k: v for k, v in sorted(usage.items()) if v > 1}
 
     order = {"qualified": 0, "no_result": 1}
-    results.sort(
-        key=lambda r: (
-            order.get(r["status"], 2),
-            # No-result cards already sort last by status; only qualified
-            # offers (which always carry a score) are ordered by it.
-            -(r["offer"]["score"] if r.get("offer") else 0.0),
-            r["team"],
+    if disc_sort is not None:
+        results.sort(
+            key=lambda r: (
+                order.get(r["status"], 2),
+                _disc.sort_key(disc_sort, (r.get("offer") or {}).get("discovery") or {}, r["team"]),
+            )
         )
+    else:
+        results.sort(
+            key=lambda r: (
+                order.get(r["status"], 2),
+                # No-result cards already sort last by status; only qualified
+                # offers (which always carry a score) are ordered by it.
+                -(r["offer"]["score"] if r.get("offer") else 0.0),
+                r["team"],
+            )
+        )
+    out = {**base, "outgoingConcentration": concentration, "opponents": results}
+    if discovery is not None:
+        out["discovery"] = {
+            "version": _disc.DISCOVERY_VERSION,
+            "filters": discovery.to_dict(),
+            "report": disc_report.to_dict(),
+            "impactPrior": {
+                "id": disc_prior.get("id"),
+                "status": disc_prior.get("status"),
+                "configPath": "config/trade/discovery_impact_prior.json",
+            },
+            "broaderQualityLevels": _disc.broader_quality_levels(discovery.quality),
+        }
+    return out
+
+
+def select_by_discovery(
+    ranked: list[BestOfferCandidate],
+    *,
+    sort: str,
+    top_k: int,
+    filters: Any,
+    index: Any,
+    prior: Mapping[str, Any],
+    our_needs: set[str] | None,
+    use_ctx: bool,
+    weights: Mapping[str, float],
+    lineup_delta: Callable[..., dict[str, Any] | None] | None,
+    capacity_for: Callable[..., tuple[Any, float | None]] | None,
+    my_owner: str,
+    opp_owner: str,
+    opp: str,
+) -> BestOfferCandidate:
+    """The opponent's offer under a discovery sort (shared with Package Builder).
+
+    Every qualifying candidate is scored on what is free to read; the top
+    ``top_k`` then gain the roster-aware reads this module already owns
+    (``annotate_roster_factors``: canonical lineup delta, forced-release cost),
+    and the best of that head under the SAME sort is chosen.  The prior score
+    is still computed and published (``score``) so nothing about the existing
+    ranking is hidden.
+    """
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    def _metrics(c: BestOfferCandidate) -> dict[str, Any]:
+        fit_lineup = _disc.lineup_fit(c.lineup, prior)
+        fit_need = _disc.need_fit(c.receive, our_needs) if use_ctx else None
+        return _disc.candidate_metrics(
+            c.give,
+            c.receive,
+            index=index,
+            prior=prior,
+            filters=filters,
+            roster_fit=fit_lineup if fit_lineup is not None else fit_need,
+            roster_fit_basis=(
+                "lineup"
+                if fit_lineup is not None
+                else ("team_weakness" if fit_need is not None else None)
+            ),
+            counterparty=c.factors.get("externalComfort"),
+            counterparty_basis="Best Offers externalComfort (qualifying calculator)",
+            forced_drop=c.factors.get("forcedDropCost"),
+            lineup=c.lineup,
+        )
+
+    def _key(c: BestOfferCandidate) -> tuple:
+        return _disc.sort_key(sort, c.discovery or {}, (c.has_pick, c.package_key()))
+
+    for c in ranked:
+        c.discovery = _metrics(c)
+    _disc.score_impact([c.discovery for c in ranked], prior)
+    head = sorted(ranked, key=_key)[: max(1, top_k)]
+    if use_ctx:
+        annotate_roster_factors(
+            head,
+            lineup_delta=lineup_delta,
+            capacity_for=capacity_for,
+            my_owner=my_owner,
+            opp_owner=opp_owner,
+            opp=opp,
+        )
+        score_head(head, weights)
+        for c in head:
+            c.discovery = _metrics(c)
+        _disc.score_impact([c.discovery for c in head], prior)
+        head.sort(key=_key)
+    best = head[0]
+    best.discovery["whyItMatters"] = _disc.why_it_matters(
+        best.discovery, need_positions=our_needs or ()
     )
-    return {**base, "outgoingConcentration": concentration, "opponents": results}
+    best.discovery.pop("lineupImpact", None)
+    return best
 
 
 def _no_result(reason: str | None, *, constrained: bool = False) -> dict[str, Any]:

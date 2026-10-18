@@ -1791,3 +1791,22 @@ Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.z
 | Private trade history prices picks as of the trade date at the ledger's generic season/round value, the same rule as public | DECIDED — owner, 2026-10-17 |
 | Winners & Losers default Net value = the sum of per-trade adjusted nets; the alpha metric survives only as a separately labelled legacy index | DECIDED — binding |
 | Implementation | IN PROGRESS — PR 1 dispatch (`claude/package-model-dispatch`); PR 2 Second Opinions; PR 3 Trade History; PR 4 quant evaluation + model memo |
+
+## Added 2026-10-18 — Trade Finder meaningful discovery
+
+Owner directive 2026-10-18 for the Chase Upside Trade Finder (`/arbitrage`): discovery must find trades that
+MATTER, not the biggest percentage discrepancy among low-value bench players. Owner evidence: the page capture
+`owner_arbitrage_capture_2026-10-18.pdf` (not committed). Evaluation: `docs/trade/DISCOVERY_IMPACT_EVALUATION_2026-10-18.md`.
+Shared owner: `src/trade/discovery.py` + `frontend/lib/trade-discovery.js`.
+
+| # | Item | Disposition |
+|---|---|---|
+| 1 | Page order: tools directly under the header — Golden Upgrades (FIRST, DEFAULT), Package Scan, Best Offer by Opponent, Package Builder, Trade Desk; the player-level arbitrage table moves below into a separate expandable research section; every tool keeps its functionality; no horizontal page overflow | DECIDED — binding; IN PROGRESS Batch 1 (`claude/trade-finder-meaningful`) |
+| 2 | Target Quality (Top 100 / 250 / 500 / All, default Top 250) on the canonical overall rank, plus an optional minimum incoming canonical value; incoming only; at least ONE incoming player meets it (never via combined value); an out-of-filter player is never the primary target unless broadened; an explicit conflicting target gets guidance, never a silent drop | DECIDED — binding; IN PROGRESS Batch 1 (Golden / Scan / Best Offers / table), Batch 2 (Package Builder targets) |
+| 3 | Default sort Most Impactful (+ Largest Absolute Value Gain, Highest Percentage Edge, Highest-Ranked Incoming Player) from existing canonical components, no double counting, a transparent DECLARED PRIOR evaluated on representative dynasty_main trades; deep low-value arbitrage stays an explicit opt-in; no reward for filler | DECIDED — binding; prior `config/trade/discovery_impact_prior.json` (`PRIOR_UNVALIDATED`); IN PROGRESS Batch 1 |
+| 4 | Players to target: Offense / Defense (IDP) / Both (default Both) via `POSITION_ALIASES` + lineup-owner eligibility; missing / ambiguous positions excluded from both narrowed modes and reported; picks never offense or defense | DECIDED — binding; IN PROGRESS Batch 1 |
+| 5 | Package Builder: independent Sending and Receiving controls (Offense / Defense / Both, default Both), all nine combinations, applied during server-side candidate generation in Custom / Acquire / Sell / Improve modes; LOCK / EXCLUDE / explicit selections / protections / specific positions preserved, conflicts reported; Allow Draft Picks separate | DECIDED — binding; Batch 2 (stacked PR) |
+| 6 | Golden Upgrades: eligibility unchanged; quality + offense/defense in generation; show both players' ranks and values, absolute and % gain, market disagreement, opponent, why it matters; Most Impactful default; an empty Top 250 result says so with one-click Top 500 / All | DECIDED — binding; IN PROGRESS Batch 1 |
+| 7 | Package Scan: plausibility, size, protection and counterparty-market rules kept; quality + position filters in the generation request; per trade best incoming player and rank, other pieces, adjusted canonical difference, absolute and % benefit, team context, market plausibility, confidence and coverage; active package model and canonical values unchanged | DECIDED — binding; IN PROGRESS Batch 1 |
+| 8 | Player-level arbitrage table: canonical top-rank filters, minimum canonical value, Offense / Defense / Both, sorts for absolute opportunity / % edge / canonical rank; public-market comparisons and source mappings preserved | DECIDED — binding; IN PROGRESS Batch 1 |
+| — | Scope: dynasty_main only for league-specific testing; dynasty_new neither expanded nor broken. Missing market ≠ 0; empty results name the blocking constraint; deterministic; within existing API time limits | DECIDED — binding |

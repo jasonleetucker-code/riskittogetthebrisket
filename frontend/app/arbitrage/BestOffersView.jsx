@@ -46,6 +46,11 @@ import {
   OutgoingRefinement,
   RefinementBar,
 } from "@/components/trade/RefinementControls";
+import {
+  discoveryRequest,
+  discoverySummary,
+  rankValueLine,
+} from "@/lib/trade-discovery";
 import styles from "./best-offers.module.css";
 
 const CONTEXT_OPTIONS = [
@@ -155,7 +160,24 @@ function OfferCard({ card, myTeam, leagueKey, runId, refine, regenerating }) {
               <AssetLine assets={offer.receive} />
             </div>
           </div>
+          {offer.discovery?.bestIncoming ? (
+            <p className={styles.muted}>
+              Best incoming: <strong>{offer.discovery.bestIncoming.name}</strong>{" "}
+              ({rankValueLine(
+                offer.discovery.bestIncoming.rank,
+                offer.discovery.bestIncoming.value,
+              )}
+              ) · adjusted gain {fmtSignedInt(offer.discovery.gain)} (
+              {fmtSignedPct(offer.discovery.gainPct)})
+            </p>
+          ) : null}
           <dl className={styles.why}>
+            {offer.whyItMatters ? (
+              <>
+                <dt>Why it matters</dt>
+                <dd>{offer.whyItMatters}</dd>
+              </>
+            ) : null}
             <dt>Why this helps you</dt>
             <dd>{offer.whyThisHelpsUs}</dd>
             <dt>Why they may accept</dt>
@@ -245,6 +267,7 @@ export default function BestOffersView({
   leagueKey,
   ownerKey,
   opponentNames = [],
+  discovery = null,
 }) {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
@@ -274,12 +297,26 @@ export default function BestOffersView({
     return loadRefinement(cardStorageKey(ownerKey, leagueKey, myTeam, opp));
   }
 
+  // Owner directive 2026-10-18: the page's shared discovery filters travel
+  // with every scan and card regeneration; a filter change rescans.
+  const discoveryKey = JSON.stringify(discovery ? discoveryRequest(discovery) : null);
+  const lastDiscoveryKey = useRef(discoveryKey);
+  useEffect(() => {
+    if (lastDiscoveryKey.current === discoveryKey) return;
+    lastDiscoveryKey.current = discoveryKey;
+    if (result) void runAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoveryKey]);
+
   async function request(body) {
+    const withDiscovery = discovery
+      ? { ...body, discovery: discoveryRequest(discovery) }
+      : body;
     const res = await fetch("/api/trade/best-offers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      body: JSON.stringify(withValuationMode(body)),
+      body: JSON.stringify(withValuationMode(withDiscovery)),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok)
@@ -392,9 +429,9 @@ export default function BestOffersView({
       </div>
       {result?.rankingMethod ? (
         <p className={styles.muted}>
-          Ranking: declared prior ({result.rankingMethod.status}); open “How
-          this offer ranked” on any card for its factors. Best opportunity
-          first.
+          {result?.discovery
+            ? `Filters: ${discoverySummary(discovery)}. Order: the shared discovery sort (declared prior, ${result.discovery.impactPrior?.status || "PRIOR_UNVALIDATED"}); open “How this offer ranked” on any card for its qualification factors.`
+            : `Ranking: declared prior (${result.rankingMethod.status}); open “How this offer ranked” on any card for its factors. Best opportunity first.`}
         </p>
       ) : null}
       {error ? <Banner tone="negative">{error}</Banner> : null}
