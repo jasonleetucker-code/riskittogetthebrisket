@@ -1,0 +1,43 @@
+{
+  "forbiddenWarnings": [
+    "missing_side",
+    "trade_region_not_detected"
+  ],
+  "layoutKind": "stacked",
+  "mustBeIgnored": [
+    "Bijan Robinson",
+    "Patrick Mahomes"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Kenneth Walker III",
+          "text": "Kenneth Walker III"
+        },
+        {
+          "boardName": "2027 Late 1st",
+          "text": "2027 Late 1st"
+        }
+      ],
+      "label": "Team 1 gets"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "Josh Hines-Allen",
+          "text": "Josh Hines-Allen"
+        },
+        {
+          "boardName": "Marvin Harrison Jr.",
+          "text": "Marvin Harrison Jr."
+        },
+        {
+          "boardName": "2026 Pick 1.05",
+          "text": "2026 1.05"
+        }
+      ],
+      "label": "Team 2 gets"
+    }
+  ]
+}

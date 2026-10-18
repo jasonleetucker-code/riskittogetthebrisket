@@ -13,9 +13,18 @@ Defensive by construction — the bytes come from a user:
 * EXIF orientation applied, so a rotated phone photo reads upright;
 * converted to grayscale; a dark-mode screenshot (mean luminance < 110) is
   inverted so the OCR engine sees dark text on a light background;
+* LOCAL polarity normalisation: on a light page, light-on-dark PATCHES
+  (dark header bars, dark sidebars, buttons, browser chrome) are replaced by
+  a polarity-free local-contrast map, so their text reads as dark-on-light
+  too.  Tesseract binarises globally: a dark bar becomes one solid blob with
+  the letters as holes and no text line is ever found there (the per-line
+  inversion retry only applies to lines that WERE found).  Measured on a
+  real full-page trade-calculator screenshot, both side headers were
+  invisible without this (see ``docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md``);
 * small screenshots are upscaled 2x (OCR accuracy falls off sharply below
-  ~1000 px wide); anything over ``max_side`` on its longest edge is scaled
-  down, so the OCR cost per request is bounded;
+  ~1000 px wide), and anything whose long edge is under 2400 px is upscaled
+  to it (at most 2x); anything over ``max_side`` on its longest edge is
+  scaled down, so the OCR cost per request is bounded;
 * re-encoded as PNG, which drops every metadata chunk (EXIF, GPS, ICC).
 
 Pillow is imported lazily: a server without it reports the feature as
@@ -32,6 +41,40 @@ DEFAULT_MAX_PIXELS = 12_000_000
 DEFAULT_MAX_SIDE = 4096
 DARK_MEAN_LUMINANCE = 110
 UPSCALE_BELOW_WIDTH = 1000
+# A full-page DESKTOP screenshot arrives downscaled by the browser to a
+# 1600 px long edge (``frontend/lib/image-downscale.js``), which leaves body
+# text ~13 px tall — below what Tesseract reads reliably (measured on a real
+# full-browser trade screenshot: side labels read "cets"/"aets" for "gets",
+# names garbled, and the read took longer).  So an image whose long edge is
+# under OCR_MIN_LONG_EDGE is upscaled to it (at most 2x); the same page then
+# reads cleanly at every browser size measured (1280-2560 px wide).  2000 was
+# measured too and lost an asset at 1280 px.  The 4096 px cap still bounds
+# the cost (~3 s of OCR for a 2400 x 1500 page on one core).
+OCR_MIN_LONG_EDGE = 2400
+
+# Local polarity normalisation (see the module docstring).  All in OCR-pixel
+# units, applied after scaling.  The page is summarised in POLARITY_BLOCK px
+# cells; a cell's background is the median over POLARITY_MEDIAN x
+# POLARITY_MEDIAN cells (wider than any text stroke, so text never decides
+# its own background) and it is "dark" below POLARITY_DARK.  A dark PATCH is
+# area, not a glyph: at least POLARITY_PATCH_DENSITY/255 of the cells within
+# POLARITY_PATCH_RADIUS must be dark (the inside of a heavy, upscaled glyph
+# is a few isolated cells and fails this).  Holes up to POLARITY_CLOSE cells
+# (the text band inside a header bar) are closed.  The patch's outer band of
+# POLARITY_EDGE cells is painted white — a dark/light boundary would
+# otherwise read as a frame glued to the text next to it — and inside it
+# light pixels become dark at POLARITY_GAIN x their lift over the patch's
+# own background.  Chosen from a sweep over the real full-page and cropped
+# trade screenshots plus every synthetic fixture: the header bars are read
+# for POLARITY_CLOSE 9-11 and POLARITY_GAIN 2-4; the values sit inside that.
+POLARITY_BLOCK = 4
+POLARITY_MEDIAN = 7
+POLARITY_DARK = 128
+POLARITY_PATCH_RADIUS = 7
+POLARITY_PATCH_DENSITY = 115
+POLARITY_CLOSE = 9
+POLARITY_EDGE = 3
+POLARITY_GAIN = 3
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _JPEG_MAGIC = b"\xff\xd8\xff"
@@ -61,6 +104,7 @@ class PreparedImage:
     height: int
     inverted: bool
     scaled: float
+    local_polarity: bool = False  # some dark patches were normalised
 
 
 def sniff_type(data: bytes) -> str | None:
@@ -158,12 +202,16 @@ def decode_image(
     scale = 1.0
     if w < UPSCALE_BELOW_WIDTH:
         scale = 2.0
+    elif max(w, h) < OCR_MIN_LONG_EDGE:
+        scale = min(2.0, OCR_MIN_LONG_EDGE / max(w, h))
     longest = max(w, h) * scale
     if longest > max_side:
         scale = max_side / max(w, h)
     if scale != 1.0:
         new_size = (max(1, round(w * scale)), max(1, round(h * scale)))
         gray = gray.resize(new_size, Image.Resampling.LANCZOS)
+
+    gray, local = normalize_local_polarity(gray)
 
     out = io.BytesIO()
     gray.save(out, format="PNG", optimize=False)
@@ -173,7 +221,62 @@ def decode_image(
         height=gray.size[1],
         inverted=inverted,
         scaled=round(scale, 4),
+        local_polarity=local,
     )
+
+
+def normalize_local_polarity(gray):
+    """``(image, changed)``: every dark-background PATCH of a light grayscale
+    page rewritten as dark-on-white.
+
+    Inside a patch, a pixel becomes ``255 - gain * (pixel - background)``
+    (its lift over the patch's own dark background), so light text on a dark
+    bar reads like ordinary text; the patch's outer band is painted white so
+    no dark frame sits against that text.  Outside every patch the image is
+    left byte-identical, and a page with no patch is returned unchanged.
+
+    Needs numpy (a declared dependency); without it the image is returned
+    unchanged, which is the pre-normalisation behaviour, never a failure.
+    """
+    try:
+        import numpy as np  # noqa: PLC0415
+        from PIL import Image, ImageChops, ImageFilter  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return gray, False
+    w, h = gray.size
+    sw, sh = max(1, w // POLARITY_BLOCK), max(1, h // POLARITY_BLOCK)
+    small = gray.resize((sw, sh), Image.Resampling.BOX).filter(
+        ImageFilter.MedianFilter(POLARITY_MEDIAN)
+    )
+    dark = small.point(lambda v: 255 if v < POLARITY_DARK else 0)
+    dense = dark.filter(ImageFilter.BoxBlur(POLARITY_PATCH_RADIUS)).point(
+        lambda v: 255 if v >= POLARITY_PATCH_DENSITY else 0
+    )
+    if dense.getbbox() is None:
+        return gray, False
+    reach = dense.filter(ImageFilter.MaxFilter(2 * POLARITY_PATCH_RADIUS + 1))
+    patch = ImageChops.multiply(dark, reach)
+    patch = patch.filter(ImageFilter.MaxFilter(POLARITY_CLOSE)).filter(
+        ImageFilter.MinFilter(POLARITY_CLOSE)
+    )
+    inner_cells = patch.filter(ImageFilter.MinFilter(POLARITY_EDGE))
+    if inner_cells.getbbox() is None:
+        return gray, False
+    outer_cells = patch.filter(ImageFilter.MaxFilter(POLARITY_EDGE))
+    inner = np.asarray(inner_cells.resize((w, h), Image.Resampling.NEAREST)) > 0
+    outer = np.asarray(outer_cells.resize((w, h), Image.Resampling.NEAREST)) > 0
+    # The patch's own background: the darkest local median near each cell,
+    # so the text band (lighter in the median) is measured against the bar.
+    background = np.asarray(
+        small.filter(ImageFilter.MinFilter(POLARITY_MEDIAN)).resize(
+            (w, h), Image.Resampling.BILINEAR
+        ),
+        dtype=np.int16,
+    )
+    pixels = np.asarray(gray, dtype=np.int16)
+    lifted = 255 - np.clip((pixels - background) * POLARITY_GAIN, 0, 255)
+    out = np.where(inner, lifted, np.where(outer, 255, pixels)).astype(np.uint8)
+    return Image.fromarray(out, mode="L"), True
 
 
 def png_dimensions(png: bytes) -> tuple[int, int] | None:

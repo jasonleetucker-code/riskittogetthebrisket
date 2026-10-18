@@ -50,7 +50,7 @@ from src.trade.screenshot_import.parse import (
     parse_hints_only,
     parse_line,
 )
-from src.trade.screenshot_import.resolve import ResolvedItem, resolve_items
+from src.trade.screenshot_import.resolve import REASON_NO_MATCH, ResolvedItem, resolve_items
 
 LAYOUT_KINDS = ("two_column", "stacked", "single", "unknown")
 LABEL_SOURCES = ("anchor", "position", "none")
@@ -61,6 +61,12 @@ WARN_MISSING_SIDE = "missing_side"
 WARN_LOW_LAYOUT_CONFIDENCE = "low_layout_confidence"
 WARN_POSSIBLY_CROPPED = "possibly_cropped"
 WARN_NO_ASSETS = "no_assets_found"
+WARN_TRADE_REGION_NOT_DETECTED = "trade_region_not_detected"
+
+# Ignored reason for an unassigned player string that matched nothing: in the
+# fallback (no trade region), a name-shaped string the canonical resolver has
+# no candidate and no near-name for is page text, not an asset to place.
+REASON_UNRECOGNIZED = "unrecognized_text"
 
 _EDGE_FRACTION = 0.01
 
@@ -119,6 +125,20 @@ def _touches_edge(line: Line, width: int, height: int) -> bool:
         or line.bottom >= (1 - _EDGE_FRACTION) * height
         or line.left <= _EDGE_FRACTION * width
         or line.right >= (1 - _EDGE_FRACTION) * width
+    )
+
+
+def _is_unrecognized_page_text(res: ResolvedItem) -> bool:
+    """An unassigned PLAYER string the resolver could not tie to anyone:
+    no match, no candidate, no near-name.  Picks are kept (pick-shaped text
+    is an asset attempt), and so is anything with a candidate or suggestion
+    — the person decides those, nothing is guessed either way."""
+    return (
+        res.kind == "player"
+        and res.status == "unresolved"
+        and res.reason == REASON_NO_MATCH
+        and not res.candidates
+        and not res.suggestions
     )
 
 
@@ -190,7 +210,14 @@ def build_extraction(
     unassigned_items: list[dict] = []
     warnings: list[str] = []
     cropped = False
+    kept = 0
     for (region, ln, _parsed), res in zip(pending, resolved):
+        if region < 0 and _is_unrecognized_page_text(res):
+            # Never offered as "needs a side": the review stays about the
+            # trade, not about every word on the page.  Still visible.
+            ignored.append((ln, REASON_UNRECOGNIZED))
+            continue
+        kept += 1
         item = _item_dict(res, ln, line_index.get(id(ln), 0))
         if region >= 0:
             side_items[region].append(item)
@@ -201,13 +228,14 @@ def build_extraction(
         if _touches_edge(ln, width, height):
             cropped = True
 
-    total = len(pending)
-    if total == 0:
+    if kept == 0:
         warnings.append(WARN_NO_ASSETS)
     else:
         populated = sum(1 for items in side_items if items)
         if populated < 2:
             warnings.append(WARN_MISSING_SIDE)
+    if not layout.sides and lines:
+        warnings.append(WARN_TRADE_REGION_NOT_DETECTED)
     if layout.confidence < 0.6:
         warnings.append(WARN_LOW_LAYOUT_CONFIDENCE)
     if cropped:

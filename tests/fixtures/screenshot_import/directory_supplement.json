@@ -1,0 +1,69 @@
+{
+ "_comment": "Screenshot-import test supplement to identity_directory_subset.json: the four players of the real full-page KeepTradeCut fixture (ktc_fullpage_browser), copied from the Sleeper /v1/players/nfl directory on 2026-10-18. Kept separate so the identity subset's load-bearing key order is untouched.",
+ "players": {
+  "12508": {
+   "full_name": "Jaxson Dart",
+   "first_name": "Jaxson",
+   "last_name": "Dart",
+   "position": "QB",
+   "team": "NYG",
+   "active": true,
+   "search_rank": 44,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "QB"
+   ],
+   "status": "Inactive"
+  },
+  "9226": {
+   "full_name": "De'Von Achane",
+   "first_name": "De'Von",
+   "last_name": "Achane",
+   "position": "RB",
+   "team": "MIA",
+   "active": true,
+   "search_rank": 8,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Inactive"
+  },
+  "9228": {
+   "full_name": "Bryce Young",
+   "first_name": "Bryce",
+   "last_name": "Young",
+   "position": "QB",
+   "team": "CAR",
+   "active": true,
+   "search_rank": 133,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "QB"
+   ],
+   "status": "Active"
+  },
+  "12507": {
+   "full_name": "Omarion Hampton",
+   "first_name": "Omarion",
+   "last_name": "Hampton",
+   "position": "RB",
+   "team": "LAC",
+   "active": true,
+   "search_rank": 12,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  }
+ }
+}

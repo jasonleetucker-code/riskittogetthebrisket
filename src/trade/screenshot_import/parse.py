@@ -273,6 +273,18 @@ def _parse_pick(text: str, raw: str) -> ParsedItem | None:
 # ── Players ─────────────────────────────────────────────────────────────
 
 
+_AGE_RE = re.compile(r"^(?:1[89]|[2-4]\d)(?:\.\d)?$")
+_AGE_UNITS = frozenset({"yo", "y.o.", "y.o", "yo.", "yrs", "yr", "age"})
+
+
+def _is_meta_token(token: str) -> bool:
+    """Row metadata that may sit between position/team hints, never a hint
+    itself: an age ("23.4", "y.o.", "age") or another site's value number
+    ("5,542") read in the same segment."""
+    tok = token.strip(_EDGE_JUNK + " ")
+    return bool(_AGE_RE.match(tok)) or tok.lower() in _AGE_UNITS or _is_value_token(tok)
+
+
 def _hints_from_tokens(tokens: list[str]) -> tuple[str | None, str | None, bool]:
     """``(position, team, all_tokens_were_hints)``."""
     pos = team = None
@@ -283,7 +295,7 @@ def _hints_from_tokens(tokens: list[str]) -> tuple[str | None, str | None, bool]
             pos = p
         elif t and team is None:
             team = t
-        elif p or t or tok.upper() in _SKIP_TAGS:
+        elif p or t or tok.upper() in _SKIP_TAGS or _is_meta_token(tok):
             continue
         else:
             all_hint = False
@@ -295,7 +307,8 @@ def parse_hints_only(text: str) -> dict | None:
     ("QB · KC", "WR NYJ"), else None."""
     s = _strip_leading(str(text or "")).strip(_EDGE_JUNK + " ")
     s = s.strip("()[] ")
-    tokens = [t for t in _HINT_SPLIT_RE.split(s) if t]
+    tokens = [t.strip(_EDGE_JUNK) for t in _HINT_SPLIT_RE.split(s)]
+    tokens = [t for t in tokens if t]
     if not tokens:
         return None
     pos, team, all_hint = _hints_from_tokens(tokens)

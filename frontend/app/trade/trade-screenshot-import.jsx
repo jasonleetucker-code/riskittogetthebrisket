@@ -773,7 +773,7 @@ export function ScreenshotImportDialog({
             {counts.assets === 0 && review.unassigned.length === 0 ? (
               <EmptyState
                 title="No trade assets found"
-                description="Try a tighter crop of the trade, or add the assets by hand below."
+                description="Try another screenshot of the trade, or add the assets by hand below."
               />
             ) : null}
 
