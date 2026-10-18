@@ -17,6 +17,7 @@ import {
   SkeletonTable,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
+import { ABSOLUTE_MINIMUM } from "@/lib/fairness-bands";
 import { buildShareUrl } from "@/lib/trade-share";
 import { deskBodyFromOffer } from "@/lib/trade-desk";
 import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
@@ -368,10 +369,12 @@ export default function BestOffersView({
       aria-label="Best offer by opponent"
     >
       <p className={styles.lede}>
-        One offer per team: a clear win for you on the canonical board after the
-        Value Adjustment, and even or better for them on KTC or IDP Trade
-        Calculator, priced on every asset. Recommendations only — nothing is
-        sent.
+        One offer per team: ahead for you on the canonical board after the Value
+        Adjustment — past the fairness band, or by at least {ABSOLUTE_MINIMUM}{" "}
+        points even when the band rates the package fair — and even or better
+        for them on KTC or IDP Trade Calculator, priced on every asset. Each
+        card shows the actual gain and its fairness rating. Recommendations only
+        — nothing is sent.
       </p>
       <div className={styles.controls}>
         <SegmentedControl

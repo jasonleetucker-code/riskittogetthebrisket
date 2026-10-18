@@ -20,7 +20,12 @@ Hard rules (all must hold — they are filters, never weights):
 
 1. topology ``abs(players_send - players_receive) <= 1``, picks excluded;
 2. picks only through the posture-aware path;
-3. a canonical WIN for us (an "even" calculator result does not qualify);
+3. a canonical gain for us that QUALIFIES (:func:`best_offers_qualification`):
+   a canonical WIN past the shared fairness band, or -- Best Offers only
+   (owner decision 2026-10-18, Option B) -- a positive VA-adjusted gain of at
+   least the band owner's ``absoluteMinimum`` even when the band rates the
+   package FAIR.  The band label and ``equity["win"]`` are never rewritten;
+   a negative or smaller gain never qualifies;
 4. the opponent even or better on KTC Market or IDP Trade Calculator;
 5. whole-package native coverage on that calculator — missing, derived or
    withheld values never count;
@@ -61,11 +66,15 @@ from src.league_intel.cross_market import (
 )
 from src.trade import finder
 from src.trade.analyze_trade import equity_verdict
+from src.valuation_math import fairness_bands
 
 __all__ = [
     "BEST_OFFERS_RUN_LOG_DIR",
     "BEST_OFFERS_VERSION",
     "BestOfferCandidate",
+    "QUALIFICATION_CANONICAL_WIN",
+    "QUALIFICATION_MEANINGFUL_GAIN",
+    "best_offers_qualification",
     "NO_RESULT_REASONS",
     "build_best_offers",
     "lineup_delta_from_bundle",
@@ -85,6 +94,45 @@ _PRIOR_PATH = _REPO / "config" / "trade" / "best_offers_prior.json"
 #: the producer's OWN store; an Adaptive Learning receipt (AL-P5) points into
 #: it rather than copying it.  Private league data — never committed.
 BEST_OFFERS_RUN_LOG_DIR = _REPO / "data" / "trade" / "best_offers"
+
+#: Best Offers qualification bases (owner decision 2026-10-18, Option B).  A
+#: canonical win clears the shared fairness band; a meaningful gain is a
+#: positive VA-adjusted gain of at least the band owner's ``absoluteMinimum``
+#: that the band still rates FAIR.  Best Offers ONLY: the Trade Calculator's
+#: verdict, meter and the Package Builder keep the shared ``win`` rule.
+QUALIFICATION_CANONICAL_WIN = "canonical_win"
+QUALIFICATION_MEANINGFUL_GAIN = "meaningful_gain"
+
+
+def best_offers_qualification(equity: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Whether a package's canonical gain qualifies for Best Offers, and why.
+
+    ``equity`` is :func:`analyze_trade.equity_verdict`'s output, read and never
+    modified: the band label stays FAIR and ``win`` stays ``False`` for a
+    meaningful gain.  The gain is the published integer ``vaAdjustedGap`` --
+    the number the card shows -- so the rule and the card never disagree at
+    the boundary.  The threshold is the fairness-band owner's
+    ``absoluteMinimum``; there is no second constant.  ``None`` = does not
+    qualify (a negative gap never does).
+    """
+    gap = int(equity["vaAdjustedGap"])
+    if equity.get("win"):
+        basis = QUALIFICATION_CANONICAL_WIN
+    elif gap > 0 and gap >= fairness_bands.ABSOLUTE_MINIMUM:
+        basis = QUALIFICATION_MEANINGFUL_GAIN
+    else:
+        return None
+    band = equity.get("band") or {}
+    return {
+        "basis": basis,
+        "gain": gap,
+        "minimumGain": int(fairness_bands.ABSOLUTE_MINIMUM),
+        "bandLevel": band.get("level"),
+        "bandLabel": band.get("label"),
+        "relativePct": band.get("relativePct"),
+        "rule": "best_offers_positive_gain_v1",
+    }
+
 
 #: Ordered: the FIRST reason that applies is the one reported, so a manager
 #: reads the most fundamental blocker.
@@ -124,7 +172,9 @@ _NO_RESULT_TEXT = {
         "junk shapes)."
     ),
     "no_canonical_win": (
-        "No package is a clear win for you on the canonical board after the Value " "Adjustment."
+        "No package comes out ahead for you on the canonical board after the Value "
+        f"Adjustment by at least {int(fairness_bands.ABSOLUTE_MINIMUM)} points or past the "
+        "fairness band."
     ),
     "no_whole_package_coverage": (
         "No approved external calculator prices every asset in the packages that win for "
@@ -166,6 +216,8 @@ class BestOfferCandidate:
     summary: str = ""
     lineup: dict[str, Any] | None = None
     capacity: Any = None
+    #: :func:`best_offers_qualification` for this package (why it qualified).
+    qualification: dict[str, Any] | None = None
 
     @property
     def has_pick(self) -> bool:
@@ -484,6 +536,9 @@ def _new_diag() -> dict[str, Any]:
         "enumerated": 0,
         "plausible": 0,
         "canonicalWins": 0,
+        #: of ``canonicalWins``, how many qualified only by the meaningful-gain
+        #: rule (band FAIR, gain >= absoluteMinimum).
+        "meaningfulGainQualified": 0,
         "covered": 0,
         "qualified": 0,
         "rejectedBy": {
@@ -537,10 +592,13 @@ def _scorer(
         equity = equity_verdict(
             [float(a.model_value) for a in give], [float(a.model_value) for a in receive]
         )
-        if not equity["win"]:
+        qualification = best_offers_qualification(equity)
+        if qualification is None:
             diag["rejectedBy"]["no_canonical_win"] += 1
             return None
         diag["canonicalWins"] += 1
+        if qualification["basis"] == QUALIFICATION_MEANINGFUL_GAIN:
+            diag["meaningfulGainQualified"] += 1
         give_rows = [row(a) for a in give]  # the opponent RECEIVES what we give
         recv_rows = [row(a) for a in receive]
         verdicts = external_package_verdicts(give_rows, recv_rows, pick_provenance=pick_provenance)
@@ -577,6 +635,7 @@ def _scorer(
             factors=factors,
             arbitrage_score=_score(factors, weights),
             flags=list(plaus_flags),
+            qualification=qualification,
         )
 
     return score
@@ -691,10 +750,22 @@ def _asset_dict(a: Any) -> dict[str, Any]:
 
 
 def _why_us(c: BestOfferCandidate, our_needs: set[str] | None) -> str:
-    parts = [
-        f"A clear win on our board: +{c.equity['vaAdjustedGap']:,} after the Value Adjustment "
-        f"({c.equity['magnitude']})."
-    ]
+    # Only a Best Offers candidate carries a qualification; a Package Builder
+    # candidate (same card shape) is described by its band alone, never
+    # re-qualified here.
+    q = c.qualification or {}
+    band = c.equity.get("band") or {}
+    rel = band.get("relativePct")
+    rel_text = f", {rel:.2f}% of the larger side" if isinstance(rel, (int, float)) else ""
+    gain = f"{c.equity['vaAdjustedGap']:+,} on our board after the Value Adjustment"
+    if q.get("basis") == QUALIFICATION_MEANINGFUL_GAIN:
+        lead = (
+            f"{gain}: a meaningful gain (at least {q['minimumGain']:,} points), "
+            f"though the fairness band rates the package {band.get('label', 'FAIR')}{rel_text}."
+        )
+    else:
+        lead = f"{gain}: {band.get('label', c.equity['magnitude'])}{rel_text}."
+    parts = [lead]
     if our_needs:
         filled = sorted(
             {a.position for a in c.receive if not a.is_pick and a.position in our_needs}
@@ -1038,6 +1109,7 @@ def _offer_dict(
         "receive": [_asset_dict(a) for a in c.receive],
         "packageSize": finder._package_size_label(c.give, c.receive),
         "canonical": c.equity,
+        "qualification": c.qualification,
         "external": c.external.to_dict() if c.external is not None else None,
         "externalAll": [v.to_dict() for v in c.external_all],
         "whyThisHelpsUs": _why_us(c, our_needs),
