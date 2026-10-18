@@ -1770,6 +1770,26 @@ and do not cut over without explicit owner approval. Blueprint:
 | One signed-in evidence capture by the owner (`OWNER_EVIDENCE_CAPTURE.md`) | OWNER ACTION — blocks every VERIFIED access claim |
 | Implementation (Batches 1–10) | NOT AUTHORIZED — needs `docs/EXECUTION_PLAN.md` |
 
+## Added 2026-10-18 — Draft valuation automation (spreadsheet → canonical engine)
+
+Owner master execution directive + addendum, 2026-10-18, and the owner implementation package of 2026-10-17
+(`START_HERE_OWNER_DECISIONS_AND_CURRENT_QUEUE.md` — final and superseding the audit's open questions —
+`chase_upside_draft_forensic_audit_2026-10-17.md`, PROMPT 0 and A–G, `chase_upside_draft_goldens_2026-10-17.json`).
+The owner's `Draft Data` spreadsheet formula is the approved methodology; reproduce it exactly, then automate
+rookie-class inputs, the three-year spine and multi-year draft capital. An addition to the active queue, not a
+stop-work. Workstream record: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; workbook map and parity evidence:
+`docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`.
+
+| Item | Disposition |
+|---|---|
+| Each rookie draft class gets its own independent $1,200 pool — every year, both leagues, indefinitely; never one $1,200 split across 2027–2029 (All Years = $3,600 nominal per league with three complete classes). Resolves the annual-vs-pooled question in PROMPT 0 / PROMPT E and in "Added 2026-10-17 — P1: all Sleeper draft years" | DECIDED — owner, 2026-10-18 (final) |
+| The workbook's existing 2026 values are the approved provisional rookie-value fallback: frozen with provenance and an effective snapshot date; column B kept distinct from column H (historical 2026 dollar curve); never relabelled as a pre-draft observation; daily value changes never rewrite it; retired 2026 pick assets never reactivated | DECIDED — owner, 2026-10-18 (final) |
+| Spine = the three most recent completed rookie drafts (2027 → 2024/2025/2026), rolling only on verified draft completion; immutable snapshots | DECIDED — binding |
+| Pick count per class is the league's own (`dynasty_main` 72; `dynasty_new` 40); a 40-pick adaptation is a separately validated contract, not proven by the 72-slot fixture | DECIDED — binding |
+| Package Value Adjustment never applies to pick auction dollars; canonical 0–9999 pick values stay a separate concept | DECIDED — binding |
+| A RANK tie at the award cutoff makes the spreadsheet publish a non-$1,200 total (measured: $1,206); publishing anything there needs a deterministic tie-break | OWNER DECISION NEEDED — only if it ever occurs (measure-zero on real inputs; the engine refuses such a result) |
+| Implementation | IN PROGRESS — Batch A (exact parity) and the Batch B frozen-2026 fallback authored and tests green on `claude/draft-valuation-engine`; Batches C–G follow (E integrates PR #1785) |
+
 ## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
 
 Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.zip` (three binding docs:
