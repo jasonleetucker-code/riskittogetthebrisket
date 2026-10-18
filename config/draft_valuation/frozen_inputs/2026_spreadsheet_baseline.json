@@ -1,0 +1,317 @@
+{
+ "schema": "draft_valuation_frozen_rookie_inputs_v1",
+ "snapshotId": "2026_spreadsheet_baseline",
+ "kind": "owner_approved_provisional_rookie_value_baseline",
+ "isPreDraftObservation": false,
+ "label": "Owner-approved provisional baseline 2026-10-18; not a pre-draft observation.",
+ "approvedUse": "Provisional rookie-value fallback (the curve's column B input) for a rookie class that has no canonical rookie values of its own (owner decision 2026-10-18). Never relabel as an original pre-draft observation; daily value changes never rewrite this file.",
+ "effectiveSnapshotDate": "2026-10-17",
+ "approvedOn": "2026-10-18",
+ "provenance": {
+  "sourceWorkbook": "Draft Data (owner Google Sheet export; copy received 2026-10-17, also synced to CSVs/Draft Data.xlsx)",
+  "sourceWorkbookSha256": "50d130e5a34d0bb4c2b7ae02cf8dc2bc5a03081263e17a869ba8f8c2eb1dce88",
+  "sheet": "Draft Data",
+  "range": "B2:B73",
+  "columnHeader": "VALUE",
+  "ownerDescription": "the existing 2026 spreadsheet values",
+  "distinctFrom": "Draft Data!H2:H73 (the historical 2026 dollar curve) — a different quantity on a different scale",
+  "extractedOn": "2026-10-18",
+  "extractor": "scripts/draft_valuation_extract_workbook.py -> tests/fixtures/draft_valuation/workbook_2026_10_17_inputs.json",
+  "sum": "180036.5"
+ },
+ "values": [
+  {
+   "pick": "1.01",
+   "value": "7580"
+  },
+  {
+   "pick": "1.02",
+   "value": "5598.5"
+  },
+  {
+   "pick": "1.03",
+   "value": "5649"
+  },
+  {
+   "pick": "1.04",
+   "value": "5074.5"
+  },
+  {
+   "pick": "1.05",
+   "value": "5076"
+  },
+  {
+   "pick": "1.06",
+   "value": "4965"
+  },
+  {
+   "pick": "1.07",
+   "value": "4014.5"
+  },
+  {
+   "pick": "1.08",
+   "value": "4308"
+  },
+  {
+   "pick": "1.09",
+   "value": "3869"
+  },
+  {
+   "pick": "1.10",
+   "value": "4169"
+  },
+  {
+   "pick": "1.11",
+   "value": "4164"
+  },
+  {
+   "pick": "1.12",
+   "value": "3809.5"
+  },
+  {
+   "pick": "2.01",
+   "value": "3397.5"
+  },
+  {
+   "pick": "2.02",
+   "value": "3611"
+  },
+  {
+   "pick": "2.03",
+   "value": "3605"
+  },
+  {
+   "pick": "2.04",
+   "value": "3603"
+  },
+  {
+   "pick": "2.05",
+   "value": "3440.5"
+  },
+  {
+   "pick": "2.06",
+   "value": "3220"
+  },
+  {
+   "pick": "2.07",
+   "value": "3200"
+  },
+  {
+   "pick": "2.08",
+   "value": "3127"
+  },
+  {
+   "pick": "2.09",
+   "value": "2943"
+  },
+  {
+   "pick": "2.10",
+   "value": "3020"
+  },
+  {
+   "pick": "2.11",
+   "value": "2537.5"
+  },
+  {
+   "pick": "2.12",
+   "value": "2406"
+  },
+  {
+   "pick": "3.01",
+   "value": "2671"
+  },
+  {
+   "pick": "3.02",
+   "value": "2628"
+  },
+  {
+   "pick": "3.03",
+   "value": "1998.5"
+  },
+  {
+   "pick": "3.04",
+   "value": "2202.5"
+  },
+  {
+   "pick": "3.05",
+   "value": "2252.5"
+  },
+  {
+   "pick": "3.06",
+   "value": "2458"
+  },
+  {
+   "pick": "3.07",
+   "value": "2332.5"
+  },
+  {
+   "pick": "3.08",
+   "value": "2331"
+  },
+  {
+   "pick": "3.09",
+   "value": "1991"
+  },
+  {
+   "pick": "3.10",
+   "value": "2180.5"
+  },
+  {
+   "pick": "3.11",
+   "value": "2432"
+  },
+  {
+   "pick": "3.12",
+   "value": "2014"
+  },
+  {
+   "pick": "4.01",
+   "value": "1907"
+  },
+  {
+   "pick": "4.02",
+   "value": "2089"
+  },
+  {
+   "pick": "4.03",
+   "value": "2080"
+  },
+  {
+   "pick": "4.04",
+   "value": "2063"
+  },
+  {
+   "pick": "4.05",
+   "value": "2048"
+  },
+  {
+   "pick": "4.06",
+   "value": "1539.5"
+  },
+  {
+   "pick": "4.07",
+   "value": "1956"
+  },
+  {
+   "pick": "4.08",
+   "value": "1953"
+  },
+  {
+   "pick": "4.09",
+   "value": "1945"
+  },
+  {
+   "pick": "4.10",
+   "value": "1938"
+  },
+  {
+   "pick": "4.11",
+   "value": "1926"
+  },
+  {
+   "pick": "4.12",
+   "value": "1917"
+  },
+  {
+   "pick": "5.01",
+   "value": "1917"
+  },
+  {
+   "pick": "5.02",
+   "value": "1916"
+  },
+  {
+   "pick": "5.03",
+   "value": "1647.5"
+  },
+  {
+   "pick": "5.04",
+   "value": "1374"
+  },
+  {
+   "pick": "5.05",
+   "value": "1424"
+  },
+  {
+   "pick": "5.06",
+   "value": "1370.5"
+  },
+  {
+   "pick": "5.07",
+   "value": "1643"
+  },
+  {
+   "pick": "5.08",
+   "value": "1628"
+  },
+  {
+   "pick": "5.09",
+   "value": "1302"
+  },
+  {
+   "pick": "5.10",
+   "value": "1284"
+  },
+  {
+   "pick": "5.11",
+   "value": "1254"
+  },
+  {
+   "pick": "5.12",
+   "value": "1253"
+  },
+  {
+   "pick": "6.01",
+   "value": "1251"
+  },
+  {
+   "pick": "6.02",
+   "value": "1250"
+  },
+  {
+   "pick": "6.03",
+   "value": "1249"
+  },
+  {
+   "pick": "6.04",
+   "value": "1246"
+  },
+  {
+   "pick": "6.05",
+   "value": "1245"
+  },
+  {
+   "pick": "6.06",
+   "value": "1244"
+  },
+  {
+   "pick": "6.07",
+   "value": "1243"
+  },
+  {
+   "pick": "6.08",
+   "value": "1242"
+  },
+  {
+   "pick": "6.09",
+   "value": "1234"
+  },
+  {
+   "pick": "6.10",
+   "value": "1223"
+  },
+  {
+   "pick": "6.11",
+   "value": "1190"
+  },
+  {
+   "pick": "6.12",
+   "value": "1166"
+  }
+ ],
+ "checksum": {
+  "algorithm": "sha256",
+  "scope": "canonical JSON (sort_keys, separators (',',':'), UTF-8) of every top-level key except 'checksum'",
+  "value": "a062fdca8390846ea99a00879b5fa7362c3922a4aa24401d204c3b05433f281b"
+ }
+}
