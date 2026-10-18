@@ -1,10 +1,21 @@
 """Build one board both ways and extract its shadow record.
 
 The incumbent and the challenger are two builds of the SAME inputs through the
-canonical pipeline (``value_replay.build``), differing only in
-``joint_outlier_sparse_challenger``. The sparse half
-(``joint_sparse_limited_evidence``) is pinned OFF in both, so the record
-isolates the filter half -- the owner requirement that the halves stay separate.
+canonical pipeline (``value_replay.build``), differing only in the challenger's
+flag. Two challengers are registered (:data:`CHALLENGERS`), each with its own
+preregistration and its own ledger directory:
+
+* ``joint`` (the default) -- ``joint_outlier_sparse_challenger``. The sparse half
+  (``joint_sparse_limited_evidence``) is pinned OFF in both builds, so the record
+  isolates the filter half -- the owner requirement that the halves stay
+  separate.
+* ``rank_space`` -- ``rank_space_hampel_challenger`` (``rank-space-hampel-v1``).
+  Both builds pin the joint filter and its sparse half OFF; only the
+  rank-space flag differs.
+* ``rank_space_per_vote`` -- ``rank_space_hampel_per_vote_challenger``
+  (``rank-space-hampel-per-vote-v1``, a separate follow-up experiment). Both
+  builds pin the joint filter, its sparse half and ``rank_space_hampel_challenger``
+  OFF; only the per-vote flag differs.
 
 Everything recorded is read from what the pipeline itself stamped
 (``sourceRankMeta``, ``droppedSources``, ``jointFilterReasons``,
@@ -28,6 +39,71 @@ from src.api.joint_robust_filter import CHALLENGER_VERSION, joint_robust_filter
 SCHEMA = "joint-filter-shadow/v1"
 CHALLENGER_FLAG = "joint_outlier_sparse_challenger"
 SPARSE_FLAG = "joint_sparse_limited_evidence"
+RANK_SPACE_FLAG = "rank_space_hampel_challenger"
+RANK_SPACE_VERSION = "rank-space-hampel-v1"
+PER_VOTE_FLAG = "rank_space_hampel_per_vote_challenger"
+PER_VOTE_VERSION = "rank-space-hampel-per-vote-v1"
+CHALLENGER_JOINT = "joint"
+CHALLENGER_RANK_SPACE = "rank_space"
+CHALLENGER_PER_VOTE = "rank_space_per_vote"
+#: Challengers whose records carry the rank-space F1 diagnostics table.
+RANK_SPACE_KINDS = (CHALLENGER_RANK_SPACE, CHALLENGER_PER_VOTE)
+#: One entry per registered challenger: the flags each build pins, the version
+#: stamped in ``pins.challengerVersion`` (and so in the record key), the
+#: preregistration that fixes its evaluation, and its bootstrap seed.
+#: ``joint`` is byte-identical to the single-challenger recorder it generalises.
+CHALLENGERS: dict[str, dict[str, Any]] = {
+    CHALLENGER_JOINT: {
+        "version": CHALLENGER_VERSION,
+        "incumbent": [(CHALLENGER_FLAG, False), (SPARSE_FLAG, False)],
+        "challenger": [(CHALLENGER_FLAG, True), (SPARSE_FLAG, False)],
+        "preregistration": (
+            "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md"
+        ),
+        "bootstrapSeed": 1571,
+    },
+    CHALLENGER_RANK_SPACE: {
+        "version": RANK_SPACE_VERSION,
+        "incumbent": [(CHALLENGER_FLAG, False), (SPARSE_FLAG, False), (RANK_SPACE_FLAG, False)],
+        "challenger": [(CHALLENGER_FLAG, False), (SPARSE_FLAG, False), (RANK_SPACE_FLAG, True)],
+        "preregistration": (
+            "docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md"
+        ),
+        # rank-space PREREGISTRATION §2: seed 17, so the two evaluations are
+        # never mistaken for one another.
+        "bootstrapSeed": 17,
+    },
+    CHALLENGER_PER_VOTE: {
+        "version": PER_VOTE_VERSION,
+        "incumbent": [
+            (CHALLENGER_FLAG, False),
+            (SPARSE_FLAG, False),
+            (RANK_SPACE_FLAG, False),
+            (PER_VOTE_FLAG, False),
+        ],
+        "challenger": [
+            (CHALLENGER_FLAG, False),
+            (SPARSE_FLAG, False),
+            (RANK_SPACE_FLAG, False),
+            (PER_VOTE_FLAG, True),
+        ],
+        "preregistration": (
+            "docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/PREREGISTRATION.md"
+        ),
+        # per-vote PREREGISTRATION §2: seed 2027 (neither 1571 nor 17).
+        "bootstrapSeed": 2027,
+    },
+}
+
+
+def challenger_spec(challenger: str = CHALLENGER_JOINT) -> dict[str, Any]:
+    """The registry entry for ``challenger`` (``KeyError`` names an unknown one)."""
+    try:
+        return CHALLENGERS[challenger]
+    except KeyError:
+        raise KeyError(f"unknown challenger {challenger!r}; known: {sorted(CHALLENGERS)}") from None
+
+
 MODE_REPLAY = "historical_replay"
 MODE_LIVE = "live_shadow"
 LABELS = {
@@ -69,21 +145,35 @@ FINGERPRINT_FILES = (
 FINGERPRINT_GLOBS = ("config/weights/*.json",)
 
 
-def variant_specs(csv_root: Path | str | None = None) -> tuple[dict, dict]:
+def variant_specs(
+    csv_root: Path | str | None = None, challenger: str = CHALLENGER_JOINT
+) -> tuple[dict, dict]:
     """``(incumbent_spec, challenger_spec)`` for ``value_replay.build``."""
+    spec = challenger_spec(challenger)
     base: dict[str, Any] = {"csv_root": Path(csv_root)} if csv_root is not None else {}
-    incumbent = {**base, "flags": [(CHALLENGER_FLAG, False), (SPARSE_FLAG, False)]}
-    challenger = {**base, "flags": [(CHALLENGER_FLAG, True), (SPARSE_FLAG, False)]}
-    return incumbent, challenger
+    incumbent = {**base, "flags": list(spec["incumbent"])}
+    challenger_build = {**base, "flags": list(spec["challenger"])}
+    return incumbent, challenger_build
+
+
+def variant_flags(challenger: str = CHALLENGER_JOINT) -> dict[str, dict[str, bool]]:
+    """``{"incumbent": {flag: on}, "challenger": {flag: on}}`` -- the pinned variants."""
+    spec = challenger_spec(challenger)
+    return {
+        "incumbent": dict(spec["incumbent"]),
+        "challenger": dict(spec["challenger"]),
+    }
 
 
 def build_pair(
-    raw_payload: Mapping[str, Any], csv_root: Path | str | None = None
+    raw_payload: Mapping[str, Any],
+    csv_root: Path | str | None = None,
+    challenger: str = CHALLENGER_JOINT,
 ) -> tuple[dict, dict]:
     """The incumbent and challenger contracts for one raw payload."""
     from src.api import value_replay as vr  # noqa: PLC0415 -- heavy import, CLI-time only
 
-    inc_spec, ch_spec = variant_specs(csv_root)
+    inc_spec, ch_spec = variant_specs(csv_root, challenger)
     return vr.build(raw_payload, inc_spec), vr.build(raw_payload, ch_spec)
 
 
@@ -151,6 +241,216 @@ def challenger_weights(
     return pre, capped
 
 
+def rank_space_curve(row: Mapping[str, Any]) -> tuple[float, float]:
+    """The scope master Hill curve the rank-space challenger reads for ``row``.
+
+    The same selection ``data_contract._compute_unified_rankings`` makes: IDP
+    rows read the IDP master, every other row the OFFENSE master.
+    """
+    from src.canonical import player_valuation as pv  # noqa: PLC0415
+
+    if row.get("assetClass") == "idp":
+        return (pv.IDP_HILL_PERCENTILE_C, pv.IDP_HILL_PERCENTILE_S)
+    return (pv.HILL_PERCENTILE_C, pv.HILL_PERCENTILE_S)
+
+
+def rank_space_statistics(
+    values: Iterable[float], curve: tuple[float, float]
+) -> dict[str, float | None]:
+    """Median, MAD and threshold of the rank-space filter, in percentile units.
+
+    Reporting only (the decision is ``dc._hampel_filter_rank_space``'s own);
+    the floor is the incumbent's ``_HAMPEL_MIN_THRESHOLD`` carried into
+    percentile space at the median, as the preregistration defines it.
+    """
+    import math  # noqa: PLC0415
+
+    c, s = curve
+    coords = [dc._hill_inverse(float(v), c, s) for v in values]
+    finite = [u for u in coords if math.isfinite(u)]
+    if not finite:
+        return {"centre": None, "scale": None, "threshold": None}
+    centre = statistics.median(finite)
+    mad = statistics.median(abs(u - centre) for u in finite)
+    v_med = 9999.0 / (1.0 + (centre / c) ** s) if centre > 0 else 9999.0
+    hi = dc._hill_inverse(max(1.0, v_med - dc._HAMPEL_MIN_THRESHOLD / 2.0), c, s)
+    lo = dc._hill_inverse(min(9999.0, v_med + dc._HAMPEL_MIN_THRESHOLD / 2.0), c, s)
+    floor_u = abs(hi - lo) if math.isfinite(hi) else math.inf
+    threshold = max(dc._HAMPEL_K * mad, floor_u)
+    return {
+        "centre": round(centre, 6),
+        "scale": round(mad, 6),
+        "threshold": None if not math.isfinite(threshold) else round(threshold, 6),
+    }
+
+
+def per_vote_forward_maps(row: Mapping[str, Any]) -> dict[str, tuple]:
+    """``{source: (c, s, te_kind, te_param)}`` rebuilt from the row's STAMPS.
+
+    For the reproduction check only (the decision itself uses the maps the blend
+    loop recorded while pricing). The curve is the stamped
+    ``rankCoordinatePool`` (else the source's native pool -- the pipeline's own
+    fallback); the TE transform is read from ``tepBasisFrom``/``tepBasisTo``,
+    ``tepMultiplier`` or ``tepNativeCorrection``.
+    """
+    from src.canonical.rank_coordinates import (  # noqa: PLC0415
+        curve_for_pool,
+        native_pool_for_source,
+    )
+
+    registry = {str(s.get("key")): s for s in dc._RANKING_SOURCES}
+    out: dict[str, tuple] = {}
+    for source, m in (row.get("sourceRankMeta") or {}).items():
+        if not isinstance(m, Mapping):
+            continue
+        pool = str(m.get("rankCoordinatePool") or "") or native_pool_for_source(
+            registry.get(str(source), {})
+        )
+        c, s = curve_for_pool(pool)
+        kind: str | None = None
+        param: Any = None
+        if m.get("tepBoostApplied"):
+            if m.get("tepBasisFrom") and m.get("tepBasisTo"):
+                kind, param = dc.PER_VOTE_TE_BASIS, (m["tepBasisFrom"], m["tepBasisTo"])
+            else:
+                kind, param = dc.PER_VOTE_TE_FLAT, float(m.get("tepMultiplier"))
+        elif m.get("tepNativeCorrectionApplied"):
+            kind, param = dc.PER_VOTE_TE_FLAT, float(m.get("tepNativeCorrection"))
+        out[str(source)] = (c, s, kind, param)
+    return out
+
+
+def curve_family(forward_map: tuple, source: str, meta: Mapping[str, Any]) -> str:
+    """Census label: curve (GLOBAL/OFFENSE/IDP), plus ``+te`` and ``+value_direct``."""
+    from src.canonical import rank_coordinates as rc  # noqa: PLC0415
+
+    c, s = forward_map[0], forward_map[1]
+    label = next(
+        (rc.curve_label_for_pool(pool) for pool, cs in rc._CURVE_BY_POOL.items() if cs == (c, s)),
+        "UNKNOWN",
+    )
+    if forward_map[2] is not None:
+        label += "+te"
+    if meta.get("valueContributionPath") == "value_direct":
+        label += "+value_direct"
+    return label
+
+
+def per_vote_statistics(
+    observations: Mapping[str, float], forward_maps: Mapping[str, tuple]
+) -> dict[str, Any]:
+    """Median, MAD and each vote's coordinate / threshold (percentile units)."""
+    import math  # noqa: PLC0415
+
+    res = dc.rank_space_per_vote_assessment(sorted(observations.items()), forward_maps)
+
+    def r(x: float | None) -> float | None:
+        return None if x is None or not math.isfinite(x) else round(x, 6)
+
+    return {
+        "centre": r(res["median"]),
+        "scale": r(res["mad"]),
+        "perVote": {
+            s: [r(res["coords"].get(s)), r((res["thresholds"] or {}).get(s))]
+            for s in sorted(observations)
+        },
+        "dropped": sorted(res["dropped"]),
+    }
+
+
+def coordinate_census(
+    incumbent: Mapping[str, Any], challenger: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Preregistration §3 D6: votes and drops per curve family; mixed-curve rows."""
+    ch_rows = {str(r.get("displayName")): r for r in challenger.get("playersArray") or []}
+    fam: dict[str, Counter[str]] = {}
+    rows = Counter()
+    for row in incumbent.get("playersArray") or []:
+        obs = voting_observations(row)
+        if not is_filter_row(row, obs):
+            continue
+        other = ch_rows.get(str(row.get("displayName"))) or {}
+        maps = per_vote_forward_maps(row)
+        meta = row.get("sourceRankMeta") or {}
+        inc_drop = set(row.get("droppedSources") or [])
+        ch_drop = set(other.get("droppedSources") or [])
+        curves = set()
+        for s in obs:
+            if s not in maps:
+                continue
+            label = curve_family(maps[s], s, meta.get(s) or {})
+            curves.add(maps[s][:2])
+            cell = fam.setdefault(label, Counter())
+            cell["votes"] += 1
+            cell["droppedIncumbent"] += s in inc_drop
+            cell["droppedChallenger"] += s in ch_drop
+        rows["filterRows"] += 1
+        rows["mixedCurveRows"] += len(curves) > 1
+    return {"byFamily": {k: dict(v) for k, v in sorted(fam.items())}, "rows": dict(rows)}
+
+
+#: Rows the per-vote preregistration §3 names for a full diagnostic. Diagnostic
+#: only: nothing is tuned toward any player's valuation.
+DIAGNOSTIC_PLAYERS = ("Puka Nacua",)
+
+
+def diagnostic_rows(
+    incumbent: Mapping[str, Any],
+    challenger: Mapping[str, Any],
+    names: Iterable[str] = DIAGNOSTIC_PLAYERS,
+) -> dict[str, Any]:
+    """Every vote of each named row with its curve, TE transform, coordinate,
+    threshold and both filters' verdicts, plus both published values."""
+    wanted = set(names)
+    ch_rows = {str(r.get("displayName")): r for r in challenger.get("playersArray") or []}
+    out: dict[str, Any] = {}
+    for row in incumbent.get("playersArray") or []:
+        name = str(row.get("displayName"))
+        if name not in wanted or name in out:
+            continue
+        other = ch_rows.get(name) or {}
+        obs = voting_observations(row)
+        maps = per_vote_forward_maps(row)
+        meta = row.get("sourceRankMeta") or {}
+        stats = per_vote_statistics(obs, maps)
+        inc_drop = set(row.get("droppedSources") or [])
+        ch_drop = set(other.get("droppedSources") or [])
+        market = row.get("ktcMarket") if isinstance(row.get("ktcMarket"), Mapping) else {}
+        out[name] = {
+            "position": row.get("position"),
+            "valueIncumbent": _value(row),
+            "valueChallenger": _value(other),
+            "rankIncumbent": _rank(row),
+            "rankChallenger": _rank(other),
+            "ktcMarketNormalized": market.get("normalizedValue"),
+            "incumbentStats": incumbent_statistics(obs.values()) if obs else None,
+            "challengerStats": {k: stats[k] for k in ("centre", "scale")},
+            "votes": [
+                {
+                    "source": s,
+                    "value": round(v, 1),
+                    "curve": curve_family(maps[s], s, meta.get(s) or {}) if s in maps else None,
+                    "teTransform": list(maps[s][2:]) if s in maps else None,
+                    "u": stats["perVote"].get(s, [None, None])[0],
+                    "threshold": stats["perVote"].get(s, [None, None])[1],
+                    "incumbent": "drop" if s in inc_drop else "keep",
+                    "challenger": "drop" if s in ch_drop else "keep",
+                }
+                for s, v in sorted(obs.items())
+            ],
+        }
+    return out
+
+
+def row_positions(contract: Mapping[str, Any]) -> dict[str, str | None]:
+    """``{name: position}`` for every non-pick row (segment reports)."""
+    return {
+        str(r.get("displayName")): r.get("position")
+        for r in contract.get("playersArray") or []
+        if r.get("assetClass") != "pick"
+    }
+
+
 def _rank(row: Mapping[str, Any] | None) -> int | None:
     value = (row or {}).get("canonicalConsensusRank")
     return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
@@ -172,8 +472,12 @@ def shadow_record(
     challenger: Mapping[str, Any],
     *,
     family_of: Callable[[str], str] = dc.correlation_group_for,
+    challenger_kind: str = CHALLENGER_JOINT,
 ) -> dict[str, Any]:
     """Per-board comparison of the two filters (no board identity or pins).
+
+    ``challenger_kind`` selects which filter the reproduction check re-runs for the
+    challenger side (the joint filter, or the rank-space Hampel filter).
 
     ``rows`` holds every row where the filters' drop sets differ, a safeguard
     fired, or the published value moved; each carries every observation on that
@@ -250,26 +554,39 @@ def shadow_record(
         }
         if filter_row:
             entry["incumbentStats"] = incumbent_statistics(observations.values())
-            check = joint_robust_filter(
-                sorted(observations.items()),
-                capped,
-                {s: family_of(s) for s in observations},
-                k=dc._HAMPEL_K,
-                min_n=dc._HAMPEL_MIN_N,
-                min_threshold=dc._HAMPEL_MIN_THRESHOLD,
-            )
-            entry["challengerStats"] = {
-                "centre": None if check.centre is None else round(check.centre, 2),
-                "scale": None if check.scale is None else round(check.scale, 2),
-                "threshold": None if check.threshold is None else round(check.threshold, 2),
-            }
+            if challenger_kind == CHALLENGER_PER_VOTE:
+                stats = per_vote_statistics(observations, per_vote_forward_maps(inc_row))
+                ch_check = set(stats["dropped"])
+                entry["challengerStats"] = stats
+            elif challenger_kind == CHALLENGER_RANK_SPACE:
+                curve = rank_space_curve(inc_row)
+                _ch_kept, ch_dropped = dc._hampel_filter_rank_space(
+                    sorted(observations.items()), curve=curve, k=dc._HAMPEL_K
+                )
+                ch_check = set(ch_dropped)
+                entry["challengerStats"] = rank_space_statistics(observations.values(), curve)
+            else:
+                check = joint_robust_filter(
+                    sorted(observations.items()),
+                    capped,
+                    {s: family_of(s) for s in observations},
+                    k=dc._HAMPEL_K,
+                    min_n=dc._HAMPEL_MIN_N,
+                    min_threshold=dc._HAMPEL_MIN_THRESHOLD,
+                )
+                ch_check = set(check.dropped)
+                entry["challengerStats"] = {
+                    "centre": None if check.centre is None else round(check.centre, 2),
+                    "scale": None if check.scale is None else round(check.scale, 2),
+                    "threshold": None if check.threshold is None else round(check.threshold, 2),
+                }
             _kept, inc_check = dc._hampel_filter_per_player(sorted(observations.items()))
             entry["reproduced"] = {
                 "incumbent": set(inc_check) == inc_drop,
-                "challenger": set(check.dropped) == ch_drop,
+                "challenger": ch_check == ch_drop,
             }
             counts["reproducedIncumbent"] += set(inc_check) == inc_drop
-            counts["reproducedChallenger"] += set(check.dropped) == ch_drop
+            counts["reproducedChallenger"] += ch_check == ch_drop
             counts["reproductionChecked"] += 1
         rows_out.append(entry)
 
@@ -391,6 +708,7 @@ def assemble_record(
     pins: Mapping[str, Any],
     comparison: Mapping[str, Any],
     recorded_at: str,
+    challenger: str = CHALLENGER_JOINT,
 ) -> dict[str, Any]:
     """The ledger line: identity + pins + the comparison, keyed for idempotency."""
     if mode not in LABELS:
@@ -400,7 +718,7 @@ def assemble_record(
         "mode": mode,
         "label": LABELS[mode],
         "board": dict(board),
-        "pins": {**dict(pins), "challengerVersion": CHALLENGER_VERSION},
+        "pins": {**dict(pins), "challengerVersion": challenger_spec(challenger)["version"]},
         "recordedAt": recorded_at,
         **dict(comparison),
     }

@@ -1745,7 +1745,24 @@ functional benchmark only: no copied code, branding or interface assets, no payw
 | Site is **non-commercial**, so Sleeper's free public API terms apply; ship enabled for signed-in users, rate-limited | DECIDED — owner, 2026-10-17 |
 | Never fabricate unavailable data; inferred tendencies are labelled as evidence, never as fact or as a guarantee of acceptance; no collusion/abandonment accusations | DECIDED — binding (prompt) |
 | Leaderboards rank only populations we can actually see (selected league, saved managers, discovered networks), never "all of Sleeper" | DECIDED — binding (prompt) |
-| Implementation | IN PROGRESS — Batch A lane `claude/manager-intel-a` |
+| Implementation | Batch A MERGED #1762 (`048bcbf8a`, 2026-10-17); Batches B–F per the 2026-10-17 addendum below |
+
+## Added 2026-10-17 — Manager Intelligence addendum: Batches B–F (Recent Trades and Recently Acquired Players first)
+
+Owner master implementation addendum, 2026-10-17. It extends the 2026-10-16 Manager Intelligence directive above;
+it is **not** a replacement for work already underway. Workstream, deliverables, dependencies, tests and
+completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`.
+
+| Item | Disposition |
+|---|---|
+| Add Batches B–F to the active queue without displacing the injury-availability fixes, IDP source rehabilitation or the approved Value Adjustment activation | DECIDED — binding (addendum) |
+| B1 Recent Trades first: cross-league completed trades only. Each shows date, league, season, format, partners, players / picks / FAAB in and out, status, current values, incoming / outgoing totals, a package-adjusted comparison under the ACTIVE model, and a Trade Calculator link. Point-in-time values, grades and aging appear only when trustworthy, otherwise explicitly unavailable. Filters: 7 / 30 / 90 days, season, historical, league, acquired / sent players or picks. Newest first; multi-team trades supported | DECIDED — binding (addendum) |
+| B2 Recently Acquired Players: method (trade / waiver with FAAB / free agent / draft with slot / other) from real transaction or draft evidence only. Each shows current value and rank, still rostered, slot status and what was given up. Analytics: most valuable, by position, by method, adds vs drops, repeat targets, rookies, IDP, later traded or dropped. League-level events plus a player-level summary | DECIDED — binding (addendum) |
+| Unified activity feed: trades, waivers, free-agent adds, drops, draft picks and pick movements; an add and its drop are one event; deduplicated by a stable id; no pending offers; correct attribution through co-ownership and ownership changes | DECIDED — binding (addendum) |
+| B3 draft capital + trade intelligence, C league-wide opponent scouting, D trade-tool integration (canonical board, active package model), E career / archetypes / comparisons, F saved managers / alerts / scoped leaderboards, in that order | DECIDED — binding (addendum) |
+| Reuse existing systems; bounded incremental retrieval; explicit complete / partial / none / unavailable / rate-limited states; missing ≠ zero; never invent trades, acquisition dates, current ownership or historical values; private endpoints authenticated, read-only, rate-limited; PSI Direction A | DECIDED — binding (addendum) |
+| Routine implementation details proceed without owner approval; merge and deploy gates and required owner approvals still apply | DECIDED — binding (addendum) |
+| Implementation | IN PROGRESS — B1 + B2 + feed lane `claude/manager-intel-b` |
 
 ## Added 2026-10-17 — Trade Calculator completion: audit, redesign, unified YES/NO decision engine
 
@@ -1771,6 +1788,20 @@ draft-pick ownership) keeps its order. Workstream, batches, dependencies and com
 | TC-C RETOOL classification → BALANCED: CONTENDER / PUSH → win now; RETOOL → balanced; REBUILDER / REBUILD → long-term; UNCERTAIN / HOLD → balanced. RETOOL stays its own classification and is never relabelled a rebuilder; a balanced decision weighs immediate competitiveness and long-term value from the evidence and does not automatically prefer future picks over meaningful current production; the user override always works and is echoed; the inferred classification, the selected strategy and the reasoning are shown in the recommendation and the decision receipt. Supersedes the decision-engine audit's RETOOL → long-term proposal | DECIDED — owner, 2026-10-18 (final; implemented on `claude/trade-calculator-tc-c`) |
 | TC-C decision 5 — retire `teamImpact.verdict` as a competing YES/NO; keep the underlying roster analysis (lineup changes, strength / weakness, bench depth, displacement, forced drops, roster construction, positional needs) as independent input to the unified engine without double counting; ONE canonical decision owner | DECIDED — owner, 2026-10-18 (implemented in TC-A) |
 | Implementation | IN PROGRESS — TC-0 audit + research done; TC-A correctness on `claude/trade-calculator-tc-a` (local, not merged); TC-B…TC-F queued by dependency. Decision text: `docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md` (TC-C) and `docs/trade/TRADE_DECISION_ENGINE_AUDIT.md` §7.10 |
+
+## Added 2026-10-17 — Follow-up experiment: per-vote rank-space outlier filter
+
+Owner instruction 2026-10-17, after the original rank-space Hampel challenger failed its preregistered test (#1778,
+verdict NOT BETTER, kept as a standalone historical record). The original implementation inverted each row through one
+curve instead of each vote's own source-specific curve, so the intended methodology was evaluated separately and fairly.
+
+| Item | Disposition |
+|---|---|
+| Keep the production Hampel filter unchanged; do not promote the challenger | DECIDED — owner, 2026-10-17 |
+| Preserve the original experiment and its negative result in #1778; #1778's merge does not depend on this follow-up | DECIDED — owner, 2026-10-17 |
+| New preregistration, committed and pushed before any implementation or run, labelled a follow-up (not a correction) | DONE — `d8116ee121`, pushed 2026-10-17 22:25:07 UTC |
+| Per-vote inverse through each vote's own point-in-time curve, TE multiplier inverted first; offense / TE / IDP reported separately; Puka Nacua diagnostic only, no tuning | DONE — `docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/` |
+| Outcome | CLOSED — preregistered verdict INCONCLUSIVE (h = 7 Δ −0.0071 [−0.0229, +0.0076]; G1 non-inferior). Under the preregistration this closes the experiment: production filter retained, `rank_space_hampel_per_vote_challenger` stays OFF, no owner review required |
 
 ## Added 2026-10-17 — League Tycoon migration research (owner research directive)
 
