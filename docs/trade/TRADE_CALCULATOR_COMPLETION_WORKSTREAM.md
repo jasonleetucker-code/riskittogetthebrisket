@@ -293,6 +293,10 @@ Implements the five owner decisions above on `claude/trade-calculator-tc-c` (sta
    fairness-band owner; B = the best-ball roster utility lens. A goal-keyed table decides; the strategy only breaks a
    disagreement between A and B. A near tie with complete evidence → NO — TOO CLOSE.
 
+How often the value gates can fire, measured on the board rebuilt from `exports/latest/dynasty_data_2026-10-17.json`
+(1,130 rows, 740 ranked): confidence-owner freshness `low` on 2 rows (0 ranked, 0 in the top 200); `quarantined` on
+60 rows. Picks carry no freshness axis, which reads as "not stale", never as fresh-by-default evidence.
+
 Validated by `tests/trade/test_trade_decision.py`: every gate, the near tie, the strategy map and override, the
 disagreement table, the forced-cut charge, monotonicity (more incoming value never worsens the answer, for every
 goal and roster effect), asset-only side symmetry, and `teamImpact` unable to influence the result.
