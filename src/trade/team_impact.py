@@ -1,8 +1,19 @@
 """Team-aware trade impact analyzer.
 
-Produces a roster-shape-aware verdict on a proposed trade — the dynasty
-manager's actual question: *does this trade FIT my roster*, not just
-*is the equity fair*.
+Reports what a proposed trade does to the team's roster — the dynasty
+manager's question *does this trade FIT my roster*, beside (never instead
+of) *is the equity fair*.  It is roster INFORMATION, not a recommendation:
+starting-lineup changes, starter-value deltas by position, depth, bench
+overflow, redundancy, displacement and posture window fit.
+
+Owner decision 5 (2026-10-18): the former accept / lean accept / neutral /
+lean decline / decline ``verdict`` (``0.55 * fitScore + 0.45 * equityScore``,
+the equity half a RAW canonical sum with no package Value Adjustment) is
+RETIRED, together with ``compositeScore`` and ``equityScore``.  It was a
+second YES/NO beside the one canonical trade decision
+(``src/trade/analyze_trade.py``), summing two incompatible normalized
+quantities.  The roster information below feeds that engine; it never
+votes on its own.
 
 Pure functions; no I/O.  Inputs are the same resolved-asset dicts that
 ``src/api/trade_simulator.py`` already builds, plus the league's
@@ -100,15 +111,6 @@ def _load_default_weights() -> dict[str, Any]:
                 "depth": 0.25,
                 "overflow": 0.6,
                 "fitNormalization": 4000,
-                "equityNormalization": 2500,
-                "compositeFitWeight": 0.55,
-                "compositeEquityWeight": 0.45,
-            },
-            "verdictThresholds": {
-                "accept": 20,
-                "leanAccept": 8,
-                "leanDecline": -8,
-                "decline": -20,
             },
             "windowFit": {
                 "youngStarterMaxAge": 23,
@@ -497,18 +499,6 @@ def _redundancy(
     return out
 
 
-def _verdict(composite: float, thresholds: dict[str, Any]) -> str:
-    if composite >= float(thresholds.get("accept", 20)):
-        return "accept"
-    if composite >= float(thresholds.get("leanAccept", 8)):
-        return "lean accept"
-    if composite > float(thresholds.get("leanDecline", -8)):
-        return "neutral"
-    if composite > float(thresholds.get("decline", -20)):
-        return "lean decline"
-    return "decline"
-
-
 def _rationale(
     *,
     starter_value_delta: dict[str, int],
@@ -520,7 +510,7 @@ def _rationale(
     equity: int,
     fit_score: float,
 ) -> list[str]:
-    """Top 5 bullets ranked by absolute contribution to verdict."""
+    """Top 5 roster-information bullets, largest magnitude first."""
     bullets: list[tuple[float, str]] = []
     for pos, dv in starter_value_delta.items():
         if dv == 0:
@@ -574,7 +564,6 @@ def compute(
     """
     cfg = config or _load_default_weights()
     weights = cfg.get("weights", {})
-    thresholds = cfg.get("verdictThresholds", {})
 
     if not _starter_slots(roster_settings):
         return None
@@ -658,12 +647,6 @@ def compute(
         fit_raw -= w_overflow * max(0, overflow_delta[p]) * scale
 
     fit_score = _clamp(100.0 * fit_raw / fit_norm, -100.0, 100.0)
-    equity_norm = float(weights.get("equityNormalization", 2500)) or 2500.0
-    equity_score = _clamp(100.0 * float(equity) / equity_norm, -100.0, 100.0)
-
-    cw_fit = float(weights.get("compositeFitWeight", 0.55))
-    cw_eq = float(weights.get("compositeEquityWeight", 0.45))
-    composite = cw_fit * fit_score + cw_eq * equity_score
 
     # Window fit is weighted by the posture's PROBABILITIES, never collapsed
     # to its label: a 55/45 PUSH/RETOOL roster scores a prime-age addition as
@@ -719,10 +702,10 @@ def compute(
     )
 
     return {
+        # Roster-shape score (starter value + first depth piece - bench
+        # overflow), normalized.  Information, not a verdict: no
+        # accept/decline is derived from it (owner decision 5, 2026-10-18).
         "fitScore": round(fit_score, 1),
-        "equityScore": round(equity_score, 1),
-        "compositeScore": round(composite, 1),
-        "verdict": _verdict(composite, thresholds),
         "posture": posture,
         "competitivePosture": label if posture is not None else None,
         "postureSource": "canonical" if posture is not None else "unavailable",

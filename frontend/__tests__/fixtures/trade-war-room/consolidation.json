@@ -1638,14 +1638,12 @@
  "teamImpact": {
   "ageDelta": 0.0,
   "competitivePosture": "PUSH",
-  "compositeScore": 36.9,
   "depthDelta": {
    "QB": 0,
    "RB": 0,
    "TE": -1,
    "WR": 0
   },
-  "equityScore": 40.0,
   "fitScore": 34.4,
   "lineupDisplacement": {
    "arrived": [
@@ -1711,7 +1709,6 @@
    "WR": 1000.0
   },
   "unscalablePositions": [],
-  "verdict": "accept",
   "windowFit": 0.0
  },
  "unresolvedIn": [],
