@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 44 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 45 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -177,6 +177,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # challenger takes precedence.  Shadow evaluation only; the DLF IDP vote
     # hold is independent of it.  Promotion is an owner decision.
     "idp_hampel_n3_challenger": False,
+    # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1`` (owner
+    # closeout 2026-10-18, Decision 6; docs/valuation/evidence/
+    # idp-deep-tail-native-2026-10-18/PREREGISTRATION.md): an IDP row's
+    # shared-market rank vote at effective rank 500 < r <= 904 is priced at the
+    # IDP Trade Calculator's own native value for that rank
+    # (src/canonical/deep_tail_native.py) instead of the Hill/tail
+    # extrapolation.  No Hill constant, reference N, tail saturation rank or
+    # coordinate changes.  Shadow evaluation only; promotion is an owner decision.
+    "idp_deep_tail_native_challenger": False,
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
@@ -829,6 +838,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # voter count to 3 on IDP rows in the same function (reaches a request
     # through /api/data); ships OFF (challenger).
     "idp_hampel_n3_challenger": LIVE,
+    # idp_deep_tail_native_challenger reprices deep IDP shared-market rank votes
+    # in the same function's blend loop (reaches a request through /api/data);
+    # ships OFF (challenger).
+    "idp_deep_tail_native_challenger": LIVE,
     # joint_sparse_limited_evidence replaces the single-source haircut with a
     # limitedEvidence stamp in the same function; ships OFF (challenger).
     "joint_sparse_limited_evidence": LIVE,

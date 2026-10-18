@@ -7524,6 +7524,46 @@ def _family_evidence_for_row(
     return [ev for ev in evidence if id(ev) in chosen]
 
 
+def _idp_trade_calc_native_points(
+    players_array: Sequence[Mapping[str, Any]],
+    row_source_ranks: Mapping[int, Mapping[str, Any]],
+    *,
+    site_max: float,
+    suppressed: bool,
+    synthetic_keys: frozenset[str] = frozenset(),
+) -> list[tuple[float, float]]:
+    """``(effective rank, native value)`` of every IDP Trade Calculator vote that
+    takes the value-direct path, for the ``idp-deep-tail-native-v1`` ladder.
+
+    The same admission the blend loop applies to that path (raw positive and
+    inside the declared range, source not suppressed, site maximum positive)
+    and the same normalisation (``raw / site_max x 9999``), before any TE
+    transform.  Synthetic far-future pick rows (``synthetic_keys``, canonical
+    match keys) are excluded.  Used only when the challenger flag is ON.
+    """
+    if suppressed or site_max <= 0.0:
+        return []
+    points: list[tuple[float, float]] = []
+    for row_idx, ranks in row_source_ranks.items():
+        eff = ranks.get("idpTradeCalc")
+        if eff is None:
+            continue
+        row = players_array[row_idx]
+        if synthetic_keys and _canonical_match_key(str(row.get("canonicalName") or "")) in (
+            synthetic_keys
+        ):
+            continue
+        sites = row.get("canonicalSiteValues")
+        raw = sites.get("idpTradeCalc") if isinstance(sites, Mapping) else None
+        try:
+            raw_f = float(raw) if raw is not None else 0.0
+        except (TypeError, ValueError):
+            continue
+        if raw_f > 0.0 and _value_is_in_declared_range("idpTradeCalc", raw_f):
+            points.append((float(eff), raw_f / site_max * 9999.0))
+    return points
+
+
 def _lost_evidence_seats(
     *,
     voting_pairs: list[tuple[str, float]],
@@ -11918,6 +11958,13 @@ def _compute_unified_rankings(
         and not _rank_space_per_vote
         and _feature_flags.is_enabled("idp_hampel_n3_challenger")
     )
+    # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1``
+    # (default OFF, shadow only; docs/valuation/evidence/
+    # idp-deep-tail-native-2026-10-18/PREREGISTRATION.md): an IDP row's
+    # shared-market rank vote at effective rank 500 < r <= 904 is priced at the
+    # IDP Trade Calculator's own native value for rank r instead of the
+    # Hill/tail extrapolation.  No constant, coordinate or saturation rank moves.
+    _idp_deep_tail_native = _feature_flags.is_enabled("idp_deep_tail_native_challenger")
     # Sparse half, separately promotable (default OFF): one voting family is
     # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
     _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
@@ -12096,6 +12143,27 @@ def _compute_unified_rankings(
         _value_range_diagnostics,
     ) = _partition_value_source_ranges(players_array)
 
+    # ``idp-deep-tail-native-v1`` (default OFF): the IDP Trade Calculator's own
+    # rank -> value ladder, from its value-direct votes as priced below.  The
+    # board's synthetic far-future picks are excluded, as the bridge backbone
+    # excludes them, so a value the board derived never shapes the curve.
+    _deep_tail_ladder = None
+    if _idp_deep_tail_native:
+        from src.canonical.deep_tail_native import (  # noqa: PLC0415
+            build_native_ladder as _build_native_ladder,
+            native_price as _native_price,
+        )
+
+        _deep_tail_ladder = _build_native_ladder(
+            _idp_trade_calc_native_points(
+                players_array,
+                row_source_ranks,
+                site_max=value_source_max.get("idpTradeCalc", 0.0),
+                suppressed="idpTradeCalc" in value_range_suppressed,
+                synthetic_keys=frozenset(synthetic_pick_derivation_map or ()),
+            )
+        )
+
     _trimmed_mean_median = count_aware_mean_median_blend
     _weighted_trimmed_mean_median = weighted_count_aware_mean_median_blend
 
@@ -12207,6 +12275,21 @@ def _compute_unified_rankings(
                 value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
                 contribution_path = "rank_hill"
                 fallback_reason = None
+                if (
+                    _deep_tail_ladder is not None
+                    and rank_meta is not None
+                    and players_array[row_idx].get("assetClass") == "idp"
+                    and rank_meta.get("rankCoordinatePool") == RANK_POOL_SHARED_MARKET
+                ):
+                    _native = _native_price(_deep_tail_ladder, float(eff_rank))
+                    if _native is not None:
+                        # The name travels with the number: the vote is no
+                        # longer the curve's value.
+                        rank_meta["deepTailNative"] = {
+                            "hillValue": round(value, 2),
+                            "nativeValue": round(float(_native), 2),
+                        }
+                        value = float(_native)
             tep_applied = False
             tep_native_corrected = False
             # Blanket TE-value multipliers (see the constants block
