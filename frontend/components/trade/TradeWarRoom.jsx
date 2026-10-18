@@ -52,6 +52,7 @@ import {
   formatSignedValue,
   formatValue,
   comparablesSummary,
+  lineupHolesSummary,
   notPricedNames,
   overrideBasisNotice,
   postureSummary,
@@ -304,6 +305,7 @@ function RosterImpact({ lens }) {
   const before = d.before || {};
   const after = d.after || {};
   const depth = d.depth || {};
+  const holes = lineupHolesSummary(d);
   return (
     <section className={styles.impact} aria-labelledby="war-room-impact">
       <h3 id="war-room-impact" className={styles.sectionTitle}>
@@ -343,6 +345,21 @@ function RosterImpact({ lens }) {
                   } lost than today`}
           </dd>
         </div>
+        {holes ? (
+          <div data-testid="war-room-lineup-holes">
+            <dt>Empty starting slots</dt>
+            <dd>
+              {holes.perWeek}
+              {holes.bySlotAfter ? ` (after: ${holes.bySlotAfter})` : ""}
+              {holes.noEligible.length
+                ? `; no player can start at ${holes.noEligible.join(", ")}`
+                : ""}
+              {holes.onlyUnprojected.length
+                ? `; only unprojected players fit ${holes.onlyUnprojected.join(", ")}`
+                : ""}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt>Shape</dt>
           <dd>
@@ -580,6 +597,7 @@ export default function TradeWarRoom({
   sideChoiceNeeded = false,
   chosenSide = null,
   onChooseSide,
+  onDecision,
 }) {
   const basisNotice = overrideBasisNotice(overrideCount);
   // Owner decision 2: the strategy is inferred unless the user overrides it;
@@ -725,6 +743,23 @@ export default function TradeWarRoom({
   }, [key, ready]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
+
+  // TC-D: the page echoes THIS decision in its sticky desktop column and the
+  // mobile verdict bar.  Reported, never recomputed: the echo reads the same
+  // payload this component renders, so the two cannot disagree.
+  const reportedDecision = state.payload?.analysis?.decision || null;
+  const hasTeamOrTrade = Boolean(request || teamName);
+  useEffect(() => {
+    if (!onDecision) return;
+    if (ready) {
+      onDecision({ status: state.status, decision: reportedDecision });
+    } else {
+      onDecision({
+        status: sideChoiceNeeded ? "side-choice" : hasTeamOrTrade ? "idle" : "no-team",
+        decision: null,
+      });
+    }
+  }, [onDecision, ready, state.status, reportedDecision, sideChoiceNeeded, hasTeamOrTrade]);
 
   const toggle = (
     <SegmentedControl

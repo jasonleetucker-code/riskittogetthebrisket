@@ -1,0 +1,91 @@
+/**
+ * second-opinions-rows — assemble one Second Opinions row per vendor for a
+ * trade, and word the independent / modeled tallies.
+ *
+ * Extracted from `components/trade/TradeSourceBreakdown.jsx` (TC-B /
+ * TCM-K03) so the per-source table AND the immediate one-glance tally beside
+ * the meter read the SAME rows: one assembly, never two.  The opinion
+ * semantics (resolution, states, the even band, the one-vote-per-family
+ * tally) stay owned by `lib/second-opinions.js`; this file only groups the
+ * registry by vendor and calls that owner.
+ */
+
+import { RANKING_SOURCES, SOURCE_VENDOR_LABELS, vendorForSource } from "./dynasty-data.js";
+import { evaluateOpinion, resolveOpinionAsset, tallyOpinions } from "./second-opinions.js";
+import { valueAdjustmentFromSideArrays } from "./trade-logic.js";
+
+/**
+ * One row per vendor: `{key, family, label, displayName, signal, opinion}`.
+ * Empty when no side holds an asset.  `sides` are BARE (`{label, assets}`):
+ * a manual override changes the user's headline, never what a source sees.
+ */
+export function buildOpinionRows(sides) {
+  const assetsBySide = (sides || []).map((s) => s?.assets || []);
+  if (!assetsBySide.some((a) => a.length > 0)) return [];
+  const vendorOrder = [];
+  const vendorSubs = new Map();
+  for (const src of RANKING_SOURCES) {
+    const vendor = vendorForSource(src.key);
+    if (!vendorSubs.has(vendor)) {
+      vendorSubs.set(vendor, []);
+      vendorOrder.push(vendor);
+    }
+    vendorSubs.get(vendor).push(src);
+  }
+  return vendorOrder.map((vendor) => {
+    const subs = vendorSubs.get(vendor);
+    const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
+    const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
+    const resolutionsBySide = assetsBySide.map((assets) =>
+      assets.map((row) => ({
+        name: row?.name || "Unknown asset",
+        ...resolveOpinionAsset({ row, mainSubs, rookieSubs }),
+      })),
+    );
+    const opinion = evaluateOpinion(resolutionsBySide, valueAdjustmentFromSideArrays);
+    const primary = subs[0];
+    return {
+      key: vendor,
+      family: primary.correlationGroup || vendor,
+      label: SOURCE_VENDOR_LABELS[vendor] || primary.columnLabel || primary.displayName || vendor,
+      displayName: SOURCE_VENDOR_LABELS[vendor]
+        ? subs.map((s) => s.displayName || s.key).join(" + ")
+        : primary.displayName || primary.key,
+      signal: subs.every((s) => s.isRankSignal === false)
+        ? "vendor value"
+        : "translated rank (modeled)",
+      opinion,
+    };
+  });
+}
+
+/** The tally for a trade's rows (thin pass-through to the owner). */
+export function opinionTally(rows, sideCount) {
+  return tallyOpinions(rows, sideCount);
+}
+
+/** "Side A 5 · Side B 3 · Even 1 · Split 1" for one tally half. */
+export function opinionTallyText(t, sideLabels) {
+  return [
+    ...sideLabels.map((lbl, i) => `Side ${lbl} ${t.wins[i]}`),
+    t.even ? `Even ${t.even}` : null,
+    t.split ? `Split ${t.split}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Plain coverage words for the immediate tally line: how many independent
+ * families priced every piece, out of how many priced anything, and how many
+ * source rows are incomplete.  Counts only — no winner.
+ */
+export function opinionCoverageText(tally) {
+  const ind = tally?.independent || { families: 0, eligible: 0 };
+  const counts = tally?.counts || {};
+  const parts = [`${ind.families} of ${ind.eligible} source families priced every piece`];
+  if (counts.incomplete) {
+    parts.push(`${counts.incomplete} source${counts.incomplete === 1 ? "" : "s"} incomplete`);
+  }
+  return parts.join(" · ");
+}

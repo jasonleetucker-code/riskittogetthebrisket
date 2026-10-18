@@ -14,11 +14,16 @@
  *     is chosen (the full import round trip is trade-asset-quantity.test.jsx
  *     [10]).
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createSide, simulationSignature } from "@/lib/trade-logic";
+import {
+  COLD_LAZY_REVEAL,
+  PREWARM_TIMEOUT_MS,
+  prewarmTradeSections,
+} from "../setup/trade-lazy-sections";
 
 const SLEEPER_TEAMS = [
   { ownerId: "owner-a", name: "Team A", players: ["Bijan Robinson"], picks: [] },
@@ -79,6 +84,13 @@ vi.mock("@/components/useTradeSimulator", () => ({
 
 let TradePage;
 
+// Every section asserted here sits behind a lazy boundary.  Compile them all
+// before any timed wait (see ../setup/trade-lazy-sections.js); this test used
+// to flake under full-suite load on the first cold reveal.
+beforeAll(async () => {
+  await prewarmTradeSections();
+}, PREWARM_TIMEOUT_MS);
+
 beforeEach(async () => {
   window.localStorage.clear();
   sim.result = null;
@@ -97,13 +109,13 @@ afterEach(() => {
 describe("/trade on-demand sections, rendered by the page", () => {
   it("renders the suggestions desk with no interaction", async () => {
     render(<TradePage />);
-    expect(await screen.findByRole("heading", { name: "Trade suggestions" })).toBeTruthy();
-    expect(await screen.findByLabelText("Your team")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Trade suggestions" }, COLD_LAZY_REVEAL)).toBeTruthy();
+    expect(await screen.findByLabelText("Your team", {}, COLD_LAZY_REVEAL)).toBeTruthy();
   });
 
   it("renders no simulation panel until the simulator has answered", async () => {
     render(<TradePage />);
-    await screen.findByRole("heading", { name: "Trade suggestions" });
+    await screen.findByRole("heading", { name: "Trade suggestions" }, COLD_LAZY_REVEAL);
     expect(screen.queryByRole("heading", { name: /^Impact on / })).toBeNull();
     expect(screen.queryByText("Simulation failed")).toBeNull();
   });
@@ -119,13 +131,15 @@ describe("/trade on-demand sections, rendered by the page", () => {
       unresolvedOut: [],
     };
     render(<TradePage />);
-    expect(await screen.findByRole("heading", { name: "Impact on Team A" })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "Impact on Team A" }, COLD_LAZY_REVEAL),
+    ).toBeTruthy();
   });
 
   it("renders the simulation error the same way", async () => {
     sim.error = "simulate exploded";
     render(<TradePage />);
-    expect(await screen.findByText("Simulation failed")).toBeTruthy();
+    expect(await screen.findByText("Simulation failed", {}, COLD_LAZY_REVEAL)).toBeTruthy();
   });
 
   it("renders the KTC import row when Import trade -> From KeepTradeCut URL is chosen", async () => {
@@ -133,6 +147,8 @@ describe("/trade on-demand sections, rendered by the page", () => {
     expect(screen.queryByLabelText("KeepTradeCut trade-calculator URL")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Import trade" }));
     await userEvent.click(screen.getByRole("button", { name: "From KeepTradeCut URL" }));
-    expect(await screen.findByLabelText("KeepTradeCut trade-calculator URL")).toBeTruthy();
+    expect(
+      await screen.findByLabelText("KeepTradeCut trade-calculator URL", {}, COLD_LAZY_REVEAL),
+    ).toBeTruthy();
   });
 });

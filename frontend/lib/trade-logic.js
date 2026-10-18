@@ -1608,6 +1608,12 @@ export function isAssetInTrade(sideA, sideB, key) {
  * @param {number}  [opts.maxResults=5]
  * @param {number}  [opts.toSideIdx] — destination for the added asset in
  *        N >= 3 trades; defaults to the side netting the least.
+ * @param {boolean} [opts.combos=false] — TC-B / TCM-F03: when NO single
+ *        candidate lands inside the fair band, also try every PAIR of the
+ *        best ``BALANCER_PAIR_POOL`` singles, each pair simulated through the
+ *        same ``tradeImbalance`` path (never the sum of two raw values), and
+ *        lead with up to ``BALANCER_MAX_PAIRS`` pairs that land closer than
+ *        the best single.  A pair is ``{isCombo: true, entries: [a, b]}``.
  * @returns {{name: string, pos: string, value: number, gapBefore: number|null,
  *            gapAfter: number|null, imbalanceBefore: number,
  *            imbalanceAfter: number}[]}
@@ -1615,7 +1621,7 @@ export function isAssetInTrade(sideA, sideB, key) {
  *        nothing in the pool improves it.
  */
 export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}) {
-  const { settings = null, maxResults = 5 } = opts;
+  const { settings = null, maxResults = 5, combos = false } = opts;
   if (!Array.isArray(sides) || sides.length < 2) return [];
   if (!Number.isInteger(behindIdx) || behindIdx < 0 || behindIdx >= sides.length) {
     return [];
@@ -1637,19 +1643,18 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
     }
   }
 
-  const withCandidate = (row) => {
+  const withCandidates = (rows) => {
     const next = sides.map((side, i) => {
       if (i !== behindIdx) return side;
-      const assets = [...(Array.isArray(side?.assets) ? side.assets : []), row];
+      const assets = [...(Array.isArray(side?.assets) ? side.assets : []), ...rows];
       if (sides.length === 2) return { ...side, assets };
-      return {
-        ...side,
-        assets,
-        destinations: { ...(side?.destinations || {}), [tradeEntryKey(row)]: toSideIdx },
-      };
+      const destinations = { ...(side?.destinations || {}) };
+      for (const row of rows) destinations[tradeEntryKey(row)] = toSideIdx;
+      return { ...side, assets, destinations };
     });
     return tradeImbalance(next, valueMode, settings);
   };
+  const withCandidate = (row) => withCandidates([row]);
 
   const scored = [];
   // Candidates are scored per IDENTITY, not per label: two distinct owned
@@ -1679,17 +1684,59 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
       gapAfter: after.gap,
       imbalanceBefore: before.imbalance,
       imbalanceAfter: after.imbalance,
+      largerSideAfter: after.largerSide,
     });
   }
 
-  scored.sort(
-    (a, b) =>
-      a.imbalanceAfter - b.imbalanceAfter ||
-      a.name.localeCompare(b.name) ||
-      a.key.localeCompare(b.key),
-  );
-  return scored.slice(0, maxResults);
+  const byLanding = (a, b) =>
+    a.imbalanceAfter - b.imbalanceAfter ||
+    a.name.localeCompare(b.name) ||
+    a.key.localeCompare(b.key);
+  scored.sort(byLanding);
+  const singles = scored.slice(0, maxResults);
+  if (!combos || !scored.length) return singles;
+  const best = scored[0];
+  if (classifyGap(best.imbalanceAfter, best.largerSideAfter).level === "fair") return singles;
+
+  // No single asset closes the gap: try pairs of the best singles.  Each pair
+  // is re-simulated as a whole -- two pieces change the package count, so
+  // their effect is NOT the sum of their single effects (defect #800).
+  const pool = scored.slice(0, BALANCER_PAIR_POOL);
+  const pairs = [];
+  for (let i = 0; i < pool.length; i += 1) {
+    for (let j = i + 1; j < pool.length; j += 1) {
+      const a = pool[i];
+      const b = pool[j];
+      const after = withCandidates([a.entry, b.entry]);
+      if (!(after.imbalance < best.imbalanceAfter)) continue;
+      pairs.push({
+        isCombo: true,
+        entries: [a.entry, b.entry],
+        name: `${a.name} + ${b.name}`,
+        key: `${a.key}|${b.key}`,
+        label: `${a.label} + ${b.label}`,
+        pos: `${a.pos} + ${b.pos}`,
+        value: a.value + b.value,
+        gapBefore: before.gap,
+        gapAfter: after.gap,
+        imbalanceBefore: before.imbalance,
+        imbalanceAfter: after.imbalance,
+        largerSideAfter: after.largerSide,
+      });
+    }
+  }
+  pairs.sort(byLanding);
+  return [...pairs.slice(0, BALANCER_MAX_PAIRS), ...singles];
 }
+
+/**
+ * Pair search bounds for ``findBalancers({combos: true})`` (TC-B / TCM-F03).
+ * Declared PRIORs, not fitted: the best 8 singles give 28 pair simulations
+ * (bounded, one trade at a time), and at most 2 pairs are offered so the
+ * single-asset suggestions stay visible beside them.
+ */
+export const BALANCER_PAIR_POOL = 8;
+export const BALANCER_MAX_PAIRS = 2;
 
 // ── Multi-Team Verdict Helpers ───────────────────────────────────────────
 
