@@ -423,6 +423,87 @@ Built since the first TC-C head:
 - Second Opinions dispersion and comparables do not yet lower the agreement axis.
 - The fairness bands are provisional: no validation target exists yet to fit them against.
 
+## TC-B notes (2026-10-18)
+
+Branch `claude/trade-calculator-tc-b`, on `origin/main` `c290dea0a8` (TC-A and TC-C merged). Acceptance is on
+`dynasty_main`. Code commits: `2bd2986ddd` (backend: roster-lens holes, partner evidence endpoint) and `8625ab7b77`
+(frontend: builder, personalization, next steps). Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`.
+
+### Inventory — every matrix row in TC-B scope, re-verified against live code
+
+The scope is every row whose Batch cell names TC-B (30 rows, including the shared `TC-B / TC-C` and `TC-B / TC-D`
+rows), plus TCM-N03, whose Batch cell assigns "a banner now in TC-B". Each claim was re-checked on live code; where the
+matrix was stale it says so. Line numbers are as of `8625ab7b77`. "Done" means implemented with tests in this batch
+(TC-B1); it is IMPLEMENTED BUT UNVERIFIED until observed in production.
+
+| row | state found (TC-0 class → re-verified) | live path (file:line) | what was missing | owner | TC-B1 |
+|---|---|---|---|---|---|
+| A02 position mix | NOT IMPLEMENTED — confirmed | `frontend/app/trade/trade-sections.jsx:757`; helper `frontend/lib/trade-assets.js:426` | a per-side mix | display (`trade-assets.js`) | **done** |
+| A03 row metadata | PARTIAL — confirmed: no age | `trade-sections.jsx:381` (`formatAssetAge`) | age on the row | display; age from the contract row | **done** |
+| A05 stable identity | PARTIAL — confirmed: players key on name (`trade-assets.js:71`), share links carry names | `frontend/lib/trade-assets.js:71`, `frontend/lib/trade-share.js:322` | key players by `playerId` across workspace / share / import | `trade-assets.js`, `trade-share.js` | remaining — changes the share format, which Manager Intelligence Batch D seeds `/trade` through right now |
+| B04 generic picks | PARTIAL — confirmed: no uncertainty shown | `trade-sections.jsx:439`; wording `frontend/lib/pick-provenance.js` + `pick-provenance-text.js` | the PRIOR on derived rows; C1-U7 distributions | backend `pickValueProvenance` (C1-U6); C1-U7 | **calculator half done** (badge + basis); C1-U7 distributions remain (a separate owner) |
+| B06 unknown pick ownership | IMPLEMENTED BUT UNVERIFIED (TC-A) — confirmed | `frontend/app/trade/page.jsx` pick-ownership banner | production observation | `lib/pick-ownership.js` | no change |
+| C04 share restore | PARTIAL — confirmed: `parseShareParam` returns `null` on an unknown version (`trade-share.js:334`) | `trade-share.js:334` | per-asset degrade; stable ids (A05) | `trade-share.js` | remaining — share-format freeze (Batch D) |
+| D14 override reset | IMPLEMENTED INCORRECTLY — confirmed: per-row "Reset" beside every overridden input | was `trade-sections.jsx` (now `:502`, a comment) | remove the per-row reset; keep the global one | `trade-sections.jsx` | **done** (#781) |
+| F03 equalizer combos | PARTIAL — confirmed: singles only | `frontend/lib/trade-logic.js:1623` (`findBalancers`) | pairs when no single closes the gap | `findBalancers` (the JS balancer owner) | **done** (`combos: true`) |
+| F05 pick-context link | PARTIAL — confirmed: a pick opens the quick-view popup only | `trade-sections.jsx` `PlayerNameButton` | a pick-context link | — | remaining (P3) |
+| G09 3+ team analysis | NOT IMPLEMENTED — confirmed: War Room renders only for 2 sides | `page.jsx:2478` | N-side analysis, or state the limitation | `trade_decision.py` (N-side would be TC-C scope) | **limitation stated** (the matrix's second option); N-side analysis not built |
+| G18 Trade Desk ↔ decision | PARTIAL — confirmed | `src/trade/trade_desk.py:361` | attach the Analyze packet to saved ideas | `trade_desk.py` | **Save from /trade done (O13)**; the Analyze packet attachment remains |
+| H03 capacity for both teams | PARTIAL — confirmed: `forced_drop_cost` ranks the selected team only (`src/trade/finder.py:1148`); suggestions carry no counterparty block | `finder.py:1148`, `src/trade/suggestions.py` | rank counterparty cost, consolidation credit, suggestions block | `roster_capacity.py` consumers | remaining — Trade Finder lane (generator ranking) |
+| H12 roster consequences | PARTIAL — re-verified: availability (#1772) now merged, so byes and injuries are modelled; holes / bye coverage were not reported; no replacement-level report | `src/roster_intel/best_ball_utility.py:242`, `:575`; UI `frontend/components/trade/TradeWarRoom.jsx:349` | holes, bye coverage, replacement level | `best_ball_utility.py` (one exact solver) | **holes + bye coverage done**; replacement level remains (`rosterSpot.shadowValuePpg` is still `None`, `best_ball_utility.py:589`) |
+| I04 league + team auto-load | PARTIAL — re-verified: the ROS panel league defect was fixed in TC-A, but `useTeam` still auto-selected a hardcoded owner team ("Rossini Panini") on the default league for any user the server could not place | `frontend/components/useTeam.js:245` | no owner team as a global default | `useTeam` + `/api/leagues` `userDefaultTeam` | **done** |
+| K03 immediate tally | PARTIAL — confirmed: the tally rendered only inside the folded panel | `page.jsx:2550`; rows `frontend/lib/second-opinions-rows.js` | surface it outside the fold | `lib/second-opinions.js` (tally), one row assembly | **done** |
+| K06 source unavailable | NOT IMPLEMENTED — confirmed: rows carry `freshnessExcludedSources` (`src/api/data_contract.py:4857`) but Second Opinions ignores it | `frontend/lib/second-opinions.js:191` | an "unavailable" state | `second-opinions.js` | remaining — `SECOND_OPINIONS_TODO.md` lists it as an open owner decision (it changes which rows vote) |
+| K13 ROS Fit | PARTIAL — confirmed: league-scoped since TC-A, not labelled | `frontend/components/RosTradeFitPanel.jsx:162` | label it as the public deadline view | `RosTradeFitPanel.jsx` | **done** |
+| L01 recent real trades | IMPLEMENTED BUT UNVERIFIED — confirmed: no Trade Database link | `frontend/components/trade/RecentRealTrades.jsx:212` | a link into the Trade Database | `RecentRealTrades.jsx` | **done** |
+| L05 comparability labels | PARTIAL ("not confirmed" in TC-0) — **stale**: every card already renders the ledger's disposition (`formatMatchText`, `frontend/lib/recent-real-trades.js:122`, shipped with TC-09) | `recent-real-trades.js:122` | nothing; a test per disposition | `market_trade_format.py` (disposition) | **verified in code + test added** |
+| M01–M07 charts / facts | NOT IMPLEMENTED — confirmed | — | stacked bars, identity map, trend chart, facts table, dispersion, value span, 30-day movers | presentation; M03/M06 need a `src/history` read endpoint | remaining (P3) |
+| N03 historical replay banner | NOT IMPLEMENTED — confirmed: `/trades` opens `/trade?share=` in live mode (`frontend/app/trades/page.jsx:429`) | `trades/page.jsx:429` | an as-of mode or a banner | `trade-share.js` restore | remaining — telling a history link from any other share link needs a URL change, and the share format is frozen while Batch D seeds `/trade` through it |
+| O11 next-action links | NOT IMPLEMENTED — confirmed | `page.jsx:2623`; owner `frontend/lib/trade-next-actions.js`; reader `frontend/app/arbitrage/page.jsx:452` | contextual links into the engines | the engines (unchanged) | **done** |
+| O12 partner intelligence | NOT IMPLEMENTED — confirmed | `src/intel/manager_scout_api.py:196`; `frontend/components/trade/TradeNextActions.jsx` | a counterparty panel consuming Scout / MI | `manager_scout.offer_evidence` | **done** (Scout evidence for this package; MI by link — `/managers` needs a Sleeper username the contract does not carry) |
+| O13 Save to Trade Desk | PARTIAL — confirmed: generated cards only | `TradeNextActions.jsx` → `SaveToDeskButton`; `trade_desk.py:62` (`calculator` source already allowed) | the button on /trade | `trade_desk.py` | **done** |
+| R01 announcement banner | NOT IMPLEMENTED — confirmed | — | config-driven announcement with expiry | — | remaining (P3, low) |
+
+Task-list items with no TC-B matrix row, verified: **legitimate repeated generic picks** (TCM-A08, IMPLEMENTED BUT
+UNVERIFIED, TC-F) and **honest unpriced assets** (TCM-A07, done in TC-A) are both live on `main`; nothing to build.
+**Forced drops** (TCM-H02) are VERIFIED COMPLETE. **Second Opinions full-source vs hybrid tally and coverage** were
+already complete after VA PR2 (`TradeSourceBreakdown`, `tallyOpinions`); what was missing was the immediate surface
+(K03), now done.
+
+### What TC-B1 does (and how each piece stays inside its owner)
+
+- **No second engine.** The equalizer pairs extend `findBalancers` in place and are simulated whole through
+  `tradeImbalance`; partner evidence is `manager_scout.offer_evidence` verbatim; holes are counted inside the one
+  best-ball utility run; the tally reads the one row assembly the per-source table now uses.
+- **Never a vote.** `lineupHoles` is explanatory: BBLI already scores an empty slot as zero, so it does not enter the
+  decision (`trade_decision.py` unchanged). The tally states counts, not a verdict. Next steps change no total.
+- **Missing is never zero.** A missing age is absent; a slot only an unprojected player fits is named
+  (`onlyUnprojected`), not hidden; a roster with no projected player has unknown holes (`None`); a player with no id
+  is counted as "not in the filter", never matched by name; partner history that is not measured says why.
+- **Share format untouched** (Batch D seeds `/trade` through it). The new deep links point away from `/trade`.
+- **Bundle.** The tally and Next steps are `React.lazy`; the long derived-pick prose lives in its own module so the
+  page chunk carries only the label. `/trade` 91.7 KB of 93 KB (main `c290dea0a8`: 88.9 KB; TC-C head: 87.8 KB).
+  Headroom is 1.3 KB — TC-D must split before it adds.
+- **Declared PRIORs added:** `BALANCER_PAIR_POOL = 8` and `BALANCER_MAX_PAIRS = 2` (`trade-logic.js`), bounds on
+  the pair search, not fitted.
+
+### Gates run on the TC-B head (2026-10-18)
+
+- `format_python_changes.sh`: GREEN (Ruff 0.6.9). Coercion check: clean.
+- `pytest tests/trade tests/roster_intel tests/intel/test_manager_scout_*` + `tests/api/test_trade_simulator.py` +
+  `tests/api/test_trade_simulate_mc.py`: 2825 passed, 22 skipped.
+- Full `npx vitest run`: 325 files / 4128 tests passed.
+- `build:nocheck` + `check:bundles`: all pages under budget; `/trade` 91.7 KB of 93 KB.
+- Playwright `tests/e2e/specs/trade-next-actions.spec.js` written (desktop + phone projects, test ids, partner
+  request mocked); NOT run — no Playwright browsers or local stack here.
+
+### Remaining in TC-B (TC-B2 and later)
+
+A05 and C04 (stable player ids and per-asset share degrade) and N03 (history banner) wait for the share-format freeze
+to lift; K06 waits for the owner decision; H03 belongs to the Trade Finder lane; G18 needs the Analyze packet stored
+on a desk item; H12 replacement level needs the waiver-pool projection join; B04 needs C1-U7; F05, M01–M07 and R01
+are P3.
+
 ## Coordination with in-flight work
 
 | In-flight | Overlap | Rule |
@@ -440,4 +521,5 @@ Built since the first TC-C head:
 | TC-0 audit + research | DONE — feature matrix, competitive analysis, UX audit, decision-engine audit committed (docs PR) |
 | TC-A correctness | IMPLEMENTATION HEAD GREEN on local branch `claude/trade-calculator-tc-a` (local commits on `integration/train-5-2026-10-17` @ `ea054f386a`; not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Simulations consuming availability (#1772 follow-through) is not part of this batch. See "TC-A notes" |
 | TC-C decision engine | IMPLEMENTATION HEAD on local branch `claude/trade-calculator-tc-c`, stacked on TC-A (not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-C notes" |
-| TC-B, TC-D … TC-F | QUEUED, in order; each starts as its dependencies land |
+| TC-B missing functionality | TC-B1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b` (`2bd2986ddd`, `8625ab7b77`, PR to main): of the 31 inventoried rows, 12 moved to IMPLEMENTED BUT UNVERIFIED (A02, A03, D14, F03, G09, I04, K03, K13, L05, O11, O12, O13) and 4 advanced but kept their class (B04, G18, H12 partial; L01 gained its database link); the other 15 are listed under "Remaining in TC-B". RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-B notes" |
+| TC-D … TC-F | QUEUED, in order; each starts as its dependencies land |
