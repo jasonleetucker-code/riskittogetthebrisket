@@ -193,6 +193,18 @@ SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 # UPTIME_CHECK_ENABLED, not a pytest sniff.
 SCRAPE_SCHEDULER_ENABLED = _env_bool("SCRAPE_SCHEDULER_ENABLED", True)
 
+# ── SLEEPER OVERLAY WARM ───────────────────────────────────────────────
+# ``_prime_latest_payload`` hands every primed contract (the lifespan's
+# startup prime included) to ``_warm_overlays_in_background``, whose
+# ``sleeper-overlay-warm`` daemon thread refreshes each active league's
+# scoring / draft-class snapshots and Sleeper overlay and then warms the
+# global trending-adds feed.  Production default True.  The unit suite
+# turns it off explicitly in ``tests/conftest.py``: measured 2026-10-18,
+# every ``TestClient`` lifespan otherwise requested
+# ``api.sleeper.app/v1/players/nfl/trending/add`` on a thread the lifespan
+# never joins.  Same environment boundary as SCRAPE_SCHEDULER_ENABLED.
+SLEEPER_OVERLAY_WARM_ENABLED = _env_bool("SLEEPER_OVERLAY_WARM_ENABLED", True)
+
 # ── UPTIME WATCHDOG ────────────────────────────────────────────────────
 UPTIME_CHECK_ENABLED = _env_bool("UPTIME_CHECK_ENABLED", True)
 UPTIME_CHECK_URL = os.getenv(
@@ -2473,7 +2485,14 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
     deploy-failure history.  Thread-safe: ``fetch_sleeper_overlay`` is
     the same sync callable the request path already invokes via
     ``run_in_threadpool``, and it guards its own per-league cache.
+
+    Skipped entirely (no thread) when ``SLEEPER_OVERLAY_WARM_ENABLED`` is
+    false; requests then fetch the overlay themselves, as they already do
+    when they land before the warm finishes.
     """
+    if not SLEEPER_OVERLAY_WARM_ENABLED:
+        log.info("Sleeper overlay warm disabled (SLEEPER_OVERLAY_WARM_ENABLED=false)")
+        return
 
     def _worker() -> None:
         try:

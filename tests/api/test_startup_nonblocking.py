@@ -21,7 +21,25 @@ from __future__ import annotations
 import threading
 import time
 
+import pytest
+
 import server
+
+
+@pytest.fixture(autouse=True)
+def _warm_pass_enabled_without_network(monkeypatch):
+    """These tests are ABOUT the warm pass, so they switch it back on.
+
+    ``tests/conftest.py`` disables it suite-wide
+    (``SLEEPER_OVERLAY_WARM_ENABLED=0``) because it otherwise reaches
+    Sleeper from every client lifespan.  Here it is re-enabled so the
+    worker still runs, and its one unconditional network call (the global
+    trending-adds warm) is stubbed so it stays off the network.
+    """
+    from src.adapters import sleeper_trending  # noqa: PLC0415
+
+    monkeypatch.setattr(server, "SLEEPER_OVERLAY_WARM_ENABLED", True)
+    monkeypatch.setattr(sleeper_trending, "warm", lambda **_kw: False)
 
 
 def _minimal_contract() -> dict:

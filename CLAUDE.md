@@ -706,8 +706,19 @@ Steps:
 
 1. Common 0-9999 internal value scale
 2. Percentile normalization against a FIXED 500-rank combined-pool
-   reference (``_PERCENTILE_REFERENCE_N`` — ranks past 500 clamp to
-   the curve tail; this is deliberate top-500-board behavior)
+   reference (``_PERCENTILE_REFERENCE_N``, owned by
+   ``src/canonical/player_valuation.py::PERCENTILE_REFERENCE_N``).  500 is
+   the coordinate UNIT, ``p = (rank − 1) / 499``, not the tail boundary:
+   ranks past 500 keep resolving (``p > 1``) and only ranks past
+   ``src/canonical/tail_policy.py::TAIL_SATURATION_RANK`` (904, the
+   deepest source rank observed across retained evidence) share the
+   curve's tail value.  (Corrected 2026-10-18: this line used to say ranks
+   past 500 clamp, which was the pre-B4 behaviour, W30-F023.  Measured on
+   ``dynasty_export_20261018_161125``: 447 rank-Hill contributions sit at
+   effective ranks 501-703 carrying 215 distinct values; under a 500 clamp
+   they would share one.  Contract ``hillCurves.*.saturationRank`` stamps
+   904.  Board rank is a separate question, capped by
+   ``OVERALL_RANK_LIMIT`` = 800.)
 3. Hill-style percentile-to-value conversion via scope-level master
    curves in ``src/canonical/player_valuation.py``
 4. Value-direct voting for ``_VALUE_BASED_SOURCES`` (today exactly
