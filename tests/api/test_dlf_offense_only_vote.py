@@ -50,14 +50,16 @@ def flag(monkeypatch):
 
 
 def test_the_hold_names_exactly_the_dlf_idp_boards():
-    assert set(dc.POLICY_SOURCE_VOTE_HOLDS) == set(_HELD)
+    offense_only = {k for k, h in dc.POLICY_SOURCE_VOTE_HOLDS.items() if h["flag"] == _FLAG}
+    assert offense_only == set(_HELD)
     registered = set(dc.get_ranking_source_keys())
     assert set(_HELD) <= registered, "a held source stays REGISTERED (ingested + displayed)"
     for key in _DLF_OFFENSE:
         assert key in registered and key not in dc.POLICY_SOURCE_VOTE_HOLDS
-    # DLF Values is not a voter today and this change does not make it one.
-    assert "dlfValuesSfTep" not in registered
-    assert all(h["flag"] == _FLAG for h in dc.POLICY_SOURCE_VOTE_HOLDS.values())
+    # DLF Values (owner closeout 2026-10-18 Decision 4) is registered as an
+    # offense-only DLF member under its OWN release hold, never this one.
+    assert "dlfValuesSfTep" in registered
+    assert dc.POLICY_SOURCE_VOTE_HOLDS["dlfValuesSfTep"]["flag"] == "dlf_values_rank_hill_vote"
 
 
 def test_flag_defaults_on_and_is_live():

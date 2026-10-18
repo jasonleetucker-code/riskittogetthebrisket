@@ -405,3 +405,46 @@ run on the box. The owner-league run above is a stand-in, not that evaluation.
   * Box access: Signals and `data/intel`.
 * **NEXT_ACTION:** owner decisions above; an on-box run of the package-model evaluation
   against `data/intel`; then the implementation unit for `idp-hampel-n3-v1`.
+
+## Owner closeout D2–D5 (2026-10-18)
+
+The owner's closeout directive of 2026-10-18 (PART 2, Decisions 2-5) decided the
+blockers this evaluation left open. The record, with every measurement, is
+`docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md`; the reproducible
+instrument is `scripts/source_independence_closeout.py`. In brief:
+
+* **§3, the IDP-scoped shared cap (D2): implemented.**
+  * On a defensive row where both the IDP Trade Calculator and The IDP Show combined
+    board vote, they are one lineage, for `cap_family_weights` and for the B11 family
+    count. `data_contract.ROW_SCOPED_CORRELATION_GROUPS`; flag
+    `idp_shared_correlation_cap`, default ON.
+  * Offense and pick rows are untouched, and the IDP-only cut stays unregistered.
+  * On the pinned board it engages on 0 rows: The IDP Show is still quarantined, and
+    the board is byte-identical.
+  * Replayed on five earlier archives, it engages on exactly the ~300 IDP rows where
+    both vote, with 0 mismatches in the independent family-count check.
+* **The IDP Trade Calculator's offense vote (D3): verified and excluded.**
+  * It voted value-direct on 434 offense rows as its own family, outside the KTC Crowd
+    cap.
+  * Its independence is not evidenced. Its current batch (since 2026-10-10) is also
+    not a KTC value-identity batch, so derivation is not proven either.
+  * The vote is excluded on offense rows only:
+    `POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS`, flag `idptc_offense_vote_excluded`, default
+    ON.
+  * Effect: 428 offense values move (p90 3.0%, max 13.4%, top-50 max 2.2%), plus 62
+    tethered picks.
+* **§5, DLF Values (D4): released.**
+  * Rank → Hill, as an offense-only member of the `dlf` family under DLF's one
+    provider cap. Flag `dlf_values_rank_hill_vote`, default ON, because every
+    activation gate passed.
+  * Effect: 300 offense values move (p90 1.7%, top-50 max 1.8%) plus 40 tethered
+    picks. DLF Values' Hampel drop rate is 0.3%.
+* **FantasyPros (D5): on the vendor's clock.**
+  * `fantasyProsIdp` uses `EXPLICIT_UPSTREAM_TIMESTAMP`. Freshness goes from 0.58 to
+    0.18 (SEVERELY_STALE). No value moves, because it is the lone subgroup member of
+    the IDP blend.
+  * The dual-family duplicate analysis is completed: each duplicated identity casts one
+    vote, so there is no amplification.
+* **Unchanged:** the DLF IDP hold (Decision 1, Option B), the Signals IDP hold
+  (Decision 7), the deep-tail challenger (Decision 6, not started here) and the active
+  package model (Decision 8, `geom_q078_v1`).

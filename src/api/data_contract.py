@@ -11,7 +11,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Collection, Iterable, Mapping, Sequence
+from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -516,6 +516,19 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/dlfSf.csv",
         "signal": "rank",
     },
+    # DLF Trade Analyzer Values (owner closeout 2026-10-18 Decision 4): the
+    # CSV publishes DLF's native value only (``name,pos,team,value``).  The
+    # approved representation is rank -> Hill, so the vote is the board's
+    # VALUE ORDER (``rank_from: value_order`` — competition ranks of the
+    # published value, ties sharing the better rank) through the ordinary
+    # rank path; the native number stays visible in ``sourceNativeValues``.
+    # raw / max x 9999 is rejected (Hampel drop ~0.90).  Never the pick rows:
+    # those live in ``dlfValuesSfTepPicks.csv`` (audit only).
+    "dlfValuesSfTep": {
+        "path": "CSVs/site_raw/dlfValuesSfTep.csv",
+        "signal": "rank",
+        "rank_from": "value_order",
+    },
     # Dynasty Nerds Superflex + TE Premium rankings — scraped from
     # https://www.dynastynerds.com/dynasty-rankings/sf-tep/ via
     # ``scripts/fetch_dynasty_nerds.py``.  The CSV has an explicit
@@ -999,17 +1012,138 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
 #:
 #: DLF vote offense-only (owner directive 2026-10-16,
 #: ``docs/OWNER_REQUESTED_TODO.md``): the DLF IDP boards stop voting; DLF's
-#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged and DLF
-#: Values (``dlfValuesSfTep``) stays unregistered/held.  Rollback:
+#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged.  Rollback:
 #: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart.
+#:
+#: DLF Values (``dlfValuesSfTep``, owner closeout 2026-10-18 Decision 4): an
+#: offense-only member of the ``dlf`` family voting rank -> Hill, released
+#: only through its activation gates.  Its hold is in force while
+#: ``dlf_values_rank_hill_vote`` is OFF (``holdWhileFlag: "off"``) — the
+#: inverse of the DLF IDP hold, whose flag names the hold itself.
 POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
-    key: {
-        "reason": "owner_policy_dlf_vote_offense_only",
-        "decision": "owner directive 2026-10-16: DLF vote is offense-only",
-        "flag": "dlf_offense_only_vote",
-    }
-    for key in ("dlfIdp", "dlfRookieIdp")
+    **{
+        key: {
+            "reason": "owner_policy_dlf_vote_offense_only",
+            "decision": "owner directive 2026-10-16: DLF vote is offense-only",
+            "flag": "dlf_offense_only_vote",
+        }
+        for key in ("dlfIdp", "dlfRookieIdp")
+    },
+    "dlfValuesSfTep": {
+        "reason": "owner_policy_dlf_values_release_gated",
+        "decision": (
+            "owner closeout 2026-10-18 Decision 4: DLF Values rank -> Hill approved, "
+            "released only when its activation gates pass"
+        ),
+        "flag": "dlf_values_rank_hill_vote",
+        "holdWhileFlag": "off",
+    },
 }
+
+#: Registered sources whose vote is held on ONE ASSET CLASS of rows only.
+#: Not a whole-source hold (those are :data:`POLICY_SOURCE_VOTE_HOLDS`): the
+#: source stays active, keeps every other row's vote, and stays in its own
+#: Phase-1 ordinal pool (so its rank on the rows it still votes on is
+#: byte-identical); on a held row it simply casts no vote and is not an
+#: eligible family there (B11), exactly like a source whose scope does not
+#: reach the row.  Missing is never zero: the held row blends over its other
+#: sources.  ``assetClass`` is the row's player class — ``"offense"`` means
+#: QB/RB/WR/TE rows only, never picks.
+#:
+#: IDP Trade Calculator offense (owner closeout 2026-10-18 Decision 3): its
+#: offense values were a batch-level copy of KTC Crowd at 2 of 4 measured
+#: batches (``config/sources/source_lineage.json``
+#: ``pair-idptradecalc-offense-ktc``) and its independence is not evidenced,
+#: so the extra offense vote is EXCLUDED rather than counted as its own
+#: family.  Derivation is not proven either, so it does not enter the KTC
+#: Crowd cap.  Rollback: ``RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED=0`` +
+#: restart.
+POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS: dict[str, dict[str, str]] = {
+    "idpTradeCalc": {
+        "assetClass": "offense",
+        "reason": "owner_policy_unproven_extra_offense_vote",
+        "decision": (
+            "owner closeout 2026-10-18 Decision 3: exclude an unproven extra "
+            "IDP Trade Calculator offense vote"
+        ),
+        "flag": "idptc_offense_vote_excluded",
+        "lineage": "pair-idptradecalc-offense-ktc",
+    },
+}
+
+
+def _policy_row_class_vote_holds() -> dict[str, dict[str, str]]:
+    """The :data:`POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS` entries IN FORCE."""
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    in_force = {"idptc_offense_vote_excluded": is_enabled("idptc_offense_vote_excluded")}
+    return {
+        key: dict(hold)
+        for key, hold in POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS.items()
+        if in_force.get(hold["flag"], False)
+    }
+
+
+#: Row-scoped correlation lineage (owner closeout 2026-10-18 Decision 2).  The
+#: registry's ``correlation_group`` is per SOURCE; some dependence holds on one
+#: asset class only.  The IDP Trade Calculator's IDP ordering follows The IDP
+#: Show's (order identity with the IDP-only board since 2026-10-10; lineage
+#: ``pair-idptradecalc-idpshow``), so on a DEFENSIVE row where BOTH it and
+#: ``idpShowCombined`` cast a weighted vote they are ONE lineage: one family
+#: for the family cap (``cap_family_weights``) and for the B11 independence /
+#: coverage count.  Their offense and pick rows are untouched, and the
+#: IDP-only Show board (``idpShow``) is not registered, so it never becomes a
+#: voter.  Where only one of them votes (today: The IDP Show is quarantined)
+#: nothing changes.  Rollback:
+#: ``RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0`` + restart.
+ROW_SCOPED_CORRELATION_GROUPS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "idp_show_lineage_on_idp_rows",
+        "members": ("idpTradeCalc", "idpShowCombined"),
+        "group": "idpShow",
+        "assetClass": "idp",
+        "flag": "idp_shared_correlation_cap",
+        "lineage": "pair-idptradecalc-idpshow",
+    },
+)
+
+
+def row_scoped_family_map(
+    family_by_key: Mapping[str, str],
+    *,
+    asset_class: str,
+    voting: Collection[str],
+    enabled_rules: Collection[str],
+) -> tuple[Mapping[str, str], tuple[str, ...]]:
+    """``(family map for this row, engaged rule ids)``.
+
+    A rule engages only on its asset class and only when EVERY member votes
+    on the row with positive weight (``voting``).  Unengaged rows get
+    ``family_by_key`` itself (no copy), so the default path is unchanged.
+    """
+    engaged: list[str] = []
+    out: dict[str, str] | None = None
+    for rule in ROW_SCOPED_CORRELATION_GROUPS:
+        if rule["id"] not in enabled_rules or rule["assetClass"] != asset_class:
+            continue
+        if not all(m in voting for m in rule["members"]):
+            continue
+        if out is None:
+            out = dict(family_by_key)
+        for member in rule["members"]:
+            out[member] = rule["group"]
+        engaged.append(rule["id"])
+    return (out if out is not None else family_by_key), tuple(engaged)
+
+
+def _enabled_row_scoped_correlation_rules() -> frozenset[str]:
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    in_force = {"idp_shared_correlation_cap": is_enabled("idp_shared_correlation_cap")}
+    return frozenset(
+        r["id"] for r in ROW_SCOPED_CORRELATION_GROUPS if in_force.get(r["flag"], False)
+    )
+
 
 #: ``holdKind`` stamped on a public policy-held entry of the vote-state stamp,
 #: so it can never read as a private, box-local source.
@@ -1019,15 +1153,22 @@ VOTE_HOLD_KIND_OWNER_POLICY = "owner_policy"
 def _policy_source_vote_holds() -> dict[str, dict[str, str]]:
     """The :data:`POLICY_SOURCE_VOTE_HOLDS` entries IN FORCE (flag read).
 
-    ``{source_key: {"reason", "decision", "flag"}}``.  A hold whose rollback
-    flag is OFF is not in force and the source votes as it did before the
-    decision.  Read at call time (``feature_flags`` caches per process).
+    ``{source_key: {"reason", "decision", "flag", ...}}``.  A DLF IDP hold is
+    in force while its flag is ON (the flag names the hold; OFF is the
+    rollback).  A release hold (``holdWhileFlag: "off"``, DLF Values) is in
+    force while its release flag is OFF.  Read at call time
+    (``feature_flags`` caches per process).
     """
     from src.api.feature_flags import is_enabled  # noqa: PLC0415
 
     # Each rollback flag is read by LITERAL name so the flag-reachability
     # scan (tests/api/test_feature_flag_reachability.py) can see the gate.
-    in_force = {"dlf_offense_only_vote": is_enabled("dlf_offense_only_vote")}
+    in_force = {
+        "dlf_offense_only_vote": is_enabled("dlf_offense_only_vote"),
+        # Inverse sense: the DLF Values hold is in force while its release
+        # flag is OFF (``holdWhileFlag: "off"``).
+        "dlf_values_rank_hill_vote": not is_enabled("dlf_values_rank_hill_vote"),
+    }
     registered = {str(s.get("key") or "") for s in _RANKING_SOURCES}
     return {
         key: dict(hold)
@@ -2037,6 +2178,46 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # nudge is wired via synthetic "2026 Pick R.SS" rows that
         # the conversion step appends to the CSV so the source's
         # Hill value flows into pick rankDerivedValue directly.
+        "excludes_rookies": False,
+    },
+    {
+        # DLF Trade Analyzer Values — owner closeout 2026-10-18 Decision 4:
+        # rank -> Hill APPROVED as an OFFENSE-ONLY member of the existing
+        # ``dlf`` provider family (raw / max rejected: ~90% of its votes are
+        # outlier-dropped).  The vote is the board's VALUE ORDER
+        # (``_SOURCE_CSV_PATHS`` ``rank_from: value_order``) priced by the
+        # OFFENSE Hill master like every rank source; DLF's native spacing is
+        # displayed, never voted.  ``correlation_group: "dlf"`` puts it under
+        # DLF's ONE provider cap with DLF Rank (``cap_family_weights``): two
+        # eligible DLF boards split one provider's authority, never two, and
+        # B11 counts DLF once.  Released only through its activation gates:
+        # while ``dlf_values_rank_hill_vote`` is OFF it is held from the vote
+        # by ``POLICY_SOURCE_VOTE_HOLDS`` (collected and displayed).  Record:
+        # docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md.
+        "key": "dlfValuesSfTep",
+        # Fetched by ``scripts/fetch_dlf.py`` on its own board/fetch state;
+        # not loaded by an in-process scraper run, so no ``run_source``
+        # (fails closed — see the KTC entry).
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF 'Dynasty Trade Analyzer Values - 2QB/Superflex with TE Premium' page "
+            "(scripts/fetch_dlf.py probe 2026-09-24); a dynasty trade-value chart that "
+            "also prices future rookie picks"
+        ),
+        "correlation_group": "dlf",
+        "display_name": "Dynasty League Football Trade Values SF-TEP",
+        "column_label": "DLF Val",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        # 319 player rows on the 2026-10-18 capture (QB 54 / RB 91 / TE 46 /
+        # WR 128); ``_expected_sources_for_position`` adds its 25% guardrail.
+        "depth": 320,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        # The vendor titles the board "with TE Premium".
+        "is_tep_premium": True,
+        "needs_shared_market_translation": False,
         "excludes_rookies": False,
     },
     {
@@ -3465,6 +3646,8 @@ def _source_precedence(key: str) -> int:
 
 def collapse_to_independent_families(
     pairs: "list[tuple[str, float, bool]]",
+    *,
+    family_of: Callable[[str], str] | None = None,
 ) -> "tuple[list[tuple[str, float, bool]], dict[str, str]]":
     """One vote per provider family — a SELECTION, never an average.
 
@@ -3506,9 +3689,10 @@ def collapse_to_independent_families(
     matching the vendor's current opinion rather than a pre-draft
     artifact.
     """
+    family_of = family_of or correlation_group_for
     best: dict[str, tuple[int, tuple[str, float, bool]]] = {}
     for key, value, is_anchor in pairs:
-        group = correlation_group_for(key)
+        group = family_of(key)
         rank = _source_precedence(key)
         current = best.get(group)
         if current is None or rank < current[0]:
@@ -3517,9 +3701,7 @@ def collapse_to_independent_families(
     winners = {group: entry for group, (_r, entry) in best.items()}
     winning_keys = {entry[0] for entry in winners.values()}
     superseded = {
-        key: winners[correlation_group_for(key)][0]
-        for key, _v, _a in pairs
-        if key not in winning_keys
+        key: winners[family_of(key)][0] for key, _v, _a in pairs if key not in winning_keys
     }
     # Preserve the caller's ordering; only membership changes.
     kept = [pair for pair in pairs if pair[0] in winning_keys]
@@ -3536,6 +3718,7 @@ def cap_family_weights(
     *,
     cap: float = FAMILY_WEIGHT_CAP_DEFAULT,
     base: Mapping[str, float] | None = None,
+    family_of: Callable[[str], str] | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Every family member keeps a vote; a family's TOTAL is capped.
 
@@ -3562,20 +3745,27 @@ def cap_family_weights(
     2.0 raises its family's ceiling with it, so a weight override is never
     silently undone by the cap.
 
+    ``family_of`` resolves a key's family for THIS row (default: the
+    registry's :func:`correlation_group_for`).  The row-scoped lineage rules
+    (:data:`ROW_SCOPED_CORRELATION_GROUPS`) pass a row's own map here, so a
+    dependence that holds on one asset class is capped by this same owner
+    rather than by a second weighting system.
+
     Returns ``(adjusted_weights, family_adjustment_by_key)``; the factor is
     1.0 for every member of an uncapped family.
     """
+    family_of = family_of or correlation_group_for
     totals: dict[str, float] = {}
     caps: dict[str, float] = {}
     for key, w in weights.items():
-        group = correlation_group_for(key)
+        group = family_of(key)
         totals[group] = totals.get(group, 0.0) + max(0.0, float(w))
         member_cap = max(0.0, float(base.get(key, cap))) if base is not None else cap
         caps[group] = max(caps.get(group, 0.0), member_cap)
     adjusted: dict[str, float] = {}
     factors: dict[str, float] = {}
     for key, w in weights.items():
-        group = correlation_group_for(key)
+        group = family_of(key)
         total, family_cap = totals[group], caps[group]
         factor = family_cap / total if total > family_cap > 0.0 else 1.0
         factors[key] = factor
@@ -5362,9 +5552,41 @@ def _parse_source_csv_cached(
             _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
             return csv_lookup, schema_err
 
+    # Rank derived from the published VALUE ORDER (``rank_from: value_order``
+    # in ``_SOURCE_CSV_PATHS``): competition ranks over the CSV's own value
+    # column, computed once per parse.  A row with no positive value gets no
+    # rank (missing is never a rank, never zero).
+    _value_order_ranks: dict[int, float] | None = None
+    _cfg_entry = _SOURCE_CSV_PATHS.get(source_key)
+    if (
+        signal == "rank"
+        and isinstance(_cfg_entry, dict)
+        and _cfg_entry.get("rank_from") == "value_order"
+    ):
+        _value_order_ranks = {}
+        try:
+            with csv_path.open("r", encoding="utf-8-sig") as f_vo:
+                _vals: list[tuple[int, float]] = []
+                for _i, _row in enumerate(_csv.DictReader(f_vo)):
+                    try:
+                        _v = float(str(_pick(_row, _VALUE_ALIASES)).strip())
+                    except (TypeError, ValueError):
+                        continue
+                    if _v > 0:
+                        _vals.append((_i, _v))
+            _vals.sort(key=lambda t: -t[1])
+            _prev_v: float | None = None
+            _prev_rank = 0
+            for _pos, (_i, _v) in enumerate(_vals, 1):
+                if _v != _prev_v:
+                    _prev_v, _prev_rank = _v, _pos
+                _value_order_ranks[_i] = float(_prev_rank)
+        except OSError:
+            _value_order_ranks = {}
+
     try:
         with csv_path.open("r", encoding="utf-8-sig") as f:
-            for csvrow in _csv.DictReader(f):
+            for _row_no, csvrow in enumerate(_csv.DictReader(f)):
                 name = _pick(csvrow, _NAME_ALIASES).strip()
                 if not name:
                     continue
@@ -5372,7 +5594,11 @@ def _parse_source_csv_cached(
                 if not key:
                     continue
                 if signal == "rank":
-                    raw = _pick(csvrow, _RANK_ALIASES)
+                    if _value_order_ranks is not None:
+                        _vr = _value_order_ranks.get(_row_no)
+                        raw = "" if _vr is None else str(_vr)
+                    else:
+                        raw = _pick(csvrow, _RANK_ALIASES)
                     if raw == "" or raw is None:
                         continue
                     try:
@@ -11042,6 +11268,24 @@ def _compute_unified_rankings(
         str(s.get("key") or ""): correlation_group_for(str(s.get("key") or ""))
         for s in _RANKING_SOURCES
     }
+    # Source-independence policy (owner closeout 2026-10-18), each read once
+    # per build: row-class vote holds (D3) and row-scoped correlation lineage
+    # (D2).  Both feed the EXISTING owners — the vote gate below and
+    # ``cap_family_weights`` / the B11 family count — never a second weighting.
+    _row_class_holds = _policy_row_class_vote_holds()
+    row_class_vote_held: dict[str, int] = {}
+    _corr_rules = _enabled_row_scoped_correlation_rules()
+    # ``{row_idx: family map}`` only for rows where a lineage rule ENGAGED.
+    row_family_by_key: dict[int, Mapping[str, str]] = {}
+    row_lineage_engaged: dict[str, int] = {}
+
+    def _row_player_class(row: Mapping[str, Any]) -> str:
+        pos = str(row.get("position") or "").strip().upper()
+        if pos in _OFFENSE_POSITIONS:
+            return "offense"
+        if pos in _IDP_POSITIONS:
+            return "idp"
+        return "pick" if pos == "PICK" or row.get("assetClass") == "pick" else "other"
 
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
@@ -11371,6 +11615,19 @@ def _compute_unified_rankings(
             if rank_idx == 0 or val != eligible[rank_idx - 1][0]:
                 current_dense_rank = rank_idx + 1
             raw_rank = current_dense_rank
+
+            # ── Row-class owner-policy vote hold ──
+            # (``POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS``.)  Applied AFTER the
+            # ordinal pass so the source's rank on every row it still votes
+            # on is byte-identical: the held rows stay in its pool, they just
+            # cast no vote.
+            _held_class = _row_class_holds.get(source_key)
+            if (
+                _held_class is not None
+                and _row_player_class(players_array[row_idx]) == (_held_class["assetClass"])
+            ):
+                row_class_vote_held[source_key] = row_class_vote_held.get(source_key, 0) + 1
+                continue
 
             # ── Self-correcting rookie exclusion ──
             # Sources flagged ``excludes_rookies=True`` (DLF IDP,
@@ -12088,6 +12345,7 @@ def _compute_unified_rankings(
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
+        _row_class = _row_player_class(players_array[row_idx])
         row_is_te = row_pos == "TE"
         row_is_pick = players_array[row_idx].get("assetClass") == "pick"
 
@@ -12380,6 +12638,27 @@ def _compute_unified_rankings(
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(effective_native_multiplier, 4)
 
+        # ── Row-scoped correlation lineage (owner closeout 2026-10-18 D2) ──
+        # The family each voter belongs to ON THIS ROW.  Unengaged rows get
+        # ``family_by_key`` itself; an engaged row (every member of a rule
+        # votes with positive weight on its asset class) maps the members to
+        # one shared lineage, read below by the family cap, the independence
+        # count and the B11 confidence assembly.
+        row_families, _engaged = row_scoped_family_map(
+            family_by_key,
+            asset_class=_row_class,
+            voting=row_weight,
+            enabled_rules=_corr_rules,
+        )
+        if _engaged:
+            row_family_by_key[row_idx] = row_families
+            players_array[row_idx]["sharedLineageCaps"] = list(_engaged)
+            for _rule in _engaged:
+                row_lineage_engaged[_rule] = row_lineage_engaged.get(_rule, 0) + 1
+
+        def _row_family_of(key: str, _m: Mapping[str, str] = row_families) -> str:
+            return _m.get(key) or correlation_group_for(key)
+
         # ── Per-player Hampel outlier rejection (K=2.75) ──
         # Drop source values that sit more than 2.75 MADs from the
         # median of this player's source values — catches the "this
@@ -12397,11 +12676,12 @@ def _compute_unified_rankings(
                 _jw, _ = cap_family_weights(
                     {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs},
                     base=blend_weight_by_source,
+                    family_of=_row_family_of,
                 )
                 _joint = _joint_robust_filter(
                     [(k, v) for k, v, _ in all_value_pairs],
                     _jw,
-                    {k: family_by_key.get(k, k) for k, _v, _a in all_value_pairs},
+                    {k: row_families.get(k, k) for k, _v, _a in all_value_pairs},
                     k=_HAMPEL_K,
                     min_n=_HAMPEL_MIN_N,
                     min_threshold=_HAMPEL_MIN_THRESHOLD,
@@ -12486,6 +12766,7 @@ def _compute_unified_rankings(
             capped, family_factor = cap_family_weights(
                 {k: row_weight.get(k, 1.0) for k, _v, _a in surviving},
                 base=blend_weight_by_source,
+                family_of=_row_family_of,
             )
             for sk, factor in family_factor.items():
                 meta = row_source_meta[row_idx].get(sk, {})
@@ -12501,7 +12782,9 @@ def _compute_unified_rankings(
             cross_market_weights = [capped[k] for k, _v, a in surviving if a]
             subgroup_weights = [capped[k] for k, _v, a in surviving if not a]
         else:
-            family_kept, family_superseded = collapse_to_independent_families(surviving)
+            family_kept, family_superseded = collapse_to_independent_families(
+                surviving, family_of=_row_family_of
+            )
         if family_superseded:
             kept_keys = {k for k, _v, _a in family_kept}
             all_values = [v for k, v, _a in family_kept]
@@ -12525,7 +12808,7 @@ def _compute_unified_rankings(
         # conflated with it.
         players_array[row_idx]["effectiveSourceCount"] = len(surviving)
         players_array[row_idx]["independentSourceCount"] = len(
-            {correlation_group_for(k) for k, _v, _a in family_kept}
+            {_row_family_of(k) for k, _v, _a in family_kept}
         )
         base_weights = {
             k: blend_weight_by_source.get(k, 1.0)
@@ -12535,7 +12818,9 @@ def _compute_unified_rankings(
             # The same cap on the denominator: a family's normal authority
             # is one provider's, however many members it has, so two fully
             # fresh DLF boards retain 1.0 — not 0.5.
-            base_weights, _ = cap_family_weights(base_weights, base=blend_weight_by_source)
+            base_weights, _ = cap_family_weights(
+                base_weights, base=blend_weight_by_source, family_of=_row_family_of
+            )
         _stamp_source_weight_state(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
@@ -12567,7 +12852,7 @@ def _compute_unified_rankings(
         # what did is what stops deleting evidence from reading as a
         # tidier panel: an eligible family that stops covering a row is
         # missing evidence for as long as it stays eligible.
-        eligible_families: set[str] = {family_by_key.get(k, k) for k in source_ranks}
+        eligible_families: set[str] = {row_families.get(k, k) for k in source_ranks}
         for src in active_sources:
             skey = str(src.get("key") or "")
             # Rookie-translation sources are deliberately excluded from
@@ -12586,7 +12871,13 @@ def _compute_unified_rankings(
                 continue
             if source_pool_sizes.get(skey, 0) <= 0:
                 continue
-            eligible_families.add(family_by_key.get(skey, skey))
+            _held_class = _row_class_holds.get(skey)
+            if _held_class is not None and _row_class == _held_class["assetClass"]:
+                # Held on this row class: not an eligible family here, so its
+                # silence is not missing evidence (same posture as a source
+                # whose scope does not reach the row).
+                continue
+            eligible_families.add(row_families.get(skey, skey))
             if skey in source_ranks:
                 continue
             fallback_count += 1
@@ -13108,14 +13399,14 @@ def _compute_unified_rankings(
                 effective_source_ranks=effective_source_ranks,
                 effective_source_meta=effective_source_meta,
                 src_by_key=src_by_key,
-                family_by_key=family_by_key,
+                family_by_key=row_family_by_key.get(row_idx, family_by_key),
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
                 voting=evidence,
-                family_by_key=family_by_key,
+                family_by_key=row_family_by_key.get(row_idx, family_by_key),
             )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
@@ -13311,14 +13602,14 @@ def _compute_unified_rankings(
                 effective_source_ranks=effective_source_ranks,
                 effective_source_meta=effective_source_meta,
                 src_by_key=src_by_key,
-                family_by_key=family_by_key,
+                family_by_key=row_family_by_key.get(row_idx, family_by_key),
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
                 voting=evidence,
-                family_by_key=family_by_key,
+                family_by_key=row_family_by_key.get(row_idx, family_by_key),
             )
             # Registered so a LATER post-blend override that moves this
             # row's value re-states its confidence against the number
@@ -13702,6 +13993,28 @@ def _compute_unified_rankings(
     _LAST_SOURCE_WEIGHTING_SUMMARY = _source_weighting_summary(
         players_array, source_weighting, active_sources, applied=_freshness_applied
     )
+    # Source-independence policy in force on this build (owner closeout
+    # 2026-10-18 D2/D3): which row-scoped lineage rules are enabled and on how
+    # many rows each ENGAGED, and how many rows each row-class vote hold held.
+    # An empty count is the honest "engaged nowhere".
+    _LAST_SOURCE_WEIGHTING_SUMMARY["independencePolicy"] = {
+        "rowScopedCorrelation": {
+            rule["id"]: {
+                "enabled": rule["id"] in _corr_rules,
+                "members": list(rule["members"]),
+                "group": rule["group"],
+                "assetClass": rule["assetClass"],
+                "flag": rule["flag"],
+                "lineage": rule["lineage"],
+                "rowsEngaged": row_lineage_engaged.get(rule["id"], 0),
+            }
+            for rule in ROW_SCOPED_CORRELATION_GROUPS
+        },
+        "rowClassVoteHolds": {
+            key: {**hold, "rowsHeld": row_class_vote_held.get(key, 0)}
+            for key, hold in _row_class_holds.items()
+        },
+    }
 
     return pick_aliases
 

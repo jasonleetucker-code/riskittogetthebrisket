@@ -16,8 +16,8 @@
       "state": "upstream_inactive",
       "reason": "collection RECOVERED: the prod collector (dynasty-idpshow-fetch) has authenticated and committed every 2 h since 2026-10-17T20:32Z (665 rows, HEALTHY). The vendor's combined chart U8I37 is still v4, lastModifiedAt 2026-08-19, so freshness weighting quarantines it (freshness 0, ~60 days old) — the established safeguard",
       "evidence": "docs/sources/IDP_SHOW_RECOVERY_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §1; data/scrape_state/idpShowCombined_dataset.json (upstream U8I37/v4)",
-      "recoveryAction": "none on our side; the quarantine lifts automatically when the vendor publishes a new chart version. Before it votes again, owner review of the measured IDP Show <-> IDP Trade Calculator lineage (proposed IDP-scoped shared cap, docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §3)",
-      "owner": "automation:dynasty-idpshow-fetch (collection) / owner (lineage cap decision)",
+      "recoveryAction": "none on our side; the quarantine lifts automatically when the vendor publishes a new chart version. The lineage decision is made (owner closeout Decision 2): when it votes again, on defensive rows it shares ONE family cap and ONE B11 family with the IDP Trade Calculator (idp_shared_correlation_cap)",
+      "owner": "automation:dynasty-idpshow-fetch (collection)",
       "nextTrigger": "vendor publishes U8I37 v5 or later (each 2-hourly fetch reads the chart version)",
       "promotionGate": "freshness weighting releases the quarantine only when the vendor's chart lastModifiedAt advances; a re-fetch of an unchanged chart stays stale",
       "reviewBy": "2026-11-01"
@@ -28,7 +28,7 @@
       "evidence": "docs/sources/IDP_SHOW_RECOVERY_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §3",
       "recoveryAction": "do NOT switch the provider family's voting board to this cut while idpTradeCalc votes as a separate family (it would count one ordering twice). Revisit only if the owner adopts an IDP-scoped shared cap for the two lineages, or if the two orders diverge",
       "owner": "claude (evaluation) / owner (approval)",
-      "nextTrigger": "owner decision on the IDP Show <-> IDP Trade Calculator lineage cap; or a measured divergence of the two IDP orders",
+      "nextTrigger": "a measured divergence of the two IDP orders (owner closeout Decision 2: the IDP-only board must not become an additional voter)",
       "promotionGate": "coverage / identity / position check, lineage check against IDP Trade Calculator (config/sources/source_lineage.json), one family vote for the provider, owner approval to switch the family's voting board",
       "reviewBy": "2026-11-15"
     },
@@ -84,12 +84,12 @@
     },
     "dlfValuesSfTep": {
       "state": "evaluation_pending",
-      "reason": "native-value normalization too steep for the shared model (2026-09-25; re-run 2026-10-18: raw/max Hampel drop 0.897); rank-to-Hill viable (drop 0.009, board p90 1.33%). Publication stability now measured: 24 distinct daily releases 2026-09-25..10-18, consecutive Spearman 0.986-1.000",
-      "evidence": "docs/sources/DLF_VALUES_GATE_2026-09-25.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §5",
-      "recoveryAction": "owner decision between rank-to-Hill as a second dlf family member (inside the family cap) and staying non-voting; the stability blocker is cleared",
+      "reason": "RELEASED 2026-10-18 (owner closeout Decision 4): rank-to-Hill approved as an offense-only dlf family member; every activation gate passed (timestamps, completeness, 24-release stability, top-50 movement, picks/IDP non-interference, one DLF family, geom_q078_v1 package model, regression suite), so dlf_values_rank_hill_vote ships ON. raw/max stays rejected (Hampel drop 0.897)",
+      "evidence": "docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md; docs/sources/DLF_VALUES_GATE_2026-09-25.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §5",
+      "recoveryAction": "post-release: verify on the deployed build (contract stamps dlfValuesSfTep voting on offense rows, DLF family weight <= 1.0); rollback RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0 + restart re-applies the declared hold",
       "owner": "automation:dlf-fetch (collection) / claude (evaluation)",
-      "nextTrigger": "owner decision on the 2026-10-18 re-run",
-      "promotionGate": "owner decision on the re-run measurement; stays inside the DLF provider family (no second DLF vote)",
+      "nextTrigger": "production deploy of the closeout PR, then the first post-deploy board",
+      "promotionGate": "released; stays inside the DLF provider family (one cap, one B11 family). Any change of representation (e.g. raw/max) needs its own gate",
       "reviewBy": "2026-11-15"
     },
     "dlfValuesSfTepPicks": {
@@ -130,8 +130,8 @@
       "state": "degraded",
       "reason": "FantasyPros dynasty IDP experts have not updated since 2026-09-04 (page last_updated 9/04; 2 of 6 experts included); our clock reads 09-23 because an upstream revert counted as a broad change, and 15 edge rushers appear twice (DL and LB pages)",
       "evidence": "freshness investigation 2026-10-17 (fantasypros.com/nfl/rankings/dynasty-idp.php ecrData)",
-      "recoveryAction": "upstream-time evidence persisted (data/scrape_state/fantasyProsIdp_upstream.json, publishedAt 2026-09-04, PR #1777); dual-family dedup deferred (not freshness-neutral, source_lineage defect fantasypros-idp-dual-family-duplicates; 16 duplicate identities on the 2026-10-18 CSV); propose EXPLICIT_UPSTREAM_TIMESTAMP (stricter clock) to the owner",
-      "owner": "claude (parser) / owner (freshness-style config)",
+      "recoveryAction": "DONE 2026-10-18 (owner closeout Decision 5): voting freshness now runs on the vendor-stated expert-update clock (freshness_v1.json style EXPLICIT_UPSTREAM_TIMESTAMP; clock 2026-09-04, SEVERELY_STALE 0.18 on the 2026-10-18 board, quarantined automatically below 0.02, never a zero value). Dual-family duplicate analysis completed: no vote amplification (one vote per player). Fetcher dedupe still deferred (one false cadence interval)",
+      "owner": "claude (parser) / automation (freshness weighting)",
       "nextTrigger": "each scheduled refresh; vendor expert update",
       "promotionGate": "full weight returns only when FantasyPros experts publish new dynasty IDP rankings (freshness weighting); never by editing a clock",
       "reviewBy": "2026-10-31"
