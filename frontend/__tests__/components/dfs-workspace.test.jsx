@@ -1,7 +1,36 @@
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import DfsWorkspace from "@/components/dfs/DfsWorkspace";
+
+// DfsWorkspace code-splits its panels with React.lazy.  The FIRST test to
+// reveal a panel — the slate table (PlayerPool), the build result
+// (BuildResult and its nested EntriesExport / PortfolioSummary /
+// ContestModel) — paid two costs inside Testing Library's default 1 s wait:
+//
+// 1. compiling the chunk on its first import (CPU-bound, so it grows with
+//    the full suite's worker load); and
+// 2. React's Suspense reveal throttle (FALLBACK_THROTTLE_MS = 300 in
+//    react-dom 19) for every boundary that suspends for the first time,
+//    nested boundaries in series — then the render itself, also CPU-bound.
+//
+// Alone the two tests took 0.6-0.9 s of that 1 s; with the suite contending
+// for the CPU they failed "Unable to find role=table … Slate player pool" and
+// "… Download upload CSV" (reproduced 2 of 2 by pinning the file plus two
+// concurrent suites to one core).  Later tests reveal the same panels in
+// ~0.3 s because the lazy objects are already resolved.
+//
+// Fix: compile every DFS module before any timed wait (the glob covers new
+// panel files), and give the waits that cross a COLD lazy boundary an explicit
+// budget that is not a fraction of the fixed throttle.  The assertions are
+// unchanged, and a wait still returns the moment its element appears.
+const DFS_MODULES = import.meta.glob("../../components/dfs/*.jsx");
+beforeAll(async () => {
+  await Promise.all(Object.values(DFS_MODULES).map((load) => load()));
+}, 60_000);
+
+/** Budget for a wait that reveals a lazy panel for the first time in this file. */
+const COLD_LAZY_REVEAL = { timeout: 10_000 };
 
 function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -96,7 +125,7 @@ describe("DfsWorkspace", () => {
     await screen.findByText(/Research only/);
     fireEvent.change(screen.getByLabelText("Salary CSV text"), { target: { value: "Position,Name,ID,Salary,TeamAbbrev\n" } });
     fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
-    const table = await screen.findByRole("table", { name: /Slate player pool/ });
+    const table = await screen.findByRole("table", { name: /Slate player pool/ }, COLD_LAZY_REVEAL);
     expect(within(table).getByText("No projection")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lock Syn WR" })).toBeDisabled();
     // The contest-aware objective is visible but not selectable.
@@ -149,9 +178,12 @@ describe("DfsWorkspace", () => {
     await screen.findByText(/Research only/);
     fireEvent.change(screen.getByLabelText("Salary CSV text"), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
-    await screen.findByRole("table", { name: /Slate player pool/ });
+    await screen.findByRole("table", { name: /Slate player pool/ }, COLD_LAZY_REVEAL);
     fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Download upload CSV" })).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByRole("button", { name: "Download upload CSV" })).toBeInTheDocument(),
+      COLD_LAZY_REVEAL,
+    );
     const buildCall = calls.find((c) => c.url.endsWith("/builds"));
     expect(buildCall.body.objective).toBe("projection_baseline");
     expect(buildCall.body.mode).toBe("research");

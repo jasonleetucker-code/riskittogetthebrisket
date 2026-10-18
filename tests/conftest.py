@@ -80,6 +80,18 @@ os.environ.setdefault(
 # unit-test step so the CI policy is visible rather than inherited.
 os.environ.setdefault("UPTIME_CHECK_ENABLED", "0")
 
+# ── No real scrape from a test's lifespan ─────────────────────────────
+# The lifespan starts ``run_scraper(trigger="startup")`` 3 s after boot.
+# That executes ``Dynasty Scraper.py``'s top level: a live Sleeper fetch
+# that rewrites the TRACKED ``data/sleeper_last_good.json`` and
+# ``data/scrape_state/sleeper_last_success`` (deploy dispatch keys on
+# commits to ``data/scrape_state``), on a worker thread the lifespan
+# cannot cancel.  Measured 2026-10-18: under ``pytest -n 6`` a TestClient
+# held open past 3 s did exactly that, mid-suite, from whichever test
+# happened to be running.  Same explicit boundary as above; a test that
+# wants the scheduler sets the variable itself.
+os.environ.setdefault("SCRAPE_SCHEDULER_ENABLED", "0")
+
 # ── Game Day live network feeds OFF for the suite ─────────────────────
 # ``game_day_live_game_state`` (ESPN scoreboard) and
 # ``sleeper_weekly_projections`` default ON in production since Game Day
@@ -179,7 +191,8 @@ _runtime_data.activate(_RUNTIME_DATA_BASE / "collection")
 _runtime_data_counter = itertools.count()
 # The REAL directories as this session found them.  A local server or
 # scrape may legitimately own these files; the suite may not touch them.
-_RUNTIME_DATA_BASELINE = {"value": _runtime_data.fingerprint()}
+with _runtime_data.real_paths_lock():
+    _RUNTIME_DATA_BASELINE = {"value": _runtime_data.fingerprint()}
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -196,16 +209,22 @@ def _real_runtime_data_is_untouched():
     class).  Re-baselines after reporting so one write is one failure.
     """
     yield
-    now = _runtime_data.fingerprint()
+    # Under the lock: tests/test_runtime_data_isolation.py plants poison at
+    # the real paths on purpose, and another worker comparing mid-plant
+    # would report it as this test's write.
+    with _runtime_data.real_paths_lock():
+        now = _runtime_data.fingerprint()
     before = _RUNTIME_DATA_BASELINE["value"]
     if now != before:
         _RUNTIME_DATA_BASELINE["value"] = now
         changes = "\n  ".join(_runtime_data.describe_changes(before, now))
         pytest.fail(
-            "the real gitignored runtime directories changed during this test "
-            "(tests must write to the isolated root — see "
-            "tests/runtime_data_isolation.py; a local server or scrape running "
-            f"at the same time can also cause this):\n  {changes}",
+            "the real gitignored runtime directories or tracked scraper "
+            "artifacts changed during this test (tests must write to the "
+            "isolated root and never to data/scrape_state or "
+            "data/sleeper_last_good.json — see tests/runtime_data_isolation.py; "
+            "a local server or scrape running at the same time can also cause "
+            f"this):\n  {changes}",
             pytrace=False,
         )
 

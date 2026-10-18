@@ -180,6 +180,19 @@ ALERT_PASSWORD = os.getenv("ALERT_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD", 
 # force a full alert send.
 SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 
+# ── SCRAPE SCHEDULER ───────────────────────────────────────────────────
+# The lifespan starts a scrape 3 s after boot and then every
+# SCRAPE_INTERVAL_HOURS.  Production default True.  A scrape executes
+# ``Dynasty Scraper.py``'s module top level, which fetches the live Sleeper
+# league and rewrites the TRACKED ``data/sleeper_last_good.json`` and
+# ``data/scrape_state/sleeper_last_success`` — and it runs on a worker
+# thread that the lifespan's cancel cannot stop.  So any ``TestClient``
+# held open past 3 s (routine under parallel load) used to scrape for real
+# and dirty the checkout.  The unit suite turns it off explicitly in
+# ``tests/conftest.py`` — the same environment boundary as
+# UPTIME_CHECK_ENABLED, not a pytest sniff.
+SCRAPE_SCHEDULER_ENABLED = _env_bool("SCRAPE_SCHEDULER_ENABLED", True)
+
 # ── UPTIME WATCHDOG ────────────────────────────────────────────────────
 UPTIME_CHECK_ENABLED = _env_bool("UPTIME_CHECK_ENABLED", True)
 UPTIME_CHECK_URL = os.getenv(
@@ -3953,10 +3966,13 @@ async def lifespan(app: FastAPI):
         await asyncio.sleep(3)  # small delay to let server finish booting
         await run_scraper(trigger="startup")
 
-    scrape_task = asyncio.create_task(initial_scrape())
-
     # 3. Start the recurring schedule
-    scheduler_task = asyncio.create_task(schedule_loop())
+    if SCRAPE_SCHEDULER_ENABLED:
+        scrape_task = asyncio.create_task(initial_scrape())
+        scheduler_task = asyncio.create_task(schedule_loop())
+    else:
+        scrape_task = scheduler_task = None
+        log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
@@ -4003,8 +4019,9 @@ async def lifespan(app: FastAPI):
     yield  # app is running
 
     # Cleanup
-    scrape_task.cancel()
-    scheduler_task.cancel()
+    for task in (scrape_task, scheduler_task):
+        if task is not None:
+            task.cancel()
     uptime_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
