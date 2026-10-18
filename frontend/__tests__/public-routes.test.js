@@ -71,6 +71,9 @@ describe("private pages", () => {
       // private decision intelligence.
       "/managers",
       "/managers/league/1312006700437352448",
+      // Batch E's comparison view is private too.
+      "/managers/compare",
+      "/managers/compare?a=x&b=y",
     ]) {
       expect(isPublicPath(path), path).toBe(false);
     }

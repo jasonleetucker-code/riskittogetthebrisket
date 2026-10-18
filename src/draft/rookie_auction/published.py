@@ -29,6 +29,18 @@ Rules (owner addendum 2026-10-18):
 * A stored record stops being eligible when its draft class is retired
   (``pick_lifecycle``) or its ``formulaVersion`` differs from the running
   formula — the answer is then ``unavailable``, not a stale curve.
+* PROMOTED GENERATIONS (Batch D, owner decision 12, 2026-10-18).  The
+  policy-driven promotion path (``promotion.py``) publishes a class's own
+  candidate as a new create-only allocation under
+  ``config/draft_valuation/promoted_allocations/`` and then switches to it by
+  writing ONE create-only, sequence-numbered pointer record under
+  ``config/draft_valuation/promotion_pointers/`` — the pointer write is the
+  atomic switch.  Promoted records are invisible to the newest-record rule
+  above; only a pointer makes one current.  Rollback is another pointer
+  (back to the generation before), never a deletion.  With no pointer, or a
+  pointer back to the fallback, resolution is exactly the rule above.  An
+  unreadable pointer history or a missing promoted record degrades to the
+  rule above with a note — never zero, never another year.
 * DOLLARS ONLY, by draft position.  A record never contains ownership; the
   loader refuses one that does, and :class:`PublishedAllocation` has no
   ownership field, so old ownership cannot be read from it.  The consumer
@@ -61,16 +73,29 @@ from src.draft.rookie_auction.verify import verify_whole_dollar_allocation
 from src.identity.pick_lifecycle import ClassLifecycle, is_retired
 
 __all__ = [
+    "ACTION_PROMOTE",
+    "ACTION_RESUME",
+    "ACTION_ROLLBACK",
     "BOX_STORE",
+    "PROMOTION_ROOT",
     "REPO_STORE",
     "STATE_CURRENT",
     "STATE_LAST_KNOWN_GOOD",
     "STATE_UNAVAILABLE",
     "AllocationCandidate",
     "CandidateFailure",
+    "GenerationError",
+    "GenerationState",
+    "PromotionPreview",
     "PublishedAllocation",
     "allocation_history",
+    "generation_state",
+    "load_promoted_record",
+    "preview_promotion",
+    "publish_promoted_generation",
     "resolve_published_allocation",
+    "resume_generation",
+    "rollback_generation",
 ]
 
 SCHEMA = "draft_valuation_published_allocation_v1"
@@ -78,6 +103,18 @@ REPO_STORE = CONFIG_DIR / "published_allocations"
 BOX_STORE = (
     Path(__file__).resolve().parents[3] / "data" / "draft_valuation" / "published_allocations"
 )
+
+#: Root of the repo-tracked promotion stores (pointers + promoted allocations).
+#: Read at call time, so the test suite can redirect it
+#: (``tests/runtime_data_isolation.py``).
+PROMOTION_ROOT = CONFIG_DIR
+POINTER_DIR_NAME = "promotion_pointers"
+PROMOTED_DIR_NAME = "promoted_allocations"
+POINTER_SCHEMA = "draft_valuation_promotion_pointer_v1"
+ACTION_PROMOTE = "promote"
+ACTION_ROLLBACK = "rollback"
+ACTION_RESUME = "resume"
+_POINTER_ACTIONS = frozenset({ACTION_PROMOTE, ACTION_ROLLBACK, ACTION_RESUME})
 
 STATE_CURRENT = "current"
 STATE_LAST_KNOWN_GOOD = "last_known_good"
@@ -327,6 +364,326 @@ def _persist(record: dict[str, Any], write_dir: Path, league_key: str) -> Path:
     return final
 
 
+# --- promoted generations + the pointer (Batch D) ---------------------------------
+
+
+class GenerationError(RuntimeError):
+    """A promotion / rollback / resume could not be written; nothing switched."""
+
+
+@dataclass(frozen=True)
+class GenerationState:
+    """What the pointer history says for one (league, year).
+
+    ``stack`` is the generation stack: a promote pushes its record checksum, a
+    rollback pops it.  ``active_checksum`` is the top (``None`` = no promoted
+    generation: the fallback rule serves).  ``held`` is true while the newest
+    pointer is a rollback (cleared by an explicit resume).  ``error`` names an
+    unreadable history; the resolver then ignores every pointer.
+    """
+
+    league_key: str
+    draft_year: int
+    active_checksum: str | None
+    stack: tuple[str, ...]
+    held: bool
+    last_action: str | None
+    last_action_at: str | None
+    last_sequence: int
+    pointers: tuple[Mapping[str, Any], ...]
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "leagueKey": self.league_key,
+            "draftYear": self.draft_year,
+            "activeRecordChecksum": self.active_checksum,
+            "generationStack": list(self.stack),
+            "held": self.held,
+            "lastAction": self.last_action,
+            "lastActionAt": self.last_action_at,
+            "lastSequence": self.last_sequence,
+            "error": self.error,
+        }
+
+
+@dataclass(frozen=True)
+class PromotionPreview:
+    """A candidate turned into the record a promotion WOULD publish."""
+
+    record: Mapping[str, Any] | None
+    refusal: str | None
+    same_as_active: bool
+
+
+def _root(root: Path | None) -> Path:
+    return Path(root) if root is not None else PROMOTION_ROOT
+
+
+def _pointer_dir(root: Path, league_key: str, year: int) -> Path:
+    return root / POINTER_DIR_NAME / league_key / str(int(year))
+
+
+def _promoted_dir(root: Path, league_key: str, year: int) -> Path:
+    return root / PROMOTED_DIR_NAME / league_key / str(int(year))
+
+
+def _read_pointer(path: Path, league_key: str, year: int) -> dict[str, Any]:
+    p = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(p, dict) or p.get("schema") != POINTER_SCHEMA:
+        raise ValueError(f"{path.name}: not a promotion pointer")
+    if (p.get("checksum") or {}).get("value") != canonical_checksum(p):
+        raise ValueError(f"{path.name}: checksum mismatch — pointer was edited")
+    if p.get("leagueKey") != league_key or p.get("draftYear") != year:
+        raise ValueError(f"{path.name}: filed under the wrong league or year")
+    if p.get("action") not in _POINTER_ACTIONS:
+        raise ValueError(f"{path.name}: unknown action {p.get('action')!r}")
+    if path.name != f"{int(p.get('sequence', -1)):06d}.json":
+        raise ValueError(f"{path.name}: sequence does not match the file name")
+    _ts(p["at"])
+    return p
+
+
+def generation_state(
+    league_key: str, draft_year: int, *, root: Path | None = None
+) -> GenerationState:
+    """Fold the pointer history for ``(league_key, draft_year)``.  Never raises."""
+    year = int(draft_year)
+    d = _pointer_dir(_root(root), league_key, year)
+    pointers: list[dict[str, Any]] = []
+    error = None
+    if d.is_dir():
+        for path in sorted(d.glob("*.json")):
+            try:
+                pointers.append(_read_pointer(path, league_key, year))
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                error = str(exc)
+                break
+    if error is None:
+        seqs = [int(p["sequence"]) for p in pointers]
+        if seqs != list(range(1, len(seqs) + 1)):
+            error = f"pointer sequence not contiguous from 1: {seqs}"
+    stack: list[str] = []
+    held = False
+    if error is None:
+        for p in pointers:
+            if p["action"] == ACTION_PROMOTE:
+                if not p.get("activeRecordChecksum"):
+                    error = f"promote pointer {p['sequence']} names no record"
+                    break
+                stack.append(p["activeRecordChecksum"])
+                held = False
+            elif p["action"] == ACTION_ROLLBACK:
+                if not stack:
+                    error = f"rollback pointer {p['sequence']} with nothing to roll back"
+                    break
+                stack.pop()
+                held = True
+            else:  # resume
+                held = False
+            if (stack[-1] if stack else None) != p.get("activeRecordChecksum"):
+                error = f"pointer {p['sequence']} disagrees with the folded generation stack"
+                break
+    last = pointers[-1] if pointers else None
+    if error is not None:
+        stack, held = [], False
+    return GenerationState(
+        league_key=league_key,
+        draft_year=year,
+        active_checksum=stack[-1] if stack else None,
+        stack=tuple(stack),
+        held=held,
+        last_action=last["action"] if last else None,
+        last_action_at=last["at"] if last else None,
+        last_sequence=int(last["sequence"]) if last else 0,
+        pointers=tuple(pointers),
+        error=error,
+    )
+
+
+def load_promoted_record(
+    league_key: str, draft_year: int, checksum: str, *, root: Path | None = None
+) -> dict[str, Any] | None:
+    """The promoted allocation record with ``checksum``, validated; else ``None``."""
+    d = _promoted_dir(_root(root), league_key, int(draft_year))
+    if not d.is_dir() or not checksum:
+        return None
+    for path in sorted(d.glob(f"*__{checksum[:16]}.json")):
+        try:
+            record = _load_record(path, league_key, int(draft_year))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if record["checksum"]["value"] == checksum:
+            return record
+    return None
+
+
+def _write_pointer(
+    root: Path,
+    state: GenerationState,
+    *,
+    action: str,
+    active: str | None,
+    at: str,
+    reason: str,
+    extra: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if state.error is not None:
+        raise GenerationError(f"pointer history unreadable: {state.error}")
+    _ts(at)
+    seq = state.last_sequence + 1
+    pointer: dict[str, Any] = {
+        "schema": POINTER_SCHEMA,
+        "leagueKey": state.league_key,
+        "draftYear": state.draft_year,
+        "sequence": seq,
+        "action": action,
+        "activeRecordChecksum": active,
+        "previousRecordChecksum": state.active_checksum,
+        "at": at,
+        "reason": reason,
+        "context": dict(extra or {}),
+    }
+    if _contains_ownership(pointer):
+        raise GenerationError("pointer context carries ownership")
+    pointer["checksum"] = {"algorithm": "sha256", "value": canonical_checksum(pointer)}
+    d = _pointer_dir(root, state.league_key, state.draft_year)
+    d.mkdir(parents=True, exist_ok=True)
+    final = d / f"{seq:06d}.json"
+    fd, tmp_name = tempfile.mkstemp(prefix=".ptr.", suffix=".tmp", dir=d)
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(pointer, indent=1, ensure_ascii=False) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        try:
+            os.link(tmp, final)  # THE switch: atomic, create-only
+        except FileExistsError as exc:
+            raise GenerationError(f"pointer {seq} already exists (concurrent writer)") from exc
+    finally:
+        tmp.unlink(missing_ok=True)
+    return pointer
+
+
+def preview_promotion(
+    league_key: str, candidate: AllocationCandidate, *, root: Path | None = None
+) -> PromotionPreview:
+    """Verify ``candidate`` exactly as a promotion would, writing nothing."""
+    try:
+        league_scope(league_key)
+    except LeagueNotConfiguredError:
+        return PromotionPreview(None, f"league_not_configured:{league_key}", False)
+    record, reason = _evaluate(league_key, candidate)
+    if record is None:
+        return PromotionPreview(None, reason, False)
+    state = generation_state(league_key, candidate.draft_year, root=root)
+    same = False
+    if state.active_checksum:
+        active = load_promoted_record(
+            league_key, candidate.draft_year, state.active_checksum, root=root
+        )
+        same = active is not None and _content_key(active) == _content_key(record)
+    return PromotionPreview(record, None, same)
+
+
+def publish_promoted_generation(
+    league_key: str,
+    candidate: AllocationCandidate,
+    *,
+    at: str,
+    reason: str,
+    context: Mapping[str, Any] | None = None,
+    root: Path | None = None,
+) -> dict[str, Any] | None:
+    """Atomically switch ``(league, year)`` to ``candidate``.  Returns the pointer.
+
+    Step 1 writes the verified allocation create-only under
+    ``promoted_allocations/`` (invisible until pointed at); step 2 writes the
+    next pointer (the switch).  A failure in either step raises
+    :class:`GenerationError` and leaves the previous generation serving.
+    ``None`` when the candidate's dollars equal the active generation's
+    (nothing to switch).
+    """
+    league_scope(league_key)
+    base = _root(root)
+    state = generation_state(league_key, candidate.draft_year, root=base)
+    if state.error is not None:
+        raise GenerationError(f"pointer history unreadable: {state.error}")
+    if state.held:
+        raise GenerationError("class is held after a rollback; resume it first")
+    preview = preview_promotion(league_key, candidate, root=base)
+    if preview.record is None:
+        raise GenerationError(f"candidate refused: {preview.refusal}")
+    if preview.same_as_active:
+        return None
+    record = dict(preview.record)
+    try:
+        _persist(record, base / PROMOTED_DIR_NAME, league_key)
+    except OSError as exc:
+        raise GenerationError(f"promoted allocation not written: {exc}") from exc
+    return _write_pointer(
+        base,
+        state,
+        action=ACTION_PROMOTE,
+        active=record["checksum"]["value"],
+        at=at,
+        reason=reason,
+        extra=context,
+    )
+
+
+def rollback_generation(
+    league_key: str,
+    draft_year: int,
+    *,
+    at: str,
+    reason: str,
+    context: Mapping[str, Any] | None = None,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Restore the generation before the active one; the class is then held."""
+    league_scope(league_key)
+    base = _root(root)
+    state = generation_state(league_key, draft_year, root=base)
+    if state.error is not None:
+        raise GenerationError(f"pointer history unreadable: {state.error}")
+    if not state.stack:
+        raise GenerationError("no promoted generation to roll back (the fallback is serving)")
+    restored = state.stack[-2] if len(state.stack) > 1 else None
+    return _write_pointer(
+        base, state, action=ACTION_ROLLBACK, active=restored, at=at, reason=reason, extra=context
+    )
+
+
+def resume_generation(
+    league_key: str,
+    draft_year: int,
+    *,
+    at: str,
+    reason: str,
+    context: Mapping[str, Any] | None = None,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Clear a rollback hold so automatic promotion may run again."""
+    league_scope(league_key)
+    base = _root(root)
+    state = generation_state(league_key, draft_year, root=base)
+    if state.error is not None:
+        raise GenerationError(f"pointer history unreadable: {state.error}")
+    if not state.held:
+        raise GenerationError("class is not held")
+    return _write_pointer(
+        base,
+        state,
+        action=ACTION_RESUME,
+        active=state.active_checksum,
+        at=at,
+        reason=reason,
+        extra=context,
+    )
+
+
 # --- the resolver -------------------------------------------------------------------
 
 
@@ -421,6 +778,7 @@ def resolve_published_allocation(
     store_dirs: Sequence[Path] | None = None,
     write_dir: Path | None = None,
     persist: bool = True,
+    promotion_root: Path | None = None,
 ) -> PublishedAllocation:
     """The published whole-dollar allocation for ``(league_key, draft_year)``.
 
@@ -428,6 +786,13 @@ def resolve_published_allocation(
     :class:`CandidateFailure` naming why none could be computed, or ``None``
     (read the store only).  ``lifecycle`` — the class's
     ``pick_lifecycle`` verdict; a retired class publishes nothing.
+
+    ``promotion_root`` — where the promotion pointer and promoted records
+    live.  Defaults to :data:`PROMOTION_ROOT` when ``store_dirs`` is also
+    defaulted; a caller that names its own ``store_dirs`` and no
+    ``promotion_root`` reads no pointer (it chose its stores).  An active
+    promoted generation is served as ``current`` and the candidate is not
+    used; otherwise the rule below applies unchanged.
     """
     year = int(draft_year)
     try:
@@ -441,6 +806,23 @@ def resolve_published_allocation(
     target = Path(write_dir) if write_dir is not None else BOX_STORE
 
     notes: list[str] = []
+    proot = (
+        promotion_root
+        if promotion_root is not None
+        else (PROMOTION_ROOT if store_dirs is None else None)
+    )
+    if proot is not None:
+        gen = generation_state(league_key, year, root=proot)
+        if gen.error is not None:
+            notes.append(f"promotion_pointer_unreadable:{gen.error}")
+        elif gen.active_checksum:
+            promoted = load_promoted_record(league_key, year, gen.active_checksum, root=proot)
+            if promoted is not None and promoted["formulaVersion"] == FORMULA_VERSION:
+                notes.append(f"promoted_generation:{gen.last_sequence}")
+                if candidate is not None:
+                    notes.append("candidate_not_used:promoted_generation_active")
+                return _from_record(league_key, year, promoted, STATE_CURRENT, notes=notes)
+            notes.append(f"promoted_generation_unavailable:{gen.active_checksum[:16]}")
     history = allocation_history(league_key, year, store_dirs=dirs)
     eligible = []
     for path, record, error in history:
