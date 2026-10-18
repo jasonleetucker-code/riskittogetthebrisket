@@ -4,6 +4,8 @@ We mock the Sleeper HTTP calls so tests run offline."""
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 
 from src.api import draft_capital_fallback as dcf
 
@@ -329,7 +331,11 @@ def test_a_fully_unpriced_board_prices_nothing(monkeypatch):
     assert result["unpricedPickCount"] == 16  # 1 team × 4 rounds × 4 owned classes
     assert all(p["dollarValue"] is None for p in _all_picks(result))
     assert result["budgetPolicy"]["allYearsBudget"] == 0
-    assert all(t["auctionDollars"] == 0 for t in result["teamTotals"])
+    # MISSING IS NEVER ZERO: an unpriced upcoming class publishes NO budgets,
+    # not a board of $0 budgets.
+    assert result["teamTotalsState"] == "unavailable"
+    assert result["teamTotalsReason"] == "upcoming_class_unpriced"
+    assert result["teamTotals"] and all(t["auctionDollars"] is None for t in result["teamTotals"])
 
 
 # ── /traded_picks fail-closed (missing is never zero) ────────────────
@@ -450,3 +456,165 @@ def test_a_ten_team_four_round_league_gets_exactly_1200_per_class_over_its_own_4
     moved = {(p["season"], p["round"], p["originalOwner"]): p["currentOwner"] for p in every}
     assert moved[(2027, 1, "Team3")] == "Team7"
     assert moved[(2028, 2, "Team5")] == "Team1"
+
+
+# ── Cold deploy: no draft-class snapshot (MISSING IS NEVER ZERO) ─────────
+#
+# dynasty_new on a cold deploy: no persisted draft-class snapshot.  The route
+# used to read the snapshot alone, so "no evidence retires nothing" served the
+# league's ALREADY-DRAFTED class (2026, in October 2026) as upcoming — unpriced, so every team's
+# auction budget read $0 on /draft, the auction room, the /league simulator
+# and the /trade stack.
+
+
+_Y = datetime.now(timezone.utc).year  # the resolver anchors on the calendar year
+
+
+def _cold_league(drafts):
+    return {
+        "/league/L1/drafts": drafts,
+        "/league/L1": {"league_id": "L1", "season": str(_Y), "previous_league_id": None},
+        "/draft/D26/picks": [
+            {"player_id": "r1", "metadata": {"years_exp": "0"}},
+            {"player_id": "r2", "metadata": {"years_exp": "0"}},
+        ],
+        "/rosters": [
+            {"roster_id": 1, "owner_id": "u1", "players": ["r1"]},
+            {"roster_id": 2, "owner_id": "u2", "players": ["r2"]},
+        ],
+        "/users": [
+            {"user_id": "u1", "display_name": "Alpha"},
+            {"user_id": "u2", "display_name": "Beta"},
+        ],
+        "/traded_picks": [],
+    }
+
+
+def _ordered_stub(responses):
+    """Exact-suffix matching, longest key first (``/league/L1/drafts`` must
+    not answer ``/league/L1``)."""
+    keys = sorted(responses, key=len, reverse=True)
+
+    def fake(url):
+        for k in keys:
+            if url.rstrip("/").endswith(k):
+                return responses[k]
+        return None
+
+    return fake
+
+
+# This calendar year's rookie class: drafted (rookies-only) and rostered.
+_DRAFTED_THIS_YEAR = [
+    {
+        "draft_id": "D26",
+        "season": str(_Y),
+        "status": "complete",
+        "settings": {"rounds": 1, "player_type": 1},
+    }
+]
+
+# The board no longer prices the drafted class; it prices the next three.
+_COLD_CONTRACT = {
+    "playersArray": [
+        _pick_row(f"{_Y + k} Round 1", v) for k, v in ((1, 6000), (2, 5000), (3, 4000))
+    ]
+}
+
+
+def _cold_build(monkeypatch, responses, *, snapshot=None):
+    import src.api.draft_class_evidence as dce
+
+    monkeypatch.setattr(dce, "read_snapshot", lambda _lid: snapshot)
+    monkeypatch.setattr(dcf, "_fetch_json", _ordered_stub(responses))
+    years, source = dcf.resolve_league_draft_years("L1", league_key=None)
+    return (
+        dcf.build_sleeper_derived(
+            "L1",
+            _COLD_CONTRACT,
+            current_season=years.upcoming_draft_year,
+            draft_rounds=1,
+            league_draft_years=years,
+            draft_years_evidence=source,
+        ),
+        years,
+        source,
+    )
+
+
+def test_missing_snapshot_reads_live_evidence_and_never_serves_the_drafted_class(monkeypatch):
+    """(b) No snapshot → the same ladder as the workbook path: this request's
+    own Sleeper reads prove 2026 drafted and rostered, so 2027 is upcoming and
+    the budgets are real dollars, not $0."""
+    result, years, source = _cold_build(monkeypatch, _cold_league(_DRAFTED_THIS_YEAR))
+    assert source == "live"
+    assert years.upcoming_draft_year == _Y + 1
+    assert _Y not in years.owned_pick_seasons
+    assert result["upcomingDraftYearState"] == "observed"
+    assert result["teamTotalsState"] == "available"
+    assert result["teamTotalsReason"] is None
+    assert result["coveredPickYears"] == [_Y + 1]
+    assert {p["season"] for p in result["picks"]} == {_Y + 1}
+    dollars = [t["auctionDollars"] for t in result["teamTotals"]]
+    assert sum(dollars) == 1200 and all(d > 0 for d in dollars)
+
+
+def test_no_evidence_at_all_reports_unverified_and_publishes_no_zero_budgets(monkeypatch):
+    """(b) Neither a snapshot nor a live read: the anchor year is a GUESS, so
+    the payload says so and the auction budgets are unavailable — never $0,
+    and never the guessed class's numbers presented as fact."""
+    result, years, source = _cold_build(monkeypatch, _cold_league(None))
+    assert source == "unavailable"
+    assert result["upcomingDraftYearState"] == "unverified"
+    assert result["teamTotalsState"] == "unavailable"
+    assert result["teamTotalsReason"] == "upcoming_draft_year_unverified"
+    assert all(t["auctionDollars"] is None for t in result["teamTotals"])
+    assert result["coveredPickYears"] == []
+    # Ownership is still real: the classes and their picks are listed.
+    assert result["picks"]
+
+
+def test_an_unpriced_upcoming_class_publishes_unavailable_budgets_not_zero(monkeypatch):
+    """(a) Evidence observed but the upcoming class has no priced pick: every
+    ``auctionDollars`` is null with a named reason, and the year views keep
+    the class's capital UNKNOWN rather than $0."""
+    import src.api.draft_class_evidence as dce
+
+    monkeypatch.setattr(dce, "read_snapshot", lambda _lid: None)
+    monkeypatch.setattr(dcf, "_fetch_json", _ordered_stub(_cold_league(_DRAFTED_THIS_YEAR)))
+    from src.identity.pick_lifecycle import LeagueDraftYears
+
+    result = dcf.build_sleeper_derived(
+        "L1",
+        _COLD_CONTRACT,
+        current_season=_Y,
+        draft_rounds=1,
+        league_draft_years=LeagueDraftYears(
+            anchor_year=_Y,
+            upcoming_draft_year=_Y,
+            owned_pick_seasons=(_Y, _Y + 1),
+            retired_seasons=(),
+        ),
+        draft_years_evidence="snapshot",
+    )
+    assert result["teamTotalsState"] == "unavailable"
+    assert result["teamTotalsReason"] == "upcoming_class_unpriced"
+    assert all(t["auctionDollars"] is None for t in result["teamTotals"])
+    assert all(r["auctionDollars"] is None for r in result["teamTotalsByYear"][str(_Y)])
+    # The priced later class is still its own exact $1,200.
+    assert result["yearSummaries"][str(_Y + 1)]["totalDollars"] == 1200
+
+
+def test_auction_room_seats_get_no_budget_rather_than_zero(monkeypatch):
+    """The auction room joins ``teamTotals``; unavailable budgets leave every
+    seat ``missing`` (never an opening budget of $0) and the provenance names
+    the reason."""
+    from src.auction.sources import join_budgets
+
+    result, _years, _source = _cold_build(monkeypatch, _cold_league(None))
+    seats = [{"team": "Alpha", "name": "Alpha"}, {"team": "Beta", "name": "Beta"}]
+    out, provenance = join_budgets(seats, result)
+    assert [s["opening_budget"] for s in out] == [None, None]
+    assert {s["budget_source"] for s in out} == {"missing"}
+    assert provenance["teamTotalsState"] == "unavailable"
+    assert provenance["teamTotalsReason"] == "upcoming_draft_year_unverified"

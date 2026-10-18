@@ -36,6 +36,10 @@ import {
   isUnpricedPick,
   parseDraftCapitalYear,
 } from "@/lib/draft-capital-years";
+import {
+  draftCapitalBudgetsUnavailableReason,
+  draftCapitalBudgetsUnavailableText,
+} from "@/lib/draft-capital-budgets";
 
 // Dynamically import the trade simulator so its JS goes into a
 // separate chunk (loaded on demand when DraftCapital tab renders)
@@ -165,6 +169,9 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
     ...new Set(viewPicks.filter(isSlotProjected).map((p) => p.season)),
   ].sort();
   const interimSeasons = draftCapitalInterimSeasons(data, viewPicks);
+  // The upcoming class's auction budgets (`teamTotals`) can be unavailable —
+  // rendered as such, never as $0 (MISSING IS NEVER ZERO).
+  const budgetsUnavailable = draftCapitalBudgetsUnavailableReason(data);
 
   const scopeLabel =
     selectedYear != null
@@ -232,6 +239,7 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
           slotsAreStandIns ||
           hasRoundOnly ||
           interimSeasons.length > 0 ||
+          budgetsUnavailable ||
           unpricedCount > 0) && (
           <ul
             data-testid="draft-capital-notes"
@@ -253,6 +261,11 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
               <li data-testid="draft-capital-interim-curve-note">
                 {interimSeasons.join(", ")} dollars: {INTERIM_CURVE_LABEL} (interim generic
                 market values spread over each class&apos;s pool).
+              </li>
+            )}
+            {budgetsUnavailable && (
+              <li data-testid="draft-capital-budgets-unavailable" style={{ color: "var(--amber)" }}>
+                {draftCapitalBudgetsUnavailableText(budgetsUnavailable)}
               </li>
             )}
             {hasRoundOnly && (
@@ -334,7 +347,17 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
           projection for the ones after it. */}
       <PickProjectorPanel />
 
-      <TradeSimulator picks={currentSeasonPicks} teamTotals={data.teamTotals} />
+      {budgetsUnavailable ? (
+        <div
+          className="card"
+          data-testid="draft-capital-simulator-unavailable"
+          style={{ marginTop: "var(--space-md)", fontSize: "0.72rem", color: "var(--muted)" }}
+        >
+          Trade simulator unavailable — {draftCapitalBudgetsUnavailableText(budgetsUnavailable)}
+        </div>
+      ) : (
+        <TradeSimulator picks={currentSeasonPicks} teamTotals={data.teamTotals} />
+      )}
 
       <PicksByRound
         picks={gridPicks}

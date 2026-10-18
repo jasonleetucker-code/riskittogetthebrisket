@@ -239,9 +239,20 @@ def test_fallback_route_reads_the_canonical_resolver_not_a_local_rule():
     body = src[
         src.index("def get_draft_capital(") : src.index('@app.get("/api/draft/roster-context")')
     ]
-    assert "league_draft_years_for(" in body
+    # The route reaches the canonical resolver through the fallback's
+    # evidence ladder (snapshot, else live Sleeper evidence), which itself
+    # calls ``league_draft_years_for``.
+    assert "resolve_league_draft_years(" in body
     assert "active_seasons_for_league(" not in body
     assert "range(_dc_calendar_season" not in body
+    from src.api import draft_capital_fallback as dcf
+
+    fb_src = (REPO / "src/api/draft_capital_fallback.py").read_text(encoding="utf-8")
+    ladder = fb_src[fb_src.index("def resolve_league_draft_years(") :]
+    ladder = ladder[: ladder.index("\ndef ")]
+    assert "league_draft_years_for(" in ladder
+    assert "read_snapshot(" in ladder and "collect_league_draft_evidence(" in ladder
+    assert callable(dcf.resolve_league_draft_years)
 
 
 def test_workbook_path_no_longer_bumps_on_any_complete_draft():

@@ -85,6 +85,11 @@ def join_budgets(
         "unmatchedSeats": unmatched,
         "unmatchedBudgetRows": sorted(k for k in by_team if k not in matched_keys),
         "duplicateTeamNames": sorted(dupes),
+        # The payload's own statement about its budgets.  When it is
+        # ``unavailable`` every ``auctionDollars`` is null, so every seat above
+        # is ``missing`` — never an opening budget of $0.
+        "teamTotalsState": (draft_capital or {}).get("teamTotalsState"),
+        "teamTotalsReason": (draft_capital or {}).get("teamTotalsReason"),
     }
     return out, provenance
 

@@ -299,6 +299,24 @@ describe("DraftCapitalSection — every Sleeper draft year", () => {
     expect(document.body.textContent).not.toMatch(/pool is spread across every listed pick/);
   });
 
+  it("unavailable auction budgets render as unavailable, never $0 (MISSING IS NEVER ZERO)", async () => {
+    stubFetch({
+      ...PAYLOAD,
+      teamTotalsState: "unavailable",
+      teamTotalsReason: "upcoming_class_unpriced",
+      teamTotals: PAYLOAD.teamTotals.map((t) => ({ ...t, auctionDollars: null })),
+    });
+    render(<DraftCapitalSection yearParam="" setYear={() => {}} />);
+    await waitFor(() => expect(screen.getAllByTestId("draft-capital-team-row")).toHaveLength(2));
+    expect(screen.getByTestId("draft-capital-budgets-unavailable").textContent).toMatch(
+      /Auction budgets unavailable: the upcoming draft class has no priced picks\. Not shown as \$0\./,
+    );
+    // The simulator, which reads the budgets, is replaced by the stated state.
+    expect(screen.getByTestId("draft-capital-simulator-unavailable").textContent).toMatch(
+      /Trade simulator unavailable/,
+    );
+  });
+
   it("selecting 2029 writes it through setYear", async () => {
     const setYear = vi.fn();
     render(<DraftCapitalSection yearParam="" setYear={setYear} />);

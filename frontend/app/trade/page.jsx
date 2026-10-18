@@ -79,6 +79,7 @@ import {
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildKtcNameIndex, resolveKtcEntries } from "@/lib/ktc-import";
 import ResilientSection from "@/components/ResilientSection";
+import { draftCapitalBudgetsUnavailableReason } from "@/lib/draft-capital-budgets";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -763,8 +764,22 @@ export default function TradePage() {
       alive = false;
     };
   }, [stackLibWanted, stackLib, stackLibFailed]);
+  // The league's auction budgets (draft-capital ``teamTotals``) can be
+  // UNAVAILABLE; the stack note then stays off and says why — never stacks
+  // built from $0 budgets (MISSING IS NEVER ZERO).
+  const stackBudgetsUnavailable = useMemo(
+    () => draftCapitalBudgetsUnavailableReason(draftCapital),
+    [draftCapital],
+  );
   const stackContext = useMemo(() => {
-    if (!stackLib || !draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
+    if (
+      !stackLib ||
+      !draftCapital ||
+      !sleeperTeams ||
+      !tradeHasPicks ||
+      stackGateUnmet ||
+      stackBudgetsUnavailable
+    ) {
       return null;
     }
     const {
@@ -829,6 +844,7 @@ export default function TradePage() {
     sleeperTeams,
     tradeHasPicks,
     stackGateUnmet,
+    stackBudgetsUnavailable,
     boardValueByName,
     rowByLowerName,
     pickAliases,
@@ -2181,6 +2197,7 @@ export default function TradePage() {
               sleeperTeams={sleeperTeams}
               sideTeamNames={sideTeamNames}
               stackGateUnmet={stackGateUnmet}
+              stackBudgetsUnavailable={stackBudgetsUnavailable}
               onSetTeam={(i, v) => {
                 setSideTeamNames((prev) => {
                   const next = [...prev];

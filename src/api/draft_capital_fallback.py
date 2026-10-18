@@ -215,6 +215,54 @@ def resolve_draft_rounds(
     return DEFAULT_DRAFT_ROUNDS, "default"
 
 
+#: Where the league draft-class evidence behind ``league_draft_years`` came from.
+DRAFT_YEARS_EVIDENCE_SNAPSHOT = "snapshot"
+DRAFT_YEARS_EVIDENCE_LIVE = "live"
+DRAFT_YEARS_EVIDENCE_UNAVAILABLE = "unavailable"
+
+
+def resolve_league_draft_years(
+    sleeper_league_id: str, *, league_key: str | None
+) -> tuple[Any, str]:
+    """``(LeagueDraftYears, evidence source)`` for a non-default league.
+
+    The same evidence ladder the default league's workbook path uses
+    (``server._fetch_draft_capital``): the league's persisted draft-class
+    snapshot, else evidence assembled from this request's own Sleeper reads
+    (``collect_league_draft_evidence``), through the ONE league-scoped
+    resolver (``draft_class_evidence.league_draft_years_for``).
+
+    It used to read the snapshot only.  On a cold deploy (no snapshot yet)
+    "no evidence retires nothing" made the league's ALREADY-DRAFTED class
+    the upcoming one: unpriced, so every team's auction budget read $0.
+    When neither source answers, the source is ``"unavailable"`` and the
+    caller must report the upcoming year as UNVERIFIED rather than present
+    the anchor-year guess as fact.
+    """
+    from src.api.draft_class_evidence import (  # noqa: PLC0415
+        collect_league_draft_evidence,
+        league_draft_years_for,
+        read_snapshot,
+    )
+
+    evidence = None
+    source = DRAFT_YEARS_EVIDENCE_UNAVAILABLE
+    try:
+        evidence = read_snapshot(sleeper_league_id)
+        if evidence is not None:
+            source = DRAFT_YEARS_EVIDENCE_SNAPSHOT
+        else:
+            evidence = collect_league_draft_evidence(
+                sleeper_league_id, league_key=league_key, fetch=_fetch_json
+            )
+            if evidence is not None:
+                source = DRAFT_YEARS_EVIDENCE_LIVE
+    except Exception as exc:  # noqa: BLE001 — unknown never retires; reported below
+        _LOGGER.warning("draft_capital_fallback: draft-class evidence unavailable: %s", exc)
+        evidence, source = None, DRAFT_YEARS_EVIDENCE_UNAVAILABLE
+    return league_draft_years_for(sleeper_league_id, evidence=evidence), source
+
+
 def build_sleeper_derived(
     sleeper_league_id: str,
     contract: dict[str, Any],
@@ -224,6 +272,7 @@ def build_sleeper_derived(
     declared_draft_rounds: Any = None,
     rookies: list[dict[str, Any]] | None = None,
     league_draft_years: Any = None,
+    draft_years_evidence: str | None = None,
 ) -> dict[str, Any]:
     """Fetch owner / pick data from Sleeper and produce a draft-
     capital board.  Returns the same shape as the workbook path so
@@ -255,6 +304,13 @@ def build_sleeper_derived(
     ``current_season`` from; it is stamped on the payload so consumers read
     the league's upcoming draft from the payload rather than re-deriving it
     (Wave A).  ``upcomingDraftYear`` is ``current_season`` either way.
+
+    ``draft_years_evidence`` says where that answer's evidence came from
+    (:func:`resolve_league_draft_years`).  ``"unavailable"`` means the
+    upcoming year is a guess, so ``teamTotals`` — the auction budgets — are
+    published as UNAVAILABLE (``auctionDollars: None`` + reason), never as a
+    guessed class's numbers.  ``None`` = the caller supplied the years and
+    did not say (tests, legacy callers).
     """
     rounds_source = "explicit"
     if draft_rounds is None:
@@ -334,7 +390,7 @@ def build_sleeper_derived(
     for _rid, _nm in roster_name_by_id.items():
         rids_by_name.setdefault(_nm, []).append(_rid)
 
-    def _team_row(team: str, dollars: int) -> dict[str, Any]:
+    def _team_row(team: str, dollars: int | None) -> dict[str, Any]:
         rids = rids_by_name.get(team) or []
         rid = rids[0] if len(rids) == 1 else None
         return {
@@ -472,6 +528,30 @@ def build_sleeper_derived(
     for name in roster_name_by_id.values():
         team_totals.setdefault(name, 0)
 
+    # MISSING IS NEVER ZERO (2026-10-18): the budgets are publishable only
+    # when the upcoming class is proven AND priced.  Otherwise every team's
+    # ``auctionDollars`` is ``None`` with a named reason — an unpriced or
+    # guessed upcoming class used to publish a board of $0 budgets.
+    from src.api import draft_capital_classes as _dcc  # noqa: PLC0415
+
+    if draft_years_evidence == DRAFT_YEARS_EVIDENCE_UNAVAILABLE:
+        upcoming_state = _dcc.UPCOMING_DRAFT_YEAR_UNVERIFIED
+    elif draft_years_evidence in (DRAFT_YEARS_EVIDENCE_SNAPSHOT, DRAFT_YEARS_EVIDENCE_LIVE):
+        upcoming_state = _dcc.UPCOMING_DRAFT_YEAR_OBSERVED
+    else:
+        upcoming_state = _dcc.UPCOMING_DRAFT_YEAR_CALLER_SUPPLIED
+    upcoming_priced = any(p.season == upcoming and p.raw_value is not None for p in picks)
+    totals_reason = None
+    if upcoming_state == _dcc.UPCOMING_DRAFT_YEAR_UNVERIFIED:
+        totals_reason = _dcc.TEAM_TOTALS_REASON_UPCOMING_UNVERIFIED
+    elif not upcoming_priced:
+        totals_reason = _dcc.TEAM_TOTALS_REASON_UPCOMING_UNPRICED
+    totals_available = totals_reason is None
+    if totals_available:
+        team_rows = [_team_row(t, d) for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])]
+    else:
+        team_rows = [_team_row(t, None) for t in sorted(team_totals, key=str.casefold)]
+
     unpriced = [p for p in picks if p.raw_value is None]
 
     result = {
@@ -506,8 +586,12 @@ def build_sleeper_derived(
         # already contributed.  ``unpricedPickCount`` /
         # ``unpricedPickYears`` below carry the completeness signal that
         # this field deliberately does not.
-        "coveredPickYears": sorted(
-            {p.season for p in picks if p.season == upcoming and p.raw_value is not None}
+        # Empty when the budgets are unavailable: ``teamTotals`` then holds no
+        # dollars at all, so no season is "already counted" in it.
+        "coveredPickYears": (
+            sorted({p.season for p in picks if p.season == upcoming and p.raw_value is not None})
+            if totals_available
+            else []
         ),
         # How much of the generated board — EVERY owned class, ``picks`` and
         # ``additionalClassPicks`` together — the contract could not price.
@@ -521,9 +605,13 @@ def build_sleeper_derived(
         "unpricedPickYears": sorted({p.season for p in unpriced}),
         "source": "sleeper_derived",
         "viewLabel": "Sleeper-derived, contract-priced",
-        "teamTotals": [
-            _team_row(t, d) for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
-        ],
+        "teamTotals": team_rows,
+        _dcc.TEAM_TOTALS_STATE_FIELD: (
+            _dcc.TEAM_TOTALS_AVAILABLE if totals_available else _dcc.TEAM_TOTALS_UNAVAILABLE
+        ),
+        _dcc.TEAM_TOTALS_REASON_FIELD: totals_reason,
+        "upcomingDraftYearState": upcoming_state,
+        "draftYearsEvidence": draft_years_evidence,
         # League-scoped draft years (Wave A) — the /trade stack anchors here.
         "upcomingDraftYear": int(current_season),
         "leagueDraftYears": (

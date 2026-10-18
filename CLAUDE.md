@@ -571,6 +571,23 @@ Error behavior on endpoints:
     curve pending".  It is an interim, NOT the final methodology: the
     spreadsheet-driven rookie-auction curve is a separate Draft Valuation
     workstream that will replace it.
+  - **The auction budgets are available or UNAVAILABLE, never $0**
+    (2026-10-18).  `teamTotals` carries `teamTotalsState` /
+    `teamTotalsReason`.  The fallback publishes every `auctionDollars` as
+    `null` (and `coveredPickYears: []`) in two cases: the upcoming class has
+    no priced pick (`upcoming_class_unpriced`), or the upcoming year cannot
+    be proven (`upcoming_draft_year_unverified`).  Its draft-year evidence
+    follows the workbook path's ladder (`resolve_league_draft_years`): the
+    persisted snapshot, else this request's own Sleeper reads.  It used to
+    read the snapshot alone, so a cold deploy served dynasty_new's drafted
+    2026 class as upcoming, which was unpriced, and published $0 budgets.
+    `upcomingDraftYearState` (`observed` / `unverified` / `caller_supplied`)
+    and `draftYearsEvidence` say which applied.  How each consumer shows
+    the unavailable state (one reader, `frontend/lib/draft-capital-budgets.js`):
+    - /draft refuses to load the budgets and shows an error banner;
+    - the auction room leaves every seat `missing` (`src/auction/sources.py`);
+    - the /league simulator is replaced by a notice;
+    - the /trade stack note is off and its panel says why.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring

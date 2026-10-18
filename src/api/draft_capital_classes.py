@@ -83,6 +83,27 @@ CURVE_METHOD_WORKBOOK = "workbook_rookie_auction"
 CURVE_METHOD_INTERIM_GENERIC_MARKET = "interim_generic_market"
 CURVE_METHOD_INTERIM_LABEL = "provisional estimate — final rookie-auction curve pending"
 
+#: Whether ``teamTotals`` (the UPCOMING class's per-team dollars — the
+#: auction-budget basis /draft, the auction room, the /league simulator and
+#: the /trade stack read) can be published.  MISSING IS NEVER ZERO: when the
+#: budgets cannot be stated, every ``auctionDollars`` is ``None`` and the
+#: reason is named — never a board of $0 budgets.
+TEAM_TOTALS_STATE_FIELD = "teamTotalsState"
+TEAM_TOTALS_REASON_FIELD = "teamTotalsReason"
+TEAM_TOTALS_AVAILABLE = "available"
+TEAM_TOTALS_UNAVAILABLE = "unavailable"
+#: The upcoming class has no priced pick (e.g. a drafted class the board no
+#: longer prices, served as "upcoming" because its retirement is unproven).
+TEAM_TOTALS_REASON_UPCOMING_UNPRICED = "upcoming_class_unpriced"
+#: Which class is upcoming could not be proven (no league draft-class
+#: evidence: no snapshot and the live read failed).
+TEAM_TOTALS_REASON_UPCOMING_UNVERIFIED = "upcoming_draft_year_unverified"
+
+#: How the league's upcoming draft year was established (``upcomingDraftYearState``).
+UPCOMING_DRAFT_YEAR_OBSERVED = "observed"  # from league draft-class evidence
+UPCOMING_DRAFT_YEAR_UNVERIFIED = "unverified"  # no evidence: the anchor is a guess
+UPCOMING_DRAFT_YEAR_CALLER_SUPPLIED = "caller_supplied"  # a caller passed the years
+
 #: Whether a row's slot is a real draft position.
 SLOT_KNOWN = "known"  # the league's draft order for that class is set on Sleeper
 SLOT_PROJECTED = "projected"  # an estimated order (workbook / standings), labelled
