@@ -419,3 +419,41 @@ run on the box. The owner-league run above is a stand-in, not that evaluation.
   * Box access: Signals and `data/intel`.
 * **NEXT_ACTION:** owner decisions above; an on-box run of the package-model evaluation
   against `data/intel`; then the implementation unit for `idp-hampel-n3-v1`.
+
+## Owner closeout follow-through (2026-10-18, PART 2, Decisions 1, 6, 7 and 8)
+
+Evaluation only. Nothing was activated:
+
+* the DLF IDP vote hold stays;
+* production keeps the incumbent outlier filter and Hill method;
+* both new flags ship OFF, and a default board is byte-identical (golden board sha256
+  `3c77f550…` before and after).
+
+| decision | result | evidence |
+|---|---|---|
+| **D1 — `idp-hampel-n3-v1`** (run exactly as preregistered: 105 frozen complete archives, seed 2029, T1 = DLF IDP's later vote) | **INSUFFICIENT.** 117 evaluable disputed row-origins and 17 origin days, but only 3 of the required 4 week-blocks: the October cluster has no h = 7 target inside the frozen set. Descriptively, the challenger sits **further** from the holdout: P1 +0.112 [+0.101, +0.127], positive at every horizon. **The DLF IDP hold stays**; the PASS-only board-impact validation is not triggered | `docs/valuation/evidence/idp-outlier-n3-2026-10-18/README.md`, `evaluation_historical_replay.json` |
+| **D6 — `idp-deep-tail-native-v1`** (preregistered in `341099255b`, before implementation or results) | **PROMOTION-ELIGIBLE under the frozen rule** (see below), then **`AUTO_PROMOTION_BLOCKED: no_independent_validation_target`** (gate 7). **Incumbent retained**; recommendation: retain | `docs/valuation/evidence/idp-deep-tail-native-2026-10-18/README.md`, `evaluation_historical_replay.json` |
+| **D7 — Signals IDP** | **BLOCKED here**: `data/sources/signals/` is absent in this environment (box-local). Nothing fabricated. A read-only, aggregate-only on-box mode was added (`scripts/idp_rehab_eval.py --signals-dependence-only`). No activation, no threshold change | `docs/sources/evidence/IDP_CLOSEOUT_2026-10-18/OPERATOR_COMMANDS.md` §D7 |
+| **D8 — package model on the production trade archive** | **BLOCKED here**: `data/market_trades` / `data/intel` are absent; a dry run of the command returns 0 observations. Exact on-box command written: the existing `market_trade_eval.residual_report` for `geom_q078_v1` and `ktc_2026_04`. **No q change** | same file, §D8 |
+
+The D6 pass, in numbers:
+
+* **C1.** Calibration of deep votes against the IDP Trade Calculator's later value,
+  leave-player-out: −0.070 [−0.072, −0.068], over 16,223 votes. It is negative in DL,
+  LB and DB.
+* **R1.** Order against DLF's later order (the non-circular primary): −0.0008
+  [−0.0017, +0.0001]. Non-inferior, not better.
+* **H1.** Daily-move ratio 0.96 [0.93, 0.99].
+* **Rails.** All Autopilot board rails held on 105 / 105 boards.
+
+Why it is still not a convincing improvement:
+
+* C1 grades against the challenger's own provider;
+* the only independent target is flat, and slips in S1 and in LB;
+* the band edge introduces a ~5% step at rank 500, with 200 within-source order
+  inversions at the boundary over 105 boards.
+
+Activating anything would need an independent review, an owner decision and a new
+preregistered continuous variant. This run does not start any of them.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
