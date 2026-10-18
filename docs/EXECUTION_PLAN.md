@@ -123,6 +123,50 @@ sides only — our values decide everything. **Owner action:** `sudo apt-get ins
 VPS (the deploy's sudo allowlist cannot); until then the status endpoint reports unavailable and the UI says
 so. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-15"). Runbook: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
 
+## League scope correction — owner directive, 2026-10-18 (binding on every lane)
+
+**`dynasty_main` (Risk It to Get the Brisket) is the only league authorized for building and
+optimizing.** Ignore `dynasty_new`: no new feature work, budget change, valuation change or
+league-specific improvement for it. Do not delete it, its configuration, history or data, and do not
+disable existing behavior — shared infrastructure must still not regress for it. The $1,200-per-class
+draft-capital approval applies to `dynasty_main` only; any earlier wording extending it to both
+leagues is superseded. Draft valuation Batches A–G are scoped to `dynasty_main` (12 teams, 6 rounds,
+72 picks per class, 2027/2028/2029). Intake: `docs/OWNER_REQUESTED_TODO.md` ("OWNER SCOPE CORRECTION
+(2026-10-18)"). Applied in #1785 by restoring the Sleeper-derived fallback path to `main`.
+
+## Whole-dollar rookie-draft allocation — owner directive, 2026-10-18 (binding, `dynasty_main`)
+
+The `dynasty_main` rookie auction uses **whole dollars only**; the earlier recommendation to publish
+half-dollar team totals is **rejected**. For every draft class: 12 teams x 6 rounds = 72 picks; exactly
+$1,200; every final pick-dollar amount an integer; every manager budget an integer equal to the exact
+sum of the picks that manager owns; the 12 budgets total exactly $1,200; All Years reconciles the three
+separate $1,200 classes with each pick counted once. Rounding and budget conservation happen in ONE
+step: the spreadsheet's 60/40 formula, spine, decay, floors and caps are unchanged (intermediate
+fractions allowed; the workbook's half-dollar column — 28 picks ending in 50 cents — is kept as
+mathematical reference data), then a separately identified, deterministic, exact-arithmetic final step
+floors every pick, distributes the integer residual by largest fractional remainder (ties to the
+earlier draft position), verifies non-increasing order, floors, caps, integrality and the exact total,
+and REFUSES publication on any conflict — the $1,200 is never changed. The spreadsheet RANK tie at the
+award cutoff (which could publish $1,206) is resolved the same way: earlier draft position first. One
+canonical owner: the rookie-auction calculation (`src/draft/rookie_auction/`, #1786); #1785 consumes it
+for the workbook class and the later classes — team budgets are never rounded independently of their
+picks. Intake: `docs/OWNER_REQUESTED_TODO.md` ("WHOLE-DOLLAR ALLOCATION (2026-10-18)").
+
+**Follow-up owner decisions, same day (binding):** (1) every completed class keeps BOTH
+`referenceDollars` (the spreadsheet curve at original precision — the ONLY input to the three-year
+historical spine) and `finalWholeDollars` (the published integers — every pick allocation, budget,
+draft-capital display and auction transaction), immutably, with receipts; fractional dollars are never
+spendable budget. (2) Constraint-aware fallback: largest remainder is used unchanged whenever it is
+valid; otherwise the exact constrained integer problem (integers, exact $1,200, floors/caps,
+non-increasing, minimum total deviation from the reference, deterministic earlier-position tie-break)
+is solved with a documented, independently verified method before any refusal. Refusal only for genuine
+infeasibility, missing essential data or failed verification; safe refusal / last-known-good kept.
+**Addendum (binding):** last-known-good — the most recent independently verified 72-pick whole-dollar
+allocation per draft year is preserved (immutable, with provenance and receipt) and kept on a failed
+refresh with an explicit warning; the dollar curve never carries ownership (old ownership is never
+substituted; unverifiable ownership → unavailable, never $0); no cross-year reuse without a validated
+policy; no applicable allocation → fail closed with a named reason.
+
 ## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
 
 **AUTHORIZED; MERGED via release train #1768 (`00d652bd2`).** One versioned package model for every

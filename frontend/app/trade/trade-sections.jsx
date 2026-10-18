@@ -49,6 +49,7 @@ import {
   tradeEntryLabel,
 } from "@/lib/trade-assets";
 import { ValueAdjustmentTip } from "@/components/help/TradeHelp";
+import { draftCapitalBudgetsUnavailableText } from "@/lib/draft-capital-budgets";
 import styles from "./trade.module.css";
 
 // ── Shared bits ───────────────────────────────────────────────────────
@@ -312,6 +313,7 @@ export function PickTeamSelectors({
   sideTeamNames,
   onSetTeam,
   stackGateUnmet,
+  stackBudgetsUnavailable = null,
 }) {
   return (
     <Panel
@@ -342,6 +344,12 @@ export function PickTeamSelectors({
         <Banner tone="info">
           Assign a team to every side a pick is traded to or from to see the
           draft-capital stack note. The verdict does not use it.
+        </Banner>
+      ) : null}
+      {stackBudgetsUnavailable ? (
+        <Banner tone="info">
+          {draftCapitalBudgetsUnavailableText(stackBudgetsUnavailable)} The draft-capital
+          stack note is off for this league.
         </Banner>
       ) : null}
     </Panel>

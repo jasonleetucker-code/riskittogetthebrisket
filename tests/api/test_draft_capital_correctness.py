@@ -389,6 +389,9 @@ def _workbook_run(evidence):
         patch.object(server.urllib.request, "urlopen", _workbook_stub(url_map)),
         patch.object(server, "_sleeper_league_id_for_draft", return_value=LEAGUE_ID),
         patch.object(dce, "read_snapshot", lambda lid: evidence),
+        # The workbook class's published allocation is dynasty_main's (the
+        # only league the rookie-auction formula is configured for).
+        patch.object(server._league_registry, "default_league_key", return_value="dynasty_main"),
     ):
         return server._fetch_draft_capital(apply_sleeper_trades=True)
 

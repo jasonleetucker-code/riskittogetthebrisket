@@ -21,6 +21,14 @@ installs it before any test module is imported and re-points it at a fresh,
 empty root before every test; ``tests/test_runtime_data_isolation.py`` proves
 it by planting real files and re-running the affected tests.
 
+A fourth, with the draft-capital last-known-good store (2026-10-18):
+
+* ``data/draft_valuation/published_allocations/`` — the box-local store
+  ``src/draft/rookie_auction/published.py`` appends verified whole-dollar
+  allocations to.  ``/api/draft-capital``'s workbook path calls its resolver,
+  so a route test would otherwise append fixture allocations to the real
+  store and a stale real record could answer a test's ``last_known_good``.
+
 A third was added with Game Day U5 (2026-09-25):
 
 * ``data/game_day/live/`` — ``src/ros/game_day_live.py``'s observation logs
@@ -43,6 +51,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+from src.draft.rookie_auction import published as draft_published
 from src.public_league import snapshot_store
 from src.ros import game_day_live, team_strength
 
@@ -52,6 +61,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 REAL_PUBLIC_LEAGUE_DIR: Path = snapshot_store.DATA_DIR
 REAL_TEAM_STRENGTH_DIR: Path = team_strength.ROS_DATA_DIR / "team_strength"
 REAL_GAME_DAY_LIVE_DIR: Path = game_day_live.LIVE_ROOT
+REAL_DRAFT_ALLOCATION_DIR: Path = draft_published.BOX_STORE
 
 #: The directories the guard watches.  ``conduct_registry.json`` (tracked)
 #: lives in the first one and is watched too — no test has any business
@@ -60,6 +70,7 @@ GUARDED_DIRS: tuple[Path, ...] = (
     REAL_PUBLIC_LEAGUE_DIR,
     REAL_TEAM_STRENGTH_DIR,
     REAL_GAME_DAY_LIVE_DIR,
+    REAL_DRAFT_ALLOCATION_DIR,
 )
 
 _IGNORED_NAMES = frozenset({".gitkeep"})
@@ -107,6 +118,7 @@ def activate(root: Path) -> None:
     snapshot_store.IDENTITY_PATH = public_dir / "identity.json"
     snapshot_store.NFL_PLAYERS_PATH = public_dir / "nfl_players.json"
     game_day_live.LIVE_ROOT = root / "game_day" / "live"
+    draft_published.BOX_STORE = root / "draft_valuation" / "published_allocations"
 
 
 def fingerprint(dirs: Iterable[Path] = GUARDED_DIRS) -> dict[str, tuple[int, int]]:

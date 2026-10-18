@@ -362,7 +362,15 @@ def test_public_redaction_strips_rookie_fields_and_never_mutates_the_cache(monke
     # The season views carry only public quantities.
     for rows in public["teamTotalsByYear"].values():
         for r in rows:
-            assert set(r) == {"team", "auctionDollars", "pickCount", "unpricedPickCount", "rank"}
+            assert set(r) == {
+                "team",
+                "auctionDollars",
+                "pickCount",
+                "unpricedPickCount",
+                "acquiredPickCount",
+                "tradedAwayPickCount",
+                "rank",
+            }
     for t in public["teamTotals"]:
         assert not (set(t) & private)
     for p in public["picks"]:

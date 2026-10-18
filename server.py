@@ -12177,24 +12177,6 @@ def _parse_draft_data():
     return pick_dollars, workbook_picks, slot_to_original, wb_totals, rookies, pick_values_l
 
 
-def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
-    """Round a list of floats to integers that sum to exactly *budget*.
-
-    Uses largest-remainder rounding: floor each value, then distribute
-    the deficit to the values with the largest fractional parts.
-    """
-    import math
-
-    floors = [math.floor(v) for v in values]
-    remainders = [(v - math.floor(v), i) for i, v in enumerate(values)]
-    deficit = budget - sum(floors)
-    # Sort by fractional part descending; break ties by index
-    remainders.sort(key=lambda x: (-x[0], x[1]))
-    for k in range(int(deficit)):
-        floors[remainders[k][1]] += 1
-    return floors
-
-
 def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades: bool = True):
     """Compute draft capital per team.
 
@@ -12238,6 +12220,40 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         if pick_values_l and len(pick_values_l) >= len(workbook_picks)
         else [wp["value"] for wp in workbook_picks]
     )
+    # Owner decision 2026-10-18 — WHOLE DOLLARS ONLY.  The sheet's half-dollar
+    # column stays as mathematical REFERENCE data; every operational pick
+    # dollar is the canonical rookie-auction calculation's final whole-dollar
+    # step (floor, then the integer residual by largest fractional remainder,
+    # earlier pick first; floors / caps / order verified), and every team
+    # budget below is the exact integer sum of the picks that team owns.  A
+    # violated constraint refuses the board — the $1,200 is never changed.
+    #
+    # The formula's own 72-pick class goes through the canonical published-
+    # allocation resolver below (constraint-aware whole dollars + last-known-
+    # good, ``src/draft/rookie_auction/published.py``) once the draft season
+    # is known.  Any other workbook size has no stored formula allocation, so
+    # it takes the whole-dollar step directly here.
+    from src.api import draft_capital_classes as _dcc_wd  # noqa: PLC0415
+    from src.draft.rookie_auction.apportion import ApportionmentRefused  # noqa: PLC0415
+
+    _formula_pick_count = _dcc_wd.formula_pick_count()
+    whole_dollars_per_slot: list[int] | None = None
+    whole_dollar_receipt: dict | None = None
+    draft_valuation_state: dict | None = None
+    if len(workbook_picks) != _formula_pick_count:
+        try:
+            whole_dollars_per_slot, whole_dollar_receipt = _dcc_wd.workbook_class_whole_dollars(
+                pick_values_per_slot[: len(workbook_picks)], DRAFT_TOTAL_BUDGET
+            )
+        except ApportionmentRefused as exc:
+            return {
+                "error": _dcc_wd.WHOLE_DOLLAR_REFUSED_ERROR,
+                "message": (
+                    "The workbook's pick dollars cannot be published as whole dollars "
+                    f"totalling ${DRAFT_TOTAL_BUDGET}: {exc}"
+                ),
+                "conflict": exc.conflict,
+            }
 
     # ── First-name → Sleeper team-name mapping ──
     # Built by joining sheet standings (slot → first name) with
@@ -12275,6 +12291,12 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     _league_id_for_draft = None
     roster_name_by_id: dict[int, str] = {}
     owner_id_by_rid: dict[int, str] = {}
+    # The /traded_picks diff this request OBSERVED (a list, possibly empty),
+    # or ``None`` — a failed fetch is never "no trades" (picks.
+    # traded_picks_observation).  Also feeds the later classes below.
+    traded_observed: list | None = None
+    league_meta: Any = None
+    all_drafts: list = []
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -12290,7 +12312,6 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # only the prior season, while /league/{id}.season already
         # reports the active one and /traded_picks contains the
         # active-season trades that need to apply to the workbook.
-        league_meta: Any = None
         try:
             league_resp = urllib.request.urlopen(
                 f"https://api.sleeper.app/v1/league/{_league_id_for_draft}", timeout=15
@@ -12610,15 +12631,22 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 first_name_to_rid.setdefault(fn, rid)
 
         if apply_sleeper_trades:
+            from src.identity.picks import traded_picks_observation  # noqa: PLC0415
+
             try:
                 traded_resp = urllib.request.urlopen(
                     f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/traded_picks",
                     timeout=15,
                 )
-                traded = json.loads(traded_resp.read())
+                traded = traded_picks_observation(json.loads(traded_resp.read()))
             except Exception as exc:  # noqa: BLE001
                 logging.warning(f"Sleeper traded_picks fetch failed: {exc}")
-                traded = []
+                # Fail closed (named follow-up, CLAUDE.md "League pick
+                # OWNERSHIP is observed or unknown"): this used to become
+                # ``[]`` and the workbook's hand-entered ownership was served
+                # silently as if no pick had been traded.
+                traded = None
+            traded_observed = traded
             if isinstance(traded, list):
                 for t in traded:
                     if not isinstance(t, dict):
@@ -12643,6 +12671,24 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
 
     except Exception as e:
         logging.warning(f"Sleeper API failed for draft capital team-name mapping: {e}")
+
+    if apply_sleeper_trades and _league_id_for_draft and traded_observed is None:
+        # Pick ownership was not observed — /traded_picks failed, or Sleeper
+        # failed before it could be read.  Every dollar on this board is a
+        # function of who owns which pick, so refuse it with the same shape
+        # the Sleeper-derived fallback uses (both consumers already render
+        # ``{error, message}``), rather than serving the workbook's lagging
+        # hand-entered ownership as current.
+        from src.identity import picks as _pick_identity  # noqa: PLC0415
+
+        return {
+            "error": _pick_identity.PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+            "message": "Could not fetch traded picks from Sleeper; pick ownership is unknown.",
+            _pick_identity.PICK_OWNERSHIP_STATE_FIELD: _pick_identity.PICK_OWNERSHIP_UNAVAILABLE,
+            _pick_identity.PICK_OWNERSHIP_REASON_FIELD: (
+                _pick_identity.PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED
+            ),
+        }
 
     if league_draft_years is None:
         # Sleeper unreachable before the season was resolved: the persisted
@@ -12686,9 +12732,37 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             origin_roster_id=int(origin_rid),
         ).canonical_id
 
+    if whole_dollars_per_slot is None:
+        # The formula's 72-pick class: the published allocation for THIS
+        # league's draft year — the fresh workbook curve when it verifies,
+        # else the same year's last verified allocation (labelled), else
+        # refuse.  The resolver stores dollar curves only; ownership below
+        # always comes from the live Sleeper fold, never from a stored curve.
+        _dv_league_key = _pick_league_key or league_key or _league_registry.default_league_key()
+        published = _dcc_wd.resolve_workbook_allocation(
+            _dv_league_key,
+            int(league_season),
+            pick_values_l if pick_values_l and len(pick_values_l) >= len(workbook_picks) else None,
+        )
+        if published.final_whole_dollars is None:
+            return {
+                "error": _dcc_wd.DRAFT_DOLLARS_UNAVAILABLE_ERROR,
+                "message": (
+                    "No verified whole-dollar allocation is available for the "
+                    f"{int(league_season)} draft class: {published.unavailable_reason}"
+                ),
+                "unavailableReason": published.unavailable_reason,
+                "failedRefresh": (
+                    dict(published.failed_refresh) if published.failed_refresh else None
+                ),
+            }
+        whole_dollars_per_slot = list(published.final_whole_dollars)
+        whole_dollar_receipt = dict(published.receipt or {})
+        draft_valuation_state = _dcc_wd.draft_valuation_state_block(published)
+
     # ── Build pick list + team totals from sheet ownership ──
     all_picks: list[dict] = []
-    team_totals_decimal: dict[str, float] = {}
+    team_totals_decimal: dict[str, int] = {}
 
     # Seed every known team at $0 so teams that own no picks still
     # show up in the output (the /draft dashboard relies on this to
@@ -12702,10 +12776,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # the seeded keys match the picks-loop keys.
     if all_team_names and first_name_to_team:
         for t in all_team_names:
-            team_totals_decimal.setdefault(t, 0.0)
+            team_totals_decimal.setdefault(t, 0)
     else:
         for first_name in slot_to_original.values():
-            team_totals_decimal.setdefault(display(first_name), 0.0)
+            team_totals_decimal.setdefault(display(first_name), 0)
 
     for overall_idx, wp in enumerate(workbook_picks):
         rnd = wp["round"]
@@ -12773,9 +12847,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         else:
             is_traded = origin_team != owner_team
 
-        # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
-        # dollar from the sheet — half-dollar precision preserved.
-        dollar = (
+        # The final whole-dollar value (above); L2:L73's half-dollar figure
+        # travels beside it as reference data only.
+        dollar = whole_dollars_per_slot[overall_idx]
+        reference_dollar = (
             float(pick_values_per_slot[overall_idx])
             if overall_idx < len(pick_values_per_slot)
             else float(val)
@@ -12797,6 +12872,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # between expansion-averaged Q and unaveraged grid no
                 # longer applies — L is unaveraged by construction.
                 "originalDollarValue": dollar,
+                # The sheet's half-dollar "Final Dollar Per Pick" (L2:L73):
+                # mathematical reference data, never an operational dollar.
+                "workbookReferenceDollarValue": reference_dollar,
                 "originalOwner": origin_team,
                 "currentOwner": owner_team,
                 # Stable ids beside the display names (Wave A).  ``None`` when
@@ -12806,21 +12884,32 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "assetId": _workbook_asset_id(rnd, origin_rid),
                 "isTraded": is_traded,
                 "isExpansion": slot <= 2,
+                # The workbook's slot order is an ESTIMATE until Sleeper sets
+                # this class's draft order: last draft's order pre-season, the
+                # live points-for reshuffle in-season.  Labelled, never a fact.
+                "slotStatus": "projected",
+                "valueBasis": "workbook",
+                "dollarValueEstimated": False,
+                # The sheet's own rookie-auction curve (owner addendum
+                # 2026-10-18) — a different value domain from the later
+                # classes' interim generic market values.
+                "curveMethod": "workbook_rookie_auction",
                 "rookieName": None,
                 "rookiePos": None,
                 "rookieKtcValue": None,
             }
         )
-        team_totals_decimal.setdefault(owner_team, 0.0)
-        team_totals_decimal[owner_team] += float(val)
+        team_totals_decimal.setdefault(owner_team, 0)
+        team_totals_decimal[owner_team] += dollar
 
-    # Round team totals to integers summing to exactly 1200, matching the
-    # workbook's SUMIF-over-decimals approach.
+    # Each team's budget is the EXACT integer sum of the whole-dollar picks it
+    # owns (owner decision 2026-10-18) — never rounded on its own, so picks,
+    # budgets and every view reconcile, and the 12 budgets total $1,200
+    # because the 72 picks do.  (This used to sum the sheet's Q column and
+    # round the team totals independently of their picks.)
     team_names = sorted(team_totals_decimal, key=lambda t: -team_totals_decimal[t])
-    team_decimal_list = [team_totals_decimal[t] for t in team_names]
-    team_int_list = _round_to_budget(team_decimal_list, DRAFT_TOTAL_BUDGET)
-    team_totals = {t: v for t, v in zip(team_names, team_int_list)}
-    total_budget = sum(team_int_list)
+    team_totals = {t: int(team_totals_decimal[t]) for t in team_names}
+    total_budget = sum(team_totals.values())
 
     # Rookie pool — prefer our top-72 from the live contract (filtered
     # to rostered rookies via Sleeper ID), fall back to KTC if the
@@ -12925,6 +13014,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     result = {
         "picks": all_picks,
         "teamTotals": [_team_row(t, v) for t, v in sorted_teams],
+        # The workbook's own budgets (one vocabulary with the fallback, which
+        # can publish them as unavailable — never as $0).
+        "teamTotalsState": "available",
+        "teamTotalsReason": None,
         "totalBudget": total_budget,
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
@@ -12942,11 +13035,102 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "ktcTotalFilled": len(rookies),
         "rookieSource": rookie_source,
     }
+    # ── Every other class this league owns picks in (owner directive
+    # 2026-10-17) ──────────────────────────────────────────────────────
+    # The workbook is ONE draft.  The league's other owned-pick classes
+    # (``league_draft_years.owned_pick_seasons`` — 2028 and 2029 beside the
+    # workbook's 2027 for dynasty_main) come from Sleeper ownership through
+    # the canonical fold and the canonical pick values, in
+    # ``additionalClassPicks``.  ``picks`` / ``teamTotals`` /
+    # ``coveredPickYears`` are untouched: they stay the workbook class, which
+    # is what /draft, the auction room and the /trade stack read as the
+    # upcoming auction's budgets.
+    from src.api import draft_capital_classes as _dcc  # noqa: PLC0415
+
+    additional_picks: list[dict] = []
+    additional_state = _dcc.ADDITIONAL_CLASSES_NOT_REQUESTED
+    additional_reason = None
+    additional_seasons: list[int] = []
+    if apply_sleeper_trades:
+        additional_seasons = [
+            int(y)
+            for y in (league_draft_years.owned_pick_seasons if league_draft_years else ())
+            if int(y) != int(league_season)
+        ]
+        if not additional_seasons:
+            additional_state = _dcc.ADDITIONAL_CLASSES_OBSERVED
+        elif _pick_league_key is None:
+            additional_state = _dcc.ADDITIONAL_CLASSES_UNAVAILABLE
+            additional_reason = "league_not_in_registry"
+        elif not (all_team_names and first_name_to_team):
+            # The workbook rows are keyed by workbook first names when the
+            # first-name → Sleeper-team bridge is empty; Sleeper-folded rows
+            # would land under different names and split one team in two.
+            additional_state = _dcc.ADDITIONAL_CLASSES_UNAVAILABLE
+            additional_reason = "team_name_bridge_incomplete"
+        else:
+            from src.identity.pick_lifecycle import league_draft_rounds  # noqa: PLC0415
+
+            rounds_for_classes = (
+                league_draft_rounds(league_meta.get("settings"))
+                if isinstance(league_meta, dict) and isinstance(league_meta.get("settings"), dict)
+                else draft_rounds
+            )
+            # A class whose Sleeper draft object already carries its order has
+            # KNOWN slots; anything else stays round-only.
+            slot_by_origin: dict[tuple[int, int], int] = {}
+            for _d in all_drafts:
+                try:
+                    _season = int(_d.get("season"))
+                except (TypeError, ValueError):
+                    continue
+                if _season not in additional_seasons:
+                    continue
+                for _slot, _rid in (_d.get("slot_to_roster_id") or {}).items():
+                    try:
+                        slot_by_origin[(_season, int(_rid))] = int(_slot)
+                    except (TypeError, ValueError):
+                        continue
+            additional_picks = _dcc.price_per_class(
+                _dcc.build_class_picks(
+                    league_key=_pick_league_key,
+                    roster_name_by_id=roster_name_by_id,
+                    traded_picks=traded_observed,
+                    seasons=additional_seasons,
+                    rounds=rounds_for_classes,
+                    contract=latest_contract_data,
+                    slot_by_origin=slot_by_origin or None,
+                ),
+                DRAFT_TOTAL_BUDGET,
+            )
+            additional_state = _dcc.ADDITIONAL_CLASSES_OBSERVED
+    result["additionalClassPicks"] = additional_picks
+    result["additionalClassesState"] = additional_state
+    result["additionalClassesReason"] = additional_reason
+    # Owner decision 2026-10-18 ("$1,200 per draft class"): the workbook
+    # class is its own $1,200 (the sheet's dollars, unchanged) and each later
+    # class its own $1,200 pool.
+    result["budgetPolicy"] = _dcc.budget_policy_block(
+        DRAFT_TOTAL_BUDGET,
+        [league_season] + sorted({int(p["season"]) for p in additional_picks}),
+        workbook_season=int(league_season),
+        priced_seasons=[league_season]
+        + sorted({int(p["season"]) for p in additional_picks if p.get("isUnpriced") is False}),
+    )
+    # The workbook class's final whole-dollar step (owner decision 2026-10-18):
+    # how the half-dollar reference became the published integers.
+    result["wholeDollarAllocation"] = whole_dollar_receipt
+    # Which allocation the 72-pick class published (owner addendum
+    # 2026-10-18): ``current`` or ``last_known_good`` with the failed refresh
+    # and the last valid timestamp named.  ``None`` for a non-formula workbook.
+    result["draftValuation"] = draft_valuation_state
+
     # Per-season views for the /league year selector.  The workbook carries
     # ONE season, and its team totals are the sheet's Q-column decimals
     # rounded to the budget (not a sum of the L-column per-pick dollars the
     # rows display), so that season's capital IS each team's existing total —
     # handed over explicitly rather than re-summed into a different number.
+    # The additional classes are summed from their own per-pick dollars.
     from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
 
     return attach_year_views(

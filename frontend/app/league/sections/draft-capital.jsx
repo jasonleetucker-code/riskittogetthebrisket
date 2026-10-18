@@ -22,14 +22,24 @@ import { effectiveAuctionPower } from "@/lib/auction-power";
 import {
   ALL_YEARS,
   availableDraftCapitalYears,
+  draftCapitalAllPicks,
+  draftCapitalBudgetPolicy,
+  draftCapitalInterimSeasons,
   draftCapitalPickLabel,
   draftCapitalPicksForYear,
   draftCapitalSlotsAreStandIns,
   draftCapitalTeamRows,
   draftCapitalYearSummary,
+  INTERIM_CURVE_LABEL,
+  isSlotProjected,
+  isSlotUnknown,
   isUnpricedPick,
   parseDraftCapitalYear,
 } from "@/lib/draft-capital-years";
+import {
+  draftCapitalBudgetsUnavailableReason,
+  draftCapitalBudgetsUnavailableText,
+} from "@/lib/draft-capital-budgets";
 
 // Dynamically import the trade simulator so its JS goes into a
 // separate chunk (loaded on demand when DraftCapital tab renders)
@@ -48,10 +58,9 @@ function fmtDollar(v) {
   if (v == null) return "$0";
   const n = Number(v);
   if (!Number.isFinite(n)) return "$0";
-  // Match the Google Sheet's display: currency format with 0 decimals
-  // rounds half-dollars up ($1.5 → $2, $28.5 → $29).  The underlying
-  // value the server returns stays half-dollar so team-totals math
-  // remains accurate; only the per-cell display is rounded.
+  // The server publishes WHOLE dollars (owner decision 2026-10-18: picks
+  // and team budgets are integers that reconcile exactly), so this round is
+  // a no-op guard, never a display-only fix.
   return `$${Math.round(n)}`;
 }
 
@@ -133,21 +142,35 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
     return scoped.length > 0 ? scoped : all;
   })();
 
-  const slotsAreStandIns = draftCapitalSlotsAreStandIns(data);
   const multiYear = years.length > 1;
+  const policy = draftCapitalBudgetPolicy(data);
+  const budgetText = (v) => (v == null ? "an unknown" : `$${v}`);
+  // Every owned pick of every listed class, each once (the workbook class in
+  // `picks`, the league's other classes in `additionalClassPicks`).
+  const allPicks = draftCapitalAllPicks(data);
   const teamRows = draftCapitalTeamRows(data, selectedYear);
   const summary = draftCapitalYearSummary(data, selectedYear);
   // Team pick lists show every pick their figure is made of: All Years →
   // every season's picks (the total spans all of them), a season → its own.
-  const listPicks = draftCapitalPicksForYear(data.picks, selectedYear, data.season);
+  const listPicks = draftCapitalPicksForYear(allPicks, selectedYear, data.season);
   // The round grids below describe ONE draft: the selected season, or the
   // current season under All Years (unchanged).
   const gridPicks = selectedYear == null ? currentSeasonPicks : listPicks;
+  const slotsAreStandIns = draftCapitalSlotsAreStandIns(data, gridPicks);
+  const viewPicks = selectedYear == null ? allPicks : listPicks;
   const unpricedCount =
     selectedYear == null
-      ? (data.picks || []).filter(isUnpricedPick).length
+      ? allPicks.filter(isUnpricedPick).length
       : (summary?.unpricedPickCount ?? listPicks.filter(isUnpricedPick).length);
-  const viewPickCount = selectedYear == null ? (data.picks || []).length : listPicks.length;
+  const viewPickCount = viewPicks.length;
+  const hasRoundOnly = !slotsAreStandIns && viewPicks.some(isSlotUnknown);
+  const projectedSeasons = [
+    ...new Set(viewPicks.filter(isSlotProjected).map((p) => p.season)),
+  ].sort();
+  const interimSeasons = draftCapitalInterimSeasons(data, viewPicks);
+  // The upcoming class's auction budgets (`teamTotals`) can be unavailable —
+  // rendered as such, never as $0 (MISSING IS NEVER ZERO).
+  const budgetsUnavailable = draftCapitalBudgetsUnavailableReason(data);
 
   const scopeLabel =
     selectedYear != null
@@ -155,10 +178,22 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
       : multiYear
         ? `${years[0]}–${years[years.length - 1]} picks`
         : `${data.season} draft`;
-  const budgetLabel =
-    selectedYear != null && summary
-      ? `${fmtCapital(summary.totalDollars)} of the $${data.totalBudget} pool`
-      : `$${data.totalBudget} total budget`;
+  let budgetLabel;
+  if (policy.perClass) {
+    budgetLabel =
+      selectedYear != null && summary
+        ? `${fmtCapital(summary.totalDollars)} · the ${selectedYear} class's own ${budgetText(policy.budget)} pool`
+        : multiYear
+          ? `${budgetText(policy.allYearsBudget)} = ${policy.pricedClassCount ?? years.length} classes × ${budgetText(policy.budget)}`
+          : `${budgetText(policy.budget)} total budget`;
+  } else {
+    // Legacy payload (deploy skew, pre-2026-10-18): state the figures only,
+    // never the retired shared-pool basis.
+    budgetLabel =
+      selectedYear != null && summary
+        ? `${fmtCapital(summary.totalDollars)} · ${selectedYear} picks`
+        : `${budgetText(policy.budget)} total budget`;
+  }
 
   const yearOptions = [
     { value: ALL_YEARS, label: "All Years" },
@@ -198,7 +233,13 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
           {scopeLabel} · {data.numTeams} teams · {data.draftRounds} rounds ·{" "}
           {budgetLabel}
         </div>
-        {(selectedYear != null || multiYear || slotsAreStandIns || unpricedCount > 0) && (
+        {(selectedYear != null ||
+          multiYear ||
+          slotsAreStandIns ||
+          hasRoundOnly ||
+          interimSeasons.length > 0 ||
+          budgetsUnavailable ||
+          unpricedCount > 0) && (
           <ul
             data-testid="draft-capital-notes"
             style={{
@@ -209,11 +250,34 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
               lineHeight: 1.5,
             }}
           >
-            {(selectedYear != null || multiYear) && (
-              <li>
-                One ${data.totalBudget} pool is spread across every listed pick; a
-                year view adds up that year&apos;s share of it. Values are not
-                rescaled per year.
+            {(selectedYear != null || multiYear) && policy.perClass && (
+              <li data-testid="draft-capital-budget-note">
+                Each draft class is its own {budgetText(policy.budget)} pool; All Years adds
+                the classes together, each pick counted once.
+              </li>
+            )}
+            {interimSeasons.length > 0 && (
+              <li data-testid="draft-capital-interim-curve-note">
+                {interimSeasons.join(", ")} dollars: {INTERIM_CURVE_LABEL} (interim generic
+                market values spread over each class&apos;s pool).
+              </li>
+            )}
+            {budgetsUnavailable && (
+              <li data-testid="draft-capital-budgets-unavailable" style={{ color: "var(--amber)" }}>
+                {draftCapitalBudgetsUnavailableText(budgetsUnavailable)}
+              </li>
+            )}
+            {hasRoundOnly && (
+              <li data-testid="draft-capital-round-only-note">
+                Estimated: classes without a draft order show their round only
+                (R1–R{data.draftRounds}) and every pick in a round carries that
+                round&apos;s value. No slot is assumed.
+              </li>
+            )}
+            {projectedSeasons.length > 0 && (
+              <li data-testid="draft-capital-projected-note">
+                {projectedSeasons.join(", ")} slots are projected from current
+                standings, not the official draft order.
               </li>
             )}
             {slotsAreStandIns && (
@@ -255,6 +319,7 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
             numTeams={data.numTeams}
             draftRounds={data.draftRounds}
             seasonLabel={selectedYear ?? (multiYear ? scopeLabel : data.season)}
+            budgetText={budgetLabel}
             selectedYear={selectedYear}
             years={years}
             slotsAreStandIns={slotsAreStandIns}
@@ -281,7 +346,17 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
           projection for the ones after it. */}
       <PickProjectorPanel />
 
-      <TradeSimulator picks={currentSeasonPicks} teamTotals={data.teamTotals} />
+      {budgetsUnavailable ? (
+        <div
+          className="card"
+          data-testid="draft-capital-simulator-unavailable"
+          style={{ marginTop: "var(--space-md)", fontSize: "0.72rem", color: "var(--muted)" }}
+        >
+          Trade simulator unavailable — {draftCapitalBudgetsUnavailableText(budgetsUnavailable)}
+        </div>
+      ) : (
+        <TradeSimulator picks={currentSeasonPicks} teamTotals={data.teamTotals} />
+      )}
 
       <PicksByRound
         picks={gridPicks}
@@ -300,6 +375,7 @@ function TeamTotalsChart({
   numTeams,
   draftRounds,
   seasonLabel,
+  budgetText = null,
   selectedYear = null,
   years = [],
   slotsAreStandIns = false,
@@ -340,11 +416,19 @@ function TeamTotalsChart({
                 (Number(a.season) || 0) - (Number(b.season) || 0) ||
                 (a.overallPick ?? 0) - (b.overallPick ?? 0),
             );
-          const tradedCount = teamPicks.filter((p) => p.isTraded).length;
+          // Acquired = held now, originated elsewhere; traded away =
+          // originated here, held elsewhere (backend counts, by roster id).
+          const acquiredCount = Number.isFinite(team.acquiredPickCount)
+            ? team.acquiredPickCount
+            : teamPicks.filter((p) => p.isTraded).length;
+          const tradedAwayCount = Number.isFinite(team.tradedAwayPickCount)
+            ? team.tradedAwayPickCount
+            : null;
           const unpriced = Number.isFinite(team.unpricedPickCount)
             ? team.unpricedPickCount
             : teamPicks.filter(isUnpricedPick).length;
-          const rank = selectedYear == null ? i + 1 : (team.rank ?? "—");
+          const rank =
+            selectedYear == null ? (team.rank ?? (capitalKnown ? i + 1 : "—")) : (team.rank ?? "—");
 
           return (
             <div
@@ -491,6 +575,8 @@ function TeamTotalsChart({
                       )}
                       <span
                         title={`${p.season ?? ""} round ${p.round}, originally ${p.originalOwner}${
+                          isSlotProjected(p) ? " — projected slot" : ""
+                        }${isSlotUnknown(p) ? " — draft order not set" : ""}${
                           unpricedPick ? " — unpriced" : ""
                         }`.trim()}
                         style={p.isTraded ? { color: "var(--amber)" } : undefined}
@@ -505,15 +591,17 @@ function TeamTotalsChart({
                     </span>
                   );
                 })}
-                {tradedCount > 0 && (
+                {(acquiredCount > 0 || tradedAwayCount > 0) && (
                   <span
+                    data-testid="draft-capital-trade-counts"
                     style={{
                       marginLeft: 6,
                       color: "var(--amber)",
                       opacity: 0.7,
                     }}
                   >
-                    ({tradedCount} traded)
+                    ({acquiredCount} acquired
+                    {tradedAwayCount != null ? ` · ${tradedAwayCount} traded away` : ""})
                   </span>
                 )}
                 {unpriced > 0 && (
@@ -554,7 +642,7 @@ function TeamTotalsChart({
           borderTop: "1px solid var(--border)",
         }}
       >
-        ${totalBudget} total budget across {numTeams} teams, {draftRounds}{" "}
+        {budgetText || `$${totalBudget} total budget`} · {numTeams} teams, {draftRounds}{" "}
         rounds ({seasonLabel}). <span style={{ color: "var(--amber)" }}>*</span> =
         traded pick.
         {(picks || []).some(isUnpricedPick) && <> ? = unpriced pick.</>}
@@ -700,12 +788,32 @@ function PicksByRound({ picks, draftRounds, slotsAreStandIns = false }) {
                   <tr key={idx}>
                     <td className="font-mono font-bold">
                       {draftCapitalPickLabel(pick, { slotsAreStandIns })}
+                      {isSlotProjected(pick) && (
+                        <span
+                          className="muted"
+                          title="Projected slot — the official draft order is not set"
+                          style={{ fontWeight: 400, fontSize: "0.66rem", marginLeft: 4 }}
+                        >
+                          proj.
+                        </span>
+                      )}
                     </td>
                     <td className="font-mono font-bold text-green">
                       {isUnpricedPick(pick) ? (
                         <span className="muted">unpriced</span>
                       ) : (
-                        fmtDollar(pickDollar(pick))
+                        <>
+                          {fmtDollar(pickDollar(pick))}
+                          {pick.dollarValueEstimated === true && (
+                            <span
+                              className="muted"
+                              title="Estimated from the canonical round value"
+                              style={{ fontWeight: 400, fontSize: "0.66rem", marginLeft: 4 }}
+                            >
+                              est.
+                            </span>
+                          )}
+                        </>
                       )}
                     </td>
                     <td style={{ fontWeight: 600 }}>{pick.currentOwner}</td>
