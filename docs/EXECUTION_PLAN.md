@@ -130,6 +130,9 @@ unified YES / NO decision engine (extending `C7-DESK-01` / `analyze_trade`). Bat
 correctness → TC-B missing functionality → TC-C decision engine → TC-D redesign → TC-E reliability → TC-F release, per
 `docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`. **Not authorized by it:** changing the approved package model
 or q, promoting experimental models, League Tycoon contract features, purchases. Merges and deploys keep their gates.
+**Owner decisions 2026-10-18 (all five TC-C questions DECIDED):** near tie → "NO — TOO CLOSE"; default strategy
+inferred from competitive posture and overridable; fairness bands → relative with an absolute minimum, provisional
+until validated; Second Opinions even = within 1%; `teamImpact.verdict` retired (text in the workstream TC-C section).
 
 ## Manager Intelligence (Batch A) — owner directive, 2026-10-16
 

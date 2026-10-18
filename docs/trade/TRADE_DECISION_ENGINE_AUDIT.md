@@ -641,13 +641,35 @@ trade.
 5. **Cross-surface parity:** backend packet → War Room desktop and mobile render the same headline, confidence and
    primary reason (Playwright journeys in TC-D).
 
-### 7.10 Owner decisions this design needs (smallest set)
+### 7.10 Owner decisions this design needs (smallest set) — RESOLVED (owner, 2026-10-18)
+
+All five were decided by the owner on 2026-10-18 and are binding. Each question is kept, followed by its decision.
 
 1. Should a near-tie with full evidence read **NO** (status quo, proposed) or NOT ENOUGH EVIDENCE?
+   **Decided:** a near tie with complete evidence reads **"NO — TOO CLOSE"**. NOT ENOUGH EVIDENCE is used only when
+   material information is missing or uncertainty prevents a defensible recommendation.
 2. The default goal when the user picks none: inferred posture mapping (proposed) or BALANCED.
+   **Decided:** inferred from the existing competitive-posture classification plus league evidence: contender → win
+   now, rebuilder → long-term value, uncertain / balanced → BALANCED. Always displayed; manual override always
+   allowed.
 3. Re-evaluated A bands under geom: absolute → relative-with-floor (proposed), values as PRIORs.
+   **Decided:** re-evaluate for the geometric model as a relative difference with an absolute minimum; validate on
+   offense, IDP, picks, consolidation and large packages; numbers provisional until tested; never modify q = 0.78.
+   TC-A inventoried every current threshold as a PRIOR with provenance (workstream "TC-A notes").
 4. The Second Opinions "even" band (already open in `SECOND_OPINIONS_TODO.md`).
+   **Decided:** EVEN = within 1% of the larger adjusted side (initial, subject to validation). Independent opinions
+   stay separate from canonical-fallback comparisons; fallbacks and correlated sources never count as independent
+   votes. Implemented in TC-A (`OPINION_EVEN_TOLERANCE_PCT`, `frontend/lib/second-opinions.js`).
 5. Retiring `teamImpact.verdict` from the UI.
+   **Decided:** retire `teamImpact.verdict` as a competing YES/NO; keep the underlying analysis (starting-lineup
+   changes, strength / weakness changes, bench depth, displacement, forced drops, roster construction, positional
+   needs); feed independent information to the unified engine without double counting; ONE canonical decision
+   owner. Implemented in TC-A: `verdict`, `compositeScore`, `equityScore` and the 0.55 / 0.45 weighting are removed
+   from `src/trade/team_impact.py`, `config/trade/team_impact.json` and the Simulate impact panel (V7 above is
+   retired).
+
+Consequence for §7.3: the "A neutral, B neutral → NO" status-quo default stands, rendered as "NO — TOO CLOSE"
+(decision 1). For §7.2 C, the default goal follows decision 2.
 
 ---
 
