@@ -114,7 +114,11 @@ function PartnerEvidence({ sides, parties, leagueKey }) {
           Show {parties.opponent}&apos;s trade history for this package
         </Button>
       ) : current.status === "ok" ? (
-        <ManagerEvidence evidence={current.evidence} team={parties.opponent} />
+        <ManagerEvidence
+          evidence={current.evidence}
+          team={parties.opponent}
+          defaultOpen
+        />
       ) : current.status === "error" ? (
         <p className={styles.itemNote} role="status">
           Manager history unavailable right now ({current.error}).

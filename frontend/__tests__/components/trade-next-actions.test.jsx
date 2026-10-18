@@ -98,6 +98,9 @@ describe("TradeNextActions", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: /Show Joey's trade history/ }));
     await waitFor(() => expect(screen.getByText(/Received 2 WR of 9 players acquired by trade/)).toBeInTheDocument());
+    // Asked for explicitly, so it is shown open — "in the document" alone also
+    // passes for a collapsed <details>, which hid the answer behind a second click.
+    expect(screen.getByText(/Received 2 WR of 9 players acquired by trade/).closest("details")).toHaveAttribute("open");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/manager-scout/offer-evidence?leagueKey=dynasty_main");
     expect(init.method).toBe("POST");
@@ -129,5 +132,31 @@ describe("TradeNextActions", () => {
       expect(screen.getByText(/trade history is not collected on this server/)).toBeInTheDocument(),
     );
     vi.unstubAllGlobals();
+  });
+});
+
+describe("ManagerEvidence disclosure default", () => {
+  const evidence = {
+    state: "measured",
+    tradeCount: 6,
+    positionsTheyWouldReceive: [{ position: "WR", receivedBefore: 2, ofPlayersReceived: 9 }],
+    picksTheyWouldReceive: null,
+    offerShapeForThem: "1-for-2",
+    sameShapeBefore: 1,
+    tradesWithRequester: 0,
+  };
+
+  it("stays collapsed on generated-trade cards", async () => {
+    const { default: ManagerEvidence } = await import("@/components/trade/ManagerEvidence");
+    const { container } = render(<ManagerEvidence evidence={evidence} team="Ed" />);
+    const details = container.querySelector("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+  });
+
+  it("opens when the caller rendered it on an explicit request", async () => {
+    const { default: ManagerEvidence } = await import("@/components/trade/ManagerEvidence");
+    const { container } = render(<ManagerEvidence evidence={evidence} team="Ed" defaultOpen />);
+    expect(container.querySelector("details")).toHaveAttribute("open");
   });
 });
