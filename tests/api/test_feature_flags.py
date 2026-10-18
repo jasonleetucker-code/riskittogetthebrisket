@@ -127,6 +127,18 @@ def test_every_flag_defaults_off_except_safe_additive():
         # stale family; 31 down).  Rollback:
         # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.
         "dlf_offense_only_vote",
+        # Owner closeout 2026-10-18 (docs/sources/
+        # IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md).  D2: IDP-scoped
+        # shared correlation cap -- engages on 0 rows of the pinned board (The
+        # IDP Show quarantined); byte-identical board.  D3: the IDP Trade
+        # Calculator's unproven offense vote excluded -- 428 offense values move
+        # (p90 3.0%, top-50 max 2.2%).  D4: DLF Values rank -> Hill inside the
+        # DLF cap, released after every activation gate passed -- 300 offense
+        # values move (p90 1.7%, top-50 max 1.8%).  Rollback for each:
+        # RISKIT_FEATURE_<NAME>=0 + restart.
+        "idp_shared_correlation_cap",
+        "idptc_offense_vote_excluded",
+        "dlf_values_rank_hill_vote",
         # Owner addendum 2026-10-03: Signals' authenticated native values vote
         # (value-ordered rank, FantasyCalc family).  Inert wherever the
         # box-local private store is absent (CI, dev).  Whole-board impact

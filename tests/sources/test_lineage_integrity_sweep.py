@@ -202,7 +202,12 @@ def test_committed_sweep_covers_every_voting_source():
     assert private == {"signalsSf", "signalsIdpDl", "signalsIdpLb", "signalsIdpDb"}
     voting = {s["key"] for s in _RANKING_SOURCES} - private
     swept = {k for k, v in data["sources"].items() if v.get("voting")}
-    assert voting <= swept, sorted(voting - swept)
+    # Registered AFTER this dated sweep, which measured it as a non-voting
+    # candidate (its CSV history is in the sweep; the record is not rewritten):
+    # DLF Values, owner closeout 2026-10-18 Decision 4.
+    registered_after_sweep = {"dlfValuesSfTep"}
+    assert registered_after_sweep <= set(data["sources"])
+    assert voting - registered_after_sweep <= swept, sorted(voting - swept)
 
 
 def test_committed_sweep_clocks_never_moved_on_byte_only_versions():

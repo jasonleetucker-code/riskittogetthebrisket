@@ -20,6 +20,8 @@ category the IDP ranking brief called out:
 
 from __future__ import annotations
 
+import pytest
+
 import copy
 import unittest
 
@@ -37,6 +39,26 @@ from src.canonical.idp_backbone import (
     TRANSLATION_INTERPOLATED,
 )
 from src.canonical.player_valuation import rank_to_value
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _idptc_offense_vote_rollback():
+    """These synthetic fixtures use the IDP Trade Calculator as an OFFENSE
+    voter, as scaffolding for the mechanism under test.  The owner closeout of
+    2026-10-18 (Decision 3) excludes that vote by default
+    (``idptc_offense_vote_excluded``); the policy itself is pinned in
+    ``tests/api/test_source_independence_closeout.py``, so these run on the
+    documented rollback path, which still carries the vote."""
+    from src.api import feature_flags as _ff
+
+    mp = pytest.MonkeyPatch()
+    mp.setenv("RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED", "0")
+    _ff.reload()
+    try:
+        yield
+    finally:
+        mp.undo()
+        _ff.reload()
 
 
 def _row(name: str, pos: str, *, ktc=None, idp=None, extra=None) -> dict:
