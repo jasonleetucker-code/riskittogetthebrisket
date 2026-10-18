@@ -25,12 +25,15 @@ import {
   draftCapitalAllPicks,
   draftCapitalBudgetPolicy,
   draftCapitalInterimSeasons,
+  draftCapitalProvisionalSeasons,
   draftCapitalPickLabel,
   draftCapitalPicksForYear,
   draftCapitalSlotsAreStandIns,
   draftCapitalTeamRows,
   draftCapitalYearSummary,
   INTERIM_CURVE_LABEL,
+  PROVISIONAL_CURVE_LABEL,
+  isSlotFinalStandings,
   isSlotProjected,
   isSlotUnknown,
   isUnpricedPick,
@@ -167,7 +170,12 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
   const projectedSeasons = [
     ...new Set(viewPicks.filter(isSlotProjected).map((p) => p.season)),
   ].sort();
+  const finalOrderSeasons = [
+    ...new Set(viewPicks.filter(isSlotFinalStandings).map((p) => p.season)),
+  ].sort();
+  // Legacy payloads only (the interim curve is retired, Batch E).
   const interimSeasons = draftCapitalInterimSeasons(data, viewPicks);
+  const provisionalSeasons = draftCapitalProvisionalSeasons(data, viewPicks);
   // The upcoming class's auction budgets (`teamTotals`) can be unavailable —
   // rendered as such, never as $0 (MISSING IS NEVER ZERO).
   const budgetsUnavailable = draftCapitalBudgetsUnavailableReason(data);
@@ -238,6 +246,8 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
           slotsAreStandIns ||
           hasRoundOnly ||
           interimSeasons.length > 0 ||
+          provisionalSeasons.length > 0 ||
+          finalOrderSeasons.length > 0 ||
           budgetsUnavailable ||
           unpricedCount > 0) && (
           <ul
@@ -256,6 +266,11 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
                 the classes together, each pick counted once.
               </li>
             )}
+            {provisionalSeasons.length > 0 && (
+              <li data-testid="draft-capital-provisional-curve-note">
+                {provisionalSeasons.join(", ")} dollars: {PROVISIONAL_CURVE_LABEL}.
+              </li>
+            )}
             {interimSeasons.length > 0 && (
               <li data-testid="draft-capital-interim-curve-note">
                 {interimSeasons.join(", ")} dollars: {INTERIM_CURVE_LABEL} (interim generic
@@ -270,14 +285,22 @@ export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
             {hasRoundOnly && (
               <li data-testid="draft-capital-round-only-note">
                 Estimated: classes without a draft order show their round only
-                (R1–R{data.draftRounds}) and every pick in a round carries that
-                round&apos;s value. No slot is assumed.
+                (R1–R{data.draftRounds}) and every pick in a round carries an
+                equal share of that round&apos;s dollars (whole dollars, so shares
+                can differ by $1). No slot is assumed.
               </li>
             )}
             {projectedSeasons.length > 0 && (
               <li data-testid="draft-capital-projected-note">
                 {projectedSeasons.join(", ")} slots are projected from current
-                standings, not the official draft order.
+                standings (worst record first, ties by lower Points For), not the
+                official draft order.
+              </li>
+            )}
+            {finalOrderSeasons.length > 0 && (
+              <li data-testid="draft-capital-final-order-note">
+                {finalOrderSeasons.join(", ")} slots follow final regular-season
+                standings: worst record first, ties by lower Points For.
               </li>
             )}
             {slotsAreStandIns && (

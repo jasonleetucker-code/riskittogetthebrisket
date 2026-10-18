@@ -423,6 +423,165 @@ Built since the first TC-C head:
 - Second Opinions dispersion and comparables do not yet lower the agreement axis.
 - The fairness bands are provisional: no validation target exists yet to fit them against.
 
+## TC-B notes (2026-10-18)
+
+Branch `claude/trade-calculator-tc-b`, on `origin/main` `c290dea0a8` (TC-A and TC-C merged). Acceptance is on
+`dynasty_main`. Code commits: `2bd2986ddd` (backend: roster-lens holes, partner evidence endpoint) and `8625ab7b77`
+(frontend: builder, personalization, next steps). Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`.
+
+### Inventory — every matrix row in TC-B scope, re-verified against live code
+
+The scope is every row whose Batch cell names TC-B (30 rows, including the shared `TC-B / TC-C` and `TC-B / TC-D`
+rows), plus TCM-N03, whose Batch cell assigns "a banner now in TC-B". Each claim was re-checked on live code; where the
+matrix was stale it says so. Line numbers are as of `8625ab7b77`. "Done" means implemented with tests in this batch
+(TC-B1); it is IMPLEMENTED BUT UNVERIFIED until observed in production.
+
+| row | state found (TC-0 class → re-verified) | live path (file:line) | what was missing | owner | TC-B1 |
+|---|---|---|---|---|---|
+| A02 position mix | NOT IMPLEMENTED — confirmed | `frontend/app/trade/trade-sections.jsx:757`; helper `frontend/lib/trade-assets.js:426` | a per-side mix | display (`trade-assets.js`) | **done** |
+| A03 row metadata | PARTIAL — confirmed: no age | `trade-sections.jsx:381` (`formatAssetAge`) | age on the row | display; age from the contract row | **done** |
+| A05 stable identity | PARTIAL — confirmed: players key on name (`trade-assets.js:71`), share links carry names | `frontend/lib/trade-assets.js:71`, `frontend/lib/trade-share.js:322` | key players by `playerId` across workspace / share / import | `trade-assets.js`, `trade-share.js` | remaining — changes the share format, which Manager Intelligence Batch D seeds `/trade` through right now |
+| B04 generic picks | PARTIAL — confirmed: no uncertainty shown | `trade-sections.jsx:439`; wording `frontend/lib/pick-provenance.js` + `pick-provenance-text.js` | the PRIOR on derived rows; C1-U7 distributions | backend `pickValueProvenance` (C1-U6); C1-U7 | **calculator half done** (badge + basis); C1-U7 distributions remain (a separate owner) |
+| B06 unknown pick ownership | IMPLEMENTED BUT UNVERIFIED (TC-A) — confirmed | `frontend/app/trade/page.jsx` pick-ownership banner | production observation | `lib/pick-ownership.js` | no change |
+| C04 share restore | PARTIAL — confirmed: `parseShareParam` returns `null` on an unknown version (`trade-share.js:334`) | `trade-share.js:334` | per-asset degrade; stable ids (A05) | `trade-share.js` | remaining — share-format freeze (Batch D) |
+| D14 override reset | IMPLEMENTED INCORRECTLY — confirmed: per-row "Reset" beside every overridden input | was `trade-sections.jsx` (now `:502`, a comment) | remove the per-row reset; keep the global one | `trade-sections.jsx` | **done** (#781) |
+| F03 equalizer combos | PARTIAL — confirmed: singles only | `frontend/lib/trade-logic.js:1623` (`findBalancers`) | pairs when no single closes the gap | `findBalancers` (the JS balancer owner) | **done** (`combos: true`) |
+| F05 pick-context link | PARTIAL — confirmed: a pick opens the quick-view popup only | `trade-sections.jsx` `PlayerNameButton` | a pick-context link | — | remaining (P3) |
+| G09 3+ team analysis | NOT IMPLEMENTED — confirmed: War Room renders only for 2 sides | `page.jsx:2478` | N-side analysis, or state the limitation | `trade_decision.py` (N-side would be TC-C scope) | **limitation stated** (the matrix's second option); N-side analysis not built |
+| G18 Trade Desk ↔ decision | PARTIAL — confirmed | `src/trade/trade_desk.py:361` | attach the Analyze packet to saved ideas | `trade_desk.py` | **Save from /trade done (O13)**; the Analyze packet attachment remains |
+| H03 capacity for both teams | PARTIAL — confirmed: `forced_drop_cost` ranks the selected team only (`src/trade/finder.py:1148`); suggestions carry no counterparty block | `finder.py:1148`, `src/trade/suggestions.py` | rank counterparty cost, consolidation credit, suggestions block | `roster_capacity.py` consumers | remaining — Trade Finder lane (generator ranking) |
+| H12 roster consequences | PARTIAL — re-verified: availability (#1772) now merged, so byes and injuries are modelled; holes / bye coverage were not reported; no replacement-level report | `src/roster_intel/best_ball_utility.py:242`, `:575`; UI `frontend/components/trade/TradeWarRoom.jsx:349` | holes, bye coverage, replacement level | `best_ball_utility.py` (one exact solver) | **holes + bye coverage done**; replacement level remains (`rosterSpot.shadowValuePpg` is still `None`, `best_ball_utility.py:589`) |
+| I04 league + team auto-load | PARTIAL — re-verified: the ROS panel league defect was fixed in TC-A, but `useTeam` still auto-selected a hardcoded owner team ("Rossini Panini") on the default league for any user the server could not place | `frontend/components/useTeam.js:245` | no owner team as a global default | `useTeam` + `/api/leagues` `userDefaultTeam` | **done** |
+| K03 immediate tally | PARTIAL — confirmed: the tally rendered only inside the folded panel | `page.jsx:2550`; rows `frontend/lib/second-opinions-rows.js` | surface it outside the fold | `lib/second-opinions.js` (tally), one row assembly | **done** |
+| K06 source unavailable | NOT IMPLEMENTED — confirmed: rows carry `freshnessExcludedSources` (`src/api/data_contract.py:4857`) but Second Opinions ignores it | `frontend/lib/second-opinions.js:191` | an "unavailable" state | `second-opinions.js` | remaining — `SECOND_OPINIONS_TODO.md` lists it as an open owner decision (it changes which rows vote) |
+| K13 ROS Fit | PARTIAL — confirmed: league-scoped since TC-A, not labelled | `frontend/components/RosTradeFitPanel.jsx:162` | label it as the public deadline view | `RosTradeFitPanel.jsx` | **done** |
+| L01 recent real trades | IMPLEMENTED BUT UNVERIFIED — confirmed: no Trade Database link | `frontend/components/trade/RecentRealTrades.jsx:212` | a link into the Trade Database | `RecentRealTrades.jsx` | **done** |
+| L05 comparability labels | PARTIAL ("not confirmed" in TC-0) — **stale**: every card already renders the ledger's disposition (`formatMatchText`, `frontend/lib/recent-real-trades.js:122`, shipped with TC-09) | `recent-real-trades.js:122` | nothing; a test per disposition | `market_trade_format.py` (disposition) | **verified in code + test added** |
+| M01–M07 charts / facts | NOT IMPLEMENTED — confirmed | — | stacked bars, identity map, trend chart, facts table, dispersion, value span, 30-day movers | presentation; M03/M06 need a `src/history` read endpoint | remaining (P3) |
+| N03 historical replay banner | NOT IMPLEMENTED — confirmed: `/trades` opens `/trade?share=` in live mode (`frontend/app/trades/page.jsx:429`) | `trades/page.jsx:429` | an as-of mode or a banner | `trade-share.js` restore | remaining — telling a history link from any other share link needs a URL change, and the share format is frozen while Batch D seeds `/trade` through it |
+| O11 next-action links | NOT IMPLEMENTED — confirmed | `page.jsx:2623`; owner `frontend/lib/trade-next-actions.js`; reader `frontend/app/arbitrage/page.jsx:452` | contextual links into the engines | the engines (unchanged) | **done** |
+| O12 partner intelligence | NOT IMPLEMENTED — confirmed | `src/intel/manager_scout_api.py:196`; `frontend/components/trade/TradeNextActions.jsx` | a counterparty panel consuming Scout / MI | `manager_scout.offer_evidence` | **done** (Scout evidence for this package; MI by link — `/managers` needs a Sleeper username the contract does not carry) |
+| O13 Save to Trade Desk | PARTIAL — confirmed: generated cards only | `TradeNextActions.jsx` → `SaveToDeskButton`; `trade_desk.py:62` (`calculator` source already allowed) | the button on /trade | `trade_desk.py` | **done** |
+| R01 announcement banner | NOT IMPLEMENTED — confirmed | — | config-driven announcement with expiry | — | remaining (P3, low) |
+
+Task-list items with no TC-B matrix row, verified: **legitimate repeated generic picks** (TCM-A08, IMPLEMENTED BUT
+UNVERIFIED, TC-F) and **honest unpriced assets** (TCM-A07, done in TC-A) are both live on `main`; nothing to build.
+**Forced drops** (TCM-H02) are VERIFIED COMPLETE. **Second Opinions full-source vs hybrid tally and coverage** were
+already complete after VA PR2 (`TradeSourceBreakdown`, `tallyOpinions`); what was missing was the immediate surface
+(K03), now done.
+
+### What TC-B1 does (and how each piece stays inside its owner)
+
+- **No second engine.** The equalizer pairs extend `findBalancers` in place and are simulated whole through
+  `tradeImbalance`; partner evidence is `manager_scout.offer_evidence` verbatim; holes are counted inside the one
+  best-ball utility run; the tally reads the one row assembly the per-source table now uses.
+- **Never a vote.** `lineupHoles` is explanatory: BBLI already scores an empty slot as zero, so it does not enter the
+  decision (`trade_decision.py` unchanged). The tally states counts, not a verdict. Next steps change no total.
+- **Missing is never zero.** A missing age is absent; a slot only an unprojected player fits is named
+  (`onlyUnprojected`), not hidden; a roster with no projected player has unknown holes (`None`); a player with no id
+  is counted as "not in the filter", never matched by name; partner history that is not measured says why.
+- **Share format untouched** (Batch D seeds `/trade` through it). The new deep links point away from `/trade`.
+- **Bundle.** The tally and Next steps are `React.lazy`; the long derived-pick prose lives in its own module so the
+  page chunk carries only the label. `/trade` 91.7 KB of 93 KB (main `c290dea0a8`: 88.9 KB; TC-C head: 87.8 KB).
+  Headroom is 1.3 KB — TC-D must split before it adds.
+- **Declared PRIORs added:** `BALANCER_PAIR_POOL = 8` and `BALANCER_MAX_PAIRS = 2` (`trade-logic.js`), bounds on
+  the pair search, not fitted.
+
+### Gates run on the TC-B head (2026-10-18)
+
+- `format_python_changes.sh`: GREEN (Ruff 0.6.9). Coercion check: clean.
+- `pytest tests/trade tests/roster_intel tests/intel/test_manager_scout_*` + `tests/api/test_trade_simulator.py` +
+  `tests/api/test_trade_simulate_mc.py`: 2825 passed, 22 skipped.
+- Full `npx vitest run`: 325 files / 4128 tests passed.
+- `build:nocheck` + `check:bundles`: all pages under budget; `/trade` 91.7 KB of 93 KB.
+- Playwright `tests/e2e/specs/trade-next-actions.spec.js` written (desktop + phone projects, test ids, partner
+  request mocked); NOT run — no Playwright browsers or local stack here.
+
+### Remaining in TC-B (TC-B2 and later)
+
+A05 and C04 (stable player ids and per-asset share degrade) and N03 (history banner) wait for the share-format freeze
+to lift; K06 waits for the owner decision; H03 belongs to the Trade Finder lane; G18 needs the Analyze packet stored
+on a desk item; H12 replacement level needs the waiver-pool projection join; B04 needs C1-U7; F05, M01–M07 and R01
+are P3.
+
+## TC-D notes (2026-10-18)
+
+Branch `claude/trade-calculator-tc-d`, **stacked on TC-B1** (`claude/trade-calculator-tc-b`, #1800, head
+`9cc840a33f`). Code commit `ecbde07821`. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`. Phase D1: make room,
+then the core layout. Not merged, not deployed, not observed in production.
+
+### Bundle headroom first
+
+`/trade` was 91.7 KB of 93 KB. A source-map attribution of the page chunk (temporary `productionBrowserSourceMaps`
+build, not committed) put `TradeWarRoom.jsx` + its CSS at about 19.5 KB, the largest module the page still carried;
+everything else on the candidate list (Second Opinions, comparables, Trade Desk, next actions, screenshot import) was
+already `React.lazy`. The War Room is now one more `dyn(...)` section (`React.lazy` + its own `Suspense` +
+`ResilientSection`, never `next/dynamic`), prefetched on mount next to the player-pool fetch. It shows nothing before
+its first `POST /api/trade/analyze` answers (a 700 ms debounce after two filled sides), so nothing visible changes.
+
+| build | `/trade` page chunk |
+|---|---|
+| TC-B head `9cc840a33f` | 91.7 KB / 93 KB (1.3 KB headroom) |
+| War Room split only | 72.5 KB (20.5 KB headroom) |
+| D1 (split + layout) | **77.9 KB (15.1 KB headroom)** |
+
+### Information architecture (UX audit §7 hypothesis, implemented)
+
+| layer | anchor | contents (owners unchanged) |
+|---|---|---|
+| 1. Trade builder | `#trade-builder` | quick-add (mobile, now in flow), controls, pick-ownership / share / import banners, KTC panel, screenshot dialog, pick team selectors, side cards |
+| 2. Immediate result | `#trade-result` | raw / VA / adjusted per side (`DataTable`, from `sideTotals`: adjusted = raw + VA), "How the verdict works", `TradeMeter` (+ Monte Carlo), the experimental stack note |
+| 3. Final decision | `#trade-decision` | the Trade War Room (or the 3+-team limitation); on desktop an echo of its headline, confidence and primary reason sits in the sticky column |
+| 4. Supporting intelligence | `#trade-intelligence` | the Simulate impact result (no longer inserted above the builder), Second opinions, Recent real trades |
+| 5. Ideas & tools | `#trade-tools` | Next steps, the proactive rail (no longer above the builder), the suggestions desk |
+
+- **One decision.** The echo is the War Room's own answer, reported up through a new `onDecision` prop and rendered
+  verbatim (`DecisionSummary`, its own `decision-summary*` test ids, so the War Room keeps the only
+  `decision-headline`). The verdict bar shows the same headline word only while the answer is for the trade on screen.
+- **Desktop (>= 1024 px).** Two columns (3fr / 2fr). The right column (result, decision echo, then the fairness
+  explanation and the independent tally) is sticky with its own scroll. Side cards stack in the left column: two
+  370 px cards side by side truncated every row's metadata at 1366. The bottom tray is hidden there.
+- **Below 1024 px.** One column in layer order; a sticky section nav (44 px targets); the verdict bar links to the
+  decision. The quick-add bar is no longer sticky (it overlapped scrolled content, UX audit P2-4).
+- **Every feature stays reachable**, and every test id the e2e specs use is unchanged.
+
+Measured on the local real stack (Playwright, Chromium, the seeded board, analyze mocked from the real fixtures):
+
+| measure | before (TC-B head) | after (D1) |
+|---|---|---|
+| decision on screen at 1366x900 | War Room headline y=877; meter y=1,917 | decision echo y=639; meter y=375 |
+| fixed chrome at 390x844 | 235 px (top bar 46 + quick-add 62 + tray 74 + tab bar 53) | 219 px (top bar 46 + section nav 46 + tray 74 + tab bar 53) |
+| horizontal scroll at 390 / 360 / 1024 / 1366 / 1920 | none at 390 / 1366 | none at any of the five |
+
+Before/after screenshots were taken at 1366x900 and 390x844 (after also at 360x780, 1024x768 and 1920x1080). They
+are session artifacts, not committed.
+
+### Gates run on the TC-D head (2026-10-18)
+
+- Real-stack Playwright, desktop-1366 + mobile-chromium: `trade-war-room`, `trade-next-actions`, `trade-ktc-import`,
+  `trade-screenshot-import`, `mobile-trade-quantity`, `mobile-pinned-overlap` and `journey-trade`. Result: 26 passed,
+  7 skipped (gated to the other project by the specs themselves), 1 failed. The failure was
+  `journey-trade` "/arbitrage scans" (90 s predicate timeout under the parallel run). `/arbitrage` is not touched
+  here, and the same test passed alone in 21 s.
+- Full vitest: 4150 / 4151. The one failure was `game-day-panel.test.jsx` (a 5 s test timeout under suite load; not
+  touched; 64 / 64 alone). The new `trade-tcd-layout.test.jsx` has 21 tests. The de-flaked
+  `trade-on-demand-sections-render` uses a shared prewarm (`__tests__/setup/trade-lazy-sections.js`, the #1792
+  pattern); its assertions are unchanged.
+- `build:nocheck` + `check:bundles`: every page is under budget, `/trade` 77.9 KB of 93 KB.
+
+### Remaining in TC-D (D2 and later)
+
+- Builder bottom sheets on mobile (one search per side).
+- The toolbar overflow menu (CSV / JSON / Copy KTC URL).
+- Supporting-intelligence drilldown tabs (Value · Roster · Season · Market · Reasoning).
+- One roster-consequence surface (TCM-H13: Simulate impact folded under the decision).
+- A persistent summary for 3+-team trades.
+- The Monte Carlo "favored" relabel (§7.8).
+- The withdrawn "My league" control (TCM-D09).
+- A wider cap at 1920 (shell-level).
+- The screenshot FAB still sits over the bottom-right of the sticky column on desktop; it is the pre-existing UX audit
+  §2.1 row 18, and the FAB is shell-owned.
+
 ## Coordination with in-flight work
 
 | In-flight | Overlap | Rule |
@@ -440,4 +599,6 @@ Built since the first TC-C head:
 | TC-0 audit + research | DONE — feature matrix, competitive analysis, UX audit, decision-engine audit committed (docs PR) |
 | TC-A correctness | IMPLEMENTATION HEAD GREEN on local branch `claude/trade-calculator-tc-a` (local commits on `integration/train-5-2026-10-17` @ `ea054f386a`; not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Simulations consuming availability (#1772 follow-through) is not part of this batch. See "TC-A notes" |
 | TC-C decision engine | IMPLEMENTATION HEAD on local branch `claude/trade-calculator-tc-c`, stacked on TC-A (not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-C notes" |
-| TC-B, TC-D … TC-F | QUEUED, in order; each starts as its dependencies land |
+| TC-B missing functionality | TC-B1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b` (`2bd2986ddd`, `8625ab7b77`, PR to main): of the 31 inventoried rows, 12 moved to IMPLEMENTED BUT UNVERIFIED (A02, A03, D14, F03, G09, I04, K03, K13, L05, O11, O12, O13) and 4 advanced but kept their class (B04, G18, H12 partial; L01 gained its database link); the other 15 are listed under "Remaining in TC-B". RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-B notes" |
+| TC-D redesign | D1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-d` (`ecbde07821`), stacked on TC-B1 (#1800): War Room code split (`/trade` 91.7 → 77.9 KB of 93 KB) and the five-layer layout, with a desktop sticky result + decision echo and a mobile section nav + verdict bar. TCM-P01 / P02 moved to IMPLEMENTED BUT UNVERIFIED; P03, P05, Q03, F06, H13 and K03 advanced. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. D2 remains (see "TC-D notes") |
+| TC-E … TC-F | QUEUED, in order; each starts as its dependencies land |

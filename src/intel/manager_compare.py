@@ -63,6 +63,23 @@ def _dig(row: dict[str, Any], path: tuple[str, ...]) -> Any:
     return cur if isinstance(cur, (int, float)) and not isinstance(cur, bool) else None
 
 
+def metric_reason(row: dict[str, Any], path: tuple[str, ...]) -> str:
+    """Why a Batch C row has no value at ``path`` (one of
+    :data:`LEAGUE_METRICS`) — shared by the league percentile and the
+    league leaderboards (Batch F)."""
+    if path[0] == "roster":
+        return (row.get("roster") or {}).get("valueNote") or "unpriced"
+    if path[0] == "draftCapital":
+        cap = row.get("draftCapital") or {}
+        if cap.get("reason"):
+            return cap["reason"]  # e.g. an earlier season: picks not read
+        if cap.get("counts") is None:
+            return cap.get("pickOwnershipReason") or "pick_ownership_unavailable"
+        # Ownership observed; the picks held carry no board value.
+        return next(iter(cap.get("unpricedReasons") or {}), None) or "unpriced"
+    return "unavailable"
+
+
 def percentile(value: float | None, others: list[float]) -> float | None:
     """See :data:`PERCENTILE_DEFINITION`.  ``others`` excludes this team and
     holds only known values; ``None`` when there is nothing to compare."""
@@ -223,19 +240,7 @@ def build_league_percentile(
         if mine is None:
             reason = "manager_not_in_league"
         elif value is None:
-            if path[0] == "roster":
-                reason = (mine.get("roster") or {}).get("valueNote") or "unpriced"
-            elif path[0] == "draftCapital":
-                cap = mine.get("draftCapital") or {}
-                if cap.get("reason"):
-                    reason = cap["reason"]  # e.g. an earlier season: picks not read
-                elif cap.get("counts") is None:
-                    reason = cap.get("pickOwnershipReason") or "pick_ownership_unavailable"
-                else:
-                    # Ownership observed; the picks held carry no board value.
-                    reason = next(iter(cap.get("unpricedReasons") or {}), None) or "unpriced"
-            else:
-                reason = "unavailable"
+            reason = metric_reason(mine, path)
         metrics.append(
             {
                 "key": key,
@@ -291,5 +296,6 @@ __all__ = [
     "PERCENTILE_DEFINITION",
     "build_league_percentile",
     "build_manager_comparison",
+    "metric_reason",
     "percentile",
 ]

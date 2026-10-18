@@ -84,3 +84,34 @@ export async function proxyPost(path, body, { timeoutMs = 8000, cookie } = {}) {
     clearTimeout(timer);
   }
 }
+
+/**
+ * Proxy a DELETE request to the backend (query-string addressed; no body).
+ *
+ * `cookie` carries the same requirement as `proxyGet` — see the note there.
+ *
+ * @param {string} path — backend path
+ * @param {object} opts — { timeoutMs, searchParams, cookie }
+ */
+export async function proxyDelete(path, { timeoutMs = 8000, searchParams, cookie } = {}) {
+  const url = new URL(path, BACKEND_BASE);
+  if (searchParams) {
+    for (const [k, v] of Object.entries(searchParams)) {
+      url.searchParams.set(k, v);
+    }
+  }
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url.toString(), {
+      method: "DELETE",
+      headers: cookie ? { Cookie: cookie } : {},
+      signal: ctl.signal,
+      cache: "no-store",
+    });
+    const data = await res.json();
+    return { data, status: res.status };
+  } finally {
+    clearTimeout(timer);
+  }
+}

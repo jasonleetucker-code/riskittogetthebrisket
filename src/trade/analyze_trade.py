@@ -361,6 +361,9 @@ def _roster_lens(simulation: dict[str, Any], cfg: dict[str, float]) -> Dimension
         "players": utility.get("players"),
         "shape": utility.get("shape"),
         "depth": utility.get("depth"),
+        # Holes and bye coverage (TC-B / TCM-H12): explanatory, never a vote --
+        # BBLI already scores an empty starting slot as zero points.
+        "lineupHoles": utility.get("lineupHoles"),
         "rosterSpot": utility.get("rosterSpot"),
         "basis": utility.get("basis"),
         "assumptions": utility.get("assumptions"),

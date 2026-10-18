@@ -51,3 +51,25 @@ describe("RosTradeFitPanel league scoping", () => {
     expect(src).toMatch(/<RosTradeFitPanel[^>]*leagueKey=\{selectedLeagueKey \|\| ""\}/);
   });
 });
+
+describe("RosTradeFitPanel is labelled as the public deadline view (TC-B / TCM-K13)", () => {
+  it("says it is not Competitive Posture", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => ({
+      ok: true,
+      json: async () =>
+        String(url).includes("rosTradeDeadline")
+          ? { teams: [{ teamName: "X", label: "Buyer" }] }
+          : { players: [] },
+    }));
+    const sides = [
+      { label: "A", assets: [{ name: "P1", pos: "WR" }] },
+      { label: "B", assets: [] },
+    ];
+    const { findByTestId } = render(
+      <RosTradeFitPanel sides={sides} settings={{}} leagueKey="league_z" />,
+    );
+    const note = await findByTestId("ros-fit-public-deadline-note");
+    expect(note.textContent).toMatch(/Public trade-deadline view/);
+    expect(note.textContent).toMatch(/not your team.s Competitive Posture/);
+  });
+});

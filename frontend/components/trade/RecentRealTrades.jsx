@@ -35,8 +35,10 @@
  * none of this is in the page's first-load chunk.
  */
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Banner, EmptyState, SegmentedControl, SkeletonTable } from "@/components/ds";
+import { Banner, Button, EmptyState, SegmentedControl, SkeletonTable } from "@/components/ds";
+import { tradeDatabaseHref } from "@/lib/trade-next-actions";
 import {
   assetText,
   caveatTexts,
@@ -200,9 +202,24 @@ export default function RecentRealTrades({ sides, leagueKey }) {
       options={MODES}
     />
   );
+  // TC-07 "links into the full trade database" (TC-B / TCM-L01): the same
+  // assets, every recorded trade, with the database's own filters.
+  const db = tradeDatabaseHref(sides);
   return (
     <div className={styles.root}>
       {modeControl}
+      {db.href ? (
+        <p className={styles.meta} data-testid="recent-real-trades-database-link">
+          <Button as={Link} href={db.href} size="sm" variant="ghost">
+            Open these assets in the Trade Database
+          </Button>
+          {db.unlinked
+            ? ` ${db.unlinked} player${db.unlinked === 1 ? "" : "s"} without an identity ${
+                db.unlinked === 1 ? "is" : "are"
+              } not in the filter.`
+            : ""}
+        </p>
+      ) : null}
       <ModeBody
         state={current}
         empty={empty}

@@ -11,11 +11,16 @@
  * Here the suggestions-desk and simulation-result modules fail to load (as
  * a missing chunk would) and the rest of /trade must keep rendering.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createSide, simulationSignature } from "@/lib/trade-logic";
+import {
+  COLD_LAZY_REVEAL,
+  PREWARM_TIMEOUT_MS,
+  prewarmTradeSections,
+} from "../setup/trade-lazy-sections";
 
 function chunkLoadError(id) {
   const err = new Error(`Loading chunk ${id} failed.`);
@@ -91,6 +96,12 @@ let TradePage;
 let reload;
 const realLocation = window.location;
 
+// Compile the page and the lazy sections that DO load (the two mocked to fail
+// are skipped) before any timed wait — see ../setup/trade-lazy-sections.js.
+beforeAll(async () => {
+  await prewarmTradeSections({ skip: ["suggestionsDesk", "simulationPanel"] });
+}, PREWARM_TIMEOUT_MS);
+
 beforeEach(async () => {
   window.localStorage.clear();
   sim.result = null;
@@ -117,17 +128,23 @@ afterEach(() => {
 describe("/trade on-demand section whose chunk fails to load", () => {
   it("renders the section fallback in place, and the rest of /trade stays rendered", async () => {
     render(<TradePage />);
-    expect(await screen.findByText("Trade suggestions unavailable")).toBeTruthy();
+    expect(
+      await screen.findByText("Trade suggestions unavailable", {}, COLD_LAZY_REVEAL),
+    ).toBeTruthy();
     // The page did not fall through to the route error screen: the builder,
     // controls and verdict are all still there.
     expect(screen.getByRole("button", { name: "Clear Trade" })).toBeTruthy();
     expect(screen.getByLabelText("Search to add a player to Side A")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Trade War Room" })).toBeTruthy();
+    // The War Room is itself a lazy section since TC-D (its own chunk); it
+    // still renders while the desk's chunk has failed.
+    expect(
+      await screen.findByRole("heading", { name: "Trade War Room" }, COLD_LAZY_REVEAL),
+    ).toBeTruthy();
   });
 
   it("offers a page reload, not a retry that would re-throw the cached rejection", async () => {
     render(<TradePage />);
-    await screen.findByText("Trade suggestions unavailable");
+    await screen.findByText("Trade suggestions unavailable", {}, COLD_LAZY_REVEAL);
     expect(screen.queryByRole("button", { name: "Retry this section" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Reload page" }));
     expect(reload).toHaveBeenCalledTimes(1);
@@ -136,7 +153,7 @@ describe("/trade on-demand section whose chunk fails to load", () => {
   it("a main action's section (the Simulate impact result) fails in place too", async () => {
     sim.result = { team: { name: "Team A" }, unresolvedIn: [], unresolvedOut: [] };
     render(<TradePage />);
-    expect(await screen.findByText("Simulation result unavailable")).toBeTruthy();
+    expect(await screen.findByText("Simulation result unavailable", {}, COLD_LAZY_REVEAL)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Clear Trade" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Trade War Room" })).toBeTruthy();
   });

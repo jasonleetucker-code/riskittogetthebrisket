@@ -234,58 +234,9 @@ export function externalLine(pkg, fmtPct) {
 
 // ── Seeding the builder from a link (Manager Intelligence Batch D) ──────
 //
-// ``/arbitrage?tool=builder&league=<leagueKey>&opponent=<ownerUserId>
-// [&target=<board name>]`` opens the Package Builder with that team chosen as
-// the counterparty (and, with a target, in "Acquire a player").  The opponent
-// travels as the team's permanent Sleeper owner id, never its display name, and
-// is resolved against the loaded league's teams by the view — a seed for a
-// league or owner the page does not hold applies nothing and says so.
-
-export const BUILDER_SEED_TOOL = "builder";
-const SEED_OWNER_RE = /^\d{1,24}$/;
-const SEED_LEAGUE_RE = /^[a-z][a-z0-9_-]{0,63}$/;
-const SEED_TARGET_MAX = 64;
-
-/** The builder seed link, or null when the owner id is not a valid one. */
-export function builderSeedHref({ leagueKey, opponentOwner, target } = {}) {
-  const owner = String(opponentOwner ?? "");
-  const league = String(leagueKey ?? "");
-  if (!SEED_OWNER_RE.test(owner) || !SEED_LEAGUE_RE.test(league)) return null;
-  const params = new URLSearchParams({
-    tool: BUILDER_SEED_TOOL,
-    league,
-    opponent: owner,
-  });
-  const t = String(target ?? "").trim();
-  if (t && t.length <= SEED_TARGET_MAX) params.set("target", t);
-  return `/arbitrage?${params.toString()}`;
-}
-
-/**
- * The seed a ``/arbitrage`` URL carries, or null.  Untrusted input: anything
- * malformed is dropped rather than half-applied.
- */
-export function parseBuilderSeed(search) {
-  if (typeof search !== "string" || !search) return null;
-  let params;
-  try {
-    params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  } catch {
-    return null;
-  }
-  if (params.get("tool") !== BUILDER_SEED_TOOL) return null;
-  const owner = params.get("opponent") || "";
-  const league = params.get("league") || "";
-  if (!SEED_OWNER_RE.test(owner) || !SEED_LEAGUE_RE.test(league)) {
-    return { opponentOwner: "", leagueKey: "", target: "" };
-  }
-  const t = String(params.get("target") || "").trim();
-  return {
-    opponentOwner: owner,
-    leagueKey: league,
-    target: t && t.length <= SEED_TARGET_MAX ? t : "",
-  };
-}
+// The seed link is written and read by the one /arbitrage link owner, which
+// also tells it apart from /trade's tool links (lib/arbitrage-links.js).
+export { BUILDER_SEED_TOOL, builderSeedHref, parseBuilderSeed } from "@/lib/arbitrage-links";
 
 /**
  * The counterparty team a seed names in the loaded league: the team whose

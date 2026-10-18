@@ -462,8 +462,11 @@ Error behavior on endpoints:
 - `/api/draft-capital` — 503 `data_not_ready` only when NO contract is
   loaded, and only on the non-default path.  It deliberately does NOT
   503 on a league *mismatch*.
-  - The default league is served from `CSVs/Draft Data.xlsx` and never
-    consults the contract, so contract readiness is irrelevant to it.
+  - The default league takes its ownership grid and standings from
+    `CSVs/Draft Data.xlsx` and its pick dollars from the canonical
+    rookie-auction generation reader (Batch F, below) — neither consults the
+    contract, so contract readiness is irrelevant to its budgets (only the
+    per-rookie ladder reads the contract's rookie pool).
   - A non-default league takes the Sleeper-derived fallback
     (`src/api/draft_capital_fallback.py`), which fetches **that
     league's own** rosters and traded picks.  It needs the contract
@@ -542,18 +545,36 @@ Error behavior on endpoints:
     /league year selector.  The league's other owned classes
     (`league_draft_years.owned_pick_seasons` — 2028 and 2029 beside the
     workbook's 2027) now arrive in `additionalClassPicks` — canonical fold
-    (`build_pick_ownership`) over the observed `/traded_picks`, canonical
-    generic-grade values (`src/api/draft_capital_classes.py`), round-only
-    (`slotStatus: "unknown"`), `dollarValueEstimated: true`.  `picks` /
+    (`build_pick_ownership`) over the observed `/traded_picks`, priced on the
+    canonical rookie-auction curve (Batch E, below;
+    `src/api/draft_capital_classes.py`), round-level unless Sleeper has set
+    that class's order (`slotStatus: "unknown"` / `"known"`),
+    `dollarValueEstimated: true`.  `picks` /
     `teamTotals` / `coveredPickYears` are unchanged (the workbook class = the
     auction budgets /draft, the auction room and the /trade stack read); the
     year views, `allYearsTeamTotals` and `allYearsSummary` cover every class,
     each pick once.  **Budget basis — OWNER DECISION 2026-10-18: "$1,200 per
     draft class"** for `dynasty_main` (12 teams x 6 rounds = 72 picks per
     class).  Each class is its own $1200 pool; All Years sums the classes,
-    each pick once.  **Whole dollars only** (owner decision 2026-10-18): the
-    workbook class's half-dollar L2:L73 column is mathematical REFERENCE data
-    (`workbookReferenceDollarValue`); its published pick dollars come from the
+    each pick once.  **One reader (Batch F, `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`
+    consumer census):** every consumer of rookie-auction dollars reads
+    `src/draft/rookie_auction/generation.py` — the upcoming (workbook) class
+    as much as the later ones.  The workbook's L2:L73 is the SAME quantity for
+    the class it was built for, so it is no longer read as dollars, only
+    compared (`workbookParity`, diagnostic).  Every class carries the receipt
+    `generationHash` / `curveVersion` / `targetDraftYear` /
+    `actualInputClassYear` / `spineYears` / `inputMode` / `allocationState`
+    from its SERVED record (`draftValuationGeneration`, `draftValuation`,
+    `budgetPolicy.classes[year]`); `rookieKtcValue` is
+    `generation.rookie_ladder` (canonical curve, exactly 72 rookies, else
+    missing — `rookieDollarLadder` says which).  A failed dollars generation
+    is answered with the SAME year's last valid board, labelled
+    `staleWhileRevalidate` (≤ 6 h, retried after 60 s); ownership / Sleeper
+    refusals still refuse.  Degraded classes alert through `ops_alerts`
+    (`draft_valuation:<league>:<year>`).  **Whole dollars only** (owner
+    decision 2026-10-18): the class's half-dollar reference curve
+    (`workbookReferenceDollarValue`, the served record's) is mathematical
+    REFERENCE data; its published pick dollars come from the
     canonical rookie-auction calculation's final whole-dollar step
     (`src/draft/rookie_auction/apportion.py`: floor, integer residual by
     largest fractional remainder, earlier pick first, floors / caps / order
@@ -563,7 +584,7 @@ Error behavior on endpoints:
     `server._round_to_budget` rounded team totals independently of their
     picks).  **Last-known-good** (owner addendum 2026-10-18): the 72-pick
     class is resolved through `src/draft/rookie_auction/published.py` — a
-    verified fresh curve publishes `current`; a refresh that fails validation
+    verified fresh canonical curve publishes `current`; a refresh that fails
     keeps the SAME year's last verified allocation (`draftValuation.allocationState:
     "last_known_good"`, `failedRefresh`, `lastValidAt`, `warning`); with
     nothing applicable the board is refused (`draft_dollars_unavailable`),
@@ -571,23 +592,30 @@ Error behavior on endpoints:
     only — ownership always comes from the live Sleeper fold (repo seed
     `config/draft_valuation/published_allocations/`, box-local
     `data/draft_valuation/published_allocations/`, redirected per test by
-    `tests/runtime_data_isolation.py`).  Each later class's priced picks are
-    normalized to $1200 independently (unpriced picks stay null, outside
-    their class's pool; a wholly unpriced class holds no dollars and is
-    listed in `budgetPolicy.unpricedClasses`).  Stamped as `budgetPolicy`
-    (`basis: "per_class_pool"`, `status: "owner_confirmed"`).  **Exact**
-    (owner addendum 2026-10-18): every class with a priced pick totals
-    exactly $1,200 in whole dollars — `draft_capital_classes.allocate_class_budget`
-    takes each pick's exact (Fraction) share through the same canonical
-    whole-dollar step, so pick dollars, team totals, year totals and All Years
-    reconcile exactly.  **Two value domains, labelled per class** (`curveMethod`,
-    `budgetPolicy.classCurveMethods`): the workbook class is
-    `workbook_rookie_auction` (the sheet's own curve); the later classes are
-    `interim_generic_market` (canonical generic future-pick market values,
-    spread linearly), shown as "provisional estimate — final rookie-auction
-    curve pending".  It is an interim, NOT the final methodology: the
-    spreadsheet-driven rookie-auction curve is the separate Draft Valuation
-    workstream (`docs/draft/DRAFT_VALUATION_WORKSTREAM.md`) that replaces it.
+    `tests/runtime_data_isolation.py`).  Stamped as `budgetPolicy`
+    (`basis: "per_class_pool"`, `status: "owner_confirmed"`).  **Later classes
+    on the same formula (Batch E, `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`):**
+    each later class is its own 72-pick whole-dollar allocation — the
+    spreadsheet formula over the frozen 2026 provisional inputs and THAT
+    class's spine (three most recent completed classes before it), resolved
+    per year through the same `published.py` resolver (current / that year's
+    last known good / unavailable; repo seeds for 2028 and 2029; Batch D's
+    promoted generation is served ahead of the frozen-fallback candidate once
+    it exists).  `inputMode: "frozen_fallback"` classes are labelled a
+    provisional estimate.  A class with no Sleeper draft order is round-level:
+    each round keeps its exact curve dollars, shared equally in whole dollars
+    (<= $1 apart, extra dollars in sha256-of-`assetId` order) — no slot is
+    invented.  Every class totals exactly $1,200; team totals are exact sums
+    of owned picks.  Per year: `budgetPolicy.classes[year]` (`budgetBasis`,
+    `curveId`, `spineYears`, `inputMode`, `allocationState`, …), read from the
+    served record.  Any league but `dynasty_main`: later classes UNPRICED
+    (`league_not_configured`), never adapted.  The interim generic-market
+    curve (`interim_generic_market`, `allocate_class_budget`) is RETIRED.
+    **Draft order** for the workbook class follows THE owner
+    (`src/public_league/draft_order.py`, `reverse_record_lower_pf`) through
+    `src/api/draft_capital_order.py`: verified final standings →
+    `slotStatus: "final_standings"`; standings to date → a labelled forecast
+    (`projected`).  The old Points-For-only in-season reshuffle is gone.
   - **The Sleeper-derived fallback is out of scope and UNCHANGED** (owner
     scope correction 2026-10-18).  Every non-default league takes it; it
     keeps its pre-decision behavior (one $1200 spread across the seasons it
@@ -706,8 +734,19 @@ Steps:
 
 1. Common 0-9999 internal value scale
 2. Percentile normalization against a FIXED 500-rank combined-pool
-   reference (``_PERCENTILE_REFERENCE_N`` — ranks past 500 clamp to
-   the curve tail; this is deliberate top-500-board behavior)
+   reference (``_PERCENTILE_REFERENCE_N``, owned by
+   ``src/canonical/player_valuation.py::PERCENTILE_REFERENCE_N``).  500 is
+   the coordinate UNIT, ``p = (rank − 1) / 499``, not the tail boundary:
+   ranks past 500 keep resolving (``p > 1``) and only ranks past
+   ``src/canonical/tail_policy.py::TAIL_SATURATION_RANK`` (904, the
+   deepest source rank observed across retained evidence) share the
+   curve's tail value.  (Corrected 2026-10-18: this line used to say ranks
+   past 500 clamp, which was the pre-B4 behaviour, W30-F023.  Measured on
+   ``dynasty_export_20261018_161125``: 447 rank-Hill contributions sit at
+   effective ranks 501-703 carrying 215 distinct values; under a 500 clamp
+   they would share one.  Contract ``hillCurves.*.saturationRank`` stamps
+   904.  Board rank is a separate question, capped by
+   ``OVERALL_RANK_LIMIT`` = 800.)
 3. Hill-style percentile-to-value conversion via scope-level master
    curves in ``src/canonical/player_valuation.py``
 4. Value-direct voting for ``_VALUE_BASED_SOURCES`` (today exactly

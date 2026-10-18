@@ -106,6 +106,8 @@ const ROUTES = [
   "/managers",
   // Manager Intelligence Batch E comparison view (C6-MGR-02).
   "/managers/compare",
+  // Manager Intelligence Batch F scoped leaderboards (C6-MGR-02).
+  "/managers/leaderboards",
   "/market/sharp-people",
   "/market/sharp-roster-percentage",
   "/market/sharp-tracker",

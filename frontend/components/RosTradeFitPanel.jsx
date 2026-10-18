@@ -154,6 +154,22 @@ export default function RosTradeFitPanel({ sides, settings, leagueKey = "" }) {
         Informational short-term context.  Does NOT change the trade math
         above — your dynasty value calculation is unaffected.
       </div>
+      {/* TC-B / TCM-K13: these tags come from the PUBLIC rest-of-season
+          trade-deadline view, a separate concept from Competitive Posture
+          (src/roster_intel/window.py), which is what the War Room's strategy
+          reads.  Say so, so the two never read as one label. */}
+      <div
+        data-testid="ros-fit-public-deadline-note"
+        style={{
+          fontSize: "0.7rem",
+          color: "var(--subtext)",
+          marginBottom: 8,
+        }}
+      >
+        Public trade-deadline view: rest-of-season tags only. This is not your
+        team&apos;s Competitive Posture (push / hold / retool / rebuild) — the
+        War Room&apos;s strategy uses that.
+      </div>
       <div
         style={{
           display: "grid",

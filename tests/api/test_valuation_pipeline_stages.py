@@ -280,12 +280,15 @@ class TestValueDirectSourceMembership:
 
 
 class TestPercentileReferenceClamp:
-    """Ranks past ``_PERCENTILE_REFERENCE_N`` clamp to the curve tail.
+    """The percentile coordinate and where its tail saturates.
 
-    Deliberate top-500-board behaviour (CLAUDE.md stage 2).  The clamp
-    is what stops a rank-signal source from driving p > 1.0 into the
-    Hill curve, where it would keep producing ever-smaller values and
-    silently re-order the deep board.
+    ``_PERCENTILE_REFERENCE_N`` (500) is the coordinate unit, not the
+    tail boundary (CLAUDE.md stage 2, corrected 2026-10-18).  Ranks past
+    it keep resolving; the clamp sits at
+    ``tail_policy.TAIL_SATURATION_RANK`` (904), which is what stops a
+    rank-signal source from driving the coordinate into an unbounded
+    extrapolation past the edge of observed evidence.  See
+    ``test_pipeline_resolves_past_the_reference_and_flattens_at_the_boundary``.
     """
 
     def test_reference_n_is_500(self):

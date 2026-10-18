@@ -103,3 +103,13 @@ def test_corroborated_rows_still_rank(contract):
         row = _row(contract, name)
         assert (row.get("rankDerivedValue") or 0) > 0
         assert row.get("canonicalConsensusRank") is not None
+
+
+def test_unpriced_row_carries_no_single_source_haircut(contract):
+    # The haircut is a statement about a value; a row nothing voted on has
+    # none.  It used to be stamped ``singleSourceValuePenaltyApplied`` anyway
+    # because the haircut ran before the no-vote exit (seen on the
+    # 2026-10-18 18:59 archive: Chris Moore, Jawhar Jordan).
+    row = _row(contract, "Lonely Edge")
+    assert row.get("rankDerivedValue") is None
+    assert not row.get("singleSourceValuePenaltyApplied")

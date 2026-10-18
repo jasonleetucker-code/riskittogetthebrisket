@@ -26,8 +26,8 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import { parseArbitrageQuery } from "@/lib/arbitrage-links";
 import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
-import { parseBuilderSeed } from "@/lib/package-builder";
 import {
   emptyRefinement,
   loadRefinement,
@@ -434,16 +434,9 @@ export default function ArbitragePage() {
   const [useTeamContext, setUseTeamContext] = useState(true);
   const [tool, setTool] = useState(DEFAULT_TOOL);
   // A Package Builder seed from a link (Manager Intelligence Batch D:
-  // `?tool=builder&league=…&opponent=<owner id>[&target=…]`).  Read once after
-  // mount (SSR-safe); it opens the builder tab and the view resolves the team.
+  // `?tool=builder&league=…&opponent=<owner id>[&target=…]`), read by the
+  // deep-link effect below; the view resolves the owner id to a team.
   const [builderSeed, setBuilderSeed] = useState(null);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const seed = parseBuilderSeed(window.location.search);
-    if (!seed) return;
-    setBuilderSeed(seed);
-    setTool("builder");
-  }, []);
   // One discovery request shared by Golden Upgrades, Package Scan and Best
   // Offers, so the same filters mean the same thing in every view.
   const [discovery, setDiscovery] = useState(defaultDiscovery);
@@ -451,6 +444,24 @@ export default function ArbitragePage() {
   // new request, and a slower earlier response must not paint the other
   // mode's order under the current switch position.
   const scanSeq = useRef(0);
+
+  // Deep links — /trade "Next steps" (`?tool=&team=&opponent=`, TC-B /
+  // TCM-O11) and Manager Intelligence builder seeds — are written and parsed
+  // by ONE owner (lib/arbitrage-links.js), which tells the two shapes apart.
+  // Read from window (SSR-safe) until the league's teams load: a team this
+  // league does not have is dropped, never guessed.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || typeof window === "undefined") return;
+    const names = teams.map((t) => t.name);
+    const q = parseArbitrageQuery(window.location.search, names);
+    if (q.tool) setTool(q.tool);
+    if (q.seed) setBuilderSeed((prev) => prev || q.seed);
+    if (!names.length) return;
+    deepLinkApplied.current = true;
+    if (q.team) setMyTeam(q.team);
+    if (q.opponent) setOpponent(q.opponent);
+  }, [teams]);
 
   const effectiveTeam = myTeam || defaultTeam;
 
