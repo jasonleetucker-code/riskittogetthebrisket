@@ -262,13 +262,21 @@ def _leave_one_out(row: Mapping[str, Any]) -> dict[str, Any]:
     if len(voters) < 2:
         return {**base, "available": False, "reason": "fewer_than_two_voters"}
     published = check["recomputed"]
+    # A row-scoped lineage rule that ENGAGED on this row (owner closeout
+    # 2026-10-18 D2) makes its members one family, exactly as the blend did.
+    lineage = {
+        member: rule["group"]
+        for rule in dc.ROW_SCOPED_CORRELATION_GROUPS
+        if rule["id"] in (row.get("sharedLineageCaps") or ())
+        for member in rule["members"]
+    }
     out = []
     for key in sorted(voters):
         rest = [voters[k] for k in voters if k != key]
         value, _ = dc.weighted_count_aware_mean_median_blend(
             [v for v, _w in rest], [w for _v, w in rest]
         )
-        families = {dc.correlation_group_for(k) for k in voters if k != key}
+        families = {lineage.get(k) or dc.correlation_group_for(k) for k in voters if k != key}
         if len(families) <= 1 and not row.get("limitedEvidence"):
             value *= dc._SINGLE_SOURCE_VALUE_RETENTION
         out.append(
