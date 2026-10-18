@@ -25,16 +25,12 @@ export default function TradeVerdictHelpBody() {
 
       <h3>Package value</h3>
       <p>
-        With the value mode on <strong>Our Value</strong>, every asset counts
-        its canonical board value — the same 1–9,999 number Rankings shows. A
-        side&apos;s <strong>Raw</strong> total is the plain sum. An asset the
-        board does not price adds 0 to the sum and the side is marked
-        &quot;Incomplete&quot; — that means unknown, not worthless.
-      </p>
-      <p>
-        The <strong>Raw</strong> value mode swaps in the older scraper
-        composite, a different and larger scale. The verdict bands below are
-        set on the board value, so read the verdict in Our Value.
+        Every asset counts its canonical board value — the same 1–9,999
+        number Rankings shows. A side&apos;s <strong>Raw</strong> total is the
+        plain sum of those values, before Value Adjustment. An asset the board
+        does not price is unknown, not worthless: its side is marked
+        &quot;Incomplete&quot; and no verdict is given until it is priced (type
+        a value on its row to price it yourself).
       </p>
 
       <h3>Value Adjustment</h3>
@@ -53,17 +49,17 @@ export default function TradeVerdictHelpBody() {
       <h3>The verdict</h3>
       <ul>
         <li>
-          The badge grades the adjusted gap (raw + VA) between
-          the two packages:{" "}
-          <strong>FAIR</strong> under 350, <strong>SLIGHT EDGE</strong> under
-          900, <strong>UNFAIR</strong> under 1,800, <strong>LOPSIDED</strong>{" "}
-          beyond that.
+          The badge grades the adjusted gap (raw + VA) as a share of the
+          bigger adjusted package:{" "}
+          <strong>FAIR</strong> under 3.5% (or under 250 points),{" "}
+          <strong>SLIGHT EDGE</strong> under 9%, <strong>UNFAIR</strong> under
+          18%, <strong>LOPSIDED</strong> beyond that. The same bands are used
+          everywhere on the site and are provisional until validated.
         </li>
         <li>
-          The percentage is that gap as a share of the bigger package; under 3%
-          it reads &quot;Even&quot;. Because one is absolute and one is
-          relative, a small trade can show a large percentage beside a FAIR
-          badge, and a large trade the reverse.
+          Because the bands are relative, a 300-point gap is FAIR between two
+          stars and LOPSIDED between two bench players; the badge and the
+          percentage always agree.
         </li>
         <li>
           This verdict compares package value only. It does not know your
@@ -79,9 +75,9 @@ export default function TradeVerdictHelpBody() {
       <ul>
         <li>
           <strong>Market</strong> — the package gap after Value Adjustment. It
-          prices the assets at their board values, so value overrides and the Raw
-          mode in the builder are not applied there. Its
-          own &quot;even&quot; band is tighter (a gap under 256).
+          prices the assets at their board values, so value overrides typed in the
+          builder are not applied there. It uses the same fairness bands as the
+          badge.
         </li>
         <li>
           <strong>Roster</strong> — expected points per week from the best
@@ -96,13 +92,18 @@ export default function TradeVerdictHelpBody() {
         </li>
       </ul>
       <p>
-        The recommendation (Make / Lean make / Too close / Lean pass / Pass)
-        comes from a fixed rule table over those answers, not a weighted
-        score. When Market and Roster point opposite ways it starts at
-        &quot;Too close / depends&quot;; Feasibility can move the call one
-        step, and a trade with no legal roster cleanup is never better than
-        Too close. Switch to{" "}
-        <strong>Asset only</strong> to drop the roster and feasibility answers.
+        The War Room gives one answer: <strong>Yes, make the trade</strong>,{" "}
+        <strong>No</strong>, <strong>No, too close</strong> (a near tie with
+        complete evidence), or <strong>Not enough evidence</strong> when
+        something material is missing (an unpriced or unheld asset, a stale or
+        quarantined value, an unknown roster or posture) — it names what is
+        missing instead of guessing. It comes from a fixed rule table, not a
+        weighted score. Your strategy (win now, balanced or long-term) is
+        inferred from your competitive posture, is always shown and can be
+        changed; it only decides which answer wins when package value and
+        roster benefit disagree. A trade with no legal roster cleanup is a No.
+        Confidence is a label naming what limits it, never a probability.
+        Switch to <strong>Asset only</strong> to decide on package value alone.
       </p>
 
       <h3>Why two even packages can land differently</h3>

@@ -128,9 +128,9 @@ describe("package model dispatch is the geometric model by default", () => {
 // ── Constants ────────────────────────────────────────────────────────
 
 describe("constants", () => {
-  it("VALUE_MODES has 2 modes", () => {
-    expect(VALUE_MODES.length).toBe(2);
-    expect(VALUE_MODES.map((m) => m.key)).toEqual(["full", "raw"]);
+  it("VALUE_MODES is canonical only — the legacy-composite Raw mode is retired (TC-A P0-4)", () => {
+    expect(VALUE_MODES.length).toBe(1);
+    expect(VALUE_MODES.map((m) => m.key)).toEqual(["full"]);
   });
 
   it("storage keys are stable strings", () => {
@@ -142,33 +142,34 @@ describe("constants", () => {
 // ── verdictFromGap ───────────────────────────────────────────────────
 
 describe("verdictFromGap", () => {
-  // Thresholds on 1–9999 display scale: 350, 900, 1800
+  // The ONE fairness-band owner (relative): at the 10,000-point reference
+  // side the 3.5% / 9% / 18% cuts fall at 350 / 900 / 1,800.
   it("returns 'Near even' for gaps under 350", () => {
-    expect(verdictFromGap(0)).toBe("Near even");
-    expect(verdictFromGap(349)).toBe("Near even");
-    expect(verdictFromGap(-349)).toBe("Near even");
+    expect(verdictFromGap(0, 10000)).toBe("Near even");
+    expect(verdictFromGap(349, 10000)).toBe("Near even");
+    expect(verdictFromGap(-349, 10000)).toBe("Near even");
   });
 
   it("returns 'Lean' for gaps 350-899", () => {
-    expect(verdictFromGap(350)).toBe("Lean");
-    expect(verdictFromGap(899)).toBe("Lean");
-    expect(verdictFromGap(-500)).toBe("Lean");
+    expect(verdictFromGap(350, 10000)).toBe("Lean");
+    expect(verdictFromGap(899, 10000)).toBe("Lean");
+    expect(verdictFromGap(-500, 10000)).toBe("Lean");
   });
 
   it("returns 'Strong lean' for gaps 900-1799", () => {
-    expect(verdictFromGap(900)).toBe("Strong lean");
-    expect(verdictFromGap(1799)).toBe("Strong lean");
-    expect(verdictFromGap(-1200)).toBe("Strong lean");
+    expect(verdictFromGap(900, 10000)).toBe("Strong lean");
+    expect(verdictFromGap(1799, 10000)).toBe("Strong lean");
+    expect(verdictFromGap(-1200, 10000)).toBe("Strong lean");
   });
 
   it("returns 'Major gap' for gaps >= 1800", () => {
-    expect(verdictFromGap(1800)).toBe("Major gap");
-    expect(verdictFromGap(5000)).toBe("Major gap");
-    expect(verdictFromGap(-2000)).toBe("Major gap");
+    expect(verdictFromGap(1800, 10000)).toBe("Major gap");
+    expect(verdictFromGap(5000, 10000)).toBe("Major gap");
+    expect(verdictFromGap(-2000, 10000)).toBe("Major gap");
   });
 
   it("treats gap symmetrically (absolute value)", () => {
-    expect(verdictFromGap(500)).toBe(verdictFromGap(-500));
+    expect(verdictFromGap(500, 10000)).toBe(verdictFromGap(-500, 10000));
   });
 });
 
@@ -176,19 +177,19 @@ describe("verdictFromGap", () => {
 
 describe("colorFromGap", () => {
   it("returns empty string for near-even gaps", () => {
-    expect(colorFromGap(0)).toBe("");
-    expect(colorFromGap(255)).toBe("");
-    expect(colorFromGap(-100)).toBe("");
+    expect(colorFromGap(0, 10000)).toBe("");
+    expect(colorFromGap(255, 10000)).toBe("");
+    expect(colorFromGap(-100, 10000)).toBe("");
   });
 
   it("returns 'green' when Side A wins (positive gap)", () => {
-    expect(colorFromGap(500)).toBe("green");
-    expect(colorFromGap(2000)).toBe("green");
+    expect(colorFromGap(500, 10000)).toBe("green");
+    expect(colorFromGap(2000, 10000)).toBe("green");
   });
 
   it("returns 'red' when Side B wins (negative gap)", () => {
-    expect(colorFromGap(-500)).toBe("red");
-    expect(colorFromGap(-2000)).toBe("red");
+    expect(colorFromGap(-500, 10000)).toBe("red");
+    expect(colorFromGap(-2000, 10000)).toBe("red");
   });
 });
 
@@ -765,7 +766,8 @@ describe("deserializeWorkspace", () => {
       sideB: ["Ja'Marr Chase"],
     };
     const result = deserializeWorkspace(parsed, rowByName);
-    expect(result.valueMode).toBe("raw");
+    // A workspace saved under the retired "Raw" mode restores canonical.
+    expect(result.valueMode).toBe("full");
     expect(result.activeSide).toBe("B");
     expect(result.sideA.length).toBe(1);
     expect(result.sideA[0].name).toBe("Josh Allen");
@@ -899,19 +901,23 @@ describe("full trade scenario", () => {
     // Active (geom q=0.78) model: Allen+Chase discards 8500 x 0.22 =
     // 1870 of depth, Mahomes+pick 7000 x 0.22 = 1540, so side B — the
     // side that discarded less — is credited 330 against side A's raw
-    // 1700 lead.  Gap = 1370, a "Strong lean" to side A.
+    // 1700 lead.  Gap = 1370 on a 17,500 larger side = 7.8%: a "Lean" to
+    // side A under the relative bands (TC-C; the retired absolute bands
+    // called it a "Strong lean").
     expect(gap).toBe(ownerGap([9000, 8500], [8800, 7000]));
     expect(gap).toBe(1370);
-    expect(verdictFromGap(gap)).toBe("Strong lean");
-    expect(colorFromGap(gap)).toBe("green"); // Side A wins
+    const larger = Math.max(...adjustedSideTotals(sideA, sideB, "full").map((t) => t.adjusted));
+    expect(larger).toBe(17500);
+    expect(verdictFromGap(gap, larger)).toBe("Lean");
+    expect(colorFromGap(gap, larger)).toBe("green"); // Side A wins
 
     // Swap sides — the model is side-symmetric, so the gap simply
     // flips sign.
     const [newA, newB] = [sideB, sideA];
     const swappedGap = tradeGapAdjusted(newA, newB, "full");
     expect(swappedGap).toBe(-gap);
-    expect(verdictFromGap(swappedGap)).toBe("Strong lean");
-    expect(colorFromGap(swappedGap)).toBe("red"); // Now Side B wins
+    expect(verdictFromGap(swappedGap, larger)).toBe("Lean");
+    expect(colorFromGap(swappedGap, larger)).toBe("red"); // Now Side B wins
 
     // Remove an asset — newA has 2 pieces (8800+7000), trimmedB has 1 (9000)
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
@@ -1539,23 +1545,23 @@ describe("effectiveValue picks: no client-side discount", () => {
 
 describe("meterVerdict", () => {
   it("returns FAIR for gap < 350", () => {
-    expect(meterVerdict(0)).toEqual({ label: "FAIR", level: "fair" });
-    expect(meterVerdict(349)).toEqual({ label: "FAIR", level: "fair" });
+    expect(meterVerdict(0, 10000)).toMatchObject({ label: "FAIR", level: "fair" });
+    expect(meterVerdict(349, 10000)).toMatchObject({ label: "FAIR", level: "fair" });
   });
 
   it("returns SLIGHT EDGE for gap 350-899", () => {
-    expect(meterVerdict(350)).toEqual({ label: "SLIGHT EDGE", level: "slight" });
-    expect(meterVerdict(899)).toEqual({ label: "SLIGHT EDGE", level: "slight" });
+    expect(meterVerdict(350, 10000)).toMatchObject({ label: "SLIGHT EDGE", level: "slight" });
+    expect(meterVerdict(899, 10000)).toMatchObject({ label: "SLIGHT EDGE", level: "slight" });
   });
 
   it("returns UNFAIR for gap 900-1799", () => {
-    expect(meterVerdict(900)).toEqual({ label: "UNFAIR", level: "unfair" });
-    expect(meterVerdict(1799)).toEqual({ label: "UNFAIR", level: "unfair" });
+    expect(meterVerdict(900, 10000)).toMatchObject({ label: "UNFAIR", level: "unfair" });
+    expect(meterVerdict(1799, 10000)).toMatchObject({ label: "UNFAIR", level: "unfair" });
   });
 
   it("returns LOPSIDED for gap >= 1800", () => {
-    expect(meterVerdict(1800)).toEqual({ label: "LOPSIDED", level: "lopsided" });
-    expect(meterVerdict(5000)).toEqual({ label: "LOPSIDED", level: "lopsided" });
+    expect(meterVerdict(1800, 10000)).toMatchObject({ label: "LOPSIDED", level: "lopsided" });
+    expect(meterVerdict(5000, 10000)).toMatchObject({ label: "LOPSIDED", level: "lopsided" });
   });
 });
 
@@ -1940,7 +1946,7 @@ describe("deserializeWorkspaceMulti", () => {
     expect(result.sides[1].label).toBe("B");
     expect(result.sides[1].assets[0].name).toBe("Ja'Marr Chase");
     expect(result.activeSide).toBe(1); // "B" → 1
-    expect(result.valueMode).toBe("raw");
+    expect(result.valueMode).toBe("full"); // retired "raw" restores canonical
   });
 
   it("migrates legacy format with activeSide A", () => {
@@ -2224,3 +2230,21 @@ describe("computeStackAdjustments", () => {
   });
 });
 
+
+// ── The ONE fairness-band owner on /trade (TC-C, owner decision 3) ─────────
+describe("meter bands are relative with an absolute minimum", () => {
+  it("the same 300-point gap is FAIR between stars and LOPSIDED between bench players", () => {
+    expect(meterVerdict(300, 9300).label).toBe("FAIR");
+    expect(meterVerdict(300, 1500).label).toBe("LOPSIDED");
+  });
+  it("a gap under 250 points is FAIR whatever the size", () => {
+    expect(meterVerdict(249, 500).label).toBe("FAIR");
+  });
+  it("the meter, colour and words never disagree about 'fair'", () => {
+    for (const [gap, larger] of [[100, 1000], [400, 9000], [400, 3000], [5000, 20000]]) {
+      const fair = meterVerdict(gap, larger).level === "fair";
+      expect(colorFromGap(gap, larger) === "").toBe(fair);
+      expect(verdictFromGap(gap, larger) === "Near even").toBe(fair);
+    }
+  });
+});

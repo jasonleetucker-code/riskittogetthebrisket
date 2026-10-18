@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { percentageGap } from "@/lib/trade-logic";
+import { isFairGap } from "@/lib/fairness-bands";
 
 /**
  * WHAT THE NUMBERS ARE (corrected 2026-09-29).  The headline percentage is
@@ -24,8 +25,8 @@ import { percentageGap } from "@/lib/trade-logic";
  * 12-row vendor table to figure out *why* the trade is fair (or
  * unfair), this card states it directly.
  *
- * Behaviour (rounded gap under 3% = "within 3%"; otherwise a lean):
- *   even  — "The packages are within 3% after adjustments. Biggest
+ * Behaviour (inside the fair band of lib/fairness-bands.js = "even"; otherwise a lean):
+ *   even  — "The packages are inside the fair band after adjustments. Biggest
  *            single-source difference (raw, …): KTC values Side A's
  *            package 800 higher."
  *   lean  — "Side A's package is worth 8% more after adjustments. KTC is
@@ -139,16 +140,18 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
       (a, b) => Math.abs(b.gap) - Math.abs(a.gap),
     );
 
-    if (pctGap < 3) {
+    // "Even" is the ONE fairness-band owner's fair band (TC-C), the same
+    // band the meter badge shows -- not a private 3%.
+    if (isFairGap(overallGap, Math.max(totalA, totalB))) {
       // Even — call out the biggest single source-level disagreement
       // so the user knows *which* board would tip it if they trusted
       // a single source over the blend.
       const biggest = byMagnitude[0];
       if (!biggest || Math.abs(biggest.gap) < MIN_NOTABLE_GAP) {
-        return `The packages are within 3% after adjustments, and every fully covering source has them close to even.${partialNote}`;
+        return `The packages are inside the fair band after adjustments, and every fully covering source has them close to even.${partialNote}`;
       }
       const winnerLabel = biggest.gap > 0 ? labelA : labelB;
-      return `The packages are within 3% after adjustments. Biggest single-source difference (raw, before Value Adjustment): ${biggest.label} values ${winnerLabel}'s package ${Math.round(Math.abs(biggest.gap)).toLocaleString()} higher.${partialNote}`;
+      return `The packages are inside the fair band after adjustments. Biggest single-source difference (raw, before Value Adjustment): ${biggest.label} values ${winnerLabel}'s package ${Math.round(Math.abs(biggest.gap)).toLocaleString()} higher.${partialNote}`;
     }
 
     // Lean trade — driver = source most aligned with the overall

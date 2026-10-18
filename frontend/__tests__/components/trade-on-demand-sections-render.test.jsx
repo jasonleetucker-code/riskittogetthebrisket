@@ -18,6 +18,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createSide, simulationSignature } from "@/lib/trade-logic";
 
 const SLEEPER_TEAMS = [
   { ownerId: "owner-a", name: "Team A", players: ["Bijan Robinson"], picks: [] },
@@ -70,6 +71,9 @@ vi.mock("@/components/useTradeSimulator", () => ({
     loading: false,
     error: sim.error,
     reset: () => {},
+    // The result answers the trade on screen (an empty trade, no team, this
+    // league): /trade renders a result only for a matching signature (TC-A).
+    signature: simulationSignature([createSide(0), createSide(1)], "", "dynasty_main"),
   }),
 }));
 

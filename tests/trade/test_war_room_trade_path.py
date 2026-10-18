@@ -162,7 +162,24 @@ def test_analyze_defaults_to_team_context(two_league_registry, monkeypatch):  # 
         "unavailableReason": "starter_slots_unresolved",
     }
     assert body["analysis"]["lenses"]["roster"]["unavailableReason"] == "starter_slots_unresolved"
-    assert body["analysis"]["version"] == "analyze_trade_v2"
+    assert body["analysis"]["version"] == "analyze_trade_v3"
+    # TC-C: the roster effect could not be measured (no starter slots), so
+    # the ONE top-line decision refuses rather than guess.
+    decision = body["analysis"]["decision"]
+    assert decision["headline"] == "NOT_ENOUGH_EVIDENCE"
+    assert "roster_unknown" in {g["code"] for g in decision["missingEvidence"]}
+    assert decision["executes"] is False
+    # Served decisions are recorded for the AL-P5 receipt recorder -- into the
+    # suite's redirected log (tests/conftest.py), never data/.
+    import os
+
+    from src.trade import trade_decision_log as tdl
+
+    run_id = body["analysis"]["decisionRunId"]
+    assert run_id
+    log_dir = tdl._default_dir()
+    assert str(log_dir) == os.environ["RISKIT_TRADE_DECISION_LOG_DIR"]
+    assert any(line and line.get("runId") == run_id for _, line in tdl.iter_decision_log_lines())
     assert body["analysis"]["lenses"]["roster"]["lineage"] == "league_scored_projection"
     assert body["leagueKey"] == "main"
 
@@ -270,3 +287,14 @@ def test_a_season_ending_incoming_player_enters_no_lineup_end_to_end(monkeypatch
     flat = " ".join(reasons[0] + reasons[1])
     assert "WR Buf Star enters the optimal lineup" not in flat
     assert "WR Buf Star is unavailable for all 12 remaining weeks" in flat
+
+
+def test_analyze_echoes_the_strategy_override(two_league_registry, monkeypatch):  # noqa: F811
+    """Owner decision 2: an explicit teamGoal is used and echoed back."""
+    res = _post(monkeypatch, "/api/trade/analyze", {**_BODY, "teamGoal": "LONG_TERM"})
+    assert res.status_code == 200, res.text
+    strategy = res.json()["analysis"]["decision"]["strategy"]
+    assert strategy["requested"] == "LONG_TERM"
+    assert strategy["requestedValid"] is True
+    assert strategy["used"] == "LONG_TERM"
+    assert strategy["source"] == "user"

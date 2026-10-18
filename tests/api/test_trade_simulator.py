@@ -363,8 +363,13 @@ def test_team_impact_redundancy_skipped_in_non_idp_league():
     assert all(r["pos"] != "LB" for r in impact["redundancy"])
 
 
-def test_team_impact_verdict_thresholds_cross_correctly():
-    """Verdict ladders as compositeScore moves."""
+def test_team_impact_publishes_no_competing_verdict():
+    """Owner decision 5 (2026-10-18): ``teamImpact`` is roster INFORMATION.
+
+    The accept / decline ``verdict`` and the ``compositeScore`` /
+    ``equityScore`` it was built from (0.55 * fit + 0.45 * raw equity) are
+    retired -- one canonical trade decision (analyze_trade), no second YES/NO.
+    The roster analysis stays."""
     contract = _mk_full_roster_contract()
     contract["playersArray"].append(
         {
@@ -389,10 +394,12 @@ def test_team_impact_verdict_thresholds_cross_correctly():
         roster_settings=_IDP_LEAGUE_SETTINGS,
     )
     impact = result["teamImpact"]
-    assert impact["verdict"] in {"accept", "lean accept", "neutral", "lean decline", "decline"}
+    for retired in ("verdict", "compositeScore", "equityScore"):
+        assert retired not in impact, retired
     assert -100 <= impact["fitScore"] <= 100
-    assert -100 <= impact["equityScore"] <= 100
-    assert -100 <= impact["compositeScore"] <= 100
+    for kept in ("starterDelta", "starterValueDelta", "depthDelta", "redundancy", "rationale"):
+        assert kept in impact, kept
+    assert "lineupDisplacement" in impact
 
 
 def test_team_impact_idp_trade_in_idp_league_seen():

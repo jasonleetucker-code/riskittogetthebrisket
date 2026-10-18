@@ -9,27 +9,42 @@ import { useEffect, useState } from "react";
 import { buildRosIndex, rosEntryForRow, tagsForPlayer } from "@/lib/ros-index";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const _cache = { data: null, fetchedAt: 0, inflight: null };
+// Keyed by league (TC-A): buyer/seller direction is league-scoped (it is
+// about THIS league's teams), so one league's answer must never be served
+// for another.  This panel used to fetch without a leagueKey -- the public
+// route then answers for the DEFAULT league whatever league /trade is on.
+const _caches = new Map();
 
-async function _loadDirections() {
-  if (_cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS) {
-    return _cache.data;
+export function rosTradeDeadlineUrl(leagueKey) {
+  const base = "/api/public/league/rosTradeDeadline";
+  return leagueKey ? `${base}?leagueKey=${encodeURIComponent(leagueKey)}` : base;
+}
+
+export async function _loadDirections(leagueKey = "") {
+  const key = leagueKey || "";
+  let cache = _caches.get(key);
+  if (!cache) {
+    cache = { data: null, fetchedAt: 0, inflight: null };
+    _caches.set(key, cache);
   }
-  if (_cache.inflight) return _cache.inflight;
-  const promise = fetch("/api/public/league/rosTradeDeadline")
+  if (cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    return cache.data;
+  }
+  if (cache.inflight) return cache.inflight;
+  const promise = fetch(rosTradeDeadlineUrl(key))
     .then((r) => (r.ok ? r.json() : null))
     .then((payload) => {
       const body = payload?.data || payload?.section || payload;
-      _cache.data = body || { teams: [] };
-      _cache.fetchedAt = Date.now();
-      _cache.inflight = null;
-      return _cache.data;
+      cache.data = body || { teams: [] };
+      cache.fetchedAt = Date.now();
+      cache.inflight = null;
+      return cache.data;
     })
     .catch(() => {
-      _cache.inflight = null;
-      return _cache.data || { teams: [] };
+      cache.inflight = null;
+      return cache.data || { teams: [] };
     });
-  _cache.inflight = promise;
+  cache.inflight = promise;
   return promise;
 }
 
@@ -58,14 +73,15 @@ const LABEL_COLOR = {
 // Pure tag classifier — mirrors src/ros/tags.py::tags_for_player so
 // the trade-calc can label players without a backend round-trip per
 // row.  Stays in sync via the parity test (PR-future).
-export default function RosTradeFitPanel({ sides, settings }) {
+export default function RosTradeFitPanel({ sides, settings, leagueKey = "" }) {
   const [directions, setDirections] = useState({ teams: [] });
   const [valuesByName, setValuesByName] = useState(() => new Map());
 
   useEffect(() => {
     if (settings?.showRosTradePanel === false) return;
     let active = true;
-    _loadDirections().then((d) => {
+    setDirections({ teams: [] });
+    _loadDirections(leagueKey).then((d) => {
       if (!active || !d) return;
       setDirections(d);
     });
@@ -83,7 +99,7 @@ export default function RosTradeFitPanel({ sides, settings }) {
     return () => {
       active = false;
     };
-  }, [settings?.showRosTradePanel]);
+  }, [settings?.showRosTradePanel, leagueKey]);
 
   if (settings?.showRosTradePanel === false) return null;
   if (!sides || sides.length < 2) return null;

@@ -188,20 +188,33 @@ def _apply_consolidation_adjustment(
     side_a: list[TradePlayer],
     side_b: list[TradePlayer],
 ) -> tuple[list[TradePlayer], list[TradePlayer], dict[str, Any]]:
-    """Apply KTC consolidation premium to whichever side earns it.
+    """Apply the ACTIVE package Value Adjustment to whichever side earns it.
 
     Uses each player's p50 as the raw value fed to the active package model
-    (``src.valuation_math.package_model.adjust_pair``).
+    (``src.valuation_math.package_model.adjust_pair``) -- the same owner the
+    /trade meter's ``packageAdjustPair`` mirrors.
     When VA is awarded, the bonus is distributed proportionally (by p50
     share) across the receiving side's players as an additive band shift
     — p10/p50/p90 all move up by the same amount per player, preserving
     the absolute spread (source disagreement is unchanged).
 
+    The FULL adjustment always lands (TC-A, UX audit P0-1).  Value
+    Adjustment is a PACKAGE-level quantity: the meter publishes
+    ``adjusted = raw + VA`` on the side total, with no per-asset ceiling.
+    This used to clamp each shifted p50 at the board's 9999 asymptote, so a
+    premium landing on a side holding an elite asset was mostly absorbed --
+    measured on /trade: VA 5,806 applied by the meter, 1,879 by Monte Carlo,
+    for the same trade and model, so the meter said "even" while the
+    simulation said "Side B clearly worth more (98%)".  A shifted p50 past
+    9999 is a simulation centre, not a published asset value; nothing
+    downstream reads it as one.  ``effectiveValue`` therefore equals
+    ``value`` and is kept only for payload compatibility.
+
     Returns ``(adjusted_side_a, adjusted_side_b, va_info)`` where
     ``va_info`` is a diagnostic dict with keys ``side`` (0/1/2),
-    ``value`` (int), and ``applied`` (bool).  When VA is suppressed
-    (1v1, < 3.3% variance, or equal packages) the original lists are
-    returned unchanged and ``applied`` is False.
+    ``value`` (int), and ``applied`` (bool).  When the model awards no
+    adjustment the original lists are returned unchanged and ``applied``
+    is False.
     """
     from src.trade.ktc_va import KtcVAResult
     from src.valuation_math.package_model import adjust_pair
@@ -225,33 +238,23 @@ def _apply_consolidation_adjustment(
     def _shift_side(players: list[TradePlayer], p50s: list[float]) -> tuple[list[TradePlayer], int]:
         """Shift the band for each player proportionally.
 
-        Returns the shifted list and the *actual* total p50 shift after
-        clamping — which may be less than ``result.value`` when players
-        are already near 9999.  The caller stamps this as
-        ``effectiveValue`` so the reported diagnostic matches what the
-        simulation actually experienced.
+        Returns the shifted list and the total p50 shift actually applied
+        (``result.value`` up to float rounding -- no ceiling, see the
+        function docstring).  The caller stamps it as ``effectiveValue``.
         """
         total = sum(p50s) or 1.0
         out = []
         effective_total = 0.0
         for p, pv in zip(players, p50s):
             shift = result.value * (pv / total)
-            # The 9999 cap stays on p50 — it is a VALUE, on the board's
-            # scale, and holding the premium to that scale is the
-            # deliberate behaviour ``effectiveValue`` exists to report.
-            new_p50 = max(0.0, min(9999.0, p.p50 + shift))
-            # ...but the band moves by whatever the p50 clamp ALLOWED,
-            # not by the requested shift, and the endpoints take no
-            # ceiling of their own.  Clamping each endpoint separately
-            # contradicted this function's own docstring — "p10/p50/p90
-            # all move up by the same amount per player, preserving the
-            # absolute spread" — and not marginally.  Worked example: a
-            # 9950-valued asset receiving a 5,324 premium had all THREE
-            # endpoints clamp to 9999, collapsing a 2,985-wide band to
-            # ZERO.  The simulator then treated the single most valuable
-            # asset in the trade as a point mass with no uncertainty at
-            # all, and ``effectiveValue`` reported the p50 shortfall (49
-            # of 5,324) without any hint that the band had vanished.
+            # No 9999 ceiling: the adjustment is a side-total premium (the
+            # meter's ``raw + VA``), not a per-asset value.  Clamping here
+            # silently absorbed most of a premium landing on an elite asset
+            # (UX audit P0-1).  Only the 0 floor stays, for symmetry with
+            # ``build_trade_player``; a positive shift never reaches it.
+            new_p50 = max(0.0, p.p50 + shift)
+            # The band moves by exactly the shift that landed, preserving
+            # the absolute spread the docstring promises.
             applied = new_p50 - p.p50
             effective_total += applied
             out.append(

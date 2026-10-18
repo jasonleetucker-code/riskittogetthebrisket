@@ -327,7 +327,17 @@ def test_analyze_endpoint_verdict_ignores_the_exposure_block(two_league_registry
     body = res.json()
     assert "nflExposure" in body
     stripped = {k: v for k, v in body.items() if k not in ("nflExposure", "analysis")}
-    assert _canon(analyze_trade(stripped, comparables=comps)) == _canon(body["analysis"])
+    # The route also stamps the decision's provenance (board stamp + scoring
+    # fingerprint, TC-C) and the decision-log run id; neither depends on the
+    # exposure block, so recompute with the same provenance and drop the id.
+    meta = (server.latest_contract_data or {}).get("meta") or {}
+    provenance = {
+        "boardStamp": meta.get("generatedAt"),
+        "scoringFingerprint": meta.get("scoringFingerprint"),
+    }
+    served = {k: v for k, v in body["analysis"].items() if k != "decisionRunId"}
+    recomputed = analyze_trade(stripped, comparables=comps, provenance=provenance)
+    assert _canon(recomputed) == _canon(served)
 
 
 def test_simulate_endpoint_degrades_when_exposure_fails(two_league_registry, monkeypatch):  # noqa: F811

@@ -21,7 +21,7 @@
  */
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { effectiveValue } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 
@@ -164,16 +164,38 @@ export function _renderPlainSummary(result, sides, sidesSend = false) {
 }
 
 
+/**
+ * Identity of the question a simulation answers: the exact payload it would
+ * post (names, centres, bands).  A result is shown only while the current
+ * trade still produces the same key (TC-A / UX audit P0-2: a result used to
+ * survive every edit and Clear Trade, so "Side A probably worth more" sat
+ * under a trade that now favoured Side B by 46%).
+ */
+export function _simulationKey(sides, valueMode, settings) {
+  const { sideA, sideB, unpriced } = _payloadFromSides(sides, valueMode, settings);
+  return JSON.stringify([sideA, sideB, unpriced]);
+}
+
 export default function MonteCarloButton({ sides, valueMode = "full", sidesSend = false }) {
   const { settings } = useSettings();
   const [state, setState] = useState("idle");
   const [result, setResult] = useState(null);
+  const [resultKey, setResultKey] = useState("");
   const [err, setErr] = useState("");
+  // Request sequence: only the latest run may publish (an older response
+  // arriving after a newer click is dropped).
+  const seqRef = useRef(0);
+  const currentKey = useMemo(
+    () => _simulationKey(sides, valueMode, settings),
+    [sides, valueMode, settings],
+  );
 
   const totalAssets = (sides?.[0]?.assets?.length || 0) + (sides?.[1]?.assets?.length || 0);
   if (totalAssets === 0) return null;
 
   async function run() {
+    const seq = (seqRef.current += 1);
+    const key = currentKey;
     try {
       setState("running");
       setErr("");
@@ -191,6 +213,7 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (seq !== seqRef.current) return;
       if (res.status === 503) {
         setState("disabled");
         return;
@@ -201,13 +224,20 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
         return;
       }
       const json = await res.json();
+      if (seq !== seqRef.current) return;
       setResult(json);
+      setResultKey(key);
       setState("ok");
     } catch (e) {
+      if (seq !== seqRef.current) return;
       setErr(e?.message || "Simulation failed");
       setState("error");
     }
   }
+
+  // A result computed for a different trade is never rendered as if it
+  // answered this one.
+  const stale = state === "ok" && result && resultKey !== currentKey;
 
   if (state === "disabled") {
     return (
@@ -221,7 +251,8 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
     );
   }
 
-  const summary = state === "ok" && result ? _renderPlainSummary(result, sides, sidesSend) : null;
+  const summary =
+    state === "ok" && result && !stale ? _renderPlainSummary(result, sides, sidesSend) : null;
   const synthetic = Number(result?.bandSources?.synthetic_flat_15pct) || 0;
   const va = result?.vaAdjustment;
   const vaText =
@@ -245,7 +276,12 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
           {err}
         </div>
       )}
-      {state === "ok" && summary && (
+      {stale ? (
+        <div className="text-xs" data-testid="mc-stale" style={{ color: "var(--subtext)" }}>
+          The trade changed since the last simulation — run it again.
+        </div>
+      ) : null}
+      {summary && (
         <div
           className="card"
           style={{

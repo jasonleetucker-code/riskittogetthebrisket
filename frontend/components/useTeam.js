@@ -54,7 +54,12 @@ function normalize(s) {
 export function useTeam() {
   const { rawData, privateDataEnabled, loading: dataLoading } = useApp();
   const { settings, update, hydrated: settingsHydrated } = useSettings();
-  const { selectedLeague, selectedLeagueKey, defaultLeagueKey } = useLeague();
+  const {
+    selectedLeague,
+    selectedLeagueKey,
+    defaultLeagueKey,
+    loading: leagueLoading,
+  } = useLeague();
   const autoAssignedRef = useRef(new Set());
   // Leagues for which the auto-assign effect below has completed one
   // post-data evaluation (match or no match).  State, not a ref: the
@@ -332,6 +337,11 @@ export function useTeam() {
     selectedName: selectedTeam?.name || storedName || "",
     selectedOwnerId: selectedTeam?.ownerId || storedOwnerId || "",
     selectedLeagueKey,
+    // True while /api/leagues is still resolving, i.e. while
+    // ``selectedLeagueKey`` may still change from "" to the real key.
+    // League-scoped fetches gate on it so they fire once, with the right
+    // key (TC-A: /trade fetched /api/draft-capital twice on load).
+    leagueLoading,
     leagueMismatch,
     setSelectedTeam,
     clearSelectedTeam,

@@ -61,11 +61,14 @@ from typing import Any
 
 from src.valuation_math import package_model
 from src.valuation_math.package_model import adjusted_pair_totals
-from src.trade.suggestions import _fairness_label
+from src.trade import trade_decision
+from src.valuation_math import fairness_bands
 
-#: The five product-facing verdicts (plan §C, "Product job").
-RECOMMENDATIONS = ("MAKE", "LEAN_MAKE", "TOO_CLOSE", "LEAN_PASS", "PASS")
-PACKET_VERSION = "analyze_trade_v2"
+#: The five-level graded leaning (the v2 ``recommendation``).  Owned by
+#: ``src.trade.trade_decision`` with the top-line decision; re-exported here.
+RECOMMENDATIONS = trade_decision.RECOMMENDATIONS
+#: v3 (TC-C): adds the ``decision`` block -- the ONE top-line answer.
+PACKET_VERSION = "analyze_trade_v3"
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "analyze_trade.json"
 _DEFAULTS = {"materialityPpg": 1.0, "largeMultiple": 3.0, "depthNotableLossPpg": 0.5}
@@ -102,8 +105,6 @@ _UNAVAILABLE_DIMENSIONS = (
         "and has no production caller; playoff/championship deltas wait for that owner.",
     },
 )
-
-_STEP = {r: i for i, r in enumerate(RECOMMENDATIONS)}
 
 
 def _config() -> dict[str, float]:
@@ -167,7 +168,11 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
     """
     send_adj, recv_adj, send_va, recv_va = adjusted_pair_totals(sending_values, receiving_values)
     gap = recv_adj - send_adj  # positive = the selected team comes out ahead
-    magnitude = _fairness_label(gap)
+    # The ONE fairness-band owner (TC-C, owner decision 3): relative to the
+    # larger adjusted side, with an absolute minimum.  ``magnitude`` keeps its
+    # even / lean / stretch vocabulary for existing consumers.
+    band = fairness_bands.classify(gap, max(send_adj, recv_adj))
+    magnitude = fairness_bands.legacy_magnitude(band["level"])
     # An "even" gap is inside the market's own fairness band: it neither
     # favors nor opposes, whatever its sign.
     direction = "neutral" if magnitude == "even" else _direction(gap)
@@ -179,6 +184,7 @@ def equity_verdict(sending_values: list[float], receiving_values: list[float]) -
         "magnitude": magnitude,
         "direction": direction,
         "win": gap > 0 and magnitude != "even",
+        "band": band,
         "sendingAdjusted": round(send_adj, 1),
         "receivingAdjusted": round(recv_adj, 1),
         "sendingValueAdjustment": round(float(send_va), 1),
@@ -190,14 +196,32 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
     """Canonical package values + the active package VA.  Calls the owner directly."""
     receiving = simulation.get("receiving") or []
     sending = simulation.get("sending") or []
-    sending_values = [a["value"] for a in sending if a.get("value") is not None]
-    receiving_values = [a["value"] for a in receiving if a.get("value") is not None]
+
+    # MISSING IS NEVER ZERO (TC-A): a board row the canonical pipeline
+    # declined to price resolves with ``value`` None or 0.  It is not an asset
+    # worth nothing, so it never enters the package math as a 0 -- and it is
+    # never dropped silently either: it is named in ``unpricedIn`` /
+    # ``unpricedOut`` and in the uncertainty list (which caps confidence).
+    def _priced(a: dict[str, Any]) -> bool:
+        v = a.get("value")
+        return isinstance(v, (int, float)) and v > 0
+
+    def _name(a: dict[str, Any]) -> str:
+        return str(a.get("name") or a.get("sourceLabel") or "")
+
+    sending_values = [a["value"] for a in sending if _priced(a)]
+    receiving_values = [a["value"] for a in receiving if _priced(a)]
+    unpriced_in = [_name(a) for a in receiving if not _priced(a)]
+    unpriced_out = [_name(a) for a in sending if not _priced(a)]
     if not sending_values and not receiving_values:
         return DimensionResult(
             name="equity",
             available=False,
             unavailable_reason="no_priced_assets_either_side",
             lineage=LINEAGE_CANONICAL_VALUE,
+            detail={"unpricedIn": unpriced_in, "unpricedOut": unpriced_out}
+            if unpriced_in or unpriced_out
+            else {},
         )
     verdict = equity_verdict(sending_values, receiving_values)
     return DimensionResult(
@@ -211,6 +235,8 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "rawGap": verdict["rawGap"],
             "vaAdjustedGap": verdict["vaAdjustedGap"],
             "magnitude": verdict["magnitude"],
+            "band": verdict["band"],
+            "bandsReceipt": fairness_bands.receipt(),
             "sendingAdjusted": verdict["sendingAdjusted"],
             "receivingAdjusted": verdict["receivingAdjusted"],
             "sendingValueAdjustment": verdict["sendingValueAdjustment"],
@@ -219,6 +245,16 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "packageModel": package_model.receipt(),
             "unresolvedIn": list(simulation.get("unresolvedIn") or []),
             "unresolvedOut": list(simulation.get("unresolvedOut") or []),
+            # On the board but unpriced: excluded from the package math above
+            # (never counted as 0) and reported here.
+            "unpricedIn": unpriced_in,
+            "unpricedOut": unpriced_out,
+            "incomplete": bool(
+                unpriced_in
+                or unpriced_out
+                or simulation.get("unresolvedIn")
+                or simulation.get("unresolvedOut")
+            ),
             # Wave A: owned picks this team does not hold are reported by
             # the simulator and left out of ``sending`` -- named here so the
             # explanation can say why they are not counted.
@@ -490,7 +526,7 @@ def _comparables_lens(comparables: dict[str, Any] | None) -> DimensionResult:
     payload the route computed for this package, or ``None`` when it was not
     computed.  The owner's own contract is "relevance ordering, never a price,
     feeds no verdict", and the market lens already prices these assets — so
-    this lens carries ``votes=False`` and ``_recommend`` never reads it.  It
+    this lens carries ``votes=False`` and ``trade_decision.leaning`` never reads it.  It
     does not touch confidence or the uncertainty list either: a thin or empty
     comps sample is reported here as itself, never as a reason to move the
     verdict."""
@@ -545,62 +581,6 @@ def _comparables_lens(comparables: dict[str, Any] | None) -> DimensionResult:
 
 
 # ── Synthesis ────────────────────────────────────────────────────────────
-
-
-def _step(rec: str, delta: int) -> str:
-    i = min(max(_STEP[rec] - delta, 0), len(RECOMMENDATIONS) - 1)
-    return RECOMMENDATIONS[i]
-
-
-def _recommend(
-    market: DimensionResult, roster: DimensionResult, feasibility: DimensionResult
-) -> tuple[str, str, str]:
-    """``(recommendation, confidence, basis)`` — the rule table."""
-    primaries = [d for d in (market, roster) if d.available]
-    if not primaries:
-        return "TOO_CLOSE", "LOW", "no_primary_lens"
-
-    if len(primaries) == 1:
-        only = primaries[0]
-        strong = only.name == "equity" and only.detail.get("magnitude") == "stretch"
-        if only.name == "rosterUtility":
-            strong = only.detail.get("magnitude") == "large"
-        if only.direction == "favors":
-            rec = "MAKE" if strong else "LEAN_MAKE"
-        elif only.direction == "opposes":
-            rec = "PASS" if strong else "LEAN_PASS"
-        else:
-            rec = "TOO_CLOSE"
-        confidence = "MEDIUM" if only.direction != "neutral" else "LOW"
-        basis = f"single_lens:{only.name}"
-    else:
-        dirs = {market.direction, roster.direction}
-        if dirs == {"favors"}:
-            rec, confidence = "MAKE", "HIGH"
-        elif dirs == {"opposes"}:
-            rec, confidence = "PASS", "HIGH"
-        elif dirs == {"favors", "neutral"}:
-            rec, confidence = "LEAN_MAKE", "MEDIUM"
-        elif dirs == {"opposes", "neutral"}:
-            rec, confidence = "LEAN_PASS", "MEDIUM"
-        elif dirs == {"favors", "opposes"}:
-            # The lenses disagree: the market and this roster want different
-            # things.  "Depends" is the honest answer; the dissent is shown.
-            rec, confidence = "TOO_CLOSE", "MEDIUM"
-        else:
-            rec, confidence = "TOO_CLOSE", "LOW"
-        basis = "market_and_roster"
-
-    if feasibility.available and feasibility.direction in ("favors", "opposes"):
-        rec = _step(rec, 1 if feasibility.direction == "favors" else -1)
-        basis += f"+feasibility:{feasibility.direction}"
-    if feasibility.detail.get("ladderExhausted"):
-        # No legal cleanup could be found: the trade cannot be recommended as
-        # a clean MAKE whatever the value says.
-        if _STEP[rec] < _STEP["TOO_CLOSE"]:
-            rec = "TOO_CLOSE"
-        basis += "+no_legal_cleanup"
-    return rec, confidence, basis
 
 
 def _pct(x: Any) -> str:
@@ -793,6 +773,15 @@ def _uncertainty(
     ]
     if unresolved:
         out.append("Not on the board, so not priced: " + ", ".join(unresolved))
+    unpriced = [
+        *((market.detail or {}).get("unpricedIn") or []),
+        *((market.detail or {}).get("unpricedOut") or []),
+    ]
+    if unpriced:
+        out.append(
+            "On the board but unpriced — unknown, not worth 0, so left out of the "
+            "package math: " + ", ".join(unpriced)
+        )
     hypothetical = (market.detail or {}).get("hypotheticalPicksOut") or []
     if hypothetical:
         out.append(
@@ -815,6 +804,7 @@ def _uncertainty(
 
 @dataclass
 class AnalyzeTradeResult:
+    decision: dict[str, Any]
     recommendation: str
     confidence: str
     basis: str
@@ -829,6 +819,10 @@ class AnalyzeTradeResult:
         by_name = {d.name: d.to_dict() for d in self.dimensions}
         return {
             "version": PACKET_VERSION,
+            # The ONE top-line answer (src.trade.trade_decision).  The UI's
+            # headline renders this and nothing else.
+            "decision": self.decision,
+            # The graded leaning under the headline (v2 field, kept).
             "recommendation": self.recommendation,
             "confidence": self.confidence,
             "basis": self.basis,
@@ -859,7 +853,7 @@ def _posture_lens(simulation: dict[str, Any]) -> DimensionResult:
     automatic veto, and Analyze Trade weighs the underlying evidence rather
     than the label.  It is derived from the same lineage the roster lens and
     the playoff odds carry, so letting it vote would count that evidence
-    twice.  ``votes=False`` makes that structural: ``_recommend`` reads only
+    twice.  ``votes=False`` makes that structural: ``trade_decision`` reads only
     market / roster / feasibility.
     """
     block = simulation.get("competitivePosture")
@@ -908,7 +902,11 @@ def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
 
 
 def analyze_trade(
-    simulation: dict[str, Any], comparables: dict[str, Any] | None = None
+    simulation: dict[str, Any],
+    comparables: dict[str, Any] | None = None,
+    *,
+    team_goal: Any = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
@@ -937,7 +935,7 @@ def analyze_trade(
     # Asset-level evidence: present in Asset-Only mode too.
     comps = _comparables_lens(comparables)
 
-    recommendation, confidence, basis = _recommend(market, roster, feasibility)
+    recommendation, confidence, basis = trade_decision.leaning(market, roster, feasibility)
     reasons_for, reasons_against = _reasons(market, roster, feasibility, cfg)
     uncertainty = _uncertainty(market, roster, feasibility, evidence, team_context)
     if confidence == "HIGH" and uncertainty:
@@ -945,7 +943,27 @@ def analyze_trade(
         # evidence behind them.
         confidence = "MEDIUM"
 
+    # The ONE top-line decision (TC-C).  This module builds the evidence; the
+    # decision owner decides, from these lenses and nothing else.
+    decision = trade_decision.decide(
+        simulation,
+        market=market,
+        roster=roster,
+        feasibility=feasibility,
+        evidence=evidence,
+        posture=posture,
+        team_context=team_context,
+        team_goal=team_goal,
+        uncertainty=uncertainty,
+        leaning_result=(recommendation, confidence, basis),
+        comparables=comps,
+        # What only the caller knows (board stamp, scoring fingerprint), plus
+        # the roster-lens priors this packet ran under -- for the receipt.
+        provenance={**(provenance or {}), "analyzeConfig": dict(cfg)},
+    )
+
     return AnalyzeTradeResult(
+        decision=decision,
         recommendation=recommendation,
         confidence=confidence,
         basis=basis,

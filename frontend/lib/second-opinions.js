@@ -285,6 +285,15 @@ export function opinionState(counts) {
   return OPINION_STATE.FULL_SOURCE;
 }
 
+/**
+ * A source's comparison is EVEN when the gap is within this share of the
+ * larger adjusted side.  Owner decision 4 (2026-10-18): 1%, an INITIAL value
+ * subject to validation.  It replaced the historical "< 1 point" rule, which
+ * was effectively unreachable, so the tally called any non-zero gap a win
+ * (engine audit V6).  The 1-point floor still applies to tiny totals.
+ */
+export const OPINION_EVEN_TOLERANCE_PCT = 1;
+
 function leaderOf(totals) {
   if (!totals.length) return { idx: null, marginPct: null, gap: 0 };
   let idx = 0;
@@ -293,7 +302,9 @@ function leaderOf(totals) {
     .filter((_, i) => i !== idx)
     .reduce((m, v) => Math.max(m, v), 0);
   const gap = totals[idx] - runnerUp;
-  if (gap < 1) return { idx: null, marginPct: 0, gap: 0 };
+  if (gap < 1 || gap * 100 <= OPINION_EVEN_TOLERANCE_PCT * totals[idx]) {
+    return { idx: null, marginPct: 0, gap: 0 };
+  }
   return {
     idx,
     marginPct: totals[idx] > 0 ? (gap / totals[idx]) * 100 : 0,

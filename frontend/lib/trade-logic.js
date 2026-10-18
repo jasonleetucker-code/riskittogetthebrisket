@@ -12,6 +12,7 @@
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
+import { classifyGap, FAIRNESS_LABELS } from "./fairness-bands.js";
 import {
   canAddEntry,
   deserializeEntry,
@@ -23,20 +24,31 @@ import {
 } from "./trade-assets.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
-export const VALUE_MODES = [
-  { key: "full", label: "Our Value" },
-  { key: "raw", label: "Raw" },
-];
+// Trade math runs on ONE value: the canonical ``rankDerivedValue`` carried as
+// ``values.full``.  The "Raw" mode is RETIRED (TC-A, UX audit P0-4): it read
+// ``values.raw`` -- the legacy scraper ``rawComposite`` (0.27x-2.08x of
+// canonical) -- so a display toggle rewired the meter, the tray, the
+// balancers and the CSV onto a non-canonical number, while the side cards'
+// "Raw" (canonical BEFORE Value Adjustment) meant something else and the War
+// Room, Monte Carlo and Second Opinions stayed canonical.  "Raw" on /trade
+// now means only canonical-before-VA, shown on the side cards.  A workspace
+// saved with ``valueMode: "raw"`` restores as ``"full"``.
+export const VALUE_MODES = [{ key: "full", label: "Our Value" }];
+
+/** The value mode trade math uses: always canonical. */
+export const TRADE_VALUE_MODE = "full";
 
 // ── Persistence Keys ─────────────────────────────────────────────────────
 export const STORAGE_KEY = "next_trade_workspace_v1";
 export const RECENT_KEY = "next_trade_recent_assets_v1";
 export const SETTINGS_KEY = "next_settings_v2";
 
-// ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
-const VERDICT_NEAR_EVEN = 350;
-const VERDICT_LEAN = 900;
-const VERDICT_STRONG_LEAN = 1800;
+// ── Verdict bands ────────────────────────────────────────────────────────
+// The KTC-era absolute bands (350 / 900 / 1800) are RETIRED (TC-C, owner
+// decision 3).  Every package-gap label on /trade comes from the ONE
+// fairness-band owner (./fairness-bands.js, pinned to
+// config/trade/fairness_bands.json): relative to the larger ADJUSTED side,
+// with an absolute minimum.  PROVISIONAL until validated.
 
 // ── Legacy Power-Weighted Alpha (trade history only) ─────────────────────
 // The Trade Calculator no longer uses this; it has moved to the package
@@ -113,6 +125,30 @@ export function effectiveValue(row, valueMode, _settings) {
   return Number(row.values?.[valueMode] || 0);
 }
 
+/**
+ * Identity of a trade's CONTENTS: every side's lines in order (name, owned
+ * pick id, override) plus 3+-team routing.  Expensive results computed for
+ * a trade (Simulate impact, Monte Carlo) are keyed to it, so a result is
+ * never shown under a trade it was not computed for (TC-A / UX audit P0-2).
+ */
+export function tradeSignature(sides) {
+  return JSON.stringify(
+    (sides || []).map((s) => [
+      (s?.assets || []).map((a) => [a?.name ?? "", a?.assetId ?? null, a?.customValue ?? null]),
+      s?.destinations || {},
+    ]),
+  );
+}
+
+/**
+ * The question "Simulate impact" answers: the trade's contents plus the team
+ * and league it is simulated for.  The page shows a result only while this
+ * still matches the trade on screen (TC-A / UX audit P0-2).
+ */
+export function simulationSignature(sides, teamName = "", leagueKey = "") {
+  return JSON.stringify([tradeSignature(sides), teamName || "", leagueKey || ""]);
+}
+
 /** Simple linear total (sum of values). */
 export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
@@ -171,6 +207,41 @@ export function unpricedAssetsOnSide(side) {
   return (side || []).filter(
     (row) => row?.customValue == null && isUnpricedBoardRow(row),
   );
+}
+
+/**
+ * Whether a trade can be evaluated at all — the gate every headline verdict
+ * (meter badge, winner text, sticky tray) passes before it may speak.
+ *
+ *   empty       no asset on any side: "nothing to evaluate" is not an
+ *               evaluation, so no band is rendered (UX audit P0-6).
+ *   incomplete  some asset is unpriced by the board (and not overridden):
+ *               its 0 inside the totals is an arithmetic neutral, not a
+ *               value, so no verdict is computed over it (MISSING IS
+ *               NEVER ZERO).  ``unpriced`` names each one by side.
+ *   complete    every asset carries a value.
+ *
+ * Pass the OVERRIDE-APPLIED sides: a user value on an unpriced row prices it.
+ */
+export const TRADE_EVAL_STATE = Object.freeze({
+  EMPTY: "empty",
+  INCOMPLETE: "incomplete",
+  COMPLETE: "complete",
+});
+
+export function tradeEvaluationState(sides) {
+  const list = Array.isArray(sides) ? sides : [];
+  if (!list.some((s) => (s?.assets || []).length > 0)) {
+    return { state: TRADE_EVAL_STATE.EMPTY, unpriced: [] };
+  }
+  const unpriced = [];
+  list.forEach((s, side) => {
+    for (const r of unpricedAssetsOnSide(s?.assets)) {
+      unpriced.push({ side, name: r?.name || r?.displayName || "An asset" });
+    }
+  });
+  if (unpriced.length) return { state: TRADE_EVAL_STATE.INCOMPLETE, unpriced };
+  return { state: TRADE_EVAL_STATE.COMPLETE, unpriced: [] };
 }
 
 /** Descending-sorted effective values for a side. */
@@ -852,16 +923,21 @@ export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
 }
 
 // ── Verdict ──────────────────────────────────────────────────────────────
-export function verdictFromGap(gap) {
-  const abs = Math.abs(gap);
-  if (abs < VERDICT_NEAR_EVEN) return "Near even";
-  if (abs < VERDICT_LEAN) return "Lean";
-  if (abs < VERDICT_STRONG_LEAN) return "Strong lean";
-  return "Major gap";
+// `largerSide` is the larger ADJUSTED package total: the band is relative
+// to it (TC-C, owner decision 3).
+const VERDICT_WORDS = {
+  fair: "Near even",
+  slight: "Lean",
+  unfair: "Strong lean",
+  lopsided: "Major gap",
+};
+
+export function verdictFromGap(gap, largerSide) {
+  return VERDICT_WORDS[classifyGap(gap, largerSide).level];
 }
 
-export function colorFromGap(gap) {
-  if (Math.abs(gap) < VERDICT_NEAR_EVEN) return "";
+export function colorFromGap(gap, largerSide) {
+  if (classifyGap(gap, largerSide).level === "fair") return "";
   return gap > 0 ? "green" : "red";
 }
 
@@ -993,6 +1069,17 @@ export function getPlayerEdge(row) {
 const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "6": "6th" };
 
 /**
+ * "early" | "mid" | "late" for a slot number — the frontend's ONE slot→tier
+ * rule (12-team convention).  Mirrors the tier OWNER,
+ * src/picks/site_pick_map.py::slot_tier_ranges(12); the literal is pinned
+ * and checked against the owner by
+ * tests/identity/test_pick_grammar_frontend_parity.py.
+ */
+export function tierForSlot(slot) {
+  return slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
+}
+
+/**
  * Parse a pick token string into structured parts.
  * Handles: "2026 1.06", "2026 early 1st", "2026 1st", "2026 mid 2nd"
  * @returns {{ year: string, round: string, tier: string|null, slot: number|null }}
@@ -1005,8 +1092,7 @@ export function parsePickToken(token) {
   if (slotMatch) {
     const round = ROUND_LABELS[slotMatch[2]] || `${slotMatch[2]}th`;
     const slot = parseInt(slotMatch[3], 10);
-    const tier = slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
-    return { year: slotMatch[1], round, tier, slot };
+    return { year: slotMatch[1], round, tier: tierForSlot(slot), slot };
   }
 
   // "2026 early 1st" or "2026 1st" format
@@ -1179,6 +1265,91 @@ export function isUnpricedBoardRow(row) {
   return !Number(row.values?.full);
 }
 
+// ── Structured pick search ──────────────────────────────────────────────
+//
+// TC-A / UX audit P1-8: "2027 1st", "2027 Mid" and "2027 Round 1" returned
+// "No matches" — the current class is priced on SLOT rows ("2027 Pick 1.05")
+// and its tier rows are suppressed aliases, so plain text matching could not
+// connect a round / tier / generic query to the rows that price it.  A pick
+// query is parsed with the same grammar as ``parsePickToken`` and matched
+// against each pick row's own shape (slot / tier / generic grade).  Nothing
+// here prices anything: it only decides which existing board rows a query
+// names.
+
+/** A board pick row name → its {year, round, tier, slot}, or null. */
+export function pickRowShape(name) {
+  const s = String(name || "").trim();
+  const generic = s.match(/^(\d{4})\s+round\s+([1-6])$/i);
+  if (generic) return { year: generic[1], round: ROUND_LABELS[generic[2]], tier: null, slot: null };
+  const parsed = parsePickToken(s.replace(/^(\d{4})\s+pick\s+/i, "$1 "));
+  if (!parsed) return null;
+  return { year: parsed.year, round: parsed.round, tier: parsed.tier || null, slot: parsed.slot ?? null };
+}
+
+/**
+ * Parse a search query as a pick query, or null when it is not one.  Accepts
+ * any order of: a year ("2027"), a slot ("1.05"), a tier ("early/mid/late"), a
+ * round ("1st", "round 1", "rd 1", "r1"), and the word "pick(s)".  It must
+ * name a round, slot or tier, plus a year unless it gives a slot or round
+ * (a bare "mid" is not a pick query).  Any other word → null.
+ */
+export function parsePickQuery(query) {
+  let q = String(query || "").toLowerCase().trim();
+  if (!q) return null;
+  const out = { year: null, round: null, tier: null, slot: null };
+  const take = (re, fn) => {
+    const m = q.match(re);
+    if (!m) return;
+    fn(m);
+    q = q.replace(m[0], " ");
+  };
+  take(/\b(\d)\.(\d{1,2})\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]] || null;
+    out.slot = parseInt(m[2], 10);
+  });
+  take(/\b(19|20)(\d{2})\b/, (m) => {
+    out.year = `${m[1]}${m[2]}`;
+  });
+  take(/\b(early|mid|late)\b/, (m) => {
+    out.tier = m[1];
+  });
+  take(/\b([1-6])(st|nd|rd|th)\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]];
+  });
+  take(/\b(?:round|rd|r)\s*([1-6])\b/, (m) => {
+    out.round = ROUND_LABELS[m[1]];
+  });
+  q = q.replace(/\bpicks?\b/g, " ");
+  if (q.trim()) return null;
+  if (!out.round && !out.slot && !out.tier) return null;
+  if (!out.year && !out.round && !out.slot) return null;
+  return out;
+}
+
+/** Does a pick row (by name) satisfy a parsed pick query? */
+export function pickRowMatchesQuery(name, pq) {
+  if (!pq) return false;
+  const shape = pickRowShape(name);
+  if (!shape) return false;
+  if (pq.year && shape.year !== pq.year) return false;
+  if (pq.round && shape.round !== pq.round) return false;
+  if (pq.slot != null) {
+    // An exact slot row, or -- when the query names its year -- the tier
+    // row that slot belongs to (future classes are priced at tier grade).
+    // Never a generic row.
+    if (shape.slot != null) return shape.slot === pq.slot;
+    if (!pq.year || !shape.tier || shape.tier !== tierForSlot(pq.slot)) return false;
+  }
+  if (pq.tier) {
+    const rowTier = shape.slot != null ? tierForSlot(shape.slot) : shape.tier;
+    if (rowTier !== pq.tier) return false;
+  }
+  return true;
+}
+
+// Structured pick matches rank with the loosest text matches (tier 3).
+const PICK_QUERY_MATCH_TIER = 3;
+
 /**
  * Board rows matching a search query, most relevant first.
  *
@@ -1197,10 +1368,14 @@ export function isUnpricedBoardRow(row) {
  */
 export function searchTradeAssets(rows, query, limit = 5) {
   if (!String(query || "").trim()) return [];
+  const pq = parsePickQuery(query);
   const scored = [];
   for (const r of rows || []) {
     if (!r || !isTradeableBoardRow(r)) continue;
-    const tier = searchMatchTier(r.name, query);
+    let tier = searchMatchTier(r.name, query);
+    if (tier < 0 && pq && r.assetClass === "pick" && pickRowMatchesQuery(r.name, pq)) {
+      tier = PICK_QUERY_MATCH_TIER;
+    }
     if (tier >= 0) scored.push({ r, tier });
   }
   scored.sort(
@@ -1240,10 +1415,12 @@ export function searchCalculatorAssets(
   { boardLimit = SEARCH_BOARD_LIMIT, ownedLimit = SEARCH_OWNED_LIMIT } = {},
 ) {
   const board = searchTradeAssets(rows, query, boardLimit);
+  const pq = parsePickQuery(query);
   const owned = searchPickEntries(
     (ownedEntries || []).filter((e) => e && e.assetId),
     query,
     ownedLimit,
+    pq ? (e) => pickRowMatchesQuery(e.name, pq) : null,
   );
   return [...board, ...owned];
 }
@@ -1445,7 +1622,8 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
   }
 
   const before = tradeImbalance(sides, valueMode, settings);
-  if (before.imbalance < VERDICT_NEAR_EVEN) return [];
+  // Inside the fair band (the ONE fairness-band owner): nothing to balance.
+  if (classifyGap(before.imbalance, before.largerSide).level === "fair") return [];
 
   // In an N >= 3 trade an added asset needs somewhere to go.  Default to
   // the side currently netting the least — the team this side is
@@ -1759,8 +1937,13 @@ export function computeSideFlows(sides, valueMode, settings = null) {
  */
 export function tradeImbalance(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
-  if (n < 2) return { imbalance: 0, nets: [], gap: null };
-  const nets = computeSideFlows(sides, valueMode, settings).map((f) => f.net);
+  if (n < 2) return { imbalance: 0, nets: [], gap: null, largerSide: null };
+  const flows = computeSideFlows(sides, valueMode, settings);
+  const nets = flows.map((f) => f.net);
+  // The base the fairness band is relative to: the largest ADJUSTED package
+  // any side sends (given = raw + its adjustment).  For N = 2 this is the
+  // larger adjusted side total.
+  const largerSide = Math.max(...flows.map((f) => f.given));
   if (n === 2) {
     const gap = tradeGapAdjusted(
       Array.isArray(sides[0]?.assets) ? sides[0].assets : [],
@@ -1768,26 +1951,29 @@ export function tradeImbalance(sides, valueMode, settings = null) {
       valueMode,
       settings,
     );
-    return { imbalance: Math.abs(gap), nets, gap };
+    return { imbalance: Math.abs(gap), nets, gap, largerSide };
   }
   return {
     imbalance: Math.max(...nets) - Math.min(...nets),
     nets,
     gap: null,
+    largerSide,
   };
 }
 
 /**
- * Compute the granular trade-meter verdict label from an absolute gap.
- * More categories than verdictFromGap for the inline meter badge.
- * @param {number} absGap - Absolute point gap
- * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided' }}
+ * The meter badge for a package gap -- the Immediate Result, package only.
+ * Bands from the ONE fairness-band owner (./fairness-bands.js): relative to
+ * the larger ADJUSTED side, with an absolute minimum (TC-C, owner decision 3;
+ * it replaced the absolute 350 / 900 / 1800).  It labels the package gap; the
+ * trade DECISION is the backend's (POST /api/trade/analyze).
+ * @param {number} gap - package gap (sign ignored)
+ * @param {number} largerSide - larger adjusted side total
+ * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null }}
  */
-export function meterVerdict(absGap) {
-  if (absGap < 350) return { label: "FAIR", level: "fair" };
-  if (absGap < 900) return { label: "SLIGHT EDGE", level: "slight" };
-  if (absGap < 1800) return { label: "UNFAIR", level: "unfair" };
-  return { label: "LOPSIDED", level: "lopsided" };
+export function meterVerdict(gap, largerSide) {
+  const band = classifyGap(gap, largerSide);
+  return { label: FAIRNESS_LABELS[band.level], level: band.level, relativePct: band.relativePct };
 }
 
 /**
@@ -1897,7 +2083,11 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") 
   };
   const pickVal = (r) => {
     const vals = (r && r.values) || {};
-    const v = valueMode === "raw" ? (vals.raw ?? vals.full) : (vals.full ?? vals.raw);
+    // Canonical only (TC-A P0-4): the legacy composite (``values.raw``) is
+    // never exported as the trade value, whatever mode a caller passes, and
+    // a missing canonical value is a blank cell, never the composite.
+    void valueMode;
+    const v = vals.full;
     return v == null ? "" : Math.round(Number(v));
   };
   const basis = valueBasis || "unspecified";
