@@ -314,6 +314,7 @@ export default function TradePage() {
     idpEnabled,
     leagueMismatch,
     selectedLeagueKey,
+    leagueLoading,
     // ``useTeam`` resolves the team AFTER the contract lands, so
     // ``loading`` here outlives ``useDynastyData().loading``.  The
     // suggestions slot needs both: see the effect below.
@@ -449,6 +450,10 @@ export default function TradePage() {
   // still need a resolved team on every side they touch for the note.
   const [draftCapital, setDraftCapital] = useState(null);
   useEffect(() => {
+    // Wait for the league key to resolve: fetching while it is still ""
+    // and again once it lands requested /api/draft-capital twice on every
+    // load, the first time for the wrong (default) scope (TC-A).
+    if (leagueLoading) return undefined;
     let alive = true;
     // Scope to the page's own league so the stack math never mixes a
     // switched active league's teams/picks with another league's
@@ -467,7 +472,7 @@ export default function TradePage() {
     return () => {
       alive = false;
     };
-  }, [selectedLeagueKey]);
+  }, [selectedLeagueKey, leagueLoading]);
 
   const boardValueByName = useCallback(
     (name) => Number(rowByName.get(name)?.values?.full) || 0,
