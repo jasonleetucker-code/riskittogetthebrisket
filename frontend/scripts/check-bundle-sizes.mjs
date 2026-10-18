@@ -194,6 +194,11 @@ const BUDGETS_KB = {
   // DataTable + the evidence renderer), pinned with ~15% headroom. The family
   // detail view is a React.lazy chunk (6.2 KB) and is not counted here.
   "/admin/model-lab/page": 30,
+  // Added 2026-10-18 with the Trade Finder meaningful-discovery batch: the
+  // page had no budget.  Measured 58.3 KB on main before, 70.2 KB with the
+  // tools-first layout, shared discovery controls and research section;
+  // pinned at ~+15% for the stacked Package Builder Sending/Receiving batch.
+  "/arbitrage/page": 82,
 };
 
 function fmtKb(bytes) {
