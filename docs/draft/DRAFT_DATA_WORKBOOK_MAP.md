@@ -134,7 +134,7 @@ where they do bind (`test_caps_and_decay_head_are_exercised_somewhere`), and
 every one of ten formula mutations is detected
 (`test_a_mutated_formula_is_detected`).
 
-## 5. RANK ties — what the spreadsheet actually does (audit D8)
+## 5. RANK ties — what the spreadsheet does, and the owner's rule (audit D8)
 
 `RANK(J, J-range, 0)` gives equal values the same rank. Measured with
 LibreOffice on constructed C vectors (exactly representable multiples of
@@ -146,18 +146,56 @@ formula text:
 * **tie at the cutoff** (three J = 0.5 at rank 1, residual 2): the sheet
   awards 3 units, ΣK = 2401, the post-cap residual is −1, `QUOTIENT(-1,12)` =
   0 and `MOD(-1,12)` = 11, so the first 11 picks gain a half-dollar and the
-  sheet publishes **D74 = $1,206**. Production reproduces those exact numbers
-  (`allocate_units(check=False)`) and **refuses** the result
-  (`CurveInvariantError`) instead of publishing it.
+  sheet publishes **D74 = $1,206**. `allocate_units(tie_rule="sheet_literal")`
+  reproduces those exact numbers as evidence.
 
-`_rookie_dollars_from_values` breaks the same tie by row order and awards only
-2 units, so it would publish $1,200 with a different distribution from the
-sheet. On real inputs an exact tie is a measure-zero event (the real-valued C
-involves `exp`; the workbook's smallest decision margin is 0.0019 half-units,
-and 0 of 250 random cases came within 1e-9), but a tie-break that both totals
-$1,200 and deviates from the sheet is a methodology choice — see UNRESOLVED in
-the workstream record. Google Sheets itself was not available to this session;
-LibreOffice follows the same documented RANK semantics.
+**Owner decision 2026-10-18 (resolved):** exactly `residual` units are
+awarded, to the largest remainders, and a tie at the cutoff goes to the
+earlier (higher) draft position. In the case above picks 1.06 and 1.07 get the
+two units, 1.08 does not, and the half-dollar curve totals exactly $1,200.
+This is a deliberate departure from the literal sheet that applies **only**
+when a tie straddles the cutoff; on the real workbook inputs the canonical
+rule and the literal rule produce identical awards and units
+(`test_owner_tie_rule_changes_nothing_without_a_cutoff_tie`). The
+independent reference implements both rules and agrees with production on
+each. (`_rookie_dollars_from_values` happens to break ties by row order too.)
+
+## 5a. Whole dollars — the published values (owner decision 2026-10-18)
+
+The `dynasty_main` rookie auction uses whole dollars only. Column L stays the
+**mathematical reference** (28 of its 72 picks end in .50); the published
+values come from a separately identified final step,
+`src/draft/rookie_auction/apportion.py::apportion_whole_dollars`:
+
+1. floor every exact L value to whole dollars — Σ floors = **1,186**;
+2. residual = 1200 − 1186 = **14**;
+3. the 14 largest remainders get +1. All 28 remainders are exactly 0.50, so
+   ties go to the earlier pick: **1.01, 1.02, 1.04, 1.05, 1.06, 1.07, 1.08,
+   1.10, 1.12, 2.01, 2.02, 2.03, 2.05, 2.07**;
+4. verified: every value an integer, Σ = 1200, non-increasing, floors ($1 per
+   pick, $2 in round 5) and caps (round 5 $2, round 6 $1) hold. A violation
+   refuses with the conflict named; the $1,200 is never changed.
+
+| round | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| half-dollar L total | 827.5 | 231 | 74 | 31.5 | 24 | 12 |
+| whole-dollar total | 832 | 233 | 70 | 29 | 24 | 12 |
+
+Whole dollars by pick (1.01 … 6.12):
+135, 101, 93, 81, 76, 69, 55, 54, 46, 45, 41, 36 | 30, 29, 27, 24, 22, 19, 18,
+16, 14, 13, 11, 10 | 9, 9, 7, 7, 6, 6, 5, 5, 4, 4, 4, 4 | 3, 3, 3, 3, 3, 2, 2,
+2, 2, 2, 2, 2 | twelve × 2 | twelve × 1.
+
+Slot budgets with no trades (a manager's budget is the exact integer sum of
+the picks they own): 180, 145, 133, 118, 110, 99, 83, 80, 69, 67, 61, 55 =
+1,200. The earlier-pick tie rule moves every rounding dollar to rounds 1–2
+(round 3 loses $4, round 4 $2.50 against L) — a direct consequence of all 28
+remainders being tied at .50.
+
+The step refuses whenever the half-dollar curve itself breaks a whole-dollar
+constraint: on the 250 seeded synthetic cases, 30 are refused `below_floor`
+(their round 4 ends under $2, so round 5 dips to $1.50) and 220 publish; the
+workbook publishes.
 
 ## 6. The legacy `server.py::_rookie_dollars_from_values`
 
