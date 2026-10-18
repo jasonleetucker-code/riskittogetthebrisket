@@ -3,7 +3,10 @@
 ``draftCapital`` / ``tendencies`` blocks, which ride the same request, call
 budget, memo and rate-limit bucket rather than a second endpoint) and
 ``GET /api/manager-intel/league`` (Batch C — one league's scouting view,
-with its own per-user rate-limit bucket).
+with its own per-user rate-limit bucket), ``GET /api/manager-intel/career``
+(Batch E — multi-season record and archetypes) and
+``GET /api/manager-intel/compare`` (Batch E — two managers side by side, or
+one manager against one league), each with its own bucket.
 
 PRIVATE decision intelligence (MASTER_PRODUCT_PLAN §5; owner directive
 2026-10-16).  ``server.py::_private_api_gate`` 401s any request without a
@@ -31,7 +34,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from src.intel import manager_activity, manager_league, manager_portfolio
+from src.intel import (
+    manager_activity,
+    manager_career,
+    manager_compare,
+    manager_league,
+    manager_portfolio,
+)
 
 log = logging.getLogger("manager_intel.api")
 
@@ -56,6 +65,16 @@ ACTIVITY_RATE_WINDOW_SECONDS = 600.0
 #: has its own bucket again — a scouting burst cannot starve manager lookups.
 LEAGUE_RATE_CAPACITY = 6
 LEAGUE_RATE_WINDOW_SECONDS = 600.0
+
+#: A career lookup walks every league's previous seasons (and reads the
+#: season's activity for the archetypes): its own bucket.
+CAREER_RATE_CAPACITY = 8
+CAREER_RATE_WINDOW_SECONDS = 600.0
+
+#: A comparison is two full lookups (or one lookup plus a league read): the
+#: tightest bucket.
+COMPARE_RATE_CAPACITY = 4
+COMPARE_RATE_WINDOW_SECONDS = 600.0
 
 _session_provider: Callable[[Request], Any] | None = None
 _contract_provider: Callable[[], Any] | None = None
@@ -306,3 +325,159 @@ async def get_league(request: Request) -> JSONResponse:
     if status == manager_portfolio.STATUS_UPSTREAM_UNAVAILABLE:
         return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
     return JSONResponse(payload, headers=_NO_STORE)
+
+
+def _upstream_failure(status: Any, not_found_message: str, **extra: Any) -> JSONResponse | None:
+    if status == manager_portfolio.STATUS_NOT_FOUND:
+        return _error("not_found", not_found_message, 404, **extra)
+    if status == manager_portfolio.STATUS_RATE_LIMITED:
+        return _error(
+            "upstream_rate_limited",
+            "Sleeper is rate-limiting us — try again shortly.",
+            429,
+            **extra,
+        )
+    if status == manager_portfolio.STATUS_UPSTREAM_UNAVAILABLE:
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503, **extra)
+    return None
+
+
+@router.get("/career")
+async def get_career(request: Request) -> JSONResponse:
+    """Multi-season career record and archetypes (Batch E).
+
+    Query: ``username``; optional ``scope``.  Same gates and status mapping
+    as ``/profile``; its own per-user rate-limit bucket.  The call budget is
+    ``manager_career.CAREER_CALL_BUDGET``; ``coverage`` names every league x
+    season that was not fully read.
+    """
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    q = request.query_params
+    username = str(q.get("username") or "").strip()
+    if not _USERNAME_RE.match(username):
+        return _error(
+            "invalid_username",
+            "Enter a Sleeper username (letters, numbers and underscores).",
+            400,
+        )
+    scope = str(q.get("scope") or manager_portfolio.SCOPE_DYNASTY).lower()
+    if scope not in manager_portfolio.SCOPES:
+        return _error(
+            "invalid_scope", f"scope must be one of {list(manager_portfolio.SCOPES)}.", 400
+        )
+
+    who = str(session.get("username") or "").strip().lower()
+    limited = _rate_limited(
+        f"manager-intel-career:{who}", CAREER_RATE_CAPACITY, CAREER_RATE_WINDOW_SECONDS
+    )
+    if limited is not None:
+        return limited
+
+    contract = _contract_provider()
+    try:
+        payload = await run_in_threadpool(
+            manager_career.cached_manager_career, username, contract=contract, scope=scope
+        )
+    except Exception:  # noqa: BLE001 — never a 500 page for an upstream fault
+        log.exception("manager intel career failed")
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
+    failed = _status_error(payload, username)
+    if failed is not None:
+        return failed
+    return JSONResponse(payload, headers=_NO_STORE)
+
+
+@router.get("/compare")
+async def get_compare(request: Request) -> JSONResponse:
+    """Compare two managers (``a`` and ``b``, Sleeper usernames), or one
+    manager against one league (``a`` and ``leagueId``); both may be given.
+
+    Optional ``scope`` (manager comparison) and ``window`` (league view).
+    Same gates as ``/profile``; its own, tightest per-user bucket.  A side
+    that does not exist → 404 naming it (``side``); Sleeper's 429 → 429;
+    otherwise 200, with per-side ``status``.
+    """
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+    q = request.query_params
+    a = str(q.get("a") or "").strip()
+    b = str(q.get("b") or "").strip() or None
+    league_id = str(q.get("leagueId") or "").strip() or None
+    if not _USERNAME_RE.match(a) or (b is not None and not _USERNAME_RE.match(b)):
+        return _error(
+            "invalid_username",
+            "Enter Sleeper usernames (letters, numbers and underscores).",
+            400,
+        )
+    if b is None and league_id is None:
+        return _error("missing_comparison", "Pass a second manager (b) or a leagueId.", 400)
+    if league_id is not None and not _LEAGUE_ID_RE.match(league_id):
+        return _error("invalid_league", "leagueId must be a Sleeper league id.", 400)
+    scope = str(q.get("scope") or manager_portfolio.SCOPE_DYNASTY).lower()
+    if scope not in manager_portfolio.SCOPES:
+        return _error(
+            "invalid_scope", f"scope must be one of {list(manager_portfolio.SCOPES)}.", 400
+        )
+    window = str(q.get("window") or manager_activity.DEFAULT_WINDOW).lower()
+    if window not in manager_activity.WINDOWS:
+        return _error(
+            "invalid_window", f"window must be one of {list(manager_activity.WINDOWS)}.", 400
+        )
+
+    who = str(session.get("username") or "").strip().lower()
+    limited = _rate_limited(
+        f"manager-intel-compare:{who}", COMPARE_RATE_CAPACITY, COMPARE_RATE_WINDOW_SECONDS
+    )
+    if limited is not None:
+        return limited
+
+    contract = _contract_provider()
+    out: dict[str, Any] = {"query": {"a": a, "b": b, "leagueId": league_id}}
+    try:
+        if b is not None:
+            managers = await run_in_threadpool(
+                manager_compare.build_manager_comparison, a, b, contract=contract, scope=scope
+            )
+            side = managers.get("failedSide")
+            if side:
+                failed = _upstream_failure(
+                    managers.get("status"),
+                    f"No Sleeper user named {(a if side == 'a' else b)!r}.",
+                    side=side,
+                )
+                if failed is not None:
+                    return failed
+            out["managers"] = managers
+        if league_id is not None:
+            league = await run_in_threadpool(
+                manager_compare.build_league_percentile,
+                a,
+                league_id,
+                contract=contract,
+                window=window,
+            )
+            side = league.get("failedSide")
+            if side:
+                failed = _upstream_failure(
+                    league.get("status"),
+                    f"No Sleeper user named {a!r}."
+                    if side == "a"
+                    else "No Sleeper league with that id.",
+                    side=side,
+                )
+                if failed is not None:
+                    return failed
+            out["league"] = league
+    except Exception:  # noqa: BLE001 — never a 500 page for an upstream fault
+        log.exception("manager intel compare failed")
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
+    statuses = [(out.get(k) or {}).get("status") for k in ("managers", "league") if k in out]
+    out["status"] = (
+        manager_portfolio.STATUS_OK
+        if all(s == manager_portfolio.STATUS_OK for s in statuses)
+        else manager_portfolio.STATUS_PARTIAL
+    )
+    return JSONResponse(out, headers=_NO_STORE)

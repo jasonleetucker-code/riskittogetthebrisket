@@ -595,6 +595,28 @@ jobs:
             --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined signalsSf signalsIdpDl signalsIdpLb signalsIdpDb \
             || echo "::warning title=Source dataset state::recording failed; state left at its last observation"
 
+      - name: Draft valuation readiness (Batch D)
+        # Owner decision 12 (2026-10-18), docs/draft/BATCH_D_PREREGISTRATION_2026-10-18.md.
+        # One readiness evaluation of dynasty_main's upcoming rookie class per
+        # fresh build, under the preregistered thresholds in
+        # config/draft_valuation/promotion_policy.json.  ``promotionMode`` in
+        # that file is the live switch: ``dry_run`` (the shipped default)
+        # computes, records and alerts but NEVER switches a generation; only
+        # ``live`` lets a class that stayed PROMOTABLE for 48 h be promoted.
+        # Before the class window opens (2027-05-01 for 2027) no contract is
+        # built and only state transitions are recorded.  Records are written
+        # create-only under config/draft_valuation/ and committed by the next
+        # step.  Success-gated after the sanity gate so it only ever sees a
+        # board that is about to be committed.  Non-fatal: a failure here
+        # must never block shipping a good scrape, and every failure keeps the
+        # previous generation serving.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/draft_valuation.py evaluate --league dynasty_main \
+            --alerts-out "${RUNNER_TEMP}/draft_valuation_alerts.md" \
+            || echo "::warning title=Draft valuation::evaluation step failed; the previous generation keeps serving"
+
       - name: Commit updated data
         shell: bash
         run: |
@@ -616,7 +638,14 @@ jobs:
           # scraper's Sleeper-outage fallback for NFL-team tags.  Fresh
           # runners start from the repo, so an unstaged map would never
           # survive to the run that needs it (Codex round 7 on PR #535).
-          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/player_map/ data/ros/ data/scrape_state/ data/sleeper_last_good.json; do
+          # config/draft_valuation/*: the Batch D create-only stores written by
+          # the step above (decision 12 item 7) — evaluations, transitions,
+          # generation snapshots, promoted allocations, the promotion pointer
+          # and (live mode only) newly finalized completed-class curves.
+          for p in CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/player_map/ data/ros/ data/scrape_state/ data/sleeper_last_good.json \
+                   config/draft_valuation/readiness_evaluations/ config/draft_valuation/promotion_transitions/ \
+                   config/draft_valuation/class_snapshots/ config/draft_valuation/promoted_allocations/ \
+                   config/draft_valuation/promotion_pointers/ config/draft_valuation/historical_curves/; do
             if [ -e "$p" ]; then
               git add -f -- "$p"
             elif [ -n "$(git ls-files -- "$p")" ]; then
@@ -647,6 +676,41 @@ jobs:
             # didn't match the staged paths).
             git pull --rebase --autostash origin main
             git push
+          fi
+
+      - name: Draft valuation alerts
+        # One alert per NEW Batch D state transition, never repeated: the
+        # evaluation step emits a block only when it CREATED a transition
+        # record, and this step runs only after "Commit updated data"
+        # succeeded, i.e. once that record is on main.  If the commit fails
+        # the record is absent and the next run alerts instead — exactly once.
+        # Same rolling-issue plumbing as the stale-sources alert below.
+        # Mainline only (see the note on the alert step, #716).
+        if: success() && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          ALERTS="${RUNNER_TEMP}/draft_valuation_alerts.md"
+          if [[ ! -s "$ALERTS" ]]; then
+            echo "no new draft valuation state transitions"
+            exit 0
+          fi
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY="$(printf 'Draft valuation state transition (Batch D) — %s\n\n%s\n\nDiagnose: python scripts/draft_valuation.py status --league dynasty_main --year <Y>\nRollback: python scripts/draft_valuation.py rollback --league dynasty_main --year <Y> --reason "..."\n' "$RUN_URL" "$(cat "$ALERTS")")"
+          gh label create draft-valuation \
+            --color 0E8A16 \
+            --description "Draft valuation Batch D state transitions (one per transition)" \
+            2>/dev/null || true
+          EXISTING=$(gh issue list --state open --label draft-valuation \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY" || echo "::warning title=Draft valuation::alert comment failed"
+          else
+            gh issue create --title "Draft valuation state transitions" \
+              --body "$BODY" --label draft-valuation \
+              || echo "::warning title=Draft valuation::alert issue create failed"
           fi
 
       - name: Trigger deploy

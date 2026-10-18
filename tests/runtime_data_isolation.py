@@ -29,6 +29,18 @@ A fourth, with the draft-capital last-known-good store (2026-10-18):
   so a route test would otherwise append fixture allocations to the real
   store and a stale real record could answer a test's ``last_known_good``.
 
+A fifth, with draft valuation Batch D (2026-10-18):
+
+* ``config/draft_valuation/promotion_pointers/`` + ``promoted_allocations/``
+  (``published.PROMOTION_ROOT``) — TRACKED automation state the scheduled
+  refresh commits.  Redirected for the same reason as the box store: once
+  production promotes a 2027 generation, every draft-capital test that
+  feeds a fixture workbook would otherwise be served the real promoted
+  generation instead of its fixture.  The real directories, together with
+  the other Batch D stores (``readiness_evaluations/``,
+  ``promotion_transitions/``, ``class_snapshots/``), are also WATCHED: no
+  unit test may write them.
+
 A third was added with Game Day U5 (2026-09-25):
 
 * ``data/game_day/live/`` — ``src/ros/game_day_live.py``'s observation logs
@@ -84,6 +96,18 @@ REAL_PUBLIC_LEAGUE_DIR: Path = snapshot_store.DATA_DIR
 REAL_TEAM_STRENGTH_DIR: Path = team_strength.ROS_DATA_DIR / "team_strength"
 REAL_GAME_DAY_LIVE_DIR: Path = game_day_live.LIVE_ROOT
 REAL_DRAFT_ALLOCATION_DIR: Path = draft_published.BOX_STORE
+REAL_DRAFT_PROMOTION_ROOT: Path = draft_published.PROMOTION_ROOT
+#: Batch D's repo-tracked stores — watched, never written by a test.
+DRAFT_VALUATION_BATCH_D_STORES: tuple[Path, ...] = tuple(
+    REAL_DRAFT_PROMOTION_ROOT / name
+    for name in (
+        "promotion_pointers",
+        "promoted_allocations",
+        "readiness_evaluations",
+        "promotion_transitions",
+        "class_snapshots",
+    )
+)
 
 #: The directories the guard watches.  ``conduct_registry.json`` (tracked)
 #: lives in the first one and is watched too — no test has any business
@@ -100,7 +124,7 @@ GUARDED_DIRS: tuple[Path, ...] = (
 TRACKED_SCRAPER_ARTIFACTS: tuple[Path, ...] = (
     REPO_ROOT / "data" / "scrape_state",
     REPO_ROOT / "data" / "sleeper_last_good.json",
-)
+) + DRAFT_VALUATION_BATCH_D_STORES
 
 #: Everything the per-test guard fingerprints (directories and files).
 GUARDED_PATHS: tuple[Path, ...] = GUARDED_DIRS + TRACKED_SCRAPER_ARTIFACTS
@@ -164,6 +188,7 @@ def activate(root: Path) -> None:
     snapshot_store.NFL_PLAYERS_PATH = public_dir / "nfl_players.json"
     game_day_live.LIVE_ROOT = root / "game_day" / "live"
     draft_published.BOX_STORE = root / "draft_valuation" / "published_allocations"
+    draft_published.PROMOTION_ROOT = root / "draft_valuation" / "promotion_root"
 
 
 @contextlib.contextmanager

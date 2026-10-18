@@ -218,6 +218,29 @@ private gate is enforced.
 
 **Depends on:** B1, C. **Tests:** link and seed round-trips; one model receipt across surfaces.
 
+**As implemented (`frontend/lib/manager-trade-tools.js`, `frontend/app/managers/TradeTools.jsx`)**
+- Entry points: every drilldown on `/managers/league/[leagueId]` carries a Trade tools section; each readable
+  league in a searched manager's Leagues list links there with `?manager=<user id>`, which opens that
+  manager's row on load. One roster source (the Batch C league payload), so no second roster assembly.
+- The user picks assets from that roster. Seeds travel only through the tools' existing restore formats:
+  `/trade?share=…` (`lib/trade-share.js`, unchanged — side B lists what the scouted manager sends) for the
+  Trade Calculator and Analyze Trade (the War Room on `/trade`, which reads once the user adds their side), and
+  `/arbitrage?tool=builder&league=&opponent=<owner id>[&target=]` for the Package Builder — the smallest
+  restore-from-query in the arbitrage page's own init (`lib/package-builder.js` owns the format; the opponent is
+  the permanent owner id, resolved against the loaded league's teams, never a display name).
+- No valuation: the backend's board values are displayed; each tool re-values what it receives on the same board.
+  The league payload stamps `tradeTools.packageModel` (the ACTIVE receipt) and the seed carries its id as the share
+  link's `pm`, so the calculator names any model difference (`describeShareModelChange`).
+- Unresolved: a player without a board row name or a board value, or a pick without a board value, is listed with
+  its reason and cannot be selected — never seeded, never 0. Roster players now carry `boardName` (backend,
+  additive). Unknown pick ownership is stated, never "no picks".
+- League scoping: `tradeTools.leagueScoped` is true only for a registry league whose rosters the site has loaded
+  (the `GET /api/manager-scout` gate, `manager_scout_api._current_teams`). Only then are Analyze Trade and the
+  Package Builder offered and owned picks seeded with their canonical `pick:<leagueKey>:…` ids. Any other league
+  (`external_league` / `league_rosters_not_loaded`) offers the generic calculator seed only (picks as generic
+  board rows).
+- No `/trade` file was changed.
+
 ## Batch E — Career, archetypes and comparisons
 
 **Deliverables**
@@ -227,6 +250,44 @@ private gate is enforced.
 - Manager-to-manager comparisons.
 
 **Depends on:** B1–C. **Tests:** chain walk, archetype thresholds, sparse-sample refusal.
+
+**As implemented (`src/intel/manager_career.py`, `src/intel/manager_compare.py`)**
+- `GET /api/manager-intel/career?username=&scope=` — same gates (flag, session, guest 403, validation,
+  no-store), own per-user bucket (8 per 10 minutes), call budget 360. Each in-scope league is walked by the
+  existing `sleeper_client.walk_league_chain_status` (now accepting an optional classified, budgeted league
+  fetcher, so a 429 or a refused budget names its cause) up to `MAX_SEASONS_PER_LEAGUE = 6` seasons; a longer
+  chain reports `truncated`.
+- A season is the manager's only when THAT season's roster names their Sleeper user id (`owner_id` or
+  `co_owners`); a season without one is absent (`notHeldSeasons`), never a loss. A roster that could not be read
+  is an unread season (`held: null`), not an absent one. Record = the roster's regular-season settings; finish
+  from the classified `winners_bracket` read through the public league's bracket helpers
+  (`metrics.final_playoff_matchup` / `playoff_placement` / `playoff_teams`): champion / runner-up / playoff /
+  missed, `unknown` when the bracket is unread or empty, `in_progress` before the league is `complete`.
+  Recorded hand-offs (`public_league.ownership`) mark a season `from_week` / `until_week`; it is shown but left
+  out of the totals (the record cannot be split by week).
+- Totals count complete, fully-held seasons only, each with `seasonsCovered`: titles (over seasons with a
+  decided championship), playoff appearances (over seasons with a known finish), win %, points-for share and a
+  points-for index (share × teams; 1.0 = league average). Coverage per league × season plus chain state.
+- Archetypes (`evaluate_archetypes`): rookie-focused, consolidator, depth builder, pick hoarder, pick seller,
+  active trader, waiver-active, win-now, rebuilding, playoff regular — each a declared rule over existing
+  blocks (B3 `tendencies` and `draftCapital.totals`, B2 acquisitions / analytics, the Batch A portfolio
+  summary, the career totals), with threshold and minimum sample as named PRIOR constants. States:
+  `suggested` / `not_suggested` / `insufficient_sample` / `unavailable`; statements read "Evidence suggests …".
+  The activity source is the B1–B3 payload with `window=season` (its per-week memo is shared).
+- `GET /api/manager-intel/compare?a=&b=` (and/or `leagueId=`, `window=`) — own, tightest bucket (4 per 10
+  minutes). Side by side: each side's portfolio `summary`, season `tendencies` / `analytics` /
+  `draftCapital.totals`, career `totals` and `archetypes`, passed through verbatim (the archetypes are
+  evaluated over the very payloads shown beside them). A missing side is a 404 naming it. With `leagueId`:
+  the manager's team against one league over the Batch C rows (roster value, pick value, picks held,
+  trades, transactions, players added), percentile = (below + ½ tied) / (other teams with a value); a team
+  matched by its current owner only, a missing value is `null` + the reason.
+- Frontend: a Career tab on `/managers` (season table / stacked rows, totals with coverage, archetype chips
+  with an evidence drilldown) and the private compare page `/managers/compare?a=&b=&league=`.
+- Missing is never zero in the archetypes: a sample that cannot be counted (win-now / rebuilding when the
+  paired own-pick sample is below its minimum) reads "not countable", never "0"; unpublished trade-shape
+  counts make consolidator / depth builder `unavailable`; waiver adds sum only the methods that were read.
+  An unread career is "Not evaluated" in the comparison, never "None".
+- `/managers/compare` is in the axe a11y scan (`tests/e2e/specs/a11y-axe.spec.js` static `ROUTES`).
 
 ## Batch F — Saved managers, alerts, scoped leaderboards
 
@@ -246,4 +307,6 @@ private gate is enforced.
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
 | C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
-| D, E, F | — | QUEUED in this order |
+| D | `claude/manager-intel-d` | IMPLEMENTED — PR #1797 (link and seed round-trips, model receipt, unresolved handling and the league gate covered by vitest + pytest) |
+| E | `claude/manager-intel-e` (on `main`; B1–C merged via release train 5) | IMPLEMENTED — PR #1796 open, not merged; read-only live probe 2026-10-18 (jnesselhauf career 72/360 calls, 26 seasons / 14 counted, one chain truncated at the 6-season bound; compare vs Aguilar315; dynasty_main league percentile) recorded in the PR |
+| F | `claude/manager-intel-f` | IMPLEMENTED — PR #1801 (stacked on E) |

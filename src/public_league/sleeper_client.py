@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import os as _os
 import threading
-from typing import Any
+from typing import Any, Callable
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -377,6 +377,19 @@ def fetch_league_classified(league_id: str) -> tuple[str, Any]:
     return kind, payload
 
 
+def fetch_winners_bracket_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, bracket)`` for ``/league/{id}/winners_bracket``.
+
+    A JSON ``null`` / 404 is NOT read as "no playoffs": it proves nothing
+    about who made the bracket, so it stays ``not_found`` and the caller's
+    playoff finish stays unknown (unlike :func:`fetch_winners_bracket`, which
+    collapses every failure to ``[]``)."""
+    return _classified_list(
+        f"{SLEEPER_BASE}/league/{str(league_id).strip()}/winners_bracket",
+        missing_is_empty=False,
+    )
+
+
 def fetch_league(league_id: str) -> dict[str, Any] | None:
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}")
     return data if isinstance(data, dict) else None
@@ -488,7 +501,10 @@ def reset_nfl_players_cache() -> None:
 
 
 def walk_league_chain_status(
-    start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS
+    start_league_id: str,
+    max_seasons: int = PUBLIC_MAX_SEASONS,
+    *,
+    fetch_league_fn: Callable[[str], tuple[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Follow ``previous_league_id`` links to the league's first DYNASTY season.
 
@@ -513,6 +529,14 @@ def walk_league_chain_status(
     NOT include (``None`` when it reached the terminator).  The starting
     league is the current season and is included whatever its type; the
     dynasty gate applies to predecessors.  Network failures never raise.
+
+    ``fetch_league_fn`` (optional) is a CLASSIFIED league fetcher returning
+    ``(kind, league)`` — e.g. a caller's call-budgeted, memoised
+    :func:`fetch_league_classified`.  With it a failed link names its cause:
+    ``start_rate_limited`` / ``predecessor_rate_limited`` for Sleeper's 429,
+    ``start_budget_exhausted`` / ``predecessor_budget_exhausted`` when the
+    caller's budget refused the call (kind ``"budget"``), otherwise the
+    ``*_fetch_failed`` reasons above.  Without it the walk is unchanged.
     """
     chain: list[dict[str, Any]] = []
 
@@ -545,10 +569,19 @@ def walk_league_chain_status(
             )
             return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur)
         seen.add(cur)
-        league = fetch_league(cur)
+        prefix = "predecessor" if chain else "start"
+        if fetch_league_fn is None:
+            league = fetch_league(cur)
+            kind = FETCH_OK if league else FETCH_ERROR
+        else:
+            kind, league = fetch_league_fn(cur)
+            if kind != FETCH_OK or not isinstance(league, dict):
+                league = None
         if not league:
-            reason = "predecessor_fetch_failed" if chain else "start_fetch_failed"
-            return chain, _cov(CHAIN_UNVERIFIED, reason, cur)
+            suffix = {FETCH_RATE_LIMITED: "rate_limited", "budget": "budget_exhausted"}.get(
+                kind, "fetch_failed"
+            )
+            return chain, _cov(CHAIN_UNVERIFIED, f"{prefix}_{suffix}", cur)
         if chain:
             raw_type = (league.get("settings") or {}).get("type")
             try:

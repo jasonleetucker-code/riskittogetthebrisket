@@ -231,3 +231,32 @@ export function externalLine(pkg, fmtPct) {
     "No approved calculator prices every asset and grades it even for them."
   );
 }
+
+// ── Seeding the builder from a link (Manager Intelligence Batch D) ──────
+//
+// The seed link is written and read by the one /arbitrage link owner, which
+// also tells it apart from /trade's tool links (lib/arbitrage-links.js).
+export { BUILDER_SEED_TOOL, builderSeedHref, parseBuilderSeed } from "@/lib/arbitrage-links";
+
+/**
+ * The counterparty team a seed names in the loaded league: the team whose
+ * owner id matches, unless that is the user's own team.  "" when unresolved.
+ */
+export function seedOpponentTeam(seed, teams, myTeam) {
+  const owner = seed?.opponentOwner;
+  if (!owner) return "";
+  const team = (teams || []).find((t) => String(t?.ownerId ?? "") === owner);
+  return team && team.name && team.name !== myTeam ? team.name : "";
+}
+
+/** Why a seed could not be applied (a sentence), or "" when it applied. */
+export function seedProblemText(seed, { teams, myTeam, leagueKey } = {}) {
+  if (!seed || !(teams || []).length) return "";
+  if (!seed.opponentOwner) return "The link's team could not be read, so nothing was pre-filled.";
+  if (seedOpponentTeam(seed, teams, myTeam)) return "";
+  if (seed.leagueKey && leagueKey && seed.leagueKey !== leagueKey)
+    return "That team is in a different league from the one selected. Switch leagues to build packages with it.";
+  const own = (teams || []).find((t) => String(t?.ownerId ?? "") === seed.opponentOwner);
+  if (own && own.name === myTeam) return "That team is your own, so it cannot be the counterparty.";
+  return "That manager has no team in the selected league, so nothing was pre-filled.";
+}

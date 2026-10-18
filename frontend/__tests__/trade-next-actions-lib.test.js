@@ -29,7 +29,7 @@ describe("arbitrage links", () => {
     const href = arbitrageHref("scan", { team: "Jason", opponent: "Joey" });
     expect(href).toBe("/arbitrage?tool=scan&team=Jason&opponent=Joey");
     const q = parseArbitrageQuery(href.split("?")[1], ["Jason", "Joey"]);
-    expect(q).toEqual({ tool: "scan", team: "Jason", opponent: "Joey" });
+    expect(q).toEqual({ tool: "scan", team: "Jason", opponent: "Joey", seed: null });
   });
 
   it("refuses an unknown tool and drops unknown or self opponents", () => {
@@ -41,6 +41,7 @@ describe("arbitrage links", () => {
       tool: null,
       team: null,
       opponent: null,
+      seed: null,
     });
   });
 });
