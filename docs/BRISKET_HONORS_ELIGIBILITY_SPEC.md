@@ -21,6 +21,20 @@
 > record eligibility is .500 OR BETTER", 2026-09-29), where the owner restated it. The unified method itself is a validation track (PR #1513), not a
 > promoted award; `main`'s current Manager of the Year composite has no eligibility gate.
 
+> **OWNER DECISION 12 — 2026-10-18 (binding): unified Manager of the Year REMAINS EXPERIMENTAL.** It is not the
+> official award for 2024, 2025 or 2026. The official method (`awards._manager_of_the_year_scores`, 30% finish / 25%
+> win% / 15% PF / 15% trade / 15% waiver) and its display stay unchanged. The unified method is a **validation-only
+> candidate**: its approved weights (`0.40A + 0.25T + 0.15W + 0.10D + 0.10P`) are unchanged; an unavailable trade
+> component is `UNAVAILABLE` and its weight is not redistributed; no incomplete candidate is published as a definitive
+> 100-point score (component evidence, measured points out of the measurable maximum, and the explicit range of
+> possible totals instead); materially incomplete waiver/draft evidence is `PARTIAL` or `UNAVAILABLE`; rebuilding,
+> sold-for-picks and no-trade seasons are never penalized for missing evidence; only point-in-time values and
+> prior-period / out-of-sample draft expectations are admissible; FAAB transfers stay unpriced; unknown
+> dropped-player production stays unknown. **Earliest potentially eligible official season: 2027**, subject to
+> complete evidence and the normal promotion gates. On `main` the candidate code does not exist (it is on the
+> unmerged PR #1513); the rules are enforced by the `main`-side owner `src/public_league/moty_candidate_policy.py`
+> and pinned by `tests/public_league/test_moty_d12_interim_rules.py`, which any candidate surface must pass.
+
 > **OWNER DECISION — 2026-09-26 (binding; supersedes the 2026-08-14 amendment below).** League MVP
 > **requires meaningful team success**: this document's §3 (live) and §4 (finalized) gate is the canonical rule
 > again — the credited franchise must be in the championship playoff field **and** ~~above .500~~ .500 or better (record half corrected 2026-09-29). Offensive and
