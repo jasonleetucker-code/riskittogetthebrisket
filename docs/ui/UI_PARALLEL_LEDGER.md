@@ -30,6 +30,10 @@ not a passing populated-state scan for each listed route. Historical proof stays
 ## Active program / dispatch
 
 **Current (2026-10-18):** Owner Decision 14 closes the #1428 palette question. The approved light-surface `--chart-1..6` steps are in `frontend/app/tokens.css` (`.psi-editorial` + light scaffold; dark slots unchanged); the /design chart gate is retired on `claude/chart-palette-d14` (stacked on #1809), with contrast + CVD proof in `chart-palette-contrast.test.js` and evidence in `docs/ui/evidence/D14_CHART_PALETTE_2026-10-18/`. Merge, deploy and production proof stay open.
+**Named follow-up — >6-category chart fold design (OWNER/DESIGN DECISION):** D14 approved six slots
+only, so every chart with more than six categories keeps its previous colours unchanged: the
+13-team `/league` trade-flow Sankey, the 8-group Hill scatter on `/rankings`, the `/league` luck and
+ROS-power owner lines and `PlayerRankHistoryChart`. A fold/highlight treatment needs its own approval.
 
 *Previous (2026-10-07):* #1346 and #1399 are CLOSED unmerged (no active writer; #1346 is a
 historical idea donor only, per `docs/EXECUTION_PLAN.md` §0). #1429 MERGED 2026-09-24 (`8cafe9cb6`).

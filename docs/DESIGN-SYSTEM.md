@@ -130,14 +130,22 @@ all-pairs safe (scatter); all six are **not** (blue↔violet collapses for
 deutans in both scopes) — a six-group scatter must label its points.
 
 Rules: assign slots in fixed order, never cycle, never repaint survivors
-when a filter changes series count; a 7th+ series folds to "Other", drawn in
-`--text-tertiary` (`chart-primitives.js::CATEGORICAL_OTHER`). Series colours
+when a filter changes series count. A chart with **at most six** categories
+takes the slots (`categoricalColor(i, { count })`). A chart with **more than
+six** (the 13-team trade flow, the 8-group Hill scatter) keeps its previous
+12-hue palette (`CHART_COLORS.legacyCategorical`) unchanged: Owner Decision 14
+approved six slots only, and folding into a grey "Other"
+(`CATEGORICAL_OTHER`, opt-in via `fold: true`, used by no shipped chart)
+loses information. **Named follow-up: the >6-category fold/highlight
+design** (also the `/league` luck and ROS-power lines and
+`PlayerRankHistoryChart`, which keep their local palettes). Series colours
 mark; they never colour text — text wears `--text-*` (a series wash with
 `--text` ink, or a surface halo, where a label sits on a mark). Status colors
 are never series colors; the movement pair (`--data-up` blue /
 `--data-down` orange) is a separate semantic and is never a series slot.
 `lib/chart-primitives.js`'s `CHART_COLORS.categorical` is the six token
-references, so every chart composed from it resolves the scope it renders in.
+references, so every ≤6-category chart composed from it resolves the scope it
+renders in.
 
 ### Typography
 

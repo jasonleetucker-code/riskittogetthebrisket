@@ -30,8 +30,8 @@ const VIEWBOX_HEIGHT_PER_SIDE = NODE_HEIGHT + NODE_GAP;
 // MAX_SIDES is 5, so sides never fold; every node is labelled. Node text
 // sits on a light wash in --text ink, and link labels carry a surface halo,
 // so no text is ever drawn directly on a series colour.
-function colourFor(idx) {
-  return categoricalColor(idx);
+function colourFor(idx, count) {
+  return categoricalColor(idx, { count });
 }
 
 export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, settings }) {
@@ -126,7 +126,7 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
               <g key={`flow-${srcIdx}-${dstIdx}`}>
                 <path
                   d={linkPath(srcIdx, dstIdx)}
-                  stroke={colourFor(srcIdx)}
+                  stroke={colourFor(srcIdx, sides.length)}
                   strokeWidth={stroke}
                   strokeOpacity={0.9}
                   fill="none"
@@ -167,9 +167,9 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
               width={NODE_WIDTH}
               height={NODE_HEIGHT}
               rx={6}
-              fill={colourFor(i)}
+              fill={colourFor(i, sides.length)}
               fillOpacity={0.14}
-              stroke={colourFor(i)}
+              stroke={colourFor(i, sides.length)}
               strokeWidth={2}
             />
             <text
@@ -191,9 +191,9 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
               width={NODE_WIDTH}
               height={NODE_HEIGHT}
               rx={6}
-              fill={colourFor(i)}
+              fill={colourFor(i, sides.length)}
               fillOpacity={0.14}
-              stroke={colourFor(i)}
+              stroke={colourFor(i, sides.length)}
               strokeWidth={2}
             />
             <text

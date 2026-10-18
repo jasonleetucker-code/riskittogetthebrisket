@@ -169,7 +169,7 @@ export default function DesignGallery() {
           </div>
           <div>
             <p className={styles.demoLabel}>
-              Chart series slots — fixed order, never cycled; a 7th series folds to Other
+              Chart series slots — fixed order, never cycled; for charts of up to six categories
             </p>
             <div className={`${styles.grid} ${styles.cols3}`}>
               {CHARTS.map((i) => (

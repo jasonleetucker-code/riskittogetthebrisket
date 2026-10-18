@@ -26,7 +26,6 @@ import {
   CHART_COLORS,
   chartBox,
   categoricalColor,
-  CATEGORICAL_OTHER,
   linearScale,
   ticks,
   formatNumber,
@@ -99,20 +98,22 @@ function isRenderableCurve(c) {
   );
 }
 
-// Colour per position group, through the --chart-* slots in fixed order
-// (Owner Decision 14).  Eight groups exceed the six validated slots, so DB
-// and PICK fold to the neutral Other ink with OTHER — never a cycled or
-// generated hue; the legend, tooltip and group count carry their identity.
+// Colour palette per position group.  Keys match the ``assetClass`` /
+// coarse position taxonomy the frontend already uses so the Hill
+// chart legend matches the badge colours elsewhere on the board.
+// Eight groups exceed Owner Decision 14's six slots, so this chart keeps the
+// previous palette unchanged until a >6-category fold design is approved.
+const LEGACY = CHART_COLORS.legacyCategorical;
 const GROUP_COLORS = {
-  QB: categoricalColor(0),
-  WR: categoricalColor(1),
-  RB: categoricalColor(2),
-  TE: categoricalColor(3),
-  DL: categoricalColor(4),
-  LB: categoricalColor(5),
-  DB: CATEGORICAL_OTHER,
-  PICK: CATEGORICAL_OTHER,
-  OTHER: CATEGORICAL_OTHER,
+  QB: LEGACY[0],
+  RB: LEGACY[2],
+  WR: LEGACY[1],
+  TE: LEGACY[3],
+  DL: LEGACY[4],
+  LB: LEGACY[5],
+  DB: LEGACY[6],
+  PICK: LEGACY[7],
+  OTHER: CHART_COLORS.axisLabel,
 };
 
 function groupFor(pos) {
@@ -187,7 +188,7 @@ export default function HillCurveExplorer({
       const r = 1 + (xMax - 1) * (k / samplePoints);
       pts.push([x(r), y(hillValue(r, c))]);
     }
-    return { ...c, d: linePath(pts), color: categoricalColor(i) };
+    return { ...c, d: linePath(pts), color: i === 0 ? CHART_COLORS.accent : categoricalColor(i) };
   });
 
   // The rank past which the board stops resolving.  Read off the curves,
@@ -265,9 +266,8 @@ export default function HillCurveExplorer({
         ))}
 
         {/* Scatter first, so the curves sit visually on top of dots.
-            Dot opacity 0.9: at the old 0.55 every slot fell to ~2:1 on the
-            cream plot; 0.9 keeps all six >=3:1 on every surface (pinned in
-            chart-palette-contrast.test.js). */}
+            Dot opacity 0.9 (was 0.55): at 0.55 marks fell to ~2:1 against
+            the plot; 0.9 is the contrast repair, colours are unchanged. */}
         {groupKeys.map((g) => {
           const color = GROUP_COLORS[g] || CHART_COLORS.axisLabel;
           return (

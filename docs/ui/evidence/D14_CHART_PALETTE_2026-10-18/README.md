@@ -12,7 +12,7 @@ serving the committed snapshot. This is **local evidence, not production proof**
 | `design-small-charts-mobile.png` | 375x812 | cream | same, phone layout |
 | `design-chart-slots-desktop.png` | 1440x900 | cream | the six `--chart-*` swatches in order |
 | `design-chart-slots-mobile.png` | 375x812 | cream | same, phone layout |
-| `league-trade-flow-dark-desktop.png` | 1440x900 | dark terminal | `/league?tab=activity` trade-flow Sankey on the dark slots; 13 teams, so teams 7-13 fold to the neutral Other ink and are named by their node labels |
+| `league-trade-flow-dark-desktop.png` | 1440x900 | dark terminal | `/league?tab=activity` trade-flow Sankey: 13 teams, so per the >6-category rule it keeps its previous 12-hue colours unchanged (no grey fold) |
 | `league-trade-flow-dark-mobile.png` | 375x812 | dark terminal | same, phone layout |
 
 The dark-route PNGs are palette-reduced to 128 colours to keep them small.
@@ -30,7 +30,9 @@ Passing on desktop-1366: `/design`, `/rankings`, `/trade`, `/rosters`, `/league`
 `/players/[playerId]`. Passing on mobile-chromium: `/rankings`, `/trade`, `/rosters` and
 `/league`. `tests/e2e/specs/psi-gallery.spec.js` also passes on both projects. In total,
 14 tests passed. After the Meter fix, `/design`, `/league` and the gallery spec were run
-again: 7 tests passed.
+again: 7 tests passed. After the >6-category change (charts with more than six categories keep
+their previous colours), `/design`, `/rankings`, `/league` and the gallery spec
+were run on both projects: 9 tests passed.
 
 axe does not certify SVG chart contrast. The computed proof is
 `frontend/__tests__/components/ds/chart-palette-contrast.test.js`.
