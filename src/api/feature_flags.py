@@ -630,6 +630,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # fetch.
     "fantasynerds_weekly_projections": False,
     "sportsdataio_weekly_projections": False,
+    # Owner Decision 11 (2026-10-18) — playoff / title odds count a team's ROS
+    # evidence ONCE.  ``src/ros/playoff_sim._compose_team_distribution``: on a
+    # best-ball pre-sim basis (itself drawn from each player's rosValue) the
+    # incumbent re-applies the ROS z-score mean multiplier and the
+    # roster-depth variance lift, both summaries of the same rosValues.  ON
+    # serves the corrected equation; OFF serves the incumbent byte for byte.
+    # Start/sit leagues (empirical basis) are identical either way.  The
+    # default follows the preregistered comparison in
+    # docs/research/PLAYOFF_ROS_DOUBLE_COUNT_D11.md.  Rollback:
+    # RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE=0 + restart.
+    "playoff_ros_counted_once": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -887,6 +898,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # False, and they also need their credential env var.
     "fantasynerds_weekly_projections": UNREACHABLE,
     "sportsdataio_weekly_projections": UNREACHABLE,
+    # ``src/ros/playoff_sim.ros_counted_once_enabled`` — read by
+    # ``_build_team_distributions`` on every canonical forecast, reached
+    # through ``/api/public/league/rosPlayoffOdds`` / ``playoffOdds`` /
+    # ``rosChampionship``: on, the corrected ROS-once equation; off, the
+    # incumbent (Owner Decision 11).
+    "playoff_ros_counted_once": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

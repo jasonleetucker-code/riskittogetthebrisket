@@ -20,10 +20,15 @@ point-in-time capture via ``src.ros.forecast_archive`` / AL-P6 sidecars,
 Wilson intervals, the league's exact lineup solve) is recorded in
 ``tests/ros/test_one_playoff_engine.py``.
 
-Methodology is UNCHANGED by that consolidation, including the open owner
-decision every surface now inherits: D2 (the ``× (1 + ROS_BLEND·z)`` mean
-multiplier on top of a ROS-drawn best-ball pre-sim) —
-``docs/OWNER_REQUESTED_TODO.md``.
+Methodology was UNCHANGED by that consolidation, including D2 (the
+``× (1 + ROS_BLEND·z)`` mean multiplier on top of a ROS-drawn best-ball
+pre-sim, ``docs/OWNER_REQUESTED_TODO.md``).  Owner Decision 11 (2026-10-18)
+rules double-counted ROS evidence unacceptable and lets the evidence gate
+decide whether the corrected equation replaces the incumbent.  Both equations
+live in :func:`_compose_team_distribution`; the flag
+``playoff_ros_counted_once`` selects between them and
+``docs/research/PLAYOFF_ROS_DOUBLE_COUNT_D11.md`` records the equations, the
+preregistered comparison and the disposition.
 
 D3 (TODO-2026-09-26-D3) is CLOSED as an exact-league-rule fact, not a
 methodology change: when the league counts a weekly median game
@@ -111,10 +116,29 @@ DRAFT_ORDER_RECORD_BASIS = "head_to_head_with_half_win_ties"
 # small so empirical history still dominates; tunable via settings.
 ROS_BLEND = 0.20
 
+#: How a team's ROS evidence enters its weekly score distribution
+#: (Owner Decision 11, 2026-10-18).  Stamped on every payload as
+#: ``rosEvidenceMethod`` and in the forecast archive's model identity, so two
+#: forecasts made under different equations are never compared as one model.
+#:
+#: * ``ROS_EVIDENCE_INCUMBENT`` — the published equation since LI-8: the
+#:   ROS z-score multiplier and the depth variance lift are applied to EVERY
+#:   basis, including the best-ball pre-sim, which is itself drawn from the
+#:   same per-player ``rosValue`` the z-score and the depth ratio summarise.
+#:   On a ``"presim"`` basis the same ROS evidence therefore enters the mean
+#:   twice and the spread twice.
+#: * ``ROS_EVIDENCE_ONCE`` — the corrected equation: on a ``"presim"`` basis
+#:   the pre-sim IS the ROS evidence, so neither the multiplier nor the depth
+#:   lift is applied again.  On an ``"empirical"`` / ``"pool"`` basis (past
+#:   scores, not ROS) both still apply exactly as before — that is ROS
+#:   evidence entering once.
+ROS_EVIDENCE_INCUMBENT = "incumbent_presim_plus_ros_multiplier"
+ROS_EVIDENCE_ONCE = "ros_counted_once"
+
 # Best-ball weekly variance bump — the optimal-lineup picks add
 # spike-week upside that empirical scoring distributions under-sample.
 # Used as the *base* multiplier; per-team depth lift is added on top
-# (see ``_team_variance_multiplier``).
+# (see ``_compose_team_distribution``).
 BEST_BALL_VARIANCE_BUMP = 1.10
 
 # Maximum additional variance lift per team, on top of the base bump,
@@ -231,7 +255,11 @@ def _load_team_depth_ratios(league_key: str | None = None) -> dict[str, float]:
     """
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    rows = load_or_compute_team_strength(league_key)
+    return _depth_ratios_from_rows(load_or_compute_team_strength(league_key))
+
+
+def _depth_ratios_from_rows(rows: list[dict[str, Any]] | None) -> dict[str, float]:
+    """``_load_team_depth_ratios`` over team-strength rows already in hand."""
     out: dict[str, float] = {}
     for r in rows or []:
         oid = str(r.get("ownerId") or "")
@@ -245,23 +273,83 @@ def _load_team_depth_ratios(league_key: str | None = None) -> dict[str, float]:
     return out
 
 
-def _team_variance_multiplier(
-    owner_id: str,
-    depth_ratios: dict[str, float],
-    best_ball: bool,
-) -> float:
-    """Per-team weekly variance multiplier.
+def ros_counted_once_enabled() -> bool:
+    """Whether the corrected equation (``ROS_EVIDENCE_ONCE``) is served.
 
-    For best-ball leagues, depth materially increases week-to-week
-    ceiling — a richer bench produces more spike weeks via the
-    optimal-lineup picker.  For start/sit leagues, depth doesn't
-    feed weekly scoring, so the bump stays at 1.0 (no lift).
+    Read through the one flag registry (``playoff_ros_counted_once``) so the
+    switch is visible in ``/api/status`` and reverts with
+    ``RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE`` + restart.
     """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("playoff_ros_counted_once")
+
+
+def ros_evidence_method(ros_counted_once: bool | None = None) -> str:
+    """The ``rosEvidenceMethod`` stamp for the served (or a named) equation."""
+    once = ros_counted_once_enabled() if ros_counted_once is None else ros_counted_once
+    return ROS_EVIDENCE_ONCE if once else ROS_EVIDENCE_INCUMBENT
+
+
+def presim_ros_blend(ros_counted_once: bool | None = None) -> float:
+    """The ROS multiplier applied on top of a PRE-SIM mean.
+
+    ``ROS_BLEND`` under the incumbent equation, ``0.0`` under the corrected
+    one.  Consumers that convert pre-sim deltas into ``_TeamDist.mean`` units
+    (``src.league_intel.twin``) read this instead of ``ROS_BLEND`` so they
+    follow whichever equation the simulator serves.
+    """
+    once = ros_counted_once_enabled() if ros_counted_once is None else ros_counted_once
+    return 0.0 if once else ROS_BLEND
+
+
+def _compose_team_distribution(
+    *,
+    basis: str,
+    basis_mean: float,
+    basis_sd: float,
+    pool_sd: float,
+    ros_z: float | None,
+    depth_ratio: float,
+    best_ball: bool,
+    ros_counted_once: bool,
+) -> tuple[float, float]:
+    """One team's weekly ``(mean, sd)`` — THE equation, both forms.
+
+    ``basis`` is where ``basis_mean`` / ``basis_sd`` came from: ``"presim"``
+    (drawn from this team's per-player ``rosValue``), ``"empirical"`` (its own
+    scored weeks) or ``"pool"`` (the league's scored weeks).
+
+    Incumbent (``ros_counted_once=False``), every basis::
+
+        mean = basis_mean × (1 + ROS_BLEND × ros_z)
+        sd   = basis_sd × (BEST_BALL_VARIANCE_BUMP + DEPTH_VARIANCE_LIFT_MAX × depth_ratio)
+
+    Corrected (``ros_counted_once=True``) on a ``"presim"`` basis::
+
+        mean = basis_mean
+        sd   = basis_sd × BEST_BALL_VARIANCE_BUMP
+
+    and identical to the incumbent on an ``"empirical"`` / ``"pool"`` basis.
+    ``ros_z`` and ``depth_ratio`` are both functions of the same ``rosValue``
+    numbers the pre-sim draws from (``team_strength.compute_team_strength``),
+    which is why applying them to a pre-sim counts that evidence twice.
+    Start/sit leagues (``best_ball=False``) take no variance multiplier.
+    """
+    roster_derived = basis == "presim"
+    reapply = not (ros_counted_once and roster_derived)
+    if ros_z is not None and reapply:
+        mean = basis_mean * (1 + ROS_BLEND * ros_z)
+    else:
+        mean = basis_mean
     if not best_ball:
-        return 1.0
-    base = BEST_BALL_VARIANCE_BUMP
-    ratio = depth_ratios.get(owner_id, 0.0)
-    return base + DEPTH_VARIANCE_LIFT_MAX * ratio
+        mult = 1.0
+    elif reapply:
+        mult = BEST_BALL_VARIANCE_BUMP + DEPTH_VARIANCE_LIFT_MAX * depth_ratio
+    else:
+        mult = BEST_BALL_VARIANCE_BUMP
+    sd = basis_sd * mult if basis_sd > 0 else pool_sd * mult
+    return max(0.0, mean), max(1.0, sd)
 
 
 @dataclass
@@ -320,7 +408,11 @@ def _load_team_rosters(league_key: str | None = None) -> dict[str, dict[str, Any
     """
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    rows = load_or_compute_team_strength(league_key)
+    return _rosters_from_rows(load_or_compute_team_strength(league_key))
+
+
+def _rosters_from_rows(rows: list[dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
+    """``_load_team_rosters`` over team-strength rows already in hand."""
     out: dict[str, dict[str, Any]] = {}
     for r in rows or []:
         oid = str(r.get("ownerId") or "")
@@ -522,7 +614,11 @@ def _bestball_presim(
 def _load_ros_strength_map(league_key: str | None = None) -> dict[str, float]:
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    rows = load_or_compute_team_strength(league_key)
+    return _ros_strength_from_rows(load_or_compute_team_strength(league_key))
+
+
+def _ros_strength_from_rows(rows: list[dict[str, Any]] | None) -> dict[str, float]:
+    """``_load_ros_strength_map`` over team-strength rows already in hand."""
     return {
         str(r.get("ownerId") or ""): float(r.get("teamRosStrength") or 0.0)
         for r in rows or []
@@ -636,16 +732,6 @@ def _build_team_distributions(
         return {}, {}
     current_season = seasons_sorted[-1]
     per_owner, pool = playoff_odds._season_weekly_scores(current_season, snapshot.managers)
-    pool_mean, pool_sd = _empirical_distribution(pool)
-
-    # ROS strength scores are 0-100ish; convert to a per-owner z-score
-    # so the blend term is centered.  When the snapshot is empty, fall
-    # through with all-zero z (no ROS influence).
-    ros_values = list(ros_strength_map.values())
-    ros_mean = statistics.fmean(ros_values) if ros_values else 0.0
-    ros_sd = statistics.pstdev(ros_values) if len(ros_values) > 1 else 1.0
-    if ros_sd <= 0:
-        ros_sd = 1.0
 
     depth_ratios = _load_team_depth_ratios(league_key)
 
@@ -688,6 +774,43 @@ def _build_team_distributions(
                 (points_model or DEFAULT_POINTS_MODEL).source,
             )
 
+    return _team_distributions_from_inputs(
+        per_owner,
+        pool,
+        ros_strength_map,
+        depth_ratios=depth_ratios,
+        bestball_dists=bestball_dists,
+        best_ball=best_ball,
+        ros_counted_once=ros_counted_once_enabled(),
+    )
+
+
+def _team_distributions_from_inputs(
+    per_owner: dict[str, list[float]],
+    pool: list[float],
+    ros_strength_map: dict[str, float],
+    *,
+    depth_ratios: dict[str, float],
+    bestball_dists: dict[str, tuple[float, float]],
+    best_ball: bool,
+    ros_counted_once: bool,
+) -> tuple[dict[str, _TeamDist], dict[str, float]]:
+    """Per-team distributions from inputs already in hand (no I/O).
+
+    The pure half of :func:`_build_team_distributions`, split out so the
+    preregistered D11 comparison (``scripts/evaluate_playoff_ros_once.py``)
+    runs the production equations on point-in-time inputs instead of a copy.
+    """
+    pool_mean, pool_sd = _empirical_distribution(pool)
+    # ROS strength scores are 0-100ish; convert to a per-owner z-score
+    # so the blend term is centered.  When the snapshot is empty, fall
+    # through with all-zero z (no ROS influence).
+    ros_values = list(ros_strength_map.values())
+    ros_mean = statistics.fmean(ros_values) if ros_values else 0.0
+    ros_sd = statistics.pstdev(ros_values) if len(ros_values) > 1 else 1.0
+    if ros_sd <= 0:
+        ros_sd = 1.0
+
     distributions: dict[str, _TeamDist] = {}
     pf_by_owner: dict[str, float] = {}
     for owner_id, scores in per_owner.items():
@@ -705,19 +828,22 @@ def _build_team_distributions(
             if bb_mean > 0:
                 emp_mean, emp_sd = bb_mean, bb_sd
                 basis = "presim"
-        # Blend ROS strength as a multiplicative shift on the mean.
         ros_score = ros_strength_map.get(owner_id)
-        if ros_score is not None and ros_sd > 0:
-            ros_z = (ros_score - ros_mean) / ros_sd
-            blended_mean = emp_mean * (1 + ROS_BLEND * ros_z)
-        else:
-            blended_mean = emp_mean
-        variance_mult = _team_variance_multiplier(owner_id, depth_ratios, best_ball)
-        sd = emp_sd * variance_mult if emp_sd > 0 else pool_sd * variance_mult
+        ros_z = (ros_score - ros_mean) / ros_sd if ros_score is not None else None
+        mean, sd = _compose_team_distribution(
+            basis=basis,
+            basis_mean=emp_mean,
+            basis_sd=emp_sd,
+            pool_sd=pool_sd,
+            ros_z=ros_z,
+            depth_ratio=depth_ratios.get(owner_id, 0.0),
+            best_ball=best_ball,
+            ros_counted_once=ros_counted_once,
+        )
         distributions[owner_id] = _TeamDist(
             owner_id=owner_id,
-            mean=max(0.0, blended_mean),
-            sd=max(1.0, sd),
+            mean=mean,
+            sd=sd,
             pf_to_date=sum(scores),
             basis=basis,
         )
@@ -1684,6 +1810,8 @@ def simulate_playoff_odds(
         "standingsRule": standings_rule,
         "rosStrengthAvailable": ros_strength_available(ros_map),
         "rosBlend": ROS_BLEND,
+        # Owner Decision 11: which equation built the team distributions.
+        "rosEvidenceMethod": ros_evidence_method(),
         "bestBallVarianceBump": BEST_BALL_VARIANCE_BUMP,
         "bestBallVarianceMode": "depth_aware" if best_ball else "off",
         "pointsModelSource": model.source,
