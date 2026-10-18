@@ -126,8 +126,19 @@ def test_clean_store_passes(stores):
     assert set(_statuses(auth.check_session_census(census)).values()) == {"pass"}
 
 
-@pytest.mark.parametrize("expires,pass_id", [(None, None), (None, 7), (time.time() + 60, None)])
-def test_legacy_guest_row_without_pass_identity_fails(stores, expires, pass_id):
+@pytest.mark.parametrize(
+    "expires_in,pass_id",
+    [
+        pytest.param(None, None, id="no-expiry-no-pass"),
+        pytest.param(None, 7, id="no-expiry-pass-7"),
+        # Expiry is computed in the body: a collection-time ``time.time()``
+        # put the wall clock into the test id, so pytest-xdist workers
+        # collected different ids and aborted the parallel run.
+        pytest.param(60, None, id="expires-in-60s-no-pass"),
+    ],
+)
+def test_legacy_guest_row_without_pass_identity_fails(stores, expires_in, pass_id):
+    expires = None if expires_in is None else time.time() + expires_in
     sess, _ = stores
     _insert_session(sess, "s-legacy", auth_method="guest_pass", expires=expires, pass_id=pass_id)
     census = _census(stores)

@@ -16,7 +16,10 @@ installed by ``tests/conftest.py``.  This module proves it three ways:
 
 Planting touches the real directories, so every original file is moved aside
 with ``os.replace`` (which keeps its mtime) and moved back in ``finally``; the
-conftest guard then sees exactly the fingerprint it started with.
+conftest guard then sees exactly the fingerprint it started with.  Planting
+holds ``isolation.real_paths_lock`` for its whole duration — the real paths
+are shared by every pytest-xdist worker on the checkout, and every worker's
+guard takes the same lock, so none can fingerprint the poison mid-plant.
 """
 
 from __future__ import annotations
@@ -89,6 +92,12 @@ def _poison_files() -> dict[Path, bytes]:
 
 @contextlib.contextmanager
 def _planted_at_real_paths(files: dict[Path, bytes]):
+    with isolation.real_paths_lock(), _planted_unlocked(files):
+        yield
+
+
+@contextlib.contextmanager
+def _planted_unlocked(files: dict[Path, bytes]):
     backups: dict[Path, Path] = {}
     try:
         for path, payload in files.items():
@@ -121,6 +130,9 @@ def test_affected_tests_pass_with_runtime_files_present():
                 "no:cacheprovider",
             ],
             cwd=isolation.REPO_ROOT,
+            # This process holds the real-paths lock while the inner suite
+            # runs; its guards must not wait for it.
+            env={**os.environ, isolation.LOCK_HELD_ENV: "1"},
             capture_output=True,
             text=True,
             timeout=300,
@@ -200,3 +212,54 @@ def test_the_guard_detects_added_modified_and_removed_files():
         f"added    {base / 'new.json'}",
     ]
     assert isolation.describe_changes(after, after) == []
+
+
+def test_the_guard_watches_the_tracked_scraper_artifacts():
+    """``data/scrape_state/`` and ``data/sleeper_last_good.json`` are tracked
+    production state; a unit test writing either must fail the guard."""
+    data = isolation.REPO_ROOT / "data"
+    assert data / "scrape_state" in isolation.GUARDED_PATHS
+    assert data / "sleeper_last_good.json" in isolation.GUARDED_PATHS
+
+
+def test_the_guard_fingerprints_a_file_entry_directly():
+    with tempfile.TemporaryDirectory() as tmp:
+        artifact = Path(tmp) / "sleeper_last_good.json"
+        artifact.write_text("{}")
+        before = isolation.fingerprint([artifact])
+        assert set(before) == {str(artifact)}
+        os.utime(artifact, ns=(1, 1))
+        after = isolation.fingerprint([artifact])
+    assert isolation.describe_changes(before, after) == [f"modified {artifact}"]
+
+
+def test_the_real_paths_lock_excludes_another_process():
+    """Planting and every guard check serialise on it, across processes."""
+    probe = (
+        "from tests import runtime_data_isolation as i\n"
+        "try:\n"
+        "    with i.real_paths_lock(timeout=0.5):\n"
+        "        print('acquired')\n"
+        "except TimeoutError:\n"
+        "    print('excluded')\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k != isolation.LOCK_HELD_ENV}
+    with isolation.real_paths_lock():
+        held = subprocess.run(  # noqa: S603 — fixed argv, this interpreter
+            [sys.executable, "-c", probe],
+            cwd=isolation.REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    free = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", probe],
+        cwd=isolation.REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert held.stdout.strip() == "excluded", held.stdout + held.stderr
+    assert free.stdout.strip() == "acquired", free.stdout + free.stderr
