@@ -1109,6 +1109,14 @@ explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
     - add a per-draw team shock.
   - **Validation before any promotion:** run the change as a challenger, scored by weekly log-loss / PIT on
     finalized weeks. Champion ≠ challenger.
+  - **Update 2026-10-18 (Owner Decision 11).** Double-counted evidence is not acceptable; removal is approved as
+    policy, gated on evidence. The double count is proven at `playoff_sim.py` lines 706 / 711-712 / 715 (mean
+    multiplier AND depth variance lift re-applied to a pre-sim drawn from the same rosValues). The corrected
+    equation is behind `playoff_ros_counted_once` (default OFF). The preregistered comparison
+    (`docs/research/PLAYOFF_ROS_D11_PREREGISTRATION.md`, weeks 1-5 2026) improved weekly log loss 1.133 -> 0.661
+    but FAILED gate G4 (score PIT mean 0.95 vs 0.83), so the incumbent stays published. The "fit the points model"
+    / "per-draw team shock" parts of the proposal are the pre-sim calibration work G4 points at, not done here.
+    Record: `docs/research/PLAYOFF_ROS_DOUBLE_COUNT_D11.md`.
 - **D3 — median games ignored.**
   - `dynasty_main` sets `league_average_match = 1`, so each week counts as two games: head-to-head plus the
     league median.
