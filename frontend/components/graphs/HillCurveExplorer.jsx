@@ -26,6 +26,7 @@ import {
   CHART_COLORS,
   chartBox,
   categoricalColor,
+  CATEGORICAL_OTHER,
   linearScale,
   ticks,
   formatNumber,
@@ -98,19 +99,20 @@ function isRenderableCurve(c) {
   );
 }
 
-// Colour palette per position group.  Keys match the ``assetClass`` /
-// coarse position taxonomy the frontend already uses so the Hill
-// chart legend matches the badge colours elsewhere on the board.
+// Colour per position group, through the --chart-* slots in fixed order
+// (Owner Decision 14).  Eight groups exceed the six validated slots, so DB
+// and PICK fold to the neutral Other ink with OTHER — never a cycled or
+// generated hue; the legend, tooltip and group count carry their identity.
 const GROUP_COLORS = {
-  QB: CHART_COLORS.categorical[0],
-  RB: CHART_COLORS.categorical[2],
-  WR: CHART_COLORS.categorical[1],
-  TE: CHART_COLORS.categorical[3],
-  DL: CHART_COLORS.categorical[4],
-  LB: CHART_COLORS.categorical[5],
-  DB: CHART_COLORS.categorical[6],
-  PICK: CHART_COLORS.categorical[7],
-  OTHER: CHART_COLORS.axisLabel,
+  QB: categoricalColor(0),
+  WR: categoricalColor(1),
+  RB: categoricalColor(2),
+  TE: categoricalColor(3),
+  DL: categoricalColor(4),
+  LB: categoricalColor(5),
+  DB: CATEGORICAL_OTHER,
+  PICK: CATEGORICAL_OTHER,
+  OTHER: CATEGORICAL_OTHER,
 };
 
 function groupFor(pos) {
@@ -185,7 +187,7 @@ export default function HillCurveExplorer({
       const r = 1 + (xMax - 1) * (k / samplePoints);
       pts.push([x(r), y(hillValue(r, c))]);
     }
-    return { ...c, d: linePath(pts), color: i === 0 ? CHART_COLORS.accent : categoricalColor(i) };
+    return { ...c, d: linePath(pts), color: categoricalColor(i) };
   });
 
   // The rank past which the board stops resolving.  Read off the curves,
@@ -262,7 +264,10 @@ export default function HillCurveExplorer({
           </g>
         ))}
 
-        {/* Scatter first, so the curves sit visually on top of dots. */}
+        {/* Scatter first, so the curves sit visually on top of dots.
+            Dot opacity 0.9: at the old 0.55 every slot fell to ~2:1 on the
+            cream plot; 0.9 keeps all six >=3:1 on every surface (pinned in
+            chart-palette-contrast.test.js). */}
         {groupKeys.map((g) => {
           const color = GROUP_COLORS[g] || CHART_COLORS.axisLabel;
           return (
@@ -274,7 +279,7 @@ export default function HillCurveExplorer({
                   cy={s.y}
                   r={2.25}
                   fill={color}
-                  fillOpacity={0.55}
+                  fillOpacity={0.9}
                   style={onPointClick ? { cursor: "pointer" } : undefined}
                   onClick={onPointClick ? () => onPointClick(s.raw) : undefined}
                 >

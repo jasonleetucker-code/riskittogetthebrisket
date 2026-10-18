@@ -1173,6 +1173,7 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   min-width: 0;
 }
 .ds-meter__track {
+  display: block;
   flex: 1;
   height: 6px;
   border-radius: var(--radius-full);
@@ -1180,6 +1181,9 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   overflow: hidden;
 }
 .ds-meter__fill {
+  /* A <span>: without display:block the width/height are ignored and the
+     fill never paints (found when the /design Meter previews were ungated). */
+  display: block;
   height: 100%;
   border-radius: var(--radius-full);
   background: var(--chart-1);

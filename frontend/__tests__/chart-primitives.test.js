@@ -6,6 +6,7 @@ import {
   ticks,
   formatNumber,
   categoricalColor,
+  CATEGORICAL_OTHER,
   chartBox,
   linePath,
   histogram,
@@ -81,15 +82,21 @@ describe("formatNumber", () => {
 });
 
 describe("categoricalColor", () => {
-  it("returns a palette color for each index", () => {
-    const c0 = categoricalColor(0);
-    expect(CHART_COLORS.categorical).toContain(c0);
+  it("maps slots 0-5 onto the --chart-1..6 tokens in fixed order", () => {
+    expect(CHART_COLORS.categorical).toEqual([1, 2, 3, 4, 5, 6].map((i) => `var(--chart-${i})`));
+    for (let i = 0; i < 6; i++) expect(categoricalColor(i)).toBe(`var(--chart-${i + 1})`);
   });
 
-  it("wraps around for out-of-range indices", () => {
-    const n = CHART_COLORS.categorical.length;
-    expect(categoricalColor(0)).toBe(categoricalColor(n));
-    expect(categoricalColor(-1)).toBe(categoricalColor(n - 1));
+  it("folds a 7th+ series to the neutral Other ink instead of cycling", () => {
+    expect(categoricalColor(6)).toBe(CATEGORICAL_OTHER);
+    expect(categoricalColor(11)).toBe(CATEGORICAL_OTHER);
+    expect(categoricalColor(-1)).toBe(CATEGORICAL_OTHER);
+    expect(categoricalColor(1.5)).toBe(CATEGORICAL_OTHER);
+    expect(CHART_COLORS.categorical).not.toContain(CATEGORICAL_OTHER);
+  });
+
+  it("carries no hex literal — values live once, in app/tokens.css", () => {
+    for (const c of CHART_COLORS.categorical) expect(c).not.toMatch(/#[0-9a-f]{3,6}/i);
   });
 });
 

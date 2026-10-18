@@ -33,13 +33,16 @@ export const CHART_COLORS = {
   success: "#22c55e",     // green-500 — high confidence
   positive: "#10b981",    // emerald-500
   negative: "#ef4444",    // red-500
-  // Categorical palette for multi-series charts (power rank, trade flow,
-  // franchise trajectory, etc.).  10 perceptually-distinct hues cycling
-  // through by index — sufficient for typical 10-12 team leagues.
+  // Categorical palette — the design system's --chart-1..6 slots, in their
+  // validated fixed order (Owner Decision 14 / #1428).  These are CSS
+  // custom-property REFERENCES, not hex literals, so each chart resolves
+  // the steps of the theme scope it renders in: the dark terminal slots on
+  // dark routes, the light-surface steps inside .psi-editorial / light.
+  // The values live once, in app/tokens.css.  Never cycled: a 7th series
+  // folds to CATEGORICAL_OTHER (see categoricalColor).
   categorical: [
-    "#38bdf8", "#f472b6", "#a3e635", "#fb923c", "#c084fc",
-    "#14b8a6", "#fbbf24", "#f87171", "#60a5fa", "#4ade80",
-    "#e879f9", "#fb7185",
+    "var(--chart-1)", "var(--chart-2)", "var(--chart-3)",
+    "var(--chart-4)", "var(--chart-5)", "var(--chart-6)",
   ],
   // Confidence-bucket palette — must match display-helpers.js::confBadgeClass.
   confidence: {
@@ -100,10 +103,24 @@ export function formatNumber(value, precision = 0) {
   return frac ? `${withSep}.${frac}` : withSep;
 }
 
-/** Pick a categorical color by index, wrapping around the palette. */
+/**
+ * Neutral ink for series past the sixth slot ("Other").  A semantic text
+ * token, so it clears 4.5:1 on every surface of every theme scope; folded
+ * series must carry their identity in a label, legend or tooltip.
+ */
+export const CATEGORICAL_OTHER = "var(--text-tertiary)";
+
+/**
+ * Pick a categorical color by slot index (0-based, fixed order).  Indices
+ * 0-5 map to --chart-1..6; anything else folds to CATEGORICAL_OTHER rather
+ * than cycling, because a cycled palette gives two different entities the
+ * same colour (docs/DESIGN-SYSTEM.md, rule 14).
+ */
 export function categoricalColor(index) {
   const n = CHART_COLORS.categorical.length;
-  return CHART_COLORS.categorical[((index % n) + n) % n];
+  return Number.isInteger(index) && index >= 0 && index < n
+    ? CHART_COLORS.categorical[index]
+    : CATEGORICAL_OTHER;
 }
 
 /**

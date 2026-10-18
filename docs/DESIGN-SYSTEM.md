@@ -91,15 +91,53 @@ component, you are doing it wrong.
 
 ### Color method (charts)
 
-The categorical order `gold #c98500 → blue #3987e5 → magenta #d55181 →
-violet #9085e9 → aqua #199e70 → orange #d95926` was **validated with the
-dataviz palette validator** on `--surface-1` (dark): lightness band PASS,
-chroma PASS, worst adjacent CVD ΔE 9.4 (≥8 target), normal-vision ΔE 19.7
-(≥15), contrast ≥3:1 for all six. First three slots also validate all-pairs
-(scatter-safe). Rules: assign slots in fixed order, never cycle, never
-repaint survivors when a filter changes series count; >6 series folds to
-"Other". Status colors are never series colors. `lib/chart-primitives.js`'s
-`CHART_COLORS` re-derives from these slots in R1.
+The categorical order is one hue family in six fixed slots —
+amber → blue → magenta → violet → aqua → orange — with **one step per theme
+scope**, all owned by `frontend/app/tokens.css` (never a component palette):
+
+| Slot | Dark terminal (`:root`) | Light-surface (`.psi-editorial`, `[data-theme="light"]`) |
+|---|---|---|
+| `--chart-1` | `#c98500` | `#986400` |
+| `--chart-2` | `#3987e5` | `#2264af` |
+| `--chart-3` | `#d55181` | `#ac386a` |
+| `--chart-4` | `#9085e9` | `#6752b6` |
+| `--chart-5` | `#199e70` | `#087650` |
+| `--chart-6` | `#d95926` | `#aa3c17` |
+
+The light-surface steps are **Owner Decision 14 (2026-10-18)**, which closed
+#1428: the inherited dark steps measured 2.3-3.1:1 on the cream editorial
+surfaces, below the 3:1 mark floor. Each light step sits within 3° OKLCH hue
+of its dark counterpart, so a series keeps its identity across scopes. The
+dark steps stay on dark surfaces (the light steps would fall to 2.5:1 there).
+
+Measured by `frontend/__tests__/components/ds/chart-palette-contrast.test.js`
+(WCAG ratios; Machado 2009 severity-1.0 CVD simulation, OKLab ΔE×100 — the
+dataviz validator's model):
+
+| Scope | Worst slot contrast per surface (0 / 1 / 2 / 3) | Meter on track | At 0.9 opacity |
+|---|---|---|---|
+| dark | 4.93 / 4.63 / 4.33 / 3.99 | ≥3.20 | ≥3.47 |
+| cream (`.psi-editorial`) | 4.26 / 4.68 / **3.82** (`#e9dfca`) / 5.05 | ≥3.34 | ≥3.29 |
+| light scaffold | 4.63 / 4.94 / 4.33 / 5.05 | ≥3.73 | — |
+
+On `#e9dfca` the six light steps measure 3.82 / 4.52 / 4.50 / 4.59 / 4.27 /
+4.71 :1. CVD, adjacent pairs: normal-vision worst ΔE 17.3 (cream) / 19.7
+(dark), floor 15; cream protan worst 10.4, deutan 7.8 (aqua↔orange), tritan
+7.8 (violet↔aqua); dark worst 9.4. The two 7.8 pairs sit in the 6-8 floor
+band, which is legal only with secondary encoding, so every multi-series
+chart carries a legend, direct label or tooltip. The first three slots are
+all-pairs safe (scatter); all six are **not** (blue↔violet collapses for
+deutans in both scopes) — a six-group scatter must label its points.
+
+Rules: assign slots in fixed order, never cycle, never repaint survivors
+when a filter changes series count; a 7th+ series folds to "Other", drawn in
+`--text-tertiary` (`chart-primitives.js::CATEGORICAL_OTHER`). Series colours
+mark; they never colour text — text wears `--text-*` (a series wash with
+`--text` ink, or a surface halo, where a label sits on a mark). Status colors
+are never series colors; the movement pair (`--data-up` blue /
+`--data-down` orange) is a separate semantic and is never a series slot.
+`lib/chart-primitives.js`'s `CHART_COLORS.categorical` is the six token
+references, so every chart composed from it resolves the scope it renders in.
 
 ### Typography
 
@@ -132,7 +170,7 @@ headline · 2xl = page title · 3xl = hero stat.
 The retained unmigrated theme defaults to dark; `.psi-editorial` is the approved migration scope. `:root[data-theme="light"]` re-maps semantic aliases only
 (scaffolded now, validated for contrast, not user-exposed yet). Because
 components are semantic-only, light mode costs zero component changes at
-enablement; remaining work then is light steps for `--chart-*` and a toggle.
+enablement; the `--chart-*` light steps are in place (Owner Decision 14), so the remaining work is the toggle.
 
 ---
 
@@ -211,7 +249,7 @@ vitest suite + `next build` + budgets green.
 
 | Phase | Scope | How it maps onto the primitives |
 |---|---|---|
-| **R1 — workhorses + data spine** | `/rankings`, `/trending`, `/edge`, `/finder`, `/trades`, `/rosters`, `/waivers` | Every hand-rolled `<table>` → `DataTable` (the rankings `SortHeader` dies; `aria-sort` arrives everywhere). Page shells → `PageHeader` + `Panel`. Deltas → `Movement`. Spinners → `Skeleton*`. Also in R1: re-derive `CHART_COLORS` from `--chart-*`, re-point `display-helpers` class names at tokens, rewrite off-brand `app/error.jsx` on tokens, and fix the duplicate-contract fetch (in-flight promise dedupe in `lib/dynasty-data.js`) so the new skeletons aren't papering over a double download. |
+| **R1 — workhorses + data spine** | `/rankings`, `/trending`, `/edge`, `/finder`, `/trades`, `/rosters`, `/waivers` | Every hand-rolled `<table>` → `DataTable` (the rankings `SortHeader` dies; `aria-sort` arrives everywhere). Page shells → `PageHeader` + `Panel`. Deltas → `Movement`. Spinners → `Skeleton*`. Also in R1: re-derive the remaining (non-categorical) `CHART_COLORS` entries from tokens — the categorical six already reference `--chart-*` (Owner Decision 14) — re-point `display-helpers` class names at tokens, rewrite off-brand `app/error.jsx` on tokens, and fix the duplicate-contract fetch (in-flight promise dedupe in `lib/dynasty-data.js`) so the new skeletons aren't papering over a double download. |
 | **R2 — terminal + overlays** | `/` terminal, `PlayerPopup`, `GlobalSearch` | Terminal panels → `Panel dense` + `StatTile` + `Sparkline`; `PlayerPopup` → `Drawer`; `GlobalSearch` → `Modal` + proper listbox semantics. Skip link + focus-ring pass across the shell. |
 | **R3 — mega-pages** | `/trade` (3,044 L), `/draft` (4,999 L), `/settings` | Decompose against `Panel`/`Tabs`/`DataTable`/`Field`; kill the 178+158 inline styles; sticky tray & slider-in-scroll conflicts resolved with tokens' z-scale and dedicated controls. |
 | **R4 — public league hub** | `/league` + 24 sections, league-comparison | 21-tab `SubNav` → grouped `Tabs`; the four copy-pasted ROS sections → ONE parameterized `DataTable` section; `shared-server.jsx` Card/Stat → `Panel`/`StatTile`; `next/dynamic` per tab (the 168 KB chunk dies). |
