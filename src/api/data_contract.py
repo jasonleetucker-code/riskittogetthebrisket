@@ -12789,7 +12789,16 @@ def _compute_unified_rankings(
                         tuple(k for k, _v, _a in family_kept),
                     )
                 )
-        elif not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:
+        elif (
+            not row_is_pick
+            and len(present_families) <= 1
+            and not _sparse_limited_evidence
+            # A row nothing voted on (every observation withheld) leaves this
+            # loop unpriced just below; a haircut of a value that does not
+            # exist would stamp ``singleSourceValuePenaltyApplied`` on a row
+            # with no value at all.
+            and (all_values or anchor_value is not None or subgroup_center is not None)
+        ):
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0
