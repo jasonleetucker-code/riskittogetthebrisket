@@ -60,9 +60,12 @@ __all__ = [
     "STATUS_NOT_READY",
     "ClassEntry",
     "RookieClassSnapshot",
+    "SnapshotRecordError",
     "build_class_candidate",
     "class_identity",
     "frozen_fallback_snapshot",
+    "load_class_snapshot",
+    "row_identity",
 ]
 
 SCHEMA = "draft_valuation_rookie_class_snapshot_v1"
@@ -74,6 +77,11 @@ STATUS_NOT_READY = "NOT_READY"
 IDENTITY_ELIGIBLE = "class_eligible_for_curve"
 IDENTITY_OTHER_CLASS = "other_class"
 IDENTITY_UNSUPPORTED = "unsupported_class_identity"
+
+
+class SnapshotRecordError(ValueError):
+    """A stored snapshot record does not reproduce its own ``snapshotSha256``."""
+
 
 _IDP_POSITIONS = frozenset({"DL", "LB", "DB", "DE", "DT", "EDGE", "ILB", "OLB", "CB", "S"})
 
@@ -217,6 +225,19 @@ def _is_idp(row: Mapping[str, Any]) -> bool:
     return str(row.get("position") or "").upper() in _IDP_POSITIONS
 
 
+def row_identity(row: Mapping[str, Any]) -> str | None:
+    """The identity a class entry carries for ``row``: ``playerId``, else ``name:<lower>``.
+
+    One definition, shared by :func:`build_class_candidate` and every gate
+    that joins an entry back to its contract row (``promotion``).
+    """
+    player_id = str(row.get("playerId") or "").strip() or None
+    if player_id is not None:
+        return player_id
+    name = str(row.get("canonicalName") or row.get("displayName") or "").strip() or None
+    return f"name:{name.lower()}" if name else None
+
+
 def build_class_candidate(
     contract: Mapping[str, Any] | None,
     *,
@@ -288,7 +309,7 @@ def build_class_candidate(
         if player_id is None and basis != "explicit":
             exclude("class_unprovable:no_identity")
             continue
-        canonical_id = player_id or (f"name:{name.lower()}" if name else None)
+        canonical_id = row_identity(row)
         if canonical_id is None:
             exclude("no_identity")
             continue
@@ -403,3 +424,63 @@ def frozen_fallback_snapshot(
             "playerIdentities": "unavailable — pricing template only",
         },
     )
+
+
+def _decimal(text: Any, what: str) -> Decimal:
+    if not isinstance(text, str):
+        raise SnapshotRecordError(f"{what} must be a decimal string, got {text!r}")
+    try:
+        return Decimal(text)
+    except ArithmeticError as exc:
+        raise SnapshotRecordError(f"{what} unreadable: {text!r}") from exc
+
+
+def load_class_snapshot(payload: Mapping[str, Any]) -> RookieClassSnapshot:
+    """Inverse of :meth:`RookieClassSnapshot.to_dict`, verified.
+
+    The rebuilt snapshot must reproduce the stored ``snapshotSha256`` exactly,
+    so an edited record (a value, an entry, a provenance field) is refused
+    rather than read.
+    """
+    if not isinstance(payload, Mapping) or payload.get("schema") != SCHEMA:
+        raise SnapshotRecordError("not a rookie class snapshot")
+    try:
+        entries = tuple(
+            ClassEntry(
+                rank=int(e["rank"]),
+                canonical_player_id=e.get("canonicalPlayerId"),
+                name=e.get("name"),
+                position=e.get("position"),
+                asset_class=e.get("assetClass"),
+                eligible_draft_year=e.get("eligibleDraftYear"),
+                class_basis=str(e["classBasis"]),
+                value=_decimal(e.get("value"), f"entry {e.get('rank')} value"),
+                rosterable_on_sleeper=bool(e["rosterableOnSleeper"]),
+                pick=e.get("pick"),
+            )
+            for e in payload["entries"]
+        )
+        snap = RookieClassSnapshot(
+            target_draft_year=int(payload["targetDraftYear"]),
+            actual_input_class_year=payload.get("actualInputClassYear"),
+            mode=str(payload["mode"]),
+            status=str(payload["status"]),
+            league_key=payload.get("leagueKey"),
+            scoring_fingerprint=payload.get("scoringFingerprint"),
+            idp_eligible=payload.get("idpEligible"),
+            ranking_generation_hash=payload.get("rankingGenerationHash"),
+            as_of=payload.get("asOf"),
+            pick_count=int(payload["pickCount"]),
+            entries=entries,
+            exclusions=dict(payload.get("exclusions") or {}),
+            missing_reasons=tuple(payload.get("missingReasons") or ()),
+            provenance=dict(payload.get("provenance") or {}),
+            model_version=str(payload["modelVersion"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        if isinstance(exc, SnapshotRecordError):
+            raise
+        raise SnapshotRecordError(f"snapshot record malformed: {exc}") from exc
+    if snap.snapshot_sha256 != payload.get("snapshotSha256"):
+        raise SnapshotRecordError("snapshotSha256 mismatch — record was edited")
+    return snap

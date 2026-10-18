@@ -698,6 +698,31 @@ export function leagueScoutHref(leagueId) {
   return LEAGUE_ID_RE.test(id) ? `/managers/league/${id}` : null;
 }
 
+/**
+ * The league scouting page opened on one manager's trade tools (Batch D):
+ * that manager's row expanded, its assets ready to seed the trade tools.
+ * Keyed by the permanent Sleeper user id, never a display name.
+ */
+const SLEEPER_USER_ID_RE = /^\d{1,24}$/;
+
+export function leagueTradeToolsHref(leagueId, userId) {
+  const base = leagueScoutHref(leagueId);
+  const user = String(userId || "");
+  if (!base || !SLEEPER_USER_ID_RE.test(user)) return null;
+  return `${base}?manager=${encodeURIComponent(user)}`;
+}
+
+/** The manager id a scouting URL asks to open (``?manager=``), or "". */
+export function readFocusManager(search) {
+  if (typeof search !== "string" || !search) return "";
+  try {
+    const id = new URLSearchParams(search).get("manager") || "";
+    return SLEEPER_USER_ID_RE.test(id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Manager Intelligence lookup for a current owner (by permanent user id). */
 export function managerLookupHref(userId) {
   const id = String(userId || "");
