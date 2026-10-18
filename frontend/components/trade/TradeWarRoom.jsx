@@ -259,7 +259,9 @@ function DecisionHeadline({ decision, teamLabel, goalChoice, onGoalChange, showS
       {showStrategy ? (
         <div className={styles.note} data-testid="decision-strategy">
           <p className={styles.answerNote}>
-            <span className={styles.answerLabel}>Strategy</span> {strategySummary(strategy)}
+            <span className={styles.answerLabel}>Strategy</span>{" "}
+            {strategy?.label ? `${strategy.label}. ` : ""}
+            {strategySummary(strategy)}
             {posture.available ? ` · posture ${posture.label}` : ""}
           </p>
           <SegmentedControl

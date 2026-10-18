@@ -115,6 +115,281 @@
     "level": "MEDIUM",
     "statement": "Medium confidence \u2014 limited by coverage: asset-only: roster and fit not considered; assetEvidence: a traded asset has low or no confidence stamp"
    },
+   "coverage": [
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": "favors",
+      "magnitude": "large",
+      "unit": "canonical value"
+     },
+     "dimension": "asset_value",
+     "evidence": {
+      "band": {
+       "absoluteGap": 1440.0,
+       "bands": "fairness_bands_v1",
+       "label": "LOPSIDED",
+       "level": "lopsided",
+       "relativePct": 19.35,
+       "status": "PROVISIONAL"
+      },
+      "rawGap": 1000,
+      "receivingAdjusted": 7440.0,
+      "sendingAdjusted": 6000.0,
+      "vaAdjustedGap": 1440
+     },
+     "evidenceKind": "independent",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "canonical_value",
+     "owner": "src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+     "role": "decides",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "confidence_bucket",
+      "value": 0
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "rosterBenefit",
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "immediate_improvement",
+     "evidence": null,
+     "evidenceKind": "independent",
+     "exclusionReason": "asset_only_mode",
+     "freshness": "unknown",
+     "lineage": "league_scored_projection",
+     "owner": "src/roster_intel/best_ball_utility.py",
+     "role": "decides",
+     "state": "excluded_by_mode",
+     "uncertainty": {
+      "kind": "monte_carlo_se",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "no roster-level long-term quantity is wired; counted once, via asset value",
+      "state": "approximate"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "long_term",
+     "evidence": {
+      "via": "canonical dynasty value (long-horizon) inside asset_value"
+     },
+     "evidenceKind": "correlated",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "canonical_value",
+     "owner": "src/trade/analyze_trade.py",
+     "role": "explain_only",
+     "state": "partial",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": "context",
+      "magnitude": null,
+      "unit": "release cost charged once to asset value"
+     },
+     "dimension": "roster_construction",
+     "evidence": null,
+     "evidenceKind": "contextual",
+     "exclusionReason": "asset_only_mode",
+     "freshness": "unknown",
+     "lineage": "league_roster_rules",
+     "owner": "src/trade/roster_capacity.py",
+     "role": "gate",
+     "state": "excluded_by_mode",
+     "uncertainty": {
+      "kind": "none",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "market_evidence",
+     "evidence": null,
+     "evidenceKind": "correlated",
+     "exclusionReason": "not_computed",
+     "freshness": "unknown",
+     "lineage": "real_trade_ledger",
+     "owner": "src/trade/comparable_trades.py",
+     "role": "explain_only",
+     "state": "unavailable",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "competitive_strategy",
+     "evidence": null,
+     "evidenceKind": "contextual",
+     "exclusionReason": "asset_only_mode",
+     "freshness": "unknown",
+     "lineage": "team_strategy_context",
+     "owner": "src/roster_intel/window.py::competitive_posture",
+     "role": "tiebreak",
+     "state": "excluded_by_mode",
+     "uncertainty": {
+      "kind": "range",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "risk",
+     "evidence": {
+      "lowConfidenceAssets": 0,
+      "sourceDisagreementAssets": 0,
+      "unstampedAssets": 3
+     },
+     "evidenceKind": "explanatory",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": null,
+     "owner": "src/api/confidence.py (stamps) via the evidence lens",
+     "role": "confidence_only",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "counterparty acceptance is not evaluated",
+      "state": "approximate"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "feasibility",
+     "evidence": {
+      "counterpartyAcceptance": "not_evaluated",
+      "notOwnedBySender": 0,
+      "pickOwnership": "observed"
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "ownership_records",
+     "owner": "src/identity/picks.py + src/api/trade_simulator.py",
+     "role": "gate",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "opportunity_cost",
+     "evidence": null,
+     "evidenceKind": "independent",
+     "exclusionReason": "not_wired",
+     "freshness": "unknown",
+     "lineage": null,
+     "owner": "(none: best-alternative comparison is not wired)",
+     "role": "explain_only",
+     "state": "unavailable",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+      "state": "approximate"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "league_constraints",
+     "evidence": null,
+     "evidenceKind": "contextual",
+     "exclusionReason": "asset_only_mode",
+     "freshness": "unknown",
+     "lineage": "league_roster_rules",
+     "owner": "src/trade/roster_capacity.py",
+     "role": "gate",
+     "state": "excluded_by_mode",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    }
+   ],
    "deciding": "objectiveValue",
    "executes": false,
    "headline": "YES",
@@ -168,8 +443,39 @@
      "text": "+1,440 package value for you after Value Adjustment \u2014 19.4% of the larger package, LOPSIDED band"
     }
    ],
+   "receipt": {
+    "analyzeConfig": {
+     "depthNotableLossPpg": 0.5,
+     "largeMultiple": 3.0,
+     "materialityPpg": 1.0
+    },
+    "bands": "fairness_bands_v1",
+    "boardStamp": null,
+    "decisionVersion": "trade_decision_v2",
+    "packageModel": {
+     "classification": "ACTIVE",
+     "family": "geom",
+     "id": "geom_q078_v1",
+     "label": "Geometric Value Adjustment (q = 0.78)",
+     "version": "1"
+    },
+    "postureParamsVersion": null,
+    "projectionBasis": null,
+    "requestHash": "4f1fa768ece25cd0c9987c58b815cd12fc5477965febf67bd1a4ece6374620ec",
+    "scoringFingerprint": null,
+    "strategy": {
+     "inferredClassification": null,
+     "inferredStrategy": null,
+     "reasoning": "Asset-only analysis: no strategy is used.",
+     "requested": null,
+     "source": "asset_only",
+     "used": null
+    }
+   },
    "recommendationOnly": true,
    "strategy": {
+    "inferredClassification": null,
+    "inferredStrategy": null,
     "label": null,
     "options": [
      {
@@ -189,15 +495,28 @@
      "HOLD": "BALANCED",
      "PUSH": "WIN_NOW",
      "REBUILD": "LONG_TERM",
-     "RETOOL": "LONG_TERM"
+     "RETOOL": "BALANCED"
     },
+    "reasoning": "Asset-only analysis: no strategy is used.",
     "requested": null,
     "requestedValid": null,
     "source": "asset_only",
     "used": null
    },
    "subtext": null,
-   "version": "trade_decision_v1"
+   "version": "trade_decision_v2",
+   "whatWouldChange": [
+    {
+     "evidence": {
+      "assetValue": 1900,
+      "searchStep": 25,
+      "side": "send"
+     },
+     "flipsTo": "NO_TOO_CLOSE",
+     "kind": "price",
+     "text": "If you also had to send an asset worth about 1,900, the answer would be NO \u2014 TOO CLOSE"
+    }
+   ]
   },
   "dimensions": [
    {

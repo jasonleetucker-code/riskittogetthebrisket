@@ -91,4 +91,6 @@ def test_the_owner_is_pure():
             imported |= {a.name for a in n.names}
         elif isinstance(n, ast.ImportFrom):
             imported.add(n.module or "")
-    assert imported <= {"__future__", "typing", "src.valuation_math"}
+    # Pure stdlib (hashing / serialising its own receipt) + the valuation-math
+    # owners.  No I/O, engine, store or network module.
+    assert imported <= {"__future__", "typing", "hashlib", "json", "src.valuation_math"}

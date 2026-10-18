@@ -46,9 +46,14 @@ const STRATEGY_SOURCE_WORDS = {
   asset_only: "not used in Asset-only analysis",
 };
 
-/** "Win now (from your competitive posture)" — words for the backend's strategy block. */
+/**
+ * The backend's own strategy sentence (inferred classification, strategy used
+ * and why), rendered verbatim; the source words are only a fallback for a
+ * packet that carries no reasoning.
+ */
 export function strategySummary(strategy) {
   if (!strategy) return null;
+  if (strategy.reasoning) return strategy.reasoning;
   const why = STRATEGY_SOURCE_WORDS[strategy.source] || strategy.source || "";
   return strategy.label ? `${strategy.label} (${why})` : why;
 }
@@ -300,7 +305,9 @@ const UNAVAILABLE_WORDS = {
 const POSTURE_WORDS = {
   PUSH: "Push — prioritise this season's title equity",
   HOLD: "Hold — keep options open; the read is close",
-  RETOOL: "Retool — tilt toward younger / future value, keep the core",
+  // Owner decision 2026-10-18: RETOOL is its own classification (strategy
+  // BALANCED), never a rebuilder.
+  RETOOL: "Retool — balance current production with younger value around the core",
   REBUILD: "Rebuild — prioritise future value and draft capital",
 };
 const POSTURE_ORDER = ["PUSH", "HOLD", "RETOOL", "REBUILD"];

@@ -17248,7 +17248,20 @@ async def post_trade_analyze(request: Request):
     except Exception:  # noqa: BLE001 -- the simulation already parsed it
         _body = {}
     _team_goal = _body.get("teamGoal") if isinstance(_body, dict) else None
-    result["analysis"] = analyze_trade(result, comparables=comparables, team_goal=_team_goal)
+    _meta = (
+        (latest_contract_data or {}).get("meta") if isinstance(latest_contract_data, dict) else None
+    )
+    result["analysis"] = analyze_trade(
+        result,
+        comparables=comparables,
+        team_goal=_team_goal,
+        provenance={
+            "boardStamp": (_meta or {}).get("generatedAt") if isinstance(_meta, dict) else None,
+            "scoringFingerprint": (_meta or {}).get("scoringFingerprint")
+            if isinstance(_meta, dict)
+            else None,
+        },
+    )
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},

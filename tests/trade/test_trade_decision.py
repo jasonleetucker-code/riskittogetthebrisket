@@ -194,7 +194,7 @@ def test_strategy_mapping_is_the_owner_decision():
     assert POSTURE_TO_GOAL == {
         "PUSH": "WIN_NOW",
         "HOLD": "BALANCED",
-        "RETOOL": "LONG_TERM",
+        "RETOOL": "BALANCED",
         "REBUILD": "LONG_TERM",
     }
 
@@ -297,3 +297,141 @@ def test_the_decision_never_executes_and_carries_its_receipts():
     for r in d["reasons"]:
         assert r["text"] and isinstance(r["evidence"], dict)
     assert d["primaryReason"] in d["reasons"]
+
+
+# ── What would change it / coverage / receipt (TC-C remaining items) ───────
+
+
+def _flip(d, kind):
+    return next((w for w in d["whatWouldChange"] if w["kind"] == kind), None)
+
+
+def test_price_flip_is_found_by_rerunning_and_actually_flips():
+    sim = _sim([5000], [5050], ppg=0.2)  # NO — TOO CLOSE
+    d = _decision(sim)
+    w = _flip(d, "price")
+    assert w and w["flipsTo"] == "YES" and w["evidence"]["side"] == "receive"
+    v = w["evidence"]["assetValue"]
+    # Re-run the whole analysis with that asset added: it flips; one step less does not.
+    bigger = _sim([5000, v], [5050], ppg=0.2)
+    smaller = _sim([5000, v - 25], [5050], ppg=0.2)
+    assert _decision(bigger)["headline"] == "YES"
+    assert _decision(smaller)["headline"] == "NO_TOO_CLOSE"
+
+
+def test_a_yes_names_what_you_would_have_to_add_to_lose_it():
+    d = _decision(_sim([7000], [5000], ppg=1.5))
+    w = _flip(d, "price")
+    assert d["headline"] == "YES" and w["evidence"]["side"] == "send" and w["flipsTo"] != "YES"
+
+
+def test_strategy_flip_listed_only_when_it_changes_the_answer():
+    d = _decision(_sim([6000], [5000], ppg=-3.0), team_goal="WIN_NOW")
+    flips = {
+        w["evidence"]["strategy"]: w["flipsTo"]
+        for w in d["whatWouldChange"]
+        if w["kind"] == "strategy"
+    }
+    assert flips == {"LONG_TERM": "YES"}
+    agree = _decision(_sim([6000], [5000], ppg=3.0))
+    assert not [w for w in agree["whatWouldChange"] if w["kind"] == "strategy"]
+
+
+def test_not_enough_evidence_lists_what_to_resolve():
+    d = _decision(_sim([6000, 0], [5000], ppg=1.5))
+    assert [w["kind"] for w in d["whatWouldChange"]] == ["evidence"]
+    assert d["whatWouldChange"][0]["flipsTo"] is None
+
+
+def test_coverage_has_all_ten_dimensions_and_never_claims_the_absent():
+    d = _decision(_sim([6000], [5000], ppg=1.5))
+    cov = {c["dimension"]: c for c in d["coverage"]}
+    assert len(d["coverage"]) == 10
+    assert cov["asset_value"]["state"] == "evaluated" and cov["asset_value"]["evidence"]
+    assert cov["opportunity_cost"]["state"] == "unavailable"
+    assert cov["opportunity_cost"]["evidence"] is None
+    assert cov["long_term"]["state"] == "partial"
+    for c in d["coverage"]:
+        if c["state"] in ("unavailable", "not_applicable", "excluded_by_mode"):
+            assert c["evidence"] is None
+    off = {c["dimension"]: c for c in _decision(_sim([6000], [5000], team=False))["coverage"]}
+    assert off["immediate_improvement"]["state"] == "excluded_by_mode"
+    assert off["immediate_improvement"]["exclusionReason"] == "asset_only_mode"
+
+
+def test_only_independent_deciding_dimensions_decide():
+    d = _decision(_sim([6000], [5000], ppg=1.5))
+    for c in d["coverage"]:
+        if c["role"] == "decides":
+            assert c["evidenceKind"] == "independent"
+
+
+def test_receipt_is_reproducible_and_sensitive():
+    sim = _sim([6000], [5000], ppg=1.5)
+    r1 = analyze_trade(copy.deepcopy(sim), provenance={"boardStamp": "2026-10-17T00:00:00Z"})
+    r2 = analyze_trade(copy.deepcopy(sim), provenance={"boardStamp": "2026-10-17T00:00:00Z"})
+    rec = r1["decision"]["receipt"]
+    assert rec == r2["decision"]["receipt"]
+    assert rec["boardStamp"] == "2026-10-17T00:00:00Z"
+    assert rec["analyzeConfig"]["materialityPpg"] == 1.0
+    assert rec["bands"] == "fairness_bands_v1"
+    assert rec["packageModel"]["id"] == "geom_q078_v1"
+    other = analyze_trade(_sim([6100], [5000], ppg=1.5))["decision"]["receipt"]
+    goal = analyze_trade(copy.deepcopy(sim), team_goal="LONG_TERM")["decision"]["receipt"]
+    assert len({rec["requestHash"], other["requestHash"], goal["requestHash"]}) == 3
+
+
+# ── Owner decision (final, 2026-10-18): RETOOL → BALANCED ───────────────────
+
+
+@pytest.mark.parametrize(
+    "label,goal",
+    [("PUSH", "WIN_NOW"), ("RETOOL", "BALANCED"), ("REBUILD", "LONG_TERM"), ("HOLD", "BALANCED")],
+)
+def test_all_four_classifications_map_and_show_in_decision_and_receipt(label, goal):
+    d = _decision(_sim([6000], [5000], ppg=1.5, posture=label))
+    st = d["strategy"]
+    assert (st["inferredClassification"], st["inferredStrategy"], st["used"]) == (label, goal, goal)
+    assert st["reasoning"]
+    rec = d["receipt"]["strategy"]
+    assert (rec["inferredClassification"], rec["used"], rec["source"]) == (label, goal, "posture")
+    assert rec["reasoning"] == st["reasoning"]
+    strategy_reason = next(r for r in d["reasons"] if r["component"] == "strategy")
+    assert strategy_reason["evidence"]["inferredClassification"] == label
+
+
+@pytest.mark.parametrize("label", ["PUSH", "RETOOL", "REBUILD", "HOLD"])
+@pytest.mark.parametrize("override", ["WIN_NOW", "BALANCED", "LONG_TERM"])
+def test_override_works_from_every_classification(label, override):
+    d = _decision(_sim([6000], [5000], ppg=1.5, posture=label), team_goal=override)
+    assert d["strategy"]["used"] == override and d["strategy"]["source"] == "user"
+    assert d["strategy"]["requested"] == override
+    assert d["strategy"]["inferredClassification"] == label
+    assert d["receipt"]["strategy"]["requested"] == override
+
+
+def test_retool_is_never_reported_as_rebuilder():
+    d = _decision(_sim([6000], [5000], ppg=1.5, posture="RETOOL"))
+    # Every user-facing sentence, and every field naming the classification.
+    words = [d["strategy"]["reasoning"], d["receipt"]["strategy"]["reasoning"]]
+    words += [r["text"] for r in d["reasons"]] + [w["text"] for w in d["whatWouldChange"]]
+    assert not any("rebuild" in w.lower() for w in words)
+    assert "retool" in d["strategy"]["reasoning"].lower()
+    assert d["strategy"]["inferredClassification"] == "RETOOL"
+    assert d["receipt"]["strategy"]["inferredClassification"] == "RETOOL"
+    assert d["posture"]["label"] == "RETOOL"
+    assert d["strategy"]["used"] == "BALANCED"
+
+
+def test_balanced_does_not_trade_meaningful_current_production_for_value():
+    # RETOOL -> BALANCED: a large lineup gain (+4 ppg) for a modest value loss
+    # (-400 on ~8,400, slight band) is a YES; LONG_TERM would say NO.
+    sim = _sim([8000], [8400], ppg=4.0, posture="RETOOL")
+    d = _decision(sim)
+    assert d["strategy"]["used"] == "BALANCED"
+    assert d["components"]["objectiveValue"]["magnitude"] == "modest"
+    assert d["headline"] == "YES"
+    assert _decision(sim, team_goal="LONG_TERM")["headline"] == "NO"
+    # ...and symmetric: a large value gain for a modest lineup loss is a YES too.
+    sym = _sim([9000], [7000], ppg=-1.5, posture="RETOOL")
+    assert _decision(sym)["headline"] == "YES"

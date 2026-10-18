@@ -906,6 +906,7 @@ def analyze_trade(
     comparables: dict[str, Any] | None = None,
     *,
     team_goal: Any = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
@@ -955,6 +956,10 @@ def analyze_trade(
         team_goal=team_goal,
         uncertainty=uncertainty,
         leaning_result=(recommendation, confidence, basis),
+        comparables=comps,
+        # What only the caller knows (board stamp, scoring fingerprint), plus
+        # the roster-lens priors this packet ran under -- for the receipt.
+        provenance={**(provenance or {}), "analyzeConfig": dict(cfg)},
     )
 
     return AnalyzeTradeResult(

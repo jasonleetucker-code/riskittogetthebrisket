@@ -16,8 +16,10 @@ The decision is computed in four steps, never by a weighted sum:
 1. **Strategy** (owner decision 2).  The user's explicit ``teamGoal`` wins and
    is echoed back.  Otherwise it is inferred from the canonical Competitive
    Posture (``src.roster_intel.window.competitive_posture``): PUSH (contender)
-   → WIN_NOW; RETOOL / REBUILD (rebuilder) → LONG_TERM; HOLD (uncertain) →
-   BALANCED.  A posture that is not available at all is UNKNOWN, not BALANCED.
+   → WIN_NOW; RETOOL → BALANCED; REBUILD (rebuilder) → LONG_TERM; HOLD
+   (uncertain) → BALANCED (owner decisions, 2026-10-18).  RETOOL stays its own
+   classification -- it is never reported as a rebuilder.  A posture that is
+   not available at all is UNKNOWN, not BALANCED.
 2. **Execution gate.**  No legal roster cleanup exists → NO.
 3. **Evidence gates** (owner decision 1).  NOT ENOUGH EVIDENCE when material
    information is missing: an unpriced / off-board / quarantined / stale
@@ -39,11 +41,13 @@ nothing and executes nothing: a recommendation is never an action.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
-from src.valuation_math import fairness_bands
+from src.valuation_math import fairness_bands, package_model
 
-DECISION_VERSION = "trade_decision_v1"
+DECISION_VERSION = "trade_decision_v2"
 
 #: The four top-line answers and their user-facing text.  This dict is the
 #: only place these strings exist in the backend.
@@ -57,14 +61,24 @@ NOT_ENOUGH_EVIDENCE_SUBTEXT = "A reliable recommendation cannot be made yet."
 
 GOALS = ("WIN_NOW", "BALANCED", "LONG_TERM")
 GOAL_LABELS = {"WIN_NOW": "Win now", "BALANCED": "Balanced", "LONG_TERM": "Long-term value"}
-#: Owner decision 2: contender → win now, rebuilder → long-term, uncertain →
-#: balanced.  RETOOL is a struggling roster building around its core, so it is
-#: a rebuilder here (the mapping proposed in the decision-engine audit §7.2 C).
+#: Owner decisions (2026-10-18, final): contender (PUSH) → win now; RETOOL →
+#: BALANCED; rebuilder (REBUILD) → long-term; uncertain (HOLD) → balanced.
+#: RETOOL keeps its own classification and is never relabelled a rebuilder: a
+#: retooling roster weighs current competitiveness AND long-term value, so it
+#: must not automatically prefer future value over meaningful current
+#: production.  (This supersedes the audit §7.2 C proposal RETOOL → REBUILD.)
 POSTURE_TO_GOAL = {
     "PUSH": "WIN_NOW",
     "HOLD": "BALANCED",
-    "RETOOL": "LONG_TERM",
+    "RETOOL": "BALANCED",
     "REBUILD": "LONG_TERM",
+}
+#: How each classification is named to the user (RETOOL is never "rebuilder").
+POSTURE_WORDS = {
+    "PUSH": "contender (PUSH)",
+    "HOLD": "uncertain (HOLD)",
+    "RETOOL": "retooling (RETOOL)",
+    "REBUILD": "rebuilder (REBUILD)",
 }
 
 #: The five-level graded detail (the v2 ``recommendation``), kept as ``leaning``.
@@ -161,22 +175,54 @@ def resolve_strategy(posture: Any, team_goal: Any, team_context: bool) -> dict[s
         "options": [{"value": g, "label": GOAL_LABELS[g]} for g in GOALS],
         "postureMap": dict(POSTURE_TO_GOAL),
     }
+    label = (posture.detail or {}).get("label") if posture.available else None
+    out["inferredClassification"] = label
+    inferred = POSTURE_TO_GOAL.get(label) if label else None
+    out["inferredStrategy"] = inferred
     if not team_context:
-        return {**out, "used": None, "label": None, "source": "asset_only"}
+        return {
+            **out,
+            "used": None,
+            "label": None,
+            "source": "asset_only",
+            "reasoning": "Asset-only analysis: no strategy is used.",
+        }
     if chosen is not None:
-        return {**out, "used": chosen, "label": GOAL_LABELS[chosen], "source": "user"}
-    if not posture.available:
-        return {**out, "used": None, "label": None, "source": "posture_unknown"}
-    label = (posture.detail or {}).get("label")
-    goal = POSTURE_TO_GOAL.get(label)
-    if goal is None:
-        return {**out, "used": None, "label": None, "source": "posture_unknown"}
-    measured = (posture.detail or {}).get("evidence") == "measured"
+        why = f"You chose {GOAL_LABELS[chosen].lower()}"
+        if label:
+            would = GOAL_LABELS[inferred].lower() if inferred else "no strategy"
+            why += f"; your competitive posture is {POSTURE_WORDS.get(label, label)}, which would infer {would}"
+        return {
+            **out,
+            "used": chosen,
+            "label": GOAL_LABELS[chosen],
+            "source": "user",
+            "reasoning": why + ".",
+        }
+    if inferred is None:
+        return {
+            **out,
+            "used": None,
+            "label": None,
+            "source": "posture_unknown",
+            "reasoning": "Your competitive posture is unknown, so no strategy can be inferred.",
+        }
+    if (posture.detail or {}).get("evidence") != "measured":
+        return {
+            **out,
+            "used": inferred,
+            "label": GOAL_LABELS[inferred],
+            "source": "posture_no_evidence",
+            "reasoning": "Your competitive posture has no measured evidence (HOLD), so the "
+            "strategy is balanced.",
+        }
     return {
         **out,
-        "used": goal,
-        "label": GOAL_LABELS[goal],
-        "source": "posture" if measured else "posture_no_evidence",
+        "used": inferred,
+        "label": GOAL_LABELS[inferred],
+        "source": "posture",
+        "reasoning": f"Your competitive posture is {POSTURE_WORDS.get(label, label)}, so the "
+        f"strategy is {GOAL_LABELS[inferred].lower()}.",
     }
 
 
@@ -453,12 +499,19 @@ def _rule(a: dict[str, Any], b: dict[str, Any], goal: str | None) -> tuple[str, 
     if da == "neutral" and db == "opposes":
         return "NO", "rosterBenefit"
     if da == "favors" and db == "opposes":
+        # Value up, lineup down.
         if goal == "LONG_TERM":
             return "YES", "strategy"
         return ("YES", "strategy") if (a_large and not b_large) else ("NO", "strategy")
-    # da == "opposes" and db == "favors"
-    if goal == "WIN_NOW" and b_large and not a_large:
-        return "YES", "strategy"
+    # da == "opposes" and db == "favors": value down, lineup up.
+    if goal == "WIN_NOW":
+        # A contender takes a large lineup gain over package value.
+        return ("YES", "strategy") if b_large else ("NO", "strategy")
+    if goal == "BALANCED":
+        # Weighs both, symmetric with the case above (owner decision RETOOL ->
+        # BALANCED: meaningful current production is not automatically traded
+        # away for future value, nor the reverse).
+        return ("YES", "strategy") if (b_large and not a_large) else ("NO", "strategy")
     return "NO", "strategy"
 
 
@@ -556,21 +609,17 @@ def _reasons(
         )
     if strategy.get("used"):
         src = strategy["source"]
-        why = {
-            "user": "you chose it",
-            "posture": f"inferred from competitive posture {posture.get('label')}",
-            "posture_no_evidence": "posture has no measured evidence, so balanced",
-        }.get(src, src)
         out.append(
             {
                 "component": "strategy",
                 "stance": "context",
                 "kind": "contextual",
-                "text": f"Strategy: {strategy['label']} ({why})",
+                "text": f"Strategy: {strategy['label']}. {strategy.get('reasoning') or ''}".strip(),
                 "evidence": {
                     "used": strategy["used"],
                     "source": src,
-                    "postureLabel": posture.get("label"),
+                    "inferredClassification": strategy.get("inferredClassification"),
+                    "inferredStrategy": strategy.get("inferredStrategy"),
                     "postureProbabilities": posture.get("probabilities"),
                 },
             }
@@ -669,6 +718,500 @@ def _confidence(
     }
 
 
+# ── What would change it (computed here, never in the frontend) ───────────
+
+#: Search grid for the smallest hypothetical asset that flips the answer:
+#: canonical values 25..9,975 in steps of 25.  The rule table is monotone in
+#: incoming value (pinned by test), so the first flip on the grid is the
+#: smallest one to within one step.
+_FLIP_STEP = 25
+_FLIP_MAX = 9975
+
+
+def _priced_values(assets: list[dict[str, Any]]) -> list[float]:
+    out = []
+    for a in assets or []:
+        v = a.get("value")
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+            out.append(float(v))
+    return out
+
+
+def _a_from_values(send: list[float], recv: list[float], release: float | None) -> dict[str, Any]:
+    """Component A recomputed for a hypothetical package -- the SAME owners as
+    the market lens (the active package model, then the fairness bands)."""
+    send_adj, recv_adj, _, _ = package_model.adjusted_pair_totals(send, recv)
+    gap = recv_adj - send_adj
+    # ``None`` = no cut is charged (not an unknown cost: an unpriced cut is an
+    # evidence gate upstream and never reaches this search).
+    net = gap - release if release is not None else gap
+    band = fairness_bands.classify(net, max(send_adj, recv_adj))
+    if band["level"] == "fair":
+        return {"evaluated": True, "direction": "neutral", "magnitude": None, "band": band}
+    return {
+        "evaluated": True,
+        "direction": "favors" if net > 0 else "opposes",
+        "magnitude": "modest" if band["level"] == "slight" else "large",
+        "band": band,
+    }
+
+
+def _what_would_change(
+    simulation: dict[str, Any],
+    headline: str,
+    a: dict[str, Any],
+    b: dict[str, Any],
+    goal: str | None,
+    strategy: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """The smallest changes that flip the answer, each found by RE-RUNNING the
+    decision on perturbed inputs -- never by subtracting a raw value from an
+    adjusted gap (a new piece re-runs the package model from scratch)."""
+    out: list[dict[str, Any]] = []
+    send = _priced_values(simulation.get("sending") or [])
+    recv = _priced_values(simulation.get("receiving") or [])
+    release = a.get("forcedReleaseCost")
+
+    def run(a2: dict[str, Any], b2: dict[str, Any], g: str | None) -> str:
+        return _rule(a2, b2, g)[0]
+
+    # 1. Price: one more asset on either side.
+    side = "receive" if headline in ("NO", "NO_TOO_CLOSE") else "send"
+    for v in range(_FLIP_STEP, _FLIP_MAX + 1, _FLIP_STEP):
+        s2, r2 = (send, [*recv, float(v)]) if side == "receive" else ([*send, float(v)], recv)
+        flipped = run(_a_from_values(s2, r2, release), b, goal)
+        if flipped != headline:
+            out.append(
+                {
+                    "kind": "price",
+                    "text": (
+                        f"If you also received an asset worth about {v:,}, the answer would be "
+                        f"{HEADLINE_TEXT[flipped]}"
+                        if side == "receive"
+                        else f"If you also had to send an asset worth about {v:,}, the answer "
+                        f"would be {HEADLINE_TEXT[flipped]}"
+                    ),
+                    "flipsTo": flipped,
+                    "evidence": {"side": side, "assetValue": v, "searchStep": _FLIP_STEP},
+                }
+            )
+            break
+    else:
+        out.append(
+            {
+                "kind": "price",
+                "text": "No single added asset (up to 9,975) changes the answer",
+                "flipsTo": None,
+                "evidence": {"side": side, "searchedUpTo": _FLIP_MAX},
+            }
+        )
+    # 2. Strategy: only when it is in use.
+    if goal is not None:
+        for g in GOALS:
+            if g == goal:
+                continue
+            flipped = run(a, b, g)
+            if flipped != headline:
+                out.append(
+                    {
+                        "kind": "strategy",
+                        "text": f"If your strategy were {GOAL_LABELS[g].lower()}, the answer "
+                        f"would be {HEADLINE_TEXT[flipped]}",
+                        "flipsTo": flipped,
+                        "evidence": {
+                            "strategy": g,
+                            "current": goal,
+                            "source": strategy.get("source"),
+                        },
+                    }
+                )
+    # 3. Roster effect: if it were neutral instead.
+    if b.get("evaluated") and b.get("direction") != "neutral":
+        flipped = run(a, {**b, "direction": "neutral", "magnitude": None}, goal)
+        if flipped != headline:
+            out.append(
+                {
+                    "kind": "roster",
+                    "text": f"If the trade did not change your lineup, the answer would be "
+                    f"{HEADLINE_TEXT[flipped]}",
+                    "flipsTo": flipped,
+                    "evidence": {"rosterPpg": b.get("ppg")},
+                }
+            )
+    # 4. The forced cut: if it were avoided.
+    if release:
+        flipped = run(_a_from_values(send, recv, None), b, goal)
+        if flipped != headline:
+            out.append(
+                {
+                    "kind": "forced_cut",
+                    "text": f"If the forced cut could be avoided, the answer would be "
+                    f"{HEADLINE_TEXT[flipped]}",
+                    "flipsTo": flipped,
+                    "evidence": {"forcedReleaseCost": release},
+                }
+            )
+    return out
+
+
+# ── Per-dimension coverage record (audit §7.5) ────────────────────────────
+
+DIMENSIONS = (
+    "asset_value",
+    "immediate_improvement",
+    "long_term",
+    "roster_construction",
+    "market_evidence",
+    "competitive_strategy",
+    "risk",
+    "feasibility",
+    "opportunity_cost",
+    "league_constraints",
+)
+
+
+def _cov(
+    dimension: str,
+    state: str,
+    *,
+    kind: str,
+    lineage: str | None,
+    component: str | None,
+    role: str,
+    evidence: Any = None,
+    freshness: str = "unknown",
+    applicability: str = "exact",
+    applicability_reason: str | None = None,
+    uncertainty: dict[str, Any] | None = None,
+    contribution: dict[str, Any] | None = None,
+    exclusion: str | None = None,
+    owner: str,
+) -> dict[str, Any]:
+    return {
+        "dimension": dimension,
+        "state": state,
+        "evidenceKind": kind,
+        "lineage": lineage,
+        "component": component,
+        "role": role,
+        "evidence": evidence if state in ("evaluated", "partial") else None,
+        "freshness": freshness,
+        "applicability": {"state": applicability, "reason": applicability_reason},
+        "uncertainty": uncertainty or {"kind": "unknown", "value": None},
+        "contribution": contribution or {"direction": None, "magnitude": None, "unit": None},
+        "exclusionReason": exclusion,
+        "owner": owner,
+    }
+
+
+def _coverage(
+    simulation: dict[str, Any],
+    *,
+    market: Any,
+    roster: Any,
+    feasibility: Any,
+    evidence: Any,
+    posture: Any,
+    comparables: Any,
+    a: dict[str, Any] | None,
+    b: dict[str, Any] | None,
+    strategy: dict[str, Any],
+    team_context: bool,
+) -> list[dict[str, Any]]:
+    """One record per required dimension, always all ten, so "not evaluated"
+    and "evaluated and neutral" can never look the same."""
+    traded = _traded(simulation)
+    fresh = [x.get("valueFreshness") for x in traded if x.get("valueFreshness")]
+    asset_fresh = (
+        "stale" if "low" in fresh else "fresh" if fresh and len(fresh) == len(traded) else "unknown"
+    )
+    md = market.detail or {}
+    rd = roster.detail or {}
+    fd = feasibility.detail or {}
+    ev = evidence.detail or {}
+    excluded = None if team_context else "asset_only_mode"
+    recs = [
+        _cov(
+            "asset_value",
+            "evaluated" if market.available else "unavailable",
+            kind="independent",
+            lineage="canonical_value",
+            component="objectiveValue",
+            role="decides",
+            evidence={
+                k: md.get(k)
+                for k in ("vaAdjustedGap", "rawGap", "sendingAdjusted", "receivingAdjusted", "band")
+            },
+            freshness=asset_fresh,
+            uncertainty={
+                "kind": "confidence_bucket",
+                "value": len(ev.get("lowConfidenceAssets") or []),
+            },
+            contribution=None
+            if a is None
+            else {
+                "direction": a["direction"],
+                "magnitude": a["magnitude"],
+                "unit": "canonical value",
+            },
+            exclusion=None if market.available else market.unavailable_reason,
+            owner="src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+        ),
+    ]
+    if not team_context:
+        r_state = "excluded_by_mode"
+    elif roster.available:
+        r_state = "evaluated"
+    elif b is not None and b.get("state") == "not_applicable":
+        r_state = "not_applicable"
+    else:
+        r_state = "unavailable"
+    recs.append(
+        _cov(
+            "immediate_improvement",
+            r_state,
+            kind="independent",
+            lineage="league_scored_projection",
+            component="rosterBenefit",
+            role="decides",
+            evidence={
+                k: rd.get(k) for k in ("ppg", "standardError", "neutralBandPpg", "magnitude")
+            },
+            freshness="fresh" if roster.available else "unknown",
+            uncertainty={"kind": "monte_carlo_se", "value": rd.get("standardError")},
+            contribution=None
+            if not (b and b.get("evaluated"))
+            else {
+                "direction": b["direction"],
+                "magnitude": b["magnitude"],
+                "unit": "best-ball ppg",
+            },
+            exclusion=excluded or (None if roster.available else roster.unavailable_reason),
+            owner="src/roster_intel/best_ball_utility.py",
+        )
+    )
+    recs.append(
+        _cov(
+            "long_term",
+            "partial" if market.available else "unavailable",
+            kind="correlated",
+            lineage="canonical_value",
+            component="objectiveValue",
+            role="explain_only",
+            evidence={"via": "canonical dynasty value (long-horizon) inside asset_value"},
+            applicability="approximate",
+            applicability_reason="no roster-level long-term quantity is wired; counted once, via asset value",
+            exclusion=None,
+            owner="src/trade/analyze_trade.py",
+        )
+    )
+    recs.append(
+        _cov(
+            "roster_construction",
+            "excluded_by_mode"
+            if not team_context
+            else ("evaluated" if feasibility.available else "unavailable"),
+            kind="contextual",
+            lineage="league_roster_rules",
+            component="objectiveValue",
+            role="gate",
+            evidence={
+                k: fd.get(k)
+                for k in (
+                    "state",
+                    "forcedDropReleaseCost",
+                    "ladderExhausted",
+                    "unpricedForcedDrops",
+                )
+            },
+            uncertainty={"kind": "none", "value": None},
+            contribution={
+                "direction": "opposes" if (a or {}).get("forcedReleaseCost") else "context",
+                "magnitude": None,
+                "unit": "release cost charged once to asset value",
+            },
+            exclusion=excluded
+            or (None if feasibility.available else feasibility.unavailable_reason),
+            owner="src/trade/roster_capacity.py",
+        )
+    )
+    cd = getattr(comparables, "detail", None) or {}
+    recs.append(
+        _cov(
+            "market_evidence",
+            "evaluated" if comparables is not None and comparables.available else "unavailable",
+            kind="correlated",
+            lineage="real_trade_ledger",
+            component=None,
+            role="explain_only",
+            evidence={
+                "comparableTrades": len(cd.get("comparableTrades") or []),
+                "candidates": cd.get("candidates"),
+            },
+            exclusion=None
+            if comparables is not None and comparables.available
+            else getattr(comparables, "unavailable_reason", "not_computed"),
+            owner="src/trade/comparable_trades.py",
+        )
+    )
+    pd = posture.detail or {}
+    recs.append(
+        _cov(
+            "competitive_strategy",
+            "excluded_by_mode"
+            if not team_context
+            else ("evaluated" if posture.available else "unavailable"),
+            kind="contextual",
+            lineage="team_strategy_context",
+            component=None,
+            role="tiebreak",
+            evidence={
+                "postureLabel": pd.get("label"),
+                "strategyUsed": strategy.get("used"),
+                "strategySource": strategy.get("source"),
+            },
+            uncertainty={"kind": "range", "value": pd.get("confidence")},
+            exclusion=excluded or (None if posture.available else posture.unavailable_reason),
+            owner="src/roster_intel/window.py::competitive_posture",
+        )
+    )
+    recs.append(
+        _cov(
+            "risk",
+            "evaluated",
+            kind="explanatory",
+            lineage=None,
+            component=None,
+            role="confidence_only",
+            evidence={
+                "lowConfidenceAssets": len(ev.get("lowConfidenceAssets") or []),
+                "sourceDisagreementAssets": len(ev.get("sourceDisagreementAssets") or []),
+                "unstampedAssets": len(ev.get("unstampedAssets") or []),
+            },
+            owner="src/api/confidence.py (stamps) via the evidence lens",
+        )
+    )
+    po = (
+        simulation.get("pickOwnership")
+        if isinstance(simulation.get("pickOwnership"), dict)
+        else None
+    )
+    recs.append(
+        _cov(
+            "feasibility",
+            "evaluated" if market.available else "unavailable",
+            kind="contextual",
+            lineage="ownership_records",
+            component=None,
+            role="gate",
+            evidence={
+                "notOwnedBySender": len(md.get("notOwnedBySender") or []),
+                "pickOwnership": (po or {}).get("state", "observed"),
+                "counterpartyAcceptance": "not_evaluated",
+            },
+            applicability="approximate",
+            applicability_reason="counterparty acceptance is not evaluated",
+            owner="src/identity/picks.py + src/api/trade_simulator.py",
+        )
+    )
+    recs.append(
+        _cov(
+            "opportunity_cost",
+            "unavailable",
+            kind="independent",
+            lineage=None,
+            component=None,
+            role="explain_only",
+            exclusion="not_wired",
+            owner="(none: best-alternative comparison is not wired)",
+        )
+    )
+    recs.append(
+        _cov(
+            "league_constraints",
+            "excluded_by_mode"
+            if not team_context
+            else ("partial" if feasibility.available else "unavailable"),
+            kind="contextual",
+            lineage="league_roster_rules",
+            component=None,
+            role="gate",
+            evidence={"rosterLimit": fd.get("rosterLimit")},
+            applicability="approximate",
+            applicability_reason="roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+            exclusion=excluded,
+            owner="src/trade/roster_capacity.py",
+        )
+    )
+    assert tuple(r["dimension"] for r in recs) == DIMENSIONS
+    return recs
+
+
+# ── Decision receipt (audit §7.7) ──────────────────────────────────────────
+
+
+def _receipt(
+    simulation: dict[str, Any],
+    *,
+    market: Any,
+    roster: Any,
+    posture: Any,
+    team_goal: Any,
+    team_context: bool,
+    provenance: dict[str, Any] | None,
+    strategy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Everything needed to reproduce this decision.  The request hash covers
+    the trade as priced (names, values, owned-pick checks), the team, the
+    goal and the mode; ``provenance`` carries what only the caller knows (the
+    board stamp, the scoring fingerprint)."""
+    md = market.detail or {}
+
+    def side(xs: list[dict[str, Any]]) -> list[list[Any]]:
+        return sorted([[str(a.get("name")), a.get("value")] for a in xs or []], key=str)
+
+    request = {
+        "team": (simulation.get("team") or {}).get("name")
+        if isinstance(simulation.get("team"), dict)
+        else None,
+        "receiving": side(simulation.get("receiving") or []),
+        "sending": side(simulation.get("sending") or []),
+        "notOwnedBySender": md.get("notOwnedBySender") or [],
+        "teamGoal": team_goal,
+        "teamContext": team_context,
+    }
+    digest = hashlib.sha256(
+        json.dumps(request, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+    prov = dict(provenance or {})
+    return {
+        "decisionVersion": DECISION_VERSION,
+        "requestHash": digest,
+        "bands": fairness_bands.receipt()["version"],
+        "packageModel": md.get("packageModel"),
+        "postureParamsVersion": (posture.detail or {}).get("paramsVersion")
+        if posture.available
+        else None,
+        "projectionBasis": (roster.detail or {}).get("basis") if roster.available else None,
+        "boardStamp": prov.get("boardStamp"),
+        "scoringFingerprint": prov.get("scoringFingerprint"),
+        "analyzeConfig": prov.get("analyzeConfig"),
+        # The inferred classification, the strategy used and why (owner
+        # decision 2026-10-18: shown in the recommendation AND the receipt).
+        "strategy": {
+            k: (strategy or {}).get(k)
+            for k in (
+                "inferredClassification",
+                "inferredStrategy",
+                "requested",
+                "used",
+                "source",
+                "reasoning",
+            )
+        },
+    }
+
+
 # ── The decision ───────────────────────────────────────────────────────────
 
 
@@ -684,6 +1227,8 @@ def decide(
     team_goal: Any = None,
     uncertainty: list[str] | None = None,
     leaning_result: tuple[str, str, str] | None = None,
+    comparables: Any = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The one top-line decision for one analyzed trade (pure)."""
     strategy = resolve_strategy(posture, team_goal, team_context)
@@ -697,7 +1242,32 @@ def decide(
         "leaning": lean[0],
         "recommendationOnly": True,
         "executes": False,
+        "receipt": _receipt(
+            simulation,
+            market=market,
+            roster=roster,
+            posture=posture,
+            team_goal=team_goal,
+            team_context=team_context,
+            provenance=provenance,
+            strategy=strategy,
+        ),
     }
+
+    def _cover(a: dict[str, Any] | None, b: dict[str, Any] | None) -> list[dict[str, Any]]:
+        return _coverage(
+            simulation,
+            market=market,
+            roster=roster,
+            feasibility=feasibility,
+            evidence=evidence,
+            posture=posture,
+            comparables=comparables,
+            a=a,
+            b=b,
+            strategy=strategy,
+            team_context=team_context,
+        )
 
     def _out(headline: str, **rest: Any) -> dict[str, Any]:
         out = {
@@ -726,6 +1296,15 @@ def decide(
             missingEvidence=[],
             components={},
             mainCounterargument=None,
+            whatWouldChange=[
+                {
+                    "kind": "feasibility",
+                    "text": "A legal roster cleanup (a cut or a smaller package) is required first",
+                    "flipsTo": None,
+                    "evidence": {"ladderExhausted": True},
+                }
+            ],
+            coverage=_cover(None, None),
             confidence={
                 "level": "HIGH",
                 "bottleneck": [],
@@ -752,6 +1331,18 @@ def decide(
             missingEvidence=gaps,
             components={},
             mainCounterargument=None,
+            # Each gap, resolved, is what would let a decision be made; which
+            # answer it would produce cannot be known without the evidence.
+            whatWouldChange=[
+                {
+                    "kind": "evidence",
+                    "text": f"Resolve: {g['text']}",
+                    "flipsTo": None,
+                    "evidence": {"code": g["code"]},
+                }
+                for g in gaps
+            ],
+            coverage=_cover(None, None),
             confidence={
                 "level": None,
                 "bottleneck": ["evidence"],
@@ -790,5 +1381,7 @@ def decide(
         missingEvidence=[],
         components={"objectiveValue": a, "rosterBenefit": b},
         mainCounterargument=counter,
+        whatWouldChange=_what_would_change(simulation, headline, a, b, goal, strategy),
+        coverage=_cover(a, b),
         confidence=confidence,
     )

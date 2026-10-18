@@ -83,6 +83,297 @@
     "level": null,
     "statement": "No confidence is stated: material information is missing."
    },
+   "coverage": [
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "asset_value",
+     "evidence": {
+      "band": {
+       "absoluteGap": 3734.0,
+       "bands": "fairness_bands_v1",
+       "label": "LOPSIDED",
+       "level": "lopsided",
+       "relativePct": 51.15,
+       "status": "PROVISIONAL"
+      },
+      "rawGap": 3800,
+      "receivingAdjusted": 7300.0,
+      "sendingAdjusted": 3566.0,
+      "vaAdjustedGap": 3734
+     },
+     "evidenceKind": "independent",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "canonical_value",
+     "owner": "src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+     "role": "decides",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "confidence_bucket",
+      "value": 0
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "rosterBenefit",
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "immediate_improvement",
+     "evidence": {
+      "magnitude": "large",
+      "neutralBandPpg": 1.0,
+      "ppg": 12.52,
+      "standardError": 0.493
+     },
+     "evidenceKind": "independent",
+     "exclusionReason": null,
+     "freshness": "fresh",
+     "lineage": "league_scored_projection",
+     "owner": "src/roster_intel/best_ball_utility.py",
+     "role": "decides",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "monte_carlo_se",
+      "value": 0.493
+     }
+    },
+    {
+     "applicability": {
+      "reason": "no roster-level long-term quantity is wired; counted once, via asset value",
+      "state": "approximate"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "long_term",
+     "evidence": {
+      "via": "canonical dynasty value (long-horizon) inside asset_value"
+     },
+     "evidenceKind": "correlated",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "canonical_value",
+     "owner": "src/trade/analyze_trade.py",
+     "role": "explain_only",
+     "state": "partial",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": "objectiveValue",
+     "contribution": {
+      "direction": "context",
+      "magnitude": null,
+      "unit": "release cost charged once to asset value"
+     },
+     "dimension": "roster_construction",
+     "evidence": {
+      "forcedDropReleaseCost": 0.0,
+      "ladderExhausted": false,
+      "state": "cut_required",
+      "unpricedForcedDrops": 1
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "league_roster_rules",
+     "owner": "src/trade/roster_capacity.py",
+     "role": "gate",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "none",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "market_evidence",
+     "evidence": null,
+     "evidenceKind": "correlated",
+     "exclusionReason": "not_computed",
+     "freshness": "unknown",
+     "lineage": "real_trade_ledger",
+     "owner": "src/trade/comparable_trades.py",
+     "role": "explain_only",
+     "state": "unavailable",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "competitive_strategy",
+     "evidence": {
+      "postureLabel": "PUSH",
+      "strategySource": "posture",
+      "strategyUsed": "WIN_NOW"
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "team_strategy_context",
+     "owner": "src/roster_intel/window.py::competitive_posture",
+     "role": "tiebreak",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "range",
+      "value": 0.9076
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "risk",
+     "evidence": {
+      "lowConfidenceAssets": 0,
+      "sourceDisagreementAssets": 0,
+      "unstampedAssets": 3
+     },
+     "evidenceKind": "explanatory",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": null,
+     "owner": "src/api/confidence.py (stamps) via the evidence lens",
+     "role": "confidence_only",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "counterparty acceptance is not evaluated",
+      "state": "approximate"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "feasibility",
+     "evidence": {
+      "counterpartyAcceptance": "not_evaluated",
+      "notOwnedBySender": 0,
+      "pickOwnership": "observed"
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "ownership_records",
+     "owner": "src/identity/picks.py + src/api/trade_simulator.py",
+     "role": "gate",
+     "state": "evaluated",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": null,
+      "state": "exact"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "opportunity_cost",
+     "evidence": null,
+     "evidenceKind": "independent",
+     "exclusionReason": "not_wired",
+     "freshness": "unknown",
+     "lineage": null,
+     "owner": "(none: best-alternative comparison is not wired)",
+     "role": "explain_only",
+     "state": "unavailable",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    },
+    {
+     "applicability": {
+      "reason": "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+      "state": "approximate"
+     },
+     "component": null,
+     "contribution": {
+      "direction": null,
+      "magnitude": null,
+      "unit": null
+     },
+     "dimension": "league_constraints",
+     "evidence": {
+      "rosterLimit": 8
+     },
+     "evidenceKind": "contextual",
+     "exclusionReason": null,
+     "freshness": "unknown",
+     "lineage": "league_roster_rules",
+     "owner": "src/trade/roster_capacity.py",
+     "role": "gate",
+     "state": "partial",
+     "uncertainty": {
+      "kind": "unknown",
+      "value": null
+     }
+    }
+   ],
    "deciding": "evidenceGate",
    "executes": false,
    "headline": "NOT_ENOUGH_EVIDENCE",
@@ -122,8 +413,92 @@
     "text": "1 forced cut(s) have no value, so the cost of the cut is unknown."
    },
    "reasons": [],
+   "receipt": {
+    "analyzeConfig": {
+     "depthNotableLossPpg": 0.5,
+     "largeMultiple": 3.0,
+     "materialityPpg": 1.0
+    },
+    "bands": "fairness_bands_v1",
+    "boardStamp": null,
+    "decisionVersion": "trade_decision_v2",
+    "packageModel": {
+     "classification": "ACTIVE",
+     "family": "geom",
+     "id": "geom_q078_v1",
+     "label": "Geometric Value Adjustment (q = 0.78)",
+     "version": "1"
+    },
+    "postureParamsVersion": "posture_v1_prior",
+    "projectionBasis": {
+     "availability": {
+      "currentWeek": null,
+      "currentWeekSource": "unresolved",
+      "lastWeek": 18,
+      "lastWeekSource": "nfl_regular_season_league_unknown",
+      "overrides": 0,
+      "reason": "current_week_unresolved",
+      "returnEvidence": {
+       "asOf": null,
+       "players": 0,
+       "source": "espn_athlete_current_injury",
+       "state": "unavailable"
+      },
+      "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+      "schedule": "unavailable",
+      "state": "not_applied",
+      "weeks": []
+     },
+     "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+     "draws": 400,
+     "drawsPerWeek": null,
+     "families": [
+      "synthetic"
+     ],
+     "horizon": "PRESEASON_FULL_SEASON",
+     "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+     "pointsModel": {
+      "cvByPosition": {
+       "CB": 0.55,
+       "DB": 0.5,
+       "DE": 0.55,
+       "DL": 0.55,
+       "DT": 0.55,
+       "EDGE": 0.55,
+       "LB": 0.45,
+       "QB": 0.32,
+       "RB": 0.55,
+       "S": 0.5,
+       "TE": 0.65,
+       "WR": 0.6
+      },
+      "defaultCv": 0.55,
+      "generatedAt": null,
+      "rosValuePerPoint": 2.7,
+      "sampleSize": 0,
+      "source": "fallback-constants"
+     },
+     "season": 2026,
+     "seed": 1173,
+     "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+     "state": "available",
+     "weeks": null
+    },
+    "requestHash": "ef3389b44934b13f92ef89233fa69ac6fddecf9e333669cb2051baca84527ee5",
+    "scoringFingerprint": null,
+    "strategy": {
+     "inferredClassification": "PUSH",
+     "inferredStrategy": "WIN_NOW",
+     "reasoning": "Your competitive posture is contender (PUSH), so the strategy is win now.",
+     "requested": null,
+     "source": "posture",
+     "used": "WIN_NOW"
+    }
+   },
    "recommendationOnly": true,
    "strategy": {
+    "inferredClassification": "PUSH",
+    "inferredStrategy": "WIN_NOW",
     "label": "Win now",
     "options": [
      {
@@ -143,15 +518,26 @@
      "HOLD": "BALANCED",
      "PUSH": "WIN_NOW",
      "REBUILD": "LONG_TERM",
-     "RETOOL": "LONG_TERM"
+     "RETOOL": "BALANCED"
     },
+    "reasoning": "Your competitive posture is contender (PUSH), so the strategy is win now.",
     "requested": null,
     "requestedValid": null,
     "source": "posture",
     "used": "WIN_NOW"
    },
    "subtext": "A reliable recommendation cannot be made yet.",
-   "version": "trade_decision_v1"
+   "version": "trade_decision_v2",
+   "whatWouldChange": [
+    {
+     "evidence": {
+      "code": "forced_drop_unpriced"
+     },
+     "flipsTo": null,
+     "kind": "evidence",
+     "text": "Resolve: 1 forced cut(s) have no value, so the cost of the cut is unknown."
+    }
+   ]
   },
   "dimensions": [
    {
