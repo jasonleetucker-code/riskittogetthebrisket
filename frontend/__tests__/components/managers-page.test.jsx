@@ -131,4 +131,25 @@ describe("Manager Intelligence page", () => {
     await screen.findByRole("heading", { name: "Dynasty Fan" });
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("links each league to its private scouting view (Batch C)", async () => {
+    const profile = {
+      ...PROFILE,
+      leagues: PROFILE.leagues.map((l, i) => ({
+        ...l,
+        leagueId: i === 0 ? "1312006700437352448" : l.leagueId,
+      })),
+    };
+    global.fetch = vi.fn(async () => jsonResponse(200, profile));
+    const user = userEvent.setup();
+    render(<ManagersPage />);
+    await search(user);
+    await screen.findByRole("heading", { name: "Dynasty Fan" });
+    const links = screen.getAllByRole("link", { name: /Scout this league/ });
+    // Only a numeric Sleeper league id becomes a link.
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute("href")).toBe(
+      "/managers/league/1312006700437352448",
+    );
+  });
 });

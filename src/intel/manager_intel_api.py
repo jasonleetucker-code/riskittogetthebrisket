@@ -1,7 +1,9 @@
-"""HTTP surface for Manager Intelligence: ``GET /api/manager-intel/profile``
-and ``GET /api/manager-intel/activity`` (Batches B1 + B2 + the feed, and
-B3's ``draftCapital`` / ``tendencies`` blocks, which ride the same request,
-call budget, memo and rate-limit bucket rather than a second endpoint).
+"""HTTP surface for Manager Intelligence: ``GET /api/manager-intel/profile``,
+``GET /api/manager-intel/activity`` (Batches B1 + B2 + the feed, and B3's
+``draftCapital`` / ``tendencies`` blocks, which ride the same request, call
+budget, memo and rate-limit bucket rather than a second endpoint) and
+``GET /api/manager-intel/league`` (Batch C — one league's scouting view,
+with its own per-user rate-limit bucket).
 
 PRIVATE decision intelligence (MASTER_PRODUCT_PLAN §5; owner directive
 2026-10-16).  ``server.py::_private_api_gate`` 401s any request without a
@@ -29,7 +31,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from src.intel import manager_activity, manager_portfolio
+from src.intel import manager_activity, manager_league, manager_portfolio
 
 log = logging.getLogger("manager_intel.api")
 
@@ -49,6 +51,11 @@ RATE_WINDOW_SECONDS = 600.0
 #: calls), so they get their own, tighter per-user bucket.
 ACTIVITY_RATE_CAPACITY = 10
 ACTIVITY_RATE_WINDOW_SECONDS = 600.0
+
+#: League scouting reads one league in full (every week, every roster), so it
+#: has its own bucket again — a scouting burst cannot starve manager lookups.
+LEAGUE_RATE_CAPACITY = 6
+LEAGUE_RATE_WINDOW_SECONDS = 600.0
 
 _session_provider: Callable[[Request], Any] | None = None
 _contract_provider: Callable[[], Any] | None = None
@@ -242,4 +249,60 @@ async def get_activity(request: Request) -> JSONResponse:
     failed = _status_error(payload, username)
     if failed is not None:
         return failed
+    return JSONResponse(payload, headers=_NO_STORE)
+
+
+@router.get("/league")
+async def get_league(request: Request) -> JSONResponse:
+    """One league's scouting view (Batch C): every current team's roster
+    strength, draft capital, recent activity and tendencies.
+
+    Query: ``leagueId`` (a Sleeper league id); optional ``window`` (``7d`` /
+    ``30d`` default / ``90d`` / ``season``).  Same gates as ``/profile``;
+    its own per-user rate-limit bucket.  ``not_found`` → 404;
+    ``rate_limited`` → 429; ``upstream_unavailable`` → 503; ``ok`` /
+    ``partial`` → 200.
+    """
+    session, refusal = _gate(request)
+    if refusal is not None:
+        return refusal
+
+    q = request.query_params
+    league_id = str(q.get("leagueId") or "").strip()
+    if not _LEAGUE_ID_RE.match(league_id):
+        return _error("invalid_league", "leagueId must be a Sleeper league id.", 400)
+    window = str(q.get("window") or manager_activity.DEFAULT_WINDOW).lower()
+    if window not in manager_activity.WINDOWS:
+        return _error(
+            "invalid_window", f"window must be one of {list(manager_activity.WINDOWS)}.", 400
+        )
+
+    who = str(session.get("username") or "").strip().lower()
+    limited = _rate_limited(
+        f"manager-intel-league:{who}", LEAGUE_RATE_CAPACITY, LEAGUE_RATE_WINDOW_SECONDS
+    )
+    if limited is not None:
+        return limited
+
+    contract = _contract_provider()
+    try:
+        payload = await run_in_threadpool(
+            manager_league.cached_league_scouting,
+            league_id,
+            contract=contract,
+            window=window,
+        )
+    except Exception:  # noqa: BLE001 — never a 500 page for an upstream fault
+        log.exception("manager intel league scouting failed")
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
+
+    status = payload.get("status")
+    if status == manager_portfolio.STATUS_NOT_FOUND:
+        return _error("not_found", "No Sleeper league with that id.", 404)
+    if status == manager_portfolio.STATUS_RATE_LIMITED:
+        return _error(
+            "upstream_rate_limited", "Sleeper is rate-limiting us — try again shortly.", 429
+        )
+    if status == manager_portfolio.STATUS_UPSTREAM_UNAVAILABLE:
+        return _error("upstream_unavailable", "Sleeper could not be reached.", 503)
     return JSONResponse(payload, headers=_NO_STORE)

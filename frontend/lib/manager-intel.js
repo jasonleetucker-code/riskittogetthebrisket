@@ -673,3 +673,241 @@ export function shapeRows(counts) {
     .filter(([, n]) => n > 0)
     .map(([key, count]) => ({ key, label: shapeLabel(key), count }));
 }
+
+// ── league scouting (Batch C) ───────────────────────────────────────────
+//
+// GET /api/manager-intel/league (``src/intel/manager_league.py``) computes
+// every roster total, rank, pick total, activity count and tendency.  These
+// helpers only sort, label and build links.  An unpriced total or a withheld
+// rank reads "—" (never 0); unknown pick ownership is never "no picks".
+
+export const LEAGUE_ID_RE = /^\d{1,24}$/;
+
+export function leagueScoutQuery(leagueId, window = "30d") {
+  const params = new URLSearchParams({ leagueId: String(leagueId || "") });
+  if (window && window !== "30d") params.set("window", window);
+  return `/api/manager-intel/league?${params.toString()}`;
+}
+
+/** The private scouting page for one league (under the /managers gate). */
+export function leagueScoutHref(leagueId) {
+  const id = String(leagueId || "");
+  return LEAGUE_ID_RE.test(id) ? `/managers/league/${id}` : null;
+}
+
+/** Manager Intelligence lookup for a current owner (by permanent user id). */
+export function managerLookupHref(userId) {
+  const id = String(userId || "");
+  return USERNAME_RE.test(id)
+    ? `/managers?username=${encodeURIComponent(id)}`
+    : null;
+}
+
+function capitalPicksHeld(capital) {
+  return capital?.counts ? capital.counts.held : null;
+}
+
+/** One sortable table row per manager, straight from the backend row. */
+export function scoutRows(payload) {
+  return (payload?.managers || []).map((m) => ({
+    id: String(m.rosterId),
+    rosterId: m.rosterId,
+    name: m.displayName || (m.orphan ? "Open roster" : `Roster ${m.rosterId}`),
+    teamName: m.teamName || null,
+    orphan: Boolean(m.orphan),
+    valueRank: m.valueRank ?? null,
+    rosterValue: m.roster?.pricedValue ?? null,
+    unpriced: m.roster?.unpricedCount ?? null,
+    picksHeld: capitalPicksHeld(m.draftCapital),
+    pickValue:
+      m.draftCapital?.picks != null
+        ? (m.draftCapital.pricedValue ?? null)
+        : null,
+    trades: m.activity?.trades ?? null,
+    adds: m.activity?.playersAdded ?? null,
+    drops: m.activity?.playersDropped ?? null,
+    lastActivityAt: m.activity?.lastActivityAt ?? null,
+    tendency: tendencySummaryText(m),
+    source: m,
+  }));
+}
+
+const SORT_NUMERIC_DESC = new Set([
+  "rosterValue",
+  "picksHeld",
+  "pickValue",
+  "trades",
+  "adds",
+  "drops",
+  "lastActivityAt",
+]);
+
+/** Default direction for a sort key: ranks ascend, amounts descend. */
+export function defaultScoutDirection(key) {
+  return SORT_NUMERIC_DESC.has(key) ? "desc" : "asc";
+}
+
+/** Stable sort; a missing value always sinks, whatever the direction. */
+export function sortScoutRows(rows, key = "valueRank", direction = "asc") {
+  const dir = direction === "desc" ? -1 : 1;
+  return [...(rows || [])]
+    .map((row, i) => ({ row, i }))
+    .sort((a, b) => {
+      const va = a.row[key];
+      const vb = b.row[key];
+      const ma = va == null || va === "";
+      const mb = vb == null || vb === "";
+      if (ma || mb) return ma === mb ? a.i - b.i : ma ? 1 : -1;
+      if (typeof va === "number" && typeof vb === "number")
+        return (va - vb) * dir || a.i - b.i;
+      return String(va).localeCompare(String(vb)) * dir || a.i - b.i;
+    })
+    .map(({ row }) => row);
+}
+
+export const SCOUT_SORTS = [
+  { value: "valueRank", label: "Roster value rank" },
+  { value: "pickValue", label: "Pick value" },
+  { value: "picksHeld", label: "Picks held" },
+  { value: "trades", label: "Trades" },
+  { value: "adds", label: "Players added" },
+  { value: "lastActivityAt", label: "Last activity" },
+  { value: "name", label: "Name" },
+];
+
+/** "#3 of 12" / "—" (a withheld or unranked total is not last place). */
+export function rankText(rank, of) {
+  if (typeof rank !== "number") return "—";
+  return typeof of === "number" && of ? `#${rank} of ${of}` : `#${rank}`;
+}
+
+/** "41,200 · 6 unpriced" — the priced-only roster total with what it omits. */
+export function rosterValueText(roster) {
+  if (!roster) return "—";
+  const total = formatValue(roster.pricedValue);
+  return roster.unpricedCount
+    ? `${total} · ${roster.unpricedCount} unpriced`
+    : total;
+}
+
+/** "24 players · 18 starters · 3 taxi · 1 IR". */
+export function rosterSlotsText(roster) {
+  if (!roster) return "";
+  const parts = [`${roster.playerCount} players`];
+  parts.push(`${roster.starters} starting`);
+  if (roster.bench) parts.push(`${roster.bench} bench`);
+  if (roster.taxi) parts.push(`${roster.taxi} taxi`);
+  if (roster.reserve) parts.push(`${roster.reserve} IR`);
+  return parts.join(" · ");
+}
+
+/** Position strength rows in the backend's own order. */
+export function positionStrengthRows(roster) {
+  return Object.entries(roster?.byPosition || {}).map(([position, g]) => ({
+    position,
+    count: g.count,
+    pricedValue: g.pricedValue,
+    rank: g.rank ?? null,
+    unpriced: g.unpricedCount,
+  }));
+}
+
+/** "3 held · 9,400" / "Unknown — …" — never "no picks" for unknown. */
+export function scoutPicksText(capital) {
+  if (!capital) return "—";
+  if (capital.available === false) return "Not read (earlier season)";
+  if (capital.picks == null) return "Unknown";
+  const value = formatValue(capital.pricedValue);
+  const unpriced = capital.unpricedPickCount
+    ? ` · ${capital.unpricedPickCount} unpriced`
+    : "";
+  return `${capital.counts?.held ?? capital.picks.length} held · ${value}${unpriced}`;
+}
+
+/**
+ * A one-line tendency summary: for our own leagues the Manager Scout trade
+ * count; otherwise the windowed trade-shape count, or the insufficient-sample
+ * statement.  Counts only — never a label.
+ */
+export function tendencySummaryText(manager) {
+  if (!manager) return "";
+  if (manager.tendenciesSource === "manager_scout") {
+    const t = manager.scout?.tradeTendencies;
+    if (!t) return "No Manager Scout profile";
+    if (t.state === "unavailable") return "Manager Scout unavailable";
+    const n = t.sampleSize;
+    if (typeof n !== "number") return "Manager Scout sample unknown";
+    const cons = t.packageShape?.consolidating;
+    return n
+      ? `${n} trade${n === 1 ? "" : "s"} on record${typeof cons === "number" ? ` · ${cons} consolidating` : ""}`
+      : "No trades on record";
+  }
+  const t = manager.tendencies;
+  if (!t) return "";
+  const n = t.tradeCount;
+  if (typeof n !== "number") return "";
+  if (!t.pickPlayer?.sufficientSample) return `Insufficient sample (n = ${n})`;
+  const top = shapeRows(t.pickPlayer.counts).sort(
+    (a, b) => b.count - a.count,
+  )[0];
+  return top ? `n = ${n} · mostly ${top.label.toLowerCase()}` : `n = ${n}`;
+}
+
+/** Coverage problems for the one scouted league, as sentences. */
+export function scoutCoverageProblems(payload) {
+  const c = payload?.coverage;
+  if (!c) return [];
+  const out = [];
+  if (c.transactions && c.transactions !== "complete")
+    out.push(
+      `Transactions ${coverageLabel(c.transactions).toLowerCase()}${
+        c.weeksFailed
+          ? ` (${c.weeksFailed} week${c.weeksFailed === 1 ? "" : "s"} missing)`
+          : ""
+      }.`,
+    );
+  if (c.drafts && c.drafts !== "complete")
+    out.push(`Drafts ${coverageLabel(c.drafts).toLowerCase()}.`);
+  if (
+    payload?.draftCapital?.available &&
+    c.tradedPicks &&
+    c.tradedPicks !== "complete"
+  )
+    out.push(
+      `Traded picks ${coverageLabel(c.tradedPicks).toLowerCase()} — pick ownership is unknown.`,
+    );
+  if (c.leagueUsers === "unavailable")
+    out.push("League members could not be read, so names are missing.");
+  if (c.budgetExhausted)
+    out.push("The lookup reached its Sleeper call budget before finishing.");
+  return out;
+}
+
+/** Activity counts as label/value pairs for the drilldown. */
+export function activityPairs(activity) {
+  if (!activity) return [];
+  const pairs = [
+    ["Trades", activity.trades],
+    ["Waiver claims", activity.waiverClaims],
+    ["Free-agent adds", activity.freeAgentAdds],
+    ["Drops (no add)", activity.dropsOnly],
+    ["Players added", activity.playersAdded],
+    ["Players dropped", activity.playersDropped],
+    ["Draft picks made", activity.draftPicks],
+    [
+      "FAAB spent",
+      typeof activity.faabSpent === "number"
+        ? `$${activity.faabSpent} (${activity.faabClaims} claim${activity.faabClaims === 1 ? "" : "s"})`
+        : "—",
+    ],
+  ];
+  if (activity.uncertainAttribution)
+    pairs.push([
+      "Not credited (possible previous owner)",
+      activity.uncertainAttribution,
+    ]);
+  return pairs.map(([label, value]) => ({
+    label,
+    value: typeof value === "number" ? formatValue(value) : value,
+  }));
+}

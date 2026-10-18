@@ -191,6 +191,23 @@ private gate is enforced.
 
 **Depends on:** B1–B3. **Tests:** a league fan-out within budget, partial states.
 
+**As implemented (`src/intel/manager_league.py`)**
+- `GET /api/manager-intel/league?leagueId=&window=` — same gates as the other routes (flag, session, guest
+  403, validation, no-store) with its own per-user bucket (6 per 10 minutes). Private page
+  `/managers/league/[leagueId]`, linked from each league in the /managers Leagues list.
+- One league per request, read once through the activity lookup's own machinery (`_read_league_base`,
+  `_read_league_activity`, `_league_coverage`, the per-(league, week) memo and a call budget of 80): one
+  league + rosters + users + drafts + traded-picks fetch, then every transaction leg and live/complete draft.
+- Each roster is folded through the B1/B2 `_Assembler` over a per-roster view of that one read, so the
+  attribution rules are unchanged: a possible-previous-owner move is counted apart, and a recorded hand-off
+  gives earlier weeks to the outgoing owner.
+- Roster value totals are priced-only sums with the unpriced counted. Totals and league ranks (competition
+  ranking; unranked is `null`, never last) are published only for a Superflex league with a board loaded,
+  otherwise withheld with `canonical_board_is_superflex` / `board_unavailable` (the Batch A posture).
+- Registry leagues (resolved through `league_registry`) attach the existing Manager Scout profile per current
+  member (`manager_scout.cached_manager_scout`, board gated exactly as `/api/manager-scout` gates it) instead
+  of B3 tendencies. Former members appear only as a count; trade sides and creators are not served.
+
 ## Batch D — Trade tool integration
 
 **Deliverables**
@@ -228,4 +245,5 @@ private gate is enforced.
 | A | #1762 | MERGED (`048bcbf8a`) |
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
-| C, D, E, F | — | QUEUED in this order |
+| C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
+| D, E, F | — | QUEUED in this order |

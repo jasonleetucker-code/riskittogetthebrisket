@@ -367,6 +367,16 @@ def fetch_traded_picks_classified(league_id: str) -> tuple[str, Any]:
     )
 
 
+def fetch_league_classified(league_id: str) -> tuple[str, Any]:
+    """``(kind, league)`` for ``/league/{id}``.  Sleeper answers a JSON
+    ``null`` for an id that does not exist (``not_found``); an ``ok`` body
+    without a ``league_id`` is an ``error``, never a league."""
+    kind, payload = request_json_classified(f"{SLEEPER_BASE}/league/{str(league_id).strip()}")
+    if kind == FETCH_OK and not (isinstance(payload, dict) and payload.get("league_id")):
+        return FETCH_ERROR, None
+    return kind, payload
+
+
 def fetch_league(league_id: str) -> dict[str, Any] | None:
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}")
     return data if isinstance(data, dict) else None
