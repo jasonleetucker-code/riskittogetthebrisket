@@ -117,16 +117,44 @@ def test_promoted_record_receipt_is_actual_for_its_own_class():
 # --- the rookie ladder ------------------------------------------------------------------
 
 
-def test_ladder_over_the_frozen_inputs_equals_the_workbook_reference_curve():
-    """Independent evidence: the workbook's own cached L (column D/L)."""
-    values = list(load_frozen_rookie_inputs().values)
+def test_ladder_over_a_ranked_list_equals_the_independent_transcription():
+    """Independent evidence: the Batch A literal transcription of the sheet.
+
+    The ladder prices a RANKED rookie list (best first).  The frozen column B
+    is not one (16 ascending adjacent pairs; the owner package: "intended new
+    input ranking should be explicitly sorted"), so this feeds it sorted.  The
+    formula over column B exactly as the sheet holds it is pinned against the
+    workbook's cached L by
+    ``test_frozen_snapshots.py::test_curve_from_frozen_inputs_reproduces_the_workbook_exactly``.
+    """
+    from fractions import Fraction
+
+    from tests.draft_valuation import reference_workbook_formulas as ref
+
+    values = sorted(load_frozen_rookie_inputs().values, reverse=True)
     ladder = gen.rookie_ladder(values, league_key=LEAGUE, draft_year=2027, input_source="frozen")
     assert ladder.state == gen.LADDER_COMPUTED and ladder.reason is None
-    sheet_l = [float(v) for v in wb.by_row("L").values()]
-    assert list(ladder.dollars) == sheet_l
+    rows = range(2, 74)
+    sheet = ref.evaluate_sheet(
+        {r: float(values[r - 2]) for r in rows},
+        wb.by_row("F"),
+        wb.by_row("G"),
+        wb.by_row("H"),
+    )
+    owner = ref.evaluate_integer_stage(sheet["C"], 12, tie_rule="earlier_first")
+    assert [Fraction(d) for d in ladder.dollars] == [Fraction(owner["L"][r]) for r in rows]
     assert sum(ladder.dollars) == 1200
     assert ladder.receipt["spineYears"] == [2024, 2025, 2026]
     assert ladder.receipt["curveVersion"] == FORMULA_VERSION
+
+
+def test_ladder_refuses_an_unranked_list_such_as_the_raw_column_b():
+    """Batch G: a value that rises would price a weaker rookie at a stronger
+    pick's dollars — refused with the position, never misattributed."""
+    values = list(load_frozen_rookie_inputs().values)  # 1.03 > 1.02 in the sheet
+    ladder = gen.rookie_ladder(values, league_key=LEAGUE, draft_year=2027, input_source="frozen")
+    assert ladder.dollars is None and ladder.state == gen.LADDER_REFUSED
+    assert ladder.reason == "inputs_not_ranked:value_rises_at_3"
 
 
 @pytest.mark.parametrize(
