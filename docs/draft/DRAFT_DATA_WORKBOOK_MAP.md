@@ -210,6 +210,7 @@ Checked against the workbook and `main` at `123a0be024`:
 | the decay uses the "top six" B values | the formula uses the FIRST six rows; on this fixture they are also the six largest |
 | not mentioned by the audit | the orphan M123 cell, the X/Y lookup range overlapping the player list, the misaligned W137:Z217 list, and `_parse_csv_rookies` returning 0 rookies |
 
-The 72-slot fixture proves nothing about a 40-pick class (`dynasty_new`):
-adapting the formula to another pick count is a separate contract that needs
-its own validation (workstream Batch E).
+The 72-slot fixture is evidence for `dynasty_main` only. Owner scope
+correction 2026-10-18: `dynasty_main` is the only league in scope; any other
+league is "not configured" and the engine refuses it rather than adapting the
+formula.

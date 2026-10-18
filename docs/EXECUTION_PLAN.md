@@ -85,12 +85,13 @@ condition is met. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07 — 
 
 ## Draft valuation automation — owner directive, 2026-10-18
 
-**AUTHORIZED; IN PROGRESS** — added to the active queue alongside existing work; it displaces nothing, and
+**AUTHORIZED; IN PROGRESS (PR #1786, not merged)** — added to the active queue alongside existing work; it displaces nothing, and
 merges and deploys keep their existing gates (the owner's $1,200-per-class decision approves no PR merge,
 including #1785). Reproduce the owner-approved `Draft Data` spreadsheet formula exactly in one canonical
 owner (`src/draft/rookie_auction/`), then automate it: Batch A spreadsheet parity, B canonical rookie values
 + frozen provisional 2026 fallback, C immutable completed-class spine + rollover, D automated class
-readiness / guarded promotion, E multi-year draft capital (integrates #1785; $1,200 per class per league;
+readiness / guarded promotion, E multi-year draft capital (integrates #1785; $1,200 per class for `dynasty_main` — the only league in
+scope per the owner's 2026-10-18 correction;
 workbook curve replaces #1785's interim generic-market curve; draft order `reverse_record_lower_pf`), F
 sitewide integration / monitoring / cache, G end-to-end verification and release. Final owner decisions
 and per-batch acceptance: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; intake

@@ -1782,13 +1782,13 @@ stop-work. Workstream record: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; workbo
 
 | Item | Disposition |
 |---|---|
-| Each rookie draft class gets its own independent $1,200 pool — every year, both leagues, indefinitely; never one $1,200 split across 2027–2029 (All Years = $3,600 nominal per league with three complete classes). Resolves the annual-vs-pooled question in PROMPT 0 / PROMPT E and in "Added 2026-10-17 — P1: all Sleeper draft years" | DECIDED — owner, 2026-10-18 (final) |
+| Each rookie draft class gets its own independent $1,200 pool — every year, indefinitely, for `dynasty_main` (league scope corrected by the owner 2026-10-18; see the scope-correction entry recorded with PR #1785); never one $1,200 split across 2027–2029 (All Years = $3,600 nominal with three complete classes). Resolves the annual-vs-pooled question in PROMPT 0 / PROMPT E and in "Added 2026-10-17 — P1: all Sleeper draft years" | DECIDED — owner, 2026-10-18 (final) |
 | The workbook's existing 2026 values are the approved provisional rookie-value fallback: frozen with provenance and an effective snapshot date; column B kept distinct from column H (historical 2026 dollar curve); never relabelled as a pre-draft observation; daily value changes never rewrite it; retired 2026 pick assets never reactivated | DECIDED — owner, 2026-10-18 (final) |
 | Spine = the three most recent completed rookie drafts (2027 → 2024/2025/2026), rolling only on verified draft completion; immutable snapshots | DECIDED — binding |
-| Pick count per class is the league's own (`dynasty_main` 72; `dynasty_new` 40); a 40-pick adaptation is a separately validated contract, not proven by the 72-slot fixture | DECIDED — binding |
+| `dynasty_main` is 12 × 6 = 72 picks per class; any other league is not configured (fail closed). A 40-pick `dynasty_new` adaptation is not pursued | OUT OF SCOPE — owner correction, 2026-10-18 |
 | Package Value Adjustment never applies to pick auction dollars; canonical 0–9999 pick values stay a separate concept | DECIDED — binding |
 | A RANK tie at the award cutoff makes the spreadsheet publish a non-$1,200 total (measured: $1,206); publishing anything there needs a deterministic tie-break | OWNER DECISION NEEDED — only if it ever occurs (measure-zero on real inputs; the engine refuses such a result) |
-| Implementation | IN PROGRESS — Batch A (exact parity) and the Batch B frozen-2026 fallback authored and tests green on `claude/draft-valuation-engine`; Batches C–G follow (E integrates PR #1785) |
+| Implementation | IN PROGRESS — PR #1786 (`claude/draft-valuation-engine`, not merged): Batch A exact parity, Batch B frozen fallback + class snapshot + report-only readiness, Batch C rollover ledger, tests green; Batches D–G follow (E integrates PR #1785) |
 
 ## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
 
