@@ -52,6 +52,7 @@ import {
   formatSignedValue,
   formatValue,
   comparablesSummary,
+  lineupHolesSummary,
   notPricedNames,
   overrideBasisNotice,
   postureSummary,
@@ -304,6 +305,7 @@ function RosterImpact({ lens }) {
   const before = d.before || {};
   const after = d.after || {};
   const depth = d.depth || {};
+  const holes = lineupHolesSummary(d);
   return (
     <section className={styles.impact} aria-labelledby="war-room-impact">
       <h3 id="war-room-impact" className={styles.sectionTitle}>
@@ -343,6 +345,21 @@ function RosterImpact({ lens }) {
                   } lost than today`}
           </dd>
         </div>
+        {holes ? (
+          <div data-testid="war-room-lineup-holes">
+            <dt>Empty starting slots</dt>
+            <dd>
+              {holes.perWeek}
+              {holes.bySlotAfter ? ` (after: ${holes.bySlotAfter})` : ""}
+              {holes.noEligible.length
+                ? `; no player can start at ${holes.noEligible.join(", ")}`
+                : ""}
+              {holes.onlyUnprojected.length
+                ? `; only unprojected players fit ${holes.onlyUnprojected.join(", ")}`
+                : ""}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt>Shape</dt>
           <dd>

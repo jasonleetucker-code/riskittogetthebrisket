@@ -143,3 +143,39 @@ describe("useTeam loading gate", () => {
     expect(screen.getByTestId("loading").textContent).toBe("true");
   });
 });
+
+// TC-B / TCM-I04: the selected team comes from the user's OWN league
+// settings (`/api/leagues` userDefaultTeam), never from a hardcoded owner
+// team name.  The retired fallback picked "Rossini Panini" on the registry
+// default league for any user the server could not place.
+describe("useTeam never defaults to the site owner's team", () => {
+  it("leaves the default league unselected when the server names no team for this user", async () => {
+    mockUseApp.mockReturnValue(appState());
+    mockUseSettings.mockReturnValue(settingsState());
+    mockUseLeague.mockReturnValue({
+      selectedLeague: { userDefaultTeam: null },
+      selectedLeagueKey: "main",
+      defaultLeagueKey: "main",
+    });
+    render(<Probe />);
+    await waitFor(() => {
+      expect(screen.getByTestId("loading").textContent).toBe("false");
+    });
+    // TEAMS[0] is literally named "Rossini Panini"; it must not be chosen.
+    expect(screen.getByTestId("team").textContent).toBe("none");
+  });
+
+  it("still auto-selects the user's own team named by the server", async () => {
+    mockUseApp.mockReturnValue(appState());
+    mockUseSettings.mockReturnValue(settingsState());
+    mockUseLeague.mockReturnValue({
+      selectedLeague: { userDefaultTeam: { ownerId: "u1" } },
+      selectedLeagueKey: "main",
+      defaultLeagueKey: "main",
+    });
+    render(<Probe />);
+    await waitFor(() => {
+      expect(screen.getByTestId("team").textContent).toBe("Rossini Panini");
+    });
+  });
+});

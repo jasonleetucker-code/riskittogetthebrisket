@@ -26,6 +26,7 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import { parseArbitrageQuery } from "@/lib/trade-next-actions";
 import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
 import {
   emptyRefinement,
@@ -439,6 +440,22 @@ export default function ArbitragePage() {
   // new request, and a slower earlier response must not paint the other
   // mode's order under the current switch position.
   const scanSeq = useRef(0);
+
+  // Deep links from /trade "Next steps" (TC-B / TCM-O11):
+  // /arbitrage?tool=&team=&opponent=, written and parsed by ONE owner
+  // (lib/trade-next-actions.js).  Read from window, once, after the league's
+  // teams load: a team this league does not have is dropped, never guessed.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || typeof window === "undefined") return;
+    const names = teams.map((t) => t.name);
+    const q = parseArbitrageQuery(window.location.search, names);
+    if (q.tool) setTool(q.tool);
+    if (!names.length) return;
+    deepLinkApplied.current = true;
+    if (q.team) setMyTeam(q.team);
+    if (q.opponent) setOpponent(q.opponent);
+  }, [teams]);
 
   const effectiveTeam = myTeam || defaultTeam;
 

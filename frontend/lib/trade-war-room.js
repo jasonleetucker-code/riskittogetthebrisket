@@ -470,3 +470,36 @@ export function rosterImpactRows(rosterDetail) {
       String(a.name).localeCompare(String(b.name)),
   );
 }
+
+/**
+ * Holes and bye coverage (TC-B / TCM-H12) from the roster lens's
+ * `lineupHoles` block (`src/roster_intel/best_ball_utility.py`), as display
+ * text.  Returns null when the block is absent; an unmeasured side reads
+ * "—", never 0.
+ *   perWeek      "0.4 → 1.1 empty starting slots per week"
+ *   bySlotAfter  "FLEX 0.6 · TE 0.5" (after the trade, largest first)
+ *   noEligible   slots no rostered player can fill after the trade
+ *   onlyUnprojected  slots only an unprojected player can fill after
+ */
+export function lineupHolesSummary(rosterDetail) {
+  const h = rosterDetail?.lineupHoles;
+  if (!h || typeof h !== "object") return null;
+  const fmt = (v) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(1) : "—");
+  const before = h.before || {};
+  const after = h.after || {};
+  const bySlot = after.emptyBySlot && typeof after.emptyBySlot === "object" ? after.emptyBySlot : null;
+  const bySlotAfter = bySlot
+    ? Object.entries(bySlot)
+        .filter(([, v]) => typeof v === "number" && v > 0)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([slot, v]) => `${slot} ${v.toFixed(1)}`)
+        .join(" · ")
+    : null;
+  return {
+    perWeek: `${fmt(before.emptySlotsPerWeek)} → ${fmt(after.emptySlotsPerWeek)} empty starting slots per week`,
+    delta: typeof h.emptySlotsPerWeekDelta === "number" ? h.emptySlotsPerWeekDelta : null,
+    bySlotAfter: bySlotAfter || null,
+    noEligible: Array.isArray(after.noEligiblePlayer) ? after.noEligiblePlayer : [],
+    onlyUnprojected: Array.isArray(after.onlyUnprojected) ? after.onlyUnprojected : [],
+  };
+}

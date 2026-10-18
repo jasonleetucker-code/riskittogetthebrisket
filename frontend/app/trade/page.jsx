@@ -166,6 +166,19 @@ const RecentRealTrades = dyn(
   () => import("@/components/trade/RecentRealTrades"),
   "Recent real trades",
 );
+// TC-B / TCM-K03: the immediate Second Opinions tally beside the meter.  On
+// screen whenever two sides hold assets, but lazy: the opinion machinery is
+// its own chunk, requested after first paint, never in the page's first load.
+const TradeOpinionTally = dyn(
+  () => import("@/components/trade/TradeOpinionTally"),
+  "Second opinions tally",
+);
+// TC-B / TCM-O11, O12, O13: next steps into the existing engines, partner
+// evidence and Save to Trade Desk.  Below the fold, so lazy too.
+const TradeNextActions = dyn(
+  () => import("@/components/trade/TradeNextActions"),
+  "Next steps",
+);
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -1098,8 +1111,11 @@ export default function TradePage() {
     // measures the post-add gap through the same path the meter renders,
     // so a raw value can never be matched against an adjusted target
     // (defect #800).
+    // combos: when no single asset lands inside the fair band, a pair from
+    // the same roster is tried too (TC-B / TCM-F03), simulated whole.
     const list = findBalancers(sidesWithOverrides, behindSideIdx, pool, valueMode, {
       settings,
+      combos: true,
     });
     return { list, teamName };
   }, [
@@ -1139,6 +1155,7 @@ export default function TradePage() {
     const suggestions = findBalancers(sidesWithOverrides, bestIdx, pool, valueMode, {
       settings,
       toSideIdx: worstIdx,
+      combos: true,
     });
     return {
       overpayingIdx: worstIdx,
@@ -2043,6 +2060,16 @@ export default function TradePage() {
   }
 
   const hasAssets = sides.some((s) => (s.assets || []).length > 0);
+  // Which side's card lists the balancing suggestions, for the Next steps
+  // pointer (TC-B / TCM-O11) -- read from the page's own balancer state.
+  const balancerSideLabel =
+    sides.length === 2
+      ? balancers.list.length
+        ? sides[pwGap > 0 ? 1 : 0]?.label || null
+        : null
+      : multiBalancers?.suggestions?.length
+        ? sides[multiBalancers.underpayingIdx]?.label || null
+        : null;
 
   return (
     <div className={`main-shell ${styles.page} trade-page psi-editorial`}>
@@ -2408,7 +2435,12 @@ export default function TradePage() {
                 onSetDestination={setAssetDestination}
                 onRemoveTeam={removeTeam}
                 onAddBalancer={(b, idx) => {
-                  // The candidate ENTRY, so an owned pick keeps its id.
+                  // The candidate ENTRY, so an owned pick keeps its id.  A
+                  // pair (TC-B / TCM-F03) adds both of its entries.
+                  if (b?.isCombo && Array.isArray(b.entries)) {
+                    for (const entry of b.entries) addToSide(entry, idx);
+                    return;
+                  }
                   const row = b?.entry || rowByName.get(b?.name);
                   if (row) addToSide(row, idx);
                 }}
@@ -2438,7 +2470,18 @@ export default function TradePage() {
               chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
               onChooseSide={setExplicitMySide}
             />
-          ) : null}
+          ) : (
+            // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
+            // two-team trade.  A 3+-team trade gets no YES / NO, and the page
+            // says so instead of silently dropping the War Room.
+            <Banner tone="info" title="Trade War Room: two-team trades only">
+              <span data-testid="war-room-multi-team-limit">
+                The YES / NO decision covers two-team trades, so none is computed
+                for this {sides.length}-team trade; the meter below compares each
+                team&apos;s net flow.
+              </span>
+            </Banner>
+          )}
 
           {/* ── VERDICT ──────────────────────────────────────────
               The answer, and the one number this page exists to
@@ -2498,6 +2541,14 @@ export default function TradePage() {
           {tradeIsIncomplete ? null : (
             <TradeFairnessExplanation sides={sidesWithOverrides} sideTotals={sideTotals} />
           )}
+
+          {/* The one-glance independent tally (TC-B / TCM-K03).  BARE sides,
+              like the per-source table: an override changes the headline,
+              never what a source sees.  Rendering it is what requests its
+              chunk, so it waits for two filled sides. */}
+          {sides.filter((s) => (s.assets || []).length > 0).length >= 2 ? (
+            <TradeOpinionTally sides={sides} />
+          ) : null}
 
           {/* ── SECOND OPINIONS ──────────────────────────────────
               Panels that each re-answer "is this fair?" in a different
@@ -2567,6 +2618,19 @@ export default function TradePage() {
               <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
             ) : null}
           </Panel>
+
+          {hasAssets ? (
+            <TradeNextActions
+              sides={sides}
+              leagueKey={selectedLeagueKey || ""}
+              myTeam={selectedTeam?.name || ""}
+              mySideIdx={sides.length === 2 ? teamSide.side : null}
+              sideTeamNames={sideTeamNames}
+              evalState={evalState.state}
+              isFair={sides.length === 2 ? pwGapIsFair : multiBalancers == null}
+              balancerSideLabel={balancerSideLabel}
+            />
+          ) : null}
 
           <SuggestionsDesk
             sleeperTeams={sleeperTeams}

@@ -402,3 +402,57 @@ export function deserializeEntry(item, rowByName) {
   if (!assetId) return row;
   return { ...row, assetId, assetLabel: String(item.label || "") || row.name };
 }
+
+// ── Display-only builder facts (TC-B / TCM-A02, A03) ──────────────────
+//
+// Pure presentation of what is already on a side.  Nothing here values,
+// ranks or limits anything.
+
+const COMPOSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB", "Pick"];
+
+function compositionGroup(entry) {
+  if (!entry) return null;
+  if (entry.assetClass === "pick" || entry.pos === "PICK") return "Pick";
+  const pos = String(entry.pos || "").toUpperCase().split("/")[0].trim();
+  return pos && pos !== "?" ? pos : "Unknown position";
+}
+
+/**
+ * Per-side position mix, one count per COPY: ``[{ label, count }]`` in a
+ * stable football order (QB RB WR TE K DL LB DB Pick, then anything else
+ * alphabetically).  A row with no position is counted under
+ * "Unknown position", never dropped.
+ */
+export function packageComposition(assets) {
+  const counts = new Map();
+  for (const entry of assets || []) {
+    const label = compositionGroup(entry);
+    if (!label) continue;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  const rank = (label) => {
+    const i = COMPOSITION_ORDER.indexOf(label);
+    return i === -1 ? COMPOSITION_ORDER.length : i;
+  };
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label));
+}
+
+/** "1 QB · 2 WR · 1 Pick" (plural "Picks"), or "" for an empty side. */
+export function packageCompositionText(assets) {
+  return packageComposition(assets)
+    .map(({ label, count }) => `${count} ${label === "Pick" && count > 1 ? "Picks" : label}`)
+    .join(" · ");
+}
+
+/**
+ * A player's age for the asset row: "Age 24" / "Age 24.6", or null when the
+ * board has no age (picks, unmatched players).  Missing is never "Age 0".
+ */
+export function formatAssetAge(entry) {
+  if (!entry || entry.assetClass === "pick" || entry.pos === "PICK") return null;
+  const age = Number(entry.age);
+  if (!Number.isFinite(age) || age <= 0) return null;
+  return `Age ${Number.isInteger(age) ? age : age.toFixed(1)}`;
+}
