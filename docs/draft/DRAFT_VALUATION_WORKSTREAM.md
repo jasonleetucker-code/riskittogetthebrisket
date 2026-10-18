@@ -30,6 +30,8 @@ Workbook map and parity evidence: `docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`.
 | 5 | Preserve the 60/40 spreadsheet formula exactly; each annual pool reconciles to **exactly** $1,200 in money units | START_HERE §5 |
 | 6 | Automatic rollover: scheduled readiness checks over approved offense + IDP rookie sources, stable class identity, full coverage and validation before staged promotion; keep the last verified generation and alert on failure; no manual Google Sheet maintenance or mutation | START_HERE §6 |
 | 7 | **Whole dollars only** for the `dynasty_main` auction: 72 integer pick values totalling exactly $1,200, so every manager budget is the exact integer sum of owned picks. The 60/40 formula, spine, decay, caps and floors are unchanged; the half-dollar L curve stays the mathematical reference and the whole-dollar allocation is a separately identified final step (`apportion.apportion_whole_dollars`: floor, residual to the largest remainders with ties to the earlier pick, verify or refuse) | owner, 2026-10-18 |
+| 9 | **Two values per completed class**, both immutable with receipts: `referenceDollars` (the spreadsheet curve at its original precision) builds the three-year spine, as the F/G/H formula was designed around; `finalWholeDollars` (the published integers) is used for every pick allocation, manager budget, draft-capital display and auction transaction. Fractional dollars are never published as spendable budget. Ledger, snapshots and receipts carry exactly these names; spreadsheet-imported 2024-2026 classes carry `finalWholeDollars: null` with a reason (their published allocation is not in the workbook) | owner, 2026-10-18 |
+| 10 | **Constraint-aware whole dollars before refusal.** Step A (largest remainder) is used unchanged whenever it satisfies every constraint, so existing outputs (incl. the 2027 workbook) never move. Only if it breaks one, Step B solves exactly: minimise Σ\|d_i − r_i\| subject to integer d, Σd = $1,200, per-pick floors/caps (never weakened), non-increasing; ties → lexicographically largest allocation (earlier picks first). Exact windowed DP (window doubled until lossless). Refuse only on genuine infeasibility (proven by monotone bounds, binding constraint named), missing/bad data, or failed verification. No last-known-good store in the module: a refusal propagates and #1785 refuses the board with `draft_dollars_refused`. Evidence: `docs/draft/WHOLE_DOLLAR_RECOVERY_EVIDENCE_2026-10-18.md` | owner, 2026-10-18 |
 | 8 | **K-step tie rule:** tied remainders at the award cutoff go to the earlier draft position, so the half-dollar curve always totals exactly $1,200 (the literal sheet would publish e.g. $1,206). A departure from the literal sheet only in that case; unchanged on the real workbook. Resolves the former cutoff-tie open question | owner, 2026-10-18 |
 | — | One canonical owner per concept; package Value Adjustment never applies to pick auction dollars; MISSING IS NEVER ZERO; independent verification, never a test that copies production logic | directive |
 
@@ -95,21 +97,12 @@ PRODUCTION-VERIFIED (each a separate claim).
 
 ## UNRESOLVED
 
-* **Spine on the half-dollar reference.** Completed-class snapshots keep the
-  half-dollar curve in `dollars` (the quantity the workbook's F/G/H spine
-  holds) and the published integers in `finalWholeDollars`; the spine is
-  built from the former. Owner confirmation that the spine keeps rolling on
-  the half-dollar reference (not the whole-dollar published values) would
-  close this.
-* **Whole-dollar refusals.** The final step refuses a class whose half-dollar
-  curve dips below a whole-dollar floor (e.g. round 5 at $1.50 when round 4
-  ends under $2): 30 of 250 synthetic cases, never the workbook. Such a class
-  would publish nothing until resolved.
 * **No pre-draft 2026 rookie inputs exist in evidence.** Column B is frozen as
   the owner-approved provisional baseline, labelled not-a-pre-draft
   observation; any later "original 2026 class" claim needs archival evidence.
-* **Spreadsheet-sourced curves** 2024/2025/2026 have no recorded inputs, spine
-  or formula version; recorded as `null` with reasons.
+* **Spreadsheet-sourced curves** 2024/2025/2026 have no recorded inputs, spine,
+  formula version or published whole-dollar allocation; recorded as `null`
+  with reasons rather than reconstructed.
 * **Who calls the ledger, and where generated snapshots live.** A curve
   finalized on the production box must become a tracked, reviewable file;
   generated snapshots embed the class's rookie entries, so whether they go

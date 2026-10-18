@@ -173,8 +173,9 @@ values come from a separately identified final step,
    ties go to the earlier pick: **1.01, 1.02, 1.04, 1.05, 1.06, 1.07, 1.08,
    1.10, 1.12, 2.01, 2.02, 2.03, 2.05, 2.07**;
 4. verified: every value an integer, Σ = 1200, non-increasing, floors ($1 per
-   pick, $2 in round 5) and caps (round 5 $2, round 6 $1) hold. A violation
-   refuses with the conflict named; the $1,200 is never changed.
+   pick, $2 in round 5) and caps (round 5 $2, round 6 $1) hold. If Step A
+   breaks one, the constrained step below takes over; only a genuinely
+   infeasible system refuses. The $1,200 is never changed.
 
 | round | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
@@ -192,10 +193,21 @@ the picks they own): 180, 145, 133, 118, 110, 99, 83, 80, 69, 67, 61, 55 =
 (round 3 loses $4, round 4 $2.50 against L) — a direct consequence of all 28
 remainders being tied at .50.
 
-The step refuses whenever the half-dollar curve itself breaks a whole-dollar
-constraint: on the 250 seeded synthetic cases, 30 are refused `below_floor`
-(their round 4 ends under $2, so round 5 dips to $1.50) and 220 publish; the
-workbook publishes.
+**Constraint-aware fallback (owner decision 2026-10-18).** Step A above is
+the published answer whenever it satisfies every constraint — as it does for
+the workbook, so these 72 values are unchanged. Only when Step A breaks a
+constraint does Step B solve exactly: minimise Σ|d_i − r_i| (r = the
+reference) subject to integers, Σd = $1,200, the per-pick floors and caps,
+and non-increasing order; equally optimal allocations resolve to the
+lexicographically largest (earlier picks first). On the 250 seeded synthetic
+classes, 220 publish by Step A and the 30 that simple rounding refused
+(`below_floor`: round 4 ends under $2, so round 5 dips to $1.50) are all
+recovered: 26-32 picks change by ±$1 (net $0), every pick stays within $0.50
+of the reference, and the total deviation (14-22, mean 18.4) equals Step A's —
+the repair only chooses which half-dollar picks round up. None remain
+infeasible. Per-case detail: `docs/draft/WHOLE_DOLLAR_RECOVERY_EVIDENCE_2026-10-18.md`.
+Both values are kept: `referenceDollars` for the spine, `finalWholeDollars`
+for everything spendable.
 
 ## 6. The legacy `server.py::_rookie_dollars_from_values`
 
