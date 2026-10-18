@@ -1,0 +1,93 @@
+name: IDP Show On-Box Verification
+
+# Production evidence for The IDP Show source (owner master package
+# 2026-10-17, Workstream D).  Three separate questions — is the prod cookie
+# jar usable, what did the dynasty-idpshow-fetch timer do and why, and has
+# the vendor actually republished anything — answered from the box itself,
+# because the session jar is browser-minted and lives only there
+# (deploy/idpshow_fetch_and_push.sh).
+#
+# THIS REPOSITORY IS PUBLIC: the log and artifact are readable by anyone.
+# ``scripts/verify_idpshow_onbox.py`` prints only states, counts, timestamps,
+# chart ids and versions; it refuses to print a cookie value or a player
+# name (``assert_public_safe``).  The runner's copy of the script is uploaded
+# into a mktemp dir on the host and removed on exit.
+#
+# Read-only, except ``collect: true``, which starts the existing
+# dynasty-idpshow-fetch.service once exactly as its timer does (that service
+# commits a refreshed board only when a fetch succeeds).
+
+on:
+  workflow_dispatch:
+    inputs:
+      collect:
+        description: Start one real IDP Show collection (the existing timer's service) before probing
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idpshow-onbox-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: IDP Show on-box verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run IDP Show verification on the host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          COLLECT: ${{ inputs.collect && '--collect' || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH=(ssh -i "$HOME/.ssh/id_ed25519"
+            -o BatchMode=yes -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts"
+            -o ConnectTimeout=15 -o ServerAliveInterval=15
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          DIAG_DIR="$("${SSH[@]}" 'mktemp -d /tmp/idpshow-verify.XXXXXX')"
+          "${SSH[@]}" "cat > $(printf %q "$DIAG_DIR")/verify_idpshow_onbox.py" < scripts/verify_idpshow_onbox.py
+          # The interpreter is the app's own venv, so imports resolve to the
+          # DEPLOYED src/ (the script is run with --app-dir as its root).
+          "${SSH[@]}" "set -Eeuo pipefail; trap 'rm -rf -- $(printf %q "$DIAG_DIR")' EXIT; \
+            PY=/home/dynasty/.venvs/trade-calculator/bin/python; \
+            [[ -x \$PY ]] || PY=$(printf %q "$APP_DIR")/.venv/bin/python; \
+            cd $(printf %q "$APP_DIR") && \
+            \$PY $(printf %q "$DIAG_DIR")/verify_idpshow_onbox.py \
+              --app-dir $(printf %q "$APP_DIR") $COLLECT" | tee idpshow-onbox.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: idpshow-onbox-report
+          path: idpshow-onbox.json
+          retention-days: 30
