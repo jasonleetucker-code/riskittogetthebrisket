@@ -955,11 +955,7 @@ def build_best_offers(
             score=score,
             **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
         )
-        anchor_rejected = sum(
-            int((g or {}).get("receiveAnchorRejected") or 0)
-            for g in enum_report.values()
-            if isinstance(g, dict)
-        )
+        anchor_rejected = _disc.anchor_rejections(enum_report)
         disc_report.anchor_rejected += anchor_rejected
         pair = None
         if pick_on and postures.get(opp):

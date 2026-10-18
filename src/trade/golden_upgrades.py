@@ -356,9 +356,7 @@ def find_golden_upgrades(
                 **({"receive_anchor": anchor} if use_anchor and anchor is not None else {}),
             )
             if report is not None:
-                report.anchor_rejected += int(
-                    (enum_report.get("oneForOne") or {}).get("receiveAnchorRejected") or 0
-                )
+                report.anchor_rejected += disc.anchor_rejections(enum_report)
             for c in cands:
                 c.counterparty = opp
             out.extend(cands)

@@ -1855,11 +1855,7 @@ def find_trades(
             **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
         )
         if disc_anchor is not None:
-            disc_report.anchor_rejected += sum(
-                int((g or {}).get("receiveAnchorRejected") or 0)
-                for g in enum_report.values()
-                if isinstance(g, dict)
-            )
+            disc_report.anchor_rejected += _disc.anchor_rejections(enum_report)
         if pick_generation_on:
             # The opponent's picks are only ever ASKED for when we tilt future
             # and they PUSH; resolve them only then.

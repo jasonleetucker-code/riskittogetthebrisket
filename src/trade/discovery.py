@@ -288,9 +288,7 @@ def incoming_quality(
     """Whether ``asset`` can be the qualifying incoming player, and if not why."""
     if _is_pick(asset):
         return False, "pick"
-    if filters.min_incoming_value and int(getattr(asset, "model_value", 0) or 0) < int(
-        filters.min_incoming_value
-    ):
+    if filters.min_incoming_value and int(asset.model_value) < int(filters.min_incoming_value):
         return False, "below_min_value"
     limit = filters.rank_limit
     if limit is None:
@@ -386,7 +384,7 @@ def _best_incoming(receive: Sequence[Any], index: CanonicalIndex) -> Any | None:
         return None
     return min(
         players,
-        key=lambda a: (-int(a.model_value or 0), index.rank(a) or 10**9, str(a.name)),
+        key=lambda a: (-int(a.model_value), _rank_or_last(index.rank(a)), str(a.name)),
     )
 
 
@@ -395,9 +393,11 @@ def lineup_fit(lineup: Mapping[str, Any] | None, prior: Mapping[str, Any]) -> fl
     own normalization), or ``None`` when unavailable."""
     if not lineup or not lineup.get("available") or not lineup.get("ourBefore"):
         return None
+    if lineup.get("ourDelta") is None:
+        return None  # an unreadable delta is unknown, never a zero change
     scale = float((prior.get("scales") or {}).get("lineupDeltaScale", 10.0))
     base = max(float(lineup["ourBefore"]), 1.0)
-    return round(_clip(float(lineup.get("ourDelta") or 0.0) / base * scale, -1.0, 1.0), 4)
+    return round(_clip(float(lineup["ourDelta"]) / base * scale, -1.0, 1.0), 4)
 
 
 def need_fit(receive: Sequence[Any], needs: set[str] | None) -> float | None:
@@ -539,19 +539,43 @@ def score_impact(metrics: Sequence[dict[str, Any]], prior: Mapping[str, Any]) ->
 
 
 def sort_key(sort: str | None, metrics: Mapping[str, Any], tiebreak: Any = "") -> tuple:
-    """Deterministic order for one of the four sorts (best first)."""
-    impact = float(metrics.get("impact") or 0.0)
-    gain = int(metrics.get("gain") or 0)
-    pct = float(metrics.get("gainPct") or 0.0)
+    """Deterministic order for one of the four sorts (best first).
+
+    A missing number sorts LAST — it is never read as a zero.
+    """
+    impact = _desc(metrics.get("impact"))
+    gain = _desc(metrics.get("gain"))
+    pct = _desc(metrics.get("gainPct"))
     best = metrics.get("bestIncoming") or {}
-    rank = best.get("rank") if best.get("rank") is not None else 10**9
+    rank = _rank_or_last(best.get("rank"))
     if sort == "absolute_gain":
-        return (-gain, -impact, rank, tiebreak)
+        return (gain, impact, rank, tiebreak)
     if sort == "percentage_edge":
-        return (-pct, -impact, rank, tiebreak)
+        return (pct, impact, rank, tiebreak)
     if sort == "incoming_rank":
-        return (rank, -impact, -gain, tiebreak)
-    return (-impact, -gain, rank, tiebreak)
+        return (rank, impact, gain, tiebreak)
+    return (impact, gain, rank, tiebreak)
+
+
+def _desc(value: Any) -> float:
+    """Sort key for 'larger first'; an absent value sorts after every number."""
+    return -float(value) if isinstance(value, (int, float)) else math.inf
+
+
+def _rank_or_last(rank: Any) -> float:
+    return float(rank) if isinstance(rank, (int, float)) else math.inf
+
+
+def anchor_rejections(enum_report: Mapping[str, Any] | None) -> int:
+    """Packages the Target Quality anchor refused, summed over a finder
+    enumeration report's shape groups (absent counts contribute nothing)."""
+    total = 0
+    for group in (enum_report or {}).values():
+        if isinstance(group, Mapping):
+            n = group.get("receiveAnchorRejected")
+            if isinstance(n, int):
+                total += n
+    return total
 
 
 def why_it_matters(metrics: Mapping[str, Any], *, need_positions: Iterable[str] = ()) -> str:
@@ -561,11 +585,11 @@ def why_it_matters(metrics: Mapping[str, Any], *, need_positions: Iterable[str] 
     if best:
         rank = f"#{best['rank']} overall" if best.get("rank") else "unranked overall"
         parts.append(f"Brings back {best['name']} ({rank}, {int(best['value']):,})")
-    gain = int(metrics.get("gain") or 0)
+    gain = int(metrics["gain"])
     verb = "for" if gain >= 0 else "at a cost of"
     parts.append(
         f"{verb} {'+' if gain >= 0 else ''}{gain:,} canonical value after the Value Adjustment "
-        f"({float(metrics.get('gainPct') or 0.0):+.1f}%)"
+        f"({float(metrics['gainPct']):+.1f}%)"
     )
     sentence = " ".join(parts) + "."
     lineup = metrics.get("lineupImpact") or {}
