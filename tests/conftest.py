@@ -92,6 +92,17 @@ os.environ.setdefault("UPTIME_CHECK_ENABLED", "0")
 # wants the scheduler sets the variable itself.
 os.environ.setdefault("SCRAPE_SCHEDULER_ENABLED", "0")
 
+# ── No Sleeper overlay warm from a test's lifespan ────────────────────
+# The lifespan's startup prime hands the cached contract to
+# ``_warm_overlays_in_background``, whose ``sleeper-overlay-warm`` daemon
+# thread warms Sleeper's global trending-adds feed even when no league is
+# registered.  Measured 2026-10-18: every TestClient lifespan requested
+# ``api.sleeper.app/v1/players/nfl/trending/add`` on a thread the lifespan
+# never joins.  Same explicit boundary as above (production default ON);
+# a test that wants the warm pass sets the server flag itself.  Pinned by
+# ``tests/infra/test_unit_suite_does_not_probe_production.py``.
+os.environ.setdefault("SLEEPER_OVERLAY_WARM_ENABLED", "0")
+
 # ── Game Day live network feeds OFF for the suite ─────────────────────
 # ``game_day_live_game_state`` (ESPN scoreboard) and
 # ``sleeper_weekly_projections`` default ON in production since Game Day

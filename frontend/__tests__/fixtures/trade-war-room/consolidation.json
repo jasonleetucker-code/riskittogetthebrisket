@@ -809,6 +809,23 @@
       "meanLossDeltaPpg": 3.75,
       "method": "single_starter_absence"
      },
+     "lineupHoles": {
+      "after": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "before": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "description": "starting slots left empty in the simulated weeks (a bye, a stated injury absence, or no projected eligible player), plus slots the roster cannot fill at all",
+      "emptySlotsPerWeekDelta": 0,
+      "method": "unfilled_starting_slots"
+     },
      "magnitude": "modest",
      "neutralBandPpg": 1.31,
      "players": [
@@ -1280,6 +1297,23 @@
       "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
       "meanLossDeltaPpg": 3.75,
       "method": "single_starter_absence"
+     },
+     "lineupHoles": {
+      "after": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "before": {
+       "emptyBySlot": {},
+       "emptySlotsPerWeek": 0,
+       "noEligiblePlayer": [],
+       "onlyUnprojected": []
+      },
+      "description": "starting slots left empty in the simulated weeks (a bye, a stated injury absence, or no projected eligible player), plus slots the roster cannot fill at all",
+      "emptySlotsPerWeekDelta": 0,
+      "method": "unfilled_starting_slots"
      },
      "magnitude": "modest",
      "neutralBandPpg": 1.31,
@@ -2150,6 +2184,23 @@
    "ppg": 1.52,
    "ppgBeforeCleanup": null,
    "standardError": 0.653
+  },
+  "lineupHoles": {
+   "after": {
+    "emptyBySlot": {},
+    "emptySlotsPerWeek": 0,
+    "noEligiblePlayer": [],
+    "onlyUnprojected": []
+   },
+   "before": {
+    "emptyBySlot": {},
+    "emptySlotsPerWeek": 0,
+    "noEligiblePlayer": [],
+    "onlyUnprojected": []
+   },
+   "description": "starting slots left empty in the simulated weeks (a bye, a stated injury absence, or no projected eligible player), plus slots the roster cannot fill at all",
+   "emptySlotsPerWeekDelta": 0,
+   "method": "unfilled_starting_slots"
   },
   "players": [
    {

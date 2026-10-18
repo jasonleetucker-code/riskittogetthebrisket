@@ -14,6 +14,7 @@ import path from "node:path";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import RecentRealTrades from "@/components/trade/RecentRealTrades";
 import {
+  formatMatchText,
   formatTagList,
   referenceQueryFromSides,
   referenceQueryString,
@@ -273,6 +274,28 @@ describe("RecentRealTrades", () => {
     expect(
       screen.getByText(/2 not shown because the league was not verified as dynasty; 1 not shown for privacy/),
     ).toBeTruthy();
+  });
+});
+
+describe("comparability labels and the Trade Database link (TC-B / TCM-L05, L01)", () => {
+  it("every ledger disposition has its own label; none is a default", () => {
+    const fm = (disposition) => formatMatchText({ formatMatch: { appliesToThisLeague: true, disposition } });
+    expect(fm("NATIVE_COMPARABLE")).toBe("Same format as this league");
+    expect(fm("VALIDATED_TRANSFORMABLE")).toBe("Comparable after a validated translation");
+    expect(fm("BROAD_CONTEXT")).toBe("Broad context only — format differs or is unproven");
+    expect(fm("TARGET_UNSUPPORTED")).toBe("Not comparable to this league");
+    expect(fm("SOMETHING_NEW")).toBe("Format match unknown");
+    expect(formatMatchText({})).toBe("Format match unknown");
+  });
+
+  it("links the same assets into the Trade Database, by id and board row", () => {
+    mockFetch(async () => ({ ok: true, json: async () => OK_BODY }));
+    render(<RecentRealTrades sides={SIDES} leagueKey="dynasty_main" />);
+    const link = screen.getByTestId("recent-real-trades-database-link").querySelector("a");
+    const url = new URL(link.getAttribute("href"), "https://x");
+    expect(url.pathname).toBe("/market/trade-database");
+    expect(url.searchParams.get("players")).toBe("6794,7564");
+    expect(url.searchParams.get("picks")).toBe("2027 Early 1st,2027 Mid 1st");
   });
 });
 

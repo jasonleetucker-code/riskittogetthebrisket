@@ -5,11 +5,13 @@ import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { useLeague } from "@/components/useLeague";
 
-// Fallback team name for the ORIGINAL league only (back-compat for
-// Jason's pre-multi-league state).  New leagues don't have a
-// hardcoded default — they rely on the registry's ``defaultTeamMap``
-// which ``/api/leagues`` exposes per user via ``userDefaultTeam``.
-export const DEFAULT_TEAM_NAME = "Rossini Panini";
+// There is NO hardcoded fallback team (TC-B / TCM-I04).  The retired
+// ``DEFAULT_TEAM_NAME`` auto-selected the site owner's team on the
+// registry default league for ANY user whose own team could not be
+// resolved — the owner's team as a global default.  Auto-select now
+// comes only from ``/api/leagues``' per-user ``userDefaultTeam`` (the
+// registry ``defaultTeamMap`` entry for this username, else the team
+// whose Sleeper owner id is the session's); otherwise the user chooses.
 
 function normalize(s) {
   return String(s || "").trim().toLowerCase();
@@ -38,10 +40,10 @@ function normalize(s) {
  *     empty on first load.
  *   * Auto-select honors the league's ``userDefaultTeam`` from
  *     ``/api/leagues`` (per-user slice of the registry's
- *     ``defaultTeamMap``).  When the server doesn't name a default,
- *     the historical ``DEFAULT_TEAM_NAME`` hardcoded fallback runs
- *     only for the registry default league — new leagues require
- *     an explicit user choice.
+ *     ``defaultTeamMap``, else the session's own Sleeper team).  When
+ *     the server doesn't name a default, EVERY league — the registry
+ *     default included — requires an explicit user choice: no league
+ *     inherits another user's team.
  *
  * ``availableTeams`` is sourced from ``rawData.sleeper.teams``.
  * That block is currently stamped with one league's teams at a time
@@ -254,13 +256,9 @@ export function useTeam() {
       match = availableTeams.find((t) => normalize(t?.name) === needle) || null;
     }
 
-    // 2. Historical "Rossini Panini" fallback — only for the default
-    //    league.  New leagues don't inherit Jason's team.
-    if (!match && selectedLeagueKey === defaultLeagueKey) {
-      match = availableTeams.find(
-        (t) => normalize(t?.name) === normalize(DEFAULT_TEAM_NAME),
-      ) || null;
-    }
+    // No second rung: a hardcoded owner team name used to run here for the
+    // registry default league, handing the site owner's team to any user
+    // the server could not place (TC-B / TCM-I04).  Unresolved = choose.
 
     if (match?.name) {
       autoAssignedRef.current.add(selectedLeagueKey);
@@ -275,7 +273,6 @@ export function useTeam() {
     );
   }, [
     selectedLeagueKey,
-    defaultLeagueKey,
     selectionTouched,
     privateDataEnabled,
     dataLoading,

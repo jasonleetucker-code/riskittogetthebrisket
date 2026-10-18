@@ -1,5 +1,6 @@
 "use client";
 
+import { DERIVED_PICK_DESCRIPTIONS } from "@/lib/pick-provenance-text";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
@@ -721,16 +722,9 @@ export function computeValueChain(row) {
   return stages;
 }
 
-// pickValueProvenance classes that carry a DERIVED value (C1-U6); see
-// src/api/data_contract.py::_complete_future_pick_values.
-const DERIVED_PICK_DESCRIPTIONS = {
-  derived_year_step:
-    "No market prices this year yet; derived from the nearest priced year using the measured year-to-year step.",
-  derived_round_step:
-    "No market prices this round; derived from the same year's nearest priced round using the board's own round step.",
-  derived_uniform_tier_ev:
-    "A pick whose slot is not yet known; the average of that year and round's early, mid and late values.",
-};
+// pickValueProvenance classes that carry a DERIVED value (C1-U6): the
+// wording has ONE owner, lib/pick-provenance-text.js (labels for /trade:
+// lib/pick-provenance.js).
 
 /**
  * Ownership: which team holds this player + their depth-chart slot.

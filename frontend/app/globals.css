@@ -1475,11 +1475,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    MOBILE QUICK ADD (sticky one-tap player search at the top of /trade)
    ══════════════════════════════════════════════════════════════════════════ */
 .mobile-quick-add {
-  position: sticky;
-  /* The mobile topbar is ~44px tall; offset so the quick-add lands
-     just below it without overlapping. */
-  top: 44px;
-  z-index: 9;
+  /* In flow since TC-D (was sticky at top: 44px): the 62px pinned bar
+     overlapped scrolled content and was a quarter of /trade's fixed
+     chrome (UX audit P2-4, §7.3).  The verdict bar is the persistent
+     strip; the section nav returns to the builder. */
+  position: relative;
   margin-bottom: 10px;
   padding: 8px 10px;
   border: 1px solid var(--border);

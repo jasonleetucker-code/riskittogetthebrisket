@@ -624,3 +624,221 @@
   color: var(--text-tertiary);
   line-height: var(--line-height-normal);
 }
+
+/* ══ TC-D workspace (D1) ═══════════════════════════════════════════════
+   Five layers (./trade-layout.jsx): builder, immediate result, final
+   decision, supporting intelligence, ideas & tools.  Canonical breakpoints
+   only (DESIGN-SYSTEM.md: 480 / 768 / 1024 / 1320).  The result column
+   repeats the War Room's editorial recipe (surface-1, a 2px strong top
+   rule, a thin bottom rule) instead of inventing a card. */
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  /* Room for the fixed verdict bar at the END of the page — the side grid
+     used to reserve it, back when the builder was the last thing on it. */
+  padding-bottom: 78px;
+}
+.workspace .sidesGrid {
+  padding-bottom: 0;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  /* Section-nav targets land below the sticky top chrome. */
+  scroll-margin-top: calc(var(--topbar-h) + var(--space-3));
+}
+
+.layerTitle {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+
+.layerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.layerAside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.resultPanel,
+.decisionSummary {
+  background: var(--surface-1);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  scroll-margin-top: calc(var(--topbar-h) + var(--space-3));
+}
+
+/* Layer 2 package table (DataTable): the adjusted row carries the weight. */
+.resultTable {
+  min-width: 0;
+}
+.resultTableTotal td {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* Layer 3 echo (desktop only — below 1024 the War Room follows directly). */
+.decisionSummary {
+  display: none;
+}
+.summaryLine {
+  margin: 0;
+}
+.summaryNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.summaryLabel {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.summaryStale {
+  opacity: 0.6;
+}
+.summaryLink,
+.inlineLink {
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.inlineLink {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Contextual section navigation: one column layouts only. */
+.sectionNav {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-0);
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: var(--z-sticky);
+}
+.sectionNavLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  text-align: center;
+}
+.sectionNavLink:hover,
+.sectionNavLink:focus-visible {
+  color: var(--text-primary);
+}
+
+/* The verdict bar's centre is a link to the decision; full-height target. */
+.trayDecisionLink {
+  display: block;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .sectionNav {
+    top: var(--mobile-topbar-h);
+  }
+  .layer,
+  .resultPanel {
+    scroll-margin-top: calc(var(--mobile-topbar-h) + 44px + var(--space-2));
+  }
+  .resultPanel {
+    padding: var(--space-3);
+  }
+  .inlineLink {
+    min-height: 44px;
+  }
+}
+
+/* Desktop: two columns, result + decision sticky on the right. */
+@media (width >= 1024px) {
+  .workspace {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+  .layerBuilder {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .layerDecision {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .layerIntel {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .layerTools {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .layerAside {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    position: sticky;
+    top: calc(var(--topbar-h) + var(--space-3));
+    max-height: calc(100vh - var(--topbar-h) - 2 * var(--space-3));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .decisionSummary {
+    display: flex;
+  }
+  .sectionNav {
+    display: none;
+  }
+  /* The sticky column carries the result and decision; no bottom tray. */
+  .page :global(.trade-sticky-tray) {
+    display: none;
+  }
+  .workspace {
+    padding-bottom: 0;
+  }
+  /* The builder is the left 60%: each side gets the full ledger width
+     (two 370px cards truncated every row's metadata at 1366). */
+  .workspace .sidesGrid,
+  .workspace .sidesGrid[data-sides="3"],
+  .workspace .sidesGrid[data-sides="4"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.resultNotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}

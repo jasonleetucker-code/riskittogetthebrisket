@@ -26,22 +26,13 @@
 import { Fragment, useMemo, useState } from "react";
 
 import {
-  RANKING_SOURCES,
-  SOURCE_VENDOR_LABELS,
-  vendorForSource,
-} from "@/lib/dynasty-data";
-import {
   FALLBACK_REASON_LABEL,
   OPINION_ORIGIN,
   OPINION_STATE,
-  evaluateOpinion,
-  resolveOpinionAsset,
   tallyOpinions,
 } from "@/lib/second-opinions";
-import {
-  packageModelReceipt,
-  valueAdjustmentFromSideArrays,
-} from "@/lib/trade-logic";
+import { buildOpinionRows, opinionTallyText } from "@/lib/second-opinions-rows";
+import { packageModelReceipt } from "@/lib/trade-logic";
 
 import SignalsRankOpinion from "./SignalsRankOpinion";
 
@@ -64,15 +55,7 @@ function coverageText(counts) {
   return parts.join(" · ");
 }
 
-function tallyText(t, sideLabels) {
-  return [
-    ...sideLabels.map((lbl, i) => `Side ${lbl} ${t.wins[i]}`),
-    t.even ? `Even ${t.even}` : null,
-    t.split ? `Split ${t.split}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
+const tallyText = opinionTallyText;
 
 export default function TradeSourceBreakdown({
   sides,
@@ -82,53 +65,13 @@ export default function TradeSourceBreakdown({
   const [open, setOpen] = useState(() => new Set());
   const model = packageModelReceipt();
 
-  const rows = useMemo(() => {
-    const assetsBySide = sides.map((s) => s.assets || []);
-    if (!assetsBySide.some((a) => a.length > 0)) return [];
-    const vendorOrder = [];
-    const vendorSubs = new Map();
-    for (const src of RANKING_SOURCES) {
-      const vendor = vendorForSource(src.key);
-      if (!vendorSubs.has(vendor)) {
-        vendorSubs.set(vendor, []);
-        vendorOrder.push(vendor);
-      }
-      vendorSubs.get(vendor).push(src);
-    }
-    return vendorOrder.map((vendor) => {
-      const subs = vendorSubs.get(vendor);
-      const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
-      const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
-      const resolutionsBySide = assetsBySide.map((assets) =>
-        assets.map((row) => ({
-          name: row?.name || "Unknown asset",
-          ...resolveOpinionAsset({ row, mainSubs, rookieSubs }),
-        })),
-      );
-      const opinion = evaluateOpinion(
-        resolutionsBySide,
-        valueAdjustmentFromSideArrays,
-      );
-      const primary = subs[0];
-      return {
-        key: vendor,
-        family: primary.correlationGroup || vendor,
-        label:
-          SOURCE_VENDOR_LABELS[vendor] ||
-          primary.columnLabel ||
-          primary.displayName ||
-          vendor,
-        displayName: SOURCE_VENDOR_LABELS[vendor]
-          ? subs.map((s) => s.displayName || s.key).join(" + ")
-          : primary.displayName || primary.key,
-        signal: subs.every((s) => s.isRankSignal === false)
-          ? "vendor value"
-          : "translated rank (modeled)",
-        opinion,
-      };
-    });
+  // One row assembly shared with the immediate tally beside the meter
+  // (lib/second-opinions-rows.js, TC-B / TCM-K03).
+  const rows = useMemo(
+    () => buildOpinionRows(sides),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sides, settings]);
+    [sides, settings],
+  );
 
   const sideLabels = sides.map((s) => s.label);
   const shown = rows.filter(

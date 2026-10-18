@@ -207,6 +207,110 @@ class TestNoLifespanStartsARealScrape(unittest.TestCase):
         self.assertEqual(self._hold_client_and_record_scrapes(), ["startup"])
 
 
+class TestNoSleeperOverlayWarmFromALifespan(unittest.TestCase):
+    """The lifespan's overlay warm pass must not reach Sleeper in the suite.
+
+    ``lifespan`` primes the cached contract at boot, and
+    ``_prime_latest_payload`` hands it to ``_warm_overlays_in_background``,
+    which starts the ``sleeper-overlay-warm`` daemon thread.  For every
+    active league it refreshes the scoring and draft-class snapshots and
+    force-refreshes the Sleeper overlay, and then, whatever the registry
+    says, it warms the global trending-adds feed
+    (``https://api.sleeper.app/v1/players/nfl/trending/add``).  Every
+    ``TestClient`` therefore made a real Sleeper request on a thread the
+    lifespan never joins (closed 2026-10-18, the same way #1792 closed the
+    startup scrape).
+    """
+
+    _HOLD_S = 5.0  # upper bound; the enabled control returns as soon as it sees Sleeper
+
+    def _hold_client_and_record_sleeper_hosts(self) -> tuple[list[str], list[str]]:
+        """Hold a client open and record every outbound Sleeper request.
+
+        Recorded at the three layers the warm pass can use: ``requests``
+        (the trending adapter), ``urllib`` (the overlay) and the resolver
+        (anything connecting directly).  The HTTP layers are needed as well
+        as the resolver because behind an HTTPS proxy the resolver only
+        ever sees the proxy host.  Every layer refuses, so nothing leaves
+        the machine either way.
+        """
+        import urllib.request  # noqa: PLC0415
+
+        import requests.adapters  # noqa: PLC0415
+
+        hosts: list[str] = []
+        threads: list[str] = []
+        original_getaddrinfo = socket.getaddrinfo
+        original_send = requests.adapters.HTTPAdapter.send
+        original_open = urllib.request.OpenerDirector.open
+        original_start = threading.Thread.start
+
+        def _refuse_if_sleeper(target) -> None:
+            text = str(target or "")
+            if "sleeper" in text:
+                hosts.append(text)
+                raise OSError("network disabled by test")
+
+        def _getaddrinfo(host, *args, **kwargs):
+            _refuse_if_sleeper(host)
+            return original_getaddrinfo(host, *args, **kwargs)
+
+        def _send(adapter, request, *args, **kwargs):
+            _refuse_if_sleeper(getattr(request, "url", ""))
+            return original_send(adapter, request, *args, **kwargs)
+
+        def _open(opener, fullurl, *args, **kwargs):
+            _refuse_if_sleeper(getattr(fullurl, "full_url", fullurl))
+            return original_open(opener, fullurl, *args, **kwargs)
+
+        def _start(thread, *args, **kwargs):
+            threads.append(thread.name)
+            return original_start(thread, *args, **kwargs)
+
+        patches = (
+            (socket, "getaddrinfo", original_getaddrinfo, _getaddrinfo),
+            (requests.adapters.HTTPAdapter, "send", original_send, _send),
+            (urllib.request.OpenerDirector, "open", original_open, _open),
+            (threading.Thread, "start", original_start, _start),
+        )
+        for owner, name, original, replacement in patches:
+            setattr(owner, name, replacement)
+            self.addCleanup(setattr, owner, name, original)
+        try:
+            with TestClient(server.app):
+                deadline = time.time() + self._HOLD_S
+                while not hosts and time.time() < deadline:
+                    time.sleep(0.05)
+        finally:
+            for owner, name, original, _replacement in patches:
+                setattr(owner, name, original)
+        return hosts, threads
+
+    def test_the_warm_pass_is_disabled_for_unit_tests(self):
+        self.assertFalse(server.SLEEPER_OVERLAY_WARM_ENABLED)
+        self.assertEqual(os.environ.get("SLEEPER_OVERLAY_WARM_ENABLED"), "0")
+
+    def test_a_held_open_client_makes_no_sleeper_call(self):
+        hosts, threads = self._hold_client_and_record_sleeper_hosts()
+        self.assertEqual(hosts, [], "a TestClient lifespan resolved a Sleeper host")
+        self.assertNotIn("sleeper-overlay-warm", threads)
+
+    def test_enabling_it_explicitly_still_runs_the_warm_pass(self):
+        """Disabling it by default must not make it unverifiable.
+
+        Positive control: with the flag on, the same held-open client does
+        start the warm thread and does try to resolve Sleeper (the resolver
+        stub refuses, so nothing leaves the machine).  Without this, the
+        test above could pass because the warm pass was never reachable.
+        """
+        original = server.SLEEPER_OVERLAY_WARM_ENABLED
+        server.SLEEPER_OVERLAY_WARM_ENABLED = True
+        self.addCleanup(setattr, server, "SLEEPER_OVERLAY_WARM_ENABLED", original)
+        hosts, threads = self._hold_client_and_record_sleeper_hosts()
+        self.assertIn("sleeper-overlay-warm", threads)
+        self.assertTrue(hosts, "the enabled warm pass never reached for Sleeper")
+
+
 class TestTheWatchdogItselfRemainsTestable(unittest.TestCase):
     """Disabling it by default must not make it unverifiable.
 

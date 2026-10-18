@@ -54,7 +54,7 @@ function strengthText(v) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-export function SimulationPanel({ simResult, simError, selectedTeam, onReset, overrideCount = 0 }) {
+export function SimulationPanel({ id, simResult, simError, selectedTeam, onReset, overrideCount = 0 }) {
   if (!simResult && !simError) return null;
   const basisNotice = overrideBasisNotice(overrideCount);
 
@@ -77,6 +77,7 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset, ov
 
   return (
     <Panel
+      id={id}
       title={`Impact on ${teamName}`}
       headingLevel={2}
       actions={

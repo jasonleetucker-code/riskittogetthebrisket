@@ -19,9 +19,10 @@
 //
 // Owner directive 2026-10-17: every Sleeper draft class the league still owns
 // picks in is listed.  The workbook path carries the upcoming class in `picks`;
-// the others arrive in `additionalClassPicks` (Sleeper ownership + canonical
-// values) and are part of every view here except `teamTotals`, which stays
-// the upcoming auction's budgets for /draft and /trade.
+// the others arrive in `additionalClassPicks` (Sleeper ownership + the
+// canonical rookie-auction curve, Batch E) and are part of every view here
+// except `teamTotals`, which stays the upcoming auction's budgets for /draft
+// and /trade.
 //
 // When the payload predates the per-season views (a deploy-skew window), no
 // season is offered and the page stays on All Years rather than re-deriving
@@ -157,7 +158,8 @@ export function isUnpricedPick(p) {
 
 /**
  * True when a pick's slot is not a draft position: the class has no draft
- * order yet, so the row is round-only and carries the round's value.
+ * order yet, so the row is round-only and carries an equal whole-dollar share
+ * of its round's dollars.
  */
 export function isSlotUnknown(p) {
   return p?.slotStatus === "unknown";
@@ -189,14 +191,58 @@ export function draftCapitalPickLabel(p, { slotsAreStandIns = false, withSeason 
   return `'${String(p.season).slice(-2)} ${base}`;
 }
 
-/** The owner-addendum (2026-10-18) label for a class on the interim curve. */
+/**
+ * Batch E (owner 2026-10-18): every dynasty_main class is priced on the
+ * rookie-auction formula.  A class whose inputs are the frozen 2026
+ * provisional baseline (`inputMode: "frozen_fallback"`) is a provisional
+ * estimate.  Mirrors `draft_capital_classes.PROVISIONAL_CURVE_LABEL`.
+ */
+export const PROVISIONAL_CURVE_LABEL =
+  "provisional estimate — the rookie-auction formula on the frozen 2026 provisional rookie inputs (actual class inputs pending)";
+
+/**
+ * Seasons whose dollars are a provisional estimate, ascending, limited to the
+ * picks on screen.  Read from the payload's per-class `budgetPolicy.classes`
+ * (`provisional`) when present, else `budgetPolicy.provisionalClasses`, else
+ * the per-pick `inputMode` stamp.
+ */
+export function draftCapitalProvisionalSeasons(data, picks) {
+  const onScreen = new Set(
+    (Array.isArray(picks) ? picks : []).map((p) => Number(p?.season)).filter(Number.isFinite),
+  );
+  const keep = (n) => Number.isFinite(n) && (onScreen.size === 0 || onScreen.has(n));
+  const out = new Set();
+  const classes = data?.budgetPolicy?.classes;
+  const listed = data?.budgetPolicy?.provisionalClasses;
+  if (classes && typeof classes === "object" && Object.keys(classes).length > 0) {
+    for (const [season, block] of Object.entries(classes)) {
+      if (block?.provisional === true && keep(Number(season))) out.add(Number(season));
+    }
+  } else if (Array.isArray(listed)) {
+    for (const s of listed) if (keep(Number(s))) out.add(Number(s));
+  } else {
+    for (const p of Array.isArray(picks) ? picks : []) {
+      if (p?.inputMode === "frozen_fallback") out.add(Number(p.season));
+    }
+  }
+  return [...out].filter(Number.isFinite).sort((a, b) => a - b);
+}
+
+/** True when a pick's slot follows verified final standings (the draft-order rule). */
+export function isSlotFinalStandings(p) {
+  return p?.slotStatus === "final_standings";
+}
+
+/**
+ * LEGACY (deploy skew only): the interim generic-market curve #1785 used for
+ * the later classes was retired by Batch E.  A payload that still carries it
+ * keeps its original label rather than being described as the workbook curve.
+ */
 export const INTERIM_CURVE_LABEL = "provisional estimate — final rookie-auction curve pending";
 
 /**
- * Seasons whose dollars are spread on the INTERIM generic-market curve (not
- * the workbook's rookie-auction curve), ascending.  Read from the payload's
- * per-class `budgetPolicy.classCurveMethods` when present, else from the
- * per-pick `curveMethod` of the picks on screen.
+ * Seasons a LEGACY payload spread on the retired interim generic-market
+ * curve, ascending.  Always empty on a current payload.
  */
 export function draftCapitalInterimSeasons(data, picks) {
   const out = new Set();

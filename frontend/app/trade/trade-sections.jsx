@@ -43,11 +43,14 @@ import {
   getPlayerEdge,
 } from "@/lib/trade-logic";
 import {
+  formatAssetAge,
   groupSideEntries,
   groupTradeSearchResults,
+  packageCompositionText,
   tradeEntryKey,
   tradeEntryLabel,
 } from "@/lib/trade-assets";
+import { derivedPickDisclosure } from "@/lib/pick-provenance";
 import { ValueAdjustmentTip } from "@/components/help/TradeHelp";
 import { draftCapitalBudgetsUnavailableText } from "@/lib/draft-capital-budgets";
 import styles from "./trade.module.css";
@@ -375,6 +378,11 @@ function AssetRow({
   onSetDestination,
 }) {
   const edge = getPlayerEdge(row);
+  const age = formatAssetAge(row);
+  // A pick priced by a declared-prior derivation (no market row) says so on
+  // the row (TC-B / TCM-B04) -- the generic "2027 Round 1" grade above all,
+  // whose slot is not yet known.
+  const derived = derivedPickDisclosure(row);
   // One line per IDENTITY (lib/trade-assets): any repeated asset is one
   // line with a quantity, two owned picks that share a label are two
   // lines.  Routing, overrides and removal all key on the line identity,
@@ -425,6 +433,18 @@ function AssetRow({
                 Owned pick
               </Badge>
             ) : null}
+            {derived ? (
+              <Badge
+                tone="outline"
+                data-testid="trade-asset-derived-pick"
+                title={`No market row: derived from ${derived.basis || "board values"}${
+                  derived.isPrior ? " (a declared prior, not a market price)" : ""
+                }.`}
+              >
+                {derived.label}
+                {derived.isPrior ? " (prior)" : ""}
+              </Badge>
+            ) : null}
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%
@@ -433,7 +453,8 @@ function AssetRow({
           </span>
           <span className={styles.assetMeta}>
             <span className={styles.assetMetaText}>
-              {row.pos} · Consensus{" "}
+              {row.pos}
+              {age ? ` · ${age}` : ""} · Consensus{" "}
               {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
               {" · "}
               {Number.isFinite(row.sourceCount) ? row.sourceCount : 0} src
@@ -478,16 +499,10 @@ function AssetRow({
                   : "Override this player's value for this trade only"
               }
             />
-            {valueOverrides[key] != null ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onClearValueOverride(key)}
-                aria-label={`Reset ${label} to the default value`}
-              >
-                Reset
-              </Button>
-            ) : null}
+            {/* No per-player reset affordance (owner intake #781, TC-B /
+                TCM-D14): an override is visually silent and is cleared by the
+                ONE top-level "Reset Values", by emptying the input, or by
+                removing the asset. */}
           </span>
         </div>
       </div>
@@ -638,7 +653,7 @@ export function SideCard({
   ).length;
 
   return (
-    <Panel className={isMySide ? styles.mySide : undefined}>
+    <Panel className={isMySide ? styles.mySide : undefined} id={`trade-side-${side.label}`}>
       <div className={styles.sideHeader}>
         <div className={styles.sideHeaderLeft}>
           <h3 style={{ margin: 0 }}>Side {side.label}</h3>
@@ -736,6 +751,14 @@ export function SideCard({
         <div className={styles.sideGroupLabel}>Giving</div>
       ) : null}
 
+      {/* Position mix of what this side sends, one count per copy (TC-B /
+          TCM-A02).  Display only. */}
+      {side.assets.length ? (
+        <div className={styles.sideTotalMeta} data-testid="trade-side-composition">
+          {packageCompositionText(side.assets)}
+        </div>
+      ) : null}
+
       <div className={styles.assetList}>
         {groupSideEntries(side.assets).map((g) => (
           <AssetRow
@@ -790,7 +813,7 @@ export function SideCard({
       ) : null}
 
       {balancers ? (
-        <div className={styles.balancers}>
+        <div className={styles.balancers} id={`trade-side-${side.label}-balancers`}>
           <span className={styles.balancerLabel}>{balancers.label}</span>
           {balancers.list.map((b) => (
             <Button
@@ -809,6 +832,7 @@ export function SideCard({
                   : undefined
               }
             >
+              {b.isCombo ? "Both: " : ""}
               {b.label || b.name} ({b.pos}) · {b.value.toLocaleString()}
               {Number.isFinite(b.imbalanceAfter) ? (
                 <span className={styles.balancerResidual}>
