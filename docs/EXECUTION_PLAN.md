@@ -161,6 +161,11 @@ valid; otherwise the exact constrained integer problem (integers, exact $1,200, 
 non-increasing, minimum total deviation from the reference, deterministic earlier-position tie-break)
 is solved with a documented, independently verified method before any refusal. Refusal only for genuine
 infeasibility, missing essential data or failed verification; safe refusal / last-known-good kept.
+**Addendum (binding):** last-known-good — the most recent independently verified 72-pick whole-dollar
+allocation per draft year is preserved (immutable, with provenance and receipt) and kept on a failed
+refresh with an explicit warning; the dollar curve never carries ownership (old ownership is never
+substituted; unverifiable ownership → unavailable, never $0); no cross-year reuse without a validated
+policy; no applicable allocation → fail closed with a named reason.
 
 ## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
 
