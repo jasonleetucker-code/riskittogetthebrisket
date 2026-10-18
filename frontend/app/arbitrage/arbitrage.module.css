@@ -199,3 +199,57 @@
   font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
+
+/* Owner directive 2026-10-18 — tools first; research table below them. */
+.toolPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.research {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The wide research table scrolls inside its own region; the page itself
+   never scrolls horizontally. */
+.tableScroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.discovery {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.why {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.factList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.factList dt {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.factList dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

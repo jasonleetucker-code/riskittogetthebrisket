@@ -15,6 +15,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createSide, simulationSignature } from "@/lib/trade-logic";
 
 function chunkLoadError(id) {
   const err = new Error(`Loading chunk ${id} failed.`);
@@ -80,6 +81,9 @@ vi.mock("@/components/useTradeSimulator", () => ({
     loading: false,
     error: null,
     reset: () => {},
+    // The result answers the trade on screen (an empty trade, no team, this
+    // league): /trade renders a result only for a matching signature (TC-A).
+    signature: simulationSignature([createSide(0), createSide(1)], "", "dynasty_main"),
   }),
 }));
 

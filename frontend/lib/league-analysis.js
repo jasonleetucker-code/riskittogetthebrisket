@@ -84,12 +84,18 @@ export function filterTradesToRollingWindow(trades, windowDays = 365) {
 }
 
 // ── Trade Grading ───────────────────────────────────────────────────────
+// Letters are MONOTONE in the margin (TC-A, 2026-10-17): a bigger win never
+// earns a lower letter, a bigger overpay never a higher one.  The winner
+// letters used to run A, A, A-, B+, A+ -- a Clear win graded below a Slight
+// win, and B+ meant both "Clear win" and "Slight overpay".  Cut points are
+// unchanged (PRIOR, owner recalibration pending).  Twin:
+// src/public_league/trade_grading.py::grade_from_pct.
 export function gradeTradeHistorySide(pct, isWinner) {
   if (pct < 3) return { grade: "A", color: "var(--green)", label: "Fair trade" };
   if (isWinner) {
     if (pct < 8) return { grade: "A", color: "var(--green)", label: "Slight win" };
-    if (pct < 15) return { grade: "A-", color: "var(--green)", label: "Good win" };
-    if (pct < 25) return { grade: "B+", color: "#2ecc71", label: "Clear win" };
+    if (pct < 15) return { grade: "A", color: "var(--green)", label: "Good win" };
+    if (pct < 25) return { grade: "A+", color: "#00ff88", label: "Clear win" };
     return { grade: "A+", color: "#00ff88", label: "Big win" };
   }
   if (pct < 8) return { grade: "B+", color: "#2ecc71", label: "Slight overpay" };
@@ -390,16 +396,20 @@ function resolveTradeSideList(rawList, ctx) {
 
 // Package value adjustment for one team's "got vs gave" comparison —
 // routes through ``packageAdjustPair``, the sitewide package-model
-// dispatch (ACTIVE model: KTC's verbatim adjustPackage port, PR #335,
-// until the owner promotes a challenger).  Treat got/gave as a 2-side trade:
-// positive ``vaNet`` means this team RECEIVED the stud premium (got
-// side wins on KTC's intensity-adjusted raw_adj); negative means they
-// GAVE the studs away.  Pure: value arrays only, no React/row refs.
-export function computeTradeVANet(gotValues, gaveValues) {
+// dispatch (ACTIVE model: the owner-approved geometric Value Adjustment,
+// geom_q078_v1, since 2026-10-17; KTC's adjustPackage port is the
+// rollback model).  Treat got/gave as a 2-side trade: positive ``vaNet``
+// means this team RECEIVED the stud premium; negative means they GAVE the
+// studs away.  ``opts.modelId`` selects a model explicitly (twin of the
+// Python ``trade_va_net(model_id=...)``); omitted = the ACTIVE model.
+// Pure: value arrays only, no React/row refs.
+export function computeTradeVANet(gotValues, gaveValues, opts = {}) {
   if (!gotValues.length || !gaveValues.length) return 0;
-  const result = packageAdjustPair(gotValues, gaveValues);
+  const result = packageAdjustPair(gotValues, gaveValues, {
+    modelId: opts.modelId,
+  });
   if (!result.displayed || result.value <= 0) return 0;
-  // packageAdjustPair's `side` follows KTC's team1/team2 convention.
+  // packageAdjustPair's `side` follows the team1/team2 convention.
   // We pass got=team1, gave=team2.  side=1 means got receives the VA
   // (positive); side=2 means gave receives it (penalty for got).
   return result.side === 1 ? result.value : -result.value;

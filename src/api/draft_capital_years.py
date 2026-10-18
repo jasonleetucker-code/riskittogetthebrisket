@@ -11,13 +11,20 @@ that one of the two existing builders already produced —
 and partitions the per-team capital those builders already computed by the
 season each pick belongs to.
 
-**No per-year renormalization.**  Both builders spread ONE fixed budget
-(``totalBudget``, $1200) across every priced pick they emit.  A season's view
-is the SUM of those same per-pick dollars; it is never re-spread so that the
-season alone totals $1200.  So the per-season numbers add back up to each
-team's existing ``auctionDollars`` (pinned by tests), and a season the
-builders give a small share of the pool reads small rather than being
-inflated to look like a full draft.
+**No per-year renormalization here.**  A season's view is the SUM of the
+per-pick dollars the builder already assigned; this module never re-spreads
+them.  The budget basis is owner-decided (2026-10-18, "$1,200 per draft
+class", ``budgetPolicy`` in ``src/api/draft_capital_classes.py``) and
+scoped to ``dynasty_main`` (owner scope correction 2026-10-18).  On the
+workbook path every class is its own $1200 pool, so each season's league
+total is that class's $1200 whenever any of its picks is priced (unpriced
+picks are left out of the class's normalization, never counted as $0) and
+All Years is the sum of the classes, each pick once: the upcoming class is in
+``picks`` / ``teamTotals`` (``auctionDollars`` = the auction budgets) and
+every later class in ``additionalClassPicks``.  The Sleeper-derived fallback
+(every other league, out of scope and unchanged) still spreads ONE $1200
+across the seasons it emits in ``picks``; this module sums whatever per-pick
+dollars either builder assigned, so its views stay correct on both shapes.
 
 **A partially priced season ranks on its PRICED dollars.**  Unpriced picks
 (``dollarValue: null``) are excluded from a season's sum exactly as the
@@ -28,12 +35,11 @@ its rank is a rank of priced capital, not of all capital.
 
 **Available years are DATA, not a list.**  ``availableYears`` is the set of
 seasons the builder's pick inventory actually contains.  Which seasons those
-are is decided upstream by the existing retirement policy of each path — the
-workbook path bumps past a completed rookie draft
-(``current_draft_complete``), the fallback starts at the league's first
-non-retired class (``draft_class_evidence.active_seasons_for_league``, #1414)
-— so a completed class disappears and a newly generated one appears without
-this module knowing any year.
+are is decided upstream by the league-scoped resolver both paths read
+(``pick_lifecycle.league_draft_years`` — every owned class, minus classes the
+league has drafted and rostered, #1414 / Wave A) — so a completed class
+disappears and a newly eligible one appears without this module knowing any
+year.
 
 **Missing is never zero.**  A pick the builder could not price
 (``dollarValue: None`` / ``isUnpriced: True``) contributes no dollars and is
@@ -92,7 +98,7 @@ def attach_year_views(
     one season by construction, so it passes that season's existing total.
     When omitted, a season's capital is the sum of the priced per-pick
     ``dollarValue`` the team currently owns in it — exactly how the fallback
-    forms ``auctionDollars``, so the seasons add back up to it.
+    forms ``auctionDollars`` for the upcoming class.
 
     Adds:
 
@@ -108,7 +114,15 @@ def attach_year_views(
     if not isinstance(result, dict) or result.get("error"):
         return result
     picks = result.get("picks")
-    picks = picks if isinstance(picks, list) else []
+    picks = list(picks) if isinstance(picks, list) else []
+    # Classes the builder's ``teamTotals`` do not cover (the workbook path
+    # carries the upcoming class there and every later class here).  They
+    # take part in every per-year view and in ``allYearsTeamTotals``, never in
+    # ``teamTotals`` / ``coveredPickYears`` — those keep meaning "the dollars
+    # the auction budgets are made of".
+    extra = result.get("additionalClassPicks")
+    if isinstance(extra, list):
+        picks.extend(extra)
     team_rows = result.get("teamTotals")
     team_rows = team_rows if isinstance(team_rows, list) else []
     board_season = result.get("season")
@@ -116,6 +130,10 @@ def attach_year_views(
     years: set[int] = set()
     # (team, season) → [pickCount, unpricedCount, pricedDollars]
     cells: dict[tuple[str, int], list[float]] = {}
+    # (team, season) → [acquiredCount, tradedAwayCount].  "Acquired" = held
+    # now, originated elsewhere; "traded away" = originated here, held
+    # elsewhere.  Both read the builder's own ``isTraded`` (roster-id based).
+    moves: dict[tuple[str, int], list[int]] = {}
     for pick in picks:
         if not isinstance(pick, dict):
             continue
@@ -124,6 +142,11 @@ def attach_year_views(
         if season is None or not isinstance(owner, str):
             continue
         years.add(season)
+        if pick.get("isTraded") is True:
+            moves.setdefault((owner, season), [0, 0])[0] += 1
+            origin = pick.get("originalOwner")
+            if isinstance(origin, str):
+                moves.setdefault((origin, season), [0, 0])[1] += 1
         cell = cells.setdefault((owner, season), [0, 0, 0.0])
         cell[0] += 1
         if _is_unpriced(pick):
@@ -139,7 +162,7 @@ def attach_year_views(
         str(r.get("team")) for r in team_rows if isinstance(r, dict) and r.get("team") is not None
     ]
     known = set(team_order)
-    for owner, _season in cells:
+    for owner, _season in list(cells) + list(moves):
         if owner not in known:
             known.add(owner)
             team_order.append(owner)
@@ -166,49 +189,74 @@ def attach_year_views(
         cap_by_year: dict[str, Any] = {}
         count_by_year: dict[str, int] = {}
         unpriced_by_year: dict[str, int] = {}
+        acquired_by_year: dict[str, int] = {}
+        traded_away_by_year: dict[str, int] = {}
         for season in available:
             count, unpriced, _d = cells.get((team, season), [0, 0, 0.0])
+            acquired, traded_away = moves.get((team, season), [0, 0])
             cap_by_year[str(season)] = _capital(team, season)
             count_by_year[str(season)] = int(count)
             unpriced_by_year[str(season)] = int(unpriced)
+            acquired_by_year[str(season)] = int(acquired)
+            traded_away_by_year[str(season)] = int(traded_away)
+        known_caps = [v for v in cap_by_year.values() if v is not None]
+        if known_caps:
+            all_years = sum(known_caps)
+            all_years = int(all_years) if float(all_years).is_integer() else round(all_years, 2)
+        else:
+            # No season has a priced figure: UNKNOWN when the team holds
+            # picks, a true 0 only when it holds none.
+            all_years = None if sum(count_by_year.values()) else 0
         per_team[team] = {
             "draftCapitalByYear": cap_by_year,
             "pickCountByYear": count_by_year,
             "unpricedPickCountByYear": unpriced_by_year,
+            "acquiredPickCountByYear": acquired_by_year,
+            "tradedAwayPickCountByYear": traded_away_by_year,
             "pickCount": sum(count_by_year.values()),
             "unpricedPickCount": sum(unpriced_by_year.values()),
+            "acquiredPickCount": sum(acquired_by_year.values()),
+            "tradedAwayPickCount": sum(traded_away_by_year.values()),
+            "allYearsCapital": all_years,
         }
 
     for row in team_rows:
         if isinstance(row, dict) and row.get("team") is not None:
             row.update(per_team.get(str(row["team"]), {}))
 
+    def _ranked(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        # Priced capital descending; a team whose capital is unknown sinks
+        # below every known figure (including a true zero).  Name breaks ties
+        # so the order is deterministic.
+        known_rows = sorted(
+            (r for r in rows if r["auctionDollars"] is not None),
+            key=lambda r: (-r["auctionDollars"], r["team"].casefold()),
+        )
+        unknown_rows = sorted(
+            (r for r in rows if r["auctionDollars"] is None), key=lambda r: r["team"].casefold()
+        )
+        rows = known_rows + unknown_rows
+        for i, r in enumerate(rows, start=1):
+            r["rank"] = i if r["auctionDollars"] is not None else None
+        return rows
+
     by_year: dict[str, list[dict[str, Any]]] = {}
     summaries: dict[str, dict[str, Any]] = {}
     for season in available:
         key = str(season)
-        rows = [
-            {
-                "team": team,
-                "auctionDollars": per_team[team]["draftCapitalByYear"][key],
-                "pickCount": per_team[team]["pickCountByYear"][key],
-                "unpricedPickCount": per_team[team]["unpricedPickCountByYear"][key],
-            }
-            for team in team_order
-        ]
-        # Priced capital descending; a team whose capital is unknown sinks
-        # below every known figure (including a true zero).  Name breaks ties
-        # so the order is deterministic.
-        known = sorted(
-            (r for r in rows if r["auctionDollars"] is not None),
-            key=lambda r: (-r["auctionDollars"], r["team"].casefold()),
+        rows = _ranked(
+            [
+                {
+                    "team": team,
+                    "auctionDollars": per_team[team]["draftCapitalByYear"][key],
+                    "pickCount": per_team[team]["pickCountByYear"][key],
+                    "unpricedPickCount": per_team[team]["unpricedPickCountByYear"][key],
+                    "acquiredPickCount": per_team[team]["acquiredPickCountByYear"][key],
+                    "tradedAwayPickCount": per_team[team]["tradedAwayPickCountByYear"][key],
+                }
+                for team in team_order
+            ]
         )
-        unknown = sorted(
-            (r for r in rows if r["auctionDollars"] is None), key=lambda r: r["team"].casefold()
-        )
-        rows = known + unknown
-        for i, r in enumerate(rows, start=1):
-            r["rank"] = i if r["auctionDollars"] is not None else None
         by_year[key] = rows
         season_picks = sum(r["pickCount"] for r in rows)
         season_unpriced = sum(r["unpricedPickCount"] for r in rows)
@@ -221,6 +269,43 @@ def attach_year_views(
             "teamsWithPicks": sum(1 for r in rows if r["pickCount"] > 0),
         }
 
+    # All Years = every class the year views cover, each pick counted once
+    # (one row per pick, no class repeated): the upcoming class in
+    # ``teamTotals`` plus the classes ``additionalClassPicks`` carries, each
+    # its own $1200 pool (owner decision 2026-10-18).
+    all_rows = _ranked(
+        [
+            {
+                "team": team,
+                "auctionDollars": per_team[team]["allYearsCapital"],
+                "pickCount": per_team[team]["pickCount"],
+                "unpricedPickCount": per_team[team]["unpricedPickCount"],
+                "acquiredPickCount": per_team[team]["acquiredPickCount"],
+                "tradedAwayPickCount": per_team[team]["tradedAwayPickCount"],
+                "draftCapitalByYear": per_team[team]["draftCapitalByYear"],
+                "pickCountByYear": per_team[team]["pickCountByYear"],
+            }
+            for team in team_order
+        ]
+    )
+    for row in all_rows:
+        src_row = next(
+            (r for r in team_rows if isinstance(r, dict) and r.get("team") == row["team"]), None
+        )
+        if src_row is not None:
+            row["rosterId"] = src_row.get("rosterId")
+            row["ownerId"] = src_row.get("ownerId")
+    result["allYearsTeamTotals"] = all_rows
+    all_total = sum(r["auctionDollars"] for r in all_rows if r["auctionDollars"] is not None)
+    all_count = sum(r["pickCount"] for r in all_rows)
+    all_unpriced = sum(r["unpricedPickCount"] for r in all_rows)
+    result["allYearsSummary"] = {
+        "totalDollars": int(all_total) if float(all_total).is_integer() else round(all_total, 2),
+        "pickCount": all_count,
+        "pricedPickCount": all_count - all_unpriced,
+        "unpricedPickCount": all_unpriced,
+        "teamsWithPicks": sum(1 for r in all_rows if r["pickCount"] > 0),
+    }
     result["availableYears"] = available
     result["teamTotalsByYear"] = by_year
     result["yearSummaries"] = summaries

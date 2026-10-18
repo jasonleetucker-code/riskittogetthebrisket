@@ -385,20 +385,30 @@ def undeclared_owner_definitions(extra: Path | None = None) -> dict[str, list[st
     return violations
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, extra: Path | None = None) -> int:
+    """Run the census.
+
+    ``extra`` adds one file OUTSIDE the scan roots to the scan — the same
+    seam every scanner above takes.  It is how the positive controls in
+    ``tests/roster_intel/test_replacement_owner.py`` plant a duplicate
+    without writing into ``src/``: a probe written into the tree is seen by
+    every other tree scan running concurrently (pytest-xdist), and turned
+    those scans red.  Not exposed on the CLI — production runs scan the
+    tree and nothing else.
+    """
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--json-out", type=Path, default=None)
     args = ap.parse_args(argv)
 
-    rows = build_census()
+    rows = build_census(extra=extra)
     if not rows:
         print(f"{TAG} census is empty — nothing was measured. exit 2.")
         return EXIT_UNMEASURED
 
     print(
-        f"{TAG} {len(rows)} implementations declared; callers derived by AST over {len(_python_files())} files"
+        f"{TAG} {len(rows)} implementations declared; callers derived by AST over {len(_python_files(extra))} files"
     )
     print("")
     for r in rows:
@@ -416,11 +426,11 @@ def main(argv: list[str] | None = None) -> int:
     failures: list[str] = []
     unconsumed: list[str] = []
 
-    reachable = retired_reachable()
+    reachable = retired_reachable(extra=extra)
     if reachable:
         failures.append(f"retired symbols are reachable again: {reachable}")
 
-    stray_definitions = undeclared_owner_definitions()
+    stray_definitions = undeclared_owner_definitions(extra=extra)
     if stray_definitions:
         failures.append(
             "an OWNER symbol name is DEFINED outside its declared path — an "

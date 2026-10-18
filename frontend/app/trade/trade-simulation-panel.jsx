@@ -10,8 +10,9 @@
  */
 
 import { useId } from "react";
-import { Badge, Banner, Button, DataTable, Movement, Panel, StatTile } from "@/components/ds";
+import { Banner, Button, DataTable, Movement, Panel, StatTile } from "@/components/ds";
 import styles from "./trade.module.css";
+import { overrideBasisNotice } from "@/lib/trade-war-room";
 
 function fmtSigned(n) {
   const v = Math.round(Number(n) || 0);
@@ -19,14 +20,6 @@ function fmtSigned(n) {
 }
 
 // ── Simulation impact ─────────────────────────────────────────────────
-
-const VERDICT_TONE = {
-  accept: "positive",
-  "lean accept": "positive",
-  neutral: "neutral",
-  "lean decline": "negative",
-  decline: "negative",
-};
 
 /**
  * `finalRosterSimulation` refusal copy, keyed by the backend's own
@@ -61,8 +54,9 @@ function strengthText(v) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) {
+export function SimulationPanel({ simResult, simError, selectedTeam, onReset, overrideCount = 0 }) {
   if (!simResult && !simError) return null;
+  const basisNotice = overrideBasisNotice(overrideCount);
 
   const teamName =
     simResult?.team?.name || selectedTeam?.name || "your team";
@@ -91,6 +85,11 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
         </Button>
       }
     >
+      {basisNotice ? (
+        <p className={styles.suggestMeta} data-testid="simulation-basis-notice">
+          {basisNotice}
+        </p>
+      ) : null}
       {simError ? (
         <Banner tone="negative" title="Simulation failed">
           {simError}
@@ -149,22 +148,21 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
             <div className={styles.simSection} style={{ marginTop: "var(--space-3)" }}>
               <div className={styles.simSectionHead}>
                 <span className={styles.simSectionTitle}>Roster fit</span>
-                <span className={styles.simVerdict}>
-                  <Badge tone={VERDICT_TONE[ti.verdict] || "neutral"}>{ti.verdict}</Badge>
-                  <span className={styles.simScore}>
-                    {ti.compositeScore >= 0 ? "+" : ""}
-                    {ti.compositeScore.toFixed(1)}
-                  </span>
-                </span>
               </div>
+              {/* Owner decision 5 (2026-10-18): the accept / decline verdict
+                  (0.55·fit + 0.45·raw equity) is RETIRED -- it was a second
+                  YES/NO beside the trade decision, built on raw equity with no
+                  Value Adjustment.  What remains is roster information:
+                  lineup changes, depth, displacement and window fit. */}
+              <p className={styles.suggestMeta} data-testid="simulation-roster-info-note">
+                Roster information, not a recommendation: how the trade changes
+                your starting lineup, depth and roster shape.
+              </p>
               <div className={styles.simGrid}>
                 <StatTile
-                  label="Fit"
+                  label="Roster shape"
                   value={`${ti.fitScore >= 0 ? "+" : ""}${ti.fitScore.toFixed(1)}`}
-                />
-                <StatTile
-                  label="Equity"
-                  value={`${ti.equityScore >= 0 ? "+" : ""}${ti.equityScore.toFixed(1)}`}
+                  meta="starters, depth, bench overflow"
                 />
                 {/* Wave B: window fit follows the canonical Competitive
                     Posture (C7-POST-01). Without one it is NOT computed —
@@ -353,7 +351,8 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
           ) : null}
 
           <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
-            Equity (receiving − sending): {fmtSigned(simResult.equity)}
+            Raw equity (receiving − sending, before Value Adjustment):{" "}
+            {fmtSigned(simResult.equity)}
           </p>
 
           {/* Secondary context, deliberately AFTER every verdict-bearing

@@ -1331,11 +1331,11 @@ hard-coded. The selector changes which picks count, never how they are valued.
 |---|---|
 | Year selector on the existing page; default All Years; `?year=` URL state surviving reload/back/forward/direct links; invalid/obsolete year falls back to All Years; legacy `/draft-capital?year=` forwards | IMPLEMENTED — `claude/draft-capital-year-selector` |
 | Available years derived from the pick inventory, following each path's existing retirement policy (workbook: completed-draft bump; fallback: `draft_class_evidence` #1414) | IMPLEMENTED — `availableYears` |
-| Per-year team capital = SUM of the same canonical per-pick dollars (one $1200 pool, never renormalized per year); All Years unchanged; per-year re-rank, totals, bars, pick lists | IMPLEMENTED — `teamTotalsByYear` / `yearSummaries` (`src/api/draft_capital_years.py`) |
+| Per-year team capital = SUM of the same canonical per-pick dollars (one $1200 pool, never renormalized per year); All Years unchanged; per-year re-rank, totals, bars, pick lists | IMPLEMENTED — `teamTotalsByYear` / `yearSummaries` (`src/api/draft_capital_years.py`) *Budget basis superseded 2026-10-18: each draft class is its own $1,200 pool and All Years sums the classes (see "Draft-capital budget basis" under "Added 2026-10-17 — P1").* |
 | Unpriced picks stay excluded and visibly counted; an all-unpriced team-year reads "—"/unranked, never $0; zero-pick teams stay with "No {year} picks" | IMPLEMENTED |
 | Future picks never imply known slots: Sleeper-derived boards show round only, labelled estimated | IMPLEMENTED |
 | Optional compact per-team year breakdown in All Years | IMPLEMENTED (multi-year boards only) |
-| Real data does not contain 2029 for either live league (dynasty_main workbook covers 2027 only; dynasty_new fallback covers 2027–2028) although Sleeper reports traded 2028/2029 picks and the canonical board prices generic 2027–2029 rows | OWNER DECISION NEEDED — extending either inventory changes how the $1200 pool is spread (All Years totals would move) |
+| Real data does not contain 2029 for either live league (dynasty_main workbook covers 2027 only; dynasty_new fallback covers 2027–2028) although Sleeper reports traded 2028/2029 picks and the canonical board prices generic 2027–2029 rows | SUPERSEDED — *2026-10-17: the owner directed extending to every Sleeper draft year; 2026-10-18: the $1,200 basis is decided — "$1,200 per draft class" (see the "Draft-capital budget basis" row under "Added 2026-10-17 — P1: all Sleeper draft years in League Draft Capital").* |
 
 ## Added 2026-10-01 — Adaptive Learning / Continuous Improvement Master Roadmap (owner directive)
 
@@ -1764,6 +1764,46 @@ completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`.
 | Routine implementation details proceed without owner approval; merge and deploy gates and required owner approvals still apply | DECIDED — binding (addendum) |
 | Implementation | IN PROGRESS — B1 + B2 + feed lane `claude/manager-intel-b` |
 
+## Added 2026-10-17 — Trade Calculator completion: audit, redesign, unified YES/NO decision engine
+
+Owner master directive 2026-10-17 ("MASTER AUDIT, REDESIGN & COMPLETION DIRECTIVE — The Ultimate Dynasty Trade
+Calculator") plus the owner's queue instruction: **added to the current active implementation queue**, not a separate
+project. In-flight work (injury-aware simulations, IDP rehabilitation, geometric VA activation, Manager Intelligence,
+draft-pick ownership) keeps its order. Workstream, batches, dependencies and completion criteria:
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`.
+
+| Item | Disposition |
+|---|---|
+| Audit every Trade Calculator requirement ever discussed into one durable feature matrix with implementation / CI / merge / deploy / production-verification states kept distinct | DECIDED — binding (directive) |
+| Competitive research of leading trade calculators from public, permitted evidence only, leading to adopted and avoided patterns | DECIDED — binding (directive) |
+| Redesign `/trade`'s information architecture (builder → immediate result → final decision → supporting intelligence → advanced tools) with genuine desktop and mobile parity, PSI Direction A | DECIDED — binding (directive) |
+| One authoritative decision engine, extended in place, giving **YES — MAKE THE TRADE / NO — DO NOT MAKE THE TRADE** with confidence, primary reason, supporting factors, main counterargument and what would change it; when essential evidence is missing it says no reliable recommendation can be made. Refines `C7-DESK-01`'s five-level MAKE…PASS headline into the binary headline plus an honest insufficient-evidence state | DECIDED — owner, 2026-10-17 |
+| Personalized, not arbitrary: objective package value, personal roster benefit, strategic fit (win-now / balanced / rebuild; an inferred posture shown and adjustable) and feasibility stay separate explainable components; no invented weights; no double counting (independent / correlated / contextual / explanatory evidence classes) | DECIDED — binding (directive) |
+| All package math through the active model (`geom_q078_v1`, q = 0.78, once #1771 is deployed); KTC stays as the named rollback / historical comparison; KTC-calibrated thresholds re-evaluated or labelled provisional | DECIDED — binding (directive) |
+| Not authorized by it: changing q or the package model, promoting experimental models, League Tycoon contract features, purchases; merges, deploys and promotions keep their gates | DECIDED — binding (directive) |
+| TC-C decision 1 — near tie: a near tie with complete evidence reads **"NO — TOO CLOSE"**; **NOT ENOUGH EVIDENCE** only when material information is missing or uncertainty prevents a defensible recommendation | DECIDED — owner, 2026-10-18 |
+| TC-C decision 2 — default strategy: inferred from the existing competitive-posture classification plus league evidence (contender → win now, rebuilder → long-term value, uncertain / balanced → BALANCED); always displayed, always manually overridable | DECIDED — owner, 2026-10-18 |
+| TC-C decision 3 — fairness bands re-evaluated for the geometric model as a relative difference with an absolute minimum, validated on offense, IDP, picks, consolidation and large packages; numbers provisional until tested; q = 0.78 never modified | DECIDED — owner, 2026-10-18 (TC-A labels every current threshold PRIOR with provenance; recalibration in TC-C) |
+| TC-C decision 4 — Second Opinions EVEN = within 1% of the larger adjusted side (initial, subject to validation); independent opinions separate from canonical-fallback comparisons; fallbacks / correlated sources never count as independent votes | DECIDED — owner, 2026-10-18 (implemented in TC-A) |
+| TC-C RETOOL classification → BALANCED: CONTENDER / PUSH → win now; RETOOL → balanced; REBUILDER / REBUILD → long-term; UNCERTAIN / HOLD → balanced. RETOOL stays its own classification and is never relabelled a rebuilder; a balanced decision weighs immediate competitiveness and long-term value from the evidence and does not automatically prefer future picks over meaningful current production; the user override always works and is echoed; the inferred classification, the selected strategy and the reasoning are shown in the recommendation and the decision receipt. Supersedes the decision-engine audit's RETOOL → long-term proposal | DECIDED — owner, 2026-10-18 (final; implemented on `claude/trade-calculator-tc-c`) |
+| TC-C Best Offers qualification — Option B: in Best Offers ONLY, a positive VA-adjusted canonical package gain of at least the fairness-band owner's `absoluteMinimum` (currently 250) qualifies as a meaningful opportunity even when the shared relative band rates the package FAIR (e.g. +774 / 3.43%). The FAIR classification, the thresholds, `equity_verdict` and its `win` flag stay unchanged; qualification is a separately named Best Offers rule (`best_offers.best_offers_qualification`, basis `canonical_win` / `meaningful_gain`); cards describe the actual gain and fairness rating, never "clear win" for a FAIR package; every other hard gate unchanged; the Trade Calculator YES/NO, the fairness meter and the Package Builder are NOT changed; pre-decision impact figures are not presented as post-decision measurements | DECIDED — owner, 2026-10-18 (#1791 comment; implemented on `claude/trade-calculator-tc-c`, remeasured in `docs/trade/tc-c-fairness-band-impact/results.json`) |
+| TC-C decision 5 — retire `teamImpact.verdict` as a competing YES/NO; keep the underlying roster analysis (lineup changes, strength / weakness, bench depth, displacement, forced drops, roster construction, positional needs) as independent input to the unified engine without double counting; ONE canonical decision owner | DECIDED — owner, 2026-10-18 (implemented in TC-A) |
+| Implementation | IN PROGRESS — TC-0 audit + research done; TC-A correctness on `claude/trade-calculator-tc-a` (local, not merged); TC-B…TC-F queued by dependency. Decision text: `docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md` (TC-C) and `docs/trade/TRADE_DECISION_ENGINE_AUDIT.md` §7.10 |
+
+## Added 2026-10-17 — Follow-up experiment: per-vote rank-space outlier filter
+
+Owner instruction 2026-10-17, after the original rank-space Hampel challenger failed its preregistered test (#1778,
+verdict NOT BETTER, kept as a standalone historical record). The original implementation inverted each row through one
+curve instead of each vote's own source-specific curve, so the intended methodology was evaluated separately and fairly.
+
+| Item | Disposition |
+|---|---|
+| Keep the production Hampel filter unchanged; do not promote the challenger | DECIDED — owner, 2026-10-17 |
+| Preserve the original experiment and its negative result in #1778; #1778's merge does not depend on this follow-up | DECIDED — owner, 2026-10-17 |
+| New preregistration, committed and pushed before any implementation or run, labelled a follow-up (not a correction) | DONE — `d8116ee121`, pushed 2026-10-17 22:25:07 UTC |
+| Per-vote inverse through each vote's own point-in-time curve, TE multiplier inverted first; offense / TE / IDP reported separately; Puka Nacua diagnostic only, no tuning | DONE — `docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/` |
+| Outcome | CLOSED — preregistered verdict INCONCLUSIVE (h = 7 Δ −0.0071 [−0.0229, +0.0076]; G1 non-inferior). Under the preregistration this closes the experiment: production filter retained, `rank_space_hampel_per_vote_challenger` stays OFF, no owner review required |
+
 ## Added 2026-10-17 — League Tycoon migration research (owner research directive)
 
 Owner master research prompt, 2026-10-17: determine exactly what it would take for this Calculator to keep full
@@ -1787,6 +1827,30 @@ and do not cut over without explicit owner approval. Blueprint:
 | One signed-in evidence capture by the owner (`OWNER_EVIDENCE_CAPTURE.md`) | OWNER ACTION — blocks every VERIFIED access claim |
 | Implementation (Batches 1–10) | NOT AUTHORIZED — needs `docs/EXECUTION_PLAN.md` |
 
+## Added 2026-10-18 — Draft valuation automation (spreadsheet → canonical engine)
+
+Owner master execution directive + addendum, 2026-10-18, and the owner implementation package of 2026-10-17
+(`START_HERE_OWNER_DECISIONS_AND_CURRENT_QUEUE.md` — final and superseding the audit's open questions —
+`chase_upside_draft_forensic_audit_2026-10-17.md`, PROMPT 0 and A–G, `chase_upside_draft_goldens_2026-10-17.json`).
+The owner's `Draft Data` spreadsheet formula is the approved methodology; reproduce it exactly, then automate
+rookie-class inputs, the three-year spine and multi-year draft capital. An addition to the active queue, not a
+stop-work. Workstream record: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; workbook map and parity evidence:
+`docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`.
+
+| Item | Disposition |
+|---|---|
+| Each rookie draft class gets its own independent $1,200 pool — every year, indefinitely, for `dynasty_main` (league scope corrected by the owner 2026-10-18; see the scope-correction entry recorded with PR #1785); never one $1,200 split across 2027–2029 (All Years = $3,600 nominal with three complete classes). Resolves the annual-vs-pooled question in PROMPT 0 / PROMPT E and in "Added 2026-10-17 — P1: all Sleeper draft years" | DECIDED — owner, 2026-10-18 (final) |
+| The workbook's existing 2026 values are the approved provisional rookie-value fallback: frozen with provenance and an effective snapshot date; column B kept distinct from column H (historical 2026 dollar curve); never relabelled as a pre-draft observation; daily value changes never rewrite it; retired 2026 pick assets never reactivated | DECIDED — owner, 2026-10-18 (final) |
+| Spine = the three most recent completed rookie drafts (2027 → 2024/2025/2026), rolling only on verified draft completion; immutable snapshots | DECIDED — binding |
+| `dynasty_main` is 12 × 6 = 72 picks per class; any other league is not configured (fail closed). A 40-pick `dynasty_new` adaptation is not pursued | OUT OF SCOPE — owner correction, 2026-10-18 |
+| Package Value Adjustment never applies to pick auction dollars; canonical 0–9999 pick values stay a separate concept | DECIDED — binding |
+| A RANK tie at the award cutoff makes the literal spreadsheet publish a non-$1,200 total (measured: $1,206); tied remainders at the cutoff now go to the earlier draft position, so the half-dollar curve always totals exactly $1,200 (unchanged on the real workbook) | DECIDED — owner, 2026-10-18 |
+| The `dynasty_main` rookie auction uses whole dollars only: 72 integer pick values totalling exactly $1,200, every manager budget the exact integer sum of owned picks; the half-dollar L curve stays the mathematical reference and the whole-dollar allocation is a separate final step (floor, residual to largest remainders, ties to the earlier pick, verify or refuse) | DECIDED — owner, 2026-10-18; implemented on PR #1786 (`src/draft/rookie_auction/apportion.py`) |
+| Each completed class keeps two immutable values: `referenceDollars` (original-precision spreadsheet curve, used for the three-year spine) and `finalWholeDollars` (published integers, used for every allocation, budget, display and auction transaction); fractional dollars are never spendable | DECIDED — owner, 2026-10-18; implemented on PR #1786 |
+| Whole dollars: largest-remainder rounding is used unchanged when it satisfies every constraint; otherwise an exact constrained minimum-deviation allocation (Σ\|d−r\|, floors/caps/non-increasing kept, ties to earlier picks); refuse only on genuine infeasibility, bad data or failed verification | DECIDED — owner, 2026-10-18; implemented on PR #1786 (250/250 synthetic classes publish; 2027 workbook unchanged) |
+| Last-known-good draft valuation safety: newest verified 72-pick allocation per draft year kept immutably; a failed refresh serves that same year's last verified allocation with `failedRefresh` / `lastValidAt` warnings, else `unavailable` with a named reason; never zero, never cross-year, never ownership | DECIDED — owner addendum, 2026-10-18; implemented on PR #1786 (`src/draft/rookie_auction/published.py`) |
+| Implementation | IN PROGRESS — PR #1786 (`claude/draft-valuation-engine`, not merged): Batch A exact parity, Batch B frozen fallback + class snapshot + report-only readiness, Batch C rollover ledger, tests green; Batches D–G follow (E integrates PR #1785) |
+
 ## Added 2026-10-17 — Sitewide trade Value Adjustment, Second Opinions canonical fallback, Trade History aging
 
 Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.zip` (three binding docs:
@@ -1808,3 +1872,68 @@ Owner package `CLAUDE_FINAL_SITEWIDE_TRADE_VALUE_ADJUSTMENT_PACKAGE_2026-10-17.z
 | Private trade history prices picks as of the trade date at the ledger's generic season/round value, the same rule as public | DECIDED — owner, 2026-10-17 |
 | Winners & Losers default Net value = the sum of per-trade adjusted nets; the alpha metric survives only as a separately labelled legacy index | DECIDED — binding |
 | Implementation | IN PROGRESS — PR 1 dispatch (`claude/package-model-dispatch`); PR 2 Second Opinions; PR 3 Trade History; PR 4 quant evaluation + model memo |
+
+## Added 2026-10-17 — P1: all Sleeper draft years in League Draft Capital
+
+Owner directive (2026-10-17): on `/league?tab=draft-capital` for Risk It to Get the Brisket (`dynasty_main`, 12 teams,
+6 rounds) the year selector showed only "All Years / 2027" although the league owns 2027, 2028 and 2029 capital.
+Supersedes the 2026-10-01 "OWNER DECISION NEEDED" row on extending the inventory (the owner chose to extend); the
+$1,200 budget-basis half of that row was decided on 2026-10-18 ("$1,200 per draft class", below).
+
+| Item | Disposition |
+|---|---|
+| Selector `All Years / 2027 / 2028 / 2029`, data-driven from the league-scoped resolver (`pick_lifecycle.league_draft_years`); a newly eligible class appears automatically; a completed (drafted and rostered) class never shows as future capital | DECIDED — owner; implementation IN PROGRESS (`claude/draft-capital-all-years`) |
+| Each year view: per-year team ranking, every owned pick with original + current owner (Sleeper is the source of truth), round, slot known / projected / unknown (never invented), estimated dollar value, team totals, picks owned / acquired / traded away, uncertainty labels; All Years combined with no double counting | DECIDED — owner; implementation IN PROGRESS |
+| Canonical pick identity, canonical pick values (`pick_value_resolution`, generic grade for classes without a draft order), unpriced = null + label never $0, public/private boundary, existing simulator and auction budgets preserved | DECIDED — owner; implementation IN PROGRESS |
+| The default-league workbook path's failed `/traded_picks` fetch must not keep the workbook's ownership silently (CLAUDE.md named follow-up) | DECIDED — owner; implementation IN PROGRESS (refuses the board, same shape as the fallback) |
+| $1,200 auction-power basis: one $1,200 pool per draft class, or one $1,200 pool shared across every listed class? | SUPERSEDED — decided 2026-10-18 (next row) |
+| Draft-capital budget basis: $1,200 per draft class (each class its own pool; All Years sums classes) | DECIDED — owner, 2026-10-18, **for `dynasty_main` only** (scope corrected by the owner the same day — next-but-two row). dynasty_main's workbook class keeps the exact workbook dollars, each later class its own $1,200. `budgetPolicy`: `basis: "per_class_pool"`, `status: "owner_confirmed"`. Implementation `claude/draft-capital-all-years` (#1785). *The earlier wording "Both leagues … the Sleeper-derived fallback (dynasty_new) normalizes each class to $1,200 over its real picks (10 teams × 4 rounds = 40)" is SUPERSEDED by the 2026-10-18 scope correction; that fallback change was removed from #1785.* |
+| Addendum (owner, 2026-10-18): exact reconciliation — every complete class totals exactly $1,200.00 (integer-unit allocation, deterministic largest-remainder residual; pick dollars, team totals, year totals and All Years reconcile with no drift) | DECIDED — owner, 2026-10-18; implementation `claude/draft-capital-all-years` (#1785) |
+| Addendum (owner, 2026-10-18): later classes (~~and every dynasty_new class~~ — superseded by the scope correction below) use canonical generic future-pick MARKET values — a different value domain from the workbook's rookie-auction curve. Keep only as a labelled interim (`curveMethod: "interim_generic_market"` vs `"workbook_rookie_auction"`; UI "provisional estimate — final rookie-auction curve pending"); never called the final methodology | DECIDED — owner, 2026-10-18 (interim labelled in #1785). The final spreadsheet-driven rookie-auction curve for every class is a SEPARATE Draft Valuation workstream — OPEN, not authorized by this entry |
+| **OWNER SCOPE CORRECTION (2026-10-18): ignore `dynasty_new` completely.** `dynasty_main` — Risk It to Get the Brisket — is the ONLY league in scope for building and optimizing: draft valuation (Batches A–G), #1785 and all league-specific work. The $1,200-per-class approval applies to `dynasty_main` only (12 teams, 6 rookie rounds, 72 picks per class, $1,200 per class independently, 2027/2028/2029, the approved spreadsheet formula, offense + IDP rookie valuations, the rolling three-year completed-class spine, real Sleeper standings / draft order / pick ownership). No new feature work, budget change or valuation change for `dynasty_new`; do NOT delete it, its config, history or data, and do not disable existing functionality — shared infrastructure must not regress for it. Any earlier instruction extending the $1,200 approval to both leagues is SUPERSEDED | DECIDED — owner, 2026-10-18. Applied in #1785: the Sleeper-derived fallback (`src/api/draft_capital_fallback.py`, the path every non-default league takes), its route call and its tests are restored to `main`; dynasty_main's workbook path, later classes, year views and the shared frontend reader are kept. Draft valuation workstream (#1786) scoped to `dynasty_main`; the 40-pick adaptation is OUT OF SCOPE |
+| **WHOLE-DOLLAR ALLOCATION (2026-10-18), `dynasty_main`.** Whole dollars only — no 50-cent bids or fractional budgets; the half-dollar team-total recommendation is REJECTED (not implemented). Per class: 72 integer pick dollars totalling exactly $1,200; each manager's integer budget = the exact sum of the picks they own; 12 budgets total $1,200; All Years reconciles three separate $1,200 classes without double counting. Keep the spreadsheet model (60/40, spine, decay, floors, caps; half-dollar L kept as reference data) and add a separately identified final step: floor → integer residual by largest fractional remainder, ties to the earlier/higher draft position → verify non-increasing, floors, caps, integers, exact $1,200 → refuse publication on conflict (never change the budget). Exact integer/decimal arithmetic. The RANK tie at the award cutoff ($1,206) resolved deterministically (earlier position first). Independent reference tests on the 72 workbook inputs plus edge cases. One canonical engine; the four 50-cent team-total discrepancies disappear through correct allocation, not a display fix | DECIDED — owner, 2026-10-18. Canonical step: `src/draft/rookie_auction/` (#1786); applied to the workbook 2027 class and the 2028/2029 classes in #1785. Do not merge #1785 until tests/release gates pass and the owner approves |
+| **Historical spine + constraint-aware whole dollars (2026-10-18), `dynasty_main`.** (1) Keep `referenceDollars` (original-precision spreadsheet curve; the historical spine uses it) and `finalWholeDollars` (published integers; every allocation, budget, display and auction) for each completed class, immutably with receipts — never fractional spendable budget. (2) Use largest-remainder rounding when it is valid; otherwise solve the constrained integer allocation (exact $1,200, integers, floors/caps, non-increasing, minimum total deviation from the reference, deterministic earlier-position ties, no dollars created or removed) by a documented, independently testable method before refusing; refuse only on genuine infeasibility, missing data or failed verification; keep safe refusal / last-known-good. Re-run the 250 simulated classes (incl. the 30 refused) and report recovered / infeasible / changes / deviations / invariant proof / 2027 unchanged; tests showing simple rounding can fail where a constrained allocation exists | DECIDED — owner, 2026-10-18. Implementation in the canonical calculation (#1786), reconciled in #1785. Not blanket merge approval: exact-head CI and final validation still required |
+| **Last-known-good draft valuation safety (2026-10-18 addendum), `dynasty_main`.** Keep the most recent independently verified, complete 72-pick whole-dollar allocation per eligible draft year (exactly $1,200; formula version, provenance, effective date, draft year, validation receipt). A new calculation that fails validation keeps the same year's previous verified allocation while still eligible, with a warning naming the failed refresh and the last valid timestamp. The dollar curve and Sleeper pick OWNERSHIP are separate: never substitute old ownership; unverifiable ownership → ownership and team totals unavailable; never $0 budgets because a refresh failed; never another year's allocation without a validated provisional-class policy; no applicable verified allocation → fail closed with a specific reason. Tests: failure, recovery, source outage, changed ownership, stale snapshot, missing fallback, successful republish. Immutable history; never overwrite approved reference curves | DECIDED — owner, 2026-10-18. Store + resolver in the canonical calculation (#1786); consumer wiring in #1785. Keep #1786 → #1785 order; separate merge approval after exact-head CI |
+| **IDP Show session (2026-10-18).** Owner states the login cookies were supplied; verify they are installed through the existing secure mechanism and that collection, upstream timestamps, ingestion and voting safeguards work — never commit or log cookie contents | VERIFIED 2026-10-18: the production collector (`dynasty-idpshow-fetch` on the box) has authenticated and fetched every 2 h since 2026-10-17 20:32 UTC (gap 2026-10-07 → 10-17 before it). Combined board 665 rows (paywalled article), IDP-only board 350 rows (content changed 10-17). Ingestion live (`idpShowCombined` 656 served rows). The voting board's own vendor timestamp (Datawrapper chart `lastModifiedAt` 2026-08-19) is ~59 days old, so freshness weighting withholds its votes (QUARANTINED) — the established safeguard, which lifts automatically when the vendor republishes. No credential action outstanding |
+
+## Added 2026-10-18 — Trade Finder meaningful discovery
+
+Owner directive 2026-10-18 for the Chase Upside Trade Finder (`/arbitrage`): discovery must find trades that
+MATTER, not the biggest percentage discrepancy among low-value bench players. Owner evidence: the page capture
+`owner_arbitrage_capture_2026-10-18.pdf` (not committed). Evaluation: `docs/trade/DISCOVERY_IMPACT_EVALUATION_2026-10-18.md`.
+Shared owner: `src/trade/discovery.py` + `frontend/lib/trade-discovery.js`.
+
+| # | Item | Disposition |
+|---|---|---|
+| 1 | Page order: tools directly under the header — Golden Upgrades (FIRST, DEFAULT), Package Scan, Best Offer by Opponent, Package Builder, Trade Desk; the player-level arbitrage table moves below into a separate expandable research section; every tool keeps its functionality; no horizontal page overflow | DECIDED — binding; IN PROGRESS Batch 1 (`claude/trade-finder-meaningful`) |
+| 2 | Target Quality (Top 100 / 250 / 500 / All, default Top 250) on the canonical overall rank, plus an optional minimum incoming canonical value; incoming only; at least ONE incoming player meets it (never via combined value); an out-of-filter player is never the primary target unless broadened; an explicit conflicting target gets guidance, never a silent drop | DECIDED — binding; IN PROGRESS Batch 1 #1788 (Golden / Scan / Best Offers / table), Batch 2 (Package Builder targets) |
+| 3 | Default sort Most Impactful (+ Largest Absolute Value Gain, Highest Percentage Edge, Highest-Ranked Incoming Player) from existing canonical components, no double counting, a transparent DECLARED PRIOR evaluated on representative dynasty_main trades; deep low-value arbitrage stays an explicit opt-in; no reward for filler | DECIDED — binding; prior `config/trade/discovery_impact_prior.json` (`PRIOR_UNVALIDATED`); IN PROGRESS Batch 1 |
+| 4 | Players to target: Offense / Defense (IDP) / Both (default Both) via `POSITION_ALIASES` + lineup-owner eligibility; missing / ambiguous positions excluded from both narrowed modes and reported; picks never offense or defense | DECIDED — binding; IN PROGRESS Batch 1 |
+| 5 | Package Builder: independent Sending and Receiving controls (Offense / Defense / Both, default Both), all nine combinations, applied during server-side candidate generation in Custom / Acquire / Sell / Improve modes; LOCK / EXCLUDE / explicit selections / protections / specific positions preserved, conflicts reported; Allow Draft Picks separate | DECIDED — binding; IN PROGRESS Batch 2 (`claude/trade-finder-builder-sides`, stacked on #1788) |
+| 6 | Golden Upgrades: eligibility unchanged; quality + offense/defense in generation; show both players' ranks and values, absolute and % gain, market disagreement, opponent, why it matters; Most Impactful default; an empty Top 250 result says so with one-click Top 500 / All | DECIDED — binding; IN PROGRESS Batch 1 |
+| 7 | Package Scan: plausibility, size, protection and counterparty-market rules kept; quality + position filters in the generation request; per trade best incoming player and rank, other pieces, adjusted canonical difference, absolute and % benefit, team context, market plausibility, confidence and coverage; active package model and canonical values unchanged | DECIDED — binding; IN PROGRESS Batch 1 |
+| 8 | Player-level arbitrage table: canonical top-rank filters, minimum canonical value, Offense / Defense / Both, sorts for absolute opportunity / % edge / canonical rank; public-market comparisons and source mappings preserved | DECIDED — binding; IN PROGRESS Batch 1 |
+| — | Scope: dynasty_main only for league-specific testing; dynasty_new neither expanded nor broken. Missing market ≠ 0; empty results name the blocking constraint; deterministic; within existing API time limits | DECIDED — binding |
+
+## Added 2026-10-17 — Geometric Value Adjustment activation (owner approval)
+
+| Item | Disposition |
+|---|---|
+| Activate `geom_q078_v1` (q = 0.78) as the sitewide ACTIVE package Value Adjustment; keep `ktc_2026_04` registered for rollback; do not change the approved formula | DECIDED — owner, 2026-10-17 (supersedes "promotion NOT authorized" in the entry above); PR #1771 |
+| Take over #1771: finish CI and regression tests, fix failures, verify Second Opinions / Trade History / Trade Finder / Analyze Trade use it consistently, merge and deploy once release gates pass, verify production uses it | AUTHORIZED — owner approval to merge and deploy, 2026-10-17 |
+
+## Added 2026-10-17 — Injury-aware simulations, IDP source rehabilitation, valuation accuracy (owner master package)
+
+Owner master package 2026-10-17 ("Injury-Aware Simulations, Complete IDP Source Rehabilitation,
+Valuation Accuracy & Trade Model Validation").  Focused PRs; no automatic merge or deploy; no
+activation of a source that fails its gate.
+
+| Item | Disposition |
+|---|---|
+| P0: a player confirmed out for all remaining weeks enters zero simulated lineups; byes and verified player-week availability in forward simulations; Analyze Trade uses the corrected results | IN PROGRESS — #1772 (roster utility + Analyze Trade), #1774 (playoff sim presim), #1775 (Game Day byes) |
+| Every non-voting source has a reason, evidence, recovery action, owner, next trigger, promotion gate and visible status; no source sits in shadow indefinitely | IN PROGRESS — `config/sources/rehabilitation.json` (this PR) |
+| Signals IDP: run the on-box promotion gate; never weaken thresholds; diagnose failures | DONE (round 1 FAILED 6 and 6b; hold stays) — #1773; next candidate needs an owner preregistration decision |
+| The IDP Show: verify production authentication, fresh collection, upstream freshness; repair collection | IN PROGRESS — #1770 (on-box verifier + secret path); needs a working session from the owner |
+| FantasyPros IDP and other freshness problems: repair engineering defects; never force weight by editing clocks | IN PROGRESS — parser repairs; explicit upstream clock proposal needs owner approval |
+| Re-evaluate DLF IDP's incremental evidence; present a reversal only with evidence and explicit approval | PENDING |
+| Source independence, IDP normalization, outlier challenger (preregistered), DLF Values gate re-run, package-model evaluation on the production trade archive | PENDING |

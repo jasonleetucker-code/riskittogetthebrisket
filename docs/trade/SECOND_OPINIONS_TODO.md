@@ -35,10 +35,19 @@ KTC Crowd + Fantasy Navigator vote once, FantasyPros + Fitzmaurice vote once,
 and a family whose members disagree is one **Split**. Pinned by
 `frontend/__tests__/components/second-opinions-coverage.test.jsx`.
 
-Open (owner decisions, not implemented): the "Even" threshold is still the
-historical `< 1` point (effectively unreachable); whether a partially covered
-row may ever vote; a source-unavailable state (freshness exclusion is not
-materialized onto frontend rows, so it cannot be told apart here yet).
+"Even" threshold — DECIDED (owner decision 4, 2026-10-18) and implemented in
+TC-A: a row is **Even** when its adjusted gap is within **1% of the larger
+adjusted side** (`OPINION_EVEN_TOLERANCE_PCT` in
+`frontend/lib/second-opinions.js`; the 1-point floor stays for tiny totals).
+The value is initial, subject to validation. It replaced the historical
+`< 1` point rule, which was effectively unreachable. Independent opinions stay
+separate from canonical-fallback comparisons, and fallbacks / correlated
+sources never count as independent votes. Pinned by
+`frontend/__tests__/second-opinions-even-band.test.js`.
+
+Open (owner decisions, not implemented): whether a partially covered row may
+ever vote; a source-unavailable state (freshness exclusion is not materialized
+onto frontend rows, so it cannot be told apart here yet).
 
 **Stale statement corrected:** no external row applies the V13 Value
 Adjustment any more (`packageAdjustment: "none"` since the KTC September 2026

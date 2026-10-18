@@ -156,6 +156,14 @@ test.describe("journey: trade surfaces", () => {
       timeout: 30_000,
     });
 
+    // Owner directive 2026-10-18: the tools come first and Golden Upgrades is
+    // the default tool, so the Package Scan tab is opened explicitly.  No
+    // research table may render before the tools.
+    const tabs = page.getByRole("tab");
+    await expect(tabs.first()).toHaveText("Golden Upgrades", { timeout: 30_000 });
+    await expect(page.getByRole("table")).toHaveCount(0);
+    await page.getByRole("tab", { name: "Package Scan" }).click();
+
     // Before any scan the page states what it wants, rather than showing
     // an empty table that reads like a broken board.  #1071 rewrote this
     // empty state ("Package scan ready" / "Choose your team and a

@@ -197,18 +197,30 @@ class TestNormPos:
 
 
 class TestFairnessLabel:
+    """The badge comes from the ONE fairness-band owner (TC-C, owner decision
+    3): relative to the larger ADJUSTED side, with an absolute minimum --
+    no longer the private 256 / 769 absolute band."""
+
     def test_even(self):
-        assert _fairness_label(0) == "even"
-        assert _fairness_label(255) == "even"
-        assert _fairness_label(-200) == "even"
+        assert _fairness_label(0, [5000], [5000]) == "even"
+        # 300 on a 9,300 side is 3.2%: inside the 3.5% fair band.
+        assert _fairness_label(-300, [9000], [9300]) == "even"
+        # 200 is below the 250 absolute minimum whatever the size.
+        assert _fairness_label(200, [1200], [1000]) == "even"
 
     def test_lean(self):
-        assert _fairness_label(256) == "lean"
-        assert _fairness_label(768) == "lean"
+        # 450 of 9,000 is 5%.
+        assert _fairness_label(450, [9000], [8550]) == "lean"
 
     def test_stretch(self):
-        assert _fairness_label(769) == "stretch"
-        assert _fairness_label(2000) == "stretch"
+        # 300 of 1,500 is 20% (and above the minimum): no longer "even".
+        assert _fairness_label(300, [1500], [1200]) == "stretch"
+        assert _fairness_label(2000, [9000], [7000]) == "stretch"
+
+    def test_scale_matters(self):
+        # The same 600-point gap: even on a 30,000-point package, stretch on 3,000.
+        assert _fairness_label(600, [30000], [29400]) == "even"
+        assert _fairness_label(600, [3000], [2400]) == "stretch"
 
 
 class TestBuildAssetPool:
@@ -1501,7 +1513,7 @@ def _suggestion_with_gap(gap: int) -> TradeSuggestion:
         give_total=give_value,
         receive_total=receive_value,
         gap=gap,
-        fairness=_fairness_label(gap),
+        fairness=_fairness_label(gap, [give_value], [receive_value]),
         rationale="",
         why_this_helps="",
         confidence="high",

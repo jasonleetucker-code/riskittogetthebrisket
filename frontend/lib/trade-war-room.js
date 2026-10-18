@@ -17,6 +17,48 @@
  *     callers render a word, never "0".
  */
 
+/**
+ * The ONE top-line decision (TC-C) is the backend's
+ * (`src/trade/trade_decision.py`): the page renders `decision.headlineText`
+ * verbatim and keys only a TONE off `decision.headline`.  No text is built
+ * here.
+ */
+export const DECISION_TONES = {
+  YES: "positive",
+  NO: "negative",
+  NO_TOO_CLOSE: "neutral",
+  NOT_ENOUGH_EVIDENCE: "warning",
+};
+
+/** Strategy override choices sent as `teamGoal` (owner decision 2). `null` = infer. */
+export const STRATEGY_CHOICES = [
+  { value: "auto", label: "From posture" },
+  { value: "WIN_NOW", label: "Win now" },
+  { value: "BALANCED", label: "Balanced" },
+  { value: "LONG_TERM", label: "Long-term" },
+];
+
+const STRATEGY_SOURCE_WORDS = {
+  user: "your choice",
+  posture: "from your competitive posture",
+  posture_no_evidence: "posture has no measured evidence, so balanced",
+  posture_unknown: "posture unknown — choose a strategy",
+  asset_only: "not used in Asset-only analysis",
+};
+
+/**
+ * The backend's own strategy sentence (inferred classification, strategy used
+ * and why), rendered verbatim; the source words are only a fallback for a
+ * packet that carries no reasoning.
+ */
+export function strategySummary(strategy) {
+  if (!strategy) return null;
+  if (strategy.reasoning) return strategy.reasoning;
+  const why = STRATEGY_SOURCE_WORDS[strategy.source] || strategy.source || "";
+  return strategy.label ? `${strategy.label} (${why})` : why;
+}
+
+/** The graded leaning under the headline (the v2 recommendation). */
 export const RECOMMENDATION_LABELS = {
   MAKE: "Make the trade",
   LEAN_MAKE: "Lean make",
@@ -36,22 +78,44 @@ export const RECOMMENDATION_TONES = {
 const PICK_NAME = /\d{4}/;
 
 /**
- * The simulate/analyze body for the selected team.  The side holding more of
- * the team's rostered assets is the side it GIVES; with no match at all it
- * defaults to side A (Swap Sides flips it).  Owned picks send their ownership
+ * Which side of a two-side trade is the selected team's — the side it GIVES.
+ *
+ *   explicit   the user said so (``explicitSide`` 0 / 1); always wins;
+ *   roster     one side holds strictly more of the team's rostered assets;
+ *   ambiguous  a tie, including 0-0 (the team owns none of the assets, or the
+ *              same number on both sides): ``side: null``.  NEVER assumed.
+ *
+ * TC-A / UX audit P0-5: a 0-0 tie used to resolve silently to Side A, so the
+ * War Room analysed "For Jason… PASS" on a picks-only trade Jason owned
+ * nothing in, while no side card carried the "You" badge.  One resolver for
+ * the War Room, Simulate impact and the "You" badge, so they cannot disagree.
+ */
+export function resolveTeamSide(sides, rosterNames, explicitSide = null) {
+  if (!Array.isArray(sides) || sides.length !== 2) return { side: null, basis: "ambiguous" };
+  if (explicitSide === 0 || explicitSide === 1) return { side: explicitSide, basis: "explicit" };
+  const owned = rosterNames instanceof Set ? rosterNames : new Set(rosterNames || []);
+  const scores = sides.map((s) =>
+    (s.assets || []).reduce((n, a) => n + (owned.has(a.name) ? 1 : 0), 0),
+  );
+  if (scores[0] === scores[1]) return { side: null, basis: "ambiguous" };
+  return { side: scores[0] > scores[1] ? 0 : 1, basis: "roster" };
+}
+
+/**
+ * The simulate/analyze body for the selected team.  The side it GIVES comes
+ * from ``resolveTeamSide``: explicit choice, else roster evidence; with no
+ * evidence either way it returns ``null`` — the caller asks the user rather
+ * than assuming a side.  Owned picks send their ownership
  * label AND their canonical owned id (``pickAssetIdsIn`` / ``pickAssetIdsOut``,
  * parallel to the pick lists, ``null`` for a generic pick): the backend checks
  * the id against the canonical ownership record, debits the team only for a
  * pick it actually holds, and reports one it does not (Wave A).  A generic
  * pick carries no id and never debits a real pick.
  */
-export function tradeRequestForTeam(sides, rosterNames, teamName) {
+export function tradeRequestForTeam(sides, rosterNames, teamName, explicitSide = null) {
   if (!Array.isArray(sides) || sides.length !== 2 || !teamName) return null;
-  const owned = rosterNames instanceof Set ? rosterNames : new Set(rosterNames || []);
-  const scores = sides.map((s) =>
-    (s.assets || []).reduce((n, a) => n + (owned.has(a.name) ? 1 : 0), 0),
-  );
-  const mySide = scores[0] >= scores[1] ? 0 : 1;
+  const { side: mySide, basis: sideBasis } = resolveTeamSide(sides, rosterNames, explicitSide);
+  if (mySide == null) return null;
   const otherSide = mySide === 0 ? 1 : 0;
   const label = (a) => (a.assetId && a.assetLabel ? a.assetLabel : a.name);
   const playersOut = [];
@@ -81,16 +145,19 @@ export function tradeRequestForTeam(sides, rosterNames, teamName) {
     pickAssetIdsIn,
     pickAssetIdsOut,
     mySide,
+    sideBasis,
   };
 }
 
 /** Identity of one analysis question: trade, team, league and mode. */
-export function analyzeRequestKey(request, leagueKey, useTeamContext) {
+export function analyzeRequestKey(request, leagueKey, useTeamContext, teamGoal = null) {
   if (!request) return "";
   return JSON.stringify([
     leagueKey || "",
     request.teamName || "",
     useTeamContext !== false,
+    // The strategy override is part of the question (owner decision 2).
+    teamGoal || "",
     [...request.playersIn].sort(),
     [...request.playersOut].sort(),
     [...request.picksIn].sort(),
@@ -106,16 +173,69 @@ export function analyzeRequestKey(request, leagueKey, useTeamContext) {
  * A 200 is only an answer to THIS question when it echoes the league, the
  * mode and a packet.  Anything else is refused rather than rendered.
  */
-export function validAnalyzePayload(body, { leagueKey = "", useTeamContext = true } = {}) {
+export function validAnalyzePayload(
+  body,
+  { leagueKey = "", useTeamContext = true } = {},
+) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return false;
   const analysis = body.analysis;
   if (!analysis || typeof analysis !== "object") return false;
   if (!RECOMMENDATION_LABELS[analysis.recommendation]) return false;
+  // The ONE top-line decision must be present and recognised; it is rendered,
+  // never reconstructed from the lenses.
+  const decision = analysis.decision;
+  if (!decision || !DECISION_TONES[decision.headline] || !decision.headlineText) return false;
   if (!analysis.lenses || typeof analysis.lenses !== "object") return false;
   if (leagueKey && body.leagueKey && body.leagueKey !== leagueKey) return false;
   const applied = body.teamContext?.applied;
-  if (typeof applied !== "boolean" || applied !== (useTeamContext !== false)) return false;
+  if (typeof applied !== "boolean" || applied !== (useTeamContext !== false))
+    return false;
   return true;
+}
+
+/**
+ * Every traded asset the analysis could not price, by name: not on the board
+ * (``unresolvedIn/Out``) or on it but unpriced (``unpricedIn/Out``, TC-A).
+ * The market lens leaves them out of the package math -- never as 0 -- and
+ * the War Room must say so rather than drop them silently.
+ */
+export function notPricedNames(analysis, payload) {
+  const market = analysis?.lenses?.market?.detail || {};
+  const out = [];
+  const add = (xs) => {
+    for (const x of xs || []) {
+      const n = String(x || "").trim();
+      if (n && !out.includes(n)) out.push(n);
+    }
+  };
+  add(payload?.unresolvedIn);
+  add(payload?.unresolvedOut);
+  add(market.unresolvedIn);
+  add(market.unresolvedOut);
+  add(market.unpricedIn);
+  add(market.unpricedOut);
+  return out;
+}
+
+/**
+ * The basis notice for a surface that prices on the canonical board while the
+ * builder holds user value overrides (TC-A, UX audit P0-7).  The meter and its
+ * Monte Carlo panel apply overrides; Analyze (War Room) and Simulate impact
+ * price server-side on canonical ``rankDerivedValue`` and do not.  Until
+ * TC-C unifies the basis, every such surface says so instead of silently
+ * disagreeing with the meter.  ``null`` when there is nothing to disclose.
+ *
+ * (User source weights need no notice: the server ignores them and serves the
+ * canonical board -- ``normalize_source_overrides``, disabled 2026-08-14 --
+ * so they move no surface.)
+ */
+export function overrideBasisNotice(overrideCount) {
+  const n = Number(overrideCount);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return (
+    `Uses canonical board values — your ${n} value override${n === 1 ? "" : "s"} in the ` +
+    `builder ${n === 1 ? "is" : "are"} not applied here, so these numbers can differ from the meter's.`
+  );
 }
 
 // ── Formatting ───────────────────────────────────────────────────────────
@@ -158,20 +278,25 @@ const UNAVAILABLE_WORDS = {
   partial_projection_coverage: "Abstains — a traded player has no projection",
   season_unresolved: "No current-season projection applies",
   starter_slots_unresolved: "This league's starting slots did not resolve",
-  projection_basis_no_projection_snapshot: "No league-scored projection snapshot yet",
-  projection_basis_scoring_card_missing: "This league's scoring card is missing",
+  projection_basis_no_projection_snapshot:
+    "No league-scored projection snapshot yet",
+  projection_basis_scoring_card_missing:
+    "This league's scoring card is missing",
   roster_capacity_unavailable: "Roster capacity could not be computed",
   uncertain: "Cut count uncertain (taxi occupancy unknown)",
   unknown_limit: "This league's roster limit is unknown",
   no_priced_assets_either_side: "Neither side has a priced asset",
   not_computed: "Not computed",
   league_bundle_not_warm: "League roster intelligence is still loading",
-  team_not_in_league_bundle: "This team is not in the league's roster intelligence",
+  team_not_in_league_bundle:
+    "This team is not in the league's roster intelligence",
   roster_snapshot_missing: "No roster snapshot for this league yet",
   starter_slots_missing: "This league's starting slots are not configured",
-  trade_ledger_not_built: "The recorded-trade ledger is not built on the server",
+  trade_ledger_not_built:
+    "The recorded-trade ledger is not built on the server",
   trade_ledger_unavailable: "The recorded-trade ledger could not be read",
-  no_identifiable_assets: "No asset in this trade could be identified in the trade ledger",
+  no_identifiable_assets:
+    "No asset in this trade could be identified in the trade ledger",
   comparables_error: "Comparable trades could not be computed right now",
 };
 
@@ -180,7 +305,9 @@ const UNAVAILABLE_WORDS = {
 const POSTURE_WORDS = {
   PUSH: "Push — prioritise this season's title equity",
   HOLD: "Hold — keep options open; the read is close",
-  RETOOL: "Retool — tilt toward younger / future value, keep the core",
+  // Owner decision 2026-10-18: RETOOL is its own classification (strategy
+  // BALANCED), never a rebuilder.
+  RETOOL: "Retool — balance current production with younger value around the core",
   REBUILD: "Rebuild — prioritise future value and draft capital",
 };
 const POSTURE_ORDER = ["PUSH", "HOLD", "RETOOL", "REBUILD"];
@@ -193,7 +320,10 @@ function formatShare(value) {
 /** The posture lens as display text.  Every number is the packet's. */
 export function postureSummary(lens) {
   if (!lens || !lens.available) {
-    return { available: false, reasonText: unavailableText(lens?.unavailableReason) };
+    return {
+      available: false,
+      reasonText: unavailableText(lens?.unavailableReason),
+    };
   }
   const d = lens.detail || {};
   const probs = d.probabilities || {};
@@ -207,17 +337,20 @@ export function postureSummary(lens) {
       ? "Hold — no competitiveness evidence yet"
       : POSTURE_WORDS[d.label] || d.label || "—",
     confidence: formatShare(d.confidence),
-    split: POSTURE_ORDER.filter((k) => typeof probs[k] === "number").map((k) => ({
-      label: k,
-      pct: formatShare(probs[k]),
-    })),
-    timing: timing.phase === "offseason"
-      ? "Offseason"
-      : timing.phase === "post_deadline"
-        ? "After the trade deadline"
-        : typeof timing.week === "number"
-          ? `Week ${timing.week}${timing.tradeDeadlineWeek ? ` of a week-${timing.tradeDeadlineWeek} deadline` : ""}`
-          : "Season timing unknown",
+    split: POSTURE_ORDER.filter((k) => typeof probs[k] === "number").map(
+      (k) => ({
+        label: k,
+        pct: formatShare(probs[k]),
+      }),
+    ),
+    timing:
+      timing.phase === "offseason"
+        ? "Offseason"
+        : timing.phase === "post_deadline"
+          ? "After the trade deadline"
+          : typeof timing.week === "number"
+            ? `Week ${timing.week}${timing.tradeDeadlineWeek ? ` of a week-${timing.tradeDeadlineWeek} deadline` : ""}`
+            : "Season timing unknown",
     ownFirst:
       d.components?.ownFirstRoundPickHeld === true
         ? "Holds its own next first-round pick"
@@ -236,7 +369,10 @@ export function postureSummary(lens) {
  */
 export function comparablesSummary(lens) {
   if (!lens || !lens.available) {
-    return { available: false, reasonText: unavailableText(lens?.unavailableReason) };
+    return {
+      available: false,
+      reasonText: unavailableText(lens?.unavailableReason),
+    };
   }
   const d = lens.detail || {};
   const rows = (d.comparableTrades || []).map((t, i) => ({
@@ -264,7 +400,8 @@ export function comparablesSummary(lens) {
 export function unavailableText(reason) {
   if (!reason) return "Unavailable";
   if (UNAVAILABLE_WORDS[reason]) return UNAVAILABLE_WORDS[reason];
-  if (String(reason).startsWith("error:")) return "Could not be computed right now";
+  if (String(reason).startsWith("error:"))
+    return "Could not be computed right now";
   return `Unavailable (${String(reason).replace(/_/g, " ")})`;
 }
 
@@ -293,9 +430,43 @@ export const ROLE_WORDS = {
 };
 
 /** The player rows worth a line, in a stable reading order. */
+// Availability beside a lineup share (owner master package 2026-10-17, P0):
+// the share is over the league's REMAINING weeks, and a player who cannot
+// play some of them says so — never a bare percentage that reads as health.
+export function availabilityNote(player) {
+  const a = player?.availability;
+  if (!a || !Number.isFinite(a.weeks) || a.weeks <= 0) return null;
+  if (a.eligibleWeeks === 0) return `Out all ${a.weeks} remaining weeks`;
+  const parts = [];
+  if (a.unavailableWeeks > 0)
+    parts.push(`out ${a.unavailableWeeks} of ${a.weeks} weeks`);
+  // Counts only: an absent count names nothing (never summed as zero).
+  const unsure = [a.uncertainWeeks, a.unknownWeeks]
+    .filter((n) => Number.isFinite(n))
+    .reduce((acc, n) => acc + n, 0);
+  if (unsure > 0) parts.push(`uncertain ${unsure}`);
+  return parts.length ? parts.join(", ") : null;
+}
+
+export function simulatedWeeksLabel(basis) {
+  const weeks = Array.isArray(basis?.weeks) ? basis.weeks : null;
+  if (!weeks || !weeks.length) return null;
+  return weeks.length === 1
+    ? `week ${weeks[0]}`
+    : `weeks ${weeks[0]}–${weeks[weeks.length - 1]}`;
+}
+
 export function rosterImpactRows(rosterDetail) {
-  const order = { incoming: 0, outgoing: 1, forcedDrop: 2, promoted: 3, displaced: 4 };
+  const order = {
+    incoming: 0,
+    outgoing: 1,
+    forcedDrop: 2,
+    promoted: 3,
+    displaced: 4,
+  };
   return [...(rosterDetail?.players || [])].sort(
-    (a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9) || String(a.name).localeCompare(String(b.name)),
+    (a, b) =>
+      (order[a.role] ?? 9) - (order[b.role] ?? 9) ||
+      String(a.name).localeCompare(String(b.name)),
   );
 }

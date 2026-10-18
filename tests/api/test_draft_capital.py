@@ -46,85 +46,29 @@ class TestDraftDataParsing(unittest.TestCase):
         self.assertTrue(has_decimal, "No decimals — likely reading stale CSV")
 
 
-class TestIntegerRounding(unittest.TestCase):
-    def test_round_to_budget_sums_to_1200(self):
-        import server
-
-        _, workbook_picks, _, _, _, _ = _load()
-        values = [wp["value"] for wp in workbook_picks]
-        rounded = server._round_to_budget(values, 1200)
-        self.assertEqual(sum(rounded), 1200, f"Rounded sum = {sum(rounded)}, expected 1200")
-
-    def test_round_to_budget_all_ints(self):
-        import server
-
-        _, workbook_picks, _, _, _, _ = _load()
-        values = [wp["value"] for wp in workbook_picks]
-        rounded = server._round_to_budget(values, 1200)
-        for i, v in enumerate(rounded):
-            self.assertIsInstance(v, int, f"rounded[{i}] is {type(v)}")
-
-    def test_equal_inputs_round_to_equal_outputs(self):
-        """``_round_to_budget`` must give equal-value inputs the same
-        rounded output, both inside and outside the deficit-incremented
-        block.
-
-        The workbook's expansion-pair averaging (R1 picks 1+2 sharing a
-        value, etc.) is operator-chosen and varies year-to-year — the
-        prior test pinned this property indirectly via the live sheet
-        and false-failed once the operator hand-edited the workbook to
-        use asymmetric pick values. This synthetic version pins the
-        rounding function's own invariant so it stays meaningful
-        regardless of workbook content.
-
-        Two scenarios are exercised:
-          1. A high-remainder pair that sits INSIDE the +1 allocation
-             block (both indices receive the deficit increment).
-          2. A low-remainder pair that sits OUTSIDE the +1 allocation
-             block (neither index receives it). The prior version only
-             covered case 1, which let a position-dependent regression
-             for later indices slip through.
-        """
-        import server
-
-        # Scenario 1 — pair inside the +1 block, pair outside.
-        # 72 picks: 36 with remainder 0.9 (idx 0..35, top of sort),
-        # 36 with remainder 0.1 (idx 36..71, bottom of sort).
-        # floors sum = 36*10 + 36*10 = 720. Pad with a flat pick value
-        # so the deficit allocation lands exactly at the boundary
-        # between the two remainder tiers: top 36 indices get +1.
-        values = [10.9] * 36 + [10.1] * 36
-        # Normalise to exactly 1200.
-        deficit = 1200 - sum(values)
-        values[-1] += deficit
-        rounded = server._round_to_budget(values, 1200)
-
-        # Pair at the head — both indices fall inside the +1 block.
-        self.assertEqual(rounded[0], rounded[1], f"head-pair: {rounded[0]} != {rounded[1]}")
-        # Pair near the middle of the +1 block.
-        self.assertEqual(rounded[20], rounded[21], f"mid-block: {rounded[20]} != {rounded[21]}")
-        # Pair outside the +1 block — equal inputs at low remainders.
-        self.assertEqual(rounded[50], rounded[51], f"outside-block: {rounded[50]} != {rounded[51]}")
-
-
 class TestApiOutput(unittest.TestCase):
-    def test_api_values_are_half_dollar_aligned(self):
-        # Pick values now come from the workbook's L2:L73 column, which
-        # carries half-dollar precision (R2 picks at $28.50, R5 picks
-        # at $1.50, etc.).  Each value must be a number that's an
-        # integer multiple of 0.5.
+    def test_api_values_are_whole_dollars_with_half_dollar_reference(self):
+        """Owner decision 2026-10-18 — whole dollars only.  Every published
+        pick dollar is an integer from the canonical whole-dollar step; the
+        workbook's half-dollar L2:L73 figure travels beside it as reference
+        data (an integer multiple of 0.5), and the published value is never
+        more than a dollar from it."""
         import server
 
         result = server._fetch_draft_capital(apply_sleeper_trades=False)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
+        self.assertEqual(sum(p["dollarValue"] for p in result["picks"]), 1200)
         for p in result["picks"]:
-            v = p["adjustedDollarValue"]
-            self.assertIsInstance(v, (int, float), f"{p['pick']}: {v} is not numeric")
-            doubled = float(v) * 2
-            self.assertAlmostEqual(
-                doubled, round(doubled), places=6, msg=f"{p['pick']}: {v} not half-dollar aligned"
-            )
+            v = p["dollarValue"]
+            self.assertIsInstance(v, int, f"{p['pick']}: {v!r} is not a whole dollar")
+            self.assertEqual(p["adjustedDollarValue"], v)
+            ref = p["workbookReferenceDollarValue"]
+            self.assertAlmostEqual(ref * 2, round(ref * 2), places=6)
+            self.assertLess(abs(v - ref), 1, f"{p['pick']}: {v} vs reference {ref}")
+        receipt = result["wholeDollarAllocation"]
+        self.assertEqual(receipt["total"], 1200)
+        self.assertEqual(receipt["floored"] + receipt["residual"], 1200)
 
     def test_api_total_budget_1200(self):
         import server
@@ -147,9 +91,8 @@ class TestApiOutput(unittest.TestCase):
 class TestTeamTotalsMirrorSheet(unittest.TestCase):
     """The pipeline must mirror the sheet: accumulating R45:R116
     ownership against Q45:Q116 values must equal the authoritative
-    per-owner decimals in T63:U74, and the API's integer totals must
-    sum to exactly 1200 via largest-remainder rounding of those
-    decimals."""
+    per-owner decimals in T63:U74 (reference data), and the API's integer
+    totals must be the exact sums of each team's whole-dollar picks."""
 
     def test_decimal_totals_match_sheet_per_owner(self):
         from collections import defaultdict
@@ -166,43 +109,26 @@ class TestTeamTotalsMirrorSheet(unittest.TestCase):
                 msg=f"{owner}: computed={total}, sheet={wb_team_totals.get(owner)}",
             )
 
-    def test_api_team_totals_match_largest_remainder_of_sheet_decimals(self):
-        """Sorted API dollar totals must equal largest-remainder
-        rounding of the sheet's per-owner decimals (regardless of the
-        Sleeper display-name mapping used to label each row).
+    def test_api_team_totals_are_exact_sums_of_owned_whole_dollar_picks(self):
+        """Owner decision 2026-10-18: each team's budget is an integer equal to
+        the EXACT sum of the whole-dollar picks it owns — never rounded on its
+        own — and the budgets total $1,200.
 
-        Pinned to ``apply_sleeper_trades=False`` so the workbook's
-        R45:R116 ownership column is the sole owner-of-record; with
-        the live overlay any Sleeper trade not yet reflected in the
-        sheet would shift dollars between teams and break this
-        invariant."""
+        Pinned to ``apply_sleeper_trades=False`` so the workbook's R45:R116
+        ownership column is the sole owner-of-record."""
         import server
         from collections import defaultdict
-
-        _, workbook_picks, _, _, _, _ = _load()
-        decimals = defaultdict(float)
-        for wp in workbook_picks:
-            decimals[wp["owner"]] += wp["value"]
 
         result = server._fetch_draft_capital(apply_sleeper_trades=False)
         if "error" in result:
             self.skipTest(f"Unavailable: {result['error']}")
-
-        # Pad with zero-total rows for any teams Sleeper reports that
-        # don't appear as owners in R45:R116 (e.g. expansion franchises
-        # with no picks yet).
-        api_totals = sorted(
-            [t["auctionDollars"] for t in result["teamTotals"]],
-            reverse=True,
-        )
-        decimal_vals = sorted(decimals.values(), reverse=True)
-        pad = max(0, len(api_totals) - len(decimal_vals))
-        decimal_vals += [0.0] * pad
-        expected = sorted(
-            server._round_to_budget(decimal_vals, 1200),
-            reverse=True,
-        )
-        self.assertEqual(api_totals, expected, f"api={api_totals} expected={expected}")
+        owned = defaultdict(int)
+        for p in result["picks"]:
+            owned[p["currentOwner"]] += p["dollarValue"]
+        for t in result["teamTotals"]:
+            self.assertIsInstance(t["auctionDollars"], int)
+            self.assertEqual(t["auctionDollars"], owned.get(t["team"], 0), t["team"])
+        self.assertEqual(sum(t["auctionDollars"] for t in result["teamTotals"]), 1200)
 
 
 class TestSleeperTradeOverlay(unittest.TestCase):

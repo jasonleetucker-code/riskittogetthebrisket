@@ -86,8 +86,9 @@ _DEFAULTS = AuctionPowerConstants()
 def _round_preserving_total(values: list[float], total: int) -> list[int]:
     """Largest-remainder rounding to a list of ints summing to *total*.
 
-    Mirrors ``server.py::_round_to_budget`` so the effective column
-    honours the same exact-budget invariant as raw draft capital.
+    Largest-remainder rounding so the effective column honours the same
+    exact-budget invariant as raw draft capital (whose pick dollars come
+    from ``src.draft.rookie_auction.apportion``).
     """
     floors = [math.floor(v) for v in values]
     deficit = total - sum(floors)

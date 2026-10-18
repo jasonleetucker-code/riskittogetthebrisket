@@ -8,12 +8,12 @@
  *   1. the recommendation, its confidence, the strongest reasons for and
  *      against, and the most important uncertainty;
  *   2. three DIFFERENT questions, never one gauge:
- *        MARKET       what does the market charge?        (canonical + KTC VA)
+ *        MARKET       what does the market charge?        (canonical + package VA)
  *        ROSTER       what does my actual team gain/lose? (#1173 best-ball)
  *        FEASIBILITY  can it legally fit, what must go?   (#843 capacity)
  *   3. Roster Construction Impact — lineup-entry changes, promoted/displaced
  *      players, redundancy, depth, forced cuts, roster slots;
- *   4. details, collapsed: KTC VA, projection basis, assumptions, what is not
+ *   4. details, collapsed: package VA, projection basis, assumptions, what is not
  *      included and why.
  *
  * DISPLAY ONLY: every number is `POST /api/trade/analyze`'s, formatted by
@@ -28,22 +28,35 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Banner, CollapsiblePanel, SegmentedControl, SkeletonText } from "@/components/ds";
 import {
+  Badge,
+  Banner,
+  Button,
+  CollapsiblePanel,
+  SegmentedControl,
+  SkeletonText,
+} from "@/components/ds";
+import {
+  DECISION_TONES,
   DIRECTION_WORDS,
   FEASIBILITY_WORDS,
   RECOMMENDATION_LABELS,
-  RECOMMENDATION_TONES,
+  STRATEGY_CHOICES,
+  strategySummary,
   ROLE_WORDS,
   analyzeRequestKey,
+  availabilityNote,
   formatPctPoint,
   formatPpg,
   formatSignedPpg,
   formatSignedValue,
   formatValue,
   comparablesSummary,
+  notPricedNames,
+  overrideBasisNotice,
   postureSummary,
   rosterImpactRows,
+  simulatedWeeksLabel,
   unavailableText,
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
@@ -66,7 +79,11 @@ function directionTone(direction) {
 function LensState({ lens }) {
   if (!lens) return <span className={styles.lensMuted}>Unavailable</span>;
   if (!lens.available) {
-    return <span className={styles.lensMuted}>{unavailableText(lens.unavailableReason)}</span>;
+    return (
+      <span className={styles.lensMuted}>
+        {unavailableText(lens.unavailableReason)}
+      </span>
+    );
   }
   return (
     <Badge tone={directionTone(lens.direction)} className={styles.lensBadge}>
@@ -81,22 +98,26 @@ function MarketAnswer({ lens }) {
   return (
     <div className={styles.answer} data-lens="market">
       <p className={styles.answerQuestion}>
-        <span className={styles.answerLabel}>Market</span> What does the market charge?
+        <span className={styles.answerLabel}>Market</span> What does the market
+        charge?
       </p>
       <p className={styles.answerHeadline}>
         {gap ? (
           <>
             <span className={styles.bigNum}>{gap}</span>{" "}
-            <span className={styles.unit}>after KTC Value Adjustment</span>
+            <span className={styles.unit}>after Value Adjustment</span>
           </>
         ) : (
-          <span className={styles.lensMuted}>{unavailableText(lens?.unavailableReason)}</span>
+          <span className={styles.lensMuted}>
+            {unavailableText(lens?.unavailableReason)}
+          </span>
         )}
       </p>
       {gap ? (
         <p className={styles.answerNote}>
-          You get {formatValue(d.receivingValue) ?? "—"} · you give {formatValue(d.sendingValue) ?? "—"}{" "}
-          (raw {formatSignedValue(d.rawGap) ?? "—"})
+          You get {formatValue(d.receivingValue) ?? "—"} · you give{" "}
+          {formatValue(d.sendingValue) ?? "—"} (raw{" "}
+          {formatSignedValue(d.rawGap) ?? "—"})
         </p>
       ) : null}
       <LensState lens={lens} />
@@ -111,24 +132,33 @@ function RosterAnswer({ lens }) {
   return (
     <div className={styles.answer} data-lens="roster">
       <p className={styles.answerQuestion}>
-        <span className={styles.answerLabel}>Roster</span> What does my team gain or lose?
+        <span className={styles.answerLabel}>Roster</span> What does my team
+        gain or lose?
       </p>
       <p className={styles.answerHeadline}>
         {ppg && (lens?.available || partial) ? (
           <>
             <span className={styles.bigNum}>{ppg}</span>{" "}
-            <span className={styles.unit}>best-ball pts / week{partial ? " (partial)" : ""}</span>
+            <span className={styles.unit}>
+              best-ball pts / week{partial ? " (partial)" : ""}
+            </span>
           </>
         ) : (
-          <span className={styles.lensMuted}>{unavailableText(lens?.unavailableReason)}</span>
+          <span className={styles.lensMuted}>
+            {unavailableText(lens?.unavailableReason)}
+          </span>
         )}
       </p>
       {ppg && d.ppgBeforeCleanup != null ? (
         <p className={styles.answerNote}>
-          {formatSignedPpg(d.ppgBeforeCleanup)} before the required cut · {ppg} once the roster is legal
+          {formatSignedPpg(d.ppgBeforeCleanup)} before the required cut · {ppg}{" "}
+          once the roster is legal
         </p>
       ) : ppg && d.standardError != null ? (
-        <p className={styles.answerNote}>Expected legal-lineup scoring, ± {formatPpg(d.standardError)} simulation error</p>
+        <p className={styles.answerNote}>
+          Expected legal-lineup scoring, ± {formatPpg(d.standardError)}{" "}
+          simulation error
+        </p>
       ) : null}
       <LensState lens={lens} />
     </div>
@@ -141,13 +171,18 @@ function FeasibilityAnswer({ lens }) {
   return (
     <div className={styles.answer} data-lens="feasibility">
       <p className={styles.answerQuestion}>
-        <span className={styles.answerLabel}>Feasibility</span> Can it legally fit?
+        <span className={styles.answerLabel}>Feasibility</span> Can it legally
+        fit?
       </p>
       <p className={styles.answerHeadline}>
         {state && FEASIBILITY_WORDS[state] ? (
-          <span className={styles.feasHeadline}>{FEASIBILITY_WORDS[state]}</span>
+          <span className={styles.feasHeadline}>
+            {FEASIBILITY_WORDS[state]}
+          </span>
         ) : (
-          <span className={styles.lensMuted}>{unavailableText(lens?.unavailableReason)}</span>
+          <span className={styles.lensMuted}>
+            {unavailableText(lens?.unavailableReason)}
+          </span>
         )}
       </p>
       {d.rosterLimit != null ? (
@@ -160,6 +195,90 @@ function FeasibilityAnswer({ lens }) {
         </p>
       ) : null}
       <LensState lens={lens} />
+    </div>
+  );
+}
+
+/**
+ * The ONE top-line decision, rendered verbatim from `analysis.decision`
+ * (`src/trade/trade_decision.py`).  Nothing here decides: the headline text,
+ * reasons, strategy, posture, bands and confidence statement are the
+ * backend's words and numbers.
+ */
+function DecisionHeadline({ decision, teamLabel, goalChoice, onGoalChange, showStrategy }) {
+  const reasons = decision.reasons || [];
+  const missing = decision.missingEvidence || [];
+  const strategy = decision.strategy;
+  const posture = decision.posture || {};
+  const bands = decision.bands || {};
+  return (
+    <div className={styles.verdict} data-decision={decision.headline}>
+      <p className={styles.verdictEyebrow}>For {teamLabel}</p>
+      <p className={styles.verdictLine}>
+        <Badge
+          tone={DECISION_TONES[decision.headline]}
+          className={styles.verdictBadge}
+          data-testid="decision-headline"
+        >
+          {decision.headlineText}
+        </Badge>
+      </p>
+      {decision.subtext ? <p className={styles.answerNote}>{decision.subtext}</p> : null}
+      <p className={styles.confidence} data-testid="decision-confidence">
+        {decision.confidence?.statement}
+      </p>
+      {missing.length ? (
+        <div className={styles.reasons} data-tone="neutral">
+          <h4 className={styles.reasonsTitle}>What is missing</h4>
+          <ul className={styles.reasonsList} data-testid="decision-missing">
+            {missing.map((g) => (
+              <li key={g.code}>{g.text}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {reasons.length ? (
+        <div className={styles.reasons} data-tone="neutral">
+          <h4 className={styles.reasonsTitle}>Reasons and the evidence each used</h4>
+          <ul className={styles.reasonsList} data-testid="decision-reasons">
+            {reasons.map((r) => (
+              <li key={`${r.component}-${r.text}`} data-stance={r.stance}>
+                {r.text}
+                {r === decision.primaryReason ? " (primary reason)" : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {decision.mainCounterargument ? (
+        <p className={styles.topUncertainty}>
+          <span className={styles.answerLabel}>Main counterargument</span>{" "}
+          {decision.mainCounterargument.text}
+        </p>
+      ) : null}
+      {showStrategy ? (
+        <div className={styles.note} data-testid="decision-strategy">
+          <p className={styles.answerNote}>
+            <span className={styles.answerLabel}>Strategy</span>{" "}
+            {strategy?.label ? `${strategy.label}. ` : ""}
+            {strategySummary(strategy)}
+            {posture.available ? ` · posture ${posture.label}` : ""}
+          </p>
+          <SegmentedControl
+            label="Strategy"
+            options={STRATEGY_CHOICES}
+            value={goalChoice}
+            onChange={onGoalChange}
+            className={styles.mode}
+          />
+        </div>
+      ) : null}
+      <p className={styles.answerNote} data-testid="decision-bands">
+        Fairness bands {bands.version} ({String(bands.status || "").toLowerCase()}):
+        fair under {bands.absoluteMinimum} points or {bands.slightPct}% of the larger
+        adjusted package · graded leaning:{" "}
+        {RECOMMENDATION_LABELS[decision.leaning] || decision.leaning}
+      </p>
     </div>
   );
 }
@@ -192,21 +311,24 @@ function RosterImpact({ lens }) {
       </h3>
       {lens?.unavailableReason === "partial_projection_coverage" ? (
         <p className={styles.note}>
-          Partial: a traded player has no league-scored projection, so these numbers cover the projected players only
-          and do not count toward the recommendation.
+          Partial: a traded player has no league-scored projection, so these
+          numbers cover the projected players only and do not count toward the
+          recommendation.
         </p>
       ) : null}
       <dl className={styles.facts}>
         <div>
           <dt>Expected lineup</dt>
           <dd>
-            {formatPpg(before.expectedLineupPpg) ?? "—"} → {formatPpg(after.expectedLineupPpg) ?? "—"} pts/wk
+            {formatPpg(before.expectedLineupPpg) ?? "—"} →{" "}
+            {formatPpg(after.expectedLineupPpg) ?? "—"} pts/wk
           </dd>
         </div>
         <div>
           <dt>Redundant production</dt>
           <dd>
-            {formatPpg(before.redundantPpg) ?? "—"} → {formatPpg(after.redundantPpg) ?? "—"} pts/wk
+            {formatPpg(before.redundantPpg) ?? "—"} →{" "}
+            {formatPpg(after.redundantPpg) ?? "—"} pts/wk
           </dd>
         </div>
         <div>
@@ -224,17 +346,24 @@ function RosterImpact({ lens }) {
         <div>
           <dt>Shape</dt>
           <dd>
-            {d.shape?.label || "—"} ({d.shape?.playersIn ?? 0} in, {d.shape?.playersOut ?? 0} out)
+            {d.shape?.label || "—"} ({d.shape?.playersIn ?? 0} in,{" "}
+            {d.shape?.playersOut ?? 0} out)
           </dd>
         </div>
       </dl>
       {rows.length ? (
         // A table wider than a phone scrolls inside this region; the region is
         // focusable and named so a keyboard user can reach and scroll it.
-        <div className={styles.tableWrap} role="region" aria-label="Lineup entry table" tabIndex={0}>
+        <div
+          className={styles.tableWrap}
+          role="region"
+          aria-label="Lineup entry table"
+          tabIndex={0}
+        >
           <table className={styles.table}>
             <caption className={styles.srOnly}>
-              Lineup entry: how often each affected player makes the optimal legal lineup, before and after
+              Lineup entry: how often each affected player makes the optimal
+              legal lineup, before and after
             </caption>
             <thead>
               <tr>
@@ -256,12 +385,28 @@ function RosterImpact({ lens }) {
                 <tr key={`${p.role}-${p.playerId}`} data-role={p.role}>
                   <th scope="row" className={styles.playerCell}>
                     <span className={styles.playerName}>{p.name}</span>
-                    {p.position ? <span className={styles.playerPos}>{p.position}</span> : null}
+                    {p.position ? (
+                      <span className={styles.playerPos}>{p.position}</span>
+                    ) : null}
+                    {availabilityNote(p) ? (
+                      <span
+                        className={styles.playerPos}
+                        data-testid="war-room-availability"
+                      >
+                        {availabilityNote(p)}
+                      </span>
+                    ) : null}
                   </th>
                   <td>{ROLE_WORDS[p.role] || p.role}</td>
-                  <td className={styles.num}>{formatPpg(p.projectedPpg) ?? "No projection"}</td>
-                  <td className={styles.num}>{formatPctPoint(p.lineupEntryPctBefore) ?? "—"}</td>
-                  <td className={styles.num}>{formatPctPoint(p.lineupEntryPctAfter) ?? "—"}</td>
+                  <td className={styles.num}>
+                    {formatPpg(p.projectedPpg) ?? "No projection"}
+                  </td>
+                  <td className={styles.num}>
+                    {formatPctPoint(p.lineupEntryPctBefore) ?? "—"}
+                  </td>
+                  <td className={styles.num}>
+                    {formatPctPoint(p.lineupEntryPctAfter) ?? "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -279,25 +424,42 @@ function Details({ analysis, raw }) {
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
   const comps = comparablesSummary(analysis.lenses?.comparables);
+  const notPriced = notPricedNames(analysis, raw);
   return (
-    <CollapsiblePanel title="How this was decided" defaultCollapsed className={styles.details}>
+    <CollapsiblePanel
+      title="How this was decided"
+      defaultCollapsed
+      className={styles.details}
+    >
       <div className={styles.detailsBody}>
         <section>
-          <h4 className={styles.detailsTitle}>Market — KTC Value Adjustment</h4>
+          <h4 className={styles.detailsTitle}>Market — Value Adjustment</h4>
           <p>
-            Adjusted totals: you get {formatValue(market.receivingAdjusted) ?? "—"}, you give{" "}
-            {formatValue(market.sendingAdjusted) ?? "—"} ({market.magnitude || "—"} gap). KTC VA is a
-            separate market lens; roster fit never changes an asset&apos;s value. It prices every asset at
-            its board value, so value overrides and the Raw value mode in the builder are not applied
-            here.
+            Adjusted totals: you get{" "}
+            {formatValue(market.receivingAdjusted) ?? "—"}, you give{" "}
+            {formatValue(market.sendingAdjusted) ?? "—"} (
+            {market.magnitude || "—"} gap). Value Adjustment (
+            {market.packageModel?.label ||
+              market.valueAdjustment ||
+              "package model"}
+            ) is a separate market lens; roster fit never changes an
+            asset&apos;s value. It prices every asset at its board value, so
+            value overrides typed in the builder are not applied here.
           </p>
         </section>
         {basis.source ? (
           <section>
             <h4 className={styles.detailsTitle}>Roster — projection basis</h4>
             <p>
-              {basis.description || basis.source}. Source: {basis.source}; {basis.draws ?? "—"} simulated weeks
-              {basis.pointsModel?.source ? `; weekly variance: ${basis.pointsModel.source}` : ""}.
+              {basis.description || basis.source}. Source: {basis.source};{" "}
+              {basis.draws ?? "—"} simulated weeks
+              {simulatedWeeksLabel(basis)
+                ? ` over the league's remaining ${simulatedWeeksLabel(basis)}`
+                : ""}
+              {basis.pointsModel?.source
+                ? `; weekly variance: ${basis.pointsModel.source}`
+                : ""}
+              .
             </p>
             {roster.assumptions?.length ? (
               <ul className={styles.detailsList}>
@@ -310,21 +472,28 @@ function Details({ analysis, raw }) {
         ) : null}
         {ts ? (
           <section>
-            <h4 className={styles.detailsTitle}>Team Strength (context, not a vote)</h4>
+            <h4 className={styles.detailsTitle}>
+              Team Strength (context, not a vote)
+            </h4>
             <p>
-              {formatValue(ts.before) ?? "—"} → {formatValue(ts.after) ?? "—"} ({formatSignedValue(ts.delta) ?? "—"}).
-              It sums the same canonical values the market lens uses, so it explains the roster but is not counted
-              again.
+              {formatValue(ts.before) ?? "—"} → {formatValue(ts.after) ?? "—"} (
+              {formatSignedValue(ts.delta) ?? "—"}). It sums the same canonical
+              values the market lens uses, so it explains the roster but is not
+              counted again.
             </p>
           </section>
         ) : null}
         {posture.available ? (
           <section>
-            <h4 className={styles.detailsTitle}>Team direction (context, not a vote)</h4>
+            <h4 className={styles.detailsTitle}>
+              Team direction (context, not a vote)
+            </h4>
             <p>
               <strong>{posture.headline}</strong>
-              {posture.confidence ? ` — ${posture.confidence} of the classification` : ""}.{" "}
-              {posture.timing}. {posture.ownFirst}.
+              {posture.confidence
+                ? ` — ${posture.confidence} of the classification`
+                : ""}
+              . {posture.timing}. {posture.ownFirst}.
             </p>
             <ul className={styles.detailsList} aria-label="Posture split">
               {posture.split.map((p) => (
@@ -334,8 +503,9 @@ function Details({ analysis, raw }) {
               ))}
             </ul>
             <p>
-              Read from the same playoff odds, roster strength and age evidence the other lenses use, so it explains the
-              recommendation but is never counted in it. Parameters are declared priors, not fitted.
+              Read from the same playoff odds, roster strength and age evidence
+              the other lenses use, so it explains the recommendation but is
+              never counted in it. Parameters are declared priors, not fitted.
             </p>
           </section>
         ) : null}
@@ -356,16 +526,20 @@ function Details({ analysis, raw }) {
               <p>{comps.emptyText}</p>
             )}
             <p>
-              What managers actually traded in similar packages. Reference only — it is never a
-              price, is not counted in the recommendation and does not change its confidence.
-              {comps.scanCapped ? " Only the most recent matching trades were searched." : ""}
+              What managers actually traded in similar packages. Reference only
+              — it is never a price, is not counted in the recommendation and
+              does not change its confidence.
+              {comps.scanCapped
+                ? " Only the most recent matching trades were searched."
+                : ""}
             </p>
           </section>
         ) : null}
         <section>
           <h4 className={styles.detailsTitle}>Not included yet</h4>
           <ul className={styles.detailsList}>
-            {posture.available || analysis.teamContext?.mode === "asset_only" ? null : (
+            {posture.available ||
+            analysis.teamContext?.mode === "asset_only" ? null : (
               <li key="strategicPosture">
                 <strong>strategicPosture</strong> — {posture.reasonText}
               </li>
@@ -382,10 +556,13 @@ function Details({ analysis, raw }) {
             ))}
           </ul>
         </section>
-        {raw?.unresolvedIn?.length || raw?.unresolvedOut?.length ? (
+        {notPriced.length ? (
           <section>
             <h4 className={styles.detailsTitle}>Not priced</h4>
-            <p>{[...(raw.unresolvedIn || []), ...(raw.unresolvedOut || [])].join(", ")}</p>
+            <p data-testid="war-room-not-priced">
+              {notPriced.join(", ")} — unknown, not worth 0, so left out of
+              the package math.
+            </p>
           </section>
         ) : null}
       </div>
@@ -393,7 +570,55 @@ function Details({ analysis, raw }) {
   );
 }
 
-export default function TradeWarRoom({ request, leagueKey = "", useTeamContext = true, onTeamContextChange }) {
+export default function TradeWarRoom({
+  request,
+  leagueKey = "",
+  useTeamContext = true,
+  onTeamContextChange,
+  overrideCount = 0,
+  teamName = "",
+  sideChoiceNeeded = false,
+  chosenSide = null,
+  onChooseSide,
+}) {
+  const basisNotice = overrideBasisNotice(overrideCount);
+  // Owner decision 2: the strategy is inferred unless the user overrides it;
+  // the override travels as `teamGoal` and the engine echoes it back.
+  const [goalChoice, setGoalChoice] = useState("auto");
+  const teamGoal = goalChoice === "auto" ? null : goalChoice;
+  // TC-A / UX audit P0-5: when roster evidence does not say which side is
+  // the team's, the War Room ASKS — it never analyses an assumed side.
+  const sideChooser = (
+    <div className={styles.note} role="group" aria-label="Which side is your team">
+      <p className={styles.note} data-testid="war-room-side-choice">
+        {chosenSide != null
+          ? `Analysing Side ${chosenSide === 0 ? "A" : "B"} as ${teamName || "your team"} (you chose this).`
+          : `Which side is ${teamName || "your team"}? Neither side holds more of its roster, so the War Room will not guess.`}
+      </p>
+      <Button
+        size="sm"
+        variant={chosenSide === 0 ? "primary" : "ghost"}
+        onClick={() => onChooseSide?.(0)}
+      >
+        I give Side A
+      </Button>{" "}
+      <Button
+        size="sm"
+        variant={chosenSide === 1 ? "primary" : "ghost"}
+        onClick={() => onChooseSide?.(1)}
+      >
+        I give Side B
+      </Button>
+      {chosenSide != null ? (
+        <>
+          {" "}
+          <Button size="sm" variant="ghost" onClick={() => onChooseSide?.(null)}>
+            Use roster evidence
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
   const [state, setState] = useState({
     status: "idle",
     payload: null,
@@ -403,20 +628,30 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
   });
   const controllerRef = useRef(null);
   const key = useMemo(
-    () => analyzeRequestKey(request, leagueKey, useTeamContext),
-    [request, leagueKey, useTeamContext],
+    () => analyzeRequestKey(request, leagueKey, useTeamContext, teamGoal),
+    [request, leagueKey, useTeamContext, teamGoal],
   );
-  const contextKey = JSON.stringify([leagueKey, request?.teamName || "", useTeamContext !== false]);
+  const contextKey = JSON.stringify([
+    leagueKey,
+    request?.teamName || "",
+    useTeamContext !== false,
+  ]);
   const ready = Boolean(
     request &&
-      (request.playersIn.length || request.picksIn.length) &&
-      (request.playersOut.length || request.picksOut.length),
+    (request.playersIn.length || request.picksIn.length) &&
+    (request.playersOut.length || request.picksOut.length),
   );
 
   useEffect(() => {
     if (!ready) {
       controllerRef.current?.abort();
-      setState({ status: "idle", payload: null, error: null, key: "", contextKey: "" });
+      setState({
+        status: "idle",
+        payload: null,
+        error: null,
+        key: "",
+        contextKey: "",
+      });
       return undefined;
     }
     setState((prev) =>
@@ -440,6 +675,7 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
           useTeamContext: useTeamContext !== false,
         };
         if (leagueKey) body.leagueKey = leagueKey;
+        if (teamGoal) body.teamGoal = teamGoal;
         const res = await fetch("/api/trade/analyze", {
           method: "POST",
           credentials: "same-origin",
@@ -448,7 +684,8 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
           signal: controller.signal,
         });
         const data = await res.json().catch(() => ({}));
-        if (controller.signal.aborted || controllerRef.current !== controller) return;
+        if (controller.signal.aborted || controllerRef.current !== controller)
+          return;
         if (!res.ok) {
           setState({
             status: "error",
@@ -460,12 +697,19 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
           return;
         }
         if (!validAnalyzePayload(data, { leagueKey, useTeamContext })) {
-          setState({ status: "error", payload: null, error: "invalid_analysis", key, contextKey });
+          setState({
+            status: "error",
+            payload: null,
+            error: "invalid_analysis",
+            key,
+            contextKey,
+          });
           return;
         }
         setState({ status: "ok", payload: data, error: null, key, contextKey });
       } catch (err) {
-        if (controller.signal.aborted || controllerRef.current !== controller) return;
+        if (controller.signal.aborted || controllerRef.current !== controller)
+          return;
         setState({
           status: "error",
           payload: null,
@@ -494,18 +738,29 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
 
   if (!ready) {
     return (
-      <section className={styles.room} aria-labelledby="war-room-title" data-war-room="idle">
+      <section
+        className={styles.room}
+        aria-labelledby="war-room-title"
+        data-war-room="idle"
+      >
         <header className={styles.head}>
           <h2 id="war-room-title" className={styles.title}>
             Trade War Room
           </h2>
           {toggle}
         </header>
-        <p className={styles.note}>
-          {request
-            ? "Add assets to both sides to see what this trade does to your roster."
-            : "Pick your team to see what this trade does to your roster."}
-        </p>
+        {sideChoiceNeeded ? (
+          sideChooser
+        ) : (
+          <p className={styles.note}>
+            {/* A selected team with no request yet is an incomplete or
+                side-ambiguous trade (tradeRequestForTeam answers null rather
+                than assume a side), never "no team". */}
+            {request || teamName
+              ? "Add assets to both sides to see what this trade does to your roster."
+              : "Pick your team to see what this trade does to your roster."}
+          </p>
+        )}
       </section>
     );
   }
@@ -529,41 +784,51 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
       </header>
       {useTeamContext === false ? (
         <p className={styles.modeNote}>
-          Asset-Only: roster fit, lineup impact and roster capacity are not included in this analysis.
+          Asset-Only: roster fit, lineup impact and roster capacity are not
+          included in this analysis.
+        </p>
+      ) : null}
+      {chosenSide != null ? sideChooser : null}
+      {basisNotice ? (
+        <p className={styles.modeNote} data-testid="war-room-basis-notice">
+          {basisNotice}
         </p>
       ) : null}
       <p role="status" className={styles.status}>
-        {state.status === "loading" ? "Analyzing this trade…" : stale ? "Updating for your latest change…" : ""}
+        {state.status === "loading"
+          ? "Analyzing this trade…"
+          : stale
+            ? "Updating for your latest change…"
+            : ""}
       </p>
 
       {state.status === "error" ? (
         <Banner tone="warning">
-          Analysis unavailable right now ({state.error}). The package totals and verdict below are
-          unaffected.
+          Analysis unavailable right now ({state.error}). The package totals and
+          verdict below are unaffected.
         </Banner>
       ) : null}
 
-      {!analysis && state.status === "loading" ? <SkeletonText lines={4} /> : null}
+      {!analysis && state.status === "loading" ? (
+        <SkeletonText lines={4} />
+      ) : null}
 
       {analysis ? (
         <div className={`${styles.body} ${stale ? styles.stale : ""}`.trim()}>
-          <div className={styles.verdict} data-recommendation={analysis.recommendation}>
-            <p className={styles.verdictEyebrow}>For {payload.team?.name || request.teamName}</p>
-            <p className={styles.verdictLine}>
-              <Badge tone={RECOMMENDATION_TONES[analysis.recommendation]} className={styles.verdictBadge}>
-                {RECOMMENDATION_LABELS[analysis.recommendation]}
-              </Badge>
-              <span className={styles.confidence}>
-                {String(analysis.confidence || "").toLowerCase()} confidence
-              </span>
+          <DecisionHeadline
+            decision={analysis.decision}
+            teamLabel={payload.team?.name || request.teamName}
+            goalChoice={goalChoice}
+            onGoalChange={setGoalChoice}
+            showStrategy={useTeamContext !== false}
+          />
+          <p className={styles.answerNote}>{RECOMMENDATION_ONLY_TEXT}</p>
+          {analysis.topUncertainty ? (
+            <p className={styles.topUncertainty}>
+              <span className={styles.answerLabel}>Biggest uncertainty</span>{" "}
+              {analysis.topUncertainty}
             </p>
-            <p className={styles.answerNote}>{RECOMMENDATION_ONLY_TEXT}</p>
-            {analysis.topUncertainty ? (
-              <p className={styles.topUncertainty}>
-                <span className={styles.answerLabel}>Biggest uncertainty</span> {analysis.topUncertainty}
-              </p>
-            ) : null}
-          </div>
+          ) : null}
 
           <div className={styles.answers}>
             <MarketAnswer lens={analysis.lenses?.market} />
@@ -572,9 +837,21 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
           </div>
 
           <div className={styles.reasonGrid}>
-            <ReasonList title="Why" items={analysis.reasonsFor} tone="positive" />
-            <ReasonList title="Against" items={analysis.reasonsAgainst} tone="negative" />
-            <ReasonList title="Uncertain" items={analysis.uncertainty} tone="neutral" />
+            <ReasonList
+              title="Why"
+              items={analysis.reasonsFor}
+              tone="positive"
+            />
+            <ReasonList
+              title="Against"
+              items={analysis.reasonsAgainst}
+              tone="negative"
+            />
+            <ReasonList
+              title="Uncertain"
+              items={analysis.uncertainty}
+              tone="neutral"
+            />
           </div>
 
           <RosterImpact lens={analysis.lenses?.roster} />

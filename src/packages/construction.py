@@ -450,6 +450,13 @@ class EnumerationReport:
     #: every receive side.  Published only when given.
     required_receive: int = 0
     shapes_skipped_for_required_receive: list[str] = field(default_factory=list)
+    #: Receive-side ANCHOR (owner directive 2026-10-18, Target Quality): every
+    #: emitted receive side must hold at least one asset the caller's
+    #: predicate admits.  Counted when a combination is refused for lacking
+    #: one, BEFORE the emission budget, so a budget is spent only on packages
+    #: the request can accept.  Published only when an anchor was given.
+    receive_anchor_applied: bool = False
+    receive_anchor_rejected: int = 0
 
     @property
     def truncated(self) -> bool:
@@ -496,6 +503,11 @@ class EnumerationReport:
                     ),
                 }
                 if self.required_receive
+                else {}
+            ),
+            **(
+                {"receiveAnchorRejected": self.receive_anchor_rejected}
+                if self.receive_anchor_applied
                 else {}
             ),
         }
@@ -672,6 +684,7 @@ def enumerate_packages(
     adapt: bool = True,
     required_send: Sequence[Any] = (),
     required_receive: Sequence[Any] = (),
+    receive_anchor: Callable[[Any], bool] | None = None,
 ) -> tuple[Iterator[SidePair], EnumerationReport]:
     """Enumerate every legal package shape between two pools.
 
@@ -708,6 +721,14 @@ def enumerate_packages(
     skips ``policy`` for the same reason a lock does, the outgoing policy never
     applies to it (receive side, §2.2), shapes too small to hold it are skipped
     and reported, and topology is still enforced.
+
+    ``receive_anchor`` is a predicate over the caller's ORIGINAL asset objects
+    (``PackageAsset.source``): every emitted receive side must contain at least
+    one asset it admits (the "at least one incoming player meets Target
+    Quality" rule).  It is checked during enumeration, before the emission
+    budget is charged, so a package the request cannot accept never consumes
+    the budget or reaches a scorer — and a pile of non-qualifying pieces can
+    never satisfy it through combined value, because the test is per asset.
     """
     outgoing = _resolve_outgoing(outgoing_policy, side=SEND)
     policy = policy or EligibilityPolicy()
@@ -721,6 +742,7 @@ def enumerate_packages(
     report.their_pool_size = len(theirs)
     report.name_keyed_assets = sum(1 for a in (*ours, *theirs) if a.key_is_name_fallback)
     report.required_send = len(fixed)
+    report.receive_anchor_applied = receive_anchor is not None
 
     if fixed and outgoing is not None:
         forced = [a for a in fixed if not outgoing.admits(a)]
@@ -780,6 +802,11 @@ def enumerate_packages(
                     continue  # the same asset twice on one side
                 for recv_fillers in combinations(theirs, free_recv):
                     receive = (*fixed_recv, *recv_fillers)
+                    if receive_anchor is not None and not any(
+                        receive_anchor(a.source if a.source is not None else a) for a in receive
+                    ):
+                        report.receive_anchor_rejected += 1
+                        continue
                     if max_packages is not None and report.emitted >= max_packages:
                         report.budget_exhausted = True
                         return

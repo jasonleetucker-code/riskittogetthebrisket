@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 630,
+ "count": 628,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -627,8 +627,6 @@
   "src/trade/monte_carlo.py::total = sum(p50s) or 1.0",
   "src/trade/suggestions.py::seller = max(s.give, key=lambda p: p.dispersion_cv or 0)",
   "src/trade/suggestions.py::target = max(s.receive, key=lambda p: p.dispersion_cv or 0)",
-  "src/trade/symmetrize.py::total = sum(p.p50 for p in side) or 1.0",
-  "src/trade/symmetrize.py::va_val = float(va_adj.get(\"effectiveValue\") or va_adj.get(\"value\") or 0)",
   "src/trade/waiver.py::budget = int(league_budget or 0)",
   "src/trade/waiver.py::items.sort(key=lambda c: -int(c.get(\"adjustedValue\") or 0))",
   "src/trade/waiver.py::source_count = int(row.get(\"sourceCount\") or 0)"

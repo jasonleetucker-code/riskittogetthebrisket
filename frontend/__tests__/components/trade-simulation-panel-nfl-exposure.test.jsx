@@ -13,7 +13,7 @@
  *   self-inconsistent row (after − before ≠ delta) so only a reader passes.
  * - CONTEXT, NOT VERDICT. The section is labelled as context, folded by
  *   default, and renders after the equity line — outside the Roster fit
- *   block that carries the verdict badge.
+ *   block (which carries no verdict since owner decision 5, 2026-10-18).
  * - MISSING IS NEVER ZERO. `unavailable`, unpriced / unknown-team players,
  *   an unmeasured (null) concentration and `outgoingNotOnRoster` each have
  *   an explicit state; none renders as 0%.
@@ -33,10 +33,7 @@ const BASE_SIM = {
   after: { totalValue: 1200 },
   delta: { totalValue: 200, byPosition: {} },
   teamImpact: {
-    verdict: "lean accept",
-    compositeScore: 1.5,
     fitScore: 1,
-    equityScore: 2,
     windowFit: 0.1,
     posture: "Contender",
     starterValueDelta: {},
@@ -122,15 +119,15 @@ describe("SimulationPanel — NFL team exposure", () => {
     expect(within(region).getByText("Show 2 teams that moved")).toBeTruthy();
   });
 
-  it("renders after the equity line, outside the verdict-bearing Roster fit block", () => {
+  it("renders after the equity line, outside the Roster fit block", () => {
     renderSim(exposure());
     const region = exposureRegion();
-    const equity = screen.getByText(/Equity \(receiving − sending\)/);
+    const equity = screen.getByText(/Raw equity \(receiving − sending/);
     // eslint-disable-next-line no-bitwise
     expect(equity.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const verdictBadge = screen.getByText("lean accept");
-    expect(region.contains(verdictBadge)).toBe(false);
-    expect(within(region).queryByText("lean accept")).toBeNull();
+    const rosterFit = screen.getByText("Roster fit");
+    expect(region.contains(rosterFit)).toBe(false);
+    expect(within(region).queryByText("Roster fit")).toBeNull();
   });
 
   it("is reachable by Tab and opens via the native summary control", async () => {
@@ -214,7 +211,7 @@ describe("SimulationPanel — NFL team exposure", () => {
     expect(region.querySelector("table")).toBeNull();
     expect(region.querySelector("details")).toBeNull();
     // The rest of the simulation still renders.
-    expect(screen.getByText("lean accept")).toBeTruthy();
+    expect(screen.getByText("Roster fit")).toBeTruthy();
   });
 
   it("names unpriced and unknown-team players and never shows an unmeasured share as 0%", async () => {

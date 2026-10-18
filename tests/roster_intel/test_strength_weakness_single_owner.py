@@ -59,13 +59,24 @@ SCAN_ROOTS = ("src", "scripts")
 SCAN_FILES = ("server.py",)
 
 
-def _python_files() -> list[pathlib.Path]:
+def _python_files(extra: pathlib.Path | None = None) -> list[pathlib.Path]:
     files = [p for root in SCAN_ROOTS for p in (REPO / root).rglob("*.py")]
     files += [REPO / f for f in SCAN_FILES]
+    # ``extra`` is the same out-of-tree seam scripts/replacement_census.py
+    # takes, and for the same reason: a positive control that plants its
+    # probe in ``src/`` is seen by every other tree scan running
+    # concurrently under pytest-xdist, which then reports a duplicate that
+    # is not in the tree or crashes reading a probe already deleted.
+    if extra is not None:
+        files.append(extra)
     return [p for p in files if p.exists()]
 
 
-def definition_sites(names: set[str]) -> dict[str, list[str]]:
+def _rel(path: pathlib.Path) -> str:
+    return path.relative_to(REPO).as_posix() if REPO in path.parents else path.as_posix()
+
+
+def definition_sites(names: set[str], extra: pathlib.Path | None = None) -> dict[str, list[str]]:
     """Every function/method/class DEFINITION named one of ``names``.
 
     A call-site scan cannot make this check: it has no notion of which
@@ -76,8 +87,8 @@ def definition_sites(names: set[str]) -> dict[str, list[str]]:
     duplicate.
     """
     hits: dict[str, list[str]] = {}
-    for path in _python_files():
-        rel = path.relative_to(REPO).as_posix()
+    for path in _python_files(extra):
+        rel = _rel(path)
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
@@ -90,9 +101,9 @@ def definition_sites(names: set[str]) -> dict[str, list[str]]:
     return hits
 
 
-def undeclared_owner_definitions() -> dict[str, list[str]]:
+def undeclared_owner_definitions(extra: pathlib.Path | None = None) -> dict[str, list[str]]:
     """OWNER symbol names DEFINED somewhere other than their declared path."""
-    sites = definition_sites(set(OWNER_SYMBOL_PATHS))
+    sites = definition_sites(set(OWNER_SYMBOL_PATHS), extra=extra)
     violations: dict[str, list[str]] = {}
     for name, paths in sites.items():
         declared_path = OWNER_SYMBOL_PATHS[name]
@@ -107,14 +118,33 @@ def test_no_owner_symbol_is_defined_outside_its_declared_path():
     assert undeclared_owner_definitions() == {}
 
 
-def test_the_guard_catches_an_undeclared_second_strength_owner():
+def test_the_tree_scan_finds_every_declared_owner_at_home():
+    """Discovery non-vacuity, without writing into the tree.
+
+    The positive controls below plant their probes OUTSIDE ``src/``, so
+    they prove detection but not that the tree walk reaches ``src/`` at
+    all. This does: every declared owner symbol must be found, by the same
+    scan, DEFINED at its declared path. A broken walk finds nothing and
+    fails here instead of making the clean-at-HEAD check vacuous.
+    """
+    sites = definition_sites(set(OWNER_SYMBOL_PATHS))
+    for name, declared_path in OWNER_SYMBOL_PATHS.items():
+        assert declared_path in sites.get(
+            name, []
+        ), f"the tree scan did not find {name} at its declared home {declared_path}"
+
+
+def test_the_guard_catches_an_undeclared_second_strength_owner(tmp_path):
     """Positive control, Team Strength side (V1-31).
 
     A new module defining its own ``TeamStrength`` — the exact class
     name `src/roster_intel/strength.py` declares — must be caught,
     whether or not it is ever imported or called.
+
+    The probe lives in ``tmp_path`` and reaches the scan through the
+    ``extra`` seam, never ``src/`` (see ``_python_files``).
     """
-    probe = REPO / "src" / "roster_intel" / "_v131_dup_probe.py"
+    probe = tmp_path / "_v131_dup_probe.py"
     probe.write_text(
         "class TeamStrength:\n"
         "    def __init__(self, total=0.0):\n"
@@ -122,26 +152,26 @@ def test_the_guard_catches_an_undeclared_second_strength_owner():
         encoding="utf-8",
     )
     try:
-        dups = undeclared_owner_definitions()
+        dups = undeclared_owner_definitions(extra=probe)
         assert "TeamStrength" in dups, "the guard did NOT detect an undeclared TeamStrength owner"
-        assert "src/roster_intel/_v131_dup_probe.py" in dups["TeamStrength"]
+        assert probe.as_posix() in dups["TeamStrength"]
     finally:
         probe.unlink(missing_ok=True)
 
 
-def test_the_guard_catches_an_undeclared_second_weakness_owner():
-    """Positive control, Team Weakness side (V1-32)."""
-    probe = REPO / "src" / "roster_intel" / "_v132_dup_probe.py"
+def test_the_guard_catches_an_undeclared_second_weakness_owner(tmp_path):
+    """Positive control, Team Weakness side (V1-32). Probe outside the tree."""
+    probe = tmp_path / "_v132_dup_probe.py"
     probe.write_text(
         "def build_team_weakness(core, ranks, *, team_count):\n" "    return None\n",
         encoding="utf-8",
     )
     try:
-        dups = undeclared_owner_definitions()
+        dups = undeclared_owner_definitions(extra=probe)
         assert (
             "build_team_weakness" in dups
         ), "the guard did NOT detect an undeclared build_team_weakness owner"
-        assert "src/roster_intel/_v132_dup_probe.py" in dups["build_team_weakness"]
+        assert probe.as_posix() in dups["build_team_weakness"]
     finally:
         probe.unlink(missing_ok=True)
 

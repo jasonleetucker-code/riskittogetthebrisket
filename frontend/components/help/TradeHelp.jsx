@@ -17,8 +17,9 @@
  *                   canonical board value, `rankDerivedValue`).
  *   Value Adj.      trade-logic.js ktcAdjustPackage (JS) and
  *                   src/trade/ktc_va.py (Python, used by the War Room).
- *   Verdict bands   trade-logic.js meterVerdict (350 / 900 / 1,800) and
- *                   percentageGap (<3% shown as even).
+ *   Verdict bands   lib/fairness-bands.js (the ONE fairness-band owner,
+ *                   config/trade/fairness_bands.json): 3.5% / 9% / 18% of the
+ *                   larger adjusted side, fair under 250 points.
  *   War Room        src/trade/analyze_trade.py — market / roster /
  *                   feasibility lenses, rule table, unavailable dimensions.
  *   Capacity        src/trade/roster_capacity.py.
@@ -45,17 +46,19 @@ export function ValueAdjustmentTip() {
   return (
     <InfoTip label="Value Adjustment (VA)" className="ds-infotip--end">
       <p>
-        A KeepTradeCut-style premium for concentrated value: one great asset is
-        worth more than several lesser ones adding up to the same raw total. It
-        is credited to the side sending the more concentrated package — usually
-        the side with fewer, better pieces, but it can fire on equal-count
-        trades too.
+        A premium for concentrated value: one great asset is worth more than
+        several lesser ones adding up to the same raw total. Each side&apos;s
+        pieces are ranked best-first; the second-best counts at 78%, the third
+        at about 61%, and so on (geometric Value Adjustment, q = 0.78). The side
+        whose package loses less to that discount is credited the difference —
+        usually the side with fewer, better pieces, but it can fire on
+        equal-count trades too.
       </p>
       <p>
-        Never applied to a 1-for-1, and not applied when it would be under
-        3.3% of the two packages combined. Adjusted total = raw + VA. The
-        draft-capital stack effect is experimental and not calibrated, so it is
-        shown separately and is not included in the total or the verdict.
+        Never applied to a 1-for-1. Adjusted total = raw + VA, so the adjusted
+        gap is the difference in discounted package value. The draft-capital
+        stack effect is experimental and not calibrated, so it is shown
+        separately and is not included in the total or the verdict.
       </p>
     </InfoTip>
   );

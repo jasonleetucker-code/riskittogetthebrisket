@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { withValuationMode } from "@/lib/valuation-mode";
 
@@ -24,9 +24,19 @@ export function useTradeSimulator() {
     loading: false,
     error: null,
     result: null,
+    // Which trade the result answers (the caller's trade signature).  The
+    // page renders a result only while it still matches the trade on screen
+    // (TC-A / UX audit P0-2).
+    signature: null,
   });
+  // Request sequence.  Only the newest simulate() may publish, and reset()
+  // invalidates whatever is in flight: an older response can never
+  // overwrite a newer trade, or resurrect a result after Clear Trade.
+  const seqRef = useRef(0);
 
-  const simulate = useCallback(async (body) => {
+  const simulate = useCallback(async (body, { signature = null } = {}) => {
+    const seq = (seqRef.current += 1);
+    const current = () => seq === seqRef.current;
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       // Attach the active league key if the caller didn't supply
@@ -57,24 +67,29 @@ export function useTradeSimulator() {
         } catch {
           /* ignore */
         }
-        setState({ loading: false, error: msg, result: null });
+        if (!current()) return null;
+        setState({ loading: false, error: msg, result: null, signature });
         return null;
       }
       const data = await res.json();
-      setState({ loading: false, error: null, result: data });
+      if (!current()) return null;
+      setState({ loading: false, error: null, result: data, signature });
       return data;
     } catch (err) {
+      if (!current()) return null;
       setState({
         loading: false,
         error: err?.message || "fetch_failed",
         result: null,
+        signature,
       });
       return null;
     }
   }, []);
 
   const reset = useCallback(() => {
-    setState({ loading: false, error: null, result: null });
+    seqRef.current += 1;
+    setState({ loading: false, error: null, result: null, signature: null });
   }, []);
 
   return { ...state, simulate, reset };

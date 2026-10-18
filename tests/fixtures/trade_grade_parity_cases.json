@@ -25,12 +25,12 @@
     "slightly differently in a browser than in Node or CPython."
   ],
   "bands": {
-    "why": "Cut points shared by both implementations. Each entry is the LOWEST |pctGap| that lands in that band; the band below owns everything under it.",
+    "why": "Cut points shared by both implementations. Each entry is the LOWEST |pctGap| that lands in that band; the band below owns everything under it. Letters are MONOTONE (TC-A, 2026-10-17): a bigger win never earns a lower letter and a bigger overpay never a higher one. The winner letters used to run A, A, A-, B+, A+, so a Clear win read below a Slight win and B+ meant both 'Clear win' and 'Slight overpay'. Cut points are unchanged (PRIOR, owner recalibration pending).",
     "winner": [
       { "atLeast": 0, "grade": "A", "label": "Fair trade" },
       { "atLeast": 3, "grade": "A", "label": "Slight win" },
-      { "atLeast": 8, "grade": "A-", "label": "Good win" },
-      { "atLeast": 15, "grade": "B+", "label": "Clear win" },
+      { "atLeast": 8, "grade": "A", "label": "Good win" },
+      { "atLeast": 15, "grade": "A+", "label": "Clear win" },
       { "atLeast": 25, "grade": "A+", "label": "Big win" }
     ],
     "loser": [
@@ -75,32 +75,32 @@
     },
     {
       "id": "good-win-edge",
-      "why": "800/10000 = 8.00% — bottom of the A- band.",
+      "why": "800/10000 = 8.00% — bottom of the Good win band.",
       "got": [10000],
       "gave": [9200],
       "vaNet": 0,
       "pctGap": 8.0,
-      "grade": "A-",
+      "grade": "A",
       "label": "Good win"
     },
     {
       "id": "ten-pct-linear-edge",
-      "why": "Finding C3's headline case. 1000/10000 = 10.0% linear -> Good win (A-). The retired public formula raised each asset to 1.65 first, scoring the same trade at 1 - 0.9^1.65 = 15.95% -> Clear win (B+): a full band higher off the same two numbers.",
+      "why": "Finding C3's headline case. 1000/10000 = 10.0% linear -> Good win. The retired public formula raised each asset to 1.65 first, scoring the same trade at 1 - 0.9^1.65 = 15.95% -> Clear win: a full band higher off the same two numbers.",
       "got": [10000],
       "gave": [9000],
       "vaNet": 0,
       "pctGap": 10.0,
-      "grade": "A-",
+      "grade": "A",
       "label": "Good win"
     },
     {
       "id": "clear-win-edge",
-      "why": "1500/10000 = 15.00% — bottom of the B+ band.",
+      "why": "1500/10000 = 15.00% — bottom of the Clear win band.",
       "got": [10000],
       "gave": [8500],
       "vaNet": 0,
       "pctGap": 15.0,
-      "grade": "B+",
+      "grade": "A+",
       "label": "Clear win"
     },
     {
@@ -180,7 +180,7 @@
       "gave": [8000],
       "vaNet": 2000,
       "pctGap": 20.0,
-      "grade": "B+",
+      "grade": "A+",
       "label": "Clear win"
     },
     {
@@ -273,7 +273,7 @@
         { "got": [9000], "gave": [10000] }
       ],
       "expected": [
-        { "vaNet": 0, "pctGap": 10.0, "grade": "A-", "label": "Good win" },
+        { "vaNet": 0, "pctGap": 10.0, "grade": "A", "label": "Good win" },
         { "vaNet": 0, "pctGap": -10.0, "grade": "B", "label": "Overpay" }
       ]
     },

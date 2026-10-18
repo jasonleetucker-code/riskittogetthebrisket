@@ -66,7 +66,10 @@ describe("/trade on-demand sections", () => {
   });
 
   it("SimulationPanel is gated on a result in the page, so its chunk is not requested on load", () => {
-    expect(page).toMatch(/\{simResult \|\| simError \? \(\s*<SimulationPanel\b/);
+    // TC-A: also keyed to the trade it answers (simResultSignature).
+    expect(page).toMatch(
+      /\{\(simResult \|\| simError\) && simResultSignature === simSignature \? \(\s*<SimulationPanel\b/,
+    );
   });
 
   it("KtcImportPanel renders only while the import row is open", () => {

@@ -11,7 +11,12 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { meterVerdict, ktcAdjustPackage } from "@/lib/trade-logic";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  meterVerdict,
+  packageAdjustPair,
+  PACKAGE_MODEL_IDS,
+} from "@/lib/trade-logic";
 import TradeMeter from "@/components/trade/TradeMeter";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 import {
@@ -42,9 +47,11 @@ async function openHelp(user, buttonName, dialogName) {
   return dialog;
 }
 
+// Priced assets on both sides: an EMPTY trade renders no verdict at all
+// (TC-A / UX audit P0-6), so the wording tests need a real trade.
 const sides = [
-  { id: 0, label: "A", assets: [] },
-  { id: 1, label: "B", assets: [] },
+  { id: 0, label: "A", assets: [{ name: "Alpha", rankDerivedValue: 5000, values: { full: 5000 } }] },
+  { id: 1, label: "B", assets: [{ name: "Beta", rankDerivedValue: 4000, values: { full: 4000 } }] },
 ];
 
 describe("trade verdict wording follows the side model", () => {
@@ -105,20 +112,23 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
     render(<TradeVerdictHelp />);
     const dialog = await openHelp(user, /How the verdict works/, "How the trade verdict works");
     const text = dialog.textContent;
-    // Boundaries named in the copy are exactly where meterVerdict changes.
-    for (const [below, label, at, next] of [
-      [349, "FAIR", 350, "SLIGHT EDGE"],
-      [899, "SLIGHT EDGE", 900, "UNFAIR"],
-      [1799, "UNFAIR", 1800, "LOPSIDED"],
+    // Boundaries named in the copy are exactly where meterVerdict changes
+    // (the ONE fairness-band owner: % of the larger adjusted side).
+    for (const [belowPct, label, atPct, next] of [
+      [3.49, "FAIR", 3.5, "SLIGHT EDGE"],
+      [8.99, "SLIGHT EDGE", 9, "UNFAIR"],
+      [17.99, "UNFAIR", 18, "LOPSIDED"],
     ]) {
-      expect(meterVerdict(below).label).toBe(label);
-      expect(meterVerdict(at).label).toBe(next);
+      expect(meterVerdict(belowPct * 100, 10000).label).toBe(label);
+      expect(meterVerdict(atPct * 100, 10000).label).toBe(next);
       expect(text).toContain(label);
     }
-    expect(text).toContain("FAIR under 350");
-    expect(text).toContain("SLIGHT EDGE under 900");
-    expect(text).toContain("UNFAIR under 1,800");
-    expect(text).toContain("under 3%");
+    // The absolute minimum named in the copy.
+    expect(meterVerdict(249, 1000).label).toBe("FAIR");
+    expect(meterVerdict(250, 1000).label).toBe("LOPSIDED");
+    expect(text).toContain("FAIR under 3.5% (or under 250 points)");
+    expect(text).toContain("SLIGHT EDGE under 9%");
+    expect(text).toContain("UNFAIR under 18%");
     expect(text).toContain(RECOMMENDATION_ONLY_TEXT);
   });
 
@@ -140,17 +150,21 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
 });
 
 describe("ValueAdjustmentTip", () => {
-  it("describes the gates ktcAdjustPackage applies, not a roster-spot bonus", async () => {
+  it("describes the ACTIVE (geometric) package model, not a roster-spot bonus", async () => {
     const user = userEvent.setup();
     render(<ValueAdjustmentTip />);
     await user.click(screen.getByRole("button", { name: "What is Value Adjustment (VA)?" }));
     const region = screen.getByRole("region", { name: "Value Adjustment (VA)" });
+    expect(ACTIVE_PACKAGE_MODEL_ID).toBe(PACKAGE_MODEL_IDS.GEOM_Q078_V1);
     expect(region.textContent).toContain("Never applied to a 1-for-1");
-    expect(region.textContent).toContain("3.3%");
+    expect(region.textContent).toContain("q = 0.78");
+    // The 3.3% display gate is KTC's (the rollback model); the active
+    // geometric model has none, so the copy must not claim it.
+    expect(region.textContent).not.toContain("3.3%");
     expect(region.textContent).not.toMatch(/roster spot/i);
-    // The gates are real: 1-for-1 never adjusts; a 2-for-1 can.
-    expect(ktcAdjustPackage([8000], [4000]).displayed).toBe(false);
-    expect(ktcAdjustPackage([8000], [4000, 4000]).displayed).toBe(true);
+    // The statements are real: 1-for-1 never adjusts; a 2-for-1 can.
+    expect(packageAdjustPair([8000], [4000]).displayed).toBe(false);
+    expect(packageAdjustPair([8000], [4000, 4000]).displayed).toBe(true);
   });
 });
 

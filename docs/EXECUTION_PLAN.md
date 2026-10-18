@@ -83,6 +83,22 @@ changes. The stabilization campaign below has integrated (train #1686, `37ccfbb6
 non-conflicting blockers (#1667 train: deploy/rollback blockers B1–B4, fix PR #1681), so the IC batch's start
 condition is met. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-07 — Calculator completion campaign").
 
+## Draft valuation automation — owner directive, 2026-10-18
+
+**AUTHORIZED; IN PROGRESS (PR #1786, not merged)** — added to the active queue alongside existing work; it displaces nothing, and
+merges and deploys keep their existing gates (the owner's $1,200-per-class decision approves no PR merge,
+including #1785). Reproduce the owner-approved `Draft Data` spreadsheet formula exactly in one canonical
+owner (`src/draft/rookie_auction/`), then automate it: Batch A spreadsheet parity, B canonical rookie values
++ frozen provisional 2026 fallback, C immutable completed-class spine + rollover, D automated class
+readiness / guarded promotion, E multi-year draft capital (integrates #1785; $1,200 per class for `dynasty_main` — the only league in
+scope per the owner's 2026-10-18 correction;
+workbook curve replaces #1785's interim generic-market curve; draft order `reverse_record_lower_pf`), F
+sitewide integration / monitoring / cache, G end-to-end verification and release. Final owner decisions
+and per-batch acceptance: `docs/draft/DRAFT_VALUATION_WORKSTREAM.md`; intake
+`docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-18 — Draft valuation automation"). **Not authorized by
+it:** changing source voting, canonical 0–9999 pick values or the trade package model; any Google Sheet
+write; promoting a new rookie class past the Batch D gates.
+
 ## Trade discovery — owner directive, 2026-10-14 (under the 2026-10-07 completion authorization)
 
 **AUTHORIZED (recorded 2026-10-16; executed 2026-10-14..15).** Finish the trade-discovery surfaces through
@@ -99,6 +115,20 @@ pending authenticated verification:
   train #1753
 No canonical value, weight or methodology change. Recommendation only — nothing sends or executes.
 
+## Trade Finder meaningful discovery — owner directive, 2026-10-18 (under the 2026-10-14 trade-discovery authorization)
+
+**AUTHORIZED; IN PROGRESS.** `/arbitrage` discovery finds trades that matter: tools first (Golden Upgrades
+default), the player-level table moved below as research, one shared Target Quality (canonical overall rank,
+incoming only, at least one incoming player) / Players to target (Offense / Defense / Both via the canonical
+position owners) / Most Impactful vocabulary (`src/trade/discovery.py`, declared prior
+`config/trade/discovery_impact_prior.json`, `PRIOR_UNVALIDATED`) applied during candidate generation in
+Golden Upgrades, Package Scan and Best Offers (Batch 1, `claude/trade-finder-meaningful`), then Package
+Builder Sending / Receiving across all nine combinations (Batch 2, stacked). Consumes the canonical owners
+only (finder enumeration via the substrate's receive anchor, `equity_verdict` + the active package model,
+lineup solver, Team Weakness, B11 confidence, roster capacity). No canonical value, Value Adjustment, fairness
+band or engine qualification rule changes. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-18").
+Evaluation: `docs/trade/DISCOVERY_IMPACT_EVALUATION_2026-10-18.md`.
+
 ## Universal Trade Screenshot Import (C3-IMPORT-IMAGE) — owner directive, 2026-10-15
 
 **AUTHORIZED; DEPLOYED 2026-10-16** (#1751 via train #1753, `47a9f561b`). Reader = free local OCR
@@ -106,6 +136,50 @@ No canonical value, weight or methodology change. Recommendation only — nothin
 sides only — our values decide everything. **Owner action:** `sudo apt-get install -y tesseract-ocr` on the
 VPS (the deploy's sudo allowlist cannot); until then the status endpoint reports unavailable and the UI says
 so. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-15"). Runbook: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
+
+## League scope correction — owner directive, 2026-10-18 (binding on every lane)
+
+**`dynasty_main` (Risk It to Get the Brisket) is the only league authorized for building and
+optimizing.** Ignore `dynasty_new`: no new feature work, budget change, valuation change or
+league-specific improvement for it. Do not delete it, its configuration, history or data, and do not
+disable existing behavior — shared infrastructure must still not regress for it. The $1,200-per-class
+draft-capital approval applies to `dynasty_main` only; any earlier wording extending it to both
+leagues is superseded. Draft valuation Batches A–G are scoped to `dynasty_main` (12 teams, 6 rounds,
+72 picks per class, 2027/2028/2029). Intake: `docs/OWNER_REQUESTED_TODO.md` ("OWNER SCOPE CORRECTION
+(2026-10-18)"). Applied in #1785 by restoring the Sleeper-derived fallback path to `main`.
+
+## Whole-dollar rookie-draft allocation — owner directive, 2026-10-18 (binding, `dynasty_main`)
+
+The `dynasty_main` rookie auction uses **whole dollars only**; the earlier recommendation to publish
+half-dollar team totals is **rejected**. For every draft class: 12 teams x 6 rounds = 72 picks; exactly
+$1,200; every final pick-dollar amount an integer; every manager budget an integer equal to the exact
+sum of the picks that manager owns; the 12 budgets total exactly $1,200; All Years reconciles the three
+separate $1,200 classes with each pick counted once. Rounding and budget conservation happen in ONE
+step: the spreadsheet's 60/40 formula, spine, decay, floors and caps are unchanged (intermediate
+fractions allowed; the workbook's half-dollar column — 28 picks ending in 50 cents — is kept as
+mathematical reference data), then a separately identified, deterministic, exact-arithmetic final step
+floors every pick, distributes the integer residual by largest fractional remainder (ties to the
+earlier draft position), verifies non-increasing order, floors, caps, integrality and the exact total,
+and REFUSES publication on any conflict — the $1,200 is never changed. The spreadsheet RANK tie at the
+award cutoff (which could publish $1,206) is resolved the same way: earlier draft position first. One
+canonical owner: the rookie-auction calculation (`src/draft/rookie_auction/`, #1786); #1785 consumes it
+for the workbook class and the later classes — team budgets are never rounded independently of their
+picks. Intake: `docs/OWNER_REQUESTED_TODO.md` ("WHOLE-DOLLAR ALLOCATION (2026-10-18)").
+
+**Follow-up owner decisions, same day (binding):** (1) every completed class keeps BOTH
+`referenceDollars` (the spreadsheet curve at original precision — the ONLY input to the three-year
+historical spine) and `finalWholeDollars` (the published integers — every pick allocation, budget,
+draft-capital display and auction transaction), immutably, with receipts; fractional dollars are never
+spendable budget. (2) Constraint-aware fallback: largest remainder is used unchanged whenever it is
+valid; otherwise the exact constrained integer problem (integers, exact $1,200, floors/caps,
+non-increasing, minimum total deviation from the reference, deterministic earlier-position tie-break)
+is solved with a documented, independently verified method before any refusal. Refusal only for genuine
+infeasibility, missing essential data or failed verification; safe refusal / last-known-good kept.
+**Addendum (binding):** last-known-good — the most recent independently verified 72-pick whole-dollar
+allocation per draft year is preserved (immutable, with provenance and receipt) and kept on a failed
+refresh with an explicit warning; the dollar curve never carries ownership (old ownership is never
+substituted; unverifiable ownership → unavailable, never $0); no cross-year reuse without a validated
+policy; no applicable allocation → fail closed with a named reason.
 
 ## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
 
@@ -120,6 +194,20 @@ memo `docs/valuation/PACKAGE_MODEL_EVALUATION_2026-10-17.md`. Owner answers and 
 authorized by it:** promoting GEOM (separate owner decision on held-out evidence), roster-aware
 calculator inputs, Market Edge Lab. The train also carried the DFS AutoSlates fix (selection reloaded the
 whole slate list; its flaky test had failed the #1761 deploy).
+
+## Trade Calculator completion — owner directive, 2026-10-17
+
+**AUTHORIZED NOW, added to the active queue alongside (not ahead of) the in-flight injury-availability, IDP
+rehabilitation, geometric VA activation and Manager Intelligence work.** Audit every Trade Calculator requirement,
+research competitors, redesign `/trade` for desktop and mobile, finish the missing functionality, and complete one
+unified YES / NO decision engine (extending `C7-DESK-01` / `analyze_trade`). Batches TC-0 (audit + research) → TC-A
+correctness → TC-B missing functionality → TC-C decision engine → TC-D redesign → TC-E reliability → TC-F release, per
+`docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md`. **Not authorized by it:** changing the approved package model
+or q, promoting experimental models, League Tycoon contract features, purchases. Merges and deploys keep their gates.
+**Owner decisions 2026-10-18 (all five TC-C questions DECIDED):** near tie → "NO — TOO CLOSE"; default strategy
+inferred from competitive posture and overridable; fairness bands → relative with an absolute minimum, provisional
+until validated; Second Opinions even = within 1%; `teamImpact.verdict` retired (text in the workstream TC-C section).
+**Owner decision 2026-10-18 (final):** RETOOL → BALANCED (PUSH → win now, REBUILD → long-term, HOLD → balanced).
 
 ## Manager Intelligence (Batch A) — owner directive, 2026-10-16
 
