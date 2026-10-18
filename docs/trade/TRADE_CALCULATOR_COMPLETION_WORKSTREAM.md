@@ -504,6 +504,84 @@ to lift; K06 waits for the owner decision; H03 belongs to the Trade Finder lane;
 on a desk item; H12 replacement level needs the waiver-pool projection join; B04 needs C1-U7; F05, M01–M07 and R01
 are P3.
 
+## TC-D notes (2026-10-18)
+
+Branch `claude/trade-calculator-tc-d`, **stacked on TC-B1** (`claude/trade-calculator-tc-b`, #1800, head
+`9cc840a33f`). Code commit `ecbde07821`. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`. Phase D1: make room,
+then the core layout. Not merged, not deployed, not observed in production.
+
+### Bundle headroom first
+
+`/trade` was 91.7 KB of 93 KB. A source-map attribution of the page chunk (temporary `productionBrowserSourceMaps`
+build, not committed) put `TradeWarRoom.jsx` + its CSS at about 19.5 KB, the largest module the page still carried;
+everything else on the candidate list (Second Opinions, comparables, Trade Desk, next actions, screenshot import) was
+already `React.lazy`. The War Room is now one more `dyn(...)` section (`React.lazy` + its own `Suspense` +
+`ResilientSection`, never `next/dynamic`), prefetched on mount next to the player-pool fetch. It shows nothing before
+its first `POST /api/trade/analyze` answers (a 700 ms debounce after two filled sides), so nothing visible changes.
+
+| build | `/trade` page chunk |
+|---|---|
+| TC-B head `9cc840a33f` | 91.7 KB / 93 KB (1.3 KB headroom) |
+| War Room split only | 72.5 KB (20.5 KB headroom) |
+| D1 (split + layout) | **77.9 KB (15.1 KB headroom)** |
+
+### Information architecture (UX audit §7 hypothesis, implemented)
+
+| layer | anchor | contents (owners unchanged) |
+|---|---|---|
+| 1. Trade builder | `#trade-builder` | quick-add (mobile, now in flow), controls, pick-ownership / share / import banners, KTC panel, screenshot dialog, pick team selectors, side cards |
+| 2. Immediate result | `#trade-result` | raw / VA / adjusted per side (`DataTable`, from `sideTotals`: adjusted = raw + VA), "How the verdict works", `TradeMeter` (+ Monte Carlo), the experimental stack note |
+| 3. Final decision | `#trade-decision` | the Trade War Room (or the 3+-team limitation); on desktop an echo of its headline, confidence and primary reason sits in the sticky column |
+| 4. Supporting intelligence | `#trade-intelligence` | the Simulate impact result (no longer inserted above the builder), Second opinions, Recent real trades |
+| 5. Ideas & tools | `#trade-tools` | Next steps, the proactive rail (no longer above the builder), the suggestions desk |
+
+- **One decision.** The echo is the War Room's own answer, reported up through a new `onDecision` prop and rendered
+  verbatim (`DecisionSummary`, its own `decision-summary*` test ids, so the War Room keeps the only
+  `decision-headline`). The verdict bar shows the same headline word only while the answer is for the trade on screen.
+- **Desktop (>= 1024 px).** Two columns (3fr / 2fr). The right column (result, decision echo, then the fairness
+  explanation and the independent tally) is sticky with its own scroll. Side cards stack in the left column: two
+  370 px cards side by side truncated every row's metadata at 1366. The bottom tray is hidden there.
+- **Below 1024 px.** One column in layer order; a sticky section nav (44 px targets); the verdict bar links to the
+  decision. The quick-add bar is no longer sticky (it overlapped scrolled content, UX audit P2-4).
+- **Every feature stays reachable**, and every test id the e2e specs use is unchanged.
+
+Measured on the local real stack (Playwright, Chromium, the seeded board, analyze mocked from the real fixtures):
+
+| measure | before (TC-B head) | after (D1) |
+|---|---|---|
+| decision on screen at 1366x900 | War Room headline y=877; meter y=1,917 | decision echo y=639; meter y=375 |
+| fixed chrome at 390x844 | 235 px (top bar 46 + quick-add 62 + tray 74 + tab bar 53) | 219 px (top bar 46 + section nav 46 + tray 74 + tab bar 53) |
+| horizontal scroll at 390 / 360 / 1024 / 1366 / 1920 | none at 390 / 1366 | none at any of the five |
+
+Before/after screenshots were taken at 1366x900 and 390x844 (after also at 360x780, 1024x768 and 1920x1080). They
+are session artifacts, not committed.
+
+### Gates run on the TC-D head (2026-10-18)
+
+- Real-stack Playwright, desktop-1366 + mobile-chromium: `trade-war-room`, `trade-next-actions`, `trade-ktc-import`,
+  `trade-screenshot-import`, `mobile-trade-quantity`, `mobile-pinned-overlap` and `journey-trade`. Result: 26 passed,
+  7 skipped (gated to the other project by the specs themselves), 1 failed. The failure was
+  `journey-trade` "/arbitrage scans" (90 s predicate timeout under the parallel run). `/arbitrage` is not touched
+  here, and the same test passed alone in 21 s.
+- Full vitest: 4150 / 4151. The one failure was `game-day-panel.test.jsx` (a 5 s test timeout under suite load; not
+  touched; 64 / 64 alone). The new `trade-tcd-layout.test.jsx` has 21 tests. The de-flaked
+  `trade-on-demand-sections-render` uses a shared prewarm (`__tests__/setup/trade-lazy-sections.js`, the #1792
+  pattern); its assertions are unchanged.
+- `build:nocheck` + `check:bundles`: every page is under budget, `/trade` 77.9 KB of 93 KB.
+
+### Remaining in TC-D (D2 and later)
+
+- Builder bottom sheets on mobile (one search per side).
+- The toolbar overflow menu (CSV / JSON / Copy KTC URL).
+- Supporting-intelligence drilldown tabs (Value · Roster · Season · Market · Reasoning).
+- One roster-consequence surface (TCM-H13: Simulate impact folded under the decision).
+- A persistent summary for 3+-team trades.
+- The Monte Carlo "favored" relabel (§7.8).
+- The withdrawn "My league" control (TCM-D09).
+- A wider cap at 1920 (shell-level).
+- The screenshot FAB still sits over the bottom-right of the sticky column on desktop; it is the pre-existing UX audit
+  §2.1 row 18, and the FAB is shell-owned.
+
 ## Coordination with in-flight work
 
 | In-flight | Overlap | Rule |
@@ -522,4 +600,5 @@ are P3.
 | TC-A correctness | IMPLEMENTATION HEAD GREEN on local branch `claude/trade-calculator-tc-a` (local commits on `integration/train-5-2026-10-17` @ `ea054f386a`; not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Simulations consuming availability (#1772 follow-through) is not part of this batch. See "TC-A notes" |
 | TC-C decision engine | IMPLEMENTATION HEAD on local branch `claude/trade-calculator-tc-c`, stacked on TC-A (not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-C notes" |
 | TC-B missing functionality | TC-B1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-b` (`2bd2986ddd`, `8625ab7b77`, PR to main): of the 31 inventoried rows, 12 moved to IMPLEMENTED BUT UNVERIFIED (A02, A03, D14, F03, G09, I04, K03, K13, L05, O11, O12, O13) and 4 advanced but kept their class (B04, G18, H12 partial; L01 gained its database link); the other 15 are listed under "Remaining in TC-B". RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-B notes" |
-| TC-D … TC-F | QUEUED, in order; each starts as its dependencies land |
+| TC-D redesign | D1 IMPLEMENTATION HEAD on `claude/trade-calculator-tc-d` (`ecbde07821`), stacked on TC-B1 (#1800): War Room code split (`/trade` 91.7 → 77.9 KB of 93 KB) and the five-layer layout, with a desktop sticky result + decision echo and a mobile section nav + verdict bar. TCM-P01 / P02 moved to IMPLEMENTED BUT UNVERIFIED; P03, P05, Q03, F06, H13 and K03 advanced. RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. D2 remains (see "TC-D notes") |
+| TC-E … TC-F | QUEUED, in order; each starts as its dependencies land |
