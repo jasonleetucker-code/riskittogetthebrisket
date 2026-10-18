@@ -630,6 +630,68 @@ def archive_manifest() -> dict[str, Any]:
     }
 
 
+def signals_dependence(base: Mapping[str, Any]) -> dict[str, Any]:
+    """Signals IDP pairwise dependence, ON THE PRODUCTION BOX (owner Decision 7).
+
+    The Signals IDP boards are private and box-local, so this measurement can
+    run only where ``data/sources/signals/board/`` exists.  Each family board
+    (``signalsIdpDl`` / ``Lb`` / ``Db``) is compared WITHIN its own family's
+    on-board identities against every voting-capable IDP board, with the same
+    Spearman and leave-pair-out residual the public matrix uses (consensus
+    pool: ``VOTER_POOL`` plus the Signals board).  The output is AGGREGATE ONLY
+    (correlations and counts): no player name, rank or value leaves the box.
+    Read-only; nothing here changes a vote, a hold or a threshold.
+    """
+    if not (SIGNALS_BOARD_DIR.is_dir() and any(SIGNALS_BOARD_DIR.glob("*.csv"))):
+        return {"state": "not_provisioned", "boardDir": str(SIGNALS_BOARD_DIR)}
+    ident_family: dict[str, str] = {}
+    for name, row in _idp_rows(base).items():
+        ident, fam = sweep.canonical(name), _family(row)
+        if ident and fam:
+            ident_family[ident] = fam
+    boards = _csv_boards()
+    family_of = {"signalsIdpDl": "DL", "signalsIdpLb": "LB", "signalsIdpDb": "DB"}
+    out: dict[str, Any] = {"state": "provisioned", "families": {}}
+    for key, fam in family_of.items():
+        board = sweep.load_board(key, SIGNALS_BOARD_DIR / f"{key}.csv")
+        if board is None:
+            out["families"][fam] = {"source": key, "state": "board_missing"}
+            continue
+        idents = {i for i, f in ident_family.items() if f == fam}
+        pool = {k: boards[k] for k in VOTER_POOL if k in boards}
+        pool[key] = board
+        pct = {}
+        for k, b in pool.items():
+            mine = [i for i in b.entries if i in idents]
+            if len(mine) >= sweep.MIN_PAIR_OVERLAP:
+                pct[k] = sweep.to_percentiles(sweep.ordering(b, mine))
+        rows = []
+        members = list(pct)
+        for other in members:
+            if other == key or key not in pct:
+                continue
+            rho, n = sweep.spearman(pct[key], pct[other])
+            res, n_res = sweep.leave_pair_out_residuals(pct, key, other, members)
+            rows.append(
+                {
+                    "a": key,
+                    "b": other,
+                    "spearman": _r(rho),
+                    "n": n,
+                    "leavePairOutResidual": _r(res),
+                    "nResidual": n_res,
+                }
+            )
+        out["families"][fam] = {
+            "source": key,
+            "boardRows": board.rows,
+            "onBoardFamilyIdentities": sum(1 for i in board.entries if i in idents),
+            "duplicateIdentities": len(board.duplicates),
+            "pairs": rows,
+        }
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument(
@@ -642,7 +704,32 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="write only the frozen archive manifest to this path and exit",
     )
+    ap.add_argument(
+        "--signals-dependence-only",
+        action="store_true",
+        help=(
+            "ON THE PRODUCTION BOX: print only the aggregate Signals IDP pairwise "
+            "dependence (owner Decision 7) and exit"
+        ),
+    )
     args = ap.parse_args(argv)
+    if args.signals_dependence_only:
+        if not args.payload.is_file():
+            print(f"payload missing: {args.payload}", file=sys.stderr)
+            return 2
+        raw = json.loads(args.payload.read_text(encoding="utf-8"))
+        result = {
+            "schema": "idp-rehab-eval/signals-dependence/v1",
+            "payload": args.payload.name,
+            "codeRevision": vr.pins(args.payload.resolve())["codeRevision"],
+            "signalsIdpDependence": signals_dependence(vr.build(raw)),
+        }
+        text = json.dumps(result, indent=1, default=str)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text + "\n", encoding="utf-8")
+        print(text)
+        return 0
     if args.archive_manifest:
         args.archive_manifest.parent.mkdir(parents=True, exist_ok=True)
         args.archive_manifest.write_text(

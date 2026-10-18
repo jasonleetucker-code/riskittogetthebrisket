@@ -116,7 +116,7 @@ export default function TradeFlowSankey({
       flowPaths.push({
         d,
         w: Math.max(1, fw),
-        color: categoricalColor(si),
+        color: categoricalColor(si, { count: owners.length }),
         label: `${ownerNames.get(src)} → ${ownerNames.get(dst)}: ${formatNumber(n, n < 1 ? 1 : 0)} assets`,
       });
     }
@@ -156,7 +156,7 @@ export default function TradeFlowSankey({
                 y={y0}
                 width={10}
                 height={nodeHeight}
-                fill={categoricalColor(i)}
+                fill={categoricalColor(i, { count: owners.length })}
                 fillOpacity={0.9}
                 rx={1}
               />
@@ -185,7 +185,7 @@ export default function TradeFlowSankey({
                 y={y0}
                 width={10}
                 height={nodeHeight}
-                fill={categoricalColor(i)}
+                fill={categoricalColor(i, { count: owners.length })}
                 fillOpacity={0.9}
                 rx={1}
               />

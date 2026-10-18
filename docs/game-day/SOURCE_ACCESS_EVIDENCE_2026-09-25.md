@@ -75,7 +75,7 @@ kept here only as context, retrieved 2026-09-25, with short excerpts.
 
 ## Pending owner decision — ESPN scoreboard for NBA / NHL DFS schedules (raised 2026-10-07)
 
-**State: PENDING OWNER DECISION — not approved.** Under the scope boundary above, reading ESPN's
+**State: OWNER_PAUSED (2026-10-18) — not approved, not rejected.** The owner shelved all DFS implementation (directive 2026-10-18, PR #1810); this DFS-only request is paused with it and is not to be raised again until DFS resumes. It does not affect the NFL Game Day uses above. *Previously:* PENDING OWNER DECISION — not approved. Under the scope boundary above, reading ESPN's
 public NBA and NHL scoreboards (`site.api.espn.com/apis/site/v2/sports/{basketball/nba,hockey/nhl}/scoreboard`)
 for DFS slate start times and lock is plausibly "materially outside the intended integration"
 (ESPN is used today for NFL live game state, injuries, depth charts and news). It therefore needs a

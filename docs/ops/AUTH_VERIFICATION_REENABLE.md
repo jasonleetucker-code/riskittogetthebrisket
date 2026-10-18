@@ -22,6 +22,29 @@ ends sessions) shipped in release train #1719. **Release train 4**
 
 Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c`
 
+### Precondition re-check, 2026-10-18 (read-only; nothing enabled)
+
+| precondition | state | evidence |
+|---|---|---|
+| 0.1 train 4 merged | **met** | `15cbad9e42` "Merge pull request #1759 … integration/train-4-2026-10-16" is on `main` |
+| 0.2 deployed | **met** | `GET https://chaseupside.com/api/status` → `build.commit` `24e218205e` (train 7, #1803), which contains `15cbad9e42` (`git merge-base --is-ancestor`) |
+| 0.3 secrets / variables | unchanged by any repo change; not readable from a session | the workflow reads only the names in §0.3 — no new secret is needed |
+| workflow state | both still `disabled_manually` | Actions API `list_workflows`, 2026-10-18 |
+
+So the code side is complete and **exactly one admin step remains** — the
+§2 owner actions, which change repository settings and therefore cannot be
+taken from a PR:
+
+```bash
+gh workflow enable v1-authenticated-verification.yml
+gh workflow run v1-authenticated-verification.yml -f suite=all -f league=dynasty_main -f pass_hours=2
+# inspect per §3 and §4; only then:
+gh workflow enable prod-e2e-smoke.yml
+```
+
+The stale reporter comment listed in §6 is corrected (it now describes the
+v2 allowlisted report).
+
 ---
 
 ## 0. Preconditions (all four must be true)
@@ -213,11 +236,9 @@ If any check above finds something, go to §5 immediately.
 
 ## 6. Known gaps (recorded, not fixed here)
 
-- `tests/e2e/prod-auth.config.js`'s reporter comment still says the safe
-  report keeps "every annotation … and the FIRST LINE of any failure". That
-  was the v1 behaviour. After #1725 the reporter publishes allowlisted
-  annotations only, plus an `errorClass` enum. The code is right and the
-  comment is stale.
+- ~~`tests/e2e/prod-auth.config.js`'s reporter comment still says the safe
+  report keeps "every annotation … and the FIRST LINE of any failure".~~
+  Fixed 2026-10-18: the comment now describes the v2 allowlisted report.
 - Prod-auth specs other than the eight #1725 converted keep their existing
   annotations only where those were already statuses, counts or fixed states.
   Anything else is withheld and counted, not published. A new prod-auth spec

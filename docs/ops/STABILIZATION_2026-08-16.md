@@ -195,6 +195,24 @@ One apparent finding was NOT real: `league_intel/test_te_premium_invariants.py` 
 the healthy-payload run because it calls `inspect.getsource(_compute_unified_rankings)` and
 this session was editing that file mid-run. Recorded so nobody re-hunts it.
 
+### 3d-ter. Re-run against three archives, 2026-10-18 (after the #1811-class failure)
+
+`test_sparse_evidence_estimator::test_board_only_former_haircut_rows_change` failed in
+the hard gate when a new archive arrived (fixed by `c2cb29dad4`, "no single-source
+haircut on a row nothing voted on"), so every hard-gate module that builds its board from
+`newest_complete_raw_payload()` was re-run with the helper answering an OLDER complete
+archive (an audit-only pytest plugin; nothing in the repo changed for it). 33 modules,
+713 tests, `-m "not livedata"`:
+
+| archive the helper returned | result |
+|---|---|
+| `dynasty_export_20261018_185952` (newest) | 713 passed |
+| `dynasty_export_20261017_122823` (8 complete archives back) | 713 passed |
+| `dynasty_export_20261014_012731` (24 back) | 712 passed, 1 skipped (a phase predicate found no qualifying archive — skip, never a vacuous pass) |
+
+No second archive-sensitive assertion was found. Same limit as §3d: a diff over archives
+that exist cannot find a threshold that only a future board crosses.
+
 ---
 
 ## 4. Release discipline

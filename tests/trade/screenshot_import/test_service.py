@@ -174,7 +174,11 @@ def test_hint_segment_on_the_same_row_is_merged(identity_ctx, board):
 
 def test_no_assets(identity_ctx, board):
     out = _run(page(("Home", 60, 40), ("4,512", 60, 100)), identity_ctx, board)
-    assert out["warnings"] == ["no_assets_found", "low_layout_confidence"]
+    assert out["warnings"] == [
+        "no_assets_found",
+        "trade_region_not_detected",
+        "low_layout_confidence",
+    ]
     assert out["sides"] == [] and out["unassigned"] == []
 
 

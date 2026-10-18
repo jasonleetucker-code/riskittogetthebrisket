@@ -485,12 +485,12 @@ default, consequences, and whether each blocks C1.
 | id | question | blocks C1? |
 |---|---|---|
 | `OD-01` | External source authorization: ~~capture the KTC grant artifact~~ (KTC resolved by owner decision 2026-09-30, #1555), obtain or forgo an IDPTC record, and set one posture for the credentialed sources | **No** |
-| `OD-02` | Is authenticated trade submission (CE-11) required for C completion, or an approved later capability? | **No** |
-| `OD-03` | Analyst Intelligence cost posture — podcast/YouTube infrastructure and any paid transcription/API spend | **No** |
-| `OD-04` | DraftSharks: re-mint, accept degradation, or retire | **No** |
-| `OD-05` | Premium token direction — the live terminal drift versus the north star | **No** |
+| `OD-02` | Is authenticated trade submission (CE-11) required for C completion, or an approved later capability? — **DECIDED 2026-10-18 (owner directive D15): not now**; read-only toward real Sleeper transactions; a later capability only by a separate owner directive | **No** |
+| `OD-03` | Analyst Intelligence cost posture — podcast/YouTube infrastructure and any paid transcription/API spend — **DECIDED 2026-10-18 (D16 / D17): no paid inference, transcription or data spend**; legitimate free sources only | **No** |
+| `OD-04` | DraftSharks: re-mint, accept degradation, or retire — **RESOLVED by owner 2026-08-25: ACCEPT** (`docs/VERSION_1_COMPLETION_CONTRACT.md` V1-89) | **No** |
+| `OD-05` | Premium token direction — the live terminal drift versus the north star — **RESOLVED 2026-08-18** (`docs/DESIGN-SYSTEM.md`; PSI Direction A locked) | **No** |
 | `OD-06` | CE-28 user feedback/polling: approve as scope, or drop | **No** |
 | `OD-07` | "Link any Sleeper account" onboarding: approve as scope, or drop | **No** |
 
-**None of the seven blocks C1.** Each is either about a later phase or about an external artifact that does not
+Status refreshed 2026-10-18 (`docs/owner/OWNER_DECISION_REGISTER.md`): OD-02 to OD-05 are decided; OD-01 (IDP Trade Calculator record + credentialed-source posture), OD-06 and OD-07 remain open. **None of the seven blocks C1.** Each is either about a later phase or about an external artifact that does not
 gate foundation work.

@@ -2,21 +2,30 @@
 """Evaluate the screenshot-import pipeline over the committed fixtures.
 
 Each fixture is a directory under ``tests/fixtures/screenshot_import/`` with
-``image.png`` and ``expected.json`` (sides, the asset strings printed on each
-side, and the board row each should map to).  Two questions are scored
-SEPARATELY, because they fail for different reasons and are fixed in
-different places:
+one image (``image.png`` / ``image.webp`` / ``image.jpg``) and
+``expected.json``: the sides, the asset strings printed on each side and the
+board row each should map to, optional ``unassigned`` (assets that must stay
+unplaced because no trustworthy side exists for them) and ``mustBeIgnored``
+(page text — other players in widgets / ads — that must never become an
+item).  Four questions are scored SEPARATELY, because they fail for different
+reasons and are fixed in different places:
 
-* **extraction** — did OCR + layout read each asset string, on the right
-  side?  ``recall`` = expected strings found on their side / expected;
-  ``precision`` = extracted items that match an expected string on their
-  side / all extracted items (sides + unassigned).
-* **resolution** — of the strings that were extracted, how many mapped to
-  the right board row (``status == resolved`` and the expected
-  ``boardName``)?
+* **trade region** — did the pipeline find the trade's area and keep the
+  page out of it?  ``recall`` = expected side assets that landed on ANY side
+  / expected side assets; ``precision`` = side items that are expected trade
+  assets / all side items.  ``distractorLeaks`` counts ``mustBeIgnored``
+  names that became an item anywhere (a side OR "needs a side").
+* **extraction (OCR)** — was each expected asset string read at all,
+  wherever it landed?  ``recall`` = expected strings found among the items /
+  expected; ``precision`` = items matching an expected string / all items.
+* **side** — of the expected assets that were extracted, how many are on the
+  right side (or correctly left unassigned)?
+* **identity** — of the expected assets that were extracted, how many
+  resolved to the right board row (``status`` and ``boardName``)?
 
-These are numbers about THIS fixture set (synthetic screenshots), not a
-universal accuracy claim for arbitrary screenshots.
+These are numbers about THIS fixture set (synthetic screenshots plus one
+real, redacted full-page screenshot and its crop), not a universal accuracy
+claim for arbitrary screenshots.
 
 Exit code is 0 whenever the evaluation ran (a missing tesseract binary is
 reported and also exits 0 — there is nothing to measure, which is not a
@@ -44,52 +53,99 @@ from src.trade.screenshot_import.service import extract_trade  # noqa: E402
 
 DEFAULT_FIXTURES = ROOT / "tests" / "fixtures" / "screenshot_import"
 DEFAULT_DIRECTORY = ROOT / "tests" / "fixtures" / "identity_directory_subset.json"
+SUPPLEMENT_NAME = "directory_supplement.json"
+IMAGE_NAMES = ("image.png", "image.webp", "image.jpg")
 
 
 def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(text or "").lower())
 
 
+def _image_of(d: Path) -> Path | None:
+    for name in IMAGE_NAMES:
+        if (d / name).is_file():
+            return d / name
+    return None
+
+
 def score_fixture(expected: dict, out: dict) -> dict:
+    """Score one extraction against its expectation (see the module doc).
+
+    Areas are side indexes ``0`` / ``1`` or ``None`` for "needs a side"."""
     extracted = [(i, it) for i, side in enumerate(out["sides"]) for it in side["items"]]
     extracted += [(None, it) for it in out["unassigned"]]
+    wanted = [
+        (side_idx, asset)
+        for side_idx, side in enumerate(expected["sides"])
+        for asset in side["assets"]
+    ] + [(None, asset) for asset in expected.get("unassigned", [])]
+
     used: set[int] = set()
-    exp_total = matched = resolved_ok = 0
+    found = side_ok = identity_ok = region_tp = 0
     misses: list[str] = []
-    wrong_resolution: list[str] = []
-    for side_idx, side in enumerate(expected["sides"]):
-        for asset in side["assets"]:
-            exp_total += 1
-            hit = None
-            for k, (got_side, it) in enumerate(extracted):
-                if k in used or got_side != side_idx:
+    wrong_side: list[str] = []
+    wrong_identity: list[str] = []
+    # An item matches an expected asset when its text contains the expected
+    # string, or it resolved to the expected board row (OCR read "Ist" for
+    # "1st" and the pick grammar repaired it).  Prefer a match in the
+    # expected area, then anywhere (extraction is scored independently of
+    # the side).
+    for want_area, asset in wanted:
+        key = _norm(asset["text"])
+        hit = None
+        for pass_same_area in (True, False):
+            for k, (area, it) in enumerate(extracted):
+                same_row = asset.get("boardName") and it["boardName"] == asset["boardName"]
+                if k in used or not (key in _norm(it["raw"]) or same_row):
                     continue
-                if _norm(asset["text"]) in _norm(it["raw"]):
-                    hit = k
-                    break
-            if hit is None:
-                misses.append(f"side{side_idx}:{asset['text']}")
-                continue
-            used.add(hit)
-            matched += 1
-            it = extracted[hit][1]
-            want_status = asset.get("status", "resolved")
-            if it["status"] == want_status and it["boardName"] == asset.get("boardName"):
-                resolved_ok += 1
-            else:
-                wrong_resolution.append(f"{asset['text']} -> {it['status']}:{it['boardName']}")
+                if pass_same_area and area != want_area:
+                    continue
+                hit = k
+                break
+            if hit is not None:
+                break
+        label = f"{'side' + str(want_area) if want_area is not None else 'unassigned'}:"
+        if hit is None:
+            misses.append(label + asset["text"])
+            continue
+        used.add(hit)
+        found += 1
+        area, it = extracted[hit]
+        if area == want_area:
+            side_ok += 1
+        else:
+            wrong_side.append(f"{asset['text']} -> {area}")
+        if want_area is not None and area is not None:
+            region_tp += 1
+        if it["status"] == asset.get("status", "resolved") and it["boardName"] == asset.get(
+            "boardName"
+        ):
+            identity_ok += 1
+        else:
+            wrong_identity.append(f"{asset['text']} -> {it['status']}:{it['boardName']}")
+
+    side_items = sum(1 for area, _ in extracted if area is not None)
+    expected_side_assets = sum(1 for area, _ in wanted if area is not None)
+    item_text = " ".join(_norm(it["raw"]) for _, it in extracted)
+    leaks = [n for n in expected.get("mustBeIgnored", []) if _norm(n) in item_text]
     ignored_text = " ".join(ig["raw"] for ig in out["ignored"])
-    leaked = [n for n in expected.get("mustBeIgnored", []) if n not in ignored_text]
+    not_ignored = [n for n in expected.get("mustBeIgnored", []) if n not in ignored_text]
     return {
         "layoutKind": out["layout"]["kind"],
         "layoutExpected": expected.get("layoutKind"),
-        "expected": exp_total,
+        "expected": len(wanted),
+        "expectedSideAssets": expected_side_assets,
         "extracted": len(extracted),
-        "matched": matched,
-        "resolvedCorrect": resolved_ok,
+        "sideItems": side_items,
+        "found": found,
+        "regionTruePositives": region_tp,
+        "sideCorrect": side_ok,
+        "identityCorrect": identity_ok,
         "misses": misses,
-        "wrongResolution": wrong_resolution,
-        "notIgnored": leaked,
+        "wrongSide": wrong_side,
+        "wrongIdentity": wrong_identity,
+        "distractorLeaks": leaks,
+        "notIgnored": not_ignored,
         "warnings": out["warnings"],
     }
 
@@ -114,34 +170,53 @@ def main(argv: list[str] | None = None) -> int:
 
     board = json.loads((args.board or args.fixtures / "board.json").read_text(encoding="utf-8"))
     directory = json.loads(args.directory.read_text(encoding="utf-8"))
-    directory = directory.get("players", directory)
+    directory = dict(directory.get("players", directory))
+    supplement = args.fixtures / SUPPLEMENT_NAME
+    if supplement.is_file():
+        directory.update(json.loads(supplement.read_text(encoding="utf-8"))["players"])
     ctx = IdentityContext.from_directory(directory, source=str(args.directory))
 
     per_fixture: dict[str, dict] = {}
     for d in sorted(p for p in args.fixtures.iterdir() if p.is_dir()):
-        image, exp = d / "image.png", d / "expected.json"
-        if not (image.is_file() and exp.is_file()):
+        image, exp = _image_of(d), d / "expected.json"
+        if image is None or not exp.is_file():
             continue
         expected = json.loads(exp.read_text(encoding="utf-8"))
         prepared = decode_image(image.read_bytes())
         out = extract_trade(prepared.png, engine=engine, identity_ctx=ctx, contract=board)
         per_fixture[d.name] = score_fixture(expected, out)
 
-    tot = {k: sum(r[k] for r in per_fixture.values()) for k in ("expected", "extracted", "matched")}
-    tot["resolvedCorrect"] = sum(r["resolvedCorrect"] for r in per_fixture.values())
+    keys = (
+        "expected",
+        "expectedSideAssets",
+        "extracted",
+        "sideItems",
+        "found",
+        "regionTruePositives",
+        "sideCorrect",
+        "identityCorrect",
+    )
+    tot = {k: sum(r[k] for r in per_fixture.values()) for k in keys}
+    tot["distractorLeaks"] = sum(len(r["distractorLeaks"]) for r in per_fixture.values())
     summary = {
         "engine": avail.to_dict(),
         "fixtures": len(per_fixture),
-        "extraction": {
-            "recall": _ratio(tot["matched"], tot["expected"]),
-            "precision": _ratio(tot["matched"], tot["extracted"]),
+        "tradeRegion": {
+            "recall": _ratio(tot["regionTruePositives"], tot["expectedSideAssets"]),
+            "precision": _ratio(tot["regionTruePositives"], tot["sideItems"]),
+            "distractorLeaks": tot["distractorLeaks"],
             "layoutKindCorrect": sum(
                 1 for r in per_fixture.values() if r["layoutKind"] == r["layoutExpected"]
             ),
         },
-        "resolution": {
-            "accuracyOfExtracted": _ratio(tot["resolvedCorrect"], tot["matched"]),
-            "endToEnd": _ratio(tot["resolvedCorrect"], tot["expected"]),
+        "extraction": {
+            "recall": _ratio(tot["found"], tot["expected"]),
+            "precision": _ratio(tot["found"], tot["extracted"]),
+        },
+        "side": {"accuracyOfExtracted": _ratio(tot["sideCorrect"], tot["found"])},
+        "identity": {
+            "accuracyOfExtracted": _ratio(tot["identityCorrect"], tot["found"]),
+            "endToEnd": _ratio(tot["identityCorrect"], tot["expected"]),
         },
         "totals": tot,
         "perFixture": per_fixture,
@@ -150,29 +225,39 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(summary, indent=2, sort_keys=True))
         return 0
     print(f"screenshot-import eval — tesseract {avail.version} — {len(per_fixture)} fixtures")
-    print(f"{'fixture':<24} {'layout':<11} {'exp':>4} {'got':>4} {'match':>5} {'resolved':>8}")
+    print(
+        f"{'fixture':<26} {'layout':<11} {'exp':>4} {'items':>5} {'found':>5} "
+        f"{'side':>5} {'ident':>5} {'leaks':>5}"
+    )
     for name, r in per_fixture.items():
         print(
-            f"{name:<24} {r['layoutKind']:<11} {r['expected']:>4} {r['extracted']:>4} "
-            f"{r['matched']:>5} {r['resolvedCorrect']:>8}"
+            f"{name:<26} {r['layoutKind']:<11} {r['expected']:>4} {r['extracted']:>5} "
+            f"{r['found']:>5} {r['sideCorrect']:>5} {r['identityCorrect']:>5} "
+            f"{len(r['distractorLeaks']):>5}"
         )
         for label, items in (
             ("missed", r["misses"]),
-            ("wrong", r["wrongResolution"]),
+            ("wrong side", r["wrongSide"]),
+            ("wrong identity", r["wrongIdentity"]),
+            ("distractor leaked", r["distractorLeaks"]),
             ("not ignored", r["notIgnored"]),
         ):
             if items:
                 print(f"    {label}: {', '.join(items)}")
-    ex, rs = summary["extraction"], summary["resolution"]
+    rg, ex = summary["tradeRegion"], summary["extraction"]
+    sd, idn = summary["side"], summary["identity"]
     print(
-        f"EXTRACTION  recall {ex['recall']}  precision {ex['precision']}  "
-        f"layout kind correct {ex['layoutKindCorrect']}/{len(per_fixture)}"
+        f"TRADE REGION  recall {rg['recall']}  precision {rg['precision']}  "
+        f"distractor leaks {rg['distractorLeaks']}  "
+        f"layout kind correct {rg['layoutKindCorrect']}/{len(per_fixture)}"
     )
+    print(f"EXTRACTION    recall {ex['recall']}  precision {ex['precision']}")
+    print(f"SIDE          accuracy of extracted {sd['accuracyOfExtracted']}")
     print(
-        f"RESOLUTION  accuracy of extracted {rs['accuracyOfExtracted']}  "
-        f"end-to-end {rs['endToEnd']}"
+        f"IDENTITY      accuracy of extracted {idn['accuracyOfExtracted']}  "
+        f"end-to-end {idn['endToEnd']}"
     )
-    print("(synthetic fixture set — not a universal accuracy claim)")
+    print("(committed fixture set — not a universal accuracy claim)")
     return 0
 
 

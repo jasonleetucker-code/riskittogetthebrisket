@@ -672,4 +672,79 @@ describe("describeWarning", () => {
       "Something new",
     );
   });
+
+  it("explains a full-page screenshot whose trade area was not found", () => {
+    expect(
+      describeWarning({ code: "trade_region_not_detected", sourceImage: 0 }, 1),
+    ).toMatch(/^The trade area wasn't recognised, so nothing was placed/);
+  });
+});
+
+describe("full-page screenshots (server-side trade region)", () => {
+  const join = (r) => joinToBoard(r, M);
+  const pageNoise = [
+    { raw: "Bijan Robinson", reason: "outside_trade_region" },
+    { raw: "Search for a player", reason: "search_placeholder" },
+  ];
+
+  it("keeps page furniture out of the sides and the needs-a-side tray", () => {
+    const merged = mergeImages([
+      join(
+        resp(0, [[resolved("Ja'Marr Chase")], [resolved("Puka Nacua")]], {
+          ignored: pageNoise,
+        }),
+      ),
+    ]);
+    expect(merged.sides[0].items.map((i) => i.row.name)).toEqual([
+      "Ja'Marr Chase",
+    ]);
+    expect(merged.sides[1].items.map((i) => i.row.name)).toEqual([
+      "Puka Nacua",
+    ]);
+    expect(merged.unassigned).toEqual([]);
+    expect(merged.ignored.map((g) => g.reason)).toEqual([
+      "outside_trade_region",
+      "search_placeholder",
+    ]);
+    expect(reviewCounts(merged).assets).toBe(2);
+  });
+
+  it("merges two scrolled full-page screenshots without duplicating assets", () => {
+    const merged = mergeImages([
+      join(
+        resp(
+          0,
+          [
+            [resolved("Ja'Marr Chase"), resolved("Puka Nacua")],
+            [resolved("Bijan Robinson")],
+          ],
+          { ignored: pageNoise },
+        ),
+      ),
+      join(
+        resp(
+          1,
+          [
+            [
+              resolved("Ja'Marr Chase"),
+              resolved("Puka Nacua"),
+              resolved("Josh Allen", "player", "4984"),
+            ],
+            [],
+          ],
+          { ignored: pageNoise },
+        ),
+      ),
+    ]);
+    expect(merged.sides[0].items.map((i) => i.row.name)).toEqual([
+      "Ja'Marr Chase",
+      "Puka Nacua",
+      "Josh Allen",
+    ]);
+    expect(merged.sides[1].items.map((i) => i.row.name)).toEqual([
+      "Bijan Robinson",
+    ]);
+    expect(merged.mergeNotes).toHaveLength(1);
+    expect(merged.unassigned).toEqual([]);
+  });
 });

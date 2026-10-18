@@ -28,8 +28,10 @@ States: IMPLEMENTED → MOCK READY → HUMAN REHEARSAL PASSED → LIVE-READY →
       fixture). The room refuses to start an official room without it.
 - [ ] Accept the **disaster-recovery window** or authorise an off-host copy: hourly verified backups bound a
       process/database fault to ~1 hour, but they are on the same host; losing the disk loses everything since
-      the last off-host copy.
-- [ ] Decide whether open trade offers should reserve money (current rule: they do not; settlement re-checks).
+      the last off-host copy. *Owner directive D20 (2026-10-18): on-host backups suffice for mocks; for official
+      operation provide a validated encrypted off-host recovery copy or a documented risk acceptance before
+      launch (`docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md` §5).*
+- [x] Decide whether open trade offers should reserve money — **decided 2026-10-18 (owner directive D20): they do not**; money moves only after a verified accepted transaction (the engine's existing rule; settlement re-checks).
 - [ ] Approve launch (flip the official-room gate in a reviewed PR).
 
 ## C. Engineering (agent-closable; status in `ROOKIE_AUCTION_ROOM.md`)

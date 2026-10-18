@@ -1,5 +1,8 @@
 # Owner evidence capture: the smallest set of steps that unblocks verified access
 
+> **OWNER_PAUSED (owner directive 2026-10-18).** League Tycoon is shelved; do not ask the owner for this capture,
+> credentials or league configuration until a fresh explicit owner directive reopens it. Kept for that day.
+
 Research is blocked on one thing only: nobody has observed League Tycoon while signed in. This page lists exactly
 what the league owner does, what each step enables, and what must **never** leave the owner's computer.
 

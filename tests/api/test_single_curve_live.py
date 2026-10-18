@@ -339,12 +339,27 @@ class TestMADPenaltyChain(unittest.TestCase):
     def test_nonpick_rows_carry_source_spread_when_multi_source(self) -> None:
         from src.api.data_contract import _MAD_PENALTY_LAMBDA  # noqa: PLC0415
 
+        # Keyed on the sources that VOTED (``effectiveSourceRanks``), not on
+        # every source that matched (``sourceRanks``).  ``sourceSpread`` is the
+        # MAD over the contributing values (``_compute_unified_rankings``,
+        # "MAD across ALL contributing sources"), and a freshness-withheld
+        # source contributes nothing.  Measured 2026-10-18: Caleb Banks matched
+        # idpTradeCalc + idpShowCombined, idpShowCombined was withheld
+        # (``freshnessExcludedSources``), so one value voted and the spread of
+        # one value is undefined — ``None``, never 0.0 (MISSING IS NEVER ZERO).
+        # Both directions are pinned: >= 2 voters -> stamped, < 2 -> None.
         checked = 0
         for row in self.rows:
             if row.get("assetClass") == "pick":
                 continue
-            src_ranks = row.get("sourceRanks") or {}
-            if len(src_ranks) < 2:
+            voting = row.get("effectiveSourceRanks") or {}
+            if len(voting) < 2:
+                self.assertIsNone(
+                    row.get("sourceSpread"),
+                    f"{row.get('canonicalName')}: {len(voting)} voting source(s) "
+                    f"but sourceSpread={row.get('sourceSpread')!r} — a spread "
+                    f"needs two contributions",
+                )
                 continue
             mad = row.get("sourceSpread")
             self.assertIsNotNone(

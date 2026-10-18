@@ -43,17 +43,19 @@ test("PSI gallery: populated reference, table access and desktop/phone evidence"
   const usefulMs = Date.now() - started;
   await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.getByText("Fixtures only")).toBeVisible();
-  await expect(page.getByText("Chart previews unavailable")).toBeVisible();
-  await expect(page.locator(".ds-sparkline, .ds-meter")).toHaveCount(0);
-  await expect(page.getByTestId("chart-preview-gate")).toContainText("9,541 / 10,000");
+  // Owner Decision 14 (2026-10-18) closed #1428: previews render on the slots.
+  await expect(page.getByText("Chart previews unavailable")).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Jefferson value: 9,541" })).toBeVisible();
   await noPageOverflow(page);
   const scope = await page.getByTestId("psi-gallery").evaluate(element => {
     const style = getComputedStyle(element);
-    return { surface: style.getPropertyValue("--surface-0").trim(), accent: style.getPropertyValue("--accent").trim(), display: style.getPropertyValue("--font-display").trim() };
+    return { surface: style.getPropertyValue("--surface-0").trim(), accent: style.getPropertyValue("--accent").trim(), display: style.getPropertyValue("--font-display").trim(), chart1: style.getPropertyValue("--chart-1").trim(), chart6: style.getPropertyValue("--chart-6").trim() };
   });
   expect(scope.surface).toBe("#f2ebdd");
   expect(scope.accent).toBe("#a3341c");
   expect(scope.display).toContain("Georgia");
+  expect(scope.chart1).toBe("#986400");
+  expect(scope.chart6).toBe("#aa3c17");
   await scan(page, testInfo, "populated");
   await image(page, testInfo, "reference-top");
   await image(page, testInfo, "reference-full", true);
@@ -95,10 +97,8 @@ test("PSI gallery: accessible modal/drawer and keyboard focus under reduced moti
     expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true);
     await noPageOverflow(page);
     if (name === "drawer") {
-      const detail = dialog.getByTestId("drawer-chart-gate");
-      await expect(detail).toContainText("88 → 90 → 91 → 93 → 96 → 97");
-      await expect(detail).toContainText("Chart preview unavailable");
-      await expect(page.locator(".ds-sparkline, .ds-meter")).toHaveCount(0);
+      const detail = dialog.getByRole("img", { name: "Jefferson 6-week value trend" });
+      await expect(detail).toBeVisible();
       const detailWidth = await detail.evaluate(node => node.getBoundingClientRect().width);
       const bodyWidth = await dialog.evaluate(node => node.clientWidth);
       expect(detailWidth).toBeLessThanOrEqual(bodyWidth);

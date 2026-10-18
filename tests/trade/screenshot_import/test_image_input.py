@@ -34,8 +34,10 @@ def test_png_jpeg_webp_are_accepted():
         assert sniff_type(data) == kind
         prep = decode_image(data)
         assert prep.png.startswith(b"\x89PNG")
-        assert (prep.width, prep.height) == (1200, 600)
-        assert png_dimensions(prep.png) == (1200, 600)
+        # Long edge under 2400 px: upscaled to it (at most 2x) for OCR.
+        assert (prep.width, prep.height) == (2400, 1200)
+        assert png_dimensions(prep.png) == (2400, 1200)
+        assert prep.scaled == 2.0
 
 
 def test_other_formats_are_refused_even_though_pillow_decodes_them():
@@ -90,6 +92,16 @@ def test_dark_mode_is_inverted_and_light_is_not():
 def test_transparent_background_is_flattened_to_white():
     prep = decode_image(_encode(Image.new("RGBA", (1200, 600), (0, 0, 0, 0)), "PNG"))
     assert prep.inverted is False
+
+
+def test_downscaled_desktop_screenshot_is_upscaled_to_the_ocr_long_edge():
+    # The browser sends a full-page desktop screenshot at a 1600 px long edge.
+    prep = decode_image(_encode(Image.new("RGB", (1600, 1000), (255, 255, 255)), "PNG"))
+    assert (prep.width, prep.height) == (2400, 1500)
+    assert prep.scaled == 1.5
+    # Already large enough: untouched.
+    prep = decode_image(_encode(Image.new("RGB", (2560, 1440), (255, 255, 255)), "PNG"))
+    assert (prep.width, prep.height) == (2560, 1440) and prep.scaled == 1.0
 
 
 def test_large_images_are_scaled_to_max_side():
