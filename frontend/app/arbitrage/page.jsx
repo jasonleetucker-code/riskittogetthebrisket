@@ -87,7 +87,7 @@ export const TOOL_TABS = [
 ];
 export const DEFAULT_TOOL = "golden";
 // The views that read the shared Target Quality / Players to target / Sort.
-const DISCOVERY_TOOLS = new Set(["golden", "scan", "best"]);
+const DISCOVERY_TOOLS = new Set(["golden", "scan", "best", "builder"]);
 // Rows the research table renders before "Show all" (a 300-row table used to
 // push every tool 26 printed pages down the page).
 const RESEARCH_ROW_LIMIT = 50;
@@ -634,6 +634,9 @@ export default function ArbitragePage() {
                   onChange={changeDiscovery}
                   disabled={running}
                   idPrefix="trade-finder-discovery"
+                  // The Package Builder has its own independent Sending /
+                  // Receiving controls in place of Players to target.
+                  showScope={tool !== "builder"}
                 />
               ) : null}
             </div>
@@ -671,6 +674,7 @@ export default function ArbitragePage() {
               leagueKey={selectedLeagueKey}
               ownerKey={selectedOwnerId}
               teams={teams}
+              discovery={discovery}
             />
           </Panel>
         ) : null}

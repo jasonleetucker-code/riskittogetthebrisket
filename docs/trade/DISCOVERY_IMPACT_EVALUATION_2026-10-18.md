@@ -139,6 +139,18 @@ Uncontended single runs measured 7.3–7.7 s (legacy) against 8.4 s (default) fo
 ~18.7k receive sides before scoring, but the 2-for-2 pool limit already keeps most qualifying players.
 Timings stay inside the existing route budget, with no new timeout.
 
+## 7b. Package Builder Sending / Receiving (Batch 2, Jason, asset-only)
+
+| request | time | first packages |
+|---|---|---|
+| legacy default (Both / Both, any position, size 3) | 3.1 s | Oronde Gadsden TE #151 → Quay Walker LB #113; Laiatu Latu → RJ Harvey #165; Demond Claiborne #421 → Donovan Ezeiruaku #322 |
+| owner example: Sending Defense, Receiving Offense, Top 100, up to 3 | 5.1 s | Abdul Carter DL #117 + Kyle Hamilton DB #186 → **Patrick Mahomes QB #17** (+1,683); Arvell Reese DL #61 + Abdul Carter → **Jayden Daniels QB #19** + two offensive pieces (+2,745) |
+| Both / Both, Top 250, Most Impactful | 3.4 s | Justin Jefferson WR #16 → **Jayden Daniels QB #19** + Devin Lloyd LB #116 (+2,488) |
+
+The owner example returns defenders out and offensive players back, each with a top-100 offensive player.
+Picks appear only when Allow Draft Picks is on. The search budget (`SEARCH_BUDGET_PER_SHAPE_GROUP`) is
+unchanged and its truncation is still reported.
+
 ## 8. What would validate or replace this prior
 
 The prior is evaluated, not validated. A replacement needs an outcome target:

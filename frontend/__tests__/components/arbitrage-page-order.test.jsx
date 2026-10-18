@@ -160,4 +160,13 @@ describe("/arbitrage page order", () => {
     // The wide table scrolls inside its own region, never the page.
     expect(table.parentElement.className).toMatch(/tableScroll/);
   });
+
+  it("Package Builder reads the shared Target Quality with its own Sending / Receiving", () => {
+    render(<ArbitragePage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Package Builder" }));
+    expect(screen.getByLabelText("Target quality")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Players to target")).toBeNull();
+    expect(screen.getByLabelText("Sending")).toBeInTheDocument();
+    expect(screen.getByLabelText("Receiving")).toBeInTheDocument();
+  });
 });

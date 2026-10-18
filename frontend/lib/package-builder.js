@@ -4,6 +4,7 @@
 // (src/trade/package_builder.py).  Nothing here filters or ranks packages.
 
 import { toRequest } from "@/lib/trade-refinement";
+import { discoveryRequest } from "@/lib/trade-discovery";
 
 export const PACKAGE_POSITIONS = [
   "QB",
@@ -123,6 +124,9 @@ export function buildRequest({
   useTeamContext,
   refinement,
   perOpponent,
+  sending = "both",
+  receiving = "both",
+  discovery = null,
 }) {
   const body = {
     myTeam,
@@ -139,6 +143,12 @@ export function buildRequest({
   if (outgoing?.length) body.outgoing = [...outgoing];
   if (positions?.length) body.returnPositions = [...positions];
   if (perOpponent) body.perOpponent = true;
+  // Owner directive 2026-10-18: independent Sending / Receiving sides, applied
+  // by the server to the two pools BEFORE enumeration.  "both" is omitted so a
+  // default request is byte-identical to the legacy one.
+  if (sending && sending !== "both") body.sending = sending;
+  if (receiving && receiving !== "both") body.receiving = receiving;
+  if (discovery) body.discovery = discoveryRequest(discovery);
   return body;
 }
 
@@ -171,6 +181,23 @@ const REASON_TEXT = {
     "That asset is rostered, but our board does not price it, so no package can be valued around it.",
   no_external_acceptance:
     "No package that is fair for you is even or better for them on an approved calculator that prices every asset.",
+  return_positions_outside_receiving:
+    "The positions you want back are all outside Receiving.",
+  selected_outgoing_outside_sending:
+    "Every player you selected to offer is outside Sending.",
+  no_outgoing_in_sending: "None of your offerable players is in the Sending group.",
+  locked_player_outside_sending:
+    "A locked player is outside Sending. Unlock him or widen Sending.",
+  target_outside_receiving:
+    "The player you want is outside Receiving. Widen Receiving to build for him.",
+  target_outside_target_quality:
+    "The player you want is outside Target Quality. Broaden it to build for him.",
+  no_return_assets_in_receiving:
+    "No opponent has a priced player in the Receiving group.",
+  no_target_meets_quality:
+    "No opponent player you could receive meets Target Quality.",
+  no_package_within_target_quality:
+    "No package of an allowed shape brings back a player inside Target Quality.",
 };
 
 export function noResultText(result) {
@@ -186,6 +213,8 @@ const ERROR_TEXT = {
   invalid_numbers: "Package size must be between 1 and 3.",
   invalid_evidence: "Choose which evidence the packages need.",
   invalid_refinement: "A player cannot be both locked and excluded.",
+  invalid_sides: "Sending and Receiving must each be Offense, Defense or Both.",
+  invalid_discovery: "One of the discovery filters is not supported.",
 };
 
 /** A readable message for a 4xx/5xx code; the code itself is never shown alone. */

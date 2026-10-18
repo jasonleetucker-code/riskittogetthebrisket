@@ -10142,7 +10142,10 @@ async def post_trade_package_builder(request: Request):
           "useTeamContext": true,
           "refinement": {"lock": [], "exclude": []},
           "limit": 10,                           // 1-25
-          "perOpponent": false                   // best package per opponent only
+          "perOpponent": false,                  // best package per opponent only
+          "sending": "both",                     // offense | defense | both (2026-10-18)
+          "receiving": "both",                   // offense | defense | both
+          "discovery": {"targetQuality": "top250", "sort": "most_impactful"}  // optional
         }
 
     Every constraint is applied during generation (``src/trade/package_builder``).
@@ -10212,6 +10215,17 @@ async def post_trade_package_builder(request: Request):
         return _bad("invalid_evidence", allowed=list(_pb.EVIDENCE_LEVELS))
     allow_picks = body.get("allowPicks", False) is True
     per_opponent = body.get("perOpponent", False) is True
+    # Owner directive 2026-10-18 — independent Sending / Receiving sides and
+    # the shared discovery filters (``src/trade/discovery``).
+    from src.trade.discovery import SCOPES as _SCOPES, parse_discovery_filters
+
+    send_scope = body.get("sending", "both")
+    receive_scope = body.get("receiving", "both")
+    if send_scope not in _SCOPES or receive_scope not in _SCOPES:
+        return _bad("invalid_sides", allowed=list(_SCOPES))
+    builder_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
     refinement, error = _refinement_from_body(body)
     if error is not None:
         return error
@@ -10268,6 +10282,9 @@ async def post_trade_package_builder(request: Request):
             capacity_for=capacity_for,
             pick_forecasts=pick_forecasts,
             limit=limit,
+            send_scope=send_scope,
+            receive_scope=receive_scope,
+            discovery=builder_discovery,
         )
         _attach_manager_evidence(
             [

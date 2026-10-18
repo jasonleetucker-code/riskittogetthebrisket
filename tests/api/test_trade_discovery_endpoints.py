@@ -94,3 +94,29 @@ def test_best_offers_route_echoes_discovery(authed):
     )
     assert res.status_code == 200, res.text
     assert res.json()["discovery"]["filters"]["sort"] == "absolute_gain"
+
+
+def test_package_builder_route_validates_and_applies_sides(authed):
+    url = "/api/trade/package-builder"
+    base = {"myTeam": "Us", "leagueKey": "main", "useTeamContext": False}
+    bad = authed.client.post(url, json={**base, "sending": "kickers"}, headers=H)
+    assert bad.status_code == 400 and bad.json()["error"] == "invalid_sides"
+    bad = authed.client.post(url, json={**base, "discovery": {"sort": "x"}}, headers=H)
+    assert bad.status_code == 400 and bad.json()["error"] == "invalid_discovery"
+    res = authed.client.post(
+        url,
+        json={
+            **base,
+            "sending": "defense",
+            "receiving": "defense",
+            "discovery": {"targetQuality": "top250"},
+        },
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["sides"]["sending"] == "defense" and body["sides"]["receiving"] == "defense"
+    assert body["discovery"]["filters"]["targetQuality"] == "top250"
+    off = authed.client.post(url, json={**base, "receiving": "offense"}, headers=H).json()
+    assert off["packages"] == []
+    assert off["noResultReason"] == "no_return_assets_in_receiving"

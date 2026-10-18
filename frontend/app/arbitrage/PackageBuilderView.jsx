@@ -56,6 +56,7 @@ import {
   OutgoingRefinement,
   RefinementBar,
 } from "@/components/trade/RefinementControls";
+import { PLAYER_SCOPE_OPTIONS } from "@/lib/trade-discovery";
 import styles from "./package-builder.module.css";
 
 const EVIDENCE_OPTIONS = [
@@ -86,6 +87,7 @@ export default function PackageBuilderView({
   leagueKey,
   ownerKey,
   teams = [],
+  discovery = null,
 }) {
   const storageKey = refinementKey({
     owner: ownerKey,
@@ -104,6 +106,9 @@ export default function PackageBuilderView({
   const [allowPicks, setAllowPicks] = useState(false);
   const [evidence, setEvidence] = useState("any");
   const [useTeamContext, setUseTeamContext] = useState(true);
+  // Owner directive 2026-10-18: independent Sending / Receiving (default Both).
+  const [sending, setSending] = useState("both");
+  const [receiving, setReceiving] = useState("both");
   const [refinement, setRefinement] = useState(emptyRefinement);
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
@@ -169,6 +174,9 @@ export default function PackageBuilderView({
               evidence,
               useTeamContext,
               refinement: nextRefinement,
+              sending,
+              receiving,
+              discovery,
             }),
           ),
         ),
@@ -296,6 +304,20 @@ export default function PackageBuilderView({
             ))}
           </Select>
         </Field>
+        <Field label="Sending">
+          <Select
+            value={sending}
+            onChange={(e) => setSending(e.target.value)}
+            options={PLAYER_SCOPE_OPTIONS}
+          />
+        </Field>
+        <Field label="Receiving">
+          <Select
+            value={receiving}
+            onChange={(e) => setReceiving(e.target.value)}
+            options={PLAYER_SCOPE_OPTIONS}
+          />
+        </Field>
         <label className={styles.check}>
           <input
             type="checkbox"
@@ -388,6 +410,23 @@ export default function PackageBuilderView({
           {resultCountText(result)}
         </p>
       ) : null}
+      {!running && result?.sides?.selectedOutgoingOutsideSending?.length ? (
+        <p className={styles.muted} role="note">
+          Not offered (outside Sending):{" "}
+          {result.sides.selectedOutgoingOutsideSending.join(", ")}
+        </p>
+      ) : null}
+      {!running && result?.sides?.returnPositionsOutsideReceiving?.length ? (
+        <p className={styles.muted} role="note">
+          Ignored (outside Receiving):{" "}
+          {result.sides.returnPositionsOutsideReceiving.join(", ")}
+        </p>
+      ) : null}
+      {!running && result?.discovery?.qualityWaived ? (
+        <p className={styles.muted} role="note">
+          Target quality does not apply: this request can bring back no player.
+        </p>
+      ) : null}
       {!running && result && !packages.length ? (
         <EmptyState
           title={result.noResultLabel || "No package found"}
@@ -449,6 +488,11 @@ export default function PackageBuilderView({
                     </ul>
                   </div>
                 </div>
+                {pkg.whyItMatters ? (
+                  <p className={styles.muted}>
+                    <strong>Why it matters:</strong> {pkg.whyItMatters}
+                  </p>
+                ) : null}
                 <ul className={styles.facts}>
                   {verdictLines(pkg).map((v) => (
                     <li key={v.calculator}>{v.text}</li>
