@@ -15,7 +15,7 @@ Decision record: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`. Live status
 | 1 | Protected PR-based merging on `main` | D18 | No; it closes a review-bypass risk |
 | 2 | Deploy-key inventory and retirement | D18 | No; retiring the wrong key WOULD break the box pushers |
 | 3 | Rotate `JASON_LOGIN_PASSWORD` | D18 | No; it closes a credential-exposure risk |
-| 4 | Install Tesseract on the VPS, then verify recognition | D19 | Yes: screenshot import (C3-IMPORT-IMAGE) reports unavailable until then |
+| 4 | ~~Install Tesseract on the VPS~~ **done** (owner reported 5.3.4 installed, 2026-10-18); keep the post-install recognition checks | D19 | No longer blocking; recognition quality tracked by the full-page fix lane |
 | 5 | Off-host encrypted backup for the official rookie auction | D20 | Not for mocks; required (or a documented risk acceptance) before the official auction |
 | 6 | Re-enable authenticated production verification | Part 9 item 9 | Yes for proof: many rows stay DEPLOYED_NOT_PRODUCTION_VERIFIED until it runs |
 
@@ -161,6 +161,8 @@ successfully, because it contains the old secret.
 ---
 
 ## 4. Tesseract OCR install and post-install verification (D19)
+
+**Status 2026-10-18:** the owner reports Tesseract 5.3.4 installed on the VPS and the backend active. The install steps below stay for rebuilds; the post-install checks still apply.
 
 **Decision:** free local Tesseract stays the engine. There is no paid vision service and no new credential. A
 guessed player identity is never imported automatically. Details: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.

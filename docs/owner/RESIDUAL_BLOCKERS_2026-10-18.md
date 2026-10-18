@@ -20,7 +20,6 @@ These need credentials, administrator permissions, an official launch or a real-
 | item | who | what unblocks it | blocks an authorized production feature? |
 |---|---|---|---|
 | Re-enable the paused authenticated production verification (`v1-authenticated-verification.yml`, `prod-e2e-smoke.yml`) | owner (repository admin) | `docs/ops/AUTH_VERIFICATION_REENABLE.md`; preconditions met (#1759 merged and deployed 2026-10-16) | **Yes, for proof.** 35 ledger rows wait on an authenticated production check, among them the Trade Calculator, Manager Intelligence and trade discovery |
-| Tesseract install on the VPS (D19) | owner / VPS administrator | `sudo apt-get update && sudo apt-get install -y tesseract-ocr`, restart, then runbook §4 checks | **Yes:** screenshot import (C3-IMPORT-IMAGE) stays honestly unavailable |
 | Apply the `main` ruleset (D18) | owner (admin token) | runbook §1 | No. It closes a review-bypass risk |
 | Deploy-key inventory, then retire unused write keys (D18) | owner (admin) | runbook §2 fingerprint comparison first | No. Retiring the wrong key would break box pushes |
 | Rotate `JASON_LOGIN_PASSWORD` (D18) | owner / box operator | runbook §3; record the date only | No |
