@@ -479,3 +479,186 @@ def test_server_gates_the_league_route_and_it_is_never_public():
         assert r.status_code == 401
         # Not under /api/public in any form.
         assert c.get("/api/public/manager-intel/league").status_code in (401, 404)
+
+
+# ── Batch E: career + compare ───────────────────────────────────────────
+
+
+@pytest.fixture
+def e_client(monkeypatch):
+    from src.intel import manager_career as mc
+    from src.intel import manager_compare as mcmp
+
+    rate_limit.reset_for_tests()
+    feature_flags.reload()
+    calls: list[tuple[str, Any, dict[str, Any]]] = []
+    answers: dict[str, dict[str, Any]] = {
+        "career": {"status": "ok", "seasons": []},
+        "managers": {"status": "ok", "a": {}, "b": {}},
+        "league": {"status": "ok", "metrics": []},
+    }
+
+    def fake_career(username, **kwargs):
+        calls.append(("career", username, kwargs))
+        return dict(answers["career"])
+
+    def fake_compare(a, b, **kwargs):
+        calls.append(("managers", (a, b), kwargs))
+        return dict(answers["managers"])
+
+    def fake_pct(a, league_id, **kwargs):
+        calls.append(("league", (a, league_id), kwargs))
+        return dict(answers["league"])
+
+    monkeypatch.setattr(mc, "cached_manager_career", fake_career)
+    monkeypatch.setattr(mcmp, "build_manager_comparison", fake_compare)
+    monkeypatch.setattr(mcmp, "build_league_percentile", fake_pct)
+    session = {"value": SESSION}
+    api.configure(
+        session_provider=lambda request: session["value"],
+        contract_provider=lambda: {"playersArray": [{"playerId": "1"}]},
+    )
+    app = FastAPI()
+    app.include_router(api.router)
+    yield TestClient(app), calls, answers, session
+    api.configure(session_provider=None, contract_provider=None)
+    rate_limit.reset_for_tests()
+    feature_flags.reload()
+
+
+def test_career_ok_is_no_store_and_passes_params(e_client):
+    c, calls, _answers, _session = e_client
+    r = c.get("/api/manager-intel/career", params={"username": "Fan_1", "scope": "keeper"})
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    assert calls == [
+        (
+            "career",
+            "Fan_1",
+            {"contract": {"playersArray": [{"playerId": "1"}]}, "scope": "keeper"},
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("path", "params"),
+    [
+        ("/api/manager-intel/career", {"username": "bad name"}),
+        ("/api/manager-intel/career", {"username": "ok", "scope": "bestball"}),
+        ("/api/manager-intel/compare", {"a": "ok"}),
+        ("/api/manager-intel/compare", {"a": "ok", "b": "../x"}),
+        ("/api/manager-intel/compare", {"a": "", "b": "ok"}),
+        ("/api/manager-intel/compare", {"a": "ok", "leagueId": "abc"}),
+        ("/api/manager-intel/compare", {"a": "ok", "b": "y", "window": "1y"}),
+    ],
+)
+def test_e_bad_input_is_400_and_never_reaches_sleeper(e_client, path, params):
+    c, calls, _answers, _session = e_client
+    assert c.get(path, params=params).status_code == 400
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("path", "params"),
+    [
+        ("/api/manager-intel/career", {"username": "x"}),
+        ("/api/manager-intel/compare", {"a": "x", "b": "y"}),
+    ],
+)
+def test_e_gates(e_client, monkeypatch, path, params):
+    c, calls, _answers, session = e_client
+    session["value"] = None
+    assert c.get(path, params=params).status_code == 401
+    session["value"] = {"username": "guest", "auth_method": "guest_pass"}
+    assert c.get(path, params=params).status_code == 403
+    session["value"] = SESSION
+    monkeypatch.setenv("RISKIT_FEATURE_MANAGER_INTELLIGENCE", "0")
+    feature_flags.reload()
+    assert c.get(path, params=params).status_code == 503
+    monkeypatch.delenv("RISKIT_FEATURE_MANAGER_INTELLIGENCE")
+    feature_flags.reload()
+    api.configure(session_provider=None, contract_provider=None)
+    assert c.get(path, params=params).status_code == 401
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("status", "code", "error"),
+    [
+        ("not_found", 404, "not_found"),
+        ("rate_limited", 429, "upstream_rate_limited"),
+        ("upstream_unavailable", 503, "upstream_unavailable"),
+    ],
+)
+def test_career_upstream_states(e_client, status, code, error):
+    c, _calls, answers, _session = e_client
+    answers["career"] = {"status": status}
+    r = c.get("/api/manager-intel/career", params={"username": "x"})
+    assert r.status_code == code and r.json()["error"] == error
+
+
+def test_compare_managers_and_league_together(e_client):
+    c, calls, _answers, _session = e_client
+    r = c.get("/api/manager-intel/compare", params={"a": "x", "b": "y", "leagueId": "12"})
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    body = r.json()
+    assert body["status"] == "ok" and "managers" in body and "league" in body
+    assert [k for k, *_ in calls] == ["managers", "league"]
+    assert calls[1][2]["window"] == "30d"
+
+
+def test_compare_partial_side_is_200_partial(e_client):
+    c, _calls, answers, _session = e_client
+    answers["managers"] = {"status": "partial"}
+    r = c.get("/api/manager-intel/compare", params={"a": "x", "b": "y"})
+    assert r.status_code == 200 and r.json()["status"] == "partial"
+
+
+def test_compare_missing_side_is_404_naming_it(e_client):
+    c, _calls, answers, _session = e_client
+    answers["managers"] = {"status": "not_found", "failedSide": "b"}
+    r = c.get("/api/manager-intel/compare", params={"a": "x", "b": "nobody"})
+    assert r.status_code == 404
+    assert r.json()["side"] == "b" and "nobody" in r.json()["message"]
+    answers["managers"] = {"status": "ok"}
+    answers["league"] = {"status": "not_found", "failedSide": "league"}
+    r = c.get("/api/manager-intel/compare", params={"a": "x", "leagueId": "5"})
+    assert r.status_code == 404 and r.json()["side"] == "league"
+
+
+def test_career_and_compare_have_their_own_buckets(e_client, monkeypatch):
+    c, calls, _answers, _session = e_client
+    for _ in range(api.CAREER_RATE_CAPACITY):
+        assert c.get("/api/manager-intel/career", params={"username": "x"}).status_code == 200
+    assert c.get("/api/manager-intel/career", params={"username": "x"}).status_code == 429
+    for _ in range(api.COMPARE_RATE_CAPACITY):
+        assert c.get("/api/manager-intel/compare", params={"a": "x", "b": "y"}).status_code == 200
+    r = c.get("/api/manager-intel/compare", params={"a": "x", "b": "y"})
+    assert r.status_code == 429 and int(r.headers["retry-after"]) >= 1
+    assert api.COMPARE_RATE_CAPACITY < api.CAREER_RATE_CAPACITY < api.ACTIVITY_RATE_CAPACITY
+    # The profile bucket is untouched.
+    monkeypatch.setattr(mp, "cached_manager_profile", lambda *a, **k: {"status": "ok"})
+    assert _get(c, username="x").status_code == 200
+
+
+def test_e_builder_exception_is_503_not_500(e_client, monkeypatch):
+    from src.intel import manager_career as mc
+
+    c, _calls, _answers, _session = e_client
+
+    def boom(*a, **k):
+        raise RuntimeError("sleeper exploded")
+
+    monkeypatch.setattr(mc, "cached_manager_career", boom)
+    r = c.get("/api/manager-intel/career", params={"username": "x"})
+    assert r.status_code == 503 and r.json()["error"] == "upstream_unavailable"
+
+
+def test_server_gates_the_career_and_compare_routes_and_they_are_never_public():
+    import server
+
+    with TestClient(server.app) as c:
+        assert c.get("/api/manager-intel/career", params={"username": "x"}).status_code == 401
+        r = c.get("/api/manager-intel/compare", params={"a": "x", "b": "y"})
+        assert r.status_code == 401
+        assert c.get("/api/public/manager-intel/career").status_code in (401, 404)
+        assert c.get("/api/public/manager-intel/compare").status_code in (401, 404)
