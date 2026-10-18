@@ -1,5 +1,7 @@
 """HTTP surface for Manager Intelligence: ``GET /api/manager-intel/profile``
-and ``GET /api/manager-intel/activity`` (Batches B1 + B2 + the feed).
+and ``GET /api/manager-intel/activity`` (Batches B1 + B2 + the feed, and
+B3's ``draftCapital`` / ``tendencies`` blocks, which ride the same request,
+call budget, memo and rate-limit bucket rather than a second endpoint).
 
 PRIVATE decision intelligence (MASTER_PRODUCT_PLAN §5; owner directive
 2026-10-16).  ``server.py::_private_api_gate`` 401s any request without a

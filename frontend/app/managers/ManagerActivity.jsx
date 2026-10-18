@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * Manager Intelligence — Recent trades, Acquisitions and Activity tabs
- * (C6-MGR-02 Batches B1 + B2 + the unified feed).
+ * Manager Intelligence — Recent trades, Acquisitions, Activity and Draft
+ * capital tabs (C6-MGR-02 Batches B1 + B2 + the unified feed + B3).  B3's
+ * Tendencies section sits under Recent trades (it is counted from them).
  *
  * Mounted by ./page.jsx the first time one of these tabs opens (and kept
  * mounted after), so the activity lookup never delays the portfolio and
@@ -34,7 +35,11 @@ import {
   activityQuery,
   assetLabel,
   attributionNote,
+  capitalCountsText,
+  capitalValueText,
   coverageProblems,
+  draftCapitalLeagues,
+  draftYearsText,
   errorMessage,
   eventDateText,
   faabText,
@@ -47,12 +52,19 @@ import {
   formatValue,
   methodDetail,
   methodLabel,
+  pickMovementRows,
+  pickOriginText,
+  pickOwnershipText,
   rosterStatusText,
   seasonOptions,
+  shapeRows,
   sideAssets,
   signedValue,
+  stillHeldText,
   subsequentLabel,
   tradeCalculatorShare,
+  tendencyFlowText,
+  tendencySampleText,
   tradeCalculatorUrl,
   valueReasonText,
 } from "@/lib/manager-intel";
@@ -309,6 +321,298 @@ function RecentTrades({ activity, league }) {
       )}
       <p className={styles.note}>{activity.valueBasis?.note}</p>
     </Panel>
+  );
+}
+
+const FLOW_COLUMNS = [
+  { key: "key", header: "Group", accessor: (row) => row.key },
+  {
+    key: "acquired",
+    header: "Acquired",
+    numeric: true,
+    headerInfo:
+      "Players received: count · summed current value of the priced ones.",
+    accessor: (row) => row.acquired.count,
+    render: (row) => tendencyFlowText(row.acquired),
+  },
+  {
+    key: "sent",
+    header: "Sent",
+    numeric: true,
+    headerInfo:
+      "Players sent: count · summed current value of the priced ones.",
+    accessor: (row) => row.sent.count,
+    render: (row) => tendencyFlowText(row.sent),
+  },
+];
+
+function SampleNote({ block, tendencies }) {
+  return (
+    <p
+      className={styles.note}
+      data-insufficient={block && !block.sufficientSample ? "true" : undefined}
+    >
+      {tendencySampleText(block, tendencies)}
+    </p>
+  );
+}
+
+function ShapeList({ block, tendencies, label }) {
+  const rows = shapeRows(block?.counts);
+  return (
+    <div className={styles.tendencyBlock}>
+      <h4>{label}</h4>
+      <SampleNote block={block} tendencies={tendencies} />
+      {block?.sufficientSample && rows.length ? (
+        <ul className={styles.shapeList} aria-label={label}>
+          {rows.map((r) => (
+            <li key={r.key}>
+              <span>{r.label}</span>
+              <span className={styles.assetValue}>{r.count}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function FlowTable({ block, tendencies, label, caption }) {
+  return (
+    <div className={styles.tendencyBlock}>
+      <h4>{label}</h4>
+      <SampleNote block={block} tendencies={tendencies} />
+      {block?.sufficientSample ? (
+        <DataTable
+          columns={FLOW_COLUMNS}
+          rows={block.rows || []}
+          rowKey={(row) => row.key}
+          caption={caption}
+          density="compact"
+          emptyState={<EmptyState title="No players moved" />}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function Tendencies({ tendencies }) {
+  if (!tendencies) return null;
+  return (
+    <Panel
+      title="Tendencies"
+      subtitle={`${formatValue(tendencies.tradeCount)} trade${tendencies.tradeCount === 1 ? "" : "s"} counted`}
+    >
+      <p className={styles.note}>
+        Counts from this manager&apos;s completed trades — evidence, not labels.
+        A block with fewer than {tendencies.minSample} observations is marked
+        insufficient.
+        {tendencies.excludedUncertain
+          ? ` ${tendencies.excludedUncertain} trade${tendencies.excludedUncertain === 1 ? "" : "s"} with uncertain attribution left out.`
+          : ""}
+      </p>
+      <div className={styles.tendencyGrid}>
+        <ShapeList
+          block={tendencies.pickPlayer}
+          tendencies={tendencies}
+          label="Picks vs players"
+        />
+        <ShapeList
+          block={tendencies.pieces}
+          tendencies={tendencies}
+          label="Piece counts"
+        />
+      </div>
+      <FlowTable
+        block={tendencies.positions}
+        tendencies={tendencies}
+        label="By position"
+        caption="Players acquired and sent by trade, by position."
+      />
+      <FlowTable
+        block={tendencies.ages}
+        tendencies={tendencies}
+        label="By age"
+        caption="Players acquired and sent by trade, by current age."
+      />
+      <p className={styles.note}>
+        Ages are current ages, not ages at the time of the trade.
+      </p>
+    </Panel>
+  );
+}
+
+const PICK_COLUMNS = [
+  {
+    key: "pick",
+    header: "Pick",
+    accessor: (row) => row.label,
+  },
+  {
+    key: "origin",
+    header: "Origin",
+    accessor: (row) => pickOriginText(row),
+  },
+  {
+    key: "value",
+    header: "Value",
+    numeric: true,
+    headerInfo:
+      "Canonical board value at the generic season + round grade. — means unpriced.",
+    accessor: (row) => row.value,
+    render: (row) => (
+      <span
+        title={row.value == null ? valueReasonText(row.valueReason) : undefined}
+      >
+        {formatValue(row.value)}
+      </span>
+    ),
+  },
+];
+
+function LeagueCapital({ entry }) {
+  const unknown = pickOwnershipText(entry);
+  return (
+    <Panel
+      title={entry.name || "Unnamed league"}
+      subtitle={
+        [formatBadge(entry.format), draftYearsText(entry.draftYears)]
+          .filter(Boolean)
+          .join(" · ") || undefined
+      }
+      dense
+    >
+      {unknown ? (
+        <p className={styles.note} role="status">
+          Pick ownership unavailable — {unknown}
+        </p>
+      ) : (
+        <>
+          <p className={styles.note}>
+            {capitalCountsText(entry)} · value {capitalValueText(entry)}
+          </p>
+          <DataTable
+            columns={PICK_COLUMNS}
+            rows={entry.picks || []}
+            rowKey={(row) => row.pickId || row.label}
+            caption={`Picks held in ${entry.name || "this league"}`}
+            density="compact"
+            emptyState={
+              <EmptyState
+                title="Holds no picks"
+                description="Every pick in the classes listed has been traded away."
+              />
+            }
+          />
+          {entry.ownPicksTradedAway?.length ? (
+            <p className={styles.note}>
+              Own picks traded away:{" "}
+              {entry.ownPicksTradedAway
+                .map(
+                  (p) =>
+                    `${p.label} (now ${p.currentOwnerName || `roster ${p.currentOwnerRosterId}`})`,
+                )
+                .join(", ")}
+            </p>
+          ) : null}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+export function DraftCapital({ activity, league }) {
+  const dc = activity?.draftCapital;
+  if (!dc?.available) {
+    return (
+      <Panel title="Draft capital">
+        <EmptyState
+          title="Current season only"
+          description="Draft capital is what a manager holds now, so it is shown for the current season only."
+        />
+      </Panel>
+    );
+  }
+  const entries = draftCapitalLeagues(dc, league);
+  const moves = pickMovementRows(dc, league);
+  const t = dc.totals || {};
+  return (
+    <>
+      <Panel title="Draft capital" subtitle="Picks held now, by league">
+        <dl className={styles.analytics}>
+          <div>
+            <dt>Picks held</dt>
+            <dd>
+              {formatValue(t.picksHeld)} ({formatValue(t.acquiredHeld)}{" "}
+              acquired)
+            </dd>
+          </div>
+          <div>
+            <dt>Own picks traded away</dt>
+            <dd>{formatValue(t.ownTradedAway)}</dd>
+          </div>
+          <div>
+            <dt>Value of priced picks</dt>
+            <dd>
+              {formatValue(t.pricedValue)}
+              {t.unpricedPickCount
+                ? ` · ${formatValue(t.unpricedPickCount)} unpriced`
+                : ""}
+            </dd>
+          </div>
+          <div>
+            <dt>Leagues</dt>
+            <dd>
+              {formatValue(t.leaguesObserved)} read
+              {t.leaguesUnavailable
+                ? ` · ${formatValue(t.leaguesUnavailable)} unknown`
+                : ""}
+            </dd>
+          </div>
+        </dl>
+        <p className={styles.note}>{dc.valueNote}</p>
+      </Panel>
+      {entries.length ? (
+        entries.map((e) => <LeagueCapital key={e.leagueId} entry={e} />)
+      ) : (
+        <EmptyState
+          title="No leagues"
+          description="This manager holds no roster in a readable league of this type."
+        />
+      )}
+      <Panel
+        title="Pick movement"
+        subtitle={`${formatValue(moves.length)} pick${moves.length === 1 ? "" : "s"} traded in this window`}
+      >
+        {moves.length ? (
+          <ol className={styles.feed}>
+            {moves.map((r) => (
+              <li key={r.id} className={styles.feedRow}>
+                <span className={styles.tradeDate}>{eventDateText(r)}</span>
+                <span className={styles.feedKind}>
+                  {r.direction === "acquired" ? "Acquired" : "Sent"}
+                </span>
+                <span className={styles.muted}>
+                  {r.leagueName || "Unnamed league"}
+                </span>
+                <span className={styles.feedBody}>
+                  {assetLabel(r.pick)} ({formatValue(r.pick?.value)})
+                  {r.counterparty?.displayName
+                    ? ` · ${r.direction === "acquired" ? "from" : "to"} ${r.counterparty.displayName}`
+                    : ""}
+                  {` · ${stillHeldText(r)}`}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <EmptyState
+            title="No picks traded"
+            description="No pick moved in a completed trade in this window."
+          />
+        )}
+      </Panel>
+    </>
   );
 }
 
@@ -765,7 +1069,13 @@ export default function ManagerActivity({ username, scope, profile, tab }) {
             </Banner>
           ) : null}
           {tab === "trades" ? (
-            <RecentTrades activity={activity} league={league} />
+            <>
+              <RecentTrades activity={activity} league={league} />
+              <Tendencies tendencies={activity.tendencies} />
+            </>
+          ) : null}
+          {tab === "draft" ? (
+            <DraftCapital activity={activity} league={league} />
           ) : null}
           {tab === "acquisitions" ? (
             <Acquisitions activity={activity} league={league} />

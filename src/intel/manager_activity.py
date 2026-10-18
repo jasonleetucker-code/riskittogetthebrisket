@@ -52,6 +52,13 @@ Attribution (workstream "Rules that bind every batch"):
   ``uncertain`` only when the creator is no party's current owner/co-owner
   and no commissioner.
 
+Batch B3 (``src/intel/manager_trade_intel.py``) adds two blocks over the SAME
+reads: ``draftCapital`` — picks held per league now, from one
+``/league/{id}/traded_picks`` call per league (current season only) folded by
+the canonical ``picks.build_pick_ownership``, valued at the generic grade, plus
+pick movement from the trade stream — and ``tendencies`` — counts with samples
+over the windowed trades.  Coverage gains ``tradedPicks`` per league.
+
 Bounded: one season, at most ``max_leagues`` leagues, a per-request Sleeper
 call budget, a small thread pool, and a per-(league, week) memo (short TTL for
 the current week, long for completed weeks).  ``budgetExhausted`` /
@@ -68,6 +75,7 @@ from typing import Any, Callable
 
 from src.acquisition import events as acq_events
 from src.intel import manager_portfolio as mp
+from src.intel import manager_trade_intel as mti
 from src.public_league import ownership, sleeper_client
 from src.sharp import roster_collect
 from src.sharp.roster_percentage import build_player_index
@@ -148,7 +156,9 @@ def _league_key(league_id: str) -> str:
         key = league_key_for_sleeper_id(league_id)
     except Exception:  # noqa: BLE001 — registry unreadable: per-league identity
         key = None
-    return key or f"sleeper-{league_id}"
+    # Lower-cased: the identity slug grammar is lower-case (real Sleeper ids
+    # are digits, so this only matters for non-numeric ids).
+    return key or f"sleeper-{league_id}".lower()
 
 
 class _Budget:
@@ -268,6 +278,10 @@ class _League:
         self.draft_picks: dict[str, list[dict[str, Any]]] = {}
         self.week_kinds: dict[int, str] = {}
         self.transactions: list[dict[str, Any]] = []
+        # Batch B3: the ``/traded_picks`` OBSERVATION (``None`` = not observed)
+        # and that fetch's outcome (``None`` = not requested).
+        self.traded_picks: list[Any] | None = None
+        self.traded_picks_kind: str | None = None
         self._mine: set[int] | None = None
 
     # roster facts ---------------------------------------------------------
@@ -393,6 +407,8 @@ class _Pricer:
             "position": meta.get("position"),
             "team": meta.get("nflTeam"),
             "isRookie": bool(meta.get("isRookie")),
+            # Current age (board, else Sleeper directory) — B3 tendencies.
+            "age": meta.get("age"),
             # The calculator resolves players by their board row name.
             "boardName": (row or {}).get("displayName") if row else None,
             "value": meta.get("value"),
@@ -1242,6 +1258,7 @@ def _read_league_base(
     fetch_users: Fetch,
     fetch_drafts: Fetch,
     now: float,
+    fetch_traded_picks: Fetch | None = None,
 ) -> None:
     kind, rosters = _budgeted(
         fetch_rosters, (league.league_id,), budget=budget, memo_key=None, ttl=0, now=now
@@ -1272,6 +1289,93 @@ def _read_league_base(
     league.drafts_kind = kind
     if kind == sleeper_client.FETCH_OK:
         league.drafts = [d for d in drafts or [] if isinstance(d, dict)]
+    if fetch_traded_picks is None or not league.manager_roster_ids():
+        return
+    # Batch B3 draft capital: one call per league, current season only.
+    from src.identity.picks import traded_picks_observation  # noqa: PLC0415
+
+    kind, body = _budgeted(
+        fetch_traded_picks,
+        (league.league_id,),
+        budget=budget,
+        memo_key=("traded_picks", league.league_id),
+        ttl=WEEK_TTL_CURRENT_SECONDS,
+        now=now,
+    )
+    observed = traded_picks_observation(body) if kind == sleeper_client.FETCH_OK else None
+    if kind == sleeper_client.FETCH_OK and observed is None:
+        kind = sleeper_client.FETCH_ERROR  # a non-list body proves nothing
+    league.traded_picks_kind = kind
+    league.traded_picks = observed
+
+
+def _traded_picks_state(league: _League, want_picks: bool) -> str:
+    """Coverage of the B3 ``/traded_picks`` read for one league."""
+    if league.rosters_state != COV_COMPLETE:
+        return league.rosters_state if want_picks else COV_NONE
+    if not want_picks or not league.manager_roster_ids():
+        return COV_NONE
+    kind = league.traded_picks_kind
+    if kind == sleeper_client.FETCH_OK:
+        return COV_COMPLETE
+    return _failed_state(kind or FETCH_BUDGET)
+
+
+def _draft_capital(
+    ctx: list[_League],
+    pricer: _Pricer,
+    trades: list[dict[str, Any]],
+    *,
+    want_picks: bool,
+    now_s: float,
+) -> dict[str, Any]:
+    """Batch B3: picks held per league, pick movement and totals."""
+    value_note = (
+        "Pick values are the canonical board's (a Superflex / TE-premium board) at the "
+        "generic season + round grade — no tier or slot is assumed. Totals add priced "
+        "picks only; unpriced picks are counted beside them."
+    )
+    if not want_picks:
+        return {
+            "available": False,
+            "reason": mti.DC_REASON_EARLIER_SEASON,
+            "leagues": [],
+            "totals": None,
+            "movements": mti.pick_movements(trades, {}),
+            "valueNote": value_note,
+        }
+    calendar_year = time.gmtime(now_s).tm_year
+    observed_at = mti.observed_at_iso(now_s)
+    entries: list[dict[str, Any]] = []
+    for lg in ctx:
+        state = _traded_picks_state(lg, True)
+        if lg.rosters_state != COV_COMPLETE:
+            entries.append(
+                mti.unread_league_entry(lg, mti.DC_REASON_ROSTERS_UNAVAILABLE, lg.rosters_state)
+            )
+            continue
+        if not lg.manager_roster_ids():
+            continue  # holds no roster here: nothing to own
+        entries.append(
+            mti.league_draft_capital(
+                lg,
+                pricer,
+                traded_picks=lg.traded_picks,
+                coverage=state,
+                calendar_year=calendar_year,
+                observed_at=observed_at,
+                pick_used=_pick_used,
+            )
+        )
+    by_league = {e["leagueId"]: e for e in entries}
+    return {
+        "available": True,
+        "reason": None,
+        "leagues": entries,
+        "totals": mti.draft_capital_totals(entries),
+        "movements": mti.pick_movements(trades, by_league),
+        "valueNote": value_note,
+    }
 
 
 def _status_payload(status: str, username: str, **extra: Any) -> dict[str, Any]:
@@ -1297,6 +1401,7 @@ def build_manager_activity(
     fetch_transactions: Fetch = sleeper_client.fetch_transactions_classified,
     fetch_drafts: Fetch = sleeper_client.fetch_drafts_classified,
     fetch_draft_picks: Fetch = sleeper_client.fetch_draft_picks_classified,
+    fetch_traded_picks: Fetch = sleeper_client.fetch_traded_picks_classified,
     fetch_state: Callable[[], Any] = sleeper_client.fetch_nfl_state,
     fetch_directory: Callable[[], Any] = sleeper_client.fetch_nfl_players,
     now: Callable[[], float] = time.time,
@@ -1353,6 +1458,8 @@ def build_manager_activity(
     in_scope = in_scope[:max_leagues]
 
     budget = _Budget(call_budget)
+    # Draft capital is "what is held NOW": read for the current season only.
+    want_picks = season == current_season
     ctx = [_League(lg, user_id) for lg in in_scope]
     pool_size = max(1, min(workers, max(1, len(ctx))))
     with ThreadPoolExecutor(max_workers=pool_size) as pool:
@@ -1365,6 +1472,7 @@ def build_manager_activity(
                     fetch_users=fetch_users,
                     fetch_drafts=fetch_drafts,
                     now=t_now,
+                    fetch_traded_picks=fetch_traded_picks if want_picks else None,
                 ),
                 ctx,
             )
@@ -1447,6 +1555,8 @@ def build_manager_activity(
     _package(trades)
     _at_time(trades, asof_factory)
     summary, analytics = _analytics(acquisitions, feed)
+    draft_capital = _draft_capital(ctx, pricer, trades, want_picks=want_picks, now_s=t_now)
+    tendencies = mti.trade_tendencies(trades, window=window_applied, season=season)
 
     coverage = []
     any_incomplete = False
@@ -1468,9 +1578,12 @@ def build_manager_activity(
                 drafts_state = COV_COMPLETE
             else:
                 drafts_state = _coverage_state(lg.draft_pick_kinds)
+        picks_state = _traded_picks_state(lg, want_picks)
         held = bool(lg.manager_roster_ids()) if lg.rosters_state == COV_COMPLETE else None
         incomplete = held is not False and (
-            tx_state != COV_COMPLETE or drafts_state != COV_COMPLETE
+            tx_state != COV_COMPLETE
+            or drafts_state != COV_COMPLETE
+            or (want_picks and picks_state != COV_COMPLETE)
         )
         any_incomplete = any_incomplete or incomplete
         coverage.append(
@@ -1480,6 +1593,7 @@ def build_manager_activity(
                 "rosters": lg.rosters_state,
                 "transactions": tx_state,
                 "drafts": drafts_state,
+                "tradedPicks": picks_state,
                 "weeksFetched": weeks_ok,
                 "weeksFailed": weeks_failed,
                 "leagueUsers": "complete" if lg.users_read else "unavailable",
@@ -1518,6 +1632,8 @@ def build_manager_activity(
         "feed": feed,
         "playerSummary": summary,
         "analytics": analytics,
+        "draftCapital": draft_capital,
+        "tendencies": tendencies,
         "valueBasis": {
             "field": "rankDerivedValue",
             "board": "canonical Superflex / TE-premium board",
