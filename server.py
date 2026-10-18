@@ -13265,26 +13265,15 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         # has drafted and rostered is no longer draft capital, and the rookie
         # pool (``years_exp == 0``) IS that class — stapling it onto the next
         # class's slots would price last draft's rookies as next draft's
-        # picks, so it is withheld when a class was skipped.  Evidence comes
-        # through the SAME ladder the workbook path uses — the persisted
-        # snapshot, else this request's own Sleeper reads
-        # (``resolve_league_draft_years``).  It used to be the snapshot alone,
-        # so a cold deploy treated the league's drafted class as upcoming and
-        # published $0 budgets.  When no evidence answers, the payload says
-        # the upcoming year is UNVERIFIED and the budgets are unavailable.
+        # picks, so it is withheld when a class was skipped.  No snapshot →
+        # nothing retired → the anchor year.
         _dc_years = None
-        _dc_evidence_source = None
         try:
-            from src.api.draft_capital_fallback import (  # noqa: PLC0415
-                resolve_league_draft_years,
-            )
+            from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
 
-            _dc_years, _dc_evidence_source = resolve_league_draft_years(
-                league_cfg.sleeper_league_id, league_key=league_cfg.key
-            )
-        except Exception:  # noqa: BLE001 — unknown never retires; reported as unverified
+            _dc_years = league_draft_years_for(league_cfg.sleeper_league_id)
+        except Exception:  # noqa: BLE001 — unknown never retires
             logging.warning("draft-capital fallback: lifecycle unavailable", exc_info=True)
-            _dc_evidence_source = "unavailable"
         _dc_calendar_season = datetime.now(timezone.utc).year
         _dc_season = _dc_years.upcoming_draft_year if _dc_years else _dc_calendar_season
         if _dc_season != (_dc_years.anchor_year if _dc_years else _dc_calendar_season):
@@ -13297,7 +13286,6 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
             rookies=rookie_rows,
             league_draft_years=_dc_years,
-            draft_years_evidence=_dc_evidence_source,
         )
 
     lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)

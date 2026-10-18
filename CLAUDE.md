@@ -509,10 +509,11 @@ Error behavior on endpoints:
     generated "slot" is a reverse-standings stand-in, not a known slot
     (every pick of one future season+round prices identically; no
     fabricated slot certainty, no owned-pick forecasting — that is
-    C1-U7).  Since the owner decision of 2026-10-18 ("$1,200 per draft
-    class") each generated class is normalized to its OWN $1200 from real
-    generic values (never the deleted constants); see "Every owned class is
-    listed" below.
+    C1-U7).  Consequence: the $1200 pool redistributes across BOTH
+    generated seasons again, with real generic values rather than the
+    deleted constants.  (This fallback serves non-default leagues only and
+    is out of the owner's current scope — 2026-10-18 scope correction; the
+    "$1,200 per draft class" basis below applies to ``dynasty_main``.)
   - Pinned by `tests/api/test_draft_capital_data_not_ready.py` (which
     fails if a future change re-resolves D-2 by accident in either
     direction) and `tests/api/test_draft_capital_fallback.py` (which
@@ -533,61 +534,57 @@ Error behavior on endpoints:
     `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
     it) refuses the board with the same `pick_ownership_unavailable` shape
     instead of serving the workbook's hand-entered ownership.
-  - **Every owned class is listed** (owner directive 2026-10-17).  The
-    workbook is ONE draft, so the default league used to offer only that
-    class in the /league year selector.  The league's other owned classes
-    (`league_draft_years.owned_pick_seasons`) now arrive in
-    `additionalClassPicks` — canonical fold (`build_pick_ownership`) over the
-    observed `/traded_picks`, canonical generic-grade values
-    (`src/api/draft_capital_classes.py`), round-only (`slotStatus:
-    "unknown"`), `dollarValueEstimated: true`.  `picks` / `teamTotals` /
-    `coveredPickYears` are unchanged (the workbook class = the auction
-    budgets /draft, the auction room and the /trade stack read); the year
-    views, `allYearsTeamTotals` and `allYearsSummary` cover every class,
-    each pick once.  The fallback generates the same owned seasons (it used
-    `(current, current + 1)`), prices every pick at its round's generic
-    grade (its slots are stand-ins; it used to read the current class's
-    exact slot row by roster number), and has the SAME shape: the upcoming
-    class in `picks` / `teamTotals` / `coveredPickYears`, later classes in
-    `additionalClassPicks`.  **Budget basis — OWNER DECISION 2026-10-18:
-    "$1,200 per draft class"**, for every league.  Each class is its own
-    $1200 pool (72 picks in a 12-team, 6-round league); All Years sums the
-    classes, each pick once.  The workbook class keeps the sheet's dollars
-    (its own $1200 — the live auction budgets); the fallback normalizes each
-    class's priced picks to $1200 independently (unpriced picks stay null,
-    outside their class's pool; a wholly unpriced class holds no dollars and
-    is listed in `budgetPolicy.unpricedClasses`).  Stamped as `budgetPolicy`
+  - **Every owned class is listed — `dynasty_main` only** (owner directive
+    2026-10-17; scope corrected by the owner 2026-10-18: `dynasty_main` /
+    Risk It to Get the Brisket is the only league in scope, and the $1,200
+    approval does not extend to any other league).  The workbook is ONE
+    draft, so the default league used to offer only that class in the
+    /league year selector.  The league's other owned classes
+    (`league_draft_years.owned_pick_seasons` — 2028 and 2029 beside the
+    workbook's 2027) now arrive in `additionalClassPicks` — canonical fold
+    (`build_pick_ownership`) over the observed `/traded_picks`, canonical
+    generic-grade values (`src/api/draft_capital_classes.py`), round-only
+    (`slotStatus: "unknown"`), `dollarValueEstimated: true`.  `picks` /
+    `teamTotals` / `coveredPickYears` are unchanged (the workbook class = the
+    auction budgets /draft, the auction room and the /trade stack read); the
+    year views, `allYearsTeamTotals` and `allYearsSummary` cover every class,
+    each pick once.  **Budget basis — OWNER DECISION 2026-10-18: "$1,200 per
+    draft class"** for `dynasty_main` (12 teams x 6 rounds = 72 picks per
+    class).  Each class is its own $1200 pool; All Years sums the classes,
+    each pick once.  The workbook class keeps the sheet's dollars (its own
+    $1200 — the live auction budgets); each later class's priced picks are
+    normalized to $1200 independently (unpriced picks stay null, outside
+    their class's pool; a wholly unpriced class holds no dollars and is
+    listed in `budgetPolicy.unpricedClasses`).  Stamped as `budgetPolicy`
     (`basis: "per_class_pool"`, `status: "owner_confirmed"`).  **Exact**
     (owner addendum 2026-10-18): every class with a priced pick totals
     exactly $1,200.00 — `draft_capital_classes.allocate_class_budget`
     allocates in whole-dollar units with a deterministic largest-remainder
-    residual, so pick dollars, team totals, year totals and All Years
-    reconcile in integer cents.  **Two value domains, labelled per class**
-    (`curveMethod`, `budgetPolicy.classCurveMethods`): the workbook class is
-    `workbook_rookie_auction` (the sheet's own curve); every other class —
-    the default league's later classes and every class of the fallback — is
+    residual, so pick dollars, year totals and All Years reconcile in integer
+    cents.  **Two value domains, labelled per class** (`curveMethod`,
+    `budgetPolicy.classCurveMethods`): the workbook class is
+    `workbook_rookie_auction` (the sheet's own curve); the later classes are
     `interim_generic_market` (canonical generic future-pick market values,
     spread linearly), shown as "provisional estimate — final rookie-auction
     curve pending".  It is an interim, NOT the final methodology: the
-    spreadsheet-driven rookie-auction curve is a separate Draft Valuation
-    workstream that will replace it.
-  - **The auction budgets are available or UNAVAILABLE, never $0**
-    (2026-10-18).  `teamTotals` carries `teamTotalsState` /
-    `teamTotalsReason`.  The fallback publishes every `auctionDollars` as
-    `null` (and `coveredPickYears: []`) in two cases: the upcoming class has
-    no priced pick (`upcoming_class_unpriced`), or the upcoming year cannot
-    be proven (`upcoming_draft_year_unverified`).  Its draft-year evidence
-    follows the workbook path's ladder (`resolve_league_draft_years`): the
-    persisted snapshot, else this request's own Sleeper reads.  It used to
-    read the snapshot alone, so a cold deploy served dynasty_new's drafted
-    2026 class as upcoming, which was unpriced, and published $0 budgets.
-    `upcomingDraftYearState` (`observed` / `unverified` / `caller_supplied`)
-    and `draftYearsEvidence` say which applied.  How each consumer shows
-    the unavailable state (one reader, `frontend/lib/draft-capital-budgets.js`):
-    - /draft refuses to load the budgets and shows an error banner;
-    - the auction room leaves every seat `missing` (`src/auction/sources.py`);
-    - the /league simulator is replaced by a notice;
-    - the /trade stack note is off and its panel says why.
+    spreadsheet-driven rookie-auction curve is the separate Draft Valuation
+    workstream (`docs/draft/DRAFT_VALUATION_WORKSTREAM.md`) that replaces it.
+  - **The Sleeper-derived fallback is out of scope and UNCHANGED** (owner
+    scope correction 2026-10-18).  Every non-default league takes it; it
+    keeps its pre-decision behavior (one $1200 spread across the seasons it
+    emits in `picks`, no `budgetPolicy`).  The shared consumers read both
+    shapes: `draft_capital_years.attach_year_views` sums whatever per-pick
+    dollars a builder assigned, and the frontend states no multi-class basis
+    for a payload without `budgetPolicy`.  Do not extend new draft-capital
+    features to it without a new owner decision.
+  - **Auction budgets: one reader, never $0.**
+    `frontend/lib/draft-capital-budgets.js` is the single client reader of
+    `teamTotals` budgets: a payload stamping `teamTotalsState:
+    "unavailable"`, or whose rows carry no numeric `auctionDollars`, is shown
+    as unavailable — /draft refuses to load the budgets, the auction room
+    leaves every seat `missing` (`src/auction/sources.py`), the /league
+    simulator is replaced by a notice, and the /trade stack note is off with
+    its panel saying why — never coerced to $0.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring

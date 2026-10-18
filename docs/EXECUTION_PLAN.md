@@ -107,6 +107,17 @@ sides only — our values decide everything. **Owner action:** `sudo apt-get ins
 VPS (the deploy's sudo allowlist cannot); until then the status endpoint reports unavailable and the UI says
 so. Intake: `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-15"). Runbook: `docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
 
+## League scope correction — owner directive, 2026-10-18 (binding on every lane)
+
+**`dynasty_main` (Risk It to Get the Brisket) is the only league authorized for building and
+optimizing.** Ignore `dynasty_new`: no new feature work, budget change, valuation change or
+league-specific improvement for it. Do not delete it, its configuration, history or data, and do not
+disable existing behavior — shared infrastructure must still not regress for it. The $1,200-per-class
+draft-capital approval applies to `dynasty_main` only; any earlier wording extending it to both
+leagues is superseded. Draft valuation Batches A–G are scoped to `dynasty_main` (12 teams, 6 rounds,
+72 picks per class, 2027/2028/2029). Intake: `docs/OWNER_REQUESTED_TODO.md` ("OWNER SCOPE CORRECTION
+(2026-10-18)"). Applied in #1785 by restoring the Sleeper-derived fallback path to `main`.
+
 ## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
 
 **AUTHORIZED; MERGED via release train #1768 (`00d652bd2`).** One versioned package model for every

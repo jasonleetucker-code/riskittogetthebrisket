@@ -239,20 +239,9 @@ def test_fallback_route_reads_the_canonical_resolver_not_a_local_rule():
     body = src[
         src.index("def get_draft_capital(") : src.index('@app.get("/api/draft/roster-context")')
     ]
-    # The route reaches the canonical resolver through the fallback's
-    # evidence ladder (snapshot, else live Sleeper evidence), which itself
-    # calls ``league_draft_years_for``.
-    assert "resolve_league_draft_years(" in body
+    assert "league_draft_years_for(" in body
     assert "active_seasons_for_league(" not in body
     assert "range(_dc_calendar_season" not in body
-    from src.api import draft_capital_fallback as dcf
-
-    fb_src = (REPO / "src/api/draft_capital_fallback.py").read_text(encoding="utf-8")
-    ladder = fb_src[fb_src.index("def resolve_league_draft_years(") :]
-    ladder = ladder[: ladder.index("\ndef ")]
-    assert "league_draft_years_for(" in ladder
-    assert "read_snapshot(" in ladder and "collect_league_draft_evidence(" in ladder
-    assert callable(dcf.resolve_league_draft_years)
 
 
 def test_workbook_path_no_longer_bumps_on_any_complete_draft():
@@ -325,16 +314,9 @@ def test_fallback_payload_stamps_coverage_upcoming_year_team_keys_and_asset_ids(
     monkeypatch.setattr(
         "src.api.league_registry.league_key_for_sleeper_id", lambda lid: "wave_a_league"
     )
-    # The upcoming class's GENERIC grade (centre-slot row): the fallback's
-    # slots are stand-ins, so every pick of the round prices at it.
     contract = {
         "playersArray": [
-            {
-                "displayName": f"{YEAR + 1} Pick 1.06",
-                "canonicalName": f"{YEAR + 1} Pick 1.06",
-                "assetClass": "pick",
-                "rankDerivedValue": 1500,
-            }
+            {"displayName": f"{YEAR + 1} Pick 1.0{s}", "rankDerivedValue": 1000 * s} for s in (1, 2)
         ]
     }
     years = league_draft_years(YEAR, None)

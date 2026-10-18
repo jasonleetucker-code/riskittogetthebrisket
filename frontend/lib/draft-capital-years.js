@@ -10,14 +10,15 @@
 //   * a season's per-team capital and ranking are the backend's
 //     `teamTotalsByYear[season]` (src/api/draft_capital_years.py), which
 //     SUMS the same per-pick dollars the all-years total is made of — never
-//     re-spread client-side.  Each draft class is its own $1200 pool (owner
-//     decision 2026-10-18, "$1,200 per draft class"), on every league;
+//     re-spread client-side.  On dynasty_main each draft class is its own
+//     $1200 pool (owner decision 2026-10-18, "$1,200 per draft class",
+//     scoped to dynasty_main by the owner correction of the same day);
 //   * "All Years" is the backend's `allYearsTeamTotals` — every class the
 //     year views cover, each pick once — falling back to `teamTotals` on a
 //     payload that predates it.
 //
 // Owner directive 2026-10-17: every Sleeper draft class the league still owns
-// picks in is listed.  Both builders carry the upcoming class in `picks`;
+// picks in is listed.  The workbook path carries the upcoming class in `picks`;
 // the others arrive in `additionalClassPicks` (Sleeper ownership + canonical
 // values) and are part of every view here except `teamTotals`, which stays
 // the upcoming auction's budgets for /draft and /trade.

@@ -14,15 +14,17 @@ season each pick belongs to.
 **No per-year renormalization here.**  A season's view is the SUM of the
 per-pick dollars the builder already assigned; this module never re-spreads
 them.  The budget basis is owner-decided (2026-10-18, "$1,200 per draft
-class", ``budgetPolicy`` in ``src/api/draft_capital_classes.py``): every
-class is its own $1200 pool on BOTH builders, so each season's league total
-is that class's $1200 whenever any of its picks is priced (unpriced picks
-are left out of the class's normalization, never counted as $0) and All
-Years is the sum of the classes, each pick once.  Both builders carry the upcoming class in
+class", ``budgetPolicy`` in ``src/api/draft_capital_classes.py``) and
+scoped to ``dynasty_main`` (owner scope correction 2026-10-18).  On the
+workbook path every class is its own $1200 pool, so each season's league
+total is that class's $1200 whenever any of its picks is priced (unpriced
+picks are left out of the class's normalization, never counted as $0) and
+All Years is the sum of the classes, each pick once: the upcoming class is in
 ``picks`` / ``teamTotals`` (``auctionDollars`` = the auction budgets) and
-every later class in ``additionalClassPicks``, so the seasons add up to
-``allYearsTeamTotals`` while ``auctionDollars`` stays the upcoming class
-alone.
+every later class in ``additionalClassPicks``.  The Sleeper-derived fallback
+(every other league, out of scope and unchanged) still spreads ONE $1200
+across the seasons it emits in ``picks``; this module sums whatever per-pick
+dollars either builder assigned, so its views stay correct on both shapes.
 
 **A partially priced season ranks on its PRICED dollars.**  Unpriced picks
 (``dollarValue: null``) are excluded from a season's sum exactly as the
@@ -113,8 +115,8 @@ def attach_year_views(
         return result
     picks = result.get("picks")
     picks = list(picks) if isinstance(picks, list) else []
-    # Classes the builder's ``teamTotals`` do not cover (both builders carry
-    # the upcoming class there and every later class here).  They
+    # Classes the builder's ``teamTotals`` do not cover (the workbook path
+    # carries the upcoming class there and every later class here).  They
     # take part in every per-year view and in ``allYearsTeamTotals``, never in
     # ``teamTotals`` / ``coveredPickYears`` — those keep meaning "the dollars
     # the auction budgets are made of".

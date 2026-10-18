@@ -186,11 +186,9 @@ assumption is named in the config (`classificationNote`) and here.
   `draft_capital_fallback._pick_value_from_contract` — future-season picks
   resolve at the GENERIC grade (their generated "slots" are reverse-standings
   stand-ins, not known slots; every pick of one future (season, round) prices
-  identically — no fabricated slot certainty).  Consequence: the future seasons
-  are priced again — with real generic values this time, not the deleted
-  constants.  (Budget basis superseded 2026-10-18 by the owner decision "$1,200
-  per draft class": each generated class is normalized to its own $1200, not one
-  pool shared across seasons — see CLAUDE.md "Every owned class is listed".)  `trade_simulator._resolve_asset` —
+  identically — no fabricated slot certainty).  Consequence: the $1200 pool
+  redistributes across BOTH generated seasons again — with real generic values
+  this time, not the deleted constants.  `trade_simulator._resolve_asset` —
   roster/trade pick labels that miss the name index route through
   `parse_pick_label` → `market_resolution` → board row (the measured
   silent-drop of every roster pick from before/after aggregates); a

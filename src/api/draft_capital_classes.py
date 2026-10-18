@@ -25,15 +25,19 @@ Dollars — the $1,200 budget basis (OWNER DECISION 2026-10-18)
 =============================================================
 
 "$1,200 per draft class": each rookie draft class is its own $1,200 auction
-pool (72 picks for a 12-team, 6-round league), for EVERY league.  Per-pick
-dollars are a linear share of their class's $1,200 over canonical values;
-All Years is the sum of the classes, each pick counted once.
+pool (72 picks: 12 teams x 6 rounds).  **Scope: ``dynasty_main`` only**
+(owner scope correction 2026-10-18 — the approval does not extend to any
+other league).  Per-pick dollars are a linear share of their class's $1,200
+over canonical values; All Years is the sum of the classes, each pick counted
+once.
 
 * The default league's workbook class keeps the workbook's own dollars (they
   are that class's $1,200 and the live auction budgets); its later classes
   are each their own $1,200 here (:func:`price_per_class`).
-* The Sleeper-derived fallback normalizes each class to $1,200 on its own
-  (``draft_capital_fallback``).
+* The Sleeper-derived fallback (``draft_capital_fallback``, the path every
+  non-default league takes) is OUT OF SCOPE and deliberately unchanged: it
+  keeps its pre-decision single $1,200 pool and stamps no ``budgetPolicy``,
+  which the frontend reads as "no multi-class basis stated".
 
 Every class with a priced pick totals EXACTLY $1,200.00 (owner addendum
 2026-10-18): :func:`allocate_class_budget` allocates in integer units with a
@@ -73,8 +77,7 @@ BUDGET_POLICY_DECIDED_AT = "2026-10-18"
 #:
 #: * ``workbook_rookie_auction`` — the default league's workbook class: the
 #:   sheet's own rookie-auction curve and dollars.
-#: * ``interim_generic_market`` — every other class (the default league's
-#:   later classes, and every class of a non-default league): canonical
+#: * ``interim_generic_market`` — the default league's later classes: canonical
 #:   generic future-pick MARKET values spread linearly over the class's
 #:   $1,200.  An explicitly labelled INTERIM, not the final methodology — the
 #:   spreadsheet-driven rookie-auction curve is a separate Draft Valuation
@@ -92,18 +95,6 @@ TEAM_TOTALS_STATE_FIELD = "teamTotalsState"
 TEAM_TOTALS_REASON_FIELD = "teamTotalsReason"
 TEAM_TOTALS_AVAILABLE = "available"
 TEAM_TOTALS_UNAVAILABLE = "unavailable"
-#: The upcoming class has no priced pick (e.g. a drafted class the board no
-#: longer prices, served as "upcoming" because its retirement is unproven).
-TEAM_TOTALS_REASON_UPCOMING_UNPRICED = "upcoming_class_unpriced"
-#: Which class is upcoming could not be proven (no league draft-class
-#: evidence: no snapshot and the live read failed).
-TEAM_TOTALS_REASON_UPCOMING_UNVERIFIED = "upcoming_draft_year_unverified"
-
-#: How the league's upcoming draft year was established (``upcomingDraftYearState``).
-UPCOMING_DRAFT_YEAR_OBSERVED = "observed"  # from league draft-class evidence
-UPCOMING_DRAFT_YEAR_UNVERIFIED = "unverified"  # no evidence: the anchor is a guess
-UPCOMING_DRAFT_YEAR_CALLER_SUPPLIED = "caller_supplied"  # a caller passed the years
-
 #: Whether a row's slot is a real draft position.
 SLOT_KNOWN = "known"  # the league's draft order for that class is set on Sleeper
 SLOT_PROJECTED = "projected"  # an estimated order (workbook / standings), labelled
@@ -335,7 +326,7 @@ def budget_policy_block(
 ) -> dict[str, Any]:
     """What ``budgetPolicy`` says about a payload's dollars.
 
-    One basis for every league (owner decision 2026-10-18): each listed class
+    One basis (owner decision 2026-10-18, ``dynasty_main`` only): each listed class
     is its own ``budget`` pool and All Years is their sum.  ``priced_seasons``
     (default: every listed class) names the classes with at least one priced
     pick; a class the board cannot price at all holds no dollars, so it is

@@ -15,15 +15,9 @@ contract data:
   stamped — so the values are already calibrated by the Hill curve.
   A pick the contract cannot price is emitted UNPRICED; there is no
   substitute value.  See ``_pick_value_from_contract``.
-* Total budget: $1,200 PER DRAFT CLASS (owner decision 2026-10-18) —
-  each class's priced picks are normalized to their own $1,200, the
-  same basis as the default league's workbook.  Only priced picks take
-  part in a class's normalization.
-* Shape: identical to the workbook path.  ``picks`` / ``teamTotals`` /
-  ``coveredPickYears`` are the UPCOMING class (the auction budgets /draft,
-  the auction room and the /trade stack read); every later owned class is
-  in ``additionalClassPicks``, and the year views / ``allYearsTeamTotals``
-  cover them all, each pick once.
+* Total budget: scaled to match the default league's workbook total
+  (1200) so the bar chart reads the same.  Only priced picks take
+  part in that normalization.
 
 UI labels this view as "Sleeper-derived, contract-priced" so users
 know it's the backup path, not the richer workbook numbers.
@@ -39,12 +33,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.identity import picks as _pick_identity
-from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS, OWNED_PICK_HORIZON_CLASSES
+from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
 
 _LOGGER = logging.getLogger(__name__)
 
-# One draft class's auction pool — the workbook's total, and the per-class
-# budget for EVERY class (owner decision 2026-10-18, "$1,200 per draft class").
+# Matches the workbook's total so the bar chart stays comparable.
 _TARGET_TOTAL_BUDGET = 1200
 _DEFAULT_TIMEOUT = 15.0
 
@@ -187,10 +180,9 @@ def resolve_draft_rounds(
     This exists because the round count was a parameter nobody passed.  The
     caller supplied ``num_teams`` and not ``draft_rounds``, so every non-default
     league was built as a 4-round draft — while the default league runs 6.  That
-    is not cosmetic: each class's ``_TARGET_TOTAL_BUDGET`` is normalized across
-    whatever picks the loop produces for it, so a wrong round count silently
-    redistributes that class's entire $1200 across every team's
-    ``auctionDollars``.
+    is not cosmetic: ``_TARGET_TOTAL_BUDGET`` is normalized across whatever
+    picks the loop produces, so a wrong round count silently redistributes the
+    entire $1200 across every team's ``auctionDollars``.
     """
     drafts = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/drafts")
     if isinstance(drafts, list):
@@ -215,54 +207,6 @@ def resolve_draft_rounds(
     return DEFAULT_DRAFT_ROUNDS, "default"
 
 
-#: Where the league draft-class evidence behind ``league_draft_years`` came from.
-DRAFT_YEARS_EVIDENCE_SNAPSHOT = "snapshot"
-DRAFT_YEARS_EVIDENCE_LIVE = "live"
-DRAFT_YEARS_EVIDENCE_UNAVAILABLE = "unavailable"
-
-
-def resolve_league_draft_years(
-    sleeper_league_id: str, *, league_key: str | None
-) -> tuple[Any, str]:
-    """``(LeagueDraftYears, evidence source)`` for a non-default league.
-
-    The same evidence ladder the default league's workbook path uses
-    (``server._fetch_draft_capital``): the league's persisted draft-class
-    snapshot, else evidence assembled from this request's own Sleeper reads
-    (``collect_league_draft_evidence``), through the ONE league-scoped
-    resolver (``draft_class_evidence.league_draft_years_for``).
-
-    It used to read the snapshot only.  On a cold deploy (no snapshot yet)
-    "no evidence retires nothing" made the league's ALREADY-DRAFTED class
-    the upcoming one: unpriced, so every team's auction budget read $0.
-    When neither source answers, the source is ``"unavailable"`` and the
-    caller must report the upcoming year as UNVERIFIED rather than present
-    the anchor-year guess as fact.
-    """
-    from src.api.draft_class_evidence import (  # noqa: PLC0415
-        collect_league_draft_evidence,
-        league_draft_years_for,
-        read_snapshot,
-    )
-
-    evidence = None
-    source = DRAFT_YEARS_EVIDENCE_UNAVAILABLE
-    try:
-        evidence = read_snapshot(sleeper_league_id)
-        if evidence is not None:
-            source = DRAFT_YEARS_EVIDENCE_SNAPSHOT
-        else:
-            evidence = collect_league_draft_evidence(
-                sleeper_league_id, league_key=league_key, fetch=_fetch_json
-            )
-            if evidence is not None:
-                source = DRAFT_YEARS_EVIDENCE_LIVE
-    except Exception as exc:  # noqa: BLE001 — unknown never retires; reported below
-        _LOGGER.warning("draft_capital_fallback: draft-class evidence unavailable: %s", exc)
-        evidence, source = None, DRAFT_YEARS_EVIDENCE_UNAVAILABLE
-    return league_draft_years_for(sleeper_league_id, evidence=evidence), source
-
-
 def build_sleeper_derived(
     sleeper_league_id: str,
     contract: dict[str, Any],
@@ -272,7 +216,6 @@ def build_sleeper_derived(
     declared_draft_rounds: Any = None,
     rookies: list[dict[str, Any]] | None = None,
     league_draft_years: Any = None,
-    draft_years_evidence: str | None = None,
 ) -> dict[str, Any]:
     """Fetch owner / pick data from Sleeper and produce a draft-
     capital board.  Returns the same shape as the workbook path so
@@ -304,13 +247,6 @@ def build_sleeper_derived(
     ``current_season`` from; it is stamped on the payload so consumers read
     the league's upcoming draft from the payload rather than re-deriving it
     (Wave A).  ``upcomingDraftYear`` is ``current_season`` either way.
-
-    ``draft_years_evidence`` says where that answer's evidence came from
-    (:func:`resolve_league_draft_years`).  ``"unavailable"`` means the
-    upcoming year is a guess, so ``teamTotals`` — the auction budgets — are
-    published as UNAVAILABLE (``auctionDollars: None`` + reason), never as a
-    guessed class's numbers.  ``None`` = the caller supplied the years and
-    did not say (tests, legacy callers).
     """
     rounds_source = "explicit"
     if draft_rounds is None:
@@ -390,7 +326,7 @@ def build_sleeper_derived(
     for _rid, _nm in roster_name_by_id.items():
         rids_by_name.setdefault(_nm, []).append(_rid)
 
-    def _team_row(team: str, dollars: int | None) -> dict[str, Any]:
+    def _team_row(team: str, dollars: int) -> dict[str, Any]:
         rids = rids_by_name.get(team) or []
         rid = rids[0] if len(rids) == 1 else None
         return {
@@ -402,78 +338,34 @@ def build_sleeper_derived(
 
     actual_num_teams = max(len(rosters), 1)
 
-    # Which classes: every class this league still owns picks in, from the
-    # league-scoped resolver (owner directive 2026-10-17 — this used to be the
-    # loop bounds ``(current, current + 1)``, which dropped the third future
-    # class Sleeper already trades).  A class the league has drafted and
-    # rostered is retired by the resolver and never generated here.  Without
-    # a resolver answer, the same horizon from ``current_season`` (no evidence
-    # retires nothing).
-    owned_seasons = (
-        [int(y) for y in league_draft_years.owned_pick_seasons]
-        if hasattr(league_draft_years, "owned_pick_seasons")
-        else list(range(int(current_season), int(current_season) + OWNED_PICK_HORIZON_CLASSES))
-    )
-    # ``current_season`` IS the league's upcoming draft (the caller derived it
-    # from the same resolver), so nothing before it is owned capital.
-    owned_seasons = sorted(
-        {int(current_season), *(y for y in owned_seasons if y >= int(current_season))}
-    )
+    # Build traded-pick map: (season, round, original_owner_rid) → new_owner_rid
+    traded_map: dict[tuple[int, int, int], int] = {}
+    if isinstance(traded, list):
+        for t in traded:
+            if not isinstance(t, dict):
+                continue
+            try:
+                season = int(t.get("season"))
+                round_n = int(t.get("round"))
+                original_rid = int(t.get("roster_id"))
+                new_rid = int(t.get("owner_id"))
+            except (TypeError, ValueError):
+                continue
+            traded_map[(season, round_n, original_rid)] = new_rid
 
     # Build picks.  Sleeper doesn't expose per-slot ownership for
-    # FUTURE drafts (pick order not set).  ``slot`` below is a STAND-IN for
-    # display ordering only (slot N = original roster N) — it is never a
-    # draft position, so every pick is priced at its round's GENERIC grade
-    # (``draft_capital_classes.canonical_pick_value`` with no slot).  It used
-    # to look up the current class's exact slot row by that stand-in, which
-    # priced roster 1's pick as the 1.01.
-    from src.api.draft_capital_classes import (  # noqa: PLC0415
-        canonical_pick_value,
-        pick_rows_index,
-    )
-
-    # Who owns each pick: THE ownership fold (``picks.build_pick_ownership``,
-    # C1-ID-02) over the observed ``/traded_picks`` diff — the same fold the
-    # workbook path's later classes, the Sleeper overlay and the scraper use.
-    # This module used to keep a private ``traded_map`` copy of it.  The fold
-    # needs a registry-slug key to mint identities; an unregistered league
-    # folds under a placeholder whose ids are never published (``assetId``
-    # stays ``None`` below).
-    owner_by_origin = {
-        (o.identity.season, o.identity.round_num, o.identity.origin_roster_id): (
-            o.state.owner_roster_id
-        )
-        for o in _pick_identity.build_pick_ownership(
-            league_key or "unregistered_league",
-            sorted(roster_name_by_id),
-            traded,
-            seasons=owned_seasons,
-            rounds=draft_rounds,
-        )
-    }
-
-    rows_index = pick_rows_index(contract)
-    value_cache: dict[tuple[int, int], float | None] = {}
+    # FUTURE drafts (pick order not set), so we assume reverse
+    # standings — which for this view is fine (ordering is not the
+    # point, value + ownership is).
     picks: list[SleeperDerivedPick] = []
     owner_rids: list[tuple[int, int]] = []  # (origin, current) per pick, same order
-    for season in owned_seasons:
+    for season in (current_season, current_season + 1):
         for round_n in range(1, draft_rounds + 1):
-            if (season, round_n) not in value_cache:
-                v, _basis = canonical_pick_value(
-                    contract,
-                    season=season,
-                    round_num=round_n,
-                    slot=None,
-                    rows_by_name=rows_index,
-                    league_size=actual_num_teams,
-                )
-                value_cache[(season, round_n)] = float(v) if v is not None else None
             for slot in range(1, actual_num_teams + 1):
                 original_rid = slot  # stand-in: slot N = original owner roster N
-                folded = owner_by_origin.get((season, round_n, original_rid))
-                current_rid = folded if folded is not None else original_rid
+                current_rid = traded_map.get((season, round_n, original_rid), original_rid)
                 is_traded = current_rid != original_rid
-                value = value_cache[(season, round_n)]
+                value = _pick_value_from_contract(contract, season, round_n, slot)
                 owner_rids.append((original_rid, current_rid))
                 picks.append(
                     SleeperDerivedPick(
@@ -489,68 +381,30 @@ def build_sleeper_derived(
                     )
                 )
 
-    # Normalize each CLASS to its own $1,200 (owner decision 2026-10-18,
-    # "$1,200 per draft class") — over that class's PRICED picks only.  An
-    # unpriced pick contributes nothing to its class's pool, so it cannot
-    # dilute the dollars of the picks we actually know.  (Before C1 the next
-    # season's picks entered the pool at flat-table constants and took
-    # roughly half the budget off the real ones; before 2026-10-18 every
-    # class shared ONE $1,200.)  ``_round_to_budget`` re-normalizes
-    # internally (v × target ÷ Σv), so it takes the raw 0-9999 values.
-    dollars_by_index: dict[int, int] = {}
-    for season in owned_seasons:
-        priced_indices = [
-            i for i, p in enumerate(picks) if p.season == season and p.raw_value is not None
-        ]
-        rounded = _round_to_budget(
-            [float(picks[i].raw_value) for i in priced_indices], _TARGET_TOTAL_BUDGET
-        )
-        dollars_by_index.update(zip(priced_indices, rounded))
+    # Normalize to target total — over the PRICED picks only.  An
+    # unpriced pick contributes nothing to the pool, so it cannot dilute
+    # the dollars of the picks we actually know.  (Before this, the
+    # next season's picks entered the pool at flat-table constants and
+    # took roughly half the budget off the real ones.)
+    priced_indices = [i for i, p in enumerate(picks) if p.raw_value is not None]
+    # ``_round_to_budget`` re-normalizes internally (v × target ÷ Σv), so
+    # it takes the raw 0-9999 values directly; the pre-scale that used to
+    # sit here divided by the same sum a second time and was a no-op.
+    rounded = _round_to_budget(
+        [float(picks[i].raw_value) for i in priced_indices], _TARGET_TOTAL_BUDGET
+    )
+    dollars_by_index = dict(zip(priced_indices, rounded))
     picks = [
         SleeperDerivedPick(**{**p.__dict__, "dollar_value": dollars_by_index.get(i)})
         for i, p in enumerate(picks)
     ]
 
-    # ``teamTotals`` = the UPCOMING class only: it is the auction-budget basis
-    # (/draft's ``mergeDraftCapitalTeams``, the auction room, the /trade stack
-    # and the /league simulator all read it as one draft's budgets), exactly
-    # as on the workbook path.  Later classes reach every year view and
-    # ``allYearsTeamTotals`` through ``additionalClassPicks``.
-    upcoming = int(current_season)
     team_totals: dict[str, int] = {}
     for p in picks:
-        if p.season != upcoming:
-            continue
-        team_totals.setdefault(p.current_owner, 0)
-        if p.dollar_value is not None:
-            team_totals[p.current_owner] += p.dollar_value
+        team_totals[p.current_owner] = team_totals.get(p.current_owner, 0) + (p.dollar_value or 0)
     # Pad missing teams (owners with no picks).
     for name in roster_name_by_id.values():
         team_totals.setdefault(name, 0)
-
-    # MISSING IS NEVER ZERO (2026-10-18): the budgets are publishable only
-    # when the upcoming class is proven AND priced.  Otherwise every team's
-    # ``auctionDollars`` is ``None`` with a named reason — an unpriced or
-    # guessed upcoming class used to publish a board of $0 budgets.
-    from src.api import draft_capital_classes as _dcc  # noqa: PLC0415
-
-    if draft_years_evidence == DRAFT_YEARS_EVIDENCE_UNAVAILABLE:
-        upcoming_state = _dcc.UPCOMING_DRAFT_YEAR_UNVERIFIED
-    elif draft_years_evidence in (DRAFT_YEARS_EVIDENCE_SNAPSHOT, DRAFT_YEARS_EVIDENCE_LIVE):
-        upcoming_state = _dcc.UPCOMING_DRAFT_YEAR_OBSERVED
-    else:
-        upcoming_state = _dcc.UPCOMING_DRAFT_YEAR_CALLER_SUPPLIED
-    upcoming_priced = any(p.season == upcoming and p.raw_value is not None for p in picks)
-    totals_reason = None
-    if upcoming_state == _dcc.UPCOMING_DRAFT_YEAR_UNVERIFIED:
-        totals_reason = _dcc.TEAM_TOTALS_REASON_UPCOMING_UNVERIFIED
-    elif not upcoming_priced:
-        totals_reason = _dcc.TEAM_TOTALS_REASON_UPCOMING_UNPRICED
-    totals_available = totals_reason is None
-    if totals_available:
-        team_rows = [_team_row(t, d) for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])]
-    else:
-        team_rows = [_team_row(t, None) for t in sorted(team_totals, key=str.casefold)]
 
     unpriced = [p for p in picks if p.raw_value is None]
 
@@ -563,12 +417,8 @@ def build_sleeper_derived(
         # able to see, since the round count silently rescales every team's
         # auction dollars.
         "draftRoundsSource": rounds_source,
-        # One class's pool — ``teamTotals`` (the upcoming class) sums to it.
-        # Every later class is its own pool of the same size (``budgetPolicy``).
         "totalBudget": _TARGET_TOTAL_BUDGET,
-        # Seasons that actually contribute dollars to ``teamTotals`` — the
-        # upcoming class at most (2026-10-18: later classes are their own
-        # pools in ``additionalClassPicks``, never in ``teamTotals``).
+        # Seasons that actually contribute dollars to ``teamTotals``.
         # Consumers must not also add roster picks for these years or
         # they will double-count them.
         #
@@ -586,15 +436,8 @@ def build_sleeper_derived(
         # already contributed.  ``unpricedPickCount`` /
         # ``unpricedPickYears`` below carry the completeness signal that
         # this field deliberately does not.
-        # Empty when the budgets are unavailable: ``teamTotals`` then holds no
-        # dollars at all, so no season is "already counted" in it.
-        "coveredPickYears": (
-            sorted({p.season for p in picks if p.season == upcoming and p.raw_value is not None})
-            if totals_available
-            else []
-        ),
-        # How much of the generated board — EVERY owned class, ``picks`` and
-        # ``additionalClassPicks`` together — the contract could not price.
+        "coveredPickYears": sorted({p.season for p in picks if p.raw_value is not None}),
+        # How much of the generated board the contract could not price.
         # Same posture as ``metadata.assetsUnpricedByBoard`` in
         # src/trade/finder.py: assets the board declines to price leave
         # the pool, and the count says so rather than them vanishing
@@ -605,32 +448,23 @@ def build_sleeper_derived(
         "unpricedPickYears": sorted({p.season for p in unpriced}),
         "source": "sleeper_derived",
         "viewLabel": "Sleeper-derived, contract-priced",
-        "teamTotals": team_rows,
-        _dcc.TEAM_TOTALS_STATE_FIELD: (
-            _dcc.TEAM_TOTALS_AVAILABLE if totals_available else _dcc.TEAM_TOTALS_UNAVAILABLE
-        ),
-        _dcc.TEAM_TOTALS_REASON_FIELD: totals_reason,
-        "upcomingDraftYearState": upcoming_state,
-        "draftYearsEvidence": draft_years_evidence,
+        "teamTotals": [
+            _team_row(t, d) for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
+        ],
         # League-scoped draft years (Wave A) — the /trade stack anchors here.
         "upcomingDraftYear": int(current_season),
         "leagueDraftYears": (
             league_draft_years.to_dict() if hasattr(league_draft_years, "to_dict") else None
         ),
         "rookieSource": "contract" if rookies else "none",
+        "picks": [
+            _serialize_pick(p, i, current_season, rookies or []) for i, p in enumerate(picks)
+        ],
     }
-    # ``overallPick`` numbers each class from 1 (its own draft), so the
-    # upcoming class's index IS its overall slot for the rookie staple.
-    class_index: dict[int, int] = {}
-    serialized = []
-    for p in picks:
-        i = class_index.get(p.season, 0)
-        class_index[p.season] = i + 1
-        serialized.append(_serialize_pick(p, i, current_season, rookies or []))
     # Stable ids per row (Wave A), beside the display names.
     from src.identity.picks import LeaguePickIdentity  # noqa: PLC0415
 
-    for row, p, (origin_rid, current_rid) in zip(serialized, picks, owner_rids):
+    for row, p, (origin_rid, current_rid) in zip(result["picks"], picks, owner_rids):
         row["originRosterId"] = origin_rid
         row["currentOwnerRosterId"] = current_rid
         row["assetId"] = (
@@ -643,26 +477,10 @@ def build_sleeper_derived(
             if league_key
             else None
         )
-    # Same shape as the workbook path: ``picks`` is the upcoming class (what
-    # ``teamTotals`` is made of), every later class is ``additionalClassPicks``
-    # — each class its own $1,200 pool (``draft_capital_classes``).
-    from src.api.draft_capital_classes import (  # noqa: PLC0415
-        ADDITIONAL_CLASSES_OBSERVED,
-        budget_policy_block,
-    )
-
-    result["picks"] = [r for r in serialized if r["season"] == upcoming]
-    result["additionalClassPicks"] = [r for r in serialized if r["season"] != upcoming]
-    result["additionalClassesState"] = ADDITIONAL_CLASSES_OBSERVED
-    result["additionalClassesReason"] = None
-    result["budgetPolicy"] = budget_policy_block(
-        _TARGET_TOTAL_BUDGET,
-        owned_seasons,
-        priced_seasons={p.season for p in picks if p.raw_value is not None},
-    )
     # Per-season views for the /league year selector: a season's capital is
-    # the sum of that class's normalized per-pick dollars (its own $1,200 —
-    # never re-spread), and All Years sums the classes, each pick once.
+    # the sum of the SAME normalized per-pick dollars that make up
+    # ``teamTotals`` (one $1200 pool across every priced pick — never
+    # re-spread per season), so the seasons add back up to each total.
     from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
 
     return attach_year_views(result)
@@ -703,15 +521,6 @@ def _serialize_pick(
         "adjustedDollarValue": p.dollar_value,
         "dollarValue": p.dollar_value,
         "isUnpriced": p.raw_value is None,
-        # ``slot`` is a display stand-in (original roster order), never a draft
-        # position; the value is the round's generic grade.
-        "slotStatus": "unknown",
-        "valueBasis": "canonical_generic_round" if p.raw_value is not None else None,
-        "dollarValueEstimated": True,
-        # Every fallback class is spread over canonical generic MARKET values —
-        # an explicitly labelled interim, not the rookie-auction curve
-        # (owner addendum 2026-10-18; ``draft_capital_classes``).
-        "curveMethod": "interim_generic_market",
     }
     if p.season != int(current_season):
         return row
@@ -734,11 +543,8 @@ def _serialize_pick(
 def _round_to_budget(values: list[float], target_total: int) -> list[int]:
     """Largest-remainder rounding to hit exactly ``target_total``.
 
-    Delegates to ``draft_capital_classes.allocate_class_budget`` (whole-dollar
-    units) — the ONE exact per-class allocator both draft-capital paths use
-    for estimated classes (owner addendum 2026-10-18: a class totals exactly
-    $1,200.00).  Same math and invariant (∑ = target) as
-    server.py::_round_to_budget for the workbook path.
+    Duplicates the behavior of server.py::_round_to_budget for
+    the workbook path — same math, same invariant (∑ = target).
 
     The caller passes only the picks the contract could price, so this
     routinely sees a SUBSET of the generated board.  That is fine and
@@ -747,6 +553,20 @@ def _round_to_budget(values: list[float], target_total: int) -> list[int]:
     ``len(values)`` so the largest-remainder slice never truncates, and
     an empty list (nothing priced at all) returns ``[]`` rather than
     manufacturing a distribution."""
-    from src.api.draft_capital_classes import allocate_class_budget  # noqa: PLC0415
-
-    return [int(v) for v in allocate_class_budget(values, target_total, unit_cents=100)]
+    if not values:
+        return []
+    total = sum(values)
+    if total <= 0:
+        return [0] * len(values)
+    # Scale and floor; distribute remainder by largest fractional part.
+    scaled = [v * target_total / total for v in values]
+    floors = [int(s) for s in scaled]
+    remainder = target_total - sum(floors)
+    fractionals = sorted(
+        range(len(scaled)),
+        key=lambda i: -(scaled[i] - floors[i]),
+    )
+    out = list(floors)
+    for i in fractionals[:remainder]:
+        out[i] += 1
+    return out

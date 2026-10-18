@@ -1,11 +1,9 @@
 // MISSING IS NEVER ZERO for draft-capital auction budgets (#1785, 2026-10-18).
 //
-// A cold deploy (no league draft-class snapshot) used to serve dynasty_new's
-// drafted class as "upcoming": unpriced, so every team's auction budget read
-// $0 on /draft, the auction room, the /league simulator and the /trade stack.
-// The backend now publishes `teamTotalsState: "unavailable"` with null
-// `auctionDollars`; these tests pin that every frontend reader refuses to
-// turn that into $0.
+// A payload whose budgets are unavailable (`teamTotalsState: "unavailable"`,
+// or rows with no numeric `auctionDollars`) must never read as $0 on /draft,
+// the auction room, the /league simulator or the /trade stack.  These tests
+// pin that every frontend reader refuses to turn it into $0.
 import { describe, expect, it } from "vitest";
 
 import {

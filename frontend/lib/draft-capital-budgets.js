@@ -2,12 +2,12 @@
 //
 // `/api/draft-capital`'s `teamTotals[].auctionDollars` are the upcoming
 // class's per-team dollars: the auction-budget basis /draft, the auction room,
-// the /league simulator and the /trade stack read.  The Sleeper-derived
-// fallback publishes them as UNAVAILABLE (`teamTotalsState: "unavailable"`,
-// every `auctionDollars: null`, `teamTotalsReason` named) when the upcoming
-// class is unpriced or cannot be proven (src/api/draft_capital_classes.py).
-// MISSING IS NEVER ZERO: every consumer asks this module first and renders
-// the unavailable state instead of coercing null to $0.
+// the /league simulator and the /trade stack read.  A payload may publish them
+// as UNAVAILABLE (`teamTotalsState: "unavailable"`, every `auctionDollars:
+// null`, `teamTotalsReason` named), and a payload whose rows carry no numeric
+// budget at all is read the same way.  MISSING IS NEVER ZERO: every consumer
+// asks this module first and renders the unavailable state instead of
+// coercing null to $0.
 
 export const TEAM_TOTALS_UNAVAILABLE = "unavailable";
 

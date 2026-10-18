@@ -6,9 +6,7 @@ every test here checks the season views against the per-pick dollars the two
 existing builders already publish:
 
 * the Sleeper-derived fallback (``build_sleeper_derived``), which spans more
-  than one season — each class its own $1200 pool (owner decision
-  2026-10-18), the upcoming class in ``picks`` / ``teamTotals`` and later
-  classes in ``additionalClassPicks``;
+  than one season and sums integer per-pick dollars into ``teamTotals``;
 * the default league's workbook path (``server._fetch_draft_capital``), which
   carries exactly one season and forms its totals from the sheet.
 
@@ -84,29 +82,9 @@ def _pin_draft_year(monkeypatch):
     monkeypatch.setattr(dc, "current_rookie_draft_year", lambda *a, **k: 2027)
 
 
-def _two_classes(season):
-    """A league that owns picks in exactly two classes (the canonical
-    league-scoped resolver's answer, injected so these tests stay about two
-    seasons; the horizon itself is pinned in test_draft_capital_all_years)."""
-    from src.identity.pick_lifecycle import LeagueDraftYears
-
-    return LeagueDraftYears(
-        anchor_year=season,
-        upcoming_draft_year=season,
-        owned_pick_seasons=(season, season + 1),
-        retired_seasons=(),
-    )
-
-
 def _build(monkeypatch, *, traded=None, n=4, contract=_TWO_SEASON_CONTRACT, season=2027):
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(_league(n, traded)))
-    return dcf.build_sleeper_derived(
-        "L1",
-        contract,
-        current_season=season,
-        draft_rounds=2,
-        league_draft_years=_two_classes(season),
-    )
+    return dcf.build_sleeper_derived("L1", contract, current_season=season, draft_rounds=2)
 
 
 def _team(result, name):
@@ -117,42 +95,32 @@ def _year_row(result, year, name):
     return next(r for r in result["teamTotalsByYear"][str(year)] if r["team"] == name)
 
 
-def _all_picks(result):
-    return result["picks"] + result["additionalClassPicks"]
-
-
 def _manual_year_sum(result, year, team):
     return sum(
         p["dollarValue"]
-        for p in _all_picks(result)
+        for p in result["picks"]
         if p["season"] == year and p["currentOwner"] == team and not p["isUnpriced"]
     )
 
 
-# ── 1-4, 13: All Years sums the classes; each season is its own slice ──
+# ── 1-4, 13: All Years is today's number; each season is its own slice ──
 
 
-def test_all_years_is_the_sum_of_every_priced_pick(monkeypatch):
+def test_all_years_is_the_sum_of_every_priced_pick_and_unchanged(monkeypatch):
     result = _build(monkeypatch)
     assert result["yearViewBasis"] == BASIS_PER_PICK_SUM
-    # (13) ``teamTotals`` = the upcoming class (the auction budgets): its own
-    # $1200, each team's sum of its priced upcoming-class dollars.
+    # (13) the existing all-season total is untouched: still the full budget,
+    # still each team's sum of priced per-pick dollars across every season.
     assert sum(t["auctionDollars"] for t in result["teamTotals"]) == 1200
-    assert {p["season"] for p in result["picks"]} == {2027}
-    all_rows = {r["team"]: r for r in result["allYearsTeamTotals"]}
     for t in result["teamTotals"]:
-        assert t["auctionDollars"] == _manual_year_sum(result, 2027, t["team"])
-        assert t["draftCapitalByYear"]["2027"] == t["auctionDollars"]
-        # All Years = the season slices added up, each pick once.
         all_seasons = sum(
             p["dollarValue"]
-            for p in _all_picks(result)
+            for p in result["picks"]
             if p["currentOwner"] == t["team"] and not p["isUnpriced"]
         )
-        assert all_rows[t["team"]]["auctionDollars"] == all_seasons
-        assert sum(t["draftCapitalByYear"].values()) == all_seasons
-    # Two priced classes → All Years is 2 × $1200.
-    assert result["allYearsSummary"]["totalDollars"] == 2400
+        assert t["auctionDollars"] == all_seasons
+        # The season slices add back up to it — no per-season renormalization.
+        assert sum(t["draftCapitalByYear"].values()) == t["auctionDollars"]
 
 
 @pytest.mark.parametrize("year,other", [(2027, 2028), (2028, 2027)])
@@ -163,29 +131,23 @@ def test_each_season_counts_only_its_own_picks(monkeypatch, year, other):
         row = _year_row(result, year, t["team"])
         assert row["auctionDollars"] == _manual_year_sum(result, year, t["team"])
         assert row["pickCount"] == sum(
-            1 for p in _all_picks(result) if p["season"] == year and p["currentOwner"] == t["team"]
+            1 for p in result["picks"] if p["season"] == year and p["currentOwner"] == t["team"]
         )
     summary = result["yearSummaries"][str(year)]
     assert summary["totalDollars"] == sum(
-        p["dollarValue"] for p in _all_picks(result) if p["season"] == year
+        p["dollarValue"] for p in result["picks"] if p["season"] == year
     )
-    # Each class is its own $1200 pool (owner decision 2026-10-18), so the
-    # two seasons' league totals are equal although their values differ.
-    assert summary["totalDollars"] == result["yearSummaries"][str(other)]["totalDollars"] == 1200
+    assert summary["totalDollars"] != result["yearSummaries"][str(other)]["totalDollars"]
 
 
-def test_each_class_is_its_own_1200_pool(monkeypatch):
-    """Owner decision 2026-10-18 — "$1,200 per draft class".  The retired
-    shared pool split ONE $1200 8 : 5 between these two classes."""
+def test_no_per_season_renormalization(monkeypatch):
+    """A season's league total is its share of the ONE $1200 pool, not $1200."""
     result = _build(monkeypatch)
     totals = {y: s["totalDollars"] for y, s in result["yearSummaries"].items()}
-    assert totals == {"2027": 1200, "2028": 1200}
-    # Within a class the dollars stay linear in canonical value:
-    # 2027: 4 × (6000 + 2000) = 32000 → a first is 6000/32000 × 1200 = $225.
-    firsts = {p["season"]: p["dollarValue"] for p in _all_picks(result) if p["round"] == 1}
-    assert firsts == {2027: 225, 2028: 240}  # 2028: 4000 / 20000 × 1200
-    assert result["budgetPolicy"]["allYearsBudget"] == 2400
-    assert result["budgetPolicy"]["status"] == "owner_confirmed"
+    assert sum(totals.values()) == 1200
+    assert all(0 < v < 1200 for v in totals.values())
+    # 4 teams × (6000 + 2000) vs 4 × (4000 + 1000) → 8 : 5 of the pool.
+    assert totals["2027"] == pytest.approx(1200 * 8 / 13, abs=2)
 
 
 # ── 5: rankings genuinely reorder ────────────────────────────────────────
@@ -229,7 +191,7 @@ def test_acquired_pick_counts_for_current_owner_not_original(monkeypatch):
     traded = [{"season": "2028", "round": 1, "roster_id": 3, "owner_id": 1}]
     result = _build(monkeypatch, traded=traded)
     first_value = next(
-        p["dollarValue"] for p in _all_picks(result) if p["season"] == 2028 and p["round"] == 1
+        p["dollarValue"] for p in result["picks"] if p["season"] == 2028 and p["round"] == 1
     )
     t1 = _year_row(result, 2028, "Team1")
     t3 = _year_row(result, 2028, "Team3")
@@ -389,12 +351,7 @@ def test_public_redaction_strips_rookie_fields_and_never_mutates_the_cache(monke
     ]
     monkeypatch.setattr(dcf, "_fetch_json", _stub_fetch_json(_league()))
     result = dcf.build_sleeper_derived(
-        "L1",
-        _TWO_SEASON_CONTRACT,
-        current_season=2027,
-        draft_rounds=2,
-        rookies=rookies,
-        league_draft_years=_two_classes(2027),
+        "L1", _TWO_SEASON_CONTRACT, current_season=2027, draft_rounds=2, rookies=rookies
     )
     before = copy.deepcopy(result)
     public = server._redact_draft_capital_for_public(result)
