@@ -327,3 +327,118 @@ def dynasty_main_whole_dollar_bounds():
         2 if INT(i / 12) == 4 else (1 if INT(i / 12) == 5 else None) for i in range(1, 72)
     ]
     return floors, caps
+
+
+# --- independent verifier for the constrained whole-dollar step (owner 2026-10-18) ---
+#
+# Two exact methods, both different from production's backward windowed DP:
+#   * brute force: enumerate EVERY non-increasing integer vector within the
+#     bounds that sums to the total (small n only);
+#   * a FORWARD dynamic programme over (last value, running sum) with one
+#     scalarised big-integer objective
+#         cost * M  -  sum_i d_i * (T + 1) ** (n - 1 - i),   M > (T + 1) ** n
+#     whose minimum is the minimum-deviation allocation that is
+#     lexicographically largest (base-(T+1) digits order exactly like the
+#     vectors).  States are pruned to cost-so-far <= bound; any allocation
+#     with total deviation <= bound survives, so with ``bound`` >= the true
+#     optimum the programme is exact.
+
+
+def _feasible_bounds(n, total, floors, caps):
+    lo, run = [0] * n, 0
+    for i in range(n - 1, -1, -1):
+        run = max(run, floors[i] if floors and floors[i] is not None else 0)
+        lo[i] = run
+    hi, run = [total] * n, total
+    for i in range(n):
+        run = min(run, caps[i] if caps and caps[i] is not None else total)
+        hi[i] = run
+    return lo, hi
+
+
+def brute_force_min_deviation(values, total, floors=None, caps=None):
+    """Exhaustive optimum: (deviation, lexicographically largest best vector) or None."""
+    from fractions import Fraction
+
+    n = len(values)
+    lo, hi = _feasible_bounds(n, total, floors, caps)
+    best = None
+
+    def rec(i, prev, left, acc, dev):
+        nonlocal best
+        if i == n:
+            if left == 0:
+                cand = (dev, tuple(acc))
+                if best is None or dev < best[0] or (dev == best[0] and cand[1] > best[1]):
+                    best = cand
+            return
+        top = min(hi[i], left if prev is None else min(prev, left))
+        for d in range(lo[i], top + 1):
+            acc.append(d)
+            rec(i + 1, d, left - d, acc, dev + abs(Fraction(d) - values[i]))
+            acc.pop()
+
+    rec(0, None, total, [], Fraction(0))
+    return best
+
+
+def forward_dp_min_deviation(values, total, floors=None, caps=None, bound=None):
+    """Forward scalarised DP: (deviation, vector) or None.  See the block comment."""
+    from fractions import Fraction
+
+    n = len(values)
+    lo, hi = _feasible_bounds(n, total, floors, caps)
+    den = 1
+    for v in values:
+        den = den * v.denominator // __import__("math").gcd(den, v.denominator)
+    rs = [int(v * den) for v in values]
+    lim = None if bound is None else int(Fraction(bound) * den)
+    base = total + 1
+    M = base**n + 1
+    weight = [base ** (n - 1 - i) for i in range(n)]
+    # state (last, running sum) -> (scalar, dev_scaled, parent_state, d)
+    layers = [{(None, 0): (0, 0, None, None)}]
+    for i in range(n):
+        nxt = {}
+        for (last, run), (scal, dev, _, _) in layers[-1].items():
+            top = hi[i] if last is None else min(hi[i], last)
+            top = min(top, total - run)
+            for d in range(lo[i], top + 1):
+                ndev = dev + abs(d * den - rs[i])
+                if lim is not None and ndev > lim:
+                    continue
+                key = (d, run + d)
+                s = scal + abs(d * den - rs[i]) * M - d * weight[i]
+                cur = nxt.get(key)
+                if cur is None or s < cur[0]:
+                    nxt[key] = (s, ndev, (last, run), d)
+        layers.append(nxt)
+    finals = [(v[0], k) for k, v in layers[-1].items() if k[1] == total]
+    if not finals:
+        return None
+    _, key = min(finals)
+    out = []
+    for i in range(n, 0, -1):
+        s, dev, parent, d = layers[i][key]
+        if i == n:
+            total_dev = dev
+        out.append(d)
+        key = parent
+    return Fraction(total_dev, den), tuple(reversed(out))
+
+
+def check_whole_dollar_invariants(dollars, values, total, floors=None, caps=None):
+    """Every invariant the owner listed; returns a list of violations (empty = ok)."""
+    bad = []
+    if any(not isinstance(d, int) for d in dollars):
+        bad.append("non_integer")
+    if sum(dollars) != total:
+        bad.append("sum")
+    if any(dollars[i] > dollars[i - 1] for i in range(1, len(dollars))):
+        bad.append("rises")
+    for i, d in enumerate(dollars):
+        if floors and floors[i] is not None and d < floors[i]:
+            bad.append(f"floor@{i}")
+        if caps and caps[i] is not None and d > caps[i]:
+            bad.append(f"cap@{i}")
+    return bad

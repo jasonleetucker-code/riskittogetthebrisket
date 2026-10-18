@@ -26,9 +26,9 @@ from tests.draft_valuation import _workbook as wb
 # must fail here.  Changing these is an owner decision, not a refresh.
 PINNED_CHECKSUMS = {
     "frozen_inputs/2026_spreadsheet_baseline.json": "57b466af0412f853e3ba81e0c6d131dcd4fc0eb05145b2a13e3220561423981b",
-    "historical_curves/dynasty_main/2024.json": "524a53df99b5afe0e403d4a31e13a10a9b59a81a8b226a2a063ebd659ee79bb3",
-    "historical_curves/dynasty_main/2025.json": "84c44c923725811409a8b661d9001d9e3864b4636c7b6fc64f2487cbc7428e0b",
-    "historical_curves/dynasty_main/2026.json": "a1e15dd79c33fcff80079cbcf37b63911fec5b1fb923f83a829922b7a8d61cf3",
+    "historical_curves/dynasty_main/2024.json": "9c6df8ecc73aba3de859125c64255860d98dcadf2ae9701cb723c466ef190468",
+    "historical_curves/dynasty_main/2025.json": "7ac980517796a6d2a4d652b505cff70d82af01df14a70738e71a4dc238d50ef2",
+    "historical_curves/dynasty_main/2026.json": "c09600a634ef8d1e7a596609c2f3b265670acafb346f84077a9e2c4fad731563",
 }
 
 
@@ -68,7 +68,7 @@ def test_historical_curves_are_the_workbook_columns(year, col):
         (CONFIG_DIR / "historical_curves" / "dynasty_main" / f"{year}.json").read_text("utf-8")
     )
     # Unknown provenance stays unknown, with a reason — never invented.
-    for field in ("inputs", "spineYears", "formulaVersion", "draftCompletion"):
+    for field in ("inputs", "spineYears", "formulaVersion", "draftCompletion", "finalWholeDollars"):
         assert raw[field] is None and raw[f"{field}UnavailableReason"]
 
 
@@ -116,7 +116,7 @@ def test_loader_refuses_an_edited_rookie_value(config_copy):
 
 def test_loader_refuses_an_edited_curve(config_copy):
     path = config_copy / "historical_curves" / "dynasty_main" / "2025.json"
-    _edit(path, lambda p: p["dollars"][3].__setitem__("dollars", "78"))
+    _edit(path, lambda p: p["referenceDollars"][3].__setitem__("dollars", "78"))
     with pytest.raises(SnapshotIntegrityError, match="checksum"):
         load_completed_class_curve(2025, config_dir=config_copy)
 
@@ -125,7 +125,7 @@ def test_recomputed_checksum_still_refuses_a_broken_curve(config_copy):
     path = config_copy / "historical_curves" / "dynasty_main" / "2025.json"
 
     def mutate(p):
-        p["dollars"][3]["dollars"] = "78"  # pool no longer sums to $1200
+        p["referenceDollars"][3]["dollars"] = "78"  # pool no longer sums to $1200
         p["checksum"]["value"] = canonical_checksum(p)
 
     _edit(path, mutate)

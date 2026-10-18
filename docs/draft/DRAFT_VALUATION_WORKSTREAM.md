@@ -30,6 +30,9 @@ Workbook map and parity evidence: `docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`.
 | 5 | Preserve the 60/40 spreadsheet formula exactly; each annual pool reconciles to **exactly** $1,200 in money units | START_HERE §5 |
 | 6 | Automatic rollover: scheduled readiness checks over approved offense + IDP rookie sources, stable class identity, full coverage and validation before staged promotion; keep the last verified generation and alert on failure; no manual Google Sheet maintenance or mutation | START_HERE §6 |
 | 7 | **Whole dollars only** for the `dynasty_main` auction: 72 integer pick values totalling exactly $1,200, so every manager budget is the exact integer sum of owned picks. The 60/40 formula, spine, decay, caps and floors are unchanged; the half-dollar L curve stays the mathematical reference and the whole-dollar allocation is a separately identified final step (`apportion.apportion_whole_dollars`: floor, residual to the largest remainders with ties to the earlier pick, verify or refuse) | owner, 2026-10-18 |
+| 9 | **Two values per completed class**, both immutable with receipts: `referenceDollars` (the spreadsheet curve at its original precision) builds the three-year spine, as the F/G/H formula was designed around; `finalWholeDollars` (the published integers) is used for every pick allocation, manager budget, draft-capital display and auction transaction. Fractional dollars are never published as spendable budget. Ledger, snapshots and receipts carry exactly these names; spreadsheet-imported 2024-2026 classes carry `finalWholeDollars: null` with a reason (their published allocation is not in the workbook) | owner, 2026-10-18 |
+| 10 | **Constraint-aware whole dollars before refusal.** Step A (largest remainder) is used unchanged whenever it satisfies every constraint, so existing outputs (incl. the 2027 workbook) never move. Only if it breaks one, Step B solves exactly: minimise Σ\|d_i − r_i\| subject to integer d, Σd = $1,200, per-pick floors/caps (never weakened), non-increasing; ties → lexicographically largest allocation (earlier picks first). Exact windowed DP (window doubled until lossless). Refuse only on genuine infeasibility (proven by monotone bounds, binding constraint named), missing/bad data, or failed verification. No last-known-good store in the module: a refusal propagates and #1785 refuses the board with `draft_dollars_refused`. Evidence: `docs/draft/WHOLE_DOLLAR_RECOVERY_EVIDENCE_2026-10-18.md` | owner, 2026-10-18 |
+| 11 | **Last-known-good safety.** The newest independently verified, complete 72-pick whole-dollar allocation per draft year is preserved (append-only, create-only, checksummed records; "current" is derived, never a mutable copy). A failed refresh (missing inputs, infeasible constraints, verifier failure, formula change) serves that SAME year's last verified allocation as `last_known_good` with `failedRefresh{at, reason}` and `lastValidAt`; with none it is `unavailable` with a named reason. Never zero budgets, never another year's curve, never ownership (dollars by draft position only; ownership is joined by the consumer from the live Sleeper fold). A retired class or a formula-version change makes a stored allocation stale → refused | owner addendum, 2026-10-18 |
 | 8 | **K-step tie rule:** tied remainders at the award cutoff go to the earlier draft position, so the half-dollar curve always totals exactly $1,200 (the literal sheet would publish e.g. $1,206). A departure from the literal sheet only in that case; unchanged on the real workbook. Resolves the former cutoff-tie open question | owner, 2026-10-18 |
 | — | One canonical owner per concept; package Value Adjustment never applies to pick auction dollars; MISSING IS NEVER ZERO; independent verification, never a test that copies production logic | directive |
 
@@ -64,11 +67,51 @@ PRODUCTION-VERIFIED (each a separate claim).
 |---|---|---|---|---|---|---|
 | **A — spreadsheet parity** (PROMPT A) | Forensic map (`DRAFT_DATA_WORKBOOK_MAP.md`); golden fixtures (workbook cells + cached values, inputs, owner package goldens, LibreOffice recalc, RANK-tie cases); pure versioned allocator `src/draft/rookie_auction/curve.py` (Decimal / Fraction, integer half-dollar units, every intermediate column, receipts via `curve_receipt`); independent literal transcription `tests/draft_valuation/reference_workbook_formulas.py`; legacy comparison `scripts/draft_valuation_parity_report.py` | — | 72/72 on C/D/E/I/J/K/L vs cache and vs package goldens; LibreOffice C within 5e-13; reference vs cache incl. grid, Q, owners, team totals, M123; 250 random cases production = reference; 10 formula mutations detected; RANK-tie suite | all of the above green; no production value changed; no Sheet write | the formula already ran in `server.py::_rookie_dollars_from_values` (matches 72/72 when fed the sheet's own B) — kept, not reused, because it is float, tolerates < 72 inputs, falls back to a flat spine and tie-breaks by row | **TESTS GREEN; PR #1786 open** (not merged — needs owner approval). Includes the owner's whole-dollar final step and K-step tie rule (2026-10-18) |
 | **B — canonical rookie values + frozen fallbacks** (PROMPT B) | Frozen 2026 provisional baseline `config/draft_valuation/frozen_inputs/2026_spreadsheet_baseline.json` + checksum-refusing loader `src/draft/rookie_auction/snapshots.py` (**done**); then a `RookieClassSnapshot` contract (target vs actual input class, mode `actual` / `frozen_fallback`, league, scoring fingerprint, IDP eligibility, generation hash, 72 entries with stable IDs, coverage, missing reasons); class-identity states (`class_eligible_for_curve` / `rosterable_on_sleeper` / `unsupported_class_identity`); sorted, de-duplicated top-72 from canonical `rankDerivedValue`; read-only readiness detector | A | frozen-snapshot tests (checksum pinned, edits refused, relabel refused, 2027 spine, curve from frozen inputs = workbook 72/72); later: class-identity, IDP / non-IDP, duplicate-alias, 72-uniqueness, stale-evidence tests | stable 72 ordered values or explicit NOT_READY; frozen fallback never mutates; no premature 2027 promotion | `src/draft/rookie_pool.py::select_rookie_rows` (the one "who is in this auction" owner — reuse; note it proves `rookie` + Sleeper id, not class year); `src/api/draft_class_evidence.py` | **TESTS GREEN** on PR #1786: frozen baseline; `class_snapshot.py` (class identity, sorted top 72, hashes, frozen template); report-only `readiness.py` (`PROMOTION_ENABLED = False`; measured 2026-10-18: 2027 class 0/72 eligible → `FALLBACK_VERIFIED`) |
-| **C — historical spine snapshots + rollover** (PROMPT C) | Completed-class curves 2024/2025/2026 as spreadsheet-sourced snapshots (**done**, unknown inputs/spine/formula/completion `null` with reasons); `select_spine_years` (**done**); then an append-only ledger of generated class curves keyed by (league, class, formula version, cutoff), written only on verified completion + roster consumption, idempotent, with an as-of replay command | A, B | spine selection 2027 → {2024, 2025, 2026}, 2028 → {2025, 2026, 2027} only once 2027 exists; later: completed-not-rostered, two jobs, reopened draft, supersession, failed write | dynamic last-three resolver; immutable ledger; no hindsight substitution; 2024 retained after leaving the window | `src/identity/pick_lifecycle.py` (completion AND roster consumption — the #1414 rule), `src/api/draft_class_evidence.py`, `src/history/` (temporal ledger conventions) | **TESTS GREEN** on PR #1786: imported curves under `historical_curves/dynasty_main/`, `ledger.finalize_completed_class` (create-only, verified completion via `pick_lifecycle`, pre-draft cutoff, idempotent, conflict-refusing), `replay_spine` + CLI. Not wired to any job (Batch D) |
+| **C — historical spine snapshots + rollover** (PROMPT C) | Completed-class curves 2024/2025/2026 as spreadsheet-sourced snapshots (**done**, unknown inputs/spine/formula/completion `null` with reasons); `select_spine_years` (**done**); then an append-only ledger of generated class curves keyed by (league, class, formula version, cutoff), written only on verified completion + roster consumption, idempotent, with an as-of replay command | A, B | spine selection 2027 → {2024, 2025, 2026}, 2028 → {2025, 2026, 2027} only once 2027 exists; later: completed-not-rostered, two jobs, reopened draft, supersession, failed write | dynamic last-three resolver; immutable ledger; no hindsight substitution; 2024 retained after leaving the window | `src/identity/pick_lifecycle.py` (completion AND roster consumption — the #1414 rule), `src/api/draft_class_evidence.py`, `src/history/` (temporal ledger conventions) | **TESTS GREEN** on PR #1786: published allocations with last-known-good safety (`published.py`, runtime verifier `verify.py`); imported curves under `historical_curves/dynasty_main/`, `ledger.finalize_completed_class` (create-only, verified completion via `pick_lifecycle`, pre-draft cutoff, idempotent, conflict-refusing), `replay_spine` + CLI. Not wired to any job (Batch D) |
 | **D — automated class readiness / promotion** (PROMPT D) | Scheduled readiness check after each fresh canonical build; state machine `FALLBACK_VERIFIED → CANDIDATE_INCOMPLETE → CANDIDATE_READY → VALIDATED → PROMOTABLE → ACTIVE` + error/rollback; thresholds preregistered before any 2027 candidate is looked at; atomic generation publish with last-good pointer and one-command rollback; operator diagnostic | A–C | mocked time jump fallback → eligible 2027; every failure keeps the previous generation; no repeated alerts | dry-run only in its PR; first live switch follows normal owner gates | `.github/workflows/scheduled-refresh.yml` (2-hour cadence, already syncs the workbook), existing alert/health plumbing | NOT STARTED |
 | **E — multi-year draft capital** (PROMPT E) | Integrate with #1785 (no second ownership resolver or year selector); $1,200 per class for `dynasty_main`; replace #1785's interim generic-market future-class curve with the workbook curve (frozen 2026 inputs + spine for each class until that class's real inputs pass Batch D); draft order = `reverse_record_lower_pf` (`src/public_league/draft_order.py`) for verified final standings, forecasts labelled, later years round-level only; real Sleeper standings and pick ownership for `dynasty_main` | A–C (#1785 merged) | 216 unique 2027–2029 identities for `dynasty_main`; per-class totals exactly $1,200; no 2027 double count in `/trade` | per-year API with `budgetBasis`, `curveId`, `spineYears`, `inputMode`; UI unchanged except labels | **#1785** (open, `claude/draft-capital-all-years`): every Sleeper class on `/league` Draft Capital, `?year=`, per-class $1,200 pool (`budgetPolicy per_class_pool`), canonical ownership fold, refuses an unobserved `/traded_picks`; **#1579** year selector; **#1626** draft-capital correctness / lifecycle; **#1769** canonical public pick ownership; `src/identity/picks.py`, `pick_lifecycle.league_draft_years` | NOT STARTED (waits on #1785) |
 | **F — sitewide integration, automation, monitoring, cache** (PROMPT F) | Consumer census; one `DraftCapitalGeneration` reader; swap `server.py::_rookie_dollars_from_values` and the L2:L73 read onto the canonical curve (same quantity only); keep canonical 0–9999 pick values and the trade package model untouched; receipts (`generationHash`, `curveVersion`, `targetDraftYear`, `actualInputClassYear`, `spineYears`, …); alerts; stale-while-revalidate on the last valid generation | A–E | consumer matrix with exact functions/tests; before/after payloads under pinned data | every consumer of auction dollars reads one generation; no silent value change | `src/api/pick_value_resolution.py` (market values — must stay separate), `src/api/draft_capital_years.py`, `frontend/lib/draft-capital-years.js` | NOT STARTED |
 | **G — end-to-end verification + release** (PROMPT G) | Independent checker (no production imports) over pinned goldens and generated classes; adversarial dataset; as-of replay; read-only Sleeper reconciliation (216 ids); staged rollout, exact-head CI, deploy, desktop 1440 / mobile 375 smoke; rollback drill | A–F | PASS / FAIL / BLOCKED / NOT_TESTED report | production proof, not self-consistency | Batch A's reference transcription and fixtures are the start of the independent checker | NOT STARTED |
+
+## API for PR #1785
+
+```python
+from src.draft.rookie_auction.published import (
+    AllocationCandidate, CandidateFailure, PublishedAllocation, resolve_published_allocation,
+)
+resolve_published_allocation(
+    league_key: str, draft_year: int, *,
+    candidate: AllocationCandidate | CandidateFailure | None = None,
+    lifecycle: ClassLifecycle | None = None,          # pick_lifecycle verdict; retired -> unavailable
+    store_dirs: Sequence[Path] | None = None,         # default: repo store, then box-local store
+    write_dir: Path | None = None,                    # default: box-local store
+    persist: bool = True,
+) -> PublishedAllocation
+```
+
+* `AllocationCandidate(draft_year, reference_dollars, effective_at, provenance,
+  formula_version=FORMULA_VERSION)` — the workbook path passes its 72 L values
+  (exact strings / Decimals / Fractions; floats are refused) plus provenance;
+  `AllocationCandidate.from_curve(result, ...)` for a computed curve.
+* `CandidateFailure(draft_year, reason, at)` — a refresh that produced no curve.
+* `PublishedAllocation`: `allocation_state` (`current` / `last_known_good` /
+  `unavailable`), `final_whole_dollars` (72 ints or `None`), `picks`
+  (`"1.01"`…`"6.12"`), `dollars_by_slot()` (raises when unavailable),
+  `reference_dollars`, `effective_at`, `last_valid_at`, `failed_refresh`
+  (`{at, reason}`), `unavailable_reason`, `warning`, `record_checksum`,
+  `receipt` (formula version, provenance, apportionment + verifier receipts),
+  `to_dict()`. No ownership field exists.
+* Whole-dollar primitive (unchanged path/signature):
+  `src.draft.rookie_auction.apportion.apportion_whole_dollars(values, total, *, floors=None, caps=None)`;
+  the result object gained `method`, `step_a_dollars`, `step_a_violations`,
+  `repairs`, `total_deviation`, `max_deviation`, `binding_constraints`.
+
+**Where allocations live.** Repo-tracked
+`config/draft_valuation/published_allocations/<league>/<year>/` holds the
+workbook-derived allocation (seeded: 2027, effective 2026-10-17, the workbook's
+72 whole dollars). Production-computed allocations are written by the resolver
+to the box-local, gitignored `data/draft_valuation/published_allocations/` —
+the same open storage/privacy question as the ledger (see UNRESOLVED).
 
 ## Coordination
 
@@ -95,21 +138,15 @@ PRODUCTION-VERIFIED (each a separate claim).
 
 ## UNRESOLVED
 
-* **Spine on the half-dollar reference.** Completed-class snapshots keep the
-  half-dollar curve in `dollars` (the quantity the workbook's F/G/H spine
-  holds) and the published integers in `finalWholeDollars`; the spine is
-  built from the former. Owner confirmation that the spine keeps rolling on
-  the half-dollar reference (not the whole-dollar published values) would
-  close this.
-* **Whole-dollar refusals.** The final step refuses a class whose half-dollar
-  curve dips below a whole-dollar floor (e.g. round 5 at $1.50 when round 4
-  ends under $2): 30 of 250 synthetic cases, never the workbook. Such a class
-  would publish nothing until resolved.
 * **No pre-draft 2026 rookie inputs exist in evidence.** Column B is frozen as
   the owner-approved provisional baseline, labelled not-a-pre-draft
   observation; any later "original 2026 class" claim needs archival evidence.
-* **Spreadsheet-sourced curves** 2024/2025/2026 have no recorded inputs, spine
-  or formula version; recorded as `null` with reasons.
+* **Spreadsheet-sourced curves** 2024/2025/2026 have no recorded inputs, spine,
+  formula version or published whole-dollar allocation; recorded as `null`
+  with reasons rather than reconstructed.
+* **Box-local published allocations** (`data/draft_valuation/published_allocations/`)
+  survive only as long as the box's `data/`; they are not backed up or
+  reviewable in the repo. Same decision as the ledger's storage below.
 * **Who calls the ledger, and where generated snapshots live.** A curve
   finalized on the production box must become a tracked, reviewable file;
   generated snapshots embed the class's rookie entries, so whether they go

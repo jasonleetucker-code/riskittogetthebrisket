@@ -15,7 +15,6 @@ import pytest
 
 from src.draft.rookie_auction.apportion import ApportionmentRefused, apportion_whole_dollars
 from src.draft.rookie_auction.curve import (
-    CurveInvariantError,
     compute_curve,
     curve_receipt,
     whole_dollar_constraints,
@@ -136,7 +135,6 @@ def test_largest_remainder_wins_regardless_of_position():
     "values,total,conflict",
     [
         ([Fraction(5), Fraction(3)], 10, "sum_not_total"),
-        ([Fraction(1), Fraction(2), Fraction(3)], 6, "not_non_increasing"),
         ([Fraction(-1), Fraction(11)], 10, "negative_value"),
         ([Decimal("NaN"), Fraction(10)], 10, "non_finite"),
         ([Decimal("Infinity"), Fraction(10)], 10, "non_finite"),
@@ -153,25 +151,39 @@ def test_refusals_name_the_conflict(values, total, conflict):
     assert exc.value.conflict == conflict
 
 
-def test_reference_refuses_the_same_cases():
-    for values, total in (
-        ([Fraction(5), Fraction(3)], 10),
-        ([Fraction(1), Fraction(2), Fraction(3)], 6),
-        ([0.5, Fraction(19, 2)], 10),
+def test_reference_step_a_refuses_what_production_repairs():
+    """Simple rounding (the reference's Step A transcription) refuses; the
+    production step repairs these exactly (see test_constrained_whole_dollars)."""
+    for values, total, kw in (
+        ([Fraction(1), Fraction(2), Fraction(3)], 6, {}),
+        ([Fraction(5), Fraction(3), Fraction(2)], 10, {"caps": [None, 2, None]}),
+        ([Fraction(5), Fraction(3), Fraction(2)], 10, {"floors": [1, 1, 3]}),
     ):
         with pytest.raises(ref.Refused):
-            ref.whole_dollars(values, total)
-
-
-def test_floor_and_cap_violations_refuse():
-    with pytest.raises(ApportionmentRefused) as exc:
-        apportion_whole_dollars([Fraction(5), Fraction(3), Fraction(2)], 10, caps=[None, 2, None])
-    assert exc.value.conflict == "above_cap"
-    with pytest.raises(ApportionmentRefused) as exc:
-        apportion_whole_dollars([Fraction(5), Fraction(3), Fraction(2)], 10, floors=[1, 1, 3])
-    assert exc.value.conflict == "below_floor"
+            ref.whole_dollars(values, total, **kw)
+        assert apportion_whole_dollars(values, total, **kw).method == "constrained_min_deviation"
     with pytest.raises(ref.Refused):
-        ref.whole_dollars([Fraction(5), Fraction(3), Fraction(2)], 10, caps=[None, 2, None])
+        ref.whole_dollars([Fraction(5), Fraction(3)], 10)
+
+
+@pytest.mark.parametrize(
+    "kw,detail",
+    [
+        ({"floors": [3, 3, 3]}, "monotone floors need 9"),
+        ({"caps": [1, 1, 1]}, "monotone caps allow 3"),
+        ({"floors": [None, None, 3], "caps": [None, 2, None]}, "index 1"),
+    ],
+)
+def test_genuinely_infeasible_constraints_refuse_with_the_binding_constraint(kw, detail):
+    with pytest.raises(ApportionmentRefused) as exc:
+        apportion_whole_dollars([Fraction(5, 2), Fraction(2), Fraction(3, 2)], 6, **kw)
+    assert exc.value.conflict == "infeasible" and detail in str(exc.value)
+    assert (
+        ref.brute_force_min_deviation(
+            [Fraction(5, 2), Fraction(2), Fraction(3, 2)], 6, kw.get("floors"), kw.get("caps")
+        )
+        is None
+    )
 
 
 def test_total_is_never_changed():
@@ -183,27 +195,31 @@ def test_total_is_never_changed():
 
 
 def test_random_cases_through_the_whole_dollar_step():
+    """All 250 publish.  220 by Step A unchanged; 30 that simple rounding
+    refuses are recovered by the constrained step.  The independent forward
+    DP (a different exact method) confirms optimality and the tie-break on
+    every repaired case, and every allocation passes every invariant."""
     from tests.draft_valuation.test_curve_properties import SEEDS, _case
 
     floors, caps = ref.dynasty_main_whole_dollar_bounds()
-    accepted = refused = 0
+    by_method = {"largest_remainder": 0, "constrained_min_deviation": 0}
     for seed in SEEDS:
         res = compute_curve(*_case(seed))
+        w = res.whole_dollars
+        assert w is not None, seed
         half = [Fraction(u, 2) for u in res.units]
+        assert ref.check_whole_dollar_invariants(list(w.dollars), half, 1200, floors, caps) == []
+        by_method[w.method] += 1
         try:
-            out, plus = ref.whole_dollars(half, 1200, floors, caps)
+            out, _plus = ref.whole_dollars(half, 1200, floors, caps)
         except ref.Refused:
             out = None
-        if out is None:
-            refused += 1
-            assert res.whole_dollars is None and res.whole_dollars_refusal
-            with pytest.raises(CurveInvariantError):
-                res.final_whole_dollars
-            continue
-        accepted += 1
-        assert list(res.final_whole_dollars) == out
-        assert list(res.whole_dollars.plus_one_indices) == plus
-        assert sum(out) == 1200 and all(out[i] <= out[i - 1] for i in range(1, 72))
-    # Refusals happen only where the half-dollar curve itself dips below the
-    # round-5 $2 floor (round 4 ending under $2 in the synthetic shapes).
-    assert accepted > refused > 0
+        if w.method == "largest_remainder":
+            assert list(w.dollars) == out  # Step A, unchanged
+        else:
+            assert out is None  # simple rounding fails here
+            dev, vec = ref.forward_dp_min_deviation(
+                half, 1200, floors, caps, bound=w.total_deviation
+            )
+            assert dev == w.total_deviation and list(vec) == list(w.dollars)
+    assert by_method == {"largest_remainder": 220, "constrained_min_deviation": 30}
