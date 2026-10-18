@@ -63,12 +63,20 @@ async function openWorkspace(page) {
 
 // Manual files live under Advanced since the zero-upload requirement (DFS-AUTO-13). It opens by
 // itself when no automatic slate exists; otherwise the owner opens it.
+//
+// The <details> is `open={advancedOpen || autoUnavailable}`, so the auto-open can land after the
+// visibility check: a click then TOGGLES an already-open section shut, and React does not re-apply
+// an `open` prop that did not change.  Click only while the element is actually closed, and retry
+// until the textarea shows (mobile CI flaked here on PR #1814, run 39169041656).
 async function openAdvanced(page) {
   const box = page.getByLabel("Salary CSV text");
-  if (!(await box.isVisible())) {
-    await page.getByText("Advanced · Data overrides / manual import").click();
-  }
-  await expect(box).toBeVisible({ timeout: 15_000 });
+  const summary = page.getByText("Advanced · Data overrides / manual import");
+  const details = page.locator("details", { has: summary });
+  await expect(async () => {
+    if (await box.isVisible()) return;
+    if (!(await details.evaluate((el) => el.open))) await summary.click();
+    await expect(box).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test("the automatic slate panel comes first and always says what it has (DFS-AUTO)", async ({ authedPage: page }, testInfo) => {
