@@ -115,7 +115,8 @@ describe("/trade TC-B multi-team War Room limitation (TCM-G09)", () => {
     ]);
     render(<TradePage />);
     const note = await screen.findByTestId("war-room-multi-team-limit");
-    expect(note.textContent).toMatch(/none is computed for this 3-team trade/);
+    expect(note.textContent).toMatch(/no YES \/ NO is given for this 3-team trade/);
+    expect(note.textContent).not.toMatch(/\b(YES|NO) —/);
     expect(screen.queryByRole("heading", { name: "Trade War Room" })).toBeNull();
   });
 

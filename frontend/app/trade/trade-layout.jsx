@@ -22,9 +22,30 @@
  * a band or a recommendation.
  */
 
-import { Badge, DataTable } from "@/components/ds";
+import { useEffect, useState } from "react";
+import { Badge, DataTable, Tabs, tabId, tabPanelId } from "@/components/ds";
 import { DECISION_TONES } from "@/lib/trade-war-room";
 import styles from "./trade.module.css";
+
+/**
+ * True below the 768 px canonical breakpoint (the phone layout), after mount.
+ * The first render is always the wide layout -- the server has no viewport --
+ * and the phone layout takes over on the first effect.  /trade's body renders
+ * only after the player pool loads on the client, so nothing visibly swaps.
+ */
+export const NARROW_QUERY = "(max-width: 767.98px)";
+export function useNarrowViewport(query = NARROW_QUERY) {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mql = window.matchMedia(query);
+    const onChange = () => setNarrow(Boolean(mql.matches));
+    onChange();
+    mql.addEventListener?.("change", onChange);
+    return () => mql.removeEventListener?.("change", onChange);
+  }, [query]);
+  return narrow;
+}
 
 /** Anchors of the five layers, in reading order. */
 export const TRADE_LAYERS = [
@@ -93,13 +114,17 @@ export function ImmediateResultTable({ sides, sideTotals }) {
 }
 
 /** The words for every non-answer state of the decision echo. */
-const SUMMARY_STATE_TEXT = {
+export const SUMMARY_STATE_TEXT = {
   "no-team": "Pick your team to get a decision for your roster.",
   idle: "Add assets to both sides to get a decision.",
   "side-choice": "Tell the War Room which side is yours to get a decision.",
   loading: "Analyzing this trade…",
   error: "Analysis unavailable right now. The package result above is unaffected.",
-  multi: "No YES / NO for a trade with more than two teams; the War Room covers two-team trades.",
+  // Owner closeout 2026-10-18, decision 10: a YES / NO only where the engine
+  // can identify the user's side AND account for every side -- today, two-team
+  // trades.  Never a fabricated binary for another shape.
+  multi:
+    "A reliable YES / NO is unavailable for a trade with more than two teams: the decision engine can identify your side and account for every side only in a two-team trade.",
 };
 
 /**
@@ -156,5 +181,85 @@ export function DecisionSummary({ summary }) {
         {status === "multi" ? "About the War Room" : "Full analysis in the War Room"}
       </a>
     </section>
+  );
+}
+
+/**
+ * Layer 4's drilldowns (TC-D2; UX audit §7.1): one tab per question.  Only
+ * the ACTIVE panel is rendered, so a panel's chunk and its request wait for
+ * the user to open it (the same contract the folded panels had).
+ */
+export const INTEL_TABS = [
+  { id: "value", label: "Value" },
+  { id: "roster", label: "Roster" },
+  { id: "season", label: "Season" },
+  { id: "market", label: "Market" },
+  { id: "reasoning", label: "Reasoning" },
+];
+
+export function TradeIntelTabs({ active, onChange, panels }) {
+  const current = INTEL_TABS.some((t) => t.id === active) ? active : INTEL_TABS[0].id;
+  const render = panels?.[current];
+  return (
+    <div className={styles.intel}>
+      <Tabs
+        idPrefix="trade-intel"
+        label="Supporting intelligence"
+        tabs={INTEL_TABS}
+        active={current}
+        onChange={onChange}
+        className={styles.intelTabs}
+      />
+      <div
+        role="tabpanel"
+        id={tabPanelId("trade-intel", current)}
+        aria-labelledby={tabId("trade-intel", current)}
+        className={styles.intelPanel}
+        data-intel-tab={current}
+        tabIndex={0}
+      >
+        {typeof render === "function" ? render() : null}
+      </div>
+    </div>
+  );
+}
+
+const signed = (n) => {
+  if (n == null || !Number.isFinite(Number(n))) return "—";
+  const v = Math.round(Number(n));
+  return `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toLocaleString()}`;
+};
+
+/**
+ * The persistent summary for a 3+-team trade (TC-D2): each side's NET flow
+ * and the package band of the worst gap -- the multi-team meter's own numbers
+ * (`multiTeamNetSummary`), never a second reading -- linking to the result.
+ * There is no YES / NO for 3+ teams, and the bar says so.
+ */
+export function MultiTeamSummaryBar({ sides, summary, evalState }) {
+  const empty = evalState?.state === "empty";
+  const incomplete = evalState?.state === "incomplete";
+  return (
+    <div className="trade-sticky-tray" data-testid="trade-multi-summary">
+      <a href="#trade-result" className={styles.multiSummary}>
+        <span className={styles.multiSummaryNets}>
+          {sides.map((s, i) => (
+            <span key={s.id ?? s.label} className={styles.multiSummaryNet}>
+              <span className={styles.summaryLabel}>{s.label}</span>{" "}
+              {empty || incomplete ? "—" : signed(summary?.nets?.[i])}
+            </span>
+          ))}
+        </span>
+        <span className={styles.multiSummaryVerdict}>
+          {empty
+            ? "Add assets to compare"
+            : incomplete
+              ? `Incomplete — ${evalState.unpriced?.length || 0} unpriced, no verdict`
+              : `${summary?.verdict?.label || ""} · worst gap ${Math.round(
+                  summary?.worst || 0,
+                ).toLocaleString()} · reliable YES / NO unavailable for ${sides.length} teams`}
+        </span>
+      </a>
+    </div>
   );
 }

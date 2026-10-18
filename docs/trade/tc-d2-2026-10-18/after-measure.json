@@ -1,0 +1,24 @@
+[
+ {
+  "vp": "desktop-1440",
+  "players": [
+   "Jahmyr Gibbs",
+   "Ja'Marr Chase",
+   "Garrett Wilson",
+   "Lamar Jackson"
+  ],
+  "horizontalOverflowPx": 0,
+  "horizontalOverflowPx3Team": 0
+ },
+ {
+  "vp": "mobile-375",
+  "players": [
+   "Jahmyr Gibbs",
+   "Ja'Marr Chase",
+   "Garrett Wilson",
+   "Lamar Jackson"
+  ],
+  "horizontalOverflowPx": 0,
+  "horizontalOverflowPx3Team": 0
+ }
+]

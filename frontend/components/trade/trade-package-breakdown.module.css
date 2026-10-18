@@ -1,0 +1,140 @@
+/* TradePackageBreakdown (TC-B2: M01 / M02 / M04 / M05).  Tokens only; the
+   series colours are the fixed chart series (--chart-1..6, inline per
+   segment), the neutral "other" series is --neutral-signal, and Value
+   Adjustment is hatched so it never reads as an asset. */
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) 4.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.barLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.bar {
+  display: flex;
+  height: 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius-1);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.segment {
+  display: block;
+  height: 100%;
+  border-right: 1px solid var(--surface-1);
+  min-width: 2px;
+}
+
+.segmentVa {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--surface-3),
+    var(--surface-3) 3px,
+    var(--border-strong) 3px,
+    var(--border-strong) 4px
+  );
+  outline: 1px solid var(--border-strong);
+  outline-offset: -1px;
+}
+
+.barTotal {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.legends {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-3);
+}
+
+.legendSide {
+  min-width: 0;
+}
+
+.legendTitle {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+
+.legend {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legendItem {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-1);
+}
+
+.legendName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.marker {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.legendValue {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}

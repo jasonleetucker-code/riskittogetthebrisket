@@ -842,3 +842,125 @@
   gap: var(--space-3);
   min-width: 0;
 }
+
+/* ══ TC-D2 ═════════════════════════════════════════════════════════════
+   Supporting-intelligence tabs, the 3+-team summary bar, the builder's
+   bottom sheet (phones) and the toolbar's "More" group.  Tokens and the
+   canonical breakpoints only. */
+
+.intel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.intelPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.intelPanel:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.intelLead {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* 3+-team persistent summary: the tray's container, its own content. */
+.multiSummary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: var(--shell-max);
+  min-height: 44px;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+.multiSummaryNets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.multiSummaryNet {
+  white-space: nowrap;
+}
+.multiSummaryVerdict {
+  font-size: var(--font-size-2xs);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* Builder bottom sheet (phones): the ds Drawer, re-anchored to the bottom
+   edge -- the primitive's documented className override. */
+.sheet {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 85dvh;
+  border-left: 0;
+  border-top: 1px solid var(--border-default);
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
+}
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+.sheetResults {
+  max-height: none;
+  overflow-y: auto;
+}
+.sheetStatus {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.sheetAdd {
+  width: 100%;
+  min-height: 44px;
+}
+
+/* A balancing suggestion names an asset, its value and the gap it lands on;
+   on a narrow column that line wraps instead of pushing the page sideways
+   (measured: 48 px of horizontal page scroll at 375 px on a 3-team trade). */
+.balancers :global(.ds-btn) {
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+  height: auto;
+}
+
+@media (max-width: 768px) {
+  .assetRowRouted {
+    flex-wrap: wrap;
+  }
+  .assetRowRouted > :first-child {
+    flex: 1 1 100%;
+  }
+  .assetRowRouted > :last-child {
+    margin-left: auto;
+  }
+  .intelTabs :global(.ds-tab) {
+    min-height: 44px;
+    padding-inline: var(--space-1);
+  }
+  .controls :global(.ds-btn) {
+    min-height: 44px;
+  }
+}

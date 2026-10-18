@@ -87,5 +87,10 @@ export function opinionCoverageText(tally) {
   if (counts.incomplete) {
     parts.push(`${counts.incomplete} source${counts.incomplete === 1 ? "" : "s"} incomplete`);
   }
+  // Decision 9: an excluded source is named as unavailable -- never a vote,
+  // never "even", never folded into the coverage it could not give.
+  if (counts.unavailable) {
+    parts.push(`${counts.unavailable} source${counts.unavailable === 1 ? "" : "s"} unavailable`);
+  }
   return parts.join(" · ");
 }
