@@ -209,6 +209,8 @@ These answer the five questions in `TRADE_DECISION_ENGINE_AUDIT.md` §7.10. They
 | decision 5 | `teamImpact.verdict` competing YES/NO | retired from backend, config, UI | `test_trade_simulator.py`, `trade-simulation-equity-label.test.jsx` | `822b9fb2f8` |
 | decision 4 | Second Opinions "even" only below 1 point | within 1% of the larger adjusted side | `second-opinions-even-band.test.js` | `d3c5fcc947` |
 | review | two missing-to-zero coercions introduced on this branch (`symmetrize` adjustedDelta, override notice) | removed; two retired baseline entries deleted | `tests/trade/test_symmetrize.py`, coercion gate | `8f2e616e54` |
+| review | War Room idle copy said "Pick your team" with a team selected (empty / one-sided trades answer no request since `6a2f4b2f90`) | copy keys on the selected team | `trade-war-room-side-choice.test.jsx` | `25a6dfe262` |
+| review | four existing vitest cases broke on the trade-keyed Simulate impact gate (`9fcc10fb4a`) | `simulationSignature` helper; mocks and source check updated, gate unchanged | the three on-demand suites | `d6a84298c7` |
 
 The parity test (#15) found no disagreement on the eight fixture pairings: every surface already computes the same
 adjusted gap for the same numbers. Its documented intentional differences are the finder's retail-market basis (and
@@ -240,6 +242,15 @@ meaning (engine audit §5). Line numbers are as of `d3c5fcc947`.
 | Second Opinions "even" | within 1% of the larger adjusted side (1-point floor) | `frontend/lib/second-opinions.js:295` (`OPINION_EVEN_TOLERANCE_PCT`), `:305` | per-source leader, independent / modeled tallies | owner decision 4 (2026-10-18): initial value, subject to validation. Replaced the historical < 1 point in TC-A |
 | external calculator "even" | 0.0% | `src/league_intel/cross_market.py:798` (`EXTERNAL_EVEN_TOLERANCE_PCT`) | Best Offers qualification | owner default; external calculators are priced with KTC by design ("what KTC says"), so not a geom recalibration target |
 | `teamImpact` composite verdict | 0.55 / 0.45, ± 8 / ± 20 | — | — | RETIRED in TC-A (owner decision 5, `822b9fb2f8`) |
+
+### Gates run on the TC-A head (2026-10-18)
+
+- `bash scripts/format_python_changes.sh`: GREEN (Ruff 0.6.9). `check_decision_coercions.py`: clean.
+  `check_planning_integrity.py`: exit 0. `check_product_plan_governance.py`: clean.
+- `pytest tests/trade tests/valuation_math tests/public_league tests/identity -q -p no:randomly`: 3133 passed.
+- Full `npx vitest run`: 303 files / 3955 tests passed (jsdom "navigation not implemented" stderr noise only).
+- `npm run build:nocheck` + `npm run check:bundles`: every page under budget; `/trade` 85.1 KB of 93 KB.
+- Playwright trade specs: NOT run (no Playwright browsers in the environment, no local stack).
 
 ### What TC-A does not do
 
