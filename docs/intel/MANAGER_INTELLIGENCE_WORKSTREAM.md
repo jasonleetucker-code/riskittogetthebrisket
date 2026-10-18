@@ -284,5 +284,5 @@ private gate is enforced.
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
 | C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
-| E | `claude/manager-intel-e` (on `main`; B1–C merged via release train 5) | IMPLEMENTED — PR open, not merged; read-only live probe 2026-10-18 (jnesselhauf career 72/360 calls, 26 seasons / 14 counted, one chain truncated at the 6-season bound; compare vs Aguilar315; dynasty_main league percentile) recorded in the PR |
+| E | `claude/manager-intel-e` (on `main`; B1–C merged via release train 5) | IMPLEMENTED — PR #1796 open, not merged; read-only live probe 2026-10-18 (jnesselhauf career 72/360 calls, 26 seasons / 14 counted, one chain truncated at the 6-season bound; compare vs Aguilar315; dynasty_main league percentile) recorded in the PR |
 | D, F | — | QUEUED (D, then F) |
