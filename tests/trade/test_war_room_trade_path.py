@@ -169,6 +169,17 @@ def test_analyze_defaults_to_team_context(two_league_registry, monkeypatch):  # 
     assert decision["headline"] == "NOT_ENOUGH_EVIDENCE"
     assert "roster_unknown" in {g["code"] for g in decision["missingEvidence"]}
     assert decision["executes"] is False
+    # Served decisions are recorded for the AL-P5 receipt recorder -- into the
+    # suite's redirected log (tests/conftest.py), never data/.
+    import os
+
+    from src.trade import trade_decision_log as tdl
+
+    run_id = body["analysis"]["decisionRunId"]
+    assert run_id
+    log_dir = tdl._default_dir()
+    assert str(log_dir) == os.environ["RISKIT_TRADE_DECISION_LOG_DIR"]
+    assert any(line and line.get("runId") == run_id for _, line in tdl.iter_decision_log_lines())
     assert body["analysis"]["lenses"]["roster"]["lineage"] == "league_scored_projection"
     assert body["leagueKey"] == "main"
 

@@ -49,6 +49,13 @@ os.environ.setdefault(
     "RISKIT_INJURY_HISTORY_DIR",
     os.path.join(tempfile.gettempdir(), f"riskit-injury-history-test-{os.getpid()}"),
 )
+# And the served trade-decision run log (TC-C decision receipts): every
+# /api/trade/analyze test appends a line; it must never reach ``data/``.
+# ``src.trade.trade_decision_log`` reads the variable at call time.
+os.environ.setdefault(
+    "RISKIT_TRADE_DECISION_LOG_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-trade-decisions-test-{os.getpid()}"),
+)
 
 # ── The suite does not depend on the live site being up ───────────────
 # ``server`` reads UPTIME_CHECK_ENABLED at import (production default

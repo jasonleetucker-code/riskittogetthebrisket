@@ -17262,6 +17262,18 @@ async def post_trade_analyze(request: Request):
             else None,
         },
     )
+    # Decision receipt (TC-C): one line in the decision's own run log, the
+    # AL-P5 arrangement Best Offers uses.  Best effort; never changes the
+    # response beyond naming the run.
+    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+
+    result["analysis"]["decisionRunId"] = record_decision(
+        result["analysis"],
+        league_key=league_key,
+        team=(result.get("team") or {}).get("name")
+        if isinstance(result.get("team"), dict)
+        else None,
+    )
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},

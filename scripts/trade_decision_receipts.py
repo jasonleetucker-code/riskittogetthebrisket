@@ -1,4 +1,9 @@
-"""Record AL-P5 DECISION receipts for served Best Offers runs.
+"""Record AL-P5 DECISION receipts for served Best Offers runs and trade decisions.
+
+TC-C adds a second producer through the SAME path: ``POST /api/trade/analyze``
+appends one line per served decision to ``data/trade/decisions/runs-YYYY-MM.jsonl``
+(``src/trade/trade_decision_log.py::record_decision``) and this script records
+one DECISION receipt per line (``producer_receipts`` section 6).
 
 ``POST /api/trade/best-offers`` appends one line per served run to the
 box-local, append-only run log (``src/trade/best_offers.py::record_run``,
@@ -48,6 +53,27 @@ EXIT_OK = 0
 EXIT_PARTIAL = 1
 
 
+def build_decision_receipts(log_dir: Path) -> tuple[list[Any], list[dict[str, str]], int]:
+    """``(receipts, refused, lines read)`` over every trade-decision log line (TC-C)."""
+    receipts: list[Any] = []
+    refused: list[dict[str, str]] = []
+    lines = 0
+    if not log_dir.is_dir():
+        return receipts, refused, lines
+    from src.trade.trade_decision_log import iter_decision_log_lines  # noqa: PLC0415
+
+    for file_name, line in iter_decision_log_lines(log_dir):
+        lines += 1
+        if line is None:
+            refused.append({"item": file_name, "reason": "line is not a JSON object"})
+            continue
+        try:
+            receipts.extend(pr.trade_decision_receipts(line, file_name=file_name))
+        except (ReceiptError, ValueError) as exc:
+            refused.append({"item": f"{file_name}#{line.get('runId')}", "reason": str(exc)})
+    return receipts, refused, lines
+
+
 def build_receipts(log_dir: Path) -> tuple[list[Any], list[dict[str, str]], int]:
     """``(receipts, refused, lines read)`` over every run-log line."""
     receipts: list[Any] = []
@@ -73,6 +99,7 @@ def build_receipts(log_dir: Path) -> tuple[list[Any], list[dict[str, str]], int]
 
 def main(argv: list[str] | None = None) -> int:
     from src.trade.best_offers import BEST_OFFERS_RUN_LOG_DIR  # noqa: PLC0415
+    from src.trade.trade_decision_log import _default_dir as _decision_log_dir  # noqa: PLC0415
 
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument(
@@ -80,6 +107,12 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=BEST_OFFERS_RUN_LOG_DIR,
         help="Best Offers run-log directory (default data/trade/best_offers)",
+    )
+    ap.add_argument(
+        "--decision-log-dir",
+        type=Path,
+        default=_decision_log_dir(),
+        help="trade-decision run-log directory (default data/trade/decisions)",
     )
     ap.add_argument(
         "--store",
@@ -91,13 +124,23 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     receipts, refused, lines = build_receipts(args.log_dir)
+    d_receipts, d_refused, d_lines = build_decision_receipts(args.decision_log_dir)
     summary: dict[str, Any] = {
         "producer": pr.BEST_OFFERS_PRODUCER,
         "runLogPresent": args.log_dir.is_dir(),
         "linesRead": lines,
         "receipts": len(receipts),
         "refused": refused,
+        "tradeDecision": {
+            "producer": pr.TRADE_DECISION_PRODUCER,
+            "runLogPresent": args.decision_log_dir.is_dir(),
+            "linesRead": d_lines,
+            "receipts": len(d_receipts),
+            "refused": d_refused,
+        },
     }
+    receipts = [*receipts, *d_receipts]
+    refused = [*refused, *d_refused]
     summary["refusedCount"] = len(refused)
 
     if args.dry_run or not pr.receipts_enabled():
