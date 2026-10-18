@@ -25,10 +25,10 @@ from tests.draft_valuation import _workbook as wb
 # Pinned: a frozen snapshot that changes — even with a recomputed checksum —
 # must fail here.  Changing these is an owner decision, not a refresh.
 PINNED_CHECKSUMS = {
-    "frozen_inputs/2026_spreadsheet_baseline.json": "a062fdca8390846ea99a00879b5fa7362c3922a4aa24401d204c3b05433f281b",
-    "historical_curves/2024.json": "524a53df99b5afe0e403d4a31e13a10a9b59a81a8b226a2a063ebd659ee79bb3",
-    "historical_curves/2025.json": "84c44c923725811409a8b661d9001d9e3864b4636c7b6fc64f2487cbc7428e0b",
-    "historical_curves/2026.json": "a1e15dd79c33fcff80079cbcf37b63911fec5b1fb923f83a829922b7a8d61cf3",
+    "frozen_inputs/2026_spreadsheet_baseline.json": "57b466af0412f853e3ba81e0c6d131dcd4fc0eb05145b2a13e3220561423981b",
+    "historical_curves/dynasty_main/2024.json": "524a53df99b5afe0e403d4a31e13a10a9b59a81a8b226a2a063ebd659ee79bb3",
+    "historical_curves/dynasty_main/2025.json": "84c44c923725811409a8b661d9001d9e3864b4636c7b6fc64f2487cbc7428e0b",
+    "historical_curves/dynasty_main/2026.json": "a1e15dd79c33fcff80079cbcf37b63911fec5b1fb923f83a829922b7a8d61cf3",
 }
 
 
@@ -64,7 +64,9 @@ def test_historical_curves_are_the_workbook_columns(year, col):
     assert list(curve.dollars) == [Decimal(str(r[col])) for r in wb.rows()]
     assert curve.kind == "spreadsheet_sourced_historical_curve"
     assert curve.provenance["range"] == f"{col}2:{col}73"
-    raw = json.loads((CONFIG_DIR / "historical_curves" / f"{year}.json").read_text("utf-8"))
+    raw = json.loads(
+        (CONFIG_DIR / "historical_curves" / "dynasty_main" / f"{year}.json").read_text("utf-8")
+    )
     # Unknown provenance stays unknown, with a reason — never invented.
     for field in ("inputs", "spineYears", "formulaVersion", "draftCompletion"):
         assert raw[field] is None and raw[f"{field}UnavailableReason"]
@@ -113,14 +115,14 @@ def test_loader_refuses_an_edited_rookie_value(config_copy):
 
 
 def test_loader_refuses_an_edited_curve(config_copy):
-    path = config_copy / "historical_curves" / "2025.json"
+    path = config_copy / "historical_curves" / "dynasty_main" / "2025.json"
     _edit(path, lambda p: p["dollars"][3].__setitem__("dollars", "78"))
     with pytest.raises(SnapshotIntegrityError, match="checksum"):
         load_completed_class_curve(2025, config_dir=config_copy)
 
 
 def test_recomputed_checksum_still_refuses_a_broken_curve(config_copy):
-    path = config_copy / "historical_curves" / "2025.json"
+    path = config_copy / "historical_curves" / "dynasty_main" / "2025.json"
 
     def mutate(p):
         p["dollars"][3]["dollars"] = "78"  # pool no longer sums to $1200
@@ -144,7 +146,7 @@ def test_relabelling_as_a_pre_draft_observation_is_refused(config_copy):
 
 
 def test_missing_snapshot_is_an_error_not_a_substitute(config_copy):
-    (config_copy / "historical_curves" / "2024.json").unlink()
+    (config_copy / "historical_curves" / "dynasty_main" / "2024.json").unlink()
     with pytest.raises(SpineUnavailableError):
         spine_curves_for(2027, config_dir=config_copy)
     with pytest.raises(FileNotFoundError):

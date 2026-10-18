@@ -11,7 +11,7 @@ production read the same bytes):
     is labelled as what it is: a provisional baseline, never a pre-draft
     observation, and daily value changes never rewrite it.
 
-``historical_curves/<year>.json``
+``historical_curves/<leagueKey>/<year>.json``
     The final 72 pick dollars of a COMPLETED rookie draft class (a spine
     input, columns F/G/H).  The 2024/2025/2026 curves are spreadsheet-sourced
     and say so: the inputs, spine years and formula version that produced
@@ -40,9 +40,14 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from src.draft.rookie_auction.curve import WORKBOOK_PARAMS, CurveParams, iter_labels
+from src.draft.rookie_auction.league_scope import league_scope
 
 __all__ = [
     "CONFIG_DIR",
+    "CURVE_SCHEMA",
+    "DEFAULT_LEAGUE_KEY",
+    "KIND_GENERATED",
+    "KIND_SPREADSHEET",
     "SPINE_CLASS_COUNT",
     "CompletedClassCurve",
     "FrozenRookieInputs",
@@ -60,6 +65,11 @@ CONFIG_DIR = Path(__file__).resolve().parents[3] / "config" / "draft_valuation"
 FROZEN_DIR_NAME = "frozen_inputs"
 CURVE_DIR_NAME = "historical_curves"
 SPINE_CLASS_COUNT = 3
+#: The Draft Data workbook is the registry default league's.
+DEFAULT_LEAGUE_KEY = "dynasty_main"
+KIND_SPREADSHEET = "spreadsheet_sourced_historical_curve"
+KIND_GENERATED = "generated_class_curve"
+CURVE_KINDS = frozenset({KIND_SPREADSHEET, KIND_GENERATED})
 
 FROZEN_SCHEMA = "draft_valuation_frozen_rookie_inputs_v1"
 CURVE_SCHEMA = "draft_valuation_completed_class_curve_v1"
@@ -88,15 +98,19 @@ class FrozenRookieInputs:
     is_pre_draft_observation: bool
     provenance: dict[str, Any]
     checksum: str
+    effective_snapshot_date: str | None = None
+    source_season_label: int | None = None
 
 
 @dataclass(frozen=True)
 class CompletedClassCurve:
     draft_class: int
+    league_key: str
     picks: tuple[str, ...]
     dollars: tuple[Decimal, ...]
     kind: str
     provenance: dict[str, Any]
+    completion_observed_at: str | None
     checksum: str
 
 
@@ -167,19 +181,43 @@ def load_frozen_rookie_inputs(
         is_pre_draft_observation=False,
         provenance=dict(payload.get("provenance") or {}),
         checksum=payload["checksum"]["value"],
+        effective_snapshot_date=payload.get("effectiveSnapshotDate") or None,
+        source_season_label=payload.get("sourceSeasonLabel")
+        if isinstance(payload.get("sourceSeasonLabel"), int)
+        else None,
     )
+
+
+def _curve_dir(config_dir: Path, league_key: str) -> Path:
+    league_scope(league_key)  # fail closed: only configured leagues have a ledger
+    key = str(league_key or "").strip()
+    if not key or "/" in key or key.startswith("."):
+        raise SnapshotIntegrityError(f"invalid league key {league_key!r}")
+    return config_dir / CURVE_DIR_NAME / key
 
 
 def load_completed_class_curve(
     draft_class: int,
     *,
+    league_key: str = DEFAULT_LEAGUE_KEY,
     config_dir: Path = CONFIG_DIR,
     params: CurveParams = WORKBOOK_PARAMS,
 ) -> CompletedClassCurve:
-    path = config_dir / CURVE_DIR_NAME / f"{int(draft_class)}.json"
+    path = _curve_dir(config_dir, league_key) / f"{int(draft_class)}.json"
     payload = _read(path)
     if payload.get("schema") != CURVE_SCHEMA or payload.get("draftClass") != int(draft_class):
         raise SnapshotIntegrityError(f"{path.name}: wrong schema or draft class")
+    if payload.get("leagueKey") != league_key:
+        raise SnapshotIntegrityError(f"{path.name}: belongs to {payload.get('leagueKey')!r}")
+    kind = payload.get("kind")
+    if kind not in CURVE_KINDS:
+        raise SnapshotIntegrityError(f"{path.name}: unknown curve kind {kind!r}")
+    if kind == KIND_GENERATED:
+        completion = payload.get("draftCompletion")
+        if not isinstance(completion, dict) or completion.get("status") != "retired":
+            raise SnapshotIntegrityError(
+                f"{path.name}: a generated class curve needs verified draft completion"
+            )
     picks, dollars = _decimal_list(payload.get("dollars"), "dollars", path, params)
     units = [d * params.units_per_dollar for d in dollars]
     if any(u != u.to_integral_value() for u in units):
@@ -190,16 +228,22 @@ def load_completed_class_curve(
         raise SnapshotIntegrityError(f"{path.name}: curve rises")
     return CompletedClassCurve(
         draft_class=int(draft_class),
+        league_key=league_key,
         picks=picks,
         dollars=dollars,
-        kind=str(payload.get("kind")),
+        kind=str(kind),
         provenance=dict(payload.get("provenance") or {}),
+        completion_observed_at=(payload.get("draftCompletion") or {}).get("observedAt")
+        if isinstance(payload.get("draftCompletion"), dict)
+        else None,
         checksum=payload["checksum"]["value"],
     )
 
 
-def available_completed_classes(*, config_dir: Path = CONFIG_DIR) -> tuple[int, ...]:
-    d = config_dir / CURVE_DIR_NAME
+def available_completed_classes(
+    *, league_key: str = DEFAULT_LEAGUE_KEY, config_dir: Path = CONFIG_DIR
+) -> tuple[int, ...]:
+    d = _curve_dir(config_dir, league_key)
     if not d.is_dir():
         return ()
     return tuple(sorted(int(p.stem) for p in d.glob("*.json") if p.stem.isdigit()))
@@ -210,10 +254,22 @@ def select_spine_years(
     available: Iterable[int] | None = None,
     *,
     count: int = SPINE_CLASS_COUNT,
+    league_key: str = DEFAULT_LEAGUE_KEY,
     config_dir: Path = CONFIG_DIR,
 ) -> tuple[int, ...]:
-    """The ``count`` most recent completed classes strictly before ``target_class``."""
-    pool = available_completed_classes(config_dir=config_dir) if available is None else available
+    """The ``count`` most recent completed classes strictly before ``target_class``.
+
+    A class is "completed" for this purpose only if its snapshot exists in
+    this league's ledger — the ledger writes one only on verified completion
+    (``ledger.finalize_completed_class``) — so the spine rolls exactly when
+    the evidence does, never on a calendar date.
+    """
+    league_scope(league_key)
+    pool = (
+        available_completed_classes(league_key=league_key, config_dir=config_dir)
+        if available is None
+        else available
+    )
     prior = sorted({int(y) for y in pool if int(y) < int(target_class)})
     if len(prior) < count:
         raise SpineUnavailableError(
@@ -223,10 +279,19 @@ def select_spine_years(
 
 
 def spine_curves_for(
-    target_class: int, *, config_dir: Path = CONFIG_DIR, params: CurveParams = WORKBOOK_PARAMS
+    target_class: int,
+    *,
+    league_key: str = DEFAULT_LEAGUE_KEY,
+    config_dir: Path = CONFIG_DIR,
+    params: CurveParams = WORKBOOK_PARAMS,
 ) -> tuple[tuple[int, ...], Sequence[tuple[Decimal, ...]]]:
-    years = select_spine_years(target_class, config_dir=config_dir, count=params.spine_curve_count)
+    years = select_spine_years(
+        target_class, league_key=league_key, config_dir=config_dir, count=params.spine_curve_count
+    )
     curves = [
-        load_completed_class_curve(y, config_dir=config_dir, params=params).dollars for y in years
+        load_completed_class_curve(
+            y, league_key=league_key, config_dir=config_dir, params=params
+        ).dollars
+        for y in years
     ]
     return years, curves
