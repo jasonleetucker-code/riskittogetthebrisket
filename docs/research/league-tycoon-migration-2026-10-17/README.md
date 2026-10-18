@@ -685,6 +685,12 @@ Remaining tests and when they can run:
 
 ## 11. Owner decisions needed (Batch 0)
 
+> **OWNER_PAUSED (owner directive 2026-10-18).** League Tycoon is shelved: this research and the Ideas backlog are
+> retained, but no integration, contract-dynasty feature or platform migration is to be implemented, and OD-1, OD-2,
+> OD-3, OD-5, OD-6, OD-7 and the signed-in evidence capture are **not to be requested** now. Sleeper remains the
+> platform. Reopen only on a fresh explicit owner directive. OD-4 stays recorded as decided.
+> Register: `docs/owner/OWNER_DECISION_REGISTER.md`.
+
 | # | Decision | Recommendation |
 |---|---|---|
 | OD-1 | Which league moves, and from which season? (League Tycoon imports always target the next *fresh* season) | Confirm `dynasty_main`, 2027 season; `dynasty_new` stays on Sleeper unless stated |

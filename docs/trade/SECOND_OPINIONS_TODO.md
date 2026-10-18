@@ -45,9 +45,17 @@ separate from canonical-fallback comparisons, and fallbacks / correlated
 sources never count as independent votes. Pinned by
 `frontend/__tests__/second-opinions-even-band.test.js`.
 
-Open (owner decisions, not implemented): whether a partially covered row may
+~~Open (owner decisions, not implemented): whether a partially covered row may
 ever vote; a source-unavailable state (freshness exclusion is not materialized
-onto frontend rows, so it cannot be told apart here yet).
+onto frontend rows, so it cannot be told apart here yet).~~ **Both DECIDED.**
+A partially covered row never votes: rows using any canonical fallback are
+HYBRID_ESTIMATE and the independent tally counts full-source rows only (owner
+package 2026-10-17). A source excluded for freshness, access, identity or other
+evidence reasons displays **Unavailable — [actual reason]**: never EVEN, never
+replaced by our canonical value as a vote, never zero, never hidden, and the
+independent-vote tally must match the displayed independent opinions (owner
+directive D9, 2026-10-18, TCM-K06). The unavailable state is not built yet
+(Trade Calculator TC-B2); register: `docs/owner/OWNER_DECISION_REGISTER.md`.
 
 **Stale statement corrected:** no external row applies the V13 Value
 Adjustment any more (`packageAdjustment: "none"` since the KTC September 2026

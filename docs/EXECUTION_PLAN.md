@@ -20,7 +20,7 @@ globally defer UI under this newer instruction. Backend complete / UI incomplete
 product incomplete. First safe unit: #1422 `/design`, on its own branch/claim.
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-10-17 (records reconciliation: the 2026-10-16/17 manager-replacement, Manager Intelligence and sitewide trade Value Adjustment owner directives recorded in §0 with their merge evidence; no other authorization changed). Earlier: 2026-10-16 (records reconciliation: the 2026-10-14 trade-discovery and 2026-10-15 screenshot-import owner directives recorded in §0 with their merge/deploy evidence, plus the 2026-10-16 audit-batch directive incl. the DLF offense-only vote decision; no other authorization changed). Earlier: 2026-10-07 (CLEANUP-1 reconciliation only: the two 2026-10-07 owner directives recorded at the top of §0 — repository stabilization AUTHORIZED NOW, learning-loop batch IC-1..IC-9 sequenced after it — plus a pointer to the 2026-10-03 directive, the #1338 closure note and AL merge evidence; no other authorization changed). Earlier: 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-10-18 (owner decision closeout D1–D20 recorded at the top of §0; DFS and League Tycoon OWNER_PAUSED; stale decision markers closed in place — `docs/owner/OWNER_DECISION_REGISTER.md`). Earlier: 2026-10-17 (records reconciliation: the 2026-10-16/17 manager-replacement, Manager Intelligence and sitewide trade Value Adjustment owner directives recorded in §0 with their merge evidence; no other authorization changed). Earlier: 2026-10-16 (records reconciliation: the 2026-10-14 trade-discovery and 2026-10-15 screenshot-import owner directives recorded in §0 with their merge/deploy evidence, plus the 2026-10-16 audit-batch directive incl. the DLF offense-only vote decision; no other authorization changed). Earlier: 2026-10-07 (CLEANUP-1 reconciliation only: the two 2026-10-07 owner directives recorded at the top of §0 — repository stabilization AUTHORIZED NOW, learning-loop batch IC-1..IC-9 sequenced after it — plus a pointer to the 2026-10-03 directive, the #1338 closure note and AL merge evidence; no other authorization changed). Earlier: 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -62,6 +62,43 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
+
+**AUTHORIZED NOW, within the gates the directive names.** Verbatim: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`;
+register of every previously open or stale owner decision with live status: `docs/owner/OWNER_DECISION_REGISTER.md`;
+residual blockers: `docs/owner/RESIDUAL_BLOCKERS_2026-10-18.md`; intake `docs/OWNER_REQUESTED_TODO.md` ("Added
+2026-10-18 — Owner decision closeout"). The decisions it resolves are delegated; do not re-ask them.
+
+- **Authorized now (no further owner decision):** the Part 9 evidence work — run `idp-hampel-n3-v1` exactly as
+  preregistered (D1), Signals IDP dependence on the box-local data (D7), the geometric package-model evaluation on
+  the production trade archive (D8), draft-valuation verification / 216-pick reconciliation / rollback testing,
+  the Trade Calculator matrix and authenticated desktop/mobile verification, Manager Intelligence proof under
+  authentication, source freshness / family-cap validation, broken scheduled workflows and unreliable CI tests,
+  dashboard regeneration from refreshed evidence; challengers D2 (IDP-scoped shared cap replay), D6 (deep-tail
+  normalization) and D11 (AL-5c playoff shadow); D3 verification of the existing IDP Trade Calculator offense
+  vote; D5 `EXPLICIT_UPSTREAM_TIMESTAMP` for FantasyPros plus the duplicate-identity analysis; TC-B…TC-F in the
+  D10 priority order (share-link format frozen; no fabricated 3+-team YES/NO); D9 TCM-K06 "Unavailable — reason"
+  in Second Opinions; the D14 chart palette through the semantic chart-token owner (Lane 6); D12 interim rules on
+  the validation-only unified Manager of the Year.
+- **Conditional activations — gates still apply, not complete until they pass:** DLF IDP vote restoration (D1:
+  only after the challenger passes and independent board validation), the IDP shared cap (D2: validated release
+  before served values move), DLF Values rank-to-Hill (D4), any deep-tail or playoff-engine replacement (D6, D11).
+  "Approved direction" is never a passing result; no source weight, q or model-gate change outside these decisions.
+- **Unchanged (D8):** `geom_q078_v1`, q = 0.78, stays the active package model (KTC = rollback / comparison); the
+  250-point Best Offers rule, fairness classifications and the YES/NO engine are not reopened.
+- **OWNER_PAUSED:** **DFS** — all further DFS implementation (the DFS section below and PR #1810; deployed DFS
+  preserved; supersedes "DFS" in the 2026-10-07 campaign list) — and **League Tycoon** (no integration, contract
+  dynasty or migration work, and no configuration / capture / credential requests; Sleeper stays the platform).
+  Both resume only on a fresh explicit owner directive. Paused ≠ rejected ≠ complete.
+- **Standing policies:** Chase Upside stays **read-only** toward real Sleeper roster and league transactions (D15);
+  **no paid inference** (D16) and **no paid data subscriptions** (D17 — free BALLDONTLIE / CollegeFootballData
+  only if terms allow and an authorized key exists); `dynasty_new` draft order out of scope (D13); OCR stays local
+  Tesseract (D19); rookie auction stays mock-first — no official room, invites, budgets or roster writes (D20).
+- **Still gated / human-only:** applying the main ruleset, deploy-key retirement and the `JASON_LOGIN_PASSWORD`
+  rotation (D18), the Tesseract install (D19), re-enabling the paused authenticated verification workflows, VAPID
+  keys, the official auction launch and its pre-launch items (D20) — `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md`.
+  Merges and deploys keep their gates; never mark merged code production-verified without observing it.
+
 ## Calculator completion campaign — owner directive, 2026-10-07 ("FINISH THE CALCULATOR SITE")
 
 **AUTHORIZED NOW.** Execute EVERY owner-approved Calculator requirement in the canonical completion denominator
@@ -69,7 +106,7 @@ through the normal branch → CI → independent review → integration → depl
 in dependency order, until each requirement is COMPLETE_AND_PROVEN or carries a truthful final disposition
 (owner-gated, external, intentionally future, superseded, rejected or proven unnecessary). Includes NOW / NEXT /
 dependency-ready C-Series work, remaining V1 residue, Lane 6 Premium UI, Adaptive Learning (incl. the IC-1..IC-9
-learning-loop batch below), DFS, performance, Schedule Intelligence, mock/rehearsal rookie auction,
+learning-loop batch below), DFS (OWNER_PAUSED 2026-10-18), performance, Schedule Intelligence, mock/rehearsal rookie auction,
 source/reliability, trade/roster/pick, Game Day / league intelligence. Older "not currently authorized"
 markers on owner-approved Calculator scope are superseded by this directive. **The denominator and its live
 status are `docs/completion/CALCULATOR_COMPLETION_DASHBOARD.md`** (generated by `scripts/completion_ledger.py`
@@ -185,7 +222,8 @@ policy; no applicable allocation → fail closed with a named reason.
 
 **AUTHORIZED; MERGED via release train #1768 (`00d652bd2`).** One versioned package model for every
 package-equity surface (`config/trade/package_model.json`; KTC `ktc_2026_04` stays active, GEOM q=0.78
-registered shadow-only); Second Opinions = source values + the exact published canonical value for
+registered shadow-only — *superseded 2026-10-17: the owner approved GEOM activation, #1771 merged 2026-10-17 and
+deployed; D8 of the 2026-10-18 closeout keeps it active*); Second Opinions = source values + the exact published canonical value for
 missing assets + our active VA once, hybrids never vote; Trade History Current / At-the-Time / How It
 Aged on the same model (aging = change in adjusted net, ±200 a labelled PRIOR), Winners & Losers = Σ
 per-trade adjusted nets, public `/league` current-grade band (band + label only); shadow evaluation
@@ -470,7 +508,7 @@ in directive sections 9+, which were truncated in delivery and are pending owner
 | AL-3b | projection scorecard (raw stats + exact league scoring) vs the equal-family champion | NOW | AL-0 |
 | AL-3c / AL-3d | ensemble reliability challengers; BDVM component calibration + MEASURED/MECHANICAL/PRIOR labels (AL-3d = Batch 3 J2) | NEXT | AL-3b |
 | AL-4a / AL-4b | Game Day calibration scorecard over existing generations; shadow challengers | NEXT | AL-0 |
-| AL-5a / AL-5b / AL-5c | point-in-time playoff/title forecast archive; season-end calibration; calibration challengers (owner D2/D3 decisions stay open) | NEXT | AL-0 (5b/5c) |
+| AL-5a / AL-5b / AL-5c | point-in-time playoff/title forecast archive; season-end calibration; calibration challengers (owner D2 decided as policy 2026-10-18 — D11, evidence gate stays; D3 standings half fixed in #1712, the draft-order median question stays open) | NEXT | AL-0 (5b/5c) |
 
 **AL-0 acceptance (A1–A10, plan §23):** point-in-time guard with property tests; append-only, idempotent,
 conflict-surfacing store; missing never zero; feature-dictionary validation; no PROMOTION RECORD or champion
@@ -756,7 +794,8 @@ single authorization record for the batch; ideas inside it do not get their own 
   Autopilot / model registry; DLF Values stay non-voting until their gate passes and the owner
   approves the vote; the Power Rankings methodology stays backend-owned (#1401).
 * **Owner gates still open:** #1428 categorical-chart contrast (OWNER UI DECISION REQUIRED; does
-  not block other UI work); the DLF Values vote.
+  not block other UI work); the DLF Values vote. *Both closed 2026-10-18: palette DECIDED (D14); DLF Values
+  rank-to-Hill conditionally approved (D4) behind its evidence gates.*
 
 Intake and the full decision text: `docs/OWNER_REQUESTED_TODO.md` (2026-09-24, "Calculator
 completion campaign").

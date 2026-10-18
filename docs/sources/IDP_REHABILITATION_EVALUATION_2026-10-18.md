@@ -12,6 +12,19 @@ package's two PENDING rows in `docs/OWNER_REQUESTED_TODO.md`:
 canonical value or Hill constant changes here. Every reversal or activation below is a
 recommendation for an explicit owner decision.
 
+> **Owner decisions, 2026-10-18 (closeout directive, `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`).**
+> Every owner decision this evaluation asked for is now made; the evidence below is unchanged.
+> * §2 DLF IDP: **option (b)** — the hold stays until `idp-hampel-n3-v1` meets its preregistered criteria and an
+>   independent full-board validation passes (D1).
+> * §3 IDP-scoped shared cap for IDP Trade Calculator + `idpShowCombined`: **approved** (defensive rows only,
+>   via the lineage / family-cap owners, replay + validated release before served values move) (D2); no unproven
+>   extra IDP Trade Calculator offense vote (D3).
+> * §3 N-1 deep-tail normalization: **challenger approved**, incumbent kept unless it convincingly improves (D6).
+> * §5 DLF Values: **rank-to-Hill approved conditionally**, raw/max rejected (D4).
+> * FantasyPros clock: **`EXPLICIT_UPSTREAM_TIMESTAMP` approved** (D5). Signals IDP hold maintained (D7).
+> * §6 package model: `geom_q078_v1` stays active; no recalibration from accepted trades (D8).
+> Status of each, live: `docs/owner/OWNER_DECISION_REGISTER.md`. Conditional items stay EVIDENCE_PENDING until their gates pass.
+
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
 ## Pins and reproduction
@@ -43,7 +56,7 @@ Reproduce, with no network required:
 | Rehabilitation registry | IN PROGRESS ("this PR") | `config/sources/rehabilitation.json` merged as #1776 in train 5; refreshed by this PR (below) | DONE (living registry) |
 | The IDP Show | IN PROGRESS: #1770; needs a session | #1770 merged in train 5. The production collector has authenticated and committed every 2 h since 2026-10-17 20:32Z (`cd0fd9b73e` through `932c61b4e3`, 11 refreshes by 14:32Z on 10-18): combined 665 rows, IDP-only 350, both `HEALTHY`. The voting board's vendor chart is still `U8I37/v4`, `lastModifiedAt` 2026-08-19, so freshness weighting gives it weight 0 (age 1,434 h on this board). The quarantine is by design and lifts when the vendor republishes | VERIFIED (collection); combined board upstream-inactive |
 | FantasyPros IDP | IN PROGRESS: parser repairs | #1777 merged: the page's own expert-update time is now persisted (`data/scrape_state/fantasyProsIdp_upstream.json`, `publishedAt` 2026-09-04, 2 of 6 experts). Dual-family dedup is still deferred: it is not freshness-neutral, and the CSV has 16 duplicate identities. On this board the source votes at freshness 0.59 | PARTIAL: evidence repair done; dedup deferred; the owner decision on `EXPLICIT_UPSTREAM_TIMESTAMP` is still open |
-| DLF IDP re-evaluation | PENDING | Delivered 2026-10-17 (`docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md`, merged in train 5); refreshed and corrected in §2 | DONE (evidence); OWNER DECISION NEEDED |
+| DLF IDP re-evaluation | PENDING | Delivered 2026-10-17 (`docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md`, merged in train 5); refreshed and corrected in §2 | DONE (evidence); ~~OWNER DECISION NEEDED~~ DECIDED 2026-10-18 (D1, option b) |
 | Independence / normalization / outlier / DLF Values / package model | PENDING | §3–§6 | see each section |
 
 Two more stale records found and corrected in this PR:
@@ -397,7 +410,8 @@ run on the box. The owner-league run above is a stand-in, not that evaluation.
   * Outlier challenger implementation and run: a separately authorized unit.
   * N-1 deep-tail pricing: owner methodology decision; challenger proposed.
 * **BLOCKERS:**
-  * Owner decisions:
+  * Owner decisions (all made 2026-10-18 — D1 option (b), D2 approved, D4 conditional, D5 approved; see the
+    banner at the top):
     * the DLF IDP reversal, (a) or (b) in §2;
     * the IDP-scoped IDP Show / IDP Trade Calculator lineage cap (§3);
     * DLF Values rank → Hill or non-voting (§5);
