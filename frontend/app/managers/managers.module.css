@@ -559,3 +559,41 @@
     display: block;
   }
 }
+
+/* Batch D — seeding the trade tools from a scouted roster. */
+.seed {
+  min-width: 0;
+}
+
+.seedActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.seedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.seedRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.seedRow input {
+  accent-color: var(--accent);
+}
+
+.seedRow input:disabled + label {
+  color: var(--text-secondary);
+}

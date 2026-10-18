@@ -218,6 +218,29 @@ private gate is enforced.
 
 **Depends on:** B1, C. **Tests:** link and seed round-trips; one model receipt across surfaces.
 
+**As implemented (`frontend/lib/manager-trade-tools.js`, `frontend/app/managers/TradeTools.jsx`)**
+- Entry points: every drilldown on `/managers/league/[leagueId]` carries a Trade tools section; each readable
+  league in a searched manager's Leagues list links there with `?manager=<user id>`, which opens that
+  manager's row on load. One roster source (the Batch C league payload), so no second roster assembly.
+- The user picks assets from that roster. Seeds travel only through the tools' existing restore formats:
+  `/trade?share=…` (`lib/trade-share.js`, unchanged — side B lists what the scouted manager sends) for the
+  Trade Calculator and Analyze Trade (the War Room on `/trade`, which reads once the user adds their side), and
+  `/arbitrage?tool=builder&league=&opponent=<owner id>[&target=]` for the Package Builder — the smallest
+  restore-from-query in the arbitrage page's own init (`lib/package-builder.js` owns the format; the opponent is
+  the permanent owner id, resolved against the loaded league's teams, never a display name).
+- No valuation: the backend's board values are displayed; each tool re-values what it receives on the same board.
+  The league payload stamps `tradeTools.packageModel` (the ACTIVE receipt) and the seed carries its id as the share
+  link's `pm`, so the calculator names any model difference (`describeShareModelChange`).
+- Unresolved: a player without a board row name or a board value, or a pick without a board value, is listed with
+  its reason and cannot be selected — never seeded, never 0. Roster players now carry `boardName` (backend,
+  additive). Unknown pick ownership is stated, never "no picks".
+- League scoping: `tradeTools.leagueScoped` is true only for a registry league whose rosters the site has loaded
+  (the `GET /api/manager-scout` gate, `manager_scout_api._current_teams`). Only then are Analyze Trade and the
+  Package Builder offered and owned picks seeded with their canonical `pick:<leagueKey>:…` ids. Any other league
+  (`external_league` / `league_rosters_not_loaded`) offers the generic calculator seed only (picks as generic
+  board rows).
+- No `/trade` file was changed.
+
 ## Batch E — Career, archetypes and comparisons
 
 **Deliverables**
@@ -246,4 +269,5 @@ private gate is enforced.
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
 | C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
-| D, E, F | — | QUEUED in this order |
+| D | `claude/manager-intel-d` | IMPLEMENTED — PR pending (link and seed round-trips, model receipt, unresolved handling and the league gate covered by vitest + pytest) |
+| E, F | — | QUEUED in this order |

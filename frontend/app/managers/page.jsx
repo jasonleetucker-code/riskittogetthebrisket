@@ -13,6 +13,10 @@
  * and value is backend-computed (`src/intel/manager_portfolio.py`).  A
  * player the board does not price shows "—", never 0.
  *
+ * Batch D: each readable league also links to its scouting view opened on
+ * this manager's trade tools (Trade Calculator / Analyze Trade / Package
+ * Builder seeds — ./TradeTools.jsx).
+ *
  * Batches B1 + B2 add Recent trades / Acquisitions / Activity tabs, and
  * B3 a Draft capital tab plus Tendencies under Recent trades
  * (./ManagerActivity.jsx).  Batch C: each league in the Leagues list links
@@ -55,6 +59,7 @@ import {
   formatValue,
   leagueScoutHref,
   leagueStateLabel,
+  leagueTradeToolsHref,
   playerLeagueRows,
   profileQuery,
   readRecent,
@@ -550,7 +555,7 @@ export default function ManagersPage() {
                 now that each league carries its "Scout this league" link. */}
             <CollapsiblePanel
               title="Leagues"
-              subtitle={`${leagues.length} in scope · scout any league`}
+              subtitle={`${leagues.length} in scope · scout any league or open its trade tools`}
             >
               <ul className={styles.leagueList}>
                 {leagues.map((l) => (
@@ -574,6 +579,19 @@ export default function ManagersPage() {
                         Scout this league
                         <span className={styles.srOnly}>
                           : {l.name || "unnamed league"}
+                        </span>
+                      </a>
+                    ) : null}
+                    {l.state === "ok" &&
+                    leagueTradeToolsHref(l.leagueId, manager?.userId) ? (
+                      <a
+                        href={leagueTradeToolsHref(l.leagueId, manager?.userId)}
+                        className={styles.link}
+                      >
+                        Trade tools
+                        <span className={styles.srOnly}>
+                          : {manager?.displayName || manager?.username} in{" "}
+                          {l.name || "unnamed league"}
                         </span>
                       </a>
                     ) : null}

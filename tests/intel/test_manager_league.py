@@ -565,3 +565,68 @@ def test_only_ok_payloads_are_memoised():
     p1 = ml.cached_league_scouting(LEAGUE_ID, contract=CONTRACT, window="season", **kwargs)
     p2 = ml.cached_league_scouting(LEAGUE_ID, contract=CONTRACT, window="season", **kwargs)
     assert p1["status"] == "partial" and p2["cached"] is False
+
+
+# ── Batch D: trade-tool seeds ───────────────────────────────────────────
+
+
+def test_roster_players_carry_the_board_name_the_calculator_resolves():
+    out = Fake().build()
+    players = {p["playerId"]: p for p in _row(out, 1)["roster"]["players"]}
+    assert players["A"]["boardName"] == "Alpha Back"
+    assert players["Q"]["boardName"] == "Quinn Passer"
+    # Not on the board: no name to seed, and no value either (never a 0).
+    assert players["Z"]["boardName"] is None and players["Z"]["value"] is None
+
+
+def test_external_league_offers_only_the_generic_calculator_seed():
+    from src.valuation_math import package_model
+
+    tools = Fake().build()["tradeTools"]
+    assert tools == {
+        "leagueScoped": False,
+        "leagueKey": None,
+        "reason": ml.TRADE_TOOLS_EXTERNAL_LEAGUE,
+        "packageModel": package_model.receipt(),
+    }
+
+
+def test_registry_league_without_its_rosters_loaded_is_not_league_scoped():
+    cfg = SimpleNamespace(key="dynasty_main")
+    foreign = {
+        **CONTRACT,
+        "meta": {"leagueKey": "dynasty_new", "sleeperDataReady": True},
+        "sleeper": {"teams": [{"ownerId": "x", "name": "X"}]},
+    }
+    for contract in (CONTRACT, foreign):
+        out = _registry_fake().build(
+            HANDOFF_LEAGUE,
+            contract=contract,
+            registry_config=lambda lid: cfg,
+            scout_provider=lambda *a: SCOUT_PAYLOAD,
+        )
+        tools = out["tradeTools"]
+        assert tools["leagueScoped"] is False and tools["leagueKey"] is None
+        assert tools["reason"] == ml.TRADE_TOOLS_ROSTERS_NOT_LOADED
+
+
+def test_registry_league_with_its_rosters_loaded_is_league_scoped():
+    from src.valuation_math import package_model
+
+    cfg = SimpleNamespace(key="dynasty_main")
+    loaded = {
+        **CONTRACT,
+        "meta": {"leagueKey": "dynasty_main", "sleeperDataReady": True},
+        "sleeper": {"teams": [{"ownerId": HANDOFF_TO, "name": "New Owner"}]},
+    }
+    out = _registry_fake().build(
+        HANDOFF_LEAGUE,
+        contract=loaded,
+        registry_config=lambda lid: cfg,
+        scout_provider=lambda *a: SCOUT_PAYLOAD,
+    )
+    tools = out["tradeTools"]
+    assert tools["leagueScoped"] is True and tools["leagueKey"] == "dynasty_main"
+    assert tools["reason"] is None
+    # One receipt: the ACTIVE model the calculator values under.
+    assert tools["packageModel"]["id"] == package_model.active_model_id()

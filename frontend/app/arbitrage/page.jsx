@@ -27,6 +27,7 @@ import {
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
 import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
+import { parseBuilderSeed } from "@/lib/package-builder";
 import {
   emptyRefinement,
   loadRefinement,
@@ -432,6 +433,17 @@ export default function ArbitragePage() {
   const [refinement, setRefinement] = useState(emptyRefinement);
   const [useTeamContext, setUseTeamContext] = useState(true);
   const [tool, setTool] = useState(DEFAULT_TOOL);
+  // A Package Builder seed from a link (Manager Intelligence Batch D:
+  // `?tool=builder&league=…&opponent=<owner id>[&target=…]`).  Read once after
+  // mount (SSR-safe); it opens the builder tab and the view resolves the team.
+  const [builderSeed, setBuilderSeed] = useState(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const seed = parseBuilderSeed(window.location.search);
+    if (!seed) return;
+    setBuilderSeed(seed);
+    setTool("builder");
+  }, []);
   // One discovery request shared by Golden Upgrades, Package Scan and Best
   // Offers, so the same filters mean the same thing in every view.
   const [discovery, setDiscovery] = useState(defaultDiscovery);
@@ -675,6 +687,7 @@ export default function ArbitragePage() {
               ownerKey={selectedOwnerId}
               teams={teams}
               discovery={discovery}
+              seed={builderSeed}
             />
           </Panel>
         ) : null}
