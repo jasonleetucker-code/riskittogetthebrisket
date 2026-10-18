@@ -12,17 +12,57 @@
  * surfaces can import without duplicating the math.
  *
  * Dependencies (kept identical):
- *   - meterVerdict, percentageGap from lib/trade-logic
+ *   - meterVerdict (the ONE fairness-band owner, lib/fairness-bands.js),
+ *     percentageGap from lib/trade-logic
  *   - MonteCarloButton from components/ui
  *   - ResilientSection from components/ResilientSection
  */
 
-import { meterVerdict, percentageGap } from "@/lib/trade-logic";
+import {
+  TRADE_EVAL_STATE,
+  meterVerdict,
+  percentageGap,
+  tradeEvaluationState,
+} from "@/lib/trade-logic";
 import { MonteCarloButton } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
 
+/** The meter's "nothing to compare yet" state — never a band (UX audit P0-6). */
+export function TradeMeterEmpty() {
+  return (
+    <div className="trade-meter" data-trade-state={TRADE_EVAL_STATE.EMPTY}>
+      <p className="muted" style={{ margin: 0 }}>
+        Add assets to compare the packages. No verdict until there is a trade.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * "Incomplete — no verdict" (TC-A, MISSING IS NEVER ZERO).  An unpriced asset
+ * adds 0 to a side's total as an arithmetic neutral; a band, a share bar or a
+ * "% more" computed over that 0 would grade a trade nobody has valued.
+ */
+export function TradeMeterIncomplete({ unpriced, sides }) {
+  const names = (unpriced || [])
+    .map((u) => `${u.name} (Side ${sides?.[u.side]?.label || "ABCDE"[u.side] || "?"})`)
+    .join(", ");
+  return (
+    <div className="trade-meter-bottom" data-trade-state={TRADE_EVAL_STATE.INCOMPLETE}>
+      <span className="trade-meter-verdict">INCOMPLETE</span>
+      <span className="trade-meter-pct">
+        No verdict: {unpriced.length} unpriced asset{unpriced.length === 1 ? "" : "s"} —{" "}
+        {names}. Unknown is not worth 0; type a value on the row to price it.
+      </span>
+    </div>
+  );
+}
+
 export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false }) {
   const sideCount = sides.length;
+  if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
+    return <TradeMeterEmpty />;
+  }
   if (sideCount === 2) {
     return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} sidesSend={sidesSend} />;
   }
@@ -40,12 +80,20 @@ export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false
  * leaves it off and keeps its original wording.
  */
 export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
+  const evalState = tradeEvaluationState(sides);
+  if (evalState.state === TRADE_EVAL_STATE.EMPTY) {
+    return <TradeMeterEmpty />;
+  }
+  const incomplete = evalState.state === TRADE_EVAL_STATE.INCOMPLETE;
   const pwA = sideTotals[0]?.adjusted || 0;
   const pwB = sideTotals[1]?.adjusted || 0;
   const gap = pwA - pwB;
   const absGap = Math.abs(gap);
   const pctGap = percentageGap(pwA, pwB);
-  const verdict = meterVerdict(absGap);
+  // ONE fairness-band owner (TC-C): relative to the larger adjusted side,
+  // with an absolute minimum.  The badge and the winner text read the SAME
+  // band, so "FAIR" can no longer sit beside "worth 7% more".
+  const verdict = meterVerdict(gap, Math.max(pwA, pwB));
   const total = pwA + pwB;
 
   // Fill percentages for the bar
@@ -62,7 +110,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
     ? `Side ${sides[1].label}`
     : "Side B";
   let winnerText = "Even";
-  if (pctGap >= 3) {
+  if (verdict.level !== "fair") {
     const [big, small] = gap > 0 ? [labelA, labelB] : [labelB, labelA];
     winnerText = sidesSend
       ? `${big}'s package is worth ${pctGap}% more — ${small} receives more value`
@@ -76,37 +124,45 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
         <span className="trade-meter-side-val">{Math.round(pwA).toLocaleString()}</span>
         <span className="trade-meter-vs">vs</span>
         <span className="trade-meter-side-val">{Math.round(pwB).toLocaleString()}</span>
-        <span className="trade-meter-gap">Gap: {Math.round(absGap).toLocaleString()}</span>
-      </div>
-
-      {/* Horizontal balance bar */}
-      <div className="trade-meter-bar">
-        <div
-          className="trade-meter-fill trade-meter-fill-a"
-          style={{ width: `${shareA}%` }}
-        />
-        <div
-          className="trade-meter-fill trade-meter-fill-b"
-          style={{ width: `${shareB}%` }}
-        />
-        <div className="trade-meter-center" />
-      </div>
-      <div className="trade-meter-bar-labels">
-        <span className="muted" style={{ fontSize: "0.66rem" }}>
-          {sides[0]?.label ? `Side ${sides[0].label}` : "Side A"}
-        </span>
-        <span className="muted" style={{ fontSize: "0.66rem" }}>
-          {sides[1]?.label ? `Side ${sides[1].label}` : "Side B"}
+        <span className="trade-meter-gap">
+          {incomplete ? "Gap: not computed" : `Gap: ${Math.round(absGap).toLocaleString()}`}
         </span>
       </div>
 
-      {/* Verdict badge + percentage */}
-      <div className="trade-meter-bottom">
-        <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
-          {verdict.label}
-        </span>
-        <span className="trade-meter-pct">{winnerText}</span>
-      </div>
+      {incomplete ? (
+        <TradeMeterIncomplete unpriced={evalState.unpriced} sides={sides} />
+      ) : (
+        <>
+          {/* Horizontal balance bar */}
+          <div className="trade-meter-bar">
+            <div
+              className="trade-meter-fill trade-meter-fill-a"
+              style={{ width: `${shareA}%` }}
+            />
+            <div
+              className="trade-meter-fill trade-meter-fill-b"
+              style={{ width: `${shareB}%` }}
+            />
+            <div className="trade-meter-center" />
+          </div>
+          <div className="trade-meter-bar-labels">
+            <span className="muted" style={{ fontSize: "0.66rem" }}>
+              {sides[0]?.label ? `Side ${sides[0].label}` : "Side A"}
+            </span>
+            <span className="muted" style={{ fontSize: "0.66rem" }}>
+              {sides[1]?.label ? `Side ${sides[1].label}` : "Side B"}
+            </span>
+          </div>
+
+          {/* Verdict badge + percentage */}
+          <div className="trade-meter-bottom">
+            <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
+              {verdict.label}
+            </span>
+            <span className="trade-meter-pct">{winnerText}</span>
+          </div>
+        </>
+      )}
 
       {/* Monte Carlo simulator — renders nothing when flag off, a
           button when flag on and trade has assets, or a "flag off"
@@ -120,6 +176,15 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
 }
 
 export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
+  const evalState = tradeEvaluationState(sides);
+  if (evalState.state === TRADE_EVAL_STATE.EMPTY) return <TradeMeterEmpty />;
+  if (evalState.state === TRADE_EVAL_STATE.INCOMPLETE) {
+    return (
+      <div className="trade-meter">
+        <TradeMeterIncomplete unpriced={evalState.unpriced} sides={sides} />
+      </div>
+    );
+  }
   // In 3+-team trades the fairness story is per-side NET (received −
   // given), not the sum-of-totals share used by ``multiTeamAnalysis``.
   // A side that gives away a 9000-value QB and receives a 9000-value
@@ -130,24 +195,32 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
     ? flows
     : sides.map(() => ({ given: 0, received: 0, net: 0 }));
   const nets = flowList.map((f) => f.net);
-  const absMax = Math.max(350, ...nets.map((n) => Math.abs(n)));
+  // The band base: the largest adjusted package any side sends (the same
+  // base ``tradeImbalance`` uses), so a 3-team trade is graded on the same
+  // relative scale as a 2-team one (ONE fairness-band owner, TC-C).
+  const largerSide = Math.max(
+    0,
+    ...flowList.map((f) => Number(f.given)).filter((v) => Number.isFinite(v)),
+  );
+  const isEvenNet = (n) => meterVerdict(n, largerSide).level === "fair";
+  // Display scale only (the bar's full width), never a verdict.
+  const absMax = Math.max(1, ...nets.map((n) => Math.abs(n)));
 
-  // Overall verdict: worst-offender absolute net.  Reuses the
-  // 350/900/1800 thresholds in ``meterVerdict`` so the label text
-  // matches the 2-team bar.
+  // Overall verdict: worst-offender absolute net, through the same band as
+  // the 2-team bar.
   const worst = Math.max(...nets.map((n) => Math.abs(n)));
-  const verdict = meterVerdict(worst);
+  const verdict = meterVerdict(worst, largerSide);
 
   const fmtSigned = (n) => {
     const sign = n > 0 ? "+" : n < 0 ? "−" : "";
     return `${sign}${Math.round(Math.abs(n)).toLocaleString()}`;
   };
   const netColor = (n) => {
-    if (Math.abs(n) < 350) return "var(--muted)";
+    if (isEvenNet(n)) return "var(--muted)";
     return n > 0 ? "var(--green)" : "var(--red)";
   };
   const netTag = (n) => {
-    if (Math.abs(n) < 350) return "Even";
+    if (isEvenNet(n)) return "Even";
     if (n > 0) return "Getting value";
     return "Losing value";
   };
@@ -187,7 +260,7 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
           const net = nets[i] || 0;
           const pct = absMax > 0 ? Math.min(100, (Math.abs(net) / absMax) * 100) : 0;
           const isPos = net > 0;
-          const isEven = Math.abs(net) < 350;
+          const isEven = isEvenNet(net);
           const fillColor = isEven
             ? "var(--muted)"
             : isPos

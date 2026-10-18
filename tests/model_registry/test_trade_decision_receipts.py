@@ -62,6 +62,15 @@ def _payload():
     }
 
 
+@pytest.fixture(autouse=True)
+def _isolated_decision_log(tmp_path, monkeypatch):
+    """The recorder also reads the /api/trade/analyze decision log (TC-C). Its
+    default comes from RISKIT_TRADE_DECISION_LOG_DIR, which conftest points at
+    one shared directory that other tests in the same run write to -- so these
+    Best Offers counts must not see it."""
+    monkeypatch.setenv("RISKIT_TRADE_DECISION_LOG_DIR", str(tmp_path / "decisions"))
+
+
 @pytest.fixture
 def run_log(tmp_path):
     """A real run log, written by the producer's own recorder."""

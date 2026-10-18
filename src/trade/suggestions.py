@@ -25,6 +25,7 @@ from typing import Any
 
 from src.canonical.calibration import to_display_value
 from src.packages import PackageAsset, adapt_assets, side_key, topology_is_allowed
+from src.valuation_math import fairness_bands
 from src.valuation_math.package_model import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.ros.lineup import resolve_league_slot_demand
@@ -133,14 +134,14 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int] | 
 # it suppresses 477 of the 812 priced rows and is doing real work.
 MIN_RELEVANT_VALUE = 500
 
-# Fairness band: how close two trade sides need to be (display scale).
-# NOTE (2026-07-25 audit F-7): this scale (even <256 / lean <769 /
-# stretch ≥769, see _fairness_label) is INDEPENDENT of the trade
-# page's verdict bands (350/900/1800 in frontend/lib/trade-logic.js)
-# — the two surfaces intentionally use different vocabularies and the
-# old "~1 Lean verdict worth" comment here was wrong.  769's origin
-# is undocumented legacy tuning; change it only with before/after
-# suggestion-volume measurement.
+# Generation tolerance: how far apart a candidate's two sides may be for
+# the generator to propose it at all.  NOT a fairness verdict -- the badge
+# shown to the user comes from the ONE fairness-band owner
+# (src/valuation_math/fairness_bands.py, TC-C owner decision 3), which
+# replaced the private even <256 / lean <769 / stretch band.  769's origin
+# is undocumented legacy tuning (PRIOR, calibrated under KTC, pending
+# recalibration); change it only with before/after suggestion-volume
+# measurement.
 FAIRNESS_TOLERANCE = 769
 
 # How many suggestions per category
@@ -959,13 +960,13 @@ def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
     return int(round(give_adj - recv_adj))
 
 
-def _fairness_label(gap: int) -> str:
-    a = abs(gap)
-    if a < 256:
-        return "even"
-    if a < 769:
-        return "lean"
-    return "stretch"
+def _fairness_label(gap: int, give_vals: list[int], recv_vals: list[int]) -> str:
+    """The suggestion badge (even / lean / stretch) from the ONE fairness-band
+    owner (TC-C, owner decision 3): relative to the larger ADJUSTED side, with
+    an absolute minimum.  It replaced a private 256 / 769 absolute band."""
+    give_adj, recv_adj, _, _ = adjusted_pair_totals(give_vals, recv_vals)
+    level = fairness_bands.classify(gap, max(give_adj, recv_adj))["level"]
+    return fairness_bands.legacy_magnitude(level)
 
 
 def _strategy_for_player(player: PlayerAsset) -> str:
@@ -1242,7 +1243,7 @@ def _generate_sell_high(
                         give_total=give_val,
                         receive_total=recv_val,
                         gap=gap,
-                        fairness=_fairness_label(gap),
+                        fairness=_fairness_label(gap, [give_val], [recv_val]),
                         rationale=f"You have {pos} surplus ({len(players)} rostered, need {need}). "
                         f"Move {sell.name} for a {need_pos} upgrade.",
                         why_this_helps=f"Converts {pos} depth into a {need_pos} you actually need.",
@@ -1307,7 +1308,7 @@ def _generate_buy_low(
                                 give_total=give_val,
                                 receive_total=recv_val,
                                 gap=gap,
-                                fairness=_fairness_label(gap),
+                                fairness=_fairness_label(gap, [give_val], [recv_val]),
                                 rationale=f"Target {target.name} ({need_pos}) fills your roster need. "
                                 f"You can afford to trade {sell.name} from {surplus_pos} surplus.",
                                 why_this_helps=f"Adds a starter-caliber {need_pos} without weakening "
@@ -1415,7 +1416,7 @@ def _generate_consolidation(
                         give_total=give_total,
                         receive_total=recv_total,
                         gap=gap,
-                        fairness=_fairness_label(gap),
+                        fairness=_fairness_label(gap, [give_p1, give_p2], [recv_total]),
                         rationale=f"Package {p1.name} + {p2.name} into {target.name}{pos_note}. "
                         f"Turns two depth pieces into one difference-maker.",
                         why_this_helps=f"Upgrades roster quality by condensing {p1.position}/{p2.position} "
@@ -1532,7 +1533,7 @@ def _generate_positional_upgrades(
                     give_total=give_total,
                     receive_total=recv_total,
                     gap=gap,
-                    fairness=_fairness_label(gap),
+                    fairness=_fairness_label(gap, [give_ws, give_sw], [recv_total]),
                     rationale=f"Upgrade {pos} starter: move {weakest_starter.name} + {sweetener.name} "
                     f"for {target.name}.",
                     why_this_helps=f"Replaces your {pos}{need} with a higher-caliber {pos} starter.",
@@ -1592,7 +1593,13 @@ def _find_balancers(
     """
 
     gap = int(suggestion.gap)
-    if abs(gap) < 256:
+    # Inside the fair band (the ONE fairness-band owner, TC-C): nothing to
+    # balance.  Replaced a private absolute 256.
+    give_adj, recv_adj, _, _ = adjusted_pair_totals(
+        [int(p.display_value) for p in suggestion.give],
+        [int(p.display_value) for p in suggestion.receive],
+    )
+    if fairness_bands.is_even(gap, max(give_adj, recv_adj)):
         return ([], "", [])
     side = "you_add" if gap < 0 else "they_add"
 

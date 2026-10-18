@@ -44,7 +44,9 @@ def _suggestion(give: list[PlayerAsset], receive: list[PlayerAsset]) -> TradeSug
         give_total=sum(p.display_value for p in give),
         receive_total=sum(p.display_value for p in receive),
         gap=gap,
-        fairness=_fairness_label(gap),
+        fairness=_fairness_label(
+            gap, [p.display_value for p in give], [p.display_value for p in receive]
+        ),
         rationale="",
         why_this_helps="",
         confidence="high",

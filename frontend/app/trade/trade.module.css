@@ -135,17 +135,6 @@
   letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
-.simVerdict {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.simScore {
-  font-family: var(--font-data);
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-md);
-}
 .simStarterGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

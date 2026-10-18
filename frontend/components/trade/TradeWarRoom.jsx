@@ -31,15 +31,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Banner,
+  Button,
   CollapsiblePanel,
   SegmentedControl,
   SkeletonText,
 } from "@/components/ds";
 import {
+  DECISION_TONES,
   DIRECTION_WORDS,
   FEASIBILITY_WORDS,
   RECOMMENDATION_LABELS,
-  RECOMMENDATION_TONES,
+  STRATEGY_CHOICES,
+  strategySummary,
   ROLE_WORDS,
   analyzeRequestKey,
   availabilityNote,
@@ -49,6 +52,8 @@ import {
   formatSignedValue,
   formatValue,
   comparablesSummary,
+  notPricedNames,
+  overrideBasisNotice,
   postureSummary,
   rosterImpactRows,
   simulatedWeeksLabel,
@@ -194,6 +199,90 @@ function FeasibilityAnswer({ lens }) {
   );
 }
 
+/**
+ * The ONE top-line decision, rendered verbatim from `analysis.decision`
+ * (`src/trade/trade_decision.py`).  Nothing here decides: the headline text,
+ * reasons, strategy, posture, bands and confidence statement are the
+ * backend's words and numbers.
+ */
+function DecisionHeadline({ decision, teamLabel, goalChoice, onGoalChange, showStrategy }) {
+  const reasons = decision.reasons || [];
+  const missing = decision.missingEvidence || [];
+  const strategy = decision.strategy;
+  const posture = decision.posture || {};
+  const bands = decision.bands || {};
+  return (
+    <div className={styles.verdict} data-decision={decision.headline}>
+      <p className={styles.verdictEyebrow}>For {teamLabel}</p>
+      <p className={styles.verdictLine}>
+        <Badge
+          tone={DECISION_TONES[decision.headline]}
+          className={styles.verdictBadge}
+          data-testid="decision-headline"
+        >
+          {decision.headlineText}
+        </Badge>
+      </p>
+      {decision.subtext ? <p className={styles.answerNote}>{decision.subtext}</p> : null}
+      <p className={styles.confidence} data-testid="decision-confidence">
+        {decision.confidence?.statement}
+      </p>
+      {missing.length ? (
+        <div className={styles.reasons} data-tone="neutral">
+          <h4 className={styles.reasonsTitle}>What is missing</h4>
+          <ul className={styles.reasonsList} data-testid="decision-missing">
+            {missing.map((g) => (
+              <li key={g.code}>{g.text}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {reasons.length ? (
+        <div className={styles.reasons} data-tone="neutral">
+          <h4 className={styles.reasonsTitle}>Reasons and the evidence each used</h4>
+          <ul className={styles.reasonsList} data-testid="decision-reasons">
+            {reasons.map((r) => (
+              <li key={`${r.component}-${r.text}`} data-stance={r.stance}>
+                {r.text}
+                {r === decision.primaryReason ? " (primary reason)" : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {decision.mainCounterargument ? (
+        <p className={styles.topUncertainty}>
+          <span className={styles.answerLabel}>Main counterargument</span>{" "}
+          {decision.mainCounterargument.text}
+        </p>
+      ) : null}
+      {showStrategy ? (
+        <div className={styles.note} data-testid="decision-strategy">
+          <p className={styles.answerNote}>
+            <span className={styles.answerLabel}>Strategy</span>{" "}
+            {strategy?.label ? `${strategy.label}. ` : ""}
+            {strategySummary(strategy)}
+            {posture.available ? ` · posture ${posture.label}` : ""}
+          </p>
+          <SegmentedControl
+            label="Strategy"
+            options={STRATEGY_CHOICES}
+            value={goalChoice}
+            onChange={onGoalChange}
+            className={styles.mode}
+          />
+        </div>
+      ) : null}
+      <p className={styles.answerNote} data-testid="decision-bands">
+        Fairness bands {bands.version} ({String(bands.status || "").toLowerCase()}):
+        fair under {bands.absoluteMinimum} points or {bands.slightPct}% of the larger
+        adjusted package · graded leaning:{" "}
+        {RECOMMENDATION_LABELS[decision.leaning] || decision.leaning}
+      </p>
+    </div>
+  );
+}
+
 function ReasonList({ title, items, tone }) {
   if (!items?.length) return null;
   return (
@@ -335,6 +424,7 @@ function Details({ analysis, raw }) {
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
   const comps = comparablesSummary(analysis.lenses?.comparables);
+  const notPriced = notPricedNames(analysis, raw);
   return (
     <CollapsiblePanel
       title="How this was decided"
@@ -354,8 +444,7 @@ function Details({ analysis, raw }) {
               "package model"}
             ) is a separate market lens; roster fit never changes an
             asset&apos;s value. It prices every asset at its board value, so
-            value overrides and the Raw value mode in the builder are not
-            applied here.
+            value overrides typed in the builder are not applied here.
           </p>
         </section>
         {basis.source ? (
@@ -467,13 +556,12 @@ function Details({ analysis, raw }) {
             ))}
           </ul>
         </section>
-        {raw?.unresolvedIn?.length || raw?.unresolvedOut?.length ? (
+        {notPriced.length ? (
           <section>
             <h4 className={styles.detailsTitle}>Not priced</h4>
-            <p>
-              {[...(raw.unresolvedIn || []), ...(raw.unresolvedOut || [])].join(
-                ", ",
-              )}
+            <p data-testid="war-room-not-priced">
+              {notPriced.join(", ")} — unknown, not worth 0, so left out of
+              the package math.
             </p>
           </section>
         ) : null}
@@ -487,7 +575,50 @@ export default function TradeWarRoom({
   leagueKey = "",
   useTeamContext = true,
   onTeamContextChange,
+  overrideCount = 0,
+  teamName = "",
+  sideChoiceNeeded = false,
+  chosenSide = null,
+  onChooseSide,
 }) {
+  const basisNotice = overrideBasisNotice(overrideCount);
+  // Owner decision 2: the strategy is inferred unless the user overrides it;
+  // the override travels as `teamGoal` and the engine echoes it back.
+  const [goalChoice, setGoalChoice] = useState("auto");
+  const teamGoal = goalChoice === "auto" ? null : goalChoice;
+  // TC-A / UX audit P0-5: when roster evidence does not say which side is
+  // the team's, the War Room ASKS — it never analyses an assumed side.
+  const sideChooser = (
+    <div className={styles.note} role="group" aria-label="Which side is your team">
+      <p className={styles.note} data-testid="war-room-side-choice">
+        {chosenSide != null
+          ? `Analysing Side ${chosenSide === 0 ? "A" : "B"} as ${teamName || "your team"} (you chose this).`
+          : `Which side is ${teamName || "your team"}? Neither side holds more of its roster, so the War Room will not guess.`}
+      </p>
+      <Button
+        size="sm"
+        variant={chosenSide === 0 ? "primary" : "ghost"}
+        onClick={() => onChooseSide?.(0)}
+      >
+        I give Side A
+      </Button>{" "}
+      <Button
+        size="sm"
+        variant={chosenSide === 1 ? "primary" : "ghost"}
+        onClick={() => onChooseSide?.(1)}
+      >
+        I give Side B
+      </Button>
+      {chosenSide != null ? (
+        <>
+          {" "}
+          <Button size="sm" variant="ghost" onClick={() => onChooseSide?.(null)}>
+            Use roster evidence
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
   const [state, setState] = useState({
     status: "idle",
     payload: null,
@@ -497,8 +628,8 @@ export default function TradeWarRoom({
   });
   const controllerRef = useRef(null);
   const key = useMemo(
-    () => analyzeRequestKey(request, leagueKey, useTeamContext),
-    [request, leagueKey, useTeamContext],
+    () => analyzeRequestKey(request, leagueKey, useTeamContext, teamGoal),
+    [request, leagueKey, useTeamContext, teamGoal],
   );
   const contextKey = JSON.stringify([
     leagueKey,
@@ -544,6 +675,7 @@ export default function TradeWarRoom({
           useTeamContext: useTeamContext !== false,
         };
         if (leagueKey) body.leagueKey = leagueKey;
+        if (teamGoal) body.teamGoal = teamGoal;
         const res = await fetch("/api/trade/analyze", {
           method: "POST",
           credentials: "same-origin",
@@ -617,11 +749,18 @@ export default function TradeWarRoom({
           </h2>
           {toggle}
         </header>
-        <p className={styles.note}>
-          {request
-            ? "Add assets to both sides to see what this trade does to your roster."
-            : "Pick your team to see what this trade does to your roster."}
-        </p>
+        {sideChoiceNeeded ? (
+          sideChooser
+        ) : (
+          <p className={styles.note}>
+            {/* A selected team with no request yet is an incomplete or
+                side-ambiguous trade (tradeRequestForTeam answers null rather
+                than assume a side), never "no team". */}
+            {request || teamName
+              ? "Add assets to both sides to see what this trade does to your roster."
+              : "Pick your team to see what this trade does to your roster."}
+          </p>
+        )}
       </section>
     );
   }
@@ -649,6 +788,12 @@ export default function TradeWarRoom({
           included in this analysis.
         </p>
       ) : null}
+      {chosenSide != null ? sideChooser : null}
+      {basisNotice ? (
+        <p className={styles.modeNote} data-testid="war-room-basis-notice">
+          {basisNotice}
+        </p>
+      ) : null}
       <p role="status" className={styles.status}>
         {state.status === "loading"
           ? "Analyzing this trade…"
@@ -670,32 +815,20 @@ export default function TradeWarRoom({
 
       {analysis ? (
         <div className={`${styles.body} ${stale ? styles.stale : ""}`.trim()}>
-          <div
-            className={styles.verdict}
-            data-recommendation={analysis.recommendation}
-          >
-            <p className={styles.verdictEyebrow}>
-              For {payload.team?.name || request.teamName}
+          <DecisionHeadline
+            decision={analysis.decision}
+            teamLabel={payload.team?.name || request.teamName}
+            goalChoice={goalChoice}
+            onGoalChange={setGoalChoice}
+            showStrategy={useTeamContext !== false}
+          />
+          <p className={styles.answerNote}>{RECOMMENDATION_ONLY_TEXT}</p>
+          {analysis.topUncertainty ? (
+            <p className={styles.topUncertainty}>
+              <span className={styles.answerLabel}>Biggest uncertainty</span>{" "}
+              {analysis.topUncertainty}
             </p>
-            <p className={styles.verdictLine}>
-              <Badge
-                tone={RECOMMENDATION_TONES[analysis.recommendation]}
-                className={styles.verdictBadge}
-              >
-                {RECOMMENDATION_LABELS[analysis.recommendation]}
-              </Badge>
-              <span className={styles.confidence}>
-                {String(analysis.confidence || "").toLowerCase()} confidence
-              </span>
-            </p>
-            <p className={styles.answerNote}>{RECOMMENDATION_ONLY_TEXT}</p>
-            {analysis.topUncertainty ? (
-              <p className={styles.topUncertainty}>
-                <span className={styles.answerLabel}>Biggest uncertainty</span>{" "}
-                {analysis.topUncertainty}
-              </p>
-            ) : null}
-          </div>
+          ) : null}
 
           <div className={styles.answers}>
             <MarketAnswer lens={analysis.lenses?.market} />

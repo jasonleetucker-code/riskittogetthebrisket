@@ -220,19 +220,33 @@ def test_a_failed_background_encode_keeps_the_previous_generation(swr_case, monk
     assert _served_players(fresh) == ["wr"]
 
 
+class _Ago:
+    """A stamp ``seconds`` before NOW, resolved inside the test body.
+
+    Building the timestamp at COLLECTION time put the wall clock into the
+    test id, so every pytest-xdist worker collected a different id and the
+    whole parallel run aborted ("Different tests were collected").
+    """
+
+    def __init__(self, seconds: float) -> None:
+        self.seconds = seconds
+
+
 @pytest.mark.parametrize(
     ("stamp", "servable"),
     [
-        (None, False),
-        ("", False),
-        ("fixed-observation", False),
-        ("2026-09-28T12:00:00", False),  # no zone: unknown age
-        (_fixed(-60), False),  # future
-        (_fixed(29 * 60), True),
-        (_fixed(31 * 60), False),
+        pytest.param(None, False, id="none"),
+        pytest.param("", False, id="empty"),
+        pytest.param("fixed-observation", False, id="not-a-timestamp"),
+        pytest.param("2026-09-28T12:00:00", False, id="no-zone-unknown-age"),
+        pytest.param(_Ago(-60), False, id="future"),
+        pytest.param(_Ago(29 * 60), True, id="29min-inside-window"),
+        pytest.param(_Ago(31 * 60), False, id="31min-outside-window"),
     ],
 )
 def test_observation_servability_follows_the_owner_window(stamp, servable):
+    if isinstance(stamp, _Ago):
+        stamp = _fixed(stamp.seconds)
     assert sleeper_overlay.overlay_observation_servable(stamp, now=NOW.timestamp()) is servable
 
 

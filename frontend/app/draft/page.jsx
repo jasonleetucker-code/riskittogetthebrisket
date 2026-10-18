@@ -97,6 +97,7 @@ import {
   StatTile,
   ValueBasisNote,
 } from "@/components/ds";
+import { draftCapitalBudgetRows } from "@/lib/draft-capital-budgets";
 import styles from "./draft.module.css";
 
 // Code-split so the Perfect Draft panel and its optimizer stay OUT of the
@@ -3984,12 +3985,9 @@ export default function DraftDashboardPage() {
         // when the requested league's data isn't loaded.
         const data = await capitalLoaderRef.current(selectedLeagueKey);
         if (activeLeagueRef.current !== selectedLeagueKey) return;
-        const teamTotals = Array.isArray(data?.teamTotals)
-          ? data.teamTotals
-          : [];
-        if (teamTotals.length === 0) {
-          throw new Error("Draft capital feed had no team totals.");
-        }
+        // MISSING IS NEVER ZERO: unavailable budgets throw (the error banner
+        // names why) and leave the workspace untouched — never $0 budgets.
+        const teamTotals = draftCapitalBudgetRows(data);
         // Raw picks array — retained for callers; no longer used to
         // derive a per-team rookie cap (there isn't one).  Per-team slot
         // counts (how many rookie picks each team currently owns).

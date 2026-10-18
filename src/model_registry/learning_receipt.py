@@ -181,6 +181,9 @@ NATIVE_STORES: Mapping[str, str] = {
     # Best Trade to Send Each Team: the box-local append-only run log, one line per
     # served run (AL-P5)
     "best_offers_run_log": "src.trade.best_offers.record_run (data/trade/best_offers/runs-YYYY-MM.jsonl)",
+    # The canonical trade decision (TC-C): the box-local append-only run log, one
+    # line per served /api/trade/analyze decision (same AL-P5 arrangement)
+    "trade_decision_log": "src.trade.trade_decision_log.record_decision (data/trade/decisions/runs-YYYY-MM.jsonl)",
 }
 
 #: Stores that hold a PRODUCER'S OWN OUTPUT (plan §19.1: the model registry,
@@ -200,6 +203,7 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
         "sparse_evidence_shadow_ledger",
         "preregistration",
         "best_offers_run_log",
+        "trade_decision_log",
     }
 )
 
@@ -221,6 +225,7 @@ ARTIFACT_STORE_WRITERS: Mapping[str, frozenset[str]] = {
     "sparse_evidence_shadow_ledger": frozenset({"sparse_evidence_shadow"}),
     "preregistration": frozenset(),
     "best_offers_run_log": frozenset({"best_offers"}),
+    "trade_decision_log": frozenset({"trade_decision"}),
 }
 
 #: Kinds whose refs describe what FED a model; every ref must be ``input``.

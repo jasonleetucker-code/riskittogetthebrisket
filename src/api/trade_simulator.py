@@ -347,6 +347,13 @@ def _resolve_asset(
         "playerId": str(row.get("playerId")) if row.get("playerId") else None,
         "confidenceBucket": row.get("confidenceBucket"),
         "hasSourceDisagreement": row.get("hasSourceDisagreement"),
+        # Read, never computed (TC-C evidence gates): the pipeline's own
+        # quarantine verdict and the confidence owner's freshness axis.  An
+        # absent stamp stays absent (None), never "fresh".
+        "quarantined": row.get("quarantined") is True,
+        "valueFreshness": row["confidenceAxes"].get("freshness")
+        if isinstance(row.get("confidenceAxes"), dict)
+        else None,
     }
 
 

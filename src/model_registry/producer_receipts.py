@@ -29,6 +29,9 @@ the box emit receipts AS THEY RUN, in the owner order of
    DECISION per served run, read from the box-local run log by
    ``scripts/trade_decision_receipts.py`` after each deploy. The serving path and
    its response are untouched (AL-P5 acceptance: producer outputs byte-identical).
+6. **The canonical trade decision** (``src/trade/trade_decision.py``, TC-C) — one
+   DECISION per served ``/api/trade/analyze`` decision, read from its own run log
+   (``src/trade/trade_decision_log.py``) by the same script, exactly as section 5.
 
 Rules this module keeps (pinned by ``tests/model_registry/test_producer_receipts.py``):
 
@@ -1621,6 +1624,93 @@ def best_offers_decision_receipts(
                 "nonAction": NotApplicable(
                     "whether the user acted on an offer is not observable: the calculator "
                     "never sends a trade and pending Sleeper offers are not readable"
+                ).to_dict(),
+                "promotes": False,
+            },
+        )
+    ]
+
+
+# ── 6. the canonical trade decision (TC-C), the same AL-P5 arrangement ───────
+
+TRADE_DECISION_PRODUCER = "trade_decision"
+TRADE_DECISION_FAMILY = "trade_decision"
+TRADE_DECISION_STORE = "trade_decision_log"
+
+
+def trade_decision_receipts(line: Mapping[str, Any], *, file_name: str) -> list[LearningReceipt]:
+    """One DECISION receipt for one served trade decision, AS STORED in its log.
+
+    The same contract as :func:`best_offers_decision_receipts`: point into the
+    producer's own run line (``<file>#<runId>``), cutoff = the line's
+    ``recordedAt``, the board named only by its stamp (``Unobserved``), and a
+    body that summarises the decision without copying any asset.  The model
+    identity is the decision owner's version plus the fairness bands it used;
+    a line that names neither is refused rather than given a placeholder.
+    """
+    native = _require(line.get("runId"), "runId")
+    recorded = parse_instant(line.get("recordedAt"), what="decision recordedAt")
+    receipt = line.get("receipt")
+    if not isinstance(receipt, Mapping):
+        raise ReceiptError("producer record lacks the decision receipt")
+    version = _require(line.get("decisionVersion"), "decisionVersion")
+    bands = _require(receipt.get("bands"), "receipt.bands")
+    token = "".join(c if (c.isalnum() or c in "._-") else "_" for c in f"{version}-{bands}")
+    mvid = model_version_id(TRADE_DECISION_FAMILY, token)
+    headline = _require(line.get("headline"), "headline")
+    strategy = line.get("strategy")
+    team_context = line.get("teamContext")
+    board_stamp = receipt.get("boardStamp")
+    return [
+        build_receipt(
+            kind=KIND_DECISION,
+            producer=TRADE_DECISION_PRODUCER,
+            native_id=native,
+            model_family=TRADE_DECISION_FAMILY,
+            model_version_id=mvid,
+            cutoff=recorded,
+            slots={
+                "decisionSet": StoreRef(
+                    store=TRADE_DECISION_STORE,
+                    key=f"{file_name}#{native}",
+                    role=ROLE_ARTIFACT,
+                    known_at=recorded,
+                    fidelity="exact",
+                    basis="the run line's own recordedAt; the line is appended right after it",
+                    produced_for=native,
+                ),
+                "board": Unobserved(
+                    "the decision log names the board by its generatedAt stamp only "
+                    f"({board_stamp!r}), which is not a content address"
+                ),
+            },
+            body={
+                "decision": "trade_decision",
+                "action": "recommend_only",
+                "producerVersion": _require(line.get("version"), "producer version"),
+                "leagueKey": line.get("leagueKey")
+                if line.get("leagueKey")
+                else _missing("league key", line.get("leagueKey")),
+                "headline": headline,
+                "leaning": line.get("leaning"),
+                "confidenceLevel": line.get("confidenceLevel"),
+                "missingEvidence": list(line.get("missingEvidence") or []),
+                "strategy": dict(strategy)
+                if isinstance(strategy, Mapping)
+                else _missing("strategy", strategy),
+                "teamContext": dict(team_context)
+                if isinstance(team_context, Mapping)
+                else _missing("team context", team_context),
+                "requestHash": receipt.get("requestHash"),
+                "bands": bands,
+                "boardStamp": board_stamp,
+                "sourceRecord": {
+                    "store": TRADE_DECISION_STORE,
+                    "lineCanonicalJsonSha256": _sha(dict(line)),
+                },
+                "nonAction": NotApplicable(
+                    "whether the user made the trade is not observable: the decision never "
+                    "sends a trade and pending Sleeper offers are not readable"
                 ).to_dict(),
                 "promotes": False,
             },

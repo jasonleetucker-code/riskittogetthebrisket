@@ -9,9 +9,20 @@
  * Pure presentation, moved verbatim — no trade math lives here.
  */
 
+import { PICK_OWNERSHIP_UNAVAILABLE_LABEL } from "@/lib/pick-ownership";
+import { teamPickLabels } from "@/lib/trade-assets";
 import { Badge, Banner, Button, Field, Panel, Select } from "@/components/ds";
 import { SUGG_TYPES } from "./trade-sections";
 import styles from "./trade.module.css";
+
+/**
+ * "N picks", or the unknown label when the team's pick ownership could not be
+ * read (TC-A) -- never "0 picks" for an unknown inventory.
+ */
+export function pickCountText(team) {
+  const labels = teamPickLabels(team);
+  return labels == null ? PICK_OWNERSHIP_UNAVAILABLE_LABEL.toLowerCase() : `${labels.length} picks`;
+}
 
 // ── Suggestion card helpers ───────────────────────────────────────────
 
@@ -208,8 +219,7 @@ export function SuggestionsDesk({
                 <option value={-1}>Select your team…</option>
                 {sleeperTeams.map((t, i) => (
                   <option key={i} value={i}>
-                    {t.name} ({(t.players || []).length} players,{" "}
-                    {(t.picks || []).length} picks)
+                    {t.name} ({(t.players || []).length} players, {pickCountText(t)})
                   </option>
                 ))}
               </Select>
@@ -217,8 +227,7 @@ export function SuggestionsDesk({
             {selectedTeamIdx >= 0 && sleeperTeams[selectedTeamIdx] ? (
               <span className={styles.suggestMeta}>
                 Loaded {(sleeperTeams[selectedTeamIdx].players || []).length}{" "}
-                players + {(sleeperTeams[selectedTeamIdx].picks || []).length}{" "}
-                picks
+                players + {pickCountText(sleeperTeams[selectedTeamIdx])}
                 {leagueRosters ? ` · ${leagueRosters.length} opponents` : ""}
               </span>
             ) : null}

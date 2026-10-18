@@ -33,6 +33,15 @@ over the canonical substrate); this module only states the six criteria as a
 ``score`` and orders what passes.  1-for-1 trades carry no Value Adjustment
 (KTC suppresses it for single pieces), so the raw values ARE the adjusted ones.
 Recommendation only.
+
+Discovery filters (owner directive 2026-10-18, ``src/trade/discovery``):
+Target Quality and Players to target narrow the TARGET side during candidate
+generation — the target pool by scope before enumeration, quality as the
+substrate's receive anchor — and never relax the six criteria above.  With a
+``sort`` the list is ordered by the shared discovery orderings (Most Impactful
+by default); without one the legacy order (weaker edge, exploit-decayed)
+stands.  An empty filtered result says so and reports how many upgrades exist
+at each broader Target Quality level — it is never padded.
 """
 
 from __future__ import annotations
@@ -48,6 +57,7 @@ from src.league_intel.cross_market import (
     MARKET_KTC,
     native_calculator_value,
 )
+from src.trade import discovery as disc
 from src.trade import finder
 
 __all__ = ["GOLDEN_VERSION", "GoldenCandidate", "find_golden_upgrades", "load_golden_config"]
@@ -82,6 +92,10 @@ class GoldenCandidate:
     ranking_factors: dict[str, Any] = field(default_factory=dict)
     summary: str = ""
     counterparty: str | None = None
+    #: The engine's own exploit decay (1.0 inside the band) — its
+    #: counterparty-acceptance reading, consumed by the discovery ordering.
+    decay: float = 1.0
+    metrics: dict[str, Any] | None = None
 
 
 def _scorer(
@@ -151,13 +165,16 @@ def _scorer(
             # golden as its smaller inversion — decayed past the exploit band.
             arbitrage_score=round(min(board_gain, market_inv) * decay, 4),
             flags=["exploitRisk"] if total > band else [],
+            decay=decay,
         )
 
     return score
 
 
-def _asset(a: Any, market_value: float | None, calc: str) -> dict[str, Any]:
-    return {
+def _asset(
+    a: Any, market_value: float | None, calc: str, index: disc.CanonicalIndex | None = None
+) -> dict[str, Any]:
+    out = {
         "name": a.name,
         "position": a.position,
         "team": a.team,
@@ -165,6 +182,10 @@ def _asset(a: Any, market_value: float | None, calc: str) -> dict[str, Any]:
         "marketValue": int(round(market_value)) if market_value is not None else None,
         "market": CALCULATOR_LABELS.get(calc, calc),
     }
+    if index is not None:
+        # Canonical overall rank (``canonicalConsensusRank``); None = unranked.
+        out["rank"] = index.rank(a)
+    return out
 
 
 def find_golden_upgrades(
@@ -177,8 +198,11 @@ def find_golden_upgrades(
     lineup_delta: Callable[..., dict[str, Any] | None] | None = None,
     opponents: Sequence[str] | None = None,
     config: Mapping[str, Any] | None = None,
+    discovery: disc.DiscoveryFilters | None = None,
+    impact_prior: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Every Golden Upgrade for ``my_team``, strongest inversion first."""
+    """Every Golden Upgrade for ``my_team``, ordered by ``discovery.sort``
+    (legacy: strongest inversion first)."""
     from src.trade.constraints import blocked_outgoing, outgoing_eligibility  # noqa: PLC0415
 
     cfg = dict(config or load_golden_config())
@@ -213,6 +237,19 @@ def find_golden_upgrades(
             "configPath": "config/trade/golden_upgrades.json",
         },
     }
+    index = disc.CanonicalIndex(contract) if discovery is not None else None
+    prior = dict(impact_prior or disc.load_impact_prior()) if discovery is not None else None
+    disc_report = disc.DiscoveryReport()
+    if discovery is not None:
+        base["discovery"] = {
+            "version": disc.DISCOVERY_VERSION,
+            "filters": discovery.to_dict(),
+            "impactPrior": {
+                "id": prior.get("id"),
+                "status": prior.get("status"),
+                "configPath": "config/trade/discovery_impact_prior.json",
+            },
+        }
     my_roster = finder.resolve_roster(my_team, sleeper_teams, pool_by_name)
     if not any(str(t.get("name") or "") == my_team for t in sleeper_teams):
         return {**base, "error": "my_team_unresolved", "upgrades": []}
@@ -240,8 +277,8 @@ def find_golden_upgrades(
     }
     from src.trade.best_offers import _row_for, _row_index  # noqa: PLC0415 — one row resolver
 
-    index = _row_index(contract)
-    score = _scorer(cfg, diag, lambda a: _row_for(a, index))
+    row_index = _row_index(contract)
+    score = _scorer(cfg, diag, lambda a: _row_for(a, row_index))
     # LOCK narrows the owned side to the locked players: a Golden Upgrade is a
     # 1-for-1, so "this player must be in the package" means "upgrade him".
     from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
@@ -270,31 +307,211 @@ def find_golden_upgrades(
             }
         required = {id(a) for a in lock.required}
         my_roster = [a for a in my_roster if id(a) in required]
-    found: list[GoldenCandidate] = []
-    for t in sleeper_teams:
-        opp = str(t.get("name") or "")
-        if not opp or opp == my_team or (opponents and opp not in opponents):
-            continue
-        opp_roster = [
-            a
-            for a in finder.resolve_roster(opp, sleeper_teams, pool_by_name)
-            if a.name not in owned_names
-        ]
-        if not opp_roster:
-            continue
-        cands, _report = finder.generate_packages(
-            my_roster, opp_roster, policy, one_for_one_only=True, score=score
-        )
-        cands = sorted(cands, key=lambda c: (-c.arbitrage_score, c.give[0].name, c.receive[0].name))
-        for c in cands[: int(cfg.get("perOpponentLimit", 5))]:
-            c.counterparty = opp
-            found.append(c)
+        if (
+            discovery is not None
+            and discovery.scope_active
+            and my_roster
+            and disc.player_group(my_roster[0].position) != discovery.scope
+        ):
+            # Same-position swaps only: a locked player outside Players to
+            # target can never be upgraded within it.  Reported, never
+            # silently unlocked or overridden.
+            return {
+                **base,
+                "upgrades": [],
+                "lock": lock.to_dict(),
+                "noResultReason": "locked_player_outside_players_to_target",
+                "noResultLabel": "No Golden Upgrade found under current constraints",
+                "noResultDetail": (
+                    f"{my_roster[0].name} ({my_roster[0].position}) is locked, but Players to "
+                    f"target is {discovery.scope.title()}. A Golden Upgrade is a same-position "
+                    "swap, so unlock him or switch Players to target."
+                ),
+            }
+    anchor = disc.quality_anchor(discovery, index) if index is not None else None
 
-    found.sort(
-        key=lambda c: (-c.arbitrage_score, -c.board_gain_pct, c.give[0].name, c.receive[0].name)
-    )
+    def _search(use_anchor: bool, report: disc.DiscoveryReport | None) -> list[GoldenCandidate]:
+        """Every candidate across opponents (no cuts), filters applied BEFORE
+        the scorer: scope on the target pool, quality as the receive anchor."""
+        out: list[GoldenCandidate] = []
+        for t in sleeper_teams:
+            opp = str(t.get("name") or "")
+            if not opp or opp == my_team or (opponents and opp not in opponents):
+                continue
+            opp_roster = [
+                a
+                for a in finder.resolve_roster(opp, sleeper_teams, pool_by_name)
+                if a.name not in owned_names
+            ]
+            if index is not None:
+                opp_roster = disc.filter_incoming(opp_roster, discovery, index, report)
+            if not opp_roster:
+                continue
+            cands, enum_report = finder.generate_packages(
+                my_roster,
+                opp_roster,
+                policy,
+                one_for_one_only=True,
+                score=score,
+                **({"receive_anchor": anchor} if use_anchor and anchor is not None else {}),
+            )
+            if report is not None:
+                report.anchor_rejected += disc.anchor_rejections(enum_report)
+            for c in cands:
+                c.counterparty = opp
+            out.extend(cands)
+        return out
+
+    found = _search(True, disc_report)
+    limit_per_opp = int(cfg.get("perOpponentLimit", 5))
+    sort = discovery.sort if discovery is not None else None
+    if sort is None:
+        # Legacy order: strongest (weaker-edge, exploit-decayed) first.
+        per_opp: dict[str, int] = {}
+        kept: list[GoldenCandidate] = []
+        for c in sorted(
+            found, key=lambda c: (-c.arbitrage_score, c.give[0].name, c.receive[0].name)
+        ):
+            if per_opp.get(c.counterparty or "", 0) < limit_per_opp:
+                per_opp[c.counterparty or ""] = per_opp.get(c.counterparty or "", 0) + 1
+                kept.append(c)
+        found = sorted(
+            kept,
+            key=lambda c: (
+                -c.arbitrage_score,
+                -c.board_gain_pct,
+                c.give[0].name,
+                c.receive[0].name,
+            ),
+        )
+    else:
+        found = _order_by_discovery(
+            found,
+            sort=sort,
+            index=index,
+            prior=prior,
+            filters=discovery,
+            lineup_delta=lineup_delta,
+            owner_of=owner_of,
+            my_team=my_team,
+            limit_per_opp=limit_per_opp,
+        )
     found = found[: int(cfg.get("maxResults", 25))]
     upgrades = []
+    for c in found:
+        if c.metrics is not None:
+            lineup = c.metrics.get("lineupImpact")
+        else:
+            lineup = (
+                lineup_delta(
+                    owner_of.get(my_team, ""),
+                    owner_of.get(c.counterparty or "", ""),
+                    [c.give[0].name],
+                    [c.receive[0].name],
+                )
+                if lineup_delta is not None
+                else None
+            )
+        row: dict[str, Any] = {
+            "owned": _asset(c.give[0], c.owned_market, c.calculator, index),
+            "target": _asset(c.receive[0], c.target_market, c.calculator, index),
+            "market": CALCULATOR_LABELS.get(c.calculator, c.calculator),
+            "opponent": c.counterparty,
+            "boardGainPct": c.board_gain_pct,
+            "marketInversionPct": c.market_inversion_pct,
+            "strength": c.arbitrage_score,
+            "exploitRisk": "exploitRisk" in c.flags,
+            "lineupImpact": lineup,
+            "why": (
+                f"Our board values {c.receive[0].name} {c.board_gain_pct:.1f}% above "
+                f"{c.give[0].name}, while {CALCULATOR_LABELS.get(c.calculator, c.calculator)} "
+                f"values {c.give[0].name} {c.market_inversion_pct:.1f}% above "
+                f"{c.receive[0].name} — a swap the other side's own market favours."
+            ),
+        }
+        if c.metrics is not None:
+            row["absoluteGain"] = int(c.receive[0].model_value - c.give[0].model_value)
+            row["discovery"] = {k: v for k, v in c.metrics.items() if k != "lineupImpact"}
+            row["whyItMatters"] = disc.why_it_matters(c.metrics)
+        upgrades.append(row)
+    # A snapshot: the broader-availability search below re-uses the scorer.
+    out = {**base, "upgrades": upgrades, "diagnostics": dict(diag)}
+    if discovery is not None:
+        out["discovery"] = {**base["discovery"], "report": disc_report.to_dict()}
+    if not upgrades:
+        out["noResultReason"] = _no_result_reason(diag)
+        out["noResultLabel"] = (
+            "No Golden Upgrade found under current constraints"
+            if blocked or locked
+            else "No Golden Upgrade found"
+        )
+        if discovery is not None:
+            _explain_filtered_empty(out, discovery, disc_report, index, _search)
+    return out
+
+
+def _explain_filtered_empty(
+    out: dict[str, Any],
+    discovery: disc.DiscoveryFilters,
+    report: disc.DiscoveryReport,
+    index: disc.CanonicalIndex,
+    search: Callable[[bool, Any], list[GoldenCandidate]],
+) -> None:
+    """Say WHICH discovery constraint emptied the list, and how many upgrades
+    each broader Target Quality level holds — never pad the list."""
+    if discovery.scope_active and report.targets_considered == 0:
+        out["noResultReason"] = "no_target_in_players_to_target"
+        out["noResultDetail"] = (
+            f"No opponent rosters a {discovery.scope} player in this market pool."
+        )
+        return
+    if not discovery.quality_active:
+        return
+    unfiltered = search(False, None)
+    broader: dict[str, int] = {}
+    for level in disc.broader_quality_levels(discovery.quality):
+        filters = disc.DiscoveryFilters(quality=level, scope=discovery.scope)
+        broader[level] = sum(
+            1 for c in unfiltered if disc.incoming_quality(c.receive[0], filters, index)[0]
+        )
+    out["discovery"]["broaderAvailability"] = broader
+    if unfiltered:
+        out["noResultReason"] = "no_upgrade_within_target_quality"
+        label = {"top100": "Top 100", "top250": "Top 250", "top500": "Top 500"}.get(
+            discovery.quality, discovery.quality
+        )
+        extra = (
+            f" and a minimum incoming value of {discovery.min_incoming_value:,}"
+            if discovery.min_incoming_value
+            else ""
+        )
+        out["noResultDetail"] = (
+            f"No legitimate Golden Upgrade brings back a {label} player{extra}. "
+            + "; ".join(
+                f"{n} at {('All Players' if lvl == 'all' else lvl.replace('top', 'Top '))}"
+                for lvl, n in broader.items()
+            )
+            + "."
+        )
+
+
+def _order_by_discovery(
+    found: list[GoldenCandidate],
+    *,
+    sort: str,
+    index: disc.CanonicalIndex,
+    prior: Mapping[str, Any],
+    filters: disc.DiscoveryFilters,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None,
+    owner_of: Mapping[str, str],
+    my_team: str,
+    limit_per_opp: int,
+) -> list[GoldenCandidate]:
+    """Order by the shared discovery orderings.  Lineup impact (the canonical
+    solver, ~6 ms a swap) is read for every candidate BEFORE ranking so Most
+    Impactful sees it; the per-opponent limit then keeps each opponent's best
+    under the SAME sort."""
+    comfort_sat = float((prior.get("scales") or {}).get("comfortSaturationPct", 10.0))
     for c in found:
         lineup = (
             lineup_delta(
@@ -306,34 +523,35 @@ def find_golden_upgrades(
             if lineup_delta is not None
             else None
         )
-        upgrades.append(
-            {
-                "owned": _asset(c.give[0], c.owned_market, c.calculator),
-                "target": _asset(c.receive[0], c.target_market, c.calculator),
-                "market": CALCULATOR_LABELS.get(c.calculator, c.calculator),
-                "opponent": c.counterparty,
-                "boardGainPct": c.board_gain_pct,
-                "marketInversionPct": c.market_inversion_pct,
-                "strength": c.arbitrage_score,
-                "exploitRisk": "exploitRisk" in c.flags,
-                "lineupImpact": lineup,
-                "why": (
-                    f"Our board values {c.receive[0].name} {c.board_gain_pct:.1f}% above "
-                    f"{c.give[0].name}, while {CALCULATOR_LABELS.get(c.calculator, c.calculator)} "
-                    f"values {c.give[0].name} {c.market_inversion_pct:.1f}% above "
-                    f"{c.receive[0].name} — a swap the other side's own market favours."
-                ),
-            }
+        c.metrics = disc.candidate_metrics(
+            c.give,
+            c.receive,
+            index=index,
+            prior=prior,
+            filters=filters,
+            roster_fit=disc.lineup_fit(lineup, prior),
+            roster_fit_basis="lineup" if disc.lineup_fit(lineup, prior) is not None else None,
+            # Golden's own acceptance reading: the market inversion, decayed
+            # past its exploit band.
+            counterparty=c.decay * min(1.0, c.market_inversion_pct / comfort_sat),
+            counterparty_basis="golden market inversion x exploit decay",
+            lineup=lineup,
         )
-    out = {**base, "upgrades": upgrades, "diagnostics": diag}
-    if not upgrades:
-        out["noResultReason"] = _no_result_reason(diag)
-        out["noResultLabel"] = (
-            "No Golden Upgrade found under current constraints"
-            if blocked or locked
-            else "No Golden Upgrade found"
-        )
-    return out
+    disc.score_impact([c.metrics for c in found], prior)
+    ordered = sorted(
+        found,
+        key=lambda c: disc.sort_key(
+            sort, c.metrics, (c.give[0].name, c.receive[0].name, c.counterparty or "")
+        ),
+    )
+    per_opp: dict[str, int] = {}
+    kept: list[GoldenCandidate] = []
+    for c in ordered:
+        n = per_opp.get(c.counterparty or "", 0)
+        if n < limit_per_opp:
+            per_opp[c.counterparty or ""] = n + 1
+            kept.append(c)
+    return kept
 
 
 def _no_result_reason(diag: Mapping[str, int]) -> str:

@@ -2,8 +2,11 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import { isFairGap } from "@/lib/fairness-bands";
 import {
-  VALUE_MODES,
+  ACTIVE_PACKAGE_MODEL_ID,
+  PACKAGE_MODELS,
+  TRADE_VALUE_MODE,
   STORAGE_KEY,
   meterVerdict,
   colorFromGap,
@@ -11,6 +14,9 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   sideTotal,
+  simulationSignature,
+  tradeEvaluationState,
+  TRADE_EVAL_STATE,
   applyImportedSides,
   defaultDestination,
   findBalancers,
@@ -36,17 +42,24 @@ import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import {
   buildShareUrl,
+  describeShareModelChange,
   describeShareTruncation,
   parseShareParam,
   shareLinkLimits,
 } from "@/lib/trade-share";
-import { tradeRequestForTeam } from "@/lib/trade-war-room";
+import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
+import {
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  describePickOwnershipReason,
+  pickOwnershipUnavailableReason,
+} from "@/lib/pick-ownership";
 import {
   canAddEntry,
   countEntries,
   heldAssetKeysInTrade,
   removeOneEntry,
   teamPickEntries,
+  teamPickLabels,
   tradeEntryKey,
   unusedTeamPickEntries,
 } from "@/lib/trade-assets";
@@ -65,7 +78,6 @@ import {
   Panel,
   PageHeader,
   SegmentedControl,
-  Select,
   SkeletonTable,
 } from "@/components/ds";
 import {
@@ -79,6 +91,7 @@ import {
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildKtcNameIndex, resolveKtcEntries } from "@/lib/ktc-import";
 import ResilientSection from "@/components/ResilientSection";
+import { draftCapitalBudgetsUnavailableReason } from "@/lib/draft-capital-budgets";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -206,7 +219,10 @@ export default function TradePage() {
     update: updateSetting,
   } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
-  const [valueMode, setValueMode] = useState("full");
+  // Trade math is canonical, always (TC-A P0-4): the retired "Raw" mode read
+  // the legacy scraper composite.  Kept as a name so every call site states
+  // the basis it computes on.
+  const valueMode = TRADE_VALUE_MODE;
 
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
@@ -286,6 +302,7 @@ export default function TradePage() {
     loading: simLoading,
     error: simError,
     reset: resetSim,
+    signature: simResultSignature,
   } = useTradeSimulator();
   // useTeam is already league-aware: ``selectedTeam`` resolves
   // against the active league, ``idpEnabled`` comes from the
@@ -299,6 +316,7 @@ export default function TradePage() {
     idpEnabled,
     leagueMismatch,
     selectedLeagueKey,
+    leagueLoading,
     // ``useTeam`` resolves the team AFTER the contract lands, so
     // ``loading`` here outlives ``useDynastyData().loading``.  The
     // suggestions slot needs both: see the effect below.
@@ -345,7 +363,9 @@ export default function TradePage() {
         if (!p) continue;
         if (rowByName.has(p)) names.add(p);
       }
-      for (const pickLabel of team.picks || []) {
+      // Unknown pick ownership (null) contributes no pick names -- and is
+      // disclosed by the banner below, never read as "owns no picks".
+      for (const pickLabel of teamPickLabels(team) || []) {
         const row = resolvePickRow(pickLabel, rowByLowerName, pickAliases);
         if (row) names.add(row.name);
       }
@@ -432,6 +452,10 @@ export default function TradePage() {
   // still need a resolved team on every side they touch for the note.
   const [draftCapital, setDraftCapital] = useState(null);
   useEffect(() => {
+    // Wait for the league key to resolve: fetching while it is still ""
+    // and again once it lands requested /api/draft-capital twice on every
+    // load, the first time for the wrong (default) scope (TC-A).
+    if (leagueLoading) return undefined;
     let alive = true;
     // Scope to the page's own league so the stack math never mixes a
     // switched active league's teams/picks with another league's
@@ -450,7 +474,7 @@ export default function TradePage() {
     return () => {
       alive = false;
     };
-  }, [selectedLeagueKey]);
+  }, [selectedLeagueKey, leagueLoading]);
 
   const boardValueByName = useCallback(
     (name) => Number(rowByName.get(name)?.values?.full) || 0,
@@ -473,6 +497,21 @@ export default function TradePage() {
       ),
     );
   }, [sides, inferTeamForSide, sideTeamLocked]);
+
+  // Teams in this trade's context whose pick ownership is UNKNOWN (a failed
+  // /traded_picks fetch): their owned picks cannot be listed, searched or
+  // suggested, and the page says so instead of rendering "no picks" (TC-A;
+  // the frontend's one reader is lib/pick-ownership.js).
+  const pickOwnershipUnknown = useMemo(() => {
+    const relevant = new Set([selectedTeam?.name, ...sideTeamNames].filter(Boolean));
+    const out = [];
+    for (const team of sleeperTeams || []) {
+      if (!relevant.has(team?.name)) continue;
+      const reason = pickOwnershipUnavailableReason(team);
+      if (reason) out.push({ name: team.name, reason });
+    }
+    return out;
+  }, [sleeperTeams, selectedTeam, sideTeamNames]);
 
   const tradeHasPicks = useMemo(
     () =>
@@ -589,9 +628,6 @@ export default function TradePage() {
         const parsed = JSON.parse(raw);
         const restored = deserializeWorkspaceMulti(parsed, rowByName);
         if (restored) {
-          const nextMode = String(restored.valueMode || "full");
-          if (VALUE_MODES.some((m) => m.key === nextMode))
-            setValueMode(nextMode);
           setActiveSide(restored.activeSide);
           setSides(restored.sides);
           setValueOverrides({});
@@ -648,11 +684,13 @@ export default function TradePage() {
       };
       setSides((prev) => {
         const base = ensureSides(prev);
+        const resolvedDests = base.map(() => []);
         const resolvedBySide = base.map((side, i) => {
           const incoming = state.sides[i];
           if (!incoming) return [];
           const resolved = [];
           const ids = incoming.assetIds || [];
+          const dests = incoming.destinations || [];
           (incoming.players || []).forEach((name, j) => {
             // Direct rowByName lookup catches every player and any
             // pick that happens to be in canonical form
@@ -674,6 +712,7 @@ export default function TradePage() {
             // the board row.  Repeated names are copies and ALL load, for
             // every kind of asset (owner decision 2026-10-03).
             const assetId = ids[j];
+            resolvedDests[i].push(dests[j] ?? null);
             resolved.push(
               assetId
                 ? {
@@ -691,24 +730,40 @@ export default function TradePage() {
           const resolved = resolvedBySide[i];
           const nextDestinations = {};
           if (base.length > 2) {
-            for (const row of resolved) {
-              nextDestinations[tradeEntryKey(row)] = defaultDestination(i, base.length);
-            }
+            // The link's own routing when it carries one (TC-A); otherwise
+            // the default.  A destination off the trade, or onto the side
+            // itself, falls back to the default.
+            resolved.forEach((row, j) => {
+              const key = tradeEntryKey(row);
+              if (nextDestinations[key] != null) return;
+              const d = resolvedDests[i]?.[j];
+              nextDestinations[key] =
+                Number.isInteger(d) && d >= 0 && d < base.length && d !== i
+                  ? d
+                  : defaultDestination(i, base.length);
+            });
           }
           return { ...side, assets: resolved, destinations: nextDestinations };
         });
       });
       setValueOverrides({});
       if (state.teamContext === false) setUseTeamContext(false);
+      const modelNote = describeShareModelChange(
+        state.packageModel,
+        ACTIVE_PACKAGE_MODEL_ID,
+        PACKAGE_MODELS,
+      );
       setShareStatus(
         state.truncated
           ? {
               tone: "warning",
               text: `Loaded only part of the shared trade: the link had ${describeShareTruncation(
                 state.truncationReasons,
-              )}, beyond what a share link may carry.`,
+              )}, beyond what a share link may carry.${modelNote ? ` ${modelNote}` : ""}`,
             }
-          : { tone: "positive", text: "Loaded shared trade from link." },
+          : modelNote
+            ? { tone: "warning", text: `Loaded shared trade from link. ${modelNote}` }
+            : { tone: "positive", text: "Loaded shared trade from link." },
       );
     } catch {
       setShareStatus({ tone: "warning", text: "Share link was malformed — ignored." });
@@ -763,8 +818,22 @@ export default function TradePage() {
       alive = false;
     };
   }, [stackLibWanted, stackLib, stackLibFailed]);
+  // The league's auction budgets (draft-capital ``teamTotals``) can be
+  // UNAVAILABLE; the stack note then stays off and says why — never stacks
+  // built from $0 budgets (MISSING IS NEVER ZERO).
+  const stackBudgetsUnavailable = useMemo(
+    () => draftCapitalBudgetsUnavailableReason(draftCapital),
+    [draftCapital],
+  );
   const stackContext = useMemo(() => {
-    if (!stackLib || !draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
+    if (
+      !stackLib ||
+      !draftCapital ||
+      !sleeperTeams ||
+      !tradeHasPicks ||
+      stackGateUnmet ||
+      stackBudgetsUnavailable
+    ) {
       return null;
     }
     const {
@@ -829,6 +898,7 @@ export default function TradePage() {
     sleeperTeams,
     tradeHasPicks,
     stackGateUnmet,
+    stackBudgetsUnavailable,
     boardValueByName,
     rowByLowerName,
     pickAliases,
@@ -901,8 +971,24 @@ export default function TradePage() {
   // the user always knows which side is "I'm giving" vs. "I'm
   // receiving" — fixes the audit's U-2-style "team affordance
   // disappears once the tray scrolls" finding.
+  // The user's explicit "I'm Side A / B" answer, for trades whose roster
+  // evidence does not decide it (TC-A / UX audit P0-5).  null = not chosen.
+  const [explicitMySide, setExplicitMySide] = useState(null);
+  useEffect(() => {
+    setExplicitMySide(null);
+  }, [selectedTeam?.name, selectedLeagueKey]);
+  // ONE answer to "which side is the selected team's" for 2-side trades —
+  // the War Room, Simulate impact and the "You" badge all read it.
+  const teamSide = useMemo(
+    () =>
+      selectedTeam && sides.length === 2
+        ? resolveTeamSide(sides, teamRosterNames(selectedTeam), explicitMySide)
+        : { side: null, basis: "ambiguous" },
+    [sides, selectedTeam, teamRosterNames, explicitMySide],
+  );
   const mySideIdx = useMemo(() => {
     if (!selectedTeam) return -1;
+    if (sides.length === 2) return teamSide.side ?? -1;
     const myRoster = teamRosterNames(selectedTeam);
     if (!myRoster.size) return -1;
     let bestIdx = -1;
@@ -918,7 +1004,14 @@ export default function TradePage() {
       }
     });
     return bestHits > 0 ? bestIdx : -1;
-  }, [sides, selectedTeam, teamRosterNames]);
+  }, [sides, selectedTeam, teamRosterNames, teamSide]);
+
+  // Can the headline speak at all?  Empty → no verdict anywhere (P0-6).
+  const evalState = useMemo(() => tradeEvaluationState(sidesWithOverrides), [sidesWithOverrides]);
+  const tradeIsEmpty = evalState.state === TRADE_EVAL_STATE.EMPTY;
+  // An unpriced asset adds 0 to its side as an arithmetic neutral; no band,
+  // gap verdict or balancer is computed over that 0 (MISSING IS NEVER ZERO).
+  const tradeIsIncomplete = evalState.state === TRADE_EVAL_STATE.INCOMPLETE;
 
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
   const pwTotalA = sideTotals[0]?.adjusted || 0;
@@ -930,6 +1023,16 @@ export default function TradePage() {
     Math.max(pwTotalA, pwTotalB) > 0
       ? Math.round((Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB)) * 100)
       : 0;
+  // The base the ONE fairness-band owner is relative to (TC-C, owner
+  // decision 3): the larger adjusted side.  Every 2-team band on this page
+  // (tray, balancers, the "add to balance" side) reads it.
+  const pwLarger = Math.max(pwTotalA, pwTotalB);
+  const pwGapIsFair = isFairGap(pwGap, pwLarger);
+  // 3+-team: the largest adjusted package any side sends (tradeImbalance's base).
+  const multiLarger = Math.max(
+    0,
+    ...sideFlows.map((f) => Number(f.given)).filter((v) => Number.isFinite(v)),
+  );
 
   // Balancing suggestions (2-team mode only).
   //
@@ -984,7 +1087,8 @@ export default function TradePage() {
 
   const balancers = useMemo(() => {
     if (sides.length !== 2) return { list: [], teamName: null };
-    if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
+    if (tradeIsIncomplete) return { list: [], teamName: null };
+    if (pwGapIsFair) return { list: [], teamName: null };
     // Behind side = the one whose total is LOWER.
     const behindSideIdx = pwGap > 0 ? 1 : 0;
     const behindSide = sides[behindSideIdx];
@@ -1000,6 +1104,8 @@ export default function TradePage() {
     return { list, teamName };
   }, [
     pwGap,
+    pwGapIsFair,
+    tradeIsIncomplete,
     sides,
     sidesWithOverrides,
     settings,
@@ -1017,11 +1123,12 @@ export default function TradePage() {
   // question entirely.
   const multiBalancers = useMemo(() => {
     if (sides.length <= 2) return null;
+    if (tradeIsIncomplete) return null;
     const nets = sideFlows.map((f) => f.net);
     const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
     const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
     const gap = nets[bestIdx] - nets[worstIdx];
-    if (gap < 350) return null;
+    if (isFairGap(gap, multiLarger)) return null;
     // Panel renders on the side that needs to GIVE more (the one with
     // the best deal right now).  Filter the suggestion pool to that
     // side's Sleeper team so the "add more" list is players they
@@ -1042,8 +1149,10 @@ export default function TradePage() {
     };
   }, [
     sides,
+    tradeIsIncomplete,
     sidesWithOverrides,
     sideFlows,
+    multiLarger,
     settings,
     valueMode,
     inferTeamForSide,
@@ -1180,10 +1289,13 @@ export default function TradePage() {
       prev.map((s) => ({ ...s, assets: [], destinations: {} })),
     );
     setValueOverrides({});
+    setExplicitMySide(null);
   }
 
   function swapSides() {
     if (sides.length === 2) {
+      // The user's side moves with its assets.
+      setExplicitMySide((s) => (s === 0 ? 1 : s === 1 ? 0 : null));
       setSides((prev) => [
         { ...prev[1], id: 0, label: "A" },
         { ...prev[0], id: 1, label: "B" },
@@ -1521,9 +1633,20 @@ export default function TradePage() {
           name: s.label ? `Side ${s.label}` : "",
           players: (s.assets || []).map((a) => a.name),
           assetIds: (s.assets || []).map((a) => a.assetId || null),
+          // 3+-team routing travels with the link (TC-A); a 2-team trade
+          // routes implicitly and carries none.
+          destinations:
+            sides.length > 2
+              ? (s.assets || []).map((a) => {
+                  const d = s.destinations?.[tradeEntryKey(a)];
+                  return Number.isInteger(d) ? d : null;
+                })
+              : [],
         })),
         // #842: the analysis mode travels with the link.
         teamContext: useTeamContext,
+        // TC-A: the package model these totals were computed under.
+        packageModel: ACTIVE_PACKAGE_MODEL_ID,
       };
       const url = buildShareUrl(payload);
       // A link that cannot carry the whole trade is still offered, but the
@@ -1558,10 +1681,32 @@ export default function TradePage() {
   const warRoomRequest = useMemo(
     () =>
       selectedTeam && sides.length === 2
-        ? tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam.name)
+        ? tradeRequestForTeam(
+            sides,
+            teamRosterNames(selectedTeam),
+            selectedTeam.name,
+            explicitMySide,
+          )
         : null,
-    [sides, selectedTeam, teamRosterNames],
+    [sides, selectedTeam, teamRosterNames, explicitMySide],
   );
+  // Both sides hold assets but nothing says which one is the team's: ask.
+  const sideChoiceNeeded =
+    Boolean(selectedTeam) &&
+    sides.length === 2 &&
+    teamSide.side == null &&
+    sides.every((s) => (s.assets || []).length > 0);
+
+  // The question "Simulate impact" answered.  Any trade edit, Clear Trade,
+  // team or league change invalidates the shown result (TC-A / UX audit
+  // P0-2); the hook's request sequence drops a late answer for an old one.
+  const simSignature = useMemo(
+    () => simulationSignature(sides, selectedTeam?.name, selectedLeagueKey),
+    [sides, selectedTeam, selectedLeagueKey],
+  );
+  useEffect(() => {
+    resetSim();
+  }, [simSignature, resetSim]);
 
   const runSimulateTrade = useCallback(() => {
     if (sides.length !== 2) return;
@@ -1570,20 +1715,28 @@ export default function TradePage() {
     // The ONE side mapping (`lib/trade-war-room.js`), shared with the Trade
     // War Room so the two can never disagree about which way a trade points:
     // the side holding more of this team's players is the side it GIVES.
-    const request = tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam?.name);
+    const request = tradeRequestForTeam(
+      sides,
+      teamRosterNames(selectedTeam),
+      selectedTeam?.name,
+      explicitMySide,
+    );
     if (!request) return;
     const { playersIn, playersOut, picksIn, picksOut, pickAssetIdsIn, pickAssetIdsOut } =
       request;
-    simulateTrade({
-      teamName: selectedTeam?.name,
-      playersIn,
-      playersOut,
-      picksIn,
-      picksOut,
-      pickAssetIdsIn,
-      pickAssetIdsOut,
-    });
-  }, [sides, selectedTeam, teamRosterNames, simulateTrade]);
+    simulateTrade(
+      {
+        teamName: selectedTeam?.name,
+        playersIn,
+        playersOut,
+        picksIn,
+        picksOut,
+        pickAssetIdsIn,
+        pickAssetIdsOut,
+      },
+      { signature: simSignature },
+    );
+  }, [sides, selectedTeam, teamRosterNames, simulateTrade, simSignature, explicitMySide]);
 
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
@@ -1604,7 +1757,7 @@ export default function TradePage() {
     }
 
     const team = sleeperTeams[i];
-    const picks = (team.picks || []).map((p) => {
+    const picks = (teamPickLabels(team) || []).map((p) => {
       const m = p.match(/^(\d{4})\s+(\d)\./);
       if (m) {
         const round =
@@ -1862,7 +2015,7 @@ export default function TradePage() {
   // renders.  Returns null when that side has no balancer suggestion.
   function balancersForSide(sideIdx) {
     const isUnderpaying =
-      sides.length === 2 ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350) : false;
+      sides.length === 2 ? !pwGapIsFair && (sideIdx === 0 ? pwGap < 0 : pwGap > 0) : false;
     if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
       return {
         label: balancers.teamName
@@ -2009,17 +2162,6 @@ export default function TradePage() {
         <>
           <Panel dense className="trade-controls">
             <div className={styles.controls}>
-              <Select
-                value={valueMode}
-                onChange={(e) => setValueMode(e.target.value)}
-                aria-label="Value mode"
-              >
-                {VALUE_MODES.map((m) => (
-                  <option key={m.key} value={m.key}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
               <Button onClick={swapSides}>
                 {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
               </Button>
@@ -2097,7 +2239,7 @@ export default function TradePage() {
                 <Button
                   variant="primary"
                   onClick={runSimulateTrade}
-                  disabled={simLoading || !hasAssets}
+                  disabled={simLoading || !hasAssets || !warRoomRequest}
                   loading={simLoading}
                   title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
                 >
@@ -2110,6 +2252,14 @@ export default function TradePage() {
             </div>
           </Panel>
 
+          {pickOwnershipUnknown.length ? (
+            <Banner tone="warning" title={PICK_OWNERSHIP_UNAVAILABLE_LABEL}>
+              {describePickOwnershipReason(pickOwnershipUnknown[0].reason)} Owned picks for{" "}
+              {pickOwnershipUnknown.map((t) => t.name).join(", ")} cannot be listed or
+              suggested; market picks (e.g. a Mid 1st) can still be added.
+            </Banner>
+          ) : null}
+
           {shareStatus ? (
             <Banner tone={shareStatus.tone} onDismiss={() => setShareStatus(null)}>
               {shareStatus.text}
@@ -2118,12 +2268,13 @@ export default function TradePage() {
 
           {/* Gated here, not only inside the panel: rendering the lazy
               component is what requests its chunk. */}
-          {simResult || simError ? (
+          {(simResult || simError) && simResultSignature === simSignature ? (
             <SimulationPanel
               simResult={simResult}
               simError={simError}
               selectedTeam={selectedTeam}
               onReset={resetSim}
+              overrideCount={Object.keys(valueOverrides).length}
             />
           ) : null}
 
@@ -2181,6 +2332,7 @@ export default function TradePage() {
               sleeperTeams={sleeperTeams}
               sideTeamNames={sideTeamNames}
               stackGateUnmet={stackGateUnmet}
+              stackBudgetsUnavailable={stackBudgetsUnavailable}
               onSetTeam={(i, v) => {
                 setSideTeamNames((prev) => {
                   const next = [...prev];
@@ -2280,6 +2432,11 @@ export default function TradePage() {
               leagueKey={selectedLeagueKey || ""}
               useTeamContext={useTeamContext}
               onTeamContextChange={setUseTeamContext}
+              overrideCount={Object.keys(valueOverrides).length}
+              teamName={selectedTeam?.name || ""}
+              sideChoiceNeeded={sideChoiceNeeded}
+              chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
+              onChooseSide={setExplicitMySide}
             />
           ) : null}
 
@@ -2292,8 +2449,11 @@ export default function TradePage() {
           <div className={styles.verdictHelpRow}>
             <TradeVerdictHelp />
           </div>
+          {/* sidesWithOverrides, not sides: the Monte Carlo panel inside the
+              meter simulates around the SAME per-asset values the meter's
+              totals are built from (TC-A / UX audit P0-1). */}
           <TradeMeter
-            sides={sides}
+            sides={sidesWithOverrides}
             sideTotals={sideTotals}
             flows={sideFlows}
             valueMode={valueMode}
@@ -2335,7 +2495,9 @@ export default function TradePage() {
           {/* The plain-English reading of the meter above — it explains
               the verdict, so it belongs with it rather than folded away
               among the alternative-currency second opinions. */}
-          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
+          {tradeIsIncomplete ? null : (
+            <TradeFairnessExplanation sides={sidesWithOverrides} sideTotals={sideTotals} />
+          )}
 
           {/* ── SECOND OPINIONS ──────────────────────────────────
               Panels that each re-answer "is this fair?" in a different
@@ -2358,7 +2520,7 @@ export default function TradePage() {
             settings={settings}
             hasOverrides={Object.keys(valueOverrides).length > 0}
           />
-          <RosTradeFitPanel sides={sides} settings={settings} />
+          <RosTradeFitPanel sides={sides} settings={settings} leagueKey={selectedLeagueKey || ""} />
           <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
 
           {sides.length === 2 ? (
@@ -2443,30 +2605,49 @@ export default function TradePage() {
                   {/* Verdict bar: marker position is layout math from
                       verdictBarPosition(), the same helper the pre-R4
                       tray used. */}
-                  <div className={styles.verdictTrack} aria-hidden="true">
-                    <div className={styles.verdictField} />
-                    <div
-                      className={`${styles.verdictMarker} ${
-                        colorFromGap(pwGap) === "green"
-                          ? styles.verdictMarkerPositive
-                          : colorFromGap(pwGap) === "red"
-                            ? styles.verdictMarkerNegative
-                            : ""
-                      }`}
-                      style={{
-                        "--marker-pos": `${verdictBarPosition(pwGap)}%`,
-                      }}
-                    />
-                  </div>
+                  {tradeIsEmpty || tradeIsIncomplete ? null : (
+                    <div className={styles.verdictTrack} aria-hidden="true">
+                      <div className={styles.verdictField} />
+                      <div
+                        className={`${styles.verdictMarker} ${
+                          colorFromGap(pwGap, pwLarger) === "green"
+                            ? styles.verdictMarkerPositive
+                            : colorFromGap(pwGap, pwLarger) === "red"
+                              ? styles.verdictMarkerNegative
+                              : ""
+                        }`}
+                        style={{
+                          "--marker-pos": `${verdictBarPosition(pwGap)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                   {/* Same vocabulary as the meter's badge — one set of
-                      verdict words per page (meterVerdict, 350/900/1800). */}
-                  <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
-                    {meterVerdict(Math.abs(pwGap)).label}
-                    {pctGap > 0 ? ` (${pctGap}%)` : ""}
-                  </div>
-                  <div className={styles.controlsNote}>
-                    Gap {Math.round(pwGap).toLocaleString()}
-                  </div>
+                      verdict words per page (meterVerdict, the ONE
+                      fairness-band owner, lib/fairness-bands.js).
+                      No band on an empty trade (UX audit P0-6). */}
+                  {tradeIsEmpty ? (
+                    <div className="verdict" data-trade-state={evalState.state}>
+                      Add assets to compare
+                    </div>
+                  ) : tradeIsIncomplete ? (
+                    <div className="verdict" data-trade-state={evalState.state}>
+                      Incomplete — {evalState.unpriced.length} unpriced, no verdict
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className={`verdict ${colorFromGap(pwGap, pwLarger)}`}
+                        data-trade-gap={pwGap}
+                      >
+                        {meterVerdict(pwGap, pwLarger).label}
+                        {pctGap > 0 ? ` (${pctGap}%)` : ""}
+                      </div>
+                      <div className={styles.controlsNote}>
+                        Gap {Math.round(pwGap).toLocaleString()}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <div className="label">Side B</div>

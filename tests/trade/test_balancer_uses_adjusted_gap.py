@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import pytest
 
+from src.valuation_math import fairness_bands
+from src.valuation_math.package_model import adjusted_pair_totals
+
 from src.trade.suggestions import (
     MAX_BALANCERS,
     MIN_RELEVANT_VALUE,
@@ -52,7 +55,7 @@ def _suggestion(give: list[int], receive: list[int], positions: str = "RB") -> T
         give_total=sum(give),
         receive_total=sum(receive),
         gap=gap,
-        fairness=_fairness_label(gap),
+        fairness=_fairness_label(gap, give, receive),
         rationale="",
         why_this_helps="",
         confidence="high",
@@ -119,6 +122,12 @@ def test_chosen_balancer_is_the_best_available_from_the_pool(give, receive):
     if not _addition_keeps_topology(suggestion):
         # C3-TOPO-01 (Wave B): one more player on this side would leave the
         # player counts more than one apart, so nothing is eligible.
+        assert balancers == []
+        return
+    give_adj, recv_adj, _, _ = adjusted_pair_totals(give, receive)
+    if fairness_bands.is_even(suggestion.gap, max(give_adj, recv_adj)):
+        # Already inside the fair band (the ONE fairness-band owner, TC-C):
+        # there is nothing to balance.
         assert balancers == []
         return
     if not balancers:
@@ -252,7 +261,9 @@ def test_idp_and_pick_assets_are_scored_the_same_way():
         give_total=9900,
         receive_total=8900,
         gap=gap,
-        fairness=_fairness_label(gap),
+        fairness=_fairness_label(
+            gap, [p.display_value for p in give], [p.display_value for p in receive]
+        ),
         rationale="",
         why_this_helps="",
         confidence="medium",

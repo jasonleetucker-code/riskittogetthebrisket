@@ -49,6 +49,7 @@ import {
   tradeEntryLabel,
 } from "@/lib/trade-assets";
 import { ValueAdjustmentTip } from "@/components/help/TradeHelp";
+import { draftCapitalBudgetsUnavailableText } from "@/lib/draft-capital-budgets";
 import styles from "./trade.module.css";
 
 // ── Shared bits ───────────────────────────────────────────────────────
@@ -312,6 +313,7 @@ export function PickTeamSelectors({
   sideTeamNames,
   onSetTeam,
   stackGateUnmet,
+  stackBudgetsUnavailable = null,
 }) {
   return (
     <Panel
@@ -342,6 +344,12 @@ export function PickTeamSelectors({
         <Banner tone="info">
           Assign a team to every side a pick is traded to or from to see the
           draft-capital stack note. The verdict does not use it.
+        </Banner>
+      ) : null}
+      {stackBudgetsUnavailable ? (
+        <Banner tone="info">
+          {draftCapitalBudgetsUnavailableText(stackBudgetsUnavailable)} The draft-capital
+          stack note is off for this league.
         </Banner>
       ) : null}
     </Panel>
@@ -623,6 +631,11 @@ export function SideCard({
   // rows are unpriced; without this the side reads as a complete
   // valuation of pieces we never valued.
   const unpriced = unpricedAssetsOnSide(side.assets);
+  // A total that includes a user override is not the canonical total; say so
+  // on the total itself (TC-A, UX audit P0-7).
+  const overriddenCount = (side.assets || []).filter(
+    (r) => valueOverrides?.[tradeEntryKey(r)] != null,
+  ).length;
 
   return (
     <Panel className={isMySide ? styles.mySide : undefined}>
@@ -670,6 +683,11 @@ export function SideCard({
               : ""}
             {total.adjustment > 0 ? <ValueAdjustmentTip /> : null}
           </div>
+          {overriddenCount ? (
+            <div className={styles.sideTotalMeta} data-testid="side-total-edited">
+              Includes {overriddenCount} edited value{overriddenCount === 1 ? "" : "s"}
+            </div>
+          ) : null}
           {unpriced.length ? (
             <div
               className={styles.sideTotalMeta}
