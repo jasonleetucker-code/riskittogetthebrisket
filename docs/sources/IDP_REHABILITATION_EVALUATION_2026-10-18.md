@@ -18,7 +18,7 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
 | input | identity |
 |---|---|
-| code | `c290dea0a8` (origin/main) plus this PR's read-only scripts; clean tree |
+| code | `16bdd11370`, which is `c290dea0a8` (origin/main) plus this PR's read-only script, docs and the status-only `rehabilitation.json` edit; clean tree. No production code differs from main, and the board hashes are identical on both |
 | raw payload | `exports/latest/dynasty_data_2026-10-18.json`, sha256 `01e141f7…920380`, scrape 2026-10-18T11:47:11Z (= archive `dynasty_export_20261018_114711.zip`) |
 | IDP source CSVs | sha256 of each in `evidence/IDP_REHAB_2026-10-18/idp_rehab_eval.json` → `pins.idpSourceCsvs` |
 | flags | `dlf_offense_only_vote` ON (production), `source_freshness_weighting` ON, `source_family_cap` ON; Hampel K 2.75 / min n 4 / floor 1,000 |
@@ -314,7 +314,7 @@ isolated in this lane. Production is unchanged.
 ## 5. DLF Values gate re-run
 
 `scripts/dlf_values_gate.py` was re-run against the newest complete archive
-(`dynasty_export_20261018_114711.zip`, HEAD `c290dea0a8`). Output:
+(`dynasty_export_20261018_114711.zip`, HEAD `16bdd11370`). Output:
 `evidence/IDP_REHAB_2026-10-18/dlf_values_gate.json`.
 
 | criterion | 2026-09-25 | 2026-10-18 |
