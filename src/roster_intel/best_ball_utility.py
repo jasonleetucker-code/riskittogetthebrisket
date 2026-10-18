@@ -150,6 +150,9 @@ class _RosterRun:
     raw_ppg: float
     priced: int
     unpriced_ids: tuple[str, ...]
+    #: slot name -> mean unfilled count per simulated week (TC-B / TCM-H12).
+    #: ``None`` when no player could be simulated (unknown, never "all empty").
+    empty_by_slot: dict[str, float] | None = None
 
 
 def _roster_player(p: UtilityPlayer, value: float) -> RosterPlayer:
@@ -199,6 +202,7 @@ def _run(
     )
     in_count: dict[str, int] = {p.player_id: 0 for p in priced}
     usable_sum: dict[str, float] = {p.player_id: 0.0 for p in priced}
+    empty_count: dict[str, int] = {}
     per_draw: list[float] = []
     for d in range(n):
         week = weeks[d % len(weeks)] if weeks else None
@@ -215,6 +219,11 @@ def _run(
             score += v
             in_count[pl.player_id] += 1
             usable_sum[pl.player_id] += v
+        # The solver fills every fillable slot, so an unfilled slot is one no
+        # available projected player is eligible for this week.
+        for i, slot in enumerate(slots):
+            if i not in assignment:
+                empty_count[slot] = empty_count.get(slot, 0) + 1
         per_draw.append(score)
     return _RosterRun(
         mean=sum(per_draw) / n,
@@ -226,7 +235,63 @@ def _run(
         raw_ppg=sum(float(p.ppg) * _eligible_share(p, weeks) for p in priced),
         priced=len(priced),
         unpriced_ids=unpriced,
+        empty_by_slot={slot: c / n for slot, c in empty_count.items()},
     )
+
+
+def _structural_holes(
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+) -> dict[str, list[str]]:
+    """Starting slots the roster cannot fill at all, and those only an
+    unprojected player can fill (TC-B / TCM-H12).
+
+    Eligibility only — every rostered player is offered at the same weight,
+    with no week, availability or projection — through the ONE exact solver.
+    ``noEligiblePlayer``: no rostered player may start there (a true hole).
+    ``onlyUnprojected``: fillable, but only by players with no league-scored
+    projection, so the simulation counts it as empty every week.
+    """
+    everyone = [_roster_player(p, 1.0) for p in roster]
+    projected = [_roster_player(p, 1.0) for p in roster if p.ppg is not None]
+
+    def _unfilled(pool: list[RosterPlayer]) -> list[str]:
+        if not pool:
+            return list(slots)
+        assignment = solve_optimal_assignment(
+            pool,
+            list(slots),
+            slot_eligibility=slot_eligibility,
+            objective=OBJECTIVE_REALIZED_POINTS,
+        )
+        return [slot for i, slot in enumerate(slots) if i not in assignment]
+
+    none_eligible = _unfilled(everyone)
+    unfilled_projected = _unfilled(projected)
+    only_unprojected = list(unfilled_projected)
+    for slot in none_eligible:
+        if slot in only_unprojected:
+            only_unprojected.remove(slot)
+    return {"noEligiblePlayer": none_eligible, "onlyUnprojected": only_unprojected}
+
+
+def _holes_summary(
+    run: _RosterRun,
+    roster: Sequence[UtilityPlayer],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    by_slot = run.empty_by_slot
+    return {
+        # Mean unfilled starting slots per simulated week: byes, injuries
+        # whose stated return is later, and slots no projected player fits.
+        "emptySlotsPerWeek": None if by_slot is None else round(sum(by_slot.values()), 2),
+        "emptyBySlot": None
+        if by_slot is None
+        else {k: round(v, 2) for k, v in sorted(by_slot.items())},
+        **_structural_holes(roster, slots, slot_eligibility),
+    }
 
 
 def _expected_lineup_score(
@@ -450,6 +515,15 @@ def evaluate_trade_utility(
     n_out = sum(1 for r in roles.values() if r == "outgoing")
     shape = "consolidation" if n_out > n_in else "expansion" if n_in > n_out else "swap"
 
+    holes_before = _holes_summary(run_before, before, slots, slot_eligibility)
+    holes_after = _holes_summary(run_after, after, slots, slot_eligibility)
+    holes_delta = (
+        round(holes_after["emptySlotsPerWeek"] - holes_before["emptySlotsPerWeek"], 2)
+        if holes_before["emptySlotsPerWeek"] is not None
+        and holes_after["emptySlotsPerWeek"] is not None
+        else None
+    )
+
     depth_before = _absence_depth(before, slots, slot_eligibility, weeks)
     depth_after = _absence_depth(after, slots, slot_eligibility, weeks)
     depth_delta = (
@@ -493,6 +567,22 @@ def evaluate_trade_utility(
             "after": depth_after,
             # Positive = a missing starter hurts MORE after the trade.
             "meanLossDeltaPpg": depth_delta,
+        },
+        # Holes and bye coverage (TC-B / TCM-H12): reported beside the
+        # lineup it explains, never a separate vote — BBLI already scores
+        # the empty slots as zero points, so counting them again would be
+        # double counting.
+        "lineupHoles": {
+            "method": "unfilled_starting_slots",
+            "description": (
+                "starting slots left empty in the simulated weeks (a bye, a stated "
+                "injury absence, or no projected eligible player), plus slots the "
+                "roster cannot fill at all"
+            ),
+            "before": holes_before,
+            "after": holes_after,
+            # Positive = more empty starting slots per week after the trade.
+            "emptySlotsPerWeekDelta": holes_delta,
         },
         "rosterSpot": {
             "openSpotsGained": max(0, n_out - n_in),
