@@ -445,6 +445,58 @@
   }
 }
 
+/* Batch E — Career tab and the compare view (/managers/compare).  Same
+   editorial grammar: archetype chips are underlined text buttons (no
+   pills); their evidence opens below as a definition list. */
+.leagueCell {
+  font-family: inherit;
+  overflow-wrap: anywhere;
+}
+
+.archetypes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.archetypeChips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.archetypeEvidence {
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+}
+
+.archetypeEvidence p {
+  margin: 0 0 var(--space-2);
+}
+
+.compareArchetypes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.compareArchetypes h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* Batch C — League scouting (/managers/league/[leagueId]).  Same editorial
    grammar: a sortable table on wide screens, the same rows stacked on
    narrow ones (one sort shared by both); "—" for a withheld total. */
