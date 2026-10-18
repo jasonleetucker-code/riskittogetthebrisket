@@ -671,6 +671,13 @@ All five were decided by the owner on 2026-10-18 and are binding. Each question 
 Consequence for §7.3: the "A neutral, B neutral → NO" status-quo default stands, rendered as "NO — TOO CLOSE"
 (decision 1). For §7.2 C, the default goal follows decision 2.
 
+**Implemented (TC-C, 2026-10-18, branch `claude/trade-calculator-tc-c`, not merged):** the decision owner is
+`src/trade/trade_decision.py` (packet `analyze_trade_v3`, field `decision`), following §7.2–§7.4 with these
+deliberate simplifications: the confidence axes are coverage, margin, agreement, asset evidence and precision (§7.4);
+the per-dimension coverage record (§7.5), "what would change it" (§7.6), decision receipts and replay (§7.7, §7.9)
+are not built yet. Component A's bands come from the one fairness-band owner (`src/valuation_math/fairness_bands.py`,
+decision 3). See the workstream "TC-C notes".
+
 ---
 
 ## 8. Completion result

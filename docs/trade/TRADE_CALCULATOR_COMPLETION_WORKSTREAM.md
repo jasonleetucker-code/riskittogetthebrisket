@@ -260,6 +260,86 @@ meaning (engine audit §5). Line numbers are as of `d3c5fcc947`.
 - Analyze still returns a recommendation (with capped confidence) when an asset is unpriced, while the meter refuses a
   verdict. Decision 1 (NOT ENOUGH EVIDENCE when material information is missing) closes this in TC-C.
 
+## TC-C notes (2026-10-18)
+
+Implements the five owner decisions above on `claude/trade-calculator-tc-c` (stacked on TC-A). Acceptance is on
+`dynasty_main` only (owner scope correction, 2026-10-18).
+
+### One decision owner
+
+- `src/trade/trade_decision.py` is the only producer of the top-line answer: **YES — MAKE THE TRADE**, **NO — DO NOT
+  MAKE THE TRADE**, **NO — TOO CLOSE**, **NOT ENOUGH EVIDENCE**. `analyze_trade` builds the evidence (lenses over the
+  canonical owners) and calls `decide()` once; packet `analyze_trade_v3` carries `decision`. The v2 `recommendation`
+  stays as the graded leaning, and its rule table moved into the decision owner.
+- The decision carries: headline + text, `missingEvidence` (each gap named, with its evidence), `reasons` (each with
+  the evidence it used), `primaryReason`, `mainCounterargument`, `strategy` (requested / requestedValid / used /
+  source, options, the posture map), `posture`, `bands` (the fairness-band receipt), a `confidence` label with the
+  bottleneck axes and a statement (`isProbability: false`), `recommendationOnly: true`, `executes: false`.
+- The War Room renders it verbatim (`decision.headlineText`) with a strategy control that sends `teamGoal`.
+- `tests/trade/test_trade_decision_owner.py` pins: only the owner holds the headline texts in the backend; no
+  frontend module builds them; `analyze_trade` calls `decide()` exactly once; `teamImpact.verdict` stays retired; the
+  owner imports only stdlib + `src.valuation_math`.
+
+### How it decides (no weights)
+
+1. **Strategy** (decision 2): `teamGoal` override, else posture PUSH → WIN_NOW, RETOOL / REBUILD → LONG_TERM, HOLD →
+   BALANCED (a no-evidence HOLD is BALANCED and says so); posture unavailable → unknown.
+2. **Execution gate:** no legal roster cleanup → NO.
+3. **Evidence gates** (decision 1) → NOT ENOUGH EVIDENCE: no priced assets; off-board, unpriced, unheld, quarantined
+   or stale traded assets; unknown pick ownership with picks traded; unknown roster, roster limit or posture; an
+   unpriced forced cut; a traded player without a projection when the strategy is WIN_NOW / BALANCED in season. An
+   offseason roster (`season_unresolved`, `no_remaining_fantasy_weeks`) is *not applicable*, not missing.
+4. **Components:** A = the adjusted package gap net of the release cost of cuts the trade adds, classified by the
+   fairness-band owner; B = the best-ball roster utility lens. A goal-keyed table decides; the strategy only breaks a
+   disagreement between A and B. A near tie with complete evidence → NO — TOO CLOSE.
+
+Validated by `tests/trade/test_trade_decision.py`: every gate, the near tie, the strategy map and override, the
+disagreement table, the forced-cut charge, monotonicity (more incoming value never worsens the answer, for every
+goal and roster effect), asset-only side symmetry, and `teamImpact` unable to influence the result.
+
+### One fairness-band owner (decision 3)
+
+`config/trade/fairness_bands.json` (`fairness_bands_v1`, **PROVISIONAL**) + `src/valuation_math/fairness_bands.py` +
+the pinned mirror `frontend/lib/fairness-bands.js`. Relative to the larger ADJUSTED side: fair under 3.5% or under 250
+points, slight < 9%, unfair < 18%, lopsided beyond. The cut points are the KTC-era 350 / 900 / 1800 expressed relative
+to a 10,000-point side, so a one-star trade reads as before and a bench trade is no longer graded on a star's scale;
+250 is the tighter existing even band, rounded. q = 0.78 is untouched (asserted).
+
+Validation: `tests/fixtures/fairness_band_cases.json` (offense, IDP, picks, consolidation, large packages,
+boundaries; package cases from the parity fixture under `geom_q078_v1`) asserted in Python and JS, plus sign
+blindness, monotonicity, scale invariance above the minimum and no asset-class input. Against the retired absolute
+meter, 5 of 24 cases change level (bench 300 on 1,500: fair → lopsided; IDP 400 on 3,300: slight → unfair; picks
+1,400 on 3,200: unfair → lopsided; 600 on 30,000: slight → fair; 250 on 1,000: fair → lopsided). That is the intended
+effect of a relative band; the numbers remain provisional until validated against a defined target.
+
+Consumers now on the owner: the /trade meter badge and winner text, the multi-team meter, the sticky tray, both JS
+balancer triggers and `findBalancers`, the fairness explanation, the Analyze market lens / `equity_verdict` (so Best
+Offers and the package builder), the decision, the suggestions badge and the suggestions equalizer trigger.
+
+Retired by this: meter 350 / 900 / 1800, the 3% winner-text and explanation band, market lens 256 / 769, JS balancer
+350 (four sites), Python balancer 256. Still separate, by design, and still PRIOR (calibrated under KTC, pending
+recalibration): the suggestions generator tolerance 769 and overpay multiples (generation, not a verdict), angle ±5%,
+finder ratios, the Monte Carlo headline bands, history letter grades (out of `/trade`), aging ±200 and external "even"
+(KTC by design).
+
+### Gates run on the TC-C head (2026-10-18)
+
+- `format_python_changes.sh`: GREEN (Ruff 0.6.9). Coercion check: clean. Planning integrity: exit 0. Product-plan
+  governance: clean.
+- `pytest tests/trade tests/valuation_math tests/public_league` (plus `tests/test_trade_suggestions.py`,
+  `tests/api/test_trade_simulator.py`, `tests/api/test_trade_simulate_mc.py`): 3108 passed.
+- Full `npx vitest run`: 304 files / 3988 tests passed.
+- `build:nocheck` + `check:bundles`: all pages under budget; `/trade` 87.8 KB of 93 KB (TC-A head: 85.1 KB).
+- Playwright and a real-stack run on `dynasty_main`: NOT run (no browsers or local stack here).
+
+### What TC-C does not do
+
+- "What would change it" (perturbation search) is not implemented; `mainCounterargument` is.
+- Monte Carlo still shows its own "favored" sentence (relabel planned in TC-D, audit §7.8).
+- Historical replay and decision receipts (audit §7.7 / §7.9 items 3–4) are not built.
+- Second Opinions dispersion and comparables do not yet lower the agreement axis.
+- The fairness bands are provisional: no validation target exists yet to fit them against.
+
 ## Coordination with in-flight work
 
 | In-flight | Overlap | Rule |
@@ -276,4 +356,5 @@ meaning (engine audit §5). Line numbers are as of `d3c5fcc947`.
 |---|---|
 | TC-0 audit + research | DONE — feature matrix, competitive analysis, UX audit, decision-engine audit committed (docs PR) |
 | TC-A correctness | IMPLEMENTATION HEAD GREEN on local branch `claude/trade-calculator-tc-a` (local commits on `integration/train-5-2026-10-17` @ `ea054f386a`; not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. Simulations consuming availability (#1772 follow-through) is not part of this batch. See "TC-A notes" |
-| TC-B … TC-F | QUEUED, in order; each starts as its dependencies land |
+| TC-C decision engine | IMPLEMENTATION HEAD on local branch `claude/trade-calculator-tc-c`, stacked on TC-A (not pushed, no PR). RELEASE CANDIDATE: NOT YET FROZEN. Not merged, not deployed, not observed in production. See "TC-C notes" |
+| TC-B, TC-D … TC-F | QUEUED, in order; each starts as its dependencies land |
