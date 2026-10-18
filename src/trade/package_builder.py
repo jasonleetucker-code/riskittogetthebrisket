@@ -31,6 +31,18 @@ Two evidence settings, both stated on every response:
 
 A package that LOSES for you on the canonical calculator is never returned in
 either setting.  Recommendation only: nothing is sent.
+
+Sending / Receiving (owner directive 2026-10-18, ``src/trade/discovery``):
+each side is independently Offense / Defense (IDP) / Both, applied to the two
+pools BEFORE enumeration — all nine combinations, every mode.  Picks are never
+offense or defense (``allow_picks`` governs them).  Broad ∩ specific is the
+intersection with the return positions; an incompatible pair is explained.  A
+locked or explicitly selected player outside Sending, or a requested target
+outside Receiving or Target Quality, is REPORTED — never silently dropped and
+never overridden.  Target Quality rides the substrate's receive anchor (at
+least one incoming player); it is waived, and the response says so, only when
+the request can bring back no player at all (a pick target, pick-only return
+positions).  ``discovery.sort`` orders by the shared discovery orderings.
 """
 
 from __future__ import annotations
@@ -39,6 +51,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from src.league_intel.cross_market import best_qualifying_verdict, external_package_verdicts
 from src.trade import best_offers as bo
+from src.trade import discovery as disc
 from src.trade import finder
 from src.trade.analyze_trade import equity_verdict
 
@@ -98,6 +111,33 @@ _NO_RESULT_TEXT = {
     "no_external_acceptance": (
         "No package that is fair for you is even or better for them on an approved "
         "calculator that prices every asset."
+    ),
+    # Sending / Receiving / Target Quality (owner directive 2026-10-18).
+    "return_positions_outside_receiving": (
+        "The positions you want back are all outside Receiving. Choose a position in that "
+        "group or widen Receiving."
+    ),
+    "selected_outgoing_outside_sending": (
+        "Every player you selected to offer is outside Sending. Widen Sending or choose "
+        "players in that group."
+    ),
+    "no_outgoing_in_sending": "None of your offerable players is in the Sending group.",
+    "locked_player_outside_sending": (
+        "A locked player is outside Sending, so no package can include him. Unlock him or "
+        "widen Sending."
+    ),
+    "target_outside_receiving": (
+        "The player you want is outside Receiving. Widen Receiving to build for him."
+    ),
+    "target_outside_target_quality": (
+        "The player you want is outside Target Quality. Broaden Target Quality to build for him."
+    ),
+    "no_return_assets_in_receiving": "No opponent has a priced player in the Receiving group.",
+    "no_target_meets_quality": (
+        "No opponent player you could receive meets Target Quality. Broaden it to search deeper."
+    ),
+    "no_package_within_target_quality": (
+        "No package of an allowed shape brings back a player inside Target Quality."
     ),
 }
 
@@ -180,6 +220,9 @@ def build_packages(
     limit: int = 10,
     prior: Mapping[str, Any] | None = None,
     per_opponent: bool = False,
+    send_scope: str = "both",
+    receive_scope: str = "both",
+    discovery: disc.DiscoveryFilters | None = None,
 ) -> dict[str, Any]:
     """The best packages satisfying one user request, best first.
 
@@ -224,6 +267,8 @@ def build_packages(
         "allowPicks": bool(allow_picks),
         "evidence": evidence,
         "perOpponent": bool(per_opponent),
+        "sending": send_scope,
+        "receiving": receive_scope,
     }
     base: dict[str, Any] = {
         "version": PACKAGE_BUILDER_VERSION,
@@ -253,6 +298,49 @@ def build_packages(
         },
         "teamContext": {"applied": use_ctx},
     }
+    if send_scope not in disc.SCOPES or receive_scope not in disc.SCOPES:
+        raise ValueError(f"sending/receiving must be one of {disc.SCOPES}")
+    cindex = disc.CanonicalIndex(contract)
+    disc_report = disc.DiscoveryReport()
+    sides: dict[str, Any] = {
+        "sending": send_scope,
+        "receiving": receive_scope,
+        "appliedDuringGeneration": True,
+        "picks": "never offense or defense; governed by allowPicks",
+    }
+    base["sides"] = sides
+    if discovery is not None:
+        prior_i = disc.load_impact_prior()
+        base["discovery"] = {
+            "version": disc.DISCOVERY_VERSION,
+            "filters": discovery.to_dict(),
+            "impactPrior": {
+                "id": prior_i.get("id"),
+                "status": prior_i.get("status"),
+                "configPath": "config/trade/discovery_impact_prior.json",
+            },
+            "broaderQualityLevels": disc.broader_quality_levels(discovery.quality),
+        }
+    # Broad ∩ specific: the return positions intersected with Receiving.
+    if receive_scope != "both" and return_positions:
+        kept = frozenset(
+            f for f in return_positions if f == "PICKS" or disc.player_group(f) == receive_scope
+        )
+        dropped = sorted(return_positions - kept)
+        if dropped:
+            sides["returnPositionsOutsideReceiving"] = dropped
+        if not kept:
+            return {
+                **base,
+                **_no_result("return_positions_outside_receiving"),
+                "noResultDetail": (
+                    f"{', '.join(dropped)} {'is' if len(dropped) == 1 else 'are'} outside "
+                    f"Receiving ({receive_scope.title()}). Choose a "
+                    f"{receive_scope} position or widen Receiving."
+                ),
+            }
+        return_positions = kept
+        request["returnPositions"] = sorted(kept)
     if my_team not in team_by_name:
         return {**base, "error": "my_team_unresolved", "packages": []}
     if opponent and (opponent not in team_by_name or opponent == my_team):
@@ -278,9 +366,51 @@ def build_packages(
             elif a not in chosen and not a.is_pick:
                 chosen.append(a)
         my_players = chosen
-    my_roster = [*my_players, *(my_picks_all if allow_picks else [])]
     if not_on_roster:
         base["outgoingNotOnRoster"] = not_on_roster
+    # A LOCK is resolved on the unscoped roster so a locked player outside
+    # Sending is reported by name rather than read as "not on your roster".
+    unscoped = [*my_players, *(my_picks_all if allow_picks else [])]
+    if send_scope != "both" and constraints is not None and unscoped:
+        pre_lock = resolve_locked_outgoing(unscoped, constraints)
+        outside = sorted(
+            a.name
+            for a in (pre_lock.required if pre_lock.satisfiable else ())
+            if not a.is_pick and disc.player_group(a.position) != send_scope
+        )
+        if outside:
+            return {
+                **base,
+                "lockedOutgoing": pre_lock.to_dict(),
+                **_no_result("locked_player_outside_sending", constrained=True),
+                "noResultDetail": (
+                    f"{', '.join(outside)} {'is' if len(outside) == 1 else 'are'} locked but "
+                    f"outside Sending ({send_scope.title()}). Unlock or widen Sending."
+                ),
+            }
+    if send_scope != "both":
+        in_scope = [a for a in my_players if disc.player_group(a.position) == send_scope]
+        outside = [a for a in my_players if a not in in_scope]
+        sides["excludedBySending"] = len(outside)
+        if outgoing:
+            # An explicit selection that conflicts is REPORTED, never silently
+            # traded and never silently forgotten.
+            conflicts = sorted(a.name for a in outside)
+            if conflicts:
+                sides["selectedOutgoingOutsideSending"] = conflicts
+            if not in_scope:
+                return {
+                    **base,
+                    **_no_result("selected_outgoing_outside_sending"),
+                    "noResultDetail": (
+                        f"{', '.join(conflicts)} {'is' if len(conflicts) == 1 else 'are'} "
+                        f"outside Sending ({send_scope.title()})."
+                    ),
+                }
+        elif not in_scope and not (allow_picks and my_picks_all):
+            return {**base, **_no_result("no_outgoing_in_sending")}
+        my_players = in_scope
+    my_roster = [*my_players, *(my_picks_all if allow_picks else [])]
     if not my_roster:
         return {**base, **_no_result("no_priced_outgoing_assets")}
     blocked = blocked_outgoing(my_roster, constraints)
@@ -347,10 +477,75 @@ def build_packages(
         if target_asset.is_pick and not allow_picks:
             return {**base, **_no_result("target_is_a_pick_but_picks_are_off")}
         request["opponent"] = opponent
+        if not target_asset.is_pick:
+            group = disc.player_group(target_asset.position)
+            if receive_scope != "both" and group != receive_scope:
+                return {
+                    **base,
+                    **_no_result("target_outside_receiving"),
+                    "noResultDetail": (
+                        f"{target_asset.name} ({target_asset.position or 'position unknown'}) is "
+                        f"outside Receiving ({receive_scope.title()}). Widen Receiving to build "
+                        "for him."
+                    ),
+                }
+            if discovery is not None and discovery.quality_active:
+                ok, why = disc.incoming_quality(target_asset, discovery, cindex)
+                if not ok:
+                    rank = cindex.rank(target_asset)
+                    fits = next(
+                        (
+                            lvl
+                            for lvl, lim in disc.QUALITY_LEVELS.items()
+                            if lim is None or (rank is not None and rank <= lim)
+                        ),
+                        "all",
+                    )
+                    return {
+                        **base,
+                        **_no_result("target_outside_target_quality"),
+                        "targetRank": rank,
+                        "suggestedTargetQuality": fits if why != "below_min_value" else None,
+                        "noResultDetail": (
+                            f"{target_asset.name} is "
+                            + (
+                                f"ranked #{rank}"
+                                if rank is not None
+                                else "unranked on the canonical board"
+                            )
+                            + (
+                                f", below the minimum incoming value of "
+                                f"{discovery.min_incoming_value:,}"
+                                if why == "below_min_value"
+                                else ", outside the current Target Quality"
+                            )
+                            + ". Broaden Target Quality to build for him."
+                        ),
+                    }
     if len(lock.required) > max_side:
         return {**base, **_no_result("package_size_cannot_hold_requirements", constrained=True)}
 
     opponents = [opponent] if opponent else [n for n in team_by_name if n and n != my_team]
+    # Target Quality: waived — and said so — only when the request can bring
+    # back no player at all.
+    quality_waived = None
+    if discovery is not None and discovery.quality_active:
+        if target_asset is not None and target_asset.is_pick:
+            quality_waived = "target_is_a_pick"
+        elif return_positions is not None and return_positions <= frozenset({"PICKS"}):
+            quality_waived = "pick_only_return_positions"
+    if quality_waived and "discovery" in base:
+        base["discovery"]["qualityWaived"] = quality_waived
+    anchor = (
+        disc.quality_anchor(discovery, cindex)
+        if discovery is not None and quality_waived is None
+        else None
+    )
+    scope_filters = disc.DiscoveryFilters(
+        quality=(discovery.quality if discovery is not None else "all"),
+        min_incoming_value=(discovery.min_incoming_value if discovery is not None else None),
+        scope=receive_scope,
+    )
     our_needs = (needs_by_owner or {}).get(my_owner) if use_ctx and needs_by_owner else None
 
     # ── generate per opponent, constraints inside the enumeration ─────────
@@ -377,6 +572,8 @@ def build_packages(
             and (allow_picks or not a.is_pick)
             and (return_positions is None or _family(a) in return_positions)
         ]
+        # Receiving, BEFORE enumeration (picks pass; their own controls rule).
+        opp_pool = disc.filter_incoming(opp_pool, scope_filters, cindex, disc_report)
         if not opp_pool and target_asset is None:
             continue
         any_return_pool = True
@@ -393,14 +590,21 @@ def build_packages(
             score=score,
             max_per_side=max_side,
             max_packages=SEARCH_BUDGET_PER_SHAPE_GROUP,
+            **({"receive_anchor": anchor} if anchor is not None else {}),
         )
+        disc_report.anchor_rejected += disc.anchor_rejections(report)
         enumeration[opp] = report
         truncated = truncated or any(
             isinstance(g, dict) and g.get("budgetExhausted") for g in report.values()
         )
         found.extend((opp, c) for c in cands)
 
+    if discovery is not None:
+        base["discovery"]["report"] = disc_report.to_dict()
+    sides["report"] = disc_report.to_dict()
     if not any_return_pool:
+        if receive_scope != "both" and disc_report.targets_considered == 0:
+            return {**base, **_no_result("no_return_assets_in_receiving")}
         return {**base, **_no_result("no_return_assets_in_selected_positions")}
 
     seen: dict[tuple, tuple[str, bo.BestOfferCandidate]] = {}
@@ -411,9 +615,16 @@ def build_packages(
     opp_of = {id(c): opp for opp, c in seen.values()}
     cands = [c for _opp, c in seen.values()]
     if not cands:
+        reason = _reason(diag, evidence)
+        if anchor is not None and reason == "no_candidate_packages":
+            reason = (
+                "no_target_meets_quality"
+                if disc_report.targets_meeting_quality == 0 and target_asset is None
+                else "no_package_within_target_quality"
+            )
         out = {
             **base,
-            **_no_result(_reason(diag, evidence), constrained=bool(blocked or lock.required)),
+            **_no_result(reason, constrained=bool(blocked or lock.required)),
         }
         out["diagnostics"] = {**diag, "enumeration": enumeration}
         if truncated:
@@ -453,6 +664,27 @@ def build_packages(
             )
     bo.score_head(head, weights, factors=(*bo._RERANK_FACTORS, "calculatorDivergence"))
     head.sort(key=_order)
+    if discovery is not None and discovery.sort is not None:
+        head = _order_by_discovery(
+            cands,
+            head,
+            sort=discovery.sort,
+            filters=discovery,
+            index=cindex,
+            our_needs=our_needs,
+            use_ctx=use_ctx,
+            opp_of=opp_of,
+            per_opponent=per_opponent,
+            keep=max(top_k, limit),
+            annotate=lambda group, opp: bo.annotate_roster_factors(
+                group,
+                lineup_delta=lineup_delta,
+                capacity_for=capacity_for,
+                my_owner=my_owner,
+                opp_owner=owner_of.get(opp, ""),
+                opp=opp,
+            ),
+        )
 
     packages = []
     for c in head[: max(1, int(limit))]:
@@ -460,6 +692,9 @@ def build_packages(
         offer = bo._offer_dict(c, our_needs, needs_by_opp.get(opp), None, prior)
         offer["opponent"] = opp
         offer["externalQualifies"] = bool(c.external is not None and c.external.qualifies)
+        if c.discovery is not None:
+            offer["discovery"] = c.discovery
+            offer["whyItMatters"] = c.discovery.get("whyItMatters")
         packages.append(offer)
     out = {**base, "packages": packages, "diagnostics": {**diag, "enumeration": enumeration}}
     if per_opponent:
@@ -469,6 +704,85 @@ def build_packages(
     if truncated:
         out["searchTruncated"] = True
     return out
+
+
+def _order_by_discovery(
+    cands: list[bo.BestOfferCandidate],
+    head: list[bo.BestOfferCandidate],
+    *,
+    sort: str,
+    filters: disc.DiscoveryFilters,
+    index: disc.CanonicalIndex,
+    our_needs: set[str] | None,
+    use_ctx: bool,
+    opp_of: Mapping[int, str],
+    per_opponent: bool,
+    keep: int,
+    annotate: Callable[[list[bo.BestOfferCandidate], str], None],
+) -> list[bo.BestOfferCandidate]:
+    """Re-select and order the head by the shared discovery orderings.
+
+    Every qualifying candidate is scored on what is free to read; the kept
+    head (per opponent, or the top ``keep``) then gains the roster reads the
+    builder already owns — lineup delta and forced-release cost — and is
+    ordered under the SAME sort.  The Best Offers prior score stays computed
+    and published.
+    """
+    prior = disc.load_impact_prior()
+
+    def _metrics(c: bo.BestOfferCandidate) -> dict[str, Any]:
+        fit_lineup = disc.lineup_fit(c.lineup, prior)
+        fit_need = disc.need_fit(c.receive, our_needs) if use_ctx else None
+        return disc.candidate_metrics(
+            c.give,
+            c.receive,
+            index=index,
+            prior=prior,
+            filters=filters,
+            roster_fit=fit_lineup if fit_lineup is not None else fit_need,
+            roster_fit_basis=(
+                "lineup"
+                if fit_lineup is not None
+                else ("team_weakness" if fit_need is not None else None)
+            ),
+            counterparty=c.factors.get("externalComfort"),
+            counterparty_basis="Best Offers externalComfort (qualifying calculator)",
+            forced_drop=c.factors.get("forcedDropCost"),
+            lineup=c.lineup,
+        )
+
+    def _key(c: bo.BestOfferCandidate) -> tuple:
+        return disc.sort_key(sort, c.discovery or {}, (c.has_pick, opp_of[id(c)], c.package_key()))
+
+    for c in cands:
+        c.discovery = _metrics(c)
+    disc.score_impact([c.discovery for c in cands], prior)
+    ordered = sorted(cands, key=_key)
+    if per_opponent:
+        new_head, seen = [], set()
+        for c in ordered:
+            if opp_of[id(c)] not in seen:
+                seen.add(opp_of[id(c)])
+                new_head.append(c)
+    else:
+        new_head = ordered[: max(1, keep)]
+    if use_ctx:
+        fresh = [c for c in new_head if c not in head]
+        by_opp: dict[str, list[bo.BestOfferCandidate]] = {}
+        for c in fresh:
+            by_opp.setdefault(opp_of[id(c)], []).append(c)
+        for opp, group in by_opp.items():
+            annotate(group, opp)
+        for c in new_head:
+            c.discovery = _metrics(c)
+        disc.score_impact([c.discovery for c in new_head], prior)
+    new_head.sort(key=_key)
+    for c in new_head:
+        c.discovery["whyItMatters"] = disc.why_it_matters(
+            c.discovery, need_positions=our_needs or ()
+        )
+        c.discovery.pop("lineupImpact", None)
+    return new_head
 
 
 def _reason(diag: Mapping[str, Any], evidence: str) -> str:

@@ -131,7 +131,7 @@ const ALLOWED_RAW = {
   },
   "app/arbitrage/page.jsx": {
     "a.name": [1, NO_CANONICAL_ID, "finder trade assets (src/trade/finder.py Asset.to_dict) carry no playerId"],
-    "t.name": [3, NOT_A_PLAYER, "team selector options (package scan + best-offers \"Your team\")"],
+    "t.name": [2, NOT_A_PLAYER, "team selector options (the one shared \"Your team\" select + the package-scan \"Opponent\" select)"],
   },
   "app/trades/page.jsx": {
     "item.name": [1, CONTROL, "each trade entry is a whole-card link into /trade (Panel as Link); a player link inside it would nest <a> in <a> — needs the entry restructured, which also moves the e2e hook `.trades-page a.ds-panel`"],

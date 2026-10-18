@@ -14,6 +14,8 @@
 // public values are read from backend-authored canonicalSiteValues. Missing
 // public values remain missing; they are never coerced to zero.
 
+import { playerScopeGroup, qualityLimit } from "@/lib/trade-discovery";
+
 export const ARBITRAGE_MIN_EDGE = 0.05;
 export const ARBITRAGE_STRONG_EDGE = 0.15;
 export const ARBITRAGE_INTERNAL_MARGIN = 0.10;
@@ -96,19 +98,51 @@ export function arbitrageDescriptor(row) {
   };
 }
 
+/**
+ * Player-level arbitrage rows, filtered and sorted.
+ *
+ * Owner directive 2026-10-18 adds, all over BACKEND-STAMPED fields (no value
+ * or rank is recomputed here):
+ *   targetQuality  "top100" | "top250" | "top500" | "all" — canonical overall
+ *                  rank (canonicalConsensusRank, never the display ordinal);
+ *                  an unranked row is outside every narrowed level
+ *   minValue       minimum canonical value (rankDerivedValue)
+ *   scope          "both" | "offense" | "defense" — via the shared vocabulary;
+ *                  a missing/ambiguous position is excluded from both narrowed
+ *                  modes (never treated as offense)
+ *   sort           "percentage" (legacy default) | "absolute" | "rank"
+ * A row with no public market price stays out (missing is never zero).
+ */
 export function buildArbitrageRows(rows, {
   action = "all",
   assetClass = "all",
   minEdge = ARBITRAGE_MIN_EDGE,
   search = "",
+  targetQuality = "all",
+  minValue = null,
+  scope = "both",
+  sort = "percentage",
 } = {}) {
   const needle = String(search || "").trim().toLowerCase();
+  const limit = qualityLimit(targetQuality);
+  const floor = Number(minValue);
+  const hasFloor = Number.isFinite(floor) && floor > 0;
+  const rankOf = (row) => {
+    const r = Number(row?.canonicalConsensusRank);
+    return Number.isInteger(r) && r > 0 ? r : null;
+  };
   return (rows || [])
     .map((row) => ({ row, edge: arbitrageDescriptor(row) }))
     .filter(({ row, edge }) => {
       if (!edge) return false;
       if (edge.magnitude < minEdge) return false;
       if (assetClass !== "all" && row.assetClass !== assetClass) return false;
+      if (scope !== "both" && playerScopeGroup(row.pos) !== scope) return false;
+      if (limit !== null) {
+        const r = rankOf(row);
+        if (r === null || r > limit) return false;
+      }
+      if (hasFloor && edge.ourValue < floor) return false;
       if (action === "buy" && !["buy", "strong_buy"].includes(edge.action)) return false;
       if (action === "sell" && !["sell", "strong_sell"].includes(edge.action)) return false;
       if (action === "winwin" && !edge.winWin) return false;
@@ -116,6 +150,18 @@ export function buildArbitrageRows(rows, {
       return true;
     })
     .sort((a, b) => {
+      const ra = rankOf(a.row) ?? Infinity;
+      const rb = rankOf(b.row) ?? Infinity;
+      if (sort === "rank") {
+        if (ra !== rb) return ra - rb;
+        return b.edge.magnitude - a.edge.magnitude;
+      }
+      if (sort === "absolute") {
+        const da = Math.abs(a.edge.edgePoints);
+        const db = Math.abs(b.edge.edgePoints);
+        if (db !== da) return db - da;
+        return ra - rb;
+      }
       if (b.edge.magnitude !== a.edge.magnitude) return b.edge.magnitude - a.edge.magnitude;
       return (a.row.rank ?? Infinity) - (b.row.rank ?? Infinity);
     });

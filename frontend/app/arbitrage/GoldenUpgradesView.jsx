@@ -6,6 +6,11 @@
 // src/trade/golden_upgrades.py; every number here comes from
 // POST /api/trade/golden-upgrades.  Recommendation only — there is no send
 // action; "Open in Trade Calculator" hands the swap to /trade.
+//
+// Discovery (owner directive 2026-10-18): the page's shared Target Quality /
+// Players to target / Sort travel as ``discovery`` and are applied by the
+// server during candidate generation.  An empty filtered result says so and
+// offers one-click expansion to a broader Target Quality — never padded.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -22,6 +27,11 @@ import { buildShareUrl } from "@/lib/trade-share";
 import { deskBodyFromOffer } from "@/lib/trade-desk";
 import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
 import { goldenRows, noResultText } from "@/lib/golden-upgrades";
+import {
+  broaderQualityOptions,
+  discoveryRequest,
+  discoverySummary,
+} from "@/lib/trade-discovery";
 import {
   emptyRefinement,
   loadRefinement,
@@ -55,7 +65,13 @@ function calcUrl(myTeam, row) {
   }
 }
 
-export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
+export default function GoldenUpgradesView({
+  myTeam,
+  leagueKey,
+  ownerKey,
+  discovery = null,
+  onDiscoveryChange,
+}) {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
@@ -76,6 +92,17 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
     setRefinement(loadRefinement(storageKey));
   }, [storageKey]);
 
+  // A filter change re-runs an existing result: the server applies the new
+  // filters during generation, so a stale list is never shown under them.
+  const discoveryKey = JSON.stringify(discovery ? discoveryRequest(discovery) : null);
+  const lastDiscoveryKey = useRef(discoveryKey);
+  useEffect(() => {
+    if (lastDiscoveryKey.current === discoveryKey) return;
+    lastDiscoveryKey.current = discoveryKey;
+    if (result) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoveryKey]);
+
   async function run(
     nextRefinement = refinement,
     teamContext = useTeamContext,
@@ -95,6 +122,7 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
             leagueKey: leagueKey || undefined,
             useTeamContext: teamContext !== false,
             refinement: toRequest(nextRefinement),
+            ...(discovery ? { discovery: discoveryRequest(discovery) } : {}),
           }),
         ),
       });
@@ -166,13 +194,23 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
       {running ? <SkeletonTable rows={4} /> : null}
       {!running && result ? (
         <p className={styles.count} role="status">
-          {rows.length} Golden Upgrade{rows.length === 1 ? "" : "s"} found.
+          {rows.length} Golden Upgrade{rows.length === 1 ? "" : "s"} found
+          {discovery ? ` (${discoverySummary(discovery)})` : ""}.
         </p>
       ) : null}
       {!running && result && !rows.length ? (
         <EmptyState
           title={result.noResultLabel || "No Golden Upgrade found"}
           description={noResultText(result) || "No swap met every criterion."}
+        />
+      ) : null}
+      {!running && result && !rows.length && discovery && onDiscoveryChange ? (
+        <BroadenQuality
+          current={discovery.targetQuality}
+          availability={result?.discovery?.broaderAvailability}
+          onBroaden={(level) =>
+            onDiscoveryChange({ ...discovery, targetQuality: level })
+          }
         />
       ) : null}
       {!running && rows.length ? (
@@ -205,7 +243,19 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
                     <span className={styles.sub}>{row.targetLine}</span>
                   </div>
                 </div>
+                {row.targetRank || row.ownedRank ? (
+                  <p className={styles.sub}>
+                    Canonical rank: you send {row.ownedRank || "—"}, you
+                    receive {row.targetRank || "—"}
+                  </p>
+                ) : null}
                 <dl className={styles.metrics}>
+                  {row.absoluteGain ? (
+                    <div>
+                      <dt>Value gain</dt>
+                      <dd>{row.absoluteGain}</dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt>Board gain</dt>
                     <dd>{row.boardGain}</dd>
@@ -215,6 +265,11 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
                     <dd>{row.marketInversion}</dd>
                   </div>
                 </dl>
+                {row.whyItMatters ? (
+                  <p className={styles.why}>
+                    <strong>Why it matters:</strong> {row.whyItMatters}
+                  </p>
+                ) : null}
                 <p className={styles.why}>{row.why}</p>
                 {row.exploitRisk ? (
                   <p className={styles.caution}>
@@ -255,5 +310,29 @@ export default function GoldenUpgradesView({ myTeam, leagueKey, ownerKey }) {
         />
       ) : null}
     </section>
+  );
+}
+
+/** One-click expansion from an empty filtered result (never a padded list). */
+function BroadenQuality({ current, availability, onBroaden }) {
+  const options = broaderQualityOptions(current);
+  if (!options.length) return null;
+  return (
+    <div className={styles.controls} role="group" aria-label="Broaden Target Quality">
+      {options.map((o) => {
+        const n = availability ? availability[o.value] : undefined;
+        return (
+          <Button
+            key={o.value}
+            size="sm"
+            variant="secondary"
+            onClick={() => onBroaden(o.value)}
+          >
+            Search {o.label}
+            {Number.isFinite(n) ? ` (${n} found)` : ""}
+          </Button>
+        );
+      })}
+    </div>
   );
 }

@@ -4,7 +4,7 @@
 // Nothing here qualifies, ranks or re-prices an upgrade.  Unknown values
 // render as an explicit unknown, never as a zero.
 
-import { UNKNOWN, fmtInt, fmtSignedPct } from "@/lib/best-offers";
+import { UNKNOWN, fmtInt, fmtSignedInt, fmtSignedPct } from "@/lib/best-offers";
 
 export { UNKNOWN };
 
@@ -34,8 +34,19 @@ export function goldenRows(result) {
       lineupText,
       exploitRisk: Boolean(u?.exploitRisk),
       why: u?.why || "",
+      // Discovery fields (owner directive 2026-10-18) — present only when the
+      // request carried a discovery object; unknown stays unknown.
+      ownedRank: rankText(u?.owned?.rank),
+      targetRank: rankText(u?.target?.rank),
+      absoluteGain: Number.isFinite(u?.absoluteGain) ? fmtSignedInt(u.absoluteGain) : null,
+      whyItMatters: u?.whyItMatters || "",
     };
   });
+}
+
+function rankText(rank) {
+  if (rank === undefined) return null;
+  return Number.isFinite(rank) && rank > 0 ? `#${rank}` : "unranked";
 }
 
 const REASON_TEXT = {
@@ -57,8 +68,14 @@ const REASON_TEXT = {
     "The market that prices these players is withheld as stale right now.",
   no_inversion_meets_the_thresholds:
     "No same-position swap has our board preferring their player while their market prefers yours by the minimum margins.",
+  no_upgrade_within_target_quality:
+    "No legitimate Golden Upgrade brings back a player inside Target Quality.",
+  no_target_in_players_to_target:
+    "No opponent rosters a player in the selected Players to target group.",
+  locked_player_outside_players_to_target:
+    "A locked player is outside Players to target. Unlock him or switch Players to target.",
 };
 
 export function noResultText(result) {
-  return REASON_TEXT[result?.noResultReason] || null;
+  return result?.noResultDetail || REASON_TEXT[result?.noResultReason] || null;
 }
