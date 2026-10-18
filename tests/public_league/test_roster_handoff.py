@@ -24,8 +24,9 @@ from src.acquisition.events import events_from_draft_picks, events_from_transact
 from src.identity import picks
 from src.api import faab_analytics, sleeper_overlay
 from src.api.team_assignment import _resolve_favorite_key
-from src.public_league import metrics, ownership, snapshot_store
+from src.public_league import luck, metrics, ownership, playoff_odds, snapshot_store
 from src.public_league.identity import build_manager_registry, register_handed_off_owners
+from src.public_league.snapshot import SeasonSnapshot
 from src.utils import owner_names
 
 REPO = Path(__file__).resolve().parents[2]
@@ -270,3 +271,57 @@ def test_relabel_never_creates_a_duplicate_team_label():
     assert sleeper_overlay.relabel_sleeper_block(sleeper) == {}
     assert sleeper["teams"][0]["name"] == "jnesselhauf"
     assert sleeper_overlay.relabel_sleeper_block(None) == {}
+
+
+# ── team-level forecasts follow the roster, not the week's manager ─────
+
+
+def _scored_season(weeks: int = 6) -> SeasonSnapshot:
+    base = _season()
+    return SeasonSnapshot(
+        season="2026",
+        league_id=LEAGUE,
+        league={
+            "league_id": LEAGUE,
+            "season": "2026",
+            "season_type": "regular",
+            "total_rosters": 2,
+            "settings": {"playoff_week_start": 15, "last_scored_leg": weeks},
+        },
+        users=base["users"],
+        rosters=base["rosters"],
+        matchups_by_week={
+            wk: [
+                {"matchup_id": 1, "roster_id": ROSTER, "points": 100.0 + wk},
+                {"matchup_id": 1, "roster_id": 1, "points": 90.0 + wk},
+            ]
+            for wk in range(1, weeks + 1)
+        },
+        transactions_by_week={},
+        drafts=[],
+        draft_picks_by_draft={},
+        traded_picks=[],
+        winners_bracket=[],
+        losers_bracket=[],
+    )
+
+
+def test_manager_history_splits_but_the_team_forecast_does_not():
+    """dynasty_main roster 11, 2026-10-17: weekly scores split Joel/John by week
+    while the record and remaining schedule key the roster to John, so the
+    playoff simulator saw a scheduled team with no scores and championship odds
+    stopped publishing.  A forecast is a TEAM question: scores follow the roster.
+    """
+    season = _scored_season()
+    registry = build_manager_registry([_season()])
+
+    by_week = luck._season_weekly_scores(season, registry)
+    assert {o for o, _ in by_week[5]} == {JOEL, "468418790212759552"}
+    assert {o for o, _ in by_week[6]} == {JOHN, "468418790212759552"}
+
+    per_owner, _pool = playoff_odds._season_weekly_scores(season, registry)
+    assert set(per_owner) == {JOHN, "468418790212759552"}
+    assert per_owner[JOHN] == [100.0 + wk for wk in range(1, 7)]
+
+    record, _rule = playoff_odds.regular_season_standings_to_date(season, registry)
+    assert set(record) == set(per_owner)

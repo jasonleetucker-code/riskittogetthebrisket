@@ -87,7 +87,9 @@ def _season_weekly_scores(
     """
     per_owner: dict[str, list[float]] = {}
     pool: list[float] = []
-    week_scores = luck._season_weekly_scores(season, registry)
+    # A forecast is about the TEAM: its scores travel with the roster to its
+    # current owner, the same key the record and the remaining schedule use.
+    week_scores = luck._season_weekly_scores(season, registry, by_franchise=True)
     for wk in sorted(week_scores):
         for owner_id, pts in week_scores[wk]:
             per_owner.setdefault(owner_id, []).append(pts)
