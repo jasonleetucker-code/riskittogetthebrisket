@@ -16,7 +16,9 @@
  * Batches B1 + B2 add Recent trades / Acquisitions / Activity tabs, and
  * B3 a Draft capital tab plus Tendencies under Recent trades
  * (./ManagerActivity.jsx).  Batch C: each league in the Leagues list links
- * to its league scouting view (./league/[leagueId]/page.jsx).  Their DATA is fetched only when one of them is
+ * to its league scouting view (./league/[leagueId]/page.jsx).  Batch E adds
+ * the Career tab (./ManagerCareer.jsx) and a compare view
+ * (./compare/page.jsx).  Their DATA is fetched only when one of them is
  * first opened, so the portfolio never waits on it.  The code is imported
  * statically on purpose: a React.lazy split was measured to re-group shared
  * ds chunks (PageHeader / Select / Field moved out of a shared chunk into
@@ -47,6 +49,7 @@ import {
 import {
   SCOPES,
   USERNAME_RE,
+  compareHref,
   errorMessage,
   exposureText,
   filterOptions,
@@ -63,6 +66,7 @@ import {
   summaryTiles,
 } from "@/lib/manager-intel";
 import ManagerActivity from "./ManagerActivity";
+import ManagerCareer from "./ManagerCareer";
 import styles from "./managers.module.css";
 
 const PAGE_TITLE = "Manager Intelligence";
@@ -73,7 +77,10 @@ const RESULT_TABS = [
   { id: "acquisitions", label: "Acquisitions" },
   { id: "activity", label: "Activity" },
   { id: "draft", label: "Draft capital" },
+  { id: "career", label: "Career" },
 ];
+// Tabs served by the one mounted ManagerActivity view.
+const ACTIVITY_TABS = new Set(["trades", "acquisitions", "activity", "draft"]);
 const TAB_PREFIX = "manager-intel";
 
 function readInitialUsername() {
@@ -100,6 +107,7 @@ export default function ManagersPage() {
   // The activity view mounts on first open and then stays mounted (hidden
   // on Portfolio), so switching tabs never refetches.
   const [activityOpened, setActivityOpened] = useState(false);
+  const [careerOpened, setCareerOpened] = useState(false);
 
   const lookup = useCallback(async (username, nextScope) => {
     const name = String(username || "").trim();
@@ -115,6 +123,7 @@ export default function ManagersPage() {
     setExpanded(new Set());
     setTab("portfolio");
     setActivityOpened(false);
+    setCareerOpened(false);
     setQuery("");
     setPosition("");
     setTeam("");
@@ -157,7 +166,8 @@ export default function ManagersPage() {
 
   const selectTab = useCallback((next) => {
     setTab(next);
-    if (next !== "portfolio") setActivityOpened(true);
+    if (ACTIVITY_TABS.has(next)) setActivityOpened(true);
+    if (next === "career") setCareerOpened(true);
   }, []);
 
   const submit = (event) => {
@@ -392,7 +402,7 @@ export default function ManagersPage() {
       {state.phase === "idle" ? (
         <EmptyState
           title="Look up a manager"
-          description="Ownership, exposure and canonical value across all of a manager's leagues, plus their recent trades, acquisitions, activity, draft capital and trade tendencies. Career records arrive in a later batch."
+          description="Ownership, exposure and canonical value across all of a manager's leagues, plus their recent trades, acquisitions, activity, draft capital, trade tendencies, career record and archetypes — and side-by-side comparisons."
         />
       ) : null}
 
@@ -412,6 +422,14 @@ export default function ManagersPage() {
                 .map(([s, n]) => ` · ${n} ${s}`)
                 .join("")}
             </p>
+            {compareHref({ a: manager?.username }) ? (
+              <a
+                href={compareHref({ a: manager?.username })}
+                className={styles.link}
+              >
+                Compare with another manager
+              </a>
+            ) : null}
           </section>
 
           {profile.status === "partial" ? (
@@ -445,18 +463,32 @@ export default function ManagersPage() {
               role="tabpanel"
               // One mounted view serves the three activity tabs, so it takes
               // the active tab's panel id (each tab's aria-controls target).
-              id={tabPanelId(TAB_PREFIX, tab === "portfolio" ? "trades" : tab)}
+              id={tabPanelId(TAB_PREFIX, ACTIVITY_TABS.has(tab) ? tab : "trades")}
               aria-labelledby={tabId(
                 TAB_PREFIX,
-                tab === "portfolio" ? "trades" : tab,
+                ACTIVITY_TABS.has(tab) ? tab : "trades",
               )}
-              hidden={tab === "portfolio"}
+              hidden={!ACTIVITY_TABS.has(tab)}
             >
               <ManagerActivity
                 username={manager?.username || state.profile?.query}
                 scope={profile.scope}
                 profile={profile}
                 tab={tab}
+              />
+            </div>
+          ) : null}
+
+          {careerOpened ? (
+            <div
+              role="tabpanel"
+              id={tabPanelId(TAB_PREFIX, "career")}
+              aria-labelledby={tabId(TAB_PREFIX, "career")}
+              hidden={tab !== "career"}
+            >
+              <ManagerCareer
+                username={manager?.username || state.profile?.query}
+                scope={profile.scope}
               />
             </div>
           ) : null}
@@ -577,6 +609,21 @@ export default function ManagersPage() {
                         </span>
                       </a>
                     ) : null}
+                    {l.state === "ok" &&
+                    compareHref({ a: manager?.username, leagueId: l.leagueId }) ? (
+                      <a
+                        href={compareHref({
+                          a: manager?.username,
+                          leagueId: l.leagueId,
+                        })}
+                        className={styles.link}
+                      >
+                        Compare with this league
+                        <span className={styles.srOnly}>
+                          : {l.name || "unnamed league"}
+                        </span>
+                      </a>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -586,8 +633,8 @@ export default function ManagersPage() {
               <summary>What this includes</summary>
               <p>
                 Current-season leagues only. Recent trades, acquisitions,
-                activity and draft capital are in their own tabs; career records
-                are not included yet. Data comes from Sleeper&apos;s public API
+                activity, draft capital and the multi-season career are in their
+                own tabs. Data comes from Sleeper&apos;s public API
                 at lookup time
                 {profile.cached ? " (cached for up to 15 minutes)" : ""}.
               </p>

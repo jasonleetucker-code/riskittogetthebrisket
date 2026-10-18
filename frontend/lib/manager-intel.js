@@ -313,6 +313,9 @@ const VALUE_REASONS = {
   pick_unparseable: "unreadable pick",
   row_present_but_unpriced: "board does not price it",
   alias_target_missing: "no board value for this pick",
+  canonical_board_is_superflex: "board values only Superflex leagues",
+  pick_ownership_unavailable: "pick ownership unknown",
+  earlier_season: "earlier season — picks not read",
 };
 
 export function valueReasonText(reason) {
@@ -910,4 +913,282 @@ export function activityPairs(activity) {
     label,
     value: typeof value === "number" ? formatValue(value) : value,
   }));
+}
+
+// ── Batch E — career, archetypes, comparisons ───────────────────────────
+// Display helpers only: every season row, total, archetype state and
+// percentile comes from GET /api/manager-intel/career and /compare
+// (`src/intel/manager_career.py`, `src/intel/manager_compare.py`).
+
+export function careerQuery(username, scope = "dynasty") {
+  const params = new URLSearchParams({ username: String(username || "") });
+  if (scope && scope !== "dynasty") params.set("scope", scope);
+  return `/api/manager-intel/career?${params.toString()}`;
+}
+
+/** API query for the compare view: `a` plus `b` and/or `leagueId`. */
+export function compareQuery({ a, b, leagueId, scope, window } = {}) {
+  const params = new URLSearchParams({ a: String(a || "") });
+  if (b) params.set("b", String(b));
+  if (leagueId) params.set("leagueId", String(leagueId));
+  if (scope && scope !== "dynasty") params.set("scope", scope);
+  if (window && window !== "30d") params.set("window", window);
+  return `/api/manager-intel/compare?${params.toString()}`;
+}
+
+/** The private compare page (under the /managers gate), or null when the
+ * inputs are not a valid username / league id. */
+export function compareHref({ a, b, leagueId } = {}) {
+  const left = String(a || "");
+  if (!USERNAME_RE.test(left)) return null;
+  const params = new URLSearchParams({ a: left });
+  if (b) {
+    if (!USERNAME_RE.test(String(b))) return null;
+    params.set("b", String(b));
+  }
+  if (leagueId) {
+    if (!LEAGUE_ID_RE.test(String(leagueId))) return null;
+    params.set("league", String(leagueId));
+  }
+  return `/managers/compare?${params.toString()}`;
+}
+
+/** Initial compare-page inputs from a query string (invalid values dropped). */
+export function readCompareParams(search) {
+  const q = new URLSearchParams(search || "");
+  const pick = (key, re) => {
+    const value = q.get(key) || "";
+    return re.test(value) ? value : "";
+  };
+  return {
+    a: pick("a", USERNAME_RE),
+    b: pick("b", USERNAME_RE),
+    league: pick("league", LEAGUE_ID_RE),
+  };
+}
+
+const FINISH_LABELS = {
+  champion: "Champion",
+  runner_up: "Runner-up",
+  playoff: "Playoffs",
+  missed: "Missed playoffs",
+  unknown: "Unknown",
+  in_progress: "In progress",
+};
+
+const FINISH_REASONS = {
+  bracket_unavailable: "playoff bracket could not be read",
+  bracket_rate_limited: "Sleeper rate-limited the bracket read",
+  bracket_budget_exhausted: "call budget ran out before the bracket",
+  bracket_empty: "Sleeper published no bracket",
+  championship_undecided: "final not decided",
+  left_before_season_end: "left the team mid-season",
+};
+
+export function finishLabel(row) {
+  if (!row) return "—";
+  if (row.held == null) return "Not read";
+  if (row.finish == null && row.finishReason === "left_before_season_end")
+    return "Left mid-season";
+  return FINISH_LABELS[row.finish] || "Unknown";
+}
+
+export function finishReasonText(reason) {
+  return reason ? FINISH_REASONS[reason] || reason.replace(/_/g, " ") : "";
+}
+
+const HELD_TEXT = {
+  full: "",
+  from_week: (r) => `took over in week ${r.heldFromWeek}`,
+  until_week: (r) => `held until week ${r.heldUntilWeek}`,
+};
+
+export function heldText(row) {
+  if (!row) return "";
+  const parts = [];
+  const fn = HELD_TEXT[row.held];
+  if (typeof fn === "function") parts.push(fn(row));
+  if (row.coOwned) parts.push("co-owner");
+  return parts.join(" · ");
+}
+
+const EXCLUDED_TEXT = {
+  season_in_progress: "season in progress",
+  partial_season_handoff: "partial season (recorded hand-off)",
+  rosters_unread: "rosters could not be read",
+};
+
+export function excludedText(reason) {
+  return reason ? EXCLUDED_TEXT[reason] || reason.replace(/_/g, " ") : "";
+}
+
+/** "1 of 14" — a count with the seasons it covers. */
+export function coveredText(block) {
+  if (!block || block.count == null) return "—";
+  return `${block.count} of ${block.seasonsCovered}`;
+}
+
+export function shareText(share) {
+  return share == null ? "—" : `${(share * 100).toFixed(1)}%`;
+}
+
+/** Career total tiles: each value carries the seasons it covers. */
+export function careerTiles(career) {
+  const t = career?.totals;
+  if (!t) return [];
+  const rec = t.record || {};
+  const seasonsMeta = (n) => `over ${n} complete season${n === 1 ? "" : "s"}`;
+  return [
+    {
+      key: "seasons",
+      label: "Seasons held",
+      value: formatValue(t.seasons),
+      meta: `${t.countedSeasons} complete · ${t.leagues} league${t.leagues === 1 ? "" : "s"}`,
+    },
+    {
+      key: "titles",
+      label: "Titles",
+      value: formatValue(t.titles?.count),
+      meta:
+        t.titles?.seasonsCovered == null
+          ? "coverage unknown"
+          : seasonsMeta(t.titles.seasonsCovered),
+    },
+    {
+      key: "playoffs",
+      label: "Playoff appearances",
+      value: coveredText(t.playoffAppearances),
+      meta:
+        t.playoffAppearances?.rate == null
+          ? "no complete season with a known finish"
+          : `${pct(t.playoffAppearances.rate)} of seasons with a known finish`,
+    },
+    {
+      key: "record",
+      label: "Regular-season record",
+      value: rec.games ? recordText(rec) : "—",
+      meta:
+        rec.winPct == null
+          ? "no complete season"
+          : `${(rec.winPct * 100).toFixed(1)}% · ${seasonsMeta(rec.seasonsCovered)}`,
+    },
+    {
+      key: "pf",
+      label: "Points-for index",
+      value:
+        t.pointsForIndex?.mean == null ? "—" : t.pointsForIndex.mean.toFixed(2),
+      meta:
+        t.pointsForIndex?.mean == null
+          ? "no complete season"
+          : `1.00 = league average · ${seasonsMeta(t.pointsForIndex.seasonsCovered)}`,
+    },
+  ];
+}
+
+/** Season x league pairs that were not fully read, plus chain problems. */
+export function careerCoverageProblems(career) {
+  const out = [];
+  for (const row of career?.coverage?.seasons || []) {
+    if (row.state === "complete") continue;
+    out.push({
+      key: `${row.leagueId}:${row.season}`,
+      text: `${row.leagueName || "League"} ${row.season || ""}: ${coverageLabel(row.state)}`,
+    });
+  }
+  for (const lg of career?.leagues || []) {
+    const ch = lg.chain || {};
+    if (ch.state === "complete" || ch.state === "non_dynasty_predecessor") continue;
+    const why =
+      ch.state === "truncated"
+        ? `older seasons beyond ${ch.cap} not read`
+        : `history stopped early (${String(ch.reason || "unverified").replace(/_/g, " ")})`;
+    out.push({ key: `chain:${lg.leagueId}`, text: `${lg.name || "League"}: ${why}` });
+  }
+  return out;
+}
+
+const ARCHETYPE_STATE_LABELS = {
+  suggested: "Suggested by evidence",
+  not_suggested: "Not indicated",
+  insufficient_sample: "Insufficient sample",
+  unavailable: "Not evaluated",
+};
+
+export function archetypeStateLabel(state) {
+  return ARCHETYPE_STATE_LABELS[state] || "Unknown";
+}
+
+export function suggestedArchetypes(archetypes) {
+  return (archetypes?.items || []).filter((i) => i.state === "suggested");
+}
+
+/** "≥ 0.5 (PRIOR CONSOLIDATOR_SHARE_MIN)" for the evidence drilldown. */
+export function archetypeThresholdText(item) {
+  const t = item?.threshold;
+  if (!t) return "—";
+  const one = (x) => `${x.value} (${x.basis} ${x.name})`;
+  return t.and ? `${one(t)} and ${one(t.and)}` : one(t);
+}
+
+export function archetypeEvidenceRows(item) {
+  return Object.entries(item?.evidence || {}).map(([key, value]) => ({
+    key,
+    label: key.replace(/([A-Z])/g, " $1").toLowerCase(),
+    value: value == null ? "—" : String(value),
+  }));
+}
+
+/** Rows of the side-by-side comparison: [label, a text, b text]. */
+export function compareRows(payload) {
+  const a = payload?.a;
+  const b = payload?.b;
+  if (!a || !b) return [];
+  const rec = (s) => s?.career?.record || {};
+  const row = (key, label, fn) => ({ key, label, a: fn(a), b: fn(b) });
+  const num = (v) => formatValue(v ?? null);
+  return [
+    row("leagues", "Leagues this season", (s) => num(s.leagueCount)),
+    row("seasons", "Seasons held (career)", (s) => num(s.career?.seasons)),
+    row("titles", "Titles", (s) => coveredText(s.career?.titles)),
+    row("playoffs", "Playoff appearances", (s) =>
+      coveredText(s.career?.playoffAppearances),
+    ),
+    row("record", "Regular-season record", (s) =>
+      rec(s).games
+        ? `${recordText(rec(s))} (${(rec(s).winPct * 100).toFixed(1)}%)`
+        : "—",
+    ),
+    row("pf", "Points-for index", (s) =>
+      s.career?.pointsForIndex?.mean == null
+        ? "—"
+        : s.career.pointsForIndex.mean.toFixed(2),
+    ),
+    row("players", "Unique players owned", (s) => num(s.portfolio?.uniquePlayers)),
+    row("age", "Mean roster age", (s) => num(s.portfolio?.ageMean)),
+    row("rookies", "Rookie instances", (s) => num(s.portfolio?.rookieInstances)),
+    row("trades", "Trades this season", (s) => num(s.tendencies?.tradeCount)),
+    row("adds", "Players acquired this season", (s) =>
+      num(s.analytics?.acquisitionCount),
+    ),
+    row("picks", "Draft picks held", (s) => num(s.draftCapital?.picksHeld)),
+    row("pickValue", "Draft pick value (priced)", (s) =>
+      num(s.draftCapital?.pricedValue),
+    ),
+    row("archetypes", "Archetypes suggested", (s) =>
+      suggestedArchetypes(s.archetypes)
+        .map((i) => i.label)
+        .join(", ") || "None",
+    ),
+  ];
+}
+
+/** "Higher than 62% of the league" — or why there is no percentile. */
+export function percentileText(metric) {
+  if (!metric) return "—";
+  if (metric.percentile == null) {
+    if (metric.reason === "manager_not_in_league") return "Not in this league";
+    if (metric.value == null) return valueReasonText(metric.reason) || "No value";
+    return "Nothing to compare";
+  }
+  return `Higher than ${Math.round(metric.percentile * 100)}% of the league`;
 }

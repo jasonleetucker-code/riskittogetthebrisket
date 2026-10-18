@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ManagersPage from "@/app/managers/page";
 import { PROFILE } from "../fixtures/manager-intel-profile";
+import { CAREER } from "../fixtures/manager-intel-career";
 
 function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -151,5 +152,26 @@ describe("Manager Intelligence page", () => {
     expect(links[0].getAttribute("href")).toBe(
       "/managers/league/1312006700437352448",
     );
+  });
+
+  it("opens the Career tab on demand and links the compare view (Batch E)", async () => {
+    global.fetch = vi.fn(async (url) =>
+      jsonResponse(200, String(url).includes("/career") ? CAREER : PROFILE),
+    );
+    const user = userEvent.setup();
+    render(<ManagersPage />);
+    await search(user);
+    await screen.findByRole("heading", { name: "Dynasty Fan" });
+    // The career is not read until its tab opens.
+    expect(global.fetch.mock.calls.map((c) => c[0])).toEqual([
+      "/api/manager-intel/profile?username=dynastyfan",
+    ]);
+    const compare = screen.getByRole("link", { name: "Compare with another manager" });
+    expect(compare.getAttribute("href")).toMatch(/^\/managers\/compare\?a=/);
+    await user.click(screen.getByRole("tab", { name: "Career" }));
+    await screen.findByRole("table", { name: /Every season this manager held/ });
+    expect(global.fetch.mock.calls[1][0]).toMatch(/^\/api\/manager-intel\/career\?username=/);
+    // The portfolio panel is hidden while Career is open.
+    expect(screen.getByRole("tabpanel", { name: "Career" })).toBeTruthy();
   });
 });

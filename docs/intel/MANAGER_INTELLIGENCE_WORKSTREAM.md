@@ -228,6 +228,39 @@ private gate is enforced.
 
 **Depends on:** B1–C. **Tests:** chain walk, archetype thresholds, sparse-sample refusal.
 
+**As implemented (`src/intel/manager_career.py`, `src/intel/manager_compare.py`)**
+- `GET /api/manager-intel/career?username=&scope=` — same gates (flag, session, guest 403, validation,
+  no-store), own per-user bucket (8 per 10 minutes), call budget 360. Each in-scope league is walked by the
+  existing `sleeper_client.walk_league_chain_status` (now accepting an optional classified, budgeted league
+  fetcher, so a 429 or a refused budget names its cause) up to `MAX_SEASONS_PER_LEAGUE = 6` seasons; a longer
+  chain reports `truncated`.
+- A season is the manager's only when THAT season's roster names their Sleeper user id (`owner_id` or
+  `co_owners`); a season without one is absent (`notHeldSeasons`), never a loss. A roster that could not be read
+  is an unread season (`held: null`), not an absent one. Record = the roster's regular-season settings; finish
+  from the classified `winners_bracket` read through the public league's bracket helpers
+  (`metrics.final_playoff_matchup` / `playoff_placement` / `playoff_teams`): champion / runner-up / playoff /
+  missed, `unknown` when the bracket is unread or empty, `in_progress` before the league is `complete`.
+  Recorded hand-offs (`public_league.ownership`) mark a season `from_week` / `until_week`; it is shown but left
+  out of the totals (the record cannot be split by week).
+- Totals count complete, fully-held seasons only, each with `seasonsCovered`: titles (over seasons with a
+  decided championship), playoff appearances (over seasons with a known finish), win %, points-for share and a
+  points-for index (share × teams; 1.0 = league average). Coverage per league × season plus chain state.
+- Archetypes (`evaluate_archetypes`): rookie-focused, consolidator, depth builder, pick hoarder, pick seller,
+  active trader, waiver-active, win-now, rebuilding, playoff regular — each a declared rule over existing
+  blocks (B3 `tendencies` and `draftCapital.totals`, B2 acquisitions / analytics, the Batch A portfolio
+  summary, the career totals), with threshold and minimum sample as named PRIOR constants. States:
+  `suggested` / `not_suggested` / `insufficient_sample` / `unavailable`; statements read "Evidence suggests …".
+  The activity source is the B1–B3 payload with `window=season` (its per-week memo is shared).
+- `GET /api/manager-intel/compare?a=&b=` (and/or `leagueId=`, `window=`) — own, tightest bucket (4 per 10
+  minutes). Side by side: each side's portfolio `summary`, season `tendencies` / `analytics` /
+  `draftCapital.totals`, career `totals` and `archetypes`, passed through verbatim (the archetypes are
+  evaluated over the very payloads shown beside them). A missing side is a 404 naming it. With `leagueId`:
+  the manager's team against one league over the Batch C rows (roster value, pick value, picks held,
+  trades, transactions, players added), percentile = (below + ½ tied) / (other teams with a value); a team
+  matched by its current owner only, a missing value is `null` + the reason.
+- Frontend: a Career tab on `/managers` (season table / stacked rows, totals with coverage, archetype chips
+  with an evidence drilldown) and the private compare page `/managers/compare?a=&b=&league=`.
+
 ## Batch F — Saved managers, alerts, scoped leaderboards
 
 **Deliverables**
@@ -246,4 +279,5 @@ private gate is enforced.
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
 | C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
-| D, E, F | — | QUEUED in this order |
+| E | `claude/manager-intel-e` (stacked on `claude/manager-intel-c`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315 career; compare; Risk It league percentile) recorded for the PR |
+| D, F | — | QUEUED (D, then F) |
