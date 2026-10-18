@@ -400,6 +400,10 @@ This record does **not** decide:
 - autonomous roster transactions;
 - private decision/offer journal implementation (R14 remains candidate until separately authorized).
 
+*Update 2026-10-18:* the owner decision closeout (`docs/owner/OWNER_DECISION_REGISTER.md`) decided the paid-source
+item (D17: no automatic subscriptions), DLF Values (D4: conditional rank-to-Hill), the #1428 palette (D14) and
+autonomous roster transactions (D15: read-only). R40 vs R44 / OD-06 stays open.
+
 ## 15. Durable owner directive
 
 > **Adaptive Learning / Continuous Model Improvement:** Wherever Calculator makes a probabilistic, predictive, weighting, behavioral or decision-model judgment that can validly improve from accumulated point-in-time evidence, preserve observations, predictions, decisions/non-decisions and outcomes and support disciplined continuous learning. Use simple baselines, champion/challenger models, leakage-safe evaluation, drift detection, explicit uncertainty, source ancestry and strict promotion/rollback rules. Deterministic league rules, scoring, identity, legality and historical facts remain deterministic. Begin with prospective evidence capture, evaluation and shadow challengers. Production models do not autonomously self-modify except through an explicitly owner-approved deterministic promotion policy for that model family.

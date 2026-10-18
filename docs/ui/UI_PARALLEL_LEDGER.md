@@ -37,6 +37,12 @@ work (audit head 47b90cd412eeed8c8429487de8109823d82baac0), not a visual-complet
 #1399 `codex/league-comparison-2026-live` was frontend consumer work. #1421 owns bounded
 governance. #1422 `codex/psi-design-reference` was the implementation branch for the bounded
 reference unit, PR #1429 then in integration with chart previews explicitly gated. #1428 holds only chart-treatment acceptance; no deployment or continuously running worker is claimed.
+**Update 2026-10-18:** the #1428 palette question is DECIDED (owner directive D14): `--chart-1`…`--chart-6` =
+`#986400` `#2264af` `#ac386a` `#6752b6` `#087650` `#aa3c17` on the cream editorial surfaces, through the semantic
+chart-token owner. Shipping still needs the D14 checks (every chart background and mark treatment, light and
+dark separately, colour-vision deficiency with labels / patterns / markers, existing order, movement colours
+untouched, real desktop + mobile evidence, axe). The chart previews stay gated until that implementation unit
+lands; this note decides the palette, not the acceptance.
 Exact dispatch is `docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md`. #1294 merged September 9;
 its old open claim is not an active writer, but independent live overlaps still matter.
 

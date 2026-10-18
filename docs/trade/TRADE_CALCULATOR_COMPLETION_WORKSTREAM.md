@@ -30,7 +30,7 @@ and it is equally capable on desktop and mobile. When essential evidence is miss
   double counting, and point-in-time integrity.
 - **Package model.** Every package-equity number comes from the one active model through
   `src/valuation_math/package_model.py` / `trade-logic.js::packageAdjustPair`.
-  - The approved model is `geom_q078_v1`, q = 0.78. Its activation is PR #1771, owner-approved and in CI; until #1771 merges and deploys, `main` and production still run `ktc_2026_04`.
+  - The approved model is `geom_q078_v1`, q = 0.78. Its activation is PR #1771, owner-approved; ~~until #1771 merges and deploys, `main` and production still run `ktc_2026_04`~~ *#1771 merged 2026-10-17 and is deployed (production build `24e218205e` contains it); owner directive D8 (2026-10-18) keeps it active — live `packageModel.id` observation pending.*
   - KTC (`ktc_2026_04`) stays available only as the named rollback / historical comparison.
   - The model and q are never changed as part of this work.
 - **One decision engine.** The decision is extended in place, not rebuilt beside the old one: `src/trade/analyze_trade.py` (`/api/trade/analyze`) plus the War Room UI.
@@ -453,7 +453,7 @@ matrix was stale it says so. Line numbers are as of `8625ab7b77`. "Done" means i
 | H12 roster consequences | PARTIAL — re-verified: availability (#1772) now merged, so byes and injuries are modelled; holes / bye coverage were not reported; no replacement-level report | `src/roster_intel/best_ball_utility.py:242`, `:575`; UI `frontend/components/trade/TradeWarRoom.jsx:349` | holes, bye coverage, replacement level | `best_ball_utility.py` (one exact solver) | **holes + bye coverage done**; replacement level remains (`rosterSpot.shadowValuePpg` is still `None`, `best_ball_utility.py:589`) |
 | I04 league + team auto-load | PARTIAL — re-verified: the ROS panel league defect was fixed in TC-A, but `useTeam` still auto-selected a hardcoded owner team ("Rossini Panini") on the default league for any user the server could not place | `frontend/components/useTeam.js:245` | no owner team as a global default | `useTeam` + `/api/leagues` `userDefaultTeam` | **done** |
 | K03 immediate tally | PARTIAL — confirmed: the tally rendered only inside the folded panel | `page.jsx:2550`; rows `frontend/lib/second-opinions-rows.js` | surface it outside the fold | `lib/second-opinions.js` (tally), one row assembly | **done** |
-| K06 source unavailable | NOT IMPLEMENTED — confirmed: rows carry `freshnessExcludedSources` (`src/api/data_contract.py:4857`) but Second Opinions ignores it | `frontend/lib/second-opinions.js:191` | an "unavailable" state | `second-opinions.js` | remaining — `SECOND_OPINIONS_TODO.md` lists it as an open owner decision (it changes which rows vote) |
+| K06 source unavailable | NOT IMPLEMENTED — confirmed: rows carry `freshnessExcludedSources` (`src/api/data_contract.py:4857`) but Second Opinions ignores it | `frontend/lib/second-opinions.js:191` | an "unavailable" state | `second-opinions.js` | remaining — ~~`SECOND_OPINIONS_TODO.md` lists it as an open owner decision~~ DECIDED 2026-10-18 (owner directive D9: "Unavailable — [actual reason]", never EVEN / canonical-substituted / zero / hidden; tally consistent with displayed independent opinions); now engineering work for TC-B2 |
 | K13 ROS Fit | PARTIAL — confirmed: league-scoped since TC-A, not labelled | `frontend/components/RosTradeFitPanel.jsx:162` | label it as the public deadline view | `RosTradeFitPanel.jsx` | **done** |
 | L01 recent real trades | IMPLEMENTED BUT UNVERIFIED — confirmed: no Trade Database link | `frontend/components/trade/RecentRealTrades.jsx:212` | a link into the Trade Database | `RecentRealTrades.jsx` | **done** |
 | L05 comparability labels | PARTIAL ("not confirmed" in TC-0) — **stale**: every card already renders the ledger's disposition (`formatMatchText`, `frontend/lib/recent-real-trades.js:122`, shipped with TC-09) | `recent-real-trades.js:122` | nothing; a test per disposition | `market_trade_format.py` (disposition) | **verified in code + test added** |
@@ -500,7 +500,7 @@ already complete after VA PR2 (`TradeSourceBreakdown`, `tallyOpinions`); what wa
 ### Remaining in TC-B (TC-B2 and later)
 
 A05 and C04 (stable player ids and per-asset share degrade) and N03 (history banner) wait for the share-format freeze
-to lift; K06 waits for the owner decision; H03 belongs to the Trade Finder lane; G18 needs the Analyze packet stored
+to lift; K06 is decided (D9, 2026-10-18) and ready for TC-B2; H03 belongs to the Trade Finder lane; G18 needs the Analyze packet stored
 on a desk item; H12 replacement level needs the waiver-pool projection join; B04 needs C1-U7; F05, M01–M07 and R01
 are P3.
 

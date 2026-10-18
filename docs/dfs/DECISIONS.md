@@ -2,6 +2,13 @@
 
 ADR numbers are local to this file (cite as `docs/dfs/DECISIONS.md ADR-DFS-00N`).
 
+> **OWNER_PAUSED (owner directive 2026-10-18; PR #1810).** All further DFS implementation is paused until the owner
+> explicitly resumes it. Every DFS decision still pending below — the ESPN NBA/NHL schedule source (ADR-DFS-025),
+> official DK/FD rule and template verification, the SportsDataIO slate feed, contest-results imports and a
+> licensed odds/props source — is **OWNER_PAUSED**: deferred, not rejected, completed or forgotten. Deployed DFS
+> behaviour, records and tests are preserved; `config/dfs/auto_sources.json` stays `pending_owner_decision`
+> (fails closed) and is not changed while paused. Register: `docs/owner/OWNER_DECISION_REGISTER.md`.
+
 ## ADR-DFS-001 — MILP solver: HiGHS via `scipy.optimize.milp` (2026-09-30)
 
 **Context.** The runtime had no numeric stack (no numpy/scipy/PuLP/OR-Tools). A DFS lineup is an
