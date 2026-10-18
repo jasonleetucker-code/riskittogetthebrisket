@@ -152,6 +152,16 @@ canonical owner: the rookie-auction calculation (`src/draft/rookie_auction/`, #1
 for the workbook class and the later classes — team budgets are never rounded independently of their
 picks. Intake: `docs/OWNER_REQUESTED_TODO.md` ("WHOLE-DOLLAR ALLOCATION (2026-10-18)").
 
+**Follow-up owner decisions, same day (binding):** (1) every completed class keeps BOTH
+`referenceDollars` (the spreadsheet curve at original precision — the ONLY input to the three-year
+historical spine) and `finalWholeDollars` (the published integers — every pick allocation, budget,
+draft-capital display and auction transaction), immutably, with receipts; fractional dollars are never
+spendable budget. (2) Constraint-aware fallback: largest remainder is used unchanged whenever it is
+valid; otherwise the exact constrained integer problem (integers, exact $1,200, floors/caps,
+non-increasing, minimum total deviation from the reference, deterministic earlier-position tie-break)
+is solved with a documented, independently verified method before any refusal. Refusal only for genuine
+infeasibility, missing essential data or failed verification; safe refusal / last-known-good kept.
+
 ## Sitewide trade Value Adjustment package — owner directive, 2026-10-17
 
 **AUTHORIZED; MERGED via release train #1768 (`00d652bd2`).** One versioned package model for every
