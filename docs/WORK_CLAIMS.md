@@ -49,7 +49,7 @@ row `done` in your last commit.
 
 ## Open claims
 
-| **Trade Tendencies mobile trading partner parity (owner fix, 2026-10-18).** Keep manager, trade count and top trading partner visible under 768px on `/trades`; defer secondary statistics below md; same data source, no methodology changes. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` | `frontend/app/trades/page.jsx`, `frontend/__tests__/manager-scout.test.js`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md` | TRADES-MOBILE-PARTNER | `codex/trade-tendencies-mobile-partner-20261018` | open — focused mobile parity repair, no merge/deploy authority |
+| **Trade Tendencies mobile trading partner parity (owner fix, 2026-10-18).** Keep manager, trade count and top trading partner visible under 768px on `/trades`; defer secondary statistics below md; same data source, no methodology changes. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` | `frontend/app/trades/page.jsx`, `frontend/__tests__/manager-scout.test.js`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md` | TRADES-MOBILE-PARTNER | `codex/trade-tendencies-mobile-partner-20261018` | done — code and static mobile-column guard committed; CI/integration/deployment/production verification pending |
 
 | Claim | Paths | Defect ids | Branch | Status |
 |---|---|---|---|---|
