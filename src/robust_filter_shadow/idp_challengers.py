@@ -314,8 +314,56 @@ def daily(records: Sequence[Mapping[str, Any]]) -> dict[date, Mapping[str, Any]]
 
 
 def _ci(units: list, stat: Callable[[Sequence], float | None], seed: int) -> dict[str, Any]:
-    res = block_bootstrap(units, stat, block_of=lambda u: u["block"], seed=seed)
+    key = getattr(stat, "mean_key", None)
+    if key is not None:
+        res = _mean_block_bootstrap(units, key, seed)
+    else:
+        res = block_bootstrap(units, stat, block_of=lambda u: u["block"], seed=seed)
     return {k: (round(v, 5) if isinstance(v, float) else v) for k, v in res.items()}
+
+
+def _mean_block_bootstrap(units: Sequence[Mapping[str, Any]], key: str, seed: int) -> dict:
+    """``outcomes.block_bootstrap`` for a plain mean, from per-block sums.
+
+    The same blocks, the same ``random.Random(seed)`` draw sequence and the same
+    percentile rule, so the interval is the inherited one; summing per block
+    first only avoids re-walking every unit 4,000 times.
+    """
+    import random  # noqa: PLC0415
+
+    from src.robust_filter_shadow.outcomes import BOOTSTRAP_RESAMPLES, _percentile  # noqa: PLC0415
+
+    sums: dict[int, float] = defaultdict(float)
+    counts: dict[int, int] = defaultdict(int)
+    for u in units:
+        v = u.get(key)
+        if v is None:
+            continue
+        sums[u["block"]] += v
+        counts[u["block"]] += 1
+    blocks = sorted({u["block"] for u in units})
+    total = sum(counts.values())
+    point = (sum(sums.values()) / total) if total else None
+    if point is None or not blocks:
+        return {"point": point, "lo": None, "hi": None, "blocks": len(blocks), "used": 0}
+    rng = random.Random(seed)
+    draws: list[float] = []
+    for _ in range(BOOTSTRAP_RESAMPLES):
+        s = n = 0.0
+        for _b in blocks:
+            b = rng.choice(blocks)
+            s += sums.get(b, 0.0)
+            n += counts.get(b, 0)
+        if n:
+            draws.append(s / n)
+    draws.sort()
+    return {
+        "point": point,
+        "lo": _percentile(draws, 0.025) if draws else None,
+        "hi": _percentile(draws, 0.975) if draws else None,
+        "blocks": len(blocks),
+        "used": len(draws),
+    }
 
 
 def _mean_key(key: str) -> Callable[[Sequence[Mapping[str, Any]]], float | None]:
@@ -323,6 +371,7 @@ def _mean_key(key: str) -> Callable[[Sequence[Mapping[str, Any]]], float | None]
         vals = [u[key] for u in units if u.get(key) is not None]
         return sum(vals) / len(vals) if vals else None
 
+    stat.mean_key = key  # type: ignore[attr-defined]
     return stat
 
 
@@ -440,6 +489,12 @@ def ladder_without(points: Sequence[Sequence[float]], own_rank: float | None) ->
     return dtn.build_native_ladder((r, v) for r, v in points if r != own_rank)
 
 
+#: Leave-player-out ladders, keyed by (board payload sha256, the player's own
+#: IDP Trade Calculator rank); a pure function of the record, so caching it
+#: changes no result.
+_LADDER_CACHE: dict[tuple[Any, float | None], dtn.NativeLadder] = {}
+
+
 def repriceable(vote: Mapping[str, Any], source: str) -> bool:
     """§1 rules 2-4 for a vote, from build-1 stamps (rule 5 is the ladder's)."""
     r = vote.get("r")
@@ -489,7 +544,13 @@ def c1_units(
             own_r, _own_v = _idptc_vote(row)
             if out_of_sample_player and own_r is not None:
                 continue
-            ladder = full if in_sample else ladder_without(points, own_r)
+            if in_sample:
+                ladder = full
+            else:
+                ck = ((orec.get("board") or {}).get("payloadSha256"), own_r)
+                ladder = _LADDER_CACHE.get(ck)
+                if ladder is None:
+                    ladder = _LADDER_CACHE[ck] = ladder_without(points, own_r)
             for source, vote in row["votes"].items():
                 if vote.get("ex") or not repriceable(vote, source):
                     continue

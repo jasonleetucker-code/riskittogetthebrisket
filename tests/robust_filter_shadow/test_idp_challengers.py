@@ -106,3 +106,22 @@ def test_board_rails_use_the_autopilot_limits():
     rows["p0"] = [9999.0, 1000.0, 1, 150, "offense"]
     res = C.board_rails(rows, limits)
     assert not res["pass"] and res["metrics"]["maxAbsPctValueChange"] > 0.65
+
+
+def test_fast_mean_bootstrap_is_the_inherited_bootstrap():
+    import random
+
+    from src.robust_filter_shadow.outcomes import block_bootstrap
+
+    rng = random.Random(7)
+    units = [{"block": rng.randrange(6), "d": rng.gauss(0, 1)} for _ in range(300)]
+    slow = block_bootstrap(
+        units,
+        lambda us: sum(u["d"] for u in us) / len(us),
+        block_of=lambda u: u["block"],
+        seed=2029,
+    )
+    fast = C._mean_block_bootstrap(units, "d", 2029)
+    for k in ("point", "lo", "hi"):
+        assert math.isclose(slow[k], fast[k], rel_tol=1e-9, abs_tol=1e-12)
+    assert slow["blocks"] == fast["blocks"] and slow["used"] == fast["used"]
