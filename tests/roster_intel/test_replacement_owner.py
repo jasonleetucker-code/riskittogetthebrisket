@@ -90,8 +90,17 @@ def test_the_census_detects_a_reintroduced_duplicate(tmp_path):
 
     Writes a module that calls a retired symbol and asserts the scan sees
     it. Without this the "zero duplicates remain" verdict is unfalsifiable.
+
+    The probe lives in ``tmp_path`` and reaches the scan through the
+    census's ``extra`` seam, never ``src/``: a file planted in the tree is
+    seen by every other tree scan running concurrently under pytest-xdist
+    (``test_the_census_runs_clean_at_head``, the KTC identity guard), which
+    then fails on a duplicate that is not in the tree — or crashes reading
+    a file this test has already deleted. That tree discovery itself works
+    is proven by ``test_every_declared_owner_is_consumed``, which can only
+    pass if the scan found the real callers under ``src/``.
     """
-    probe = REPO / "src" / "_v129_census_probe.py"
+    probe = tmp_path / "_v129_census_probe.py"
     probe.write_text(
         "from src.scoring.replacement_level import vorp_table\n"
         "def f(rows, slots):\n"
@@ -99,8 +108,12 @@ def test_the_census_detects_a_reintroduced_duplicate(tmp_path):
         encoding="utf-8",
     )
     try:
-        assert retired_reachable(), "the census did NOT detect a reintroduced retired symbol"
-        assert main([]) == EXIT_VIOLATION, "the census exited clean with a duplicate present"
+        assert retired_reachable(
+            extra=probe
+        ), "the census did NOT detect a reintroduced retired symbol"
+        assert (
+            main([], extra=probe) == EXIT_VIOLATION
+        ), "the census exited clean with a duplicate present"
     finally:
         probe.unlink(missing_ok=True)
 
@@ -116,7 +129,7 @@ def test_no_owner_symbol_is_defined_outside_its_declared_path():
     assert undeclared_owner_definitions() == {}
 
 
-def test_the_guard_catches_a_same_named_duplicate_nobody_calls():
+def test_the_guard_catches_a_same_named_duplicate_nobody_calls(tmp_path):
     """MR1, reproduced as a positive control.
 
     A new module defining its own ``replacement_per_game`` — the OWNER
@@ -126,26 +139,27 @@ def test_the_guard_catches_a_same_named_duplicate_nobody_calls():
     NEW guard must catch it anyway: an undeclared owner is a defect the
     moment it is defined, whether or not it is ever invoked.
     """
-    probe = REPO / "src" / "league_intel" / "_v129_dup_probe.py"
+    # Outside the tree, for the reason in the first positive control.
+    probe = tmp_path / "_v129_dup_probe.py"
     probe.write_text(
         "def replacement_per_game(rows, position):\n"
         "    return sum(r.get('points', 0.0) for r in rows) / max(len(rows), 1)\n",
         encoding="utf-8",
     )
     try:
-        dups = undeclared_owner_definitions()
+        dups = undeclared_owner_definitions(extra=probe)
         assert (
             "replacement_per_game" in dups
         ), "the guard did NOT detect an undeclared duplicate definition (MR1)"
-        assert "src/league_intel/_v129_dup_probe.py" in dups["replacement_per_game"]
+        assert probe.as_posix() in dups["replacement_per_game"]
         assert (
-            main([]) == EXIT_VIOLATION
+            main([], extra=probe) == EXIT_VIOLATION
         ), "the census exited clean with an undeclared owner present"
     finally:
         probe.unlink(missing_ok=True)
 
 
-def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
+def test_the_guard_catches_a_same_named_duplicate_with_a_call_site(tmp_path):
     """MR2, reproduced as a positive control.
 
     Same duplicate as MR1, but now it is live code with a real caller —
@@ -155,7 +169,8 @@ def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
     it). The guard must still fail: a second definition is the defect,
     independent of whether it is called.
     """
-    probe = REPO / "src" / "league_intel" / "_v129_dup_probe.py"
+    # Outside the tree, for the reason in the first positive control.
+    probe = tmp_path / "_v129_dup_probe.py"
     probe.write_text(
         "def replacement_per_game(rows, position):\n"
         "    return sum(r.get('points', 0.0) for r in rows) / max(len(rows), 1)\n"
@@ -166,11 +181,13 @@ def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
         encoding="utf-8",
     )
     try:
-        dups = undeclared_owner_definitions()
+        dups = undeclared_owner_definitions(extra=probe)
         assert (
             "replacement_per_game" in dups
         ), "the guard did NOT detect an undeclared duplicate definition with a call site (MR2)"
-        assert main([]) == EXIT_VIOLATION, "the census exited clean with a called, undeclared owner"
+        assert (
+            main([], extra=probe) == EXIT_VIOLATION
+        ), "the census exited clean with a called, undeclared owner"
     finally:
         probe.unlink(missing_ok=True)
 
