@@ -823,6 +823,12 @@
     "scheduled-refresh.yml::refresh::Contract coverage watchdog": {
       "category": "blocking"
     },
+    "scheduled-refresh.yml::refresh::Draft valuation alerts": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Draft valuation readiness (Batch D)": {
+      "category": "blocking"
+    },
     "scheduled-refresh.yml::refresh::Install dependencies": {
       "category": "blocking"
     },

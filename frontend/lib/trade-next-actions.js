@@ -17,47 +17,8 @@
 
 import { tradeEntryLabel } from "./trade-assets.js";
 
-/** /arbitrage tools a link may open — the ids of `TOOL_TABS` there. */
-export const ARBITRAGE_TOOL_IDS = ["golden", "scan", "best", "builder", "desk"];
-
-const MAX_PARAM_LEN = 120;
-
-function cleanParam(value) {
-  const text = String(value ?? "").trim();
-  return text && text.length <= MAX_PARAM_LEN ? text : "";
-}
-
-/**
- * `/arbitrage?tool=<id>&team=<name>[&opponent=<name>]`.  An unknown tool is
- * refused (null) rather than linking to a page that would ignore it.
- */
-export function arbitrageHref(tool, { team = "", opponent = "" } = {}) {
-  if (!ARBITRAGE_TOOL_IDS.includes(tool)) return null;
-  const params = new URLSearchParams({ tool });
-  const t = cleanParam(team);
-  const o = cleanParam(opponent);
-  if (t) params.set("team", t);
-  if (o && o !== t) params.set("opponent", o);
-  return `/arbitrage?${params.toString()}`;
-}
-
-/**
- * Read what `arbitrageHref` wrote.  `teamNames` are the league's current
- * teams: a team the league does not have is dropped, never guessed.
- * Returns `{ tool, team, opponent }`, each null when absent or invalid.
- */
-export function parseArbitrageQuery(search, teamNames = []) {
-  const params = new URLSearchParams(search || "");
-  const tool = params.get("tool");
-  const names = new Set((teamNames || []).map((n) => String(n)));
-  const team = cleanParam(params.get("team"));
-  const opponent = cleanParam(params.get("opponent"));
-  return {
-    tool: ARBITRAGE_TOOL_IDS.includes(tool) ? tool : null,
-    team: team && names.has(team) ? team : null,
-    opponent: opponent && names.has(opponent) && opponent !== team ? opponent : null,
-  };
-}
+// The /arbitrage link contract (both link shapes) has one owner.
+export { ARBITRAGE_TOOL_IDS, arbitrageHref, parseArbitrageQuery } from "./arbitrage-links.js";
 
 /**
  * The Trade Database pre-filtered to this trade's assets

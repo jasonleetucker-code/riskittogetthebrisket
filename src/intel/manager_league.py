@@ -138,6 +138,9 @@ def _roster_summary(
                 "age": p.get("age"),
                 "isRookie": p.get("isRookie"),
                 "slot": slot,
+                # The board row name the Trade Calculator resolves the player
+                # by (Batch D seeds); None when the board has no row for him.
+                "boardName": p.get("boardName"),
                 "value": p.get("value"),
                 "rank": p.get("rank"),
                 "valueReason": p.get("valueReason"),
@@ -367,6 +370,41 @@ def _scout_block(
 
 
 # ── builder ─────────────────────────────────────────────────────────────
+
+
+#: Why the league-scoped trade tools (Analyze Trade, the Package Builder) are
+#: not offered for a league.  The generic calculator seed is always offered.
+TRADE_TOOLS_EXTERNAL_LEAGUE = "external_league"
+TRADE_TOOLS_ROSTERS_NOT_LOADED = "league_rosters_not_loaded"
+
+
+def _trade_tools_block(cfg: Any, contract: Any) -> dict[str, Any]:
+    """Batch D: may this league seed the LEAGUE-SCOPED trade tools?
+
+    Only a registry league whose rosters the site has loaded — the same
+    league-match gate ``GET /api/manager-scout`` applies
+    (``manager_scout_api._current_teams``), because Analyze Trade and the
+    Package Builder run against the loaded contract's ``sleeper.teams`` and
+    refuse any other league.  Every league may still seed the generic Trade
+    Calculator (players and generic picks on the canonical board).  The
+    ``packageModel`` receipt is the ACTIVE model the calculator values under,
+    carried into every seeded link so one receipt spans the surfaces.
+    """
+    from src.intel import manager_scout_api  # noqa: PLC0415
+    from src.valuation_math import package_model  # noqa: PLC0415
+
+    if cfg is None:
+        scoped, reason = False, TRADE_TOOLS_EXTERNAL_LEAGUE
+    elif manager_scout_api._current_teams(contract, cfg.key):  # noqa: SLF001
+        scoped, reason = True, None
+    else:
+        scoped, reason = False, TRADE_TOOLS_ROSTERS_NOT_LOADED
+    return {
+        "leagueScoped": scoped,
+        "leagueKey": getattr(cfg, "key", None) if scoped else None,
+        "reason": reason,
+        "packageModel": package_model.receipt(),
+    }
 
 
 def _fail(status: str, league_id: str, **extra: Any) -> dict[str, Any]:
@@ -617,6 +655,7 @@ def build_league_scouting(
             "minSampleBasis": "PRIOR",
         },
         "scout": scout,
+        "tradeTools": _trade_tools_block(cfg, contract),
         "coverage": {
             **cov,
             "legsRequested": legs,

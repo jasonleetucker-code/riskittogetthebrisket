@@ -26,7 +26,7 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
-import { parseArbitrageQuery } from "@/lib/trade-next-actions";
+import { parseArbitrageQuery } from "@/lib/arbitrage-links";
 import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
 import {
   emptyRefinement,
@@ -433,6 +433,10 @@ export default function ArbitragePage() {
   const [refinement, setRefinement] = useState(emptyRefinement);
   const [useTeamContext, setUseTeamContext] = useState(true);
   const [tool, setTool] = useState(DEFAULT_TOOL);
+  // A Package Builder seed from a link (Manager Intelligence Batch D:
+  // `?tool=builder&league=…&opponent=<owner id>[&target=…]`), read by the
+  // deep-link effect below; the view resolves the owner id to a team.
+  const [builderSeed, setBuilderSeed] = useState(null);
   // One discovery request shared by Golden Upgrades, Package Scan and Best
   // Offers, so the same filters mean the same thing in every view.
   const [discovery, setDiscovery] = useState(defaultDiscovery);
@@ -441,16 +445,18 @@ export default function ArbitragePage() {
   // mode's order under the current switch position.
   const scanSeq = useRef(0);
 
-  // Deep links from /trade "Next steps" (TC-B / TCM-O11):
-  // /arbitrage?tool=&team=&opponent=, written and parsed by ONE owner
-  // (lib/trade-next-actions.js).  Read from window, once, after the league's
-  // teams load: a team this league does not have is dropped, never guessed.
+  // Deep links — /trade "Next steps" (`?tool=&team=&opponent=`, TC-B /
+  // TCM-O11) and Manager Intelligence builder seeds — are written and parsed
+  // by ONE owner (lib/arbitrage-links.js), which tells the two shapes apart.
+  // Read from window (SSR-safe) until the league's teams load: a team this
+  // league does not have is dropped, never guessed.
   const deepLinkApplied = useRef(false);
   useEffect(() => {
     if (deepLinkApplied.current || typeof window === "undefined") return;
     const names = teams.map((t) => t.name);
     const q = parseArbitrageQuery(window.location.search, names);
     if (q.tool) setTool(q.tool);
+    if (q.seed) setBuilderSeed((prev) => prev || q.seed);
     if (!names.length) return;
     deepLinkApplied.current = true;
     if (q.team) setMyTeam(q.team);
@@ -692,6 +698,7 @@ export default function ArbitragePage() {
               ownerKey={selectedOwnerId}
               teams={teams}
               discovery={discovery}
+              seed={builderSeed}
             />
           </Panel>
         ) : null}

@@ -1,0 +1,364 @@
+{
+  "repoHead": "16bdd11370",
+  "capture": {
+    "rows": 319,
+    "top": 986.3822,
+    "min": 0.0275,
+    "fileOrderInversions": 0,
+    "tiedValues": 0,
+    "positions": {
+      "QB": 54,
+      "RB": 91,
+      "TE": 46,
+      "WR": 128
+    }
+  },
+  "ordering": {
+    "matchedToDlfRank": 287,
+    "valuesOnly": 32,
+    "rankOnly": 0,
+    "spearman": 0.968,
+    "discordantPairShare": 0.0733,
+    "rankDisplacement": {
+      "median": 13.0,
+      "p90": 44.66999999999999,
+      "max": 71.66999999999999
+    },
+    "top24Overlap": 0.875,
+    "top50Overlap": 0.88,
+    "top100Overlap": 0.95,
+    "top200Overlap": 0.935
+  },
+  "control_rank_hill_vs_dlfRank": {
+    "medianAbsPct": 8.41,
+    "p90AbsPct": 18.45,
+    "maxAbsPct": 41.92
+  },
+  "raw_max_vs_dlfRank_hill_signedPct": {
+    "p10": -97.14,
+    "median": -80.36,
+    "p90": -16.53
+  },
+  "curve": {
+    "dlfOwnHill": {
+      "c": 0.061,
+      "s": 1.67
+    },
+    "liveOffenseMaster": {
+      "c": 0.11,
+      "s": 1.11
+    },
+    "rmseVsLiveMaster": 1744.1,
+    "rmseVsOwnFit": 273.3,
+    "pendingChallenger": {
+      "c": 0.066,
+      "s": 1.105,
+      "evaluatedAt": "2026-10-18T05:19:38.128779+00:00",
+      "rmse": 890.5
+    },
+    "atP": {
+      "0.0": {
+        "dlf": 9999,
+        "master": 9999
+      },
+      "0.01": {
+        "dlf": 8899,
+        "master": 9346
+      },
+      "0.02": {
+        "dlf": 8105,
+        "master": 8689
+      },
+      "0.05": {
+        "dlf": 5664,
+        "master": 7058
+      },
+      "0.1": {
+        "dlf": 3395,
+        "master": 5264
+      },
+      "0.2": {
+        "dlf": 1254,
+        "master": 3399
+      },
+      "0.3": {
+        "dlf": 422,
+        "master": 2472
+      },
+      "0.5": {
+        "dlf": 64,
+        "master": 1570
+      },
+      "0.7": {
+        "dlf": null,
+        "master": 1136
+      },
+      "0.9": {
+        "dlf": null,
+        "master": 884
+      }
+    },
+    "otherBoardsRmseVsLiveMaster": {
+      "KTC": 389.9,
+      "ktcCrowdSfTep": 460.2,
+      "ktcTradesSfTep": 534.0,
+      "Fitzmaurice": 562.0,
+      "PFKDynasty": 609.1,
+      "YahooBoone": 933.6,
+      "DynastyDaddy": 1337.0,
+      "FantasyCalc": 1369.1,
+      "OTCFFB": 1388.7,
+      "DraftSharks": 1637.4,
+      "DynastyNerds": 2030.6
+    }
+  },
+  "payload": "dynasty_export_20261018_114711.zip",
+  "board_raw_max": {
+    "rowsChanged": 46,
+    "rowsCompared": 1028,
+    "absPct": {
+      "median": 0.78,
+      "p90": 1.89,
+      "p95": 2.22,
+      "max": 3.87
+    },
+    "signedPctMedian": -0.64,
+    "top50MaxAbsPct": 2.35,
+    "top150MaxAbsPct": 2.35,
+    "dlfValuesVotes": 319,
+    "dlfValuesHampelDropRate": 0.897,
+    "dlfRankHampelDropRate": 0.028,
+    "familyAdjustmentMedian": 0.5,
+    "topMovers": [
+      {
+        "name": "Deshaun Watson",
+        "pos": "QB",
+        "from": 2428,
+        "to": 2522,
+        "pct": 3.87
+      },
+      {
+        "name": "Jayden Daniels",
+        "pos": "QB",
+        "from": 7495,
+        "to": 7319,
+        "pct": -2.35
+      },
+      {
+        "name": "Gunnar Helm",
+        "pos": "TE",
+        "from": 2430,
+        "to": 2376,
+        "pct": -2.22
+      },
+      {
+        "name": "Ashton Jeanty",
+        "pos": "RB",
+        "from": 8083,
+        "to": 7928,
+        "pct": -1.92
+      },
+      {
+        "name": "DeVonta Smith",
+        "pos": "WR",
+        "from": 4963,
+        "to": 4869,
+        "pct": -1.89
+      },
+      {
+        "name": "Rome Odunze",
+        "pos": "WR",
+        "from": 4181,
+        "to": 4114,
+        "pct": -1.6
+      },
+      {
+        "name": "Tyler Warren",
+        "pos": "TE",
+        "from": 6946,
+        "to": 6837,
+        "pct": -1.57
+      },
+      {
+        "name": "Greg Dulcich",
+        "pos": "TE",
+        "from": 2276,
+        "to": 2241,
+        "pct": -1.54
+      },
+      {
+        "name": "Bo Nix",
+        "pos": "QB",
+        "from": 5465,
+        "to": 5382,
+        "pct": -1.52
+      },
+      {
+        "name": "2027 Pick 1.03",
+        "pos": "PICK",
+        "from": 5263,
+        "to": 5188,
+        "pct": -1.43
+      },
+      {
+        "name": "Carnell Tate",
+        "pos": "WR",
+        "from": 5263,
+        "to": 5188,
+        "pct": -1.43
+      },
+      {
+        "name": "Omarion Hampton",
+        "pos": "RB",
+        "from": 5379,
+        "to": 5304,
+        "pct": -1.39
+      },
+      {
+        "name": "Amon-Ra St. Brown",
+        "pos": "WR",
+        "from": 8777,
+        "to": 8658,
+        "pct": -1.36
+      },
+      {
+        "name": "James Cook",
+        "pos": "RB",
+        "from": 6865,
+        "to": 6781,
+        "pct": -1.22
+      },
+      {
+        "name": "Ladd McConkey",
+        "pos": "WR",
+        "from": 4733,
+        "to": 4681,
+        "pct": -1.1
+      }
+    ]
+  },
+  "board_rank_hill": {
+    "rowsChanged": 336,
+    "rowsCompared": 1028,
+    "absPct": {
+      "median": 0.23,
+      "p90": 1.33,
+      "p95": 2.15,
+      "max": 5.75
+    },
+    "signedPctMedian": -0.02,
+    "top50MaxAbsPct": 2.15,
+    "top150MaxAbsPct": 2.36,
+    "dlfValuesVotes": 319,
+    "dlfValuesHampelDropRate": 0.009,
+    "dlfRankHampelDropRate": 0.021,
+    "familyAdjustmentMedian": 0.5,
+    "topMovers": [
+      {
+        "name": "Josh Cameron",
+        "pos": "WR",
+        "from": 1427,
+        "to": 1509,
+        "pct": 5.75
+      },
+      {
+        "name": "Jack Strand",
+        "pos": "QB",
+        "from": 1299,
+        "to": 1348,
+        "pct": 3.77
+      },
+      {
+        "name": "DeMario Douglas",
+        "pos": "WR",
+        "from": 1594,
+        "to": 1540,
+        "pct": -3.39
+      },
+      {
+        "name": "Brandon Aiyuk",
+        "pos": "WR",
+        "from": 1542,
+        "to": 1493,
+        "pct": -3.18
+      },
+      {
+        "name": "Isaiah Bond",
+        "pos": "WR",
+        "from": 1501,
+        "to": 1454,
+        "pct": -3.13
+      },
+      {
+        "name": "Marquise Brown",
+        "pos": "WR",
+        "from": 1424,
+        "to": 1385,
+        "pct": -2.74
+      },
+      {
+        "name": "Xavier Hutchinson",
+        "pos": "WR",
+        "from": 1449,
+        "to": 1488,
+        "pct": 2.69
+      },
+      {
+        "name": "Tez Johnson",
+        "pos": "WR",
+        "from": 1472,
+        "to": 1436,
+        "pct": -2.45
+      },
+      {
+        "name": "Tyrone Tracy",
+        "pos": "RB",
+        "from": 1766,
+        "to": 1723,
+        "pct": -2.43
+      },
+      {
+        "name": "DeVonta Smith",
+        "pos": "WR",
+        "from": 4963,
+        "to": 5080,
+        "pct": 2.36
+      },
+      {
+        "name": "Chris Godwin",
+        "pos": "WR",
+        "from": 2529,
+        "to": 2471,
+        "pct": -2.29
+      },
+      {
+        "name": "Jalen Milroe",
+        "pos": "QB",
+        "from": 1623,
+        "to": 1586,
+        "pct": -2.28
+      },
+      {
+        "name": "Michael Mayer",
+        "pos": "TE",
+        "from": 2719,
+        "to": 2780,
+        "pct": 2.24
+      },
+      {
+        "name": "Darren Waller",
+        "pos": "TE",
+        "from": 2223,
+        "to": 2272,
+        "pct": 2.2
+      },
+      {
+        "name": "Theo Johnson",
+        "pos": "TE",
+        "from": 2183,
+        "to": 2135,
+        "pct": -2.2
+      }
+    ]
+  }
+}
