@@ -333,6 +333,10 @@ _SUSPICIOUS_DISAGREEMENT_THRESHOLD = 150
 # consensus regardless of how tight the value-direct bulk happens to be.
 _HAMPEL_K = 2.75
 _HAMPEL_MIN_N = 4
+#: The minimum voter count the ``idp_hampel_n3_challenger`` (default OFF,
+#: ``idp-hampel-n3-v1``) applies on IDP rows instead of ``_HAMPEL_MIN_N``.
+#: Its preregistration fixes it; no other constant of the filter changes.
+_IDP_HAMPEL_N3_MIN_N = 3
 _HAMPEL_MIN_THRESHOLD = 1000.0
 
 _RETIRED_INVALID_PATTERNS = re.compile(r"(?i)\b(retired|invalid|test|unknown|placeholder)\b")
@@ -11904,6 +11908,16 @@ def _compute_unified_rankings(
         and not _rank_space_challenger
         and _feature_flags.is_enabled("rank_space_hampel_per_vote_challenger")
     )
+    # IDP three-voter Hampel challenger ``idp-hampel-n3-v1`` (default OFF,
+    # shadow only; docs/valuation/evidence/idp-outlier-n3-2026-10-18/
+    # PREREGISTRATION.md): the incumbent filter, unchanged, with min n = 3 on
+    # IDP rows.  Every challenger above takes precedence, so none ever mix.
+    _idp_hampel_n3 = (
+        not _joint_challenger
+        and not _rank_space_challenger
+        and not _rank_space_per_vote
+        and _feature_flags.is_enabled("idp_hampel_n3_challenger")
+    )
     # Sparse half, separately promotable (default OFF): one voting family is
     # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
     _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
@@ -12390,7 +12404,14 @@ def _compute_unified_rankings(
         # artificial agreement that the Hampel statistic mis-reads as
         # outliers across the synthetic vs. real-source values.
         hampel_dropped_keys: list[str] = []
-        if not row_is_pick and len(all_value_pairs) >= _HAMPEL_MIN_N:
+        # ``idp-hampel-n3-v1`` (default OFF) changes ONLY this minimum, and
+        # only on IDP rows; with the flag off it is ``_HAMPEL_MIN_N``.
+        _hampel_min_n = (
+            _IDP_HAMPEL_N3_MIN_N
+            if _idp_hampel_n3 and players_array[row_idx].get("assetClass") == "idp"
+            else _HAMPEL_MIN_N
+        )
+        if not row_is_pick and len(all_value_pairs) >= _hampel_min_n:
             if _joint_challenger:
                 # Evidence weights after the family cap, so correlated members
                 # are one piece of evidence when deciding who is an outlier.
@@ -12433,7 +12454,7 @@ def _compute_unified_rankings(
                 )
             else:
                 kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
-                    [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K
+                    [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K, min_n=_hampel_min_n
                 )
             if hampel_dropped_keys:
                 kept_set = {k for k, _ in kept_pairs}
