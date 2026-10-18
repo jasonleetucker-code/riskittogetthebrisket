@@ -114,6 +114,16 @@ KNOWN_KEYS = frozenset(
         # ``src/trade/trade_desk.py``; written only through
         # ``/api/user/trade-desk`` via ``mutate_league_scoped_entry``.
         "tradeDeskByLeague",
+        # Manager Intelligence saved managers (Batch F).  Shape owned by
+        # ``src/intel/manager_saved.py`` (``{"version", "managers": [...]}``,
+        # keyed by the permanent Sleeper user id); written only through
+        # ``/api/manager-intel/saved``.
+        "managerIntelSaved",
+        # Per saved manager, the new-activity detector's state
+        # (``{userId: {seenIds, seededLeagues, seededAt, snapshot, ...}}``).
+        # Owned by ``src/intel/manager_alerts.py``; a missing entry is the
+        # baseline-seeding case.
+        "managerIntelAlertState",
     }
 )
 

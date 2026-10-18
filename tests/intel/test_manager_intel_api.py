@@ -662,3 +662,247 @@ def test_server_gates_the_career_and_compare_routes_and_they_are_never_public():
         assert r.status_code == 401
         assert c.get("/api/public/manager-intel/career").status_code in (401, 404)
         assert c.get("/api/public/manager-intel/compare").status_code in (401, 404)
+
+
+# ── Batch F: saved managers, refresh, leaderboards ──────────────────────
+
+
+@pytest.fixture
+def f_client(monkeypatch, tmp_path):
+    from src.api import user_kv
+    from src.intel import manager_alerts as mal
+    from src.intel import manager_league as ml
+    from src.intel import manager_saved as ms
+    from src.public_league import sleeper_client as sc
+
+    rate_limit.reset_for_tests()
+    feature_flags.reload()
+    ms.reset_name_memo()
+    monkeypatch.setattr(user_kv, "USER_KV_PATH", tmp_path / "kv.sqlite")
+    users = {
+        "111": {"user_id": "111", "username": "alpha", "display_name": "Alpha"},
+        "alpha": {"user_id": "111", "username": "alpha", "display_name": "Alpha"},
+    }
+    sleeper = {"calls": [], "kind": None}
+
+    def fake_fetch(handle):
+        sleeper["calls"].append(handle)
+        if sleeper["kind"]:
+            return sleeper["kind"], None
+        user = users.get(str(handle).lower())
+        return (sc.FETCH_OK, user) if user else (sc.FETCH_NOT_FOUND, None)
+
+    monkeypatch.setattr(sc, "fetch_user_classified", fake_fetch)
+    # list_saved binds its fetcher default at def time: route it through the fake.
+    real_list = ms.list_saved
+    monkeypatch.setattr(
+        ms, "list_saved", lambda kv_user, **kw: real_list(kv_user, fetch_user=fake_fetch, **kw)
+    )
+    refreshes: list[str] = []
+
+    def fake_refresh(kv_user, **kw):
+        refreshes.append(kv_user)
+        return {"checked": [], "remaining": 0}
+
+    monkeypatch.setattr(mal, "refresh_for_user", fake_refresh)
+    leagues: list[tuple[str, str]] = []
+    league_answer = {
+        "status": "ok",
+        "league": {"leagueId": "42", "name": "Alleys"},
+        "managers": [],
+        "coverage": {"transactions": "complete", "drafts": "complete"},
+    }
+
+    def fake_league(league_id, **kw):
+        leagues.append((league_id, kw.get("window")))
+        return dict(league_answer)
+
+    monkeypatch.setattr(ml, "cached_league_scouting", fake_league)
+    session = {"value": SESSION}
+    api.configure(
+        session_provider=lambda request: session["value"],
+        contract_provider=lambda: {"playersArray": []},
+    )
+    app = FastAPI()
+    app.include_router(api.router)
+    yield (
+        TestClient(app),
+        {
+            "sleeper": sleeper,
+            "session": session,
+            "refreshes": refreshes,
+            "leagues": leagues,
+            "league_answer": league_answer,
+            "users": users,
+        },
+    )
+    api.configure(session_provider=None, contract_provider=None)
+    rate_limit.reset_for_tests()
+    feature_flags.reload()
+    ms.reset_name_memo()
+
+
+def test_saved_round_trip_is_keyed_by_user_id_and_no_store(f_client):
+    c, ctx = f_client
+    r = c.post("/api/manager-intel/saved", json={"username": "Alpha"})
+    assert r.status_code == 201 and r.headers["cache-control"] == "no-store"
+    body = r.json()
+    assert body["created"] is True and body["saved"]["userId"] == "111"
+    assert [m["userId"] for m in body["managers"]] == ["111"] and body["limit"] == 50
+    again = c.post("/api/manager-intel/saved", json={"userId": "111"})
+    assert again.status_code == 200 and again.json()["created"] is False
+    listed = c.get("/api/manager-intel/saved")
+    assert listed.status_code == 200 and listed.headers["cache-control"] == "no-store"
+    assert listed.json()["managers"][0]["username"] == "alpha"
+    gone = c.delete("/api/manager-intel/saved", params={"userId": "111"})
+    assert gone.status_code == 200 and gone.json()["removed"] is True
+    assert c.get("/api/manager-intel/saved").json()["managers"] == []
+
+
+def test_saved_list_follows_a_rename(f_client):
+    from src.intel import manager_saved as ms
+
+    c, ctx = f_client
+    c.post("/api/manager-intel/saved", json={"userId": "111"})
+    ms.reset_name_memo()
+    ctx["users"]["111"] = {"user_id": "111", "username": "alpha2", "display_name": "Alpha Two"}
+    (m,) = c.get("/api/manager-intel/saved").json()["managers"]
+    assert (m["userId"], m["username"], m["previousUsernames"]) == ("111", "alpha2", ["alpha"])
+
+
+@pytest.mark.parametrize(
+    ("body", "code", "error"),
+    [
+        ({}, 400, "invalid_username"),
+        ({"username": "bad name"}, 400, "invalid_username"),
+        ({"userId": "12ab"}, 400, "invalid_user_id"),
+        ({"userId": "111", "alerts": "yes"}, 400, "invalid_body"),
+        ({"userId": "111", "displayName": "spoof"}, 400, "invalid_body"),
+        ({"username": "ghost"}, 404, "not_found"),
+    ],
+)
+def test_saved_post_validation(f_client, body, code, error):
+    c, _ctx = f_client
+    r = c.post("/api/manager-intel/saved", json=body)
+    assert r.status_code == code and r.json()["error"] == error
+
+
+def test_saved_post_upstream_states(f_client):
+    c, ctx = f_client
+    ctx["sleeper"]["kind"] = "rate_limited"
+    assert c.post("/api/manager-intel/saved", json={"userId": "111"}).status_code == 429
+    from src.intel import manager_saved as ms
+
+    ms.reset_name_memo()
+    ctx["sleeper"]["kind"] = "error"
+    assert c.post("/api/manager-intel/saved", json={"userId": "111"}).status_code == 503
+
+
+def test_saved_cap_is_409(f_client, monkeypatch):
+    from src.intel import manager_saved as ms
+
+    c, ctx = f_client
+    monkeypatch.setattr(ms, "MAX_SAVED", 1)
+    ctx["users"]["222"] = {"user_id": "222", "username": "beta"}
+    assert c.post("/api/manager-intel/saved", json={"userId": "111"}).status_code == 201
+    r = c.post("/api/manager-intel/saved", json={"userId": "222"})
+    assert r.status_code == 409 and r.json()["error"] == "saved_limit_reached"
+
+
+def test_saved_delete_validates(f_client):
+    c, _ctx = f_client
+    assert c.delete("/api/manager-intel/saved", params={"userId": "x"}).status_code == 400
+    r = c.delete("/api/manager-intel/saved", params={"userId": "999"})
+    assert r.status_code == 200 and r.json()["removed"] is False
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "kwargs"),
+    [
+        ("get", "/api/manager-intel/saved", {}),
+        ("post", "/api/manager-intel/saved", {"json": {"userId": "111"}}),
+        ("delete", "/api/manager-intel/saved", {"params": {"userId": "111"}}),
+        ("post", "/api/manager-intel/saved/refresh", {}),
+        ("get", "/api/manager-intel/leaderboard", {"params": {"population": "saved"}}),
+    ],
+)
+def test_f_gates(f_client, monkeypatch, method, path, kwargs):
+    c, ctx = f_client
+    ctx["session"]["value"] = None
+    assert getattr(c, method)(path, **kwargs).status_code == 401
+    ctx["session"]["value"] = {"username": "guest", "auth_method": "guest_pass"}
+    r = getattr(c, method)(path, **kwargs)
+    assert r.status_code == 403 and r.headers["cache-control"] == "no-store"
+    ctx["session"]["value"] = SESSION
+    monkeypatch.setenv("RISKIT_FEATURE_MANAGER_INTELLIGENCE", "0")
+    feature_flags.reload()
+    assert getattr(c, method)(path, **kwargs).status_code == 503
+    assert ctx["sleeper"]["calls"] == [] and ctx["refreshes"] == []
+
+
+def test_saved_lists_are_per_user(f_client):
+    c, ctx = f_client
+    c.post("/api/manager-intel/saved", json={"userId": "111"})
+    ctx["session"]["value"] = {"username": "someone_else", "auth_method": "password"}
+    assert c.get("/api/manager-intel/saved").json()["managers"] == []
+
+
+def test_refresh_runs_for_the_signed_in_user_with_its_own_bucket(f_client):
+    c, ctx = f_client
+    for _ in range(api.SAVED_REFRESH_RATE_CAPACITY):
+        assert c.post("/api/manager-intel/saved/refresh").status_code == 200
+    assert ctx["refreshes"] == ["owner"] * api.SAVED_REFRESH_RATE_CAPACITY
+    assert c.post("/api/manager-intel/saved/refresh").status_code == 429
+    # The saved list itself is a different bucket.
+    assert c.get("/api/manager-intel/saved").status_code == 200
+
+
+def test_leaderboard_populations(f_client):
+    c, ctx = f_client
+    r = c.get("/api/manager-intel/leaderboard", params={"population": "saved"})
+    assert r.status_code == 200 and r.json()["population"]["kind"] == "saved"
+    assert ctx["leagues"] == []  # the saved board spends no league read
+    r = c.get(
+        "/api/manager-intel/leaderboard",
+        params={"population": "league", "leagueId": "42", "window": "season"},
+    )
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    assert r.json()["population"]["label"] == "Current teams in Alleys"
+    assert ctx["leagues"] == [("42", "season")]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"population": "all"},
+        {"population": "sleeper"},
+        {"population": "league"},
+        {"population": "league", "leagueId": "abc"},
+        {"population": "league", "leagueId": "42", "window": "1y"},
+    ],
+)
+def test_leaderboard_refuses_unnamed_populations(f_client, params):
+    c, ctx = f_client
+    assert c.get("/api/manager-intel/leaderboard", params=params).status_code == 400
+    assert ctx["leagues"] == []
+
+
+def test_leaderboard_league_upstream_states(f_client):
+    c, ctx = f_client
+    ctx["league_answer"]["status"] = "not_found"
+    r = c.get("/api/manager-intel/leaderboard", params={"population": "league", "leagueId": "1"})
+    assert r.status_code == 404
+
+
+def test_server_gates_the_batch_f_routes_and_they_are_never_public():
+    import server
+
+    with TestClient(server.app) as c:
+        assert c.get("/api/manager-intel/saved").status_code == 401
+        assert c.post("/api/manager-intel/saved", json={"userId": "1"}).status_code == 401
+        assert c.delete("/api/manager-intel/saved", params={"userId": "1"}).status_code == 401
+        assert c.post("/api/manager-intel/saved/refresh").status_code == 401
+        r = c.get("/api/manager-intel/leaderboard", params={"population": "saved"})
+        assert r.status_code == 401
+        assert c.get("/api/public/manager-intel/saved").status_code in (401, 404)
