@@ -1,0 +1,4 @@
+{
+  "_comment": "Owner-recorded, dated player unavailability for forward-looking simulations (src/ros/availability.py, rule 1). Use ONLY when the structured feeds (ESPN return date, Sleeper status) cannot express a known absence. Each entry: sleeperId, season, fromWeek, throughWeek (null = through the season), evidence (source and date), recordedAt, recordedBy. An entry never changes a player's value; it removes simulated weeks.",
+  "entries": []
+}

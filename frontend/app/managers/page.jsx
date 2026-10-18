@@ -12,12 +12,24 @@
  * `lib/manager-intel.js` filters and formats; every count, exposure share
  * and value is backend-computed (`src/intel/manager_portfolio.py`).  A
  * player the board does not price shows "—", never 0.
+ *
+ * Batches B1 + B2 add Recent trades / Acquisitions / Activity tabs, and
+ * B3 a Draft capital tab plus Tendencies under Recent trades
+ * (./ManagerActivity.jsx).  Batch C: each league in the Leagues list links
+ * to its league scouting view (./league/[leagueId]/page.jsx).  Their DATA is fetched only when one of them is
+ * first opened, so the portfolio never waits on it.  The code is imported
+ * statically on purpose: a React.lazy split was measured to re-group shared
+ * ds chunks (PageHeader / Select / Field moved out of a shared chunk into
+ * /trades' page chunk, 23.6 KB -> 25.4 KB against a 26 KB budget) — the same
+ * collateral class as CLAUDE.md's Perfect Draft note.  /managers carries no
+ * budget; the static import leaves every budgeted page byte-identical.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banner,
   Button,
+  CollapsiblePanel,
   DataTable,
   EmptyState,
   Field,
@@ -28,6 +40,9 @@ import {
   Select,
   SkeletonTable,
   StatTile,
+  Tabs,
+  tabId,
+  tabPanelId,
 } from "@/components/ds";
 import {
   SCOPES,
@@ -38,6 +53,7 @@ import {
   filterPlayers,
   formatBadge,
   formatValue,
+  leagueScoutHref,
   leagueStateLabel,
   playerLeagueRows,
   profileQuery,
@@ -46,9 +62,19 @@ import {
   rememberRecent,
   summaryTiles,
 } from "@/lib/manager-intel";
+import ManagerActivity from "./ManagerActivity";
 import styles from "./managers.module.css";
 
 const PAGE_TITLE = "Manager Intelligence";
+
+const RESULT_TABS = [
+  { id: "portfolio", label: "Portfolio" },
+  { id: "trades", label: "Recent trades" },
+  { id: "acquisitions", label: "Acquisitions" },
+  { id: "activity", label: "Activity" },
+  { id: "draft", label: "Draft capital" },
+];
+const TAB_PREFIX = "manager-intel";
 
 function readInitialUsername() {
   if (typeof window === "undefined") return "";
@@ -70,6 +96,10 @@ export default function ManagersPage() {
   const [position, setPosition] = useState("");
   const [team, setTeam] = useState("");
   const [expanded, setExpanded] = useState(() => new Set());
+  const [tab, setTab] = useState("portfolio");
+  // The activity view mounts on first open and then stays mounted (hidden
+  // on Portfolio), so switching tabs never refetches.
+  const [activityOpened, setActivityOpened] = useState(false);
 
   const lookup = useCallback(async (username, nextScope) => {
     const name = String(username || "").trim();
@@ -83,6 +113,8 @@ export default function ManagersPage() {
     }
     setState({ phase: "loading", profile: null, error: null });
     setExpanded(new Set());
+    setTab("portfolio");
+    setActivityOpened(false);
     setQuery("");
     setPosition("");
     setTeam("");
@@ -122,6 +154,11 @@ export default function ManagersPage() {
       lookup(initial, "dynasty");
     }
   }, [lookup]);
+
+  const selectTab = useCallback((next) => {
+    setTab(next);
+    if (next !== "portfolio") setActivityOpened(true);
+  }, []);
 
   const submit = (event) => {
     event.preventDefault();
@@ -355,7 +392,7 @@ export default function ManagersPage() {
       {state.phase === "idle" ? (
         <EmptyState
           title="Look up a manager"
-          description="Ownership, exposure and canonical value across all of a manager's leagues. Draft picks, trades and career records arrive in later batches."
+          description="Ownership, exposure and canonical value across all of a manager's leagues, plus their recent trades, acquisitions, activity, draft capital and trade tendencies. Career records arrive in a later batch."
         />
       ) : null}
 
@@ -395,115 +432,167 @@ export default function ManagersPage() {
             </Banner>
           ) : null}
 
-          {tiles.length ? (
-            <div className={styles.tiles}>
-              {tiles.map((t) => (
-                <StatTile
-                  key={t.key}
-                  label={t.label}
-                  value={t.value}
-                  meta={t.meta}
-                  bare
-                />
-              ))}
+          <Tabs
+            idPrefix={TAB_PREFIX}
+            label="Manager views"
+            tabs={RESULT_TABS}
+            active={tab}
+            onChange={selectTab}
+          />
+
+          {activityOpened ? (
+            <div
+              role="tabpanel"
+              // One mounted view serves the three activity tabs, so it takes
+              // the active tab's panel id (each tab's aria-controls target).
+              id={tabPanelId(TAB_PREFIX, tab === "portfolio" ? "trades" : tab)}
+              aria-labelledby={tabId(
+                TAB_PREFIX,
+                tab === "portfolio" ? "trades" : tab,
+              )}
+              hidden={tab === "portfolio"}
+            >
+              <ManagerActivity
+                username={manager?.username || state.profile?.query}
+                scope={profile.scope}
+                profile={profile}
+                tab={tab}
+              />
             </div>
           ) : null}
 
-          <Panel
-            title="Portfolio"
-            subtitle={`${formatValue(visible.length)} of ${formatValue(players.length)} players`}
+          <div
+            role="tabpanel"
+            id={tabPanelId(TAB_PREFIX, "portfolio")}
+            aria-labelledby={tabId(TAB_PREFIX, "portfolio")}
+            hidden={tab !== "portfolio"}
+            className={styles.tabPanel}
           >
-            <div className={styles.filters}>
-              <Field label="Search players">
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </Field>
-              <Field label="Position">
-                <Select
-                  value={position}
-                  onChange={(event) => setPosition(event.target.value)}
-                >
-                  <option value="">All positions</option>
-                  {positions.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="NFL team">
-                <Select
-                  value={team}
-                  onChange={(event) => setTeam(event.target.value)}
-                >
-                  <option value="">All teams</option>
-                  {teams.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <DataTable
-              columns={columns}
-              rows={visible}
-              rowKey={(row) => row.playerId}
-              caption="Players this manager owns, with league count, exposure and canonical value."
-              density="compact"
-              renderAfterRow={renderAfterRow}
-              emptyState={
-                <EmptyState
-                  title={
-                    players.length
-                      ? "No players match these filters"
-                      : "No players owned"
-                  }
-                  description={
-                    players.length
-                      ? "Clear a filter to see more."
-                      : "This manager holds no roster in any readable league of this type."
-                  }
-                />
-              }
-            />
-            <p className={styles.note}>{profile.valueBasis?.note}</p>
-          </Panel>
+            {tiles.length ? (
+              <div className={styles.tiles}>
+                {tiles.map((t) => (
+                  <StatTile
+                    key={t.key}
+                    label={t.label}
+                    value={t.value}
+                    meta={t.meta}
+                    bare
+                  />
+                ))}
+              </div>
+            ) : null}
 
-          <Panel
-            title="Leagues"
-            subtitle={`${leagues.length} in scope`}
-            collapsible
-            collapsed
-          >
-            <ul className={styles.leagueList}>
-              {leagues.map((l) => (
-                <li key={l.leagueId}>
-                  <span className={styles.leagueName}>
-                    {l.name || "Unnamed league"}
-                  </span>
-                  <span className={styles.muted}>{formatBadge(l.format)}</span>
-                  <span className={styles.muted}>
-                    {l.state === "ok"
-                      ? `${recordText(l.record)} · ${formatValue(l.playerCount)} players${l.coOwned ? " · co-owner" : ""}`
-                      : leagueStateLabel(l.state)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Panel>
+            <Panel
+              title="Portfolio"
+              subtitle={`${formatValue(visible.length)} of ${formatValue(players.length)} players`}
+            >
+              <div className={styles.filters}>
+                <Field label="Search players">
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </Field>
+                <Field label="Position">
+                  <Select
+                    value={position}
+                    onChange={(event) => setPosition(event.target.value)}
+                  >
+                    <option value="">All positions</option>
+                    {positions.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="NFL team">
+                  <Select
+                    value={team}
+                    onChange={(event) => setTeam(event.target.value)}
+                  >
+                    <option value="">All teams</option>
+                    {teams.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <DataTable
+                columns={columns}
+                rows={visible}
+                rowKey={(row) => row.playerId}
+                caption="Players this manager owns, with league count, exposure and canonical value."
+                density="compact"
+                renderAfterRow={renderAfterRow}
+                emptyState={
+                  <EmptyState
+                    title={
+                      players.length
+                        ? "No players match these filters"
+                        : "No players owned"
+                    }
+                    description={
+                      players.length
+                        ? "Clear a filter to see more."
+                        : "This manager holds no roster in any readable league of this type."
+                    }
+                  />
+                }
+              />
+              <p className={styles.note}>{profile.valueBasis?.note}</p>
+            </Panel>
 
-          <details className={styles.about}>
-            <summary>What this includes</summary>
-            <p>
-              Current-season leagues only. Draft picks, trades, other seasons
-              and career records are not included yet. Data comes from
-              Sleeper&apos;s public API at lookup time
-              {profile.cached ? " (cached for up to 15 minutes)" : ""}.
-            </p>
-          </details>
+            {/* A controlled Panel with `collapsed` and no toggle handler could
+                never open; CollapsiblePanel owns the state.  Open by default
+                now that each league carries its "Scout this league" link. */}
+            <CollapsiblePanel
+              title="Leagues"
+              subtitle={`${leagues.length} in scope · scout any league`}
+            >
+              <ul className={styles.leagueList}>
+                {leagues.map((l) => (
+                  <li key={l.leagueId}>
+                    <span className={styles.leagueName}>
+                      {l.name || "Unnamed league"}
+                    </span>
+                    <span className={styles.muted}>
+                      {formatBadge(l.format)}
+                    </span>
+                    <span className={styles.muted}>
+                      {l.state === "ok"
+                        ? `${recordText(l.record)} · ${formatValue(l.playerCount)} players${l.coOwned ? " · co-owner" : ""}`
+                        : leagueStateLabel(l.state)}
+                    </span>
+                    {leagueScoutHref(l.leagueId) ? (
+                      <a
+                        href={leagueScoutHref(l.leagueId)}
+                        className={styles.link}
+                      >
+                        Scout this league
+                        <span className={styles.srOnly}>
+                          : {l.name || "unnamed league"}
+                        </span>
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </CollapsiblePanel>
+
+            <details className={styles.about}>
+              <summary>What this includes</summary>
+              <p>
+                Current-season leagues only. Recent trades, acquisitions,
+                activity and draft capital are in their own tabs; career records
+                are not included yet. Data comes from Sleeper&apos;s public API
+                at lookup time
+                {profile.cached ? " (cached for up to 15 minutes)" : ""}.
+              </p>
+            </details>
+          </div>
         </>
       ) : null}
     </div>

@@ -598,6 +598,33 @@ def severe_content_freshness(
     return severe
 
 
+def _rehabilitation_report(content_freshness: list[dict]) -> dict[str, object]:
+    """Workstream J (owner master package 2026-10-17): every non-voting or
+    degraded source has a plan, and a plan past its review date is said out
+    loud.  Advisory — it never changes a vote or this script's exit code."""
+    from src.sources import rehabilitation as rehab  # noqa: PLC0415
+
+    try:
+        registry = rehab.load_registry()
+    except (OSError, ValueError) as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    planned = set(registry.get("entries") or {})
+    degraded = sorted(
+        {
+            str(row.get("source"))
+            for row in content_freshness
+            if isinstance(row, dict)
+            and str(row.get("state") or "") in ("QUARANTINED", "SEVERELY_STALE")
+        }
+        - planned
+    )
+    return {
+        "problems": rehab.validate(registry),
+        "overdue": rehab.overdue(registry, datetime.now(timezone.utc).date()),
+        "degradedWithoutPlan": degraded,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", default=".", help="Repository root (default: current directory)")
@@ -706,8 +733,11 @@ def main() -> int:
         row for row in content_stale if row[0].split(" ", 1)[0] not in seasonal_inactive
     ]
 
+    rehabilitation = _rehabilitation_report(content_freshness)
+
     report = {
         "payload": payload_path,
+        "rehabilitation": rehabilitation,
         "contentFreshness": content_freshness,
         "contractSourceHealthErrors": contract_errors,
         "hardStale": [
@@ -757,6 +787,17 @@ def main() -> int:
             print(f"::error title=KTC parser drift::{msg}")
         for msg in contract_errors:
             print(f"::error title=Source health (contract)::{msg}")
+        for row in rehabilitation.get("overdue") or []:
+            print(
+                f"::warning title=Source rehabilitation overdue {row['sourceKey']}::"
+                f"{row['state']} plan was due for review on {row['reviewBy']} "
+                "(config/sources/rehabilitation.json)"
+            )
+        for key in rehabilitation.get("degradedWithoutPlan") or []:
+            print(
+                f"::warning title=Degraded source without a plan {key}::"
+                "add a config/sources/rehabilitation.json entry (blocker, recovery action, gate)"
+            )
         for src_key in unmeasurable:
             print(
                 f"::warning title=Unmeasurable source::{src_key} has neither a "

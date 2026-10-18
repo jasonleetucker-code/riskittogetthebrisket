@@ -96,7 +96,7 @@ left; it knows nothing about possession, score, injuries or usage.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any, Collection, Mapping, Sequence
 
 from src.ros.game_day_capture import (
     _display_name,
@@ -439,6 +439,39 @@ def _row_game_state(
     home = _normalize_nfl_team(row.get("home_team"))
     away = _normalize_nfl_team(row.get("away_team"))
     return home, away, state, stamp, home_score, away_score
+
+
+def bye_teams_for_week(rows, *, season: int, week: int) -> frozenset[str]:
+    """NFL teams on a BYE in ``week``: scheduled in this season's regular
+    season but absent from this week's games.
+
+    Owner master package 2026-10-17 (P0 audit): a bye player has no weekly
+    projection row, so the estimate owner fell back to his preseason per-game
+    rate and Game Day projected and simulated a player who has no game.  A
+    bye is definitive evidence of zero, like a host-declared ``Out``.  An
+    EMPTY week (schedule unavailable for it) yields no byes — absence of
+    schedule evidence is never read as "everyone is off".
+    """
+    season_teams: set[str] = set()
+    week_teams: set[str] = set()
+    for row in rows or ():
+        try:
+            if int(row.get("season")) != season or row.get("game_type") != "REG":
+                continue
+            row_week = int(row.get("week"))
+        except (TypeError, ValueError):
+            continue
+        teams = {
+            _normalize_nfl_team(row.get("home_team")),
+            _normalize_nfl_team(row.get("away_team")),
+        }
+        teams.discard("")
+        season_teams |= teams
+        if row_week == week:
+            week_teams |= teams
+    if not week_teams:
+        return frozenset()
+    return frozenset(season_teams - week_teams)
 
 
 def schedule_game_evidence(rows, *, season, week, observed_at, now):
@@ -785,8 +818,13 @@ def resolve_scoring_week(
     game_evidence: Mapping[str, GameEvidence] | None = None,
     now: float | None = None,
     estimates_by_player_id: Mapping[str, float] | None = None,
+    bye_teams: Collection[str] = (),
 ) -> ScoringWeekResolution:
     """Factual scheduled/live/final state; in-progress remaining PRORATED.
+
+    ``bye_teams`` (:func:`bye_teams_for_week`): a player whose NFL team is on
+    a bye is ``inactive`` with ``0.0`` remaining — he has no game, so his
+    preseason-rate fallback projection must not be simulated.
 
     See the module docstring: the pregame baseline is scaled by the
     OBSERVED share of regulation left when a live feed observed the game,
@@ -855,12 +893,15 @@ def resolve_scoring_week(
             # conservative default every other player gets.
             no_team_on_file = metadata_present and not raw_team and bool(evidence)
             game = evidence.get(raw_team) if raw_team else None
+            on_bye = metadata_present and bool(raw_team) and raw_team in bye_teams and game is None
             if no_team_on_file:
                 state = "inactive" if begun else "not_started"
+            elif on_bye:
+                state = "inactive"
             else:
                 state = game.state if game else ("unknown" if begun else "not_started")
             actual = _finite_points(score_map.get(p.player_id)) if begun else 0.0
-            if state == "not_started" or no_team_on_file:
+            if state == "not_started" or no_team_on_file or on_bye:
                 actual = 0.0
             # Out is host-declared unavailability, unlike Doubtful or
             # Questionable. Do not override a recorded completed score.

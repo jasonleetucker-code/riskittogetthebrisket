@@ -338,3 +338,43 @@ class TestOneObservationPerPlayer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestUpstreamClockEvidence(unittest.TestCase):
+    """2026-10-17: FantasyPros' dynasty IDP experts last updated on 09-04
+    while we fetched every 2 h.  The page's own ``last_updated_ts`` is
+    recorded as evidence (it changes no weight by itself)."""
+
+    def test_metadata_reads_the_page_clock(self):
+        meta = fp.upstream_metadata(
+            {
+                "last_updated": "9/04",
+                "last_updated_ts": 1788489264,
+                "experts_available": {
+                    "total": 6,
+                    "included": [4317, 5598],
+                    "excluded": [1, 2, 3, 4],
+                },
+            }
+        )
+        self.assertEqual(meta["publishedAt"], "2026-09-04T02:34:24Z")
+        self.assertEqual(meta["expertsIncluded"], 2)
+        self.assertEqual(meta["expertsTotal"], 6)
+
+    def test_no_stated_time_records_nothing(self):
+        self.assertIsNone(fp.upstream_metadata({"players": []}))
+        self.assertIsNone(fp.upstream_metadata({"last_updated_ts": "soon"}))
+
+    def test_sidecar_is_read_by_the_dataset_recorder(self):
+        import json as _json
+
+        from scripts.record_source_datasets import _upstream_sidecar
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            (tmp / "fantasyProsIdp_upstream.json").write_text(
+                _json.dumps({"publishedAt": "2026-09-04T02:34:24Z"})
+            )
+            self.assertEqual(
+                _upstream_sidecar(tmp, "fantasyProsIdp"), ("2026-09-04T02:34:24Z", None)
+            )
