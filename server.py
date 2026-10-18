@@ -4097,6 +4097,10 @@ from src.intel import manager_intel_api as _manager_intel_api  # noqa: E402
 _manager_intel_api.configure(
     session_provider=lambda request: _get_auth_session(request),
     contract_provider=lambda: latest_contract_data,
+    # The at-the-time resolver factory POST /api/trades/asof-grades uses
+    # (``None`` when the temporal ledger does not exist); defined further
+    # down, so resolved lazily per request.
+    asof_resolver_provider=lambda: _build_public_activity_valuation(),
 )
 app.include_router(_manager_intel_api.router)
 
