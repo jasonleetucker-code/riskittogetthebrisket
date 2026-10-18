@@ -1,6 +1,16 @@
 .view {
   display: grid;
   gap: 10px;
+  /* .psi-editorial scopes the editorial tokens on this view but does not
+     repaint it; without its own canvas the editorial ink (--text-primary
+     #1c1712) sat on the terminal Panel (#131519) at 1.03:1 — axe
+     color-contrast on /arbitrage once Golden Upgrades became the default
+     view.  Same full-bleed paint as /managers and /market/trade-database:
+     on --surface-1 primary 16.48:1, secondary 9.26:1, tertiary 5.63:1. */
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: var(--space-3);
+  min-width: 0;
 }
 
 .lede,
@@ -8,7 +18,7 @@
 .count {
   margin: 0;
   font-size: 0.86rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .form,
@@ -37,7 +47,7 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .chip {
@@ -107,7 +117,7 @@
   margin: 0;
   padding-left: 18px;
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 @media (max-width: 640px) {
