@@ -141,6 +141,14 @@ portfolio on `/managers`, signed-in users only, rate-limited; flag `manager_inte
 the owner's non-commercial basis (`docs/OWNER_REQUESTED_TODO.md`). Batches B–F follow in the owner's
 order, each its own PR. League Tycoon stays parked.
 
+**Addendum 2026-10-17 — Batches B–F AUTHORIZED (queued behind the in-flight injury-availability, IDP
+rehabilitation and Value Adjustment activation work, which keep their order).** B1 Recent Trades and B2
+Recently Acquired Players first, with a unified activity feed. Then B3 draft capital and trade
+intelligence, C league-wide opponent scouting, D trade-tool integration, E career / archetypes /
+comparisons, F saved managers / alerts / scoped leaderboards. Deliverables, dependencies, tests and
+completion criteria: `docs/intel/MANAGER_INTELLIGENCE_WORKSTREAM.md`. Merges and deploys keep their normal
+gates and owner approvals.
+
 ## League manager replacement — owner directive, 2026-10-16 (corrected 2026-10-17)
 
 **AUTHORIZED; MERGED #1761 (`7bafeb886`, 2026-10-17).** `dynasty_main` roster 11 passes from Joel
