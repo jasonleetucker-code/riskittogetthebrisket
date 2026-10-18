@@ -796,7 +796,27 @@ These are local numbers, not production.
 
 ### Gates run on the TC-E head (2026-10-18)
 
-GATES_PLACEHOLDER
+Run on the committed tree after the merge with `main` (train 9).
+
+- `check_decision_coercions.py`: "clean: no new coercions, no stale allowances in the files this change touches."
+  `check_planning_integrity.py` exit 0; `check_product_plan_governance.py` clean; `pytest tests/docs
+  tests/scripts/test_check_work_claims.py`: 122 passed.
+- Full `npx vitest run __tests__`: 343 files / 4345 tests passed. New: `trade-tce-page.test.jsx` (10) and
+  `trade-tce-components.test.jsx` (22). Updated for the new semantics: `trade-tcd-layout` (the "Updating" note is no
+  longer a live region), `trade-screenshot-import-page` (inline search rows are options), `trade-empty-and-unpriced-verdict`
+  (the balancer gate reads the deferred snapshot).
+- `build:nocheck` + `check:bundles`: all 17 pages under budget; `/trade` 86.8 KB of 93, `/league` 49.8 of 50.
+- Real-stack Playwright (seeded snapshot, Chromium 1243, own ports 8400 / 3400, 2 workers, desktop-1366 +
+  mobile-chromium): `trade-tce` (new), `trade-war-room`, `trade-tcd2`, `trade-next-actions`, `trade-ktc-import`,
+  `trade-screenshot-import`, `mobile-trade-quantity`, `journey-trade`, `api-trade-intelligence`. Result: 32 passed,
+  9 skipped (gated to the other project by the specs themselves), 1 failed. The failure was `trade-next-actions` on
+  desktop: the Builder link was not found under the parallel run. That link depends only on the selected team, not on
+  anything changed here, and the spec passed twice in a row alone. `a11y-axe.spec.js` `/trade`, desktop + mobile, plus the
+  coverage test: 5 passed.
+- Found by the new populated-trade axe scan and fixed before commit: tinting the keyboard-active option with the hover
+  background put its muted meta text under 4.5:1. The active option now carries the focus ring only. The **hover** tint
+  has the same contrast and predates TC-E; axe does not hover. It needs a visual change, so it is a Lane 6 follow-up and
+  was not changed here (UI contract §2).
 
 ## Coordination with in-flight work
 

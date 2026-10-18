@@ -1436,13 +1436,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-bottom: none;
 }
 .trade-side-search-result:hover,
-.trade-side-search-result:active,
-.trade-side-search-result[data-active="true"] {
+.trade-side-search-result:active {
   background: rgba(79, 155, 236, 0.08);
 }
 /* TC-E: the keyboard-active option (aria-activedescendant) and a Tab-focused
-   sheet row carry the shared focus ring, so the active row is visible without
-   colour alone. */
+   sheet row carry the shared focus ring -- the ring only, no tint: the hover
+   tint drops the muted meta text below 4.5:1 (axe, measured). */
 .trade-side-search-result[data-active="true"],
 .trade-side-search-result:focus-visible {
   outline: none;

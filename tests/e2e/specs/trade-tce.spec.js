@@ -138,10 +138,13 @@ test("trade TC-E: keyboard build, tabs, More menu, one polite verdict announceme
   await page.getByRole("button", { name: "Clear Trade", exact: true }).click();
   await page.selectOption("#suggest-team", String(trade.idx));
 
-  // ── The More group: Escape closes it and focus returns to its trigger.
+  // ── The More group opens from the keyboard and Escape closes it, focus on
+  //    its trigger (its actions are disabled until the trade has assets, so
+  //    the trigger is where a keyboard user is).
   const more = page.getByRole("button", { name: "More", exact: true });
-  await more.click();
-  await page.getByRole("button", { name: "Download CSV" }).focus();
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Download CSV" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Download CSV" })).toHaveCount(0);
   await expect(more).toBeFocused();

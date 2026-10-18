@@ -329,3 +329,16 @@ describe("immediate math vs expensive analysis (TC-E)", () => {
     for (const c of calls) expect(c).toMatch(/findBalancers\(b\.sidesWithOverrides,/);
   });
 });
+
+describe("Escape on the More trigger itself closes the group (its actions start disabled)", () => {
+  it("closes and keeps focus on More", async () => {
+    controlledFetch(() => false);
+    render(<TradePage />);
+    const more = screen.getByRole("button", { name: "More" });
+    await userEvent.click(more);
+    expect(screen.getByRole("button", { name: "Download CSV" })).toBeTruthy();
+    fireEvent.keyDown(more, { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "Download CSV" })).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(more));
+  });
+});

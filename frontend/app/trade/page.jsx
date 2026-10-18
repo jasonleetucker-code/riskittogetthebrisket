@@ -2375,6 +2375,9 @@ export default function TradePage() {
                   <Button
                     ref={importMenuButtonRef}
                     onClick={toggleImportMenu}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && importMenuOpen) closeToolbarGroup(setImportMenuOpen, importMenuButtonRef);
+                    }}
                     aria-expanded={importMenuOpen}
                     aria-controls="trade-import-options"
                     icon={
@@ -2429,6 +2432,9 @@ export default function TradePage() {
                   <Button
                     ref={moreMenuButtonRef}
                     onClick={() => setMoreMenuOpen((open) => !open)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && moreMenuOpen) closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
+                    }}
                     aria-expanded={moreMenuOpen}
                     aria-controls="trade-more-options"
                     icon={<Icon name={moreMenuOpen ? "chevron-up" : "chevron-down"} size={12} />}
