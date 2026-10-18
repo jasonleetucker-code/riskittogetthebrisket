@@ -71,11 +71,18 @@ afterEach(() => {
 });
 
 describe("TradeWarRoom — the packet, verbatim", () => {
-  it("leads with the recommendation, then three separate answers", async () => {
+  it("leads with the ONE decision, then three separate answers", async () => {
     await renderWith(CONSOLIDATION);
     const a = CONSOLIDATION.analysis;
-    expect(screen.getByText(RECOMMENDATION_LABELS[a.recommendation])).toBeInTheDocument();
-    expect(screen.getByText(`${a.confidence.toLowerCase()} confidence`)).toBeInTheDocument();
+    // TC-C: the headline is the backend's decision text, verbatim.
+    expect(screen.getByTestId("decision-headline")).toHaveTextContent(a.decision.headlineText);
+    expect(screen.getByTestId("decision-confidence")).toHaveTextContent(
+      a.decision.confidence.statement,
+    );
+    // The graded leaning stays visible as detail, not as a second headline.
+    expect(screen.getByTestId("decision-bands")).toHaveTextContent(
+      RECOMMENDATION_LABELS[a.recommendation],
+    );
     // Market: the VA gap exactly as published.
     expect(
       within(lens("market")).getByText(formatSignedValue(a.lenses.market.detail.vaAdjustedGap)),
@@ -172,7 +179,7 @@ describe("TradeWarRoom — the packet, verbatim", () => {
       },
     };
     await renderWith(withComps);
-    const verdict = document.querySelector("[data-recommendation]");
+    const verdict = document.querySelector("[data-decision]");
     expect(verdict).not.toHaveTextContent("similar");
     fireEvent.click(screen.getByRole("button", { name: "How this was decided" }));
     expect(screen.getByRole("heading", { name: "Comparable real trades" })).toBeInTheDocument();
@@ -229,7 +236,7 @@ describe("TradeWarRoom — requests and identity", () => {
     render(<TradeWarRoom request={req(CONSOLIDATION)} leagueKey="main" useTeamContext />); // ...to a team question
     await settle();
     expect(screen.getByText(/Analysis unavailable right now \(invalid_analysis\)/)).toBeInTheDocument();
-    expect(screen.queryByText(RECOMMENDATION_LABELS.MAKE)).toBeNull();
+    expect(screen.queryByTestId("decision-headline")).toBeNull();
   });
 
   it("a late answer to an earlier trade never publishes", async () => {
@@ -264,7 +271,7 @@ describe("TradeWarRoom — requests and identity", () => {
     rerender(<TradeWarRoom request={req(CONSOLIDATION)} leagueKey="main" useTeamContext={false} />);
     await act(async () => {});
     expect(screen.getByText("Analyzing this trade…")).toBeInTheDocument();
-    expect(screen.queryByText(RECOMMENDATION_LABELS[CONSOLIDATION.analysis.recommendation])).toBeNull();
+    expect(screen.queryByTestId("decision-headline")).toBeNull();
   });
 });
 
@@ -306,5 +313,52 @@ describe("trade-war-room lib", () => {
     expect(validAnalyzePayload({ ...CONSOLIDATION, analysis: { recommendation: "MAYBE" } })).toBe(false);
     expect(validAnalyzePayload(CONSOLIDATION, { leagueKey: "other" })).toBe(false);
     expect(validAnalyzePayload(CONSOLIDATION, { leagueKey: "main", useTeamContext: true })).toBe(true);
+  });
+});
+
+describe("TradeWarRoom — the ONE decision (TC-C)", () => {
+  it("NOT ENOUGH EVIDENCE names what is missing and states no confidence level", async () => {
+    await renderWith(PARTIAL);
+    const d = PARTIAL.analysis.decision;
+    expect(d.headline).toBe("NOT_ENOUGH_EVIDENCE");
+    expect(screen.getByTestId("decision-headline")).toHaveTextContent(d.headlineText);
+    for (const g of d.missingEvidence) {
+      expect(within(screen.getByTestId("decision-missing")).getByText(g.text)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId("decision-confidence")).toHaveTextContent(d.confidence.statement);
+  });
+
+  it("shows the strategy and posture, and an override is sent as teamGoal", async () => {
+    await renderWith(CONSOLIDATION);
+    const d = CONSOLIDATION.analysis.decision;
+    expect(screen.getByTestId("decision-strategy")).toHaveTextContent(d.strategy.label);
+    expect(screen.getByTestId("decision-strategy")).toHaveTextContent(`posture ${d.posture.label}`);
+    fireEvent.click(screen.getByRole("radio", { name: "Long-term" }));
+    await settle();
+    const bodies = globalThis.fetch.mock.calls.map((c) => JSON.parse(c[1].body));
+    expect(bodies.at(-1).teamGoal).toBe("LONG_TERM");
+    expect(bodies[0].teamGoal).toBeUndefined();
+  });
+
+  it("renders every reason with the backend's words, and the bands used", async () => {
+    await renderWith(CONSOLIDATION);
+    const d = CONSOLIDATION.analysis.decision;
+    const list = screen.getByTestId("decision-reasons");
+    for (const r of d.reasons) expect(within(list).getByText(new RegExp(r.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
+    expect(screen.getByTestId("decision-bands")).toHaveTextContent(d.bands.version);
+  });
+
+  it("Asset-only hides the strategy control (no roster, no strategy)", async () => {
+    await renderWith(ASSET_ONLY);
+    expect(screen.queryByTestId("decision-strategy")).toBeNull();
+    expect(screen.getByTestId("decision-headline")).toHaveTextContent(
+      ASSET_ONLY.analysis.decision.headlineText,
+    );
+  });
+
+  it("refuses a packet without a recognised decision", () => {
+    const broken = structuredClone(CONSOLIDATION);
+    delete broken.analysis.decision;
+    expect(validAnalyzePayload(broken, { leagueKey: "main", useTeamContext: true })).toBe(false);
   });
 });

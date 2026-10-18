@@ -17,6 +17,43 @@
  *     callers render a word, never "0".
  */
 
+/**
+ * The ONE top-line decision (TC-C) is the backend's
+ * (`src/trade/trade_decision.py`): the page renders `decision.headlineText`
+ * verbatim and keys only a TONE off `decision.headline`.  No text is built
+ * here.
+ */
+export const DECISION_TONES = {
+  YES: "positive",
+  NO: "negative",
+  NO_TOO_CLOSE: "neutral",
+  NOT_ENOUGH_EVIDENCE: "warning",
+};
+
+/** Strategy override choices sent as `teamGoal` (owner decision 2). `null` = infer. */
+export const STRATEGY_CHOICES = [
+  { value: "auto", label: "From posture" },
+  { value: "WIN_NOW", label: "Win now" },
+  { value: "BALANCED", label: "Balanced" },
+  { value: "LONG_TERM", label: "Long-term" },
+];
+
+const STRATEGY_SOURCE_WORDS = {
+  user: "your choice",
+  posture: "from your competitive posture",
+  posture_no_evidence: "posture has no measured evidence, so balanced",
+  posture_unknown: "posture unknown — choose a strategy",
+  asset_only: "not used in Asset-only analysis",
+};
+
+/** "Win now (from your competitive posture)" — words for the backend's strategy block. */
+export function strategySummary(strategy) {
+  if (!strategy) return null;
+  const why = STRATEGY_SOURCE_WORDS[strategy.source] || strategy.source || "";
+  return strategy.label ? `${strategy.label} (${why})` : why;
+}
+
+/** The graded leaning under the headline (the v2 recommendation). */
 export const RECOMMENDATION_LABELS = {
   MAKE: "Make the trade",
   LEAN_MAKE: "Lean make",
@@ -108,12 +145,14 @@ export function tradeRequestForTeam(sides, rosterNames, teamName, explicitSide =
 }
 
 /** Identity of one analysis question: trade, team, league and mode. */
-export function analyzeRequestKey(request, leagueKey, useTeamContext) {
+export function analyzeRequestKey(request, leagueKey, useTeamContext, teamGoal = null) {
   if (!request) return "";
   return JSON.stringify([
     leagueKey || "",
     request.teamName || "",
     useTeamContext !== false,
+    // The strategy override is part of the question (owner decision 2).
+    teamGoal || "",
     [...request.playersIn].sort(),
     [...request.playersOut].sort(),
     [...request.picksIn].sort(),
@@ -137,6 +176,10 @@ export function validAnalyzePayload(
   const analysis = body.analysis;
   if (!analysis || typeof analysis !== "object") return false;
   if (!RECOMMENDATION_LABELS[analysis.recommendation]) return false;
+  // The ONE top-line decision must be present and recognised; it is rendered,
+  // never reconstructed from the lenses.
+  const decision = analysis.decision;
+  if (!decision || !DECISION_TONES[decision.headline] || !decision.headlineText) return false;
   if (!analysis.lenses || typeof analysis.lenses !== "object") return false;
   if (leagueKey && body.leagueKey && body.leagueKey !== leagueKey) return false;
   const applied = body.teamContext?.applied;
