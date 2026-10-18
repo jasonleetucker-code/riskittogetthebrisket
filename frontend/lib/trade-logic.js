@@ -2076,12 +2076,17 @@ export function multiTeamAnalysis(totals) {
  */
 export function multiTeamNetSummary(flows) {
   const list = Array.isArray(flows) ? flows : [];
-  const nets = list.map((f) => Number(f?.net) || 0);
+  // A net that is not a number stays unknown (null), never a fabricated 0.
+  const nets = list.map((f) => {
+    const n = Number(f?.net);
+    return Number.isFinite(n) ? n : null;
+  });
   const largerSide = Math.max(
     0,
     ...list.map((f) => Number(f?.given)).filter((v) => Number.isFinite(v)),
   );
-  const worst = nets.length ? Math.max(...nets.map((n) => Math.abs(n))) : 0;
+  const known = nets.filter((n) => n != null).map((n) => Math.abs(n));
+  const worst = known.length ? Math.max(...known) : 0;
   return { nets, largerSide, worst, verdict: meterVerdict(worst, largerSide) };
 }
 

@@ -225,7 +225,8 @@ export function TradeIntelTabs({ active, onChange, panels }) {
 }
 
 const signed = (n) => {
-  const v = Math.round(Number(n) || 0);
+  if (n == null || !Number.isFinite(Number(n))) return "—";
+  const v = Math.round(Number(n));
   return `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toLocaleString()}`;
 };
 
