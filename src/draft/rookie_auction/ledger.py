@@ -125,6 +125,8 @@ def _build_payload(
         draft_class, league_key=league_key, config_dir=config_dir
     )
     result = compute_curve(inputs.curve_values(), curves, WORKBOOK_PARAMS)
+    if result.whole_dollars is None:
+        raise LedgerRefusal("whole_dollar_step_refused", str(result.whole_dollars_refusal))
     spine_checksums = {
         str(y): load_completed_class_curve(y, league_key=league_key, config_dir=config_dir).checksum
         for y in spine_years
@@ -169,9 +171,15 @@ def _build_payload(
         # identical evidence always yields an identical snapshot.
         "createdAt": evidence.observed_at,
         "validation": receipt,
+        # ``dollars`` is the half-dollar mathematical reference curve — the
+        # quantity the spine is built from, like the workbook's F/G/H.
         "dollars": [
             {"pick": label, "dollars": format(d.normalize(), "f")}
             for label, d in zip(labels, result.dollars)
+        ],
+        # The published whole-dollar values (owner decision 2026-10-18).
+        "finalWholeDollars": [
+            {"pick": label, "dollars": d} for label, d in zip(labels, result.final_whole_dollars)
         ],
     }
     payload["checksum"] = {

@@ -159,7 +159,7 @@ def ties():
 def test_integer_stage_matches_libreoffice_on_ties(ties, case):
     c = [Fraction(x) for x in ties[case]["curveValuesC"]]
     expected = ties[case]["expected"]
-    alloc = allocate_units(c)
+    alloc = allocate_units(c, tie_rule="sheet_literal")
     assert list(alloc.floor_units) == expected["I"]
     assert [float(x) for x in alloc.fractions] == expected["J"]
     assert list(alloc.monotone_units) == expected["K"]
@@ -171,17 +171,38 @@ def test_integer_stage_matches_libreoffice_on_ties(ties, case):
     assert [out["D"][r] for r in range(2, 74)] == expected["D"]
 
 
-def test_tie_at_cutoff_is_refused_not_published(ties):
+def test_literal_sheet_tie_at_cutoff_publishes_1206(ties):
     c = [Fraction(x) for x in ties["overshoot_tie_at_cutoff"]["curveValuesC"]]
-    alloc = allocate_units(c)
+    alloc = allocate_units(c, tie_rule="sheet_literal")
     # The spreadsheet itself publishes $1206 here (QUOTIENT(-1,12)=0, MOD=11).
     assert alloc.total_units == 2412
     assert (alloc.residual_after_caps_units, alloc.carry_quotient, alloc.carry_mod) == (-1, 0, 11)
-    assert alloc.precision_margin == 0
     with pytest.raises(CurveInvariantError, match="tie"):
         check_allocation(alloc)
-    with pytest.raises(CurveInvariantError):
-        allocate_units(c, check=True)
+
+
+def test_owner_tie_rule_awards_earlier_pick_first_and_totals_exactly(ties):
+    """Owner decision 2026-10-18: tied remainders at the cutoff go to the
+    earlier draft position, so the half-dollar curve always totals $1,200."""
+    c = [Fraction(x) for x in ties["overshoot_tie_at_cutoff"]["curveValuesC"]]
+    alloc = allocate_units(c, check=True)  # default rule
+    assert alloc.total_units == 2400
+    awarded = [i for i, a in enumerate(alloc.awards) if a]
+    assert awarded == [5, 6]  # three tied at J = 0.5, residual 2: picks 1.06, 1.07
+    out = ref.evaluate_integer_stage(
+        {i + 2: float(x) for i, x in enumerate(c)}, tie_rule="earlier_first"
+    )
+    assert [out["K"][r] for r in range(2, 74)] == list(alloc.monotone_units)
+    assert [out["D"][r] for r in range(2, 74)] == [u / 2 for u in alloc.final_units]
+
+
+def test_owner_tie_rule_changes_nothing_without_a_cutoff_tie(ties, production):
+    c = [Fraction(x) for x in ties["benign_tie_inside_award"]["curveValuesC"]]
+    assert allocate_units(c).final_units == allocate_units(c, tie_rule="sheet_literal").final_units
+    # The real workbook: the default rule reproduces the literal sheet exactly.
+    literal = allocate_units([r.curve_value for r in production.rows], tie_rule="sheet_literal")
+    assert literal.final_units == production.units
+    assert literal.awards == tuple(r.remainder_award for r in production.rows)
 
 
 def test_harmless_tie_passes(ties):

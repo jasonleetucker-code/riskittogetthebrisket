@@ -22,14 +22,20 @@ Pipeline (sheet column in brackets; ``i`` is the 0-based pick index, row
   ``spineShare_i = max(E_i - 1, 0) / Σ max(E_j - 1, 0)``.
 * ``[I]`` ``ROUNDDOWN(C_i * 2, 0)`` — floored half-dollar units.
 * ``[J]`` ``C_i * 2 - I_i`` — the fractional remainder.
-* ``[K]`` remainder priority (``RANK(J_i, J, 0) <= budget*2 - ΣI`` earns one
-  unit; RANK ties share a rank), then the late-round caps (round 5: 4 units,
+* ``[K]`` remainder priority (the ``budget*2 - ΣI`` largest remainders earn
+  one unit; a tie AT the cutoff goes to the earlier draft position — owner
+  decision 2026-10-18, see below), then the late-round caps (round 5: 4 units,
   round 6: 2 units) and monotonicity (``K_i <= K_{i-1}``).  Row 2 (pick 1.01)
   has neither cap nor predecessor, exactly as in the sheet.
 * ``[D]`` ``(K_i + carry_i) / 2`` where the residual ``S = budget*2 - ΣK`` is
   spread over the first ``M1`` picks: ``QUOTIENT(S, M1) + [i < MOD(S, M1)]``.
   ``M1`` (sheet cell ``M1``, value 12) is a protected rounding parameter.
-* ``[L]`` ``= D`` — the final dollars per pick.
+* ``[L]`` ``= D`` — the half-dollar curve: the mathematical reference.
+* **whole dollars** (owner decision 2026-10-18, a separately identified final
+  step): :func:`~src.draft.rookie_auction.apportion.apportion_whole_dollars`
+  floors L, gives the residual to the largest remainders (earlier pick first
+  on ties) and verifies sum / monotonicity / floors / caps, or refuses.
+  :attr:`CurveResult.final_whole_dollars` holds the 72 published integers.
 
 Arithmetic.  Every integer stage (I, J's ranking, K, D) is decided by the
 real-valued column C, which involves ``exp`` and a standard deviation.  C is
@@ -46,11 +52,16 @@ zero is surfaced, never hidden.
 Invariants checked on every result (violations raise
 :class:`CurveInvariantError`, never a silently different number): the final
 units sum to exactly ``budget * units_per_dollar``, every pick is
-non-negative, and the final curve is non-increasing.  Spreadsheet semantics
-can break these only through an exact RANK tie at the award boundary (the
-sheet would then award more units than the residual allows); this module
-reproduces the sheet's semantics and refuses the result rather than
-publishing it.
+non-negative, and the final curve is non-increasing.
+
+The one departure from the literal sheet (owner decision 2026-10-18): the
+sheet's ``RANK`` gives equal remainders the same rank, so a tie straddling
+the award cutoff over-awards and the sheet publishes e.g. $1,206.  This module
+awards exactly the residual, ties to the earlier draft position, so the
+half-dollar curve always totals the budget.  With no tie at the cutoff —
+including the real workbook inputs — the two rules are identical (pinned by
+test); ``allocate_units(tie_rule="sheet_literal")`` keeps the literal rule
+for evidence only.
 
 Out of scope here, deliberately: which rookie values feed column B (Batch B),
 which completed drafts form the spine (Batch C / ``snapshots.py``), who owns
@@ -64,10 +75,16 @@ from __future__ import annotations
 import decimal
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from fractions import Fraction
 from typing import Iterable, Mapping, Sequence
+
+from src.draft.rookie_auction.apportion import (
+    ApportionmentRefused,
+    WholeDollarApportionment,
+    apportion_whole_dollars,
+)
 
 __all__ = [
     "DECIMAL_PRECISION",
@@ -79,11 +96,15 @@ __all__ = [
     "PickRow",
     "UnitAllocation",
     "WORKBOOK_PARAMS",
+    "TIE_RULE_EARLIER_PICK_FIRST",
+    "TIE_RULE_SHEET_LITERAL",
     "allocate_units",
     "check_allocation",
     "compute_curve",
     "curve_receipt",
     "spine_from_curves",
+    "whole_dollar_constraints",
+    "whole_dollar_step",
 ]
 
 #: Identity of the transcribed formula.  Bump only with an owner-approved
@@ -93,6 +114,10 @@ FORMULA_VERSION = "draft_data_workbook_v1"
 
 #: Significant digits for the Decimal evaluation of column C.
 DECIMAL_PRECISION = 60
+
+#: K-step remainder award at a tie on the cutoff (owner decision 2026-10-18).
+TIE_RULE_EARLIER_PICK_FIRST = "earlier_pick_first"
+TIE_RULE_SHEET_LITERAL = "sheet_literal"
 
 
 class CurveInputError(ValueError):
@@ -221,6 +246,17 @@ class CurveResult:
     rows: tuple[PickRow, ...]
     total_units: int
     precision_margin: Decimal | None
+    #: The final whole-dollar allocation (owner decision 2026-10-18), or
+    #: ``None`` with ``whole_dollars_refusal`` naming the violated constraint.
+    whole_dollars: WholeDollarApportionment | None = None
+    whole_dollars_refusal: str | None = None
+
+    @property
+    def final_whole_dollars(self) -> tuple[int, ...]:
+        """The 72 published whole-dollar pick values.  Raises if refused."""
+        if self.whole_dollars is None:
+            raise CurveInvariantError(f"whole-dollar step refused: {self.whole_dollars_refusal}")
+        return self.whole_dollars.dollars
 
     @property
     def dollars(self) -> tuple[Decimal, ...]:
@@ -425,7 +461,39 @@ def _compute(rookie_values, historical_curves, params: CurveParams, n: int) -> C
         precision_margin=alloc.precision_margin,
     )
     check_allocation(alloc, params)
-    return result
+    whole, refusal = whole_dollar_step(alloc.final_units, params)
+    return replace(result, whole_dollars=whole, whole_dollars_refusal=refusal)
+
+
+def whole_dollar_constraints(params: CurveParams = WORKBOOK_PARAMS):
+    """Per-pick integer floors and caps (dollars) the whole-dollar step verifies.
+
+    Floors: $1 per pick plus the round-5 bonus (the formula's own floors).
+    Caps: the round caps converted from units (round 5 = $2, round 6 = $1);
+    pick 1.01 is uncapped, like K2.
+    """
+    n = params.pick_count
+    floors = [params.floor_dollars(i) for i in range(n)]
+    caps: list[int | None] = []
+    for i in range(n):
+        cap = params.cap_units(i) if i > 0 else None
+        if cap is not None and cap % params.units_per_dollar:
+            raise CurveInputError(f"round cap of {cap} units is not a whole-dollar amount")
+        caps.append(None if cap is None else cap // params.units_per_dollar)
+    return floors, caps
+
+
+def whole_dollar_step(final_units: Sequence[int], params: CurveParams = WORKBOOK_PARAMS):
+    """``(apportionment, None)`` or ``(None, conflict)`` for a unit curve."""
+    floors, caps = whole_dollar_constraints(params)
+    values = [Fraction(u, params.units_per_dollar) for u in final_units]
+    try:
+        return (
+            apportion_whole_dollars(values, params.budget_dollars, floors=floors, caps=caps),
+            None,
+        )
+    except ApportionmentRefused as exc:
+        return None, str(exc)
 
 
 @dataclass(frozen=True)
@@ -452,17 +520,32 @@ class UnitAllocation:
 
 
 def allocate_units(
-    curve_values: Sequence[object], params: CurveParams = WORKBOOK_PARAMS, *, check: bool = False
+    curve_values: Sequence[object],
+    params: CurveParams = WORKBOOK_PARAMS,
+    *,
+    check: bool = False,
+    tie_rule: str = TIE_RULE_EARLIER_PICK_FIRST,
 ) -> UnitAllocation:
     """The sheet's integer stage (I -> J -> K -> D) over a given column C.
 
-    Exposed separately so the RANK-tie and negative-residual semantics can be
-    tested on constructed C vectors.  ``check=False`` returns the literal
-    spreadsheet result even when it breaks an invariant (e.g. an exact RANK
-    tie straddling the award cutoff, where the sheet over-awards and the
-    final units no longer total the budget); :func:`compute_curve` always
-    checks and refuses such a result.
+    ``tie_rule``:
+
+    * ``earlier_pick_first`` (default; owner decision 2026-10-18) — exactly
+      ``residual`` units are awarded, to the largest remainders, ties at the
+      cutoff going to the earlier (higher) draft position.  Identical to the
+      sheet whenever no tie straddles the cutoff — which includes the real
+      workbook inputs — and otherwise the one place the canonical curve
+      departs from the literal sheet: the half-dollar total is always exactly
+      the budget.
+    * ``sheet_literal`` — the sheet's ``RANK(...) <= residual``, where equal
+      remainders share a rank and a tie at the cutoff over-awards (the sheet
+      then publishes e.g. $1,206).  Kept only as evidence of what the sheet
+      does; ``check=False`` returns that result unrefused.
+
+    :func:`compute_curve` always uses the default rule and always checks.
     """
+    if tie_rule not in (TIE_RULE_EARLIER_PICK_FIRST, TIE_RULE_SHEET_LITERAL):
+        raise CurveInputError(f"unknown tie rule {tie_rule!r}")
     params.validate()
     n = params.pick_count
     if len(curve_values) != n:
@@ -478,7 +561,12 @@ def allocate_units(
         j = [doubled[i] - i_units[i] for i in range(n)]
         residual = budget_units - sum(i_units)
         ranks = [1 + sum(1 for other in j if other > j[i]) for i in range(n)]
-        awards = [1 if ranks[i] <= residual else 0 for i in range(n)]
+        if tie_rule == TIE_RULE_SHEET_LITERAL:
+            awards = [1 if ranks[i] <= residual else 0 for i in range(n)]
+        else:
+            order = sorted(range(n), key=lambda i: (-j[i], i))
+            awarded = set(order[: max(0, residual)])
+            awards = [1 if i in awarded else 0 for i in range(n)]
 
         # K2 (index 0) has no MIN(): no cap and no predecessor.
         caps = [None] + [params.cap_units(i) for i in range(1, n)]
@@ -630,6 +718,12 @@ def curve_receipt(
             if result.precision_margin is None
             else _dstr(result.precision_margin),
             "validation": {"sumsToBudget": True, "nonNegative": True, "nonIncreasing": True},
+            "tieRule": TIE_RULE_EARLIER_PICK_FIRST,
+            "wholeDollars": (
+                result.whole_dollars.receipt([r.label for r in rows])
+                if result.whole_dollars is not None
+                else {"refused": result.whole_dollars_refusal}
+            ),
         }
     body["receiptSha256"] = _sha(body)
     return body

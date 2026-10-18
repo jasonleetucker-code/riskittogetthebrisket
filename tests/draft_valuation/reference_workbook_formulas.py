@@ -160,17 +160,30 @@ def evaluate_sheet(
     return out
 
 
-def evaluate_integer_stage(C: dict[int, float], M1: int = 12) -> dict[str, dict[int, float]]:
-    """Columns I, J, K, D, L for a given column C (keyed by sheet row 2..73)."""
+def evaluate_integer_stage(
+    C: dict[int, float], M1: int = 12, tie_rule: str = "sheet"
+) -> dict[str, dict[int, float]]:
+    """Columns I, J, K, D, L for a given column C (keyed by sheet row 2..73).
+
+    ``tie_rule="sheet"`` is the literal ``RANK(...) <= residual``.
+    ``tie_rule="earlier_first"`` is the owner's 2026-10-18 rule: exactly
+    ``residual`` awards, ties at the cutoff to the earlier row.
+    """
     rows = range(FIRST, LAST + 1)
     I = {r: ROUNDDOWN(C[r] * 2, 0) for r in rows}  # noqa: E741 — the sheet's column name
     J = {r: C[r] * 2 - I[r] for r in rows}
     J_range = [J[q] for q in rows]
     residual = 1200 * 2 - sum(I.values())
 
+    if tie_rule == "earlier_first":
+        ranked = sorted(rows, key=lambda q: (-J[q], q))
+        awarded_rows = set(ranked[: max(0, residual)])
     K: dict[int, int] = {}
     for r in rows:
-        award = B2I(RANK(J[r], J_range, 0) <= residual)
+        if tie_rule == "earlier_first":
+            award = B2I(r in awarded_rows)
+        else:
+            award = B2I(RANK(J[r], J_range, 0) <= residual)
         if r == 2:
             K[r] = I[r] + award  # K2: no MIN, no cap
         else:
@@ -260,3 +273,57 @@ def evaluate_m123(C: dict[int, float]) -> int:
         + sum(1 for r in C if frac[r] == frac[me] and r < 123)
     )
     return ROUNDDOWN(C[me], 0) + B2I(rank <= 1200 - sum(ROUNDDOWN(C[r], 0) for r in C))
+
+
+# --- the owner's whole-dollar step (2026-10-18), transcribed independently ---------
+
+
+class Refused(Exception):
+    pass
+
+
+def whole_dollars(values, total, floors=None, caps=None):
+    """Floor each exact value, give +1 to the largest remainders (earlier index
+    first on ties), then check sum / non-increasing / floors / caps.
+
+    ``values`` are ``fractions.Fraction``; anything else is refused.
+    """
+    from fractions import Fraction
+
+    for v in values:
+        if not isinstance(v, Fraction):
+            raise Refused(f"not an exact value: {v!r}")
+        if v < 0:
+            raise Refused("negative")
+    if sum(values) != total:
+        raise Refused("sum is not the total")
+    fl = [v.numerator // v.denominator for v in values]
+    rem = [v - f for v, f in zip(values, fl)]
+    left = total - sum(fl)
+    idx = list(range(len(values)))
+    idx.sort(key=lambda i: (-rem[i], i))
+    out = list(fl)
+    plus = []
+    for i in idx[:left]:
+        out[i] += 1
+        plus.append(i)
+    if sum(out) != total:
+        raise Refused("sum")
+    for i in range(1, len(out)):
+        if out[i] > out[i - 1]:
+            raise Refused("rises")
+    for i, d in enumerate(out):
+        if floors is not None and d < floors[i]:
+            raise Refused("below floor")
+        if caps is not None and caps[i] is not None and d > caps[i]:
+            raise Refused("above cap")
+    return out, sorted(plus)
+
+
+def dynasty_main_whole_dollar_bounds():
+    """$1 floor per pick, $2 in round 5; caps round 5 = $2, round 6 = $1; 1.01 uncapped."""
+    floors = [1 + (1 if INT(i / 12) == 4 else 0) for i in range(72)]
+    caps = [None] + [
+        2 if INT(i / 12) == 4 else (1 if INT(i / 12) == 5 else None) for i in range(1, 72)
+    ]
+    return floors, caps

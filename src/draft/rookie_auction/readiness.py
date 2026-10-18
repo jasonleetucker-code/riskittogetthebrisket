@@ -229,6 +229,15 @@ def evaluate_class_readiness(
                     "formula_exact_budget", PASS, f"total ${candidate_receipt['totalDollars']}"
                 )
             )
+            gates.append(
+                GateResult(
+                    "whole_dollar_step",
+                    PASS if res.whole_dollars is not None else FAIL,
+                    "72 whole dollars, exact $1,200"
+                    if res.whole_dollars is not None
+                    else str(res.whole_dollars_refusal),
+                )
+            )
         except (CurveInputError, CurveInvariantError) as exc:
             gates.append(GateResult("formula_exact_budget", FAIL, str(exc)))
     else:
