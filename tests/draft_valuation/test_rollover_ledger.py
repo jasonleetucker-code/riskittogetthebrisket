@@ -155,6 +155,7 @@ def test_snapshot_records_the_full_provenance(cfg):
     whole = [row["dollars"] for row in p["finalWholeDollars"]]
     assert sum(whole) == 1200 and all(isinstance(d, int) for d in whole)
     assert p["validation"]["wholeDollars"]["finalWholeDollars"] == whole
+    assert p["validation"]["verifier"]["result"] == "pass"
 
 
 def test_identical_evidence_is_idempotent(cfg):

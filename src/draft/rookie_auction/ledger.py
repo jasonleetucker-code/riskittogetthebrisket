@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import os
+from fractions import Fraction
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -49,7 +50,9 @@ from src.draft.rookie_auction.curve import (
     WORKBOOK_PARAMS,
     compute_curve,
     curve_receipt,
+    whole_dollar_constraints,
 )
+from src.draft.rookie_auction.verify import verify_whole_dollar_allocation
 from src.draft.rookie_auction.league_scope import league_scope
 from src.draft.rookie_auction.snapshots import (
     CONFIG_DIR,
@@ -127,6 +130,16 @@ def _build_payload(
     result = compute_curve(inputs.curve_values(), curves, WORKBOOK_PARAMS)
     if result.whole_dollars is None:
         raise LedgerRefusal("whole_dollar_step_refused", str(result.whole_dollars_refusal))
+    floors, caps = whole_dollar_constraints(WORKBOOK_PARAMS)
+    verification = verify_whole_dollar_allocation(
+        [Fraction(d) for d in result.reference_dollars],
+        result.final_whole_dollars,
+        scope.budget_dollars_per_class,
+        floors=floors,
+        caps=caps,
+    )
+    if not verification.ok:
+        raise LedgerRefusal("verification_failed", ", ".join(verification.failures))
     spine_checksums = {
         str(y): load_completed_class_curve(y, league_key=league_key, config_dir=config_dir).checksum
         for y in spine_years
@@ -170,7 +183,7 @@ def _build_payload(
         # Deterministic: the completion observation, never the wall clock, so
         # identical evidence always yields an identical snapshot.
         "createdAt": evidence.observed_at,
-        "validation": receipt,
+        "validation": {**receipt, "verifier": verification.receipt()},
         # Owner decision 2026-10-18 — two values per completed class:
         # ``referenceDollars`` (the spreadsheet curve at its original
         # precision) builds the three-year spine, as the F/G/H formula was
