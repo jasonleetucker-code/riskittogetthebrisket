@@ -10184,6 +10184,66 @@ def _hampel_filter_per_player(
     return kept, dropped_keys
 
 
+def _hill_inverse(value: float, c: float, s: float) -> float:
+    """Percentile coordinate of a Hill value: p = c · (9999 / v − 1)^(1/s).
+
+    The exact inverse of ``percentile_to_value`` (V = 9999 / (1 + (p/c)^s));
+    v at or above the ceiling is p = 0, v ≤ 0 has no coordinate (``inf``)."""
+    if value >= 9999.0:
+        return 0.0
+    if value <= 0.0:
+        return math.inf
+    return c * (9999.0 / value - 1.0) ** (1.0 / s)
+
+
+def _hampel_filter_rank_space(
+    pairs: list[tuple[str, float]],
+    *,
+    curve: tuple[float, float],
+    k: float = _HAMPEL_K,
+    min_n: int = _HAMPEL_MIN_N,
+    min_threshold: float = _HAMPEL_MIN_THRESHOLD,
+) -> tuple[list[tuple[str, float]], list[str]]:
+    """CHALLENGER ``rank-space-hampel-v1`` (default OFF; preregistered in
+    ``docs/valuation/evidence/rank-space-hampel-2026-10-17/PREREGISTRATION.md``).
+
+    The incumbent ``_hampel_filter_per_player`` with identical K and guards,
+    computed on percentile coordinates u = H⁻¹(v) of the row's scope curve.
+    The absolute floor is the incumbent's ``min_threshold`` Hill points carried
+    into percentile space at the row's median, so a disagreement the incumbent
+    protects at that level stays protected; no constant is tuned.
+    Audit F1: at the top of the board rank-signal votes compress against the
+    9,999 ceiling in value space and the value-direct markets read as outliers.
+    """
+    n = len(pairs)
+    if n < min_n:
+        return list(pairs), []
+    c, s = curve
+    coords = [(sk, _hill_inverse(float(v), c, s)) for sk, v in pairs]
+    finite = sorted(u for _, u in coords if math.isfinite(u))
+    if len(finite) < min_n:
+        return list(pairs), []
+    m = len(finite)
+    median = finite[m // 2] if m % 2 else (finite[m // 2 - 1] + finite[m // 2]) / 2.0
+    devs = sorted(abs(u - median) for u in finite)
+    mad = devs[m // 2] if m % 2 else (devs[m // 2 - 1] + devs[m // 2]) / 2.0
+    v_med = 9999.0 / (1.0 + (median / c) ** s) if median > 0 else 9999.0
+    hi = _hill_inverse(max(1.0, v_med - min_threshold / 2.0), c, s)
+    lo = _hill_inverse(min(9999.0, v_med + min_threshold / 2.0), c, s)
+    floor_u = abs(hi - lo) if math.isfinite(hi) else math.inf
+    threshold = max(k * mad, floor_u)
+    kept: list[tuple[str, float]] = []
+    dropped_keys: list[str] = []
+    for (sk, val), (_k, u) in zip(pairs, coords):
+        if math.isfinite(u) and abs(u - median) > threshold:
+            dropped_keys.append(sk)
+        else:
+            kept.append((sk, val))
+    if len(kept) < 2:
+        return list(pairs), []
+    return kept, dropped_keys
+
+
 def count_aware_mean_median_blend(
     values: list[float],
 ) -> tuple[float, float | None]:
@@ -11656,6 +11716,11 @@ def _compute_unified_rankings(
     _joint_challenger = _family_cap_applied and _feature_flags.is_enabled(
         "joint_outlier_sparse_challenger"
     )
+    # Rank-space Hampel challenger (default OFF, shadow only); the joint
+    # challenger, when on, takes precedence so two challengers never mix.
+    _rank_space_challenger = not _joint_challenger and _feature_flags.is_enabled(
+        "rank_space_hampel_challenger"
+    )
     # Sparse half, separately promotable (default OFF): one voting family is
     # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
     _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
@@ -12147,6 +12212,19 @@ def _compute_unified_rankings(
                 hampel_dropped_keys = list(_joint.dropped)
                 if _joint.reasons:
                     players_array[row_idx]["jointFilterReasons"] = dict(_joint.reasons)
+            elif _rank_space_challenger:
+                from src.canonical import player_valuation as _pv  # noqa: PLC0415
+
+                _is_idp_row = players_array[row_idx].get("assetClass") == "idp"
+                kept_pairs, hampel_dropped_keys = _hampel_filter_rank_space(
+                    [(k, v) for k, v, _ in all_value_pairs],
+                    curve=(
+                        (_pv.IDP_HILL_PERCENTILE_C, _pv.IDP_HILL_PERCENTILE_S)
+                        if _is_idp_row
+                        else (_pv.HILL_PERCENTILE_C, _pv.HILL_PERCENTILE_S)
+                    ),
+                    k=_HAMPEL_K,
+                )
             else:
                 kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
                     [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K

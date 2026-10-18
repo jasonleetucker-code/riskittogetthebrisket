@@ -1,0 +1,4147 @@
+{
+ "boards": [
+  {
+   "board": "dynasty_export_20260714_233659.zip",
+   "challengerDrops": 135,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 372,
+   "incumbentDrops": 131,
+   "obsChallengerOnlyDrop": 16,
+   "obsIncumbentOnlyDrop": 12,
+   "payloadSha256": "e4a53152909cd659c2d60570373f67c42eb23db9a4cc50697c76dc5b65e7584d",
+   "reproduced": [
+    26,
+    26,
+    26
+   ],
+   "rowsDisagree": 26,
+   "rowsValueChanged": 28,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-14T23:36:58.981924",
+   "topChurn": {
+    "100": 1,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260715_234323.zip",
+   "challengerDrops": 123,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 360,
+   "incumbentDrops": 127,
+   "obsChallengerOnlyDrop": 18,
+   "obsIncumbentOnlyDrop": 22,
+   "payloadSha256": "a8cb95f2454b1d01eca9e037d6786f31a36305f9f0f831dfa6f1d022139cecb1",
+   "reproduced": [
+    31,
+    31,
+    31
+   ],
+   "rowsDisagree": 31,
+   "rowsValueChanged": 48,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-15T23:43:23.417667",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260716_234047.zip",
+   "challengerDrops": 125,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 359,
+   "incumbentDrops": 128,
+   "obsChallengerOnlyDrop": 17,
+   "obsIncumbentOnlyDrop": 20,
+   "payloadSha256": "de452465b74a2759fe4ba62a8bf46db64b3df5549d3b4a3d8f6bd20896fac591",
+   "reproduced": [
+    29,
+    29,
+    29
+   ],
+   "rowsDisagree": 29,
+   "rowsValueChanged": 39,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-16T23:40:47.323707",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260717_233701.zip",
+   "challengerDrops": 135,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 374,
+   "incumbentDrops": 131,
+   "obsChallengerOnlyDrop": 16,
+   "obsIncumbentOnlyDrop": 12,
+   "payloadSha256": "102706b0fca5a0ebbccc5734af4def1da42719906918af5085dbf6e4163bd93e",
+   "reproduced": [
+    27,
+    27,
+    27
+   ],
+   "rowsDisagree": 27,
+   "rowsValueChanged": 31,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-17T23:37:01.299903",
+   "topChurn": {
+    "100": 1,
+    "200": 0,
+    "400": 0,
+    "50": 1
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260718_233845.zip",
+   "challengerDrops": 135,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 375,
+   "incumbentDrops": 131,
+   "obsChallengerOnlyDrop": 14,
+   "obsIncumbentOnlyDrop": 10,
+   "payloadSha256": "96cf46f34b22f61bb6a6c9e0b90601d66f5bfd5a2b667d447224efd46236c987",
+   "reproduced": [
+    23,
+    23,
+    23
+   ],
+   "rowsDisagree": 23,
+   "rowsValueChanged": 24,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-18T23:38:44.906743",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260719_234246.zip",
+   "challengerDrops": 135,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 376,
+   "incumbentDrops": 131,
+   "obsChallengerOnlyDrop": 14,
+   "obsIncumbentOnlyDrop": 10,
+   "payloadSha256": "91fd98ed28cf8982cd86918bb43b1d5531052cd019936df263a5c417b2254fff",
+   "reproduced": [
+    21,
+    21,
+    21
+   ],
+   "rowsDisagree": 21,
+   "rowsValueChanged": 22,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-19T23:42:46.544313",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260720_234315.zip",
+   "challengerDrops": 140,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 376,
+   "incumbentDrops": 134,
+   "obsChallengerOnlyDrop": 18,
+   "obsIncumbentOnlyDrop": 12,
+   "payloadSha256": "d57ee16bc7eb29a09e2150ea1593a2e7d0be295d54d47ea6bed016062cf51f7a",
+   "reproduced": [
+    26,
+    26,
+    26
+   ],
+   "rowsDisagree": 26,
+   "rowsValueChanged": 31,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-20T23:43:15.598696",
+   "topChurn": {
+    "100": 1,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260721_234338.zip",
+   "challengerDrops": 149,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 375,
+   "incumbentDrops": 140,
+   "obsChallengerOnlyDrop": 25,
+   "obsIncumbentOnlyDrop": 16,
+   "payloadSha256": "5529bec4a9724679e152580e3c807ecf3ef6efceb12d8387bb5e7692d18e8dde",
+   "reproduced": [
+    37,
+    37,
+    37
+   ],
+   "rowsDisagree": 37,
+   "rowsValueChanged": 42,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-21T23:43:38.778525",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260722_234350.zip",
+   "challengerDrops": 150,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 374,
+   "incumbentDrops": 138,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 14,
+   "payloadSha256": "8e9a7c1b77b623e5ae4343dbc57acfe75b45e717444b636f4bbb9c4133ae0bbb",
+   "reproduced": [
+    35,
+    35,
+    35
+   ],
+   "rowsDisagree": 35,
+   "rowsValueChanged": 41,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-22T23:43:50.570144",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260723_234119.zip",
+   "challengerDrops": 146,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 373,
+   "incumbentDrops": 140,
+   "obsChallengerOnlyDrop": 23,
+   "obsIncumbentOnlyDrop": 17,
+   "payloadSha256": "352f015a855aadd79db8107c237212324ef74d87f50e42df92e96f837057cc0e",
+   "reproduced": [
+    36,
+    36,
+    36
+   ],
+   "rowsDisagree": 36,
+   "rowsValueChanged": 40,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-23T23:41:19.085012",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260724_234602.zip",
+   "challengerDrops": 146,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 377,
+   "incumbentDrops": 140,
+   "obsChallengerOnlyDrop": 21,
+   "obsIncumbentOnlyDrop": 15,
+   "payloadSha256": "d2cce2e3bba1acd87a56c1ab50827aae5d0d41593dac44c4c435f11da2013538",
+   "reproduced": [
+    34,
+    34,
+    34
+   ],
+   "rowsDisagree": 34,
+   "rowsValueChanged": 38,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-24T23:46:02.490261",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260725_174518.zip",
+   "challengerDrops": 147,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 377,
+   "incumbentDrops": 142,
+   "obsChallengerOnlyDrop": 22,
+   "obsIncumbentOnlyDrop": 17,
+   "payloadSha256": "3b2f8197e803a3c4f5207f7d9cea46e02bb79b4a72a603f83167e908fe08b159",
+   "reproduced": [
+    36,
+    36,
+    36
+   ],
+   "rowsDisagree": 36,
+   "rowsValueChanged": 39,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-25T17:45:18.192819",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 9
+  },
+  {
+   "board": "dynasty_export_20260726_234351.zip",
+   "challengerDrops": 186,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 394,
+   "incumbentDrops": 200,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 40,
+   "payloadSha256": "8488440f388743239f0799daa339803ae5e9f755d70bff8b30e23d1a6b5b1e2a",
+   "reproduced": [
+    60,
+    60,
+    60
+   ],
+   "rowsDisagree": 60,
+   "rowsValueChanged": 100,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-26T23:43:51.597396",
+   "topChurn": {
+    "100": 0,
+    "200": 2,
+    "400": 4,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260727_234712.zip",
+   "challengerDrops": 186,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 406,
+   "incumbentDrops": 213,
+   "obsChallengerOnlyDrop": 29,
+   "obsIncumbentOnlyDrop": 56,
+   "payloadSha256": "184c83c7dec1b45cd36ae7db92aa6936eae173ba44d6289dda09a6c631a77d2c",
+   "reproduced": [
+    75,
+    75,
+    75
+   ],
+   "rowsDisagree": 75,
+   "rowsValueChanged": 118,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-27T23:47:12.008137",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260728_234257.zip",
+   "challengerDrops": 185,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 407,
+   "incumbentDrops": 207,
+   "obsChallengerOnlyDrop": 27,
+   "obsIncumbentOnlyDrop": 49,
+   "payloadSha256": "6b0b35fdf5c7a7e1e451bcdad8b6ea1fe0993e2ca136e72aedfe7fe8ee2cc591",
+   "reproduced": [
+    66,
+    66,
+    66
+   ],
+   "rowsDisagree": 66,
+   "rowsValueChanged": 106,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-28T23:42:56.922693",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 2,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260729_234404.zip",
+   "challengerDrops": 182,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 411,
+   "incumbentDrops": 209,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "15f07396e003129ba231a393d47176b3ef7e54dec97f7d01c95bcdae387d3176",
+   "reproduced": [
+    69,
+    69,
+    69
+   ],
+   "rowsDisagree": 69,
+   "rowsValueChanged": 118,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-29T23:44:04.817264",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 7,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260730_234456.zip",
+   "challengerDrops": 184,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 409,
+   "incumbentDrops": 214,
+   "obsChallengerOnlyDrop": 28,
+   "obsIncumbentOnlyDrop": 58,
+   "payloadSha256": "8a4969956b1962b0a87bd12f436eb0146692f47d93b94bd30950c1b9cf6e1d8c",
+   "reproduced": [
+    72,
+    72,
+    72
+   ],
+   "rowsDisagree": 72,
+   "rowsValueChanged": 111,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-30T23:44:56.265720",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260731_234435.zip",
+   "challengerDrops": 184,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 404,
+   "incumbentDrops": 207,
+   "obsChallengerOnlyDrop": 30,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "e2c0dea91f52e3dbbacf68864af258cf74eb020b541513c790318de19be1dfc8",
+   "reproduced": [
+    70,
+    70,
+    70
+   ],
+   "rowsDisagree": 70,
+   "rowsValueChanged": 109,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-07-31T23:44:35.562570",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 2,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260801_234420.zip",
+   "challengerDrops": 183,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 407,
+   "incumbentDrops": 205,
+   "obsChallengerOnlyDrop": 32,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "3b5c1c1015d5815ece2d6b2d1c19a3176e363784c5c37cc83abdef87d10ffd6e",
+   "reproduced": [
+    72,
+    72,
+    72
+   ],
+   "rowsDisagree": 72,
+   "rowsValueChanged": 117,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-01T23:44:20.346047",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260802_234410.zip",
+   "challengerDrops": 176,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 393,
+   "incumbentDrops": 201,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 51,
+   "payloadSha256": "c39c3b519757cbbf3c99a34667f8016a3b3e8df6cacf4b32b04c5e2f2a537f9d",
+   "reproduced": [
+    67,
+    67,
+    67
+   ],
+   "rowsDisagree": 67,
+   "rowsValueChanged": 106,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-02T23:44:10.120540",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260803_235610.zip",
+   "challengerDrops": 184,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 397,
+   "incumbentDrops": 239,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 81,
+   "payloadSha256": "19e2e0d7ad54965a18d47b962e31dc82909f3c8cac8e2008be95d052cd4273ac",
+   "reproduced": [
+    88,
+    88,
+    88
+   ],
+   "rowsDisagree": 88,
+   "rowsValueChanged": 137,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-03T23:56:10.773424",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 8,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260804_234442.zip",
+   "challengerDrops": 177,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 391,
+   "incumbentDrops": 204,
+   "obsChallengerOnlyDrop": 28,
+   "obsIncumbentOnlyDrop": 55,
+   "payloadSha256": "e51755905a9d260e6336562281551e8831fc8aa7383b691beb606e0e6adc0dff",
+   "reproduced": [
+    71,
+    71,
+    71
+   ],
+   "rowsDisagree": 71,
+   "rowsValueChanged": 119,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-04T23:44:42.548610",
+   "topChurn": {
+    "100": 1,
+    "200": 0,
+    "400": 9,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260805_234032.zip",
+   "challengerDrops": 174,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 407,
+   "incumbentDrops": 212,
+   "obsChallengerOnlyDrop": 28,
+   "obsIncumbentOnlyDrop": 66,
+   "payloadSha256": "3366e9d9a585615964609df7a89743ab3821b29d380d60f54abe441848d09ca9",
+   "reproduced": [
+    76,
+    76,
+    76
+   ],
+   "rowsDisagree": 76,
+   "rowsValueChanged": 111,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-05T23:40:32.046254",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 1,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260806_150742.zip",
+   "challengerDrops": 177,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 410,
+   "incumbentDrops": 207,
+   "obsChallengerOnlyDrop": 29,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "2ca9fd8ef4248006285386cbd2498eec9fb03384348c50135bcce024a168b9f3",
+   "reproduced": [
+    74,
+    74,
+    74
+   ],
+   "rowsDisagree": 74,
+   "rowsValueChanged": 107,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-06T15:07:42.355653",
+   "topChurn": {
+    "100": 0,
+    "200": 2,
+    "400": 1,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260807_231948.zip",
+   "challengerDrops": 169,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 406,
+   "incumbentDrops": 205,
+   "obsChallengerOnlyDrop": 25,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "9846f4dec3f6069441270d4a30e00898343200ca9e69df0b048350aa0d2b88f8",
+   "reproduced": [
+    73,
+    73,
+    73
+   ],
+   "rowsDisagree": 73,
+   "rowsValueChanged": 115,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-07T23:19:48.012755",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260808_230641.zip",
+   "challengerDrops": 170,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 403,
+   "incumbentDrops": 208,
+   "obsChallengerOnlyDrop": 25,
+   "obsIncumbentOnlyDrop": 63,
+   "payloadSha256": "f957ab3942bd1f979ce25e5fc1fe386a1805c247d69f1b700f46853a6d527c16",
+   "reproduced": [
+    74,
+    74,
+    74
+   ],
+   "rowsDisagree": 74,
+   "rowsValueChanged": 118,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-08T23:06:41.729689",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260809_230755.zip",
+   "challengerDrops": 170,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 405,
+   "incumbentDrops": 208,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 64,
+   "payloadSha256": "70e456bc17ef6f3f68350d48d87b4ee662abf46f8845563ff9e2d23cf3d57b83",
+   "reproduced": [
+    75,
+    75,
+    75
+   ],
+   "rowsDisagree": 75,
+   "rowsValueChanged": 120,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-09T23:07:55.301765",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260810_232112.zip",
+   "challengerDrops": 174,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 401,
+   "incumbentDrops": 214,
+   "obsChallengerOnlyDrop": 27,
+   "obsIncumbentOnlyDrop": 67,
+   "payloadSha256": "c21e6d94f44f7bc7e5179044305c897c9e9252c6849fb2852c080a24d1add16d",
+   "reproduced": [
+    77,
+    77,
+    77
+   ],
+   "rowsDisagree": 77,
+   "rowsValueChanged": 106,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-10T23:21:12.732296",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260811_232600.zip",
+   "challengerDrops": 172,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 404,
+   "incumbentDrops": 213,
+   "obsChallengerOnlyDrop": 29,
+   "obsIncumbentOnlyDrop": 70,
+   "payloadSha256": "d10ab8188695c09d4c4f89faf3a1515cb1312498e448587cea19011f9ba55ea3",
+   "reproduced": [
+    81,
+    81,
+    81
+   ],
+   "rowsDisagree": 81,
+   "rowsValueChanged": 108,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-11T23:26:00.344116",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260812_232543.zip",
+   "challengerDrops": 140,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 401,
+   "incumbentDrops": 155,
+   "obsChallengerOnlyDrop": 17,
+   "obsIncumbentOnlyDrop": 32,
+   "payloadSha256": "8fb1ba53b36681b81a0ee1e90e7d8a4197f1f3b27f2df2155453e7e58b2a8ce3",
+   "reproduced": [
+    39,
+    39,
+    39
+   ],
+   "rowsDisagree": 39,
+   "rowsValueChanged": 64,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-12T23:25:43.193455",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 1,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260813_232644.zip",
+   "challengerDrops": 139,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 401,
+   "incumbentDrops": 151,
+   "obsChallengerOnlyDrop": 19,
+   "obsIncumbentOnlyDrop": 31,
+   "payloadSha256": "0b49e6e803be99fc74abf078e0bc28eee427636ffc85ac3147e035c86f41bb12",
+   "reproduced": [
+    40,
+    40,
+    40
+   ],
+   "rowsDisagree": 40,
+   "rowsValueChanged": 60,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-13T23:26:44.473576",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 10
+  },
+  {
+   "board": "dynasty_export_20260814_230212.zip",
+   "challengerDrops": 140,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 402,
+   "incumbentDrops": 158,
+   "obsChallengerOnlyDrop": 16,
+   "obsIncumbentOnlyDrop": 34,
+   "payloadSha256": "7adc48a180426c9e1af9f7ad069b3d6340738c776307533d93c69c13d9c9f480",
+   "reproduced": [
+    42,
+    42,
+    42
+   ],
+   "rowsDisagree": 42,
+   "rowsValueChanged": 77,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-14T23:02:12.097157",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 10
+  },
+  {
+   "board": "dynasty_export_20260815_230043.zip",
+   "challengerDrops": 142,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 401,
+   "incumbentDrops": 157,
+   "obsChallengerOnlyDrop": 21,
+   "obsIncumbentOnlyDrop": 36,
+   "payloadSha256": "9b08fef3164dd6017ccce837e6a3ce175d13bab19264f0efa333e313f3b23935",
+   "reproduced": [
+    45,
+    45,
+    45
+   ],
+   "rowsDisagree": 45,
+   "rowsValueChanged": 89,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-15T23:00:43.782126",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 10
+  },
+  {
+   "board": "dynasty_export_20260816_225946.zip",
+   "challengerDrops": 141,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 401,
+   "incumbentDrops": 157,
+   "obsChallengerOnlyDrop": 20,
+   "obsIncumbentOnlyDrop": 36,
+   "payloadSha256": "f7d5e7157a09bcc857c229c5a81b5302883aa0ff6369548404aec85c023d16e9",
+   "reproduced": [
+    44,
+    44,
+    44
+   ],
+   "rowsDisagree": 44,
+   "rowsValueChanged": 92,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-16T22:59:45.967433",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 10
+  },
+  {
+   "board": "dynasty_export_20260817_230203.zip",
+   "challengerDrops": 142,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "degraded_only:KTC_TradeDB,KTC_WaiverDB",
+   "filterRows": 401,
+   "incumbentDrops": 154,
+   "obsChallengerOnlyDrop": 19,
+   "obsIncumbentOnlyDrop": 31,
+   "payloadSha256": "6d71545c5f4335582494b9812187200ce4349b9ead267424b245d0bec83e49ed",
+   "reproduced": [
+    39,
+    39,
+    39
+   ],
+   "rowsDisagree": 39,
+   "rowsValueChanged": 83,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-17T23:02:03.835156",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 10
+  },
+  {
+   "board": "dynasty_export_20260818_230211.zip",
+   "challengerDrops": 169,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 405,
+   "incumbentDrops": 209,
+   "obsChallengerOnlyDrop": 25,
+   "obsIncumbentOnlyDrop": 65,
+   "payloadSha256": "258da4803f571cc1daeab4069edb6afdd50261828c908769ad71aca615795425",
+   "reproduced": [
+    75,
+    75,
+    75
+   ],
+   "rowsDisagree": 75,
+   "rowsValueChanged": 106,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-18T23:02:11.345069+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 0,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260819_230341.zip",
+   "challengerDrops": 164,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 404,
+   "incumbentDrops": 210,
+   "obsChallengerOnlyDrop": 21,
+   "obsIncumbentOnlyDrop": 67,
+   "payloadSha256": "4b21e04bc4eb1320539aae25637cab79fbe75f70a5836b85d9cf4429c57bc92d",
+   "reproduced": [
+    71,
+    71,
+    71
+   ],
+   "rowsDisagree": 71,
+   "rowsValueChanged": 112,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-19T23:03:41.580370+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260820_230504.zip",
+   "challengerDrops": 160,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 405,
+   "incumbentDrops": 198,
+   "obsChallengerOnlyDrop": 22,
+   "obsIncumbentOnlyDrop": 60,
+   "payloadSha256": "e9d0018852fcd2e70cd74cc8799ffe57f5a1ff00985b1b7cd739df313734e447",
+   "reproduced": [
+    70,
+    70,
+    70
+   ],
+   "rowsDisagree": 70,
+   "rowsValueChanged": 122,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-20T23:05:03.983096+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 11
+  },
+  {
+   "board": "dynasty_export_20260821_230238.zip",
+   "challengerDrops": 200,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 572,
+   "incumbentDrops": 219,
+   "obsChallengerOnlyDrop": 43,
+   "obsIncumbentOnlyDrop": 62,
+   "payloadSha256": "5e9cab19f266045b4babb22a92eacbb13f9972d665aed3743ae07c6dce6ef90f",
+   "reproduced": [
+    92,
+    92,
+    92
+   ],
+   "rowsDisagree": 91,
+   "rowsValueChanged": 143,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-21T23:02:38.483718+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 4,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260822_230108.zip",
+   "challengerDrops": 204,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 573,
+   "incumbentDrops": 223,
+   "obsChallengerOnlyDrop": 40,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "f4f79bd22660a43da7aa19c410f985af913fb9b306bc6677b5489f49e68eada4",
+   "reproduced": [
+    87,
+    87,
+    87
+   ],
+   "rowsDisagree": 86,
+   "rowsValueChanged": 141,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-22T23:01:08.145493+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 3,
+    "400": 4,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260823_230044.zip",
+   "challengerDrops": 198,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 571,
+   "incumbentDrops": 221,
+   "obsChallengerOnlyDrop": 37,
+   "obsIncumbentOnlyDrop": 60,
+   "payloadSha256": "7ad71fbe353eb08e2d70e18f8b8fa01cdb6a163b01bb56fff6b3d467c273de2f",
+   "reproduced": [
+    87,
+    87,
+    87
+   ],
+   "rowsDisagree": 86,
+   "rowsValueChanged": 130,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-23T23:00:44.845095+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 2,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260824_230400.zip",
+   "challengerDrops": 200,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 572,
+   "incumbentDrops": 220,
+   "obsChallengerOnlyDrop": 42,
+   "obsIncumbentOnlyDrop": 62,
+   "payloadSha256": "03efa6ac49a198cd6e3d6c9a916f08243f05efd9c6a5275f64178ac64ad333e7",
+   "reproduced": [
+    89,
+    89,
+    89
+   ],
+   "rowsDisagree": 88,
+   "rowsValueChanged": 142,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-24T23:04:00.553224+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 4,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260825_230528.zip",
+   "challengerDrops": 199,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 571,
+   "incumbentDrops": 221,
+   "obsChallengerOnlyDrop": 39,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "5b03d4b220b57e4115be45170460b1c854edc25d3ac4adfb48fc834dbd06f48f",
+   "reproduced": [
+    85,
+    85,
+    85
+   ],
+   "rowsDisagree": 84,
+   "rowsValueChanged": 138,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-25T23:05:28.544040+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 4,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260826_211658.zip",
+   "challengerDrops": 193,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 570,
+   "incumbentDrops": 219,
+   "obsChallengerOnlyDrop": 37,
+   "obsIncumbentOnlyDrop": 63,
+   "payloadSha256": "9582324eea23a009db22b10ace303405917ccfbc155d94031d6bb030193a35d5",
+   "reproduced": [
+    87,
+    87,
+    87
+   ],
+   "rowsDisagree": 86,
+   "rowsValueChanged": 141,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-26T21:16:58.813500+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 3,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260827_153424.zip",
+   "challengerDrops": 194,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 567,
+   "incumbentDrops": 219,
+   "obsChallengerOnlyDrop": 36,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "78e6e2d165f40b01f8b2db18763686eae702a71fe5079aa7611784119ff109c0",
+   "reproduced": [
+    86,
+    86,
+    86
+   ],
+   "rowsDisagree": 85,
+   "rowsValueChanged": 137,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-27T15:34:24.432490+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 3,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260828_234428.zip",
+   "challengerDrops": 195,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 570,
+   "incumbentDrops": 217,
+   "obsChallengerOnlyDrop": 34,
+   "obsIncumbentOnlyDrop": 56,
+   "payloadSha256": "211406b1ff654a66fddcd4d30a2d415ac0b11199a5210898fa1ff8b1f49996ef",
+   "reproduced": [
+    80,
+    80,
+    80
+   ],
+   "rowsDisagree": 79,
+   "rowsValueChanged": 126,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-28T23:44:28.488898+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 3,
+    "400": 4,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260829_211720.zip",
+   "challengerDrops": 190,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 572,
+   "incumbentDrops": 217,
+   "obsChallengerOnlyDrop": 31,
+   "obsIncumbentOnlyDrop": 58,
+   "payloadSha256": "1c738b865f0bf074c3dddff1f7eb446707ebf95f21bb1bc2b019c9f28e8dd32c",
+   "reproduced": [
+    81,
+    81,
+    81
+   ],
+   "rowsDisagree": 80,
+   "rowsValueChanged": 134,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-29T21:17:20.483662+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 4,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260830_213746.zip",
+   "challengerDrops": 186,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 577,
+   "incumbentDrops": 223,
+   "obsChallengerOnlyDrop": 26,
+   "obsIncumbentOnlyDrop": 63,
+   "payloadSha256": "e419728a3d23f50dbf3aa1fdd44186d1cfa80e043189ce97fe9c39958b75ac2c",
+   "reproduced": [
+    79,
+    80,
+    80
+   ],
+   "rowsDisagree": 79,
+   "rowsValueChanged": 132,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-30T21:37:46.179321+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 4,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260831_230447.zip",
+   "challengerDrops": 193,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 570,
+   "incumbentDrops": 223,
+   "obsChallengerOnlyDrop": 32,
+   "obsIncumbentOnlyDrop": 62,
+   "payloadSha256": "1f08e8dc2c95e56a16587fe7a8408e9aa076a848d3d4c7965e2d8d0ebb11fcec",
+   "reproduced": [
+    84,
+    84,
+    84
+   ],
+   "rowsDisagree": 83,
+   "rowsValueChanged": 137,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-08-31T23:04:47.553692+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 4,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260901_212308.zip",
+   "challengerDrops": 204,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 563,
+   "incumbentDrops": 219,
+   "obsChallengerOnlyDrop": 45,
+   "obsIncumbentOnlyDrop": 60,
+   "payloadSha256": "a4e05e2ff730990023d817ea0a303d738e56ff52eae8251293124f2d8d690f7d",
+   "reproduced": [
+    88,
+    88,
+    88
+   ],
+   "rowsDisagree": 88,
+   "rowsValueChanged": 149,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-01T21:23:08.208475+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 2,
+    "50": 1
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260902_212027.zip",
+   "challengerDrops": 197,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 564,
+   "incumbentDrops": 219,
+   "obsChallengerOnlyDrop": 39,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "5d0b57c297484e1f5fb1cdf0dca046121ccc2e94b8f7714d44850a00c6dd435a",
+   "reproduced": [
+    84,
+    84,
+    84
+   ],
+   "rowsDisagree": 84,
+   "rowsValueChanged": 128,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-02T21:20:27.421884+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 4,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260903_225148.zip",
+   "challengerDrops": 212,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 549,
+   "incumbentDrops": 223,
+   "obsChallengerOnlyDrop": 43,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "587c67f7d264849e1d19954bfa7b45a49d6b51229f644cc2cf01cfa63a39b77f",
+   "reproduced": [
+    84,
+    84,
+    84
+   ],
+   "rowsDisagree": 84,
+   "rowsValueChanged": 132,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-03T22:51:48.381016+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260904_223450.zip",
+   "challengerDrops": 231,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 607,
+   "incumbentDrops": 236,
+   "obsChallengerOnlyDrop": 50,
+   "obsIncumbentOnlyDrop": 55,
+   "payloadSha256": "eb1a1551e981d0c13dfd15ea2e63eca5ca65ffd12208d7cb98e864ba6e9a7cc8",
+   "reproduced": [
+    93,
+    93,
+    93
+   ],
+   "rowsDisagree": 93,
+   "rowsValueChanged": 136,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-04T22:34:50.402290+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 4,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260905_204615.zip",
+   "challengerDrops": 213,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 606,
+   "incumbentDrops": 210,
+   "obsChallengerOnlyDrop": 51,
+   "obsIncumbentOnlyDrop": 48,
+   "payloadSha256": "3dbacc83d46397a7daac7e79ade09673e0dd6559113842296bdae8fe7f17a555",
+   "reproduced": [
+    88,
+    88,
+    88
+   ],
+   "rowsDisagree": 88,
+   "rowsValueChanged": 114,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-05T20:46:14.971171+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 2,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260906_205400.zip",
+   "challengerDrops": 209,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 596,
+   "incumbentDrops": 212,
+   "obsChallengerOnlyDrop": 42,
+   "obsIncumbentOnlyDrop": 45,
+   "payloadSha256": "e86c63a91efa7c35605263b8516ae79d78b509bd8ddb474033bdcfa541642be4",
+   "reproduced": [
+    81,
+    81,
+    81
+   ],
+   "rowsDisagree": 81,
+   "rowsValueChanged": 100,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-06T20:54:00.200026+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260907_230241.zip",
+   "challengerDrops": 218,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 596,
+   "incumbentDrops": 213,
+   "obsChallengerOnlyDrop": 49,
+   "obsIncumbentOnlyDrop": 44,
+   "payloadSha256": "05a13243ddbab937cc84d305d224d9ce806ddae569e214bbf037839a2340dba6",
+   "reproduced": [
+    82,
+    82,
+    82
+   ],
+   "rowsDisagree": 81,
+   "rowsValueChanged": 97,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-07T23:02:41.696628+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 0,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260908_212819.zip",
+   "challengerDrops": 220,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 595,
+   "incumbentDrops": 214,
+   "obsChallengerOnlyDrop": 47,
+   "obsIncumbentOnlyDrop": 41,
+   "payloadSha256": "4547fdea4e13709f154ac870801b357d52ca3d27cb86abfa140b9d3277b81fc6",
+   "reproduced": [
+    78,
+    78,
+    78
+   ],
+   "rowsDisagree": 77,
+   "rowsValueChanged": 112,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-08T21:28:19.755167+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 4,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 12
+  },
+  {
+   "board": "dynasty_export_20260909_211525.zip",
+   "challengerDrops": 135,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 638,
+   "incumbentDrops": 114,
+   "obsChallengerOnlyDrop": 64,
+   "obsIncumbentOnlyDrop": 43,
+   "payloadSha256": "9f5c8a1a066efe4dda62677249071051410e2e5af75c17b292f62b526220c431",
+   "reproduced": [
+    90,
+    90,
+    90
+   ],
+   "rowsDisagree": 90,
+   "rowsValueChanged": 123,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-09T21:15:25.520881+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 4,
+    "400": 5,
+    "50": 1
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260910_224947.zip",
+   "challengerDrops": 130,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 638,
+   "incumbentDrops": 113,
+   "obsChallengerOnlyDrop": 58,
+   "obsIncumbentOnlyDrop": 41,
+   "payloadSha256": "d0025d49b3ec35c4b3057f556d08c9e9606cdf1f8b45267cfa9ce4b895c70fa3",
+   "reproduced": [
+    90,
+    90,
+    90
+   ],
+   "rowsDisagree": 89,
+   "rowsValueChanged": 122,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-10T22:49:47.117154+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260911_212200.zip",
+   "challengerDrops": 128,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 638,
+   "incumbentDrops": 113,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 47,
+   "payloadSha256": "f8db7292de8682e7eee7014fefc2fb8b06f50d394e28e953315bfaacc54feb2d",
+   "reproduced": [
+    94,
+    94,
+    94
+   ],
+   "rowsDisagree": 94,
+   "rowsValueChanged": 127,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-11T21:21:59.932906+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260912_223716.zip",
+   "challengerDrops": 132,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 638,
+   "incumbentDrops": 114,
+   "obsChallengerOnlyDrop": 64,
+   "obsIncumbentOnlyDrop": 46,
+   "payloadSha256": "09450ebb357f569840e4beb6712da39420b7e25cc9f7e7e291cd22b72bf8ab94",
+   "reproduced": [
+    97,
+    97,
+    97
+   ],
+   "rowsDisagree": 97,
+   "rowsValueChanged": 129,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-12T22:37:16.493963+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 4,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260913_223956.zip",
+   "challengerDrops": 129,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 638,
+   "incumbentDrops": 110,
+   "obsChallengerOnlyDrop": 63,
+   "obsIncumbentOnlyDrop": 44,
+   "payloadSha256": "70f621f5bd22977ca20b00d571a36805a2e9fa715ff315a69fe62e55f2b4a04e",
+   "reproduced": [
+    97,
+    97,
+    97
+   ],
+   "rowsDisagree": 97,
+   "rowsValueChanged": 134,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-13T22:39:55.982635+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 4,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260914_233241.zip",
+   "challengerDrops": 124,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 639,
+   "incumbentDrops": 109,
+   "obsChallengerOnlyDrop": 61,
+   "obsIncumbentOnlyDrop": 46,
+   "payloadSha256": "8f609d137e8ee511277089cb22ed9ae9900e50ad40a68a38c04ab7c55735193b",
+   "reproduced": [
+    96,
+    96,
+    96
+   ],
+   "rowsDisagree": 96,
+   "rowsValueChanged": 127,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-14T23:32:40.978785+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 5,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260915_214858.zip",
+   "challengerDrops": 114,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 640,
+   "incumbentDrops": 99,
+   "obsChallengerOnlyDrop": 54,
+   "obsIncumbentOnlyDrop": 39,
+   "payloadSha256": "651c78cffbc2f038b29c9144b9e2bb552821752cb96209e296905c509de298ec",
+   "reproduced": [
+    84,
+    84,
+    84
+   ],
+   "rowsDisagree": 84,
+   "rowsValueChanged": 110,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-15T21:48:58.542838+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 4,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260916_214700.zip",
+   "challengerDrops": 122,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 642,
+   "incumbentDrops": 111,
+   "obsChallengerOnlyDrop": 59,
+   "obsIncumbentOnlyDrop": 48,
+   "payloadSha256": "f67de0cd51ea8f8882aa658856117259cd695d4107d65e7473805230ac458a86",
+   "reproduced": [
+    93,
+    93,
+    93
+   ],
+   "rowsDisagree": 93,
+   "rowsValueChanged": 125,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-16T21:47:00.649072+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 4,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260917_214927.zip",
+   "challengerDrops": 126,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 644,
+   "incumbentDrops": 113,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 49,
+   "payloadSha256": "bd780c51e815ecedd79a1aed72b843c6bacc6f6a945b39b693b57f26b2f11665",
+   "reproduced": [
+    99,
+    99,
+    99
+   ],
+   "rowsDisagree": 99,
+   "rowsValueChanged": 136,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-17T21:49:27.030228+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 5,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260918_211845.zip",
+   "challengerDrops": 131,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 641,
+   "incumbentDrops": 118,
+   "obsChallengerOnlyDrop": 63,
+   "obsIncumbentOnlyDrop": 50,
+   "payloadSha256": "fb2ee412bd686725f8279ac375db68fb8874d0748b53b0bb73234b375ff0dff1",
+   "reproduced": [
+    100,
+    100,
+    100
+   ],
+   "rowsDisagree": 100,
+   "rowsValueChanged": 132,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-18T21:18:45.479767+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 6,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260919_223220.zip",
+   "challengerDrops": 136,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 645,
+   "incumbentDrops": 125,
+   "obsChallengerOnlyDrop": 67,
+   "obsIncumbentOnlyDrop": 56,
+   "payloadSha256": "754ca122bbe91931a6d42229477da9f971b5ee4e48befaf904c9ad55d29e9341",
+   "reproduced": [
+    108,
+    108,
+    108
+   ],
+   "rowsDisagree": 108,
+   "rowsValueChanged": 146,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-19T22:32:20.306553+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 5,
+    "400": 4,
+    "50": 1
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260920_224450.zip",
+   "challengerDrops": 132,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 643,
+   "incumbentDrops": 128,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 58,
+   "payloadSha256": "faceb098971d44c1b6355e65ac80d55c80216a3b3881a8d79d1a90bd2835b7a8",
+   "reproduced": [
+    104,
+    104,
+    104
+   ],
+   "rowsDisagree": 104,
+   "rowsValueChanged": 145,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-20T22:44:50.844730+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 5,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260921_234150.zip",
+   "challengerDrops": 142,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 688,
+   "incumbentDrops": 130,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 56,
+   "payloadSha256": "1ccda26602b951d96c448ad73894656865e5505f5037522e1888e9b77a5aaf84",
+   "reproduced": [
+    108,
+    108,
+    108
+   ],
+   "rowsDisagree": 108,
+   "rowsValueChanged": 152,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-21T23:41:50.169419+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 6,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260922_214329.zip",
+   "challengerDrops": 141,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 684,
+   "incumbentDrops": 129,
+   "obsChallengerOnlyDrop": 67,
+   "obsIncumbentOnlyDrop": 55,
+   "payloadSha256": "989dcf54e0ec583123795a60aa795dbb76710b8aa7332ba5b2f85ea6c6373675",
+   "reproduced": [
+    109,
+    109,
+    109
+   ],
+   "rowsDisagree": 109,
+   "rowsValueChanged": 140,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-22T21:43:29.413827+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 5,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260923_215107.zip",
+   "challengerDrops": 135,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 680,
+   "incumbentDrops": 132,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "54efec9331611aa0ee8ab141f340490a8a51692fb4c05d723cfe248884565142",
+   "reproduced": [
+    111,
+    111,
+    111
+   ],
+   "rowsDisagree": 111,
+   "rowsValueChanged": 145,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-23T21:51:07.333976+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 3,
+    "400": 5,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260924_232149.zip",
+   "challengerDrops": 151,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 139,
+   "obsChallengerOnlyDrop": 72,
+   "obsIncumbentOnlyDrop": 60,
+   "payloadSha256": "1b614ce0e19263a37aa2a46ac1e6d207bf279980f3adfbb51f14e6033d84a1ba",
+   "reproduced": [
+    117,
+    117,
+    117
+   ],
+   "rowsDisagree": 117,
+   "rowsValueChanged": 153,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-24T23:21:49.383548+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 3,
+    "400": 5,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260925_233646.zip",
+   "challengerDrops": 153,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 142,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 57,
+   "payloadSha256": "6ef77581bd5bac784589a6568aac74b70f3e67d782a0454bb6eb84e631979028",
+   "reproduced": [
+    114,
+    114,
+    114
+   ],
+   "rowsDisagree": 114,
+   "rowsValueChanged": 155,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-25T23:36:46.320964+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 5,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260926_164906.zip",
+   "challengerDrops": 147,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 679,
+   "incumbentDrops": 137,
+   "obsChallengerOnlyDrop": 67,
+   "obsIncumbentOnlyDrop": 57,
+   "payloadSha256": "2ba0af9bbdbceaa17cbd5ea70fd5d2aa0904987f9daa5a320b4643b3458b89f2",
+   "reproduced": [
+    110,
+    110,
+    110
+   ],
+   "rowsDisagree": 110,
+   "rowsValueChanged": 151,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-26T16:49:06.686095+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 4,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260927_214140.zip",
+   "challengerDrops": 154,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 141,
+   "obsChallengerOnlyDrop": 67,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "58f071180f55487500379d47844c6921c58f7a6a4db5f11c40322102912c2b59",
+   "reproduced": [
+    109,
+    109,
+    109
+   ],
+   "rowsDisagree": 109,
+   "rowsValueChanged": 149,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-27T21:41:40.594037+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 5,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260928_233322.zip",
+   "challengerDrops": 163,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 70,
+   "obsIncumbentOnlyDrop": 52,
+   "payloadSha256": "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e",
+   "reproduced": [
+    110,
+    110,
+    110
+   ],
+   "rowsDisagree": 110,
+   "rowsValueChanged": 150,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-28T23:33:22.404434+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 7,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260929_194208.zip",
+   "challengerDrops": 170,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 163,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "7903d55c127eeb75cd0b12b7a6d13254209f215dbf202e636cdb39bbe91e73b4",
+   "reproduced": [
+    110,
+    110,
+    110
+   ],
+   "rowsDisagree": 110,
+   "rowsValueChanged": 148,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-29T19:42:08.241118+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 4,
+    "400": 5,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20260930_130404.zip",
+   "challengerDrops": 168,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 146,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 46,
+   "payloadSha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f",
+   "reproduced": [
+    102,
+    102,
+    102
+   ],
+   "rowsDisagree": 102,
+   "rowsValueChanged": 138,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 3,
+    "400": 5,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261002_193506.zip",
+   "challengerDrops": 160,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "ff84ac0d518949d6111fb1f601b553bd26f1901489a76db0c26ac63e8cdafb91",
+   "reproduced": [
+    105,
+    105,
+    105
+   ],
+   "rowsDisagree": 105,
+   "rowsValueChanged": 146,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-02T19:35:06.424571+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 2,
+    "400": 5,
+    "50": 4
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261003_164652.zip",
+   "challengerDrops": 164,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 149,
+   "obsChallengerOnlyDrop": 69,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "970f804e18b00a3acfc0a97c32d5ad56461c69ec6e2cfa95add8369e893fd52d",
+   "reproduced": [
+    109,
+    109,
+    109
+   ],
+   "rowsDisagree": 109,
+   "rowsValueChanged": 145,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-03T16:46:52.408661+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 4,
+    "400": 3,
+    "50": 4
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261003_214933.zip",
+   "challengerDrops": 162,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 148,
+   "obsChallengerOnlyDrop": 67,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "996f1a50ff60d0bbae3d582963538b6bdc44f01bf1018409e337e539d957f687",
+   "reproduced": [
+    108,
+    108,
+    108
+   ],
+   "rowsDisagree": 108,
+   "rowsValueChanged": 143,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-03T21:49:33.155741+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 5,
+    "400": 4,
+    "50": 4
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261004_020307.zip",
+   "challengerDrops": 164,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 150,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "610e57dfe99ecb468996c09b93d465405d6737b998c3f823c169c451a33659db",
+   "reproduced": [
+    109,
+    109,
+    109
+   ],
+   "rowsDisagree": 109,
+   "rowsValueChanged": 145,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-04T02:03:07.722083+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 3,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261004_085141.zip",
+   "challengerDrops": 165,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 149,
+   "obsChallengerOnlyDrop": 69,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "f923ab8cfc28463bfdc8e63f27307f413ef3f9bc6a34611a7c79df2f605ac3f5",
+   "reproduced": [
+    108,
+    108,
+    108
+   ],
+   "rowsDisagree": 108,
+   "rowsValueChanged": 147,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-04T08:51:40.976743+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 3,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261004_153351.zip",
+   "challengerDrops": 169,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 142,
+   "obsChallengerOnlyDrop": 76,
+   "obsIncumbentOnlyDrop": 49,
+   "payloadSha256": "3389cb1a38e905425a1f54355a555beabc8786461ca97d966c23b9e653fb5ba8",
+   "reproduced": [
+    109,
+    109,
+    109
+   ],
+   "rowsDisagree": 109,
+   "rowsValueChanged": 150,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-04T15:33:50.976493+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 4,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261004_195148.zip",
+   "challengerDrops": 165,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 73,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "a9c5c619b9a88410b30972e96221853f288a38c607b9e4a0d796463ee764b1eb",
+   "reproduced": [
+    110,
+    110,
+    110
+   ],
+   "rowsDisagree": 110,
+   "rowsValueChanged": 152,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-04T19:51:47.988633+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 4,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261004_233916.zip",
+   "challengerDrops": 167,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 141,
+   "obsChallengerOnlyDrop": 78,
+   "obsIncumbentOnlyDrop": 52,
+   "payloadSha256": "24237846c06bb9cdb6052dc43146bc031ec6ee5cce09dfb5f3b92394f7925960",
+   "reproduced": [
+    110,
+    110,
+    110
+   ],
+   "rowsDisagree": 110,
+   "rowsValueChanged": 155,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-04T23:39:16.279657+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 4,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261005_061740.zip",
+   "challengerDrops": 165,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 144,
+   "obsChallengerOnlyDrop": 74,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "2292262d8677876a3530db504c66348af3b8529339bb9b9a99b397a3ba19fbae",
+   "reproduced": [
+    108,
+    108,
+    108
+   ],
+   "rowsDisagree": 108,
+   "rowsValueChanged": 149,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-05T06:17:40.429209+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 4,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261005_152048.zip",
+   "challengerDrops": 169,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 142,
+   "obsChallengerOnlyDrop": 78,
+   "obsIncumbentOnlyDrop": 51,
+   "payloadSha256": "4527b447e6c5f9a7df8801ade5245c94adb842da7bcf800d57943105a61bf9a0",
+   "reproduced": [
+    111,
+    111,
+    111
+   ],
+   "rowsDisagree": 111,
+   "rowsValueChanged": 152,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-05T15:20:48.671464+00:00",
+   "topChurn": {
+    "100": 6,
+    "200": 3,
+    "400": 3,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261005_225803.zip",
+   "challengerDrops": 169,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 78,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "e17a5c6851f60b5f0e51308b0a99e9354aa59b84cccae725cbc936cab0bc0f0e",
+   "reproduced": [
+    112,
+    113,
+    113
+   ],
+   "rowsDisagree": 113,
+   "rowsValueChanged": 151,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-05T22:58:03.473611+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 4,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261006_065546.zip",
+   "challengerDrops": 169,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 677,
+   "incumbentDrops": 139,
+   "obsChallengerOnlyDrop": 79,
+   "obsIncumbentOnlyDrop": 49,
+   "payloadSha256": "342722c19c8e5a16e97289489f763b25eaf2db52242e49179c907f7f62479189",
+   "reproduced": [
+    106,
+    106,
+    106
+   ],
+   "rowsDisagree": 106,
+   "rowsValueChanged": 143,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-06T06:55:46.423054+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 5,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261006_153039.zip",
+   "challengerDrops": 170,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 140,
+   "obsChallengerOnlyDrop": 79,
+   "obsIncumbentOnlyDrop": 49,
+   "payloadSha256": "cd3088b73b6c8fb13af32ba5f2f04cdc16b182f909501fcf0aaf241410b00014",
+   "reproduced": [
+    105,
+    105,
+    105
+   ],
+   "rowsDisagree": 105,
+   "rowsValueChanged": 143,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-06T15:30:39.483681+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 5,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261006_211735.zip",
+   "challengerDrops": 166,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 142,
+   "obsChallengerOnlyDrop": 74,
+   "obsIncumbentOnlyDrop": 50,
+   "payloadSha256": "ccdc6194cb923a987ccef77aef7c6f5a8b26826f7214af2f79080a23e37b8fc8",
+   "reproduced": [
+    103,
+    103,
+    103
+   ],
+   "rowsDisagree": 103,
+   "rowsValueChanged": 138,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-06T21:17:35.402057+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 5,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261007_015227.zip",
+   "challengerDrops": 168,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 678,
+   "incumbentDrops": 146,
+   "obsChallengerOnlyDrop": 76,
+   "obsIncumbentOnlyDrop": 54,
+   "payloadSha256": "d6c94e21117a4d7f660938bec7012ab0a715f143d1d2bf1f74d7ba466abc5e4d",
+   "reproduced": [
+    110,
+    110,
+    110
+   ],
+   "rowsDisagree": 110,
+   "rowsValueChanged": 144,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-07T01:52:27.063516+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 5,
+    "400": 4,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261007_092552.zip",
+   "challengerDrops": 197,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 659,
+   "incumbentDrops": 213,
+   "obsChallengerOnlyDrop": 91,
+   "obsIncumbentOnlyDrop": 107,
+   "payloadSha256": "ecb2a9c51a3ce331675242202b73068f4877d95b9494de899071cc6ff736886d",
+   "reproduced": [
+    169,
+    168,
+    169
+   ],
+   "rowsDisagree": 169,
+   "rowsValueChanged": 165,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-07T09:25:52.096903+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 5,
+    "400": 3,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261007_173609.zip",
+   "challengerDrops": 171,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 676,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 78,
+   "obsIncumbentOnlyDrop": 52,
+   "payloadSha256": "a748e0e46571056618a2bb1b89d2906f900c981a1fcc8a1114d7058b061194c2",
+   "reproduced": [
+    109,
+    109,
+    109
+   ],
+   "rowsDisagree": 109,
+   "rowsValueChanged": 150,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-07T17:36:08.984296+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 4,
+    "400": 3,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261007_232213.zip",
+   "challengerDrops": 163,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 676,
+   "incumbentDrops": 151,
+   "obsChallengerOnlyDrop": 68,
+   "obsIncumbentOnlyDrop": 56,
+   "payloadSha256": "4011f101a3e66a564f3eede8ce8d91ff97c7274ab2307639acd986dab1170d49",
+   "reproduced": [
+    108,
+    108,
+    108
+   ],
+   "rowsDisagree": 108,
+   "rowsValueChanged": 147,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-07T23:22:13.422873+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 3,
+    "400": 2,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261008_064316.zip",
+   "challengerDrops": 155,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 676,
+   "incumbentDrops": 144,
+   "obsChallengerOnlyDrop": 67,
+   "obsIncumbentOnlyDrop": 56,
+   "payloadSha256": "48755cd4871efdf9d6f6a624579cbb088024daaf185bfa90edfe0eb84baa76c4",
+   "reproduced": [
+    107,
+    107,
+    107
+   ],
+   "rowsDisagree": 107,
+   "rowsValueChanged": 133,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-08T06:43:16.144155+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 1,
+    "400": 2,
+    "50": 1
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261008_141213.zip",
+   "challengerDrops": 190,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 656,
+   "incumbentDrops": 224,
+   "obsChallengerOnlyDrop": 80,
+   "obsIncumbentOnlyDrop": 114,
+   "payloadSha256": "6cee0f99ced4e13e74a2b4696ac60bd1594b4c5f9711a986a1b80dc067c17a99",
+   "reproduced": [
+    174,
+    174,
+    174
+   ],
+   "rowsDisagree": 174,
+   "rowsValueChanged": 170,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-08T14:12:13.827619+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 1,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261008_201231.zip",
+   "challengerDrops": 165,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 673,
+   "incumbentDrops": 149,
+   "obsChallengerOnlyDrop": 75,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "a7ae69c131875e393235f200a060d6a676797189db8bc3f42b785f2aa3f99dd8",
+   "reproduced": [
+    119,
+    119,
+    119
+   ],
+   "rowsDisagree": 119,
+   "rowsValueChanged": 145,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-08T20:12:31.070475+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261009_004358.zip",
+   "challengerDrops": 167,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 674,
+   "incumbentDrops": 151,
+   "obsChallengerOnlyDrop": 78,
+   "obsIncumbentOnlyDrop": 62,
+   "payloadSha256": "534c986bbf6c0836fcf7d9926d7876916ae32f04f673573a1838be855f0546fe",
+   "reproduced": [
+    123,
+    123,
+    123
+   ],
+   "rowsDisagree": 123,
+   "rowsValueChanged": 147,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-09T00:43:58.617742+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 2,
+    "400": 3,
+    "50": 2
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261009_065001.zip",
+   "challengerDrops": 177,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 156,
+   "obsChallengerOnlyDrop": 82,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "11ab5a08e41ae101c0f266db840c611cee94a540da547b4ab5afc2674e7b6280",
+   "reproduced": [
+    128,
+    128,
+    128
+   ],
+   "rowsDisagree": 128,
+   "rowsValueChanged": 179,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-09T06:50:01.381615+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 4,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261009_153734.zip",
+   "challengerDrops": 176,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 673,
+   "incumbentDrops": 154,
+   "obsChallengerOnlyDrop": 81,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "0dd09ed655764171d7ab892f8874979cc00774490a6a195a28c8d88b2c4d3b4b",
+   "reproduced": [
+    124,
+    124,
+    124
+   ],
+   "rowsDisagree": 124,
+   "rowsValueChanged": 178,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-09T15:37:34.898074+00:00",
+   "topChurn": {
+    "100": 5,
+    "200": 4,
+    "400": 5,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261009_212133.zip",
+   "challengerDrops": 179,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 673,
+   "incumbentDrops": 157,
+   "obsChallengerOnlyDrop": 83,
+   "obsIncumbentOnlyDrop": 61,
+   "payloadSha256": "2fd1d10edcab6e94ea2ef6661dc0fc49ec42233f2613bfc0f1e34fa14b42c3bc",
+   "reproduced": [
+    127,
+    127,
+    127
+   ],
+   "rowsDisagree": 127,
+   "rowsValueChanged": 176,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-09T21:21:33.577327+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 4,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261010_015826.zip",
+   "challengerDrops": 182,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 673,
+   "incumbentDrops": 159,
+   "obsChallengerOnlyDrop": 88,
+   "obsIncumbentOnlyDrop": 65,
+   "payloadSha256": "963fa8901f1577aee2d6000569296ee9c3270bbfeda63694713e916023ef01c9",
+   "reproduced": [
+    133,
+    133,
+    133
+   ],
+   "rowsDisagree": 133,
+   "rowsValueChanged": 176,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-10T01:58:25.939354+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 5,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261010_090501.zip",
+   "challengerDrops": 179,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 673,
+   "incumbentDrops": 158,
+   "obsChallengerOnlyDrop": 81,
+   "obsIncumbentOnlyDrop": 60,
+   "payloadSha256": "0734ed6ed48eb041d26b8c18a5d3dc3f46d2d31098d69c314212bfb7800ccb4f",
+   "reproduced": [
+    127,
+    127,
+    127
+   ],
+   "rowsDisagree": 127,
+   "rowsValueChanged": 176,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-10T09:05:01.323138+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 4,
+    "400": 5,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261010_160048.zip",
+   "challengerDrops": 175,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 160,
+   "obsChallengerOnlyDrop": 79,
+   "obsIncumbentOnlyDrop": 64,
+   "payloadSha256": "469491be95f6688ee97e2a509cf93a9d6e8b3db694e901b9dad01e66b22790c0",
+   "reproduced": [
+    127,
+    127,
+    127
+   ],
+   "rowsDisagree": 127,
+   "rowsValueChanged": 178,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-10T16:00:48.270811+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 4,
+    "400": 5,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261010_202220.zip",
+   "challengerDrops": 185,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 148,
+   "obsChallengerOnlyDrop": 95,
+   "obsIncumbentOnlyDrop": 58,
+   "payloadSha256": "a58323d6616838f3e2c056091e2457c06e99e837abd8ddf4d195a8c56e61fdef",
+   "reproduced": [
+    137,
+    137,
+    137
+   ],
+   "rowsDisagree": 137,
+   "rowsValueChanged": 184,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-10T20:22:20.787480+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 5,
+    "400": 4,
+    "50": 4
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261010_235341.zip",
+   "challengerDrops": 182,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 92,
+   "obsIncumbentOnlyDrop": 55,
+   "payloadSha256": "71518753c3817cb7ef9807ba857950ca05d3071d7d0d225e679ad4da072217cf",
+   "reproduced": [
+    131,
+    130,
+    131
+   ],
+   "rowsDisagree": 131,
+   "rowsValueChanged": 176,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-10T23:53:41.088918+00:00",
+   "topChurn": {
+    "100": 3,
+    "200": 5,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261011_063103.zip",
+   "challengerDrops": 185,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 145,
+   "obsChallengerOnlyDrop": 93,
+   "obsIncumbentOnlyDrop": 53,
+   "payloadSha256": "d7ac909f73779a6f584b0bcff6387945bfc70389324b31d32b988edcd4e79c76",
+   "reproduced": [
+    129,
+    129,
+    129
+   ],
+   "rowsDisagree": 129,
+   "rowsValueChanged": 168,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-11T06:31:03.338664+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 5,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261011_133520.zip",
+   "challengerDrops": 182,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 143,
+   "obsChallengerOnlyDrop": 96,
+   "obsIncumbentOnlyDrop": 57,
+   "payloadSha256": "2bc9aad08119d2753753359917c7d3afced42ba1016559724ed678c95f76cf98",
+   "reproduced": [
+    134,
+    134,
+    134
+   ],
+   "rowsDisagree": 134,
+   "rowsValueChanged": 166,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-11T13:35:20.651451+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 2,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261011_191416.zip",
+   "challengerDrops": 175,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 152,
+   "obsChallengerOnlyDrop": 82,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "670ad9143816f1740645640807865f71c5163bda74766cda8723aad9c814088c",
+   "reproduced": [
+    128,
+    128,
+    128
+   ],
+   "rowsDisagree": 128,
+   "rowsValueChanged": 177,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-11T19:14:16.614273+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 4,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261012_000240.zip",
+   "challengerDrops": 177,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 672,
+   "incumbentDrops": 151,
+   "obsChallengerOnlyDrop": 85,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "a9f48c23ca7040b38aa3965ec95c5ec4d33072c5b959ba2800677cf3e31be0c2",
+   "reproduced": [
+    131,
+    131,
+    131
+   ],
+   "rowsDisagree": 131,
+   "rowsValueChanged": 182,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-12T00:02:40.550504+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 5,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261012_063618.zip",
+   "challengerDrops": 174,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 674,
+   "incumbentDrops": 150,
+   "obsChallengerOnlyDrop": 83,
+   "obsIncumbentOnlyDrop": 59,
+   "payloadSha256": "a582833692dc312fe91866cefd90ba688c09b37e341540658f6d3ce4a3babe0e",
+   "reproduced": [
+    127,
+    127,
+    127
+   ],
+   "rowsDisagree": 127,
+   "rowsValueChanged": 173,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-12T06:36:18.236146+00:00",
+   "topChurn": {
+    "100": 4,
+    "200": 5,
+    "400": 4,
+    "50": 3
+   },
+   "votingFamilies": 14
+  },
+  {
+   "board": "dynasty_export_20261012_161108.zip",
+   "challengerDrops": 125,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 461,
+   "incumbentDrops": 112,
+   "obsChallengerOnlyDrop": 49,
+   "obsIncumbentOnlyDrop": 36,
+   "payloadSha256": "2e818bde6469c6011044ce90e29d90221f32870e06cfe6b18a8aeddc8a646fa6",
+   "reproduced": [
+    79,
+    79,
+    79
+   ],
+   "rowsDisagree": 79,
+   "rowsValueChanged": 95,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-12T16:11:08.577298+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 1,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261012_231649.zip",
+   "challengerDrops": 127,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 464,
+   "incumbentDrops": 110,
+   "obsChallengerOnlyDrop": 52,
+   "obsIncumbentOnlyDrop": 35,
+   "payloadSha256": "447051a1204e2468253440c48e98042110ab9478d2424087ef375fb8851a268f",
+   "reproduced": [
+    77,
+    77,
+    77
+   ],
+   "rowsDisagree": 77,
+   "rowsValueChanged": 92,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-12T23:16:49.195525+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 1,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261013_071003.zip",
+   "challengerDrops": 132,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 461,
+   "incumbentDrops": 113,
+   "obsChallengerOnlyDrop": 54,
+   "obsIncumbentOnlyDrop": 35,
+   "payloadSha256": "603119f5375d64d1caa7735e67f5e9f318a0306bf961115ca6bcc6cd0971e489",
+   "reproduced": [
+    79,
+    79,
+    79
+   ],
+   "rowsDisagree": 79,
+   "rowsValueChanged": 98,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-13T07:10:03.491614+00:00",
+   "topChurn": {
+    "100": 2,
+    "200": 1,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261013_163029.zip",
+   "challengerDrops": 144,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 462,
+   "incumbentDrops": 124,
+   "obsChallengerOnlyDrop": 58,
+   "obsIncumbentOnlyDrop": 38,
+   "payloadSha256": "fd0441739ff7e78fc121841b30640266d425bfe7f52dc56a8ee290666f121153",
+   "reproduced": [
+    85,
+    85,
+    85
+   ],
+   "rowsDisagree": 85,
+   "rowsValueChanged": 111,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-13T16:30:29.763582+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261013_213606.zip",
+   "challengerDrops": 150,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 461,
+   "incumbentDrops": 128,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 40,
+   "payloadSha256": "4bedacb3ffe77902322bd92ba8b3d5ed8627c2d1023d0cb7b5872a494e467d90",
+   "reproduced": [
+    85,
+    85,
+    85
+   ],
+   "rowsDisagree": 85,
+   "rowsValueChanged": 119,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-13T21:36:06.042237+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261014_012731.zip",
+   "challengerDrops": 145,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 463,
+   "incumbentDrops": 119,
+   "obsChallengerOnlyDrop": 60,
+   "obsIncumbentOnlyDrop": 34,
+   "payloadSha256": "8322f111cf9a8f38053807783f4cf03af155f598073a6f80aa35e955c222bb54",
+   "reproduced": [
+    76,
+    76,
+    76
+   ],
+   "rowsDisagree": 76,
+   "rowsValueChanged": 103,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-14T01:27:31.405924+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261014_080442.zip",
+   "challengerDrops": 146,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 462,
+   "incumbentDrops": 121,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 37,
+   "payloadSha256": "85184786bb8c44092f4e4aa6942046a9f75b060fd749fa6d086597e3052150b4",
+   "reproduced": [
+    79,
+    79,
+    79
+   ],
+   "rowsDisagree": 79,
+   "rowsValueChanged": 109,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-14T08:04:42.307009+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 5,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261014_140605.zip",
+   "challengerDrops": 148,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 463,
+   "incumbentDrops": 123,
+   "obsChallengerOnlyDrop": 62,
+   "obsIncumbentOnlyDrop": 37,
+   "payloadSha256": "aeba4262f675b130117919d7e0823575f085de4a87d44cb473cee9fbbf045741",
+   "reproduced": [
+    77,
+    77,
+    77
+   ],
+   "rowsDisagree": 77,
+   "rowsValueChanged": 106,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-14T14:06:05.000913+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 5,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261014_185726.zip",
+   "challengerDrops": 133,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 463,
+   "incumbentDrops": 102,
+   "obsChallengerOnlyDrop": 55,
+   "obsIncumbentOnlyDrop": 24,
+   "payloadSha256": "75c253c8e80fbc386355c73116d0f8e5efdccb6e25f08b34a7d68cf6ed271ddf",
+   "reproduced": [
+    70,
+    70,
+    70
+   ],
+   "rowsDisagree": 70,
+   "rowsValueChanged": 100,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-14T18:57:26.733828+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 4,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261014_233024.zip",
+   "challengerDrops": 120,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 464,
+   "incumbentDrops": 96,
+   "obsChallengerOnlyDrop": 50,
+   "obsIncumbentOnlyDrop": 26,
+   "payloadSha256": "4e74e94ccefe56cb745e9228587e6d6a1e9dfc603a0df707c1405074956e771d",
+   "reproduced": [
+    68,
+    68,
+    68
+   ],
+   "rowsDisagree": 68,
+   "rowsValueChanged": 87,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-14T23:30:24.391517+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 2,
+    "50": 3
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261015_051650.zip",
+   "challengerDrops": 119,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 464,
+   "incumbentDrops": 101,
+   "obsChallengerOnlyDrop": 48,
+   "obsIncumbentOnlyDrop": 30,
+   "payloadSha256": "6a172bb2ac728c4d3d182beef0b458b196c971ae4dfaf8bc3f0408778731a617",
+   "reproduced": [
+    69,
+    69,
+    69
+   ],
+   "rowsDisagree": 69,
+   "rowsValueChanged": 87,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-15T05:16:50.186590+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 3,
+    "50": 3
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261015_121138.zip",
+   "challengerDrops": 122,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 465,
+   "incumbentDrops": 102,
+   "obsChallengerOnlyDrop": 46,
+   "obsIncumbentOnlyDrop": 26,
+   "payloadSha256": "4490bd25819df4705a233135c92ab4ca23d093142621e4dc2082299a3089ce9a",
+   "reproduced": [
+    64,
+    65,
+    65
+   ],
+   "rowsDisagree": 65,
+   "rowsValueChanged": 85,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-15T12:11:37.969020+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261015_172516.zip",
+   "challengerDrops": 114,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 465,
+   "incumbentDrops": 95,
+   "obsChallengerOnlyDrop": 49,
+   "obsIncumbentOnlyDrop": 30,
+   "payloadSha256": "d03fcaefd8bd6ae8b1c2bb1feb372d07fb666011f8f0c2db7c93bcecabbb878b",
+   "reproduced": [
+    71,
+    71,
+    71
+   ],
+   "rowsDisagree": 71,
+   "rowsValueChanged": 92,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-15T17:25:15.965825+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 4,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261015_215027.zip",
+   "challengerDrops": 119,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 465,
+   "incumbentDrops": 98,
+   "obsChallengerOnlyDrop": 52,
+   "obsIncumbentOnlyDrop": 31,
+   "payloadSha256": "3cb41ec32851419f7292a07f5082841ccabadf7d361f9ab9c6cd44fe05202692",
+   "reproduced": [
+    73,
+    73,
+    73
+   ],
+   "rowsDisagree": 73,
+   "rowsValueChanged": 91,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-15T21:50:27.337874+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261016_004906.zip",
+   "challengerDrops": 109,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 464,
+   "incumbentDrops": 99,
+   "obsChallengerOnlyDrop": 42,
+   "obsIncumbentOnlyDrop": 32,
+   "payloadSha256": "6e9547db628954c245956dda45df7df54915403f294580525fb4072c8c5dcc94",
+   "reproduced": [
+    65,
+    66,
+    66
+   ],
+   "rowsDisagree": 66,
+   "rowsValueChanged": 92,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-16T00:49:06.582037+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 0,
+    "400": 1,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261016_073446.zip",
+   "challengerDrops": 117,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 465,
+   "incumbentDrops": 99,
+   "obsChallengerOnlyDrop": 47,
+   "obsIncumbentOnlyDrop": 29,
+   "payloadSha256": "e32707365a3ced741fb1e7a84e3afce418fcefb17f5d993e8b33f9e4d6f24608",
+   "reproduced": [
+    65,
+    66,
+    66
+   ],
+   "rowsDisagree": 66,
+   "rowsValueChanged": 84,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-16T07:34:46.637167+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261016_134010.zip",
+   "challengerDrops": 145,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 465,
+   "incumbentDrops": 175,
+   "obsChallengerOnlyDrop": 60,
+   "obsIncumbentOnlyDrop": 90,
+   "payloadSha256": "10a4958d401089701315f8a199c8ba0911a5efeac57fb33cbd489f47307d29f6",
+   "reproduced": [
+    128,
+    128,
+    128
+   ],
+   "rowsDisagree": 128,
+   "rowsValueChanged": 127,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-16T13:40:10.343091+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261016_182508.zip",
+   "challengerDrops": 120,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 464,
+   "incumbentDrops": 103,
+   "obsChallengerOnlyDrop": 46,
+   "obsIncumbentOnlyDrop": 29,
+   "payloadSha256": "97f20ca60c77d580f454c76ff55b6b828e21923a8cc241314a615eaae3081ba0",
+   "reproduced": [
+    66,
+    67,
+    67
+   ],
+   "rowsDisagree": 67,
+   "rowsValueChanged": 86,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-16T18:25:08.049273+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 1,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261016_214642.zip",
+   "challengerDrops": 118,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 463,
+   "incumbentDrops": 100,
+   "obsChallengerOnlyDrop": 48,
+   "obsIncumbentOnlyDrop": 30,
+   "payloadSha256": "70eb7761324f3de9e9931a8e2b4195752bd76ccb72f1a1ac0a32a6be5194176f",
+   "reproduced": [
+    68,
+    69,
+    69
+   ],
+   "rowsDisagree": 69,
+   "rowsValueChanged": 86,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-16T21:46:42.284991+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 2,
+    "400": 4,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261017_004948.zip",
+   "challengerDrops": 116,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 463,
+   "incumbentDrops": 109,
+   "obsChallengerOnlyDrop": 39,
+   "obsIncumbentOnlyDrop": 32,
+   "payloadSha256": "9f7579ccc5f8da9de0b71d034e06bced965d7342c1abbee873c272263fc8e576",
+   "reproduced": [
+    65,
+    65,
+    65
+   ],
+   "rowsDisagree": 65,
+   "rowsValueChanged": 79,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-17T00:49:47.985178+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 3,
+    "400": 3,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261017_071509.zip",
+   "challengerDrops": 108,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 464,
+   "incumbentDrops": 100,
+   "obsChallengerOnlyDrop": 36,
+   "obsIncumbentOnlyDrop": 28,
+   "payloadSha256": "e9b851e7a72e1ddbb9ad11598606b21e5d381aac8cba1d18532ef82d4fe14cf4",
+   "reproduced": [
+    58,
+    58,
+    58
+   ],
+   "rowsDisagree": 58,
+   "rowsValueChanged": 72,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-17T07:15:09.477322+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 2,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261017_122823.zip",
+   "challengerDrops": 111,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 466,
+   "incumbentDrops": 100,
+   "obsChallengerOnlyDrop": 38,
+   "obsIncumbentOnlyDrop": 27,
+   "payloadSha256": "1ad92cf9f3f4d6508b9f8644b0cc7a8ab98dc900e53812dc2201068e2ca6173d",
+   "reproduced": [
+    59,
+    59,
+    59
+   ],
+   "rowsDisagree": 59,
+   "rowsValueChanged": 74,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-17T12:28:23.722411+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261017_160007.zip",
+   "challengerDrops": 112,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 467,
+   "incumbentDrops": 95,
+   "obsChallengerOnlyDrop": 44,
+   "obsIncumbentOnlyDrop": 27,
+   "payloadSha256": "3b37c1fbb960d5fac7558876a1177a19fd7c2d7402a4a85ef2fb71b92a171731",
+   "reproduced": [
+    65,
+    65,
+    65
+   ],
+   "rowsDisagree": 65,
+   "rowsValueChanged": 90,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-17T16:00:07.386644+00:00",
+   "topChurn": {
+    "100": 1,
+    "200": 1,
+    "400": 3,
+    "50": 1
+   },
+   "votingFamilies": 13
+  },
+  {
+   "board": "dynasty_export_20261017_185402.zip",
+   "challengerDrops": 104,
+   "codeRevision": "996f70b7d9eeae5abbbe8b764cb611894d90e159",
+   "completeness": "complete",
+   "filterRows": 466,
+   "incumbentDrops": 98,
+   "obsChallengerOnlyDrop": 40,
+   "obsIncumbentOnlyDrop": 34,
+   "payloadSha256": "e4cfa70d9b8511a751003cf5c6c679666d38868d6d9ab5b6de0713333f308314",
+   "reproduced": [
+    69,
+    69,
+    69
+   ],
+   "rowsDisagree": 69,
+   "rowsValueChanged": 85,
+   "safeguardsFired": {
+    "dominant_evidence_kept": 0,
+    "kept_to_avoid_single_family": 0
+   },
+   "scrapeTimestamp": "2026-10-17T18:54:02.728594+00:00",
+   "topChurn": {
+    "100": 0,
+    "200": 0,
+    "400": 2,
+    "50": 0
+   },
+   "votingFamilies": 13
+  }
+ ],
+ "label": "archived inputs rebuilt through today's pipeline code -- NOT what production served that day",
+ "mode": "historical_replay",
+ "schema": "joint-filter-shadow/v1/summary"
+}
