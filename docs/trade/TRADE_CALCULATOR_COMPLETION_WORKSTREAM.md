@@ -651,13 +651,33 @@ shell-owned (UX audit §2.1 row 18) and belongs to the shell lane.
 
 ### Bundle
 
-`/trade` 77.9 → 81.8 KB of 93 KB (11.2 KB headroom); every new panel is `React.lazy` (`dyn`, never `next/dynamic`).
+`/trade` 77.9 → 82.2 KB of 93 KB (10.8 KB headroom); every new panel is `React.lazy` (`dyn`, never `next/dynamic`).
 `/league` 49.8 KB before and after (the train head is already at 49.8; this batch adds nothing to it). `/trades`
-23.6 → 24.5 KB of 26; `/arbitrage` 76.0 → 77.3 KB of 82.
+23.6 → 25.0 KB of 26; `/arbitrage` 76.0 → 77.3 KB of 82.
 
 ### Gates run on the TC-B2/D2 head (2026-10-18)
 
-GATES-PLACEHOLDER
+- `format_python_changes.sh`: GREEN (Ruff 0.6.9). `check_decision_coercions.py`: "clean: no new coercions, no stale
+  allowances in the files this change touches." (one new `|| 0` in `multiTeamNetSummary` was caught on the first
+  commit and fixed: an unknown net stays unknown). `check_planning_integrity.py` and
+  `check_product_plan_governance.py`: clean.
+- `pytest tests/trade tests/api/test_trade_desk_endpoint.py`: 2098 passed (48 subtests).
+- Full `npx vitest run __tests__`: 4274 / 4275. The one failure was `game-day-panel.test.jsx` (load-sensitive, not
+  touched; 64 / 64 alone), the same test D1 recorded.
+- `build:nocheck` + `check:bundles`: all 17 budgeted pages under budget — `/trade` 82.2 KB of 93, `/arbitrage` 77.3 of
+  82, `/league` 49.8 of 50 (unchanged from the train head), `/trades` 25.0 of 26.
+- Real-stack Playwright (seeded snapshot, Chromium, desktop-1366 + mobile-chromium): `trade-tcd2` (new),
+  `trade-war-room`, `trade-next-actions`, `mobile-trade-quantity`, `trade-screenshot-import`, `trade-ktc-import`,
+  `mobile-pinned-overlap`, `journey-trade` — 29 passed, 7 skipped (gated to the other project by the specs
+  themselves), 0 failed. The specs add assets through one helper (`tests/e2e/helpers/trade-builder.js`) that drives
+  the inline search on desktop and the bottom sheet on phones; the production-auth specs that add assets or press
+  Simulate impact were moved onto it too (not run here: they target production).
+- Before/after screenshots at 1440x900 and 375x812, plus measurements, in `docs/trade/tc-d2-2026-10-18/`
+  (before = the train head, after = this branch, same trade). Found and fixed while capturing: at 375 px a 3-team
+  trade's routed rows clipped the player name to nothing (the destination select took the row; UI contract §6) and a
+  balancer line pushed the page 48 px sideways; both now wrap. The Second Opinions shots show two real sources
+  (`idpShowCombined`, `fantasyNavigatorSf`) reading "Unavailable — stale or unhealthy source, excluded from our
+  blend" on the seeded board, where they used to be scored with our values.
 
 ## Coordination with in-flight work
 

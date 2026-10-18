@@ -56,7 +56,14 @@ function stateLabel(opinion, sideLabels) {
         Unavailable —{" "}
         <span
           className="muted"
-          style={{ display: "block", fontSize: "0.62rem", fontWeight: 400, maxWidth: "14rem", margin: "0 auto" }}
+          style={{
+            display: "block",
+            fontSize: "0.62rem",
+            fontWeight: 400,
+            maxWidth: "14rem",
+            margin: "0 auto",
+            whiteSpace: "normal",
+          }}
         >
           {(opinion.unavailableReasons || [null]).map(unavailableReasonText).join("; ")}
         </span>
