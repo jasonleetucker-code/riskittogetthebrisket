@@ -1174,10 +1174,13 @@ export function compareRows(payload) {
     row("pickValue", "Draft pick value (priced)", (s) =>
       num(s.draftCapital?.pricedValue),
     ),
+    // No archetype block (career unread) is "not evaluated", never "None".
     row("archetypes", "Archetypes suggested", (s) =>
-      suggestedArchetypes(s.archetypes)
-        .map((i) => i.label)
-        .join(", ") || "None",
+      s.archetypes == null
+        ? "Not evaluated"
+        : suggestedArchetypes(s.archetypes)
+            .map((i) => i.label)
+            .join(", ") || "None",
     ),
   ];
 }

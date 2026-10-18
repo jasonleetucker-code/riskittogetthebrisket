@@ -260,6 +260,11 @@ private gate is enforced.
   matched by its current owner only, a missing value is `null` + the reason.
 - Frontend: a Career tab on `/managers` (season table / stacked rows, totals with coverage, archetype chips
   with an evidence drilldown) and the private compare page `/managers/compare?a=&b=&league=`.
+- Missing is never zero in the archetypes: a sample that cannot be counted (win-now / rebuilding when the
+  paired own-pick sample is below its minimum) reads "not countable", never "0"; unpublished trade-shape
+  counts make consolidator / depth builder `unavailable`; waiver adds sum only the methods that were read.
+  An unread career is "Not evaluated" in the comparison, never "None".
+- `/managers/compare` is in the axe a11y scan (`tests/e2e/specs/a11y-axe.spec.js` static `ROUTES`).
 
 ## Batch F — Saved managers, alerts, scoped leaderboards
 
@@ -279,5 +284,5 @@ private gate is enforced.
 | B1 + B2 + feed | `claude/manager-intel-b` | IMPLEMENTED — PR open; read-only live probe recorded in the PR (jnesselhauf, Aguilar315) |
 | B3 | `claude/manager-intel-b3` (stacked on `claude/manager-intel-b`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315) recorded for the PR |
 | C | `claude/manager-intel-c` (stacked on `claude/manager-intel-b3`) | IMPLEMENTED — PR pending; read-only live probe (dynasty_main 1312006700437352448, Championship Alleys) recorded for the PR |
-| E | `claude/manager-intel-e` (stacked on `claude/manager-intel-c`) | IMPLEMENTED — PR pending; read-only live probe (jnesselhauf, Aguilar315 career; compare; Risk It league percentile) recorded for the PR |
+| E | `claude/manager-intel-e` (on `main`; B1–C merged via release train 5) | IMPLEMENTED — PR open, not merged; read-only live probe 2026-10-18 (jnesselhauf career 72/360 calls, 26 seasons / 14 counted, one chain truncated at the 6-season bound; compare vs Aguilar315; dynasty_main league percentile) recorded in the PR |
 | D, F | — | QUEUED (D, then F) |

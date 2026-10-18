@@ -93,6 +93,16 @@ describe("career helpers (Batch E)", () => {
     expect(rows.archetypes).toMatchObject({ a: "Consolidator", b: "None" });
   });
 
+  it("an unread career is 'Not evaluated', never 'None'", () => {
+    const payload = {
+      ...COMPARE.managers,
+      b: { ...COMPARE.managers.b, career: null, archetypes: null },
+    };
+    const rows = Object.fromEntries(compareRows(payload).map((r) => [r.key, r]));
+    expect(rows.archetypes.b).toBe("Not evaluated");
+    expect(rows.titles.b).toBe("—");
+  });
+
   it("a missing percentile says why", () => {
     const [value, picks] = COMPARE.league.metrics;
     expect(percentileText(value)).toBe("Higher than 67% of the league");

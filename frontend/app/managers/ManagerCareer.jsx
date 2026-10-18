@@ -102,7 +102,7 @@ function SeasonTable({ seasons }) {
         {seasons.map((s) => (
           <li key={`${s.leagueId}:${s.season}`}>
             <strong>
-              {s.season} · {s.leagueName || "Unnamed league"}
+              {s.season || "—"} · {s.leagueName || "Unnamed league"}
             </strong>
             <dl className={styles.scoutStackFacts}>
               <div>

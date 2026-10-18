@@ -598,17 +598,6 @@ export default function ManagersPage() {
                         ? `${recordText(l.record)} · ${formatValue(l.playerCount)} players${l.coOwned ? " · co-owner" : ""}`
                         : leagueStateLabel(l.state)}
                     </span>
-                    {leagueScoutHref(l.leagueId) ? (
-                      <a
-                        href={leagueScoutHref(l.leagueId)}
-                        className={styles.link}
-                      >
-                        Scout this league
-                        <span className={styles.srOnly}>
-                          : {l.name || "unnamed league"}
-                        </span>
-                      </a>
-                    ) : null}
                     {l.state === "ok" &&
                     compareHref({ a: manager?.username, leagueId: l.leagueId }) ? (
                       <a
@@ -619,6 +608,17 @@ export default function ManagersPage() {
                         className={styles.link}
                       >
                         Compare with this league
+                        <span className={styles.srOnly}>
+                          : {l.name || "unnamed league"}
+                        </span>
+                      </a>
+                    ) : null}
+                    {leagueScoutHref(l.leagueId) ? (
+                      <a
+                        href={leagueScoutHref(l.leagueId)}
+                        className={styles.link}
+                      >
+                        Scout this league
                         <span className={styles.srOnly}>
                           : {l.name || "unnamed league"}
                         </span>

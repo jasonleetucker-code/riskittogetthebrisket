@@ -536,3 +536,39 @@ def test_career_payload_names_no_other_manager():
     blob = json.dumps(mc.build_manager_career("someone", **u.kwargs()))
     for other in ('"x"', '"y"', '"z"', '"w"'):
         assert other not in blob
+
+
+def test_uncountable_sample_is_never_shown_as_zero():
+    """Win-now / rebuilding need the pick sample too: below it the age sample
+    is NOT countable, and the statement says so rather than "0 players"."""
+    few_picks = _activity()
+    few_picks["draftCapital"]["totals"].update(picksHeld=2, acquiredHeld=0, ownTradedAway=1)
+    items = _by_key(mc.evaluate_archetypes(profile=_profile(27.0), activity=few_picks, career=None))
+    assert items["win_now"]["state"] == "insufficient_sample"
+    assert items["win_now"]["sampleSize"] is None
+    assert "not countable" in items["win_now"]["statement"]
+    assert "Insufficient sample: 0" not in items["win_now"]["statement"]
+
+
+def test_unpublished_trade_shape_counts_are_unavailable_not_zero():
+    act = _activity(tendencies={"tradeCount": 9, "pieces": {}})
+    items = _by_key(mc.evaluate_archetypes(profile=_profile(), activity=act, career=None))
+    for key in ("consolidator", "depth_builder"):
+        assert items[key]["state"] == "unavailable"
+        assert items[key]["evidence"]["matching"] is None
+
+
+def test_waiver_adds_sum_only_methods_that_were_read():
+    act = _activity(analytics={"byMethod": {"FREE_AGENT": 9, "WAIVER": 9, "TRADE": 40}})
+    items = _by_key(mc.evaluate_archetypes(profile=_profile(), activity=act, career=None))
+    assert items["waiver_active"]["evidence"] == {"adds": 18, "leagues": 2, "perLeague": 9.0}
+    assert items["waiver_active"]["state"] == "suggested"
+
+
+def test_season_rows_without_a_season_sort_last():
+    rows = [
+        {"season": None, "leagueName": "A"},
+        {"season": "2024", "leagueName": "B"},
+        {"season": "2025", "leagueName": "C"},
+    ]
+    assert [r["leagueName"] for r in sorted(rows, key=mc._season_sort_key)] == ["C", "B", "A"]

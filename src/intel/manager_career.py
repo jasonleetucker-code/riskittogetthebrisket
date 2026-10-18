@@ -483,8 +483,11 @@ def _archetype(
         state, statement = STATE_UNAVAILABLE, f"Not evaluated: {unavailable_reason}."
     elif sample is None or sample < min_sample["value"]:
         state = STATE_INSUFFICIENT
+        # ``None`` = the sample could not be counted at all (e.g. the paired
+        # pick sample is itself below its minimum) — never shown as 0.
+        counted = "not countable" if sample is None else f"{sample}"
         statement = (
-            f"Insufficient sample: {sample or 0} {sample_unit} "
+            f"Insufficient sample: {counted} {sample_unit} "
             f"(needs at least {min_sample['value']})."
         )
     elif met:
@@ -585,8 +588,9 @@ def evaluate_archetypes(
             "more",
         ),
     ):
-        n_hit = int(pieces.get(count_key) or 0)
-        sh = _rate(n_hit, trades_n or 0)
+        n_hit = pieces.get(count_key)
+        sh = _rate(n_hit, trades_n) if n_hit is not None and trades_n else None
+        shape_unread = None if n_hit is not None else "trade shape counts were not published"
         items.append(
             _archetype(
                 key,
@@ -604,7 +608,7 @@ def evaluate_archetypes(
                 ),
                 not_met=f"{n_hit} of {trades_n} trades brought back {verb} pieces ({_pct(sh)})",
                 sample_unit="trades",
-                unavailable_reason=no_act,
+                unavailable_reason=no_act or shape_unread,
                 evidence_complete=act_complete,
             )
         )
@@ -700,7 +704,9 @@ def evaluate_archetypes(
         )
     )
     by_method = ((activity or {}).get("analytics") or {}).get("byMethod") or {} if act_ok else {}
-    adds = int(by_method.get("WAIVER") or 0) + int(by_method.get("FREE_AGENT") or 0)
+    # byMethod counts the acquisitions that were read; a method absent from
+    # it had none in the read data (the sample is the held leagues).
+    adds = sum(n for m, n in by_method.items() if m in ("WAIVER", "FREE_AGENT"))
     per_adds = round(adds / held_leagues, 2) if act_ok and held_leagues else None
     items.append(
         _archetype(
@@ -851,6 +857,12 @@ def _safe(provider: Provider | None, *args: Any, **kwargs: Any) -> dict[str, Any
         return None
 
 
+def _season_sort_key(row: dict[str, Any]) -> tuple[bool, int, str]:
+    """Newest season first; a row with no readable season sorts last."""
+    season = ma._int(row.get("season"))  # noqa: SLF001
+    return (season is None, -(season if season is not None else 0), row.get("leagueName") or "")
+
+
 def build_manager_career(
     username: str,
     *,
@@ -937,7 +949,7 @@ def build_manager_career(
 
     seasons = sorted(
         (s for lg in per_league for s in lg.pop("seasons")),
-        key=lambda s: (-(ma._int(s.get("season")) or 0), s.get("leagueName") or ""),  # noqa: SLF001
+        key=_season_sort_key,
     )
     totals = career_totals(seasons)
     coverage_rows = [
