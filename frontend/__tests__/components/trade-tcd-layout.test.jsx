@@ -124,7 +124,10 @@ describe("DecisionSummary — the War Room's answer, echoed", () => {
   it("keeps the previous answer dimmed and marked while it updates", () => {
     render(<DecisionSummary summary={{ status: "updating", decision }} />);
     expect(screen.getByTestId("decision-summary-headline")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/Updating/);
+    expect(screen.getByTestId("decision-summary-updating")).toHaveTextContent(/Updating/);
+    // TC-E design choice: progress is visible but never a live region; only
+    // the final decision change is announced (TradeVerdictAnnouncer).
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it.each([

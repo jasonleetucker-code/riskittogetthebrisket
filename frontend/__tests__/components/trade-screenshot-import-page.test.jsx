@@ -199,8 +199,9 @@ async function searchAndPick(sideLetter, query, rowName) {
   await userEvent.clear(input);
   await userEvent.type(input, query);
   const box = input.closest(".trade-side-search") || document.body;
+  // TC-E: inline search rows are combobox options.
   await userEvent.click(
-    await within(box).findByRole("button", { name: new RegExp(`^${rowName}`) }),
+    await within(box).findByRole("option", { name: new RegExp(`^${rowName}`) }),
   );
 }
 
