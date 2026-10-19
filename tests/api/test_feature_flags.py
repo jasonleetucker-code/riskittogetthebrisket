@@ -103,6 +103,20 @@ def test_every_flag_defaults_off_except_safe_additive():
         # quarantined, 288 rows).  Rollback:
         # RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0 (factors stay stamped).
         "source_freshness_weighting",
+        # Owner directive 2026-10-19 ("Universal Source Voting and Freshness
+        # Policy" §2): the freshness factor is the owner's step schedule on
+        # whole days since the last genuine publisher update (0-7 1.00, 8-14
+        # 0.75, 15-21 0.50, 22-30 0.25, >30 0).  Blast radius MEASURED on the
+        # 2026-10-19 export (scripts/freshness_schedule_impact.py, v1 vs v2 in
+        # one process; docs/sources/evidence/UNIVERSAL_FRESHNESS_2026-10-19/):
+        # 918 of 1,029 priced values move, median |d| 0.91%, p90 3.60%, p99
+        # 12.71%, max 42.86% (offense, Fantasy Navigator voting again at 75%
+        # after the v1 curve quarantined it at 8 days); 3 deep IDP rows newly
+        # unpriced (FantasyPros IDP, 45 days on its own vendor clock, was
+        # their only voter); top-50 1 in / 1 out, top-200 1 in / 1 out.  OFF
+        # is byte-identical to the prior board.  Rollback:
+        # RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0 + restart.
+        "source_freshness_schedule_v2",
         # Owner directive 2026-09-24: every correlation-family member votes
         # under a family cap (one provider's authority).  Blast radius
         # measured by scripts/backtest_family_cap.py over 2026-09-10..24:
