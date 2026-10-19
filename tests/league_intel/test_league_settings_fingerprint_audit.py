@@ -82,3 +82,18 @@ def test_missing_scoring_fails_not_zero_filled():
     del snap["scoring_settings"]
     with pytest.raises(ValueError, match="scoring_settings"):
         mod.audit(reg, snap, "1312006700437352448")
+
+
+def test_archived_registry_and_snapshot_match_2026_07_26():
+    """Historical parity proof only — NOT a check of current Sleeper settings."""
+    root = Path(__file__).resolve().parents[2]
+    registry = mod._read_json(root / "config/leagues/registry.json")
+    snapshot = mod._read_json(root / "config/league_intel/sleeper_league_snapshot_2026-07-26.json")
+    result = mod.audit(registry, snapshot, "1312006700437352448")
+    assert result["status"] == "MATCH"
+    assert result["scoring_keys"] == 141
+    assert result["sleeper_shape"]["roster_size"] == 58
+    assert sum(result["sleeper_shape"]["starters"].values()) == 21
+    assert result["sleeper_shape"]["starters"]["TE"] == 2
+    assert sum(result["sleeper_shape"]["starters"][key] for key in ("DL", "LB", "DB")) == 9
+    assert snapshot["scoring_settings"]["bonus_rec_te"] == 0
