@@ -1,0 +1,210 @@
+name: Signals Health and Native Probe
+
+# Two read-only Signals evidence runs (owner directive 2026-10-19; plan
+# PR-H §5.5 "health mode" and PR-P §3.3):
+#
+#   * health        — per-family collection health on the production host:
+#                     units, session health CLASS, min-interval skips, the
+#                     quarantine census, CSV == the release that claims it and
+#                     == that family's last good release, _last_success vs
+#                     what was published/verified, dataset clocks, freshness
+#                     factors, would-alert booleans, served flags,
+#                     MemAvailable (scripts/verify_signals_health.py).
+#   * native-bundle — Tier 0 of the native league-value probe, OFF-BOX on the
+#                     runner: unauthenticated GETs of Signals' public web-app
+#                     bundle; no credentials, no SSH.
+#   * native-probe  — the full native probe on the host: preflight -> Tier 0
+#                     -> 1b -> [1c] -> 2 (scripts/probe_signals_native.py).
+#                     Never renews or records an auth failure; refuses unless
+#                     the stored token is already fresh for the window and
+#                     both Signals timers are clear (schedule it shortly after
+#                     a renewal run).  Tier 1c runs only with
+#                     allow_league_footprint (owner decision 6).
+#
+# On-box modes run the DEPLOYED scripts, from `main` only: a branch dispatch
+# could otherwise reach the production key and the paid session with
+# unreviewed code.  Shares the verifier's concurrency group so the Signals
+# on-box runs are serialised; with cancel-in-progress false a third PENDING
+# dispatch silently replaces a queued one — dispatch one at a time.
+#
+# THIS REPOSITORY IS PUBLIC: stdout carries only each script's public
+# projection (allowlisted key paths; booleans, counts, identifier-shaped
+# enums).  Full reports and remote stderr stay 0600 in the box's private
+# Signals store.  Read evidence from the artifact, never the log (Actions
+# masking corrupts digits).
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: health = on-box collection health; native-bundle = Tier 0 off-box; native-probe = full probe on the host
+        type: choice
+        required: true
+        options:
+          - health
+          - native-bundle
+          - native-probe
+      allow_league_footprint:
+        description: native-probe only - run Tier 1c (league-list read; requires owner decision 6)
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  # Read-only: the guard below lists deploy.yml runs.
+  actions: read
+
+concurrency:
+  group: signals-onbox-verification
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Signals native bundle (Tier 0, off-box)
+    if: ${{ inputs.mode == 'native-bundle' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Run Tier 0 on the runner (no credentials)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # stderr is discarded: there is no private store on a runner, and a
+          # traceback could carry bundle text.
+          python3 scripts/probe_signals_native.py --mode bundle 2>/dev/null | tee signals-native-bundle.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signals-native-bundle-report
+          path: signals-native-bundle.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  onbox:
+    name: Signals on-box health / native probe
+    if: ${{ inputs.mode == 'health' || inputs.mode == 'native-probe' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Refuse unless dispatched from main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error title=Main only::on-box Signals runs are dispatched from main (got ${GITHUB_REF})."
+            exit 1
+          fi
+
+      - name: Refuse while a production deploy is running or queued
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          busy=0
+          for status in in_progress queued waiting pending requested; do
+            n="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?status=${status}&per_page=1" --jq '.total_count')"
+            if [[ ! "$n" =~ ^[0-9]+$ ]]; then
+              echo "::error title=Deploy state unreadable::could not list deploy.yml runs (${status})."
+              exit 1
+            fi
+            busy=$((busy + n))
+          done
+          if (( busy > 0 )); then
+            echo "::error title=Production deploy in flight::a deploy.yml run is in progress or queued."
+            exit 1
+          fi
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run the deployed script on the host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          MODE: ${{ inputs.mode }}
+          LEAGUE: ${{ inputs.allow_league_footprint && 'true' || 'false' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          case "$MODE" in
+            health|native-probe) ;;
+            *) echo "::error::invalid mode"; exit 1 ;;
+          esac
+          if [[ "$LEAGUE" == "true" && "$MODE" != "native-probe" ]]; then
+            echo "::error::allow_league_footprint is native-probe only"; exit 1
+          fi
+          SSH=(ssh -i "$HOME/.ssh/id_ed25519"
+            -o BatchMode=yes -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts"
+            -o ConnectTimeout=15 -o ServerAliveInterval=15
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          # The DEPLOYED script runs (never a runner copy), with the app's own
+          # venv.  Remote stderr goes to a 0600 file in the private store.
+          "${SSH[@]}" "bash -s -- $(printf '%q ' "$APP_DIR" "$MODE" "$LEAGUE")" <<'REMOTE' | tee signals-health-probe.json
+          set -Eeuo pipefail
+          APP_DIR=$1
+          MODE=$2
+          LEAGUE=$3
+          PY=/home/dynasty/.venvs/trade-calculator/bin/python
+          [[ -x $PY ]] || PY=$APP_DIR/.venv/bin/python
+          REPORTS=$APP_DIR/data/sources/signals/reports
+          umask 077
+          install -d -m 700 "$REPORTS"
+          ERRLOG=$REPORTS/health-probe-remote-stderr-$(date -u +%Y%m%dT%H%M%SZ).log
+          cd "$APP_DIR"
+          if [[ "$MODE" == "health" ]]; then
+            SCRIPT=$APP_DIR/scripts/verify_signals_health.py
+            ARGS=(--app-dir "$APP_DIR")
+          else
+            SCRIPT=$APP_DIR/scripts/probe_signals_native.py
+            ARGS=(--mode native-probe --app-dir "$APP_DIR")
+            if [[ "$LEAGUE" == "true" ]]; then
+              ARGS+=(--allow-league-footprint)
+              # operator-authored, private; absent -> 1c "no_private_ops_file"
+              [[ -f $REPORTS/native_probe_ops.json ]] && ARGS+=(--league-ops "$REPORTS/native_probe_ops.json")
+            fi
+            if [[ -f $REPORTS/native_probe_review.json ]]; then
+              ARGS+=(--review-evidence "$REPORTS/native_probe_review.json")
+            fi
+            export RISKIT_SIGNALS_AUTH_DIR=/var/lib/signals-auth
+          fi
+          if [[ ! -f $SCRIPT ]]; then
+            echo '{"error": "not_deployed"}'
+            exit 1
+          fi
+          "$PY" "$SCRIPT" "${ARGS[@]}" 2>"$ERRLOG"
+          REMOTE
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signals-health-probe-report
+          path: signals-health-probe.json
+          if-no-files-found: ignore
+          retention-days: 30
