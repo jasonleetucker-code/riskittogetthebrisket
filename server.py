@@ -973,7 +973,7 @@ def _get_auth_session(request: Request) -> dict | None:
     expires_at = session.get("expires_at_epoch")
     if isinstance(expires_at, (int, float)) and expires_at > 0:
         if time.time() >= float(expires_at):
-            _drop_auth_session(session_id, "expiry")
+            _drop_auth_session(session_id, "expiry", session=session)
             return None
     # A guest-pass session is only as good as the pass that minted it.
     # Revocation used to only stop NEW logins, so a leaked guest cookie
@@ -981,12 +981,28 @@ def _get_auth_session(request: Request) -> dict | None:
     # every guest request — a revoke made by ANOTHER process (the
     # verification workflow revokes over SSH, never through this server)
     # takes effect on the very next request, whatever this cache holds.
-    # Fails closed: no expiry, no pass id, an unknown/purged pass or an
-    # unreadable pass store all end the session.
+    # Fails closed, in two strengths:
+    #   * no expiry, no pass id, or a pass that is revoked / expired /
+    #     unknown / purged ENDS the session (evicted from memory and disk);
+    #   * an UNREADABLE pass store refuses THIS request but keeps the
+    #     session.  "Could not read the authority" is not "the authority
+    #     said no": ending the session there turned one transient sqlite
+    #     error into a permanent logout.  Nothing is granted — the next
+    #     request asks again and is refused again until the store answers.
     if str(session.get("auth_method") or "") == "guest_pass":
         bounded = isinstance(expires_at, (int, float)) and expires_at > 0
-        if not bounded or not _guest_passes.session_authority(session.get("guest_pass_id")):
-            _drop_auth_session(session_id, "guest_pass_not_authoritative")
+        if not bounded:
+            _drop_auth_session(session_id, "guest_session_unbounded", session=session)
+            return None
+        authority = _guest_passes.session_authority_state(session.get("guest_pass_id"))
+        if authority == _guest_passes.AUTHORITY_UNKNOWN:
+            log.warning(
+                "auth session refused, kept: reason=guest_pass_store_unreadable guest_pass_id=%s",
+                session.get("guest_pass_id"),
+            )
+            return None
+        if authority != _guest_passes.AUTHORITY_ACTIVE:
+            _drop_auth_session(session_id, "guest_pass_not_authoritative", session=session)
             return None
     # Sliding TTL heartbeat.  Bump ``last_seen_at`` at most once per
     # SESSION_TOUCH_INTERVAL_SECONDS so an actively-used session never
@@ -1013,8 +1029,21 @@ def _get_auth_session(request: Request) -> dict | None:
     return session
 
 
-def _drop_auth_session(session_id: str, reason: str) -> None:
-    """Evict one session from the in-memory cache AND the persistent store."""
+def _drop_auth_session(session_id: str, reason: str, *, session: dict | None = None) -> None:
+    """Evict one session from the in-memory cache AND the persistent store.
+
+    Logs one line naming WHY the session ended, its auth method and — for a
+    guest session — the pass that minted it, so a verification run that loses
+    its session can be read from the journal.  Never the session id or the
+    cookie: the id IS the bearer credential.
+    """
+    info = session if isinstance(session, dict) else {}
+    log.info(
+        "auth session ended: reason=%s auth_method=%s guest_pass_id=%s",
+        reason,
+        str(info.get("auth_method") or "unknown"),
+        info.get("guest_pass_id"),
+    )
     auth_sessions.pop(session_id, None)
     try:
         from src.api import session_store as _ss
