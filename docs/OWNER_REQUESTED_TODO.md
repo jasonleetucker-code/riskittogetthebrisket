@@ -15,6 +15,35 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-19 (later) — four product directives, recorded verbatim
+
+All four are definite owner instructions. The verbatim text lives in `docs/owner/`; this entry is the intake pointer. Capture is not implementation authorization: `docs/EXECUTION_PLAN.md` records what is authorized.
+
+1. **League intelligence and the trade decision engine** (`docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, evening).
+   - The Trade Calculator answers "should I make this trade?" with YES / NO, calibrated confidence, the three biggest reasons, key numbers and what could change it. It is evaluated separately for each team. INSUFFICIENT EVIDENCE is reported when essential data is missing.
+   - It does this through a hierarchical decision model: asset evaluation → forecasting → roster simulation → competitive outcomes → trade decision. No stack of arbitrary multipliers, and no signal counted twice.
+   - It is built on exact-league projections (raw categories, correlated events, distributions), a multi-source projection ensemble with learned reliability, true best-ball marginal utility, dynasty-horizon forecasts and a league-aware valuation challenger.
+   - **Owner decision:** league-aware Brisket values are authorized for evidence-based adoption as the canonical value once a challenger passes preregistered promotion gates.
+     - Thresholds are fixed before any holdout is examined.
+     - The new methodology must answer `docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md`; restoring the old overlay does not count.
+     - External market observations are never overwritten.
+     - Where governance requires an explicit owner approval to promote, the evidence and the promotion decision go to the owner together.
+   - Tracks #1842 and PR #1843.
+2. **Brisket Trade Advisor** (`docs/owner/BRISKET_TRADE_ADVISOR_2026-10-19.md`).
+   - A public League Hub advisor and the hub's default landing page, for 2-, 3- and 4-team trades.
+   - It uses the same private engine, with a server-side boundary and rate limiting.
+   - It returns five categories mapped from the existing bands and exposes no proprietary values anywhere.
+3. **Signals Fantasy IDP voting** (`docs/owner/SIGNALS_IDP_VOTING_2026-10-19.md`).
+   - Diagnose the 2026-10-17 shadow-mode failure and investigate native league-specific values first.
+   - Preregister new candidates, then validate without weakening the gates.
+   - Activation is per family (DL / LB / DB).
+   - No credentials, cookies or protected values in any public output.
+4. **Chase Upside Trade Market** (`docs/owner/CHASE_TRADE_MARKET_SOURCE_2026-10-19.md`, refined by `..._V2_...`, which wins on conflict).
+   - A trade-derived shadow source, `chaseTradeMarket`.
+   - Leagues with 3 verified completed seasons; 2-season leagues are a separate research cohort.
+   - Format-aware, duplicate-safe, KTC-overlap-safe, recency-weighted, held-out validated.
+   - Labelled "Experimental — Not Voting" until the owner authorizes voting.
+
 ## Added 2026-10-19 — Permanent owner directive: maximize safe coding throughput
 
 The owner wants all engineers and AI/LLM workers to **implement independent

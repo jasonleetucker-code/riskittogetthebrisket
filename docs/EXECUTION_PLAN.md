@@ -1,5 +1,19 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## League intelligence, trade decision engine and three source / advisor directives — owner, 2026-10-19 (later)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19 (later)". Verbatim texts in `docs/owner/`.
+
+**Authorized now (implementation, behind flags or in shadow until each gate passes):**
+- **League intelligence and trade decision engine**, stages A–F of `docs/owner/LEAGUE_INTELLIGENCE_TRADE_DECISION_ENGINE_2026-10-19.md`, built in parallel workstreams. The stages are: exact-league scoring and projections, the projection ensemble, best-ball marginal utility, dynasty-horizon forecasts, the league-aware valuation challenger, and the hierarchical YES / NO decision engine inside the existing Trade Calculator.
+  - Experimental models never change served values or recommendations until they pass promotion gates written down before the holdout is examined.
+  - Promoting a league-aware canonical value follows the model-governance sequence (fit → backtest → validate → compare → human approval → promote → monitor → rollback). The evidence and the decision go to the owner together.
+- **Brisket Trade Advisor** (public League Hub): implement, test and ship under the public / private boundary.
+- **Signals Fantasy IDP voting**: root cause, preregistered candidates and validation. Per-family activation only after the directive's gates pass.
+- **Chase Upside Trade Market**: the shadow source, its validation and the research view, labelled "Experimental — Not Voting". Voting needs owner authorization.
+
+**Unchanged:** geometric VA `geom_q078_v1`; no arbitrary positional multipliers; the withdrawn league-adjusted lens stays withdrawn; MISSING IS NEVER ZERO; DFS and League Tycoon shelved; no paid data or paid inference without the owner; no Sleeper writes.
+
 ## Site completion and universal source voting — owner directives, 2026-10-19
 
 **Authorized now:** every item in `docs/COMPLETION_QUEUE.md` whose blocker is `NONE`, executed in the queue's batches and priority order (P0 → P4). Release trains go through exact-head CI, E2E and the Release Candidate gate, then merge, deploy and production verification. Sources:
