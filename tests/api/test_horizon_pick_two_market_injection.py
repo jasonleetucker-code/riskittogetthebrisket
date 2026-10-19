@@ -50,7 +50,10 @@ VENDOR_ROUNDS = (1, 2, 3, 4)  # the rounds both pick markets publish
 
 CURRENT_YEAR = 2026  # pinned by the payload's own slot-pick rows
 TEMPLATE_YEAR = 2028  # nearest published future year — the injection's basis
-HORIZON_YEAR = 2029  # CURRENT_YEAR + horizonYears(3), no vendor publishes it
+# The latest PROVEN-completed draft (CURRENT_YEAR, via the payload's draft
+# evidence) + 3 — owner decision 2026-10-19; no vendor publishes it.
+HORIZON_YEAR = 2029
+BOARD_LEAGUE_ID = "424242"
 
 # In-JSON pick market (the raw scraper payload carries these).
 IDPTC_TIER_VALUES: dict[str, float] = {}
@@ -100,7 +103,31 @@ def _raw_payload() -> dict:
         "sites": [{"key": "idpTradeCalc"}, {"key": "ktcSfTep"}, {"key": "dlfSf"}],
         "maxValues": {},
         "players": players,
+        # The CURRENT_YEAR rookie draft is complete and its rookies rostered,
+        # so the horizon reaches HORIZON_YEAR (the board's only league).
+        "sleeper": {"leagueId": BOARD_LEAGUE_ID, "draftClassEvidence": _completed_draft()},
     }
+
+
+def _completed_draft() -> dict:
+    from src.identity.pick_lifecycle import evidence_from_sleeper
+
+    rookies = [f"rookie-{i}" for i in range(12)]
+    return evidence_from_sleeper(
+        league_key="board",
+        sleeper_league_id=BOARD_LEAGUE_ID,
+        drafts=[
+            {
+                "draft_id": "d",
+                "season": str(CURRENT_YEAR),
+                "status": "complete",
+                "settings": {"player_type": 1},
+            }
+        ],
+        picks_by_draft_id={"d": [{"player_id": p} for p in rookies]},
+        rostered_player_ids=rookies,
+        observed_at="2026-08-25T00:00:00+00:00",
+    ).to_dict()
 
 
 def _write_csvs(root: Path) -> None:

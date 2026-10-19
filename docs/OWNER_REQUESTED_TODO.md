@@ -841,7 +841,24 @@ Retiring 2026 keeps the existing horizon unchanged: 2027–2029, with no 2030 ro
 rank/tier shifts. The only horizon rule on record is CLAUDE.md step 12 / C1-U6 ("horizon = current +
 3, self-rolling", anchored on the active draft year); nothing says retirement advances that anchor.
 **Horizon advancement (introducing 2030) is a separate owner decision**, to be brought with evidence
-and measured impact.
+and measured impact. *(Decided 2026-10-19 — see the next entry; this text is kept for traceability.)*
+
+**Owner decision — future-pick horizon ends three seasons after the latest completed draft
+(2026-10-19).** Status: DECIDED; implementation PR from `claude/pick-horizon-completed-draft-plus-3`.
+Owner, verbatim: "Yeah, let's not add 2030 until the 2027 draft is complete, because I think that's
+when we're issued our 2030 picks. And then that's why every league draft pick year should be added, is
+I think it's, yeah, 3 years out". Supersedes the open "separate owner decision" note above.
+
+- The board's supported future-pick horizon ends **three seasons after the most recent COMPLETED rookie
+  draft**. The 2026 draft is complete, so the horizon is 2027–2029. 2030 is added automatically once the
+  2027 draft is complete, which is when Sleeper issues 2030 picks.
+- "Complete" is the existing draft-class retirement proof (`src/identity/pick_lifecycle.py`): the draft is
+  completed and its picks are consumed. On the board scope, every served league must prove it (the
+  #1414 / PR #1442 rule). Unproven or partly proven completion does not advance the horizon.
+- A vendor slot roll alone must NOT move the horizon. The defect: around 2026-10-10 the vendors rolled
+  their slot picks from 2026 to 2027, and `current + 3` started minting 2030 rows.
+- Unchanged: current-year slot tethering, generic-grade rows, the derived year-step model, and the
+  league-scope resolver (`league_draft_years`). Only the number of future seasons the board emits changes.
 
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
