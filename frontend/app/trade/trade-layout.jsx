@@ -22,7 +22,7 @@
  * a band or a recommendation.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, DataTable, Tabs, tabId, tabPanelId } from "@/components/ds";
 import { DECISION_TONES } from "@/lib/trade-war-room";
 import styles from "./trade.module.css";
@@ -150,6 +150,7 @@ export function DecisionSummary({ summary }) {
       {showDecision ? (
         <div className={status === "updating" ? styles.summaryStale : undefined}>
           <p className={styles.summaryLine}>
+            <span className="ds-visually-hidden">Final decision: </span>
             <Badge
               tone={DECISION_TONES[decision.headline]}
               data-testid="decision-summary-headline"
@@ -167,13 +168,15 @@ export function DecisionSummary({ summary }) {
             </p>
           ) : null}
           {status === "updating" ? (
-            <p className={styles.summaryNote} role="status">
+            <p className={styles.summaryNote} data-testid="decision-summary-updating">
               Updating for your latest change…
             </p>
           ) : null}
         </div>
       ) : (
-        <p className={styles.summaryNote} role={status === "loading" ? "status" : undefined}>
+        // Not a live region (TC-E): progress is visible; only the final
+        // decision change is announced (TradeVerdictAnnouncer).
+        <p className={styles.summaryNote}>
           {SUMMARY_STATE_TEXT[status === "updating" ? "loading" : status] || SUMMARY_STATE_TEXT.idle}
         </p>
       )}
@@ -181,6 +184,73 @@ export function DecisionSummary({ summary }) {
         {status === "multi" ? "About the War Room" : "Full analysis in the War Room"}
       </a>
     </section>
+  );
+}
+
+/**
+ * How long a final decision must hold before it is announced (TC-E).  The
+ * War Room already debounces its request 700 ms after the last edit; this
+ * second, shorter wait means a decision that is replaced while the user is
+ * still editing is never read out at all.
+ */
+export const VERDICT_ANNOUNCE_DELAY_MS = 1000;
+
+/** The words announced for a settled decision, or null when there is none. */
+export function verdictAnnouncement(summary) {
+  const decision = summary?.status === "ok" ? summary.decision : null;
+  const headline = decision?.headlineText;
+  if (!headline) return null;
+  // The backend's own confidence level, verbatim (never a probability).
+  const level = decision.confidence?.level;
+  const confidence = typeof level === "string" && level ? level.toLowerCase() : "";
+  return `Final decision: ${headline}${confidence ? `. Confidence: ${confidence}` : ""}.`;
+}
+
+/**
+ * The page's ONE verdict announcement (TC-E; design choice, not an owner
+ * decision -- the conservative accessibility default for TC-D2's open
+ * "what to announce" question): a single visually hidden, POLITE live region
+ * that reads the FINAL decision when it changes, after it has held for
+ * VERDICT_ANNOUNCE_DELAY_MS.  Never the meter band (it moves on every edit and
+ * is read in place), never "Analyzing…", never a decision being replaced, and
+ * the same decision is not repeated -- unless the trade was cleared and built
+ * again, which is a new answer.  It reads the War Room's own decision
+ * (`onDecision`), so it can never say something the page does not show.
+ */
+export function TradeVerdictAnnouncer({ summary, delayMs = VERDICT_ANNOUNCE_DELAY_MS }) {
+  const [spoken, setSpoken] = useState("");
+  const lastRef = useRef(null);
+  const text = verdictAnnouncement(summary);
+  const status = summary?.status || "idle";
+  const settled = status !== "loading" && status !== "updating";
+  useEffect(() => {
+    if (!text) {
+      // No answer on screen any more (cleared, incomplete, error, 3+ teams):
+      // the next decision is a new one and will be read, even if its words
+      // match the last one.  Emptying a live region speaks nothing.
+      if (settled) {
+        lastRef.current = null;
+        setSpoken("");
+      }
+      return undefined;
+    }
+    if (text === lastRef.current) return undefined;
+    const timer = setTimeout(() => {
+      lastRef.current = text;
+      setSpoken(text);
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [text, settled, delayMs]);
+  return (
+    <div
+      className="ds-visually-hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      data-testid="trade-verdict-announcer"
+    >
+      {spoken}
+    </div>
   );
 }
 

@@ -54,7 +54,15 @@ function strengthText(v) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
 }
 
-export function SimulationPanel({ id, simResult, simError, selectedTeam, onReset, overrideCount = 0 }) {
+export function SimulationPanel({
+  id,
+  simResult,
+  simError,
+  selectedTeam,
+  onReset,
+  onRetry,
+  overrideCount = 0,
+}) {
   if (!simResult && !simError) return null;
   const basisNotice = overrideBasisNotice(overrideCount);
 
@@ -93,7 +101,12 @@ export function SimulationPanel({ id, simResult, simError, selectedTeam, onReset
       ) : null}
       {simError ? (
         <Banner tone="negative" title="Simulation failed">
-          {simError}
+          {simError}{" "}
+          {onRetry ? (
+            <Button size="sm" variant="ghost" onClick={onRetry}>
+              Try again
+            </Button>
+          ) : null}
         </Banner>
       ) : null}
 

@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 45 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 46 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -647,6 +647,21 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # fetch.
     "fantasynerds_weekly_projections": False,
     "sportsdataio_weekly_projections": False,
+    # Owner Decision 11 (2026-10-18) — playoff / title odds count a team's ROS
+    # evidence ONCE.  ``src/ros/playoff_sim._compose_team_distribution``: on a
+    # best-ball pre-sim basis (itself drawn from each player's rosValue) the
+    # incumbent re-applies the ROS z-score mean multiplier and the
+    # roster-depth variance lift, both summaries of the same rosValues.  ON
+    # serves the corrected equation; OFF serves the incumbent byte for byte.
+    # Start/sit leagues (empirical basis) are identical either way.  OFF
+    # (shadow only) because the preregistered comparison failed gate G4
+    # (docs/research/PLAYOFF_ROS_DOUBLE_COUNT_D11.md): it improved weekly
+    # log loss 1.133 -> 0.661 but its score distribution was worse
+    # calibrated (mean PIT 0.95 vs 0.83).  Turning it on is a disposition
+    # change that needs a re-run that passes every gate, not an opt-in.
+    # Rollback if ever switched on: RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE=0
+    # + restart.
+    "playoff_ros_counted_once": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -912,6 +927,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # False, and they also need their credential env var.
     "fantasynerds_weekly_projections": UNREACHABLE,
     "sportsdataio_weekly_projections": UNREACHABLE,
+    # ``src/ros/playoff_sim.ros_counted_once_enabled`` — read by
+    # ``_build_team_distributions`` on every canonical forecast, reached
+    # through ``/api/public/league/rosPlayoffOdds`` / ``playoffOdds`` /
+    # ``rosChampionship``: on, the corrected ROS-once equation; off, the
+    # incumbent (Owner Decision 11).
+    "playoff_ros_counted_once": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

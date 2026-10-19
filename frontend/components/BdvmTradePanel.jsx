@@ -39,7 +39,10 @@ function sideRefs(side) {
 }
 
 export default function BdvmTradePanel({ sides, leagueKey }) {
-  const [result, setResult] = useState(null);
+  // The answer is stored WITH the trade it answers (TC-E request sequencing):
+  // it renders only while that is still the trade on screen.
+  const [answer, setAnswer] = useState({ signature: null, body: null });
+  const setResult = (body, sig) => setAnswer({ signature: sig, body });
   const abortRef = useRef(null);
 
   // Two-team trades only — the CES eval is a two-sided comparison.
@@ -53,7 +56,7 @@ export default function BdvmTradePanel({ sides, leagueKey }) {
 
   useEffect(() => {
     if (!twoTeam || refsA.length === 0 || refsB.length === 0) {
-      setResult(null);
+      setResult(null, null);
       return undefined;
     }
     const timer = setTimeout(async () => {
@@ -73,15 +76,16 @@ export default function BdvmTradePanel({ sides, leagueKey }) {
           }),
         });
         const body = await res.json().catch(() => null);
+        if (ctl.signal.aborted) return;
         // Flag off / not ready / unavailable / anything non-ok →
         // vanish silently. Never a generic error on an add-on panel.
         if (!res.ok || !body || body.status !== "ok") {
-          setResult(null);
+          setResult(null, signature);
           return;
         }
-        setResult(body);
+        setResult(body, signature);
       } catch {
-        setResult(null);
+        if (!ctl.signal.aborted) setResult(null, signature);
       }
     }, 600);
     return () => {
@@ -91,6 +95,7 @@ export default function BdvmTradePanel({ sides, leagueKey }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
 
+  const result = answer.signature === signature ? answer.body : null;
   if (!result) return null;
   const unresolved = [
     ...(result.unresolved?.sideA || []),

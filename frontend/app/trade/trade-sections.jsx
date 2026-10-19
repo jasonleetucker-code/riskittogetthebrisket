@@ -20,6 +20,7 @@
  * re-export puts them straight back into the page chunk.
  */
 
+import { useEffect, useState } from "react";
 import {
   Badge,
   Banner,
@@ -80,7 +81,15 @@ export const SUGG_TYPES = [
  * `"click"` (the phone sheet, TC-D2) picks on a completed tap, so a scroll
  * gesture that starts on a row in the sheet's long list adds nothing.
  */
-function SearchResultRow({ row, settings, onPick, keyPrefix, activateOn = "press" }) {
+function SearchResultRow({
+  row,
+  settings,
+  onPick,
+  keyPrefix,
+  activateOn = "press",
+  optionId,
+  active = false,
+}) {
   const handlers =
     activateOn === "click"
       ? { onClick: () => onPick(row) }
@@ -101,6 +110,14 @@ function SearchResultRow({ row, settings, onPick, keyPrefix, activateOn = "press
       key={`${keyPrefix}-${tradeEntryKey(row)}`}
       type="button"
       className="trade-side-search-result button-reset"
+      // The inline dropdown is a combobox listbox (TC-E): the input keeps
+      // focus and points at the active row with aria-activedescendant, so a
+      // row is an option and leaves the tab order.  The phone sheet keeps
+      // plain buttons, reached with Tab inside the dialog.
+      {...(optionId
+        ? { id: optionId, role: "option", "aria-selected": active, tabIndex: -1 }
+        : {})}
+      data-active={active || undefined}
       {...handlers}
     >
       <PlayerImage
@@ -132,22 +149,47 @@ function SearchResultRow({ row, settings, onPick, keyPrefix, activateOn = "press
  * are present, so a plain player search looks exactly as before.  Keys
  * carry the group so a row offered in both groups cannot collide.
  */
-export function SearchResultList({ results, settings, onPick, keyPrefix, activateOn }) {
+export function SearchResultList({
+  results,
+  settings,
+  onPick,
+  keyPrefix,
+  activateOn,
+  optionIdPrefix,
+  activeIndex = -1,
+}) {
+  // Options are numbered in RENDERED order (market group, then owned picks),
+  // the order ArrowDown walks (`orderedSearchResults`).
+  let index = -1;
   return groupTradeSearchResults(results).map((group) => (
     <div key={`${keyPrefix}-${group.key}`} role="group" aria-label={group.label || undefined}>
-      {group.label ? <div className={styles.searchGroupLabel}>{group.label}</div> : null}
-      {group.entries.map((r) => (
-        <SearchResultRow
-          key={`${keyPrefix}-${group.key}-${tradeEntryKey(r)}`}
-          row={r}
-          settings={settings}
-          onPick={onPick}
-          keyPrefix={`${keyPrefix}-${group.key}`}
-          activateOn={activateOn}
-        />
-      ))}
+      {group.label ? (
+        <div className={styles.searchGroupLabel} aria-hidden={optionIdPrefix ? true : undefined}>
+          {group.label}
+        </div>
+      ) : null}
+      {group.entries.map((r) => {
+        index += 1;
+        return (
+          <SearchResultRow
+            key={`${keyPrefix}-${group.key}-${tradeEntryKey(r)}`}
+            row={r}
+            settings={settings}
+            onPick={onPick}
+            keyPrefix={`${keyPrefix}-${group.key}`}
+            activateOn={activateOn}
+            optionId={optionIdPrefix ? `${optionIdPrefix}-${index}` : undefined}
+            active={index === activeIndex}
+          />
+        );
+      })}
     </div>
   ));
+}
+
+/** The search results in the order SearchResultList renders them. */
+export function orderedSearchResults(results) {
+  return groupTradeSearchResults(results).flatMap((g) => g.entries);
 }
 
 // ── Proactive suggestion rail ─────────────────────────────────────────
@@ -575,6 +617,42 @@ export function SideCard({
   onOpenSheet,
 }) {
   const showResults = isFocused && (sideQuery || "").trim().length > 0;
+  // Keyboard path for the inline search (TC-E, WAI-ARIA combobox): ArrowDown /
+  // ArrowUp move the active option, Enter adds it, Escape clears the query.
+  // Focus never leaves the input, so the dropdown cannot unmount under a Tab
+  // (it closes on blur) and a keyboard pick works like a tap.
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [lastAdded, setLastAdded] = useState("");
+  useEffect(() => {
+    setActiveIdx(-1);
+  }, [sideQuery, isFocused]);
+  const listboxId = `trade-search-${side.label}-listbox`;
+  const optionIdPrefix = `trade-search-${side.label}-opt`;
+  const ordered = showResults ? orderedSearchResults(searchResults) : [];
+  const active = activeIdx >= 0 && activeIdx < ordered.length ? activeIdx : -1;
+  useEffect(() => {
+    if (active < 0 || typeof document === "undefined") return;
+    document.getElementById(`${optionIdPrefix}-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [active, optionIdPrefix]);
+  const pickFromSearch = (row) => {
+    setLastAdded(`Added ${tradeEntryLabel(row)} to Side ${side.label}.`);
+    onAddFromSearch(row, sideIdx);
+  };
+  const onSearchKeyDown = (e) => {
+    if (e.key === "ArrowDown" && ordered.length) {
+      e.preventDefault();
+      setActiveIdx(active < 0 ? 0 : Math.min(active + 1, ordered.length - 1));
+    } else if (e.key === "ArrowUp" && ordered.length) {
+      e.preventDefault();
+      setActiveIdx(active <= 0 ? ordered.length - 1 : active - 1);
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      pickFromSearch(ordered[active]);
+    } else if (e.key === "Escape" && (sideQuery || "").length) {
+      e.preventDefault();
+      onSideQueryChange(sideIdx, "");
+    }
+  };
   // Assets the board declined to price contribute 0 to this side's
   // total — a legitimate arithmetic neutral inside the sum, but not
   // something a published total may stay quiet about. 282 of 1,094 live
@@ -675,24 +753,45 @@ export function SideCard({
               onChange={(e) => onSideQueryChange(sideIdx, e.target.value)}
               onFocus={() => onSideFocus(sideIdx)}
               onBlur={() => onSideBlur(sideIdx)}
+              onKeyDown={onSearchKeyDown}
               aria-label={`Search to add a player to Side ${side.label}`}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showResults && ordered.length > 0}
+              aria-controls={showResults && ordered.length > 0 ? listboxId : undefined}
+              aria-activedescendant={active >= 0 ? `${optionIdPrefix}-${active}` : undefined}
+              autoComplete="off"
             />
             {showResults ? (
               /* Bounded + scrollable (globals.css) so the market group stays
                  reachable above an open phone keyboard. */
-              <div className="trade-side-search-results">
-                {searchResults.length === 0 ? (
-                  <div className="trade-side-search-empty muted">No matches.</div>
-                ) : (
+              searchResults.length === 0 ? (
+                <div className="trade-side-search-results">
+                  <div className="trade-side-search-empty muted" role="status">
+                    No matches.
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="trade-side-search-results"
+                  role="listbox"
+                  id={listboxId}
+                  aria-label={`Results for Side ${side.label}`}
+                >
                   <SearchResultList
                     results={searchResults}
                     settings={settings}
-                    onPick={(row) => onAddFromSearch(row, sideIdx)}
+                    onPick={pickFromSearch}
                     keyPrefix={`search-${side.label}`}
+                    optionIdPrefix={optionIdPrefix}
+                    activeIndex={active}
                   />
-                )}
-              </div>
+                </div>
+              )
             ) : null}
+            <span className="ds-visually-hidden" role="status">
+              {lastAdded}
+            </span>
           </div>
         </>
       )}
@@ -763,7 +862,11 @@ export function SideCard({
       ) : null}
 
       {balancers ? (
-        <div className={styles.balancers} id={`trade-side-${side.label}-balancers`}>
+        <div
+          className={styles.balancers}
+          id={`trade-side-${side.label}-balancers`}
+          aria-busy={balancers.pending ? "true" : undefined}
+        >
           <span className={styles.balancerLabel}>{balancers.label}</span>
           {balancers.list.map((b) => (
             <Button

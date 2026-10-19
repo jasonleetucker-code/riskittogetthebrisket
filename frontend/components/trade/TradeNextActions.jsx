@@ -71,10 +71,12 @@ function PartnerEvidence({ sides, parties, leagueKey }) {
   const [state, setState] = useState({ status: "idle", evidence: null, error: null, key: "" });
   const body = useMemo(() => offerEvidenceBody({ sides, parties }), [sides, parties]);
   const key = JSON.stringify([leagueKey, body]);
+  // "Try again" (TC-E): re-asks the same question after an error.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!open || !body) return undefined;
-    if (state.key === key && state.status !== "idle") return undefined;
+    if (state.key === key && state.status !== "idle" && state.status !== "error") return undefined;
     const ctl = new AbortController();
     setState({ status: "loading", evidence: null, error: null, key });
     fetch(offerEvidenceUrl(leagueKey), {
@@ -100,7 +102,7 @@ function PartnerEvidence({ sides, parties, leagueKey }) {
     return () => ctl.abort();
     // `state` is read only to skip a repeat of the same question.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, key]);
+  }, [open, key, attempt]);
 
   if (!body) return null;
   const current = state.key === key ? state : { status: "idle" };
@@ -121,7 +123,10 @@ function PartnerEvidence({ sides, parties, leagueKey }) {
         />
       ) : current.status === "error" ? (
         <p className={styles.itemNote} role="status">
-          Manager history unavailable right now ({current.error}).
+          Manager history unavailable right now ({current.error}).{" "}
+          <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
+            Try again
+          </Button>
         </p>
       ) : (
         <p className={styles.itemNote} role="status">
@@ -145,6 +150,7 @@ export default function TradeNextActions({
   evalState = "empty",
   isFair = false,
   balancerSideLabel = null,
+  balancersPending = false,
   decisionRunId = null,
 }) {
   const parties = useMemo(
@@ -160,6 +166,7 @@ export default function TradeNextActions({
     evalState,
     isFair,
     balancerSideLabel,
+    balancersPending,
     sideCount: (sides || []).length,
   });
   const team = parties.myTeam || myTeam || "";
