@@ -829,7 +829,9 @@ def _team_distributions_from_inputs(
                 emp_mean, emp_sd = bb_mean, bb_sd
                 basis = "presim"
         ros_score = ros_strength_map.get(owner_id)
-        ros_z = (ros_score - ros_mean) / ros_sd if ros_score is not None else None
+        # ``ros_sd > 0`` is the retired code's guard, kept for exact parity
+        # with it (``ros_sd`` is already clamped above, so it never fires).
+        ros_z = (ros_score - ros_mean) / ros_sd if ros_score is not None and ros_sd > 0 else None
         mean, sd = _compose_team_distribution(
             basis=basis,
             basis_mean=emp_mean,
@@ -2196,6 +2198,13 @@ def cached_forecast_matches_snapshot(cached: dict[str, Any], snapshot: Any) -> b
             return False
         live_rule = playoff_odds.median_game_rule(_simulated_season(snapshot))
         if {k: v for k, v in cached_rule.items() if k != "unresolvedWeeks"} != live_rule:
+            return False
+        # Owner Decision 11: a forecast built by the other ROS equation is a
+        # different model, whatever its age.  The scheduled refresh runs
+        # without the box's flag environment, so without this a box-side
+        # switch would keep serving the runner's equation.  Files from before
+        # the stamp existed were all built by the incumbent.
+        if (cached.get("rosEvidenceMethod") or ROS_EVIDENCE_INCUMBENT) != ros_evidence_method():
             return False
     season = cached.get("season")
     if season is not None and season != _season_year(snapshot):
