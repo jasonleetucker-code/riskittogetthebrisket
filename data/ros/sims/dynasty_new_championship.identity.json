@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-10-19T05:27:13.256796+00:00",
-  "forecastSha256": "13b50e2536acfa09c9a418f2c9e8b896ea8252913c4012f101d61223fde6ccbb",
+  "computedAt": "2026-10-19T14:04:05.969890+00:00",
+  "forecastSha256": "d8cbfec0fa315187102d36a4c54effd7b05b932559467f3ca772c9024d47ee23",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "8e86a9ebb10c0ff3a659179e1ff49ea7b4b92f424a7579658e37f76583a10bfe",
-    "leagueSnapshotGeneratedAt": "2026-10-19T05:27:12+00:00",
+    "inputsSha256": "051b439e2fdedb5705896f663fc6b090a28fa454cec8142b02d454c72477d3e1",
+    "leagueSnapshotGeneratedAt": "2026-10-19T14:04:05+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,19 +14,19 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "c2b1221747d0ef717e1e1ff49109977bcd13d593d2eb8b66eeb759f6e2aecc1b",
+    "leagueSnapshotSha256": "70a8b4897ce4c1f4a842622011f35e8ec03876acfa5b9a54824414c2d4876645",
     "pointsModelFileSha256": null,
-    "rosAggregateSha256": "421e472a664358e1167fefdfbdeac392a6101ee6e8360829a3658421e1abe22a",
-    "rosAggregatedAt": "2026-10-19T05:27:02.131922+00:00",
+    "rosAggregateSha256": "b903f1b756d91fdad791f66d1e10d709176ce1f880e9944e1887fbe6ddd2e7d6",
+    "rosAggregatedAt": "2026-10-19T14:03:51.390138+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "3b24d6d4ff5ba631a9d32f7c5256513a395be5696ce25d5b8ad7d5cff500403a"
+    "teamStrengthFileSha256": "bb78c48a9ba7407fd5a86e67d2dea55997e9333c23bde8620417d6a769a2daa1"
   },
   "kind": "championship",
   "lastScoredWeek": 5,
   "leagueKey": "dynasty_new",
   "model": {
-    "codeSha": "7265061df5a6a5f50e56f3119fa36172076f4912",
-    "codeShaCapturedAt": "2026-10-19T05:26:58.450009+00:00",
+    "codeSha": "3df94f680c99bbd611535fba2ccab4a000f86a7a",
+    "codeShaCapturedAt": "2026-10-19T14:03:48.706574+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": false,
@@ -53,6 +53,8 @@
         "PRESIM_CHECK_EVERY": 40,
         "PRESIM_MEAN_TOLERANCE": 0.01,
         "ROS_BLEND": 0.2,
+        "ROS_EVIDENCE_INCUMBENT": "incumbent_presim_plus_ros_multiplier",
+        "ROS_EVIDENCE_ONCE": "ros_counted_once",
         "SEED_TYPE_RESEED": "reseed",
         "SIM_CHECK_EVERY": 1000,
         "SIM_COUNT_MISSING": "canonical_forecast_simulation_count_missing",
@@ -89,9 +91,10 @@
         "rosValuePerPoint": 2.7,
         "sampleSize": 0,
         "source": "fallback-constants"
-      }
+      },
+      "rosEvidenceMethod": "incumbent_presim_plus_ros_multiplier"
     },
-    "simParamsSha256": "d3df98e8802910d0fd25f984ed77cbccbf94a1144b2eeee0c91c2c77d8dde20e"
+    "simParamsSha256": "680e288f12f2a39e47fe2d2eeedfb3b00f06ce38dbe998541a108460995572f8"
   },
   "nSimulations": 3000,
   "nullReasons": {
