@@ -55,20 +55,25 @@ import {
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
 import {
+  POSTURE_LABELS,
   REASON_ROLE_WORDS,
   ROLE_PLAIN_WORDS,
   analysisErrorText,
   argumentLine,
+  confidenceStatementText,
   confidenceSummary,
   decisionReasonSentences,
   incomingLineupSentences,
   listJoin,
   missingEvidenceText,
+  projectionBasisText,
+  recordReasonText,
   rosterFit,
   simulationExplanation,
   strategySentence,
   tradeValueSummary,
   uncertaintyLine,
+  versionLabel,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
@@ -100,14 +105,6 @@ const DIMENSION_WORDS = {
 const DIMENSION_REASON_WORDS = {
   unaudited_model: "its model has not passed review yet, so it is left out",
   counterfactual_not_wired: "not connected to the analysis yet",
-};
-
-/** The posture classes, named for a person (never the all-caps codes). */
-const POSTURE_LABELS = {
-  PUSH: "Push (contender)",
-  HOLD: "Hold (too close to call)",
-  RETOOL: "Retool",
-  REBUILD: "Rebuild",
 };
 
 function humanizeKey(key) {
@@ -316,7 +313,10 @@ function Arguments({ analysis, showStrategy }) {
     ),
   ];
   // Every line ends in a period; injury designations read in words.
-  const argued = (xs) => [...new Set((xs || []).map(argumentLine).filter(Boolean))];
+  const band = analysis.lenses?.market?.detail?.band || null;
+  const argued = (xs) => [
+    ...new Set((xs || []).map((x) => argumentLine(x, { band })).filter(Boolean)),
+  ];
   const lists = [
     { key: "for", title: "Points in favor", items: argued(analysis.reasonsFor) },
     { key: "against", title: "Points against", items: argued(analysis.reasonsAgainst) },
@@ -354,13 +354,17 @@ function Arguments({ analysis, showStrategy }) {
 function Methodology({ analysis, raw }) {
   const decision = analysis.decision || {};
   const bands = decision.bands || {};
-  const confidence = confidenceSummary(decision.confidence, {
+  const confidenceStatement = confidenceStatementText(decision.confidence, {
     rosterLens: analysis.lenses?.roster,
     evidenceLens: analysis.lenses?.evidence,
   });
+  const bandsVersion = versionLabel(bands.version);
+  const engineVersion = versionLabel(decision.version);
+  const primary = decision.primaryReason;
+  const isPrimary = (r) =>
+    !!primary && r.component === primary.component && r.text === primary.text;
   const market = analysis.lenses?.market?.detail || {};
   const roster = analysis.lenses?.roster?.detail || {};
-  const feas = analysis.lenses?.feasibility?.detail || {};
   const basis = roster.basis || {};
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
@@ -377,27 +381,32 @@ function Methodology({ analysis, raw }) {
           evidence” instead of a guess.
         </p>
         <p data-testid="decision-bands">
-          Fairness bands {bands.version} ({String(bands.status || "").toLowerCase()}): a gap is fair
-          under {bands.absoluteMinimum} points or {bands.slightPct}% of the larger adjusted package.
+          Fairness bands{bandsVersion ? `, ${bandsVersion}` : ""} (
+          {String(bands.status || "").toLowerCase()}): a gap is fair under {bands.absoluteMinimum}{" "}
+          points or {bands.slightPct}% of the larger adjusted package.
         </p>
         {Array.isArray(decision.reasons) && decision.reasons.length ? (
           <div data-testid="decision-record">
-            <p>The decision engine&apos;s own record of its reasons ({decision.version}):</p>
+            {/* The engine's record, with its numbers, in plain words: band
+                labels and posture codes worded, never an axis key. */}
+            <p>
+              The decision engine&apos;s own record of its reasons
+              {engineVersion ? ` (${engineVersion})` : ""}:
+            </p>
             <ul className={styles.plainList}>
               {decision.reasons.map((r) => (
                 <li key={`${r.component}-${r.text}`} data-stance={r.stance}>
-                  {r.text}
-                  {r === decision.primaryReason ? " (primary reason)" : ""}
+                  {isPrimary(r) ? <strong>Deciding reason: </strong> : null}
+                  {recordReasonText(r, { strategy: decision.strategy })}
                 </li>
               ))}
             </ul>
           </div>
         ) : null}
-        {confidence?.statement ? (
+        {confidenceStatement ? (
           <p data-testid="decision-confidence-statement">
-            Confidence: {confidence.statement}
-            {/[.!?]$/.test(confidence.statement) ? " " : ". "}
-            Confidence is a label set by the weakest part of the evidence — never a probability.
+            Confidence: {confidenceStatement} Confidence is a label set by the weakest part of the
+            evidence — never a probability.
           </p>
         ) : null}
       </section>
@@ -421,13 +430,7 @@ function Methodology({ analysis, raw }) {
         <section className={styles.detailSection}>
           <h4 className={styles.detailTitle}>Lineup simulation</h4>
           <p data-testid="war-room-simulation-explained">{simulationExplanation(roster)}</p>
-          <p>
-            Projections: {basis.description || basis.source} (source: {basis.source})
-            {basis.pointsModel?.source
-              ? `; week-to-week variance: ${basis.pointsModel.source}`
-              : ""}
-            .
-          </p>
+          <p data-testid="war-room-projection-basis">{projectionBasisText(basis)}</p>
           {roster.assumptions?.length ? (
             <ul className={styles.plainList}>
               {roster.assumptions.map((a) => (
@@ -437,16 +440,9 @@ function Methodology({ analysis, raw }) {
           ) : null}
         </section>
       ) : null}
-      {feas.notes?.length ? (
-        <section className={styles.detailSection}>
-          <h4 className={styles.detailTitle}>Roster limit notes</h4>
-          <ul className={styles.plainList}>
-            {feas.notes.map((n) => (
-              <li key={n}>{n}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      {/* The roster-capacity owner's notes are developer prose ("cut ladder
+          unguarded", "capacity is UNKNOWN"); their facts are already shown in
+          words in the fit row and in What is missing, so they are not listed. */}
       {ts ? (
         <section className={styles.detailSection}>
           <h4 className={styles.detailTitle}>Team Strength (context, not a vote)</h4>
@@ -518,7 +514,7 @@ function Methodology({ analysis, raw }) {
           {(analysis.unavailableDimensions || []).map((d) => (
             <li key={d.dimension}>
               <strong>{DIMENSION_WORDS[d.dimension] || humanizeKey(d.dimension)}</strong> —{" "}
-              {DIMENSION_REASON_WORDS[d.reason] || d.notes || "not included"}
+              {DIMENSION_REASON_WORDS[d.reason] || "not included yet"}
             </li>
           ))}
         </ul>

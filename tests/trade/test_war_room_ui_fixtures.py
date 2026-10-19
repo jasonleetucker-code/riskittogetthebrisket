@@ -47,8 +47,13 @@ def test_fixtures_cover_the_states_the_ui_renders():
     assert long_term["decision"]["strategy"]["used"] == "LONG_TERM"
     assert long_term["decision"]["headline"] != "NOT_ENOUGH_EVIDENCE"
     assert "no current-season roster effect" in long_term["decision"]["confidence"]["statement"]
-    # Roster simulation and capacity check unavailable: both reason-code gaps.
-    gaps = load["roster-unmeasured"]["analysis"]["decision"]["missingEvidence"]
+    # The capacity check raised: the simulator's own failure shapes (a bare
+    # exception class name on rosterCapacity) and both reason-code gaps.
+    unmeasured = load["roster-unmeasured"]
+    assert unmeasured["rosterCapacity"]["unavailable"] == "KeyError"
+    assert unmeasured["rosterUtility"]["unavailableReason"] == "roster_capacity_unavailable"
+    assert unmeasured["analysis"]["lenses"]["feasibility"]["unavailableReason"] == "KeyError"
+    gaps = unmeasured["analysis"]["decision"]["missingEvidence"]
     assert [g["code"] for g in gaps] == ["roster_unknown", "roster_limit_unknown"]
     # The roster simulation raised: the simulator's error:<Exception> reason.
     err = load["roster-error"]["analysis"]

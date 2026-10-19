@@ -1,6 +1,6 @@
 {
  "_fixture": {
-  "description": "The consolidation trade with the roster simulation and the roster-capacity check both unavailable (LABELLED degraded simulation): the decision's evidence gates.",
+  "description": "The consolidation trade with the roster-capacity check raising (LABELLED failure injection): the simulator's own failure shapes -- rosterCapacity {'unavailable': 'KeyError'} and rosterUtility roster_capacity_unavailable.",
   "generator": "tests/trade/war_room_ui_payloads.py",
   "request": {
    "picksIn": [],
@@ -136,7 +136,7 @@
      "dimension": "immediate_improvement",
      "evidence": null,
      "evidenceKind": "independent",
-     "exclusionReason": "not_computed",
+     "exclusionReason": "roster_capacity_unavailable",
      "freshness": "unknown",
      "lineage": "league_scored_projection",
      "owner": "src/roster_intel/best_ball_utility.py",
@@ -188,7 +188,7 @@
      "dimension": "roster_construction",
      "evidence": null,
      "evidenceKind": "contextual",
-     "exclusionReason": "roster_capacity_unavailable",
+     "exclusionReason": "KeyError",
      "freshness": "unknown",
      "lineage": "league_roster_rules",
      "owner": "src/trade/roster_capacity.py",
@@ -372,16 +372,16 @@
     {
      "code": "roster_unknown",
      "evidence": {
-      "reason": "not_computed"
+      "reason": "roster_capacity_unavailable"
      },
-     "text": "The roster effect could not be measured (not_computed)."
+     "text": "The roster effect could not be measured (roster_capacity_unavailable)."
     },
     {
      "code": "roster_limit_unknown",
      "evidence": {
-      "reason": "roster_capacity_unavailable"
+      "reason": "KeyError"
      },
-     "text": "Whether the trade fits your roster is unknown (roster_capacity_unavailable)."
+     "text": "Whether the trade fits your roster is unknown (KeyError)."
     }
    ],
    "posture": {
@@ -401,11 +401,11 @@
    "primaryReason": {
     "component": "evidence",
     "evidence": {
-     "reason": "not_computed"
+     "reason": "roster_capacity_unavailable"
     },
     "kind": "gate",
     "stance": "neutral",
-    "text": "The roster effect could not be measured (not_computed)."
+    "text": "The roster effect could not be measured (roster_capacity_unavailable)."
    },
    "reasons": [],
    "receipt": {
@@ -477,7 +477,7 @@
      },
      "flipsTo": null,
      "kind": "evidence",
-     "text": "Resolve: The roster effect could not be measured (not_computed)."
+     "text": "Resolve: The roster effect could not be measured (roster_capacity_unavailable)."
     },
     {
      "evidence": {
@@ -485,7 +485,7 @@
      },
      "flipsTo": null,
      "kind": "evidence",
-     "text": "Resolve: Whether the trade fits your roster is unknown (roster_capacity_unavailable)."
+     "text": "Resolve: Whether the trade fits your roster is unknown (KeyError)."
     }
    ]
   },
@@ -542,26 +542,16 @@
    },
    {
     "available": false,
-    "detail": {
-     "teamStrength": {
-      "after": 16500.0,
-      "before": 15500.0,
-      "countedAsVote": false,
-      "delta": 1000.0,
-      "lineage": "canonical_value",
-      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
-     }
-    },
     "dimension": "rosterUtility",
     "lineage": "league_scored_projection",
-    "unavailableReason": "not_computed",
+    "unavailableReason": "roster_capacity_unavailable",
     "votes": false
    },
    {
     "available": false,
     "dimension": "feasibility",
     "lineage": "league_roster_rules",
-    "unavailableReason": "roster_capacity_unavailable",
+    "unavailableReason": "KeyError",
     "votes": false
    },
    {
@@ -676,7 +666,7 @@
     "available": false,
     "dimension": "feasibility",
     "lineage": "league_roster_rules",
-    "unavailableReason": "roster_capacity_unavailable",
+    "unavailableReason": "KeyError",
     "votes": false
    },
    "market": {
@@ -785,19 +775,9 @@
    },
    "roster": {
     "available": false,
-    "detail": {
-     "teamStrength": {
-      "after": 16500.0,
-      "before": 15500.0,
-      "countedAsVote": false,
-      "delta": 1000.0,
-      "lineage": "canonical_value",
-      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
-     }
-    },
     "dimension": "rosterUtility",
     "lineage": "league_scored_projection",
-    "unavailableReason": "not_computed",
+    "unavailableReason": "roster_capacity_unavailable",
     "votes": false
    }
   },
@@ -810,7 +790,7 @@
    "applied": true,
    "mode": "team"
   },
-  "topUncertainty": "Roster impact not available (not_computed)",
+  "topUncertainty": "Roster impact not available (roster_capacity_unavailable)",
   "unavailableDimensions": [
    {
     "dimension": "valueUncertainty",
@@ -824,7 +804,7 @@
    }
   ],
   "uncertainty": [
-   "Roster impact not available (not_computed)"
+   "Roster impact not available (roster_capacity_unavailable)"
   ],
   "version": "analyze_trade_v3"
  },
@@ -962,450 +942,6 @@
   "totalValue": 1000
  },
  "equity": 1000,
- "finalRosterSimulation": {
-  "available": true,
-  "cleanupApplied": [],
-  "cleanupIsUpperBound": false,
-  "coreAfter": {
-   "available": true,
-   "demand": {
-    "bySlot": {
-     "FLEX": 1,
-     "QB": 1,
-     "RB": 1,
-     "WR": 1
-    },
-    "dedicatedBasis": {
-     "QB": 1,
-     "RB": 1,
-     "WR": 1
-    },
-    "flexSlots": [
-     "FLEX"
-    ],
-    "multiplier": 1.5,
-    "multiplierProvenance": "owner_addendum_839_amended_899",
-    "multiplierStatus": "PRIOR",
-    "starterBasis": {
-     "FLEX": 1,
-     "QB": 1,
-     "RB": 1,
-     "WR": 1
-    },
-    "superflexFoldedIntoQb": true,
-    "total": 4
-   },
-   "duplicateIds": [],
-   "members": [
-    {
-     "name": "QB Min",
-     "playerId": "QB Min",
-     "position": "QB",
-     "role": "starter",
-     "slot": "QB",
-     "value": 6000.0
-    },
-    {
-     "name": "RB Min",
-     "playerId": "RB Min",
-     "position": "RB",
-     "role": "starter",
-     "slot": "RB",
-     "value": 3000.0
-    },
-    {
-     "name": "WR Buf Star",
-     "playerId": "WR Buf Star",
-     "position": "WR",
-     "role": "starter",
-     "slot": "WR",
-     "value": 7000.0
-    },
-    {
-     "name": "TE Free",
-     "playerId": "TE Free",
-     "position": "TE",
-     "role": "starter",
-     "slot": "FLEX",
-     "value": 500.0
-    }
-   ],
-   "reserveCount": 0,
-   "slotSource": null,
-   "starterCount": 4,
-   "starterSlots": [
-    "QB",
-    "RB",
-    "WR",
-    "FLEX"
-   ],
-   "unavailableReason": null,
-   "unfilledReserveSlots": [
-    "FLEX",
-    "QB",
-    "RB",
-    "WR"
-   ],
-   "unfilledStarterSlots": [],
-   "unpricedIds": [
-    "RB Unpriced",
-    "ghost player"
-   ]
-  },
-  "coreBefore": {
-   "available": true,
-   "demand": {
-    "bySlot": {
-     "FLEX": 1,
-     "QB": 1,
-     "RB": 1,
-     "WR": 1
-    },
-    "dedicatedBasis": {
-     "QB": 1,
-     "RB": 1,
-     "WR": 1
-    },
-    "flexSlots": [
-     "FLEX"
-    ],
-    "multiplier": 1.5,
-    "multiplierProvenance": "owner_addendum_839_amended_899",
-    "multiplierStatus": "PRIOR",
-    "starterBasis": {
-     "FLEX": 1,
-     "QB": 1,
-     "RB": 1,
-     "WR": 1
-    },
-    "superflexFoldedIntoQb": true,
-    "total": 4
-   },
-   "duplicateIds": [],
-   "members": [
-    {
-     "name": "QB Min",
-     "playerId": "QB Min",
-     "position": "QB",
-     "role": "starter",
-     "slot": "QB",
-     "value": 6000.0
-    },
-    {
-     "name": "RB Min",
-     "playerId": "RB Min",
-     "position": "RB",
-     "role": "starter",
-     "slot": "RB",
-     "value": 3000.0
-    },
-    {
-     "name": "WR Kc",
-     "playerId": "WR Kc",
-     "position": "WR",
-     "role": "starter",
-     "slot": "WR",
-     "value": 4000.0
-    },
-    {
-     "name": "WR Phi",
-     "playerId": "WR Phi",
-     "position": "WR",
-     "role": "starter",
-     "slot": "FLEX",
-     "value": 2000.0
-    },
-    {
-     "name": "TE Free",
-     "playerId": "TE Free",
-     "position": "TE",
-     "role": "reserve",
-     "slot": "FLEX",
-     "value": 500.0
-    }
-   ],
-   "reserveCount": 1,
-   "slotSource": null,
-   "starterCount": 4,
-   "starterSlots": [
-    "QB",
-    "RB",
-    "WR",
-    "FLEX"
-   ],
-   "unavailableReason": null,
-   "unfilledReserveSlots": [
-    "QB",
-    "RB",
-    "WR"
-   ],
-   "unfilledStarterSlots": [],
-   "unpricedIds": [
-    "RB Unpriced",
-    "ghost player"
-   ]
-  },
-  "displacements": [
-   {
-    "kind": "displaced",
-    "name": "WR Kc",
-    "playerId": "WR Kc",
-    "position": "WR",
-    "roleAfter": null,
-    "roleBefore": "starter",
-    "slotAfter": null,
-    "slotBefore": "WR"
-   },
-   {
-    "kind": "displaced",
-    "name": "WR Phi",
-    "playerId": "WR Phi",
-    "position": "WR",
-    "roleAfter": null,
-    "roleBefore": "starter",
-    "slotAfter": null,
-    "slotBefore": "FLEX"
-   }
-  ],
-  "isVerdict": false,
-  "movements": [
-   {
-    "kind": "moved",
-    "name": "TE Free",
-    "playerId": "TE Free",
-    "position": "TE",
-    "roleAfter": "starter",
-    "roleBefore": "reserve",
-    "slotAfter": "FLEX",
-    "slotBefore": "FLEX"
-   },
-   {
-    "kind": "promoted",
-    "name": "WR Buf Star",
-    "playerId": "WR Buf Star",
-    "position": "WR",
-    "roleAfter": "starter",
-    "roleBefore": null,
-    "slotAfter": "WR",
-    "slotBefore": null
-   },
-   {
-    "kind": "displaced",
-    "name": "WR Kc",
-    "playerId": "WR Kc",
-    "position": "WR",
-    "roleAfter": null,
-    "roleBefore": "starter",
-    "slotAfter": null,
-    "slotBefore": "WR"
-   },
-   {
-    "kind": "displaced",
-    "name": "WR Phi",
-    "playerId": "WR Phi",
-    "position": "WR",
-    "roleAfter": null,
-    "roleBefore": "starter",
-    "slotAfter": null,
-    "slotBefore": "FLEX"
-   }
-  ],
-  "needsCreated": [],
-  "needsFixed": [],
-  "notes": [],
-  "outgoingNotFound": [],
-  "promotions": [
-   {
-    "kind": "promoted",
-    "name": "WR Buf Star",
-    "playerId": "WR Buf Star",
-    "position": "WR",
-    "roleAfter": "starter",
-    "roleBefore": null,
-    "slotAfter": "WR",
-    "slotBefore": null
-   }
-  ],
-  "strengthAfter": {
-   "available": true,
-   "byPosition": [
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "QB Min"
-     ],
-     "position": "QB",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 1,
-     "starterValue": 6000.0,
-     "value": 6000.0
-    },
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "RB Min"
-     ],
-     "position": "RB",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 1,
-     "starterValue": 3000.0,
-     "value": 3000.0
-    },
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "WR Buf Star"
-     ],
-     "position": "WR",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 1,
-     "starterValue": 7000.0,
-     "value": 7000.0
-    },
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "TE Free"
-     ],
-     "position": "TE",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 1,
-     "starterValue": 500.0,
-     "value": 500.0
-    }
-   ],
-   "fullRosterValue": null,
-   "isComplete": false,
-   "leaguePercentile": null,
-   "leagueRank": null,
-   "positionOrder": [
-    "QB",
-    "RB",
-    "WR",
-    "TE"
-   ],
-   "reserveValue": 0.0,
-   "starterValue": 16500.0,
-   "total": 16500.0,
-   "unavailableReason": null,
-   "unfilledReserveSlots": [
-    "FLEX",
-    "QB",
-    "RB",
-    "WR"
-   ],
-   "unfilledStarterSlots": [],
-   "unpricedCount": 2,
-   "unpricedIds": [
-    "RB Unpriced",
-    "ghost player"
-   ]
-  },
-  "strengthBefore": {
-   "available": true,
-   "byPosition": [
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "QB Min"
-     ],
-     "position": "QB",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 1,
-     "starterValue": 6000.0,
-     "value": 6000.0
-    },
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "RB Min"
-     ],
-     "position": "RB",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 1,
-     "starterValue": 3000.0,
-     "value": 3000.0
-    },
-    {
-     "count": 2,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "WR Kc",
-      "WR Phi"
-     ],
-     "position": "WR",
-     "reserveCount": 0,
-     "reserveValue": 0.0,
-     "starterCount": 2,
-     "starterValue": 6000.0,
-     "value": 6000.0
-    },
-    {
-     "count": 1,
-     "leaguePercentile": null,
-     "leagueRank": null,
-     "members": [
-      "TE Free"
-     ],
-     "position": "TE",
-     "reserveCount": 1,
-     "reserveValue": 500.0,
-     "starterCount": 0,
-     "starterValue": 0.0,
-     "value": 500.0
-    }
-   ],
-   "fullRosterValue": null,
-   "isComplete": false,
-   "leaguePercentile": null,
-   "leagueRank": null,
-   "positionOrder": [
-    "QB",
-    "RB",
-    "WR",
-    "TE"
-   ],
-   "reserveValue": 500.0,
-   "starterValue": 15000.0,
-   "total": 15500.0,
-   "unavailableReason": null,
-   "unfilledReserveSlots": [
-    "QB",
-    "RB",
-    "WR"
-   ],
-   "unfilledStarterSlots": [],
-   "unpricedCount": 2,
-   "unpricedIds": [
-    "RB Unpriced",
-    "ghost player"
-   ]
-  },
-  "strengthDelta": 1000.0,
-  "unavailableReason": null,
-  "unpricedIncoming": [],
-  "weaknessAfter": null,
-  "weaknessBefore": null
- },
  "leagueKey": "main",
  "ownedPickChecks": {
   "alreadyOwnedByReceiver": [],
@@ -1435,7 +971,14 @@
   }
  ],
  "rosterCapacity": {
-  "unavailable": "roster_capacity_unavailable"
+  "notes": [
+   "roster capacity could not be computed for this trade"
+  ],
+  "unavailable": "KeyError"
+ },
+ "rosterUtility": {
+  "available": false,
+  "unavailableReason": "roster_capacity_unavailable"
  },
  "sending": [
   {

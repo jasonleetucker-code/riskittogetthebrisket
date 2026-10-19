@@ -15,14 +15,19 @@
  *     neutral" (decision-engine audit §7.5).
  *
  * Nothing here decides or re-weighs anything: the words and states are the
- * engine's, mapped to plain labels; an unknown code is shown, never dropped.
- * The one exception to verbatim: an evidence change ("Resolve: <gap>") is
- * worded like the War Room's "What is missing" list, because the gap text can
- * embed a reason code ("…could not be measured (not_computed).").
+ * engine's, mapped to plain labels; an unknown dimension or state code is
+ * shown, never dropped.  Reasons are never shown as codes:
+ *   - an evidence change ("Resolve: <gap>") is worded like the War Room's
+ *     "What is missing" list, because the gap text can embed a reason code
+ *     ("…could not be measured (not_computed).");
+ *   - the Note column's exclusion reason goes through the ONE reason-to-words
+ *     whitelist (`unavailableText`), so "error:KeyError" or a bare exception
+ *     name reads "Could not be computed right now".
  */
 
 import { DataTable } from "@/components/ds";
-import { missingEvidenceText } from "@/lib/trade-war-room-copy";
+import { unavailableText } from "@/lib/trade-war-room";
+import { hasInternalIdentifier, missingEvidenceText } from "@/lib/trade-war-room-copy";
 import styles from "./trade-package-breakdown.module.css";
 
 export const DIMENSION_LABELS = {
@@ -60,12 +65,22 @@ export const ROLE_LABELS = {
   confidence_only: "Confidence only",
 };
 
-const REASON_LABELS = {
-  asset_only_mode: "Asset-Only analysis",
-  not_computed: "not computed",
-  not_wired: "not wired yet",
-  partial_projection_coverage: "a traded player has no projection",
+/** The engine's applicability notes (`trade_decision.py` coverage record),
+ *  in plain words; an unmapped one is shown when plain, else a generic line. */
+const APPLICABILITY_WORDS = {
+  "no roster-level long-term quantity is wired; counted once, via asset value":
+    "No separate long-term roster measure yet; long-term value is counted once, through trade value",
+  "counterparty acceptance is not evaluated":
+    "Whether the other team would accept is not evaluated",
+  "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied":
+    "Only the roster limit is checked; the trade deadline and your saved locked or excluded players are not applied",
 };
+
+function applicabilityText(note) {
+  if (!note) return "";
+  if (APPLICABILITY_WORDS[note]) return APPLICABILITY_WORDS[note];
+  return hasInternalIdentifier(note) ? "Approximate" : note;
+}
 
 /** One `whatWouldChange` entry as display text: evidence changes name their
  *  gap in plain words (the matching `missingEvidence` gap carries the reason
@@ -92,11 +107,9 @@ export function coverageRows(coverage) {
     kind: label(EVIDENCE_KIND_LABELS, c?.evidenceKind),
     role: label(ROLE_LABELS, c?.role),
     freshness: humanize(c?.freshness) || "—",
-    note:
-      REASON_LABELS[c?.exclusionReason] ||
-      humanize(c?.exclusionReason) ||
-      c?.applicability?.reason ||
-      "",
+    note: c?.exclusionReason
+      ? unavailableText(c.exclusionReason)
+      : applicabilityText(c?.applicability?.reason),
   }));
 }
 

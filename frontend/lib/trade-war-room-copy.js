@@ -33,6 +33,7 @@ import {
   unavailableText,
   unavailableWords,
 } from "./trade-war-room";
+import { FAIRNESS_LABELS } from "./fairness-bands";
 
 // ── Small helpers ─────────────────────────────────────────────────────────
 
@@ -329,7 +330,8 @@ const ROMAN_NUMERAL = /^(?:I{2,3}|IV|VI{0,3}|IX|X{1,3})$/;
 /**
  * An internal identifier a person should not read: a snake_case code, a
  * camelCase key, an all-caps label of three or more letters, a `kind:Detail`
- * code ("error:KeyError"), or any of those in quotes ("'valueAdjustment'",
+ * code ("error:KeyError"), an exception class name ("KeyError",
+ * "ZeroDivisionError"), or any of those in quotes ("'valueAdjustment'",
  * "'LOPSIDED'").  Real names are not identifiers: a capital after an
  * apostrophe or inside a word ("Henry To'oTo'o", "JuJu", "McCloud") is not
  * camelCase, and a roman-numeral suffix ("Kenneth Walker III") is not a label.
@@ -339,6 +341,8 @@ export function hasInternalIdentifier(text) {
   if (/[A-Za-z0-9]_[A-Za-z0-9]/.test(s)) return true;
   // kind:Detail -- a lowercase word glued to a colon and another word.
   if (/(?:^|[^A-Za-z])[a-z]+:[A-Za-z_]/.test(s)) return true;
+  // An exception class name: KeyError, ZeroDivisionError, HTTPError.
+  if (/\b[A-Z][A-Za-z0-9]*(?:Error|Exception|Warning)\b/.test(s)) return true;
   // camelCase: a lowercase run that STARTS a token (not after a letter or an
   // apostrophe), then a capital.
   if (/(?:^|[^A-Za-z'’])[a-z]+[A-Z]/.test(s)) return true;
@@ -386,13 +390,13 @@ export function plainLimit(axis, why, { rosterLens = null } = {}) {
   return limitClause(axis, why, { rosterLens }).text;
 }
 
-/** "another traded player's value has no evidence rating" -- what a generic
+/** "another traded asset's value has no evidence rating" -- what a generic
  *  thin-evidence reason still says once a named clause covers the
- *  low-confidence assets. */
+ *  low-confidence assets.  "Asset": the unstamped list includes picks. */
 function unratedClause(count) {
   return count === 1
-    ? "another traded player's value has no evidence rating"
-    : `${count} other traded players' values have no evidence rating`;
+    ? "another traded asset's value has no evidence rating"
+    : `${count} other traded assets' values have no evidence rating`;
 }
 
 /** Traded assets with no confidence stamp that are not low-confidence ones
@@ -479,17 +483,20 @@ export function confidenceSummary(confidence, { rosterLens = null, evidenceLens 
 
 /**
  * One line of the analysis' uncertainty list for the expandable detail, as a
- * sentence ending in a period: the backend's own sentence when it is plain;
- * its plain clause when it carries a code -- always for "Roster impact not
- * available (<reason>)", whose parenthesis is a reason code
- * ("error:KeyError", "not_computed").
+ * sentence ending in a period.  Every line `analyze_trade.py::_uncertainty`
+ * can write reads in the same plain words as the confidence line ("the roster
+ * lens abstains…" and "Roster impact not available (error:KeyError)" are not
+ * for people); an unrecognised plain line is the backend's own sentence; an
+ * unrecognised line carrying a code is a generic sentence.
  */
 export function uncertaintyLine(text, { rosterLens = null } = {}) {
   const t = typeof text === "string" ? text.trim() : "";
   if (!t) return null;
-  if (!isRawCode(t) && !/^Roster impact not available \(/i.test(t)) return sentenceEnd(t);
-  const plain = plainLimit("coverage", t, { rosterLens });
-  return sentenceEnd(`${plain.charAt(0).toUpperCase()}${plain.slice(1)}`);
+  if (LIMIT_WORDS.some(({ re }) => re.test(t))) {
+    const plain = plainLimit("coverage", t, { rosterLens });
+    return sentenceEnd(`${plain.charAt(0).toUpperCase()}${plain.slice(1)}`);
+  }
+  return isRawCode(t) ? "Part of the analysis could not be checked." : sentenceEnd(t);
 }
 
 /** How a host injury designation reads ("listed OUT this week" in the
@@ -506,20 +513,40 @@ const DESIGNATION_WORDS = {
   COV: "on the illness list",
 };
 
+/** The market lens' legacy magnitude words (`fairness_bands.legacy_magnitude`:
+ *  even / lean / stretch) as the canonical band levels; "stretch" covers both
+ *  unfair and lopsided, so the lens' own band level says which. */
+const LEGACY_MAGNITUDE_LEVEL = { even: "fair", lean: "slight" };
+
+/** A fairness-band level as words: "a slight edge", "an unfair gap",
+ *  "a lopsided gap", "within the fair band". */
+function bandPhrase(level) {
+  return level === "fair" ? "within the fair band" : BAND_PHRASE[level] || null;
+}
+
 /**
  * One "Points in favor / against" line (`analysis.reasonsFor` /
  * `reasonsAgainst`) for the expandable detail: the backend's sentence with
- * its all-caps injury designation worded ("listed as out this week"), ending
- * in a period like every other line there.
+ * its all-caps injury designation worded ("listed as out this week") and its
+ * legacy gap word ("(stretch gap)") in the canonical band vocabulary ("(a
+ * lopsided gap)", from `band`, the market lens' own band), ending in a period
+ * like every other line there.
  */
-export function argumentLine(text) {
+export function argumentLine(text, { band = null } = {}) {
   const t = typeof text === "string" ? text.trim() : "";
   if (!t) return null;
   return sentenceEnd(
-    t.replace(
-      /\blisted ([A-Z]{2,}) this week\b/g,
-      (_, code) => `${DESIGNATION_WORDS[code] || `listed as ${code.toLowerCase()}`} this week`,
-    ),
+    t
+      .replace(
+        /\blisted ([A-Z]{2,}) this week\b/g,
+        (_, code) => `${DESIGNATION_WORDS[code] || `listed as ${code.toLowerCase()}`} this week`,
+      )
+      .replace(/\((even|lean|stretch) gap\)/g, (_, mag) => {
+        const level =
+          LEGACY_MAGNITUDE_LEVEL[mag] ||
+          (band?.level === "unfair" || band?.level === "lopsided" ? band.level : null);
+        return `(${bandPhrase(level) || "an unfair or lopsided gap"})`;
+      }),
   );
 }
 
@@ -569,6 +596,15 @@ export function missingEvidenceText(gap) {
   const prose = NAME_LIST_GAPS.has(code) && at > 0 ? text.slice(0, at) : text;
   return isRawCode(prose) ? GENERIC_GAP : sentenceEnd(text);
 }
+
+/** The posture classes, named for a person (never the all-caps codes). */
+export const POSTURE_LABELS = {
+  PUSH: "Push (contender)",
+  HOLD: "Hold (too close to call)",
+  RETOOL: "Retool",
+  REBUILD: "Rebuild",
+};
+const POSTURE_SHORT = { PUSH: "Push", HOLD: "Hold", RETOOL: "Retool", REBUILD: "Rebuild" };
 
 /** How the backend's competitive-posture labels read to a person. */
 const POSTURE_PLAIN = {
@@ -760,6 +796,97 @@ export function decisionReasonSentences(decision) {
   }));
   if (!items.length || !items[0].sentence) return [];
   return items.filter((r) => r.sentence);
+}
+
+// ── Methodology: the engine's own record, in plain words ─────────────────
+
+const AXIS_NAMES = {
+  coverage: "coverage",
+  margin: "margin",
+  agreement: "agreement",
+  assetEvidence: "asset evidence",
+  precision: "precision",
+  evidence: "evidence",
+};
+
+/**
+ * The backend's confidence statement ("Medium confidence — limited by
+ * assetEvidence: …; precision: …") for the methodology view: the same level
+ * and the same limiting axes in the same order, each axis named in words and
+ * its reason in the plain clause the confidence line uses.  Unlike the
+ * at-a-glance line it keeps one entry per AXIS (two axes naming one fact both
+ * stay), because this view is the engine's record.
+ */
+export function confidenceStatementText(confidence, ctx = {}) {
+  const s = confidenceSummary(confidence, ctx);
+  if (!s) return null;
+  if (!s.level) return s.detail;
+  if (confidence.level === "HIGH")
+    return `${s.level} — ${s.detail ? lowerFirst(s.detail) : "every part of the evidence is strong."}`;
+  const bottleneck = Array.isArray(confidence.bottleneck) ? confidence.bottleneck : [];
+  const whys = confidenceLimits(s.statement, bottleneck);
+  if (!whys.length) return sentenceEnd(`${s.level}. ${s.detail || ""}`);
+  const parts = bottleneck.map(
+    (axis, i) =>
+      `${AXIS_NAMES[axis] || "another part of the evidence"} (${limitClause(axis, whys[i], ctx).text})`,
+  );
+  return sentenceEnd(`${s.level} — limited by ${clauseJoin(parts)}`);
+}
+
+/**
+ * One reason of the engine's record (`decision.reasons[i].text`) for the
+ * methodology view: the backend's sentence with its numbers, its band label
+ * ("LOPSIDED band") in the canonical band words and its posture codes
+ * ("contender (PUSH)") as the posture labels.  A reason that would still show
+ * a code -- the backend falls back to a raw state for an unknown roster
+ * state -- is the plain reason sentence instead.
+ */
+export function recordReasonText(reason, { strategy = null } = {}) {
+  const t = typeof reason?.text === "string" ? reason.text.trim() : "";
+  const fallback = () => reasonSentence(reason, { strategy });
+  if (!t || t === reason?.evidence?.state) return fallback();
+  const out = t
+    .replace(/,\s*([A-Z][A-Z ]*[A-Z]) band$/, (whole, label) => {
+      const level = Object.keys(FAIRNESS_LABELS).find((k) => FAIRNESS_LABELS[k] === label);
+      const phrase = bandPhrase(level);
+      return phrase ? `: ${phrase}` : whole;
+    })
+    .replace(
+      /\b(?:contender|uncertain|retooling|rebuilder) \((PUSH|HOLD|RETOOL|REBUILD)\)/g,
+      (_, code) => POSTURE_LABELS[code],
+    )
+    .replace(/\((PUSH|HOLD|RETOOL|REBUILD)\)/g, (_, code) => `(${POSTURE_SHORT[code]})`);
+  return isRawCode(out) ? fallback() : sentenceEnd(out);
+}
+
+const POINTS_MODEL_WORDS = {
+  "fallback-constants": "default per-position variance, not yet calibrated to this league",
+  calibrated: "calibrated to past weekly scoring",
+};
+
+/**
+ * The lineup simulation's projection basis (`lenses.roster.detail.basis`) as
+ * one sentence: the basis' own description when it is plain, else a generic
+ * name; the variance model in words.  Source ids
+ * ("ros_ensemble:PRESEASON_FULL_SEASON:equal_family_mean") are never shown.
+ */
+export function projectionBasisText(basis) {
+  const b = basis || {};
+  const desc =
+    typeof b.description === "string" && b.description && !isRawCode(b.description)
+      ? b.description
+      : "league-scored per-game projections";
+  const variance = POINTS_MODEL_WORDS[b.pointsModel?.source];
+  return sentenceEnd(
+    `Projections: ${desc}${variance ? `; week-to-week variance: ${variance}` : ""}`,
+  );
+}
+
+/** "fairness_bands_v1" -> "version 1"; null for anything else (an id is
+ *  never shown as-is). */
+export function versionLabel(id) {
+  const m = /_v(\d+)$/.exec(String(id || ""));
+  return m ? `version ${m[1]}` : null;
 }
 
 export const REASON_ROLE_WORDS = {

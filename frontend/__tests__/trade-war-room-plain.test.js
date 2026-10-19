@@ -25,6 +25,8 @@ import {
   formatSignedValue,
   formatValue,
   roundTenth,
+  unavailableText,
+  UNAVAILABLE_WORDS,
   valueSummaryFromSideTotals,
   warRoomValueSummaryFor,
 } from "@/lib/trade-war-room";
@@ -33,6 +35,7 @@ import {
   analysisErrorText,
   argumentLine,
   confidenceLimits,
+  confidenceStatementText,
   confidenceSummary,
   decisionReasonSentences,
   decisionReasons,
@@ -43,13 +46,16 @@ import {
   listJoin,
   missingEvidenceText,
   plainLimit,
+  projectionBasisText,
   reasonSentence,
+  recordReasonText,
   rosterFit,
   rosterSpotsLine,
   simulationExplanation,
   strategySentence,
   tradeValueSummary,
   uncertaintyLine,
+  versionLabel,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 
@@ -708,23 +714,35 @@ describe("partial projection coverage — the confidence line reads the roster l
 });
 
 describe("missingEvidenceText — what is missing, without reason codes", () => {
-  // REAL analyze output (`roster-unmeasured`): both reason-code gaps
-  // `trade_decision.py::_evidence_gaps` writes ("…(not_computed).",
-  // "…(roster_capacity_unavailable).").
+  // REAL analyze output (`roster-unmeasured`: the capacity check raised, so
+  // the simulator wrote rosterCapacity {"unavailable": "KeyError"} and
+  // rosterUtility "roster_capacity_unavailable"): both reason-code gaps
+  // `trade_decision.py::_evidence_gaps` writes.
   const d = ROSTER_UNMEASURED.analysis.decision;
 
   it("words the real roster gaps from their evidence reason", () => {
-    expect(d.missingEvidence.map((g) => g.text).join(" ")).toMatch(/_/); // the leak, as emitted
-    // "(not computed)" would only repeat "could not be measured": left out.
+    expect(ROSTER_UNMEASURED.rosterCapacity.unavailable).toBe("KeyError"); // the simulator's shape
+    expect(d.missingEvidence.map((g) => g.text)).toEqual([
+      "The roster effect could not be measured (roster_capacity_unavailable).",
+      "Whether the trade fits your roster is unknown (KeyError).",
+    ]); // the leak, as emitted
     expect(d.missingEvidence.map(missingEvidenceText)).toEqual([
-      "The effect on your lineup could not be measured.",
-      "Whether the trade fits your roster is unknown (your roster limit could not be checked).",
+      "The effect on your lineup could not be measured (your roster limit could not be checked).",
+      "Whether the trade fits your roster is unknown (could not be computed right now).",
     ]);
     // The evidence gate's reason carries the first gap's text and evidence, no code.
     expect(d.primaryReason.code).toBeUndefined();
     expect(reasonSentence(d.primaryReason)).toBe(
-      "The effect on your lineup could not be measured.",
+      "The effect on your lineup could not be measured (your roster limit could not be checked).",
     );
+    // "(not computed)" would only repeat "could not be measured": left out.
+    expect(
+      missingEvidenceText({
+        code: "roster_unknown",
+        text: "The roster effect could not be measured (not_computed).",
+        evidence: { reason: "not_computed" },
+      }),
+    ).toBe("The effect on your lineup could not be measured.");
   });
 
   it("the simulator's error:<Exception> reason reads in words (real output)", () => {
@@ -798,16 +816,29 @@ describe("missingEvidenceText — what is missing, without reason codes", () => 
     expect(missingEvidenceText(null)).toBeNull();
   });
 
-  it("the uncertainty list words a coded line, keeps plain ones, every line one period", () => {
+  it("the uncertainty list: every known line in plain words, one period each", () => {
     const [line] = ROSTER_UNMEASURED.analysis.uncertainty;
-    expect(line).toBe("Roster impact not available (not_computed)");
-    expect(uncertaintyLine(line)).toBe("The impact on your lineup is not available.");
+    expect(line).toBe("Roster impact not available (roster_capacity_unavailable)");
+    expect(uncertaintyLine(line)).toBe(
+      "The impact on your lineup is not available (your roster limit could not be checked).",
+    );
+    expect(uncertaintyLine("Roster impact not available (not_computed)")).toBe(
+      "The impact on your lineup is not available.",
+    );
+    // "the roster lens abstains" is not for people.
+    expect(uncertaintyLine(PARTIAL.analysis.uncertainty[0])).toBe(
+      "A traded player has no league-scored projection, so the lineup effect is left out rather than counted as zero.",
+    );
     expect(uncertaintyLine("Sources disagree on Justin Herbert")).toBe(
-      "Sources disagree on Justin Herbert.",
+      "The ranking sources disagree about Justin Herbert.",
     );
     expect(uncertaintyLine("Sources disagree on Marvin Harrison Jr.")).toBe(
-      "Sources disagree on Marvin Harrison Jr.",
+      "The ranking sources disagree about Marvin Harrison Jr.",
     );
+    // Unrecognised: verbatim when plain, a generic sentence when it is a code.
+    expect(uncertaintyLine("A brand-new caveat")).toBe("A brand-new caveat.");
+    expect(uncertaintyLine("cache_miss")).toBe("Part of the analysis could not be checked.");
+    expect(uncertaintyLine("KeyError")).toBe("Part of the analysis could not be checked.");
     expect(uncertaintyLine("")).toBeNull();
   });
 
@@ -919,12 +950,12 @@ describe("reason list and confidence edge cases", () => {
       confidenceSummary(c, { evidenceLens: lens(["DJ Moore"], ["Ghost Rookie"]) }).limits,
     ).toEqual([
       "the value of DJ Moore rests on thin evidence",
-      "another traded player's value has no evidence rating",
+      "another traded asset's value has no evidence rating",
     ]);
     expect(
       confidenceSummary(c, { evidenceLens: lens(["DJ Moore"], ["Ghost Rookie", "2029 Round 4"]) })
         .limits[1],
-    ).toBe("2 other traded players' values have no evidence rating");
+    ).toBe("2 other traded assets' values have no evidence rating");
     // No unrated asset beyond the named one: the named clause covers it all.
     expect(confidenceSummary(c, { evidenceLens: lens(["DJ Moore"], []) }).limits).toEqual([
       "the value of DJ Moore rests on thin evidence",
@@ -938,6 +969,226 @@ describe("reason list and confidence edge cases", () => {
     expect(
       confidenceSummary(onlyNamed, { evidenceLens: lens(["DJ Moore"], ["Ghost Rookie"]) }).limits,
     ).toEqual(["the value of DJ Moore rests on thin evidence"]);
+  });
+});
+
+describe("reason-to-words — one whitelist owner", () => {
+  // Every unavailable / exclusion reason the backend can put on the packet,
+  // enumerated from its source modules.
+  const ENUMERATED = {
+    "src/api/gameplan.py": [
+      "roster_snapshot_missing",
+      "starter_slots_missing",
+      "roster_snapshot_empty",
+      "league_bundle_not_warm",
+    ],
+    "src/api/trade_simulator.py": [
+      "team_not_in_league_bundle",
+      "capacity_uncertain",
+      "no_team_selected",
+      "roster_capacity_unavailable",
+    ],
+    "src/trade/roster_capacity.py": [
+      "counterparty_unresolved",
+      "assessment_failed",
+      "starter_slots_unresolved",
+      "season_unresolved",
+      "projection_basis_unavailable",
+      "projection_basis_no_projection_snapshot",
+      "projection_basis_scoring_card_missing",
+      "drop_requirement_undetermined",
+      "overage_undetermined",
+      "trade_adds_no_release",
+    ],
+    "src/roster_intel/best_ball_utility.py": [
+      "starter_slots_unresolved",
+      "no_remaining_fantasy_weeks",
+      "scoring_card_missing",
+      "no_projection_snapshot",
+    ],
+    "src/trade/analyze_trade.py + trade_decision.py": [
+      "no_priced_assets_either_side",
+      "not_computed",
+      "impact_missing",
+      "partial_projection_coverage",
+      "no_team_selected_or_uncomputable",
+      "unknown_limit",
+      "uncertain",
+      "trade_ledger_not_built",
+      "trade_ledger_unavailable",
+      "no_identifiable_assets",
+      "comparables_error",
+      "asset_only_mode",
+      "not_wired",
+    ],
+  };
+
+  it("every enumerated reason has its own plain words", () => {
+    for (const [source, reasons] of Object.entries(ENUMERATED)) {
+      for (const reason of reasons) {
+        expect(UNAVAILABLE_WORDS[reason], `${source}: ${reason}`).toBeTruthy();
+        const words = unavailableText(reason);
+        expect(hasInternalIdentifier(words), `${reason} -> ${words}`).toBe(false);
+        expect(words).not.toMatch(/_/);
+      }
+    }
+  });
+
+  it("an exception name, an error: code or any unlisted code is never shown", () => {
+    // `trade_simulator.py`: rosterCapacity / finalRosterSimulation carry the
+    // bare exception class name; posture and rosterUtility carry error:<Exc>.
+    for (const reason of [
+      "KeyError",
+      "ZeroDivisionError",
+      "HTTPError",
+      "error:KeyError",
+      "error:ValueError",
+      "some_new_reason",
+      "projection_basis_new_reason",
+    ]) {
+      const words = unavailableText(reason);
+      expect(words, reason).not.toContain(reason);
+      expect(hasInternalIdentifier(words)).toBe(false);
+    }
+    expect(unavailableText("KeyError")).toBe("Could not be computed right now");
+    expect(unavailableText("error:KeyError")).toBe("Could not be computed right now");
+    expect(unavailableText("some_new_reason")).toBe("Could not be computed right now");
+    expect(unavailableText("projection_basis_new_reason")).toBe(
+      "League-scored projections are not available",
+    );
+    // The fit row on the real failure shape.
+    expect(rosterFit(feas(ROSTER_UNMEASURED)).unavailable).toBe("Could not be computed right now");
+  });
+
+  it("exception class names are identifiers; ordinary words are not", () => {
+    for (const code of [
+      "KeyError",
+      "ZeroDivisionError",
+      "HTTPError",
+      "UserWarning",
+      "RuntimeException",
+    ]) {
+      expect(hasInternalIdentifier(code), code).toBe(true);
+    }
+    for (const plain of ["An error occurred", "Error", "a warning", "Warning signs"]) {
+      expect(hasInternalIdentifier(plain), plain).toBe(false);
+    }
+  });
+});
+
+describe("methodology — the engine's own record, in plain words", () => {
+  const d = CONSOLIDATION.analysis.decision;
+
+  it("the confidence statement keeps its level and axes, in words", () => {
+    expect(d.confidence.statement).toMatch(/assetEvidence: .*; precision: /); // as emitted
+    expect(confidenceStatementText(d.confidence)).toBe(
+      "Medium confidence — limited by asset evidence (a traded player's value rests on thin or missing evidence) and precision (the lineup simulation is only moderately precise).",
+    );
+    expect(
+      confidenceStatementText({
+        level: "HIGH",
+        bottleneck: [],
+        statement: "High confidence — every axis is high.",
+      }),
+    ).toBe("High confidence — every part of the evidence is strong.");
+    expect(
+      confidenceStatementText({
+        level: "HIGH",
+        bottleneck: [],
+        statement: "High confidence — the trade cannot be executed as built.",
+      }),
+    ).toBe("High confidence — the trade cannot be made as built: no legal roster cleanup exists.");
+    expect(confidenceStatementText(PARTIAL.analysis.decision.confidence)).toBe(
+      "No confidence level is given: important information is missing.",
+    );
+    for (const f of [CONSOLIDATION, ASSET_ONLY, AJ_BROWN, PARTIAL_LONG_TERM]) {
+      expect(hasInternalIdentifier(confidenceStatementText(f.analysis.decision.confidence))).toBe(
+        false,
+      );
+    }
+  });
+
+  it("each recorded reason keeps its numbers; band and posture labels read in words", () => {
+    expect(d.reasons.map((r) => recordReasonText(r, { strategy: d.strategy }))).toEqual([
+      "+1,440 package value for you after Value Adjustment — 19.4% of the larger package: a lopsided gap.",
+      "+1.5 expected best-ball points per week in your legal lineup.",
+      "Fits your roster without a cut.",
+      "Strategy: Win now. Your competitive posture is Push (contender), so the strategy is win now.",
+    ]);
+    // Every posture code and band label the backend writes.
+    expect(
+      recordReasonText({
+        text: "Your competitive posture has no measured evidence (HOLD), so the strategy is balanced.",
+      }),
+    ).toBe(
+      "Your competitive posture has no measured evidence (Hold), so the strategy is balanced.",
+    );
+    for (const [label, words] of [
+      ["SLIGHT EDGE", "a slight edge"],
+      ["UNFAIR", "an unfair gap"],
+      ["LOPSIDED", "a lopsided gap"],
+      ["FAIR", "within the fair band"],
+    ]) {
+      expect(
+        recordReasonText({
+          component: "objectiveValue",
+          text: `+300 package value for you after Value Adjustment — 4.0% of the larger package, ${label} band`,
+        }),
+      ).toMatch(new RegExp(`: ${words}\\.$`));
+    }
+    // A raw state code falls back to the plain reason sentence.
+    expect(
+      recordReasonText({
+        component: "feasibility",
+        stance: "against",
+        text: "brand_new_state",
+        evidence: { state: "brand_new_state", forcedDrops: [] },
+      }),
+    ).toBe("Fitting it on your roster counts against it.");
+    for (const f of [CONSOLIDATION, AJ_BROWN, PARTIAL_LONG_TERM, ASSET_ONLY]) {
+      const dec = f.analysis.decision;
+      for (const r of dec.reasons) {
+        expect(hasInternalIdentifier(recordReasonText(r, { strategy: dec.strategy }))).toBe(false);
+      }
+    }
+  });
+
+  it("the projection basis reads in words; source ids are never shown", () => {
+    // `best_ball_utility.py::_ensemble_index`: the production basis shape.
+    expect(
+      projectionBasisText({
+        source: "ros_ensemble:PRESEASON_FULL_SEASON:equal_family_mean",
+        description:
+          "full-season projection per game, rescored through this league's exact scoring card; not a weekly projection",
+        pointsModel: { source: "calibrated" },
+      }),
+    ).toBe(
+      "Projections: full-season projection per game, rescored through this league's exact scoring card; not a weekly projection; week-to-week variance: calibrated to past weekly scoring.",
+    );
+    expect(projectionBasisText({ source: "X_Y", description: "see tests/trade/x_y.py" })).toBe(
+      "Projections: league-scored per-game projections.",
+    );
+  });
+
+  it("version ids read as version numbers, never as ids", () => {
+    expect(versionLabel("fairness_bands_v1")).toBe("version 1");
+    expect(versionLabel("trade_decision_v2")).toBe("version 2");
+    expect(versionLabel("weird")).toBeNull();
+  });
+
+  it("legacy gap words in Points in favor use the canonical band vocabulary", () => {
+    const band = market(CONSOLIDATION).band;
+    expect(band.level).toBe("lopsided");
+    expect(CONSOLIDATION.analysis.reasonsFor[0]).toMatch(/\(stretch gap\)$/); // as emitted
+    expect(argumentLine(CONSOLIDATION.analysis.reasonsFor[0], { band })).toBe(
+      "+1,440 package value after Value Adjustment (a lopsided gap).",
+    );
+    expect(argumentLine("x (stretch gap)", { band: { level: "unfair" } })).toBe(
+      "x (an unfair gap).",
+    );
+    expect(argumentLine("x (lean gap)", { band })).toBe("x (a slight edge).");
+    expect(argumentLine("x (even gap)")).toBe("x (within the fair band).");
+    expect(argumentLine("x (stretch gap)")).toBe("x (an unfair or lopsided gap).");
   });
 });
 

@@ -350,7 +350,19 @@ export function formatSignedValue(value) {
 
 // ── Lens summaries (labels only — every number is the packet's) ──────────
 
-const UNAVAILABLE_WORDS = {
+/**
+ * Every unavailable / exclusion reason the analyze packet can carry, in plain
+ * words -- the ONE owner of reason-to-words for the War Room and the
+ * Reasoning tab.  A WHITELIST: a reason not listed here (an exception class
+ * name such as "KeyError", an "error:<Exception>" code, a code added later)
+ * never reaches the page; `unavailableText` says "Could not be computed right
+ * now" instead.  Sources, each pinned by test:
+ *   src/api/gameplan.py           GameplanUnavailable reasons
+ *   src/api/trade_simulator.py    capacity / utility / posture fallbacks
+ *   src/trade/roster_capacity.py  capacity, utility, counterparty, cut cost
+ *   src/roster_intel/best_ball_utility.py, src/trade/analyze_trade.py
+ */
+export const UNAVAILABLE_WORDS = {
   asset_only_mode: "Not included in Asset-Only analysis",
   no_team_selected: "Pick your team to see roster impact",
   no_team_selected_or_uncomputable: "Pick your team to see roster impact",
@@ -365,6 +377,8 @@ const UNAVAILABLE_WORDS = {
   projection_basis_scoring_card_missing:
     "This league's scoring card is missing",
   projection_basis_unavailable: "League-scored projections are not available",
+  no_projection_snapshot: "No league-scored projection snapshot yet",
+  scoring_card_missing: "This league's scoring card is missing",
   roster_capacity_unavailable: "Your roster limit could not be checked",
   uncertain:
     "Can't tell yet — who is on your taxi squad is unknown, so the number of cuts is uncertain",
@@ -382,7 +396,18 @@ const UNAVAILABLE_WORDS = {
   no_identifiable_assets:
     "No asset in this trade could be identified in the trade ledger",
   comparables_error: "Comparable trades could not be computed right now",
+  roster_snapshot_empty: "This league's roster snapshot has no rosters yet",
+  capacity_uncertain:
+    "Can't tell yet — who is on your taxi squad is unknown, so the cut is uncertain",
+  counterparty_unresolved: "The other team's roster could not be found",
+  assessment_failed: "Could not be computed right now",
+  not_wired: "Not connected to the analysis yet",
+  drop_requirement_undetermined: "Whether a cut is needed is not yet known",
+  overage_undetermined: "How far over the roster limit you are is not known",
+  trade_adds_no_release: "The trade adds no cut",
 };
+
+const COMPUTE_FAILED = "Could not be computed right now";
 
 // ── Competitive Posture (#840 / C7-POST-01) — labels only ────────────────
 
@@ -481,24 +506,31 @@ export function comparablesSummary(lens) {
   };
 }
 
+/** An unavailable reason as words for a row of its own.  Whitelist: a
+ *  reason with no words is "Could not be computed right now", never the code. */
 export function unavailableText(reason) {
   if (!reason) return "Unavailable";
-  return (
-    unavailableWords(reason) ||
-    `Unavailable (${String(reason).replace(/_/g, " ")})`
-  );
+  return unavailableWords(reason) || COMPUTE_FAILED;
 }
 
 /**
- * The plain words for an unavailable reason, or null when the reason has
- * none -- for a caller writing its own sentence, which then omits the reason
- * rather than show a code ("not available (unavailable (impact missing))").
+ * The plain words for an unavailable reason, or null when it has none -- for
+ * a caller writing its own sentence, which then omits the reason rather than
+ * show a code.  A failure (an "error:<Exception>" code, or a bare exception
+ * class name, which is how `trade_simulator.py` reports a capacity or final-
+ * roster failure) is "Could not be computed right now"; a projection-basis
+ * reason without its own entry is "League-scored projections are not
+ * available".
  */
 export function unavailableWords(reason) {
   if (!reason) return null;
-  if (UNAVAILABLE_WORDS[reason]) return UNAVAILABLE_WORDS[reason];
-  if (String(reason).startsWith("error:"))
-    return "Could not be computed right now";
+  const r = String(reason);
+  if (Object.prototype.hasOwnProperty.call(UNAVAILABLE_WORDS, r))
+    return UNAVAILABLE_WORDS[r];
+  if (r.startsWith("error:") || /^[A-Z][A-Za-z0-9]*$/.test(r))
+    return COMPUTE_FAILED;
+  if (r.startsWith("projection_basis_"))
+    return UNAVAILABLE_WORDS.projection_basis_unavailable;
   return null;
 }
 

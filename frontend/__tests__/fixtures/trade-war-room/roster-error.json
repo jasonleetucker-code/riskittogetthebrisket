@@ -1,6 +1,6 @@
 {
  "_fixture": {
-  "description": "The consolidation trade with the roster simulation raising (LABELLED degraded simulation): the simulator's own error:<Exception> reason reaches the packet.",
+  "description": "The consolidation trade with the roster simulation raising (LABELLED failure injection): the simulator's own error:<Exception> reason reaches the packet.",
   "generator": "tests/trade/war_room_ui_payloads.py",
   "request": {
    "picksIn": [],

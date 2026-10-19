@@ -110,13 +110,19 @@ test("trade war room: recommendation, three plain answers, Asset-Only round trip
     await expect(room.locator(`[data-lens="${lens}"]`)).toBeVisible();
   }
   await room.getByRole("button", { name: "Sources, simulations and methodology" }).click();
-  await expect(room.getByTestId("decision-bands")).toContainText(
-    consolidation.analysis.decision.bands.version,
-  );
+  // The bands are named by their version number, never by their id.
+  expect(consolidation.analysis.decision.bands.version).toBe("fairness_bands_v1");
+  await expect(room.getByTestId("decision-bands")).toContainText("Fairness bands, version 1");
   // One official answer: no legacy graded leaning anywhere in the War Room.
   await expect(room).not.toContainText(/leaning/i);
   await room.getByRole("button", { name: "Arguments, objections and uncertainty" }).click();
-  await expect(room.getByText(consolidation.analysis.reasonsFor[0])).toBeVisible();
+  // The legacy gap word ("(stretch gap)") reads in the canonical band words.
+  expect(consolidation.analysis.lenses.market.detail.band.level).toBe("lopsided");
+  await expect(
+    room.getByText(
+      consolidation.analysis.reasonsFor[0].replace("(stretch gap)", "(a lopsided gap)") + ".",
+    ),
+  ).toBeVisible();
   // The page asked about THIS trade for THIS team.
   const first = requests.at(-1);
   expect(first.teamName).toBe(trade.team.name);

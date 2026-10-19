@@ -31,7 +31,6 @@ import {
   reasonSentence,
   strategySentence,
   tradeValueSummary,
-  uncertaintyLine,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 
@@ -262,7 +261,7 @@ describe("TradeWarRoom — the packet, in plain English", () => {
     openSection("Arguments, objections and uncertainty");
     expect(
       within(document.querySelector('[data-list="uncertain"]')).getByText(
-        uncertaintyLine(PARTIAL.analysis.topUncertainty),
+        "A traded player has no league-scored projection, so the lineup effect is left out rather than counted as zero.",
       ),
     ).toBeInTheDocument();
     openSection("Lineup impact, player by player");
@@ -276,14 +275,27 @@ describe("TradeWarRoom — the packet, in plain English", () => {
     expect(
       screen.getByText(/Package Value Adjustment: Geometric Value Adjustment \(q = 0\.78\)/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/SYNTHETIC_FIXTURE_PROJECTIONS/)).toBeInTheDocument();
+    // The basis' description carries a file path, so it is named generically;
+    // the source id ("SYNTHETIC_FIXTURE_PROJECTIONS") is never shown.
+    expect(screen.getByTestId("war-room-projection-basis")).toHaveTextContent(
+      "Projections: league-scored per-game projections; week-to-week variance: default per-position variance, not yet calibrated to this league.",
+    );
+    expect(screen.queryByText(/SYNTHETIC_FIXTURE_PROJECTIONS/)).toBeNull();
     expect(screen.getByTestId("war-room-simulation-explained")).toHaveTextContent(
       /model estimate.*standard error.*not errors in the projections themselves/,
     );
     expect(screen.getByText("Change in this season's playoff and title odds")).toBeInTheDocument();
-    expect(screen.getByTestId("decision-confidence-statement")).toHaveTextContent(
-      CONSOLIDATION.analysis.decision.confidence.statement,
+    // The engine's statement, in words: its level and axes, no axis keys.
+    const statement = screen.getByTestId("decision-confidence-statement");
+    expect(statement).toHaveTextContent(
+      "Confidence: Medium confidence — limited by asset evidence (a traded player's value rests on thin or missing evidence) and precision (the lineup simulation is only moderately precise). Confidence is a label set by the weakest part of the evidence — never a probability.",
     );
+    expect(hasInternalIdentifier(readText(statement))).toBe(false);
+    // The roster-capacity owner's developer notes are not listed.
+    expect(screen.queryByText(/Roster limit notes/)).toBeNull();
+    expect(screen.queryByText(/cut costs fall back to raw board value/)).toBeNull();
+    // An unknown "not included" dimension never shows its developer notes.
+    expect(screen.queryByText(/src\.ros\.playoff_sim/)).toBeNull();
   });
 
   it("names comparable real trades as not computed when the packet has none", async () => {
@@ -697,11 +709,30 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
         if (el) clean(readText(el), `${name} ${id}`);
       }
       clean(readText(document.querySelector("dl")), `${name} at a glance`);
-      // The uncertainty list in the expandable detail too.
+      // The detail lists too.
       openSection("Arguments, objections and uncertainty");
-      const uncertain = document.querySelector('[data-list="uncertain"]');
-      if (uncertain) clean(readText(uncertain), `${name} uncertain`);
+      for (const key of ["for", "against", "uncertain"]) {
+        const list = document.querySelector(`[data-list="${key}"]`);
+        if (list) clean(readText(list), `${name} ${key}`);
+      }
       view.unmount();
+      // ...and the Reasoning tab: what would change it, and the coverage
+      // table's every cell (its Note column carried "error:KeyError").
+      const tab = render(
+        <TradeDecisionReasoning decision={fixture.analysis.decision} emptyText="x" />,
+      );
+      const changes = screen.queryByTestId("decision-what-would-change");
+      if (changes) {
+        // The engine's own headline words ("would be NO — TOO CLOSE") are the
+        // decision's official answer, not a code; the rest must be plain.
+        const headlines = /YES — MAKE THE TRADE|NO — DO NOT MAKE THE TRADE|NO — TOO CLOSE/g;
+        clean(readText(changes).replace(headlines, ""), `${name} what would change`);
+      }
+      clean(
+        readText(screen.getByRole("table", { name: /Evidence coverage/ })),
+        `${name} coverage table`,
+      );
+      tab.unmount();
     }
   });
 
@@ -729,10 +760,14 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     expect(d.headline).toBe("NOT_ENOUGH_EVIDENCE");
     const items = within(screen.getByTestId("decision-missing")).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
-      "The effect on your lineup could not be measured.",
-      "Whether the trade fits your roster is unknown (your roster limit could not be checked).",
+      "The effect on your lineup could not be measured (your roster limit could not be checked).",
+      "Whether the trade fits your roster is unknown (could not be computed right now).",
     ]);
     expect(items.map((li) => li.textContent)).toEqual(d.missingEvidence.map(missingEvidenceText));
+    // The fit row on the simulator's real failure shape (rosterCapacity
+    // {"unavailable": "KeyError"}): words, never the exception name.
+    expect(row("feasibility")).toHaveTextContent("Could not be computed right now");
+    expect(row("feasibility").textContent).not.toMatch(/KeyError/);
   });
 
   it("a roster simulation that raised reads in words everywhere (error:<Exception>)", async () => {
@@ -963,13 +998,26 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     );
   });
 
-  it("every backend reason, verbatim, and the bands used are in the methodology", async () => {
+  it("every backend reason, with its numbers, and the bands used are in the methodology", async () => {
     await renderWith(CONSOLIDATION);
-    const d = CONSOLIDATION.analysis.decision;
     openSection("Sources, simulations and methodology");
     const record = screen.getByTestId("decision-record");
-    for (const r of d.reasons) expect(record).toHaveTextContent(r.text);
-    expect(screen.getByTestId("decision-bands")).toHaveTextContent(d.bands.version);
+    expect(
+      within(record)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual([
+      "Deciding reason: +1,440 package value for you after Value Adjustment — 19.4% of the larger package: a lopsided gap.",
+      "+1.5 expected best-ball points per week in your legal lineup.",
+      "Fits your roster without a cut.",
+      "Strategy: Win now. Your competitive posture is Push (contender), so the strategy is win now.",
+    ]);
+    expect(readText(record)).toMatch(/version 2/);
+    const bands = screen.getByTestId("decision-bands");
+    expect(bands).toHaveTextContent(
+      "Fairness bands, version 1 (provisional): a gap is fair under 250 points or 3.5% of the larger adjusted package.",
+    );
+    for (const el of [record, bands]) expect(hasInternalIdentifier(readText(el))).toBe(false);
   });
 
   it("no second verdict: the legacy graded leaning is not shown anywhere in the War Room", async () => {

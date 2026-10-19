@@ -21,6 +21,7 @@ are regenerated::
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -102,8 +103,9 @@ SCENARIOS: dict[str, tuple] = {
         [],
         True,
         True,
-        "The consolidation trade with the roster simulation and the roster-capacity check "
-        "both unavailable (LABELLED degraded simulation): the decision's evidence gates.",
+        "The consolidation trade with the roster-capacity check raising (LABELLED failure "
+        "injection): the simulator's own failure shapes -- rosterCapacity "
+        "{'unavailable': 'KeyError'} and rosterUtility roster_capacity_unavailable.",
     ),
     "roster-error": (
         ["WR Buf Star"],
@@ -112,31 +114,29 @@ SCENARIOS: dict[str, tuple] = {
         [],
         True,
         True,
-        "The consolidation trade with the roster simulation raising (LABELLED degraded "
-        "simulation): the simulator's own error:<Exception> reason reaches the packet.",
+        "The consolidation trade with the roster simulation raising (LABELLED failure "
+        "injection): the simulator's own error:<Exception> reason reaches the packet.",
     ),
 }
 
 #: Per-scenario extras, kept out of the tuple so existing scenarios are unchanged:
 #: ``team_goal`` -- the user's strategy override (``teamGoal``);
 #: ``unprojected`` -- PPG keys withheld from the projection seam;
-#: ``degrade`` -- simulation blocks replaced by their unavailable states before
-#: the analysis runs (a LABELLED degraded simulation: the reasons are ones the
-#: simulator emits, the decision is the real owner's answer to them).
+#: ``raise_in`` -- functions made to raise ``KeyError`` (a LABELLED failure
+#: injection): the simulator's own exception handling writes whatever it
+#: writes, so the packet carries the REAL failure shapes, never hand-typed ones.
 SCENARIO_OPTIONS: dict[str, dict] = {
     "partial-long-term": {"team_goal": "LONG_TERM", "unprojected": ("wr buf star",)},
-    "roster-unmeasured": {
-        "degrade": {
-            "rosterUtility": None,
-            "rosterCapacity": {"unavailable": "roster_capacity_unavailable"},
-        }
-    },
-    # What `trade_simulator.simulate_trade` writes when the roster simulation
-    # raises: ``f"error:{type(exc).__name__}"``.
-    "roster-error": {
-        "degrade": {"rosterUtility": {"available": False, "unavailableReason": "error:KeyError"}}
-    },
+    # `simulate_trade` -> rosterCapacity {"unavailable": "KeyError", ...}, and
+    # with no capacity, rosterUtility "roster_capacity_unavailable".
+    "roster-unmeasured": {"raise_in": ("src.trade.roster_capacity.assess_roster_capacity",)},
+    # `simulate_trade` -> rosterUtility "error:KeyError".
+    "roster-error": {"raise_in": ("src.trade.roster_capacity.evaluate_final_roster_utility",)},
 }
+
+
+def _raise_keyerror(*_args, **_kwargs):
+    raise KeyError("LABELLED failure injection (tests/trade/war_room_ui_payloads.py)")
 
 
 def _ppg(ids, season, scoring_settings, *, unprojected=()):
@@ -184,6 +184,37 @@ def build(name: str) -> dict:
     options = SCENARIO_OPTIONS.get(name, {})
     unprojected = tuple(options.get("unprojected", ()))
     contract = _contract(league_key="main")
+    with contextlib.ExitStack() as injected:
+        for target in options.get("raise_in", ()):
+            injected.enter_context(mock.patch(target, _raise_keyerror))
+        result = _simulate(
+            contract, players_in, players_out, picks_in, picks_out, context, with_team, unprojected
+        )
+    result["leagueKey"] = "main"
+    result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
+    result["analysis"] = analyze_trade(result, team_goal=options.get("team_goal"))
+    payload = json.loads(json.dumps(result, default=list))
+    payload["_fixture"] = {
+        "scenario": name,
+        "description": description,
+        "generator": "tests/trade/war_room_ui_payloads.py",
+        "request": {
+            "teamName": "Us",
+            "playersIn": players_in,
+            "playersOut": players_out,
+            "picksIn": picks_in,
+            "picksOut": picks_out,
+            "useTeamContext": context,
+        },
+    }
+    if options.get("team_goal"):
+        payload["_fixture"]["teamGoal"] = options["team_goal"]
+    return payload
+
+
+def _simulate(
+    contract, players_in, players_out, picks_in, picks_out, context, with_team, unprojected
+):
     with (
         mock.patch.object(
             bbu,
@@ -216,31 +247,7 @@ def build(name: str) -> dict:
             include_roster_utility=context,
             competitive_posture=_synthetic_posture() if with_team else None,
         )
-    for key, block in options.get("degrade", {}).items():
-        if block is None:
-            result.pop(key, None)
-        else:
-            result[key] = block
-    result["leagueKey"] = "main"
-    result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
-    result["analysis"] = analyze_trade(result, team_goal=options.get("team_goal"))
-    payload = json.loads(json.dumps(result, default=list))
-    payload["_fixture"] = {
-        "scenario": name,
-        "description": description,
-        "generator": "tests/trade/war_room_ui_payloads.py",
-        "request": {
-            "teamName": "Us",
-            "playersIn": players_in,
-            "playersOut": players_out,
-            "picksIn": picks_in,
-            "picksOut": picks_out,
-            "useTeamContext": context,
-        },
-    }
-    if options.get("team_goal"):
-        payload["_fixture"]["teamGoal"] = options["team_goal"]
-    return payload
+    return result
 
 
 def fixture_path(name: str) -> Path:
