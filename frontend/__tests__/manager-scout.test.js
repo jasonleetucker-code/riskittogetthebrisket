@@ -150,6 +150,28 @@ describe("the client-side tendency engine is retired", () => {
     expect(leagueAnalysis.analyzeTradeTendencies).toBeUndefined();
   });
 
+  it("/trades keeps manager, trade count and top partner visible on phones", () => {
+    const src = fs.readFileSync(path.resolve(__dirname, "../app/trades/page.jsx"), "utf8");
+    const start = src.indexOf("function TendenciesPanel()");
+    const end = src.indexOf("// ── Trade entry", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const panel = src.slice(start, end);
+    const columnSpec = (key) => {
+      const pos = panel.indexOf(`key: "${key}"`);
+      expect(pos).toBeGreaterThan(-1);
+      return panel.slice(pos, panel.indexOf("accessor:", pos));
+    };
+
+    // DataTable's hideBelow=md removes a whole column at widths < 768px.
+    for (const key of ["manager", "trades", "topPartner"]) {
+      expect(columnSpec(key)).not.toMatch(/hideBelow:/);
+    }
+    for (const key of ["netPerTrade", "picks", "faab"]) {
+      expect(columnSpec(key)).toContain('hideBelow: "md"');
+    }
+  });
+
   it("/trades consumes the Manager Scout endpoint", () => {
     const src = fs.readFileSync(path.resolve(__dirname, "../app/trades/page.jsx"), "utf8");
     expect(src).toContain("useManagerScout");

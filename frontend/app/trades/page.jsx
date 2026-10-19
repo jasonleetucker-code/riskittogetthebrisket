@@ -226,6 +226,7 @@ function TendenciesPanel() {
         header: "Net (today)",
         numeric: true,
         sortable: true,
+        hideBelow: "md",
         accessor: (t) => t.netPerTrade,
         render: (t) =>
           t.netPerTrade === null ? (
@@ -242,7 +243,6 @@ function TendenciesPanel() {
       {
         key: "topPartner",
         header: "Top partner",
-        hideBelow: "md",
         accessor: (t) => t.topPartner,
         render: (t) => cell(t.topPartner, t.tradeState, (v) => v),
       },
@@ -251,6 +251,7 @@ function TendenciesPanel() {
         header: "Picks in / out",
         numeric: true,
         sortable: true,
+        hideBelow: "md",
         accessor: (t) => t.picksIn,
         render: (t) =>
           t.picksIn === null
@@ -285,6 +286,7 @@ function TendenciesPanel() {
         header: "Avg FAAB bid",
         numeric: true,
         sortable: true,
+        hideBelow: "md",
         accessor: (t) => t.faabMeanPct,
         render: (t) =>
           t.faabMeanPct === null ? (
