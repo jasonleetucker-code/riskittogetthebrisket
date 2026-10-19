@@ -59,7 +59,11 @@ import {
   parseShareParam,
   shareLinkLimits,
 } from "@/lib/trade-share";
-import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
+import {
+  resolveTeamSide,
+  tradeRequestForTeam,
+  warRoomValueSummaryFor,
+} from "@/lib/trade-war-room";
 import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
 import {
   PICK_OWNERSHIP_UNAVAILABLE_LABEL,
@@ -1911,6 +1915,23 @@ export default function TradePage() {
         : null,
     [sides, selectedTeam, teamRosterNames, explicitMySide],
   );
+  // The War Room's immediate trade-value summary (owner directive 2026-10-19,
+  // Part 4): EXACTLY the calculator headline's totals for the selected team's
+  // side (overrides included), shown while the personalized analysis runs --
+  // never a YES / NO.  An asset with no board value and no override gets no
+  // total at all (MISSING IS NEVER ZERO); `warRoomValueSummaryFor` decides.
+  const warRoomValueSummary = useMemo(
+    () =>
+      sides.length === 2 && warRoomRequest
+        ? warRoomValueSummaryFor({
+            sideTotals,
+            mySide: warRoomRequest.mySide,
+            evaluation: evalState,
+            overrideCount: Object.keys(valueOverrides).length,
+          })
+        : null,
+    [sides.length, warRoomRequest, sideTotals, evalState, valueOverrides],
+  );
   // Both sides hold assets but nothing says which one is the team's: ask.
   const sideChoiceNeeded =
     Boolean(selectedTeam) &&
@@ -2819,9 +2840,12 @@ export default function TradePage() {
             >
               {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
                   What this trade does to the selected team's actual
-                  roster: recommendation, then Market / Roster /
-                  Feasibility as three separate answers.  Two-side trades
-                  with a selected team; every number is the backend's. */}
+                  roster, in plain English (owner directive 2026-10-19):
+                  the ONE recommendation, then Trade value / Impact on your
+                  team / Does it fit your roster?  Every number is the
+                  backend's; while the analysis runs the War Room shows the
+                  calculator's own trade value (`valueSummary`), never a
+                  YES / NO. */}
               {sides.length === 2 ? (
                 <TradeWarRoom
                   request={warRoomRequest}
@@ -2834,19 +2858,13 @@ export default function TradePage() {
                   chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
                   onChooseSide={setExplicitMySide}
                   onDecision={setDecisionSummary}
+                  valueSummary={warRoomValueSummary}
                 />
               ) : (
                 // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
-                // two-team trade.  A 3+-team trade gets no YES / NO, and the page
-                // says so instead of silently dropping the War Room.
-                <Banner tone="info" title="A reliable YES / NO is unavailable">
-                  <span data-testid="war-room-multi-team-limit">
-                    The decision engine can identify your side and account for every
-                    side only in a two-team trade, so no YES / NO is given for this{" "}
-                    {sides.length}-team trade (owner decision, 2026-10-18); the result
-                    meter compares each team&apos;s net flow.
-                  </span>
-                </Banner>
+                // two-team trade.  A 3+-team trade gets no YES / NO; the War Room
+                // itself says so (`sideCount`) instead of silently disappearing.
+                <TradeWarRoom sideCount={sides.length} />
               )}
               {/* Value Adjustment comparison — dual-VA lane */}
               <ValueAdjustmentComparison
