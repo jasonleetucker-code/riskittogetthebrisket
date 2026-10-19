@@ -81,6 +81,8 @@ def _all_play_week(
 def _season_weekly_scores(
     season: SeasonSnapshot,
     registry: ManagerRegistry,
+    *,
+    by_franchise: bool = False,
 ) -> dict[int, list[tuple[str, float]]]:
     """Return ``{week: [(owner_id, points), ...]}`` for every COMPLETED
     regular-season week.  Entries that can't be resolved to an owner are skipped.
@@ -113,6 +115,14 @@ def _season_weekly_scores(
     inconsistency #1530 finding A measured.  The Luck section no longer reads
     this pair; ``ros.power_v2`` still does, and changing its inputs is a Power
     methodology question, not a Luck one.
+
+    ``by_franchise`` keys each score to the roster's CURRENT owner instead of
+    the owner who held it that week.  A mid-season hand-off
+    (``ownership.owner_at``) splits one roster across two managers, which is
+    right for manager-level history and wrong for a team-level question: the
+    roster's record and remaining schedule belong to its current owner, so a
+    forecast built from the per-week split saw a scheduled team with no
+    scores (dynasty_main roster 11, 2026-10-17).
     """
     out: dict[int, list[tuple[str, float]]] = {}
     for wk in metrics.final_regular_season_weeks(season):
@@ -120,7 +130,12 @@ def _season_weekly_scores(
         for entry in season.matchups_by_week.get(wk) or []:
             if entry.get("points") is None:
                 continue
-            owner_id = metrics.resolve_owner(registry, season.league_id, entry.get("roster_id"), wk)
+            owner_id = metrics.resolve_owner(
+                registry,
+                season.league_id,
+                entry.get("roster_id"),
+                None if by_franchise else wk,
+            )
             if not owner_id:
                 continue
             rows.append((owner_id, metrics.matchup_points(entry)))
