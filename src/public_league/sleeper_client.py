@@ -64,6 +64,9 @@ CHAIN_UNVERIFIED = "unverified"  # a link could not be read, looped, or has no t
 # ``settings.type`` != 2): a redraft/keeper season is not this dynasty's
 # history, so the walk stops there rather than mixing it in.
 CHAIN_NON_DYNASTY = "non_dynasty_predecessor"
+#: :func:`iter_league_chain` stopped at a league the caller already walked
+#: (``known_league_ids``) -- the rest of this lineage is already covered.
+CHAIN_JOINED = "joined_walked_chain"
 
 #: Sleeper ``league.settings.type``: 0 redraft, 1 keeper, 2 dynasty.
 SLEEPER_DYNASTY_TYPE = 2
@@ -537,39 +540,92 @@ def walk_league_chain_status(
     ``start_budget_exhausted`` / ``predecessor_budget_exhausted`` when the
     caller's budget refused the call (kind ``"budget"``), otherwise the
     ``*_fetch_failed`` reasons above.  Without it the walk is unchanged.
-    """
-    chain: list[dict[str, Any]] = []
 
-    def _cov(state: str, reason: str | None, stopped: str | None) -> dict[str, Any]:
-        return {
-            "state": state,
-            "reason": reason,
-            "seasonsWalked": len(chain),
-            "cap": max_seasons,
-            "stoppedAtLeagueId": stopped,
-        }
+    The walk itself is :func:`iter_league_chain` -- the ONE
+    ``previous_league_id`` walker; this is its list form.
+    """
+    coverage: dict[str, Any] = {}
+    chain = list(
+        iter_league_chain(
+            start_league_id,
+            max_seasons,
+            fetch_league_fn=fetch_league_fn,
+            coverage=coverage,
+        )
+    )
+    return chain, coverage
+
+
+def iter_league_chain(
+    start_league_id: str,
+    max_seasons: int = PUBLIC_MAX_SEASONS,
+    *,
+    fetch_league_fn: Callable[[str], tuple[str, Any]] | None = None,
+    coverage: dict[str, Any] | None = None,
+    dynasty_only: bool = True,
+    known_league_ids: Any = None,
+    on_league_fetched: Callable[[dict[str, Any]], None] | None = None,
+):
+    """The ONE ``previous_league_id`` walker: yield league objects current ->
+    oldest, lazily, so a caller can do per-season work (records, captures)
+    between hops and its budget decides each next fetch.
+
+    Semantics are :func:`walk_league_chain_status`'s; on exhaustion (or when
+    the consumer stops early, ``coverage`` stays as last written) ``coverage``
+    is filled in place with the same dict.  The terminator test is
+    ``league_filter.predecessor_league_id``-equivalent (``"0"`` / empty).
+
+    ``dynasty_only=False`` walks past non-dynasty / untyped predecessors (the
+    records crawl records every season and gates eligibility per row);
+    ``known_league_ids`` (a set the caller may grow) stops the walk with
+    ``joined_walked_chain`` before re-fetching a league already walked in
+    this run; ``on_league_fetched`` sees EVERY league object fetched,
+    including a non-dynasty predecessor the walk then excludes -- so a caller
+    can persist the link that ended the chain.
+    """
+    out_cov = coverage if coverage is not None else {}
+    walked = 0
+
+    def _cov(state: str, reason: str | None, stopped: str | None) -> None:
+        out_cov.clear()
+        out_cov.update(
+            {
+                "state": state,
+                "reason": reason,
+                "seasonsWalked": walked,
+                "cap": max_seasons,
+                "stoppedAtLeagueId": stopped,
+            }
+        )
 
     cur = str(start_league_id or "").strip()
     if max_seasons <= 0:
-        return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur or None)
+        _cov(CHAIN_TRUNCATED, "safety_cap", cur or None)
+        return
     if cur in _CHAIN_TERMINATORS:
         # No start id at all: nothing was walked, so nothing is proven complete.
-        return chain, _cov(CHAIN_UNVERIFIED, "no_start_league", None)
+        _cov(CHAIN_UNVERIFIED, "no_start_league", None)
+        return
     seen: set[str] = set()
     while cur not in _CHAIN_TERMINATORS:
         if cur in seen:
             log.warning("sleeper_client: previous_league_id chain loops at %s", cur)
-            return chain, _cov(CHAIN_UNVERIFIED, "chain_loop", cur)
-        if len(chain) >= max_seasons:
+            _cov(CHAIN_UNVERIFIED, "chain_loop", cur)
+            return
+        if known_league_ids is not None and cur in known_league_ids:
+            _cov(CHAIN_JOINED, "already_walked", cur)
+            return
+        if walked >= max_seasons:
             log.warning(
                 "sleeper_client: league history TRUNCATED at the %d-season safety cap "
                 "(older season %s still linked)",
                 max_seasons,
                 cur,
             )
-            return chain, _cov(CHAIN_TRUNCATED, "safety_cap", cur)
+            _cov(CHAIN_TRUNCATED, "safety_cap", cur)
+            return
         seen.add(cur)
-        prefix = "predecessor" if chain else "start"
+        prefix = "predecessor" if walked else "start"
         if fetch_league_fn is None:
             league = fetch_league(cur)
             kind = FETCH_OK if league else FETCH_ERROR
@@ -581,8 +637,11 @@ def walk_league_chain_status(
             suffix = {FETCH_RATE_LIMITED: "rate_limited", "budget": "budget_exhausted"}.get(
                 kind, "fetch_failed"
             )
-            return chain, _cov(CHAIN_UNVERIFIED, f"{prefix}_{suffix}", cur)
-        if chain:
+            _cov(CHAIN_UNVERIFIED, f"{prefix}_{suffix}", cur)
+            return
+        if on_league_fetched is not None:
+            on_league_fetched(league)
+        if walked and dynasty_only:
             raw_type = (league.get("settings") or {}).get("type")
             try:
                 league_type = int(raw_type)
@@ -590,7 +649,8 @@ def walk_league_chain_status(
                 league_type = None
             if league_type is None:
                 log.warning("sleeper_client: predecessor league %s has no league type", cur)
-                return chain, _cov(CHAIN_UNVERIFIED, "predecessor_type_unknown", cur)
+                _cov(CHAIN_UNVERIFIED, "predecessor_type_unknown", cur)
+                return
             if league_type != SLEEPER_DYNASTY_TYPE:
                 log.warning(
                     "sleeper_client: predecessor league %s is type %s, not dynasty; "
@@ -598,11 +658,14 @@ def walk_league_chain_status(
                     cur,
                     league_type,
                 )
-                return chain, _cov(CHAIN_NON_DYNASTY, f"league_type_{league_type}", cur)
-        chain.append(league)
+                _cov(CHAIN_NON_DYNASTY, f"league_type_{league_type}", cur)
+                return
+        walked += 1
+        _cov(CHAIN_UNVERIFIED, "walk_in_progress", None)
+        yield league
         nxt = league.get("previous_league_id") or league.get("previous_league") or ""
         cur = str(nxt or "").strip()
-    return chain, _cov(CHAIN_COMPLETE, None, None)
+    _cov(CHAIN_COMPLETE, None, None)
 
 
 def walk_league_chain(

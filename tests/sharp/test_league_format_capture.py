@@ -1124,6 +1124,33 @@ class TestCaptureRetention:
         ledger.prune(now_ms=self.NOW, path=db)
         assert len(_rows(db)) == 3
 
+    def test_a_completed_chain_season_keeps_its_final_format(self, db):
+        """G4f: a prior season-league the chain store records as complete is
+        never re-checked, so without this its only format would age out --
+        and a trade backfilled from that season would have none."""
+        self._setup(db)
+        conn = ledger.connect(db)
+        try:
+            ledger.ensure_league_chain_schema(conn)
+            ledger.record_league_chain_hop(
+                conn,
+                {
+                    "league_id": "LC",
+                    "season": "2026",
+                    "status": "complete",
+                    "previous_league_id": "0",
+                    "settings": {"type": 2},
+                },
+                observed_ms=self.OLD,
+                source="t",
+            )
+            conn.commit()
+            lfc.prune_captures(conn, now_ms=self.NOW)
+        finally:
+            conn.close()
+        kept = {(r["league_id"], r["captured_ms"]) for r in _rows(db)}
+        assert ("LC", self.OLD) in kept
+
     def test_prune_on_a_ledger_without_the_table_is_a_noop(self, db):
         conn = ledger.connect(db)
         try:

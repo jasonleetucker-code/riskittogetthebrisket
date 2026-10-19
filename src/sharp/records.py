@@ -15,7 +15,10 @@ against three seasons of the home league.  Writing a second parser would
 be exactly the "competing implementation" this codebase keeps getting
 bitten by, so:
 
-    sleeper_client.walk_league_chain        chain walk, with loop guard
+    sleeper_client.iter_league_chain        chain walk, with loop guard (the
+                                            ONE walker; this crawl used to
+                                            hand-roll its own loop while
+                                            this note claimed reuse)
     metrics.regular_season_settings_record  W/L/PF/PA, correct /100 math
     metrics.playoff_teams                   from the winners bracket
     metrics.season_champion / _runner_up    p==1 semantics + fallback
@@ -58,20 +61,21 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from src.intel import ledger, league_filter
+from src.public_league import sleeper_client
 from src.sharp import score as sharp_score
 
 log = logging.getLogger(__name__)
 
 SLEEPER_BASE = "https://api.sleeper.app/v1"
 
-# Sleeper's chain terminator. Not None, not "" — the literal string "0".
-_CHAIN_TERMINATOR = "0"
-
 # 4 calls per league-season (league, users, rosters, winners_bracket).
 CALLS_PER_SEASON = 4
 DEFAULT_BUDGET = 1200
 DEFAULT_SLEEP_S = 0.15
 MAX_SEASONS_PER_LEAGUE = 6
+
+#: ``league_season_chain.source`` for hops this crawl records.
+CHAIN_SOURCE_RECORDS = "records_crawl_league_endpoint"
 
 HttpGet = Callable[[str], Any]
 
@@ -290,29 +294,61 @@ def crawl_records(
     touched_managers: set[str] = set()
     conn = ledger.connect(ledger_path)
     try:
+        # Every league object this crawl fetches is ALSO a chain hop and a
+        # point-in-time format statement: record both at zero extra calls
+        # (the one chain schema, src/intel/ledger.py; the capture owner,
+        # src/sharp/league_format_capture.py -- G4f, so a prior season's
+        # format exists for a trade backfilled from it later).  Schema
+        # setup commits, so it runs once, before the per-season loop.
+        ledger.ensure_league_chain_schema(conn)
+        from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+        lfc.ensure_schema(conn)
+
+        def fetch_league(lid: str) -> tuple[str, Any]:
+            # The ONE walker (sleeper_client.iter_league_chain) asks before
+            # every hop; the budget decides, exactly as the hand loop did.
+            if not b.can_call(CALLS_PER_SEASON):
+                return "budget", None
+            seen_leagues.add(lid)
+            league = b.get(f"{SLEEPER_BASE}/league/{lid}")
+            if not isinstance(league, dict):
+                return sleeper_client.FETCH_ERROR, None
+            return sleeper_client.FETCH_OK, league
+
         for start_id in league_ids:
             if not b.can_call(CALLS_PER_SEASON):
                 break
-            current = str(start_id)
-            hops = 0
-            while current and current != _CHAIN_TERMINATOR and hops < max_seasons:
-                if current in seen_leagues:
-                    break  # loop guard — a chain must never revisit
-                if not b.can_call(CALLS_PER_SEASON):
-                    break
-                seen_leagues.add(current)
-                hops += 1
-
-                league = b.get(f"{SLEEPER_BASE}/league/{current}")
-                if not isinstance(league, dict):
-                    result.errors.append(f"league_fetch_failed:{current}")
-                    break
+            coverage: dict[str, Any] = {}
+            walk = sleeper_client.iter_league_chain(
+                str(start_id),
+                max_seasons,
+                fetch_league_fn=fetch_league,
+                coverage=coverage,
+                # Records every season whatever its type: eligibility is a
+                # per-row gate (``sharp_eligible``), not a walk stop.
+                dynasty_only=False,
+                known_league_ids=seen_leagues,
+            )
+            for depth, league in enumerate(walk, start=1):
+                current = str(league.get("league_id") or "").strip()
                 result.leagues_examined += 1
+                now_ms = int(time.time() * 1000)
+                ledger.record_league_chain_hop(
+                    conn, league, observed_ms=now_ms, source=CHAIN_SOURCE_RECORDS
+                )
+                lfc.record_capture(
+                    conn,
+                    league,
+                    captured_ms=now_ms,
+                    source=lfc.SOURCE_CHAIN_WALK,
+                    league_id=current or None,
+                )
 
                 rosters = b.get(f"{SLEEPER_BASE}/league/{current}/rosters")
                 if not isinstance(rosters, list):
                     result.errors.append(f"rosters_fetch_failed:{current}")
-                    current = str(league.get("previous_league_id") or "")
+                    conn.commit()
                     continue
 
                 status = str(league.get("status") or "").lower()
@@ -327,7 +363,11 @@ def crawl_records(
                     league,
                     rosters,
                     bracket,
-                    sharp_eligible=league_filter.is_sharp_eligible(league),
+                    # ``depth`` seasons (this one and every newer one the
+                    # walk came through) are proven in this lineage, so a
+                    # league's first season -- whose own link is Sleeper's
+                    # "0" terminator -- still counts once a second exists.
+                    sharp_eligible=league_filter.is_sharp_eligible(league, known_age_seasons=depth),
                 )
                 result.seasons_recorded += 1
                 if is_complete:
@@ -344,8 +384,8 @@ def crawl_records(
                 # upsert on (league_id, season, user_id), so per-season
                 # durability changes no outcome — only the lock window.
                 conn.commit()
-
-                current = str(league.get("previous_league_id") or "")
+            if str(coverage.get("reason") or "").endswith("_fetch_failed"):
+                result.errors.append(f"league_fetch_failed:{coverage.get('stoppedAtLeagueId')}")
         conn.commit()
     finally:
         conn.close()

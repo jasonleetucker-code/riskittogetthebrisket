@@ -99,6 +99,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from src.intel import ledger as intel_ledger
 from src.sharp import league_format_capture as lfc
 
 log = logging.getLogger(__name__)
@@ -133,8 +134,9 @@ CREATE TABLE IF NOT EXISTS own_league_season_chain (
 );
 """
 
-#: Tables this module writes (the capture owner's three plus the chain).
-WRITE_TABLES = (*lfc.WRITE_TABLES, "own_league_season_chain")
+#: Tables this module writes (the capture owner's, its own chain table, and
+#: the one persisted chain schema of ``src/intel/ledger.py``).
+WRITE_TABLES = (*lfc.WRITE_TABLES, "own_league_season_chain", intel_ledger.LEAGUE_CHAIN_TABLE)
 
 
 def default_path() -> Path:
@@ -153,6 +155,7 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(str(p), timeout=30)
     conn.executescript(_CHAIN_SCHEMA)
     lfc.ensure_schema(conn)
+    intel_ledger.ensure_league_chain_schema(conn)
     conn.commit()
     return conn
 
@@ -250,46 +253,69 @@ def refresh_own_league_formats(
                 "SELECT DISTINCT league_id FROM sharp_league_format_captures"
             ).fetchall()
         }
-        seen: set[str] = set()
-        current: str | None = result.root_league_id
-        fetches = 0
-        while current and current not in seen and result.leagues_walked < max_hops:
-            seen.add(current)
+        # The walk itself is the ONE previous_league_id walker
+        # (sleeper_client.iter_league_chain); this pass supplies its fetcher
+        # (frozen hops answered from the store, the run budget, the
+        # classified 429) and records what each fetched league states.
+        from src.public_league import sleeper_client  # noqa: PLC0415
+
+        fetched_live: set[str] = set()
+        fail: dict[str, str] = {}
+        state: dict[str, Any] = {"fetches": 0, "requested": None}
+
+        def fetch_league(lid: str) -> tuple[str, Any]:
+            state["requested"] = lid
             result.leagues_walked += 1
             frozen = (
-                current in chain
-                and current in captured
-                and str(checks.get(current, "")).lower() == "complete"
+                lid in chain and lid in captured and str(checks.get(lid, "")).lower() == "complete"
             )
             if frozen:
                 # A completed season's settings no longer move; follow the
                 # stored link instead of spending a request.
                 result.skipped_frozen += 1
-                result.outcomes[current] = "frozen_complete"
-                current = _clean_id(chain[current][1])
-                continue
-            if max_fetches is not None and fetches >= max_fetches:
-                result.stopped_reason = "budget_exhausted"
-                result.outcomes[current] = "budget_exhausted"
-                break
-            if fetches and sleep_s:
+                result.outcomes[lid] = "frozen_complete"
+                return sleeper_client.FETCH_OK, {
+                    "league_id": lid,
+                    "season": chain[lid][0],
+                    "previous_league_id": chain[lid][1] or "0",
+                }
+            if max_fetches is not None and state["fetches"] >= max_fetches:
+                fail[lid] = "budget_exhausted"
+                return "budget", None
+            if state["fetches"] and sleep_s:
                 sleep_fn(sleep_s)
             try:
-                league = fetch(f"{lfc.SLEEPER_BASE}/league/{current}")
+                league = fetch(f"{lfc.SLEEPER_BASE}/league/{lid}")
             except lfc.RateLimited:
-                result.stopped_reason = "rate_limited"
-                result.outcomes[current] = "rate_limited"
-                break
-            fetches += 1
+                fail[lid] = "rate_limited"
+                return sleeper_client.FETCH_RATE_LIMITED, None
+            state["fetches"] += 1
             result.leagues_fetched += 1
             if league is lfc.FETCH_ERROR or (league is not None and not isinstance(league, dict)):
-                result.stopped_reason = "fetch_failed"
-                result.outcomes[current] = "fetch_failed"
-                break
+                fail[lid] = "fetch_failed"
+                return sleeper_client.FETCH_ERROR, None
             if league is None:
-                result.stopped_reason = "league_not_found"
-                result.outcomes[current] = "not_found"
-                break
+                fail[lid] = "league_not_found"
+                return sleeper_client.FETCH_NOT_FOUND, None
+            fetched_live.add(lid)
+            return sleeper_client.FETCH_OK, league
+
+        coverage: dict[str, Any] = {}
+        for league in sleeper_client.iter_league_chain(
+            result.root_league_id,
+            max_hops,
+            fetch_league_fn=fetch_league,
+            coverage=coverage,
+            # Parity with the hand loop this replaced: an own league's chain is
+            # followed whatever a season's type (the capture owner records a
+            # redraft / keeper season as ``not_dynasty``, never a format).
+            dynasty_only=False,
+        ):
+            # The id this hop was REQUESTED under (the walker yields right
+            # after fetching it), so a payload naming another league is caught.
+            current = str(state["requested"])
+            if current not in fetched_live:
+                continue  # frozen: answered from the store, nothing to record
             if _clean_id(league.get("league_id")) not in (None, current):
                 result.stopped_reason = "league_id_mismatch"
                 result.outcomes[current] = "league_id_mismatch"
@@ -314,8 +340,19 @@ def refresh_own_league_formats(
                 "VALUES (?, ?, ?, ?, ?)",
                 (league_key, current, season, prev, tick()),
             )
+            # The one chain schema (src/intel/ledger.py), in this store.
+            intel_ledger.record_league_chain_hop(
+                conn, league, observed_ms=tick(), source=SOURCE_OWN_LEAGUE_CHAIN
+            )
             conn.commit()
-            current = prev
+        else:
+            stopped_at = coverage.get("stoppedAtLeagueId")
+            if stopped_at is not None and str(stopped_at) in fail:
+                reason = fail[str(stopped_at)]
+                result.stopped_reason = reason
+                result.outcomes[str(stopped_at)] = (
+                    "not_found" if reason == "league_not_found" else reason
+                )
         conn.commit()
     finally:
         conn.close()

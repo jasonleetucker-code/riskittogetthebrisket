@@ -187,6 +187,43 @@ class TestChain:
         res = _refresh(store, at_ms=T_NOW, http=limited)
         assert res.stopped_reason == "rate_limited" and res.captures_new == 0
 
+    def test_hops_land_in_the_one_chain_schema_and_resolve_maturity(self, store):
+        """The own-league walk delegates to the ONE walker and records each
+        fetched season-league in the shared ``league_season_chain`` schema
+        (in its own store), so maturity reads it like any other chain."""
+        import sqlite3
+
+        from src.intel import ledger as intel_ledger
+        from src.intel import league_filter as lf
+
+        _refresh(store, at_ms=T_NOW)
+        conn = sqlite3.connect(store)
+        try:
+            chain = intel_ledger.load_league_chain(conn)
+        finally:
+            conn.close()
+        assert set(chain) == {CUR, PREV, OLDEST}
+        assert chain[OLDEST].previous_league_id is None
+        m = lf.resolve_league_maturity(CUR, chain)
+        assert (m.completed_seasons, m.state) == (2, lf.MATURITY_EXACT)
+
+    def test_a_missing_league_is_named_not_found(self, store):
+        leagues = {k: v for k, v in LEAGUES.items() if k != PREV}
+        res = _refresh(store, at_ms=T_NOW, http=FakeSleeper(leagues))
+        assert res.stopped_reason == "league_not_found"
+        assert res.outcomes[PREV] == "not_found"
+
+    def test_a_payload_naming_another_league_stops_the_walk(self, store):
+        leagues = dict(LEAGUES)
+        leagues[PREV] = {**LEAGUES[PREV], "league_id": "SYN-SOMEONE-ELSE"}
+        res = _refresh(store, at_ms=T_NOW, http=FakeSleeper(leagues))
+        assert res.stopped_reason == "league_id_mismatch"
+
+    def test_the_walk_is_the_one_walker(self):
+        src = (REPO / "src/trade/own_league_format_capture.py").read_text(encoding="utf-8")
+        assert "iter_league_chain" in src
+        assert "while current" not in src
+
     def test_a_missing_store_is_a_state_not_an_error(self, tmp_path):
         idx = olfc.load_index(tmp_path / "absent.sqlite")
         assert idx.state == "own_league_format_store_missing" and not idx.captures

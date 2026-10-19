@@ -273,7 +273,10 @@ class TestFinishPercentiles:
     def test_first_place_is_one_and_last_is_zero(self, db):
         http = FakeSleeper(
             {
-                f"{BASE}/league/L1": league("L1", "2025", previous="0", teams=3),
+                # A real predecessor link (G3): a single-season league whose
+                # link is Sleeper's "0" terminator is too new to certify
+                # anyone, so the percentile math is pinned on a 2-season one.
+                f"{BASE}/league/L1": league("L1", "2025", previous="L0", teams=3),
                 f"{BASE}/league/L1/rosters": [
                     roster(1, "top", wins=12),
                     roster(2, "mid", wins=7),
@@ -336,3 +339,72 @@ class TestWriterLockWindows:
             "while the crawl performed its next network call — the writer "
             "transaction is still spanning network I/O (V1-59)"
         )
+
+
+class TestChainPersistenceAndAgeGate:
+    """The records crawl delegates its walk to the ONE walker and records every
+    hop it fetched (chain store) plus that season's format (G4f) at zero extra
+    calls; the Sharp age gate is judged on the WALKED lineage (G3)."""
+
+    def _two_season(self):
+        return FakeSleeper(
+            {
+                f"{BASE}/league/L1": league("L1", "2026", previous="L0"),
+                f"{BASE}/league/L1/rosters": [roster(1, "a"), roster(2, "b")],
+                f"{BASE}/league/L1/winners_bracket": bracket(1, 2),
+                f"{BASE}/league/L0": league("L0", "2025", previous="0"),
+                f"{BASE}/league/L0/rosters": [roster(1, "a"), roster(2, "b")],
+                f"{BASE}/league/L0/winners_bracket": bracket(1, 2),
+            }
+        )
+
+    def test_every_fetched_season_is_a_persisted_hop(self, db):
+        http = self._two_season()
+        records.crawl_records(league_ids=["L1"], http_get=http, ledger_path=db, sleep_s=0)
+        conn = ledger.connect(db)
+        try:
+            chain = ledger.load_league_chain(conn)
+            sources = {r[0] for r in conn.execute("SELECT source FROM league_season_chain")}
+            # The capture owner saw both league objects (a synthetic payload
+            # without roster slots is checked as 'incomplete', never stored
+            # as a format).
+            checked = conn.execute("SELECT COUNT(*) FROM sharp_league_format_checks").fetchone()[0]
+        finally:
+            conn.close()
+        assert set(chain) == {"L1", "L0"}
+        assert chain["L1"].previous_league_id == "L0"
+        assert chain["L0"].previous_league_id is None  # "0" stored as terminator
+        assert sources == {records.CHAIN_SOURCE_RECORDS}
+        assert checked == 2
+
+    def test_no_extra_calls_for_persistence(self, db):
+        http = self._two_season()
+        records.crawl_records(league_ids=["L1"], http_get=http, ledger_path=db, sleep_s=0)
+        # league + rosters + winners_bracket per season, nothing more.
+        assert len(http.calls) == 6
+
+    def test_first_season_of_a_two_season_lineage_still_certifies(self, db):
+        http = self._two_season()
+        records.crawl_records(league_ids=["L1"], http_get=http, ledger_path=db, sleep_s=0)
+        recs = {r.user_id: r for r in records.build_manager_records(ledger_path=db)}
+        assert recs["a"].completed_seasons == 2
+
+    def test_single_season_league_is_too_new_to_certify(self, db):
+        http = FakeSleeper(
+            {
+                f"{BASE}/league/L1": league("L1", "2025", previous="0"),
+                f"{BASE}/league/L1/rosters": [roster(1, "a"), roster(2, "b")],
+                f"{BASE}/league/L1/winners_bracket": bracket(1, 2),
+            }
+        )
+        records.crawl_records(league_ids=["L1"], http_get=http, ledger_path=db, sleep_s=0)
+        assert records.records_coverage(ledger_path=db)["seasonRows"] == 2
+        assert records.build_manager_records(ledger_path=db) == []
+
+    def test_a_league_already_walked_this_run_is_not_refetched(self, db):
+        http = self._two_season()
+        res = records.crawl_records(
+            league_ids=["L1", "L0"], http_get=http, ledger_path=db, sleep_s=0
+        )
+        assert res.leagues_examined == 2
+        assert sum(1 for u in http.calls if u.endswith("/league/L0")) == 1

@@ -301,3 +301,43 @@ python scripts/market_trade_ledger.py --census --out <dir>
 ```
 
 Agents do not run it against production data themselves.
+
+## League-maturity census (Chase Upside Trade Market, owner directives 2026-10-19 v1 + V2)
+
+A second, separate census on the same owner (`market_trade_report.maturity_census` /
+`build_maturity_census`), for the trade-derived source's league-quality question: how many
+leagues and completed trades have **at least three verified completed seasons**, how much the
+**two-season research cohort** would add, and the **data lost to each exclusion**. Report-only;
+it authorizes, weights and prices nothing.
+
+- **Maturity owner:** `src/intel/league_filter.py::resolve_league_maturity` over the persisted
+  `previous_league_id` chain (`ledger.league_season_chain`, written by every walker: the records
+  crawl, the own-league format walk and the budgeted chain pass `src/sharp/league_chain_crawl.py`).
+  A season counts only when it is a dynasty predecessor (`settings.type == 2`) whose last observed
+  status is `complete` and whose season is strictly older; Sleeper's `"0"` terminator is never a
+  predecessor; a redraft / keeper predecessor ends the chain (exact); an unwalked link, unknown
+  type or season, loop or cap makes the answer a **lower bound**, and a lower bound below the bar
+  is unknown, never a pass.
+- **Both readings, always:** point-in-time at the trade (the trade's own season never counts) and
+  league-level as of today (the lineage's newest known season, inclusive once complete).
+- **Cohorts (disjoint):** `A_three_plus_completed`, `B_two_completed`, `B_two_plus_unresolved`
+  (≥ 2, not proven 3 — never A), `below_two_completed`, `unknown_below_two_lower_bound`,
+  `chain_not_walked`.
+- **Exclusion waterfall** (first failing stage claims a trade; the per-stage removals plus the
+  primary survivors equal the total): non-Sleeper host (no chain to verify) → not dynasty →
+  dynasty unverified → the ledger's own `fit_suitability` reasons → chain not walked → maturity
+  unknown below two → below two → two-season research cohort → two-plus not proven three.
+  `exclusionIndependent` counts every stage a trade fails.
+- **Lanes:** Sleeper-observed vs KTC-database groups, with the dedupe groups seen in both
+  (`ktcOverlap`) counted once.
+- **Privacy:** small cells suppressed, no id of any kind, a 15+ digit run refuses publication.
+
+Run on the box (read-only, zero network, never builds the ledger in memory; logging silenced):
+
+```
+python scripts/market_trade_ledger.py --census-from-ledger --out <dir> 2>/dev/null
+```
+
+Until the chain pass has walked the trade-bearing leagues, most trades read `chain_not_walked`
+(unknown). The pass is OFF by default; enabling it is a unit change, e.g. adding
+`--chain-budget 200` to the transaction-crawl timer's `ExecStart`.

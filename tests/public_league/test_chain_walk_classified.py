@@ -75,3 +75,65 @@ def test_classified_winners_bracket_keeps_a_missing_body_unknown(monkeypatch):
     assert sc.fetch_winners_bracket_classified("1") == (sc.FETCH_ERROR, None)
     monkeypatch.setattr(sc, "request_json_classified", lambda url: (sc.FETCH_OK, [{"m": 1}]))
     assert sc.fetch_winners_bracket_classified("1") == (sc.FETCH_OK, [{"m": 1}])
+
+
+# ── iter_league_chain: the ONE walker's knobs (records / own-league / chain pass)
+
+
+def test_iter_is_lazy_so_the_consumer_budget_decides_each_hop():
+    fetch, calls = _fetcher()
+    walk = sc.iter_league_chain("A", 10, fetch_league_fn=fetch)
+    assert next(walk)["league_id"] == "A" and calls == ["A"]
+    assert next(walk)["league_id"] == "B" and calls == ["A", "B"]
+
+
+def test_list_form_and_generator_agree():
+    fetch, _ = _fetcher()
+    cov: dict = {}
+    chain = list(sc.iter_league_chain("A", 10, fetch_league_fn=fetch, coverage=cov))
+    fetch2, _ = _fetcher()
+    assert (chain, cov) == sc.walk_league_chain_status("A", 10, fetch_league_fn=fetch2)
+
+
+def test_dynasty_only_false_walks_past_a_redraft_season():
+    leagues = _leagues()
+    leagues["B"]["settings"] = {"type": 0}
+    fetch = lambda lid: (sc.FETCH_OK, leagues[lid])  # noqa: E731
+    cov: dict = {}
+    ids = [
+        lg["league_id"] for lg in sc.iter_league_chain("A", 10, fetch_league_fn=fetch, coverage=cov)
+    ]
+    assert ids == ["A"] and cov["state"] == sc.CHAIN_NON_DYNASTY
+    ids = [
+        lg["league_id"]
+        for lg in sc.iter_league_chain("A", 10, fetch_league_fn=fetch, dynasty_only=False)
+    ]
+    assert ids == ["A", "B", "C"]
+
+
+def test_on_league_fetched_sees_the_predecessor_that_ended_the_walk():
+    leagues = _leagues()
+    leagues["B"]["settings"] = {"type": 0}
+    seen: list[str] = []
+    list(
+        sc.iter_league_chain(
+            "A",
+            10,
+            fetch_league_fn=lambda lid: (sc.FETCH_OK, leagues[lid]),
+            on_league_fetched=lambda lg: seen.append(lg["league_id"]),
+        )
+    )
+    assert seen == ["A", "B"]  # B is recorded though excluded from the chain
+
+
+def test_known_league_ids_stop_before_refetching():
+    fetch, calls = _fetcher()
+    cov: dict = {}
+    ids = [
+        lg["league_id"]
+        for lg in sc.iter_league_chain(
+            "A", 10, fetch_league_fn=fetch, coverage=cov, known_league_ids={"B"}
+        )
+    ]
+    assert ids == ["A"] and calls == ["A"]
+    assert cov["state"] == sc.CHAIN_JOINED and cov["stoppedAtLeagueId"] == "B"
