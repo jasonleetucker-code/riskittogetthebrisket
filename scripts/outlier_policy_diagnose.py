@@ -447,11 +447,177 @@ def diagnose(contract: dict, csv_index: dict, history: list[dict]) -> dict[str, 
     }
 
 
+# ── owner evidence (directive §9, outlier part) ────────────────────────
+
+
+def _pins(hold: bool, policy: bool) -> list[tuple[str, bool]]:
+    return [
+        ("dlf_offense_only_vote", hold),
+        ("outlier_disagreement_policy", policy),
+        ("idp_hampel_n3_challenger", False),
+        ("joint_outlier_sparse_challenger", False),
+        ("rank_space_hampel_challenger", False),
+        ("rank_space_hampel_per_vote_challenger", False),
+    ]
+
+
+def owner_builds(raw: dict) -> dict[str, dict]:
+    """The five builds of one board the §9 comparison and its decomposition need."""
+    from src.api import value_replay as vr  # noqa: PLC0415
+
+    nofilter = ("_hampel_filter_per_player", vr._no_hampel)
+    return {
+        "production": vr.build(raw, {"flags": _pins(True, False)}),
+        "incumbentDlfRestored": vr.build(raw, {"flags": _pins(False, False)}),
+        "policyDlfRestored": vr.build(raw, {"flags": _pins(False, True)}),
+        "noFilterHoldOn": vr.build(raw, {"flags": _pins(True, False), "patch": nofilter}),
+        "noFilterDlfRestored": vr.build(raw, {"flags": _pins(False, False), "patch": nofilter}),
+    }
+
+
+def _index(contract: dict) -> dict[str, dict]:
+    return {
+        str(r["displayName"]): r
+        for r in contract.get("playersArray") or []
+        if isinstance(r, dict) and r.get("displayName")
+    }
+
+
+def _value(row: dict | None) -> float | None:
+    v = (row or {}).get("rankDerivedValue")
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
+
+
+def _q(vals: list[float], p: float) -> float:
+    s = sorted(vals)
+    return s[min(len(s) - 1, int(round(p * (len(s) - 1))))] if s else 0.0
+
+
+def compare(a: dict, b: dict) -> dict[str, Any]:
+    """Rows affected and |Δ| distribution of ``b`` vs ``a`` by asset class and position."""
+    ia, ib = _index(a), _index(b)
+    seg: dict[str, list[float]] = defaultdict(list)
+    conf = Counter()
+    for name, ra in ia.items():
+        rb = ib.get(name)
+        va, vb = _value(ra), _value(rb)
+        if va is None or vb is None:
+            continue
+        rel = (vb - va) / va
+        ac = str(ra.get("assetClass"))
+        seg[ac].append(rel)
+        seg[f"{ac}:{ra.get('position')}"].append(rel)
+        if ra.get("confidenceBucket") != (rb or {}).get("confidenceBucket"):
+            conf[f"{ac}:{ra.get('confidenceBucket')}->{(rb or {}).get('confidenceBucket')}"] += 1
+    out: dict[str, Any] = {}
+    for k, vals in sorted(seg.items()):
+        moved = [abs(v) for v in vals if v != 0]
+        out[k] = {
+            "rows": len(vals),
+            "moved": len(moved),
+            "medianMoved": round(statistics.median(moved), 4) if moved else 0.0,
+            "p90": round(_q([abs(v) for v in vals], 0.9), 4),
+            "p99": round(_q([abs(v) for v in vals], 0.99), 4),
+            "max": round(max((abs(v) for v in vals), default=0.0), 4),
+        }
+    top = {}
+    for limit in (24, 50, 100, 200):
+        ranked = lambda idx: {  # noqa: E731
+            n for n, r in idx.items() if (r.get("canonicalConsensusRank") or 10**9) <= limit
+        }
+        top[f"top{limit}MembershipChanges"] = len(ranked(ia) - ranked(ib))
+    return {"byClass": out, "confidenceChanges": dict(conf), **top}
+
+
+def _votes_census(contract: dict) -> dict[str, Any]:
+    c = Counter()
+    for r in contract.get("playersArray") or []:
+        ac = r.get("assetClass")
+        if ac == "pick":
+            continue
+        meta = r.get("sourceRankMeta") or {}
+        voting = [s for s, m in meta.items() if isinstance(m, dict) and not m.get("excludedReason")]
+        c[f"{ac}:votes"] += len(voting)
+        c[f"{ac}:rejected"] += len(r.get("droppedSources") or [])
+    return dict(sorted(c.items()))
+
+
+def owner_evidence(builds: dict[str, dict], threshold: float = 0.30) -> dict[str, Any]:
+    """§9: production vs DLF restored under each filter, with every large move explained.
+
+    A move from production to the policy board decomposes exactly into three
+    builds' differences: (1) the incumbent's own drops in production removed
+    (``production`` -> ``noFilterHoldOn``), (2) DLF IDP's own vote added
+    (``noFilterHoldOn`` -> ``noFilterDlfRestored``), (3) the policy's drops
+    (``noFilterDlfRestored`` -> ``policyDlfRestored``).
+    """
+    idx = {k: _index(v) for k, v in builds.items()}
+    pairs = {
+        "productionToIncumbentDlfRestored": ("production", "incumbentDlfRestored"),
+        "productionToPolicyDlfRestored": ("production", "policyDlfRestored"),
+        "incumbentToPolicyDlfRestored": ("incumbentDlfRestored", "policyDlfRestored"),
+        "dlfOwnVote": ("noFilterHoldOn", "noFilterDlfRestored"),
+    }
+    out: dict[str, Any] = {
+        "comparisons": {k: compare(builds[a], builds[b]) for k, (a, b) in pairs.items()},
+        "votes": {k: _votes_census(v) for k, v in builds.items()},
+    }
+    movers: dict[str, list] = {}
+    for key, (a, b) in pairs.items():
+        if key == "dlfOwnVote":
+            continue
+        rows = []
+        for name, ra in idx[a].items():
+            rb = idx[b].get(name)
+            va, vb = _value(ra), _value(rb)
+            if va is None or vb is None or abs(vb - va) / va <= threshold:
+                continue
+            steps = {}
+            for label, (x, y) in (
+                ("incumbentProductionDropsRemoved", ("production", "noFilterHoldOn")),
+                ("dlfOwnVote", ("noFilterHoldOn", "noFilterDlfRestored")),
+                ("incumbentDropsWithDlf", ("noFilterDlfRestored", "incumbentDlfRestored")),
+                ("policyDrops", ("noFilterDlfRestored", "policyDlfRestored")),
+            ):
+                vx, vy = _value(idx[x].get(name)), _value(idx[y].get(name))
+                steps[label] = round((vy - vx) / vx, 4) if vx and vy else None
+            meta_b = (rb or {}).get("sourceRankMeta") or {}
+            rows.append(
+                {
+                    "row": name,
+                    "assetClass": ra.get("assetClass"),
+                    "position": ra.get("position"),
+                    a: va,
+                    b: vb,
+                    "relative": round((vb - va) / va, 4),
+                    "droppedIn_" + a: sorted(ra.get("droppedSources") or []),
+                    "droppedIn_" + b: sorted((rb or {}).get("droppedSources") or []),
+                    "votes": {
+                        s: m.get("valueContribution")
+                        for s, m in sorted(meta_b.items())
+                        if isinstance(m, dict) and not m.get("excludedReason")
+                    },
+                    "steps": steps,
+                }
+            )
+        rows.sort(key=lambda r: -abs(r["relative"]))
+        movers[key] = rows
+    out["moversOver30pct"] = movers
+    two_way = {}
+    for k, ix in idx.items():
+        r = ix.get("Travis Hunter")
+        if r:
+            two_way[k] = {"value": _value(r), "dropped": r.get("droppedSources")}
+    out["travisHunter"] = two_way
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--payload", type=Path, default=None)
     ap.add_argument("--hold", choices=("on", "off"), default="off")
     ap.add_argument("--history", type=Path, default=None)
+    ap.add_argument("--owner-evidence", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     from src.api import value_replay as vr  # noqa: PLC0415
@@ -468,6 +634,8 @@ def main(argv: list[str] | None = None) -> int:
     flags = [("dlf_offense_only_vote", args.hold == "on")]
     contract = vr.build(raw, {"flags": flags})
     result = diagnose(contract, source_csv_index(), load_history(args.history))
+    if args.owner_evidence:
+        result["ownerEvidence"] = owner_evidence(owner_builds(raw))
     result["pins"] = {
         "payload": str(payload.relative_to(REPO_ROOT))
         if payload.is_relative_to(REPO_ROOT)
