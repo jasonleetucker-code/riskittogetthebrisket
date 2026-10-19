@@ -62,6 +62,16 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Hybrid Value Adjustment research — owner directive, 2026-10-19
+
+**AUTHORIZED NOW: research and, only if justified, a disabled-by-default non-voting challenger.** Verbatim:
+`docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_2026-10-19.md`; intake `docs/OWNER_REQUESTED_TODO.md` ("Added
+2026-10-19 — Hybrid Value Adjustment research"). `geom_q078_v1` (q = 0.78) stays active and `ktc_2026_04` stays
+the read-only comparator until the owner explicitly approves a replacement (also D8, 2026-10-18). No verdict,
+fairness band, Trade History, Finder, War Room or Second Opinions behaviour changes. Must not interrupt the
+completion campaign or PR #1826. Result: `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`
+(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending.
+
 ## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
 
 **AUTHORIZED NOW, within the gates the directive names.** Verbatim: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`;

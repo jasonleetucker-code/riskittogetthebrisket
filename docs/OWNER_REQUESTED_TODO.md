@@ -1999,3 +1999,18 @@ consolidated, with live status, in `docs/owner/OWNER_DECISION_REGISTER.md`; what
 The owner could not see the per-manager **Top partner** trading-frequency column on a phone. On `/trades` → Trade History → Trade Tendencies, preserve **Manager**, **Trades**, and **Top partner (trade count)** at mobile widths below 768px; hide lower-priority Net (today), Picks in/out, FAAB and other secondary metrics on those widths only. The full desktop table, existing Manager Scout source, missing-data states and private access gate remain unchanged.
 
 **Status:** Implementation proposed on `codex/trade-tendencies-mobile-partner-20261018` for protected PR validation and Integration; not merged or deployed as of this entry.
+
+## Added 2026-10-19 — Hybrid Value Adjustment research (owner research directive)
+
+Verbatim: `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_2026-10-19.md`. Authorization: `docs/EXECUTION_PLAN.md` §0.
+Investigate whether averaging `geom_q078_v1` with `ktc_2026_04` (50/50 and 75/25 … 25/75 on identical canonical
+values, one blended signed gap, never stacked bonuses), or another mathematically consistent hybrid, is
+demonstrably better. Required properties (owner §4) are mandatory for any production recommendation, including
+`[7200]` vs `[6000, 1]`. The production model is unchanged until explicit owner approval.
+
+| Item | Disposition |
+|---|---|
+| Research: averaging idea at five weights, monotone alternatives, §4 properties, §5 shapes × populations, completed trades with chronological holdout, owner report A–J | DONE (research) — `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`; harness `scripts/package_model_hybrid_research.py`; evidence `docs/valuation/evidence/package_model_hybrid_2026-10-19/`. Every KTC blend fails the mandatory add-an-asset property; recommendation: keep `geom_q078_v1` unchanged |
+| Challenger implementation | NOT IMPLEMENTED by recommendation — no candidate showed a defensible improvement (owner §8: implement only if justified) |
+| Promotion of any alternative | OWNER DECISION — recommendation is to retain `geom_q078_v1`; nothing activates without explicit approval |
+| Evaluation on the production-box Sharp / KTC market-trade ledger | EVIDENCE_PENDING — `python scripts/package_model_hybrid_research.py --market-ledger` on the box (aggregates only) |
