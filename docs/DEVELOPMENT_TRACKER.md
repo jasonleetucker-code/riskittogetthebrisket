@@ -16,7 +16,7 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 11:15 UTC (coordinator).
+Last updated: 2026-10-19 11:25 UTC (coordinator).
 
 ## Release vehicles
 
@@ -24,7 +24,7 @@ Last updated: 2026-10-19 11:15 UTC (coordinator).
 |---|---|---|---|
 | Train 11 (#1829) | #1822 playoff odds follow the roster; #1823 mobile Trade Tendencies partner | DEPLOYED (`a9f3918808`, 10:04 UTC). Playoff sections still serve a pre-deploy cached forecast (05:27) | Re-probe after the next ROS refresh; check `/trades` on mobile |
 | Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: head `5acf290e89`. Release check 39240097028 failed only its first step (strict freshness): two automated refreshes (DLF and IDP Show timestamps, class C) had landed. `main` merged once, and release check 39242451288 started 11:08 | Merge when the release check, Validate PR and E2E are green (standing authorization); deploy before the week-6 Power publication |
-| Train 13 (planned) | #1839 cross-model parallel delivery + auto-merge policy (codex), #1838 tracker, wave-1/W5 PRs that are green | QUEUED until train 12 merges | Build from the new `main`; resolve the `docs/EXECUTION_PLAN.md` top-section conflict with #1830 by keeping both sections; release check; merge |
+| Train 13 | #1839 (with integration fixes), #1838, #1840, #1845, #1841, #1846, #1844; #1817 once W9 reports | IMPLEMENTED / UNVALIDATED: built locally on train 12's head. #1839's conflict with #1830 resolved by keeping both sections. Integration commit: the policy block now sits in Agent OS §3, which every pointer cites; a qualifying merge's automatic deploy is stated as covered; the owner's authorization quoted verbatim. Format, coercion, planning and governance gates green; L1 tests and build running | Push after train 12 merges (bring in `main` once); release check; merge |
 | #1832 CI budget 80→120 min | — | MERGED (`2d854f7523`) | Rides the next deploy |
 
 ## Features
@@ -55,8 +55,10 @@ Last updated: 2026-10-19 11:15 UTC (coordinator).
 | Scheduled workflow health (CQ-29) | W7 | `claude/scheduled-ci-health-cq29` | — | — | IMPLEMENTING | No box SSH; unit checks go to W3's diagnostics | PR |
 | Workbook refusal reason precision (`sleeper_unreachable` vs `traded_picks_fetch_failed` when Sleeper fails before `/traded_picks`) | — | — | — | — | QUEUED | Shipped wording; the change is small | Next wave |
 | Workbook keeps hand-entered reassignments Sleeper does not report (an observed `[]` overrides nothing) | — | — | — | — | QUEUED (investigate) | Sleeper should be the system of record | Verify, then fix |
+| League pick window follows the same rule (`league_draft_years` uses calendar year + 3 classes, so it would show 2030 from 2027-01-01, before the 2027 draft) | — | — | — | #1844 merged | QUEUED (must land before 2027-01-01) | Found by W5 | Switch the league window to its last completed draft + 3 |
+| Derived pick rows must not publish `ktcMarket.available` or high confidence (latent until 2030 is added) | — | — | — | #1844 merged | QUEUED (before the 2027 draft completes) | Found by W5; fix sketched in #1844 | Implement and test |
 | Stale WORK_CLAIMS rows: Draft Valuation Batch E/F/G still read "active — PR open" | — | — | — | — | QUEUED | Records only | Fold into the next records pass |
-| Pick horizon = last completed rookie draft + 3 (owner decision 2026-10-19: no 2030 until the 2027 draft completes) | W5 | `claude/pick-horizon-completed-draft-plus-3` | — | Draft-class retirement proof (`pick_lifecycle`) | IMPLEMENTING | The board currently emits 2030 rows after the vendor slot roll | PR with board_diff evidence |
+| Pick horizon = last completed rookie draft + 3 (owner decision 2026-10-19: no 2030 until the 2027 draft completes) | W5 (done) | `claude/pick-horizon-completed-draft-plus-3` | #1844 | — | VALIDATING (`3d1be615c6`; CI running; in train 13). One owner, `board_pick_horizon`. Board diff: the 24 rows for 2030 go; 57 values rise (median +0.1%, max +1.4%); 0 fall. The rises come from removing the 2030 rows, which had been leaking into the rookie ladder; the leak is fixed in its own commit | Latent: derived rows will claim market/high confidence once 2030 is added (around May 2027) | Train 13 |
 
 ## Shelved / not to revive
 League Tycoon (#1755 parks ideas only), DFS implementation, the premature 2027 rookie auction, paid data and paid inference, and Sleeper writes.
