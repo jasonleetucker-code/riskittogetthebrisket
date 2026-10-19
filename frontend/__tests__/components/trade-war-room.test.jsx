@@ -15,6 +15,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TradeWarRoom, { ANALYZE_TIMEOUT_MS, SLOW_NOTICE_MS } from "@/components/trade/TradeWarRoom";
+import TradeDecisionReasoning, { changeText } from "@/components/trade/TradeDecisionReasoning";
 import {
   formatValue,
   tradeRequestForTeam,
@@ -30,6 +31,7 @@ import {
   reasonSentence,
   strategySentence,
   tradeValueSummary,
+  uncertaintyLine,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 
@@ -39,6 +41,7 @@ import ASSET_ONLY from "../fixtures/trade-war-room/asset-only.json";
 import PARTIAL from "../fixtures/trade-war-room/partial-coverage.json";
 import PARTIAL_LONG_TERM from "../fixtures/trade-war-room/partial-long-term.json";
 import ROSTER_UNMEASURED from "../fixtures/trade-war-room/roster-unmeasured.json";
+import ROSTER_ERROR from "../fixtures/trade-war-room/roster-error.json";
 import AJ_BROWN from "../fixtures/trade-war-room-mock/aj-brown-herbert.json";
 
 const req = (fixture) => ({ ...fixture._fixture.request, mySide: 0 });
@@ -259,7 +262,7 @@ describe("TradeWarRoom — the packet, in plain English", () => {
     openSection("Arguments, objections and uncertainty");
     expect(
       within(document.querySelector('[data-list="uncertain"]')).getByText(
-        PARTIAL.analysis.topUncertainty,
+        uncertaintyLine(PARTIAL.analysis.topUncertainty),
       ),
     ).toBeInTheDocument();
     openSection("Lineup impact, player by player");
@@ -661,9 +664,21 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
   });
 
   it("nothing visible at a glance carries an internal identifier or an all-caps code", async () => {
-    // `hasInternalIdentifier` catches snake_case reason codes ("not_computed"),
-    // camelCase keys and all-caps labels; ROSTER_UNMEASURED's backend gap text
-    // carries two reason codes, so this fails if a gap is ever shown raw.
+    // Two oracles.  `hasInternalIdentifier` is the production predicate; the
+    // explicit corpus below is INDEPENDENT of it, so a hole in the predicate
+    // cannot also hide the leak here.  ROSTER_UNMEASURED's and ROSTER_ERROR's
+    // backend texts carry reason codes ("not_computed", "error:KeyError"), so
+    // this fails if any of them is ever shown raw.
+    const ORACLE = [
+      ["snake_case", /[A-Za-z0-9]_[A-Za-z0-9]/],
+      ["camelCase", /(?:^|[\s(\[{"'‘“])[a-z]+[A-Z][A-Za-z]*/],
+      ["ALL_CAPS", /\b(?!III\b)[A-Z]{3,}\b|\b[A-Z]+_[A-Z_]+\b/],
+      ["word:Word", /\b[a-z]+:[A-Za-z]/],
+    ];
+    const clean = (text, where) => {
+      expect(hasInternalIdentifier(text), `${where}: ${text}`).toBe(false);
+      for (const [name, re] of ORACLE) expect(text, `${where} (${name})`).not.toMatch(re);
+    };
     const fixtures = [
       CONSOLIDATION,
       FORCED,
@@ -672,18 +687,20 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
       AJ_BROWN,
       PARTIAL_LONG_TERM,
       ROSTER_UNMEASURED,
+      ROSTER_ERROR,
     ];
     for (const fixture of fixtures) {
       const view = await renderWith(fixture);
+      const name = fixture._fixture?.scenario || "aj-brown";
       for (const id of ["decision-confidence", "decision-reasons", "decision-missing"]) {
         const el = screen.queryByTestId(id);
-        if (el) expect(hasInternalIdentifier(readText(el))).toBe(false);
+        if (el) clean(readText(el), `${name} ${id}`);
       }
-      expect(hasInternalIdentifier(readText(document.querySelector("dl")))).toBe(false);
+      clean(readText(document.querySelector("dl")), `${name} at a glance`);
       // The uncertainty list in the expandable detail too.
       openSection("Arguments, objections and uncertainty");
       const uncertain = document.querySelector('[data-list="uncertain"]');
-      if (uncertain) expect(hasInternalIdentifier(readText(uncertain))).toBe(false);
+      if (uncertain) clean(readText(uncertain), `${name} uncertain`);
       view.unmount();
     }
   });
@@ -712,10 +729,68 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     expect(d.headline).toBe("NOT_ENOUGH_EVIDENCE");
     const items = within(screen.getByTestId("decision-missing")).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
-      "The effect on your lineup could not be measured (not computed).",
+      "The effect on your lineup could not be measured.",
       "Whether the trade fits your roster is unknown (your roster limit could not be checked).",
     ]);
     expect(items.map((li) => li.textContent)).toEqual(d.missingEvidence.map(missingEvidenceText));
+  });
+
+  it("a roster simulation that raised reads in words everywhere (error:<Exception>)", async () => {
+    // REAL output: `trade_simulator.simulate_trade` writes error:KeyError.
+    await renderWith(ROSTER_ERROR);
+    expect(readText(screen.getByTestId("decision-missing"))).toBe(
+      "The effect on your lineup could not be measured (could not be computed right now).",
+    );
+    openSection("Arguments, objections and uncertainty");
+    expect(readText(document.querySelector('[data-list="uncertain"]'))).toBe(
+      "The impact on your lineup is not available (could not be computed right now).",
+    );
+    expect(document.body.textContent).not.toMatch(/error:|KeyError/);
+  });
+
+  it("the Reasoning tab words an evidence change like What is missing", () => {
+    for (const fixture of [ROSTER_ERROR, ROSTER_UNMEASURED]) {
+      const d = fixture.analysis.decision;
+      expect(d.whatWouldChange.map((w) => w.text).join(" ")).toMatch(/error:|_/); // as emitted
+      const { unmount } = render(<TradeDecisionReasoning decision={d} emptyText="x" />);
+      const items = within(screen.getByTestId("decision-what-would-change")).getAllByRole(
+        "listitem",
+      );
+      expect(items.map((li) => li.textContent)).toEqual(
+        d.missingEvidence.map((g) => `Resolve: ${missingEvidenceText(g)}`),
+      );
+      for (const li of items) expect(hasInternalIdentifier(li.textContent)).toBe(false);
+      unmount();
+    }
+    // Every other kind stays the engine's own sentence.
+    const price = CONSOLIDATION.analysis.decision.whatWouldChange[0];
+    expect(changeText(price, CONSOLIDATION.analysis.decision)).toBe(price.text);
+    // An evidence change whose gap is not listed still reads plainly.
+    expect(
+      changeText(
+        {
+          kind: "evidence",
+          text: "Resolve: The roster effect could not be measured (not_computed).",
+          evidence: { code: "roster_unknown" },
+        },
+        { missingEvidence: [] },
+      ),
+    ).toBe("Resolve: The effect on your lineup could not be measured.");
+  });
+
+  it("an all-caps injury designation in Points against reads in words", async () => {
+    const p = structuredClone(CONSOLIDATION);
+    p.analysis.reasonsAgainst = [
+      ...p.analysis.reasonsAgainst,
+      "WR Buf Star is unavailable for all 3 remaining weeks (listed OUT this week)",
+    ];
+    await renderWith(p);
+    openSection("Arguments, objections and uncertainty");
+    const against = document.querySelector('[data-list="against"]');
+    expect(readText(against)).toContain(
+      "WR Buf Star is unavailable for all 3 remaining weeks (listed as out this week).",
+    );
+    expect(readText(against)).not.toMatch(/\bOUT\b/);
   });
 
   it("the Value Adjustment slot also renders in the idle view: no team, or the side not chosen", () => {

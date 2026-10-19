@@ -50,3 +50,7 @@ def test_fixtures_cover_the_states_the_ui_renders():
     # Roster simulation and capacity check unavailable: both reason-code gaps.
     gaps = load["roster-unmeasured"]["analysis"]["decision"]["missingEvidence"]
     assert [g["code"] for g in gaps] == ["roster_unknown", "roster_limit_unknown"]
+    # The roster simulation raised: the simulator's error:<Exception> reason.
+    err = load["roster-error"]["analysis"]
+    assert err["lenses"]["roster"]["unavailableReason"] == "error:KeyError"
+    assert err["uncertainty"] == ["Roster impact not available (error:KeyError)"]

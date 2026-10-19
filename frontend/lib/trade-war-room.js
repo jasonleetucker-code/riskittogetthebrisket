@@ -364,6 +364,7 @@ const UNAVAILABLE_WORDS = {
     "No league-scored projection snapshot yet",
   projection_basis_scoring_card_missing:
     "This league's scoring card is missing",
+  projection_basis_unavailable: "League-scored projections are not available",
   roster_capacity_unavailable: "Your roster limit could not be checked",
   uncertain:
     "Can't tell yet — who is on your taxi squad is unknown, so the number of cuts is uncertain",

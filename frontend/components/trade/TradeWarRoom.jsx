@@ -58,12 +58,12 @@ import {
   REASON_ROLE_WORDS,
   ROLE_PLAIN_WORDS,
   analysisErrorText,
+  argumentLine,
   confidenceSummary,
-  decisionReasons,
+  decisionReasonSentences,
   incomingLineupSentences,
   listJoin,
   missingEvidenceText,
-  reasonSentence,
   rosterFit,
   simulationExplanation,
   strategySentence,
@@ -315,9 +315,11 @@ function Arguments({ analysis, showStrategy }) {
         .filter(Boolean),
     ),
   ];
+  // Every line ends in a period; injury designations read in words.
+  const argued = (xs) => [...new Set((xs || []).map(argumentLine).filter(Boolean))];
   const lists = [
-    { key: "for", title: "Points in favor", items: analysis.reasonsFor },
-    { key: "against", title: "Points against", items: analysis.reasonsAgainst },
+    { key: "for", title: "Points in favor", items: argued(analysis.reasonsFor) },
+    { key: "against", title: "Points against", items: argued(analysis.reasonsAgainst) },
     { key: "uncertain", title: "What is uncertain", items: uncertain },
   ].filter((l) => Array.isArray(l.items) && l.items.length);
   return (
@@ -354,6 +356,7 @@ function Methodology({ analysis, raw }) {
   const bands = decision.bands || {};
   const confidence = confidenceSummary(decision.confidence, {
     rosterLens: analysis.lenses?.roster,
+    evidenceLens: analysis.lenses?.evidence,
   });
   const market = analysis.lenses?.market?.detail || {};
   const roster = analysis.lenses?.roster?.detail || {};
@@ -807,15 +810,14 @@ export default function TradeWarRoom({
   const decision = analysis?.decision || null;
   const teamLabel = answer?.team?.name || request.teamName;
   const confidence = decision
-    ? confidenceSummary(decision.confidence, { rosterLens: analysis.lenses?.roster })
+    ? confidenceSummary(decision.confidence, {
+        rosterLens: analysis.lenses?.roster,
+        evidenceLens: analysis.lenses?.evidence,
+      })
     : null;
   // Each reason and gap as its plain sentence; one with nothing plain to say
   // is skipped, never rendered empty.
-  const reasons = decision
-    ? decisionReasons(decision)
-        .map((r) => ({ ...r, sentence: reasonSentence(r.reason, { strategy: decision.strategy }) }))
-        .filter((r) => r.sentence)
-    : [];
+  const reasons = decision ? decisionReasonSentences(decision) : [];
   const missing = (decision?.missingEvidence || [])
     .map((g, i) => ({ key: `${g?.code || "gap"}-${i}`, sentence: missingEvidenceText(g) }))
     .filter((g) => g.sentence);

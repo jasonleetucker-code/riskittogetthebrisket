@@ -16,9 +16,13 @@
  *
  * Nothing here decides or re-weighs anything: the words and states are the
  * engine's, mapped to plain labels; an unknown code is shown, never dropped.
+ * The one exception to verbatim: an evidence change ("Resolve: <gap>") is
+ * worded like the War Room's "What is missing" list, because the gap text can
+ * embed a reason code ("…could not be measured (not_computed).").
  */
 
 import { DataTable } from "@/components/ds";
+import { missingEvidenceText } from "@/lib/trade-war-room-copy";
 import styles from "./trade-package-breakdown.module.css";
 
 export const DIMENSION_LABELS = {
@@ -62,6 +66,19 @@ const REASON_LABELS = {
   not_wired: "not wired yet",
   partial_projection_coverage: "a traded player has no projection",
 };
+
+/** One `whatWouldChange` entry as display text: evidence changes name their
+ *  gap in plain words (the matching `missingEvidence` gap carries the reason
+ *  the change text dropped); every other kind is the engine's sentence. */
+export function changeText(change, decision) {
+  if (change?.kind !== "evidence") return change?.text || "";
+  const code = change.evidence?.code;
+  const gap = (decision?.missingEvidence || []).find((g) => g?.code === code) || {
+    code,
+    text: String(change.text || "").replace(/^Resolve:\s*/, ""),
+  };
+  return `Resolve: ${missingEvidenceText(gap)}`;
+}
 
 const humanize = (code) => (code == null || code === "" ? null : String(code).replace(/_/g, " "));
 const label = (map, code) => map[code] || humanize(code) || "—";
@@ -109,7 +126,7 @@ export default function TradeDecisionReasoning({ decision, emptyText }) {
         <ul className={styles.legend} data-testid="decision-what-would-change">
           {changes.map((w, i) => (
             <li key={`${w.kind || "change"}-${i}`} className={styles.note}>
-              {w.text}
+              {changeText(w, decision)}
             </li>
           ))}
         </ul>

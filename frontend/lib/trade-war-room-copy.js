@@ -103,11 +103,16 @@ export function confidenceLimits(statement, bottleneck) {
   return out;
 }
 
-/** A backend clause ready to sit inside a sentence: a trailing period is
- *  dropped unless it belongs to a name ("Marvin Harrison Jr.", "C.J."). */
+/** A backend clause ready to sit inside a sentence: its end punctuation is
+ *  dropped (a period only when it does not belong to a name -- "Marvin
+ *  Harrison Jr.", "C.J."), and a leading ordinary word is lowercased.  A
+ *  leading word followed by another capitalised word ("Justin Herbert …"),
+ *  or one in capitals ("DJ Moore …"), may be a name and is left alone. */
 function clauseText(text) {
-  const t = String(text || "").trim();
-  return /\.$/.test(t) && !/(?:\b(?:Jr|Sr|St)|\b[A-Z])\.$/.test(t) ? t.slice(0, -1) : t;
+  let t = String(text || "").trim();
+  if (/[?!]$/.test(t)) t = t.slice(0, -1).trim();
+  else if (/\.$/.test(t) && !/(?:\b(?:Jr|Sr|St)|\b[A-Z])\.$/.test(t)) t = t.slice(0, -1).trim();
+  return t.replace(/^(?:A|[A-Z][a-z]+)(?=\s+[a-z(]|[,;:]|$)/, (w) => w.toLowerCase());
 }
 
 /** A sentence that ends with its own punctuation, adding a period only when
@@ -122,6 +127,18 @@ function lowerFirst(text) {
   return text ? `${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
 }
 
+/** Reasons whose words only repeat the sentence they would sit in ("could
+ *  not be measured (not computed)"): left out. */
+const REDUNDANT_REASONS = new Set(["not_computed"]);
+
+/** " (the reason, in words)" for an unavailable reason, or "" when it has no
+ *  words or they would only repeat the sentence. */
+function reasonSuffix(reason) {
+  if (REDUNDANT_REASONS.has(reason)) return "";
+  const words = unavailableWords(reason);
+  return words ? ` (${lowerFirst(words)})` : "";
+}
+
 /** A backend name list ("A, B, C") as names, so the sentence can be plural. */
 function nameList(captured) {
   return String(captured || "")
@@ -130,17 +147,17 @@ function nameList(captured) {
     .filter(Boolean);
 }
 
-/** "a traded player has / 2 traded players have / some traded players have"
- *  no league-scored projection -- the roster lens abstained, so the lineup
- *  effect is left out.  Never "could not be measured": it is not counted. */
+/** "a traded player has" / "2 traded players have" / "some traded players
+ *  have" -- the count from the roster lens, "some" when it is not stated. */
+function unprojectedWho(count) {
+  if (count === 1) return "a traded player has";
+  return isNum(count) && count > 1 ? `${count} traded players have` : "some traded players have";
+}
+
+/** "…no league-scored projection, so the lineup effect is left out" -- the
+ *  roster lens abstained.  Never "could not be measured": it is not counted. */
 function unprojectedClause(count) {
-  const who =
-    count === 1
-      ? "a traded player has"
-      : isNum(count) && count > 1
-        ? `${count} traded players have`
-        : "some traded players have";
-  return `${who} no league-scored projection, so the lineup effect is left out rather than counted as zero`;
+  return `${unprojectedWho(count)} no league-scored projection, so the lineup effect is left out rather than counted as zero`;
 }
 
 function unprojectedCount(rosterLens) {
@@ -226,8 +243,7 @@ const LIMIT_WORDS = [
   {
     re: /^Roster impact not available \(([^)]*)\)/i,
     words: (m) => {
-      const why = unavailableWords(m[1]);
-      return `the impact on your lineup is not available${why ? ` (${lowerFirst(why)})` : ""}`;
+      return `the impact on your lineup is not available${reasonSuffix(m[1])}`;
     },
     topic: "lineupEffect",
   },
@@ -266,8 +282,8 @@ const LIMIT_WORDS = [
     words: (m) => {
       const xs = nameList(m[1]);
       return xs.length > 1
-        ? `${listJoin(xs)} are not on the board, so they have no value (unknown, not zero)`
-        : `${xs[0]} is not on the board, so it has no value (unknown, not zero)`;
+        ? `${listJoin(xs)} are not on the board and have no value (unknown, not zero)`
+        : `${xs[0]} is not on the board and has no value (unknown, not zero)`;
     },
   },
   {
@@ -275,8 +291,8 @@ const LIMIT_WORDS = [
     words: (m) => {
       const xs = nameList(m[1]);
       return xs.length > 1
-        ? `${listJoin(xs)} have no value on the board (unknown, not zero), so they are left out of the totals`
-        : `${xs[0]} has no value on the board (unknown, not zero), so it is left out of the totals`;
+        ? `${listJoin(xs)} have no value on the board (unknown, not zero) and are left out of the totals`
+        : `${xs[0]} has no value on the board (unknown, not zero) and is left out of the totals`;
     },
   },
   {
@@ -293,8 +309,8 @@ const LIMIT_WORDS = [
     words: (m) => {
       const xs = nameList(m[1]);
       return xs.length > 1
-        ? `${listJoin(xs)} are not held by your team, so they are not counted as sent`
-        : `${xs[0]} is not held by your team, so it is not counted as sent`;
+        ? `${listJoin(xs)} are not held by your team and are not counted as sent`
+        : `${xs[0]} is not held by your team and is not counted as sent`;
     },
   },
 ];
@@ -312,21 +328,37 @@ const ROMAN_NUMERAL = /^(?:I{2,3}|IV|VI{0,3}|IX|X{1,3})$/;
 
 /**
  * An internal identifier a person should not read: a snake_case code, a
- * camelCase key, or an all-caps label of three or more letters.  Real names
- * are not identifiers: a capital after an apostrophe or inside a word
- * ("Henry To'oTo'o", "JuJu", "McCloud") is not camelCase, and a roman-numeral
- * suffix ("Kenneth Walker III") is not a label.
+ * camelCase key, an all-caps label of three or more letters, a `kind:Detail`
+ * code ("error:KeyError"), or any of those in quotes ("'valueAdjustment'",
+ * "'LOPSIDED'").  Real names are not identifiers: a capital after an
+ * apostrophe or inside a word ("Henry To'oTo'o", "JuJu", "McCloud") is not
+ * camelCase, and a roman-numeral suffix ("Kenneth Walker III") is not a label.
  */
 export function hasInternalIdentifier(text) {
   const s = String(text || "");
   if (/[A-Za-z0-9]_[A-Za-z0-9]/.test(s)) return true;
+  // kind:Detail -- a lowercase word glued to a colon and another word.
+  if (/(?:^|[^A-Za-z])[a-z]+:[A-Za-z_]/.test(s)) return true;
   // camelCase: a lowercase run that STARTS a token (not after a letter or an
   // apostrophe), then a capital.
   if (/(?:^|[^A-Za-z'’])[a-z]+[A-Z]/.test(s)) return true;
   for (const m of s.matchAll(/(?:^|[^A-Za-z'’])([A-Z]{3,})(?![A-Za-z'’])/g)) {
     if (!ROMAN_NUMERAL.test(m[1])) return true;
   }
+  // A quoted token: the opening quote follows no letter (so the apostrophes
+  // inside "To'oTo'o" are not quotes) and the closing one precedes none.
+  for (const m of s.matchAll(/(?:^|[^A-Za-z0-9])['‘’"“]([A-Za-z0-9_]+)['’"”](?![A-Za-z])/g)) {
+    const t = m[1];
+    if (/^[a-z]+[A-Z]/.test(t) || (/^[A-Z]{3,}$/.test(t) && !ROMAN_NUMERAL.test(t))) return true;
+  }
   return false;
+}
+
+/** A backend string that is a bare code rather than words: an identifier, or
+ *  a single lowercase token ("blocked", "uncertain"). */
+function isRawCode(text) {
+  const t = String(text || "").trim();
+  return hasInternalIdentifier(t) || /^[a-z]+$/.test(t);
 }
 
 /** One limiting axis as `{ text, topic, named }` (see LIMIT_WORDS). */
@@ -337,7 +369,7 @@ function limitClause(axis, why, ctx = {}) {
       const m = w.match(re);
       if (m) return { text: words(m, ctx), topic, named };
     }
-    if (!hasInternalIdentifier(w)) return { text: clauseText(w), topic: null, named: false };
+    if (!isRawCode(w)) return { text: clauseText(w), topic: null, named: false };
   }
   return { text: AXIS_WORDS[axis] || GENERIC_LIMIT, topic: null, named: false };
 }
@@ -354,14 +386,46 @@ export function plainLimit(axis, why, { rosterLens = null } = {}) {
   return limitClause(axis, why, { rosterLens }).text;
 }
 
+/** "another traded player's value has no evidence rating" -- what a generic
+ *  thin-evidence reason still says once a named clause covers the
+ *  low-confidence assets. */
+function unratedClause(count) {
+  return count === 1
+    ? "another traded player's value has no evidence rating"
+    : `${count} other traded players' values have no evidence rating`;
+}
+
+/** Traded assets with no confidence stamp that are not low-confidence ones
+ *  (`lenses.evidence.detail`): what a named low-confidence clause leaves out. */
+function unratedOthers(evidenceLens) {
+  const d = evidenceLens?.detail || {};
+  const low = new Set((d.lowConfidenceAssets || []).map((a) => a?.name).filter(Boolean));
+  return (d.unstampedAssets || []).filter((n) => n && !low.has(n)).length;
+}
+
 /** Clauses deduplicated by MEANING: same text, or same topic -- the named
- *  clause wins its topic, in the position the topic first appeared. */
-function dedupeClauses(clauses) {
+ *  clause wins its topic, in the position the topic first appeared.  The
+ *  generic thin-evidence reason also covers assets with NO stamp, so when a
+ *  named low-confidence clause replaces it and such assets remain, they keep
+ *  a clause of their own. */
+function dedupeClauses(clauses, { unrated = 0 } = {}) {
   const out = [];
+  const genericThin = (c) => c.topic === "thinEvidence" && !c.named;
+  let thinGenericReplaced = false;
   for (const c of clauses) {
     const i = out.findIndex((o) => o.text === c.text || (c.topic && o.topic === c.topic));
-    if (i < 0) out.push(c);
-    else if (c.named && !out[i].named) out[i] = c;
+    if (i < 0) {
+      out.push(c);
+    } else if (c.named && !out[i].named) {
+      thinGenericReplaced = thinGenericReplaced || genericThin(out[i]);
+      out[i] = c;
+    } else if (genericThin(c) && out[i].named) {
+      thinGenericReplaced = true;
+    }
+  }
+  if (thinGenericReplaced && unrated > 0) {
+    const at = out.findIndex((o) => o.topic === "thinEvidence");
+    out.splice(at + 1, 0, { text: unratedClause(unrated), topic: null, named: true });
   }
   return out.map((c) => c.text);
 }
@@ -376,10 +440,11 @@ function dedupeClauses(clauses) {
  *             axes naming the same fact collapse to one clause)
  *   statement the backend's full statement, verbatim (methodology view only)
  * `rosterLens` is the analysis' `lenses.roster`, read for what an unevaluated
- * roster effect means.  Never a probability: the backend says so
+ * roster effect means; `evidenceLens` (`lenses.evidence`) for which traded
+ * assets have no evidence stamp.  Never a probability: the backend says so
  * (`isProbability: false`).
  */
-export function confidenceSummary(confidence, { rosterLens = null } = {}) {
+export function confidenceSummary(confidence, { rosterLens = null, evidenceLens = null } = {}) {
   if (!confidence || typeof confidence !== "object") return null;
   const statement = typeof confidence.statement === "string" ? confidence.statement : "";
   const level = CONFIDENCE_LEVEL_WORDS[confidence.level] || null;
@@ -396,6 +461,7 @@ export function confidenceSummary(confidence, { rosterLens = null } = {}) {
     const whys = confidenceLimits(statement, bottleneck);
     const limits = dedupeClauses(
       bottleneck.map((axis, i) => limitClause(axis, whys.length ? whys[i] : null, { rosterLens })),
+      { unrated: unratedOthers(evidenceLens) },
     );
     return {
       level,
@@ -412,16 +478,49 @@ export function confidenceSummary(confidence, { rosterLens = null } = {}) {
 }
 
 /**
- * One line of the analysis' uncertainty list for the expandable detail: the
- * backend's own sentence when it is plain; when it carries an internal code
- * ("Roster impact not available (not_computed)"), its plain clause instead.
+ * One line of the analysis' uncertainty list for the expandable detail, as a
+ * sentence ending in a period: the backend's own sentence when it is plain;
+ * its plain clause when it carries a code -- always for "Roster impact not
+ * available (<reason>)", whose parenthesis is a reason code
+ * ("error:KeyError", "not_computed").
  */
 export function uncertaintyLine(text, { rosterLens = null } = {}) {
   const t = typeof text === "string" ? text.trim() : "";
   if (!t) return null;
-  if (!hasInternalIdentifier(t)) return t;
+  if (!isRawCode(t) && !/^Roster impact not available \(/i.test(t)) return sentenceEnd(t);
   const plain = plainLimit("coverage", t, { rosterLens });
   return sentenceEnd(`${plain.charAt(0).toUpperCase()}${plain.slice(1)}`);
+}
+
+/** How a host injury designation reads ("listed OUT this week" in the
+ *  backend's argument lines, `analyze_trade.py::_availability_reason`). */
+const DESIGNATION_WORDS = {
+  OUT: "listed as out",
+  QUESTIONABLE: "listed as questionable",
+  DOUBTFUL: "listed as doubtful",
+  IR: "on injured reserve",
+  PUP: "on the physically-unable-to-perform list",
+  NA: "listed as not active",
+  SUS: "suspended",
+  DNR: "listed as did not report",
+  COV: "on the illness list",
+};
+
+/**
+ * One "Points in favor / against" line (`analysis.reasonsFor` /
+ * `reasonsAgainst`) for the expandable detail: the backend's sentence with
+ * its all-caps injury designation worded ("listed as out this week"), ending
+ * in a period like every other line there.
+ */
+export function argumentLine(text) {
+  const t = typeof text === "string" ? text.trim() : "";
+  if (!t) return null;
+  return sentenceEnd(
+    t.replace(
+      /\blisted ([A-Z]{2,}) this week\b/g,
+      (_, code) => `${DESIGNATION_WORDS[code] || `listed as ${code.toLowerCase()}`} this week`,
+    ),
+  );
 }
 
 // ── What is missing (`decision.missingEvidence`) ──────────────────────────
@@ -461,15 +560,14 @@ export function missingEvidenceText(gap) {
   if (!gap || typeof gap !== "object") return null;
   const text = typeof gap.text === "string" ? gap.text.trim() : "";
   const code = gap.code || GAP_OPENINGS.find(([re]) => re.test(text))?.[1] || null;
-  const reason = unavailableWords(gap.evidence?.reason);
-  const why = reason ? ` (${lowerFirst(reason)})` : "";
+  const why = reasonSuffix(gap.evidence?.reason);
   if (code === "roster_unknown") return `The effect on your lineup could not be measured${why}.`;
   if (code === "roster_limit_unknown")
     return `Whether the trade fits your roster is unknown${why}.`;
   if (!text) return GENERIC_GAP;
   const at = text.indexOf(": ");
   const prose = NAME_LIST_GAPS.has(code) && at > 0 ? text.slice(0, at) : text;
-  return hasInternalIdentifier(prose) ? GENERIC_GAP : sentenceEnd(text);
+  return isRawCode(prose) ? GENERIC_GAP : sentenceEnd(text);
 }
 
 /** How the backend's competitive-posture labels read to a person. */
@@ -521,8 +619,10 @@ const BAND_PHRASE = {
  */
 export function fitSentence(state, names = [], { tied = false, openSpotsBefore = null } = {}) {
   const who = listJoin(names);
+  // sentenceEnd, not a literal ".": a name can end the sentence with its own
+  // period ("…cut Marvin Harrison Jr.").
   const cut = who
-    ? ` You would need to cut ${who}${tied ? " (a close call between candidates)" : ""}.`
+    ? ` ${sentenceEnd(`You would need to cut ${who}${tied ? " (a close call between candidates)" : ""}`)}`
     : "";
   switch (state) {
     case "fits_cleanly":
@@ -562,7 +662,7 @@ export function reasonSentence(reason, { strategy = null } = {}) {
   if (!reason || typeof reason !== "object") return null;
   const ev = reason.evidence || {};
   const text = typeof reason.text === "string" ? reason.text.trim() : "";
-  const verbatim = text && !hasInternalIdentifier(text) ? sentenceEnd(text) : null;
+  const verbatim = text && !isRawCode(text) ? sentenceEnd(text) : null;
   switch (reason.component) {
     case "objectiveValue": {
       const level = ev.band?.level;
@@ -596,7 +696,8 @@ export function reasonSentence(reason, { strategy = null } = {}) {
         return verbatim || "No legal roster cleanup exists for this trade.";
       const fit = fitSentence(ev.state, ev.forcedDrops || []);
       if (fit) return fit;
-      if (verbatim) return verbatim;
+      // The backend's text for an unknown state IS the state (`.get(state, state)`).
+      if (verbatim && text !== ev.state) return verbatim;
       if (reason.stance === "against") return "Fitting it on your roster counts against it.";
       if (reason.stance === "for") return "Fitting it on your roster counts in its favor.";
       return "Fitting it on your roster does not push either way.";
@@ -645,6 +746,20 @@ export function decisionReasons(decision) {
     );
   if (next) out.push({ role: "also", reason: next });
   return out;
+}
+
+/**
+ * `decisionReasons`, each with its plain sentence.  A reason with nothing
+ * plain to say is skipped -- and when that is the MAIN reason the whole list
+ * is dropped, because a counterargument shown alone would read as the reason.
+ */
+export function decisionReasonSentences(decision) {
+  const items = decisionReasons(decision).map((r) => ({
+    ...r,
+    sentence: reasonSentence(r.reason, { strategy: decision.strategy }),
+  }));
+  if (!items.length || !items[0].sentence) return [];
+  return items.filter((r) => r.sentence);
 }
 
 export const REASON_ROLE_WORDS = {
@@ -733,7 +848,7 @@ export function weeklyImpact(lens) {
   }
   if (partial) {
     notes.push(
-      "Only players with a projection are counted (a traded player has none), so this does not count toward the recommendation.",
+      `Only players with a projection are counted (${unprojectedWho(unprojectedCount(lens))} none), so this does not count toward the recommendation.`,
     );
   }
   return { sentence: lineupPointsSentence(d.ppg), note: notes.join(" ") || null, partial };

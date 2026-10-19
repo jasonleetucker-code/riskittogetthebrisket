@@ -105,6 +105,16 @@ SCENARIOS: dict[str, tuple] = {
         "The consolidation trade with the roster simulation and the roster-capacity check "
         "both unavailable (LABELLED degraded simulation): the decision's evidence gates.",
     ),
+    "roster-error": (
+        ["WR Buf Star"],
+        ["WR Kc", "WR Phi"],
+        [],
+        [],
+        True,
+        True,
+        "The consolidation trade with the roster simulation raising (LABELLED degraded "
+        "simulation): the simulator's own error:<Exception> reason reaches the packet.",
+    ),
 }
 
 #: Per-scenario extras, kept out of the tuple so existing scenarios are unchanged:
@@ -120,6 +130,11 @@ SCENARIO_OPTIONS: dict[str, dict] = {
             "rosterUtility": None,
             "rosterCapacity": {"unavailable": "roster_capacity_unavailable"},
         }
+    },
+    # What `trade_simulator.simulate_trade` writes when the roster simulation
+    # raises: ``f"error:{type(exc).__name__}"``.
+    "roster-error": {
+        "degrade": {"rosterUtility": {"available": False, "unavailableReason": "error:KeyError"}}
     },
 }
 

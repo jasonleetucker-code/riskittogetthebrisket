@@ -31,8 +31,10 @@ import {
 import { TRADE_VALUE_MODE, adjustedSideTotals, tradeEvaluationState } from "@/lib/trade-logic";
 import {
   analysisErrorText,
+  argumentLine,
   confidenceLimits,
   confidenceSummary,
+  decisionReasonSentences,
   decisionReasons,
   fitSentence,
   hasInternalIdentifier,
@@ -58,6 +60,7 @@ import PARTIAL from "./fixtures/trade-war-room/partial-coverage.json";
 import ASSET_ONLY from "./fixtures/trade-war-room/asset-only.json";
 import PARTIAL_LONG_TERM from "./fixtures/trade-war-room/partial-long-term.json";
 import ROSTER_UNMEASURED from "./fixtures/trade-war-room/roster-unmeasured.json";
+import ROSTER_ERROR from "./fixtures/trade-war-room/roster-error.json";
 
 const market = (f) => f.analysis.lenses.market.detail;
 const roster = (f) => f.analysis.lenses.roster;
@@ -193,6 +196,11 @@ describe("weeklyImpact — Impact on your team", () => {
     expect(w.partial).toBe(true);
     expect(w.sentence).toContain(`about ${roundTenth(roster(PARTIAL).detail.ppg).toFixed(1)} more`);
     expect(w.note).toMatch(/does not count toward the recommendation/);
+    expect(w.note).toMatch(/\(a traded player has none\)/);
+    // The count comes from the lens: never singular for three.
+    const three = structuredClone(roster(PARTIAL));
+    three.detail.coverage.tradedUnprojectedPlayerIds = ["a", "b", "c"];
+    expect(weeklyImpact(three).note).toMatch(/\(3 traded players have none\)/);
   });
   it("an excluded or unavailable lens is words, not a number", () => {
     expect(weeklyImpact(roster(ASSET_ONLY))).toEqual({
@@ -204,6 +212,10 @@ describe("weeklyImpact — Impact on your team", () => {
         unavailableReason: "projection_basis_no_projection_snapshot",
       }),
     ).toEqual({ unavailable: "No league-scored projection snapshot yet" });
+    // `roster_capacity.py`: "projection_basis_{reason or 'unavailable'}".
+    expect(
+      weeklyImpact({ available: false, unavailableReason: "projection_basis_unavailable" }),
+    ).toEqual({ unavailable: "League-scored projections are not available" });
     expect(weeklyImpact({ available: true, detail: { ppg: null } }).unavailable).toBeTruthy();
   });
 });
@@ -239,6 +251,31 @@ describe("rosterFit / fitSentence — Does it fit your roster?", () => {
     expect(fitSentence("worsens_overage", ["X"])).toMatch(/adds to it\. You would need to cut X/);
     expect(fitSentence("overage_unchanged")).toMatch(/leaves that unchanged/);
     expect(fitSentence("mystery")).toBeNull();
+  });
+  it("a cut name that ends in its own period ends the sentence once", () => {
+    expect(fitSentence("cut_required", ["Marvin Harrison Jr."])).toBe(
+      "The trade does not fit as built. You would need to cut Marvin Harrison Jr.",
+    );
+    expect(fitSentence("cut_required", ["A.J. Brown", "Marvin Harrison Jr."])).toBe(
+      "The trade does not fit as built. You would need to cut A.J. Brown and Marvin Harrison Jr.",
+    );
+    expect(fitSentence("worsens_overage", ["Odell Beckham Jr."])).toMatch(/Beckham Jr\.$/);
+    expect(fitSentence("cut_required", ["Marvin Harrison Jr."], { tied: true })).toBe(
+      "The trade does not fit as built. You would need to cut Marvin Harrison Jr. (a close call between candidates).",
+    );
+    // ...through the at-a-glance row and the Why list too.
+    const lens = structuredClone(feas(FORCED));
+    lens.detail.forcedDrops = [{ name: "Marvin Harrison Jr." }];
+    expect(rosterFit(lens).sentence).not.toMatch(/\.\.$/);
+    expect(
+      reasonSentence({
+        component: "feasibility",
+        stance: "against",
+        kind: "contextual",
+        text: "Roster full — cut required: likely Marvin Harrison Jr.",
+        evidence: { state: "cut_required", forcedDrops: ["Marvin Harrison Jr."] },
+      }),
+    ).toBe("The trade does not fit as built. You would need to cut Marvin Harrison Jr.");
   });
   it("an unknown limit or taxi uncertainty is said, not assumed", () => {
     expect(
@@ -381,19 +418,19 @@ describe("confidenceSummary — plain English, no internal identifiers", () => {
       ],
       [
         "Not on the board, so not priced: Mystery Man",
-        "Mystery Man is not on the board, so it has no value (unknown, not zero)",
+        "Mystery Man is not on the board and has no value (unknown, not zero)",
       ],
       [
         "Not on the board, so not priced: Mystery Man, Ghost Rookie",
-        "Mystery Man and Ghost Rookie are not on the board, so they have no value (unknown, not zero)",
+        "Mystery Man and Ghost Rookie are not on the board and have no value (unknown, not zero)",
       ],
       [
         "On the board but unpriced — unknown, not worth 0, so left out of the package math: RB Unpriced",
-        "RB Unpriced has no value on the board (unknown, not zero), so it is left out of the totals",
+        "RB Unpriced has no value on the board (unknown, not zero) and is left out of the totals",
       ],
       [
         "On the board but unpriced — unknown, not worth 0, so left out of the package math: RB Unpriced, 2029 Round 4",
-        "RB Unpriced and 2029 Round 4 have no value on the board (unknown, not zero), so they are left out of the totals",
+        "RB Unpriced and 2029 Round 4 have no value on the board (unknown, not zero) and are left out of the totals",
       ],
       [
         "Counted as sent, but not taken off this roster because no specific owned pick was chosen: 2027 Round 1",
@@ -405,11 +442,11 @@ describe("confidenceSummary — plain English, no internal identifiers", () => {
       ],
       [
         "Not held by this team, so not counted as sent: 2027 1st (held by Rival)",
-        "2027 1st (held by Rival) is not held by your team, so it is not counted as sent",
+        "2027 1st (held by Rival) is not held by your team and is not counted as sent",
       ],
       [
         "Not held by this team, so not counted as sent: 2027 1st (held by Rival), 2028 2nd",
-        "2027 1st (held by Rival) and 2028 2nd are not held by your team, so they are not counted as sent",
+        "2027 1st (held by Rival) and 2028 2nd are not held by your team and are not counted as sent",
       ],
       [
         // An unknown reason code is left out, never shown or doubled.
@@ -427,12 +464,31 @@ describe("confidenceSummary — plain English, no internal identifiers", () => {
       expect(plainLimit("coverage", line)).not.toMatch(/could not be measured/);
       expect(plainLimit("coverage", line)).not.toMatch(/unavailable \(/i);
       expect(hasInternalIdentifier(plainLimit("coverage", line))).toBe(false);
+      expect(plainLimit("coverage", line)).not.toMatch(/\b(it|they) (has|have|is|are)\b/);
     }
+    // The error reason the simulator writes when the roster simulation raises.
+    expect(plainLimit("coverage", "Roster impact not available (error:KeyError)")).toBe(
+      "the impact on your lineup is not available (could not be computed right now)",
+    );
+    // "not computed" only repeats "not available": left out.
+    expect(plainLimit("coverage", "Roster impact not available (not_computed)")).toBe(
+      "the impact on your lineup is not available",
+    );
   });
 
-  it("an unknown plain line is the backend's sentence verbatim; one with an identifier is not", () => {
+  it("an unknown plain line is the backend's clause; one with an identifier is not", () => {
+    // Inside "Limited because …": a leading ordinary word is lowercased, end
+    // punctuation dropped -- but a leading name keeps its capitals.
     expect(plainLimit("coverage", "A brand-new caveat nobody mapped yet")).toBe(
-      "A brand-new caveat nobody mapped yet",
+      "a brand-new caveat nobody mapped yet",
+    );
+    expect(plainLimit("coverage", "Is the cut certain?")).toBe("is the cut certain");
+    expect(plainLimit("coverage", "Justin Herbert has a new caveat.")).toBe(
+      "Justin Herbert has a new caveat",
+    );
+    expect(plainLimit("coverage", "DJ Moore has a new caveat")).toBe("DJ Moore has a new caveat");
+    expect(plainLimit("coverage", "Thin market for Marvin Harrison Jr.")).toBe(
+      "thin market for Marvin Harrison Jr.",
     );
     expect(plainLimit("coverage", "Roster status pending (league_bundle_not_warm)")).toBe(
       "part of the analysis is uncertain (see Arguments, objections and uncertainty)",
@@ -513,8 +569,24 @@ describe("hasInternalIdentifier — codes, never real names", () => {
       "package gap LOPSIDED",
       "contender (PUSH)",
       "MEDIUM",
+      "Roster impact not available (error:KeyError)",
+      "error:ValueError",
+      "(error:HTTPError)",
+      "the 'valueAdjustment' key",
+      "band 'LOPSIDED'",
+      "band \u2018LOPSIDED\u2019",
+      'band "LOPSIDED"',
     ]) {
       expect(hasInternalIdentifier(code)).toBe(true);
+    }
+    // ...but a plain quoted word, an ordinary colon and a clock time are not.
+    for (const plain of [
+      "the 'value' gap",
+      "limited by this: thin",
+      "kickoff at 1:00",
+      "O'Neil's",
+    ]) {
+      expect(hasInternalIdentifier(plain)).toBe(false);
     }
   });
 });
@@ -643,14 +715,29 @@ describe("missingEvidenceText — what is missing, without reason codes", () => 
 
   it("words the real roster gaps from their evidence reason", () => {
     expect(d.missingEvidence.map((g) => g.text).join(" ")).toMatch(/_/); // the leak, as emitted
+    // "(not computed)" would only repeat "could not be measured": left out.
     expect(d.missingEvidence.map(missingEvidenceText)).toEqual([
-      "The effect on your lineup could not be measured (not computed).",
+      "The effect on your lineup could not be measured.",
       "Whether the trade fits your roster is unknown (your roster limit could not be checked).",
     ]);
     // The evidence gate's reason carries the first gap's text and evidence, no code.
     expect(d.primaryReason.code).toBeUndefined();
     expect(reasonSentence(d.primaryReason)).toBe(
-      "The effect on your lineup could not be measured (not computed).",
+      "The effect on your lineup could not be measured.",
+    );
+  });
+
+  it("the simulator's error:<Exception> reason reads in words (real output)", () => {
+    const e = ROSTER_ERROR.analysis.decision;
+    expect(e.missingEvidence[0].evidence.reason).toBe("error:KeyError");
+    expect(missingEvidenceText(e.missingEvidence[0])).toBe(
+      "The effect on your lineup could not be measured (could not be computed right now).",
+    );
+    expect(reasonSentence(e.primaryReason)).toBe(
+      "The effect on your lineup could not be measured (could not be computed right now).",
+    );
+    expect(uncertaintyLine(ROSTER_ERROR.analysis.uncertainty[0])).toBe(
+      "The impact on your lineup is not available (could not be computed right now).",
     );
   });
 
@@ -701,19 +788,156 @@ describe("missingEvidenceText — what is missing, without reason codes", () => 
     expect(missingEvidenceText({ code: "new_gap", text: "" })).toBe(
       "Some information the recommendation needs is missing.",
     );
+    // A bare one-word code is not a sentence.
+    expect(missingEvidenceText({ code: "new_gap", text: "blocked" })).toBe(
+      "Some information the recommendation needs is missing.",
+    );
+    expect(missingEvidenceText({ code: "new_gap", text: "Value check: error:ValueError" })).toBe(
+      "Some information the recommendation needs is missing.",
+    );
     expect(missingEvidenceText(null)).toBeNull();
   });
 
-  it("the uncertainty list words a coded line and keeps plain ones verbatim", () => {
+  it("the uncertainty list words a coded line, keeps plain ones, every line one period", () => {
     const [line] = ROSTER_UNMEASURED.analysis.uncertainty;
     expect(line).toBe("Roster impact not available (not_computed)");
-    expect(uncertaintyLine(line)).toBe(
-      "The impact on your lineup is not available (not computed).",
-    );
+    expect(uncertaintyLine(line)).toBe("The impact on your lineup is not available.");
     expect(uncertaintyLine("Sources disagree on Justin Herbert")).toBe(
-      "Sources disagree on Justin Herbert",
+      "Sources disagree on Justin Herbert.",
+    );
+    expect(uncertaintyLine("Sources disagree on Marvin Harrison Jr.")).toBe(
+      "Sources disagree on Marvin Harrison Jr.",
     );
     expect(uncertaintyLine("")).toBeNull();
+  });
+
+  it("argument lines word an all-caps injury designation and end in one period", () => {
+    // `analyze_trade.py::_availability_reason`: "listed <DESIGNATION> this week".
+    expect(
+      argumentLine("WR Buf Star is unavailable for all 3 remaining weeks (listed OUT this week)"),
+    ).toBe("WR Buf Star is unavailable for all 3 remaining weeks (listed as out this week).");
+    expect(
+      argumentLine("X is unavailable for all 2 remaining weeks (listed QUESTIONABLE this week)"),
+    ).toBe("X is unavailable for all 2 remaining weeks (listed as questionable this week).");
+    expect(argumentLine("X is unavailable for all 2 remaining weeks (listed IR this week)")).toBe(
+      "X is unavailable for all 2 remaining weeks (on injured reserve this week).",
+    );
+    expect(argumentLine("Roster full — 1 cut required: likely Marvin Harrison Jr.")).toBe(
+      "Roster full — 1 cut required: likely Marvin Harrison Jr.",
+    );
+    for (const code of [
+      "OUT",
+      "QUESTIONABLE",
+      "DOUBTFUL",
+      "IR",
+      "PUP",
+      "NA",
+      "SUS",
+      "DNR",
+      "COV",
+    ]) {
+      const out = argumentLine(
+        `X is unavailable for all 2 remaining weeks (listed ${code} this week)`,
+      );
+      expect(out).not.toMatch(/\b[A-Z]{2,}\b/);
+    }
+    expect(argumentLine("")).toBeNull();
+  });
+});
+
+describe("reason list and confidence edge cases", () => {
+  const main = {
+    component: "objectiveValue",
+    stance: "for",
+    kind: "independent",
+    text: "+1,440 package value",
+    evidence: { band: { level: "slight" } },
+  };
+  const counter = {
+    component: "rosterBenefit",
+    stance: "against",
+    kind: "independent",
+    text: "-3.0 points",
+    evidence: { magnitude: "modest" },
+  };
+
+  it("a main reason with nothing plain to say drops the list; a counter is never alone", () => {
+    const silentMain = { component: "mystery", stance: "for", text: "rosterLens_gate" };
+    expect(
+      decisionReasonSentences({
+        headline: "YES",
+        primaryReason: silentMain,
+        mainCounterargument: counter,
+        reasons: [silentMain, counter],
+      }),
+    ).toEqual([]);
+    const ok = decisionReasonSentences({
+      headline: "YES",
+      primaryReason: main,
+      mainCounterargument: counter,
+      reasons: [main, counter],
+    });
+    expect(ok.map((r) => r.role)).toEqual(["main", "counter"]);
+    expect(ok.every((r) => typeof r.sentence === "string" && r.sentence)).toBe(true);
+  });
+
+  it("an unknown one-word feasibility state is a code, never shown", () => {
+    for (const [text, state] of [
+      ["blocked", "blocked"],
+      ["uncertain", undefined],
+    ]) {
+      expect(
+        reasonSentence({
+          component: "feasibility",
+          stance: "against",
+          kind: "contextual",
+          text,
+          evidence: { state, forcedDrops: [] },
+        }),
+      ).toBe("Fitting it on your roster counts against it.");
+    }
+  });
+
+  it("a named low-confidence clause leaves no unrated asset out", () => {
+    const pairs = [
+      ["coverage", "Low-confidence canonical value for DJ Moore"],
+      ["assetEvidence", "a traded asset has low or no confidence stamp"],
+    ];
+    const c = {
+      level: "MEDIUM",
+      bottleneck: ["coverage", "assetEvidence"],
+      statement: statementOf("MEDIUM", pairs),
+    };
+    const lens = (low, unstamped) => ({
+      detail: {
+        lowConfidenceAssets: low.map((name) => ({ name, confidenceBucket: "low" })),
+        unstampedAssets: unstamped,
+      },
+    });
+    // Another asset has no stamp at all: it keeps a clause of its own.
+    expect(
+      confidenceSummary(c, { evidenceLens: lens(["DJ Moore"], ["Ghost Rookie"]) }).limits,
+    ).toEqual([
+      "the value of DJ Moore rests on thin evidence",
+      "another traded player's value has no evidence rating",
+    ]);
+    expect(
+      confidenceSummary(c, { evidenceLens: lens(["DJ Moore"], ["Ghost Rookie", "2029 Round 4"]) })
+        .limits[1],
+    ).toBe("2 other traded players' values have no evidence rating");
+    // No unrated asset beyond the named one: the named clause covers it all.
+    expect(confidenceSummary(c, { evidenceLens: lens(["DJ Moore"], []) }).limits).toEqual([
+      "the value of DJ Moore rests on thin evidence",
+    ]);
+    // Without the generic reason there is nothing to keep.
+    const onlyNamed = {
+      level: "MEDIUM",
+      bottleneck: ["coverage"],
+      statement: statementOf("MEDIUM", [pairs[0]]),
+    };
+    expect(
+      confidenceSummary(onlyNamed, { evidenceLens: lens(["DJ Moore"], ["Ghost Rookie"]) }).limits,
+    ).toEqual(["the value of DJ Moore rests on thin evidence"]);
   });
 });
 
