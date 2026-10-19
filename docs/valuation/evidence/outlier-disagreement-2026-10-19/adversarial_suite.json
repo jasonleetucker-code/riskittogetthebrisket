@@ -1,0 +1,515 @@
+{
+ "board": {
+  "archive": "dynasty_export_20261018_114711.zip",
+  "complete": true,
+  "payloadSha256": "01e141f7cbe69ac9e1027e8c218ca8c995d589b66cf74ec19e4d15decd920380",
+  "scrapeTimestamp": "2026-10-18T11:47:11.644766+00:00",
+  "zipSha256": "5c45f77d857c066b2a1903a992c9a54a27c0ea336780eb7a76a80aba712f1461"
+ },
+ "codeSha": "92fa036b270b4c2d13232a21257bd9789c5af70a",
+ "endToEnd": {
+  "E1_registered_doubledRanks": {
+   "flagged": {},
+   "passes": false,
+   "rankingPasses": 1,
+   "rowsDropped": 0,
+   "rowsWithVote": 284,
+   "stats": {
+    "flagged": false,
+    "medianAbsolute": 0.1013,
+    "medianSigned": 0.037,
+    "rows": 284,
+    "screened": true
+   },
+   "votesChangedByCorruption": 0
+  },
+  "E1_reversedRanks": {
+   "flagged": {
+    "offense": [
+     "dynastyNerdsSfTep"
+    ]
+   },
+   "passes": true,
+   "rankingPasses": 2,
+   "rowsDropped": 284,
+   "rowsWithVote": 284,
+   "stats": {
+    "flagged": true,
+    "medianAbsolute": 0.9987,
+    "medianSigned": 0.0338,
+    "rows": 284,
+    "screened": true
+   },
+   "votesChangedByCorruption": 284
+  },
+  "E1b_firstPageLost": {
+   "flagged": {
+    "offense": [
+     "dynastyNerdsSfTep"
+    ]
+   },
+   "passes": true,
+   "rankingPasses": 2,
+   "rowsDropped": 134,
+   "rowsWithVote": 134,
+   "stats": {
+    "flagged": true,
+    "medianAbsolute": 1.0352,
+    "medianSigned": -1.0352,
+    "rows": 134,
+    "screened": true
+   },
+   "votesChangedByCorruption": 284
+  },
+  "E2_swappedRows": {
+   "pairs": [
+    [
+     "Puka Nacua",
+     "Juwan Johnson"
+    ],
+    [
+     "Drake London",
+     "Aaron Jones"
+    ],
+    [
+     "Breece Hall",
+     "Mac Jones"
+    ]
+   ],
+   "rows": [
+    {
+     "flockVote": 2400.0,
+     "incumbentDropped": true,
+     "othersMedian": 9012.0,
+     "policyDropped": true,
+     "policyReason": "gross_uncorroborated_error",
+     "row": "Puka Nacua"
+    },
+    {
+     "flockVote": 9999.0,
+     "incumbentDropped": true,
+     "othersMedian": 3598.0,
+     "policyDropped": true,
+     "policyReason": "gross_uncorroborated_error",
+     "row": "Juwan Johnson"
+    },
+    {
+     "flockVote": 2218.0,
+     "incumbentDropped": true,
+     "othersMedian": 7290.5,
+     "policyDropped": true,
+     "policyReason": "gross_uncorroborated_error",
+     "row": "Drake London"
+    },
+    {
+     "flockVote": 7540.0,
+     "incumbentDropped": true,
+     "othersMedian": 2595.0,
+     "policyDropped": true,
+     "policyReason": "gross_uncorroborated_error",
+     "row": "Aaron Jones"
+    },
+    {
+     "flockVote": 2013.0,
+     "incumbentDropped": true,
+     "othersMedian": 5547.0,
+     "policyDropped": false,
+     "policyReason": null,
+     "row": "Breece Hall"
+    },
+    {
+     "flockVote": 5869.0,
+     "incumbentDropped": true,
+     "othersMedian": 2101.0,
+     "policyDropped": true,
+     "policyReason": "gross_uncorroborated_error",
+     "row": "Mac Jones"
+    }
+   ]
+  }
+ },
+ "preregistration": "docs/valuation/evidence/outlier-disagreement-2026-10-19/PREREGISTRATION.md",
+ "schema": "outlier-policy-adversarial/v1",
+ "seed": 2033,
+ "summary": {
+  "AD1a": {
+   "cases": 730,
+   "gate": 0.9,
+   "incumbent": {
+    "byBand": {
+     "3": 0.1026,
+     "4-5": 0.9939,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.8356,
+    "passRate": 0.6502
+   },
+   "material": 303,
+   "n3": {
+    "byBand": {
+     "3": 0.9145,
+     "4-5": 0.9939,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.9658,
+    "passRate": 0.9637
+   },
+   "policy": {
+    "byBand": {
+     "3": 0.8889,
+     "4-5": 0.9695,
+     ">=6": 0.9545
+    },
+    "caughtShareAll": 0.9329,
+    "passRate": 0.9373
+   },
+   "policyPasses": true
+  },
+  "AD1b": {
+   "cases": 730,
+   "gate": 0.9,
+   "incumbent": {
+    "byBand": {
+     "3": 0.055,
+     "4-5": 0.6667,
+     ">=6": 0.2
+    },
+    "caughtShareAll": 0.6575,
+    "passRate": 0.364
+   },
+   "material": 228,
+   "n3": {
+    "byBand": {
+     "3": 0.4037,
+     "4-5": 0.6667,
+     ">=6": 0.2
+    },
+    "caughtShareAll": 0.7151,
+    "passRate": 0.5307
+   },
+   "policy": {
+    "byBand": {
+     "3": 0.5963,
+     "4-5": 0.5789,
+     ">=6": 0.4
+    },
+    "caughtShareAll": 0.7274,
+    "passRate": 0.5833
+   },
+   "policyPasses": false
+  },
+  "AD1c": {
+   "cases": 730,
+   "gate": 0.95,
+   "incumbent": {
+    "byBand": {
+     "3": 0.1017,
+     "4-5": 0.994,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.8356,
+    "passRate": 0.6787
+   },
+   "material": 333,
+   "n3": {
+    "byBand": {
+     "3": 0.9322,
+     "4-5": 0.994,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.9699,
+    "passRate": 0.973
+   },
+   "policy": {
+    "byBand": {
+     "3": 0.9576,
+     "4-5": 0.9881,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.9493,
+    "passRate": 0.979
+   },
+   "policyPasses": true
+  },
+  "AD1d": {
+   "cases": 730,
+   "gate": 0.95,
+   "incumbent": {
+    "byBand": {
+     "3": 0.0776,
+     "4-5": 0.791,
+     ">=6": 0.6667
+    },
+    "caughtShareAll": 0.7575,
+    "passRate": 0.4648
+   },
+   "material": 256,
+   "n3": {
+    "byBand": {
+     "3": 0.6293,
+     "4-5": 0.791,
+     ">=6": 0.6667
+    },
+    "caughtShareAll": 0.8438,
+    "passRate": 0.7148
+   },
+   "policy": {
+    "byBand": {
+     "3": 0.9224,
+     "4-5": 0.9403,
+     ">=6": 0.6667
+    },
+    "caughtShareAll": 0.9356,
+    "passRate": 0.9258
+   },
+   "policyPasses": false
+  },
+  "AD2": {
+   "cases": 657,
+   "gate": 0.9,
+   "incumbent": {
+    "byBand": {
+     "3": 0.0192,
+     "4-5": 0.4627,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.4886,
+    "passRate": 0.315
+   },
+   "material": 127,
+   "n3": {
+    "byBand": {
+     "3": 0.4615,
+     "4-5": 0.4627,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.5251,
+    "passRate": 0.4961
+   },
+   "policy": {
+    "byBand": {
+     "3": 0.1346,
+     "4-5": 0.1194,
+     ">=6": 0.5
+    },
+    "caughtShareAll": 0.1689,
+    "passRate": 0.1496
+   },
+   "policyPasses": false
+  },
+  "AD3": {
+   "boards": 16,
+   "cases": [
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "dynastyNerdsSfTep"
+      ]
+     },
+     "kind": "ranks_x2",
+     "rows": 284,
+     "source": "dynastyNerdsSfTep"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "dynastyNerdsSfTep"
+      ]
+     },
+     "kind": "ranks_x5",
+     "rows": 284,
+     "source": "dynastyNerdsSfTep"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "dynastyNerdsSfTep"
+      ]
+     },
+     "kind": "values_x0.01",
+     "rows": 284,
+     "source": "dynastyNerdsSfTep"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "dynastyNerdsSfTep"
+      ]
+     },
+     "kind": "reversed",
+     "rows": 284,
+     "source": "dynastyNerdsSfTep"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "flockFantasySf"
+      ]
+     },
+     "kind": "ranks_x2",
+     "rows": 403,
+     "source": "flockFantasySf"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "flockFantasySf"
+      ]
+     },
+     "kind": "ranks_x5",
+     "rows": 403,
+     "source": "flockFantasySf"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "flockFantasySf"
+      ]
+     },
+     "kind": "values_x0.01",
+     "rows": 403,
+     "source": "flockFantasySf"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "flockFantasySf"
+      ]
+     },
+     "kind": "reversed",
+     "rows": 403,
+     "source": "flockFantasySf"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "fantasyCalc"
+      ]
+     },
+     "kind": "ranks_x2",
+     "rows": 389,
+     "source": "fantasyCalc"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "fantasyCalc"
+      ]
+     },
+     "kind": "ranks_x5",
+     "rows": 389,
+     "source": "fantasyCalc"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "fantasyCalc"
+      ]
+     },
+     "kind": "values_x0.01",
+     "rows": 389,
+     "source": "fantasyCalc"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "offense": [
+       "fantasyCalc"
+      ]
+     },
+     "kind": "reversed",
+     "rows": 389,
+     "source": "fantasyCalc"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "idp": [
+       "fantasyProsIdp"
+      ]
+     },
+     "kind": "ranks_x2",
+     "rows": 249,
+     "source": "fantasyProsIdp"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "idp": [
+       "fantasyProsIdp"
+      ]
+     },
+     "kind": "ranks_x5",
+     "rows": 249,
+     "source": "fantasyProsIdp"
+    },
+    {
+     "flagged": true,
+     "flaggedAll": {
+      "idp": [
+       "fantasyProsIdp"
+      ]
+     },
+     "kind": "values_x0.01",
+     "rows": 249,
+     "source": "fantasyProsIdp"
+    },
+    {
+     "flagged": false,
+     "flaggedAll": {},
+     "kind": "reversed",
+     "rows": 249,
+     "source": "fantasyProsIdp"
+    }
+   ],
+   "cleanBoardFlagged": {},
+   "flagged": 15,
+   "policyPasses": false
+  },
+  "AD4": {
+   "cases": 226,
+   "gate": 0.95,
+   "incumbent": {
+    "byBand": {
+     "3": 0.2857,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 0.9558,
+    "passRate": 0.8969
+   },
+   "material": 97,
+   "n3": {
+    "byBand": {
+     "3": 1.0,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 1.0,
+    "passRate": 1.0
+   },
+   "policy": {
+    "byBand": {
+     "3": 1.0,
+     "4-5": 1.0,
+     ">=6": 1.0
+    },
+    "caughtShareAll": 1.0,
+    "passRate": 1.0
+   },
+   "policyPasses": true
+  },
+  "gatePasses": false
+ }
+}
