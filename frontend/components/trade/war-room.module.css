@@ -268,6 +268,9 @@
 .table td {
   white-space: nowrap;
 }
+.table td.wrap {
+  white-space: normal;
+}
 .table thead th {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
@@ -337,5 +340,10 @@
   .control {
     flex-direction: column;
     align-items: stretch;
+  }
+  .table th,
+  .table td {
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
   }
 }

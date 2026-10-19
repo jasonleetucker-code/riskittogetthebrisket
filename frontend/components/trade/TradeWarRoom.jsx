@@ -192,7 +192,7 @@ function PlayerImpact({ rosterDetail, partial }) {
                       </span>
                     ) : null}
                   </th>
-                  <td>{ROLE_PLAIN_WORDS[p.role] || p.role}</td>
+                  <td className={styles.wrap}>{ROLE_PLAIN_WORDS[p.role] || p.role}</td>
                   <td className={styles.num}>{formatPpg(p.projectedPpg) ?? "No projection"}</td>
                   <td className={styles.num}>{formatPctPoint(p.lineupEntryPctBefore) ?? "—"}</td>
                   <td className={styles.num}>{formatPctPoint(p.lineupEntryPctAfter) ?? "—"}</td>
