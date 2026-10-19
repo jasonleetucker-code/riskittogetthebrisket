@@ -81,10 +81,18 @@ async function keyboardAddInline(page, side, name) {
 /** Phone: open the sheet from the keyboard, Tab to the exact row, Enter. */
 async function keyboardAddSheet(page, side, name) {
   const open = page.getByRole("button", { name: `Add to Side ${side}`, exact: true });
-  await open.focus();
-  await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: `Add to Side ${side}` });
-  await expect(dialog).toBeVisible();
+  // Selecting the team re-renders the side panels, so a focus taken in the
+  // same tick can land on a node that is then replaced and the Enter goes
+  // nowhere (CI mobile, 2026-10-18).  Re-take focus until it holds; the
+  // sheet still has to open from the keyboard.
+  await expect(async () => {
+    if (await dialog.isVisible()) return;
+    await open.focus();
+    await expect(open).toBeFocused({ timeout: 1_000 });
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
   const input = dialog.getByLabel(`Search to add a player to Side ${side}`);
   await expect(input).toBeFocused();
   await input.fill(name);
