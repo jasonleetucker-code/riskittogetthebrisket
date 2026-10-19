@@ -50,7 +50,7 @@ def _available(fb):
 # (a) identical utility and market orders -> fair == market for every row
 def test_identical_orders_are_an_exact_no_op():
     rows = board()
-    fb = run(rows, aligned_payload(rows), anchor_year=2026)
+    fb = run(rows, aligned_payload(rows))
     avail = _available(fb)
     assert len(avail) == len(rows)
     for v in fb.values.values():
@@ -341,7 +341,7 @@ def test_market_confidence_never_amplifies_shrinkage():
 def test_no_canonical_field_is_written_anywhere():
     rows = board()
     before = json.dumps(rows, sort_keys=True)
-    fb = run(rows, shuffled_payload(rows), anchor_year=2026)
+    fb = run(rows, shuffled_payload(rows))
     assert json.dumps(rows, sort_keys=True) == before  # caller rows untouched
 
     def _keys(node):
@@ -359,22 +359,20 @@ def test_no_canonical_field_is_written_anywhere():
     assert fb.to_dict()["shadowOnly"] is True
 
 
-def test_ranks_come_from_the_one_ranker_on_copies():
+def test_no_challenger_ranks_are_produced():
+    """The one ranker sorts on the canonical field, which a shadow challenger
+    may not write; no second ranker exists, so ranks are stated unavailable."""
     rows = board()
-    fb = run(rows, shuffled_payload(rows), anchor_year=2026)
-    assert fb.diagnostics["ranks"]["state"] == "available"
-    ranked = sorted((v for v in fb.values.values() if v.fair_rank), key=lambda v: v.fair_rank)
-    assert [v.fair_rank for v in ranked] == list(range(1, len(ranked) + 1))
-    values = [v.fair_value for v in ranked]
-    assert values == sorted(values, reverse=True)
-    # Without an anchor year ranks are unavailable, never guessed.
-    assert run(rows, shuffled_payload(rows)).diagnostics["ranks"]["state"] == "unavailable"
+    fb = run(rows, shuffled_payload(rows))
+    assert fb.diagnostics["ranks"]["state"] == "unavailable"
+    some = next(iter(fb.values.values())).to_dict()
+    assert "fairRank" not in some and "fairTier" not in some
 
 
 def test_deterministic_and_reproducible_from_inputs():
     rows = board()
-    a = run(rows, shuffled_payload(rows), anchor_year=2026).to_dict()
-    b = run(copy.deepcopy(rows), shuffled_payload(rows), anchor_year=2026).to_dict()
+    a = run(rows, shuffled_payload(rows)).to_dict()
+    b = run(copy.deepcopy(rows), shuffled_payload(rows)).to_dict()
     assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
 
 

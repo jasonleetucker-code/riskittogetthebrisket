@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from src.canonical.player_valuation import DISPLAY_SCALE_MAX, DISPLAY_SCALE_MIN
@@ -58,7 +58,6 @@ from src.league_valuation.contracts import (
 )
 from src.league_valuation.evidence import evidence_asset_key
 from src.league_valuation.population import (
-    SCOPE_POSITIONS,
     eligible_rows,
     market_value_of,
     row_key,
@@ -83,8 +82,15 @@ REQUIRED_PIN_KEYS: tuple[str, ...] = (
 )
 
 
-#: IDP position families the fan-out gate requires (population.SCOPE_POSITIONS).
-SCOPE_IDP_FAMILIES: frozenset[str] = SCOPE_POSITIONS["IDP"]
+#: Why the board carries no challenger rank or tier. The one ranker
+#: (``data_contract.compact_ranks_and_tiers``) sorts on the canonical value
+#: field, and a shadow challenger may never write that field -- not even on a
+#: local copy (``tests/api/test_canonical_ownership_protections.py``). A second
+#: ranker is equally forbidden. Ranks wait for an owner-approved serving seam.
+RANKS_UNAVAILABLE_REASON = (
+    "no_challenger_ranker: the one ranker sorts on the canonical value field, which a "
+    "shadow challenger may not write; no second ranker exists"
+)
 
 
 class PinError(ValueError):
@@ -296,7 +302,7 @@ def idp_fanout_stability(
     positions: dict[str, Any] = {}
     stable = True
     reasons: list[str] = []
-    for family in sorted(SCOPE_IDP_FAMILIES):
+    for family in sorted(str(f) for f in params["scopes"]["IDP"]):
         cohort = sorted(by_pos.get(family, []), key=lambda t: -t[0])
         probes: dict[str, float] = {}
         for depth in DEPTH_PROBES:
@@ -424,15 +430,12 @@ def compute_fair_values(
     *,
     params: Mapping[str, Any],
     pins: Mapping[str, str],
-    anchor_year: int | None = None,
 ) -> FairValueBoard:
     """The challenger board. Reads ``rows``; writes nothing to them.
 
     ``rows`` are canonical ``playersArray`` rows (read-only). ``evidence`` comes
     from :func:`src.league_valuation.evidence.utility_evidence_from_bdvm`.
-    ``anchor_year`` (the contract's ``currentDraftYear``) enables the challenger's
-    own rank/tier pass through ``data_contract.compact_ranks_and_tiers`` on
-    copies; without it ranks are reported unavailable, never guessed.
+    No rank or tier is produced: see :data:`RANKS_UNAVAILABLE_REASON`.
     """
     checked_pins = validate_pins(pins, params)
     k_max = float(params["kMax"]["value"])
@@ -559,11 +562,13 @@ def compute_fair_values(
             "idpFanOut": gate,
         }
 
-    ranks_diag = _rank_pass(rows, values, anchor_year)
     diagnostics = {
         "scopes": scope_diag,
         "exclusions": dict(sorted(census.items())),
-        "ranks": ranks_diag,
+        "ranks": {
+            "state": "unavailable",
+            "reason": RANKS_UNAVAILABLE_REASON,
+        },
         "scale": {"min": DISPLAY_SCALE_MIN, "max": DISPLAY_SCALE_MAX},
         "kMax": k_max,
         "noCentringConstant": True,
@@ -574,53 +579,3 @@ def compute_fair_values(
         pins=checked_pins,
         param_set_id=str(params["paramSetId"]),
     )
-
-
-def _rank_pass(
-    rows: Sequence[Mapping[str, Any]],
-    values: dict[str, LeagueFairValue],
-    anchor_year: int | None,
-) -> dict[str, Any]:
-    """Challenger ranks/tiers via THE ranker, on copies only.
-
-    ``compact_ranks_and_tiers`` sorts on ``rankDerivedValue``, so each COPY
-    carries the challenger value under that key for the duration of the call.
-    The copies are local and never returned; the caller's rows are untouched and
-    no canonical field leaves this function -- only ``fairRank`` / ``fairTier``.
-    """
-    if anchor_year is None:
-        return {"state": "unavailable", "reason": "anchor_year_not_supplied"}
-    from src.api.data_contract import (  # noqa: PLC0415 - output stage only
-        assert_ranking_coherence,
-        compact_ranks_and_tiers,
-    )
-
-    copies: list[dict[str, Any]] = []
-    key_of: dict[int, str] = {}
-    for index, row in enumerate(rows):
-        if not isinstance(row, Mapping):
-            continue
-        copy = dict(row)
-        key = row_key(row, index)
-        fv = values.get(key)
-        if fv is not None and fv.state == FAIR_VALUE_STATE_AVAILABLE:
-            copy["rankDerivedValue"] = fv.fair_value
-        key_of[id(copy)] = key
-        copies.append(copy)
-    ranked = compact_ranks_and_tiers(copies, anchor_year=int(anchor_year), copy_rows=False)
-    errors = assert_ranking_coherence(ranked)
-    if errors:
-        raise ChallengerInvariantError(f"challenger ranks incoherent: {errors[:5]}")
-    for copy in ranked:
-        key = key_of.get(id(copy))
-        fv = values.get(key) if key else None
-        if fv is None:
-            continue
-        values[key] = _with_rank(
-            fv, copy.get("canonicalConsensusRank"), copy.get("canonicalTierId")
-        )
-    return {"state": "available", "ranked": len(ranked), "coherenceErrors": 0}
-
-
-def _with_rank(fv: LeagueFairValue, rank: Any, tier: Any) -> LeagueFairValue:
-    return replace(fv, fair_rank=_int_or_none(rank), fair_tier=_int_or_none(tier))

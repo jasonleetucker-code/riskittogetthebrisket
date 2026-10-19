@@ -184,8 +184,6 @@ class LeagueFairValue:
     position: str | None = None
     name: str | None = None
     labels: tuple[str, ...] = ()
-    fair_rank: int | None = None
-    fair_tier: int | None = None
     lineage_ids: tuple[str, ...] = (LINEAGE_MEMBER,)
 
     def __post_init__(self) -> None:
@@ -224,8 +222,6 @@ class LeagueFairValue:
             "k": self.k,
             "utilityRank": self.utility_rank,
             "marketRank": self.market_rank,
-            "fairRank": self.fair_rank,
-            "fairTier": self.fair_tier,
             "excludedReason": self.excluded_reason,
             "labels": list(self.labels),
             "modelVersion": self.model_version,

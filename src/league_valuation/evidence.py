@@ -33,15 +33,8 @@ from src.league_valuation.contracts import (
     UTILITY_LINEAGE_MEMBER,
     UtilityEvidence,
 )
-from src.utils.name_clean import (
-    POSITION_GROUP_IDP,
-    POSITION_GROUP_OFFENSE,
-    canonical_player_key,
-    canonical_position_group,
-    normalize_position_family,
-)
-
-_SCOPE_BY_GROUP = {POSITION_GROUP_OFFENSE: "OFFENSE", POSITION_GROUP_IDP: "IDP"}
+from src.league_valuation.population import scope_of_position
+from src.utils.name_clean import canonical_player_key, normalize_position_family
 
 
 def evidence_asset_key(player_id: Any, name: Any, position: Any) -> str | None:
@@ -61,10 +54,6 @@ def evidence_asset_key(player_id: Any, name: Any, position: Any) -> str | None:
         return None
     ck = canonical_player_key(str(name), str(position) if position else None)
     return f"name:{ck}" if ck else None
-
-
-def _scope_for(position: Any) -> str | None:
-    return _SCOPE_BY_GROUP.get(canonical_position_group(str(position) if position else None))
 
 
 def _parse_instant(value: Any) -> datetime | None:
@@ -216,7 +205,7 @@ def utility_evidence_from_bdvm(
         if not isinstance(entry, Mapping):
             continue
         position = str(entry.get("position") or entry.get("group") or "").upper()
-        scope = _scope_for(position)
+        scope = scope_of_position(position)
         key = evidence_asset_key(entry.get("playerId"), entry.get("name"), position)
         if scope is None or key is None:
             continue
@@ -317,7 +306,7 @@ def utility_evidence_from_bdvm(
         if not isinstance(entry, Mapping):
             continue
         position = str(entry.get("position") or "").upper()
-        scope = _scope_for(position)
+        scope = scope_of_position(position)
         key = evidence_asset_key(entry.get("playerId"), entry.get("name"), position)
         if scope is None or key is None or key in out:
             continue

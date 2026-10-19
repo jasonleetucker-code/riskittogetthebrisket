@@ -18,9 +18,8 @@
       "kMax": 0.25,
       "noCentringConstant": true,
       "ranks": {
-        "coherenceErrors": 0,
-        "ranked": 33,
-        "state": "available"
+        "reason": "no_challenger_ranker: the one ranker sorts on the canonical value field, which a shadow challenger may not write; no second ranker exists",
+        "state": "unavailable"
       },
       "scale": {
         "max": 9999,
@@ -125,8 +124,6 @@
       "mpick:2027:r1:tearly": {
         "assetKey": "mpick:2027:r1:tearly",
         "excludedReason": "pick",
-        "fairRank": 10,
-        "fairTier": 1,
         "fairValue": 5200,
         "fairValueExact": 5200.0,
         "k": 0.0,
@@ -163,8 +160,6 @@
       "player:5000": {
         "assetKey": "player:5000",
         "excludedReason": null,
-        "fairRank": 1,
-        "fairTier": 1,
         "fairValue": 9400,
         "fairValueExact": 9400.0,
         "k": 0.25,
@@ -202,8 +197,6 @@
       "player:5001": {
         "assetKey": "player:5001",
         "excludedReason": null,
-        "fairRank": 2,
-        "fairTier": 1,
         "fairValue": 8700,
         "fairValueExact": 8700.0,
         "k": 0.175,
@@ -241,8 +234,6 @@
       "player:5002": {
         "assetKey": "player:5002",
         "excludedReason": null,
-        "fairRank": 3,
-        "fairTier": 1,
         "fairValue": 8259,
         "fairValueExact": 8259.105091826956,
         "k": 0.1,
@@ -280,8 +271,6 @@
       "player:5003": {
         "assetKey": "player:5003",
         "excludedReason": null,
-        "fairRank": 4,
-        "fairTier": 1,
         "fairValue": 7772,
         "fairValueExact": 7771.918690865479,
         "k": 0.25,
@@ -319,8 +308,6 @@
       "player:5004": {
         "assetKey": "player:5004",
         "excludedReason": null,
-        "fairRank": 5,
-        "fairTier": 1,
         "fairValue": 7550,
         "fairValueExact": 7550.137048865487,
         "k": 0.175,
@@ -360,8 +347,6 @@
       "player:5005": {
         "assetKey": "player:5005",
         "excludedReason": null,
-        "fairRank": 6,
-        "fairTier": 1,
         "fairValue": 6900,
         "fairValueExact": 6900.0,
         "k": 0.1,
@@ -399,8 +384,6 @@
       "player:5006": {
         "assetKey": "player:5006",
         "excludedReason": null,
-        "fairRank": 7,
-        "fairTier": 1,
         "fairValue": 6400,
         "fairValueExact": 6400.0,
         "k": 0.25,
@@ -438,8 +421,6 @@
       "player:5007": {
         "assetKey": "player:5007",
         "excludedReason": null,
-        "fairRank": 8,
-        "fairTier": 1,
         "fairValue": 5790,
         "fairValueExact": 5790.301617727,
         "k": 0.175,
@@ -477,8 +458,6 @@
       "player:5008": {
         "assetKey": "player:5008",
         "excludedReason": null,
-        "fairRank": 9,
-        "fairTier": 1,
         "fairValue": 5357,
         "fairValueExact": 5357.146016102984,
         "k": 0.1,
@@ -518,8 +497,6 @@
       "player:5009": {
         "assetKey": "player:5009",
         "excludedReason": null,
-        "fairRank": 11,
-        "fairTier": 1,
         "fairValue": 4800,
         "fairValueExact": 4800.0,
         "k": 0.25,
@@ -557,8 +534,6 @@
       "player:5010": {
         "assetKey": "player:5010",
         "excludedReason": null,
-        "fairRank": 13,
-        "fairTier": 1,
         "fairValue": 4200,
         "fairValueExact": 4200.0,
         "k": 0.175,
@@ -596,8 +571,6 @@
       "player:5011": {
         "assetKey": "player:5011",
         "excludedReason": null,
-        "fairRank": 16,
-        "fairTier": 1,
         "fairValue": 3547,
         "fairValueExact": 3546.56905246344,
         "k": 0.1,
@@ -635,8 +608,6 @@
       "player:5012": {
         "assetKey": "player:5012",
         "excludedReason": null,
-        "fairRank": 19,
-        "fairTier": 1,
         "fairValue": 3218,
         "fairValueExact": 3218.080439464472,
         "k": 0.25,
@@ -676,8 +647,6 @@
       "player:5013": {
         "assetKey": "player:5013",
         "excludedReason": null,
-        "fairRank": 21,
-        "fairTier": 2,
         "fairValue": 2500,
         "fairValueExact": 2500.0,
         "k": 0.175,
@@ -715,8 +684,6 @@
       "player:5014": {
         "assetKey": "player:5014",
         "excludedReason": null,
-        "fairRank": 25,
-        "fairTier": 2,
         "fairValue": 1900,
         "fairValueExact": 1900.0,
         "k": 0.1,
@@ -754,8 +721,6 @@
       "player:5015": {
         "assetKey": "player:5015",
         "excludedReason": null,
-        "fairRank": 31,
-        "fairTier": 3,
         "fairValue": 1300,
         "fairValueExact": 1300.0,
         "k": 0.25,
@@ -793,8 +758,6 @@
       "player:6000": {
         "assetKey": "player:6000",
         "excludedReason": null,
-        "fairRank": 12,
-        "fairTier": 1,
         "fairValue": 4600,
         "fairValueExact": 4600.0,
         "k": 0.0,
@@ -832,8 +795,6 @@
       "player:6001": {
         "assetKey": "player:6001",
         "excludedReason": null,
-        "fairRank": 14,
-        "fairTier": 1,
         "fairValue": 4000,
         "fairValueExact": 4000.0,
         "k": 0.0,
@@ -871,8 +832,6 @@
       "player:6002": {
         "assetKey": "player:6002",
         "excludedReason": null,
-        "fairRank": 18,
-        "fairTier": 1,
         "fairValue": 3300,
         "fairValueExact": 3300.0,
         "k": 0.0,
@@ -910,8 +869,6 @@
       "player:6003": {
         "assetKey": "player:6003",
         "excludedReason": null,
-        "fairRank": 20,
-        "fairTier": 2,
         "fairValue": 2800,
         "fairValueExact": 2800.0,
         "k": 0.0,
@@ -949,8 +906,6 @@
       "player:6004": {
         "assetKey": "player:6004",
         "excludedReason": null,
-        "fairRank": 22,
-        "fairTier": 2,
         "fairValue": 2200,
         "fairValueExact": 2200.0,
         "k": 0.0,
@@ -988,8 +943,6 @@
       "player:6005": {
         "assetKey": "player:6005",
         "excludedReason": null,
-        "fairRank": 26,
-        "fairTier": 3,
         "fairValue": 1700,
         "fairValueExact": 1700.0,
         "k": 0.0,
@@ -1027,8 +980,6 @@
       "player:7001": {
         "assetKey": "player:7001",
         "excludedReason": "unsupported_position",
-        "fairRank": 33,
-        "fairTier": 4,
         "fairValue": 1200,
         "fairValueExact": 1200.0,
         "k": 0.0,
@@ -1065,8 +1016,6 @@
       "player:7002": {
         "assetKey": "player:7002",
         "excludedReason": "quarantined",
-        "fairRank": 15,
-        "fairTier": 1,
         "fairValue": 3900,
         "fairValueExact": 3900.0,
         "k": 0.0,
@@ -1103,8 +1052,6 @@
       "player:7003": {
         "assetKey": "player:7003",
         "excludedReason": "single_source_haircut",
-        "fairRank": 23,
-        "fairTier": 2,
         "fairValue": 2100,
         "fairValueExact": 2100.0,
         "k": 0.0,
@@ -1141,8 +1088,6 @@
       "player:7004": {
         "assetKey": "player:7004",
         "excludedReason": "two_way_player",
-        "fairRank": 17,
-        "fairTier": 1,
         "fairValue": 3500,
         "fairValueExact": 3500.0,
         "k": 0.0,
@@ -1179,8 +1124,6 @@
       "player:7005": {
         "assetKey": "player:7005",
         "excludedReason": "blend_integrity_violation",
-        "fairRank": 24,
-        "fairTier": 2,
         "fairValue": 2000,
         "fairValueExact": 2000.0,
         "k": 0.0,
@@ -1219,8 +1162,6 @@
       "player:7006": {
         "assetKey": "player:7006",
         "excludedReason": "off_cap_value_only",
-        "fairRank": null,
-        "fairTier": null,
         "fairValue": 400,
         "fairValueExact": 400.0,
         "k": 0.0,
@@ -1257,8 +1198,6 @@
       "player:7007": {
         "assetKey": "player:7007",
         "excludedReason": "evidence_unavailable",
-        "fairRank": 27,
-        "fairTier": 3,
         "fairValue": 1500,
         "fairValueExact": 1500.0,
         "k": 0.0,
@@ -1295,8 +1234,6 @@
       "player:7008": {
         "assetKey": "player:7008",
         "excludedReason": "evidence_partial",
-        "fairRank": 28,
-        "fairTier": 3,
         "fairValue": 1450,
         "fairValueExact": 1450.0,
         "k": 0.0,
@@ -1333,8 +1270,6 @@
       "player:7009": {
         "assetKey": "player:7009",
         "excludedReason": "evidence_stale",
-        "fairRank": 29,
-        "fairTier": 3,
         "fairValue": 1400,
         "fairValueExact": 1400.0,
         "k": 0.0,
@@ -1371,8 +1306,6 @@
       "player:7010": {
         "assetKey": "player:7010",
         "excludedReason": "evidence_unavailable",
-        "fairRank": 30,
-        "fairTier": 3,
         "fairValue": 1350,
         "fairValueExact": 1350.0,
         "k": 0.0,
@@ -1411,8 +1344,6 @@
       "player:7011": {
         "assetKey": "player:7011",
         "excludedReason": "evidence_unavailable",
-        "fairRank": 32,
-        "fairTier": 3,
         "fairValue": 1300,
         "fairValueExact": 1300.0,
         "k": 0.0,
@@ -1449,8 +1380,6 @@
       "player:7012": {
         "assetKey": "player:7012",
         "excludedReason": "no_market_value",
-        "fairRank": null,
-        "fairTier": null,
         "fairValue": null,
         "fairValueExact": null,
         "k": 0.0,

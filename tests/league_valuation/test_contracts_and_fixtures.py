@@ -90,9 +90,7 @@ def test_committed_fixture_reproduces_exactly():
     payload = json.loads((FIX / "bdvm_payload.json").read_text())
     expected = json.loads((FIX / "expected_fair_value_board.json").read_text())
     ev = utility_evidence_from_bdvm(payload, now=NOW, params=PARAMS)
-    fb = compute_fair_values(
-        board["playersArray"], ev, params=PARAMS, pins=pins(), anchor_year=board["currentDraftYear"]
-    )
+    fb = compute_fair_values(board["playersArray"], ev, params=PARAMS, pins=pins())
     _close(json.loads(json.dumps(fb.to_dict())), expected["board"])
     _close({k: e.to_dict() for k, e in ev.items()}, expected["utilityEvidence"])
 

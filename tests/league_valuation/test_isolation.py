@@ -41,7 +41,6 @@ ALLOWED_SRC_IMPORTS: dict[str, frozenset[str] | None] = {
     "src.league_intel.scoring_fit": frozenset(
         {"DEPTH_PROBES", "MAX_DEPTH_DRIFT", "MIN_COHORT_SIZE"}
     ),
-    "src.api.data_contract": frozenset({"assert_ranking_coherence", "compact_ranks_and_tiers"}),
     "src.league_comparison.sleeper_scoring": frozenset({"scoring_fingerprint"}),
     "src.model_registry.evaluation_receipt": None,
     "src.model_registry.learning_receipt": None,
@@ -132,7 +131,7 @@ def test_package_never_touches_the_withdrawn_lens_or_serving_seams():
         "src.league_intel.overlay",
         "src.league_intel.adjustment",
         "src.league_intel.publish",
-        "src.api.feature_flags",
+        "src.api",
         "src.api.gameplan",
         "src.bdvm.market",
         "src.bestball",

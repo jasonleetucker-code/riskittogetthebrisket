@@ -181,7 +181,7 @@ def shuffled_payload(rows: list[dict[str, Any]], seed: int = 3) -> dict[str, Any
     return payload(entries)
 
 
-def run(rows, bdvm, *, params=None, anchor_year=None):
+def run(rows, bdvm, *, params=None):
     p = params or PARAMS
     ev = utility_evidence_from_bdvm(bdvm, now=NOW, params=p)
-    return compute_fair_values(rows, ev, params=p, pins=pins(p), anchor_year=anchor_year)
+    return compute_fair_values(rows, ev, params=p, pins=pins(p))

@@ -5,13 +5,17 @@ from __future__ import annotations
 import copy
 
 from src.league_valuation.contracts import load_params
-from src.league_valuation.population import SCOPE_POSITIONS, eligible_rows
+from src.league_valuation.population import eligible_rows, scope_of_position
 from tests.league_valuation._builders import row
 
 
 def test_scope_positions_match_the_config():
     cfg = load_params()["scopes"]
-    assert {k: frozenset(v) for k, v in cfg.items()} == dict(SCOPE_POSITIONS)
+    for scope, positions in cfg.items():
+        for pos in positions:
+            assert scope_of_position(pos) == scope, pos
+    for pos in ("K", "P", "PICK", "", None):
+        assert scope_of_position(pos) is None
 
 
 def test_exclusion_reasons_and_order():

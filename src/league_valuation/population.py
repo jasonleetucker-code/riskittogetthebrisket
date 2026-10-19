@@ -36,22 +36,28 @@ from typing import Any, Mapping, Sequence
 
 from src.history.keys import asset_key_for_contract_row
 from src.league_valuation.contracts import SCOPES
-from src.utils.name_clean import normalize_position_family
+from src.utils.name_clean import (
+    POSITION_GROUP_IDP,
+    POSITION_GROUP_OFFENSE,
+    canonical_position_group,
+)
 
-#: Scope -> position families admitted in v1. Mirrors ``fair_value_v1.json``'s
-#: ``scopes`` block; a test pins the two together.
-SCOPE_POSITIONS: Mapping[str, frozenset[str]] = {
-    "OFFENSE": frozenset({"QB", "RB", "WR", "TE"}),
-    "IDP": frozenset({"DL", "LB", "DB"}),
+#: Scope comes from the ONE position-group owner (``name_clean``), never a
+#: private position table: OFFENSE = QB/RB/WR/TE, IDP = DL/LB/DB families.
+#: ``fair_value_v1.json``'s ``scopes`` block documents the same split and a
+#: test pins the two together.
+_SCOPE_BY_GROUP: Mapping[str, str] = {
+    POSITION_GROUP_OFFENSE: "OFFENSE",
+    POSITION_GROUP_IDP: "IDP",
 }
 
 
+def scope_of_position(position: Any) -> str | None:
+    return _SCOPE_BY_GROUP.get(canonical_position_group(str(position) if position else None))
+
+
 def scope_of_row(row: Mapping[str, Any]) -> str | None:
-    family = normalize_position_family(str(row.get("position") or "")) or ""
-    for scope, families in SCOPE_POSITIONS.items():
-        if family in families:
-            return scope
-    return None
+    return scope_of_position(row.get("position"))
 
 
 def market_value_of(row: Mapping[str, Any]) -> int | None:

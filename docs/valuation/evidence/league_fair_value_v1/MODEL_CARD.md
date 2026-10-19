@@ -45,9 +45,12 @@ Scopes: OFFENSE = QB/RB/WR/TE; IDP = DL/LB/DB. K and picks are out of scope.
    `MAX_DEPTH_DRIFT`, every position ≥ `MIN_COHORT_SIZE` with two probes);
    otherwise `k = 0` for the whole IDP scope. On realistic shuffled synthetic
    boards it fails, as the 2026-07-27 IDP scoring-fit measurement predicts.
-7. **Ranks/tiers.** `data_contract.compact_ranks_and_tiers` on local copies
-   (the one ranker), then `assert_ranking_coherence`, then the challenger's own
-   bound check. Output fields are `fairRank` / `fairTier`.
+7. **No ranks or tiers.** The one ranker (`data_contract.compact_ranks_and_tiers`)
+   sorts on the canonical value field, and a shadow challenger may never write
+   that field, not even on a local copy
+   (`tests/api/test_canonical_ownership_protections.py`). A second ranker is
+   equally forbidden, so `diagnostics.ranks` is `unavailable` with that reason.
+   Ranks wait for an owner-approved serving seam.
 
 ## Properties that hold by construction (test-pinned)
 
