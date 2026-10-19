@@ -19,6 +19,13 @@
  *                       reason — "Unavailable — <reason>", no vote, never
  *                       EVEN (owner closeout 2026-10-18, decision 9)
  *
+ * LAYOUT (owner directive 2026-10-19: easy to scan on a phone).  The opinion
+ * (Leader + Margin) is visible without panning at 1366, 390 and 375: the
+ * coverage line wraps, each row's raw / Chase Upside adjustment / total
+ * breakdown is in its expanded detail, and below 768 px the side totals move
+ * there too (`source-breakdown.module.css`).  Layout only: every number,
+ * state, label and vote is unchanged.
+ *
  * COMPARE ADJUSTMENTS (owner directive 2026-10-19, part 3).  One control
  * re-evaluates every row under the KTC adjustment method — the SAME per-asset
  * values the row already used, a second whole-package adjustment (never
@@ -54,6 +61,7 @@ import { packageModelReceipt } from "@/lib/trade-logic";
 import { COMPARATOR_METHOD_LABEL, COMPARATOR_PACKAGE_MODEL_ID } from "@/lib/va-comparison";
 
 import SignalsRankOpinion from "./SignalsRankOpinion";
+import sb from "./source-breakdown.module.css";
 import vac from "./va-comparison.module.css";
 
 const fmt = (v) => (v == null ? "—" : Math.round(v).toLocaleString());
@@ -120,24 +128,32 @@ function compareCountText(comparable, differing) {
   return `Leader differs on ${differing.length} of ${n} ${noun}.`;
 }
 
-/** Per-row detail: each side under both models, from the same values. */
-function ComparisonDetail({ row, sideLabels }) {
+/**
+ * Per-row detail: each side's raw total, Chase Upside's adjustment and the
+ * adjusted total (the breakdown that used to sit under every side cell) and,
+ * with Compare adjustments on, the KTC method beside it from the same raw
+ * totals.  The only place a phone shows the side totals.
+ */
+function PackageDetail({ row, sideLabels, compareOn }) {
   const o = row.opinion;
   const cmp = row.comparison;
-  if (!cmp?.available || !o.rawTotals) {
-    return (
-      <p className="muted" style={{ margin: "6px 0 0", fontSize: "0.7rem" }}>
+  if (!o.rawTotals) {
+    return compareOn ? (
+      <p className="muted" style={{ margin: "0 0 6px", fontSize: "0.7rem" }}>
         {COMPARATOR_METHOD_LABEL}: not computed — this source has no numeric verdict here.
       </p>
-    );
+    ) : null;
   }
+  const withKtc = compareOn && cmp?.available;
   const signedVa = (v) => (v > 0 ? `+${fmt(v)}` : "none");
   const num = { textAlign: "right", fontFamily: "var(--mono)" };
   return (
     <table
       className="source-breakdown-assets"
-      aria-label={`Both adjustment methods for ${row.label}`}
-      style={{ marginTop: 6 }}
+      aria-label={
+        withKtc ? `Both adjustment methods for ${row.label}` : `Package totals for ${row.label}`
+      }
+      style={{ marginBottom: 6 }}
     >
       <thead>
         <tr>
@@ -145,19 +161,27 @@ function ComparisonDetail({ row, sideLabels }) {
           <th style={{ textAlign: "right" }}>Raw</th>
           <th style={{ textAlign: "right" }}>Chase Upside adj.</th>
           <th style={{ textAlign: "right" }}>Total</th>
-          <th style={{ textAlign: "right" }}>KTC method adj.</th>
-          <th style={{ textAlign: "right" }}>Total</th>
+          {withKtc ? (
+            <>
+              <th style={{ textAlign: "right" }}>KTC method adj.</th>
+              <th style={{ textAlign: "right" }}>Total</th>
+            </>
+          ) : null}
         </tr>
       </thead>
       <tbody>
         {sideLabels.map((lbl, i) => (
-          <tr key={`cmp-${row.key}-${i}`}>
+          <tr key={`pkg-${row.key}-${i}`}>
             <td style={{ textAlign: "left" }}>Side {lbl}</td>
             <td style={num}>{fmt(o.rawTotals[i])}</td>
             <td style={num}>{signedVa(o.adjustments[i])}</td>
             <td style={num}>{fmt(o.adjustedTotals[i])}</td>
-            <td style={num}>{signedVa(cmp.adjustments[i])}</td>
-            <td style={num}>{fmt(cmp.adjustedTotals[i])}</td>
+            {withKtc ? (
+              <>
+                <td style={num}>{signedVa(cmp.adjustments[i])}</td>
+                <td style={num}>{fmt(cmp.adjustedTotals[i])}</td>
+              </>
+            ) : null}
           </tr>
         ))}
       </tbody>
@@ -331,7 +355,7 @@ export default function TradeSourceBreakdown({
             className="source-breakdown-body"
             style={{ overflowX: "auto" }}
           >
-            <table className="source-breakdown-table">
+            <table className={`source-breakdown-table ${sb.table}`}>
               <caption className="ds-visually-hidden">
                 Each source&apos;s raw and adjusted package totals with
                 per-asset provenance.
@@ -340,7 +364,7 @@ export default function TradeSourceBreakdown({
                 <tr>
                   <th style={{ textAlign: "left" }}>Source</th>
                   {sideLabels.map((lbl, i) => (
-                    <th key={`h-${i}`} style={{ textAlign: "right" }}>
+                    <th key={`h-${i}`} className={sb.sideCol} style={{ textAlign: "right" }}>
                       Side {lbl}
                     </th>
                   ))}
@@ -358,10 +382,7 @@ export default function TradeSourceBreakdown({
                   return (
                     <Fragment key={row.key}>
                       <tr data-state={o.state}>
-                        <td
-                          style={{ textAlign: "left", whiteSpace: "nowrap" }}
-                          title={row.displayName}
-                        >
+                        <td style={{ textAlign: "left" }} title={row.displayName}>
                           <button
                             type="button"
                             className="source-breakdown-expand"
@@ -373,12 +394,8 @@ export default function TradeSourceBreakdown({
                           </button>{" "}
                           {row.label}
                           <span
-                            className="muted"
-                            style={{
-                              display: "block",
-                              fontSize: "0.62rem",
-                              fontWeight: 400,
-                            }}
+                            className={`muted ${sb.meta}`}
+                            data-testid="second-opinions-coverage"
                           >
                             {row.signal} · {coverageText(o.counts)}
                           </span>
@@ -398,6 +415,7 @@ export default function TradeSourceBreakdown({
                         {sideLabels.map((_, i) => (
                           <td
                             key={`v-${row.key}-${i}`}
+                            className={sb.sideCol}
                             style={{
                               textAlign: "right",
                               fontFamily: "var(--mono)",
@@ -409,25 +427,11 @@ export default function TradeSourceBreakdown({
                             }}
                           >
                             {numeric ? fmt(o.adjustedTotals[i]) : "—"}
-                            {numeric && (
-                              <span
-                                className="muted"
-                                style={{
-                                  display: "block",
-                                  fontSize: "0.62rem",
-                                  fontStyle: "normal",
-                                }}
-                              >
-                                raw {fmt(o.rawTotals[i])}
-                                {o.adjustments[i] > 0
-                                  ? ` + VA ${fmt(o.adjustments[i])}`
-                                  : ""}
-                              </span>
-                            )}
                           </td>
                         ))}
                         <td
                           style={{ textAlign: "center", fontWeight: 700 }}
+                          data-opinion="leader"
                           data-testid={
                             o.state === OPINION_STATE.UNAVAILABLE
                               ? "second-opinions-unavailable"
@@ -470,6 +474,7 @@ export default function TradeSourceBreakdown({
                             textAlign: "right",
                             fontFamily: "var(--mono)",
                           }}
+                          data-opinion="margin"
                         >
                           {numeric && o.leaderIdx != null
                             ? `${o.marginPct.toFixed(1)}%`
@@ -479,7 +484,12 @@ export default function TradeSourceBreakdown({
                       {expanded && (
                         <tr className="source-breakdown-detail">
                           <td colSpan={sideLabels.length + 3}>
-                            <div className="source-breakdown-assets-wrap">
+                            <div className={`source-breakdown-assets-wrap ${sb.detailWrap}`}>
+                              <PackageDetail
+                                row={row}
+                                sideLabels={sideLabels}
+                                compareOn={compareOn}
+                              />
                               <table
                                 className="source-breakdown-assets"
                                 aria-label={`Asset values for ${row.label}`}
@@ -561,9 +571,6 @@ export default function TradeSourceBreakdown({
                                   )}
                                 </tbody>
                               </table>
-                              {compareOn ? (
-                                <ComparisonDetail row={row} sideLabels={sideLabels} />
-                              ) : null}
                             </div>
                           </td>
                         </tr>

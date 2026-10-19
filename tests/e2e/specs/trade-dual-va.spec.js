@@ -8,6 +8,9 @@
  *   - Second Opinions has ONE "Compare adjustments" control: a KTC-method
  *     line under each source name, the same on desktop and phone;
  *   - neither changes the official decision or the independent tally;
+ *   - the per-source table reads without panning at 1366, 390 and 375 —
+ *     every row's opinion (Leader, Margin) inside the visible box, no table
+ *     scroll, no clipped coverage or compare line — compare off and on;
  *   - axe (WCAG 2.0/2.1 A + AA) is clean on both, populated and expanded;
  *     the page never scrolls sideways.
  *
@@ -39,10 +42,10 @@ async function noPageOverflow(page, label) {
 
 /**
  * The Second Opinions table's geometry with its scroll region at the left
- * edge: how wide the table is against its visible box, how many rows' verdict
- * (Leader) and Margin cells end past the visible right edge, and how many
- * compare lines have text past it (measured on the TEXT, via a Range, not on
- * the block) or overflow their own box.
+ * edge: the table's width against its visible box; how many rows' opinion
+ * cells (Leader, Margin) are not fully inside that box; how many coverage and
+ * compare lines have TEXT past its right edge (measured with a Range, not the
+ * block) or overflow their own box.
  */
 async function sourceTableGeometry(card) {
   return card.evaluate((root) => {
@@ -50,41 +53,54 @@ async function sourceTableGeometry(card) {
     const table = wrap.querySelector("table.source-breakdown-table");
     wrap.scrollLeft = 0;
     const box = wrap.getBoundingClientRect();
+    const visibleLeft = Math.max(box.left, 0);
     const visibleRight = Math.min(box.right, document.documentElement.clientWidth);
     const rows = [...table.querySelectorAll("tbody > tr[data-state]")];
-    const past = (el) => el.getBoundingClientRect().right > visibleRight + 1;
-    const lines = [...table.querySelectorAll('[data-testid="second-opinions-compare-line"]')];
+    const outside = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.left < visibleLeft - 1 || r.right > visibleRight + 1;
+    };
     const textRight = (el) => {
       const range = document.createRange();
       range.selectNodeContents(el);
       return range.getBoundingClientRect().right;
     };
+    const overflows = (el) => textRight(el) > visibleRight + 1 || el.scrollWidth > el.clientWidth + 1;
+    const cells = (name) => rows.map((r) => r.querySelector(`[data-opinion="${name}"]`));
+    const metas = [...table.querySelectorAll('[data-testid="second-opinions-coverage"]')];
+    const lines = [...table.querySelectorAll('[data-testid="second-opinions-compare-line"]')];
     return {
       viewport: document.documentElement.clientWidth,
-      visibleWidth: Math.round(visibleRight - box.left),
+      clientWidth: wrap.clientWidth,
       tableScrollWidth: wrap.scrollWidth,
       rows: rows.length,
-      leaderClipped: rows.filter((r) => past(r.children[r.children.length - 2])).length,
-      marginClipped: rows.filter((r) => past(r.children[r.children.length - 1])).length,
-      // The pre-existing coverage meta line under each source name.
-      metaClipped: rows.filter((r) => {
-        const meta = r.children[0].querySelector("span.muted");
-        return meta && textRight(meta) > visibleRight + 1;
-      }).length,
+      leaderClipped: cells("leader").filter((c) => !c || outside(c)).length,
+      marginClipped: cells("margin").filter((c) => !c || outside(c)).length,
+      metas: metas.length,
+      metaClipped: metas.filter(overflows).length,
       lines: lines.length,
-      linesClipped: lines.filter(
-        (l) => textRight(l) > visibleRight + 1 || l.scrollWidth > l.clientWidth + 1,
-      ).length,
+      linesClipped: lines.filter(overflows).length,
     };
   });
 }
 
+function expectFits(g, label) {
+  expect(g.rows, `${label}: rows`).toBeGreaterThan(0);
+  expect(g.tableScrollWidth, `${label}: no sideways scroll in the table`).toBeLessThanOrEqual(
+    g.clientWidth + 1,
+  );
+  expect(g.leaderClipped, `${label}: opinion (Leader) cells outside the visible box`).toBe(0);
+  expect(g.marginClipped, `${label}: Margin cells outside the visible box`).toBe(0);
+  expect(g.metas, `${label}: one coverage line per row`).toBe(g.rows);
+  expect(g.metaClipped, `${label}: coverage lines clipped`).toBe(0);
+  expect(g.linesClipped, `${label}: compare lines clipped`).toBe(0);
+}
+
 /**
- * Compare ON must never make the table wider, never clip a verdict cell that
- * was visible with it OFF, and never clip its own line.  Returns both
- * measurements so the run records the pre-existing state.
+ * The per-source table reads without panning — compare OFF and ON, and with a
+ * row expanded (its detail scrolls inside itself, never the table).
  */
-async function compareDoesNotClip(card, compare, label, testInfo) {
+async function sourceTableFits(card, compare, label, testInfo) {
   if ((await compare.getAttribute("aria-pressed")) === "true") await compare.click();
   await expect(compare).toHaveAttribute("aria-pressed", "false");
   const off = await sourceTableGeometry(card);
@@ -92,19 +108,23 @@ async function compareDoesNotClip(card, compare, label, testInfo) {
   await expect(compare).toHaveAttribute("aria-pressed", "true");
   await expect(card.getByTestId("second-opinions-compare-line").first()).toBeVisible();
   const on = await sourceTableGeometry(card);
+  const expand = card.locator("button.source-breakdown-expand").first();
+  await expand.click();
+  await expect(card.locator("tr.source-breakdown-detail")).toHaveCount(1);
+  const expanded = await sourceTableGeometry(card);
+  await expand.click();
+  await expect(card.locator("tr.source-breakdown-detail")).toHaveCount(0);
   await testInfo.attach(`second-opinions-geometry-${label}`, {
-    body: JSON.stringify({ off, on }, null, 2),
+    body: JSON.stringify({ off, on, expanded }, null, 2),
     contentType: "application/json",
   });
   console.log(`[second-opinions geometry ${label}] off=${JSON.stringify(off)} on=${JSON.stringify(on)}`);
+  expectFits(off, `${label} compare off`);
+  expectFits(on, `${label} compare on`);
   expect(on.lines, `${label}: one compare line per row`).toBe(on.rows);
-  expect(on.tableScrollWidth, `${label}: compare must not widen the table`).toBeLessThanOrEqual(
-    off.tableScrollWidth + 1,
+  expect(expanded.tableScrollWidth, `${label}: an expanded row never widens the table`).toBeLessThanOrEqual(
+    expanded.clientWidth + 1,
   );
-  expect(on.leaderClipped, `${label}: verdict cells clipped`).toBeLessThanOrEqual(off.leaderClipped);
-  expect(on.marginClipped, `${label}: margin cells clipped`).toBeLessThanOrEqual(off.marginClipped);
-  expect(on.metaClipped, `${label}: coverage lines clipped`).toBeLessThanOrEqual(off.metaClipped);
-  expect(on.linesClipped, `${label}: compare-line text clipped`).toBe(0);
   return { off, on };
 }
 
@@ -219,6 +239,10 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
   const compare = card.getByRole("button", { name: "Compare adjustments" });
   await expect(compare).toHaveAttribute("aria-pressed", "false");
   await expect(card.getByTestId("second-opinions-compare-line")).toHaveCount(0);
+  await axeClean(page, ".source-breakdown-card", "second opinions, compare off");
+  const offShot = testInfo.outputPath("second-opinions-off.png");
+  await card.screenshot({ path: offShot });
+  await testInfo.attach("second-opinions-off", { path: offShot, contentType: "image/png" });
   await compare.click();
   await expect(compare).toHaveAttribute("aria-pressed", "true");
   await expect(card.getByTestId("second-opinions-compare-note")).toContainText(
@@ -240,8 +264,9 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
     "Leader",
     "Margin",
   ]);
-  // The terse line ("KTC method: A by 58%") never widens or clips the table.
-  await compareDoesNotClip(card, compare, testInfo.project.name, testInfo);
+  // The opinion is readable without panning, compare off and on, and the
+  // terse line ("KTC method: A by 58%") never widens or clips the table.
+  await sourceTableFits(card, compare, testInfo.project.name, testInfo);
   // Neither the independent tally nor the official decision moved.
   await expect(tally).toHaveText(tallyBefore);
   await expect(headline).toHaveText(CONSOLIDATION.analysis.decision.headlineText);
@@ -254,7 +279,7 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
   // The narrowest supported phone width as well.
   if (testInfo.project.name !== "desktop-1366") {
     await page.setViewportSize({ width: 375, height: 812 });
-    await compareDoesNotClip(card, compare, "375", testInfo);
+    await sourceTableFits(card, compare, "375", testInfo);
     await noPageOverflow(page, "compare adjustments on at 375");
   }
 

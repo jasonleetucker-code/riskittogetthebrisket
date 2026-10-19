@@ -347,6 +347,44 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
     expect(cells).toEqual(cmp.adjustedTotals.map((v) => Math.round(v).toLocaleString()));
   });
 
+  it("layout only: side cells carry the adjusted total; raw + adjustment live in the expanded row", () => {
+    render(<TradeSourceBreakdown sides={SIDES} settings={{}} />);
+    const shownRows = screen.getAllByRole("row").filter((r) => r.getAttribute("data-state"));
+    const idptc = shownRows.find((r) => r.textContent.includes("IDPTC"));
+    const o = byKey(buildOpinionRows(SIDES)).idpTradeCalc.opinion;
+    const cells = within(idptc).getAllByRole("cell");
+    // Source | Side A | Side B | Leader | Margin — numbers unchanged.
+    expect(cells.slice(1, 3).map((c) => c.textContent)).toEqual(
+      o.adjustedTotals.map((v) => Math.round(v).toLocaleString()),
+    );
+    expect(idptc.querySelector('[data-opinion="leader"]')).not.toBeNull();
+    expect(idptc.querySelector('[data-opinion="margin"]').textContent).toBe(
+      `${o.marginPct.toFixed(1)}%`,
+    );
+    expect(within(idptc).getByTestId("second-opinions-coverage")).toHaveTextContent(
+      `vendor value · ${o.counts.source}/${o.counts.total} source`,
+    );
+    expect(idptc.textContent).not.toMatch(/raw /);
+    fireEvent.click(screen.getByRole("button", { name: "Show asset values for IDPTC" }));
+    const t = screen.getByRole("table", { name: "Package totals for IDPTC" });
+    const body = within(t)
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) =>
+        within(r)
+          .getAllByRole("cell")
+          .map((c) => c.textContent),
+      );
+    expect(body).toEqual(
+      ["A", "B"].map((lbl, i) => [
+        `Side ${lbl}`,
+        Math.round(o.rawTotals[i]).toLocaleString(),
+        o.adjustments[i] > 0 ? `+${Math.round(o.adjustments[i]).toLocaleString()}` : "none",
+        Math.round(o.adjustedTotals[i]).toLocaleString(),
+      ]),
+    );
+  });
+
   it("3-team trades say the comparison is not computed instead of showing numbers", () => {
     render(<TradeSourceBreakdown sides={[...SIDES, { label: "C", assets: [RB] }]} settings={{}} />);
     fireEvent.click(screen.getByRole("button", { name: "Compare adjustments" }));
