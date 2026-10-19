@@ -101,18 +101,14 @@ function coverageText(counts) {
 const tallyText = opinionTallyText;
 
 /**
- * The KTC-method answer for one row, read in the row's own terms: the side
- * with more adjusted value (or Even) and its adjusted totals; or why there is
- * no answer.  Never a number for a row that has no numeric verdict.
+ * The KTC-method answer for one row, terse ("A by 58%", "even", "not
+ * computed") so the line stays short on a phone; the adjusted totals live in
+ * the row's expanded detail.  Never a number for a row with no numeric verdict.
  */
 function comparisonLeaderText(cmp, sideLabels) {
-  if (!cmp?.available) return "not computed (no numeric verdict)";
-  const totals = cmp.adjustedTotals.map((t, i) => `${sideLabels[i]} ${fmt(t)}`).join(" · ");
-  const lead =
-    cmp.leaderIdx == null
-      ? "Even"
-      : `Side ${sideLabels[cmp.leaderIdx]} by ${cmp.marginPct.toFixed(1)}%`;
-  return `${lead} (${totals})`;
+  if (!cmp?.available) return "not computed";
+  if (cmp.leaderIdx == null) return "even";
+  return `${sideLabels[cmp.leaderIdx]} by ${Math.round(cmp.marginPct)}%`;
 }
 
 /** "Leader differs on 2 of 9 compared sources." — counts only, no verdict. */

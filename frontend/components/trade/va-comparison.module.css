@@ -100,15 +100,19 @@
 }
 
 /* ── Second Opinions: the "Compare adjustments" line ── */
-/* One line under each source name, at every width (see TradeSourceBreakdown):
-   the table already fills its column, so an extra column would sit
-   off-screen. */
+/* One terse line under each source name, at every width (see
+   TradeSourceBreakdown): the table already fills its column, so an extra
+   column would sit off-screen.  It must never widen the table: inline-size
+   containment takes it out of the column's intrinsic width, and it wraps
+   inside whatever width the column already has. */
 .compareLine {
   display: block;
+  contain: inline-size;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-regular);
   color: var(--text-secondary);
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 /* Text marker, never colour alone: the words carry the meaning. */
 .differs {

@@ -268,13 +268,21 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
       "Leader",
       "Margin",
     ]);
-    // A row with a verdict reads its leader and its KTC-method adjusted totals.
+    // A row with a verdict reads its KTC-method leader tersely ("A by 58%");
+    // the totals are only in the expanded detail, so the line stays short.
     const idptc = shownRows.find((r) => r.textContent.includes("IDPTC"));
     const ktcRow = byKey(buildOpinionRows(SIDES, COMPARE)).idpTradeCalc.comparison;
-    const [ta, tb] = ktcRow.adjustedTotals.map((t) => Math.round(t).toLocaleString());
-    expect(within(idptc).getByTestId("second-opinions-compare-line")).toHaveTextContent(
-      `(A ${ta} · B ${tb})`,
+    const side = ["A", "B"][ktcRow.leaderIdx];
+    const line = within(idptc).getByTestId("second-opinions-compare-line");
+    expect(line.textContent).toBe(
+      `KTC method: ${side} by ${Math.round(ktcRow.marginPct)}%` +
+        (ktcRow.leaderDiffers ? " · leader differs" : ""),
     );
+    for (const r of shownRows) {
+      const text = within(r).getByTestId("second-opinions-compare-line").textContent;
+      expect(text).toMatch(/^KTC method: (even|not computed|[AB] by \d+%)( · leader differs)?$/);
+      expect(text.length).toBeLessThanOrEqual(40);
+    }
     // Never presented as the vendor's own policy or as KTC's values.
     const note = screen.getByTestId("second-opinions-compare-note");
     expect(note).toHaveTextContent("not that source's own calculator");
@@ -285,7 +293,7 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
       (r) => r.getAttribute("data-state") === OPINION_STATE.UNAVAILABLE,
     );
     expect(within(staleRow).getByTestId("second-opinions-compare-line")).toHaveTextContent(
-      "KTC method: not computed (no numeric verdict)",
+      "KTC method: not computed",
     );
     // The tally did not move.
     expect(screen.getByTestId("second-opinions-tally").textContent).toBe(tallyBefore);
@@ -330,6 +338,13 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
         .map((h) => h.textContent),
     ).toEqual(["Side", "Raw", "Chase Upside adj.", "Total", "KTC method adj.", "Total"]);
     expect(within(t).getAllByRole("row")).toHaveLength(3);
+    // The full KTC-method totals live here, not in the compact row line.
+    const cmp = byKey(buildOpinionRows(SIDES, COMPARE)).idpTradeCalc.comparison;
+    const cells = within(t)
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => within(r).getAllByRole("cell").at(-1).textContent);
+    expect(cells).toEqual(cmp.adjustedTotals.map((v) => Math.round(v).toLocaleString()));
   });
 
   it("3-team trades say the comparison is not computed instead of showing numbers", () => {
