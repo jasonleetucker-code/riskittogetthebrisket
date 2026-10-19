@@ -9,15 +9,15 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-25 of the 49 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 49 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
-``signals_active_source``, ``dlf_offense_only_vote``,
-``idp_shared_correlation_cap``, ``idptc_offense_vote_excluded``,
-``dlf_values_rank_hill_vote``,
+``signals_active_source``,
+``dlf_values_rank_hill_vote``, ``two_way_alt_evidence_rules``,
+``fantasypros_idp_upstream_clock``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
 ``trade_screenshot_import`` and ``manager_intelligence`` — several with comments
@@ -138,53 +138,56 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # gate in docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10 passes.
     # Rollback: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart.
     "signals_idp_shared_market": False,
-    # DLF vote offense-only (owner directive 2026-10-16; docs/
-    # OWNER_REQUESTED_TODO.md).  ON: the DLF IDP boards (``dlfIdp``,
-    # ``dlfRookieIdp``) stay ingested and displayed but are held from the
-    # vote through the existing vote-hold gate
-    # (``data_contract.POLICY_SOURCE_VOTE_HOLDS`` -> the same active-source
-    # gate seasonal inactivity and private holds use); ``dlfSf`` /
-    # ``dlfRookieSf`` vote unchanged.  Value-moving: IDP rows (and the
-    # current-year picks tethered to the IDP rookie pool) re-blend without
-    # the DLF family.  OFF (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart):
-    # the DLF IDP boards vote again, byte for byte the prior board.
-    "dlf_offense_only_vote": True,
-    # IDP-scoped shared correlation cap (owner closeout 2026-10-18, Decision 2;
-    # docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md).  ON: on a
-    # DEFENSIVE row where BOTH the IDP Trade Calculator and The IDP Show
-    # combined board cast a weighted vote, the two are one correlation lineage
-    # (``data_contract.ROW_SCOPED_CORRELATION_GROUPS`` -> the family-cap owner
-    # and the B11 independence count): one provider's authority, one family.
-    # A row resting on that one lineage keeps the single-source haircut, and
-    # the two-way player's alt (defensive) value is held to the same rules:
-    # voting sources only, D2 lineages, the haircut on one lineage
-    # (``_apply_two_way_player_boost``).  Offense and pick rows are otherwise
-    # never touched.  OFF (RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0 +
-    # restart): two families and the prior boost, byte for byte.
-    "idp_shared_correlation_cap": True,
-    # IDP Trade Calculator offense vote excluded (owner closeout 2026-10-18,
-    # Decision 3).  ON: the IDP Trade Calculator casts no vote on OFFENSE
-    # player rows (QB/RB/WR/TE) -- an extra offense vote whose independence
-    # from KTC Crowd is unproven (lineage pair-idptradecalc-offense-ktc) is
-    # excluded rather than counted as its own family
-    # (``data_contract.POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS``).  Its IDP and pick
-    # votes are unchanged.  Value-moving on offense rows (measured in the
-    # closeout record).  OFF (RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED=0 +
-    # restart): the prior board, byte for byte.
-    "idptc_offense_vote_excluded": True,
-    # DLF Values rank -> Hill vote (owner closeout 2026-10-18, Decision 4).
+    # DLF vote offense-only hold (owner directive 2026-10-16) -- RESCINDED by
+    # the owner's universal source-voting directive of 2026-10-19: DLF IDP and
+    # DLF Rookie IDP vote again, inside DLF's one provider-family cap (with
+    # DLF Rank and DLF Values -- never duplicate authority for one player).
+    # So the default is OFF: the hold is not in force.  ON
+    # (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1 + restart) re-applies the hold
+    # through ``data_contract.POLICY_SOURCE_VOTE_HOLDS`` (the rollback).
+    # Measured on the 2026-10-19 board (docs/sources/
+    # SOURCE_VOTING_CONSENSUS_2026-10-19.md): the restore moves IDP rows,
+    # some through the incumbent outlier filter (a side effect the separate
+    # outlier lane addresses); integration validates this default against
+    # that fix.
+    "dlf_offense_only_vote": False,
+    # DLF Values rank -> Hill vote (owner closeout 2026-10-18 Decision 4,
+    # kept by the owner's source-voting directive of 2026-10-19).
     # ``dlfValuesSfTep`` is registered as an offense-only member of the
     # existing ``dlf`` family (its native value ORDER -> percentile -> Hill;
-    # raw/max rejected) and shares DLF's one provider cap with DLF Rank.  ON
-    # because every activation gate in the closeout record passed (timestamps,
-    # completeness, 24-release stability, top-50 movement, picks / IDP
-    # non-interference, one DLF family, the geom_q078_v1 package model, the
-    # regression suite).  Value-moving on offense rows (and the current-year
-    # picks tethered to the rookie pool).  OFF
-    # (RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0 + restart): collected and
-    # displayed, held from the vote through the owner-policy vote-hold gate
-    # (``data_contract.POLICY_SOURCE_VOTE_HOLDS``) -- the prior board.
+    # raw/max rejected) and SPLITS DLF's one provider cap with DLF Rank -- an
+    # approved same-provider rule, not a similarity merge.  ON only because
+    # every Decision 4 activation gate passed on the current board
+    # (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).  Value-moving on
+    # offense rows and the current-year picks tethered to the rookie pool.
+    # OFF (RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0 + restart): collected and
+    # displayed, held from the vote by the owner-policy vote-hold gate
+    # (``data_contract.POLICY_SOURCE_VOTE_HOLDS``); decision fields identical
+    # to the prior board (the source stays registered and displayed).
     "dlf_values_rank_hill_vote": True,
+    # Two-way boost alt-family evidence (PR #1817 review + owner source-voting
+    # directive 2026-10-19).  ON: ``data_contract._apply_two_way_player_boost``
+    # prices a two-way player's alt-family value as a REAL member of that
+    # family with the same observations would be priced: only sources that
+    # VOTE there on this build (the blend loop's own per-(row, source) weight
+    # owner, after holds, freshness and user overrides), the incumbent blend,
+    # and the single-source retention applied once when the alt evidence rests
+    # on one B10 family.  A correctness fix: a quarantined, held or disabled
+    # source no longer prices a player through the side door.  OFF
+    # (RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES=0 + restart): the prior boost,
+    # byte for byte.
+    "two_way_alt_evidence_rules": True,
+    # FantasyPros IDP on its actual upstream clock (owner closeout 2026-10-18
+    # Decision 5, kept by the 2026-10-19 directive).  ON: the ``style:
+    # EXPLICIT_UPSTREAM_TIMESTAMP`` that ``config/sources/freshness_v1.json``
+    # declares for ``fantasyProsIdp`` (``styleFlag``) is in force, so the
+    # voting clock is the vendor's stated expert-update time and re-scraping an
+    # old ranking can never refresh its age.  Today it moves confidence
+    # labels/axes only; once a second non-anchor IDP voter exists the lower
+    # weight reaches values.  OFF
+    # (RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK=0 + restart): the style is
+    # dropped and the prior broad-change clock applies.
+    "fantasypros_idp_upstream_clock": True,
     # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
     # owner decision B 2026-10-01) -- two separately promotable halves, both
     # OFF until the owner approves that specific candidate (valuation
@@ -862,19 +865,21 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
-    # dlf_offense_only_vote gates the owner-policy vote hold on the DLF IDP
-    # boards in ``data_contract._policy_source_vote_holds``, read by
+    # dlf_offense_only_vote gates the (rescinded, default-off) owner-policy
+    # vote hold on the DLF IDP boards in
+    # ``data_contract._policy_source_vote_holds``, read by
     # ``build_api_data_contract`` on every board build, which reaches a
     # request through ``/api/data`` and every engine that reads the board.
     "dlf_offense_only_vote": LIVE,
-    # idp_shared_correlation_cap, idptc_offense_vote_excluded and
-    # dlf_values_rank_hill_vote gate source-independence policy inside
-    # ``data_contract._compute_unified_rankings`` / ``_policy_source_vote_holds``
-    # (owner closeout 2026-10-18 D2-D4), read on every board build, which
-    # reaches a request through ``/api/data`` and every engine reading it.
-    "idp_shared_correlation_cap": LIVE,
-    "idptc_offense_vote_excluded": LIVE,
+    # dlf_values_rank_hill_vote releases the DLF Values hold inside
+    # ``data_contract._policy_source_vote_holds``; two_way_alt_evidence_rules
+    # gates ``data_contract._apply_two_way_player_boost``'s evidence rules;
+    # fantasypros_idp_upstream_clock gates the configured freshness style in
+    # ``src/sources/freshness.load_config``.  All read on every board build,
+    # which reaches a request through ``/api/data``.
     "dlf_values_rank_hill_vote": LIVE,
+    "two_way_alt_evidence_rules": LIVE,
+    "fantasypros_idp_upstream_clock": LIVE,
     # source_universe_freshness caps each row's freshness clock at its own asset
     # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
     "source_universe_freshness": LIVE,

@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-18, 25 of the 49 entries in
+   **Defaults are per-flag.** As of 2026-10-19, 24 of the 49 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -42,15 +42,13 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    off restores one clock per subset), `signals_active_source` (Signals'
    authenticated native values vote as a rank signal in the FantasyCalc
    family; off removes the vote, keeps the evidence visible),
-   `dlf_offense_only_vote` (owner directive 2026-10-16: the DLF IDP boards
-   are collected and displayed but held from the vote; off restores their
-   vote), `idp_shared_correlation_cap` (owner closeout 2026-10-18 D2: on
-   defensive rows where both vote, the IDP Trade Calculator and The IDP
-   Show combined board are one family-capped lineage; off keeps two
-   families), `idptc_offense_vote_excluded` (D3: the IDP Trade Calculator
-   casts no offense vote; off restores it), `dlf_values_rank_hill_vote`
-   (D4: DLF Values votes rank -> Hill inside the DLF family cap; off holds
-   it), `game_day_live_game_state` and
+   `dlf_values_rank_hill_vote` (owner closeout 2026-10-18 D4: DLF
+   Values votes rank -> Hill inside the DLF family cap; off holds it),
+   `two_way_alt_evidence_rules` (a two-way player's alt-family value is a
+   real member's: only voting sources, the incumbent blend, the haircut
+   once; off restores the prior boost), `fantasypros_idp_upstream_clock`
+   (D5: FantasyPros IDP votes on the vendor's stated expert-update clock;
+   off restores the broad-change clock), `game_day_live_game_state` and
    `sleeper_weekly_projections` (Game Day U5: the shared live collector owns
    their cadence), `rookie_auction` (mock-only rookie auction room; the API
    refuses official rooms until owner launch approval), `dfs_workspace`

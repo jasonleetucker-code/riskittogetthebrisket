@@ -174,11 +174,11 @@ def _dlf_idp_votes():
     These tests exercise the shared-market / rookie-ladder TRANSLATION of an
     IDP-only rank source, and ``dlfIdp`` / ``dlfRookieIdp`` are the fixture's
     translated sources (``dlfRookieIdp`` is the only IDP rookie-ladder source
-    in the registry).  Since 2026-10-16 the DLF IDP boards are held from the
-    vote by owner policy (``data_contract.POLICY_SOURCE_VOTE_HOLDS``), which
-    leaves that machinery dormant on the default board but one rollback flag
-    away (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0``) — so it keeps its
-    coverage here with the hold lifted.  The hold itself is pinned by
+    in the registry).  The DLF IDP owner-policy hold
+    (``data_contract.POLICY_SOURCE_VOTE_HOLDS``) applied 2026-10-16 and was
+    rescinded 2026-10-19 (default OFF; ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1``
+    re-applies it).  The fixture forces it lifted so this coverage never
+    depends on the default.  The hold itself is pinned by
     ``tests/api/test_dlf_offense_only_vote.py``.
     """
     import os

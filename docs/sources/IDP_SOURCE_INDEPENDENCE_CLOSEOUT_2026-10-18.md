@@ -1,5 +1,31 @@
 # Source independence: owner closeout Decisions 2-5 (2026-10-18)
 
+> **Status 2026-10-19 — D2 and D3 are WITHDRAWN.** The owner's source-voting
+> directive of 2026-10-19 sets the policy:
+>
+> * agreement between different providers is consensus, not duplication;
+> * only credible shared-data lineage may merge votes;
+> * similarity never removes, caps or haircuts a vote.
+>
+> The D2 shared cap and the D3 offense-vote exclusion rested on similarity, so both
+> mechanisms were deleted before release. D4 and D5 continue under their own flags,
+> and the two-way boost gets an alt-evidence fix.
+>
+> The record of the rework, its evidence on the current production board, the
+> haircut investigation and the cross-provider audit is
+> `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`. The D2/D3 sections below are
+> kept as history. The `scripts/source_independence_closeout.py` instrument they cite
+> was removed together with the mechanisms. Its outputs under
+> `evidence/SOURCE_INDEPENDENCE_2026-10-18/` are historical: they were produced at
+> commit `8692603f3a` and cannot be regenerated from the current tree.
+>
+> **Later on 2026-10-19 — Decision 1 (the DLF IDP hold) is RESCINDED** by the owner's
+> universal source-voting directive. DLF IDP and DLF Rookie IDP vote again under the
+> one DLF family cap (`dlf_offense_only_vote` now defaults OFF; `=1` re-applies the
+> hold). Where this record says DLF IDP is held, read that as the 2026-10-18 state.
+> The measured restore, split into DLF's own vote and the outlier-filter side
+> effect, is in the consensus record.
+
 Owner directive "Master owner decision closeout & evidence-unblock", 2026-10-18,
 PART 2, Decisions 2, 3, 4 and 5 (Decision 8, the active package model, is
 unchanged: `geom_q078_v1`, q = 0.78). This record covers implementation and
@@ -15,11 +41,11 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
 | decision | change | flag (default) | value effect on the pinned board |
 |---|---|---|---|
-| D2: IDP-scoped shared correlation cap | On a defensive row where both `idpTradeCalc` and `idpShowCombined` vote, they are one lineage, for the family cap and for the B11 family count | `idp_shared_correlation_cap` (**ON**) | **none**: engages on 0 rows while The IDP Show is quarantined. Replayed on 5 earlier archives, it engages on exactly the ~300 IDP rows where both vote. Since the 2026-10-19 review follow-ups, the two-way alt value is the one exception (see below) |
-| D3: IDP Trade Calculator offense vote | Its offense vote is excluded: an extra vote whose independence from KTC Crowd is unproven. IDP and pick votes are unchanged | `idptc_offense_vote_excluded` (**ON**) | 428 offense + 62 tethered pick rows. Offense p50 1.2%, p90 3.0%, max 13.4%; top-50 max 2.2% |
+| D2: IDP-scoped shared correlation cap | On a defensive row where both `idpTradeCalc` and `idpShowCombined` vote, they are one lineage, for the family cap and for the B11 family count | **WITHDRAWN 2026-10-19** (deleted; similarity is not lineage) | historical: engaged on 0 rows while The IDP Show was quarantined; on boards where both vote, ~300 IDP rows, including ~30 that fell 70% through the single-source haircut |
+| D3: IDP Trade Calculator offense vote | Its offense vote is excluded: an extra vote whose independence from KTC Crowd is unproven. IDP and pick votes are unchanged | **WITHDRAWN 2026-10-19** (deleted; its offense votes are main's) | historical: 428 offense + 62 tethered pick rows |
 | D4: DLF Values rank → Hill | `dlfValuesSfTep` is registered as an offense-only member of the `dlf` family, under DLF's one provider cap | `dlf_values_rank_hill_vote` (**ON**: every gate passed) | 300 offense + 40 tethered pick rows. Offense p50 0.27%, p90 1.7%, max 11.7%; top-50 max 1.8% |
 | D5: FantasyPros upstream clock | `fantasyProsIdp` style is `EXPLICIT_UPSTREAM_TIMESTAMP`; the voting clock is the vendor's expert-update time | config (no flag) | **none**. Freshness 0.58 → 0.18 (STALE → SEVERELY_STALE). Freshness-axis confidence labels change on 142 IDP rows; no bucket changes |
-| combined (production defaults) | D2 + D3 + D4 + D5 | | 427 offense + 60 pick rows. Offense p50 1.3%, p90 3.7%, max 14.2%; top-50 max 3.7%; top-50 / top-200 membership swaps 1 / 1; 0 rows newly unpriced |
+| combined (2026-10-18 defaults, superseded) | D2 + D3 + D4 + D5 | | 427 offense + 60 pick rows. Offense p50 1.3%, p90 3.7%, max 14.2%; top-50 max 3.7%; top-50 / top-200 membership swaps 1 / 1; 0 rows newly unpriced |
 
 ## Pins and reproduction
 
@@ -114,73 +140,18 @@ roughly 80-110 rows it lowers B11 confidence (medium→low), because two correla
 copies now count as one family. To keep two families instead, set
 `RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0` and restart.
 
-### Review follow-ups (2026-10-19): the haircut and the two-way boost
+### Review follow-ups (2026-10-19): superseded
 
-Independent review found two places where the merged lineage did not yet reach.
-Both now read it, and both sit behind the same flag.
+Review found that D2's merged lineage did not yet reach the single-source haircut or
+the two-way boost. Commit `e7f8286e10` extended it there. Measured on boards where
+both providers vote, that turned about 30 defenders into one-lineage rows at 30% of
+their value (L'Jarius Sneed 1,133 → 339).
 
-* **Single-source haircut** (commit `e7f8286e10`). The haircut counted registry
-  families, so a defensive row priced only by the IDP Trade Calculator and its
-  correlated IDP Show copy escaped the 30% retention it takes with the calculator
-  alone. It now counts the row's lineage map.
-* **Two-way boost** (`_apply_two_way_player_boost`). The boost read raw
-  `canonicalSiteValues`, so Travis Hunter's alt (DB) value kept both copies at full
-  value, and kept a copy even when it did not vote. While a row-scoped lineage rule
-  is in force, the alt value now follows the rules a real DB follows:
-  * only sources that **vote** in the alt family count. The answer comes from the
-    blend loop's own owner, asked of the row as a DB: the active-source gate,
-    row-class holds, and `base × freshness × health × coverage`. A withheld copy
-    (weight 0) leaves the value;
-  * lineages are counted on the alt row's D2 map, which engages only when both
-    members vote;
-  * one present lineage keeps `_SINGLE_SOURCE_VALUE_RETENTION`, by the haircut's own
-    rule: present means voting or withheld, so a quarantined copy neither merges nor
-    creates a cliff.
-
-  The audit block `twoWayPlayerBoost` stamps `lineages`, `sharedLineageCaps`,
-  `freshnessExcludedSources` and `singleSourceValuePenaltyApplied`.
-
-**Measured.** Golden capture (`tests/fixtures/golden/input_export.json.gz`, input
-`f7ab141e…`, CSVs `c10f2644…`, freshness stamps `22b43dc5…`, identical on the
-merge base). This board is dated 2026-08-04, so The IDP Show votes on it.
-
-| comparison | values moved | Travis Hunter |
-|---|---|---|
-| all three flags off vs `main` (`ef91a6cc0c`) | **0** (0 ranks, 0 labels) | 4616 → 4616 |
-| D2 only vs all off | 321: 266 IDP (29 fall to ~30%), 54 tethered picks, 1 offense | 4616 → 2262 (alt 1407 = 0.30 × 4692, one lineage) |
-| production defaults, this fix vs `e7f8286e10` | 1 (221 ranks) | 4692 → 2224 (rank 76 → 296) |
-| production defaults vs `main` | 762: 266 IDP, 425 offense, 71 picks | 4616 → 2224 |
-
-On archive replays where The IDP Show is quarantined, its copy is withheld, so D2
-engages on no row. D2 alone still moves exactly one value, Hunter's, because the
-withheld copy leaves his alt value. With two present lineages there is no haircut:
-
-* `dynasty_export_20261018_185952` (the pinned board): 3779 → 3599;
-* `dynasty_export_20261019_003315`: 3738 → 3599.
-
-So D2's "0 values where it does not engage" holds for every row except the two-way
-row's alt value, which reads vote state under D2. Rollback is exact on every input.
-With the flag off the boost is the pre-closeout boost, byte for byte.
-
-When no alt-family source votes at all, the alt value is missing, not priced off a
-withheld copy, and the override withdraws. One example is the simulated IDP Trade
-Calculator cutoff (`tests/api/test_idptc_cutoff_readiness.py`): Hunter publishes his
-own offense blend, 3599 → 2265. That blend's gate describes the value, so his
-confidence goes from low to medium on the agreement axis only. The lost evidence was
-DB evidence, which never fed his offense gate. The test records this as an explained
-residual, beside the existing one.
-
-**Follow-up, not done here.** On the flag-off path the boost keeps its pre-existing
-gaps:
-
-* a freshness-withheld, seasonally inactive or user-disabled source still reaches
-  the alt value;
-* single-family alt evidence escapes the haircut.
-
-Closing them there changes flag-off output on some inputs. Applying the rules with
-the flag off moves 0 values on the golden board. On the newest archive replay it moves
-Hunter 3738 → 3599 against `main`. The single-family haircut alone moves 0 values on
-both boards.
+The owner's 2026-10-19 directive then withdrew D2, and those changes went with it.
+The two-way boost keeps a correctness fix of its own (flag
+`two_way_alt_evidence_rules`), on the existing B10 families. See
+`docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md` for the haircut decomposition:
+grouping, the 0.30 step and eligibility.
 
 ## D3: IDP Trade Calculator offense vote, verified and excluded
 
@@ -379,8 +350,7 @@ See the PR for the exact command output. In summary:
     the dataset-state owner;
   * D2's activation on The IDP Show's republication moves IDP values automatically,
     measured above;
-  * the two-way boost's flag-off gaps (see "Review follow-ups"). Its remaining
-    approximations under the flag: the alt value is an unweighted blend with no
-    outlier filter, and the sparse estimator challenger (default off) is not mirrored.
+  * D2/D3 withdrawn 2026-10-19; the open items of the rework are listed in
+    `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 * **NEXT_ACTION:** release-train integration of this PR, then the deploy and
   observation of `sourceWeighting.independencePolicy` on production.

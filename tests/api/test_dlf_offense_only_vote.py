@@ -1,4 +1,8 @@
-"""DLF vote offense-only (owner directive 2026-10-16).
+"""DLF vote offense-only (owner directive 2026-10-16) -- RESCINDED 2026-10-19.
+
+The owner's universal source-voting directive of 2026-10-19 restores DLF IDP and
+DLF Rookie IDP voting; the hold below stays as the rollback, default OFF.  The
+board tests force the flag both ways, so they pin the hold mechanism either way.
 
 The owner settled the interpretation docs/sources/SOURCE_VALUATION_AUDIT_2026-10-13.md
 left open: the DLF IDP boards (``dlfIdp``, ``dlfRookieIdp``) stay ingested and
@@ -62,9 +66,12 @@ def test_the_hold_names_exactly_the_dlf_idp_boards():
     assert dc.POLICY_SOURCE_VOTE_HOLDS["dlfValuesSfTep"]["flag"] == "dlf_values_rank_hill_vote"
 
 
-def test_flag_defaults_on_and_is_live():
-    assert feature_flags._DEFAULTS[_FLAG] is True
+def test_the_hold_is_rescinded_by_default_and_stays_a_live_rollback():
+    """Owner directive 2026-10-19: DLF IDP and DLF Rookie IDP vote again; the
+    hold survives only as the rollback (``=1`` re-applies it)."""
+    assert feature_flags._DEFAULTS[_FLAG] is False
     assert feature_flags.gate_status(_FLAG) == feature_flags.LIVE
+    assert not set(_HELD) & set(dc._policy_source_vote_holds())
 
 
 def test_registry_surface_names_the_hold_with_a_reason(flag):

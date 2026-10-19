@@ -59,7 +59,7 @@
     "otcffbSf": {"seedHours": 24, "minHours": 12, "maxHours": 96},
     "pfkDynasty": {"seedHours": 72, "minHours": 24, "maxHours": 336},
     "fantasyProsSf": {"seedHours": 168, "minHours": 48, "maxHours": 336},
-    "fantasyProsIdp": {"seedHours": 168, "minHours": 48, "maxHours": 336, "style": "EXPLICIT_UPSTREAM_TIMESTAMP"},
+    "fantasyProsIdp": {"seedHours": 168, "minHours": 48, "maxHours": 336, "style": "EXPLICIT_UPSTREAM_TIMESTAMP", "styleFlag": "fantasypros_idp_upstream_clock"},
     "fantasyProsFitzmaurice": {"seedHours": 840, "minHours": 336, "maxHours": 1080},
     "yahooBoone": {"seedHours": 840, "minHours": 336, "maxHours": 1080},
     "dynastyNerdsSfTep": {"seedHours": 720, "minHours": 240, "maxHours": 1080},

@@ -116,29 +116,19 @@ def test_every_flag_defaults_off_except_safe_additive():
         # 4 top-200 membership changes; IDP and picks unchanged.  Rollback:
         # RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0.
         "source_universe_freshness",
-        # Owner directive 2026-10-16 ("DLF vote is offense-only"): the DLF IDP
-        # boards (dlfIdp, dlfRookieIdp) are held from the vote.  Blast radius
-        # MEASURED on the 2026-10-16 export (scripts/board_diff.py, golden
-        # capture ON vs OFF): 213 values move — 175 IDP, 37 current-year
-        # (2027) slot picks that re-tether to the merged rookie pool, and
-        # Travis Hunter via the two-way boost's IDP alt-family value; no other
-        # offense value; 0 rows newly unpriced, 0 zeroed; 65 IDP confidence
-        # buckets flip (34 up, all where DLF IDP itself was the disagreeing /
-        # stale family; 31 down).  Rollback:
-        # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.
-        "dlf_offense_only_vote",
-        # Owner closeout 2026-10-18 (docs/sources/
-        # IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md).  D2: IDP-scoped
-        # shared correlation cap -- engages on 0 rows of the pinned board (The
-        # IDP Show quarantined); byte-identical board.  D3: the IDP Trade
-        # Calculator's unproven offense vote excluded -- 428 offense values move
-        # (p90 3.0%, top-50 max 2.2%).  D4: DLF Values rank -> Hill inside the
-        # DLF cap, released after every activation gate passed -- 300 offense
-        # values move (p90 1.7%, top-50 max 1.8%).  Rollback for each:
-        # RISKIT_FEATURE_<NAME>=0 + restart.
-        "idp_shared_correlation_cap",
-        "idptc_offense_vote_excluded",
+        # Owner closeout 2026-10-18 as amended by the owner's source-voting
+        # directive of 2026-10-19 (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md;
+        # measured by scripts/source_voting_consensus_evidence.py on the
+        # 2026-10-19 production board vs main b08f7230d1).  D4: DLF Values rank
+        # -> Hill inside the DLF cap, every Decision 4 gate passed -- 299 offense
+        # values move (p90 1.7%, max 5.1%, top-50 max 1.9%) + 36 tethered picks.
+        # Two-way alt-evidence fix: Travis Hunter only (3738 -> 3599 with The IDP
+        # Show withheld), no other row.  D5: FantasyPros IDP on its upstream
+        # clock -- 0 values today (labels / freshness axes only).  Rollback for
+        # each: RISKIT_FEATURE_<NAME>=0 + restart.
         "dlf_values_rank_hill_vote",
+        "two_way_alt_evidence_rules",
+        "fantasypros_idp_upstream_clock",
         # Owner addendum 2026-10-03: Signals' authenticated native values vote
         # (value-ordered rank, FantasyCalc family).  Inert wherever the
         # box-local private store is absent (CI, dev).  Whole-board impact
@@ -240,6 +230,14 @@ def test_every_flag_defaults_off_except_safe_additive():
     }
     off_only = {
         "dynamic_source_weights",  # held OFF until backtest data exists
+        # The DLF offense-only vote hold (owner directive 2026-10-16) was
+        # RESCINDED by the owner's universal source-voting directive of
+        # 2026-10-19: DLF IDP / DLF Rookie IDP vote again inside DLF's family
+        # cap, so the hold flag defaults OFF.  Measured restore impact:
+        # docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md.  Re-applying the
+        # hold (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1) is the rollback, and an
+        # integration decision against the outlier lane's fix moves this line.
+        "dlf_offense_only_vote",
         # Consensus Edge.  Not held off for caution — held off because
         # its pre-registered ship gate FAILS.  It was ON for part of
         # 2026-08-04 on a top-20 study measuring +3.59% median

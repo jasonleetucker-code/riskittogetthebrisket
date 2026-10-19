@@ -1016,8 +1016,10 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
 #:
 #: DLF vote offense-only (owner directive 2026-10-16,
 #: ``docs/OWNER_REQUESTED_TODO.md``): the DLF IDP boards stop voting; DLF's
-#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged.  Rollback:
-#: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart.
+#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged.  RESCINDED by
+#: the owner's universal source-voting directive of 2026-10-19: the flag
+#: defaults OFF, so DLF IDP / DLF Rookie IDP vote inside DLF's one family cap;
+#: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1`` + restart re-applies the hold.
 #:
 #: DLF Values (``dlfValuesSfTep``, owner closeout 2026-10-18 Decision 4): an
 #: offense-only member of the ``dlf`` family voting rank -> Hill, released
@@ -1043,110 +1045,6 @@ POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
         "holdWhileFlag": "off",
     },
 }
-
-#: Registered sources whose vote is held on ONE ASSET CLASS of rows only.
-#: Not a whole-source hold (those are :data:`POLICY_SOURCE_VOTE_HOLDS`): the
-#: source stays active, keeps every other row's vote, and stays in its own
-#: Phase-1 ordinal pool (so its rank on the rows it still votes on is
-#: byte-identical); on a held row it simply casts no vote and is not an
-#: eligible family there (B11), exactly like a source whose scope does not
-#: reach the row.  Missing is never zero: the held row blends over its other
-#: sources.  ``assetClass`` is the row's player class — ``"offense"`` means
-#: QB/RB/WR/TE rows only, never picks.
-#:
-#: IDP Trade Calculator offense (owner closeout 2026-10-18 Decision 3): its
-#: offense values were a batch-level copy of KTC Crowd at 2 of 4 measured
-#: batches (``config/sources/source_lineage.json``
-#: ``pair-idptradecalc-offense-ktc``) and its independence is not evidenced,
-#: so the extra offense vote is EXCLUDED rather than counted as its own
-#: family.  Derivation is not proven either, so it does not enter the KTC
-#: Crowd cap.  Rollback: ``RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED=0`` +
-#: restart.
-POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS: dict[str, dict[str, str]] = {
-    "idpTradeCalc": {
-        "assetClass": "offense",
-        "reason": "owner_policy_unproven_extra_offense_vote",
-        "decision": (
-            "owner closeout 2026-10-18 Decision 3: exclude an unproven extra "
-            "IDP Trade Calculator offense vote"
-        ),
-        "flag": "idptc_offense_vote_excluded",
-        "lineage": "pair-idptradecalc-offense-ktc",
-    },
-}
-
-
-def _policy_row_class_vote_holds() -> dict[str, dict[str, str]]:
-    """The :data:`POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS` entries IN FORCE."""
-    from src.api.feature_flags import is_enabled  # noqa: PLC0415
-
-    in_force = {"idptc_offense_vote_excluded": is_enabled("idptc_offense_vote_excluded")}
-    return {
-        key: dict(hold)
-        for key, hold in POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS.items()
-        if in_force.get(hold["flag"], False)
-    }
-
-
-#: Row-scoped correlation lineage (owner closeout 2026-10-18 Decision 2).  The
-#: registry's ``correlation_group`` is per SOURCE; some dependence holds on one
-#: asset class only.  The IDP Trade Calculator's IDP ordering follows The IDP
-#: Show's (order identity with the IDP-only board since 2026-10-10; lineage
-#: ``pair-idptradecalc-idpshow``), so on a DEFENSIVE row where BOTH it and
-#: ``idpShowCombined`` cast a weighted vote they are ONE lineage: one family
-#: for the family cap (``cap_family_weights``) and for the B11 independence /
-#: coverage count.  Their offense and pick rows are untouched, and the
-#: IDP-only Show board (``idpShow``) is not registered, so it never becomes a
-#: voter.  Where only one of them votes (today: The IDP Show is quarantined)
-#: nothing changes.  Rollback:
-#: ``RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0`` + restart.
-ROW_SCOPED_CORRELATION_GROUPS: tuple[dict[str, Any], ...] = (
-    {
-        "id": "idp_show_lineage_on_idp_rows",
-        "members": ("idpTradeCalc", "idpShowCombined"),
-        "group": "idpShow",
-        "assetClass": "idp",
-        "flag": "idp_shared_correlation_cap",
-        "lineage": "pair-idptradecalc-idpshow",
-    },
-)
-
-
-def row_scoped_family_map(
-    family_by_key: Mapping[str, str],
-    *,
-    asset_class: str,
-    voting: Collection[str],
-    enabled_rules: Collection[str],
-) -> tuple[Mapping[str, str], tuple[str, ...]]:
-    """``(family map for this row, engaged rule ids)``.
-
-    A rule engages only on its asset class and only when EVERY member votes
-    on the row with positive weight (``voting``).  Unengaged rows get
-    ``family_by_key`` itself (no copy), so the default path is unchanged.
-    """
-    engaged: list[str] = []
-    out: dict[str, str] | None = None
-    for rule in ROW_SCOPED_CORRELATION_GROUPS:
-        if rule["id"] not in enabled_rules or rule["assetClass"] != asset_class:
-            continue
-        if not all(m in voting for m in rule["members"]):
-            continue
-        if out is None:
-            out = dict(family_by_key)
-        for member in rule["members"]:
-            out[member] = rule["group"]
-        engaged.append(rule["id"])
-    return (out if out is not None else family_by_key), tuple(engaged)
-
-
-def _enabled_row_scoped_correlation_rules() -> frozenset[str]:
-    from src.api.feature_flags import is_enabled  # noqa: PLC0415
-
-    in_force = {"idp_shared_correlation_cap": is_enabled("idp_shared_correlation_cap")}
-    return frozenset(
-        r["id"] for r in ROW_SCOPED_CORRELATION_GROUPS if in_force.get(r["flag"], False)
-    )
 
 
 #: ``holdKind`` stamped on a public policy-held entry of the vote-state stamp,
@@ -3650,8 +3548,6 @@ def _source_precedence(key: str) -> int:
 
 def collapse_to_independent_families(
     pairs: "list[tuple[str, float, bool]]",
-    *,
-    family_of: Callable[[str], str] | None = None,
 ) -> "tuple[list[tuple[str, float, bool]], dict[str, str]]":
     """One vote per provider family — a SELECTION, never an average.
 
@@ -3693,10 +3589,9 @@ def collapse_to_independent_families(
     matching the vendor's current opinion rather than a pre-draft
     artifact.
     """
-    family_of = family_of or correlation_group_for
     best: dict[str, tuple[int, tuple[str, float, bool]]] = {}
     for key, value, is_anchor in pairs:
-        group = family_of(key)
+        group = correlation_group_for(key)
         rank = _source_precedence(key)
         current = best.get(group)
         if current is None or rank < current[0]:
@@ -3705,7 +3600,9 @@ def collapse_to_independent_families(
     winners = {group: entry for group, (_r, entry) in best.items()}
     winning_keys = {entry[0] for entry in winners.values()}
     superseded = {
-        key: winners[family_of(key)][0] for key, _v, _a in pairs if key not in winning_keys
+        key: winners[correlation_group_for(key)][0]
+        for key, _v, _a in pairs
+        if key not in winning_keys
     }
     # Preserve the caller's ordering; only membership changes.
     kept = [pair for pair in pairs if pair[0] in winning_keys]
@@ -3722,7 +3619,6 @@ def cap_family_weights(
     *,
     cap: float = FAMILY_WEIGHT_CAP_DEFAULT,
     base: Mapping[str, float] | None = None,
-    family_of: Callable[[str], str] | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Every family member keeps a vote; a family's TOTAL is capped.
 
@@ -3749,27 +3645,20 @@ def cap_family_weights(
     2.0 raises its family's ceiling with it, so a weight override is never
     silently undone by the cap.
 
-    ``family_of`` resolves a key's family for THIS row (default: the
-    registry's :func:`correlation_group_for`).  The row-scoped lineage rules
-    (:data:`ROW_SCOPED_CORRELATION_GROUPS`) pass a row's own map here, so a
-    dependence that holds on one asset class is capped by this same owner
-    rather than by a second weighting system.
-
     Returns ``(adjusted_weights, family_adjustment_by_key)``; the factor is
     1.0 for every member of an uncapped family.
     """
-    family_of = family_of or correlation_group_for
     totals: dict[str, float] = {}
     caps: dict[str, float] = {}
     for key, w in weights.items():
-        group = family_of(key)
+        group = correlation_group_for(key)
         totals[group] = totals.get(group, 0.0) + max(0.0, float(w))
         member_cap = max(0.0, float(base.get(key, cap))) if base is not None else cap
         caps[group] = max(caps.get(group, 0.0), member_cap)
     adjusted: dict[str, float] = {}
     factors: dict[str, float] = {}
     for key, w in weights.items():
-        group = family_of(key)
+        group = correlation_group_for(key)
         total, family_cap = totals[group], caps[group]
         factor = family_cap / total if total > family_cap > 0.0 else 1.0
         factors[key] = factor
@@ -5295,7 +5184,13 @@ def _source_weighting_resolution(
         cfg_mtime = _freshness.CONFIG_PATH.stat().st_mtime_ns
     except OSError:
         cfg_mtime = -1
-    cache_key = (as_of.isoformat(), str(state_dir), tuple(stamps), cfg_mtime)
+    cache_key = (
+        as_of.isoformat(),
+        str(state_dir),
+        tuple(stamps),
+        cfg_mtime,
+        _freshness.style_flag_states(),
+    )
     cached = _SOURCE_WEIGHTING_CACHE.get(cache_key)
     if cached is not None:
         return cached, None
@@ -7918,51 +7813,183 @@ def _restate_confidence_after_override(
     return restated
 
 
+def _two_way_alt_votes(
+    players_array: Sequence[Mapping[str, Any]],
+    row: Mapping[str, Any],
+    alt_family: str,
+    candidate_keys: Collection[str],
+    vote_weight: Callable[[Mapping[str, Any], str, str], float | None],
+) -> tuple[list[tuple[str, float, float]], list[str], list[str]]:
+    """``(votes, withheld, untranslated)`` for a two-way ``row`` as a member of
+    ``alt_family`` — what a REAL member with the same observations would get.
+
+    * ``votes``: ``(source, vote value, effective weight)``.
+    * ``withheld``: present observations whose weight is 0 (freshness /
+      health); not a vote, never a zero, still present evidence.
+    * ``untranslated``: observations the source translated into no vote at
+      this position on any real member (no bridge / family ladder, beyond
+      its ladder, a rookie exclusion, …).  Not votes and not present.
+
+    THE VOTE VALUE is the source's own pre-blend vote on real members of the
+    family, interpolated at this row's observation (``canonicalSiteValues``,
+    monotone in the vote for every signal type): the ``valueContribution``
+    the blend stamped on the members bracketing it.  So it is the value a
+    twin would vote, before any blend or haircut — never a board value, which
+    already carries the members' own haircuts.  A position no real member's
+    vote brackets is UNTRANSLATED: the Phase-1 owner produced no vote there.
+
+    THE WEIGHT is ``vote_weight(row, source, alt_family)``: inside the build,
+    the blend loop's own per-(row, source) weight owner asked of the row as a
+    member of the family (``None`` = no vote, not expected; ``0`` = withheld).
+    """
+    want_class = "idp" if alt_family in _IDP_POSITIONS else "offense"
+    name = str(row.get("canonicalName") or "")
+    sites = row.get("canonicalSiteValues") or {}
+    votes: list[tuple[str, float, float]] = []
+    withheld: list[str] = []
+    untranslated: list[str] = []
+    for key in sorted(candidate_keys):
+        # No observation is no evidence — never a zero observation.
+        raw = sites.get(key) if isinstance(sites, Mapping) else None
+        if raw is None:
+            continue
+        try:
+            x = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if x <= 0.0:
+            continue
+        weight = vote_weight(row, key, alt_family)
+        if weight is None:
+            continue
+        points: dict[float, float] = {}
+        for member in players_array:
+            if member.get("assetClass") != want_class or member.get("canonicalName") == name:
+                continue
+            meta = (member.get("sourceRankMeta") or {}).get(key)
+            vote = meta.get("valueContribution") if isinstance(meta, Mapping) else None
+            at_raw = (member.get("canonicalSiteValues") or {}).get(key)
+            if at_raw is None:
+                continue
+            try:
+                at = float(at_raw)
+            except (TypeError, ValueError):
+                continue
+            if at > 0.0 and isinstance(vote, (int, float)) and not isinstance(vote, bool):
+                points.setdefault(at, float(vote))
+        xs = sorted(points)
+        if not xs or x < xs[0] or x > xs[-1]:
+            untranslated.append(key)
+            continue
+        i = bisect.bisect_left(xs, x)
+        if xs[i] == x:
+            value = points[x]
+        else:
+            x0, x1 = xs[i - 1], xs[i]
+            value = points[x0] + (points[x1] - points[x0]) * ((x - x0) / (x1 - x0))
+        if weight <= 0.0:
+            withheld.append(key)
+        else:
+            votes.append((key, value, float(weight)))
+    return votes, withheld, untranslated
+
+
+def _two_way_alt_center(
+    votes: list[tuple[str, float, float]],
+    *,
+    hierarchical: bool,
+    anchor_keys: Collection[str],
+    family_cap: bool,
+    base_weights: Mapping[str, float],
+) -> tuple[float | None, list[str], list[str]]:
+    """``(center, surviving sources, outlier-dropped sources)``: the incumbent
+    blend of these votes, by the blend loop's own owners in its order —
+    ``_hampel_filter_per_player``, then ``cap_family_weights`` (or the
+    family-head selection under its rollback), then the hierarchical anchor
+    blend (anchor + ``_ALPHA_SHRINKAGE`` x (subgroup - anchor)) for an IDP
+    family, the flat blend otherwise.  The default-OFF challengers (joint /
+    rank-space / n3 outlier filters, sparse estimator) are not mirrored."""
+    if not votes:
+        return None, [], []
+    dropped: list[str] = []
+    if len(votes) >= _HAMPEL_MIN_N:
+        _kept, dropped = _hampel_filter_per_player(
+            [(k, v) for k, v, _w in votes], k=_HAMPEL_K, min_n=_HAMPEL_MIN_N
+        )
+    surviving = [(k, v, w) for k, v, w in votes if k not in set(dropped)]
+    weights = {k: w for k, _v, w in surviving}
+    if family_cap:
+        weights, _ = cap_family_weights(weights, base=base_weights)
+    else:
+        _kept_f, superseded = collapse_to_independent_families(
+            [(k, v, k in anchor_keys) for k, v, _w in surviving]
+        )
+        surviving = [t for t in surviving if t[0] not in superseded]
+    anchors = [(v, weights[k]) for k, v, _w in surviving if k in anchor_keys]
+    subgroup = [(v, weights[k]) for k, v, _w in surviving if k not in anchor_keys]
+
+    def _blend(pairs: list[tuple[float, float]]) -> float | None:
+        if not pairs:
+            return None
+        center, _ = weighted_count_aware_mean_median_blend(
+            [v for v, _w in pairs], [w for _v, w in pairs]
+        )
+        return float(center)
+
+    if hierarchical:
+        anchor, sub = _blend(anchors), _blend(subgroup)
+        if anchor is not None and sub is not None:
+            center = anchor + _ALPHA_SHRINKAGE * (sub - anchor)
+        else:
+            center = anchor if anchor is not None else sub
+    else:
+        center = _blend(anchors + subgroup)
+    return center, [k for k, _v, _w in surviving], list(dropped)
+
+
 def _apply_two_way_player_boost(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
     excluded_keys: frozenset[str] = frozenset(),
     *,
-    lineage_rules: Collection[str] | None = None,
-    alt_vote_weight: Callable[[Mapping[str, Any], str, str], float | None] | None = None,
+    evidence_rules: bool | None = None,
+    vote_weight: Callable[[Mapping[str, Any], str, str], float | None] | None = None,
+    anchor_keys: Collection[str] | None = None,
+    family_cap: bool | None = None,
+    base_weights: Mapping[str, float] | None = None,
     single_lineage_retention: bool = True,
 ) -> None:
     """For players in ``_TWO_WAY_PLAYERS``, compute what their value
     would be under the alt-position family and use max(offense, alt)
     as the final ``rankDerivedValue``.
 
-    ROW-LEVEL EVIDENCE RULES (owner closeout 2026-10-18 Decision 2)
-    ===============================================================
-    While a row-scoped correlation lineage rule is in force
-    (``lineage_rules`` non-empty; ``None`` reads the flags), the alt value is
-    held to the evidence rules a real member of the alt family is held to:
+    ALT-FAMILY EVIDENCE RULES (flag ``two_way_alt_evidence_rules``)
+    ==============================================================
+    A correctness fix (PR #1817 review, 2026-10-19; owner source-voting
+    directive 2026-10-19): the prior boost read raw ``canonicalSiteValues``,
+    so a quarantined, policy-held or user-disabled source still priced a
+    player through the alt-family side door, and the alt value escaped the
+    single-source haircut every real member resting on one family takes.
+    While ``evidence_rules`` is on (``None`` reads the flag) the alt value is
+    what a REAL member of the alt family with the same observations gets:
 
-    * **Only sources that VOTE in the alt family count.**
-      ``alt_vote_weight(row, source_key, alt_family)`` is the blend's own
-      answer for that observation (inside ``_compute_unified_rankings``:
-      active sources, row-class holds, ``base x freshness x health x
-      coverage``).  ``None`` = no vote and not expected (inactive, held);
-      ``0.0`` = present but withheld (freshness / health weight 0);
-      positive = votes.  Without it, every candidate outside
-      ``excluded_keys`` votes — the answer of a build with no source
-      weighting.
-    * **Lineages are counted on the alt row's D2 map**
-      (``row_scoped_family_map`` with the alt asset class, engaged only when
-      every member votes), so a correlated copy cannot lift the alt value.
-    * **One lineage keeps ``_SINGLE_SOURCE_VALUE_RETENTION``**, by the
-      single-source haircut's own rule: present lineages = voting ∪
-      withheld, so a quarantined copy neither merges (it does not vote) nor
-      creates a cliff (it is still present evidence).
-      ``single_lineage_retention=False`` mirrors the sparse challenger that
-      disables the retention for real rows.
+    * votes and vote values from :func:`_two_way_alt_votes` — the sources'
+      own pre-blend votes on real members, weighted by the blend loop's
+      per-(row, source) weight owner (``vote_weight``; inside the build the
+      same function the loop calls).  Withheld observations do not vote;
+      untranslated ones are not evidence;
+    * blended by :func:`_two_way_alt_center` — the incumbent's own outlier
+      filter, family cap and hierarchical anchor blend;
+    * one present B10 family (voting or withheld — the haircut's own rule,
+      ``correlation_group_for``; similarity never merges families) keeps
+      ``_SINGLE_SOURCE_VALUE_RETENTION``, applied ONCE, exactly as for the
+      real member.  ``single_lineage_retention=False`` mirrors the sparse
+      challenger that disables the retention for real rows.
 
-    With no lineage rule in force the boost is the pre-closeout boost, byte
-    for byte (rollback ``RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0``).
-    Its known gaps on that path — a freshness-withheld, seasonally inactive
-    or user-disabled source reaching the alt value, and single-family alt
-    evidence escaping the haircut — are a documented follow-up
-    (docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md), because
-    closing them there changes flag-off output.
+    A row with observations but no voting alt source stamps a withdrawn
+    audit (which sources were withheld) instead of silently dropping it.
+    With the rules off the boost is the prior boost, byte for byte (rollback
+    ``RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES=0``).
 
     Most of the work is already done by the upstream CSV loader —
     when a source includes a two-way player under its IDP universe,
@@ -8052,27 +8079,86 @@ def _apply_two_way_player_boost(
 
     alt_asset_class_for_family = {True: "idp", False: "offense"}
 
-    # Row-level evidence rules (see the docstring): in force exactly while a
-    # row-scoped lineage rule is.  Off = the pre-closeout path below.
-    if lineage_rules is None:
-        lineage_rules = _enabled_row_scoped_correlation_rules()
-    evidence_rules = bool(lineage_rules)
-    family_by_key: dict[str, str] = {}
-    vote_weight_of = alt_vote_weight
-    if evidence_rules:
-        family_by_key = {
-            str(s.get("key") or ""): correlation_group_for(str(s.get("key") or ""))
-            for s in _RANKING_SOURCES
-        }
-        if vote_weight_of is None:
-            # Only the sign is read (the alt blend is unweighted): every
-            # candidate outside ``excluded_keys`` votes.
-            def _unweighted_vote(
-                _row: Mapping[str, Any], source_key: str, _alt_family: str
-            ) -> float | None:
-                return None if source_key in excluded_keys else 1.0
+    if evidence_rules is None:
+        from src.api.feature_flags import is_enabled  # noqa: PLC0415
 
-            vote_weight_of = _unweighted_vote
+        evidence_rules = is_enabled("two_way_alt_evidence_rules")
+    if evidence_rules:
+        # Without the build's owners (a direct call): every registered,
+        # positively weighted source outside ``excluded_keys`` votes at its
+        # declared weight — the answer of a build with no source weighting.
+        if base_weights is None or anchor_keys is None or vote_weight is None:
+            registry = [s for s in _active_sources(None) if s["key"] not in excluded_keys]
+            declared = {
+                str(s.get("key") or ""): _effective_source_weight(s, None) for s in registry
+            }
+            if base_weights is None:
+                base_weights = declared
+            if anchor_keys is None:
+                anchor_keys = _anchor_key_sets(registry)[0]
+            if vote_weight is None:
+
+                def vote_weight(
+                    _row: Mapping[str, Any], source_key: str, _alt_family: str
+                ) -> float | None:
+                    return declared.get(source_key)
+
+        if family_cap is None:
+            from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+            family_cap = is_enabled("source_family_cap")
+
+    def _apply_alt_value(
+        row: dict[str, Any],
+        alt_family: str,
+        alt_value: float,
+        used_sources: list[str],
+        evidence: Mapping[str, Any] | None = None,
+    ) -> None:
+        current_value = float(row.get("rankDerivedValue") or 0.0)
+        extra = dict(evidence or {})
+        if alt_value <= current_value:
+            # Offense-pool blend already beats the alt-family value;
+            # no boost needed.  Still stamp the audit so the UI can
+            # show "no boost applied".
+            row["twoWayPlayerBoost"] = {
+                "applied": False,
+                "altFamily": alt_family,
+                "altFamilyValue": int(round(alt_value)),
+                "primaryFamilyValue": int(round(current_value)),
+                "sourcesConsidered": sorted(used_sources),
+                **extra,
+            }
+            return
+        boosted = int(round(alt_value))
+        row["rankDerivedValue"] = boosted
+        # If this override created the row's first canonical value, the normal
+        # evidence gate never ran because there was no primary-family price to
+        # assess.  Stamp the derivation explicitly instead of leaving the row
+        # claiming "unpriced".  When a primary price already existed,
+        # _restate_confidence_after_override below re-runs the five-axis gate.
+        if current_value <= 0 or row.get("confidenceBasis") in ("unpriced", "no_evidence"):
+            row["confidenceBucket"] = "low"
+            row["confidenceLabel"] = "Low — derived from two-way market evidence"
+            row["confidenceBasis"] = "derived_two_way_boost"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = [
+                "Canonical value derived from alt-position market evidence because the primary family was unpriced"
+            ]
+        row["twoWayPlayerBoost"] = {
+            "applied": True,
+            "altFamily": alt_family,
+            "altFamilyValue": boosted,
+            "primaryFamilyValue": int(round(current_value)),
+            "sourcesConsidered": sorted(used_sources),
+            **extra,
+        }
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["rankDerivedValue"] = boosted
+                pdata["twoWayPlayerBoost"] = dict(row["twoWayPlayerBoost"])
 
     def _build_alt_ladder(source_key: str, want_idp: bool) -> list[tuple[float, float]]:
         """(source rank, board value) pairs over the REAL players of the
@@ -8136,15 +8222,61 @@ def _apply_two_way_player_boost(
         if not isinstance(site_values, dict):
             continue
 
+        if evidence_rules:
+            assert vote_weight is not None and anchor_keys is not None
+            assert base_weights is not None and family_cap is not None
+            votes, withheld, untranslated = _two_way_alt_votes(
+                players_array, row, alt_family, candidate_keys, vote_weight
+            )
+            if not (votes or withheld or untranslated):
+                continue
+            center, surviving, outliers = _two_way_alt_center(
+                votes,
+                hierarchical=alt_is_idp,
+                anchor_keys=anchor_keys,
+                family_cap=family_cap,
+                base_weights=base_weights,
+            )
+            families = sorted({correlation_group_for(k) for k in [*surviving, *withheld]})
+            evidence: dict[str, Any] = {
+                "evidenceRule": "alt_family_vote_state",
+                "families": families,
+                "freshnessExcludedSources": sorted(withheld),
+                "untranslatedSources": sorted(untranslated),
+                "droppedSources": sorted(outliers),
+            }
+            if center is None or center <= 0.0:
+                # Nothing votes in the alt family: the alt value is MISSING,
+                # never priced off a withheld copy and never zero.
+                row["twoWayPlayerBoost"] = {
+                    "applied": False,
+                    "altFamily": alt_family,
+                    "altFamilyValue": None,
+                    "primaryFamilyValue": (
+                        int(round(float(row["rankDerivedValue"])))
+                        if row.get("rankDerivedValue") is not None
+                        else None
+                    ),
+                    "sourcesConsidered": [],
+                    "withdrawn": True,
+                    "withdrawnReason": "no_alt_family_source_votes",
+                    **evidence,
+                }
+                continue
+            penalty = single_lineage_retention and len(families) <= 1
+            evidence["singleSourceValuePenaltyApplied"] = penalty
+            if penalty:
+                evidence["altFamilyValueBeforePenalty"] = int(round(center))
+                center *= _SINGLE_SOURCE_VALUE_RETENTION
+            _apply_alt_value(row, alt_family, center, surviving, evidence)
+            continue
+
         # Decode synthetic rank-encoded values back to ordinals.
         # The loader writes ``_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100
         # - rank * 100`` for rank-signal sources, so
         # ``rank = (offset * 100 - synthetic) / 100``.
         alt_source_values: list[float] = []
         used_sources: list[str] = []
-        # Present in the alt family but not voting (freshness / health weight
-        # 0) — evidence rules only.  Still present evidence for the haircut.
-        withheld_sources: list[str] = []
         for key in candidate_keys:
             raw = site_values.get(key)
             try:
@@ -8153,13 +8285,6 @@ def _apply_two_way_player_boost(
                 continue
             if syn <= 0:
                 continue
-            if vote_weight_of is not None and evidence_rules:
-                vote_weight = vote_weight_of(row, key, alt_family)
-                if vote_weight is None:
-                    continue
-                if vote_weight <= 0.0:
-                    withheld_sources.append(key)
-                    continue
             # Reverse the synthetic → rank encoding.  Small-positive
             # ``syn`` values (e.g. DraftSharks' raw 14 on a 0-100
             # scale) are VALUE-BASED source contributions; we skip
@@ -8202,70 +8327,7 @@ def _apply_two_way_player_boost(
         if not alt_source_values:
             continue
         alt_value, _alt_mad = count_aware_mean_median_blend(alt_source_values)
-        evidence: dict[str, Any] = {}
-        if evidence_rules:
-            # The alt row's lineages, on the same D2 map the blend reads, and
-            # the single-source haircut's own present-evidence rule.
-            alt_families, engaged = row_scoped_family_map(
-                family_by_key,
-                asset_class=alt_asset_class_for_family[alt_is_idp],
-                voting=used_sources,
-                enabled_rules=lineage_rules,
-            )
-            lineages = {alt_families.get(k, k) for k in used_sources + withheld_sources}
-            penalty = single_lineage_retention and len(lineages) <= 1
-            evidence = {
-                "lineages": sorted(lineages),
-                "sharedLineageCaps": list(engaged),
-                "freshnessExcludedSources": sorted(withheld_sources),
-                "singleSourceValuePenaltyApplied": penalty,
-            }
-            if penalty:
-                evidence["altFamilyValueBeforePenalty"] = int(round(alt_value))
-                alt_value *= _SINGLE_SOURCE_VALUE_RETENTION
-        current_value = float(row.get("rankDerivedValue") or 0.0)
-        if alt_value <= current_value:
-            # Offense-pool blend already beats the alt-family value;
-            # no boost needed.  Still stamp the audit so the UI can
-            # show "no boost applied".
-            row["twoWayPlayerBoost"] = {
-                "applied": False,
-                "altFamily": alt_family,
-                "altFamilyValue": int(round(alt_value)),
-                "primaryFamilyValue": int(round(current_value)),
-                "sourcesConsidered": sorted(used_sources),
-                **evidence,
-            }
-            continue
-        boosted = int(round(alt_value))
-        row["rankDerivedValue"] = boosted
-        # If this override created the row's first canonical value, the normal
-        # evidence gate never ran because there was no primary-family price to
-        # assess.  Stamp the derivation explicitly instead of leaving the row
-        # claiming "unpriced".  When a primary price already existed,
-        # _restate_confidence_after_override below re-runs the five-axis gate.
-        if current_value <= 0 or row.get("confidenceBasis") in ("unpriced", "no_evidence"):
-            row["confidenceBucket"] = "low"
-            row["confidenceLabel"] = "Low — derived from two-way market evidence"
-            row["confidenceBasis"] = "derived_two_way_boost"
-            row["confidenceAxes"] = None
-            row["confidenceReasons"] = [
-                "Canonical value derived from alt-position market evidence because the primary family was unpriced"
-            ]
-        row["twoWayPlayerBoost"] = {
-            "applied": True,
-            "altFamily": alt_family,
-            "altFamilyValue": boosted,
-            "primaryFamilyValue": int(round(current_value)),
-            "sourcesConsidered": sorted(used_sources),
-            **evidence,
-        }
-        legacy_ref = row.get("legacyRef")
-        if legacy_ref and legacy_ref in players_by_name:
-            pdata = players_by_name[legacy_ref]
-            if isinstance(pdata, dict):
-                pdata["rankDerivedValue"] = boosted
-                pdata["twoWayPlayerBoost"] = dict(row["twoWayPlayerBoost"])
+        _apply_alt_value(row, alt_family, alt_value, used_sources)
 
 
 _DISPLAY_SCALE_MAX: int = 9999
@@ -11404,24 +11466,6 @@ def _compute_unified_rankings(
         str(s.get("key") or ""): correlation_group_for(str(s.get("key") or ""))
         for s in _RANKING_SOURCES
     }
-    # Source-independence policy (owner closeout 2026-10-18), each read once
-    # per build: row-class vote holds (D3) and row-scoped correlation lineage
-    # (D2).  Both feed the EXISTING owners — the vote gate below and
-    # ``cap_family_weights`` / the B11 family count — never a second weighting.
-    _row_class_holds = _policy_row_class_vote_holds()
-    row_class_vote_held: dict[str, int] = {}
-    _corr_rules = _enabled_row_scoped_correlation_rules()
-    # ``{row_idx: family map}`` only for rows where a lineage rule ENGAGED.
-    row_family_by_key: dict[int, Mapping[str, str]] = {}
-    row_lineage_engaged: dict[str, int] = {}
-
-    def _row_player_class(row: Mapping[str, Any]) -> str:
-        pos = str(row.get("position") or "").strip().upper()
-        if pos in _OFFENSE_POSITIONS:
-            return "offense"
-        if pos in _IDP_POSITIONS:
-            return "idp"
-        return "pick" if pos == "PICK" or row.get("assetClass") == "pick" else "other"
 
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
@@ -11751,19 +11795,6 @@ def _compute_unified_rankings(
             if rank_idx == 0 or val != eligible[rank_idx - 1][0]:
                 current_dense_rank = rank_idx + 1
             raw_rank = current_dense_rank
-
-            # ── Row-class owner-policy vote hold ──
-            # (``POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS``.)  Applied AFTER the
-            # ordinal pass so the source's rank on every row it still votes
-            # on is byte-identical: the held rows stay in its pool, they just
-            # cast no vote.
-            _held_class = _row_class_holds.get(source_key)
-            if (
-                _held_class is not None
-                and _row_player_class(players_array[row_idx]) == (_held_class["assetClass"])
-            ):
-                row_class_vote_held[source_key] = row_class_vote_held.get(source_key, 0) + 1
-                continue
 
             # ── Self-correcting rookie exclusion ──
             # Sources flagged ``excludes_rookies=True`` (DLF IDP,
@@ -12434,6 +12465,19 @@ def _compute_unified_rankings(
             stamp["freshnessAgeHours"] = None if age is None else round(age, 1)
         return fresh * sw.health_factor * sw.coverage_factor, stamp
 
+    def _observation_vote_weight(
+        row: dict[str, Any], source_key: str, is_pick: bool
+    ) -> tuple[float, float, float, dict[str, Any]]:
+        """``(effective weight, base, dynamic factor, per-row stamp)`` of one
+        (row, source) observation — THE vote-weight owner.  The blend loop
+        reads it for every observation and the two-way boost for a two-way
+        player's alt-family observations, so the two cannot drift.  0 means
+        the observation is withheld (quarantined / FAILED), never a zero vote.
+        With freshness weighting rolled back only the base weight applies."""
+        base = blend_weight_by_source.get(source_key, 1.0)
+        dyn, stamp = _dynamic_weight_factor(row, source_key, is_pick)
+        return (base * dyn if _freshness_applied else base), base, dyn, stamp
+
     # Cache which source keys are NOT TEP-native (non-TEP sources) and
     # which ARE TEP-native.  Both get a value-level correction on TE
     # rows during the Phase 2-3 blend, but with different multipliers:
@@ -12519,7 +12563,6 @@ def _compute_unified_rankings(
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
-        _row_class = _row_player_class(players_array[row_idx])
         row_is_te = row_pos == "TE"
         row_is_pick = players_array[row_idx].get("assetClass") == "pick"
 
@@ -12726,11 +12769,9 @@ def _compute_unified_rankings(
                     value = _te_lift_under_ceiling(value * effective_native_multiplier)
                     te_transform = (PER_VOTE_TE_FLAT, effective_native_multiplier)
                     tep_native_corrected = True
-            base_weight = blend_weight_by_source.get(source_key, 1.0)
-            dyn_factor, dyn_stamp = _dynamic_weight_factor(
+            src_blend_weight, base_weight, dyn_factor, dyn_stamp = _observation_vote_weight(
                 players_array[row_idx], source_key, row_is_pick
             )
-            src_blend_weight = base_weight * dyn_factor if _freshness_applied else base_weight
             meta_dyn = row_source_meta[row_idx].setdefault(source_key, {})
             meta_dyn.update(dyn_stamp)
             if dyn_factor < 1.0:
@@ -12827,27 +12868,6 @@ def _compute_unified_rankings(
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(effective_native_multiplier, 4)
 
-        # ── Row-scoped correlation lineage (owner closeout 2026-10-18 D2) ──
-        # The family each voter belongs to ON THIS ROW.  Unengaged rows get
-        # ``family_by_key`` itself; an engaged row (every member of a rule
-        # votes with positive weight on its asset class) maps the members to
-        # one shared lineage, read below by the family cap, the independence
-        # count and the B11 confidence assembly.
-        row_families, _engaged = row_scoped_family_map(
-            family_by_key,
-            asset_class=_row_class,
-            voting=row_weight,
-            enabled_rules=_corr_rules,
-        )
-        if _engaged:
-            row_family_by_key[row_idx] = row_families
-            players_array[row_idx]["sharedLineageCaps"] = list(_engaged)
-            for _rule in _engaged:
-                row_lineage_engaged[_rule] = row_lineage_engaged.get(_rule, 0) + 1
-
-        def _row_family_of(key: str, _m: Mapping[str, str] = row_families) -> str:
-            return _m.get(key) or correlation_group_for(key)
-
         # ── Per-player Hampel outlier rejection (K=2.75) ──
         # Drop source values that sit more than 2.75 MADs from the
         # median of this player's source values — catches the "this
@@ -12872,12 +12892,11 @@ def _compute_unified_rankings(
                 _jw, _ = cap_family_weights(
                     {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs},
                     base=blend_weight_by_source,
-                    family_of=_row_family_of,
                 )
                 _joint = _joint_robust_filter(
                     [(k, v) for k, v, _ in all_value_pairs],
                     _jw,
-                    {k: row_families.get(k, k) for k, _v, _a in all_value_pairs},
+                    {k: family_by_key.get(k, k) for k, _v, _a in all_value_pairs},
                     k=_HAMPEL_K,
                     min_n=_HAMPEL_MIN_N,
                     min_threshold=_HAMPEL_MIN_THRESHOLD,
@@ -12962,7 +12981,6 @@ def _compute_unified_rankings(
             capped, family_factor = cap_family_weights(
                 {k: row_weight.get(k, 1.0) for k, _v, _a in surviving},
                 base=blend_weight_by_source,
-                family_of=_row_family_of,
             )
             for sk, factor in family_factor.items():
                 meta = row_source_meta[row_idx].get(sk, {})
@@ -12978,9 +12996,7 @@ def _compute_unified_rankings(
             cross_market_weights = [capped[k] for k, _v, a in surviving if a]
             subgroup_weights = [capped[k] for k, _v, a in surviving if not a]
         else:
-            family_kept, family_superseded = collapse_to_independent_families(
-                surviving, family_of=_row_family_of
-            )
+            family_kept, family_superseded = collapse_to_independent_families(surviving)
         if family_superseded:
             kept_keys = {k for k, _v, _a in family_kept}
             all_values = [v for k, v, _a in family_kept]
@@ -13004,7 +13020,7 @@ def _compute_unified_rankings(
         # conflated with it.
         players_array[row_idx]["effectiveSourceCount"] = len(surviving)
         players_array[row_idx]["independentSourceCount"] = len(
-            {_row_family_of(k) for k, _v, _a in family_kept}
+            {correlation_group_for(k) for k, _v, _a in family_kept}
         )
         base_weights = {
             k: blend_weight_by_source.get(k, 1.0)
@@ -13014,9 +13030,7 @@ def _compute_unified_rankings(
             # The same cap on the denominator: a family's normal authority
             # is one provider's, however many members it has, so two fully
             # fresh DLF boards retain 1.0 — not 0.5.
-            base_weights, _ = cap_family_weights(
-                base_weights, base=blend_weight_by_source, family_of=_row_family_of
-            )
+            base_weights, _ = cap_family_weights(base_weights, base=blend_weight_by_source)
         _stamp_source_weight_state(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
@@ -13048,7 +13062,7 @@ def _compute_unified_rankings(
         # what did is what stops deleting evidence from reading as a
         # tidier panel: an eligible family that stops covering a row is
         # missing evidence for as long as it stays eligible.
-        eligible_families: set[str] = {row_families.get(k, k) for k in source_ranks}
+        eligible_families: set[str] = {family_by_key.get(k, k) for k in source_ranks}
         for src in active_sources:
             skey = str(src.get("key") or "")
             # Rookie-translation sources are deliberately excluded from
@@ -13067,13 +13081,7 @@ def _compute_unified_rankings(
                 continue
             if source_pool_sizes.get(skey, 0) <= 0:
                 continue
-            _held_class = _row_class_holds.get(skey)
-            if _held_class is not None and _row_class == _held_class["assetClass"]:
-                # Held on this row class: not an eligible family here, so its
-                # silence is not missing evidence (same posture as a source
-                # whose scope does not reach the row).
-                continue
-            eligible_families.add(row_families.get(skey, skey))
+            eligible_families.add(family_by_key.get(skey, skey))
             if skey in source_ranks:
                 continue
             fallback_count += 1
@@ -13249,13 +13257,10 @@ def _compute_unified_rankings(
         # beside KTC Crowd) cannot lift a one-provider row out of the haircut.
         # With the cap off this is exactly the old ``len(all_values) <= 1``
         # test: selection leaves at most one value per family.
-        # Counted on THIS ROW's lineage (D2): a correlated copy the shared
-        # cap merges into one lineage cannot lift a one-lineage row out of the
-        # haircut either.  Unengaged rows read ``family_by_key`` unchanged.
-        present_families = {row_families.get(k, k) for k, _v, _a in family_kept} | {
-            row_families.get(k, k) for k in freshness_excluded
+        present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
+            family_by_key.get(k, k) for k in freshness_excluded
         }
-        voting_families = {row_families.get(k, k) for k, _v, _a in family_kept}
+        voting_families = {family_by_key.get(k, k) for k, _v, _a in family_kept}
         if _sparse_limited_evidence and not row_is_pick and len(voting_families) <= 1:
             # Sparse challenger: one VOTING family is limited evidence, stamped
             # whether or not a stale family is also present (that row takes no
@@ -13598,14 +13603,14 @@ def _compute_unified_rankings(
                 effective_source_ranks=effective_source_ranks,
                 effective_source_meta=effective_source_meta,
                 src_by_key=src_by_key,
-                family_by_key=row_family_by_key.get(row_idx, family_by_key),
+                family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
                 voting=evidence,
-                family_by_key=row_family_by_key.get(row_idx, family_by_key),
+                family_by_key=family_by_key,
             )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
@@ -13801,14 +13806,14 @@ def _compute_unified_rankings(
                 effective_source_ranks=effective_source_ranks,
                 effective_source_meta=effective_source_meta,
                 src_by_key=src_by_key,
-                family_by_key=row_family_by_key.get(row_idx, family_by_key),
+                family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
                 voting=evidence,
-                family_by_key=row_family_by_key.get(row_idx, family_by_key),
+                family_by_key=family_by_key,
             )
             # Registered so a LATER post-blend override that moves this
             # row's value re-states its confidence against the number
@@ -13916,43 +13921,39 @@ def _compute_unified_rankings(
     pre_override_values = {
         row_idx: players_array[row_idx].get("rankDerivedValue") for row_idx in row_confidence_inputs
     }
-    # While a row-scoped lineage rule is in force the alt value is held to
-    # the row-level evidence rules (see the boost's docstring).  Whether an
-    # alt observation VOTES is answered by the blend loop's own owner, asked
-    # of the row as a member of its alt family: the active-source gate
-    # (disabled, seasonally inactive, absent private, policy-held), the
-    # row-class hold, and ``base x freshness x health x coverage`` with the
-    # loop's ``_freshness_applied`` switch — 0 is withheld, never a zero.
+    # Two-way alt-family evidence (flag ``two_way_alt_evidence_rules``): the
+    # alt observations are weighed by the loop's own owner, asked of the row
+    # as a member of its alt family — the active-source gate (disabled,
+    # seasonally inactive, absent private, policy-held), then
+    # ``_observation_vote_weight``.  The member copy is held for the whole
+    # build because ``_row_csv_key`` caches by ``id(row)``.
     _alt_member_rows: dict[tuple[int, str], dict[str, Any]] = {}
 
     def _two_way_alt_vote_weight(
         row: Mapping[str, Any], source_key: str, alt_family: str
     ) -> float | None:
-        alt_class = "idp" if alt_family in _IDP_POSITIONS else "offense"
-        if source_key not in active_keys:
+        if source_key not in src_by_key:
             return None
-        held = _row_class_holds.get(source_key)
-        if held is not None and held["assetClass"] == alt_class:
-            return None
-        base = blend_weight_by_source.get(source_key, 1.0)
-        if not _freshness_applied:
-            return base
-        # The row as a member of its alt family: the CSV key resolves to the
-        # alt-position entry and the universe clock to the alt universe.
-        # Held for the whole build: ``_row_csv_key`` caches by ``id(row)``.
         member = _alt_member_rows.get((id(row), alt_family))
         if member is None:
-            member = {**row, "position": alt_family, "assetClass": alt_class}
+            member = {
+                **row,
+                "position": alt_family,
+                "assetClass": "idp" if alt_family in _IDP_POSITIONS else "offense",
+            }
             _alt_member_rows[(id(row), alt_family)] = member
-        dyn, _stamp = _dynamic_weight_factor(member, source_key, False)
-        return base * dyn
+        weight, _base, _dyn, _stamp = _observation_vote_weight(member, source_key, False)
+        return weight
 
     _apply_two_way_player_boost(
         players_array,
         players_by_name,
         excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())) | _policy_held,
-        lineage_rules=_corr_rules,
-        alt_vote_weight=_two_way_alt_vote_weight,
+        evidence_rules=_feature_flags.is_enabled("two_way_alt_evidence_rules"),
+        vote_weight=_two_way_alt_vote_weight,
+        anchor_keys=cross_market_keys,
+        family_cap=_family_cap_applied,
+        base_weights=blend_weight_by_source,
         single_lineage_retention=not _sparse_limited_evidence,
     )
     # ── Confidence describes the value that SHIPPED (B11) ──
@@ -14226,28 +14227,6 @@ def _compute_unified_rankings(
     _LAST_SOURCE_WEIGHTING_SUMMARY = _source_weighting_summary(
         players_array, source_weighting, active_sources, applied=_freshness_applied
     )
-    # Source-independence policy in force on this build (owner closeout
-    # 2026-10-18 D2/D3): which row-scoped lineage rules are enabled and on how
-    # many rows each ENGAGED, and how many rows each row-class vote hold held.
-    # An empty count is the honest "engaged nowhere".
-    _LAST_SOURCE_WEIGHTING_SUMMARY["independencePolicy"] = {
-        "rowScopedCorrelation": {
-            rule["id"]: {
-                "enabled": rule["id"] in _corr_rules,
-                "members": list(rule["members"]),
-                "group": rule["group"],
-                "assetClass": rule["assetClass"],
-                "flag": rule["flag"],
-                "lineage": rule["lineage"],
-                "rowsEngaged": row_lineage_engaged.get(rule["id"], 0),
-            }
-            for rule in ROW_SCOPED_CORRELATION_GROUPS
-        },
-        "rowClassVoteHolds": {
-            key: {**hold, "rowsHeld": row_class_vote_held.get(key, 0)}
-            for key, hold in _row_class_holds.items()
-        },
-    }
 
     return pick_aliases
 
@@ -14694,6 +14673,90 @@ def _strip_legacy_lam_fields(base: dict[str, Any], players_by_name: dict[str, An
         ]
         for k in keys_to_remove:
             del pdata[k]
+
+
+def _source_voting_eligibility(
+    *,
+    source_vote_state: Mapping[str, Mapping[str, Any]],
+    seasonally_inactive: Mapping[str, Any],
+    source_overrides: Mapping[str, Mapping[str, Any]] | None,
+    weighting_summary: Mapping[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    """Per registered source: WHY it does or does not vote on this build.
+
+    Machine-readable facts for the source audit (owner directive 2026-10-19:
+    "make every source's voting status and effective weight transparent"),
+    assembled only from the owners' own outputs — the registry, the vote-state
+    stamp (private availability + owner-policy holds), the seasonal state, the
+    user's overrides and the weighting summary.  Decides nothing.
+
+    * ``family`` is the B10 correlation group; ``familyBasis`` says why it
+      groups: ``own`` (alone), ``same_provider`` (every member one provider)
+      or ``cross_provider_lineage`` (members of different providers, grouped
+      on recorded data lineage — ``config/sources/source_lineage.json``).
+    * ``status``: ``voting`` (at least one row), ``withheld`` (registered and
+      active but every observation weighed 0 — freshness / health),
+      ``policy_held``, ``seasonal_inactive``, ``private_not_voting``,
+      ``disabled_by_override`` or ``no_observations``; ``reason`` names the
+      owner's reason.  Freshness percentages are the freshness owner's
+      (``sourceWeighting``), not repeated here.
+    """
+    from src.sources.source_census import provider_of  # noqa: PLC0415
+
+    sources = ((weighting_summary or {}).get("sources") or {}) if weighting_summary else {}
+    members: dict[str, list[str]] = {}
+    for src in _RANKING_SOURCES:
+        key = str(src.get("key") or "")
+        members.setdefault(correlation_group_for(key), []).append(key)
+    out: dict[str, dict[str, Any]] = {}
+    for src in _RANKING_SOURCES:
+        key = str(src.get("key") or "")
+        family = correlation_group_for(key)
+        providers = {provider_of(k) for k in members.get(family, [key])}
+        if len(members.get(family, [key])) <= 1:
+            basis = "own"
+        elif len(providers) == 1 and None not in providers:
+            basis = "same_provider"
+        else:
+            basis = "cross_provider_lineage"
+        scopes = [src.get("scope")] + list(src.get("extra_scopes") or [])
+        sw = sources.get(key) or {}
+        voting_rows = sw.get("votingRows")
+        state = source_vote_state.get(key) or {}
+        ov = (source_overrides or {}).get(key) or {}
+        if ov.get("include") is False or (
+            "weight" in ov
+            and _effective_source_weight(dict(src), dict(source_overrides or {})) <= 0
+        ):
+            status, reason = "disabled_by_override", "user_override"
+        elif state.get("holdKind") == VOTE_HOLD_KIND_OWNER_POLICY:
+            status, reason = "policy_held", state.get("heldFromVote")
+        elif key in seasonally_inactive:
+            status = "seasonal_inactive"
+            reason = (seasonally_inactive.get(key) or {}).get("reason") or "seasonal_policy"
+        elif state and state.get("votes") is False:
+            status, reason = "private_not_voting", state.get("voteState")
+        elif isinstance(voting_rows, int) and voting_rows > 0:
+            status, reason = "voting", None
+        elif sw.get("excludedRows"):
+            status, reason = "withheld", "freshness_or_health_zero_weight"
+        else:
+            status, reason = "no_observations", "no_matched_observation_on_board"
+        out[key] = {
+            "provider": provider_of(key),
+            "family": family,
+            "familyBasis": basis,
+            "scopes": scopes,
+            "rookieBoard": bool(src.get("needs_rookie_translation")),
+            "baseWeight": src.get("weight"),
+            "status": status,
+            "reason": reason,
+            "rollbackFlag": state.get("rollbackFlag"),
+            "votingRows": voting_rows,
+            "excludedRows": sw.get("excludedRows"),
+            "meanAppliedWeight": sw.get("meanAppliedWeight"),
+        }
+    return out
 
 
 def build_api_data_contract(
@@ -15451,6 +15514,14 @@ def build_api_data_contract(
         # from ``sourceRankMeta`` by the board's own declaration.
         "privateSourceAvailability": {k: dict(v) for k, v in sorted(source_vote_state.items())},
     }
+    # Per registered source: why it does or does not vote (owner directive
+    # 2026-10-19 — no hidden weighting).  Facts from the owners above only.
+    contract_payload["sourceVotingEligibility"] = _source_voting_eligibility(
+        source_vote_state=source_vote_state,
+        seasonally_inactive=seasonally_inactive,
+        source_overrides=source_overrides,
+        weighting_summary=_LAST_SOURCE_WEIGHTING_SUMMARY,
+    )
     # Degraded-input diagnostics (fail-closed fallbacks).  Stamped ONLY when
     # the fallback fired, so a healthy build's payload is byte-identical; the
     # validator turns each into a warning + ``degraded``.

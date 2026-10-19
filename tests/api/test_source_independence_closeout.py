@@ -1,19 +1,27 @@
-"""Owner closeout 2026-10-18, Decisions 2-5: source independence.
+"""Source voting: owner closeout 2026-10-18 as amended by the owner's
+source-voting consensus directive of 2026-10-19.
 
-* D2 — IDP-scoped shared correlation cap (``idp_shared_correlation_cap``):
-  on a DEFENSIVE row where both the IDP Trade Calculator and The IDP Show
-  combined board vote, they are one lineage for the family cap and the B11
-  count.  Never offense or picks; never makes the IDP-only Show board a voter.
-* D3 — the IDP Trade Calculator's offense vote is excluded
-  (``idptc_offense_vote_excluded``); its IDP and pick votes are untouched.
-* D4 — DLF Values votes rank -> Hill as an offense-only ``dlf`` member under
-  DLF's one provider cap (``dlf_values_rank_hill_vote``).
-* D5 — FantasyPros IDP is judged on the vendor's stated expert-update clock.
+* Agreement between DIFFERENT providers is consensus, not duplication.  Only
+  credible shared-DATA-lineage evidence (one feed republishing another) may
+  merge votes; numerical or rank similarity never removes or caps a vote.
+  So the 2026-10-18 D2 IDP-scoped shared cap (IDP Trade Calculator + IDP Show)
+  and the D3 exclusion of the IDP Trade Calculator's offense vote are
+  WITHDRAWN: both mechanisms are deleted and the votes are main's.
+* D4 — DLF Values votes rank -> Hill as an offense-only ``dlf`` member,
+  splitting DLF's one provider cap (``dlf_values_rank_hill_vote``).
+* D5 — FantasyPros IDP is judged on the vendor's stated expert-update clock
+  (``fantasypros_idp_upstream_clock``).
+* Two-way boost — the alt-family value is what a real member of the family
+  with the same votes gets (``two_way_alt_evidence_rules``).
+* Universal source-voting directive (later 2026-10-19) — the DLF IDP / DLF
+  Rookie IDP hold is rescinded (``dlf_offense_only_vote`` defaults OFF; its
+  mechanism is pinned by ``tests/api/test_dlf_offense_only_vote.py``), and the
+  contract stamps per-source eligibility facts (``sourceVotingEligibility``).
 
 Board assertions are all-of / none-of invariants on the newest complete
 archived scrape, never counts, so a CSV refresh cannot flip them.  The
-measured record is docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md
-(``scripts/source_independence_closeout.py``).
+measured record is docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md
+(``scripts/source_voting_consensus_evidence.py``).
 """
 
 from __future__ import annotations
@@ -28,9 +36,10 @@ from src.sources import freshness as fr
 from tests.archive_fixtures import newest_complete_raw_payload
 
 _ENV = {
-    "D2": "RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP",
-    "D3": "RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED",
     "D4": "RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE",
+    "TW": "RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES",
+    "D5": "RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK",
+    "DLF_HOLD": "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE",
 }
 _OFFENSE = {"QB", "RB", "WR", "TE"}
 _IDP = {"DL", "LB", "DB"}
@@ -59,10 +68,13 @@ def _rows(contract) -> dict[str, dict]:
 
 
 def _build(raw, **flags) -> dict:
+    """One build.  A flag named in ``flags`` is forced; the rest keep their
+    production defaults."""
     mp = pytest.MonkeyPatch()
     try:
         for d, env in _ENV.items():
-            mp.setenv(env, "1" if flags.get(d, False) else "0")
+            if d in flags:
+                mp.setenv(env, "1" if flags[d] else "0")
         if "freshness" in flags:
             mp.setenv(
                 "RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING", "1" if flags["freshness"] else "0"
@@ -85,79 +97,36 @@ def raw():
 # ── declarations ───────────────────────────────────────────────────────────
 
 
-def test_flags_are_registered_live_with_the_decided_defaults():
+def test_flags_are_registered_live_with_their_decided_defaults():
+    assert feature_flags._DEFAULTS["two_way_alt_evidence_rules"] is True
+    assert feature_flags._DEFAULTS["fantasypros_idp_upstream_clock"] is True
+    # D4's default is its gate outcome (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
+    assert isinstance(feature_flags._DEFAULTS["dlf_values_rank_hill_vote"], bool)
     for name in (
-        "idp_shared_correlation_cap",
-        "idptc_offense_vote_excluded",
         "dlf_values_rank_hill_vote",
-    ):
-        assert feature_flags._DEFAULTS[name] is True
-    for name in (
-        "idp_shared_correlation_cap",
-        "idptc_offense_vote_excluded",
-        "dlf_values_rank_hill_vote",
+        "two_way_alt_evidence_rules",
+        "fantasypros_idp_upstream_clock",
     ):
         assert feature_flags.gate_status(name) == feature_flags.LIVE
 
 
-def test_d2_rule_is_idp_only_and_never_registers_the_idp_only_show_board():
-    (rule,) = dc.ROW_SCOPED_CORRELATION_GROUPS
-    assert rule["assetClass"] == "idp"
-    assert set(rule["members"]) == {"idpTradeCalc", "idpShowCombined"}
-    assert rule["group"] == dc.correlation_group_for("idpShowCombined")
-    assert "idpShow" not in dc.get_ranking_source_keys()
+def test_similarity_based_vote_merges_and_exclusions_are_gone():
+    """Owner directive 2026-10-19: the D2 shared cap and the D3 offense-vote
+    exclusion rested on similarity, not shared data lineage.  Deleted, not
+    deprecated, so no seam remains to re-enable them."""
+    for name in (
+        "ROW_SCOPED_CORRELATION_GROUPS",
+        "row_scoped_family_map",
+        "POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS",
+    ):
+        assert not hasattr(dc, name), name
+    for flag in ("idp_shared_correlation_cap", "idptc_offense_vote_excluded"):
+        assert flag not in feature_flags._DEFAULTS, flag
 
 
-def test_row_scoped_family_map_engages_only_when_every_member_votes():
-    base = {"idpTradeCalc": "idpTradeCalc", "idpShowCombined": "idpShow", "dlfSf": "dlf"}
-    rules = {"idp_show_lineage_on_idp_rows"}
-    m, engaged = dc.row_scoped_family_map(
-        base, asset_class="idp", voting={"idpTradeCalc": 0.8}, enabled_rules=rules
-    )
-    assert m is base and engaged == ()
-    m, engaged = dc.row_scoped_family_map(
-        base,
-        asset_class="offense",
-        voting={"idpTradeCalc": 0.8, "idpShowCombined": 0.7},
-        enabled_rules=rules,
-    )
-    assert m is base and engaged == ()
-    m, engaged = dc.row_scoped_family_map(
-        base,
-        asset_class="idp",
-        voting={"idpTradeCalc": 0.8, "idpShowCombined": 0.7},
-        enabled_rules=set(),
-    )
-    assert m is base and engaged == ()
-    m, engaged = dc.row_scoped_family_map(
-        base,
-        asset_class="idp",
-        voting={"idpTradeCalc": 0.8, "idpShowCombined": 0.7},
-        enabled_rules=rules,
-    )
-    assert engaged == ("idp_show_lineage_on_idp_rows",)
-    assert m["idpTradeCalc"] == m["idpShowCombined"] == "idpShow"
-    assert m["dlfSf"] == "dlf" and base["idpTradeCalc"] == "idpTradeCalc"
-
-
-def test_family_cap_owner_caps_a_row_scoped_lineage_at_one_provider():
-    weights = {"idpTradeCalc": 0.9, "idpShowCombined": 0.6, "draftSharksIdp": 1.0}
-    plain, _ = dc.cap_family_weights(weights)
-    assert plain == weights  # two families: nothing capped
-    lineage = {"idpTradeCalc": "idpShow", "idpShowCombined": "idpShow"}
-    capped, factor = dc.cap_family_weights(
-        weights, family_of=lambda k: lineage.get(k) or dc.correlation_group_for(k)
-    )
-    assert capped["idpTradeCalc"] + capped["idpShowCombined"] == pytest.approx(1.0)
-    assert capped["idpTradeCalc"] / capped["idpShowCombined"] == pytest.approx(1.5)
-    assert capped["draftSharksIdp"] == 1.0 and factor["draftSharksIdp"] == 1.0
-
-
-def test_d3_hold_is_offense_rows_only():
-    hold = dc.POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS["idpTradeCalc"]
-    assert hold["assetClass"] == "offense"
-    assert hold["flag"] == "idptc_offense_vote_excluded"
-    assert set(dc.POLICY_SOURCE_ROW_CLASS_VOTE_HOLDS) == {"idpTradeCalc"}
+def test_idp_trade_calculator_and_idp_show_are_separate_families():
+    assert dc.correlation_group_for("idpTradeCalc") != dc.correlation_group_for("idpShowCombined")
+    assert "idpShow" not in dc.get_ranking_source_keys()  # the IDP-only cut never votes
 
 
 def test_d4_dlf_values_is_an_offense_only_dlf_member_voting_rank():
@@ -196,9 +165,22 @@ def test_dataset_recorder_reads_the_value_column_for_value_order_boards():
     assert got["dlfSf"] == "rank"
 
 
-def test_d5_fantasypros_idp_uses_the_vendor_stated_clock():
-    cfg = fr.load_config()
-    assert cfg.cadence_for("fantasyProsIdp").style == fr.STYLE_EXPLICIT
+def test_d5_fantasypros_idp_clock_follows_its_flag(monkeypatch):
+    assert fr.load_config().cadence_for("fantasyProsIdp").style == fr.STYLE_EXPLICIT
+    monkeypatch.setenv(_ENV["D5"], "0")
+    feature_flags.reload()
+    try:
+        assert fr.load_config().cadence_for("fantasyProsIdp").style is None
+        assert fr.default_config().cadence_for("fantasyProsIdp").style is None
+    finally:
+        monkeypatch.delenv(_ENV["D5"])
+        feature_flags.reload()
+    assert fr.default_config().cadence_for("fantasyProsIdp").style == fr.STYLE_EXPLICIT
+
+
+def test_an_unknown_style_flag_is_a_config_error():
+    with pytest.raises(ValueError):
+        fr._cadence({"style": fr.STYLE_EXPLICIT, "styleFlag": "no_such_flag"})
 
 
 def test_d5_rescraping_unchanged_content_cannot_refresh_the_age():
@@ -235,76 +217,71 @@ def test_d5_rescraping_unchanged_content_cannot_refresh_the_age():
 @pytest.fixture(scope="module")
 def boards(raw):
     return {
-        "base": _build(raw),
-        "d2": _build(raw, D2=True),
-        "d3": _build(raw, D3=True),
-        "d4": _build(raw, D4=True),
+        # Every PR flag off, the DLF IDP hold re-applied: main's behaviour.
+        # Each single-flag board isolates that flag against it.
+        "off": _build(raw, D4=False, TW=False, D5=False, DLF_HOLD=True),
+        "defaults": _build(raw),
+        "d4": _build(raw, D4=True, TW=False, D5=False, DLF_HOLD=True),
+        "tw": _build(raw, D4=False, TW=True, D5=False, DLF_HOLD=True),
+        "d5": _build(raw, D4=False, TW=False, D5=True, DLF_HOLD=True),
     }
 
 
-_LEGACY_TWO_WAY_AUDIT = {
-    "applied",
-    "altFamily",
-    "altFamilyValue",
-    "primaryFamilyValue",
-    "sourcesConsidered",
-}
-#: Independent restatement of the D2 rule (deliberately NOT read from
-#: ``dc.ROW_SCOPED_CORRELATION_GROUPS``), as in
-#: ``scripts/source_independence_closeout.py``.
-_D2_MEMBERS = ("idpTradeCalc", "idpShowCombined")
-_D2_GROUP = "idpShow"
+@pytest.fixture(scope="module")
+def engaged_boards(raw):
+    """Freshness weighting rolled back: The IDP Show votes at full base weight
+    beside the IDP Trade Calculator (the state on the day the vendor
+    republishes)."""
+    return _build(raw, TW=False, freshness=False), _build(raw, TW=True, freshness=False)
 
 
-def _two_way_evidence_rule_acted(row) -> bool:
-    """Under D2 a two-way player's alt (defensive) value is held to the
-    row-level evidence rules (``_apply_two_way_player_boost``).  It can differ
-    from the D2-off value only through one of them, each stamped on the audit:
-    a withheld copy left the alt value, the lineage rule merged the alt
-    evidence, or one lineage kept the single-source retention."""
-    audit = row.get("twoWayPlayerBoost") or {}
-    return bool(
-        audit.get("freshnessExcludedSources")
-        or audit.get("sharedLineageCaps")
-        or audit.get("singleSourceValuePenaltyApplied")
-    )
-
-
-def test_d2_preserves_every_value_where_the_show_does_not_vote(boards):
-    base, d2 = _rows(boards["base"]), _rows(boards["d2"])
-    for name, row in base.items():
-        voters = _voting(row)
-        if _klass(row) == "idp" and {"idpTradeCalc", "idpShowCombined"} <= set(voters):
+def test_idp_trade_calculator_offense_votes_are_mains(boards):
+    """D3 withdrawn: the IDP Trade Calculator is an ordinary offense voter
+    again (its observations go through the normal freshness gate)."""
+    seen = 0
+    for name, row in _rows(boards["defaults"]).items():
+        if _klass(row) != "offense":
             continue
-        if name in dc._TWO_WAY_PLAYERS and _two_way_evidence_rule_acted(d2[name]):
-            # Pinned positively by the next test.
-            continue
-        assert d2[name].get("rankDerivedValue") == row.get("rankDerivedValue"), name
-        assert d2[name].get("confidenceBucket") == row.get("confidenceBucket"), name
-        assert not d2[name].get("sharedLineageCaps"), name
+        if "idpTradeCalc" in (row.get("sourceRankMeta") or {}):
+            seen += 1
+    assert seen > 0
+    assert "independencePolicy" not in (boards["defaults"].get("sourceWeighting") or {})
 
 
-def _assert_two_way_follows_row_level_evidence(base_rows, d2_rows) -> int:
-    """The alt value under D2, checked against an INDEPENDENT restatement of
-    the rules (vote state read off the real defensive rows, the D2 merge,
-    the haircut's present-evidence count).  Returns rows checked."""
-    checked = 0
+def test_the_two_way_rules_move_only_two_way_rows(boards):
+    off, tw = _rows(boards["off"]), _rows(boards["tw"])
+    for name, row in tw.items():
+        same = row.get("rankDerivedValue") == off[name].get("rankDerivedValue") and row.get(
+            "confidenceBucket"
+        ) == off[name].get("confidenceBucket")
+        if not same:
+            assert name in dc._TWO_WAY_PLAYERS, name
+    # ... and never the two-way player's own offense (primary) blend.
     for name in dc._TWO_WAY_PLAYERS:
-        off, on = base_rows.get(name), d2_rows.get(name)
-        if not off or not on or not on.get("twoWayPlayerBoost"):
+        a, b = tw.get(name), off.get(name)
+        if a and b and a.get("twoWayPlayerBoost") and b.get("twoWayPlayerBoost"):
+            assert (
+                a["twoWayPlayerBoost"]["primaryFamilyValue"]
+                == b["twoWayPlayerBoost"]["primaryFamilyValue"]
+            ), name
+
+
+def _assert_alt_follows_real_member_rules(rows) -> int:
+    """The audit restated independently: vote state read off the real
+    defensive rows, B10 families from the registry, the haircut's
+    present-evidence count."""
+    checked = 0
+    alt_rows = [r for r in rows.values() if _klass(r) == "idp"]
+    for name in dc._TWO_WAY_PLAYERS:
+        row = rows.get(name)
+        audit = (row or {}).get("twoWayPlayerBoost")
+        if not audit:
             continue
         checked += 1
-        legacy, audit = off["twoWayPlayerBoost"], on["twoWayPlayerBoost"]
-        # Rollback: the D2-off boost is the pre-closeout boost, key for key.
-        assert set(legacy) == _LEGACY_TWO_WAY_AUDIT, name
-        voting, withheld = set(audit["sourcesConsidered"]), set(audit["freshnessExcludedSources"])
+        assert audit["evidenceRule"] == "alt_family_vote_state", name
+        voting = set(audit["sourcesConsidered"])
+        withheld = set(audit["freshnessExcludedSources"])
         assert not voting & withheld, name
-        # Only observations the pre-closeout boost could read, nothing new:
-        # voters it priced, withheld copies the row actually carries.
-        assert voting <= set(legacy["sourcesConsidered"]), name
-        for key in withheld:
-            assert float((on.get("canonicalSiteValues") or {}).get(key) or 0) > 0, name
-        alt_rows = [r for r in d2_rows.values() if _klass(r) == "idp"]
         for key in voting:
             assert any(key in _voting(r) for r in alt_rows), f"{name}: {key} votes nowhere"
         for key in withheld:
@@ -313,120 +290,42 @@ def _assert_two_way_follows_row_level_evidence(base_rows, d2_rows) -> int:
                 == "freshness_or_health_zero_weight"
                 for r in alt_rows
             ), f"{name}: {key} is withheld nowhere"
-        engaged = set(_D2_MEMBERS) <= voting
-        assert bool(audit["sharedLineageCaps"]) == engaged, name
-        lineages = {
-            (_D2_GROUP if engaged and k in _D2_MEMBERS else dc.correlation_group_for(k))
-            for k in voting | withheld
-        }
-        assert audit["lineages"] == sorted(lineages), name
-        assert audit["singleSourceValuePenaltyApplied"] == (len(lineages) <= 1), name
+        families = sorted({dc.correlation_group_for(k) for k in voting | withheld})
+        assert audit["families"] == families, name
+        if audit.get("withdrawn"):
+            assert not voting and row["rankDerivedValue"] == audit["primaryFamilyValue"], name
+            continue
+        assert audit["singleSourceValuePenaltyApplied"] == (len(families) <= 1), name
         if audit["singleSourceValuePenaltyApplied"]:
             before = audit["altFamilyValueBeforePenalty"]
             assert abs(audit["altFamilyValue"] - before * dc._SINGLE_SOURCE_VALUE_RETENTION) <= 1
-        expected = max(audit["altFamilyValue"], audit["primaryFamilyValue"])
-        assert on["rankDerivedValue"] == expected, name
+        assert row["rankDerivedValue"] == max(
+            audit["altFamilyValue"], audit["primaryFamilyValue"]
+        ), name
     return checked
 
 
-def test_d2_two_way_alt_value_follows_the_row_level_evidence_rules(boards, engaged_boards):
-    """Independent review of the closeout: the boost read raw
-    ``canonicalSiteValues``, so the two-way alt value kept a copy that did not
-    vote and escaped the haircut D2's merged lineage gives every real defender
-    resting on it.  Checked on the real board (where The IDP Show may be
-    withheld) and with freshness rolled back (where both copies vote)."""
-    checked = _assert_two_way_follows_row_level_evidence(_rows(boards["base"]), _rows(boards["d2"]))
-    checked += _assert_two_way_follows_row_level_evidence(*(_rows(c) for c in engaged_boards))
+def test_the_two_way_alt_value_follows_real_member_rules(boards, engaged_boards):
+    checked = _assert_alt_follows_real_member_rules(_rows(boards["tw"]))
+    checked += _assert_alt_follows_real_member_rules(_rows(engaged_boards[1]))
     if checked == 0:
         pytest.skip("no two-way player carries alt-family evidence on this archive")
 
 
-@pytest.fixture(scope="module")
-def engaged_boards(raw):
-    """With freshness weighting rolled back The IDP Show votes at full base
-    weight, so the rule engages on real rows (the state it would be in the
-    day the vendor republishes)."""
-    return _build(raw, freshness=False), _build(raw, D2=True, freshness=False)
-
-
-def test_d2_engages_exactly_where_both_vote_on_defensive_rows(engaged_boards):
-    off, on = (_rows(c) for c in engaged_boards)
-    engaged = 0
-    for name, row in on.items():
-        both = {"idpTradeCalc", "idpShowCombined"} <= set(_voting(off[name]))
-        expect = _klass(row) == "idp" and both
-        assert bool(row.get("sharedLineageCaps")) == expect, name
-        if not expect:
-            continue
-        engaged += 1
-        kept = {k: m for k, m in _voting(row).items() if not m.get("hampelDropped")}
-        lineage = sum(
-            float(kept[k]["appliedWeight"])
-            for k in ("idpTradeCalc", "idpShowCombined")
-            if k in kept
-        )
-        assert lineage <= 1.0 + 1e-3, name
-        if "idpTradeCalc" in kept and "idpShowCombined" in kept:
-            assert row["independentSourceCount"] == off[name]["independentSourceCount"] - 1
-    if engaged == 0:
-        pytest.skip("The IDP Show casts no vote on this archive even at full weight")
-
-
-def test_d2_one_lineage_rows_take_the_single_source_haircut(engaged_boards):
-    """Independent review of the closeout: the haircut counted families on the
-    registry map, so a defensive row priced only by the IDP Trade Calculator
-    and its correlated IDP Show copy escaped the 30% haircut that the same row
-    takes with the calculator alone.  D2 merges them into one lineage."""
-    off, on = (_rows(c) for c in engaged_boards)
-    checked = 0
-    for name, row in on.items():
-        if not row.get("sharedLineageCaps") or _klass(row) != "idp":
-            continue
-        kept = {k for k, m in _voting(row).items() if not m.get("hampelDropped")}
-        if not kept or not kept <= {"idpTradeCalc", "idpShowCombined"}:
-            continue
-        if not row.get("rankDerivedValue"):
-            continue
-        checked += 1
-        assert row.get("singleSourceValuePenaltyApplied"), name
-        assert not off[name].get("singleSourceValuePenaltyApplied"), name
-        assert row["rankDerivedValue"] < off[name]["rankDerivedValue"], name
-    if checked == 0:
-        pytest.skip("no defensive row rests solely on the merged lineage on this archive")
-
-
-def test_d2_never_reprices_an_offense_row_except_two_way_players(engaged_boards):
-    off, on = (_rows(c) for c in engaged_boards)
-    for name, row in on.items():
-        if _klass(row) != "offense":
-            continue
-        if row.get("rankDerivedValue") != off[name].get("rankDerivedValue"):
-            assert name in dc._TWO_WAY_PLAYERS, name
-
-
-def test_d3_removes_only_the_offense_vote(boards):
-    base, d3 = _rows(boards["base"]), _rows(boards["d3"])
-    keys = ("rawRank", "valueContribution", "appliedWeight")
-    for name, row in d3.items():
-        meta = (row.get("sourceRankMeta") or {}).get("idpTradeCalc")
-        before = (base[name].get("sourceRankMeta") or {}).get("idpTradeCalc")
-        if _klass(row) == "offense":
-            assert meta is None, name
-            assert "idpTradeCalc" not in (row.get("effectiveSourceRanks") or {}), name
-            if base[name].get("rankDerivedValue"):
-                assert row.get("rankDerivedValue"), f"{name}: exclusion must not unprice"
-        elif before or meta:
-            assert before and meta and all(before.get(k) == meta.get(k) for k in keys), name
-    held = boards["d3"]["sourceWeighting"]["independencePolicy"]["rowClassVoteHolds"]
-    assert held["idpTradeCalc"]["rowsHeld"] == sum(
-        1
-        for r in base.values()
-        if _klass(r) == "offense" and "idpTradeCalc" in (r.get("sourceRankMeta") or {})
-    )
+def test_two_eligible_idp_providers_are_two_families_and_no_haircut(engaged_boards):
+    """Both IDP providers voting (freshness rolled back): consensus, so the
+    two-way alt evidence counts two families and keeps its full value."""
+    rows = _rows(engaged_boards[1])
+    for name in dc._TWO_WAY_PLAYERS:
+        audit = (rows.get(name) or {}).get("twoWayPlayerBoost") or {}
+        voting = set(audit.get("sourcesConsidered") or ())
+        if {"idpTradeCalc", "idpShowCombined"} <= voting:
+            assert {"idpTradeCalc", "idpShow"} <= set(audit["families"]), name
+            assert audit["singleSourceValuePenaltyApplied"] is False, name
 
 
 def test_d4_votes_on_offense_only_and_keeps_one_dlf_family(boards):
-    base, d4 = _rows(boards["base"]), _rows(boards["d4"])
+    base, d4 = _rows(boards["off"]), _rows(boards["d4"])
     voted = False
     for name, row in d4.items():
         meta = (row.get("sourceRankMeta") or {}).get("dlfValuesSfTep")
@@ -442,7 +341,7 @@ def test_d4_votes_on_offense_only_and_keeps_one_dlf_family(boards):
         if _klass(row) == "idp":
             assert row.get("rankDerivedValue") == base[name].get("rankDerivedValue"), name
     assert voted
-    for name, row in _rows(boards["base"]).items():
+    for name, row in _rows(boards["off"]).items():
         assert "dlfValuesSfTep" not in (row.get("effectiveSourceRanks") or {}), name
 
 
@@ -465,7 +364,86 @@ def test_d5_duplicate_csv_identities_cast_one_vote(boards):
     CSV entry can never be a second vote or push other players down."""
     names = [
         n
-        for n, r in _rows(boards["base"]).items()
+        for n, r in _rows(boards["off"]).items()
         if "fantasyProsIdp" in (r.get("sourceRankMeta") or {})
     ]
     assert len(names) == len(set(names))
+
+
+def test_d5_alone_moves_no_value_today(boards):
+    """Today FantasyPros IDP is the only non-anchor subgroup voter on its
+    rows, and a lone member's weight does not move a weighted mean, so D5
+    moves labels only.  That is a property of today's board, not of the
+    structure: a second non-anchor IDP voter makes the lower weight reach
+    values (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md)."""
+    off, d5 = _rows(boards["off"]), _rows(boards["d5"])
+    moved = [
+        n for n, r in d5.items() if r.get("rankDerivedValue") != off[n].get("rankDerivedValue")
+    ]
+    if moved:
+        pytest.skip(f"D5 reaches values on this archive ({len(moved)} rows): see the evidence doc")
+
+
+# ── universal directive: DLF IDP restore + eligibility facts ───────────────
+
+
+def test_dlf_idp_votes_by_default_inside_one_dlf_family(boards):
+    """The hold is rescinded, and DLF's boards still share one provider's
+    authority: on no row does the ``dlf`` family's applied weight exceed one
+    provider's (the largest member base weight)."""
+    fam = {s["key"]: dc.correlation_group_for(s["key"]) for s in dc._RANKING_SOURCES}
+    base = {s["key"]: float(s.get("weight") or 1.0) for s in dc._RANKING_SOURCES}
+    seen = 0
+    for name, row in _rows(boards["defaults"]).items():
+        voters = _voting(row)
+        seen += any(k in voters for k in ("dlfIdp", "dlfRookieIdp"))
+        dlf = {
+            k: m for k, m in voters.items() if fam.get(k) == "dlf" and not m.get("hampelDropped")
+        }
+        if dlf:
+            total = sum(float(m.get("appliedWeight") or 0.0) for m in dlf.values())
+            assert total <= max(base[k] for k in dlf) + 1e-6, (name, total)
+    if not seen:
+        pytest.skip("no DLF IDP observation on this archive")
+
+
+def test_source_voting_eligibility_stamps_every_registered_source(boards):
+    """One entry per registered source, with a status the row-level votes
+    agree with, so the 26-source audit reads facts the pipeline decided
+    rather than re-deriving them."""
+    contract = boards["defaults"]
+    stamp = contract["sourceVotingEligibility"]
+    assert set(stamp) == {s["key"] for s in dc._RANKING_SOURCES}
+    allowed = {
+        "voting",
+        "withheld",
+        "policy_held",
+        "seasonal_inactive",
+        "private_not_voting",
+        "disabled_by_override",
+        "no_observations",
+    }
+    carried: dict[str, int] = {}
+    for row in contract["playersArray"]:
+        for k in _voting(row):
+            carried[k] = carried.get(k, 0) + 1
+    for key, facts in stamp.items():
+        assert facts["status"] in allowed, (key, facts["status"])
+        assert facts["family"] == dc.correlation_group_for(key)
+        if facts["status"] == "voting":
+            assert (facts.get("votingRows") or 0) > 0 and carried.get(key), key
+        else:
+            assert facts.get("reason"), key
+            if facts["status"] != "withheld":
+                assert not carried.get(key), key
+    # Lineage bases: a same-provider family and a documented cross-provider one.
+    assert stamp["dlfIdp"]["familyBasis"] == "same_provider"
+    assert stamp["fantasyNavigatorSf"]["familyBasis"] == "cross_provider_lineage"
+    assert stamp["idpTradeCalc"]["familyBasis"] == "own"
+
+
+def test_the_dlf_hold_rollback_stamps_dlf_idp_policy_held(boards):
+    stamp = boards["off"]["sourceVotingEligibility"]
+    for key in ("dlfIdp", "dlfRookieIdp"):
+        assert stamp[key]["status"] == "policy_held", stamp[key]
+        assert stamp[key]["rollbackFlag"] == "dlf_offense_only_vote"

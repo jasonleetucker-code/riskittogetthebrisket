@@ -24,6 +24,11 @@ recommendation for an explicit owner decision.
 > * FantasyPros clock: **`EXPLICIT_UPSTREAM_TIMESTAMP` approved** (D5). Signals IDP hold maintained (D7).
 > * §6 package model: `geom_q078_v1` stays active; no recalibration from accepted trades (D8).
 > Status of each, live: `docs/owner/OWNER_DECISION_REGISTER.md`. Conditional items stay EVIDENCE_PENDING until their gates pass.
+>
+> **Owner directives, 2026-10-19, supersede D1, D2 and D3.** D2 and D3 are withdrawn (similarity is not lineage).
+> The D1 DLF IDP hold is rescinded: DLF IDP and DLF Rookie IDP vote again under the one DLF family cap, and the
+> outlier-filter interaction §2 measured goes to the outlier lane. Record:
+> `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
@@ -427,7 +432,12 @@ blockers this evaluation left open. The record, with every measurement, is
 `docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md`; the reproducible
 instrument is `scripts/source_independence_closeout.py`. In brief:
 
-* **§3, the IDP-scoped shared cap (D2): implemented.**
+> **2026-10-19:** the owner's source-voting directive withdrew D2 and D3 below:
+> agreement between providers is consensus, and similarity is not lineage. Both
+> mechanisms were deleted before release. See
+> `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
+
+* **§3, the IDP-scoped shared cap (D2): implemented (withdrawn 2026-10-19).**
   * On a defensive row where both the IDP Trade Calculator and The IDP Show combined
     board vote, they are one lineage, for `cap_family_weights` and for the B11 family
     count. `data_contract.ROW_SCOPED_CORRELATION_GROUPS`; flag
