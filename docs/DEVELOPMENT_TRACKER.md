@@ -16,14 +16,14 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 10:40 UTC (coordinator).
+Last updated: 2026-10-19 10:55 UTC (coordinator).
 
 ## Release vehicles
 
 | Vehicle | Members | State | Next action |
 |---|---|---|---|
 | Train 11 (#1829) | #1822 playoff odds follow the roster; #1823 mobile Trade Tendencies partner | DEPLOYED (`a9f3918808`, 10:04 UTC). Playoff sections still serve a pre-deploy cached forecast (05:27) | Re-probe after the next ROS refresh; check `/trades` on mobile |
-| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: release check 39235950801 on `e25b226724` (120-min budget). Owner approved (10:20 UTC); now covered by the standing authorization | Merge when the release check, Validate PR and E2E are green (standing authorization); deploy before the week-6 Power publication |
+| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: head `65498c5296` (added the #1837 fix: the two new V1 steps classified advisory); release check 39240097028 started 10:48 (the earlier run was cancelled because it would have failed on that test) | Merge when the release check, Validate PR and E2E are green (standing authorization); deploy before the week-6 Power publication |
 | Train 13 (planned) | #1839 cross-model parallel delivery + auto-merge policy (codex), #1838 tracker, wave-1/W5 PRs that are green | QUEUED until train 12 merges | Build from the new `main`; resolve the `docs/EXECUTION_PLAN.md` top-section conflict with #1830 by keeping both sections; release check; merge |
 | #1832 CI budget 80→120 min | — | MERGED (`2d854f7523`) | Rides the next deploy |
 
@@ -41,7 +41,7 @@ Last updated: 2026-10-19 10:40 UTC (coordinator).
 | Universal freshness schedule + voting status (CQ-64) | Freshness lane | `claude/universal-freshness-schedule` | #1831 | — | CI FAILING (`f24c09aff8`: Signals stale-vote test KeyError; IDP anchor-chain test) | Root-cause pending | Full local suite, then push |
 | IDP outlier filter (CQ-65) | Outlier lane | `claude/outlier-filter-disagreement` | — | — | IMPLEMENTING | — | Preregistered challenger behind a flag, default OFF |
 | Source voting transparency UI (CQ-66) | W1 | `claude/source-voting-transparency-ui` | — | #1831 payload (renders an honest "not available" state until then) | IMPLEMENTING | — | PR |
-| Screenshot import remainder (CQ-11) | W2 | `claude/screenshot-import-cq11` | — | — | IMPLEMENTING | Production proof needs a member session (CQ-12) | PR |
+| Screenshot import remainder (CQ-11) | W2 (done) | `claude/screenshot-import-cq11` | #1841 | — | READY FOR REVIEW: 242 screenshot tests and 69 vitest passing locally; side alignment by label; mobile/dark fixtures; the owner's Dart/Achane case pinned three ways; prod-auth status spec | CQ-12 needs a member session; privacy check on the `ktc_fullpage_browser` fixture (owner) | Train 13 |
 | Production wedge diagnostics (ops) | W3 | `claude/prod-wedge-diagnostics` | — | — | IMPLEMENTING | Needs the box journal | PR; coordinator runs read-only diagnostics once |
 | Default-league workbook pick ownership fail-closed | W4 (done) | `claude/workbook-pick-ownership-fail-closed` | #1840 | — | READY FOR REVIEW: the fix already shipped in #1785 (train 6); this PR adds 13 contract tests plus doc fixes, and changes no behaviour | Follow-ups below | Train 13 |
 | Brisket Trade Advisor (public League Hub) | Audit workflow → build workers | — | — | Audit and design | IMPLEMENTING (Phase 1 audit) | — | Launch backend + frontend workers from the final design |
@@ -50,8 +50,8 @@ Last updated: 2026-10-19 10:40 UTC (coordinator).
 | War Room server phases (CQ-20) | — | — | — | Train 12 (#1828 status endpoint) | QUEUED | — | Start after train 12 merges (touches `/trade`) |
 | `/trade` pick-ownership unknown state | — | — | — | Train 12 (`/trade` files) | QUEUED | — | Start after train 12 merges |
 | Calculator correctness parity tests (CQ-21) | — | — | — | — | QUEUED | — | Next wave |
-| Accessibility defects (CQ-30) | — | — | — | — | QUEUED | Exclude `/trade` until train 12 merges | Next wave |
-| Scheduled workflow health (CQ-29) | — | — | — | — | QUEUED | — | Next wave |
+| Accessibility defects (CQ-30) | W6 | `claude/a11y-cq30` | — | `/trade` hover tint deferred until train 12 lands | IMPLEMENTING | — | PR |
+| Scheduled workflow health (CQ-29) | W7 | `claude/scheduled-ci-health-cq29` | — | — | IMPLEMENTING | No box SSH; unit checks go to W3's diagnostics | PR |
 | Workbook refusal reason precision (`sleeper_unreachable` vs `traded_picks_fetch_failed` when Sleeper fails before `/traded_picks`) | — | — | — | — | QUEUED | Shipped wording; the change is small | Next wave |
 | Workbook keeps hand-entered reassignments Sleeper does not report (an observed `[]` overrides nothing) | — | — | — | — | QUEUED (investigate) | Sleeper should be the system of record | Verify, then fix |
 | Stale WORK_CLAIMS rows: Draft Valuation Batch E/F/G still read "active — PR open" | — | — | — | — | QUEUED | Records only | Fold into the next records pass |
