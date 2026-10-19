@@ -19,11 +19,14 @@
 > `evidence/SOURCE_INDEPENDENCE_2026-10-18/` are historical: they were produced at
 > commit `8692603f3a` and cannot be regenerated from the current tree.
 >
-> **Later on 2026-10-19 — Decision 1 (the DLF IDP hold) is RESCINDED** by the owner's
-> universal source-voting directive. DLF IDP and DLF Rookie IDP vote again under the
-> one DLF family cap (`dlf_offense_only_vote` now defaults OFF; `=1` re-applies the
-> hold). Where this record says DLF IDP is held, read that as the 2026-10-18 state.
-> The measured restore, split into DLF's own vote and the outlier-filter side
+> **Later on 2026-10-19 — Decision 1 (the DLF IDP policy hold) is RESCINDED** by the
+> owner's universal source-voting directive, which approves the DLF IDP / DLF Rookie
+> IDP restore under the one DLF family cap. The restore is implemented behind
+> `dlf_offense_only_vote` but **held at release** (default ON, re-applied the same
+> day, temporary): under the incumbent outlier filter it drops valid Draft Sharks /
+> FantasyPros / IDPTC IDP votes (moves up to 54%), which the directive forbids. It
+> lifts when the outlier interaction is corrected (CQ-65) or the owner accepts the
+> moves. The measured restore, split into DLF's own vote and the outlier-filter side
 > effect, is in the consensus record.
 
 Owner directive "Master owner decision closeout & evidence-unblock", 2026-10-18,

@@ -37,7 +37,7 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 | D4: DLF Values rank → Hill, offense-only `dlf` member splitting DLF's cap | **released**: every Decision 4 gate re-passed on the current board (below) | `dlf_values_rank_hill_vote` (**ON**) | `RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0`. Decision fields return to the prior board. The source stays registered and displayed, so the payload is not byte for byte |
 | D5: FantasyPros IDP on its upstream clock | **kept**, and now under its own flag (independent control) | `fantasypros_idp_upstream_clock` (**ON**) | `RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK=0` (the configured `styleFlag` drops the style) |
 | Two-way boost: alt-family evidence | **correctness fix**: a two-way player's alt value is what a real member of that family with the same votes gets | `two_way_alt_evidence_rules` (**ON**) | `RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES=0` (the prior boost, byte for byte) |
-| D1: DLF IDP / DLF Rookie IDP owner-policy hold | **rescinded** by the universal directive. Both boards vote under the one DLF family cap. The hold stays a live rollback. Integration validates the default against the outlier lane's fix (below) | `dlf_offense_only_vote` (**OFF** = DLF IDP votes) | `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1` re-applies the hold. Decision fields return to main's |
+| D1: DLF IDP / DLF Rookie IDP owner-policy hold | **policy hold rescinded; restore approved by the owner and implemented, HELD AT RELEASE** (re-applied 2026-10-19, temporary): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDPTC votes on 30 rows (IDP moves up to 54%, none from DLF's own vote), which the directive forbids. Lifts when the outlier interaction is corrected (CQ-65) or the owner accepts the moves (see "DLF IDP restore: implemented, held at release") | `dlf_offense_only_vote` (**ON** = hold in force; OFF = DLF IDP votes) | `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart lifts the hold (the approved restore) |
 | Cross-provider families resting on similarity only | **none exist**, so no correction flag was added. The two cross-provider groupings rest on documented data lineage (audit below) | none | n/a |
 | Per-source eligibility facts | **new stamp** `sourceVotingEligibility` on the contract, for the freshness lane's 26-source audit generator (below) | none (diagnostic, decides nothing) | n/a |
 
@@ -54,9 +54,9 @@ and `fantasypros_idp_upstream_clock` at 0 and the DLF IDP hold re-applied
 
 **D5.** With the DLF IDP hold kept it moves no value: FantasyPros IDP is then the
 only non-anchor subgroup voter on its rows, and a lone member's weight does not move
-a weighted mean. With DLF IDP voting (this PR's defaults) there is a second
+a weighted mean. With DLF IDP voting (the restore, held at release) there is a second
 non-anchor voter, and the lower FantasyPros IDP weight (mean 0.5675 → 0.1752)
-reaches values. Measured on the current board, defaults with D5 on vs off (the
+reaches values. Measured on the current board, the restore with D5 on vs off (the
 reusable `--scenario` mode; `evidence/SOURCE_VOTING_CONSENSUS_2026-10-19/d5_on_top_of_defaults.json`):
 
 * 134 IDP rows and 6 picks move;
@@ -112,11 +112,11 @@ Travis Hunter in each scenario:
 
 * **Current board** (IDP Show withheld): main 3738. S2 (old D2/D3) 3599. S3 and
   S5 with the DLF IDP hold kept: 3599. The withheld IDP Show copy leaves his DB
-  value, with two present families and no haircut. S5 defaults (DLF IDP voting, a
-  third family): 3493.
+  value, with two present families and no haircut. S5 with the restore (DLF IDP
+  voting, a third family): 3493.
 * **Golden board** (both providers vote): main 4618. Old D2 2266, from the merged
   lineage plus the haircut on the alt. S3 and S5 hold kept: 4732, from two
-  families, no haircut, the real-member blend. S5 defaults: 4513.
+  families, no haircut, the real-member blend. S5 with the restore: 4513.
 
 ## Scenarios versus production main
 
@@ -144,8 +144,10 @@ The scenarios:
 * **DLF IDP restore alone** is every PR flag off except the hold rescission.
   "DLF restored with the cross-provider family correction" is the same build,
   because no correction exists to apply.
-* **S5 combined defaults** is this PR's production defaults: S3 + D4 + D5 + the
-  DLF IDP restore.
+* **S5 combined defaults** was this PR's production defaults when measured: S3 +
+  D4 + D5 + the DLF IDP restore. Since the release hold (below) the release
+  defaults are **S5 hold kept**; the S5 row stays as the measurement of the
+  approved restore.
 * Sources above their approved weight, and families above one provider's
   authority: 0 in every scenario, main included.
 
@@ -269,15 +271,20 @@ four groups:
 
 ## DLF IDP restore (universal directive, item 1)
 
-**Change.** The `dlf_offense_only_vote` default is now OFF. `dlfIdp` and
+> **Held at release (2026-10-19).** Everything in this section measures the
+> approved restore with the hold lifted. It is implemented but not released: the
+> hold is back ON by default, for the reason this section's own decomposition
+> shows. See "DLF IDP restore: implemented, held at release" below.
+
+**Change.** With `dlf_offense_only_vote` OFF, `dlfIdp` and
 `dlfRookieIdp` vote again, as members of the one `dlf` B10 family, so DLF Rank,
 DLF Values, DLF Rookie and both IDP boards still share one provider's cap:
 
 * sources above approved weight: 0 in every scenario;
 * families above one provider: 0 in every scenario.
 
-The hold itself is kept. `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1` re-applies it,
-and decision fields then return to main's (the S0 identity above).
+The hold mechanism is kept. With it in force (now the default), decision fields
+return to main's (the S0 identity above).
 
 On the current board DLF IDP votes on 171 rows and DLF Rookie IDP on 29.
 
@@ -328,10 +335,9 @@ in item 6: a valid opinion, most often Draft Sharks IDP, is rejected once DLF
 makes the panel large enough for the filter to run. These 30 (current) and 14
 (golden) rows are the outlier lane's test set (CQ-65).
 
-**Release posture.** The default is left ON in code, as instructed. Integration
-validates it against the outlier lane's fix. If that fix is not in the same
-release train, the one-line rollback is the hold's default back to True (or the
-environment variable above), which returns decision fields to main's.
+**Release posture.** The outlier lane's fix is not releasable (its challenger
+fails its preregistered adversarial gates), so the hold's default went back to
+True, as this paragraph provided for. See the next section.
 
 Travis Hunter: DLF IDP becomes a third family on his DB side. His alt value goes
 3599 → 3493 on the current board and 4732 → 4513 on golden; two families or more,
@@ -339,6 +345,80 @@ so no haircut either way.
 
 The restore also moves picks only through the tether (39 current, 54 golden, each
 ≤ 5.4%) and flips 58 (current) / 73 (golden) confidence buckets.
+
+## DLF IDP restore: implemented, held at release
+
+**Decision (2026-10-19).** The owner's universal source-voting directive approves
+restoring `dlfIdp` / `dlfRookieIdp`. The same directive says: "Do not allow
+restoring DLF to create unexplained 40–50% player-value changes", "Correct the IDP
+outlier-filter interaction", and that material outlier-filter changes need
+reproducible comparisons, adversarial testing and independent validation before
+production activation. Its rule for a change that fails its evidence: "hold that
+specific change without blocking unrelated validated improvements."
+
+The outlier lane (branch `claude/outlier-filter-disagreement`, head `a575a526bb`,
+preregistration `b579a5fdd5`) reports, on this PR's board:
+
+* the incumbent Hampel filter newly drops 31 valid other-source IDP votes on 30
+  rows (Draft Sharks IDP 18, FantasyPros IDP 10, IDPTC 3; LB 20, DL 9, DB 2),
+  producing 7 IDP moves of 34–54%, none from DLF's own vote;
+* the disagreement-preserving challenger keeps 31/31 but FAILS its preregistered
+  adversarial gates (AD1b 58% vs 90%, AD1d 92.6% vs 95%, AD2 15% vs 90%), so it
+  stays OFF.
+
+So the restore stays implemented behind `dlf_offense_only_vote`, and the hold is
+re-applied as a **temporary release hold**: default ON, published as
+`heldFromVote: owner_policy_dlf_idp_restore_held_pending_outlier_fix` with a
+decision string naming the approval and the lift condition. It is not an
+indefinite exclusion. It lifts (`RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart,
+or a reviewed default flip) when the outlier interaction is corrected (CQ-65) or
+the owner accepts the moves. D4, D5 and the two-way fix ship ON.
+
+**Evidence** (re-measured after merging main `dc900f2493`; code `dd0d536992`;
+current board `exports/latest/dynasty_data_2026-10-19.json` sha256 `3ef54acd…`,
+golden `tests/fixtures/golden/input_export.json.gz`; every scenario reads the same
+inputs). Produced with `scripts/source_voting_consensus_evidence.py --scenario`
+and cross-checked with `scripts/golden_board.py` + `scripts/board_diff.py`.
+Files: `evidence/SOURCE_VOTING_CONSENSUS_2026-10-19/release_hold_vs_main_{current,golden}.json`,
+`restore_vs_release_defaults_{current,golden}.json`,
+`release_defaults_attribution_{current,golden}.json`.
+
+| board | scenario vs main | values moved | offense (p50 / p90 / p99 / max \|Δ\|) | IDP moved (p50 / p90 / p99 / max \|Δ\|) | IDP ≥ 30% | picks (max) | confidence flips | haircut gained / lost | top-50 in / out | top-200 in / out | Travis Hunter |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| current | (b) release defaults (hold ON) | 344 | 303 (0.28 / 1.44 / 3.77 / 4.73%) | **0** | **0** | 41 (2.17%), all tether | 25, all offense | 0 / 0 | Harold Fannin / 2028 Early 1st | 0 / 0 | 3740 → 3599 |
+| current | (c) hold lifted (restore) | 547 | 303 (max 6.6%) | 180 (1.91 / 13.29 / 47.54 / 54.36%) | 8 | 64 (7.45%) | 80 (55 IDP) | 0 / 0 | Aidan Hutchinson, Will Anderson / 2028 Early 1st, Bryce Young | 6 / 6 | 3740 → 3493 |
+| current | all PR flags off | 0 | — | 0 | 0 | 0 | 0 | 0 / 0 | — | — | 3740 → 3740 |
+| golden | (b) release defaults (hold ON) | 337 | 295 (0.35 / 2.21 / 5.35 / 6.47%) | **0** | **0** | 42 (3.40%), all tether | 22, all offense | 0 / 0 | Emeka Egbuka / Carnell Tate | Rueben Bain / Chig Okonkwo (rank only) | 4619 → 4732 |
+| golden | (c) hold lifted (restore) | 539 | 295 (max 6.47%) | 177 (0.90 / 2.90 / 34.48 / 39.94%) | 3 | 67 (4.86%) | 97 (75 IDP) | 0 / 0 | Aidan Hutchinson, Will Anderson / Breece Hall, Carnell Tate | Jamien Sherwood / Chig Okonkwo | 4619 → 4513 |
+| golden | all PR flags off | 0 | — | 0 | 0 | 0 | 0 | 0 / 0 | — | — | 4619 → 4619 |
+
+* **All PR flags off = main, byte for byte.** `golden_board.py` captures of main
+  and of this head with every PR flag off (hold ON, D4 / D5 / two-way OFF) are
+  byte-identical on both boards; `board_diff.py --expect-no-value-change` passes.
+* **Every release-default move is explained** (attribution builds, each flag alone
+  against all-off): D4 alone moves 343 (current) / 336 (golden) values, the
+  two-way fix moves Travis Hunter only, D5 moves 0 values, and D4 + two-way
+  together move exactly the release-default count (344 / 337). No IDP value moves;
+  picks move only through the rookie-pool tether. Sources above approved weight 0,
+  families above one provider 0. `Rueben Bain`'s golden top-200 entry is a rank
+  effect of offense values moving; his value is unchanged.
+* **Restore vs release defaults** (`dlf_restore_decomposition`, current / golden):
+  DLF's own vote moves 150 / 164 rows, max 5.75% / 3.32%, 0 above 30%; the
+  outlier-filter side effect moves 30 / 13 rows, max 54.36% / 39.94%, 8 / 3 above
+  30%; newly dropped other-source votes: current `draftSharksIdp` 18,
+  `fantasyProsIdp` 10, `idpTradeCalc` 3; golden `draftSharksIdp` 5,
+  `fantasyProsIdp` 3, `idpShowCombined` 2, `idpTradeCalc` 3. Rows ≥ 30% on the
+  current board: Trevin Wallace −54.4%, Myles Garrett +47.5%, CJ Allen −45.5%,
+  T.J. Watt +43.5%, Josiah Trotter +42.7%, Will Anderson +37.3%, Aidan Hutchinson
+  +34.6%, Danielle Hunter +30.1% (today's CSVs add Danielle Hunter to the outlier
+  lane's 7); every one is a Draft Sharks IDP (and for Trotter also FantasyPros
+  IDP) vote the filter drops.
+
+**Owner decision needed.** Either (1) keep the hold until a CQ-65 outlier fix
+passes its preregistered and adversarial gates plus independent validation, then
+lift it in a reviewed change; or (2) accept the measured restore moves as they are
+and lift the hold now. Until one is chosen the hold stays, and nothing else in
+this PR waits on it.
 
 ## Per-source eligibility facts: `sourceVotingEligibility`
 
@@ -358,7 +438,9 @@ Per registered source:
 * `rollbackFlag` where an owner-policy flag controls the vote;
 * `votingRows`, `excludedRows`, `meanAppliedWeight`.
 
-The current board with this PR's defaults:
+The current board with the restore (hold lifted; at the release default
+`dlfIdp` and `dlfRookieIdp` read `policy_held` with reason
+`owner_policy_dlf_idp_restore_held_pending_outlier_fix`):
 
 | status | sources |
 |---|---|
@@ -431,7 +513,7 @@ Every other row the old D2 moved by more than 30% follows the same pattern. Caus
 * **(b) the haircut's 1 → 2 family step** set the magnitude, exactly 0.30;
 * **(c) voting eligibility** contributed on 2 defenders. A held DLF IDP or DLF
   rookie IDP observation was present but not voting. Had DLF IDP voted, those rows
-  would have kept two families even under D2. With the hold now rescinded they
+  would have kept two families even under D2. With the restore (hold lifted) they
   carry three families: Trenton Simpson 1369 → 1384 and Treydan Stukes
   1855 → 1816 on the current board (freshness off); 1154 → 1191 and 1518 → 1509
   on golden.
@@ -649,16 +731,17 @@ The results are in the PR body.
 
 ## Completion result
 
-* **STATUS:** DONE for implementation and evidence. The DLF IDP default is
-  validated at integration against the outlier lane's fix. Production
-  verification follows merge and deploy.
+* **STATUS:** DONE for implementation and evidence. The approved DLF IDP restore
+  is implemented and held at release (hold default ON) pending the outlier fix or
+  an owner decision. Production verification follows merge and deploy.
 * **ACCEPTANCE:**
   * D2 and D3 withdrawn and deleted;
   * D4 gates re-passed;
   * D5 independently flagged;
   * the two-way fix behind its own flag, with every verification finding resolved;
-  * the DLF IDP hold rescinded behind its flag, under the DLF family cap, with its
-    moves split into DLF's own vote and the outlier-filter side effect;
+  * the DLF IDP restore implemented behind its flag, under the DLF family cap, with
+    its moves split into DLF's own vote and the outlier-filter side effect, and
+    held at release because the side effect fails the directive's 40–50% rule;
   * no similarity-only cross-provider family (no correction needed);
   * the per-source `sourceVotingEligibility` stamp;
   * health and coverage documented with a recommendation;
@@ -675,8 +758,9 @@ The results are in the PR body.
   * `tests/api/test_idptc_cutoff_readiness.py`;
   * `tests/api/test_dlf_offense_only_vote.py`.
 * **UNRESOLVED:**
-  * integration validation of the DLF IDP default against the outlier lane's fix
-    (CQ-65): the 30 current-board and 14 golden-board side-effect rows;
+  * the owner decision on the held DLF IDP restore (keep the hold until CQ-65, or
+    accept the moves); the outlier fix itself (CQ-65): the 30 current-board and
+    13 golden-board side-effect rows;
   * production verification of the deployed board;
   * `idpShowCombined` and `fantasyNavigatorSf` are withheld by today's
     cadence-relative freshness curve (freshness lane, CQ-64 / CQ-19);
@@ -686,6 +770,8 @@ The results are in the PR body.
     (recommended follow-up);
   * the Signals grouping's stored-value ancestry (vendor-unstated);
   * the two-way alt value does not mirror the default-off challengers.
-* **NEXT_ACTION:** release-train integration of #1817 together with the outlier
-  lane's fix; deploy; then observe the DLF family weights, `sourceVotingEligibility`
-  and Travis Hunter's `twoWayPlayerBoost` on production.
+* **NEXT_ACTION:** release-train integration of #1817 with the DLF IDP hold in
+  force; deploy; then observe the DLF family weights, `sourceVotingEligibility`
+  (DLF IDP `policy_held`) and Travis Hunter's `twoWayPlayerBoost` on production.
+  Lift the hold in a later reviewed change once CQ-65 lands or the owner accepts
+  the moves.

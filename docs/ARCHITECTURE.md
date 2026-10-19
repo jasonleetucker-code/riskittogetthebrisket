@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-19, 24 of the 49 entries in
+   **Defaults are per-flag.** As of 2026-10-19, 25 of the 49 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -42,6 +42,9 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    off restores one clock per subset), `signals_active_source` (Signals'
    authenticated native values vote as a rank signal in the FantasyCalc
    family; off removes the vote, keeps the evidence visible),
+   `dlf_offense_only_vote` (the owner-approved DLF IDP restore, held at
+   release pending the outlier-filter fix: the DLF IDP boards are collected
+   and displayed but held from the vote; off lifts the hold),
    `dlf_values_rank_hill_vote` (owner closeout 2026-10-18 D4: DLF
    Values votes rank -> Hill inside the DLF family cap; off holds it),
    `two_way_alt_evidence_rules` (a two-way player's alt-family value is a

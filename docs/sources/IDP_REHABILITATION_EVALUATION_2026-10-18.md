@@ -26,9 +26,10 @@ recommendation for an explicit owner decision.
 > Status of each, live: `docs/owner/OWNER_DECISION_REGISTER.md`. Conditional items stay EVIDENCE_PENDING until their gates pass.
 >
 > **Owner directives, 2026-10-19, supersede D1, D2 and D3.** D2 and D3 are withdrawn (similarity is not lineage).
-> The D1 DLF IDP hold is rescinded: DLF IDP and DLF Rookie IDP vote again under the one DLF family cap, and the
-> outlier-filter interaction §2 measured goes to the outlier lane. Record:
-> `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
+> The D1 DLF IDP policy hold is rescinded and the restore approved (one DLF family cap). It is implemented but
+> held at release (`dlf_offense_only_vote` default ON, temporary) because the outlier-filter interaction §2
+> measured still drops valid other-source IDP votes; it lifts when the outlier lane's fix (CQ-65) lands or the
+> owner accepts the moves. Record: `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 

@@ -63,21 +63,21 @@
       "reviewBy": "2026-10-31"
     },
     "dlfIdp": {
-      "state": "evaluation_pending",
-      "reason": "hold RESCINDED by the owner's universal source-voting directive of 2026-10-19 (it supersedes D1): DLF IDP votes again inside DLF's one provider-family cap (flag dlf_offense_only_vote now defaults OFF)",
-      "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md; docs/OWNER_REQUESTED_TODO.md (2026-10-19); docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md",
-      "recoveryAction": "restored in PR #1817 and measured (own-vote vs outlier-filter side-effect split); the default is validated at integration together with the outlier lane's fix for the IDP Hampel interaction; rollback RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1 + restart",
-      "owner": "integration (combined validation with the outlier lane) / claude (evidence)",
-      "nextTrigger": "combined three-lane whole-board validation (voting, freshness, outlier)",
-      "promotionGate": "no unexplained 40-50% moves: every large move is DLF's own vote or is addressed by the outlier lane's validated fix",
+      "state": "policy_held",
+      "reason": "restore APPROVED by the owner's universal source-voting directive of 2026-10-19 (it rescinds the 2026-10-16 hold and supersedes D1) and implemented in PR #1817 behind dlf_offense_only_vote, but HELD AT RELEASE (flag default ON, re-applied 2026-10-19): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDP Trade Calculator votes on 30 rows (8 IDP moves of 30-54% on the 2026-10-19 board, none from DLF's own vote, whose own effect is at most 5.75%), which the same directive forbids. TEMPORARY, not an indefinite exclusion",
+      "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md (DLF IDP restore: implemented, held at release); outlier lane branch claude/outlier-filter-disagreement (preregistration b579a5fdd5); docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md",
+      "recoveryAction": "lift the hold (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart, or flip the default in a reviewed PR) as soon as the IDP outlier-filter interaction is corrected (CQ-65: the disagreement-preserving challenger keeps 31/31 of the dropped votes but fails its preregistered adversarial gates, so it stays OFF) and the combined board re-validates, OR the owner explicitly accepts the measured moves",
+      "owner": "owner (accept the moves, or await CQ-65) / outlier lane (CQ-65) / integration (combined validation)",
+      "nextTrigger": "a CQ-65 outlier fix that passes its preregistered and adversarial gates plus independent validation, or an owner decision accepting the restore's moves",
+      "promotionGate": "no unexplained 40-50% moves: on the restored board every move of 30% or more is DLF's own vote, or the validated outlier fix keeps the other sources' valid IDP votes (reproducible comparison, adversarial testing, independent validation); DLF IDP + DLF Rookie IDP stay inside the one DLF family cap",
       "reviewBy": "2026-10-31"
     },
     "dlfRookieIdp": {
-      "state": "evaluation_pending",
-      "reason": "hold RESCINDED 2026-10-19 (as dlfIdp); seasonal inactivity between draft classes still applies",
+      "state": "policy_held",
+      "reason": "as dlfIdp: restore approved 2026-10-19, held at release pending the outlier-filter fix (CQ-65); seasonal inactivity between draft classes still applies",
       "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md",
       "recoveryAction": "as dlfIdp",
-      "owner": "integration / claude",
+      "owner": "as dlfIdp",
       "nextTrigger": "as dlfIdp",
       "promotionGate": "as dlfIdp",
       "reviewBy": "2026-10-31"
