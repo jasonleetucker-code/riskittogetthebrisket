@@ -45,7 +45,12 @@ def test_private_routes_delegate_to_the_service():
     assert "simulate_for_team" in build
     assert "simulate_trade" not in build, "the route must not call the simulator directly"
     assert "competitive_posture_for" not in build, "the posture rule belongs to the service"
+    # The analyze route may delegate its computation to a helper (release
+    # train 12's single-flight ``_compute_trade_analysis``); the route plus
+    # that helper are the analyze path.
     analyze = _calls(fns["post_trade_analyze"])
+    if "_compute_trade_analysis" in fns:
+        analyze |= _calls(fns["_compute_trade_analysis"])
     assert "analyze_for_team" in analyze
     assert "analyze_trade" not in analyze
     simulate = _calls(fns["post_trade_simulate"])

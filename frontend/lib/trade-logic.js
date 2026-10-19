@@ -788,10 +788,17 @@ export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
  * that consolidated relative to the rest earns its own adjustment
  * (mirrors ``computeMultiSideAdjustments``).
  *
+ * ``opts.modelId`` selects a registered package model (default: the ACTIVE
+ * one).  Only the read-only comparison surfaces pass it (owner directive
+ * 2026-10-19: the KTC adjustment method beside Chase Upside's, never blended)
+ * — every decision path calls this with no options.
+ *
  * @param {number[][]} sidesValues  — array of raw-value arrays, one per side
+ * @param {{modelId?: string}} [opts]
  * @returns {number[]}
  */
-export function valueAdjustmentFromSideArrays(sidesValues) {
+export function valueAdjustmentFromSideArrays(sidesValues, opts = {}) {
+  const pairOpts = opts.modelId ? { modelId: opts.modelId } : {};
   if (!Array.isArray(sidesValues) || sidesValues.length < 2) {
     return (sidesValues || []).map(() => 0);
   }
@@ -805,7 +812,7 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
   // every other side into the opposing array, mirroring
   // computeMultiSideAdjustments.
   if (sorted.length === 2) {
-    const result = packageAdjustPair(sorted[0], sorted[1]);
+    const result = packageAdjustPair(sorted[0], sorted[1], pairOpts);
     if (!result.displayed || result.value <= 0) return [0, 0];
     return result.side === 1 ? [result.value, 0] : [0, result.value];
   }
@@ -816,7 +823,7 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
       if (j !== i) others.push(...sorted[j]);
     }
     if (others.length === 0) return 0;
-    const result = packageAdjustPair(thisSide, others);
+    const result = packageAdjustPair(thisSide, others, pairOpts);
     if (!result.displayed || result.value <= 0) return 0;
     return result.side === 1 ? result.value : 0;
   });

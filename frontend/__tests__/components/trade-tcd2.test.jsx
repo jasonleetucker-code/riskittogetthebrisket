@@ -148,10 +148,10 @@ describe("TradeDecisionReasoning — the decision's own words", () => {
     const rows = coverageRows(ASSET_ONLY.analysis.decision.coverage);
     const immediate = rows.find((r) => r.dimension === "Immediate improvement");
     expect(immediate.state).toBe("Not evaluated (Asset-Only)");
-    expect(immediate.note).toBe("Asset-Only analysis");
+    expect(immediate.note).toBe("Not included in Asset-Only analysis");
     const opportunity = rows.find((r) => r.dimension === "Opportunity cost");
     expect(opportunity.state).toBe("Not evaluated");
-    expect(opportunity.note).toBe("not wired yet");
+    expect(opportunity.note).toBe("Not connected to the analysis yet");
   });
 
   it("an unknown code is shown, never dropped", () => {

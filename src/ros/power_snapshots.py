@@ -161,6 +161,16 @@ def movement_against_previous(
     publishable week and therefore has no predecessor; Week 1 looks up Week 0
     and finds nothing unless a preseason ranking was actually published, which
     yields ``None`` — an honest "no baseline", not a fabricated flat.
+
+    Movement belongs to the FRANCHISE (the roster), while publications are
+    keyed by ``ownerId``.  A row whose roster changed hands since Week N-1
+    carries ``franchiseBaselineOwnerId`` — the owner that roster had in Week
+    N-1, resolved by the engine through the recorded hand-off
+    (``ownership.owner_at``) — and the prior row is looked up under that id,
+    with no second fallback.  A row without it is looked up under its own
+    ``ownerId``, exactly as before.  ``previousOfficialOwnerId`` names whose
+    published row the comparison used, so a predecessor's rank is never
+    presented as the current manager's own; ``None`` when there was none.
     """
     if int(week) <= 0:
         return {
@@ -169,6 +179,7 @@ def movement_against_previous(
                 "weekRankDelta": None,
                 "previousOfficialPowerScore": None,
                 "powerScoreDelta": None,
+                "previousOfficialOwnerId": None,
             }
             for row in rankings
             if row.get("ownerId")
@@ -181,7 +192,8 @@ def movement_against_previous(
         oid = str(row.get("ownerId") or "")
         if not oid:
             continue
-        previous = by_owner.get(oid) or {}
+        baseline_oid = str(row.get("franchiseBaselineOwnerId") or oid)
+        previous = by_owner.get(baseline_oid) or {}
         prior_rank = previous.get("rank")
         rank = row.get("rank")
         prior_score = previous.get("powerScore")
@@ -197,6 +209,7 @@ def movement_against_previous(
                 if prior_score is not None and score is not None
                 else None
             ),
+            "previousOfficialOwnerId": baseline_oid if previous else None,
         }
     return out
 
@@ -268,6 +281,10 @@ def _public_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict[s
         "rankDelta": movement.get("weekRankDelta"),
         "priorPowerScore": movement.get("previousOfficialPowerScore"),
         "powerScoreDelta": movement.get("powerScoreDelta"),
+        # Whose Week N-1 row ``priorRank`` came from. Differs from ``ownerId``
+        # only across a recorded mid-season hand-off, where the franchise's
+        # previous rank was earned under the outgoing manager.
+        "priorOwnerId": movement.get("previousOfficialOwnerId"),
         "record": row.get("record"),
         "pointsPerGame": components.get("pointsPerGame"),
         "recentAvg": components.get("recentAvg"),
@@ -371,6 +388,8 @@ _MOVEMENT_FIELDS: tuple[str, ...] = (
     "rankDelta",
     "priorPowerScore",
     "powerScoreDelta",
+    # Absent from rows published before it existed; a restatement never adds it.
+    "priorOwnerId",
 )
 
 _COMPONENT_KEYS: tuple[str, ...] = (
@@ -529,11 +548,14 @@ def restate_movement(
     if not rows:
         raise ValueError(f"published snapshot at {path} has no ranking rows")
 
+    # A frozen row that names the owner its prior rank came from (a franchise
+    # baseline across a recorded hand-off) is re-measured against that same
+    # row, never re-keyed to its own ``ownerId``.
     movement = movement_against_previous(
         league_key=league_key,
         season=season,
         week=int(week),
-        rankings=rows,
+        rankings=[{**row, "franchiseBaselineOwnerId": row.get("priorOwnerId")} for row in rows],
     )
 
     changed: list[dict[str, Any]] = []
@@ -546,6 +568,8 @@ def restate_movement(
         updated["rankDelta"] = computed.get("weekRankDelta")
         updated["priorPowerScore"] = computed.get("previousOfficialPowerScore")
         updated["powerScoreDelta"] = computed.get("powerScoreDelta")
+        if "priorOwnerId" in row:
+            updated["priorOwnerId"] = computed.get("previousOfficialOwnerId")
 
         if set(updated) != set(row):
             raise ValueError(f"restatement would change the row shape for owner {owner_id}")

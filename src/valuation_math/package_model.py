@@ -97,7 +97,10 @@ def config_state() -> ConfigState:
     dispatch is running on the ``DEFAULT_ACTIVE`` fallback, not the
     committed choice — a surface that must not silently change model (the
     public Brisket Trade Advisor) refuses instead of answering."""
-    return _config()["state"]
+    # A config dict without a recorded state (a test double) is not proof of
+    # anything: fail closed.
+    state = _config().get("state")
+    return state if state in ("ok", "unreadable", "unknown_active") else "unreadable"
 
 
 def active_model_id() -> str:
