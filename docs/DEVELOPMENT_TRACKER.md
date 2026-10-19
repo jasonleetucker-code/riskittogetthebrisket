@@ -16,15 +16,15 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 11:25 UTC (coordinator).
+Last updated: 2026-10-19 21:30 UTC (coordinator).
 
 ## Release vehicles
 
 | Vehicle | Members | State | Next action |
 |---|---|---|---|
 | Train 11 (#1829) | #1822 playoff odds follow the roster; #1823 mobile Trade Tendencies partner | DEPLOYED (`a9f3918808`, 10:04 UTC). Playoff sections still serve a pre-deploy cached forecast (05:27) | Re-probe after the next ROS refresh; check `/trades` on mobile |
-| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: head `5acf290e89`. Release check 39240097028 failed only its first step (strict freshness): two automated refreshes (DLF and IDP Show timestamps, class C) had landed. `main` merged once, and release check 39242451288 started 11:08 | Merge when the release check, Validate PR and E2E are green (standing authorization); deploy before the week-6 Power publication |
-| Train 13 | #1839 (with integration fixes), #1838, #1840, #1845, #1841, #1846, #1844; #1817 once W9 reports | IMPLEMENTED / UNVALIDATED: built locally on train 12's head. #1839's conflict with #1830 resolved by keeping both sections. Integration commit: the policy block now sits in Agent OS §3, which every pointer cites; a qualifying merge's automatic deploy is stated as covered; the owner's authorization quoted verbatim. Format, coercion, planning and governance gates green; L1 tests and build running | Push after train 12 merges (bring in `main` once); release check; merge |
+| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit | VALIDATING: head `bc976ce80b`. Release check 39242451288 failed on one vitest case, which reproduced in about half of local runs. It was two real focus races in `/trade`'s side search: a stale blur timer closed a re-focused dropdown, and the post-pick re-focus pulled focus back. Fixed in the train with 3 new tests; the file had 0 failures in 16 runs, and the full vitest suite passed (4,512 tests). `main` merged once (class C); release check re-dispatched about 21:30 | Merge when the release check, Validate PR and E2E are green (standing authorization) |
+| Train 13 | #1839 (with integration fixes), #1838, #1840, #1845, #1841, #1846, #1844, plus the owner-directive records commit; #1817 once W9 reports | IMPLEMENTED / UNVALIDATED: built locally on train 12's head. L0 gates green. L1: 709 passed, plus the 2 real-Tesseract tests that failed under `-n 4` load (19/19 pass serially). The records commit adds verbatim copies of the Advisor, Signals IDP, Trade Market (v1 and v2) and League Intelligence directives, the intake entry and the authorization | Push after train 12 merges (bring in `main` once); release check; merge |
 | #1832 CI budget 80→120 min | — | MERGED (`2d854f7523`) | Rides the next deploy |
 
 ## Features
@@ -47,6 +47,8 @@ Last updated: 2026-10-19 11:25 UTC (coordinator).
 | Brisket Trade Advisor (public League Hub) | Audit workflow → build workers | — | — | Audit and design | IMPLEMENTING (Phase 1 audit) | — | Launch backend + frontend workers from the final design |
 | Signals Fantasy IDP voting, DL/LB/DB per family | Audit workflow → build workers | — | — | On-box evaluation; #1817 / #1831 / outlier lane overlap | IMPLEMENTING (audit / root cause) | Private data is box-local | Preregister candidates; on-box diagnostics |
 | Chase Upside Trade Market (`chaseTradeMarket`) | Audit workflow → build workers | — | — | On-box data census | IMPLEMENTING (Milestone 1 audit) | Trade data is box-local | On-box census; maturity lineage; shadow model |
+| League intelligence & trade decision engine (owner directive 2026-10-19, evening) | Workflow: 8 readers → design → 2 critics → 5 implementers → 5 reviewers | `claude/li-scoring`, `claude/li-valuation`, `claude/li-bestball`, `claude/li-decision`, `claude/li-integration` | — | Records in train 13 | IMPLEMENTING | A league-aware canonical value needs preregistered gates plus owner approval; everything else is behind flags or in shadow | Batch-1 PRs |
+| League audit PR #1843 (owner / codex) | — | `audit/league-intelligence-evidence-2026-10-19` | #1843 | — | CI FAILING (Validate PR) | Root cause being read by the league workflow | Fix, then train |
 | War Room server phases (CQ-20) | — | — | — | Train 12 (#1828 status endpoint) | QUEUED | — | Start after train 12 merges (touches `/trade`) |
 | `/trade` pick-ownership unknown state | — | — | — | Train 12 (`/trade` files) | QUEUED | — | Start after train 12 merges |
 | Calculator correctness parity tests (CQ-21) | — | — | — | — | QUEUED | — | Next wave |
