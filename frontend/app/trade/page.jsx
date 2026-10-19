@@ -333,7 +333,15 @@ export default function TradePage() {
   const importMenuButtonRef = useRef(null);
   const closeToolbarGroup = useCallback((setOpen, triggerRef) => {
     setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus?.({ preventScroll: true }));
+    // Rescue only focus the unmounting option dropped: onto <body>, or left on
+    // a node no longer in the document.  A control the user has moved to since
+    // (a side search box) keeps focus — pulling it back a frame later silently
+    // swallowed the keyboard add typed into that box.
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && active.isConnected) return;
+      triggerRef.current?.focus?.({ preventScroll: true });
+    });
   }, []);
   // TC-D: the War Room's decision, reported up (onDecision) for the sticky
   // desktop echo and the mobile verdict bar.  The War Room owns the request.

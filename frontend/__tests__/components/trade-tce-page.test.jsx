@@ -347,3 +347,27 @@ describe("Escape on the More trigger itself closes the group (its actions start 
     await waitFor(() => expect(document.activeElement).toBe(more));
   });
 });
+
+describe("the focus rescue never steals focus the user has moved on with", () => {
+  it("a control focused before the frame keeps focus", async () => {
+    controlledFetch(() => false);
+    render(<TradePage />);
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    const csv = screen.getByRole("button", { name: "Download CSV" });
+    csv.focus();
+    // Hold the frame so the user's next focus provably lands first — the
+    // order a loaded CI runner produced, where an Enter typed into the side
+    // search box was swallowed because the frame pulled focus to "More".
+    const frames = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    fireEvent.keyDown(csv, { key: "Escape" });
+    const input = screen.getByLabelText("Search to add a player to Side B");
+    input.focus();
+    act(() => frames.forEach((cb) => cb(0)));
+    raf.mockRestore();
+    expect(document.activeElement).toBe(input);
+  });
+});
