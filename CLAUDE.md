@@ -946,8 +946,16 @@ The pick stages are NOT in the order this list used to give.  Actual
 live order (corrected 2026-07-29 audit):
 
 12. Synthetic far-future pick derivation (C1-U6, 2026-08-16) — years no
-    vendor publishes (2029 while the active draft is 2026; horizon =
-    current + 3, self-rolling) are derived AT INJECTION
+    vendor publishes, through the horizon, are derived AT INJECTION.  The
+    horizon ENDS three seasons after the latest PROVEN-completed rookie
+    draft (owner decision 2026-10-19; one owner,
+    ``src/identity/pick_lifecycle.py::board_pick_horizon``, stamped as
+    ``pickClassLifecycle.horizon``): 2026 complete → 2027–2029, and 2030
+    arrives only when the 2027 draft is proven complete.  Unproven
+    completion fails closed onto the floor, the class before the active draft
+    year + 3 (``anchor + 2``); only proof that the anchor's own draft
+    completed reaches ``anchor + 3``, so a vendor slot roll cannot add a
+    season on its own.  The derivation itself is unchanged
     (``_inject_far_future_pick_sources``): the nearest published future
     year's tier entries are cloned with every per-source value stepped
     by the **measured vendor year-step** for its (tier, round) cell
