@@ -11329,6 +11329,22 @@ def _compute_unified_rankings(
     # offense rookies through the IDP ladder instead of raising.
     # Removal verified inert: the default board is byte-identical.
     _shadow_loop_keys = {str(s.get("key") or "") for s in shadow_sources}
+    # Derived rows are not this vendor's evidence — the backbone rule above,
+    # applied to every per-source ordinal list.  A synthetic far-future pick
+    # keeps its vote (value-direct reads the value, not the position), but it
+    # occupies no position in the vendor's published order: the rookie ladder
+    # reads those positions (``ktcCrowdSfTep`` / ``idpTradeCalc``), and a
+    # derived 2030 row there moved 36 rookies' values (2026-10-19).
+    _derived_row_idx = (
+        {
+            i
+            for i, r in enumerate(players_array)
+            if _canonical_match_key(str(r.get("canonicalName") or ""))
+            in synthetic_pick_derivation_map
+        }
+        if synthetic_pick_derivation_map
+        else set()
+    )
     for src in [*active_sources, *shadow_sources]:
         source_key: str = src["key"]
         is_shadow = source_key in _shadow_loop_keys
@@ -11442,13 +11458,20 @@ def _compute_unified_rankings(
         # whose iteration order can drift between runs.
         eligible.sort(key=lambda t: (-t[0], t[3]))
         if not is_shadow:
-            source_pool_sizes[source_key] = len(eligible)
+            source_pool_sizes[source_key] = sum(1 for t in eligible if t[1] not in _derived_row_idx)
 
+        observed_above = observed_at_value = 0
         for rank_idx, (val, row_idx, row_scope, _name) in enumerate(eligible):
             # Dense ranking: tied values share the same rank.
             # e.g. values [10200, 10200, 10200, 10200, 9500] → ranks [1, 1, 1, 1, 5]
+            # Only vendor-published rows count towards a rank; a derived row
+            # takes the rank of the published rows at its value.
             if rank_idx == 0 or val != eligible[rank_idx - 1][0]:
-                current_dense_rank = rank_idx + 1
+                observed_above += observed_at_value
+                observed_at_value = 0
+                current_dense_rank = observed_above + 1
+            if row_idx not in _derived_row_idx:
+                observed_at_value += 1
             raw_rank = current_dense_rank
 
             # ── Self-correcting rookie exclusion ──
