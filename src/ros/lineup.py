@@ -887,6 +887,37 @@ def _value_fn(objective: str):
     )
 
 
+def _override_table(
+    slot_eligibility: Mapping[str, Collection[str]] | None,
+) -> dict[str, frozenset[str]] | None:
+    """The league's configured slot rule as the predicate reads it, or
+    ``None`` when nothing is configured (the declared table applies)."""
+    if not slot_eligibility:
+        return None
+    return {
+        _normalize_slot_name(str(k)): frozenset(str(p).strip().upper() for p in v if str(p).strip())
+        for k, v in slot_eligibility.items()
+    }
+
+
+def _rule_identity(
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Collection[str]] | None,
+) -> tuple[tuple[str, ...], frozenset | None]:
+    """What a precomputed eligibility map was derived under: the slot list and
+    the league rule exactly as :func:`_eligibility_predicate` reads it."""
+    table = _override_table(slot_eligibility)
+    return tuple(slots), (None if table is None else frozenset(table.items()))
+
+
+class _PrecomputedEligibility(dict):
+    """:func:`precompute_slot_eligibility`'s answer, tagged with the slots and
+    rule it was derived under, so the solver can tell when re-reading it is
+    exactly what deriving eligibility again would answer."""
+
+    derived_for: tuple[tuple[str, ...], frozenset | None] | None = None
+
+
 def _eligibility_predicate(
     slot_eligibility: Mapping[str, Collection[str]] | None,
 ):
@@ -903,13 +934,9 @@ def _eligibility_predicate(
     is the LEAGUE's own rule, and a consumer passing anything else is
     reintroducing the second eligibility table this unit deleted.
     """
-    if not slot_eligibility:
+    overrides = _override_table(slot_eligibility)
+    if overrides is None:
         return _player_eligible_for_slot
-
-    overrides = {
-        _normalize_slot_name(str(k)): frozenset(str(p).strip().upper() for p in v if str(p).strip())
-        for k, v in slot_eligibility.items()
-    }
 
     def _predicate(slot: str, player: RosterPlayer) -> bool:
         allowed = overrides.get(_normalize_slot_name(slot))
@@ -947,9 +974,12 @@ def precompute_slot_eligibility(
     misalign the moment two calls draw different values.
     """
     is_eligible = _eligibility_predicate(slot_eligibility)
-    return {
-        p.player_id: tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p)) for p in pool
-    }
+    out = _PrecomputedEligibility(
+        (p.player_id, tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p)))
+        for p in pool
+    )
+    out.derived_for = _rule_identity(slots, slot_eligibility)
+    return out
 
 
 def solve_optimal_assignment(
@@ -1044,13 +1074,18 @@ def solve_optimal_assignment(
 
     assignment = {slot_idx: ordered[p_idx] for slot_idx, p_idx in slot_owner.items()}
     eligible_at = None
-    if precomputed_eligibility is not None:
-        # The canonical-labelling pass asks the same question the matching
-        # did — "may this assigned player sit in slot i" — so it reads the
-        # same precomputed answer instead of re-deriving it per pair.  Exact
-        # under this parameter's contract (same pool / slots /
-        # slot_eligibility); assigned players are unique by id (the
-        # duplicate guard above), so the id-keyed lookup is unambiguous.
+    if precomputed_eligibility is not None and getattr(
+        precomputed_eligibility, "derived_for", None
+    ) == _rule_identity(slots, slot_eligibility):
+        # The canonical-labelling pass asks "may this assigned player sit in
+        # slot i" under THIS call's rule.  When the precomputed map was
+        # derived under exactly these slots and this rule (its tag says so),
+        # re-reading it is that answer, so it is not re-derived per pair.
+        # Otherwise — an untagged map, or one derived under another rule
+        # than the call passes — the predicate is asked, as it always was,
+        # so no caller's labelling changes.  Assigned players are unique by
+        # id (the duplicate guard above), so the id-keyed lookup is
+        # unambiguous.
         index_sets = {
             ordered[p_idx].player_id: frozenset(eligible_slots[p_idx])
             for p_idx in slot_owner.values()

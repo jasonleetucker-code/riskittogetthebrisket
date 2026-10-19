@@ -2486,9 +2486,37 @@ def _backup_freshness_uncached() -> dict:
 #: Upper bound on how long the warm thread waits for the app to start serving
 #: (the deploy budget for a cold start is ~90 s; past this it warms anyway).
 _ANALYSIS_WARM_BOOT_WAIT_SECONDS = 180.0
+#: How long a warm waits for the prime that started it to publish its board.
+_ANALYSIS_WARM_PUBLISH_WAIT_SECONDS = 120.0
+#: One analysis warm runs at a time, and only the newest one: every prime
+#: bumps the generation, and a warm whose generation is no longer current —
+#: or whose board is not the one being served — exits without warming.
+#: (Startup recovery can prime more than once; a superseded board's warm
+#: must not populate caches ahead of the served one.)
+_ANALYSIS_WARM_LOCK = threading.Lock()
+_ANALYSIS_WARM_GEN_LOCK = threading.Lock()
+_analysis_warm_generation = 0
 
 
-def _warm_trade_analysis_prerequisites(contract_payload: dict) -> None:
+def _next_analysis_warm_generation() -> int:
+    global _analysis_warm_generation
+    with _ANALYSIS_WARM_GEN_LOCK:
+        _analysis_warm_generation += 1
+        return _analysis_warm_generation
+
+
+def _analysis_warm_is_current(contract_payload: dict, generation: int | None) -> bool:
+    """Whether a warm for ``contract_payload`` may still write: it is the newest
+    warm AND its board is the one being served.  ``generation=None`` (a direct
+    call) checks only the board."""
+    if generation is not None and generation != _analysis_warm_generation:
+        return False
+    return latest_contract_data is contract_payload
+
+
+def _warm_trade_analysis_prerequisites(
+    contract_payload: dict, *, generation: int | None = None
+) -> None:
     """Build what Analyze Trade needs ahead of the first request (sync; runs
     on the ``trade-analysis-warm`` daemon thread ``_warm_overlays_in_background``
     starts beside the overlay warm, under the same flag).
@@ -2511,15 +2539,40 @@ def _warm_trade_analysis_prerequisites(contract_payload: dict) -> None:
     Warming changes no answer: a cache keyed by its inputs returns what the
     request would have computed.  Every step degrades silently to "the request
     builds it itself", which is what happened before this existed.
+
+    Supersession: the prime starts this before it publishes the board, so it
+    first waits (bounded) for ``latest_contract_data`` to BE this board, and
+    re-checks before every step (:func:`_analysis_warm_is_current`).  A warm
+    that is no longer the newest, or whose board is no longer served, stops
+    without starting another step.  A bundle build already under way when a
+    newer board lands is stored under ITS OWN input stamp (the request path
+    re-checks the stamp, so it is never served for the newer board), and the
+    newer warm — serialized behind this one — then builds and replaces it.
     """
     started = time.perf_counter()
     warmed: list[str] = []
+    if generation is not None:
+        deadline = time.monotonic() + _ANALYSIS_WARM_PUBLISH_WAIT_SECONDS
+        while latest_contract_data is not contract_payload:
+            if generation != _analysis_warm_generation or time.monotonic() > deadline:
+                log.info("trade-analysis warm: superseded before its board was served; skipped")
+                return
+            time.sleep(0.25)
+
+    def _current() -> bool:
+        if _analysis_warm_is_current(contract_payload, generation):
+            return True
+        log.info("trade-analysis warm: board superseded; stopping (%s)", ",".join(warmed))
+        return False
+
     try:
         meta = contract_payload.get("meta") or {}
         loaded_league = meta.get("leagueKey")
         from src.api import gameplan as _gp  # noqa: PLC0415
 
         for cfg in _league_registry.active_leagues():
+            if not _current():
+                return
             if (
                 cfg.key != loaded_league
                 and _scoring_identity_error(contract_payload, cfg) is not None
@@ -2532,6 +2585,8 @@ def _warm_trade_analysis_prerequisites(contract_payload: dict) -> None:
                 warmed.append(f"bundle:{cfg.key}")
             except Exception as exc:  # noqa: BLE001 — the request path builds it
                 log.info("trade-analysis warm: bundle %s skipped (%s)", cfg.key, exc)
+        if not _current():
+            return
         sleeper = contract_payload.get("sleeper") or {}
         scoring = sleeper.get("scoringSettings") if isinstance(sleeper, dict) else None
         if isinstance(scoring, dict) and scoring:
@@ -2552,7 +2607,7 @@ def _warm_trade_analysis_prerequisites(contract_payload: dict) -> None:
                 if pid
             }
         )
-        if rostered:
+        if rostered and _current():
             from src.api.matchup_intel import players_meta_for_rosters  # noqa: PLC0415
 
             players_meta_for_rosters([{"players": rostered}])
@@ -2589,6 +2644,8 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
         log.info("Sleeper overlay warm disabled (SLEEPER_OVERLAY_WARM_ENABLED=false)")
         return
 
+    analysis_generation = _next_analysis_warm_generation()
+
     def _analysis_worker() -> None:
         # Analyze Trade's league bundle / projections / players DB, on its
         # own thread: the loaded league's bundle needs no overlay (the
@@ -2596,9 +2653,12 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
         # overlay pass below is ~10 s of Sleeper round-trips a request
         # arriving right after a restart should not wait behind.  At boot it
         # starts once the app is serving (never racing the prime); after a
-        # scrape the flag is already set.
+        # scrape the flag is already set.  One at a time, newest only.
         _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
-        _warm_trade_analysis_prerequisites(contract_payload)
+        if analysis_generation != _analysis_warm_generation:
+            return
+        with _ANALYSIS_WARM_LOCK:
+            _warm_trade_analysis_prerequisites(contract_payload, generation=analysis_generation)
 
     def _worker() -> None:
         try:
@@ -17678,6 +17738,7 @@ async def _build_trade_simulation(
     *,
     for_analysis: bool = False,
     clock: "_trade_analyze_runtime.StageClock | None" = None,
+    league_cfg: "_league_registry.LeagueConfig | None" = None,
 ) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
     """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
@@ -17688,11 +17749,13 @@ async def _build_trade_simulation(
     rather than re-deriving league/team/overlay resolution a second time.
 
     ``clock`` (Analyze Trade only) times each stage of this request; it
-    observes the work and changes none of it.
+    observes the work and changes none of it.  ``league_cfg``, when given, is
+    the league the caller already resolved for this request (Analyze Trade
+    keys in-flight sharing on it); it is used as-is.
     """
     clock = clock or _trade_analyze_runtime.StageClock()
     with clock.stage("resolve"):
-        prepared = await _prepare_trade_simulation(request)
+        prepared = await _prepare_trade_simulation(request, league_cfg=league_cfg)
         if isinstance(prepared, JSONResponse):
             return None, None, prepared
         contract, league_cfg, body, session = prepared
@@ -17809,10 +17872,13 @@ async def _build_trade_simulation(
     return result, league_cfg.key, None
 
 
-async def _prepare_trade_simulation(request: Request):
+async def _prepare_trade_simulation(
+    request: Request, *, league_cfg: "_league_registry.LeagueConfig | None" = None
+):
     """Auth, body, league and cross-league overlay splice for one trade
     request.  Returns a :class:`JSONResponse` on any refusal, else
-    ``(contract, league_cfg, body, session)``."""
+    ``(contract, league_cfg, body, session)``.  A ``league_cfg`` the caller
+    already resolved for this request is used instead of resolving again."""
     session = _get_auth_session(request)
     if not session:
         return JSONResponse(status_code=401, content={"error": "auth_required"})
@@ -17833,10 +17899,11 @@ async def _prepare_trade_simulation(request: Request):
     # we can splice in a live Sleeper overlay (same trick the
     # /api/terminal endpoint uses).  Without this, every trade
     # simulation on League B returns data_not_ready.
-    try:
-        league_cfg = _resolve_league_for_request(request, body=body)
-    except LeagueResolutionError as err:
-        return err.json_response()
+    if league_cfg is None:
+        try:
+            league_cfg = _resolve_league_for_request(request, body=body)
+        except LeagueResolutionError as err:
+            return err.json_response()
 
     # Build the contract this trade sim runs against.  When the
     # request league matches the loaded contract, just use it.
@@ -17984,30 +18051,57 @@ async def post_trade_analyze(request: Request):
       decision receipt.  Nothing is retained once it finishes.
     """
     session = _get_auth_session(request)
-    owner = _trade_analyze_runtime.session_owner(session)
+    owner = _trade_analyze_runtime.session_owner(
+        session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+    )
     request_id = _trade_analyze_runtime.request_id_from(
         request.headers.get("x-analysis-request-id")
     )
-    progress = (
-        _trade_analyze_runtime.PROGRESS.begin(owner, request_id)
-        if session and owner and request_id
-        else None
-    )
-    clock = _trade_analyze_runtime.StageClock(progress)
     try:
         _body = await request.json()
     except Exception:  # noqa: BLE001 -- the simulation reports the bad body
         _body = None
-    key = _trade_analyze_runtime.dedup_key(session, _body, latest_contract_data)
+    # The league is resolved ONCE, here, and handed to the computation: it can
+    # come from the query string, the body or the user's saved active league,
+    # so it must be part of the sharing key, and the computation must answer
+    # for exactly the league in its key.  An unresolvable request takes the
+    # normal path and gets its normal refusal.
+    league_cfg = None
+    if session and isinstance(_body, dict) and latest_contract_data:
+        try:
+            league_cfg = _resolve_league_for_request(request, body=_body)
+        except LeagueResolutionError:
+            league_cfg = None
+    # Progress is recorded only for a request that passed validation (signed
+    # in, a JSON object body, a board loaded, a league resolved).
+    progress = (
+        _trade_analyze_runtime.PROGRESS.begin(owner, request_id)
+        if owner and request_id and league_cfg is not None
+        else None
+    )
+    clock = _trade_analyze_runtime.StageClock(progress)
+    key = _trade_analyze_runtime.dedup_key(
+        owner,
+        session,
+        _body,
+        latest_contract_data,
+        league_key=league_cfg.key if league_cfg is not None else None,
+        query_items=request.query_params.multi_items(),
+    )
     try:
         if key is None:
-            outcome, shared = await _compute_trade_analysis(request, _body, clock), False
+            outcome = await _compute_trade_analysis(request, _body, clock, league_cfg)
+            shared = False
         else:
             outcome, shared = await _TRADE_ANALYZE_FLIGHTS.run(
-                key, lambda: _compute_trade_analysis(request, _body, clock)
+                key,
+                lambda: _compute_trade_analysis(request, _body, clock, league_cfg),
+                on_join=(
+                    (lambda: progress.phase(_trade_analyze_runtime.JOINED))
+                    if progress is not None
+                    else None
+                ),
             )
-            if shared and progress is not None:
-                progress.phase(_trade_analyze_runtime.JOINED)
     except Exception:
         if progress is not None:
             progress.finish(_trade_analyze_runtime.FAILED)
@@ -18053,15 +18147,16 @@ async def post_trade_analyze(request: Request):
 _TRADE_ANALYZE_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
 
 
-async def _compute_trade_analysis(request: Request, body: Any, clock):
+async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg=None):
     """Simulation + comparables + decision for one analyze request.
 
     Returns ``(result, league_key, error_response, clock)``.  Everything an
     identical in-flight request may share; the per-request decision receipt
-    is added by the route.
+    is added by the route.  ``league_cfg`` is the league the route resolved
+    (and keyed the sharing on); ``None`` resolves it here.
     """
     result, league_key, error = await _build_trade_simulation(
-        request, for_analysis=True, clock=clock
+        request, for_analysis=True, clock=clock, league_cfg=league_cfg
     )
     if error is not None:
         return None, None, error, clock
@@ -18123,7 +18218,8 @@ async def get_trade_analyze_status(request: Request, requestId: str = ""):
     if rid is None:
         return JSONResponse(status_code=400, content={"error": "invalid_request_id"})
     snap = _trade_analyze_runtime.PROGRESS.snapshot(
-        _trade_analyze_runtime.session_owner(session), rid
+        _trade_analyze_runtime.session_owner(session, request.cookies.get(JASON_AUTH_COOKIE_NAME)),
+        rid,
     )
     if snap is None:
         return JSONResponse(

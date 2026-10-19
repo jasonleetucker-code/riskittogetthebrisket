@@ -25,12 +25,13 @@ because they are about the REQUEST, not the trade:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable, Hashable, Mapping
+from collections.abc import Awaitable, Callable, Hashable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any, TypeVar
 
@@ -70,10 +71,23 @@ def request_id_from(raw: str | None) -> str | None:
     return value if _REQUEST_ID.match(value) else None
 
 
-def session_owner(session: Mapping[str, Any] | None) -> str | None:
-    """The identity a progress entry / dedup key is scoped to."""
+def session_owner(session: Mapping[str, Any] | None, session_id: str | None = None) -> str | None:
+    """The identity a progress entry / dedup key is scoped to.
+
+    Guest-pass sessions all carry the username ``"guest"``, so they are keyed
+    by their pass AND their own session (hashed — the raw session id is a
+    credential), never pooled: two holders of one pass are two people.  A
+    guest session whose id is unknown gets ``None`` (no progress entry, no
+    sharing) rather than a shared bucket.
+    """
     if not isinstance(session, Mapping):
         return None
+    if str(session.get("auth_method") or "") == "guest_pass":
+        sid = str(session_id or "").strip()
+        if not sid:
+            return None
+        digest = hashlib.sha256(sid.encode("utf-8")).hexdigest()[:24]
+        return f"guest_pass:{session.get('guest_pass_id')}:{digest}"
     for key in ("username", "sleeper_user_id"):
         value = str(session.get(key) or "").strip().lower()
         if value:
@@ -84,9 +98,12 @@ def session_owner(session: Mapping[str, Any] | None) -> str | None:
 class ProgressRegistry:
     """Bounded, TTL'd, owner-scoped phase registry (process-local)."""
 
-    def __init__(self, *, ttl_seconds: float = 300.0, max_entries: int = 512) -> None:
+    def __init__(
+        self, *, ttl_seconds: float = 300.0, max_entries: int = 512, max_per_owner: int = 16
+    ) -> None:
         self._ttl = ttl_seconds
         self._max = max_entries
+        self._max_per_owner = max_per_owner
         self._lock = threading.Lock()
         self._entries: OrderedDict[tuple[str, str], dict[str, Any]] = OrderedDict()
 
@@ -100,6 +117,11 @@ class ProgressRegistry:
     def begin(self, owner: str, request_id: str) -> "ProgressHandle":
         now = time.monotonic()
         with self._lock:
+            # One user cannot churn everyone else's entries out: past the
+            # per-owner cap, that owner's own oldest entry goes first.
+            mine = [k for k in self._entries if k[0] == owner and k != (owner, request_id)]
+            for key in mine[: max(0, len(mine) - self._max_per_owner + 1)]:
+                self._entries.pop(key, None)
             self._entries[(owner, request_id)] = {
                 "phase": "received",
                 "state": "running",
@@ -218,19 +240,26 @@ class StageClock:
 
 
 def dedup_key(
+    owner: str | None,
     session: Mapping[str, Any] | None,
     body: Any,
     contract: Mapping[str, Any] | None,
+    *,
+    league_key: str | None,
+    query_items: Sequence[tuple[str, str]] = (),
 ) -> tuple[Hashable, ...] | None:
     """Identity of an analyze request for in-flight sharing, or ``None``.
 
-    The user (owner + Sleeper id, which decides the default team), the whole
-    request body in canonical form, and the identity of the loaded board.  An
-    unauthenticated or malformed request is never shared; it takes the normal
-    path and gets its normal error.
+    Everything that can decide the answer for this user: the owner and the
+    session's Sleeper id (the default team), the RESOLVED league (which can
+    come from the query string, the body, or the user's saved active league —
+    so it is resolved before this key is taken, and the computation is handed
+    that same league), the whole query string (``leagueKey``,
+    ``valuationMode`` …) and body in canonical form, and the identity of the
+    loaded board.  An unauthenticated, malformed or unresolvable request is
+    never shared; it takes the normal path and gets its normal error.
     """
-    owner = session_owner(session)
-    if owner is None or not isinstance(body, dict):
+    if owner is None or not league_key or not isinstance(body, dict):
         return None
     try:
         canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
@@ -241,6 +270,8 @@ def dedup_key(
         "trade_analyze",
         owner,
         str((session or {}).get("sleeper_user_id") or ""),
+        str(league_key),
+        tuple(sorted((str(k), str(v)) for k, v in query_items)),
         canonical,
         id(contract),
         str((meta or {}).get("generatedAt") or "") if isinstance(meta, Mapping) else "",
@@ -261,11 +292,21 @@ class AsyncSingleFlight:
     def in_flight(self) -> int:
         return sum(1 for t in self._pending.values() if not t.done())
 
-    async def run(self, key: Hashable, factory: Callable[[], Awaitable[T]]) -> tuple[T, bool]:
+    async def run(
+        self,
+        key: Hashable,
+        factory: Callable[[], Awaitable[T]],
+        *,
+        on_join: Callable[[], None] | None = None,
+    ) -> tuple[T, bool]:
+        """``(result, joined)``.  ``on_join`` runs the moment a caller joins an
+        in-flight computation (before waiting on it)."""
         loop = asyncio.get_running_loop()
         slot = (id(loop), key)
         task = self._pending.get(slot)
         if task is not None and not task.done():
+            if on_join is not None:
+                on_join()
             return await asyncio.shield(task), True
         task = asyncio.ensure_future(factory())
         self._pending[slot] = task

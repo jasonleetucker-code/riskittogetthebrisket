@@ -174,10 +174,16 @@ def test_progress_registry_is_bounded_and_expires():
 # ── in-flight sharing ────────────────────────────────────────────────────
 
 
-def _concurrent_posts(client, bodies_and_sessions, monkeypatch):
+def _concurrent_posts(client, requests_spec, monkeypatch, *, during=None):
     """Fire requests that are in flight together: the simulation blocks until
-    every request has entered the route."""
-    entered = threading.Barrier(len(bodies_and_sessions), timeout=10)
+    every request has entered the route.
+
+    ``requests_spec`` entries are ``(body, user)`` or ``(body, user, extra)``
+    with ``extra`` holding ``headers`` / ``params`` / a ``session`` override.
+    ``during`` runs inside the (first) held simulation, after the others had
+    time to join it.
+    """
+    entered = threading.Barrier(len(requests_spec), timeout=10)
     calls: list[int] = []
     real = trade_simulator.simulate_trade
     sessions = {}
@@ -185,6 +191,8 @@ def _concurrent_posts(client, bodies_and_sessions, monkeypatch):
     def slow(*a, **k):
         calls.append(1)
         threading.Event().wait(0.5)  # hold the computation open
+        if during is not None and len(calls) == 1:
+            during()
         return real(*a, **k)
 
     monkeypatch.setattr(trade_simulator, "simulate_trade", slow)
@@ -193,16 +201,21 @@ def _concurrent_posts(client, bodies_and_sessions, monkeypatch):
         return sessions[request.headers.get("x-test-user")]
 
     monkeypatch.setattr(server, "_get_auth_session", session_by_header)
-    results: list = [None] * len(bodies_and_sessions)
+    results: list = [None] * len(requests_spec)
 
-    def go(i, body, user):
-        sessions[user] = _session_for(user)(None)
+    def go(i, spec):
+        body, user = spec[0], spec[1]
+        extra = spec[2] if len(spec) > 2 else {}
+        sessions[user] = extra.get("session") or _session_for(user)(None)
         entered.wait()
-        results[i] = client.post("/api/trade/analyze", json=body, headers={"x-test-user": user})
+        results[i] = client.post(
+            "/api/trade/analyze",
+            json=body,
+            headers={"x-test-user": user, **extra.get("headers", {})},
+            params=extra.get("params"),
+        )
 
-    threads = [
-        threading.Thread(target=go, args=(i, b, u)) for i, (b, u) in enumerate(bodies_and_sessions)
-    ]
+    threads = [threading.Thread(target=go, args=(i, spec)) for i, spec in enumerate(requests_spec)]
     for t in threads:
         t.start()
     for t in threads:
@@ -236,16 +249,50 @@ def test_two_users_or_two_trades_never_share(client, monkeypatch):
     assert not any(r.json()["analysisTiming"]["sharedComputation"] for r in results)
 
 
-def test_dedup_key_scopes_to_user_body_and_board():
+def test_dedup_key_scopes_to_user_league_query_body_and_board():
     s = {"username": "Alice", "sleeper_user_id": "o1"}
     c1, c2 = {"meta": {"generatedAt": "t1"}}, {"meta": {"generatedAt": "t1"}}
-    k = rt.dedup_key(s, {"a": 1, "b": [1, 2]}, c1)
-    assert k == rt.dedup_key(s, {"b": [1, 2], "a": 1}, c1)  # key order is not identity
-    assert k != rt.dedup_key({**s, "username": "bob"}, {"a": 1, "b": [1, 2]}, c1)
-    assert k != rt.dedup_key(s, {"a": 2, "b": [1, 2]}, c1)
-    assert k != rt.dedup_key(s, {"a": 1, "b": [1, 2]}, c2)  # a different board object
-    assert rt.dedup_key(None, {"a": 1}, c1) is None
-    assert rt.dedup_key(s, ["not", "a", "dict"], c1) is None
+
+    def key(owner="alice", body=None, contract=c1, league="main", query=()):
+        return rt.dedup_key(
+            owner,
+            s,
+            {"a": 1, "b": [1, 2]} if body is None else body,
+            contract,
+            league_key=league,
+            query_items=query,
+        )
+
+    k = key()
+    assert k == key(body={"b": [1, 2], "a": 1})  # key order is not identity
+    assert k != key(owner="bob")
+    assert k != key(body={"a": 2, "b": [1, 2]})
+    assert k != key(contract=c2)  # a different board object
+    assert k != key(league="side")  # resolved league (query / body / saved)
+    assert k != key(query=[("valuationMode", "leagueAdjusted")])
+    assert key(owner=None) is None
+    assert key(league=None) is None  # unresolvable: never shared
+    assert key(body=["not", "a", "dict"]) is None
+
+
+def test_guest_pass_sessions_are_never_pooled():
+    guest = {"username": "guest", "auth_method": "guest_pass", "guest_pass_id": 7}
+    a = rt.session_owner(guest, "session-aaaa")
+    b = rt.session_owner(guest, "session-bbbb")
+    assert a and b and a != b
+    assert "session-aaaa" not in a  # the raw session id is a credential
+    assert rt.session_owner(guest, None) is None  # unknown session: no bucket
+    assert rt.session_owner({"username": "Alice"}) == "alice"
+
+
+def test_progress_cap_is_per_owner():
+    reg = rt.ProgressRegistry(ttl_seconds=60.0, max_entries=512, max_per_owner=3)
+    reg.begin("victim", "victim-0001")
+    for i in range(10):
+        reg.begin("noisy", f"noisy-{i:04d}")
+    assert reg.snapshot("victim", "victim-0001") is not None
+    assert reg.snapshot("noisy", "noisy-0006") is None
+    assert all(reg.snapshot("noisy", f"noisy-{i:04d}") for i in (7, 8, 9))
 
 
 def test_async_single_flight_shares_failure_and_survives_owner_cancel():
@@ -286,3 +333,86 @@ def test_concurrent_identical_refusals_each_get_the_refusal(client, monkeypatch)
     results, _calls = _concurrent_posts(client, [(body, "alice"), (body, "alice")], monkeypatch)
     assert [r.status_code for r in results] == [404, 404]
     assert all(r.json() == {"error": "team_not_found", "leagueKey": "main"} for r in results)
+
+
+def test_requests_differing_only_in_query_league_never_share(client, monkeypatch):
+    """``?leagueKey`` outranks the body's.  Same user, same body, different
+    query league: the second must get ITS league's answer, never the first's."""
+    results, _calls = _concurrent_posts(
+        client,
+        [(_BODY, "alice"), (_BODY, "alice", {"params": {"leagueKey": "side"}})],
+        monkeypatch,
+    )
+    main, side = results
+    assert main.status_code == 200 and main.json()["leagueKey"] == "main"
+    # "side" cannot be served from this board (no proven scoring identity /
+    # overlay in the fixture): its OWN refusal, never main's analysis.
+    assert side.status_code == 503 and side.json()["leagueKey"] == "side"
+
+
+def test_requests_differing_only_in_saved_active_league_never_share(client, monkeypatch):
+    """No leagueKey anywhere: the user's saved active league decides.  If it
+    changes between two in-flight requests they answer for different leagues
+    — each for the league it resolved, never the other's."""
+    calls = {"n": 0}
+
+    def saved_state(username):
+        calls["n"] += 1
+        return {"activeLeagueKey": "main" if calls["n"] == 1 else "side"}
+
+    monkeypatch.setattr(server._user_kv, "get_user_state", saved_state)
+    body = {k: v for k, v in _BODY.items() if k != "leagueKey"}
+    results, _ = _concurrent_posts(client, [(body, "alice"), (body, "alice")], monkeypatch)
+    # One request resolved main and was answered for main; the other resolved
+    # side and got side's own answer (here: a refusal), not main's analysis.
+    # (Before the fix both answered 200 for main: the second joined the first.)
+    assert sorted((r.status_code, r.json().get("leagueKey")) for r in results) == [
+        (200, "main"),
+        (503, "side"),
+    ]
+    assert calls["n"] == 2  # each request resolved its league exactly once
+
+
+def test_a_joining_request_reports_joined_while_the_shared_computation_runs(client, monkeypatch):
+    snaps = {}
+
+    def during():
+        snaps["a"] = rt.PROGRESS.snapshot("alice", "join-test-aaaa")
+        snaps["b"] = rt.PROGRESS.snapshot("alice", "join-test-bbbb")
+
+    _concurrent_posts(
+        client,
+        [
+            (_BODY, "alice", {"headers": {"X-Analysis-Request-Id": "join-test-aaaa"}}),
+            (_BODY, "alice", {"headers": {"X-Analysis-Request-Id": "join-test-bbbb"}}),
+        ],
+        monkeypatch,
+        during=during,
+    )
+    phases = sorted(s["phase"] for s in snaps.values())
+    assert phases == ["joined_identical_request", "simulation"]
+
+
+def test_no_progress_entry_for_a_request_that_fails_validation(client):
+    rid = "invalid-req-0001"
+    client.post(
+        "/api/trade/analyze",
+        json={**_BODY, "leagueKey": "nope"},
+        headers={"X-Analysis-Request-Id": rid},
+    )
+    client.post("/api/trade/analyze", content=b"[]", headers={"X-Analysis-Request-Id": rid})
+    assert client.get("/api/trade/analyze/status", params={"requestId": rid}).status_code == 404
+
+
+def test_guest_sessions_share_only_within_their_own_session(client, monkeypatch):
+    guest = {"username": "guest", "auth_method": "guest_pass", "guest_pass_id": 7}
+    cookie = server.JASON_AUTH_COOKIE_NAME
+    _, calls = _concurrent_posts(
+        client,
+        [
+            (_BODY, "g1", {"session": guest, "headers": {"cookie": f"{cookie}=sess-one"}}),
+            (_BODY, "g2", {"session": guest, "headers": {"cookie": f"{cookie}=sess-two"}}),
+        ],
+        monkeypatch,
+    )
+    assert len(calls) == 2  # two guest-pass holders: two computations

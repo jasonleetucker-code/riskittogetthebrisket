@@ -62,9 +62,14 @@ def _patch(monkeypatch, *, identity_ok=("main",), bundle_error=None):
     return calls
 
 
+def _served(monkeypatch, contract):
+    monkeypatch.setattr(server, "latest_contract_data", contract)
+    return contract
+
+
 def test_warms_bundle_projections_and_players_for_servable_leagues(monkeypatch):
     calls = _patch(monkeypatch, identity_ok=("side",))
-    server._warm_trade_analysis_prerequisites(_contract())
+    server._warm_trade_analysis_prerequisites(_served(monkeypatch, _contract()))
     # The loaded league always; another only when its scoring is proven
     # identical (it could not be served otherwise).
     assert calls["bundle"] == [("main", "p-main"), ("side", "p-side")]
@@ -74,7 +79,7 @@ def test_warms_bundle_projections_and_players_for_servable_leagues(monkeypatch):
 
 def test_a_failing_step_never_raises(monkeypatch):
     calls = _patch(monkeypatch, bundle_error=RuntimeError("no snapshot"))
-    server._warm_trade_analysis_prerequisites(_contract())  # must not raise
+    server._warm_trade_analysis_prerequisites(_served(monkeypatch, _contract()))  # no raise
     assert calls["ensemble"] and calls["players"]
 
 
@@ -92,7 +97,7 @@ def test_the_warm_thread_runs_only_behind_the_overlay_warm_flag(monkeypatch):
     from src.adapters import sleeper_trending
 
     ran = threading.Event()
-    monkeypatch.setattr(server, "_warm_trade_analysis_prerequisites", lambda _c: ran.set())
+    monkeypatch.setattr(server, "_warm_trade_analysis_prerequisites", lambda _c, **_k: ran.set())
     monkeypatch.setattr(server._league_registry, "active_leagues", lambda: [])
     monkeypatch.setattr(sleeper_trending, "warm", lambda: False)
     server._SERVING_STARTED.set()
@@ -104,3 +109,97 @@ def test_the_warm_thread_runs_only_behind_the_overlay_warm_flag(monkeypatch):
     monkeypatch.setattr(server, "SLEEPER_OVERLAY_WARM_ENABLED", True)
     server._warm_overlays_in_background({})
     assert ran.wait(5)
+
+
+# ── supersession (independent review of #1828) ───────────────────────────
+
+
+def test_a_board_that_is_not_served_is_not_warmed(monkeypatch):
+    calls = _patch(monkeypatch)
+    monkeypatch.setattr(server, "latest_contract_data", {"meta": {"leagueKey": "main"}})
+    server._warm_trade_analysis_prerequisites(_contract())
+    assert calls == {"bundle": [], "ensemble": [], "players": []}
+
+
+def test_a_superseded_generation_exits_without_warming(monkeypatch):
+    calls = _patch(monkeypatch)
+    board = _served(monkeypatch, _contract())
+    monkeypatch.setattr(server, "_analysis_warm_generation", 5)
+    server._warm_trade_analysis_prerequisites(board, generation=4)
+    assert calls == {"bundle": [], "ensemble": [], "players": []}
+
+
+def test_a_warm_waits_for_its_board_to_be_published(monkeypatch):
+    import threading
+
+    calls = _patch(monkeypatch)
+    board = _contract()
+    monkeypatch.setattr(server, "latest_contract_data", None)
+    monkeypatch.setattr(server, "_analysis_warm_generation", 3)
+    threading.Timer(0.3, lambda: setattr(server, "latest_contract_data", board)).start()
+    server._warm_trade_analysis_prerequisites(board, generation=3)
+    assert calls["bundle"] == [("main", "p-main")]
+    # ...and gives up, writing nothing, when its board is never published.
+    calls2 = _patch(monkeypatch)
+    monkeypatch.setattr(server, "_ANALYSIS_WARM_PUBLISH_WAIT_SECONDS", 0.3)
+    server._warm_trade_analysis_prerequisites(_contract(), generation=3)
+    assert calls2 == {"bundle": [], "ensemble": [], "players": []}
+
+
+def test_a_board_superseded_mid_warm_stops_the_remaining_steps(monkeypatch):
+    from src.api import gameplan
+
+    calls = _patch(monkeypatch)
+    board = _served(monkeypatch, _contract())
+
+    def bundle_then_new_board(key, profile, contract):
+        calls["bundle"].append((key, profile))
+        server.latest_contract_data = {"meta": {"leagueKey": "main"}}  # a newer board lands
+        return object(), False
+
+    monkeypatch.setattr(gameplan, "get_league_bundle", bundle_then_new_board)
+    server._warm_trade_analysis_prerequisites(board)
+    assert calls["bundle"] == [("main", "p-main")]
+    assert calls["ensemble"] == [] and calls["players"] == []
+
+
+def test_repeated_primes_warm_once_newest_board_only(monkeypatch):
+    """Startup recovery primes more than once: only the newest board's warm
+    runs, and warms never overlap."""
+    import threading
+    import time
+
+    from src.adapters import sleeper_trending
+    from src.api import draft_class_evidence
+
+    seen: list = []
+    active = {"n": 0, "max": 0}
+    lock = threading.Lock()
+
+    def fake_warm(contract, *, generation=None):
+        with lock:
+            active["n"] += 1
+            active["max"] = max(active["max"], active["n"])
+        if server._analysis_warm_is_current(contract, generation):
+            seen.append(contract["meta"]["tag"])
+        time.sleep(0.05)
+        with lock:
+            active["n"] -= 1
+
+    monkeypatch.setattr(server, "_warm_trade_analysis_prerequisites", fake_warm)
+    monkeypatch.setattr(server._league_registry, "active_leagues", lambda: [])
+    monkeypatch.setattr(sleeper_trending, "warm", lambda: False)
+    monkeypatch.setattr(draft_class_evidence, "refresh_draft_class_snapshot", lambda cfg: None)
+    monkeypatch.setattr(server, "SLEEPER_OVERLAY_WARM_ENABLED", True)
+    server._SERVING_STARTED.clear()
+    boards = [{"meta": {"leagueKey": "main", "tag": t}} for t in ("a", "b", "c")]
+    for b in boards:
+        server._warm_overlays_in_background(b)
+    monkeypatch.setattr(server, "latest_contract_data", boards[-1])
+    server._SERVING_STARTED.set()
+    deadline = time.monotonic() + 5
+    while not seen and time.monotonic() < deadline:
+        time.sleep(0.02)
+    time.sleep(0.3)
+    assert seen == ["c"]
+    assert active["max"] <= 1
