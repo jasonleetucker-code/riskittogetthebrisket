@@ -6,9 +6,10 @@
  * part 2).  Self-contained: mounted once in the decision area; the War Room
  * layout lane may move the mount line freely.
  *
- * Compact by default: one plain sentence (the methods agree / disagree / no
- * adjustment under either / unavailable), the two gaps, and one control that
- * opens the full calculation.  Never a second verdict: the recommendation is
+ * Compact by default: one plain sentence (the methods agree / both call it
+ * near even but differ on which side is slightly ahead ("split") / disagree /
+ * no adjustment under either / unavailable), the two gaps, and one control
+ * that opens the full calculation.  Never a second verdict: the recommendation is
  * the War Room's, computed with Chase Upside's adjustment only, and nothing
  * here reads or feeds it.
  *
@@ -72,16 +73,13 @@ function CalculationTable({ comparison, sideLabels }) {
       label: "More adjusted value",
       cells: cols.map((m) => moreValueText(m, sideLabels)),
     },
-    // Neutral, never the headline's verdict words: the comparator column must
-    // not read like a second verdict.
+    // A bare percentage — never a fairness-band word (the summary sentence
+    // already says whether each method calls it near even), so neither column
+    // reads like a second verdict.
     {
       key: "pct",
       label: "Gap, % of the larger side",
-      cells: cols.map((m) =>
-        m.relativeGapPct == null
-          ? "—"
-          : `${m.relativeGapPct.toFixed(1)}%${m.nearEven ? " · near even" : ""}`,
-      ),
+      cells: cols.map((m) => (m.relativeGapPct == null ? "—" : `${m.relativeGapPct.toFixed(1)}%`)),
     },
   ];
   return (

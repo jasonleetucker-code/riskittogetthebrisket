@@ -8,8 +8,8 @@
  *   (`trade-logic.js::valueAdjustmentFromSideArrays` → `packageAdjustPair`)
  *   twice — once per registered model — on the same per-side value arrays,
  *   and reports each run on its own: raw totals, the adjustment per side, the
- *   adjusted totals, the gap, which side has more adjusted value, and the
- *   headline's own fairness band word for that gap.
+ *   adjusted totals, the gap, which side has more adjusted value, and the gap
+ *   as a neutral % of the larger side (never a fairness-band word).
  *
  * What it never does:
  *   * duplicate either model's math (both go through the one dispatch);

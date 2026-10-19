@@ -13,6 +13,10 @@ import { compareValueAdjustments } from "@/lib/va-comparison";
 
 const LABELS = ["A", "B"];
 
+/** Every fairness-band word the headline uses (VERDICT_WORDS + FAIRNESS_LABELS), any case. */
+const BAND_WORDS =
+  /near even|\blean\b|strong lean|major gap|slight edge|\bunfair\b|lopsided|\bfair\b|fairness band/i;
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("ValueAdjustmentComparison", () => {
@@ -64,11 +68,11 @@ describe("ValueAdjustmentComparison", () => {
     expect(rowText("Adjustment to Side B")).toBe("NoneNone");
     expect(rowText("More adjusted value")).toBe("Side BSide A");
     expect(rowText("Gap (Side A minus Side B)")).toBe("−760+1,020");
-    // A neutral share of the larger side — never the headline's verdict words
-    // in the comparator column (it must not read like a second verdict).
-    const pct = (ev) => `${ev.relativeGapPct.toFixed(1)}%${ev.nearEven ? " · near even" : ""}`;
+    // A bare share of the larger side — never a fairness-band word in either
+    // column (it must not read like a second verdict).
+    const pct = (ev) => `${ev.relativeGapPct.toFixed(1)}%`;
     expect(rowText("Gap, % of the larger side")).toBe(pct(cmp.active) + pct(cmp.comparator));
-    expect(table.textContent).not.toMatch(/Major gap|Strong lean|Lean|Near even|Fairness band/);
+    expect(table.textContent).not.toMatch(BAND_WORDS);
     // The disagreement is said once, with the method the decision uses.
     expect(screen.getByTestId("va-comparison-summary")).toHaveTextContent(
       "The methods disagree. Chase Upside adjustment: Side B's package is worth more. KTC adjustment method: Side A's package is worth more. The recommendation uses Chase Upside's.",
@@ -98,6 +102,19 @@ describe("ValueAdjustmentComparison", () => {
     expect(screen.getByTestId("va-comparison-gaps")).toHaveTextContent(
       "Side B by 383 (Chase Upside adjustment) · Side A by 478 (KTC adjustment method)",
     );
+    // Both methods sit inside the fair band here, and still neither column of
+    // the calculation names a band: only bare percentages.
+    fireEvent.click(screen.getByRole("button", { name: "Show the calculation" }));
+    const table = within(screen.getByTestId("va-comparison-detail")).getByRole("table");
+    expect(table.textContent).not.toMatch(BAND_WORDS);
+    const pctRow = within(table)
+      .getByRole("rowheader", { name: "Gap, % of the larger side" })
+      .closest("tr");
+    const cells = within(pctRow)
+      .getAllByRole("cell")
+      .map((c) => c.textContent);
+    expect(cells).toHaveLength(2);
+    for (const c of cells) expect(c).toMatch(/^\d+\.\d%$/);
   });
 
   it("one-for-one: explains no adjustment under either method instead of duplicate numbers", () => {
