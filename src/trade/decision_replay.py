@@ -19,6 +19,18 @@ What it does not answer, and why (recorded, not faked):
 * A value the ledger cannot provide at T is missing, so the replayed decision
   is the owner's missing-evidence headline naming it -- never a value of 0, never today's value.
 
+Two opt-in leakage guards, both pass-throughs to the ledger owner (defaults keep
+the original output byte-identical):
+
+* ``max_age_days`` -- by default a nearest-prior value of ANY age prices an
+  asset (an asset last observed months before T is still priced from that old
+  value).  With a budget, an older observation is refused: the asset is reported
+  unpriced (``missingReason: "outside_max_age"``) with the nearest prior date,
+  its distance and the fidelity, and the decision names the missing evidence.
+* ``knowledge_cutoff`` -- bounds the ledger's TRANSACTION time (bitemporal read,
+  ``src.history.asof``): observations and corrections recorded after the cutoff
+  are ignored, so a later backfill or correction cannot leak into the replay.
+
 Pure apart from the read-only ledger query; it executes nothing.
 """
 
@@ -62,17 +74,30 @@ def replay_asset_only(
     at: datetime,
     *,
     ledger_path: Path | None = None,
+    max_age_days: int | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> dict[str, Any]:
     """Replay one trade's decision on values known at ``at`` (UTC-aware).
 
     ``sending`` / ``receiving`` items: ``{"name", "assetKey"?, "playerId"?,
     "position"?, "assetClass"?}`` from the selected team's point of view.
+
+    ``max_age_days`` / ``knowledge_cutoff`` are opt-in leakage guards passed
+    straight to ``asof.batch_known_before`` (module docstring).  Their defaults
+    (``None``) reproduce the original call and output exactly.
     """
+    if max_age_days is not None and (isinstance(max_age_days, bool) or max_age_days < 0):
+        raise ValueError("max_age_days must be a non-negative integer or None")
+    guards: dict[str, Any] = {}
+    if max_age_days is not None:
+        guards["max_age_days"] = max_age_days
+    if knowledge_cutoff is not None:
+        guards["knowledge_cutoff"] = knowledge_cutoff
     items = [("sending", dict(x)) for x in sending] + [("receiving", dict(x)) for x in receiving]
     keyed = [asset_key_for(x) for _, x in items]
     requests = [(k, at) for k in keyed if k]
     found = (
-        iter(asof.batch_known_before(requests, path=ledger_path)["results"])
+        iter(asof.batch_known_before(requests, path=ledger_path, **guards)["results"])
         if requests
         else iter(())
     )
@@ -92,6 +117,12 @@ def replay_asset_only(
             if priced
             else (res.get("missingReason") if res else "asset_key_unresolved"),
         }
+        if guards and res is not None:
+            # Opt-in only, so the default record shape is unchanged: a refused
+            # stale value states how old the nearest prior observation was.
+            record["nearestPriorDate"] = res.get("nearestPriorDate")
+            record["nearestPriorDistanceDays"] = res.get("nearestPriorDistanceDays")
+            record["distanceDays"] = res.get("distanceDays")
         assets.append(record)
         sim[side].append(
             {
@@ -108,7 +139,7 @@ def replay_asset_only(
         sim,
         provenance={"boardStamp": None, "replayAsOf": at.isoformat()},
     )
-    return {
+    out = {
         "version": REPLAY_VERSION,
         "asOf": at.isoformat(),
         "mode": "asset_only",
@@ -118,3 +149,11 @@ def replay_asset_only(
         "teamContextReplay": dict(TEAM_CONTEXT_REPLAY),
         "executes": False,
     }
+    if guards:
+        out["leakageGuards"] = {
+            "maxAgeDays": max_age_days,
+            "knowledgeCutoff": knowledge_cutoff.isoformat()
+            if knowledge_cutoff is not None
+            else None,
+        }
+    return out
