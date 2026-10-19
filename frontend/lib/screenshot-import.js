@@ -23,6 +23,12 @@
  *     screenshot-OVERLAP rule in ``mergeImages`` (the same run of >= 2
  *     resolved assets at the seam of two consecutive screenshots), and it is
  *     recorded with an undo.  Nothing is ever deduped by name.
+ *   * Sides follow the screenshot's SIDE LABELS across screenshots: the
+ *     server says which label each side carries (``anchorFamily`` /
+ *     ``anchorSlot``), so a follow-up shot showing only "Team 2 gets..." is
+ *     added to Team 2's side.  Without labels, or when labels disagree,
+ *     sides fall back to their position and the review says so.  The label
+ *     vocabulary lives on the server only — no label text is parsed here.
  *
  * Every reducer is pure and returns a new state; the input is not mutated.
  */
@@ -157,7 +163,8 @@ function joinItem(item, maps, sourceImage, id) {
  * @param {object} resp - POST /api/trade/import-screenshot 200 body
  * @param {object} maps - { rowByName, rowsByPlayerId, rowByLowerName, pickAliases }
  * @returns per-image review: { imageIndex, layout, engine, sides:
- *   [{label, labelSource, items}], unassigned, ignored, warnings }
+ *   [{label, labelSource, anchorFamily, anchorSlot, items}], unassigned,
+ *   ignored, warnings }
  */
 export function joinToBoard(resp, maps = {}) {
   const imageIndex = Number.isInteger(resp?.imageIndex) ? resp.imageIndex : 0;
@@ -172,6 +179,12 @@ export function joinToBoard(resp, maps = {}) {
     sides: rawSides.map((s) => ({
       label: s?.label ? String(s.label) : "",
       labelSource: s?.labelSource || "none",
+      anchorFamily:
+        typeof s?.anchorFamily === "string" && s.anchorFamily
+          ? s.anchorFamily
+          : null,
+      anchorSlot:
+        s?.anchorSlot === 0 || s?.anchorSlot === 1 ? s.anchorSlot : null,
       items: (Array.isArray(s?.items) ? s.items : []).map(join),
     })),
     unassigned: (Array.isArray(resp?.unassigned) ? resp.unassigned : []).map(
@@ -218,7 +231,13 @@ function overlapLength(prev, next) {
 }
 
 function emptySide() {
-  return { label: "", labelSource: "none", items: [] };
+  return {
+    label: "",
+    labelSource: "none",
+    anchorFamily: null,
+    anchorSlot: null,
+    items: [],
+  };
 }
 
 /** An empty review state (no screenshots read yet). */
@@ -229,32 +248,148 @@ export function emptyReview() {
     ignored: [],
     warnings: [],
     mergeNotes: [],
+    alignmentNotes: [],
     nextId: 0,
   };
+}
+
+/** The side label a side carries — ``{ family, slot }`` — or null. */
+function anchorOf(side) {
+  if (side?.labelSource !== "anchor") return null;
+  const slot = side.anchorSlot;
+  const family = side.anchorFamily;
+  if ((slot !== 0 && slot !== 1) || typeof family !== "string" || !family) {
+    return null;
+  }
+  return { family, slot };
+}
+
+function sameAnchor(a, b) {
+  return Boolean(a && b && a.family === b.family && a.slot === b.slot);
+}
+
+/**
+ * Where each side of ONE screenshot goes in the merged review.
+ *
+ * ``frame`` is the side label each merged side already carries
+ * (``[anchor|null, anchor|null]``, from earlier screenshots).  A labelled
+ * side goes to the merged side carrying the SAME label, else to the side
+ * opposite its label's sibling ("Team 2 gets" opposite "Team 1 gets").  On
+ * an empty frame a lone label takes its own slot (Team 2 -> Side B) and a
+ * pair keeps this screenshot's order.  No label -> position (side i -> i).
+ * Labels that contradict the frame (another label vocabulary, a taken
+ * side, two sides onto one) -> position, with ``conflict`` named — never a
+ * guess dressed as a label match.
+ *
+ * @returns {{ targets: number[], basis: "label"|"position",
+ *   conflict: string|null }}
+ */
+export function alignImageSides(sides, frame = [null, null]) {
+  const list = (Array.isArray(sides) ? sides : []).slice(0, 2);
+  const identity = list.map((_, i) => i);
+  const anchors = list.map(anchorOf);
+  const byPosition = (conflict = null) => ({
+    targets: identity,
+    basis: "position",
+    conflict,
+  });
+  if (!anchors.some(Boolean)) return byPosition();
+  const frameKnown = frame.some(Boolean);
+  const targets = anchors.map(() => null);
+  for (let i = 0; i < list.length; i += 1) {
+    const a = anchors[i];
+    if (!a) continue;
+    let t = frame.findIndex((f) => sameAnchor(f, a));
+    if (t < 0) {
+      const sibling = frame.findIndex((f) => f && f.family === a.family);
+      if (sibling >= 0) t = 1 - sibling;
+      else if (!frameKnown) t = list.length === 1 ? a.slot : i;
+      else return byPosition("label_family_mismatch");
+    }
+    if (frame[t] && !sameAnchor(frame[t], a)) {
+      return byPosition("label_side_taken");
+    }
+    targets[i] = t;
+  }
+  // An unlabelled side of a labelled screenshot takes the side left over.
+  const free = [0, 1].filter((t) => !targets.includes(t));
+  for (let i = 0; i < targets.length; i += 1) {
+    if (targets[i] === null) targets[i] = free.length ? free.shift() : null;
+  }
+  if (targets.includes(null) || new Set(targets).size !== targets.length) {
+    return byPosition("labels_collide");
+  }
+  return { targets, basis: "label", conflict: null };
 }
 
 /**
  * Combine per-image reviews (upload order) into one review state.
  *
- * Side i of every screenshot appends to merged side i.  Overlap at the seam
- * of two consecutive screenshots (same side): a run of >= 2 resolved assets
- * — same board row, same order — ending image k and starting image k+1 is
- * the same pixels scrolled twice, so it is kept once and recorded in
- * ``mergeNotes`` (undoable).  A 1-asset match is NOT merged (one repeated
- * asset is an ordinary trade) but both items are flagged ``possibleOverlap``.
+ * Each screenshot's sides are placed by ``alignImageSides`` (side labels
+ * first, position as the fallback) and recorded in ``alignmentNotes``.  A
+ * screenshot placed by position while others carry labels gets warning
+ * ``side_alignment_unverified``; one whose labels contradict the others,
+ * ``side_alignment_conflict``.  Once the merged review has assets on BOTH
+ * sides, the per-screenshot ``missing_side`` warnings are dropped — they
+ * described one screenshot, and the trade now has both sides.
+ *
+ * Overlap at the seam of two consecutive screenshots (same merged side): a
+ * run of >= 2 resolved assets — same board row, same order — ending image k
+ * and starting image k+1 is the same pixels scrolled twice, so it is kept
+ * once and recorded in ``mergeNotes`` (undoable).  A 1-asset match is NOT
+ * merged (one repeated asset is an ordinary trade, #1619) but both items
+ * are flagged ``possibleOverlap``.
  */
 export function mergeImages(perImageReviews) {
+  const reviews = (
+    Array.isArray(perImageReviews) ? perImageReviews : []
+  ).filter(Boolean);
   const state = emptyReview();
-  let prevTail = [null, null];
-  for (const review of Array.isArray(perImageReviews) ? perImageReviews : []) {
-    if (!review) continue;
-    for (let s = 0; s < 2; s += 1) {
-      const side = review.sides?.[s];
-      if (!side) {
-        prevTail[s] = null;
-        continue;
-      }
-      const target = state.sides[s];
+  const frame = [null, null];
+  const prevTail = [null, null];
+  const anyLabelled = reviews.some((r) =>
+    (r.sides || []).some((side) => anchorOf(side)),
+  );
+  for (const review of reviews) {
+    const sides = (Array.isArray(review.sides) ? review.sides : []).slice(0, 2);
+    const align = alignImageSides(sides, frame);
+    if (sides.length) {
+      state.alignmentNotes.push({
+        sourceImage: review.imageIndex,
+        targets: align.targets.slice(),
+        basis: align.basis,
+        conflict: align.conflict,
+      });
+    }
+    if (align.conflict) {
+      state.warnings.push({
+        code: "side_alignment_conflict",
+        sourceImage: review.imageIndex,
+      });
+    } else if (
+      align.basis === "position" &&
+      anyLabelled &&
+      reviews.length > 1 &&
+      sides.some((side) => side?.items?.length)
+    ) {
+      state.warnings.push({
+        code: "side_alignment_unverified",
+        sourceImage: review.imageIndex,
+      });
+    }
+    if (align.basis === "label") {
+      sides.forEach((side, i) => {
+        const a = anchorOf(side);
+        const t = align.targets[i];
+        if (a && !frame[t]) frame[t] = a;
+      });
+    }
+    const covered = new Set();
+    sides.forEach((side, i) => {
+      if (!side) return;
+      const t = align.targets[i];
+      covered.add(t);
+      const target = state.sides[t];
       if (
         side.labelSource === "anchor" &&
         target.labelSource !== "anchor" &&
@@ -266,13 +401,18 @@ export function mergeImages(perImageReviews) {
         target.label = side.label;
         target.labelSource = side.labelSource || "none";
       }
+      const a = anchorOf(side);
+      if (a && align.basis === "label" && target.anchorFamily == null) {
+        target.anchorFamily = a.family;
+        target.anchorSlot = a.slot;
+      }
       let incoming = (side.items || []).map((it) => ({ ...it }));
-      const prev = prevTail[s];
+      const prev = prevTail[t];
       if (prev && prev.length && incoming.length) {
         const n = overlapLength(prev, incoming);
         if (n >= 2) {
           state.mergeNotes.push({
-            side: s,
+            side: t,
             count: n,
             sourceImage: review.imageIndex,
             removed: incoming.slice(0, n),
@@ -284,16 +424,48 @@ export function mergeImages(perImageReviews) {
         }
       }
       target.items.push(...incoming);
-      if (incoming.length) prevTail[s] = incoming;
-      else if (!prev) prevTail[s] = null;
-    }
+      if (incoming.length) prevTail[t] = incoming;
+      else if (!prev) prevTail[t] = null;
+    });
+    for (let t = 0; t < 2; t += 1) if (!covered.has(t)) prevTail[t] = null;
     state.unassigned.push(
       ...(review.unassigned || []).map((it) => ({ ...it })),
     );
     state.ignored.push(...(review.ignored || []));
     state.warnings.push(...(review.warnings || []));
   }
+  if (reviews.length > 1 && state.sides.every((side) => side.items.length)) {
+    state.warnings = state.warnings.filter((w) => w.code !== "missing_side");
+  }
   return state;
+}
+
+/**
+ * One plain sentence per screenshot whose side labels moved its assets off
+ * their position (e.g. a follow-up shot showing only "Team 2 gets..."), so
+ * the review says why they landed where they did.
+ */
+export function describeAlignment(state, imageCount = 1) {
+  const out = [];
+  for (const note of state?.alignmentNotes || []) {
+    if (note.basis !== "label") continue;
+    if (note.targets.every((t, i) => t === i)) continue;
+    const names = note.targets.map(
+      (t) => state.sides[t]?.label || (t === 0 ? "Side A" : "Side B"),
+    );
+    const where =
+      names.length === 1 ? names[0] : names.map((n) => `"${n}"`).join(" and ");
+    const prefix =
+      imageCount > 1 && Number.isInteger(note.sourceImage)
+        ? `Screenshot ${note.sourceImage + 1}`
+        : "This screenshot";
+    out.push(
+      names.length === 1
+        ? `${prefix} shows only "${where}", so its assets were added to that side.`
+        : `${prefix} lists its sides in the other order, so its assets were matched to ${where} by label.`,
+    );
+  }
+  return out;
 }
 
 // ── review reducers ──────────────────────────────────────────────────
@@ -338,7 +510,7 @@ export function moveItem(state, id, to) {
   return withList(next, target, [...listOf(next, target), item]);
 }
 
-/** Swap Side A and Side B wholesale (labels, items, merge notes). */
+/** Swap Side A and Side B wholesale (labels, items, merge/alignment notes). */
 export function swapReviewSides(state) {
   return {
     ...state,
@@ -346,6 +518,10 @@ export function swapReviewSides(state) {
     mergeNotes: state.mergeNotes.map((n) => ({
       ...n,
       side: n.side === 0 ? 1 : 0,
+    })),
+    alignmentNotes: (state.alignmentNotes || []).map((n) => ({
+      ...n,
+      targets: n.targets.map((t) => (t === 0 ? 1 : 0)),
     })),
   };
 }
@@ -564,6 +740,10 @@ const WARNING_COPY = {
   no_assets_found: "no trade assets were found.",
   trade_region_not_detected:
     "the trade area wasn't recognised, so nothing was placed on a side. Move each asset to the side it belongs to.",
+  side_alignment_unverified:
+    "it shows no side labels, so its assets were placed on Side A / Side B by position — check that every asset is on the right side.",
+  side_alignment_conflict:
+    "its side labels don't match the other screenshots, so its assets were placed by position — check that every asset is on the right side.",
 };
 
 /** A server warning, prefixed with the screenshot it came from. */

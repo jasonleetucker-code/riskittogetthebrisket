@@ -201,6 +201,7 @@ test("each converted spec emits only allowlisted annotation types", () => {
     "trade-stack-withdrawn.spec.js",
     "trade-war-room.spec.js",
     "train2-private-surfaces.spec.js",
+    "screenshot-import-status.spec.js",
   ];
   for (const file of converted) {
     const src = fs.readFileSync(path.join(__dirname, "specs", "prod-auth", file), "utf-8");

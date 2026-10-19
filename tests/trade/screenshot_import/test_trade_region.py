@@ -108,6 +108,10 @@ def test_full_page_ktc_layout_reads_exactly_the_trade(scale, identity_ctx, board
     assert out["layout"] == {"kind": "two_column", "confidence": 0.95}
     assert [s["label"] for s in out["sides"]] == ["Team 1 gets", "Team 2 gets"]
     assert [s["labelSource"] for s in out["sides"]] == ["anchor", "anchor"]
+    assert [(s["anchorFamily"], s["anchorSlot"]) for s in out["sides"]] == [
+        ("team 1/team 2", 0),
+        ("team 1/team 2", 1),
+    ]
     assert _names(out["sides"][0]) == ["Jaxson Dart"]
     assert _names(out["sides"][1]) == ["De'Von Achane"]
     assert out["unassigned"] == []
@@ -247,6 +251,99 @@ def test_one_side_label_never_invents_the_other_side(identity_ctx, board):
         "Brian Thomas Jr.",
     ]
     assert "missing_side" in out["warnings"]
+
+
+# The owner's regression trade (Team 1 gets Jaxson Dart, Team 2 gets
+# De'Von Achane) taken as TWO phone screenshots: the first ends as "Team 2
+# gets..." scrolls into view; the second shows ONLY "Team 2 gets..." with the
+# verdict, the buttons and an insights widget (Bryce Young / Omarion Hampton)
+# under the trade.  Word boxes, so this runs without tesseract.
+PHONE_W, PHONE_H = 1170, 2532
+OWNER_SHOT_1 = (
+    ("9:41", 60, 40),
+    ("example.com/trade-calculator", 90, 145),
+    ("Trade Calculator", 60, 295),
+    ("Team 1 gets...", 80, 520),
+    ("Search for a player", 80, 620),
+    ("Jaxson Dart", 80, 710),
+    ("5542", 960, 716),
+    ("QB · NYG · 23.4 y.o.", 80, 768),
+    ("1 Total Pieces", 80, 840),
+    ("Want a better offer?", 80, 1160),
+    ("Team 2 gets...", 80, 2410),
+)
+OWNER_SHOT_2 = (
+    ("9:41", 60, 40),
+    ("example.com/trade-calculator", 90, 145),
+    ("Team 2 gets...", 80, 320),
+    ("Search for a player", 80, 420),
+    ("De'Von Achane", 80, 510),
+    ("5507", 960, 516),
+    ("RB · MIA · 25 y.o.", 80, 568),
+    ("1 Total Pieces", 80, 640),
+    ("Fair Trade", 470, 726),
+    ("Copy Trade URL", 90, 830),
+    ("Clear Calculator", 650, 830),
+    ("BIGGEST 30 DAY RISERS", 80, 945),
+    ("Bryce Young", 80, 1000),
+    ("Omarion Hampton", 640, 1000),
+    ("LIMITED TIME OFFER", 80, 2400),
+)
+
+
+@pytest.mark.parametrize("scale", [1.0, 0.5])
+def test_owner_trade_across_two_phone_screenshots(scale, identity_ctx, board):
+    kw = {"width": PHONE_W, "height": PHONE_H, "scale": scale, "h": 44}
+    first = _extract(OWNER_SHOT_1, identity_ctx, board, **kw)
+    second = _extract(OWNER_SHOT_2, identity_ctx, board, **kw)
+    assert first["layout"]["kind"] == "stacked"
+    assert [(s["label"], s["anchorSlot"]) for s in first["sides"]] == [
+        ("Team 1 gets", 0),
+        ("Team 2 gets", 1),
+    ]
+    assert _names(first["sides"][0]) == ["Jaxson Dart"]
+    assert _names(first["sides"][1]) == []
+    # The follow-up shows ONE label.  Its side is that label's slot (1 =
+    # Team 2) — the client keeps it on Team 2's side, never on "the first
+    # side of this image".
+    assert second["layout"]["kind"] == "single"
+    assert [(s["label"], s["anchorFamily"], s["anchorSlot"]) for s in second["sides"]] == [
+        ("Team 2 gets", "team 1/team 2", 1)
+    ]
+    assert _names(second["sides"][0]) == ["De'Von Achane"]
+    # The widget under the trade's verdict is page furniture even with one
+    # label — never an item, never "needs a side".
+    assert second["unassigned"] == [] and first["unassigned"] == []
+    reasons = _ignored(second)
+    assert reasons["Bryce Young"] == "outside_trade_region"
+    assert reasons["Omarion Hampton"] == "outside_trade_region"
+    assert all(
+        "Bryce Young" not in str(it["boardName"]) and "Hampton" not in str(it["boardName"])
+        for out in (first, second)
+        for side in out["sides"]
+        for it in side["items"]
+    )
+
+
+def test_one_label_keeps_the_rest_of_the_trade_unassigned_until_its_end(identity_ctx, board):
+    """With one label read, a totals row does NOT end the trade: the other
+    side's list below it stays "needs a side".  Only what is below the
+    verdict / buttons is page furniture."""
+    rows = (
+        ("Team 1 gets...", 80, 100),
+        ("Patrick Mahomes", 80, 200),
+        ("1 Total Pieces", 80, 280),
+        ("Bijan Robinson", 80, 420),  # the other side; its label unread
+        ("1 Total Pieces", 80, 500),
+        ("Fair Trade", 470, 580),
+        ("Trending", 80, 700),
+        ("Brian Thomas Jr.", 80, 760),
+    )
+    out = _extract(rows, identity_ctx, board, width=1170, height=1000, h=40)
+    assert out["layout"]["kind"] == "single"
+    assert _names(out["sides"][0]) == ["Patrick Mahomes"]
+    assert [it["boardName"] for it in out["unassigned"]] == ["Bijan Robinson"]
+    assert _ignored(out)["Brian Thomas Jr."] == "outside_trade_region"
 
 
 def test_no_side_labels_falls_back_without_dumping_the_page(identity_ctx, board):
