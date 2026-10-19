@@ -45,6 +45,10 @@ older *generic* per-merge signoff/stop-and-wait language, not specific
 owner-only gates for model/source promotion, methodology, launch/deploy,
 spending, security, destructive changes or OWNER_PAUSED DFS/League Tycoon.
 The active §0 authorizations and frozen completion contracts stay intact.
+A qualifying merge to `main` runs the existing automated Deploy Production
+pipeline, whose own validate gate still applies. That automatic deploy is
+part of the routine merge, not a separate owner gate; production
+verification is still recorded separately from the merge.
 Canonical policy: `docs/AGENT_OPERATING_SYSTEM.md` §3;
 mechanics: `ASSISTANT_COORDINATION.md`.
 

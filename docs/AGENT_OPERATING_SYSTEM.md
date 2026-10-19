@@ -106,6 +106,8 @@ While `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md` exists with fewer than all 
 
 When that contract reaches 30/30, stop the launch-completion campaign and fall back to the then-current execution plan.
 
+## 3. Default operating posture
+
 ### Standing owner directive (2026-10-19): parallel implementation and qualified autonomous merging
 
 **Binding process policy for every model/engineer; not product-scope authority.**
@@ -144,8 +146,12 @@ launch, deployment, security, spending, access or destructive-action gates.
    methodology, source voting or model promotion without the approved gates;
    spend money, handle owner-held credentials, destroy data, expose private
    information, write real Sleeper transactions, or cross explicit owner-only
-   launch/deploy boundaries without the separate authorization. Routine
-   merge permission is not blanket production deployment permission.
+   launch/deploy boundaries without the separate authorization. A
+   qualifying merge to `main` runs the existing automated Deploy Production
+   pipeline (its own validate gate still applies); that automatic deploy is
+   part of the routine merge. It does not extend to manual production
+   actions or to a launch/deploy boundary the repository reserves for the
+   owner, and production VERIFIED is still recorded separately.
 5. **Track evidence, not hopeful status.** Reuse work claims, PRs, execution
    plan and completion ledger rather than creating a rival roadmap.
    Distinguish QUEUED, IMPLEMENTING, IMPLEMENTED_UNVALIDATED, FEATURE_GREEN,
@@ -156,8 +162,6 @@ launch, deployment, security, spending, access or destructive-action gates.
 "Write everything now, fix kinks later" means **parallel isolated construction
 with staged full verification**, not a giant branch or unreviewed release.
 The existing L0–L3 workflow and exclusive Integration role below remain binding.
-
-## 3. Default operating posture
 
 ### Investigate before claiming
 

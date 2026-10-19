@@ -18,7 +18,7 @@ This file is the durable repository record for owner-requested live defects, UX 
 ## Added 2026-10-19 — Permanent owner directive: maximize safe coding throughput
 
 The owner wants all engineers and AI/LLM workers to **implement independent
-already-authorized Calculator features in parallel**, normally targeting
+already-authorized features in parallel**, normally targeting
 3–5 truly independent agents when safe/available, using worktrees, task
 branches and claimed files with a separate Integration coordinator.
 Do not have independent development await another feature's entire CI
@@ -39,6 +39,20 @@ gates remain. Canonical incorporation:
 `ASSISTANT_COORDINATION.md`; current authorization boundary:
 `docs/EXECUTION_PLAN.md`. No new roadmap, feature manifest ID or
 completion denominator is implied by this engineering process directive.
+
+Owner's words (2026-10-19, standing merge authorization, verbatim): "I do
+not want to manually approve every pull request merge. Effective
+immediately, the designated Integration Authority has my standing
+authorization to automatically merge any PR that is ready under our
+established requirements. If the required CI checks pass, the
+implementation is complete, the necessary reviews are satisfied, and there
+are no unresolved dependencies or conflicts, merge it without asking me. Do
+not interrupt development to request routine merge approval. Keep
+implementing independent features while other PRs are validating or
+merging. Do not bypass required checks or owner-only decisions involving
+production model activation, security, spending, or other consequential
+changes." The live implementation-state board the same day's MAXIMUM
+VELOCITY directive asked for is `docs/DEVELOPMENT_TRACKER.md`.
 
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
