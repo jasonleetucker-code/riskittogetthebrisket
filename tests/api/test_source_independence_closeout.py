@@ -284,6 +284,29 @@ def test_d2_engages_exactly_where_both_vote_on_defensive_rows(engaged_boards):
         pytest.skip("The IDP Show casts no vote on this archive even at full weight")
 
 
+def test_d2_one_lineage_rows_take_the_single_source_haircut(engaged_boards):
+    """Independent review of the closeout: the haircut counted families on the
+    registry map, so a defensive row priced only by the IDP Trade Calculator
+    and its correlated IDP Show copy escaped the 30% haircut that the same row
+    takes with the calculator alone.  D2 merges them into one lineage."""
+    off, on = (_rows(c) for c in engaged_boards)
+    checked = 0
+    for name, row in on.items():
+        if not row.get("sharedLineageCaps") or _klass(row) != "idp":
+            continue
+        kept = {k for k, m in _voting(row).items() if not m.get("hampelDropped")}
+        if not kept or not kept <= {"idpTradeCalc", "idpShowCombined"}:
+            continue
+        if not row.get("rankDerivedValue"):
+            continue
+        checked += 1
+        assert row.get("singleSourceValuePenaltyApplied"), name
+        assert not off[name].get("singleSourceValuePenaltyApplied"), name
+        assert row["rankDerivedValue"] < off[name]["rankDerivedValue"], name
+    if checked == 0:
+        pytest.skip("no defensive row rests solely on the merged lineage on this archive")
+
+
 def test_d2_never_reprices_an_offense_row_except_two_way_players(engaged_boards):
     off, on = (_rows(c) for c in engaged_boards)
     for name, row in on.items():

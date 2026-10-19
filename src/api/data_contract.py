@@ -13157,10 +13157,13 @@ def _compute_unified_rankings(
         # beside KTC Crowd) cannot lift a one-provider row out of the haircut.
         # With the cap off this is exactly the old ``len(all_values) <= 1``
         # test: selection leaves at most one value per family.
-        present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
-            family_by_key.get(k, k) for k in freshness_excluded
+        # Counted on THIS ROW's lineage (D2): a correlated copy the shared
+        # cap merges into one lineage cannot lift a one-lineage row out of the
+        # haircut either.  Unengaged rows read ``family_by_key`` unchanged.
+        present_families = {row_families.get(k, k) for k, _v, _a in family_kept} | {
+            row_families.get(k, k) for k in freshness_excluded
         }
-        voting_families = {family_by_key.get(k, k) for k, _v, _a in family_kept}
+        voting_families = {row_families.get(k, k) for k, _v, _a in family_kept}
         if _sparse_limited_evidence and not row_is_pick and len(voting_families) <= 1:
             # Sparse challenger: one VOTING family is limited evidence, stamped
             # whether or not a stale family is also present (that row takes no
