@@ -252,10 +252,13 @@ const TradeNextActions = dyn(
 // before it has anything to show.
 const loadWarRoom = () => import("@/components/trade/TradeWarRoom");
 const TradeWarRoom = dyn(loadWarRoom, "Trade War Room");
-const ValueAdjustmentComparison = dyn(
-  () => import("@/components/trade/ValueAdjustmentComparison"),
-  "Value Adjustment comparison",
-);
+// The Value Adjustment comparison (dual-VA, #1826) renders INSIDE the War Room
+// (its `vaSlot`, right under the at-a-glance rows), so its chunk is prefetched
+// beside the War Room's: no waterfall from War Room chunk -> comparison chunk.
+// Accepted trade-off: a War Room chunk failure also hides the comparison
+// (both sit behind the War Room's resilient section).
+const loadVaComparison = () => import("@/components/trade/ValueAdjustmentComparison");
+const ValueAdjustmentComparison = dyn(loadVaComparison, "Value Adjustment comparison");
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -368,6 +371,7 @@ export default function TradePage() {
   useEffect(() => {
     prefetch(loadSuggestionsDesk);
     prefetch(loadWarRoom);
+    prefetch(loadVaComparison);
   }, []);
 
   // The phone sheet belongs to the phone layout: it closes if the viewport widens.
@@ -1932,6 +1936,17 @@ export default function TradePage() {
         : null,
     [sides.length, warRoomRequest, sideTotals, evalState, valueOverrides],
   );
+  // The Value Adjustment comparison (#1826), defined once and mounted through
+  // the War Room's `vaSlot` in every War Room view.  Published values, like the
+  // War Room's analysis; the component renders nothing until two sides hold
+  // assets.
+  const vaComparison = (
+    <ValueAdjustmentComparison
+      sideValues={sides.map((s) => s.assets.map((r) => displayValue(r)))}
+      sideLabels={sides.map((s) => s.label)}
+      hasOverrides={Object.keys(valueOverrides).length > 0}
+    />
+  );
   // Both sides hold assets but nothing says which one is the team's: ask.
   const sideChoiceNeeded =
     Boolean(selectedTeam) &&
@@ -2846,6 +2861,9 @@ export default function TradePage() {
                   backend's; while the analysis runs the War Room shows the
                   calculator's own trade value (`valueSummary`), never a
                   YES / NO. */}
+              {/* The Value Adjustment comparison (#1826) is defined ONCE and
+                  handed to every War Room view through `vaSlot` (two-team,
+                  3+-team and idle): exactly one mount in every state. */}
               {sides.length === 2 ? (
                 <TradeWarRoom
                   request={warRoomRequest}
@@ -2859,19 +2877,14 @@ export default function TradePage() {
                   onChooseSide={setExplicitMySide}
                   onDecision={setDecisionSummary}
                   valueSummary={warRoomValueSummary}
+                  vaSlot={vaComparison}
                 />
               ) : (
                 // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
                 // two-team trade.  A 3+-team trade gets no YES / NO; the War Room
                 // itself says so (`sideCount`) instead of silently disappearing.
-                <TradeWarRoom sideCount={sides.length} />
+                <TradeWarRoom sideCount={sides.length} vaSlot={vaComparison} />
               )}
-              {/* Value Adjustment comparison — dual-VA lane */}
-              <ValueAdjustmentComparison
-                sideValues={sides.map((s) => s.assets.map((r) => displayValue(r)))}
-                sideLabels={sides.map((s) => s.label)}
-                hasOverrides={Object.keys(valueOverrides).length > 0}
-              />
             </section>
 
             {/* ── 4. SUPPORTING INTELLIGENCE ───────────────────── */}

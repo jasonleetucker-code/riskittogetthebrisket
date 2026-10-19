@@ -34,6 +34,7 @@ import {
   unavailableWords,
 } from "./trade-war-room";
 import { FAIRNESS_LABELS } from "./fairness-bands";
+import { ACTIVE_METHOD_LABEL, COMPARATOR_METHOD_LABEL } from "./va-comparison";
 
 // ── Small helpers ─────────────────────────────────────────────────────────
 
@@ -1018,11 +1019,13 @@ export function comparableReasonText(line) {
   return isRawCode(prose) ? null : t;
 }
 
-/** The package Value Adjustment models, by family -- the same names the VA
- *  comparison uses (#1826 `va-comparison.js` ACTIVE_ / COMPARATOR_METHOD_LABEL). */
+/** The package Value Adjustment models, by family.  The names are the VA
+ *  comparison's (`lib/va-comparison.js` ACTIVE_ / COMPARATOR_METHOD_LABEL), the
+ *  single source, so the War Room and the comparison never name a model two
+ *  ways. */
 export const PACKAGE_MODEL_LABELS = {
-  geom: "Chase Upside adjustment (geometric)",
-  ktc: "KTC adjustment method",
+  geom: ACTIVE_METHOD_LABEL,
+  ktc: COMPARATOR_METHOD_LABEL,
 };
 
 /** `packageModel` (the market lens' receipt) as its display name; the

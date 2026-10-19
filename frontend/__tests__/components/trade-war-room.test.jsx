@@ -282,10 +282,10 @@ describe("TradeWarRoom — the packet, in plain English", () => {
   it("methodology discloses the package model, the simulation and what is not included", async () => {
     await renderWith(CONSOLIDATION);
     openSection("Sources, simulations and methodology");
-    // The package model by its display name (#1826's labels), never the
-    // backend's developer description.
+    // The package model by its display name (the VA comparison's label, one
+    // source), never the backend's developer description.
     expect(
-      screen.getByText(/Package Value Adjustment: Chase Upside adjustment \(geometric\)\./),
+      screen.getByText(/Package Value Adjustment: Chase Upside adjustment\./),
     ).toBeInTheDocument();
     expect(screen.queryByText(/q = 0\.78/)).toBeNull();
     // The assumptions follow the ACTUAL points model: this one is the default

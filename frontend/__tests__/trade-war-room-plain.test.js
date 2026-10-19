@@ -32,6 +32,7 @@ import {
   warRoomValueSummaryFor,
 } from "@/lib/trade-war-room";
 import { TRADE_VALUE_MODE, adjustedSideTotals, tradeEvaluationState } from "@/lib/trade-logic";
+import { ACTIVE_METHOD_LABEL, COMPARATOR_METHOD_LABEL } from "@/lib/va-comparison";
 import {
   analysisErrorCode,
   analysisErrorText,
@@ -1298,9 +1299,9 @@ describe("comparable trades, package model, assumptions, roster notes", () => {
     const pm = KTC_ROLLBACK.analysis.lenses.market.detail.packageModel;
     expect(pm.label).toMatch(/port of keeptradecut\.com/); // as emitted
     expect(packageModelLabel(pm)).toBe("KTC adjustment method");
-    expect(packageModelLabel(market(CONSOLIDATION).packageModel)).toBe(
-      "Chase Upside adjustment (geometric)",
-    );
+    expect(packageModelLabel(market(CONSOLIDATION).packageModel)).toBe(ACTIVE_METHOD_LABEL);
+    // One source: the VA comparison's own labels.
+    expect(packageModelLabel(pm)).toBe(COMPARATOR_METHOD_LABEL);
     expect(packageModelLabel({ family: "new", label: "Some (x = 1)" })).toBe(
       "the active package adjustment",
     );
