@@ -16,7 +16,7 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 10:55 UTC (coordinator).
+Last updated: 2026-10-19 11:10 UTC (coordinator).
 
 ## Release vehicles
 
@@ -37,12 +37,12 @@ Last updated: 2026-10-19 10:55 UTC (coordinator).
 | Power Rankings roster-11 hand-off (CQ-09) | CQ-09 lane (done) | `claude/power-rankings-current-franchise` | #1834 (in train 12) | #1822 | VALIDATING (train 12) | Time-sensitive: week-6 publication | Deploy before Monday-night final |
 | V1 authenticated verification (Priority #1, CQ-16) | V1 lane (done) | `claude/v1-verification-session-survival` | #1837 (in train 12) | — | VALIDATING (train 12) | Why prod wedged at 08:42Z; 2030 horizon (owner); sharp-tracker timeout; W1-28 field | Next automatic V1 run after deploy |
 | Records + completion queue (CQ-17) | Coordinator | `claude/completion-queue-records-2026-10-19` | #1830 (in train 12) | — | VALIDATING (train 12) | — | — |
-| Source voting rework per 2026-10-19 directives (CQ-01, CQ-10, CQ-18) | Source-voting lane | `claude/idp-source-independence` | #1817 | Coordinate with #1831 (flag lines) | IMPLEMENTING (rework pushed `7f4153c089`) | Earlier head was red on the hard gate | Green CI, scenario evidence, all-flags-off parity |
+| Source voting rework per 2026-10-19 directives (CQ-01, CQ-10, CQ-18) | Source-voting lane (done) | `claude/idp-source-independence` | #1817 | Ship paired with the outlier fix (CQ-65), or with the DLF IDP hold re-applied | READY FOR REVIEW (`7f4153c089`, Validate PR green). D2/D3 deleted; D4 and D5 ON; two-way fix; DLF IDP restored; all-flags-off is byte-identical to main | The DLF IDP restore makes Hampel drop other sources' valid votes on 30 rows (up to 54%) until CQ-65 lands | Train with the outlier fix |
 | Universal freshness schedule + voting status (CQ-64) | Freshness lane | `claude/universal-freshness-schedule` | #1831 | — | CI FAILING (`f24c09aff8`: Signals stale-vote test KeyError; IDP anchor-chain test) | Root-cause pending | Full local suite, then push |
 | IDP outlier filter (CQ-65) | Outlier lane | `claude/outlier-filter-disagreement` | — | — | IMPLEMENTING | — | Preregistered challenger behind a flag, default OFF |
 | Source voting transparency UI (CQ-66) | W1 | `claude/source-voting-transparency-ui` | — | #1831 payload (renders an honest "not available" state until then) | IMPLEMENTING | — | PR |
 | Screenshot import remainder (CQ-11) | W2 (done) | `claude/screenshot-import-cq11` | #1841 | — | READY FOR REVIEW: 242 screenshot tests and 69 vitest passing locally; side alignment by label; mobile/dark fixtures; the owner's Dart/Achane case pinned three ways; prod-auth status spec | CQ-12 needs a member session; privacy check on the `ktc_fullpage_browser` fixture (owner) | Train 13 |
-| Production wedge diagnostics (ops) | W3 | `claude/prod-wedge-diagnostics` | — | — | IMPLEMENTING | Needs the box journal | PR; coordinator runs read-only diagnostics once |
+| Production restart root cause (ops) | W3 (done) | `claude/prod-wedge-diagnostics` | #1845 | — | READY FOR REVIEW. Diagnostics ran once (run 39241251979): the liveness watchdog's 3-strike restart; the event loop was silent 08:40–08:41; SIGTERM timed out, then SIGKILL; no OOM; peak 2.6G against MemoryHigh 2.5GiB. The PR also takes `send_alert` off the event loop (a defensive fix: SMTP with no timeout) | Memory pressure → W8 | Train 13 |
 | Default-league workbook pick ownership fail-closed | W4 (done) | `claude/workbook-pick-ownership-fail-closed` | #1840 | — | READY FOR REVIEW: the fix already shipped in #1785 (train 6); this PR adds 13 contract tests plus doc fixes, and changes no behaviour | Follow-ups below | Train 13 |
 | Brisket Trade Advisor (public League Hub) | Audit workflow → build workers | — | — | Audit and design | IMPLEMENTING (Phase 1 audit) | — | Launch backend + frontend workers from the final design |
 | Signals Fantasy IDP voting, DL/LB/DB per family | Audit workflow → build workers | — | — | On-box evaluation; #1817 / #1831 / outlier lane overlap | IMPLEMENTING (audit / root cause) | Private data is box-local | Preregister candidates; on-box diagnostics |
@@ -50,6 +50,7 @@ Last updated: 2026-10-19 10:55 UTC (coordinator).
 | War Room server phases (CQ-20) | — | — | — | Train 12 (#1828 status endpoint) | QUEUED | — | Start after train 12 merges (touches `/trade`) |
 | `/trade` pick-ownership unknown state | — | — | — | Train 12 (`/trade` files) | QUEUED | — | Start after train 12 merges |
 | Calculator correctness parity tests (CQ-21) | — | — | — | — | QUEUED | — | Next wave |
+| Production memory pressure (peak above MemoryHigh under verification load) | W8 | `claude/prod-memory-pressure` | — | — | IMPLEMENTING | — | PR: bounded caches, no output change; evidence-based unit limits |
 | Accessibility defects (CQ-30) | W6 | `claude/a11y-cq30` | — | `/trade` hover tint deferred until train 12 lands | IMPLEMENTING | — | PR |
 | Scheduled workflow health (CQ-29) | W7 | `claude/scheduled-ci-health-cq29` | — | — | IMPLEMENTING | No box SSH; unit checks go to W3's diagnostics | PR |
 | Workbook refusal reason precision (`sleeper_unreachable` vs `traded_picks_fetch_failed` when Sleeper fails before `/traded_picks`) | — | — | — | — | QUEUED | Shipped wording; the change is small | Next wave |
