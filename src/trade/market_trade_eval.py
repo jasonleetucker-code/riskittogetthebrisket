@@ -160,6 +160,204 @@ def fit_suitability(trade: Mapping[str, Any], topo: Mapping[str, Any]) -> dict[s
     return {"fit": FIT_PACKAGE, "reasons": ["consolidation_effects_require_package_model"]}
 
 
+# ── Estimator evidence (chaseTradeMarket P2: G8/G9) ──────────────────────
+#
+# Facts the shadow trade-market estimator and its preregistration need, per
+# underlying trade.  ADDITIVE: ``fit_suitability`` above is unchanged, so every
+# existing reader (latent readiness, topology summary, residuals) answers
+# exactly as before.  Two kinds of flag, deliberately separated:
+#
+# * ``hardExclusions`` -- the trade cannot be represented correctly in a
+#   latent-price fit (an unresolved asset, FAAB money the asset space cannot
+#   hold, an unverified dynasty format, a multi-team trade whose senders are
+#   unknown, no collection clock for point-in-time folds, ...).  Data
+#   integrity, not methodology.
+# * ``populationFlags`` -- provenance / independence FACTS (KTC-linked,
+#   Insider-crawled, own-league lane, unproven dedupe, FAAB not observable on
+#   the Sleeper lanes, ...).  Which of them exclude a trade from the primary
+#   population is the preregistration's decision (plan G13), never made here.
+#
+# League maturity is reported under BOTH readings the plan names --
+# point-in-time at the trade and league-level as of the build -- from the
+# ``leagueMaturity`` hook the P3 maturity owner fills.  Until it does, every
+# cohort is ``unknown``: maturity is never inferred here.
+
+COHORT_A = "A_three_plus_completed_seasons"
+COHORT_B = "B_two_completed_seasons"
+COHORT_B_PLUS_UNRESOLVED = "two_plus_completed_three_unresolved"
+COHORT_BELOW_TWO = "below_two_completed_seasons"
+COHORT_UNKNOWN = "unknown"
+
+MATURITY_EXACT = "exact"
+MATURITY_LOWER_BOUND = "lower_bound"
+MATURITY_UNKNOWN = "unknown"
+
+
+def maturity_cohort(completed_seasons: Any, certainty: Any) -> str:
+    """Owner directive V2 §2 cohort for one maturity reading, FAIL CLOSED.
+
+    ``exact`` counts place the league directly.  A ``lower_bound`` proves "at
+    least n": 3+ is cohort A, exactly 2 proves the two-season research cohort
+    while A stays unresolved, and below 2 proves nothing.  A lower bound under
+    three is NEVER cohort A, and an unknown count is ``unknown`` -- never the
+    startup bucket.
+    """
+    if isinstance(completed_seasons, bool) or not isinstance(completed_seasons, int):
+        return COHORT_UNKNOWN
+    if completed_seasons < 0:
+        return COHORT_UNKNOWN
+    if certainty == MATURITY_EXACT:
+        if completed_seasons >= 3:
+            return COHORT_A
+        return COHORT_B if completed_seasons == 2 else COHORT_BELOW_TWO
+    if certainty == MATURITY_LOWER_BOUND:
+        if completed_seasons >= 3:
+            return COHORT_A
+        return COHORT_B_PLUS_UNRESOLVED if completed_seasons == 2 else COHORT_UNKNOWN
+    return COHORT_UNKNOWN
+
+
+def _maturity_cohorts(trade: Mapping[str, Any]) -> dict[str, str]:
+    lm = trade.get("leagueMaturity") or {}
+    out = {}
+    for reading in ("pointInTime", "asOfBuild"):
+        r = lm.get(reading) or {}
+        out[reading] = maturity_cohort(r.get("completedSeasons"), r.get("certainty"))
+    return out
+
+
+_NON_DYNASTY_STATES = ("keeper", "redraft")
+
+
+def estimator_evidence(trade: Mapping[str, Any]) -> dict[str, Any]:
+    """Per-trade evidence flags for the trade-market estimator (see above)."""
+    topo = classify_topology(trade)
+    flags = topo["flags"]
+    t = topo["topology"]
+    hard: list[str] = []
+    population: list[str] = []
+    if t in (TOPO_ONE_SIDED, TOPO_EMPTY):
+        hard.append("one_side_empty")
+    for flag, reason in (
+        ("includes_unresolved", "unresolved_asset"),
+        ("includes_faab", "faab_unrepresentable"),
+        ("includes_startup_pick", "startup_pick"),
+        ("includes_pick_beyond_round_6", "pick_round_gt_6"),
+    ):
+        if flag in flags:
+            hard.append(reason)
+    fmt = trade.get("marketFormat") or {}
+    dynasty_state = (fmt.get("general") or {}).get("dynastyState")
+    if dynasty_state in _NON_DYNASTY_STATES:
+        hard.append("not_dynasty")
+    elif dynasty_state != "dynasty":
+        hard.append("dynasty_unverified")
+    if (fmt.get("offense") or {}).get("superflex") is None:
+        hard.append("qb_format_unknown")
+    exclusivity = (trade.get("rosterExclusivity") or {}).get("state")
+    if exclusivity == "multi_copy":
+        hard.append("multi_copy_league")
+    elif exclusivity != "exclusive":
+        hard.append("roster_exclusivity_unknown")
+    side_ev = trade.get("sideEvidence") or {}
+    if t == TOPO_MULTI_TEAM:
+        senders = [
+            a.get("senderSideIndex")
+            for side in side_ev.get("sides") or []
+            for a in side.get("assets") or []
+        ]
+        n_assets = sum(len(s) for s in trade.get("sides") or [])
+        if len(senders) != n_assets or any(x is None for x in senders):
+            # A three-team trade is usable only when every asset's sender is
+            # known (G8 restores it from the host movement's roster slot).
+            hard.append("multi_team_senders_unattributed")
+    if not trade.get("occurredDate"):
+        hard.append("undated_trade")
+    if _parse_iso(trade.get("representativeCollectedAt") or trade.get("collectedAt")) is None:
+        # Point-in-time folds filter on the collection clock; without it a
+        # trade cannot be placed before or after a training cutoff.
+        hard.append("collected_at_unknown")
+
+    channels = list(trade.get("observationChannels") or [])
+    cross = trade.get("crossFeed") or {}
+    if "ktc_database" in channels:
+        population.append("ktc_database_channel")
+    if cross.get("ktcOverlap") == "possible_cross_feed_overlap":
+        population.append("possible_ktc_overlap")
+    state = trade.get("dedupeState")
+    if state in ("POSSIBLE_OVERLAP", "UNRESOLVED"):
+        population.append(f"dedupe_unproven:{state}")
+    if "insider_pool_crawl" in (trade.get("collectionPaths") or []):
+        population.append("insider_pool_crawl")
+    if "own_league_sleeper" in (trade.get("sourceFamilies") or []):
+        population.append("own_league_lane")
+    caveats = [str(c) for c in trade.get("caveats") or []]
+    if "sleeper_trade_faab_component_not_recorded" in caveats:
+        population.append("faab_unobserved")
+    if any(c.startswith(("partial_record_", "released_in_trade")) for c in caveats):
+        population.append("partial_host_record")
+    if side_ev.get("managerKeyState") != "keyed":
+        population.append("side_manager_keys_unavailable")
+    if trade.get("targetPriceAuthority") == 0:
+        population.append(f"target_disposition:{trade.get('disposition')}")
+    return {
+        "hardExclusions": hard,
+        "populationFlags": population,
+        "maturityCohort": _maturity_cohorts(trade),
+        "observationChannels": channels,
+        "ktcOverlap": cross.get("ktcOverlap"),
+        "overlapClusterId": cross.get("overlapClusterId"),
+    }
+
+
+def _parse_iso(value: Any) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def summarize_estimator_evidence(trades: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Counts only: data lost to EACH hard exclusion (a trade counts under
+    every reason it carries, and once in ``anyHardExclusion``), population-flag
+    counts among the otherwise-usable trades, and maturity cohorts under both
+    readings (owner directive V2 §10 "data lost to each exclusion")."""
+    hard: dict[str, int] = {}
+    population: dict[str, int] = {}
+    cohorts: dict[str, dict[str, int]] = {"pointInTime": {}, "asOfBuild": {}}
+    usable = 0
+    excluded = 0
+    for t in trades:
+        e = estimator_evidence(t)
+        for r in e["hardExclusions"]:
+            hard[r] = hard.get(r, 0) + 1
+        if e["hardExclusions"]:
+            excluded += 1
+            continue
+        usable += 1
+        for f in e["populationFlags"]:
+            population[f] = population.get(f, 0) + 1
+        for reading, cohort in e["maturityCohort"].items():
+            cohorts[reading][cohort] = cohorts[reading].get(cohort, 0) + 1
+    return {
+        "underlyingTrades": len(trades),
+        "anyHardExclusion": excluded,
+        "representable": usable,
+        "lostToEachHardExclusion": dict(sorted(hard.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "populationFlagsAmongRepresentable": dict(sorted(population.items())),
+        "maturityCohortsAmongRepresentable": {
+            k: dict(sorted(v.items())) for k, v in cohorts.items()
+        },
+        "notes": [
+            "hard exclusions are data-integrity facts; which population flags exclude a trade "
+            "from the primary population is the preregistration's decision",
+            "maturity cohorts stay 'unknown' until the P3 maturity owner fills leagueMaturity",
+        ],
+    }
+
+
 # ── Board value lookup ────────────────────────────────────────────────────
 
 
@@ -513,9 +711,12 @@ def summarize_topology(trades: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 __all__ = [
     "BoardIndex",
     "classify_topology",
+    "estimator_evidence",
     "fit_suitability",
+    "maturity_cohort",
     "latent_fit_readiness",
     "residual_report",
+    "summarize_estimator_evidence",
     "summarize_topology",
     "trade_residual",
 ]

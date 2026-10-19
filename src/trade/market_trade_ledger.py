@@ -69,7 +69,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.acquisition.store import read_events
+from src.acquisition.store import read_events, read_first_recorded
 from src.trade.faab_comparability import TargetFormat
 from src.trade.ledger_sort import oldest_first_key
 
@@ -178,6 +178,20 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
 
     trades.sort(key=lambda t: oldest_first_key(t["occurredAtMs"], t["sourceRef"]))
     return trades
+
+
+def trade_collection_times(
+    league_key: str, *, path: Path | None = None
+) -> dict[str, dict[str, str]]:
+    """``{sourceRef: {"first": iso, "complete": iso}}`` -- when the acquisition
+    ledger first recorded any / every event of each trade.  Evidence for the
+    completed-trade ledger's point-in-time ``collectedAt`` (chaseTradeMarket
+    P2); deliberately NOT added to :func:`market_trades` rows, which
+    ``/api/market/trades`` serves verbatim."""
+    return {
+        ref: {"first": first, "complete": last}
+        for ref, (first, last) in read_first_recorded(league_key, path=path).items()
+    }
 
 
 def acquisition_store_present(path: Path | None = None) -> bool:
