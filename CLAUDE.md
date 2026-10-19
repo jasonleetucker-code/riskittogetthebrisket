@@ -19,6 +19,17 @@
 > rules again when they are already recorded in the repo.
 
 
+## Permanent engineering throughput / routine auto-merge — owner 2026-10-19
+
+The shared policy imported above by `@docs/AGENT_OPERATING_SYSTEM.md`
+(§3) and its Integration mechanics in `ASSISTANT_COORDINATION.md`
+apply to Claude and every other model. Implement independent approved
+features in isolated branches/worktrees with L0/L1, preserve all required
+L2/L3 checks, and let the designated Integration Authority merge qualifying
+green reviewed routine PRs without another owner "merge it" instruction.
+Consequential owner-only and production promotion gates remain binding.
+This is a navigation pointer, not a separate Claude-specific rule.
+
 ## Calculator Premium UI — permanent parallel rule
 
 PSI / Direction A is the permanent design north star. Do not invent styling. Read
