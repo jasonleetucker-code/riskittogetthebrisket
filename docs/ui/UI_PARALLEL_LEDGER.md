@@ -126,7 +126,18 @@ until it is deleted). Evidence: local seeded-stack runs on the PR branch; produc
 
 | Route (viewport scanned) | WCAG | axe rule × nodes | Element | Fix needs | Status |
 |---|---|---|---|---|---|
-| `/draft` (desktop) | 1.4.3 | color-contrast × 1 | rookie-count pill in an inactive draft tag tab (`.draft-tag-tab-count`) | token/colour change | OPEN — Lane 6 |
-| `/league-comparison` (desktop) | 1.4.3 | color-contrast × 1 | active filter button: inline cyan on `.btn-secondary` | token/colour change | OPEN — Lane 6 |
-| `/auction/notifications` (desktop) | 1.4.3 | color-contrast × 5 | notification-devices table header cells | token/colour change | OPEN — Lane 6 (route also under #1533) |
-| `/league/franchise/[owner]` (desktop) | 1.4.1 | link-in-text-block × 2 | inline cyan prose links ("Ty", "Full draft center →") distinguished by colour only | underline / non-colour cue | OPEN — Lane 6 |
+| `/draft` (desktop) | 1.4.3 | color-contrast × 1 | rookie-count pill in an inactive draft tag tab (`.draft-tag-tab-count`) | token/colour change | FIXED (CQ-30, `claude/a11y-cq30`): opacity 0.75 removed, count keeps the tab's token colour; baseline entry deleted; local axe 0 |
+| `/league-comparison` (desktop) | 1.4.3 | color-contrast × 1 | active filter button: inline cyan on `.btn-secondary` | token/colour change | FIXED (CQ-30): `btn btn-secondary` had no stylesheet (UA #efefef face, 1.36:1); both method toggles are now the ds `SegmentedControl`; baseline deleted; local axe 0 on the loaded comparison |
+| `/auction/notifications` (desktop) | 1.4.3 | color-contrast × 5 | notification-devices table header cells | token/colour change | FIXED (CQ-30): headers inherited the legacy globals `th` navy fill (2.61:1); `.table th` now paints `--surface-1`; baseline deleted; local axe 0. CSS-module only, no overlap with #1533's files |
+| `/league/franchise/[owner]` (desktop) | 1.4.1 | link-in-text-block × 2 | inline cyan prose links ("Ty", "Full draft center →") distinguished by colour only | underline / non-colour cue | FIXED (CQ-30): in-prose links carry the new ds `.ds-link` underline utility; baseline deleted; local axe 0 |
+
+**CQ-30 closeout (2026-10-19, `claude/a11y-cq30`).** The four rows above are fixed and the axe
+`BASELINE` is now empty on every route and viewport. DataTable row `aria-expanded` (the `/rankings`
+row's open item) is fixed in the ds owner: opt-in `isRowExpanded` / `rowExpandLabel` render a
+visually hidden, in-flow `<button aria-expanded>` in the first visible cell as the row's single
+keyboard stop (the row paints the focus ring); `aria-expanded` on the `<tr>` itself would fail axe
+`aria-conditional-attr` outside a treegrid. Wired on `/rankings`, `/bdvm` roster capitals and
+`/market/sharp-tracker`; without the prop DataTable is unchanged (`/trade` untouched, its vitest
+green). Deferred: TC-E hover tint below 4.5:1 on `/trade` (release train 12 owns `/trade`; CQ-34).
+Evidence: local seeded stack, a11y-axe + psi-rankings-player-a11y + ssr-duplication +
+mobile-touch-targets 94/94 on desktop-1366 + mobile-chromium; production NV.
