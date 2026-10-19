@@ -538,6 +538,9 @@
     "signals-onbox-verification.yml::verify::Configure production SSH": {
       "category": "blocking"
     },
+    "signals-onbox-verification.yml::verify::Refuse while a production deploy is running or queued": {
+      "category": "blocking"
+    },
     "signals-onbox-verification.yml::verify::Run Signals verification on the host": {
       "category": "blocking"
     },

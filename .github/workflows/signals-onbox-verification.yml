@@ -19,6 +19,22 @@ name: Signals On-Box Verification
 #     Candidate A per family, the diagnostic Candidate B, the watch list and
 #     the completed-trade check — the promotion gate's inputs.
 #
+# ``mode`` selects the run (preregistration
+# docs/valuation/evidence/signals-idp-v2-2026-10-19/):
+#   * legacy          — the round-1 run above (default);
+#   * diagnose        — D1: Candidate A, N0 and the decompositions on a tree
+#                       pinned to IDP release 6ec7bff6bd11 (``payload_ref``
+#                       optionally materialises the public inputs of a past
+#                       commit); never Candidate F;
+#   * gate            — E1 / E2: Candidate F per family, the controls and
+#                       the verdicts (``release_role`` R1 or R2; R2 needs
+#                       ``r1_release``);
+#   * native-offline  — Tier 1a over the private release JSONs only.
+# Dispatch from ``main`` only, and one at a time: with cancel-in-progress
+# false a third pending dispatch silently replaces a queued one.
+# Gate evidence is parsed from the ARTIFACT, never the log (Actions masking
+# corrupts digits).
+#
 # THIS REPOSITORY IS PUBLIC: the log and the artifact below are readable by
 # anyone.  The script therefore prints ONLY its public projection — counts,
 # distributions, states and per-criterion pass/fail; never a player name, a
@@ -31,21 +47,61 @@ name: Signals On-Box Verification
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: Which run (legacy = round 1; diagnose = D1; gate = E1/E2; native-offline = Tier 1a)
+        type: choice
+        required: false
+        default: legacy
+        options:
+          - legacy
+          - diagnose
+          - gate
+          - native-offline
       collect:
-        description: Start one real Signals collection before measuring
+        description: Legacy only - start one real Signals collection before measuring
         type: boolean
         required: false
         default: false
+      payload_ref:
+        description: Diagnose only - materialise the public inputs from this commit (hex), e.g. f9d1994e59
+        type: string
+        required: false
+        default: ""
+      release_role:
+        description: Gate only - which evaluation release this run judges
+        type: choice
+        required: false
+        default: R1
+        options:
+          - R1
+          - R2
+      r1_release:
+        description: Gate R2 only - the R1 release (12 hex)
+        type: string
+        required: false
+        default: ""
+      matrix_part:
+        description: Diagnose / gate only - split the build matrix across dispatches when it would not fit 30 minutes
+        type: choice
+        required: false
+        default: all
+        options:
+          - all
+          - core
+          - extra
 
 permissions:
   contents: read
+  # Read-only: the guard below lists deploy.yml runs.
+  actions: read
 
 concurrency:
   # Its own group. Not `production-deploy`: GitHub keeps only the newest
   # PENDING run per group, so a refresh deploy queued behind a running one
   # cancelled this run into silence (2026-10-04, run 37228171975: 0 jobs).
-  # Overlap with a deploy is detected instead of prevented: the script
-  # re-reads the deployed commit at the end and exits non-zero when it moved.
+  # Overlap with a deploy is refused up front (below) and detected at the
+  # end: the script re-reads the deployed commit, its tree, the config tree
+  # and the backend receipt, and exits non-zero when any of them moved.
   group: signals-onbox-verification
   cancel-in-progress: false
 
@@ -58,6 +114,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Refuse while a production deploy is running or queued
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          busy=0
+          for status in in_progress queued waiting pending requested; do
+            n="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?status=${status}&per_page=1" --jq '.total_count')"
+            if [[ ! "$n" =~ ^[0-9]+$ ]]; then
+              echo "::error title=Deploy state unreadable::could not list deploy.yml runs (${status})."
+              exit 1
+            fi
+            busy=$((busy + n))
+          done
+          if (( busy > 0 )); then
+            echo "::error title=Production deploy in flight::a deploy.yml run is in progress or queued; the checkout would move under the builds."
+            exit 1
+          fi
 
       - name: Configure production SSH
         env:
@@ -80,10 +156,45 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          COLLECT: ${{ inputs.collect && '--collect' || '' }}
+          MODE: ${{ inputs.mode || 'legacy' }}
+          COLLECT: ${{ inputs.collect && 'true' || 'false' }}
+          PAYLOAD_REF: ${{ inputs.payload_ref }}
+          RELEASE_ROLE: ${{ inputs.release_role || 'R1' }}
+          R1_RELEASE: ${{ inputs.r1_release }}
+          MATRIX_PART: ${{ inputs.matrix_part || 'all' }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          # Inputs arrive through env and are validated here; none is ever
+          # interpolated into a command line unchecked.
+          ARGS=()
+          case "$MODE" in
+            legacy|diagnose|gate|native-offline) ARGS+=(--mode "$MODE") ;;
+            *) echo "::error::invalid mode"; exit 1 ;;
+          esac
+          if [[ "$COLLECT" == "true" ]]; then
+            [[ "$MODE" == "legacy" ]] || { echo "::error::collect is legacy-only"; exit 1; }
+            ARGS+=(--collect)
+          fi
+          if [[ -n "$PAYLOAD_REF" ]]; then
+            [[ "$MODE" == "diagnose" && "$PAYLOAD_REF" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::invalid payload_ref"; exit 1; }
+            ARGS+=(--payload-ref "$PAYLOAD_REF")
+          fi
+          if [[ "$MODE" == "gate" ]]; then
+            [[ "$RELEASE_ROLE" =~ ^R[12]$ ]] || { echo "::error::invalid release_role"; exit 1; }
+            ARGS+=(--release-role "$RELEASE_ROLE")
+            if [[ -n "$R1_RELEASE" ]]; then
+              [[ "$R1_RELEASE" =~ ^[0-9a-f]{12}$ ]] || { echo "::error::invalid r1_release"; exit 1; }
+              ARGS+=(--r1-release "$R1_RELEASE")
+            fi
+          fi
+          case "$MATRIX_PART" in
+            all) ;;
+            core|extra)
+              [[ "$MODE" == "diagnose" || "$MODE" == "gate" ]] || { echo "::error::matrix_part needs diagnose or gate"; exit 1; }
+              ARGS+=(--matrix-part "$MATRIX_PART") ;;
+            *) echo "::error::invalid matrix_part"; exit 1 ;;
+          esac
           SSH=(ssh -i "$HOME/.ssh/id_ed25519"
             -o BatchMode=yes -o StrictHostKeyChecking=yes
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts"
@@ -93,12 +204,24 @@ jobs:
           "${SSH[@]}" "cat > $(printf %q "$DIAG_DIR")/verify_signals_onbox.py" < scripts/verify_signals_onbox.py
           # The interpreter is the app's own venv, so imports resolve to the
           # DEPLOYED src/ (the script is run with --app-dir as its root).
-          "${SSH[@]}" "set -Eeuo pipefail; trap 'rm -rf -- $(printf %q "$DIAG_DIR")' EXIT; \
-            PY=/home/dynasty/.venvs/trade-calculator/bin/python; \
-            [[ -x \$PY ]] || PY=$(printf %q "$APP_DIR")/.venv/bin/python; \
-            cd $(printf %q "$APP_DIR") && \
-            \$PY $(printf %q "$DIAG_DIR")/verify_signals_onbox.py \
-              --app-dir $(printf %q "$APP_DIR") $COLLECT" | tee signals-onbox.json
+          # Remote stderr goes to a 0600 file in the private Signals store on
+          # the box: a traceback can carry a name or a value, and this log is
+          # public.  Only the script's public projection reaches stdout.
+          "${SSH[@]}" "bash -s -- $(printf '%q ' "$DIAG_DIR" "$APP_DIR" "${ARGS[@]}")" <<'REMOTE' | tee signals-onbox.json
+          set -Eeuo pipefail
+          DIAG_DIR=$1
+          APP_DIR=$2
+          shift 2
+          trap 'rm -rf -- "$DIAG_DIR"' EXIT
+          PY=/home/dynasty/.venvs/trade-calculator/bin/python
+          [[ -x $PY ]] || PY=$APP_DIR/.venv/bin/python
+          REPORTS=$APP_DIR/data/sources/signals/reports
+          umask 077
+          install -d -m 700 "$REPORTS"
+          ERRLOG=$REPORTS/verify-remote-stderr-$(date -u +%Y%m%dT%H%M%SZ).log
+          cd "$APP_DIR"
+          "$PY" "$DIAG_DIR/verify_signals_onbox.py" --app-dir "$APP_DIR" "$@" 2>"$ERRLOG"
+          REMOTE
 
       - name: Upload report
         if: always()
