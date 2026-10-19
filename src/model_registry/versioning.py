@@ -116,6 +116,13 @@ class ModelVersion:
     #: cannot be reproduced from their own record, and Hill Autopilot does not
     #: tournament them (``training_run.is_tournament_eligible``).
     training_run: dict[str, Any] | None = None
+    #: What the promotion gate concluded for a NON-Hill family
+    #: (``promotion_gates.check_generic_family``): parameter completeness, the
+    #: verified evaluation receipt id + content hash, and the owner approval.
+    #: ``None`` for Hill versions (their evidence is ``scope_validation``) and for
+    #: every version never promoted through the generic gate — absent from the
+    #: serialized record then, so the committed Hill registry stays byte-identical.
+    promotion_gate: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         if self.status not in VERSION_STATUSES:
@@ -154,6 +161,8 @@ class ModelVersion:
         # registry leaves every historical record byte-identical.
         if self.training_run is None:
             out.pop("trainingRun")
+        if self.promotion_gate is None:
+            out.pop("promotionGate")
         return out
 
     def _to_dict_base(self) -> dict[str, Any]:
@@ -174,6 +183,7 @@ class ModelVersion:
             "appliedAt": self.applied_at,
             "scopeValidation": dict(self.scope_validation),
             "trainingRun": self.training_run,
+            "promotionGate": None if self.promotion_gate is None else dict(self.promotion_gate),
         }
 
     @classmethod
@@ -195,6 +205,11 @@ class ModelVersion:
                 str(k): str(v) for k, v in (blob.get("scopeValidation") or {}).items()
             },
             training_run=blob.get("trainingRun"),
+            promotion_gate=(
+                {str(k): str(v) for k, v in blob["promotionGate"].items()}
+                if isinstance(blob.get("promotionGate"), Mapping)
+                else None
+            ),
         )
 
 
@@ -356,6 +371,8 @@ class ModelRegistry:
         reason: str,
         override_scopes: Iterable[str] = (),
         override_reason: str = "",
+        evaluation_receipt: Any = None,
+        owner_approval: str = "",
     ) -> ModelVersion:
         """Make ``version`` the champion; retire the incumbent.
 
@@ -387,6 +404,17 @@ class ModelRegistry:
         ``rollback``: reinstating a former champion returns production to
         a state it already ran, so demanding fresh evidence for it would
         block the documented undo.
+
+        **Which gate runs is decided by** ``promotion_gates.run_promotion_gate``
+        (chaseTradeMarket P5 / G10), fail closed: a model id with a registered
+        ``FamilyPromotionPolicy`` runs the GENERIC gate — declared parameters
+        complete and in bounds, a reproducible evaluation receipt re-verified
+        against its recorded content hash (pass it as ``evaluation_receipt``),
+        and ``owner_approval`` when the family requires it; Hill-shaped
+        parameters run the scope gate above plus a completeness check (a
+        constant the champion carries may not silently go missing); anything
+        else is refused, because the scope gate alone passed every non-Hill
+        model vacuously.
         """
         if not reason.strip():
             raise RegistryError("promote() requires a non-empty reason")
@@ -400,15 +428,17 @@ class ModelRegistry:
                 "retired champions must use rollback()."
             )
 
-        from src.model_registry.scope_validation import assert_promotable
+        from src.model_registry.promotion_gates import run_promotion_gate
 
         incumbent = next((v for v in self._versions if v.status == "champion"), None)
-        scope_states = assert_promotable(
-            incumbent.params if incumbent else {},
-            target.params,
-            validated_scopes={"OFFENSE"} if target.qualified else (),
+        outcome = run_promotion_gate(
+            self.model_id,
+            incumbent=incumbent,
+            target=target,
             override_scopes=override_scopes,
             override_reason=override_reason,
+            evaluation_receipt=evaluation_receipt,
+            owner_approval=owner_approval,
         )
 
         now = _utcnow()
@@ -423,7 +453,8 @@ class ModelRegistry:
                         status="champion",
                         promoted_at=now,
                         notes=(*v.notes, f"promoted: {reason.strip()}"),
-                        scope_validation=scope_states,
+                        scope_validation=outcome.scope_validation,
+                        promotion_gate=outcome.promotion_gate,
                     )
                 )
             else:

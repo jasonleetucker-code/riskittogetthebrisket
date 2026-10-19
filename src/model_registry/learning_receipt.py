@@ -184,6 +184,11 @@ NATIVE_STORES: Mapping[str, str] = {
     # The canonical trade decision (TC-C): the box-local append-only run log, one
     # line per served /api/trade/analyze decision (same AL-P5 arrangement)
     "trade_decision_log": "src.trade.trade_decision_log.record_decision (data/trade/decisions/runs-YYYY-MM.jsonl)",
+    # chaseTradeMarket (P5 scaffolding): the box-local, content-addressed model
+    # snapshots and run records under data/market_trades/model/ (0600, gitignored).
+    # Registered now so an evaluation receipt can point at its own run; the
+    # writer lands with the estimator (P6/P7).
+    "chase_trade_market_model": "src.sources.chase_trade_market (box-local data/market_trades/model/)",
 }
 
 #: Stores that hold a PRODUCER'S OWN OUTPUT (plan §19.1: the model registry,
@@ -204,6 +209,7 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
         "preregistration",
         "best_offers_run_log",
         "trade_decision_log",
+        "chase_trade_market_model",
     }
 )
 
@@ -226,6 +232,7 @@ ARTIFACT_STORE_WRITERS: Mapping[str, frozenset[str]] = {
     "preregistration": frozenset(),
     "best_offers_run_log": frozenset({"best_offers"}),
     "trade_decision_log": frozenset({"trade_decision"}),
+    "chase_trade_market_model": frozenset({"chase_trade_market"}),
 }
 
 #: Kinds whose refs describe what FED a model; every ref must be ``input``.
