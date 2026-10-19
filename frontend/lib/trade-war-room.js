@@ -616,12 +616,13 @@ export function slotWords(slot) {
 /** A slot list with repeats counted, in first-seen order:
  *  ["RB","RB","WR","SUPER_FLEX"] -> ["2 RB", "WR", "superflex"]. */
 export function countedSlots(slots) {
-  const counts = new Map();
+  const groups = new Map();
   for (const slot of slots || []) {
     const w = slotWords(slot);
-    counts.set(w, (counts.get(w) || 0) + 1);
+    if (!groups.has(w)) groups.set(w, []);
+    groups.get(w).push(slot);
   }
-  return [...counts].map(([w, n]) => (n > 1 ? `${n} ${w}` : w));
+  return [...groups].map(([w, members]) => (members.length > 1 ? `${members.length} ${w}` : w));
 }
 
 /**
