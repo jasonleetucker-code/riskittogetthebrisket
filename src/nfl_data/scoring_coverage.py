@@ -39,7 +39,9 @@ pays and the engine ignores, with the data available to do better.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from enum import Enum
+from functools import lru_cache
 from typing import Any, Iterable
 
 from src.nfl_data.realized_points import (
@@ -601,3 +603,103 @@ def pbp_supplement_recoverable(scoring_settings: dict[str, Any]) -> dict[str, fl
     """
     audit = audit_scoring_settings(scoring_settings)
     return {k: v for k, v in audit[Coverage.UNSCORABLE].items() if k in PBP_SUPPLEMENT_KEYS}
+
+
+# ── Per-line coverage: which PAID rules a projected stat line leaves unknown ──
+
+
+@lru_cache(maxsize=1024)
+def _is_team_level_key(key: str) -> bool:
+    """A rule for an asset class no individual player earns (team D/ST).
+
+    Delegated to :func:`classify` — the one classification — rather than a
+    second table.  Cached because ``classify`` probes the engine.
+    """
+    return classify(key) is Coverage.NOT_APPLICABLE
+
+
+def _default_linear_derivations() -> tuple[Any, ...]:
+    """The keyed weekly lane's linear-identity table, by import (never copied).
+
+    ``src.ros.sportsdataio_weekly_projections.DERIVATIONS`` is the superset
+    table of :class:`src.ros.keyed_weekly_projections.LinearDerivation`
+    identities (``pass_inc``, position-gated ``bonus_rec_te``, ``fgmiss``,
+    ``xpmiss``, ``idp_tkl``).  Imported lazily: that module imports the
+    weekly projection lane, which itself reads this module.
+    """
+    from src.ros.sportsdataio_weekly_projections import DERIVATIONS  # noqa: PLC0415
+
+    return tuple(DERIVATIONS)
+
+
+def _numeric(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if out == out else None
+
+
+def uncovered_paid_keys(
+    stat_line: Mapping[str, Any],
+    card: Mapping[str, Any],
+    *,
+    position: str | None = None,
+    derivations: Sequence[Any] | None = None,
+) -> tuple[str, ...]:
+    """League-PAID rules a Sleeper-keyed stat line leaves UNKNOWN, sorted.
+
+    A key is reported when, all of:
+
+    * the card pays it — a nonzero numeric rate.  A NON-numeric rate is
+      also reported: an unreadable rate is unknown, not zero, and the
+      exact scorer skips it with a warning;
+    * the line does not carry it as a number.  An explicit ``0`` IS
+      coverage (a projection of zero events); an absent or non-numeric
+      value is not;
+    * it is not a LINEAR identity of keys the line does carry
+      (``pass_inc = pass_att - pass_cmp``, ``idp_tkl = solo + ast``,
+      ``fgmiss = fga - fgm``, ``xpmiss = xpa - xpm``; a position-gated
+      identity such as ``bonus_rec_te = rec`` only when ``position``
+      matches — no ``position``, no gated derivation).  The table is
+      imported from the keyed weekly lane (:func:`_default_linear_derivations`),
+      never restated here.  **Threshold bonuses are never derivable**: the
+      indicator of a mean is not the mean of an indicator, so
+      ``bonus_pass_yd_300`` and tackle milestones stay reported;
+    * it is not a team-level rule (:func:`classify` ``NOT_APPLICABLE``) —
+      no individual player can earn ``pts_allow_*``, so it is not a gap in
+      a player's line.
+
+    Nothing is zero-filled: the function only NAMES the keys whose
+    contribution is unknown.  Position applicability beyond the gated
+    derivations (an ``idp_*`` rule on an offensive line) is NOT filtered —
+    over-inclusive by design; a caller holding the provider's vocabulary
+    (``src.ros.sleeper_weekly_projections``) applies its own grammar.
+    Pure apart from the cached engine probe in :func:`classify`.
+    """
+    table = _default_linear_derivations() if derivations is None else tuple(derivations)
+    present = {str(k) for k, v in stat_line.items() if _numeric(v) is not None}
+    pos = str(position).upper() if position else None
+
+    derivable: set[str] = set()
+    for d in table:
+        gate = frozenset(getattr(d, "positions", frozenset()) or frozenset())
+        if gate and (pos is None or pos not in gate):
+            continue
+        if all(str(src) in present for src, _coef in d.terms):
+            derivable.add(str(d.target))
+
+    out: list[str] = []
+    for raw_key, raw_rate in (card or {}).items():
+        key = str(raw_key)
+        rate = _numeric(raw_rate)
+        if rate == 0.0:
+            continue
+        if key in present or key in derivable:
+            continue
+        if _is_team_level_key(key):
+            continue
+        out.append(key)
+    return tuple(sorted(out))
