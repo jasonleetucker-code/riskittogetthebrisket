@@ -615,6 +615,26 @@ def test_3_4_ktc_crowd_and_trades_never_two_providers_on_the_board(sim) -> None:
                 assert ev["state"] == "single_provider"
 
 
+def _two_way_override_withdrawn(b: dict[str, Any], a: dict[str, Any]) -> bool:
+    """The two-way boost priced the row before the cutoff and no longer does.
+
+    Under D2 the boost reads vote state (``_apply_two_way_player_boost``): once
+    IDPTC is withheld, no alt-family (defensive) source may vote, so the alt
+    value is missing, never priced off a withheld copy, and the override
+    withdraws.  The row then publishes its own primary-family blend, which the
+    cutoff did not touch (IDPTC casts no offense vote), and its gate describes
+    THAT value.  The lost evidence was alt-family evidence, which never fed the
+    primary gate, so it has no withheld seat there.
+    """
+    before = b.get("twoWayPlayerBoost") or {}
+    after = a.get("twoWayPlayerBoost") or {}
+    return (
+        bool(before.get("applied"))
+        and not after.get("applied")
+        and a.get("rankDerivedValue") == before.get("primaryFamilyValue")
+    )
+
+
 def test_5_confidence_never_rises_because_idptc_dropped(sim) -> None:
     """Every row that lost evidence: no confidence axis it controls rises.
 
@@ -646,7 +666,8 @@ def test_5_confidence_never_rises_because_idptc_dropped(sim) -> None:
             ab,
             aa,
         )
-        assert any("did not reach the value" in r for r in a.get("confidenceReasons") or [])
+        if not _two_way_override_withdrawn(b, a):
+            assert any("did not reach the value" in r for r in a.get("confidenceReasons") or [])
         residual.append(key)
     # Pick confidence has no value-drift path at all: strictly monotone.
     assert not [k for k in residual if k[1] == "pick"]

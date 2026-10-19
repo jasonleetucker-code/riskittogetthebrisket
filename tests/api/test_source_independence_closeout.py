@@ -242,15 +242,103 @@ def boards(raw):
     }
 
 
+_LEGACY_TWO_WAY_AUDIT = {
+    "applied",
+    "altFamily",
+    "altFamilyValue",
+    "primaryFamilyValue",
+    "sourcesConsidered",
+}
+#: Independent restatement of the D2 rule (deliberately NOT read from
+#: ``dc.ROW_SCOPED_CORRELATION_GROUPS``), as in
+#: ``scripts/source_independence_closeout.py``.
+_D2_MEMBERS = ("idpTradeCalc", "idpShowCombined")
+_D2_GROUP = "idpShow"
+
+
+def _two_way_evidence_rule_acted(row) -> bool:
+    """Under D2 a two-way player's alt (defensive) value is held to the
+    row-level evidence rules (``_apply_two_way_player_boost``).  It can differ
+    from the D2-off value only through one of them, each stamped on the audit:
+    a withheld copy left the alt value, the lineage rule merged the alt
+    evidence, or one lineage kept the single-source retention."""
+    audit = row.get("twoWayPlayerBoost") or {}
+    return bool(
+        audit.get("freshnessExcludedSources")
+        or audit.get("sharedLineageCaps")
+        or audit.get("singleSourceValuePenaltyApplied")
+    )
+
+
 def test_d2_preserves_every_value_where_the_show_does_not_vote(boards):
     base, d2 = _rows(boards["base"]), _rows(boards["d2"])
     for name, row in base.items():
         voters = _voting(row)
         if _klass(row) == "idp" and {"idpTradeCalc", "idpShowCombined"} <= set(voters):
             continue
+        if name in dc._TWO_WAY_PLAYERS and _two_way_evidence_rule_acted(d2[name]):
+            # Pinned positively by the next test.
+            continue
         assert d2[name].get("rankDerivedValue") == row.get("rankDerivedValue"), name
         assert d2[name].get("confidenceBucket") == row.get("confidenceBucket"), name
         assert not d2[name].get("sharedLineageCaps"), name
+
+
+def _assert_two_way_follows_row_level_evidence(base_rows, d2_rows) -> int:
+    """The alt value under D2, checked against an INDEPENDENT restatement of
+    the rules (vote state read off the real defensive rows, the D2 merge,
+    the haircut's present-evidence count).  Returns rows checked."""
+    checked = 0
+    for name in dc._TWO_WAY_PLAYERS:
+        off, on = base_rows.get(name), d2_rows.get(name)
+        if not off or not on or not on.get("twoWayPlayerBoost"):
+            continue
+        checked += 1
+        legacy, audit = off["twoWayPlayerBoost"], on["twoWayPlayerBoost"]
+        # Rollback: the D2-off boost is the pre-closeout boost, key for key.
+        assert set(legacy) == _LEGACY_TWO_WAY_AUDIT, name
+        voting, withheld = set(audit["sourcesConsidered"]), set(audit["freshnessExcludedSources"])
+        assert not voting & withheld, name
+        # Only observations the pre-closeout boost could read, nothing new:
+        # voters it priced, withheld copies the row actually carries.
+        assert voting <= set(legacy["sourcesConsidered"]), name
+        for key in withheld:
+            assert float((on.get("canonicalSiteValues") or {}).get(key) or 0) > 0, name
+        alt_rows = [r for r in d2_rows.values() if _klass(r) == "idp"]
+        for key in voting:
+            assert any(key in _voting(r) for r in alt_rows), f"{name}: {key} votes nowhere"
+        for key in withheld:
+            assert any(
+                ((r.get("sourceRankMeta") or {}).get(key) or {}).get("excludedReason")
+                == "freshness_or_health_zero_weight"
+                for r in alt_rows
+            ), f"{name}: {key} is withheld nowhere"
+        engaged = set(_D2_MEMBERS) <= voting
+        assert bool(audit["sharedLineageCaps"]) == engaged, name
+        lineages = {
+            (_D2_GROUP if engaged and k in _D2_MEMBERS else dc.correlation_group_for(k))
+            for k in voting | withheld
+        }
+        assert audit["lineages"] == sorted(lineages), name
+        assert audit["singleSourceValuePenaltyApplied"] == (len(lineages) <= 1), name
+        if audit["singleSourceValuePenaltyApplied"]:
+            before = audit["altFamilyValueBeforePenalty"]
+            assert abs(audit["altFamilyValue"] - before * dc._SINGLE_SOURCE_VALUE_RETENTION) <= 1
+        expected = max(audit["altFamilyValue"], audit["primaryFamilyValue"])
+        assert on["rankDerivedValue"] == expected, name
+    return checked
+
+
+def test_d2_two_way_alt_value_follows_the_row_level_evidence_rules(boards, engaged_boards):
+    """Independent review of the closeout: the boost read raw
+    ``canonicalSiteValues``, so the two-way alt value kept a copy that did not
+    vote and escaped the haircut D2's merged lineage gives every real defender
+    resting on it.  Checked on the real board (where The IDP Show may be
+    withheld) and with freshness rolled back (where both copies vote)."""
+    checked = _assert_two_way_follows_row_level_evidence(_rows(boards["base"]), _rows(boards["d2"]))
+    checked += _assert_two_way_follows_row_level_evidence(*(_rows(c) for c in engaged_boards))
+    if checked == 0:
+        pytest.skip("no two-way player carries alt-family evidence on this archive")
 
 
 @pytest.fixture(scope="module")

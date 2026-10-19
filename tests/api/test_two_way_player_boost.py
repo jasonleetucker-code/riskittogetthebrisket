@@ -54,17 +54,31 @@ from typing import Any
 
 from src.api import data_contract as dc
 from src.api.data_contract import _apply_two_way_player_boost, _compute_unified_rankings
+from src.sources import freshness as dc_freshness
 
 
 def _row(name: str, position: str, **sites: Any) -> dict[str, Any]:
-    """A contract row shaped the way ``_compute_unified_rankings`` expects."""
+    """A contract row shaped the way ``_compute_unified_rankings`` expects.
+
+    Rank-signal sources also get ``sourceOriginalRanks``, as the CSV loader
+    stamps it on every row a rank board matches: the boost's alt LADDER is
+    built from it.  Without it the ladder had no rows, every rank source
+    silently dropped out of the alt value, and the ladder this module claims
+    to pin never ran.
+    """
     site_values: dict[str, Any] = dict(sites)
+    original_ranks = {
+        key: float((dc._RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - v) / 100)
+        for key, v in site_values.items()
+        if v and v >= dc._RANK_TO_SYNTHETIC_VALUE_OFFSET * 50
+    }
     return {
         "canonicalName": name,
         "displayName": name,
         "position": position,
         "assetClass": "idp" if position in ("DL", "LB", "DB") else "offense",
         "canonicalSiteValues": site_values,
+        "sourceOriginalRanks": original_ranks,
         "values": {
             "overall": max((v or 0) for v in site_values.values()) if site_values else 0,
             "rawComposite": None,
@@ -97,6 +111,17 @@ def _build_board() -> list[dict[str, Any]]:
     an offense player and defenders normalise below it. On the
     2026-07-30 payload the best IDP is 6362 against a 9999 scale.
     Hence offense rows carry the top ``idpTradeCalc`` values here.
+
+    Defenders also carry an INDEPENDENT IDP lineage (``fantasyProsIdp``),
+    and so does the two-way player.  Owner closeout 2026-10-18 Decision 2
+    makes ``idpTradeCalc`` and its correlated ``idpShowCombined`` copy ONE
+    lineage on a defensive row where both vote, so a board priced by those
+    two alone rests every defender on one lineage: all of them take the
+    single-source haircut (best IDP ~2.5k), and so does the two-way alt
+    value, and the ceiling below compared two haircut numbers that hid the
+    untranslated-Hill mutation.  The live board's top defenders carry
+    independent IDP evidence; this keeps that shape.  The one-lineage case
+    is pinned on its own in ``TestAltEvidenceFollowsRowLevelRules``.
     """
     rows: list[dict[str, Any]] = []
     for i in range(1, 21):
@@ -106,6 +131,7 @@ def _build_board() -> list[dict[str, Any]]:
                 "LB",
                 idpTradeCalc=6400 - i * 150,
                 idpShowCombined=_synthetic_rank(i),
+                fantasyProsIdp=_synthetic_rank(i),
             )
         )
     # Offense carries the top of the board — including the top
@@ -127,6 +153,7 @@ def _build_board() -> list[dict[str, Any]]:
             ktcCrowdSfTep=3000,
             idpShowCombined=_synthetic_rank(5),
             idpTradeCalc=5200,
+            fantasyProsIdp=_synthetic_rank(5),
         )
     )
     return rows
@@ -263,6 +290,175 @@ class TestAltLadderTranslation(unittest.TestCase):
         deliberate act with a Sleeper check behind it.
         """
         self.assertEqual(dict(dc._TWO_WAY_PLAYERS), {"Travis Hunter": "DB"})
+
+
+_D2_RULES = frozenset(r["id"] for r in dc.ROW_SCOPED_CORRELATION_GROUPS)
+
+
+def _one_lineage_board() -> list[dict[str, Any]]:
+    """``_build_board`` with the two-way player's independent lineage removed.
+
+    His alt evidence is then the IDP Trade Calculator and its correlated IDP
+    Show copy only: Travis Hunter's shape on the live board (DLF IDP is
+    policy-held; FantasyPros IDP and Draft Sharks IDP do not list him).
+    """
+    rows = _build_board()
+    two_way = next(r for r in rows if r["canonicalName"] == "Two Way Player")
+    del two_way["canonicalSiteValues"]["fantasyProsIdp"]
+    del two_way["sourceOriginalRanks"]["fantasyProsIdp"]
+    return rows
+
+
+class _Quarantined:
+    """Minimal ``SourceWeighting`` stand-in whose every row weighs 0."""
+
+    measured = True
+    health_state = "HEALTHY"
+    health_factor = 1.0
+    coverage = 1.0
+    coverage_factor = 1.0
+
+    def __init__(self, key: str) -> None:
+        self.source_key = key
+        self._sub = type("Sub", (), {"freshness": 0.0, "state": "QUARANTINED"})()
+        self._sub.style = dc_freshness.STYLE_SNAPSHOT
+
+    def subset_for(self, is_pick: bool) -> Any:
+        return self._sub
+
+    def factor_for_row(self, **_kw: Any) -> tuple[float, float]:
+        return 0.0, 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"sourceKey": self.source_key, "measured": True}
+
+
+class TestAltEvidenceFollowsRowLevelRules(unittest.TestCase):
+    """Owner closeout 2026-10-18 Decision 2 reaches the alt-family side door.
+
+    Independent review: once D2 merged ``idpTradeCalc`` and its correlated
+    ``idpShowCombined`` copy into one lineage, every real defender priced
+    only by them kept 30% (the single-source haircut), while the boost --
+    reading raw ``canonicalSiteValues`` -- still priced the two-way player's
+    alt value off the same two copies at full value, and off a copy that did
+    not even vote.  The alt value is now held to the rules a real member of
+    the alt family is held to: only VOTING sources, lineages on the D2 map,
+    and the retention when one lineage remains.
+    """
+
+    def setUp(self) -> None:
+        self._saved = dict(dc._TWO_WAY_PLAYERS)
+        dc._TWO_WAY_PLAYERS.clear()
+        dc._TWO_WAY_PLAYERS["Two Way Player"] = "DB"
+
+    def tearDown(self) -> None:
+        dc._TWO_WAY_PLAYERS.clear()
+        dc._TWO_WAY_PLAYERS.update(self._saved)
+
+    @staticmethod
+    def _two_way(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        return next(r for r in rows if r["canonicalName"] == "Two Way Player")
+
+    def _boosted(self, **kwargs: Any) -> dict[str, Any]:
+        rows = _one_lineage_board()
+        _compute_unified_rankings(rows, {})
+        _apply_two_way_player_boost(rows, {}, **kwargs)
+        return self._two_way(rows)["twoWayPlayerBoost"]
+
+    def test_one_merged_lineage_keeps_the_single_source_retention(self) -> None:
+        audit = self._boosted(lineage_rules=_D2_RULES)
+        self.assertEqual(audit["sourcesConsidered"], ["idpShowCombined", "idpTradeCalc"])
+        self.assertEqual(audit["sharedLineageCaps"], sorted(_D2_RULES))
+        self.assertEqual(audit["lineages"], ["idpShow"])
+        self.assertTrue(audit["singleSourceValuePenaltyApplied"])
+        self.assertAlmostEqual(
+            audit["altFamilyValue"],
+            audit["altFamilyValueBeforePenalty"] * dc._SINGLE_SOURCE_VALUE_RETENTION,
+            delta=1,
+        )
+        # Parity: a REAL defender with exactly this evidence takes the same
+        # haircut in the blend (the e7f8286e10 review fix).
+        rows = _one_lineage_board() + [
+            _row("Twin Defender", "DB", idpTradeCalc=5200, idpShowCombined=_synthetic_rank(5))
+        ]
+        _compute_unified_rankings(rows, {})
+        twin = next(r for r in rows if r["canonicalName"] == "Twin Defender")
+        self.assertEqual(twin.get("sharedLineageCaps"), sorted(_D2_RULES))
+        self.assertTrue(twin.get("singleSourceValuePenaltyApplied"))
+
+    def test_the_sparse_challenger_that_disables_the_retention_disables_it_here(self) -> None:
+        audit = self._boosted(lineage_rules=_D2_RULES, single_lineage_retention=False)
+        self.assertEqual(audit["lineages"], ["idpShow"])
+        self.assertFalse(audit["singleSourceValuePenaltyApplied"])
+        self.assertNotIn("altFamilyValueBeforePenalty", audit)
+
+    def test_rollback_restores_the_pre_closeout_boost(self) -> None:
+        """No lineage rule in force: the boost is main's, byte for byte."""
+        off = self._boosted(lineage_rules=())
+        on = self._boosted(lineage_rules=_D2_RULES)
+        self.assertEqual(
+            set(off),
+            {"applied", "altFamily", "altFamilyValue", "primaryFamilyValue", "sourcesConsidered"},
+        )
+        self.assertEqual(off["sourcesConsidered"], on["sourcesConsidered"])
+        self.assertEqual(off["altFamilyValue"], on["altFamilyValueBeforePenalty"])
+
+    def test_a_withheld_copy_does_not_vote_and_does_not_merge(self) -> None:
+        """Freshness / health weight 0: dropped from the value, never a zero,
+        and still PRESENT evidence -- the haircut's no-cliff rule -- so the row
+        is neither merged (the copy does not vote) nor haircut."""
+
+        def weight(_row: Any, key: str, _alt: str) -> float:
+            return 0.0 if key == "idpShowCombined" else 1.0
+
+        audit = self._boosted(lineage_rules=_D2_RULES, alt_vote_weight=weight)
+        self.assertEqual(audit["sourcesConsidered"], ["idpTradeCalc"])
+        self.assertEqual(audit["freshnessExcludedSources"], ["idpShowCombined"])
+        self.assertEqual(audit["sharedLineageCaps"], [])
+        self.assertEqual(audit["lineages"], ["idpShow", "idpTradeCalc"])
+        self.assertFalse(audit["singleSourceValuePenaltyApplied"])
+        # The value is the voting source's alone (value-direct: raw / board max).
+        self.assertEqual(audit["altFamilyValue"], round(5200 / 9780 * 9999))
+
+    def test_a_source_that_may_not_vote_is_not_present_evidence(self) -> None:
+        """``None`` (inactive / held): not expected, so not present either --
+        the alt value rests on one lineage, as a real row would."""
+
+        def weight(_row: Any, key: str, _alt: str) -> float | None:
+            return None if key == "idpShowCombined" else 1.0
+
+        audit = self._boosted(lineage_rules=_D2_RULES, alt_vote_weight=weight)
+        self.assertEqual(audit["sourcesConsidered"], ["idpTradeCalc"])
+        self.assertEqual(audit["freshnessExcludedSources"], [])
+        self.assertEqual(audit["lineages"], ["idpTradeCalc"])
+        self.assertTrue(audit["singleSourceValuePenaltyApplied"])
+
+    def test_the_build_asks_the_blends_own_vote_owner(self) -> None:
+        """Through ``_compute_unified_rankings``: the active-source gate and the
+        freshness owner decide, exactly as for a real row."""
+        if not dc._enabled_row_scoped_correlation_rules():
+            self.skipTest("idp_shared_correlation_cap is rolled back in this environment")
+        # A seasonally inactive source casts no vote and is not expected: the
+        # pre-closeout boost still read it from ``canonicalSiteValues``.
+        rows = _build_board()
+        _compute_unified_rankings(rows, {}, seasonally_inactive_sources={"fantasyProsIdp"})
+        audit = self._two_way(rows)["twoWayPlayerBoost"]
+        self.assertNotIn("fantasyProsIdp", audit["sourcesConsidered"])
+        self.assertNotIn("fantasyProsIdp", audit["freshnessExcludedSources"])
+        self.assertEqual(audit["lineages"], ["idpShow"])
+        self.assertTrue(audit["singleSourceValuePenaltyApplied"])
+        # A quarantined copy is withheld (weight 0), so it neither merges nor
+        # leaves the row one-lineage.
+        rows = _build_board()
+        _compute_unified_rankings(
+            rows, {}, source_weighting={"idpShowCombined": _Quarantined("idpShowCombined")}
+        )
+        audit = self._two_way(rows)["twoWayPlayerBoost"]
+        self.assertNotIn("idpShowCombined", audit["sourcesConsidered"])
+        self.assertEqual(audit["freshnessExcludedSources"], ["idpShowCombined"])
+        self.assertEqual(audit["sharedLineageCaps"], [])
+        self.assertEqual(audit["lineages"], ["fantasyPros", "idpShow", "idpTradeCalc"])
+        self.assertFalse(audit["singleSourceValuePenaltyApplied"])
 
 
 if __name__ == "__main__":  # pragma: no cover

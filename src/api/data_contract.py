@@ -7922,10 +7922,47 @@ def _apply_two_way_player_boost(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
     excluded_keys: frozenset[str] = frozenset(),
+    *,
+    lineage_rules: Collection[str] | None = None,
+    alt_vote_weight: Callable[[Mapping[str, Any], str, str], float | None] | None = None,
+    single_lineage_retention: bool = True,
 ) -> None:
     """For players in ``_TWO_WAY_PLAYERS``, compute what their value
     would be under the alt-position family and use max(offense, alt)
     as the final ``rankDerivedValue``.
+
+    ROW-LEVEL EVIDENCE RULES (owner closeout 2026-10-18 Decision 2)
+    ===============================================================
+    While a row-scoped correlation lineage rule is in force
+    (``lineage_rules`` non-empty; ``None`` reads the flags), the alt value is
+    held to the evidence rules a real member of the alt family is held to:
+
+    * **Only sources that VOTE in the alt family count.**
+      ``alt_vote_weight(row, source_key, alt_family)`` is the blend's own
+      answer for that observation (inside ``_compute_unified_rankings``:
+      active sources, row-class holds, ``base x freshness x health x
+      coverage``).  ``None`` = no vote and not expected (inactive, held);
+      ``0.0`` = present but withheld (freshness / health weight 0);
+      positive = votes.  Without it, every candidate outside
+      ``excluded_keys`` votes — the answer of a build with no source
+      weighting.
+    * **Lineages are counted on the alt row's D2 map**
+      (``row_scoped_family_map`` with the alt asset class, engaged only when
+      every member votes), so a correlated copy cannot lift the alt value.
+    * **One lineage keeps ``_SINGLE_SOURCE_VALUE_RETENTION``**, by the
+      single-source haircut's own rule: present lineages = voting ∪
+      withheld, so a quarantined copy neither merges (it does not vote) nor
+      creates a cliff (it is still present evidence).
+      ``single_lineage_retention=False`` mirrors the sparse challenger that
+      disables the retention for real rows.
+
+    With no lineage rule in force the boost is the pre-closeout boost, byte
+    for byte (rollback ``RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0``).
+    Its known gaps on that path — a freshness-withheld, seasonally inactive
+    or user-disabled source reaching the alt value, and single-family alt
+    evidence escaping the haircut — are a documented follow-up
+    (docs/sources/IDP_SOURCE_INDEPENDENCE_CLOSEOUT_2026-10-18.md), because
+    closing them there changes flag-off output.
 
     Most of the work is already done by the upstream CSV loader —
     when a source includes a two-way player under its IDP universe,
@@ -8015,6 +8052,28 @@ def _apply_two_way_player_boost(
 
     alt_asset_class_for_family = {True: "idp", False: "offense"}
 
+    # Row-level evidence rules (see the docstring): in force exactly while a
+    # row-scoped lineage rule is.  Off = the pre-closeout path below.
+    if lineage_rules is None:
+        lineage_rules = _enabled_row_scoped_correlation_rules()
+    evidence_rules = bool(lineage_rules)
+    family_by_key: dict[str, str] = {}
+    vote_weight_of = alt_vote_weight
+    if evidence_rules:
+        family_by_key = {
+            str(s.get("key") or ""): correlation_group_for(str(s.get("key") or ""))
+            for s in _RANKING_SOURCES
+        }
+        if vote_weight_of is None:
+            # Only the sign is read (the alt blend is unweighted): every
+            # candidate outside ``excluded_keys`` votes.
+            def _unweighted_vote(
+                _row: Mapping[str, Any], source_key: str, _alt_family: str
+            ) -> float | None:
+                return None if source_key in excluded_keys else 1.0
+
+            vote_weight_of = _unweighted_vote
+
     def _build_alt_ladder(source_key: str, want_idp: bool) -> list[tuple[float, float]]:
         """(source rank, board value) pairs over the REAL players of the
         alt family, sorted by source rank.
@@ -8083,6 +8142,9 @@ def _apply_two_way_player_boost(
         # ``rank = (offset * 100 - synthetic) / 100``.
         alt_source_values: list[float] = []
         used_sources: list[str] = []
+        # Present in the alt family but not voting (freshness / health weight
+        # 0) — evidence rules only.  Still present evidence for the haircut.
+        withheld_sources: list[str] = []
         for key in candidate_keys:
             raw = site_values.get(key)
             try:
@@ -8091,6 +8153,13 @@ def _apply_two_way_player_boost(
                 continue
             if syn <= 0:
                 continue
+            if vote_weight_of is not None and evidence_rules:
+                vote_weight = vote_weight_of(row, key, alt_family)
+                if vote_weight is None:
+                    continue
+                if vote_weight <= 0.0:
+                    withheld_sources.append(key)
+                    continue
             # Reverse the synthetic → rank encoding.  Small-positive
             # ``syn`` values (e.g. DraftSharks' raw 14 on a 0-100
             # scale) are VALUE-BASED source contributions; we skip
@@ -8133,6 +8202,27 @@ def _apply_two_way_player_boost(
         if not alt_source_values:
             continue
         alt_value, _alt_mad = count_aware_mean_median_blend(alt_source_values)
+        evidence: dict[str, Any] = {}
+        if evidence_rules:
+            # The alt row's lineages, on the same D2 map the blend reads, and
+            # the single-source haircut's own present-evidence rule.
+            alt_families, engaged = row_scoped_family_map(
+                family_by_key,
+                asset_class=alt_asset_class_for_family[alt_is_idp],
+                voting=used_sources,
+                enabled_rules=lineage_rules,
+            )
+            lineages = {alt_families.get(k, k) for k in used_sources + withheld_sources}
+            penalty = single_lineage_retention and len(lineages) <= 1
+            evidence = {
+                "lineages": sorted(lineages),
+                "sharedLineageCaps": list(engaged),
+                "freshnessExcludedSources": sorted(withheld_sources),
+                "singleSourceValuePenaltyApplied": penalty,
+            }
+            if penalty:
+                evidence["altFamilyValueBeforePenalty"] = int(round(alt_value))
+                alt_value *= _SINGLE_SOURCE_VALUE_RETENTION
         current_value = float(row.get("rankDerivedValue") or 0.0)
         if alt_value <= current_value:
             # Offense-pool blend already beats the alt-family value;
@@ -8144,6 +8234,7 @@ def _apply_two_way_player_boost(
                 "altFamilyValue": int(round(alt_value)),
                 "primaryFamilyValue": int(round(current_value)),
                 "sourcesConsidered": sorted(used_sources),
+                **evidence,
             }
             continue
         boosted = int(round(alt_value))
@@ -8167,6 +8258,7 @@ def _apply_two_way_player_boost(
             "altFamilyValue": boosted,
             "primaryFamilyValue": int(round(current_value)),
             "sourcesConsidered": sorted(used_sources),
+            **evidence,
         }
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
@@ -13824,10 +13916,44 @@ def _compute_unified_rankings(
     pre_override_values = {
         row_idx: players_array[row_idx].get("rankDerivedValue") for row_idx in row_confidence_inputs
     }
+    # While a row-scoped lineage rule is in force the alt value is held to
+    # the row-level evidence rules (see the boost's docstring).  Whether an
+    # alt observation VOTES is answered by the blend loop's own owner, asked
+    # of the row as a member of its alt family: the active-source gate
+    # (disabled, seasonally inactive, absent private, policy-held), the
+    # row-class hold, and ``base x freshness x health x coverage`` with the
+    # loop's ``_freshness_applied`` switch — 0 is withheld, never a zero.
+    _alt_member_rows: dict[tuple[int, str], dict[str, Any]] = {}
+
+    def _two_way_alt_vote_weight(
+        row: Mapping[str, Any], source_key: str, alt_family: str
+    ) -> float | None:
+        alt_class = "idp" if alt_family in _IDP_POSITIONS else "offense"
+        if source_key not in active_keys:
+            return None
+        held = _row_class_holds.get(source_key)
+        if held is not None and held["assetClass"] == alt_class:
+            return None
+        base = blend_weight_by_source.get(source_key, 1.0)
+        if not _freshness_applied:
+            return base
+        # The row as a member of its alt family: the CSV key resolves to the
+        # alt-position entry and the universe clock to the alt universe.
+        # Held for the whole build: ``_row_csv_key`` caches by ``id(row)``.
+        member = _alt_member_rows.get((id(row), alt_family))
+        if member is None:
+            member = {**row, "position": alt_family, "assetClass": alt_class}
+            _alt_member_rows[(id(row), alt_family)] = member
+        dyn, _stamp = _dynamic_weight_factor(member, source_key, False)
+        return base * dyn
+
     _apply_two_way_player_boost(
         players_array,
         players_by_name,
         excluded_keys=frozenset(str(k) for k in (absent_private_sources or ())) | _policy_held,
+        lineage_rules=_corr_rules,
+        alt_vote_weight=_two_way_alt_vote_weight,
+        single_lineage_retention=not _sparse_limited_evidence,
     )
     # ── Confidence describes the value that SHIPPED (B11) ──
     #

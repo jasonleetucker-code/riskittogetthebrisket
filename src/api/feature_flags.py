@@ -155,9 +155,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # combined board cast a weighted vote, the two are one correlation lineage
     # (``data_contract.ROW_SCOPED_CORRELATION_GROUPS`` -> the family-cap owner
     # and the B11 independence count): one provider's authority, one family.
-    # Offense and pick rows are never touched.  Engages on 0 rows while The
-    # IDP Show is quarantined.  OFF
-    # (RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0 + restart): two families.
+    # A row resting on that one lineage keeps the single-source haircut, and
+    # the two-way player's alt (defensive) value is held to the same rules:
+    # voting sources only, D2 lineages, the haircut on one lineage
+    # (``_apply_two_way_player_boost``).  Offense and pick rows are otherwise
+    # never touched.  OFF (RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP=0 +
+    # restart): two families and the prior boost, byte for byte.
     "idp_shared_correlation_cap": True,
     # IDP Trade Calculator offense vote excluded (owner closeout 2026-10-18,
     # Decision 3).  ON: the IDP Trade Calculator casts no vote on OFFENSE
