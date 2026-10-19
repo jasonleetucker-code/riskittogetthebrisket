@@ -364,6 +364,17 @@ export default function TradePage() {
   // ``focusedSideIdx`` controls which side's dropdown is visible.
   const [sideQueries, setSideQueries] = useState({});
   const [focusedSideIdx, setFocusedSideIdx] = useState(null);
+  // Pending blur timers, one per side.  Focusing a side's search again
+  // cancels its timer: without that, blurring and re-focusing inside the
+  // 120ms window let the stale timer close the dropdown of a focused input
+  // (Enter then added nothing).
+  const sideBlurTimersRef = useRef({});
+  useEffect(
+    () => () => {
+      Object.values(sideBlurTimersRef.current).forEach(clearTimeout);
+    },
+    [],
+  );
   const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
   // The suggestions desk is always rendered once the pool loads; fetch its
@@ -1435,12 +1446,24 @@ export default function TradePage() {
 
   // Inline-search add: drop the row onto the side, clear that side's
   // query so the dropdown collapses, and re-focus the input so the
-  // soft keyboard stays up for the next addition.
+  // soft keyboard stays up for the next addition.  The re-focus runs a
+  // frame later, so it only reclaims focus that is lost (the tapped option
+  // unmounted) or still inside this side's search: if the user has already
+  // moved on (say, into the other side's search) it never pulls them back.
   function addFromSearch(row, sideIdx) {
     addToSide(row, sideIdx);
     setSideQueries((prev) => ({ ...prev, [sideIdx]: "" }));
     requestAnimationFrame(() => {
-      sideInputRefs.current[sideIdx]?.focus({ preventScroll: true });
+      const input = sideInputRefs.current[sideIdx];
+      if (!input) return;
+      const current = typeof document !== "undefined" ? document.activeElement : null;
+      const movedOn =
+        current &&
+        current !== document.body &&
+        current !== input &&
+        !input.parentElement?.contains(current);
+      if (movedOn) return;
+      input.focus({ preventScroll: true });
     });
   }
 
@@ -2697,6 +2720,8 @@ export default function TradePage() {
                       setSideQueries((prev) => ({ ...prev, [idx]: v }))
                     }
                     onSideFocus={(idx) => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      delete sideBlurTimersRef.current[idx];
                       setFocusedSideIdx(idx);
                       setActiveSide(idx);
                     }}
@@ -2704,7 +2729,9 @@ export default function TradePage() {
                       // Delay so a tap on a result registers before the
                       // dropdown unmounts (onMouseDown also pre-empts blur;
                       // this is the belt-and-braces guard for touch).
-                      setTimeout(() => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      sideBlurTimersRef.current[idx] = setTimeout(() => {
+                        delete sideBlurTimersRef.current[idx];
                         setFocusedSideIdx((prev) => (prev === idx ? null : prev));
                       }, 120);
                     }}
