@@ -98,7 +98,12 @@ jobs:
     # the same silent deploy block this comment documents above. Runner
     # headroom only; no test, gate or tolerance weakened; a finite hang
     # bound remains.
-    timeout-minutes: 80
+    # 80 -> 120 (2026-10-19), matching PR Validation and Release Candidate:
+    # the hard suite now takes ~77 min (PR Validation run 39212246131 spent
+    # 77:22 in unit tests before the 80-minute wall cancelled it). A deploy
+    # validate job cancelled at the wall silently blocks the deploy, as
+    # above. Runner headroom only; no test, gate or tolerance weakened.
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v7

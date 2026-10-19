@@ -72,7 +72,13 @@ jobs:
     # rerun-worthy run 36917378085 was cancelled at the 60-minute wall while
     # still running unit tests. Same rationale as before: runner headroom only;
     # no test, gate, or tolerance weakened; a finite hang bound is preserved.
-    timeout-minutes: 80
+    # 80 -> 120 (2026-10-19): the full suite now takes ~77 min. Release
+    # train 11's PR Validation run 39212246131 spent 77:22 in unit tests
+    # (the hard gate PASSED) and was then cancelled at the 80-minute wall,
+    # skipping every later blocking step; its release check passed with
+    # ~4 min to spare. Same rationale as each step above: runner headroom
+    # only; no test, gate or tolerance weakened; a finite hang bound remains.
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v7
