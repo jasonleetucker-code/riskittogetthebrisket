@@ -308,7 +308,8 @@ export function votingStatusSummary(block, rows = votingStatusRows(block)) {
   const counts = new Map();
   for (const r of rows) {
     const k = r.status || "unknown";
-    counts.set(k, (counts.get(k) || 0) + 1);
+    const seen = counts.get(k);
+    counts.set(k, seen === undefined ? 1 : seen + 1);
   }
   const groups = [...counts.entries()]
     .map(([status, n]) => ({
