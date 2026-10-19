@@ -1229,8 +1229,17 @@ def decide(
     leaning_result: tuple[str, str, str] | None = None,
     comparables: Any = None,
     provenance: dict[str, Any] | None = None,
+    counterfactuals: bool = True,
 ) -> dict[str, Any]:
-    """The one top-line decision for one analyzed trade (pure)."""
+    """The one top-line decision for one analyzed trade (pure).
+
+    ``counterfactuals=False`` skips the "what would change it" search
+    (``_what_would_change``) and returns ``whatWouldChange: []`` on the decided
+    path.  The search runs AFTER the headline, leaning and confidence are fixed,
+    so skipping it cannot change any of them; the public Trade Advisor skips it
+    because its run time scales with the size of the gap (a timing channel) and
+    its prose embeds values.  The private routes keep the default.
+    """
     strategy = resolve_strategy(posture, team_goal, team_context)
     posture_block = _posture_block(posture, team_context)
     lean = leaning_result or leaning(market, roster, feasibility)
@@ -1381,7 +1390,188 @@ def decide(
         missingEvidence=[],
         components={"objectiveValue": a, "rosterBenefit": b},
         mainCounterargument=counter,
-        whatWouldChange=_what_would_change(simulation, headline, a, b, goal, strategy),
+        whatWouldChange=(
+            _what_would_change(simulation, headline, a, b, goal, strategy)
+            if counterfactuals
+            else []
+        ),
         coverage=_cover(a, b),
         confidence=confidence,
     )
+
+
+# ── Public Trade Advisor mapping (design §3; owner directive 2026-10-19) ───
+#
+# The public Brisket Trade Advisor shows one of five categories, never a
+# number.  The mapping lives HERE, beside the decision it reads, so one module
+# emits recommendations.  It introduces no threshold: "strong" means the value
+# band of component A (``_objective_value``, the ONE fairness-band owner) is
+# unfair or lopsided in the matching direction AND the headline and the graded
+# leaning agree.  Every input not listed fails closed to UNAVAILABLE / ``None``.
+
+PUBLIC_CATEGORIES = (
+    "STRONGLY_FAVORABLE",
+    "FAVORABLE",
+    "APPROXIMATELY_EVEN",
+    "UNFAVORABLE",
+    "STRONGLY_UNFAVORABLE",
+    "UNAVAILABLE",
+)
+
+#: ``recommendation`` / ``headline`` / ``message`` per category.  The only
+#: place this copy exists in the backend; the frontend renders it verbatim.
+PUBLIC_CATEGORY_TEXT: dict[str, dict[str, str]] = {
+    "STRONGLY_FAVORABLE": {
+        "recommendation": "ACCEPT",
+        "headline": "ACCEPT — STRONG TRADE FOR YOUR TEAM",
+        "message": "Our analysis strongly favors your side of this trade.",
+    },
+    "FAVORABLE": {
+        "recommendation": "ACCEPT",
+        "headline": "ACCEPT — GOOD TRADE FOR YOUR TEAM",
+        "message": "Our analysis indicates this trade benefits your team.",
+    },
+    "APPROXIMATELY_EVEN": {
+        "recommendation": "FAIR",
+        "headline": "FAIR TRADE — YOUR DECISION",
+        "message": "Our analysis considers this a relatively balanced exchange.",
+    },
+    "UNFAVORABLE": {
+        "recommendation": "DECLINE",
+        "headline": "DECLINE — NOT RECOMMENDED",
+        "message": "Our analysis indicates this trade does not favor your team.",
+    },
+    "STRONGLY_UNFAVORABLE": {
+        "recommendation": "DECLINE",
+        "headline": "DECLINE — STRONGLY NOT RECOMMENDED",
+        "message": "Our analysis strongly favors the assets your team would give up.",
+    },
+    "UNAVAILABLE": {
+        "recommendation": "NONE",
+        "headline": "NO RECOMMENDATION",
+        "message": "This trade can't be evaluated reliably right now.",
+    },
+}
+
+#: The execution gate's own copy (UNFAVORABLE with reason ``roster_limit``).
+PUBLIC_ROSTER_LIMIT_TEXT: dict[str, str] = {
+    "recommendation": "DECLINE",
+    "headline": "DECLINE — YOUR ROSTER CAN'T FIT THIS TRADE",
+    "message": "Your team couldn't complete this trade under the roster limit.",
+}
+
+#: The ONLY reason codes the public surface exposes.
+PUBLIC_REASON_TEXT: dict[str, str] = {
+    "asset_not_evaluable": "One or more assets in this trade can't be evaluated right now.",
+    "ownership_unverifiable": "We couldn't confirm who owns every asset in this trade.",
+    "multi_team_unsupported": (
+        "Recommendations for trades with more than two teams aren't available yet."
+    ),
+    "roster_limit": PUBLIC_ROSTER_LIMIT_TEXT["message"],
+}
+
+_PUBLIC_ASSET_GAP_CODES = frozenset({"off_board_assets", "unpriced_assets", "no_priced_assets"})
+_PUBLIC_OWNERSHIP_GAP_CODES = frozenset({"unheld_assets", "pick_ownership_unknown"})
+#: Known gaps deliberately collapsed to the generic copy: naming them would
+#: reveal which teams are classified as rebuilders, which players lack
+#: projections, or which values are quarantined / stale.
+_PUBLIC_COLLAPSED_GAP_CODES = frozenset(
+    {
+        "quarantined_values",
+        "stale_values",
+        "posture_unknown",
+        "roster_unknown",
+        "unprojected_players",
+        "roster_limit_unknown",
+        "forced_drop_unpriced",
+    }
+)
+
+
+def public_category_from_decision(decision: Any) -> str:
+    """The public category for one 2-team :func:`decide` result (design §3)."""
+    if not isinstance(decision, dict):
+        return "UNAVAILABLE"
+    headline = decision.get("headline")
+    if headline == "NO_TOO_CLOSE":
+        return "APPROXIMATELY_EVEN"
+    if headline not in ("YES", "NO"):
+        # NOT_ENOUGH_EVIDENCE and anything unknown.
+        return "UNAVAILABLE"
+    if decision.get("deciding") == "executionGate":
+        return "UNFAVORABLE" if headline == "NO" else "UNAVAILABLE"
+    comps = decision.get("components")
+    a = comps.get("objectiveValue") if isinstance(comps, dict) else None
+    a = a if isinstance(a, dict) else {}
+    large = a.get("magnitude") == "large"
+    lean = decision.get("leaning")
+    if headline == "YES":
+        if a.get("direction") == "favors" and large and lean == "MAKE":
+            return "STRONGLY_FAVORABLE"
+        return "FAVORABLE"
+    if a.get("direction") == "opposes" and large and lean == "PASS":
+        return "STRONGLY_UNFAVORABLE"
+    return "UNFAVORABLE"
+
+
+def public_category_from_net_band(band: Any, net: Any) -> str:
+    """The 3–4-team category from a fairness band on the perspective's net
+    flow: fair → even, slight → by sign, unfair / lopsided → strong by sign.
+    Used only when multi-team recommendations are switched on."""
+    level = band.get("level") if isinstance(band, dict) else None
+    if not isinstance(net, (int, float)) or isinstance(net, bool):
+        return "UNAVAILABLE"
+    if level == "fair":
+        return "APPROXIMATELY_EVEN"
+    if level == "slight":
+        return "FAVORABLE" if net > 0 else "UNFAVORABLE"
+    if level in ("unfair", "lopsided"):
+        return "STRONGLY_FAVORABLE" if net > 0 else "STRONGLY_UNFAVORABLE"
+    return "UNAVAILABLE"
+
+
+def public_reason_code(decision: Any) -> str | None:
+    """The one public reason code for a decision, or ``None``.
+
+    ``roster_limit`` for the execution gate; for NOT ENOUGH EVIDENCE the
+    asset / ownership codes when the gaps are all known, preferring the asset
+    code (the one a user can act on).  Any gap code this function does not
+    know — including a code added to :func:`_evidence_gaps` later — makes the
+    whole answer ``None`` (fail closed: the generic copy).
+    """
+    if not isinstance(decision, dict):
+        return None
+    if decision.get("headline") == "NO" and decision.get("deciding") == "executionGate":
+        return "roster_limit"
+    if decision.get("headline") != "NOT_ENOUGH_EVIDENCE":
+        return None
+    codes = [g.get("code") for g in (decision.get("missingEvidence") or []) if isinstance(g, dict)]
+    known = _PUBLIC_ASSET_GAP_CODES | _PUBLIC_OWNERSHIP_GAP_CODES | _PUBLIC_COLLAPSED_GAP_CODES
+    if not codes or any(c not in known for c in codes):
+        return None
+    if any(c in _PUBLIC_ASSET_GAP_CODES for c in codes):
+        return "asset_not_evaluable"
+    if any(c in _PUBLIC_OWNERSHIP_GAP_CODES for c in codes):
+        return "ownership_unverifiable"
+    return None
+
+
+def public_asset_gap_labels(decision: Any) -> list[str]:
+    """The engine labels named by the asset gaps (off-board / unpriced), so
+    the caller can translate them back to its own public asset ids."""
+    out: list[str] = []
+    if not isinstance(decision, dict):
+        return out
+    for g in decision.get("missingEvidence") or []:
+        if isinstance(g, dict) and g.get("code") in _PUBLIC_ASSET_GAP_CODES:
+            for label in (g.get("evidence") or {}).get("assets") or []:
+                if label not in out:
+                    out.append(str(label))
+    return out
+
+
+def public_text(category: str, reason_code: str | None = None) -> dict[str, str]:
+    """``recommendation`` / ``headline`` / ``message`` for a category."""
+    if category == "UNFAVORABLE" and reason_code == "roster_limit":
+        return dict(PUBLIC_ROSTER_LIMIT_TEXT)
+    return dict(PUBLIC_CATEGORY_TEXT.get(category) or PUBLIC_CATEGORY_TEXT["UNAVAILABLE"])

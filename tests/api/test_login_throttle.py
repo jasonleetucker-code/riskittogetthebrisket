@@ -49,6 +49,9 @@ def _login(client, ip: str, username: str, password: str):
 
 @pytest.fixture(autouse=True)
 def _login_env(monkeypatch):
+    # B0-h: proxy headers are believed only from a trusted peer, and
+    # TestClient's peer is the literal host "testclient".
+    monkeypatch.setenv("RATE_LIMIT_TRUSTED_PROXIES", "testclient")
     monkeypatch.setattr(server, "JASON_LOGIN_USERNAME", OWNER)
     monkeypatch.setattr(server, "JASON_LOGIN_PASSWORD", OWNER_PW)
     # Keep wrong-password attempts away from the guest-pass SQLite —

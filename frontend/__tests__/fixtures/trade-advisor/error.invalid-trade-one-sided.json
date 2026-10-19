@@ -1,0 +1,8 @@
+{
+  "error": "invalid_trade",
+  "message": "Each team must send at least one player or pick.",
+  "reason": "one_sided_trade",
+  "rosterIds": [
+    2
+  ]
+}

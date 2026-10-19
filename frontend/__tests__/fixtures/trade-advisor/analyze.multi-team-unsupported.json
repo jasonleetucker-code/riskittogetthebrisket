@@ -1,0 +1,31 @@
+{
+  "status": "success",
+  "leagueKey": "main",
+  "generation": "669e14158e30e2fa",
+  "perspectiveRosterId": 1,
+  "teamCount": 3,
+  "category": "UNAVAILABLE",
+  "recommendation": "NONE",
+  "headline": "NO RECOMMENDATION",
+  "message": "This trade can't be evaluated reliably right now.",
+  "reasonCode": "multi_team_unsupported",
+  "reasonText": "Recommendations for trades with more than two teams aren't available yet.",
+  "unavailableAssetIds": [],
+  "trade": [
+    {
+      "id": "p:103",
+      "from": 1,
+      "to": 2
+    },
+    {
+      "id": "p:202",
+      "from": 2,
+      "to": 3
+    },
+    {
+      "id": "p:302",
+      "from": 3,
+      "to": 1
+    }
+  ]
+}

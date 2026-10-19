@@ -1,0 +1,4 @@
+{
+  "error": "unsupported_media_type",
+  "message": "Send the request as application/json."
+}

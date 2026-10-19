@@ -14,6 +14,13 @@ an attacker-chosen string — rotate one header value per request and the
 limiter sees a new "client" every time.  These tests pin the repaired
 trust order: X-Real-IP, then the LAST X-Forwarded-For entry, then the
 socket peer.
+
+B0-h (2026-10-19): both headers are statements BY THE PROXY, so they are
+believed only from a trusted peer (loopback, or ``RATE_LIMIT_TRUSTED_PROXIES``)
+and only when they parse as an address — the backend binds 0.0.0.0, and a
+client reaching it directly could otherwise name any address it liked.  The
+owner is ``src/api/client_ip.py``; ``server._client_ip_from_request``
+delegates to it.
 """
 
 from __future__ import annotations
@@ -58,12 +65,76 @@ class TestProxiedRequests:
         req = _request({"X-Forwarded-For": "attacker-chosen, 198.51.100.9"})
         assert server._client_ip_from_request(req) == "198.51.100.9"
 
-    def test_real_ip_wins_over_everything(self):
+    def test_real_ip_wins_over_everything(self, monkeypatch):
+        monkeypatch.setenv("RATE_LIMIT_TRUSTED_PROXIES", "10.0.0.0/8")
         req = _request(
             {"X-Real-IP": "203.0.113.7", "X-Forwarded-For": "spoof-a, spoof-b"},
             client_host="10.0.0.1",
         )
         assert server._client_ip_from_request(req) == "203.0.113.7"
+
+
+class TestUntrustedPeers:
+    """B0-h: a peer that is not our proxy cannot choose its identity."""
+
+    def test_real_ip_from_an_untrusted_peer_is_ignored(self, monkeypatch):
+        monkeypatch.delenv("RATE_LIMIT_TRUSTED_PROXIES", raising=False)
+        keys = {
+            server._client_ip_from_request(
+                _request({"X-Real-IP": f"198.51.100.{i}"}, client_host="192.0.2.50")
+            )
+            for i in range(5)
+        }
+        assert keys == {"192.0.2.50"}
+
+    def test_forwarded_for_from_an_untrusted_peer_is_ignored(self, monkeypatch):
+        monkeypatch.delenv("RATE_LIMIT_TRUSTED_PROXIES", raising=False)
+        req = _request({"X-Forwarded-For": "a, 198.51.100.9"}, client_host="192.0.2.50")
+        assert server._client_ip_from_request(req) == "192.0.2.50"
+
+    def test_a_listed_cidr_is_trusted(self, monkeypatch):
+        monkeypatch.setenv("RATE_LIMIT_TRUSTED_PROXIES", "192.0.2.0/24, 2001:db8::/32")
+        req = _request({"X-Real-IP": "203.0.113.7"}, client_host="192.0.2.50")
+        assert server._client_ip_from_request(req) == "203.0.113.7"
+
+    def test_unparseable_header_text_is_never_the_key(self):
+        req = _request({"X-Real-IP": "not-an-ip", "X-Forwarded-For": "also bad"})
+        # Loopback peer (trusted), but neither header parses: the peer wins.
+        assert server._client_ip_from_request(req) == "127.0.0.1"
+
+    def test_ipv4_mapped_ipv6_collapses_to_ipv4(self):
+        req = _request({"X-Real-IP": "::ffff:203.0.113.7"})
+        assert server._client_ip_from_request(req) == "203.0.113.7"
+        req = _request({}, client_host="::ffff:192.0.2.4")
+        assert server._client_ip_from_request(req) == "192.0.2.4"
+
+    def test_ipv6_loopback_peer_is_trusted(self):
+        req = _request({"X-Real-IP": "2001:db8::1"}, client_host="::1")
+        assert server._client_ip_from_request(req) == "2001:db8::1"
+
+
+def test_limiter_keys_group_ipv6_by_slash_64_and_neighbourhoods():
+    from src.api.client_ip import client_key, neighbourhood_key
+
+    assert client_key("2001:db8:1:2::1") == client_key("2001:db8:1:2:ffff::9")
+    assert client_key("2001:db8:1:2::1") != client_key("2001:db8:1:3::1")
+    assert client_key("203.0.113.7") == "203.0.113.7"
+    assert neighbourhood_key("203.0.113.7") == neighbourhood_key("203.0.113.200")
+    assert neighbourhood_key("203.0.113.7") != neighbourhood_key("203.0.114.7")
+    assert neighbourhood_key("2001:db8:1:2::1") == neighbourhood_key("2001:db8:1:ffff::1")
+
+
+def test_every_client_ip_reader_routes_through_the_one_owner():
+    """No module reads X-Real-IP / X-Forwarded-For except the owner."""
+    import pathlib
+
+    repo = pathlib.Path(server.__file__).parent
+    readers = []
+    for path in [*(repo / "src").rglob("*.py"), repo / "server.py"]:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if 'headers.get("x-real-ip"' in text or 'headers.get("x-forwarded-for"' in text:
+            readers.append(path.relative_to(repo).as_posix())
+    assert readers == ["src/api/client_ip.py"], readers
 
 
 class TestDirectRequests:

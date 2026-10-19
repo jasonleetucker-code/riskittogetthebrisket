@@ -1,0 +1,15 @@
+{
+  "_comment": "Brisket Trade Advisor (public League Hub trade advisor, owner directive 2026-10-19; design §2.11 / §7). Every number here is a DECLARED PRIOR, not a fitted constant. multiTeamRecommendations and pickProjectionLabels are owner decisions OD-1 / OD-2 (default OFF). maxLegs is a payload-safety bound, not a per-team quantity cap (OD-8). responseFloorMs must be set from the measured p95 Team Context analyze on the production box (unit P) before the feature flag is switched on; null means no floor.",
+  "version": "public_advisor_v1",
+  "multiTeamRecommendations": false,
+  "pickProjectionLabels": false,
+  "limits": {"maxTeams": 4, "maxLegs": 128, "maxBodyBytes": 16384},
+  "responseFloorMs": null,
+  "rateLimits": {
+    "perKeyBurst": {"capacity": 40, "windowSeconds": 600},
+    "perKeyDaily": {"capacity": 400, "windowSeconds": 86400},
+    "neighbourhoodBurst": {"capacity": 200, "windowSeconds": 600},
+    "globalCeiling": {"capacity": 3000, "windowSeconds": 3600}
+  },
+  "maxTrackedKeys": 20000
+}

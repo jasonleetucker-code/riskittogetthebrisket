@@ -1,0 +1,80 @@
+{
+  "leagueKey": "main",
+  "generation": "669e14158e30e2fa",
+  "rosterId": 2,
+  "sort": "alpha",
+  "pickOwnership": "observed",
+  "rosters": {
+    "state": "unknown",
+    "asOf": null
+  },
+  "assets": [
+    {
+      "id": "pick:main:2027:r1:o2",
+      "kind": "pick",
+      "label": "2027 1st — Own",
+      "side": "pick",
+      "season": 2027,
+      "round": 1,
+      "originRosterId": 2,
+      "projection": null,
+      "evaluable": true
+    },
+    {
+      "id": "pick:main:2028:r1:o2",
+      "kind": "pick",
+      "label": "2028 1st — Own",
+      "side": "pick",
+      "season": 2028,
+      "round": 1,
+      "originRosterId": 2,
+      "projection": null,
+      "evaluable": true
+    },
+    {
+      "id": "p:204",
+      "kind": "player",
+      "label": "Bravo End",
+      "side": "offense",
+      "position": "TE",
+      "nflTeam": "LV",
+      "evaluable": true
+    },
+    {
+      "id": "p:205",
+      "kind": "player",
+      "label": "Bravo Kicker",
+      "side": "offense",
+      "position": "K",
+      "nflTeam": "BAL",
+      "evaluable": false
+    },
+    {
+      "id": "p:202",
+      "kind": "player",
+      "label": "Bravo Runner",
+      "side": "offense",
+      "position": "RB",
+      "nflTeam": "ATL",
+      "evaluable": true
+    },
+    {
+      "id": "p:203",
+      "kind": "player",
+      "label": "Bravo Safety",
+      "side": "defense",
+      "position": "DB",
+      "nflTeam": "KC",
+      "evaluable": true
+    },
+    {
+      "id": "p:201",
+      "kind": "player",
+      "label": "Bravo Star",
+      "side": "offense",
+      "position": "WR",
+      "nflTeam": "MIN",
+      "evaluable": true
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "status": "success",
+  "leagueKey": "main",
+  "generation": "669e14158e30e2fa",
+  "perspectiveRosterId": 1,
+  "teamCount": 2,
+  "category": "UNFAVORABLE",
+  "recommendation": "DECLINE",
+  "headline": "DECLINE — YOUR ROSTER CAN'T FIT THIS TRADE",
+  "message": "Your team couldn't complete this trade under the roster limit.",
+  "reasonCode": "roster_limit",
+  "reasonText": "Your team couldn't complete this trade under the roster limit.",
+  "unavailableAssetIds": [],
+  "trade": [
+    {
+      "id": "p:103",
+      "from": 1,
+      "to": 2
+    },
+    {
+      "id": "p:202",
+      "from": 2,
+      "to": 1
+    }
+  ]
+}
