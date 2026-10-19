@@ -76,11 +76,17 @@ def test_geom_utility_is_bit_identical_to_the_js_owner():
 
 
 def test_no_power_operator_or_builtin_sum_in_the_geom_path():
+    import ast
     import inspect
+    import textwrap
 
-    src = inspect.getsource(pm.geom_utility) + inspect.getsource(pm._geom_pair)
-    assert "**" not in src
-    assert "sum(" not in src.replace("_left_sum(", "")
+    for fn in (pm.geom_utility, pm._geom_pair, pm._left_sum):
+        tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+        for node in ast.walk(tree):
+            assert not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow)), fn
+            assert not (isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Pow)), fn
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                assert node.func.id not in ("sum", "pow", "fsum"), fn
 
 
 def _old_pair(a, b, q=0.78):
@@ -103,18 +109,24 @@ def _old_pair(a, b, q=0.78):
     return (value, 1 if d2 > d1 else 2, True)
 
 
+#: The only pairs (of 200,000 seeded) where the new Python rounds differently
+#: from the old Python — both exact half-integers on which the OLD Python
+#: already disagreed with JavaScript; the new one agrees with JS.
+_KNOWN_JS_AGREEMENT_FIXES = {
+    ((750, 9696, 2616), (799, 76)),
+    ((9342, 1700, 5449), (7872,)),
+}
+
+
 def test_rounded_va_unchanged_on_a_seeded_suite():
-    """Over 200,000 random pairs the new Python differs from the old in 2,
-    and in both the OLD Python disagreed with JavaScript at an exact .5 (the
-    new one agrees with JS); this suite pins the common case cheaply."""
     rng = random.Random(7)
-    diffs = 0
+    diffs = set()
     for _ in range(20_000):
         a = [rng.randint(1, 9999) for _ in range(rng.randint(1, 8))]
         b = [rng.randint(1, 9999) for _ in range(rng.randint(1, 8))]
         if _old_pair(a, b) != pm.adjust_pair(a, b, model_id=pm.GEOM_Q078_V1):
-            diffs += 1
-    assert diffs == 0
+            diffs.add((tuple(a), tuple(b)))
+    assert diffs <= _KNOWN_JS_AGREEMENT_FIXES
 
 
 @pytest.mark.parametrize(

@@ -306,7 +306,8 @@ def resolve_pick_board_row(
     happened to emit ("2028 Mid 1st" baked vs "2028 1st" overlay) can no
     longer change what one asset is worth.
 
-    Without an id, the label is parsed (never guessed) and its OWN grade
+    When identity finds no priced row (the board publishes no row for that
+    grade), or there is no id, the label is parsed (never guessed) and its OWN grade
     goes to ``resolve_pick_value`` first; when that grade has no priced row
     ``market_resolution`` maps it for the clock, and ``resolve_pick_value``
     answers again.  This retires the simulator's private ladder: generic
@@ -317,26 +318,19 @@ def resolve_pick_board_row(
     ``basisRowName``; ``(None, resolution)`` means unpriced (never 0).
     """
     from src.api.data_contract import current_rookie_draft_year
-    from src.api.pick_value_resolution import (
-        resolve_owned_pick_value,
-        resolve_pick_label_value,
-    )
+    from src.api.pick_value_resolution import resolve_pick_asset_value
 
     rows = pick_rows if pick_rows is not None else _pick_rows_for(row_index)
-    cdy = current_rookie_draft_year()
-    pv = None
-    if asset_id:
-        aid = str(asset_id).strip()
-        pv = resolve_owned_pick_value(
-            aid,
-            slot=(pick_slots or {}).get(aid),
-            rows_by_name=rows,
-            current_draft_year=cdy,
-        )
+    aid = str(asset_id).strip() if asset_id else None
+    pv = resolve_pick_asset_value(
+        asset_id=aid,
+        slot=(pick_slots or {}).get(aid) if aid else None,
+        label=label,
+        rows_by_name=rows,
+        current_draft_year=current_rookie_draft_year(),
+    )
     if pv is None:
-        pv = resolve_pick_label_value(label, rows_by_name=rows, current_draft_year=cdy)
-        if pv is None:
-            return None, None
+        return None, None
     if pv.value is None or not pv.basis_row_name:
         return None, pv
     return row_index.get(pv.basis_row_name.strip().lower()), pv

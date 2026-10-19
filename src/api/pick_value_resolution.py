@@ -47,6 +47,7 @@ __all__ = [
     "pick_rows_by_name",
     "pick_rows_from_rows",
     "resolve_owned_pick_value",
+    "resolve_pick_asset_value",
     "resolve_pick_label_value",
     "resolve_pick_value",
     "stamp_owned_pick_rows",
@@ -262,6 +263,45 @@ def resolve_pick_label_value(
     return resolve_pick_value({}, res.ref, rows_by_name=rows_by_name)
 
 
+def resolve_pick_asset_value(
+    *,
+    asset_id: Any,
+    slot: int | None,
+    label: Any,
+    rows_by_name: dict[str, dict[str, Any]],
+    current_draft_year: int,
+) -> PickValueResolution | None:
+    """The ONE rule for "what prices this traded / rostered pick".
+
+    1. A canonical league-pick ``asset_id`` resolves by IDENTITY
+       (:func:`resolve_owned_pick_value`) — the label grammar cannot change
+       the answer.
+    2. When identity yields no priced row (the board publishes no row for
+       that grade — e.g. an unslotted current class carrying tiers only, so
+       neither a slot row nor the centre-slot convention exists), or there is
+       no canonical id, the label's own parse decides
+       (:func:`resolve_pick_label_value`) — exactly what priced such a pick
+       before identity pricing existed.  Never a guess: an unparseable label
+       stays unresolved.
+
+    ``None`` only when there is neither a canonical id nor a parseable label.
+    """
+    pv = resolve_owned_pick_value(
+        asset_id,
+        slot=slot,
+        rows_by_name=rows_by_name,
+        current_draft_year=current_draft_year,
+    )
+    if pv is not None and pv.value is not None:
+        return pv
+    by_label = resolve_pick_label_value(
+        label, rows_by_name=rows_by_name, current_draft_year=current_draft_year
+    )
+    if by_label is not None and by_label.value is not None:
+        return by_label
+    return pv if pv is not None else by_label
+
+
 def stamp_owned_pick_rows(
     teams: Any,
     rows_by_name: dict[str, dict[str, Any]],
@@ -270,8 +310,8 @@ def stamp_owned_pick_rows(
     """Copy of ``teams`` with ``boardRowName`` on every ``pickDetails`` entry.
 
     ``boardRowName`` is the board row that prices that owned pick under
-    :func:`resolve_owned_pick_value` (identity first, label only for an
-    entry with no canonical id), so every consumer that needs "which board
+    :func:`resolve_pick_asset_value` (identity first, the label only when
+    identity finds no priced row), so every consumer that needs "which board
     row is this owned pick" reads one server answer instead of re-deriving
     it from a label grammar.  It names a row and carries no number; an
     unpriced pick gets ``None`` (never a guessed row).  Additive: no other
@@ -292,18 +332,13 @@ def stamp_owned_pick_rows(
                 stamped.append(d)
                 continue
             slot = d.get("slot")
-            pv = resolve_owned_pick_value(
-                d.get("assetId"),
+            pv = resolve_pick_asset_value(
+                asset_id=d.get("assetId"),
                 slot=slot if isinstance(slot, int) else None,
+                label=d.get("label"),
                 rows_by_name=rows_by_name,
                 current_draft_year=current_draft_year,
             )
-            if pv is None:
-                pv = resolve_pick_label_value(
-                    d.get("label"),
-                    rows_by_name=rows_by_name,
-                    current_draft_year=current_draft_year,
-                )
             name = pv.basis_row_name if pv is not None and pv.value is not None else None
             stamped.append({**d, "boardRowName": name})
         out.append({**team, "pickDetails": stamped})

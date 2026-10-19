@@ -300,3 +300,19 @@ def test_server_overlay_stamp_copies_and_never_mutates_the_cached_overlay():
     assert names["pick:dynasty_main:2028:r1:o2"] == "2028 Early 1st"
     # Degrade, never fail: no contract -> teams unchanged.
     assert server._overlay_pick_board_rows(overlay_teams, None) is overlay_teams
+
+
+@pytest.mark.usefixtures("clock")
+def test_identity_with_no_priced_row_falls_back_to_the_label_grade():
+    """An unslotted current class whose board carries tiers only: identity
+    (generic grade -> centre-slot convention) finds no row, so the label's
+    own stated grade prices it — never unresolved when the board can answer."""
+    c = _board()
+    c["playersArray"] = [
+        r for r in c["playersArray"] if not r["canonicalName"].startswith("2027 Pick")
+    ]
+    c["playersArray"].append(_pick("2027 Late 1st", 4000))
+    c["playersArray"] = [r for r in c["playersArray"] if r["canonicalName"] != "2027 Mid 1st"]
+    hit = _resolve(c, "2027 Late 1st (from X)", "pick:dynasty_main:2027:r1:o1")
+    assert hit is not None and hit["name"] == "2027 Late 1st" and hit["value"] == 4000
+    assert _resolve(c, "garbage", "pick:dynasty_main:2027:r1:o1") is None
