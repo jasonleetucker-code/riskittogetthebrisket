@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, Iterable
 from src.ros import ROS_DATA_DIR
 from src.ros.lineup import RosterPlayer, flatten_starter_slots, optimize_lineup
 from src.utils.name_clean import resolve_canonical_name
+from src.utils.singleflight import SingleFlight
 
 if TYPE_CHECKING:
     from src.public_league.snapshot import PublicLeagueSnapshot
@@ -525,6 +526,12 @@ def compute_team_strength_live(
 # `load_or_compute_team_strength` writes back to disk.
 _LIVE_COMPUTE_TTL_SECONDS = 120.0
 _live_compute_cache: dict[str | None, tuple[float, list[dict[str, Any]]]] = {}
+# The TTL above only helps callers that arrive AFTER a compute finishes;
+# callers arriving DURING one (a cold page load fans out to Analyze Trade,
+# Gameplan, the playoff sim ...) each used to start their own overlay fetch
+# and full lineup solve.  One compute per (league, persist) in flight; the
+# others wait for and share its rows.
+_live_compute_flights = SingleFlight()
 
 # How old the PERSISTED snapshot file may be before the fast path in
 # `load_or_compute_team_strength` stops trusting it and falls through to
@@ -644,16 +651,23 @@ def load_or_compute_team_strength(
     if cached is not None and now - cached[0] < _LIVE_COMPUTE_TTL_SECONDS:
         return cached[1]
 
-    rows = compute_team_strength_live(league_key)
-    if not team_strength_has_evidence(rows):
-        # Evidence-less rows are a failure; answer "unavailable" rather than
-        # handing every consumer twelve zeros to rank, z-score or simulate.
-        rows = []
-    _live_compute_cache[league_key] = (now, rows)
+    def _compute() -> list[dict[str, Any]]:
+        started = time.monotonic()
+        hit = _live_compute_cache.get(league_key)
+        if hit is not None and started - hit[0] < _LIVE_COMPUTE_TTL_SECONDS:
+            return hit[1]
+        rows = compute_team_strength_live(league_key)
+        if not team_strength_has_evidence(rows):
+            # Evidence-less rows are a failure; answer "unavailable" rather than
+            # handing every consumer twelve zeros to rank, z-score or simulate.
+            rows = []
+        _live_compute_cache[league_key] = (started, rows)
 
-    if rows:
-        _persist_best_effort(rows, league_key=league_key, persist=persist)
+        if rows:
+            _persist_best_effort(rows, league_key=league_key, persist=persist)
+        return rows
 
+    rows, _shared = _live_compute_flights.run((league_key, bool(persist)), _compute)
     return rows
 
 

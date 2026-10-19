@@ -1043,7 +1043,23 @@ def solve_optimal_assignment(
         _augment(idx, set())
 
     assignment = {slot_idx: ordered[p_idx] for slot_idx, p_idx in slot_owner.items()}
-    return _canonicalize_slots(assignment, slots, is_eligible, value=value)
+    eligible_at = None
+    if precomputed_eligibility is not None:
+        # The canonical-labelling pass asks the same question the matching
+        # did — "may this assigned player sit in slot i" — so it reads the
+        # same precomputed answer instead of re-deriving it per pair.  Exact
+        # under this parameter's contract (same pool / slots /
+        # slot_eligibility); assigned players are unique by id (the
+        # duplicate guard above), so the id-keyed lookup is unambiguous.
+        index_sets = {
+            ordered[p_idx].player_id: frozenset(eligible_slots[p_idx])
+            for p_idx in slot_owner.values()
+        }
+
+        def eligible_at(slot_idx: int, player: RosterPlayer) -> bool:
+            return slot_idx in index_sets[player.player_id]
+
+    return _canonicalize_slots(assignment, slots, is_eligible, value=value, eligible_at=eligible_at)
 
 
 @dataclass(frozen=True)
@@ -1125,6 +1141,7 @@ def _canonicalize_slots(
     slots: list[str],
     is_eligible=_player_eligible_for_slot,
     value=None,
+    eligible_at=None,
 ) -> dict[int, RosterPlayer]:
     """Pick a canonical representative among equally-optimal lineups.
 
@@ -1142,8 +1159,17 @@ def _canonicalize_slots(
     both are cross-eligible.  Both moves keep the multiset of started
     players — and therefore the total — identical, so optimality is
     preserved by construction.
+
+    ``eligible_at(slot_index, player)``, when given, answers the same
+    eligibility question by slot INDEX (the solver passes its precomputed
+    answer); otherwise ``is_eligible(slots[i], player)`` is asked.
     """
     value = value or _value_with_health_penalty
+    if eligible_at is None:
+
+        def eligible_at(slot_idx: int, player: RosterPlayer) -> bool:
+            return is_eligible(slots[slot_idx], player)
+
     changed = True
     while changed:
         changed = False
@@ -1153,14 +1179,14 @@ def _canonicalize_slots(
                 if there is None:
                     continue
                 if here is None:
-                    if is_eligible(slots[i], there):
+                    if eligible_at(i, there):
                         assignment[i] = there
                         del assignment[j]
                         changed = True
                     continue
                 if value(here) >= value(there):
                     continue
-                if is_eligible(slots[i], there) and is_eligible(slots[j], here):
+                if eligible_at(i, there) and eligible_at(j, here):
                     assignment[i], assignment[j] = there, here
                     changed = True
     return assignment
