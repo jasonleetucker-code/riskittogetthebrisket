@@ -888,7 +888,7 @@ def _ensemble_index(
     if hit is not None and now - hit[0] < _ENSEMBLE_TTL_SECONDS:
         return hit[1], hit[2]
     # Only a non-empty ensemble is shared; a caller whose concurrent leader
-    # failed (raised, or found nothing) builds itself, as it would have alone.
+    # failed (raised, or found nothing) joins ONE shared retry (two builds max).
     (index, basis), _shared = _ensemble_flights.run_sharing_success(
         key,
         lambda: _build_ensemble_index(key, season, scoring_settings, fingerprint),
@@ -941,8 +941,28 @@ def _build_ensemble_index(
         "families": families,
         "playersProjected": len(index),
     }
+    return _store_ensemble(key, now, index, basis)
+
+
+def _store_ensemble(
+    key: tuple[int, str], built_at: float, index: dict[str, float], basis: dict[str, Any]
+) -> tuple[dict[str, float], dict[str, Any]]:
+    """Record an ensemble build; returns the ``(index, basis)`` to answer with.
+
+    Never last-writer-wins: a build that started before the cached entry does
+    not replace it, and an empty build (a failure) does not replace a
+    non-empty one still inside its TTL.  When this build is empty but a fresh
+    non-empty one is cached, that one is the answer.
+    """
     with _ensemble_lock:
-        _ensemble_cache[key] = (now, index, basis)
+        existing = _ensemble_cache.get(key)
+        if existing is not None:
+            fresh_success = bool(existing[1]) and time.time() - existing[0] < _ENSEMBLE_TTL_SECONDS
+            if existing[0] > built_at or (fresh_success and not index):
+                if not index and fresh_success:
+                    return existing[1], existing[2]
+                return index, basis
+        _ensemble_cache[key] = (built_at, index, basis)
     return index, basis
 
 

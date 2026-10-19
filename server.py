@@ -18052,8 +18052,12 @@ async def post_trade_analyze(request: Request):
       the same signed-in user at ``GET /api/trade/analyze/status``.
     * An identical request from the same user, against the same loaded board,
       that arrives while the first is still running shares that computation
-      (``analysisTiming.sharedComputation``).  Each request still gets its own
-      decision receipt.  Nothing is retained once it finishes.
+      (``analysisTiming.sharedComputation``) when it succeeds or is refused for
+      a request-scoped reason (400 / 404).  If it fails (an exception, a 5xx,
+      a 401), the joiners make one shared retry instead.  Each request still
+      gets its own decision receipt.  Nothing is retained once it finishes.
+      Guest-pass sessions get the total time only, and their status reads
+      give the state and current phase only.
     """
     # The clock starts first, so ``resolve`` covers the body parse and the
     # league resolution below as well as the simulation's own resolve step.
@@ -18115,9 +18119,7 @@ async def post_trade_analyze(request: Request):
                     if progress is not None
                     else None
                 ),
-                # Share success and deterministic refusals (4xx) only: a 5xx is
-                # possibly transient, so a joiner computes for itself.
-                share_if=lambda out: out[2] is None or out[2].status_code < 500,
+                share_if=_analysis_outcome_shareable,
             )
     except BaseException as exc:  # CancelledError too: the client went away
         if progress is not None:
@@ -18171,6 +18173,17 @@ async def post_trade_analyze(request: Request):
 
 
 _TRADE_ANALYZE_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
+
+#: Refusals that are a fact about the REQUEST (its body, its league, its
+#: team), so an identical request gets the same one.  Anything else — a 5xx
+#: (possibly transient), a 401/403 (about the leader's session, not the key) —
+#: is never handed to a joiner; the joiners make one shared retry instead.
+_SHAREABLE_REFUSAL_STATUSES = frozenset({400, 404})
+
+
+def _analysis_outcome_shareable(outcome) -> bool:
+    error = outcome[2]
+    return error is None or error.status_code in _SHAREABLE_REFUSAL_STATUSES
 
 
 async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg=None):

@@ -177,3 +177,61 @@ def test_a_failed_live_compute_is_not_handed_to_concurrent_callers(monkeypatch):
     # The follower computed itself — past the failure the leader just cached.
     assert out["follow"] == ROWS
     assert calls == ["lg", "lg"]
+
+
+def test_a_failed_live_compute_costs_exactly_one_shared_retry(monkeypatch):
+    gate = threading.Event()
+    calls: list[str] = []
+    lock = threading.Lock()
+
+    def compute(league_key):
+        with lock:
+            calls.append(league_key)
+            n = len(calls)
+        if n == 1:
+            gate.wait(5)
+            return [{"ownerId": "o1", "startingLineupScore": 0.0}]  # evidence-less
+        threading.Event().wait(0.05)
+        return [dict(r) for r in ROWS]
+
+    _patch(monkeypatch, compute)
+    out: list = []
+    first = threading.Thread(
+        target=lambda: out.append(team_strength.load_or_compute_team_strength("lg"))
+    )
+    first.start()
+    while not calls:
+        threading.Event().wait(0.01)
+    followers = [
+        threading.Thread(
+            target=lambda: out.append(team_strength.load_or_compute_team_strength("lg"))
+        )
+        for _ in range(11)
+    ]
+    for t in followers:
+        t.start()
+    threading.Event().wait(0.2)
+    gate.set()
+    for t in [first, *followers]:
+        t.join(10)
+    assert calls == ["lg", "lg"]  # the leader + ONE retry for all eleven followers
+    assert out.count([]) == 1 and out.count(ROWS) == 11
+
+
+def test_the_live_compute_cache_is_never_last_writer_wins(monkeypatch):
+    import time as _time
+
+    monkeypatch.setattr(team_strength, "_live_compute_cache", {})
+    now = _time.monotonic()
+    team_strength._store_live_compute("lg", now, ROWS)
+    # A failure does not replace a fresh success; the success is the answer.
+    assert team_strength._store_live_compute("lg", now + 1, []) == ROWS
+    assert team_strength._live_compute_cache["lg"] == (now, ROWS)
+    # An attempt that started EARLIER does not replace a newer entry.
+    older = [{"ownerId": "o9", "startingLineupScore": 3.0}]
+    assert team_strength._store_live_compute("lg", now - 5, older) == older
+    assert team_strength._live_compute_cache["lg"] == (now, ROWS)
+    # A newer success does replace it.
+    newer = [{"ownerId": "o2", "startingLineupScore": 4.0}]
+    team_strength._store_live_compute("lg", now + 2, newer)
+    assert team_strength._live_compute_cache["lg"] == (now + 2, newer)

@@ -427,3 +427,20 @@ def test_a_failed_ensemble_build_is_not_handed_to_concurrent_callers(monkeypatch
     assert out["lead"] == "raised"
     assert out["follow"][0] == {"x": 1.0}  # its own build succeeded
     assert builds == [2026, 2026]
+
+
+def test_the_ensemble_cache_is_never_last_writer_wins(monkeypatch):
+    import time as _time
+
+    monkeypatch.setattr(bbu, "_ensemble_cache", {})
+    key = (2026, "sf1:test")
+    now = _time.time()
+    good = ({"x": 1.0}, {"state": "available"})
+    bbu._store_ensemble(key, now, *good)
+    # An empty (failed) build does not replace a fresh non-empty one.
+    assert bbu._store_ensemble(key, now + 1, {}, {"state": "unavailable"}) == good
+    assert bbu._ensemble_cache[key] == (now, *good)
+    # A build that started earlier does not replace a newer entry.
+    older = ({"y": 2.0}, {"state": "available"})
+    assert bbu._store_ensemble(key, now - 5, *older) == older
+    assert bbu._ensemble_cache[key] == (now, *good)

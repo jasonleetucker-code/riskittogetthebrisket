@@ -21,8 +21,9 @@ because they are about the REQUEST, not the trade:
   answer arrived) share one computation instead of running it twice.  Nothing
   is retained after it finishes, so this is not a response cache, and the key
   carries the user, so two users never share one.  Only a SUCCESS (or a
-  deterministic 4xx refusal) is shared: a joiner whose leader raised or got a
-  5xx makes its own attempt, as it would have alone.
+  refusal that is a fact about the request: 400 / 404) is shared.  When the
+  leader raised or got a 5xx, its joiners make ONE retry between them (itself
+  shared) and all get its outcome — at most two computations, never a storm.
 """
 
 from __future__ import annotations
@@ -162,8 +163,13 @@ class ProgressRegistry:
         now = time.monotonic()
         with self._lock:
             entry = self._entries.get((owner, request_id))
-            if entry is None:
+            # A finished entry is final: a cancelled request's computation may
+            # still be running (it is shielded for its joiners) and must not
+            # move a status the client was already told is terminal.
+            if entry is None or entry["state"] != "running":
                 return
+            if fields.get("state") not in (None, "running"):
+                entry["finishedAt"] = now
             stage = fields.pop("completed_stage", None)
             if stage is not None:
                 # A stage timed in two parts (``resolve``) reports its total.
@@ -187,18 +193,22 @@ class ProgressRegistry:
             if entry is None:
                 return None
             phase = entry["phase"]
+            if not entry["detail"]:
+                # Guests: the state and current phase name only — what a
+                # progress indicator needs.  No elapsed time and no stage list:
+                # polled, either would rebuild the per-stage times the guest
+                # redaction exists to withhold.
+                return {"requestId": request_id, "state": entry["state"], "phase": phase}
+            end = entry.get("finishedAt") or now
             return {
                 "requestId": request_id,
                 "state": entry["state"],
                 "phase": phase,
                 "phaseIndex": PHASES.index(phase) if phase in PHASES else None,
                 "phases": list(PHASES),
-                "elapsedMs": round((now - entry["startedAt"]) * 1000.0, 1),
-                # Guests see which stages finished, not how long each took
-                # (per-stage times can reveal shared-cache hits).
-                "completedStages": [
-                    dict(s) if entry["detail"] else {"stage": s["stage"]} for s in entry["stages"]
-                ],
+                # Frozen at finish: the request's own duration, not its age.
+                "elapsedMs": round((end - entry["startedAt"]) * 1000.0, 1),
+                "completedStages": [dict(s) for s in entry["stages"]],
             }
 
     def clear(self) -> None:
@@ -284,6 +294,10 @@ class StageClock:
         }
         if not detail:
             out["detail"] = "total_only"
+            out["note"] = (
+                "server wall time for this request; excludes network transfer and "
+                "browser rendering"
+            )
             return out
         out["stages"] = [{"stage": n, "ms": round(ms, 1)} for n, ms in self._stages]
         out["sharedComputation"] = shared_stages is not None
@@ -338,19 +352,36 @@ def dedup_key(
     )
 
 
+class _AsyncFlight:
+    """One shared computation and its single retry wave."""
+
+    __slots__ = ("task", "retry")
+
+    def __init__(self, task: asyncio.Task) -> None:
+        self.task = task
+        self.retry: asyncio.Task | None = None
+
+
+def _retrieve(task: asyncio.Task) -> None:
+    if not task.cancelled():
+        task.exception()  # retrieved: never "exception was never retrieved"
+
+
 class AsyncSingleFlight:
     """One in-flight coroutine per key on one event loop; nothing retained.
 
     The shared computation runs as its own task, so a caller that is cancelled
-    (client gone) does not cancel it for the others.  An exception reaches
-    every caller.
+    (client gone) does not cancel it for the others.  Only SUCCESS fans out:
+    when the shared computation fails, its joiners make ONE retry between
+    them (itself shared), and every joiner gets that retry's outcome, success
+    or failure — at most two computations per wave, however many joined.
     """
 
     def __init__(self) -> None:
-        self._pending: dict[tuple[int, Hashable], asyncio.Task] = {}
+        self._pending: dict[tuple[int, Hashable], _AsyncFlight] = {}
 
     def in_flight(self) -> int:
-        return sum(1 for t in self._pending.values() if not t.done())
+        return sum(1 for f in self._pending.values() if not f.task.done())
 
     async def run(
         self,
@@ -363,35 +394,43 @@ class AsyncSingleFlight:
         """``(result, joined)``.  ``on_join`` runs the moment a caller joins an
         in-flight computation (before waiting on it).
 
-        Only SUCCESS is shared: a joiner whose leader raised, was cancelled, or
-        returned a result ``share_if`` rejects (a transient 5xx) makes its own
-        attempt — what it would have done had it arrived alone.  A failure
-        never fans out to requests that might have succeeded."""
+        A joiner whose leader raised, was cancelled, or returned a result
+        ``share_if`` rejects (a transient 5xx) does not inherit that failure:
+        the first such joiner starts the wave's one retry with its own
+        ``factory`` and the rest join it.  A joiner whose OWN request was
+        cancelled re-raises, even when the leader was cancelled in the same
+        tick."""
         loop = asyncio.get_running_loop()
         slot = (id(loop), key)
-        task = self._pending.get(slot)
-        if task is not None and not task.done():
+        flight = self._pending.get(slot)
+        if flight is not None and not flight.task.done():
             if on_join is not None:
                 on_join()
+            ok = False
             try:
-                result = await asyncio.shield(task)
+                result = await asyncio.shield(flight.task)
+                ok = share_if is None or share_if(result)
             except asyncio.CancelledError:
-                if not task.cancelled():
+                current = asyncio.current_task()
+                if current is not None and current.cancelling():
                     raise  # this joiner itself was cancelled
-                return await factory(), False
-            except Exception:  # noqa: BLE001 — the leader's failure is not ours
-                return await factory(), False
-            if share_if is not None and not share_if(result):
-                return await factory(), False
-            return result, True
+            except Exception:  # noqa: BLE001 — the leader's failure is not ours (yet)
+                ok = False
+            if ok:
+                return result, True
+            retry_leader = flight.retry is None
+            if retry_leader:
+                flight.retry = asyncio.ensure_future(factory())
+                flight.retry.add_done_callback(_retrieve)
+            return await asyncio.shield(flight.retry), not retry_leader
         task = asyncio.ensure_future(factory())
-        self._pending[slot] = task
+        flight = _AsyncFlight(task)
+        self._pending[slot] = flight
 
         def _done(t: asyncio.Task, slot: tuple[int, Hashable] = slot) -> None:
-            if self._pending.get(slot) is t:
+            if (current := self._pending.get(slot)) is not None and current.task is t:
                 del self._pending[slot]
-            if not t.cancelled():
-                t.exception()  # retrieved: never "exception was never retrieved"
+            _retrieve(t)
 
         task.add_done_callback(_done)
         return await asyncio.shield(task), False

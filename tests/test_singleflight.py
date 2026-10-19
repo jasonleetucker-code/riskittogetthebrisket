@@ -114,3 +114,64 @@ def test_run_sharing_success_follower_retries_after_a_leader_exception():
     t.join(5)
     f.join(5)
     assert out == {"leader": "raised", "follower": ("retried", False)}
+
+
+def _storm(flight, *, retry_fails: bool):
+    import threading
+
+    gate = threading.Event()
+    builds: list[str] = []
+    lock = threading.Lock()
+
+    def leader():
+        with lock:
+            builds.append("leader")
+        gate.wait(5)
+        return {}  # failure sentinel
+
+    def attempt():
+        with lock:
+            builds.append("retry")
+        threading.Event().wait(0.05)
+        return {} if retry_fails else {"ok": 1}
+
+    out: list = []
+    first = threading.Thread(
+        target=lambda: out.append(flight.run_sharing_success("k", leader, failed=lambda r: not r))
+    )
+    first.start()
+    while not builds:
+        threading.Event().wait(0.01)
+    followers = [
+        threading.Thread(
+            target=lambda: out.append(
+                flight.run_sharing_success("k", attempt, failed=lambda r: not r)
+            )
+        )
+        for _ in range(11)
+    ]
+    for t in followers:
+        t.start()
+    threading.Event().wait(0.2)
+    gate.set()
+    for t in [first, *followers]:
+        t.join(10)
+    return builds, out
+
+
+def test_a_failed_leader_costs_exactly_one_shared_retry():
+    from src.utils.singleflight import SingleFlight
+
+    builds, out = _storm(SingleFlight(), retry_fails=False)
+    assert builds == ["leader", "retry"]  # 2 builds for 12 callers, not 12
+    followers = [r for r in out if r != ({}, False)]
+    assert len(followers) == 11 and all(r[0] == {"ok": 1} for r in followers)
+    assert sorted(r[1] for r in followers) == [False] + [True] * 10  # one ran it, 10 shared
+
+
+def test_a_failed_retry_is_every_followers_answer():
+    from src.utils.singleflight import SingleFlight
+
+    builds, out = _storm(SingleFlight(), retry_fails=True)
+    assert builds == ["leader", "retry"]  # bounded: no third attempt
+    assert all(r[0] == {} for r in out) and len(out) == 12

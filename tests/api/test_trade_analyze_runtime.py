@@ -304,7 +304,7 @@ def test_progress_cap_is_per_owner():
     assert all(reg.snapshot("noisy", f"noisy-{i:04d}") for i in (7, 8, 9))
 
 
-def test_async_single_flight_shares_failure_and_survives_owner_cancel():
+def test_async_single_flight_survives_owner_cancel_and_releases_keys():
     async def scenario():
         flight = rt.AsyncSingleFlight()
         started = asyncio.Event()
@@ -537,8 +537,10 @@ def test_guests_get_total_time_only(client, monkeypatch):
         params={"requestId": rid},
         headers={"cookie": f"{cookie}=sess-guest"},
     ).json()
-    assert snap["state"] == "complete"
-    assert all(set(st) == {"stage"} for st in snap["completedStages"])
+    # Guests: state and phase only — no elapsed time, no stage list (polled,
+    # either would rebuild the per-stage times the redaction withholds).
+    assert snap == {"requestId": rid, "state": "complete", "phase": "complete"}
+    assert "by stage" not in timing["note"]
 
 
 def test_resolve_covers_the_league_resolution(client, monkeypatch):
@@ -604,3 +606,107 @@ def test_async_single_flight_hands_a_failed_leader_to_no_one():
         assert await join == (200, False)
 
     asyncio.run(scenario())
+
+
+# ── round-3 review ───────────────────────────────────────────────────────
+
+
+def test_async_failed_leader_costs_exactly_one_shared_retry():
+    async def scenario(retry_fails: bool):
+        flight = rt.AsyncSingleFlight()
+        started = asyncio.Event()
+        release = asyncio.Event()
+        runs: list[str] = []
+
+        async def leader():
+            runs.append("leader")
+            started.set()
+            await release.wait()
+            raise RuntimeError("down")
+
+        async def attempt():
+            runs.append("retry")
+            await asyncio.sleep(0.01)
+            if retry_fails:
+                raise RuntimeError("still down")
+            return "ok"
+
+        lead = asyncio.ensure_future(flight.run("k", leader))
+        await started.wait()
+        joiners = [asyncio.ensure_future(flight.run("k", attempt)) for _ in range(11)]
+        await asyncio.sleep(0)
+        release.set()
+        with pytest.raises(RuntimeError):
+            await lead
+        results = await asyncio.gather(*joiners, return_exceptions=True)
+        assert runs.count("leader") == 1 and runs.count("retry") == 1  # 2 builds, not 12
+        if retry_fails:
+            assert all(isinstance(r, RuntimeError) for r in results)
+        else:
+            assert sorted(r[1] for r in results) == [False] + [True] * 10
+            assert all(r[0] == "ok" for r in results)
+
+    asyncio.run(scenario(False))
+    asyncio.run(scenario(True))
+
+
+def test_a_joiner_cancelled_in_the_same_tick_as_its_leader_stays_cancelled():
+    async def scenario():
+        flight = rt.AsyncSingleFlight()
+        started = asyncio.Event()
+        retried: list[int] = []
+
+        async def leader():
+            started.set()
+            await asyncio.sleep(10)
+
+        async def joiner_factory():
+            retried.append(1)
+            return "should not run"
+
+        lead = asyncio.ensure_future(flight.run("k", leader))
+        await started.wait()
+        join = asyncio.ensure_future(flight.run("k", joiner_factory))
+        await asyncio.sleep(0)
+        shared = next(iter(flight._pending.values())).task
+        shared.cancel()  # the leader's computation is cancelled ...
+        join.cancel()  # ... and so is the joiner, in the same tick
+        with pytest.raises(asyncio.CancelledError):
+            await join
+        assert retried == []  # its own cancellation was not swallowed into a retry
+        lead.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await lead
+
+    asyncio.run(scenario())
+
+
+def test_a_finished_progress_entry_is_final_and_its_elapsed_time_frozen():
+    import time as _time
+
+    reg = rt.ProgressRegistry()
+    handle = reg.begin("alice", "final-0001")
+    handle.stage_done("resolve", 1.0)
+    handle.finish(rt.CANCELLED)
+    first = reg.snapshot("alice", "final-0001")
+    # The shielded computation keeps going after the client left ...
+    handle.phase("simulation")
+    handle.stage_done("simulation", 5.0)
+    handle.finish("complete")
+    _time.sleep(0.05)
+    later = reg.snapshot("alice", "final-0001")
+    assert later == first  # ... and moves nothing, elapsedMs included
+    assert later["state"] == "cancelled" and later["phase"] == "failed"
+
+
+def test_only_request_scoped_refusals_are_shareable():
+    from fastapi.responses import JSONResponse
+
+    def outcome(status):
+        return (None, None, JSONResponse(status_code=status, content={}), [])
+
+    assert server._analysis_outcome_shareable(({}, "main", None, [])) is True
+    assert server._analysis_outcome_shareable(outcome(400)) is True
+    assert server._analysis_outcome_shareable(outcome(404)) is True
+    for status in (401, 403, 500, 502, 503):
+        assert server._analysis_outcome_shareable(outcome(status)) is False

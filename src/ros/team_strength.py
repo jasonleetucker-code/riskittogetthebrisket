@@ -531,7 +531,7 @@ _live_compute_cache: dict[str | None, tuple[float, list[dict[str, Any]]]] = {}
 # Gameplan, the playoff sim ...) each used to start their own overlay fetch
 # and full lineup solve.  One compute per (league, persist) in flight; the
 # others wait for and share its rows — when it succeeds.  A failure is never
-# fanned out: those callers then compute themselves, as before.
+# fanned out: those callers make ONE shared retry (bounded: two computes).
 _live_compute_flights = SingleFlight()
 
 # How old the PERSISTED snapshot file may be before the fast path in
@@ -611,6 +611,28 @@ def persisted_fast_path_rows(league_key: str | None = None) -> list[dict[str, An
     return None
 
 
+def _store_live_compute(
+    league_key: str | None, started: float, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Record a live compute in the TTL cache; returns the rows to answer with.
+
+    Never last-writer-wins: an attempt that STARTED before the cached entry
+    does not replace it, and a failure (``[]``) does not replace a success
+    still inside its TTL — a late-failing retry would otherwise erase a newer
+    good answer.  When the attempt failed but a fresh success is cached, that
+    success is the answer (it is what a caller arriving now would read).
+    """
+    existing = _live_compute_cache.get(league_key)
+    if existing is not None:
+        fresh_success = bool(existing[1]) and (
+            time.monotonic() - existing[0] < _LIVE_COMPUTE_TTL_SECONDS
+        )
+        if existing[0] > started or (fresh_success and not rows):
+            return rows or (existing[1] if fresh_success else rows)
+    _live_compute_cache[league_key] = (started, rows)
+    return rows
+
+
 def load_or_compute_team_strength(
     league_key: str | None = None,
     *,
@@ -662,15 +684,15 @@ def load_or_compute_team_strength(
             # Evidence-less rows are a failure; answer "unavailable" rather than
             # handing every consumer twelve zeros to rank, z-score or simulate.
             rows = []
-        _live_compute_cache[league_key] = (started, rows)
+        rows = _store_live_compute(league_key, started, rows)
 
         if rows:
             _persist_best_effort(rows, league_key=league_key, persist=persist)
         return rows
 
     # Only rows WITH evidence are shared: a caller whose concurrent leader
-    # failed computes itself (bypassing the failure the leader just cached),
-    # exactly as it would have alone.
+    # failed joins ONE shared retry, which alone may bypass the failure the
+    # leader just cached (bounded: two computes per wave).
     rows, _shared = _live_compute_flights.run_sharing_success(
         (league_key, bool(persist)),
         _compute,
