@@ -14709,27 +14709,39 @@ def _public_league_metrics_snapshot() -> dict:
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
 # page while the first Sleeper rebuild is running in the background.
-try:
-    _persisted = public_snapshot_store.load_snapshot()
-    _persisted_error = (
-        _public_snapshot_integrity_error(_persisted) if _persisted is not None else None
-    )
-    if _persisted_error is not None:
-        # A partial snapshot persisted by an older build must not be served
-        # at cold start; the first request rebuilds from Sleeper instead.
-        logging.warning("Ignoring persisted public_league snapshot: %s", _persisted_error)
-        _persisted = None
-    if _persisted is not None and _persisted.seasons:
-        _public_league_cache["snapshot"] = _persisted
-        _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
-        _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
-        logging.info(
-            "Loaded persisted public_league snapshot for league %s (%d seasons)",
-            _persisted.root_league_id,
-            len(_persisted.seasons),
+#
+# A FUNCTION, not module-level statements: the snapshot used to be bound
+# to a module global (``_persisted``) that nothing read after boot, so the
+# boot generation stayed reachable for the life of the process after the
+# first rebuild replaced ``_public_league_cache["snapshot"]`` — a second
+# resident copy of the whole multi-season snapshot (measured 46.9 MB on
+# one league; prod memory-pressure incident 2026-10-19).  The cache entry
+# is now the snapshot's only owner.
+def _load_persisted_public_snapshot_at_boot() -> None:
+    try:
+        persisted = public_snapshot_store.load_snapshot()
+        persisted_error = (
+            _public_snapshot_integrity_error(persisted) if persisted is not None else None
         )
-except Exception as _exc:  # noqa: BLE001
-    logging.warning("Public league snapshot load at startup failed: %s", _exc)
+        if persisted_error is not None:
+            # A partial snapshot persisted by an older build must not be served
+            # at cold start; the first request rebuilds from Sleeper instead.
+            logging.warning("Ignoring persisted public_league snapshot: %s", persisted_error)
+            persisted = None
+        if persisted is not None and persisted.seasons:
+            _public_league_cache["snapshot"] = persisted
+            _public_league_cache["snapshot_league_id"] = persisted.root_league_id
+            _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
+            logging.info(
+                "Loaded persisted public_league snapshot for league %s (%d seasons)",
+                persisted.root_league_id,
+                len(persisted.seasons),
+            )
+    except Exception as _exc:  # noqa: BLE001
+        logging.warning("Public league snapshot load at startup failed: %s", _exc)
+
+
+_load_persisted_public_snapshot_at_boot()
 
 
 def _is_truthy_flag(value: Any) -> bool:

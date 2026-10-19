@@ -100,6 +100,16 @@ _session: requests.Session | None = None
 _request_cache_lock = threading.Lock()
 _request_cache: dict[str, tuple[float, Any]] = {}
 
+# Memory bound (prod memory-pressure incident 2026-10-19).  Expiry used to be
+# LAZY: an entry was dropped only when the SAME url was read again past its
+# TTL, so every url fetched once (each season x week matchups/transactions
+# payload of every league chain walked) stayed resident for the life of the
+# process although it could never be served again — measured ~10 MB of dead
+# payloads on one league locally, on top of the shared players dump.  A put
+# now sweeps expired entries and caps the live set; the TTL rule a reader
+# sees is unchanged (an expired entry was never returned anyway).
+_REQUEST_CACHE_MAX_ENTRIES = 512
+
 
 def _get_session() -> requests.Session:
     """Lazily-created pooled session shared across the public pipeline."""
@@ -157,8 +167,25 @@ def _cache_put(url: str, payload: Any) -> None:
         return
     import time as _time
 
+    now = _time.time()
     with _request_cache_lock:
-        _request_cache[url] = (_time.time(), payload)
+        _request_cache.pop(url, None)
+        _request_cache[url] = (now, payload)
+        _evict_request_cache_locked(now)
+
+
+def _evict_request_cache_locked(now: float) -> None:
+    """Drop expired entries, then the oldest beyond the cap.  Lock held.
+
+    Insertion order is put order (a re-put moves its key to the end), so the
+    first keys are the oldest.  Expired entries are never served, so dropping
+    them changes no answer; the cap only evicts the oldest still-live entries,
+    whose next read becomes an ordinary miss.
+    """
+    for key in [k for k, (ts, _) in _request_cache.items() if (now - ts) > _CACHE_TTL_SECONDS]:
+        _request_cache.pop(key, None)
+    while len(_request_cache) > _REQUEST_CACHE_MAX_ENTRIES:
+        _request_cache.pop(next(iter(_request_cache)))
 
 
 def reset_request_cache() -> None:
