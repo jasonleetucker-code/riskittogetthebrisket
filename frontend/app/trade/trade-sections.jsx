@@ -862,7 +862,11 @@ export function SideCard({
       ) : null}
 
       {balancers ? (
-        <div className={styles.balancers} id={`trade-side-${side.label}-balancers`}>
+        <div
+          className={styles.balancers}
+          id={`trade-side-${side.label}-balancers`}
+          aria-busy={balancers.pending ? "true" : undefined}
+        >
           <span className={styles.balancerLabel}>{balancers.label}</span>
           {balancers.list.map((b) => (
             <Button

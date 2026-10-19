@@ -160,4 +160,21 @@ describe("balanceStep", () => {
     });
     expect(balanceStep({ evalState: "complete", sideCount: 2 }).state).toBe("none_found");
   });
+
+  it("says the search is running, never 'none found', until it has answered this trade", () => {
+    // Review of TC-E: the deferred search used to read as a negative answer.
+    const pending = balanceStep({ evalState: "complete", sideCount: 2, balancersPending: true });
+    expect(pending.state).toBe("pending");
+    expect(pending.text).not.toMatch(/No single asset/);
+    expect(
+      balanceStep({ evalState: "complete", sideCount: 3, balancersPending: true }).state,
+    ).toBe("pending");
+    // A fair or incomplete trade answers immediately, pending or not.
+    expect(balanceStep({ evalState: "complete", isFair: true, balancersPending: true }).state).toBe(
+      "fair",
+    );
+    expect(balanceStep({ evalState: "incomplete", balancersPending: true }).state).toBe(
+      "incomplete",
+    );
+  });
 });
