@@ -16,14 +16,14 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 10:20 UTC (coordinator).
+Last updated: 2026-10-19 10:25 UTC (coordinator).
 
 ## Release vehicles
 
 | Vehicle | Members | State | Next action |
 |---|---|---|---|
 | Train 11 (#1829) | #1822 playoff odds follow the roster; #1823 mobile Trade Tendencies partner | DEPLOYED (`a9f3918808`, 10:04 UTC). Playoff sections still serve a pre-deploy cached forecast (05:27) | Re-probe after the next ROS refresh; check `/trades` on mobile |
-| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: release check dispatched on `e25b226724` (120-min budget) | When green: **owner approval to merge**, then deploy before the week-6 Power publication (after Monday night) |
+| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: release check 39235950801 on `e25b226724` (120-min budget). **Owner approved the merge (10:20 UTC)** | Merge when the release check, Validate PR and E2E are green; deploy before the week-6 Power publication |
 | #1832 CI budget 80→120 min | — | MERGED (`2d854f7523`) | Rides the next deploy |
 
 ## Features
@@ -51,7 +51,7 @@ Last updated: 2026-10-19 10:20 UTC (coordinator).
 | Calculator correctness parity tests (CQ-21) | — | — | — | — | QUEUED | — | Next wave |
 | Accessibility defects (CQ-30) | — | — | — | — | QUEUED | Exclude `/trade` until train 12 merges | Next wave |
 | Scheduled workflow health (CQ-29) | — | — | — | — | QUEUED | — | Next wave |
-| 2030 pick horizon | — | — | — | **Owner decision** | BLOCKED | Board shows 2030 rows after the vendor slot roll; the 2026-09-25 decision requires owner approval | Owner: keep 2029 or allow 2030 |
+| Pick horizon = last completed rookie draft + 3 (owner decision 2026-10-19: no 2030 until the 2027 draft completes) | W5 | `claude/pick-horizon-completed-draft-plus-3` | — | Draft-class retirement proof (`pick_lifecycle`) | IMPLEMENTING | The board currently emits 2030 rows after the vendor slot roll | PR with board_diff evidence |
 
 ## Shelved / not to revive
 League Tycoon (#1755 parks ideas only), DFS implementation, the premature 2027 rookie auction, paid data and paid inference, and Sleeper writes.
