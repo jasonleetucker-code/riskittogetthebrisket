@@ -166,6 +166,9 @@ def _sim_params(best_ball: bool | None, nulls: dict[str, str]) -> dict[str, Any]
         return {
             "bestBall": best_ball,
             "playoffSim": _module_constants(playoff_sim),
+            # Owner Decision 11: the flag-selected equation is not a module
+            # constant, so name it — two equations are two models.
+            "rosEvidenceMethod": playoff_sim.ros_evidence_method(),
             "championship": _module_constants(championship),
             "pointsModel": sim_calibration.load_points_model().to_dict(),
         }
