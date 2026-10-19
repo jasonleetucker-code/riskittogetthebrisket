@@ -19,6 +19,16 @@
  *                       reason — "Unavailable — <reason>", no vote, never
  *                       EVEN (owner closeout 2026-10-18, decision 9)
  *
+ * COMPARE ADJUSTMENTS (owner directive 2026-10-19, part 3).  One control
+ * re-evaluates every row under the KTC adjustment method — the SAME per-asset
+ * values the row already used, a second whole-package adjustment (never
+ * stacked on, added to or averaged with ours).  Desktop gets one extra column;
+ * a phone reads the same answer as a line under the source name.  Rows whose
+ * adjusted leader changes say so in words; nothing else is badged.  The
+ * votes, tallies and row states are computed before and without it, and are
+ * identical whichever way the control is set.  It is OUR copy of KTC's
+ * formula applied to that source's values — never that site's own policy.
+ *
  * Inputs: ``sides`` (``{label, assets}``, 2+ sides; also rendered by the
  * waivers add/drop panel), ``settings`` (memo dep), and ``hasOverrides``:
  * /trade passes BARE sides on purpose — a manual override changes the
@@ -27,6 +37,8 @@
  */
 
 import { Fragment, useMemo, useState } from "react";
+
+import { Button } from "@/components/ds";
 
 import {
   FALLBACK_REASON_LABEL,
@@ -37,8 +49,10 @@ import {
 } from "@/lib/second-opinions";
 import { buildOpinionRows, opinionTallyText } from "@/lib/second-opinions-rows";
 import { packageModelReceipt } from "@/lib/trade-logic";
+import { COMPARATOR_METHOD_LABEL, COMPARATOR_PACKAGE_MODEL_ID } from "@/lib/va-comparison";
 
 import SignalsRankOpinion from "./SignalsRankOpinion";
+import vac from "./va-comparison.module.css";
 
 const fmt = (v) => (v == null ? "—" : Math.round(v).toLocaleString());
 
@@ -84,20 +98,83 @@ function coverageText(counts) {
 
 const tallyText = opinionTallyText;
 
+/** The KTC-method answer for one row: leader words, or why there is none. */
+function comparisonLeaderText(cmp, sideLabels) {
+  if (!cmp?.available) return "Not computed";
+  return cmp.leaderIdx == null ? "Even" : `Side ${sideLabels[cmp.leaderIdx]}`;
+}
+
+/** "Leader differs on 2 of 9 compared sources." — counts only, no verdict. */
+function compareCountText(comparable, differing) {
+  const n = comparable.length;
+  const noun = `compared source${n === 1 ? "" : "s"}`;
+  if (n === 0) return "No source has a numeric verdict to compare.";
+  if (differing.length === 0) return `Same leader on all ${n} ${noun}.`;
+  return `Leader differs on ${differing.length} of ${n} ${noun}.`;
+}
+
+/** Per-row detail: each side under both models, from the same values. */
+function ComparisonDetail({ row, sideLabels }) {
+  const o = row.opinion;
+  const cmp = row.comparison;
+  if (!cmp?.available || !o.rawTotals) {
+    return (
+      <p className="muted" style={{ margin: "6px 0 0", fontSize: "0.7rem" }}>
+        {COMPARATOR_METHOD_LABEL}: not computed — this source has no numeric verdict here.
+      </p>
+    );
+  }
+  const signedVa = (v) => (v > 0 ? `+${fmt(v)}` : "none");
+  const num = { textAlign: "right", fontFamily: "var(--mono)" };
+  return (
+    <table
+      className="source-breakdown-assets"
+      aria-label={`Both adjustment methods for ${row.label}`}
+      style={{ marginTop: 6 }}
+    >
+      <thead>
+        <tr>
+          <th style={{ textAlign: "left" }}>Side</th>
+          <th style={{ textAlign: "right" }}>Raw</th>
+          <th style={{ textAlign: "right" }}>Chase Upside adj.</th>
+          <th style={{ textAlign: "right" }}>Total</th>
+          <th style={{ textAlign: "right" }}>KTC method adj.</th>
+          <th style={{ textAlign: "right" }}>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sideLabels.map((lbl, i) => (
+          <tr key={`cmp-${row.key}-${i}`}>
+            <td style={{ textAlign: "left" }}>Side {lbl}</td>
+            <td style={num}>{fmt(o.rawTotals[i])}</td>
+            <td style={num}>{signedVa(o.adjustments[i])}</td>
+            <td style={num}>{fmt(o.adjustedTotals[i])}</td>
+            <td style={num}>{signedVa(cmp.adjustments[i])}</td>
+            <td style={num}>{fmt(cmp.adjustedTotals[i])}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function TradeSourceBreakdown({
   sides,
   settings,
   hasOverrides = false,
 }) {
   const [open, setOpen] = useState(() => new Set());
+  const [compare, setCompare] = useState(false);
   const model = packageModelReceipt();
 
   // One row assembly shared with the immediate tally beside the meter
-  // (lib/second-opinions-rows.js, TC-B / TCM-K03).
+  // (lib/second-opinions-rows.js, TC-B / TCM-K03).  The comparison model is
+  // attached as `row.comparison`; `row.opinion` never depends on it.
   const rows = useMemo(
-    () => buildOpinionRows(sides),
+    () =>
+      buildOpinionRows(sides, compare ? { compareModelId: COMPARATOR_PACKAGE_MODEL_ID } : {}),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sides, settings],
+    [sides, settings, compare],
   );
 
   const sideLabels = sides.map((s) => s.label);
@@ -108,6 +185,12 @@ export default function TradeSourceBreakdown({
     (r) => r.opinion.state === OPINION_STATE.CHASE_ONLY_BASELINE,
   );
   const tally = tallyOpinions(rows, sides.length);
+  const twoTeam = sides.length === 2;
+  const compareCol = compare && twoTeam;
+  const differing = compareCol
+    ? shown.filter((r) => r.comparison?.available && r.comparison.leaderDiffers)
+    : [];
+  const comparable = compareCol ? shown.filter((r) => r.comparison?.available) : [];
   const toggle = (key) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -200,6 +283,42 @@ export default function TradeSourceBreakdown({
               {tallyText(tally.modeled, sideLabels)}
             </p>
           )}
+          <div style={{ margin: "4px 0" }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-pressed={compare}
+              data-testid="second-opinions-compare"
+              onClick={() => setCompare((v) => !v)}
+            >
+              Compare adjustments
+            </Button>
+          </div>
+          {compare ? (
+            <p
+              className="muted"
+              data-testid="second-opinions-compare-note"
+              style={{ margin: "0 0 4px", fontSize: "0.72rem", lineHeight: 1.45 }}
+            >
+              {twoTeam ? (
+                <>
+                  {COMPARATOR_METHOD_LABEL}: KeepTradeCut&apos;s package-adjustment formula,
+                  applied by Chase Upside to each source&apos;s same values instead of our
+                  adjustment. It is not that source&apos;s own calculator, and not KTC&apos;s own
+                  player values. Comparison only — the votes above use Chase Upside&apos;s
+                  adjustment.{" "}
+                  <strong data-testid="second-opinions-compare-count">
+                    {compareCountText(comparable, differing)}
+                  </strong>
+                </>
+              ) : (
+                <>
+                  {COMPARATOR_METHOD_LABEL}: not computed for a {sides.length}-team trade — it is
+                  a two-team model.
+                </>
+              )}
+            </p>
+          ) : null}
           <div
             id="source-breakdown-body"
             className="source-breakdown-body"
@@ -220,6 +339,19 @@ export default function TradeSourceBreakdown({
                   ))}
                   <th style={{ textAlign: "center" }}>Leader</th>
                   <th style={{ textAlign: "right" }}>Margin</th>
+                  {compareCol ? (
+                    <th
+                      className={vac.compareCol}
+                      style={{ textAlign: "center" }}
+                      data-testid="second-opinions-compare-col"
+                    >
+                      KTC method
+                      <span className="ds-visually-hidden">
+                        {" "}
+                        (comparison, applied to the same values)
+                      </span>
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -256,6 +388,17 @@ export default function TradeSourceBreakdown({
                           >
                             {row.signal} · {coverageText(o.counts)}
                           </span>
+                          {compareCol ? (
+                            <span
+                              className={vac.compareInline}
+                              data-testid="second-opinions-compare-inline"
+                            >
+                              KTC method: {comparisonLeaderText(row.comparison, sideLabels)}
+                              {row.comparison?.available && row.comparison.leaderDiffers
+                                ? " — leader differs"
+                                : ""}
+                            </span>
+                          ) : null}
                         </td>
                         {sideLabels.map((_, i) => (
                           <td
@@ -337,10 +480,45 @@ export default function TradeSourceBreakdown({
                             ? `${o.marginPct.toFixed(1)}%`
                             : "—"}
                         </td>
+                        {compareCol ? (
+                          <td
+                            className={vac.compareCol}
+                            style={{ textAlign: "center" }}
+                            data-testid="second-opinions-compare-cell"
+                            data-differs={row.comparison?.leaderDiffers ? "true" : undefined}
+                          >
+                            {row.comparison?.available ? (
+                              <>
+                                {comparisonLeaderText(row.comparison, sideLabels)}
+                                {row.comparison.leaderIdx != null
+                                  ? ` · ${row.comparison.marginPct.toFixed(1)}%`
+                                  : ""}
+                                <span className={vac.cellSub}>
+                                  {sideLabels
+                                    .map(
+                                      (lbl, i) => `${lbl} ${fmt(row.comparison.adjustedTotals[i])}`,
+                                    )
+                                    .join(" · ")}
+                                </span>
+                                {row.comparison.leaderDiffers ? (
+                                  <span className={vac.differs}>Leader differs</span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <>
+                                —
+                                <span className="ds-visually-hidden">
+                                  {" "}
+                                  not computed: no numeric verdict
+                                </span>
+                              </>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
                       {expanded && (
                         <tr className="source-breakdown-detail">
-                          <td colSpan={sideLabels.length + 3}>
+                          <td colSpan={sideLabels.length + 3 + (compareCol ? 1 : 0)}>
                             <div className="source-breakdown-assets-wrap">
                               <table
                                 className="source-breakdown-assets"
@@ -423,6 +601,9 @@ export default function TradeSourceBreakdown({
                                   )}
                                 </tbody>
                               </table>
+                              {compareCol ? (
+                                <ComparisonDetail row={row} sideLabels={sideLabels} />
+                              ) : null}
                             </div>
                           </td>
                         </tr>

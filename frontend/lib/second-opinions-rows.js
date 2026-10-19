@@ -11,15 +11,29 @@
  */
 
 import { RANKING_SOURCES, SOURCE_VENDOR_LABELS, vendorForSource } from "./dynasty-data.js";
-import { evaluateOpinion, resolveOpinionAsset, tallyOpinions } from "./second-opinions.js";
+import {
+  evaluateAlternateOpinion,
+  evaluateOpinion,
+  resolveOpinionAsset,
+  tallyOpinions,
+} from "./second-opinions.js";
 import { valueAdjustmentFromSideArrays } from "./trade-logic.js";
 
 /**
  * One row per vendor: `{key, family, label, displayName, signal, opinion}`.
  * Empty when no side holds an asset.  `sides` are BARE (`{label, assets}`):
  * a manual override changes the user's headline, never what a source sees.
+ *
+ * `opts.compareModelId` (owner directive 2026-10-19): also evaluate each row
+ * under that package model — the SAME per-asset resolutions, a second whole-
+ * package evaluation — and attach it as `row.comparison`.  `row.opinion` (and
+ * so every tally) is identical whether or not it is asked for.
  */
-export function buildOpinionRows(sides) {
+export function buildOpinionRows(sides, opts = {}) {
+  const compareModelId = opts.compareModelId || null;
+  const compareAdjust = compareModelId
+    ? (sideValues) => valueAdjustmentFromSideArrays(sideValues, { modelId: compareModelId })
+    : null;
   const assetsBySide = (sides || []).map((s) => s?.assets || []);
   if (!assetsBySide.some((a) => a.length > 0)) return [];
   const vendorOrder = [];
@@ -44,6 +58,12 @@ export function buildOpinionRows(sides) {
     );
     const opinion = evaluateOpinion(resolutionsBySide, valueAdjustmentFromSideArrays);
     const primary = subs[0];
+    const comparison = compareAdjust
+      ? {
+          modelId: compareModelId,
+          ...evaluateAlternateOpinion(resolutionsBySide, opinion, compareAdjust),
+        }
+      : undefined;
     return {
       key: vendor,
       family: primary.correlationGroup || vendor,
@@ -55,6 +75,7 @@ export function buildOpinionRows(sides) {
         ? "vendor value"
         : "translated rank (modeled)",
       opinion,
+      ...(comparison ? { comparison } : {}),
     };
   });
 }
