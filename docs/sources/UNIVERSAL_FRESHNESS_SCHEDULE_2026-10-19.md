@@ -336,8 +336,11 @@ accepted board is smaller than usual.
   coverage from the weight and keep it as a reported diagnostic and alert.
 
 **Board impact of either recommendation today: 0.** Every registered source
-is HEALTHY with coverage factor 1.0 on this board. Neither factor was
-changed in this PR.
+is HEALTHY. Every source that votes has coverage factor 1.0. The only
+coverage factor below 1.0 is `flockFantasySfRookies` at 0.69 (48 rows
+against its usual ~70), and it is seasonally inactive, so it casts no vote.
+That case is itself a legitimate class-transition shrink. Neither factor
+was changed in this PR.
 
 ## 6. Whole-board evidence (§9, freshness part)
 
