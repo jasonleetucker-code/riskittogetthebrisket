@@ -15,6 +15,31 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-19 — Permanent owner directive: maximize safe coding throughput
+
+The owner wants all engineers and AI/LLM workers to **implement independent
+already-authorized Calculator features in parallel**, normally targeting
+3–5 truly independent agents when safe/available, using worktrees, task
+branches and claimed files with a separate Integration coordinator.
+Do not have independent development await another feature's entire CI
+pipeline. Keep L0 and targeted L1 validation in implementation, required
+L2 on coherent PR integration, and strict L3 at release. No giant untested
+branch, weakened checks or unverified production releases.
+
+**Owner per-merge babysitting is eliminated.** The designated Integration
+Authority may merge reviewed, green, evidence-complete *routine* PRs
+without asking the owner each time, once exact-tree checks, dependency
+ordering, conflict/claims checks and protections pass. Escalate only
+real owner-reserved scope, methodology/source/model promotion, release/
+launch, paid/credential/security/destructive decisions. Paused DFS and
+League Tycoon remain paused. Newer generic no-manual-merge policy
+supersedes old broad per-PR prompts; feature-specific consequential
+gates remain. Canonical incorporation:
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md`; current authorization boundary:
+`docs/EXECUTION_PLAN.md`. No new roadmap, feature manifest ID or
+completion denominator is implied by this engineering process directive.
+
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
 **Critical-path refinement (2026-09-27):** remain on Rankings/Trade until production

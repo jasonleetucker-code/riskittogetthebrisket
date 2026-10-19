@@ -31,6 +31,23 @@ Each mathematical change ships behind its own flag. A change that fails validati
 - no paid data, no paid inference and no Sleeper writes;
 - the official 2027 rookie auction stays gated.
 
+## Standing owner delivery method — 2026-10-19
+
+**PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
+§0 should be built by the maximum safe number of independent workers
+(target 3–5 isolated branches/worktrees when supported) instead of
+serializing behind unrelated full CI. Keep L0/L1 checks during coding,
+full required L2 at each PR integration boundary, and strict L3 at the
+existing release boundary. The **exclusive Integration Authority** may
+merge objectively ready, reviewed, exact-tree-green routine PRs without
+a new owner merge request. This newer standing instruction supersedes
+older *generic* per-merge signoff/stop-and-wait language, not specific
+owner-only gates for model/source promotion, methodology, launch/deploy,
+spending, security, destructive changes or OWNER_PAUSED DFS/League Tycoon.
+The active §0 authorizations and frozen completion contracts stay intact.
+Canonical policy: `docs/AGENT_OPERATING_SYSTEM.md` §3;
+mechanics: `ASSISTANT_COORDINATION.md`.
+
 ## Permanent parallel Premium UI — owner directive, 2026-09-24 (#1421)
 
 UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
