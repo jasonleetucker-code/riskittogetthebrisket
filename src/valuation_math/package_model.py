@@ -38,7 +38,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 from src.valuation_math.ktc_va_core import adjust_package_raw, js_round
 
@@ -67,17 +67,37 @@ DEFAULT_ACTIVE = KTC_2026_04
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "package_model.json"
 
 
+ConfigState = Literal["ok", "unreadable", "unknown_active"]
+
+
 @lru_cache(maxsize=1)
 def _config() -> dict[str, Any]:
     """The committed config; any unreadable or unknown value falls back to the
-    incumbent — a broken config must never silently promote a challenger."""
+    incumbent — a broken config must never silently promote a challenger.
+
+    ``state`` records what was actually read (:func:`config_state`), so a
+    caller that must not run on the fallback can tell it happened.
+    """
     try:
         raw = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("package model config is not an object")
     except (OSError, ValueError):
-        return {"active": DEFAULT_ACTIVE, "shadow": []}
-    active = raw.get("active") if raw.get("active") in PACKAGE_MODELS else DEFAULT_ACTIVE
+        return {"active": DEFAULT_ACTIVE, "shadow": [], "state": "unreadable"}
+    known = raw.get("active") in PACKAGE_MODELS
+    active = raw.get("active") if known else DEFAULT_ACTIVE
     shadow = [m for m in raw.get("shadow") or [] if m in PACKAGE_MODELS and m != active]
-    return {"active": active, "shadow": shadow}
+    return {"active": active, "shadow": shadow, "state": "ok" if known else "unknown_active"}
+
+
+def config_state() -> ConfigState:
+    """What :func:`_config` saw: ``"ok"`` (the committed active model was
+    read), ``"unreadable"`` (missing / malformed file) or ``"unknown_active"``
+    (a model id this module does not register).  In both failure states the
+    dispatch is running on the ``DEFAULT_ACTIVE`` fallback, not the
+    committed choice — a surface that must not silently change model (the
+    public Brisket Trade Advisor) refuses instead of answering."""
+    return _config()["state"]
 
 
 def active_model_id() -> str:
@@ -115,14 +135,38 @@ def _positive_desc(values: Iterable[float]) -> list[float]:
     )
 
 
+def _left_sum(values: Iterable[float]) -> float:
+    """Plain left-to-right float addition — what JavaScript's ``reduce`` does.
+
+    Deliberately NOT ``sum()``: CPython 3.12+ compensates float ``sum()``,
+    so the two languages could disagree in the last bit on the same inputs.
+    """
+    total = 0.0
+    for v in values:
+        total += v
+    return total
+
+
 def geom_utility(values: Iterable[float], q: float = PACKAGE_MODELS[GEOM_Q078_V1]["q"]) -> float:
-    """``sum q**i * v_i`` over positive values sorted descending."""
-    return sum(v * q**i for i, v in enumerate(_positive_desc(values)))
+    """``sum q**i * v_i`` over positive values sorted descending.
+
+    Weights are built iteratively (``w *= q``) and summed with a left fold —
+    never ``**`` / ``Math.pow``, whose results differ between CPython and V8
+    from ``i = 4`` — so this and ``trade-logic.js::geomPackageUtility`` are
+    the same IEEE-754 operations in the same order (bit-identical; pinned by
+    ``tests/fixtures/package_model_float_cases.json``).
+    """
+    total = 0.0
+    w = 1.0
+    for v in _positive_desc(values):
+        total += v * w
+        w *= q
+    return total
 
 
 def _geom_pair(t1: list[float], t2: list[float], q: float) -> tuple[int, int, bool]:
-    depth1 = sum(t1) - geom_utility(t1, q)
-    depth2 = sum(t2) - geom_utility(t2, q)
+    depth1 = _left_sum(t1) - geom_utility(t1, q)
+    depth2 = _left_sum(t2) - geom_utility(t2, q)
     value = js_round(abs(depth1 - depth2))
     if value <= 0:
         return 0, 0, False

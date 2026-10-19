@@ -14254,6 +14254,27 @@ def _strip_legacy_lam_fields(base: dict[str, Any], players_by_name: dict[str, An
             del pdata[k]
 
 
+def _stamp_owned_pick_board_rows(contract_payload: dict[str, Any]) -> None:
+    """``boardRowName`` on every baked ``sleeper.teams[].pickDetails`` entry.
+
+    Brisket Trade Advisor B0-g: the canonical board row for each owned pick
+    (``pick_value_resolution.stamp_owned_pick_rows`` — identity first, the
+    same path the trade simulator prices with), stamped once where the
+    contract is assembled so no consumer re-derives it from a label grammar.
+    Additive; names a row, carries no number.
+    """
+    from src.api.pick_value_resolution import pick_rows_by_name, stamp_owned_pick_rows
+
+    sleeper = contract_payload.get("sleeper")
+    if not isinstance(sleeper, dict) or not isinstance(sleeper.get("teams"), list):
+        return
+    sleeper["teams"] = stamp_owned_pick_rows(
+        sleeper["teams"],
+        pick_rows_by_name(contract_payload),
+        current_rookie_draft_year(),
+    )
+
+
 def build_api_data_contract(
     raw_payload: dict[str, Any],
     *,
@@ -15027,6 +15048,7 @@ def build_api_data_contract(
     for row in players_array:
         row.pop("_positionFromSleeperOnly", None)
     stamp_optimal_lineups(contract_payload)
+    _stamp_owned_pick_board_rows(contract_payload)
     return contract_payload
 
 

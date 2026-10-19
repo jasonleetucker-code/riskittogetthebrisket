@@ -91,7 +91,6 @@ from src.history import record as _history_record
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
-from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
 from src.api.schemas.leagues import (
@@ -4866,6 +4865,13 @@ async def get_data(request: Request):
                         requested_league_config=overlay.get("leagueConfig"),
                     )
                 )
+            # B0-g: the overlay's owned picks carry the same canonical
+            # ``boardRowName`` the baked block does (a copy — the overlay's
+            # teams are a shared in-process cache).
+            overlay_full = {
+                **overlay_full,
+                "teams": _overlay_pick_board_rows(overlay_full.get("teams"), canonical),
+            }
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
@@ -11287,6 +11293,36 @@ def _resolve_league_for_request(
     return cfg
 
 
+_OVERLAY_PICK_ROWS_MEMO: dict[str, Any] = {"key": None, "rows": None}
+
+
+def _overlay_pick_board_rows(teams: Any, canonical: Any) -> Any:
+    """Stamp ``boardRowName`` onto overlay ``pickDetails`` (B0-g).
+
+    Same owner as the baked stamp (``pick_value_resolution.
+    stamp_owned_pick_rows``) over the loaded contract's pick rows, indexed
+    once per loaded contract object.
+    """
+    from src.api.data_contract import current_rookie_draft_year
+    from src.api.pick_value_resolution import pick_rows_by_name, stamp_owned_pick_rows
+
+    if not isinstance(canonical, dict) or not isinstance(teams, list):
+        return teams
+    try:
+        # The memo holds the row LIST itself, so identity cannot be reused by
+        # a later contract after this one is garbage-collected.
+        key = canonical.get("playersArray")
+        if _OVERLAY_PICK_ROWS_MEMO["key"] is not key:
+            _OVERLAY_PICK_ROWS_MEMO["rows"] = pick_rows_by_name(canonical)
+            _OVERLAY_PICK_ROWS_MEMO["key"] = key
+        return stamp_owned_pick_rows(
+            teams, _OVERLAY_PICK_ROWS_MEMO["rows"], current_rookie_draft_year()
+        )
+    except Exception:  # noqa: BLE001 — an additive stamp never fails the payload
+        log.warning("overlay boardRowName stamp failed", exc_info=True)
+        return teams
+
+
 def _requested_valuation_mode(request: "Request", body: dict | None = None) -> str:
     """Which board this request is asking for: ``market`` or
     ``leagueAdjusted``.
@@ -11369,10 +11405,9 @@ async def _valuation_scoped_contract(
     # on someone's phone must converge to the canonical answer silently —
     # refusing would turn an obsolete localStorage value into a broken
     # page for a user who never chose anything.
-    requested = _requested_valuation_mode(request, body)
-    if requested == "leagueAdjusted":
-        return source, "market", "league_adjusted_withdrawn: not_canonical"
-    return source, "market", None
+    from src.trade.valuation_scope import scoped_contract  # noqa: PLC0415
+
+    return scoped_contract(source, _requested_valuation_mode(request, body))
 
 
 def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
@@ -17559,6 +17594,7 @@ async def _build_trade_simulation(
     request: Request,
     *,
     for_analysis: bool = False,
+    capture: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
     """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
@@ -17567,6 +17603,11 @@ async def _build_trade_simulation(
     ``/api/trade/analyze`` (V1-43 / C7-DESK-01) can compose Analyze Trade on
     top of the identical simulation ``/api/trade/simulate`` already returns,
     rather than re-deriving league/team/overlay resolution a second time.
+
+    The simulation itself is ``src.trade.analyze_service.simulate_for_team``
+    (B0-c: the one owner of the 2-team analysis path).  ``capture``, when
+    given, receives the exact ``contract`` the simulation ran against so the
+    analyze route reads provenance from it instead of the global.
     """
     session = _get_auth_session(request)
     if not session:
@@ -17710,36 +17751,37 @@ async def _build_trade_simulation(
 
     picks_in, pick_ids_in = _picks_with_ids("picksIn", "pickAssetIdsIn")
     picks_out, pick_ids_out = _picks_with_ids("picksOut", "pickAssetIdsOut")
+    # B0-b: ``playerIdsIn`` / ``playerIdsOut`` run PARALLEL to the player
+    # lists (``null`` for a name without an id).  An entry with an id resolves
+    # by Sleeper id only — two players sharing a name cannot price as each
+    # other.  Same alignment rule as the pick ids above.
+    players_in, player_ids_in = _picks_with_ids("playersIn", "playerIdsIn")
+    players_out, player_ids_out = _picks_with_ids("playersOut", "playerIdsOut")
 
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # B0-c: posture (Wave B, C7-POST-01 — Analyze Trade may build the league
+    # bundle; a plain simulate reads a warm one only), the simulation and the
+    # ``teamContext`` stamp all come from the ONE 2-team analysis owner.
     result = await run_in_threadpool(
-        _trade_simulator.simulate_trade,
+        _analyze_service.simulate_for_team,
         contract,
+        league_key=league_cfg.key,
+        roster_settings=dict(league_cfg.roster_settings or {}),
         resolved_team=resolved_team,
-        players_in=_str_list("playersIn"),
-        players_out=_str_list("playersOut"),
+        players_in=players_in,
+        players_out=players_out,
+        player_ids_in=player_ids_in,
+        player_ids_out=player_ids_out,
         picks_in=picks_in,
         picks_out=picks_out,
-        pick_asset_ids_in=pick_ids_in,
-        pick_asset_ids_out=pick_ids_out,
-        roster_settings=dict(league_cfg.roster_settings or {}),
-        league_key=league_cfg.key,
-        include_roster_utility=for_analysis and use_team_context,
-        # Wave B (C7-POST-01): the canonical posture, resolved here so the
-        # simulator stays pure.  Analyze Trade may build the league bundle;
-        # a plain simulate reads a warm one only.
-        competitive_posture=await run_in_threadpool(
-            _trade_simulator.competitive_posture_for,
-            contract,
-            league_cfg.key,
-            resolved_team,
-            build_if_missing=for_analysis and use_team_context,
-        ),
+        pick_ids_in=pick_ids_in,
+        pick_ids_out=pick_ids_out,
+        team_context=use_team_context,
+        for_analysis=for_analysis,
     )
-    if for_analysis:
-        result["teamContext"] = {
-            "applied": use_team_context,
-            "mode": "team" if use_team_context else "asset_only",
-        }
+    if capture is not None:
+        capture["contract"] = contract
     # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
     # not import exposure, so there is no edge along which it could reach
     # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
@@ -17836,11 +17878,14 @@ async def post_trade_analyze(request: Request):
     ``marketCorroboration`` lens (TC-09).  Optional body field ``teamGoal``
     overrides the posture-inferred strategy and is echoed back.
     """
-    result, league_key, error = await _build_trade_simulation(request, for_analysis=True)
+    _captured: dict[str, Any] = {}
+    result, league_key, error = await _build_trade_simulation(
+        request, for_analysis=True, capture=_captured
+    )
     if error is not None:
         return error
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
     from src.trade import comparable_trades as _comparable  # noqa: PLC0415
-    from src.trade.analyze_trade import analyze_trade
 
     # Comparable real trades for this exact package — context for the
     # packet's ``marketCorroboration`` lens, which never votes.  Any failure
@@ -17866,19 +17911,13 @@ async def post_trade_analyze(request: Request):
     except Exception:  # noqa: BLE001 -- the simulation already parsed it
         _body = {}
     _team_goal = _body.get("teamGoal") if isinstance(_body, dict) else None
-    _meta = (
-        (latest_contract_data or {}).get("meta") if isinstance(latest_contract_data, dict) else None
-    )
-    result["analysis"] = analyze_trade(
+    # Provenance comes from the contract the simulation ran against (B0-c),
+    # not a second read of the global, which a publish could have swapped.
+    result["analysis"] = _analyze_service.analyze_for_team(
         result,
+        contract=_captured.get("contract"),
         comparables=comparables,
         team_goal=_team_goal,
-        provenance={
-            "boardStamp": (_meta or {}).get("generatedAt") if isinstance(_meta, dict) else None,
-            "scoringFingerprint": (_meta or {}).get("scoringFingerprint")
-            if isinstance(_meta, dict)
-            else None,
-        },
     )
     # Decision receipt (TC-C): one line in the decision's own run log, the
     # AL-P5 arrangement Best Offers uses.  Best effort; never changes the

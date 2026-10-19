@@ -774,6 +774,29 @@ def _stamp_sleeper_success():
         print(f"  [Sleeper] success stamp failed (non-fatal): {e}")
 
 
+def _stamp_roster_source(roster_data, source, age_hours):
+    """Stamp how this run's roster block was obtained onto the block itself.
+
+    ``rosterSource`` is ``"live"`` (fetched from Sleeper this run) or
+    ``"last_good"`` (restored from the committed snapshot after a failed
+    fetch); ``rosterFetchedAt`` is when those rosters were actually fetched
+    (ISO-8601 UTC) and ``rosterSnapshotAgeHours`` their age at this run, or
+    ``None`` when the snapshot's age is unknown.  Additive evidence only —
+    nothing in the scrape reads it.
+    """
+    if not isinstance(roster_data, dict):
+        return
+    roster_data["rosterSource"] = source
+    if age_hours is None:
+        roster_data["rosterSnapshotAgeHours"] = None
+        roster_data["rosterFetchedAt"] = None
+        return
+    roster_data["rosterSnapshotAgeHours"] = round(float(age_hours), 2)
+    roster_data["rosterFetchedAt"] = datetime.datetime.fromtimestamp(
+        time.time() - float(age_hours) * 3600.0, tz=datetime.timezone.utc
+    ).isoformat()
+
+
 def _load_sleeper_snapshot():
     """Return (roster_data, age_hours) from the last-good snapshot, or
     (None, None) when absent/unreadable/empty."""
@@ -1594,6 +1617,7 @@ if SLEEPER_LEAGUE_ID:
         # watchdog can see a future outage.
         _save_sleeper_snapshot(SLEEPER_ROSTER_DATA)
         _stamp_sleeper_success()
+        _stamp_roster_source(SLEEPER_ROSTER_DATA, "live", 0.0)
         if SLEEPER_PLAYERS:
             print(f"  Sample: {SLEEPER_PLAYERS[:5]}")
     elif SLEEPER_ROSTER_DATA and _missing_lineup:
@@ -1608,6 +1632,8 @@ if SLEEPER_LEAGUE_ID:
             "NOT stamping success.",
             file=sys.stderr,
         )
+        # The ROSTERS are live; only the lineup slots come from the cache.
+        _stamp_roster_source(SLEEPER_ROSTER_DATA, "live", 0.0)
         _cached_rd, _cache_age_h = _load_sleeper_snapshot()
         _cached_slots = (_cached_rd or {}).get("rosterPositions") or []
         if _cached_slots:
@@ -1630,6 +1656,10 @@ if SLEEPER_LEAGUE_ID:
         _cached_rd, _cache_age_h = _load_sleeper_snapshot()
         if _cached_rd:
             SLEEPER_ROSTER_DATA = _cached_rd
+            # Say so IN the contract: nothing else there distinguishes a
+            # restored roster block from a live one (Brisket Trade Advisor
+            # B0-f — the public advisor labels stale rosters).
+            _stamp_roster_source(SLEEPER_ROSTER_DATA, "last_good", _cache_age_h)
             _age_txt = f"{_cache_age_h:.1f}h old" if _cache_age_h is not None else "age unknown"
             print(
                 "  [Sleeper] live fetch failed/empty — using cached "

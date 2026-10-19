@@ -96,16 +96,21 @@ def _roster_pick_entries(team: Any) -> list[tuple[str, str | None]]:
     return [(str(p), None) for p in (team.get("picks") or []) if p]
 
 
-def _attach_ids(assets: list[dict[str, Any]], pairs: list[tuple[str, str | None]]) -> None:
-    """Stamp each proven id onto the resolved asset of the same label (in order)."""
-    pending: dict[str, list[str]] = {}
-    for label, aid in pairs:
-        if aid:
-            pending.setdefault(str(label), []).append(aid)
-    for asset in assets:
-        queue = pending.get(str(asset.get("sourceLabel")))
-        if queue:
-            asset["assetId"] = queue.pop(0)
+def _paired_players(
+    names: list[Any] | None, ids: list[Any] | None
+) -> tuple[list[str], list[str | None]]:
+    """Drop empty names, keeping each name's parallel Sleeper id (or ``None``)."""
+    ids = list(ids or [])
+    out_names: list[str] = []
+    out_ids: list[str | None] = []
+    for i, name in enumerate(names or []):
+        if not name:
+            continue
+        pid = ids[i] if i < len(ids) else None
+        pid = str(pid).strip() if isinstance(pid, (str, int)) and str(pid).strip() else None
+        out_names.append(str(name))
+        out_ids.append(pid)
+    return out_names, out_ids
 
 
 def _classify_owned_picks(
@@ -225,10 +230,127 @@ def _classify_owned_picks(
     }
 
 
+def row_name(row: dict[str, Any]) -> str:
+    """The board name a row is indexed under (``terminal._build_row_index``)."""
+    return str(row.get("displayName") or row.get("canonicalName") or row.get("name") or "")
+
+
+def row_player_id(row: dict[str, Any]) -> str:
+    """A row's Sleeper player id: the row's own ``playerId``, else the
+    ``_sleeperId`` the terminal row materialiser backfills, else ``""``."""
+    return str(row.get("playerId") or row.get("_sleeperId") or "").strip()
+
+
+def asset_row_index(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """``lowercased board name -> row`` — the simulator's own row index."""
+    return _build_row_index(_players_array(contract))
+
+
+def rows_by_player_id(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any] | None]:
+    """``sleeperId -> row`` over the SAME rows the name index is built from.
+
+    An id carried by two rows is AMBIGUOUS and maps to ``None`` — identity
+    never picks one of two candidates.
+    """
+    out: dict[str, dict[str, Any] | None] = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        pid = row_player_id(r)
+        if not pid:
+            continue
+        out[pid] = None if pid in out else r
+    return out
+
+
+def owned_pick_slots(contract: dict[str, Any]) -> dict[str, int | None]:
+    """``assetId -> slot`` from the contract's own ``pickDetails`` (state)."""
+    out: dict[str, int | None] = {}
+    teams = ((contract.get("sleeper") or {}).get("teams")) if isinstance(contract, dict) else None
+    for t in teams if isinstance(teams, list) else []:
+        if not isinstance(t, dict):
+            continue
+        for d in t.get("pickDetails") or []:
+            if not isinstance(d, dict):
+                continue
+            aid = str(d.get("assetId") or "").strip()
+            if not aid:
+                continue
+            slot = d.get("slot")
+            out[aid] = int(slot) if isinstance(slot, int) and slot > 0 else None
+    return out
+
+
+def _pick_rows_for(row_index: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    from src.api.pick_value_resolution import pick_rows_from_rows
+
+    return pick_rows_from_rows(row_index.values())
+
+
+def resolve_pick_board_row(
+    label: str | None,
+    *,
+    row_index: dict[str, dict[str, Any]],
+    pick_rows: dict[str, dict[str, Any]] | None = None,
+    asset_id: str | None = None,
+    pick_slots: dict[str, int | None] | None = None,
+) -> tuple[dict[str, Any] | None, Any]:
+    """The ONE pick path: ``(row, PickValueResolution | None)``.
+
+    Identity first (B0-a): a canonical league-pick ``asset_id``
+    (``pick:<leagueKey>:<season>:r<N>:o<rid>``) resolves through
+    ``market_resolution`` — the slot is the contract's own STATE for that
+    asset (``pickDetails[].slot``), never parsed from a display label —
+    then ``resolve_pick_value``.  An unknown slot is the GENERIC grade
+    (``unknown_slot``), never "assume Mid": the label grammar a producer
+    happened to emit ("2028 Mid 1st" baked vs "2028 1st" overlay) can no
+    longer change what one asset is worth.
+
+    Without an id, the label is parsed (never guessed) and its OWN grade
+    goes to ``resolve_pick_value`` first; when that grade has no priced row
+    ``market_resolution`` maps it for the clock, and ``resolve_pick_value``
+    answers again.  This retires the simulator's private ladder: generic
+    current-year labels ("2027 1st") now take the resolver's labelled
+    centre-slot convention instead of resolving to nothing.
+
+    ``row`` is the caller's own index row for the resolver's
+    ``basisRowName``; ``(None, resolution)`` means unpriced (never 0).
+    """
+    from src.api.data_contract import current_rookie_draft_year
+    from src.api.pick_value_resolution import (
+        resolve_owned_pick_value,
+        resolve_pick_label_value,
+    )
+
+    rows = pick_rows if pick_rows is not None else _pick_rows_for(row_index)
+    cdy = current_rookie_draft_year()
+    pv = None
+    if asset_id:
+        aid = str(asset_id).strip()
+        pv = resolve_owned_pick_value(
+            aid,
+            slot=(pick_slots or {}).get(aid),
+            rows_by_name=rows,
+            current_draft_year=cdy,
+        )
+    if pv is None:
+        pv = resolve_pick_label_value(label, rows_by_name=rows, current_draft_year=cdy)
+        if pv is None:
+            return None, None
+    if pv.value is None or not pv.basis_row_name:
+        return None, pv
+    return row_index.get(pv.basis_row_name.strip().lower()), pv
+
+
 def _resolve_asset(
     name: str,
     *,
     row_index: dict[str, dict[str, Any]],
+    pick_rows: dict[str, dict[str, Any]] | None = None,
+    asset_id: str | None = None,
+    pick_slots: dict[str, int | None] | None = None,
+    player_id: str | None = None,
+    player_rows: dict[str, dict[str, Any] | None] | None = None,
 ) -> dict[str, Any] | None:
     """Resolve a single display name to a summary dict for the
     simulator output.  Matches ``terminal.py``'s rowValue semantics.
@@ -240,82 +362,40 @@ def _resolve_asset(
     day, and the substitution reached the manager's entire untraded
     roster as well as the legs being traded.  See W29-F001 and
     ``tests/api/test_one_canonical_value_per_asset.py``.
+
+    Identity (B0-a / B0-b): a ``player_id`` resolves ONLY through
+    ``player_rows`` (built from the same rows as ``row_index``) — no row
+    for the id is unresolved, never retried by name, so two players who
+    share a display name cannot price as each other.  Pick labels and
+    pick asset ids go through :func:`resolve_pick_board_row`, the
+    single canonical pick path.  Names without an id keep the name index.
     """
-    if not name:
+    pid = str(player_id or "").strip() or None
+    if pid is not None:
+        row = (player_rows or {}).get(pid)
+        if not row:
+            return None
+        if not name:
+            name = row_name(row)
+    elif not name:
         return None
-    key = str(name).strip().lower()
-    row = row_index.get(key)
-    if not row:
-        # C1-U6: roster/trade pick labels arrive in overlay grammars
-        # ("2027 1st", "2026 1.03 (own)") that are not board row names —
-        # measured silently dropping every roster pick from the
-        # before/after aggregates (no counter, no trace).  Route the
-        # miss through the canonical identity owner: parse the label
-        # (never a guess — an unparseable string stays unresolved),
-        # resolve to the market reference for today's clock, and retry
-        # the index at the ref's board row name.  The board now carries
-        # a value for every valid grade — tier rows, generic-grade rows,
-        # and slot rows — so a parsed pick label resolves instead of
-        # vanishing.
-        from src.identity.picks import market_resolution, parse_pick_label
-
-        parsed = parse_pick_label(str(name))
-        if parsed is None:
-            return None
-        from src.api.data_contract import current_rookie_draft_year
-
-        # The label's OWN grade first: a parsed tier ("2027 Mid 1st
-        # (from X)") PROVES the tier, and the vendor-priced tier row
-        # outranks any derivation — falling straight to
-        # market_resolution here would discard the proven refinement
-        # and price the pick at the generic-grade PRIOR EV
-        # (final-review hardening).  market_resolution then handles
-        # what the label alone cannot: mapping a known slot onto the
-        # right grade for the clock (slot rows exist only for the
-        # active draft year).
-        row = None
-        own_name = parsed.market_ref.board_row_name()
-        if own_name:
-            row = row_index.get(own_name.strip().lower())
-        if not row:
-            res = market_resolution(
-                year=parsed.year,
-                round_num=parsed.round_num,
-                slot=parsed.slot,
-                current_draft_year=current_rookie_draft_year(),
+    else:
+        key = str(name).strip().lower()
+        row = row_index.get(key)
+        if row is None or row.get("assetClass") == "pick" or asset_id:
+            # Pick (by board name, owned-pick label or owned asset id): the
+            # canonical resolver decides the row, so one asset carries one
+            # value whichever grammar named it.  Anything unparseable stays
+            # unresolved — identity never guesses.
+            row, _res = resolve_pick_board_row(
+                str(name),
+                row_index=row_index,
+                pick_rows=pick_rows,
+                asset_id=asset_id,
+                pick_slots=pick_slots,
             )
-            board_name = res.ref.board_row_name()
-            if not board_name:
+            if not row:
                 return None
-            row = row_index.get(board_name.strip().lower())
-            if not row and res.basis == "exact_slot":
-                # An UNSLOTTED current class (C1-U6-D2): no vendor published
-                # its slots, so the board carries its tiers, not slot rows.
-                # The slot's own tier is a deterministic mapping, not a guess
-                # — the same ``tier_from_slot`` rule a future year gets.
-                from src.identity.picks import MarketPickRef, slot_tier
-
-                tier_name = MarketPickRef(
-                    year=parsed.year,
-                    round_num=parsed.round_num,
-                    tier=slot_tier(int(parsed.slot)),
-                ).board_row_name()
-                if tier_name:
-                    row = row_index.get(tier_name.strip().lower())
-        if not row:
-            return None
-    # A pick row the pipeline deliberately left valueless (an
-    # alias-suppressed current-year tier) must not price at 0 —
-    # zero-as-missing is the exact defect class C1-PICK-01 forbids.
-    # Follow the alias to the centre slot; if no positive value exists
-    # anywhere, stay unresolved (honest) rather than counting 0.
-    if row.get("assetClass") == "pick" and _row_value(row) <= 0:
-        alias = str(row.get("pickAliasFor") or "").strip().lower()
-        alias_row = row_index.get(alias) if alias else None
-        if alias_row is not None and _row_value(alias_row) > 0:
-            row = alias_row
-        else:
-            return None
     value = int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
@@ -344,7 +424,9 @@ def _resolve_asset(
         # Canonical stamps, READ never computed: identity for the UI's player
         # link, and the confidence owner's evidence-quality verdict for the
         # Analyze Trade evidence lens (``src/api/confidence.py``).
-        "playerId": str(row.get("playerId")) if row.get("playerId") else None,
+        "playerId": pid
+        if pid is not None
+        else (str(row.get("playerId")) if row.get("playerId") else None),
         "confidenceBucket": row.get("confidenceBucket"),
         "hasSourceDisagreement": row.get("hasSourceDisagreement"),
         # Read, never computed (TC-C evidence gates): the pipeline's own
@@ -355,6 +437,40 @@ def _resolve_asset(
         if isinstance(row.get("confidenceAxes"), dict)
         else None,
     }
+
+
+def resolve_trade_asset(
+    label: str | None,
+    *,
+    contract: dict[str, Any],
+    asset_id: str | None = None,
+    player_id: str | None = None,
+    row_index: dict[str, dict[str, Any]] | None = None,
+    pick_rows: dict[str, dict[str, Any]] | None = None,
+    player_rows: dict[str, dict[str, Any] | None] | None = None,
+) -> dict[str, Any] | None:
+    """Public form of the simulator's single asset resolution.
+
+    The same answer :func:`simulate_trade` gives for one leg: a player by
+    Sleeper id (never by name once an id is given), an owned pick by its
+    canonical ``asset_id`` (``resolve_pick_board_row``), anything else by
+    name / label.  Callers that resolve many assets pass the prebuilt
+    indexes (:func:`asset_row_index`, :func:`rows_by_player_id`) so the
+    contract is read once; all of them must come from the same contract.
+    """
+    if row_index is None or player_rows is None:
+        rows = _players_array(contract)
+        row_index = row_index if row_index is not None else _build_row_index(rows)
+        player_rows = player_rows if player_rows is not None else rows_by_player_id(rows)
+    return _resolve_asset(
+        str(label or ""),
+        row_index=row_index,
+        pick_rows=pick_rows,
+        asset_id=asset_id,
+        pick_slots=owned_pick_slots(contract) if asset_id else None,
+        player_id=player_id,
+        player_rows=player_rows,
+    )
 
 
 def _aggregate(assets: list[dict[str, Any]]) -> dict[str, Any]:
@@ -454,6 +570,8 @@ def simulate_trade(
     competitive_posture: dict[str, Any] | None = None,
     pick_asset_ids_in: list[Any] | None = None,
     pick_asset_ids_out: list[Any] | None = None,
+    player_ids_in: list[Any] | None = None,
+    player_ids_out: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -501,17 +619,51 @@ def simulate_trade(
     * One real pick counts at most once: a repeated id is reported, not
       debited or credited twice, and a pick the team already holds is not
       credited again.
+
+    Identity (Brisket Trade Advisor B0-a / B0-b):
+
+    * Every owned pick that carries its canonical ``assetId`` — the
+      roster's own ``pickDetails`` and every proven traded leg — is priced
+      by IDENTITY through :func:`resolve_pick_board_row`, so the same pick
+      has one value whichever label grammar named it.  Labels price only
+      picks with no id.
+    * ``player_ids_in`` / ``player_ids_out`` run parallel to the player
+      lists (``None`` for an entry without one).  An entry with an id
+      resolves by Sleeper id only; no row for the id is unresolved, never
+      sent to the name index.  The before-roster is built from the team's
+      ``playerIds`` when published (joined by id; a player with no row is
+      listed in ``rosterUnpriced`` and priced nowhere), falling back to the
+      ``players`` names only when ids are absent.
     """
-    players_in = [p for p in (players_in or []) if p]
-    players_out = [p for p in (players_out or []) if p]
+    players_in, player_ids_in = _paired_players(players_in, player_ids_in)
+    players_out, player_ids_out = _paired_players(players_out, player_ids_out)
     picks_in, pick_ids_in = _paired_picks(picks_in, pick_asset_ids_in)
     picks_out, pick_ids_out = _paired_picks(picks_out, pick_asset_ids_out)
 
     rows = _players_array(contract)
     row_index = _build_row_index(rows)
+    # Both indexes come from the SAME row list, so an id hit and a name hit
+    # on one player are the same row object.
+    player_rows = rows_by_player_id(rows)
+    pick_rows = _pick_rows_for(row_index)
+    pick_slots = owned_pick_slots(contract) if isinstance(contract, dict) else {}
+
+    def _resolve(
+        label: str, *, asset_id: str | None = None, player_id: str | None = None
+    ) -> dict[str, Any] | None:
+        return _resolve_asset(
+            label,
+            row_index=row_index,
+            pick_rows=pick_rows,
+            asset_id=asset_id,
+            pick_slots=pick_slots,
+            player_id=player_id,
+            player_rows=player_rows,
+        )
 
     team_block = None
     current_players: list[str] = []
+    current_player_ids: list[str] = []
     if resolved_team and isinstance(resolved_team, dict):
         team_block = {
             "ownerId": str(resolved_team.get("ownerId") or ""),
@@ -519,28 +671,65 @@ def simulate_trade(
             "rosterId": resolved_team.get("roster_id"),
         }
         current_players = [str(p) for p in (resolved_team.get("players") or [])]
+        raw_ids = resolved_team.get("playerIds")
+        if isinstance(raw_ids, list):
+            current_player_ids = [str(i).strip() for i in raw_ids if str(i or "").strip()]
 
     # Every asset resolves at its canonical board value, whatever else is
     # in the trade.  The composition of the question being asked does not
     # change what the assets are worth (W29-F001).
 
-    def _resolve_many(names: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    def _resolve_many(
+        players: list[str],
+        player_ids: list[str | None],
+        picks: list[tuple[str, str | None]],
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         resolved: list[dict[str, Any]] = []
         missing: list[str] = []
-        for n in names:
-            hit = _resolve_asset(n, row_index=row_index)
+        for n, pid in zip(players, player_ids):
+            hit = _resolve(n, player_id=pid)
             if hit is None:
                 missing.append(n)
             else:
                 resolved.append(hit)
+        for label, aid in picks:
+            hit = _resolve(label, asset_id=aid)
+            if hit is None:
+                missing.append(label)
+            else:
+                if aid:
+                    # Proven by the ownership classification: the after-state
+                    # removal below takes exactly this pick.
+                    hit["assetId"] = aid
+                resolved.append(hit)
         return resolved, missing
 
-    # BEFORE state: the team's current roster + picks, resolved.
+    # BEFORE state: the team's current roster + picks, resolved.  Players by
+    # Sleeper id when the roster publishes ids (B0-b): the display-name list
+    # can collide (two players, one name) or omit a rostered player.
     before_assets: list[dict[str, Any]] = []
-    for name in current_players:
-        hit = _resolve_asset(name, row_index=row_index)
-        if hit is not None:
-            before_assets.append(hit)
+    roster_unpriced: list[dict[str, Any]] | None = None
+    # The id join needs a board that carries ids.  A contract whose rows
+    # carry none at all (a legacy view or a synthetic fixture) cannot answer
+    # an id question for ANY player, so it keeps the name list — a whole-
+    # board fact, never a per-player fallback.
+    if current_player_ids and player_rows:
+        roster_unpriced = []
+        id_to_player = ((contract.get("sleeper") or {}).get("idToPlayer")) or {}
+        if not isinstance(id_to_player, dict):
+            id_to_player = {}
+        for pid in current_player_ids:
+            display = str(id_to_player.get(pid) or "")
+            hit = _resolve(display, player_id=pid)
+            if hit is None:
+                roster_unpriced.append({"playerId": pid, "name": display or None})
+            else:
+                before_assets.append(hit)
+    else:
+        for name in current_players:
+            hit = _resolve(name)
+            if hit is not None:
+                before_assets.append(hit)
     # Pick ownership UNKNOWN (failed /traded_picks, #1618): the team's
     # untraded picks cannot enter before/after, and the response SAYS so
     # rather than letting an absent pick list read as "this team owns no
@@ -558,7 +747,7 @@ def simulate_trade(
         [] if picks_unknown_reason is not None else _roster_pick_entries(resolved_team)
     )
     for label, asset_id in roster_pick_entries:
-        hit = _resolve_asset(label, row_index=row_index)
+        hit = _resolve(label, asset_id=asset_id)
         if hit is not None:
             if asset_id:
                 hit["assetId"] = asset_id
@@ -578,7 +767,6 @@ def simulate_trade(
         team_rid=team_rid,
     )
     sent_pick_labels = [label for label, _aid in checks["sendOut"]]
-    received_pick_labels = [label for label, _aid in checks["receiveIn"]]
     if picks_unknown_reason is not None:
         # The inventory is unknown, so nothing here is "owned by the sender"
         # (the classification above already marked these ``unverified``).
@@ -588,19 +776,16 @@ def simulate_trade(
         # the after-state and ``delta`` overstates the gain by its value.
         # Only the UNTRADED picks stay out of both sides.
         for label in sent_pick_labels:
-            hit = _resolve_asset(label, row_index=row_index)
+            hit = _resolve(label)
             if hit is not None:
                 before_assets.append(hit)
 
-    # Receiving / sending sides of the trade.
-    receiving, unresolved_in = _resolve_many([*players_in, *received_pick_labels])
-    sending, unresolved_out = _resolve_many([*players_out, *sent_pick_labels])
-    # Re-attach the ids the classification proved this team holds, so the
-    # after-state removal below takes exactly that pick.
-    _attach_ids(sending, checks["sendOut"])
-    _attach_ids(receiving, checks["receiveIn"])
+    # Receiving / sending sides of the trade.  A pick id the classification
+    # proved is priced by identity and removes exactly that pick.
+    receiving, unresolved_in = _resolve_many(players_in, player_ids_in, checks["receiveIn"])
+    sending, unresolved_out = _resolve_many(players_out, player_ids_out, checks["sendOut"])
     for entry in checks["notOwnedBySender"]:
-        hit = _resolve_asset(entry["label"], row_index=row_index)
+        hit = _resolve(entry["label"])
         entry["value"] = hit["value"] if hit is not None else None
 
     # AFTER state: drop the sent, add the received.
@@ -632,15 +817,29 @@ def simulate_trade(
         return str(asset.get("name") or "").strip().lower()
 
     sent_ids = Counter(str(a["assetId"]) for a in sending if a.get("assetId"))
+    # B0-b: a player leg that came with a Sleeper id removes exactly that
+    # player (by multiplicity), whatever name the caller typed.
+    id_sent = {pid for pid in player_ids_out if pid}
+    sent_pids = Counter(
+        str(a["playerId"]) for a in sending if a.get("playerId") and a["playerId"] in id_sent
+    )
     by_id: list[dict[str, Any]] = []
     for asset in before_assets:
         aid = str(asset.get("assetId") or "")
         if aid and sent_ids.get(aid, 0) > 0:
             sent_ids[aid] -= 1
             continue
+        pid = str(asset.get("playerId") or "")
+        if pid and not aid and sent_pids.get(pid, 0) > 0:
+            sent_pids[pid] -= 1
+            continue
         by_id.append(asset)
 
-    by_label_sending = [a for a in sending if not a.get("assetId")]
+    by_label_sending = [
+        a
+        for a in sending
+        if not a.get("assetId") and not (a.get("playerId") and a["playerId"] in id_sent)
+    ]
     sent_by_label = Counter(_label_key(a) for a in by_label_sending)
     consumed_label: Counter[str] = Counter()
     kept: list[dict[str, Any]] = []
@@ -701,6 +900,10 @@ def simulate_trade(
             "hypotheticalPicksOut": hypothetical_out,
         },
     }
+    if roster_unpriced:
+        # Rostered (they occupy spots) but the board has no row for the id:
+        # unpriced, never zero, never another player of the same name.
+        response["rosterUnpriced"] = roster_unpriced
     if picks_unknown_reason is not None:
         response["pickOwnership"] = {
             "state": PICK_OWNERSHIP_UNAVAILABLE,

@@ -42,7 +42,15 @@ from typing import Any
 
 from src.identity.picks import MarketPickRef
 
-__all__ = ["PickValueResolution", "resolve_pick_value"]
+__all__ = [
+    "PickValueResolution",
+    "pick_rows_by_name",
+    "pick_rows_from_rows",
+    "resolve_owned_pick_value",
+    "resolve_pick_label_value",
+    "resolve_pick_value",
+    "stamp_owned_pick_rows",
+]
 
 # The centre slot per tier — the same MECHANICAL convention as the
 # pipeline's alias-suppression pass (Early→2, Mid→6, Late→10) and the
@@ -84,14 +92,33 @@ def _finite_value(row: dict[str, Any] | None) -> int | None:
     return None
 
 
-def _pick_rows_by_name(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def pick_rows_from_rows(rows: Any) -> dict[str, dict[str, Any]]:
+    """``canonicalName -> row`` for the pick rows in ``rows``.
+
+    The index shape :func:`resolve_pick_value` takes as ``rows_by_name``.
+    Accepts any iterable of rows (a contract's ``playersArray``, or the
+    values of a consumer's own row index) so a caller that already holds
+    its rows indexes them once instead of re-reading the contract.
+    """
     out: dict[str, dict[str, Any]] = {}
-    for row in contract.get("playersArray") or []:
+    for row in rows or []:
         if isinstance(row, dict) and row.get("assetClass") == "pick":
-            name = str(row.get("canonicalName") or "")
+            # ``displayName`` only as a fallback: on a built contract the two
+            # are the same string for every pick row.
+            name = str(row.get("canonicalName") or row.get("displayName") or "")
             if name:
                 out[name] = row
     return out
+
+
+def pick_rows_by_name(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The contract's pick rows indexed for :func:`resolve_pick_value`."""
+    return pick_rows_from_rows(contract.get("playersArray") or [])
+
+
+# Kept for the existing callers (``intel.manager_activity``,
+# ``trade.market_trade_eval``); new code uses the public name.
+_pick_rows_by_name = pick_rows_by_name
 
 
 def _resolved(
@@ -125,10 +152,10 @@ def resolve_pick_value(
     """Resolve one market pick reference against a built contract.
 
     ``rows_by_name`` lets a batch caller index the contract's pick rows
-    once (``_pick_rows_by_name``-shaped); otherwise it is built per
+    once (:func:`pick_rows_by_name`-shaped); otherwise it is built per
     call.
     """
-    rows = rows_by_name if rows_by_name is not None else _pick_rows_by_name(contract)
+    rows = rows_by_name if rows_by_name is not None else pick_rows_by_name(contract)
 
     name = ref.board_row_name()
     if name is None:
@@ -172,3 +199,112 @@ def resolve_pick_value(
             return _resolved(ref, centre_row, centre, "centre_slot_convention")
 
     return PickValueResolution(ref=ref, value=None, reason="no_board_row_for_ref")
+
+
+def resolve_owned_pick_value(
+    asset_id: Any,
+    *,
+    slot: int | None,
+    rows_by_name: dict[str, dict[str, Any]],
+    current_draft_year: int,
+) -> PickValueResolution | None:
+    """Price one OWNED league pick by identity (Brisket Trade Advisor B0-a).
+
+    ``asset_id`` is the canonical ``pick:<leagueKey>:<season>:r<N>:o<rid>``;
+    ``slot`` is that asset's STATE (``pickDetails[].slot``), never parsed
+    from a display label.  ``market_resolution`` maps (identity, state,
+    clock) to a market reference — an unknown slot is the GENERIC grade,
+    never "assume Mid" — and :func:`resolve_pick_value` answers.  ``None``
+    when the id is not a canonical league-pick id.
+    """
+    from src.identity.picks import market_resolution, parse_league_pick_id
+
+    ident = parse_league_pick_id(str(asset_id or ""))
+    if ident is None:
+        return None
+    res = market_resolution(
+        year=ident.season,
+        round_num=ident.round_num,
+        slot=slot if isinstance(slot, int) and slot > 0 else None,
+        current_draft_year=int(current_draft_year),
+    )
+    return resolve_pick_value({}, res.ref, rows_by_name=rows_by_name)
+
+
+def resolve_pick_label_value(
+    label: Any,
+    *,
+    rows_by_name: dict[str, dict[str, Any]],
+    current_draft_year: int,
+) -> PickValueResolution | None:
+    """Price a pick named only by a label (no owned id).
+
+    The label is parsed (never guessed); its OWN grade is tried first — a
+    stated tier or slot is a refinement the board may price directly — and
+    when that grade has no priced row, ``market_resolution`` maps it for the
+    clock and the resolver answers again (a current-year generic label takes
+    the labelled centre-slot convention).  ``None`` for an unparseable label.
+    """
+    from src.identity.picks import market_resolution, parse_pick_label
+
+    parsed = parse_pick_label(str(label or ""))
+    if parsed is None:
+        return None
+    pv = resolve_pick_value({}, parsed.market_ref, rows_by_name=rows_by_name)
+    if pv.value is not None:
+        return pv
+    res = market_resolution(
+        year=parsed.year,
+        round_num=parsed.round_num,
+        slot=parsed.slot,
+        current_draft_year=int(current_draft_year),
+    )
+    return resolve_pick_value({}, res.ref, rows_by_name=rows_by_name)
+
+
+def stamp_owned_pick_rows(
+    teams: Any,
+    rows_by_name: dict[str, dict[str, Any]],
+    current_draft_year: int,
+) -> Any:
+    """Copy of ``teams`` with ``boardRowName`` on every ``pickDetails`` entry.
+
+    ``boardRowName`` is the board row that prices that owned pick under
+    :func:`resolve_owned_pick_value` (identity first, label only for an
+    entry with no canonical id), so every consumer that needs "which board
+    row is this owned pick" reads one server answer instead of re-deriving
+    it from a label grammar.  It names a row and carries no number; an
+    unpriced pick gets ``None`` (never a guessed row).  Additive: no other
+    field changes, and the input is never mutated (the overlay's teams are
+    a shared in-process cache).
+    """
+    if not isinstance(teams, list):
+        return teams
+    out: list[Any] = []
+    for team in teams:
+        details = team.get("pickDetails") if isinstance(team, dict) else None
+        if not isinstance(details, list):
+            out.append(team)
+            continue
+        stamped: list[Any] = []
+        for d in details:
+            if not isinstance(d, dict):
+                stamped.append(d)
+                continue
+            slot = d.get("slot")
+            pv = resolve_owned_pick_value(
+                d.get("assetId"),
+                slot=slot if isinstance(slot, int) else None,
+                rows_by_name=rows_by_name,
+                current_draft_year=current_draft_year,
+            )
+            if pv is None:
+                pv = resolve_pick_label_value(
+                    d.get("label"),
+                    rows_by_name=rows_by_name,
+                    current_draft_year=current_draft_year,
+                )
+            name = pv.basis_row_name if pv is not None and pv.value is not None else None
+            stamped.append({**d, "boardRowName": name})
+        out.append({**team, "pickDetails": stamped})
+    return out
