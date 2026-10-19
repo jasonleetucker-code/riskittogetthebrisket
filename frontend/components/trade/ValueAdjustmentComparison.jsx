@@ -72,7 +72,17 @@ function CalculationTable({ comparison, sideLabels }) {
       label: "More adjusted value",
       cells: cols.map((m) => moreValueText(m, sideLabels)),
     },
-    { key: "band", label: "Fairness band", cells: cols.map((m) => m.bandWord) },
+    // Neutral, never the headline's verdict words: the comparator column must
+    // not read like a second verdict.
+    {
+      key: "pct",
+      label: "Gap, % of the larger side",
+      cells: cols.map((m) =>
+        m.relativeGapPct == null
+          ? "—"
+          : `${m.relativeGapPct.toFixed(1)}%${m.nearEven ? " · near even" : ""}`,
+      ),
+    },
   ];
   return (
     <div

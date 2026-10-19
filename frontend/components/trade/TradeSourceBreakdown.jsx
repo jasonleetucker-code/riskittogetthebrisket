@@ -159,12 +159,16 @@ function PackageDetail({ row, sideLabels, compareOn }) {
         <tr>
           <th style={{ textAlign: "left" }}>Side</th>
           <th style={{ textAlign: "right" }}>Raw</th>
-          <th style={{ textAlign: "right" }}>Chase Upside adj.</th>
-          <th style={{ textAlign: "right" }}>Total</th>
+          <th style={{ textAlign: "right" }}>Chase Upside adjustment</th>
+          <th style={{ textAlign: "right" }}>
+            Total<span className="ds-visually-hidden"> under Chase Upside adjustment</span>
+          </th>
           {withKtc ? (
             <>
-              <th style={{ textAlign: "right" }}>KTC method adj.</th>
-              <th style={{ textAlign: "right" }}>Total</th>
+              <th style={{ textAlign: "right" }}>{COMPARATOR_METHOD_LABEL}</th>
+              <th style={{ textAlign: "right" }}>
+                Total<span className="ds-visually-hidden"> under {COMPARATOR_METHOD_LABEL}</span>
+              </th>
             </>
           ) : null}
         </tr>
@@ -405,7 +409,8 @@ export default function TradeSourceBreakdown({
                               data-testid="second-opinions-compare-line"
                               data-differs={row.comparison?.leaderDiffers ? "true" : undefined}
                             >
-                              KTC method: {comparisonLeaderText(row.comparison, sideLabels)}
+                              {COMPARATOR_METHOD_LABEL}:{" "}
+                              {comparisonLeaderText(row.comparison, sideLabels)}
                               {row.comparison?.leaderDiffers ? (
                                 <span className={vac.differs}> · leader differs</span>
                               ) : null}

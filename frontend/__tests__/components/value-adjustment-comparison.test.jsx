@@ -64,6 +64,11 @@ describe("ValueAdjustmentComparison", () => {
     expect(rowText("Adjustment to Side B")).toBe("NoneNone");
     expect(rowText("More adjusted value")).toBe("Side BSide A");
     expect(rowText("Gap (Side A minus Side B)")).toBe("−760+1,020");
+    // A neutral share of the larger side — never the headline's verdict words
+    // in the comparator column (it must not read like a second verdict).
+    const pct = (ev) => `${ev.relativeGapPct.toFixed(1)}%${ev.nearEven ? " · near even" : ""}`;
+    expect(rowText("Gap, % of the larger side")).toBe(pct(cmp.active) + pct(cmp.comparator));
+    expect(table.textContent).not.toMatch(/Major gap|Strong lean|Lean|Near even|Fairness band/);
     // The disagreement is said once, with the method the decision uses.
     expect(screen.getByTestId("va-comparison-summary")).toHaveTextContent(
       "The methods disagree. Chase Upside adjustment: Side B's package is worth more. KTC adjustment method: Side A's package is worth more. The recommendation uses Chase Upside's.",
@@ -74,6 +79,25 @@ describe("ValueAdjustmentComparison", () => {
     expect(detail).toHaveTextContent("never added together, averaged");
     fireEvent.click(toggle);
     expect(screen.queryByTestId("va-comparison-detail")).toBeNull();
+  });
+
+  it("near even under both but different sides ahead: said in words, never 'agree'", () => {
+    render(
+      <ValueAdjustmentComparison
+        sideValues={[
+          [1378, 5343, 6310],
+          [5741, 3842, 4641],
+        ]}
+        sideLabels={LABELS}
+      />,
+    );
+    expect(screen.getByTestId("va-comparison")).toHaveAttribute("data-tone", "split");
+    expect(screen.getByTestId("va-comparison-summary")).toHaveTextContent(
+      "Both methods call it near even, but they differ on which side is slightly ahead.",
+    );
+    expect(screen.getByTestId("va-comparison-gaps")).toHaveTextContent(
+      "Side B by 383 (Chase Upside adjustment) · Side A by 478 (KTC adjustment method)",
+    );
   });
 
   it("one-for-one: explains no adjustment under either method instead of duplicate numbers", () => {
@@ -103,7 +127,7 @@ describe("ValueAdjustmentComparison", () => {
     );
     expect(screen.getByTestId("va-comparison")).toHaveAttribute("data-tone", "multi");
     expect(screen.getByTestId("va-comparison-summary")).toHaveTextContent(
-      "the KTC method is not extended",
+      "the KTC adjustment method is not extended",
     );
     expect(screen.queryByRole("table")).toBeNull();
   });

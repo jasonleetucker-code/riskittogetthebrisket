@@ -258,7 +258,7 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
     expect(screen.getAllByTestId("second-opinions-compare-line")).toHaveLength(shownRows.length);
     for (const r of shownRows) {
       expect(within(r).getByTestId("second-opinions-compare-line").textContent).toMatch(
-        /^KTC method: /,
+        /^KTC adjustment method: /,
       );
     }
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
@@ -275,13 +275,16 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
     const side = ["A", "B"][ktcRow.leaderIdx];
     const line = within(idptc).getByTestId("second-opinions-compare-line");
     expect(line.textContent).toBe(
-      `KTC method: ${side} by ${Math.round(ktcRow.marginPct)}%` +
+      `KTC adjustment method: ${side} by ${Math.round(ktcRow.marginPct)}%` +
         (ktcRow.leaderDiffers ? " · leader differs" : ""),
     );
     for (const r of shownRows) {
       const text = within(r).getByTestId("second-opinions-compare-line").textContent;
-      expect(text).toMatch(/^KTC method: (even|not computed|[AB] by \d+%)( · leader differs)?$/);
-      expect(text.length).toBeLessThanOrEqual(40);
+      // The directive's label, never the bare "KTC method" beside real KTC rows.
+      expect(text).toMatch(
+        /^KTC adjustment method: (even|not computed|[AB] by \d+%)( · leader differs)?$/,
+      );
+      expect(text.length).toBeLessThanOrEqual(52);
     }
     // Never presented as the vendor's own policy or as KTC's values.
     const note = screen.getByTestId("second-opinions-compare-note");
@@ -293,7 +296,7 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
       (r) => r.getAttribute("data-state") === OPINION_STATE.UNAVAILABLE,
     );
     expect(within(staleRow).getByTestId("second-opinions-compare-line")).toHaveTextContent(
-      "KTC method: not computed",
+      "KTC adjustment method: not computed",
     );
     // The tally did not move.
     expect(screen.getByTestId("second-opinions-tally").textContent).toBe(tallyBefore);
@@ -336,7 +339,17 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
       within(t)
         .getAllByRole("columnheader")
         .map((h) => h.textContent),
-    ).toEqual(["Side", "Raw", "Chase Upside adj.", "Total", "KTC method adj.", "Total"]);
+    ).toEqual([
+      "Side",
+      "Raw",
+      "Chase Upside adjustment",
+      "Total under Chase Upside adjustment",
+      "KTC adjustment method",
+      "Total under KTC adjustment method",
+    ]);
+    // Each "Total" header has its own accessible name.
+    const totals = within(t).getAllByRole("columnheader", { name: /^Total under / });
+    expect(new Set(totals.map((h) => h.textContent)).size).toBe(2);
     expect(within(t).getAllByRole("row")).toHaveLength(3);
     // The full KTC-method totals live here, not in the compact row line.
     const cmp = byKey(buildOpinionRows(SIDES, COMPARE)).idpTradeCalc.comparison;

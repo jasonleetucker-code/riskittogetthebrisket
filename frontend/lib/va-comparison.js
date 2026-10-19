@@ -36,7 +36,6 @@ import {
   PACKAGE_MODEL_IDS,
   packageModelReceipt,
   valueAdjustmentFromSideArrays,
-  verdictFromGap,
 } from "./trade-logic.js";
 
 /** The read-only comparator model. */
@@ -73,9 +72,11 @@ const sum = (values) => values.reduce((s, v) => s + v, 0);
  *   gap           adjusted A − adjusted B
  *   moreValueIdx  the side with more adjusted value (null when exactly equal)
  *   leaderIdx     the same, but null inside the headline's fair band
- *                 (`fairness-bands.js::classifyGap`, the ONE band owner), so
- *                 two methods both "near even" are not reported as disagreeing
- *   band          the headline's own word for the gap (`verdictFromGap`)
+ *                 (`fairness-bands.js::classifyGap`, the ONE band owner)
+ *   relativeGapPct |gap| as a % of the larger adjusted side — a neutral
+ *                 measure, deliberately NOT the headline's verdict words, so
+ *                 the comparator column never reads like a second verdict
+ *   nearEven      the gap is inside that fair band
  */
 export function evaluatePackageModel(values, modelId) {
   const receipt = packageModelReceipt(modelId);
@@ -98,7 +99,8 @@ export function evaluatePackageModel(values, modelId) {
     moreValueIdx,
     leaderIdx: band.level === "fair" ? null : moreValueIdx,
     bandLevel: band.level,
-    bandWord: verdictFromGap(gap, larger),
+    nearEven: band.level === "fair",
+    relativeGapPct: band.relativePct,
     recipientIdx: adjustments[0] > 0 ? 0 : adjustments[1] > 0 ? 1 : null,
   };
 }
@@ -109,7 +111,15 @@ export function evaluatePackageModel(values, modelId) {
  * @param {Array<Array<number|null>>} sideValues  one array per side; a
  *   null / non-positive entry is a piece with no value (unpriced).
  * @returns {{status, sideCount, unpriced, active?, comparator?, agree?,
- *   moreValueAgrees?, noAdjustment?, oneForOne?}}
+ *   moreValueAgrees?, nearEvenSplit?, noAdjustment?, oneForOne?}}
+ *
+ *   agree           the two methods name the same leader, judged with the
+ *                   headline's fair band (both "near even" counts as the same)
+ *   moreValueAgrees the two methods put the SAME side ahead on the raw sign of
+ *                   the gap (the directive's "which side has more adjusted
+ *                   value"), fair band or not
+ *   nearEvenSplit   both are near even, yet each puts a DIFFERENT side
+ *                   slightly ahead — reported in words, never as agreement
  */
 export function compareValueAdjustments(sideValues) {
   const sides = Array.isArray(sideValues) ? sideValues.map((s) => (Array.isArray(s) ? s : [])) : [];
@@ -139,6 +149,12 @@ export function compareValueAdjustments(sideValues) {
     comparator,
     agree: active.leaderIdx === comparator.leaderIdx,
     moreValueAgrees: active.moreValueIdx === comparator.moreValueIdx,
+    nearEvenSplit:
+      active.nearEven &&
+      comparator.nearEven &&
+      active.moreValueIdx != null &&
+      comparator.moreValueIdx != null &&
+      active.moreValueIdx !== comparator.moreValueIdx,
     noAdjustment:
       active.adjustments.every((v) => v === 0) && comparator.adjustments.every((v) => v === 0),
     oneForOne: values[0].length === 1 && values[1].length === 1,
@@ -159,7 +175,9 @@ function gapPhrase(evaluation, sideLabels) {
 
 /**
  * Plain-English words for a comparison: `{tone, headline, gapLine}`.
- * `tone` ∈ none | agree | disagree | unavailable | multi | empty.
+ * `tone` ∈ none | agree | split | disagree | unavailable | multi | empty —
+ * `split` is "both near even, different side slightly ahead", which is never
+ * worded as agreement.
  * Copy only — every number comes from `compareValueAdjustments`.
  */
 export function vaComparisonSummary(comparison, sideLabels = ["A", "B"]) {
@@ -171,7 +189,7 @@ export function vaComparisonSummary(comparison, sideLabels = ["A", "B"]) {
     return {
       tone: "multi",
       headline:
-        "The adjustment comparison covers two-team trades. With three or more teams, Chase Upside's adjustment is an extension of its two-team model, and the KTC method is not extended.",
+        "The adjustment comparison covers two-team trades. With three or more teams, Chase Upside's adjustment is an extension of its two-team model, and the KTC adjustment method is not extended.",
       gapLine: null,
     };
   }
@@ -193,6 +211,13 @@ export function vaComparisonSummary(comparison, sideLabels = ["A", "B"]) {
     };
   }
   const gapLine = `Gap after adjustment: ${gapPhrase(c.active, sideLabels)} (${ACTIVE_METHOD_LABEL}) · ${gapPhrase(c.comparator, sideLabels)} (${COMPARATOR_METHOD_LABEL})`;
+  if (c.nearEvenSplit) {
+    return {
+      tone: "split",
+      headline: "Both methods call it near even, but they differ on which side is slightly ahead.",
+      gapLine,
+    };
+  }
   if (c.agree) {
     return {
       tone: "agree",

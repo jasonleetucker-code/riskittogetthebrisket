@@ -212,14 +212,65 @@ describe("agreement, disagreement and the no-adjustment state", () => {
     );
   });
 
-  it("inside the headline's fair band, a sign difference is not a disagreement", () => {
+  it("both inside the fair band with the SAME side ahead: agree, near even", () => {
     const cmp = compareValueAdjustments([[5000, 100], [5000]]);
     expect(cmp.active.leaderIdx).toBeNull();
     expect(cmp.comparator.leaderIdx).toBeNull();
+    // The same side is (slightly) ahead under both — a real agreement.
+    expect(cmp.active.moreValueIdx).toBe(0);
+    expect(cmp.comparator.moreValueIdx).toBe(0);
+    expect(cmp.moreValueAgrees).toBe(true);
+    expect(cmp.nearEvenSplit).toBe(false);
     expect(cmp.agree).toBe(true);
-    expect(vaComparisonSummary(cmp).headline).toBe(
-      "Both methods agree: the packages are near even after adjustment.",
+    const s = vaComparisonSummary(cmp);
+    expect(s.tone).toBe("agree");
+    expect(s.headline).toBe("Both methods agree: the packages are near even after adjustment.");
+  });
+
+  it("both inside the fair band but DIFFERENT sides ahead: never worded as agreement", () => {
+    // Review repro: Chase Upside puts B ahead by 383, the KTC method A by 478.
+    const cmp = compareValueAdjustments([
+      [1378, 5343, 6310],
+      [5741, 3842, 4641],
+    ]);
+    expect(cmp.active.nearEven).toBe(true);
+    expect(cmp.comparator.nearEven).toBe(true);
+    expect(cmp.active.moreValueIdx).toBe(1);
+    expect(cmp.comparator.moreValueIdx).toBe(0);
+    expect(Math.round(cmp.active.gap)).toBe(-383);
+    expect(Math.round(cmp.comparator.gap)).toBe(478);
+    expect(cmp.moreValueAgrees).toBe(false);
+    expect(cmp.nearEvenSplit).toBe(true);
+    const s = vaComparisonSummary(cmp, ["A", "B"]);
+    expect(s.tone).toBe("split");
+    expect(s.headline).toBe(
+      "Both methods call it near even, but they differ on which side is slightly ahead.",
     );
+    expect(s.headline).not.toMatch(/agree/);
+    expect(s.gapLine).toBe(
+      "Gap after adjustment: Side B by 383 (Chase Upside adjustment) · Side A by 478 (KTC adjustment method)",
+    );
+  });
+
+  it("a split is only a split when both sides are named: an exact tie is not one", () => {
+    for (const [a, b] of [
+      [[5000], [5000]],
+      [[3000, 2000], [5000]],
+    ]) {
+      const cmp = compareValueAdjustments([a, b]);
+      if (cmp.active.moreValueIdx == null || cmp.comparator.moreValueIdx == null) {
+        expect(cmp.nearEvenSplit).toBe(false);
+      }
+    }
+  });
+
+  it("the comparator column carries a neutral gap %, never the headline's verdict words", () => {
+    const cmp = compareValueAdjustments([[9000], [8200, 2000]]);
+    for (const ev of [cmp.active, cmp.comparator]) {
+      expect(ev).not.toHaveProperty("bandWord");
+      const larger = Math.max(...ev.adjustedTotals);
+      expect(ev.relativeGapPct).toBeCloseTo((Math.abs(ev.gap) / larger) * 100, 1);
+    }
   });
 
   it("one-for-one: no adjustment under either method, explained instead of numbers", () => {

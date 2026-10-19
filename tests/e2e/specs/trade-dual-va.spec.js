@@ -204,7 +204,7 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
   const vac = page.getByTestId("va-comparison");
   await expect(vac).toBeVisible({ timeout: 30_000 });
   await expect(vac.getByTestId("va-comparison-summary")).toHaveText(
-    /^(Both methods agree|The methods disagree|No package adjustment under either method)/,
+    /^(Both methods agree|Both methods call it near even|The methods disagree|No package adjustment under either method)/,
   );
   // A two-for-one carries a package adjustment under the geometric model.
   await expect(vac).not.toHaveAttribute("data-tone", "none");
@@ -256,7 +256,7 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
   // column is added to pan to).
   const lines = card.getByTestId("second-opinions-compare-line");
   await expect(lines.first()).toBeVisible();
-  await expect(lines.first()).toHaveText(/^KTC method: /);
+  await expect(lines.first()).toHaveText(/^KTC adjustment method: /);
   await expect(card.locator("table.source-breakdown-table > thead th")).toHaveText([
     "Source",
     "Side A",
@@ -265,7 +265,7 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
     "Margin",
   ]);
   // The opinion is readable without panning, compare off and on, and the
-  // terse line ("KTC method: A by 58%") never widens or clips the table.
+  // terse line ("KTC adjustment method: A by 58%") never widens or clips the table.
   await sourceTableFits(card, compare, testInfo.project.name, testInfo);
   // Neither the independent tally nor the official decision moved.
   await expect(tally).toHaveText(tallyBefore);

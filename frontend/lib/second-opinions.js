@@ -468,6 +468,11 @@ export function evaluateOpinion(resolutionsBySide, adjust) {
  * `leaderDiffers` is true only when the adjusted leader differs, judged by
  * the row's own even band (`OPINION_EVEN_TOLERANCE_PCT`) under both models —
  * the one documented threshold, so a sub-1% wobble is not a disagreement.
+ * Deliberately no "near-even split" marker here (unlike the decision-area
+ * comparison, whose fair band is far wider): inside the owner's 1% band both
+ * models DISPLAY "Even", so there is no shown leader for a marker to
+ * contradict, and a badge on every sub-1% sign wobble is the badge spam the
+ * directive rules out.
  */
 export const ALTERNATE_UNAVAILABLE = {
   NO_NUMERIC_VERDICT: "no_numeric_verdict",
