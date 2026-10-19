@@ -29,7 +29,7 @@ name: Signals Health and Native Probe
 #
 # THIS REPOSITORY IS PUBLIC: stdout carries only each script's public
 # projection (allowlisted key paths; booleans, counts, identifier-shaped
-# enums).  Full reports and remote stderr stay 0600 in the box's private
+# enums).  Full reports and failure logs stay 0600 in the box's private
 # Signals store.  Read evidence from the artifact, never the log (Actions
 # masking corrupts digits).
 
@@ -172,32 +172,27 @@ jobs:
           LEAGUE=$3
           PY=/home/dynasty/.venvs/trade-calculator/bin/python
           [[ -x $PY ]] || PY=$APP_DIR/.venv/bin/python
-          REPORTS=$APP_DIR/data/sources/signals/reports
           umask 077
-          install -d -m 700 "$REPORTS"
-          ERRLOG=$REPORTS/health-probe-remote-stderr-$(date -u +%Y%m%dT%H%M%SZ).log
           cd "$APP_DIR"
           if [[ "$MODE" == "health" ]]; then
             SCRIPT=$APP_DIR/scripts/verify_signals_health.py
             ARGS=(--app-dir "$APP_DIR")
           else
             SCRIPT=$APP_DIR/scripts/probe_signals_native.py
+            # The probe finds its operator-authored private inputs (Tier 1c
+            # ops, reviewer evidence) in its own private reports directory.
             ARGS=(--mode native-probe --app-dir "$APP_DIR")
-            if [[ "$LEAGUE" == "true" ]]; then
-              ARGS+=(--allow-league-footprint)
-              # operator-authored, private; absent -> 1c "no_private_ops_file"
-              [[ -f $REPORTS/native_probe_ops.json ]] && ARGS+=(--league-ops "$REPORTS/native_probe_ops.json")
-            fi
-            if [[ -f $REPORTS/native_probe_review.json ]]; then
-              ARGS+=(--review-evidence "$REPORTS/native_probe_review.json")
-            fi
+            [[ "$LEAGUE" == "true" ]] && ARGS+=(--allow-league-footprint)
             export RISKIT_SIGNALS_AUTH_DIR=/var/lib/signals-auth
           fi
           if [[ ! -f $SCRIPT ]]; then
             echo '{"error": "not_deployed"}'
             exit 1
           fi
-          "$PY" "$SCRIPT" "${ARGS[@]}" 2>"$ERRLOG"
+          # Both scripts log failures to a 0600 file in their private store and
+          # print only an error class; anything else on stderr is discarded
+          # (a traceback could carry a path or a value; this log is public).
+          "$PY" "$SCRIPT" "${ARGS[@]}" 2>/dev/null
           REMOTE
 
       - name: Upload report

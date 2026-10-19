@@ -79,6 +79,11 @@ MAX_WALL_SECONDS = 600
 DETERMINISM_GAP_SECONDS = 120
 PREFLIGHT_MARGIN_SECONDS = 300
 TIMERS = ("dynasty-signals-values", "dynasty-signals-auth-renew")
+#: Operator-authored PRIVATE inputs, read from the box's private reports
+#: directory when present: Tier 1c's league operations (owner decision 6) and
+#: reviewer evidence for decision conditions 6-8.
+LEAGUE_OPS_FILE = "native_probe_ops.json"
+REVIEW_EVIDENCE_FILE = "native_probe_review.json"
 IDP_RAW_POSITIONS = ("DT", "DE", "LB", "CB", "S")
 RAW_TO_FAMILY = {"DT": "DL", "DE": "DL", "LB": "LB", "CB": "DB", "S": "DB"}
 #: Variables Tier 1b may fill on its own; any other REQUIRED variable skips
@@ -880,8 +885,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Tier 1c: owner decision 6 recorded (widens the authenticated footprint)",
     )
-    ap.add_argument("--league-ops", type=Path, default=None, help="private Tier 1c ops file")
-    ap.add_argument("--review-evidence", type=Path, default=None)
+    ap.add_argument(
+        "--league-ops",
+        type=Path,
+        default=None,
+        help="private Tier 1c ops file (default: reports dir)",
+    )
+    ap.add_argument(
+        "--review-evidence",
+        type=Path,
+        default=None,
+        help="reviewer evidence (default: reports dir)",
+    )
     args = ap.parse_args(argv)
     logging.getLogger().handlers[:] = [logging.NullHandler()]
     try:
@@ -899,13 +914,17 @@ def main(argv: list[str] | None = None) -> int:
             logging.getLogger().handlers[:] = [handler]
             from src.sources.signals_health import systemd_show  # noqa: PLC0415
 
+            league_ops_path = args.league_ops or reports / LEAGUE_OPS_FILE
+            review_path = args.review_evidence or reports / REVIEW_EVIDENCE_FILE
             report = run_native_probe(
                 show=systemd_show,
                 auth_store=SA.SignalsStore.open(args.auth_dir),
                 store_root=app_dir / "data" / "sources" / "signals",
-                league_ops=_load_private_json(args.league_ops),
+                league_ops=(
+                    _load_private_json(league_ops_path) if args.allow_league_footprint else None
+                ),
                 allow_league_footprint=args.allow_league_footprint,
-                review=_load_private_json(args.review_evidence),
+                review=_load_private_json(review_path),
             )
             _write_private(reports / f"native_probe_{utc}.json", report)
             public = public_projection(report)
