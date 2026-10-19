@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import re
 import threading
 import time
@@ -40,6 +41,8 @@ from contextlib import contextmanager
 from typing import Any, TypeVar
 
 T = TypeVar("T")
+
+LOG = logging.getLogger(__name__)
 
 TIMING_VERSION = 1
 
@@ -124,6 +127,7 @@ class ProgressRegistry:
         self._max_per_owner = max_per_owner
         self._lock = threading.Lock()
         self._entries: OrderedDict[tuple[str, str], dict[str, Any]] = OrderedDict()
+        self._seq = 0
 
     def _prune(self, now: float) -> None:
         while self._entries:
@@ -146,7 +150,10 @@ class ProgressRegistry:
             ]
             for key in mine[: max(0, len(mine) - self._max_per_owner + 1)]:
                 self._entries.pop(key, None)
+            self._seq += 1
+            token = self._seq
             self._entries[(owner, request_id)] = {
+                "token": token,
                 "phase": "received",
                 "state": "running",
                 "startedAt": now,
@@ -157,16 +164,18 @@ class ProgressRegistry:
             }
             self._entries.move_to_end((owner, request_id))
             self._prune(now)
-        return ProgressHandle(self, owner, request_id)
+        return ProgressHandle(self, owner, request_id, token)
 
-    def _update(self, owner: str, request_id: str, **fields: Any) -> None:
+    def _update(self, owner: str, request_id: str, token: int, **fields: Any) -> None:
         now = time.monotonic()
         with self._lock:
             entry = self._entries.get((owner, request_id))
             # A finished entry is final: a cancelled request's computation may
             # still be running (it is shielded for its joiners) and must not
-            # move a status the client was already told is terminal.
-            if entry is None or entry["state"] != "running":
+            # move a status the client was already told is terminal.  An entry
+            # REPLACED by a reused request id belongs to the new request: the
+            # old handle's token no longer matches, so it moves nothing.
+            if entry is None or entry["token"] != token or entry["state"] != "running":
                 return
             if fields.get("state") not in (None, "running"):
                 entry["finishedAt"] = now
@@ -195,9 +204,13 @@ class ProgressRegistry:
             phase = entry["phase"]
             if not entry["detail"]:
                 # Guests: the state and current phase name only — what a
-                # progress indicator needs.  No elapsed time and no stage list:
-                # polled, either would rebuild the per-stage times the guest
-                # redaction exists to withhold.
+                # progress indicator needs.  No elapsed time and no stage list,
+                # which would hand over the per-stage times outright.  This is
+                # not a full defence: a guest polling the phase name can still
+                # time stage boundaries to within its own poll interval — the
+                # residual, low-sensitivity side channel the PR documents
+                # (with total latency, which the per-team shared cache makes
+                # observable by design).
                 return {"requestId": request_id, "state": entry["state"], "phase": phase}
             end = entry.get("finishedAt") or now
             return {
@@ -217,23 +230,27 @@ class ProgressRegistry:
 
 
 class ProgressHandle:
-    def __init__(self, registry: ProgressRegistry, owner: str, request_id: str) -> None:
+    def __init__(self, registry: ProgressRegistry, owner: str, request_id: str, token: int) -> None:
         self._registry = registry
         self._owner = owner
         self._request_id = request_id
+        self._token = token
 
     def phase(self, name: str) -> None:
-        self._registry._update(self._owner, self._request_id, phase=name)
+        self._registry._update(self._owner, self._request_id, self._token, phase=name)
 
     def stage_done(self, name: str, ms: float) -> None:
         self._registry._update(
-            self._owner, self._request_id, completed_stage={"stage": name, "ms": ms}
+            self._owner,
+            self._request_id,
+            self._token,
+            completed_stage={"stage": name, "ms": ms},
         )
 
     def finish(self, state: str) -> None:
         """``complete``, ``failed`` or ``cancelled`` (client went away)."""
         phase = "complete" if state == "complete" else FAILED
-        self._registry._update(self._owner, self._request_id, phase=phase, state=state)
+        self._registry._update(self._owner, self._request_id, self._token, phase=phase, state=state)
 
 
 PROGRESS = ProgressRegistry()
@@ -357,14 +374,37 @@ class _AsyncFlight:
 
     __slots__ = ("task", "retry")
 
-    def __init__(self, task: asyncio.Task) -> None:
+    def __init__(self, task: asyncio.Future) -> None:
         self.task = task
-        self.retry: asyncio.Task | None = None
+        self.retry: asyncio.Future | None = None
 
 
-def _retrieve(task: asyncio.Task) -> None:
-    if not task.cancelled():
-        task.exception()  # retrieved: never "exception was never retrieved"
+def _start(factory: Callable[[], Awaitable[T]]) -> asyncio.Future:
+    """Run ``factory`` as a task.  A factory that raises SYNCHRONOUSLY becomes
+    a failed future — that failure is the attempt's outcome — instead of
+    escaping before the flight records its attempt."""
+    try:
+        return asyncio.ensure_future(factory())
+    except Exception as exc:  # noqa: BLE001 — becomes the attempt's outcome
+        failed = asyncio.get_running_loop().create_future()
+        failed.set_exception(exc)
+        return failed
+
+
+def _retrieve(task: asyncio.Future, *, kind: str, label: str | None) -> None:
+    """Retrieve a finished attempt's exception (never "exception was never
+    retrieved") and log it, so an orphaned attempt's failure is not silent.
+    Logs the request id and the exception CLASS only — no user or league data."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        LOG.warning(
+            "trade analysis shared %s failed (request %s): %s",
+            kind,
+            label or "-",
+            type(exc).__name__,
+        )
 
 
 class AsyncSingleFlight:
@@ -390,6 +430,8 @@ class AsyncSingleFlight:
         *,
         on_join: Callable[[], None] | None = None,
         share_if: Callable[[T], bool] | None = None,
+        personal_if: Callable[[T], bool] | None = None,
+        label: str | None = None,
     ) -> tuple[T, bool]:
         """``(result, joined)``.  ``on_join`` runs the moment a caller joins an
         in-flight computation (before waiting on it).
@@ -397,9 +439,12 @@ class AsyncSingleFlight:
         A joiner whose leader raised, was cancelled, or returned a result
         ``share_if`` rejects (a transient 5xx) does not inherit that failure:
         the first such joiner starts the wave's one retry with its own
-        ``factory`` and the rest join it.  A joiner whose OWN request was
+        ``factory`` and the rest join it, getting its outcome — success, 5xx or
+        exception — except an outcome ``personal_if`` marks as about the retry
+        leader's own caller (a 401 / 403 of ITS session), which a joiner never
+        inherits: it computes for itself.  A joiner whose OWN request was
         cancelled re-raises, even when the leader was cancelled in the same
-        tick."""
+        tick.  ``label`` (a request id) only names failures in the log."""
         loop = asyncio.get_running_loop()
         slot = (id(loop), key)
         flight = self._pending.get(slot)
@@ -420,17 +465,20 @@ class AsyncSingleFlight:
                 return result, True
             retry_leader = flight.retry is None
             if retry_leader:
-                flight.retry = asyncio.ensure_future(factory())
-                flight.retry.add_done_callback(_retrieve)
-            return await asyncio.shield(flight.retry), not retry_leader
-        task = asyncio.ensure_future(factory())
+                flight.retry = _start(factory)
+                flight.retry.add_done_callback(lambda t: _retrieve(t, kind="retry", label=label))
+            outcome = await asyncio.shield(flight.retry)
+            if not retry_leader and personal_if is not None and personal_if(outcome):
+                return await factory(), False  # another session's refusal is not ours
+            return outcome, not retry_leader
+        task = _start(factory)
         flight = _AsyncFlight(task)
         self._pending[slot] = flight
 
-        def _done(t: asyncio.Task, slot: tuple[int, Hashable] = slot) -> None:
+        def _done(t: asyncio.Future, slot: tuple[int, Hashable] = slot) -> None:
             if (current := self._pending.get(slot)) is not None and current.task is t:
                 del self._pending[slot]
-            _retrieve(t)
+            _retrieve(t, kind="computation", label=label)
 
         task.add_done_callback(_done)
         return await asyncio.shield(task), False

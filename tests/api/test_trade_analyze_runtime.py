@@ -710,3 +710,159 @@ def test_only_request_scoped_refusals_are_shareable():
     assert server._analysis_outcome_shareable(outcome(404)) is True
     for status in (401, 403, 500, 502, 503):
         assert server._analysis_outcome_shareable(outcome(status)) is False
+
+
+# ── round-4 review ───────────────────────────────────────────────────────
+
+
+def test_a_retrys_personal_refusal_is_never_handed_to_a_joiner():
+    """The shared retry's outcome reaches every retry joiner — 5xx included —
+    except a refusal about the retry leader's OWN session (401 / 403)."""
+
+    async def scenario(retry_status: int):
+        flight = rt.AsyncSingleFlight()
+        started = asyncio.Event()
+        release = asyncio.Event()
+        runs: list[str] = []
+
+        async def leader():
+            runs.append("leader")
+            started.set()
+            await release.wait()
+            return 503
+
+        def make(name, status):
+            async def attempt():
+                runs.append(name)
+                await asyncio.sleep(0.01)
+                return status
+
+            return attempt
+
+        lead = asyncio.ensure_future(
+            flight.run(
+                "k", leader, share_if=lambda r: r < 400, personal_if=lambda r: r in (401, 403)
+            )
+        )
+        await started.wait()
+        joiners = [
+            asyncio.ensure_future(
+                flight.run(
+                    "k",
+                    make(f"j{i}", retry_status if i == 0 else 200),
+                    share_if=lambda r: r < 400,
+                    personal_if=lambda r: r in (401, 403),
+                )
+            )
+            for i in range(4)
+        ]
+        await asyncio.sleep(0)
+        release.set()
+        await lead
+        return [await j for j in joiners], runs
+
+    # A 401 from the retry leader's session: each other joiner computes itself.
+    results, runs = asyncio.run(scenario(401))
+    assert results[0] == (401, False)
+    assert results[1:] == [(200, False)] * 3
+    assert runs == ["leader", "j0", "j1", "j2", "j3"]
+    # A 503 from the retry is shared with every joiner (bounded: 2 attempts).
+    results, runs = asyncio.run(scenario(503))
+    assert results == [(503, False)] + [(503, True)] * 3
+    assert runs == ["leader", "j0"]
+
+
+def test_a_failed_shared_retry_is_logged_without_user_data(caplog):
+    async def scenario():
+        flight = rt.AsyncSingleFlight()
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def leader():
+            started.set()
+            await release.wait()
+            raise RuntimeError("secret detail for alice in dynasty_main")
+
+        async def retry():
+            raise ValueError("secret detail for alice in dynasty_main")
+
+        lead = asyncio.ensure_future(flight.run("k", leader, label="req-abc12345"))
+        await started.wait()
+        join = asyncio.ensure_future(flight.run("k", retry, label="req-def67890"))
+        await asyncio.sleep(0)
+        release.set()
+        with pytest.raises(RuntimeError):
+            await lead
+        with pytest.raises(ValueError):
+            await join
+        await asyncio.sleep(0)
+
+    with caplog.at_level("WARNING", logger="src.api.trade_analyze_runtime"):
+        asyncio.run(scenario())
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "shared retry failed (request req-def67890): ValueError" in text
+    assert "alice" not in text and "dynasty_main" not in text
+
+
+def test_a_factory_raising_synchronously_is_the_retrys_outcome():
+    async def scenario():
+        flight = rt.AsyncSingleFlight()
+        started = asyncio.Event()
+        release = asyncio.Event()
+        calls: list[str] = []
+
+        async def leader():
+            started.set()
+            await release.wait()
+            raise RuntimeError("down")
+
+        def sync_boom():
+            calls.append("sync")
+            raise KeyError("raised before any coroutine existed")
+
+        async def never():
+            calls.append("never")
+            return "x"
+
+        lead = asyncio.ensure_future(flight.run("k", leader))
+        await started.wait()
+        first = asyncio.ensure_future(flight.run("k", sync_boom))
+        second = asyncio.ensure_future(flight.run("k", never))
+        await asyncio.sleep(0)
+        release.set()
+        with pytest.raises(RuntimeError):
+            await lead
+        for joiner in (first, second):
+            with pytest.raises(KeyError):
+                await joiner
+        assert calls == ["sync"]  # one retry attempt, shared — not one per joiner
+
+    asyncio.run(scenario())
+
+
+def test_a_reused_request_id_cannot_be_moved_by_the_old_handle():
+    reg = rt.ProgressRegistry()
+    old = reg.begin("alice", "reused-0001")
+    old.finish("complete")
+    new = reg.begin("alice", "reused-0001")  # the client reuses the id
+    old.finish(rt.FAILED)
+    old.phase("simulation")
+    old.stage_done("simulation", 99.0)
+    snap = reg.snapshot("alice", "reused-0001")
+    assert snap["state"] == "running" and snap["phase"] == "received"
+    assert snap["completedStages"] == []
+    new.finish("complete")
+    assert reg.snapshot("alice", "reused-0001")["state"] == "complete"
+
+
+def test_personal_refusals_are_classified():
+    from fastapi.responses import JSONResponse
+
+    def outcome(status):
+        return (None, None, JSONResponse(status_code=status, content={}), [])
+
+    assert server._analysis_outcome_personal(({}, "main", None, [])) is False
+    for status in (401, 403):
+        assert server._analysis_outcome_personal(outcome(status)) is True
+    for status in (400, 404, 500, 503):
+        assert server._analysis_outcome_personal(outcome(status)) is False

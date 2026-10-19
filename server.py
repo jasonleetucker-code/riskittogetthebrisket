@@ -18120,6 +18120,8 @@ async def post_trade_analyze(request: Request):
                     else None
                 ),
                 share_if=_analysis_outcome_shareable,
+                personal_if=_analysis_outcome_personal,
+                label=request_id,
             )
     except BaseException as exc:  # CancelledError too: the client went away
         if progress is not None:
@@ -18184,6 +18186,16 @@ _SHAREABLE_REFUSAL_STATUSES = frozenset({400, 404})
 def _analysis_outcome_shareable(outcome) -> bool:
     error = outcome[2]
     return error is None or error.status_code in _SHAREABLE_REFUSAL_STATUSES
+
+
+#: Refusals about the CALLER's own session.  Never handed to another request
+#: at any stage, including from the shared retry after a failed computation.
+_PERSONAL_REFUSAL_STATUSES = frozenset({401, 403})
+
+
+def _analysis_outcome_personal(outcome) -> bool:
+    error = outcome[2]
+    return error is not None and error.status_code in _PERSONAL_REFUSAL_STATUSES
 
 
 async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg=None):

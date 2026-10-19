@@ -235,3 +235,49 @@ def test_the_live_compute_cache_is_never_last_writer_wins(monkeypatch):
     newer = [{"ownerId": "o2", "startingLineupScore": 4.0}]
     team_strength._store_live_compute("lg", now + 2, newer)
     assert team_strength._live_compute_cache["lg"] == (now + 2, newer)
+
+
+def test_concurrent_live_compute_stores_are_atomic(monkeypatch):
+    """A persist=True and a persist=False compute for ONE league are different
+    flights but one cache slot.  Emulate the thread switch the reviewer did:
+    the OLDER store is preempted between its read and its write while the
+    NEWER success stores.  The older failure must not overwrite it."""
+    import time as _time
+
+    class PausingCache(dict):
+        def __init__(self):
+            super().__init__()
+            self.armed = True
+            self.paused = threading.Event()
+            self.resume = threading.Event()
+
+        def get(self, key, default=None):
+            value = super().get(key, default)
+            if self.armed and threading.current_thread().name == "older":
+                self.armed = False
+                self.paused.set()
+                self.resume.wait(0.5)  # the thread switch, mid read-compare-write
+            return value
+
+    cache = PausingCache()
+    monkeypatch.setattr(team_strength, "_live_compute_cache", cache)
+    t0 = _time.monotonic()
+    answers: dict = {}
+    older = threading.Thread(
+        name="older",
+        target=lambda: answers.setdefault("older", team_strength._store_live_compute("lg", t0, [])),
+    )
+    older.start()
+    cache.paused.wait(5)
+    newer = threading.Thread(
+        target=lambda: answers.setdefault(
+            "newer", team_strength._store_live_compute("lg", t0 + 1, ROWS)
+        )
+    )
+    newer.start()
+    newer.join(0.3)  # without the lock the newer store lands right here
+    cache.resume.set()
+    older.join(5)
+    newer.join(5)
+    assert dict.get(cache, "lg") == (t0 + 1, ROWS)
+    assert answers["newer"] == ROWS

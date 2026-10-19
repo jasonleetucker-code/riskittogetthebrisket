@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
@@ -533,6 +534,11 @@ _live_compute_cache: dict[str | None, tuple[float, list[dict[str, Any]]]] = {}
 # others wait for and share its rows — when it succeeds.  A failure is never
 # fanned out: those callers make ONE shared retry (bounded: two computes).
 _live_compute_flights = SingleFlight()
+# The flight key is (league, persist) but the cache key is the league, so two
+# flights for one league can store at once: the store's read-compare-write is
+# made atomic under this lock (same arrangement as best_ball_utility's
+# ``_ensemble_lock``).
+_live_compute_lock = threading.Lock()
 
 # How old the PERSISTED snapshot file may be before the fast path in
 # `load_or_compute_team_strength` stops trusting it and falls through to
@@ -622,14 +628,15 @@ def _store_live_compute(
     good answer.  When the attempt failed but a fresh success is cached, that
     success is the answer (it is what a caller arriving now would read).
     """
-    existing = _live_compute_cache.get(league_key)
-    if existing is not None:
-        fresh_success = bool(existing[1]) and (
-            time.monotonic() - existing[0] < _LIVE_COMPUTE_TTL_SECONDS
-        )
-        if existing[0] > started or (fresh_success and not rows):
-            return rows or (existing[1] if fresh_success else rows)
-    _live_compute_cache[league_key] = (started, rows)
+    with _live_compute_lock:
+        existing = _live_compute_cache.get(league_key)
+        if existing is not None:
+            fresh_success = bool(existing[1]) and (
+                time.monotonic() - existing[0] < _LIVE_COMPUTE_TTL_SECONDS
+            )
+            if existing[0] > started or (fresh_success and not rows):
+                return rows or (existing[1] if fresh_success else rows)
+        _live_compute_cache[league_key] = (started, rows)
     return rows
 
 
