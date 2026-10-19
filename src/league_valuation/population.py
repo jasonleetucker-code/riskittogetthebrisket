@@ -65,7 +65,10 @@ def market_value_of(row: Mapping[str, Any]) -> int | None:
         return None
     if number != number or number <= 0:  # NaN or non-positive
         return None
-    return int(round(number))
+    rounded = int(round(number))
+    # A positive value that rounds to 0 is below the canonical scale: it is not
+    # a market value to shrink (ln 0 is undefined), and never a published 0.
+    return rounded if rounded >= 1 else None
 
 
 def row_key(row: Mapping[str, Any], index: int) -> str:

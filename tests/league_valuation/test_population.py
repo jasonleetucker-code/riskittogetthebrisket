@@ -59,3 +59,14 @@ def test_every_reason_is_declared_in_the_config():
     rows = [row("3", "K", 1000, 3), row("9", "WR", 400, None)]
     _, excluded = eligible_rows(rows)
     assert set(excluded.values()) <= declared
+
+
+def test_sub_unit_market_value_is_missing_not_zero():
+    from src.league_valuation.population import market_value_of
+
+    assert market_value_of({"rankDerivedValue": 0.4}) is None
+    assert market_value_of({"rankDerivedValue": 0}) is None
+    assert market_value_of({"rankDerivedValue": 0.6}) == 1
+    pops, excluded = eligible_rows([row("77", "RB", 1, 1) | {"rankDerivedValue": 0.4}])
+    assert excluded == {"player:77": "no_market_value"}
+    assert not pops["OFFENSE"]
