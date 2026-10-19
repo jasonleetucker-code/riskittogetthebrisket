@@ -58,7 +58,11 @@ import {
   parseShareParam,
   shareLinkLimits,
 } from "@/lib/trade-share";
-import { resolveTeamSide, tradeRequestForTeam } from "@/lib/trade-war-room";
+import {
+  resolveTeamSide,
+  tradeRequestForTeam,
+  valueSummaryFromSideTotals,
+} from "@/lib/trade-war-room";
 import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
 import {
   PICK_OWNERSHIP_UNAVAILABLE_LABEL,
@@ -1897,6 +1901,30 @@ export default function TradePage() {
         : null,
     [sides, selectedTeam, teamRosterNames, explicitMySide],
   );
+  // The War Room's immediate trade-value summary (owner directive 2026-10-19,
+  // Part 4): the calculator's OWN canonical totals for the selected team's
+  // side, shown at once while the personalized analysis runs -- never a
+  // YES / NO.  The analysis prices on the canonical board without builder
+  // overrides, so with overrides the summary is the same totals over the bare
+  // sides (one more call into the canonical dispatch, not a second model).
+  // An empty or incomplete trade has no summary: an unpriced side is not 0.
+  const warRoomValueSummary = useMemo(() => {
+    if (!warRoomRequest || sides.length !== 2 || tradeIsEmpty || tradeIsIncomplete) return null;
+    const totals =
+      sidesWithOverrides === sides
+        ? sideTotals
+        : adjustedSideTotals(sides[0].assets, sides[1].assets, valueMode, settings);
+    return valueSummaryFromSideTotals(totals, warRoomRequest.mySide);
+  }, [
+    warRoomRequest,
+    sides,
+    sidesWithOverrides,
+    sideTotals,
+    tradeIsEmpty,
+    tradeIsIncomplete,
+    valueMode,
+    settings,
+  ]);
   // Both sides hold assets but nothing says which one is the team's: ask.
   const sideChoiceNeeded =
     Boolean(selectedTeam) &&
@@ -2792,35 +2820,26 @@ export default function TradePage() {
             >
               {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
                   What this trade does to the selected team's actual
-                  roster: recommendation, then Market / Roster /
-                  Feasibility as three separate answers.  Two-side trades
-                  with a selected team; every number is the backend's. */}
-              {sides.length === 2 ? (
-                <TradeWarRoom
-                  request={warRoomRequest}
-                  leagueKey={selectedLeagueKey || ""}
-                  useTeamContext={useTeamContext}
-                  onTeamContextChange={setUseTeamContext}
-                  overrideCount={Object.keys(valueOverrides).length}
-                  teamName={selectedTeam?.name || ""}
-                  sideChoiceNeeded={sideChoiceNeeded}
-                  chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
-                  onChooseSide={setExplicitMySide}
-                  onDecision={setDecisionSummary}
-                />
-              ) : (
-                // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
-                // two-team trade.  A 3+-team trade gets no YES / NO, and the page
-                // says so instead of silently dropping the War Room.
-                <Banner tone="info" title="A reliable YES / NO is unavailable">
-                  <span data-testid="war-room-multi-team-limit">
-                    The decision engine can identify your side and account for every
-                    side only in a two-team trade, so no YES / NO is given for this{" "}
-                    {sides.length}-team trade (owner decision, 2026-10-18); the result
-                    meter compares each team&apos;s net flow.
-                  </span>
-                </Banner>
-              )}
+                  roster, in plain English (owner directive 2026-10-19):
+                  the ONE recommendation, then Trade value / Impact on your
+                  team / Does it fit your roster?  Every number is the
+                  backend's.  TC-B / TCM-G09: the decision owner analyses ONE
+                  team's side of a two-team trade, so a 3+-team trade gets no
+                  YES / NO and the War Room says so (`sideCount`). */}
+              <TradeWarRoom
+                request={sides.length === 2 ? warRoomRequest : null}
+                leagueKey={selectedLeagueKey || ""}
+                useTeamContext={useTeamContext}
+                onTeamContextChange={setUseTeamContext}
+                overrideCount={Object.keys(valueOverrides).length}
+                teamName={selectedTeam?.name || ""}
+                sideChoiceNeeded={sideChoiceNeeded}
+                chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
+                onChooseSide={setExplicitMySide}
+                onDecision={setDecisionSummary}
+                valueSummary={warRoomValueSummary}
+                sideCount={sides.length}
+              />
             </section>
 
             {/* ── 4. SUPPORTING INTELLIGENCE ───────────────────── */}

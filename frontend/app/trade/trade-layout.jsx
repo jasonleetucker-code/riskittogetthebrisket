@@ -119,36 +119,47 @@ export const SUMMARY_STATE_TEXT = {
   idle: "Add assets to both sides to get a decision.",
   "side-choice": "Tell the War Room which side is yours to get a decision.",
   loading: "Analyzing this trade…",
-  error: "Analysis unavailable right now. The package result above is unaffected.",
+  error: "The personalized analysis did not finish. The package result above is unaffected.",
   // Owner closeout 2026-10-18, decision 10: a YES / NO only where the engine
   // can identify the user's side AND account for every side -- today, two-team
   // trades.  Never a fabricated binary for another shape.
   multi:
-    "A reliable YES / NO is unavailable for a trade with more than two teams: the decision engine can identify your side and account for every side only in a two-team trade.",
+    "No YES / NO for a trade with more than two teams: the decision engine can only judge your side of a two-team trade.",
+};
+
+/** The backend's confidence LEVEL as words (never a probability). */
+const CONFIDENCE_LEVEL_WORDS = {
+  HIGH: "High confidence",
+  MEDIUM: "Medium confidence",
+  LOW: "Low confidence",
 };
 
 /**
- * Layer 3's echo in the sticky desktop column: the War Room's headline,
- * confidence statement and primary reason, verbatim, with a link to the full
- * analysis.  It is the SAME decision, never a second one — the War Room owns
- * the request and reports it through `onDecision`.
+ * Layer 3's echo in the sticky desktop column: the War Room's headline and
+ * confidence level, verbatim, with a link to the full analysis.  It is the
+ * SAME decision, never a second one -- the War Room owns the request and
+ * reports it through `onDecision`.  Deliberately short (owner directive
+ * 2026-10-19: no conclusion repeated across panels): the reasons and the
+ * numbers live in the War Room only.  While a new answer computes there is
+ * no decision to echo -- never the previous trade's.
  */
 export function DecisionSummary({ summary }) {
-  const status = summary?.status || "idle";
-  const decision = summary?.decision || null;
-  const showDecision = Boolean(decision) && (status === "ok" || status === "updating");
+  const raw = summary?.status || "idle";
+  const status = raw === "updating" ? "loading" : raw;
+  const decision = status === "ok" ? summary?.decision || null : null;
+  const level = CONFIDENCE_LEVEL_WORDS[decision?.confidence?.level] || null;
   return (
     <section
       className={styles.decisionSummary}
       aria-labelledby="trade-decision-summary-title"
       data-testid="decision-summary"
-      data-decision-state={showDecision ? status : status === "updating" ? "loading" : status}
+      data-decision-state={decision ? "ok" : status}
     >
       <h2 id="trade-decision-summary-title" className={styles.layerTitle}>
         Final decision
       </h2>
-      {showDecision ? (
-        <div className={status === "updating" ? styles.summaryStale : undefined}>
+      {decision ? (
+        <div>
           <p className={styles.summaryLine}>
             <span className="ds-visually-hidden">Final decision: </span>
             <Badge
@@ -158,18 +169,9 @@ export function DecisionSummary({ summary }) {
               {decision.headlineText}
             </Badge>
           </p>
-          {decision.confidence?.statement ? (
-            <p className={styles.summaryNote}>{decision.confidence.statement}</p>
-          ) : null}
-          {decision.primaryReason?.text ? (
-            <p className={styles.summaryNote}>
-              <span className={styles.summaryLabel}>Primary reason</span>{" "}
-              {decision.primaryReason.text}
-            </p>
-          ) : null}
-          {status === "updating" ? (
-            <p className={styles.summaryNote} data-testid="decision-summary-updating">
-              Updating for your latest change…
+          {level ? (
+            <p className={styles.summaryNote} data-testid="decision-summary-confidence">
+              {level}
             </p>
           ) : null}
         </div>
@@ -177,11 +179,11 @@ export function DecisionSummary({ summary }) {
         // Not a live region (TC-E): progress is visible; only the final
         // decision change is announced (TradeVerdictAnnouncer).
         <p className={styles.summaryNote}>
-          {SUMMARY_STATE_TEXT[status === "updating" ? "loading" : status] || SUMMARY_STATE_TEXT.idle}
+          {SUMMARY_STATE_TEXT[status] || SUMMARY_STATE_TEXT.idle}
         </p>
       )}
       <a href="#trade-decision" className={styles.summaryLink}>
-        {status === "multi" ? "About the War Room" : "Full analysis in the War Room"}
+        {status === "multi" ? "About the War Room" : decision ? "Why: see the War Room" : "Go to the War Room"}
       </a>
     </section>
   );

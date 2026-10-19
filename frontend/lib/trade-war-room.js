@@ -32,7 +32,7 @@ export const DECISION_TONES = {
 
 /** Strategy override choices sent as `teamGoal` (owner decision 2). `null` = infer. */
 export const STRATEGY_CHOICES = [
-  { value: "auto", label: "From posture" },
+  { value: "auto", label: "Automatic" },
   { value: "WIN_NOW", label: "Win now" },
   { value: "BALANCED", label: "Balanced" },
   { value: "LONG_TERM", label: "Long-term" },
@@ -238,18 +238,64 @@ export function overrideBasisNotice(overrideCount) {
   );
 }
 
+/**
+ * The calculator's own two-side totals (`adjustedSideTotals`, the canonical
+ * package Value Adjustment the meter shows) in the market lens's shape, for
+ * the selected team: the side it GIVES is `mySide`.  The War Room shows this
+ * at once while the personalized analysis runs (owner directive 2026-10-19,
+ * Part 4) -- a trade-value summary only, never a YES / NO -- and replaces it
+ * with the analysis's own market lens when that arrives.  `null` when the
+ * totals or the side are missing: an unpriced or unknown side is never 0.
+ */
+export function valueSummaryFromSideTotals(sideTotals, mySide) {
+  if (!Array.isArray(sideTotals) || sideTotals.length !== 2) return null;
+  if (mySide !== 0 && mySide !== 1) return null;
+  const send = sideTotals[mySide];
+  const recv = sideTotals[mySide === 0 ? 1 : 0];
+  const ok = (t) =>
+    t && [t.raw, t.adjustment, t.adjusted].every((v) => typeof v === "number" && Number.isFinite(v));
+  if (!ok(send) || !ok(recv)) return null;
+  return {
+    receivingValue: recv.raw,
+    sendingValue: send.raw,
+    receivingValueAdjustment: recv.adjustment,
+    sendingValueAdjustment: send.adjustment,
+    rawGap: recv.raw - send.raw,
+    vaAdjustedGap: recv.adjusted - send.adjusted,
+  };
+}
+
 // ── Formatting ───────────────────────────────────────────────────────────
+//
+// ROUNDING RULES (explicit, pinned by `trade-war-room-plain.test.js`):
+//   trade value      the nearest whole point (`Math.round`), en-US thousands
+//                    separators; a signed figure is the sign of the rounded
+//                    value plus its magnitude, so "+1,440" and "1,440 ahead"
+//                    always carry the same digits.
+//   points per week  ONE decimal, the MAGNITUDE rounded half away from zero
+//                    (`roundTenth`), the sign carried separately -- so −5.65
+//                    and +5.65 both read 5.7, and the signed figure and the
+//                    sentence ("about 5.7 fewer points") can never disagree.
+//   percentages      the nearest whole percent.
+
+/** |value| to one decimal, half away from zero; a float-noise guard keeps
+ *  5.65 (stored as 5.6499999…) on the side a reader expects. */
+export function roundTenth(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.round(Math.abs(value) * 10 + 1e-9) / 10;
+}
 
 export function formatSignedPpg(value) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  const rounded = Math.round(value * 10) / 10;
-  if (rounded === 0) return "±0.0";
-  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded).toFixed(1)}`;
+  const mag = roundTenth(value);
+  if (mag == null) return null;
+  if (mag === 0) return "±0.0";
+  return `${value > 0 ? "+" : "−"}${mag.toFixed(1)}`;
 }
 
 export function formatPpg(value) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return value.toFixed(1);
+  const mag = roundTenth(value);
+  if (mag == null) return null;
+  return `${value < 0 && mag > 0 ? "−" : ""}${mag.toFixed(1)}`;
 }
 
 export function formatPctPoint(value) {
@@ -275,15 +321,16 @@ const UNAVAILABLE_WORDS = {
   asset_only_mode: "Not included in Asset-Only analysis",
   no_team_selected: "Pick your team to see roster impact",
   no_team_selected_or_uncomputable: "Pick your team to see roster impact",
-  partial_projection_coverage: "Abstains — a traded player has no projection",
+  partial_projection_coverage: "Not counted — a traded player has no projection",
   season_unresolved: "No current-season projection applies",
   starter_slots_unresolved: "This league's starting slots did not resolve",
   projection_basis_no_projection_snapshot:
     "No league-scored projection snapshot yet",
   projection_basis_scoring_card_missing:
     "This league's scoring card is missing",
-  roster_capacity_unavailable: "Roster capacity could not be computed",
-  uncertain: "Cut count uncertain (taxi occupancy unknown)",
+  roster_capacity_unavailable: "Your roster limit could not be checked",
+  uncertain:
+    "Can't tell yet — who is on your taxi squad is unknown, so the number of cuts is uncertain",
   unknown_limit: "This league's roster limit is unknown",
   no_priced_assets_either_side: "Neither side has a priced asset",
   not_computed: "Not computed",
@@ -404,30 +451,6 @@ export function unavailableText(reason) {
     return "Could not be computed right now";
   return `Unavailable (${String(reason).replace(/_/g, " ")})`;
 }
-
-export const FEASIBILITY_WORDS = {
-  fits_cleanly: "Fits — no cut needed",
-  uses_final_spot: "Fits — uses your last open spot",
-  cut_required: "Roster full — cut required",
-  resolves_overage: "Brings you back under the limit",
-  reduces_overage: "Reduces your roster overage",
-  worsens_overage: "Worsens your roster overage",
-  overage_unchanged: "Roster stays over the limit",
-};
-
-export const DIRECTION_WORDS = {
-  favors: "Favors you",
-  opposes: "Against you",
-  neutral: "Neutral",
-};
-
-export const ROLE_WORDS = {
-  incoming: "In",
-  outgoing: "Out",
-  forcedDrop: "Cut",
-  promoted: "More lineup time",
-  displaced: "Less lineup time",
-};
 
 /** The player rows worth a line, in a stable reading order. */
 // Availability beside a lineup share (owner master package 2026-10-17, P0):

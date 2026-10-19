@@ -133,7 +133,7 @@ describe("TradeVerdictAnnouncer — only the final decision, politely, once (TC-
   });
 });
 
-// ── War Room: progress is not a live region; error has Try again ───────
+// ── War Room: progress is not a live region; error has Retry ───────────
 describe("TradeWarRoom states (TC-E)", () => {
   const req = (fixture) => ({ ...fixture._fixture.request, mySide: 0 });
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
@@ -144,15 +144,15 @@ describe("TradeWarRoom states (TC-E)", () => {
     await act(async () => {});
   }
 
-  it("an analysis error offers Try again, which re-asks the same question", async () => {
+  it("an analysis error offers Retry, which re-asks the same question", async () => {
     globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce(ok({ error: "boom" }, 500))
       .mockResolvedValueOnce(ok(CONSOLIDATION));
     render(<TradeWarRoom request={req(CONSOLIDATION)} leagueKey="main" useTeamContext />);
     await settle();
-    expect(screen.getByText(/Analysis unavailable right now/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(screen.getByTestId("war-room-error").textContent).toMatch(/did not finish/);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await settle();
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     const [, second] = globalThis.fetch.mock.calls;

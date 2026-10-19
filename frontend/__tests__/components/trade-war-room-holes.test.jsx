@@ -1,12 +1,12 @@
 /**
- * TC-B / TCM-H12 — holes and bye coverage in Roster construction impact.
+ * TC-B / TCM-H12 — holes and bye coverage in "Your lineup before and after".
  *
  * The roster lens carries `lineupHoles` from the one best-ball utility owner
  * (`src/roster_intel/best_ball_utility.py`); the War Room words it and
  * computes nothing.  The committed fixtures are real analyze output (a full
  * roster: zero empty slots); a hole is shown by editing one copy.
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TradeWarRoom from "@/components/trade/TradeWarRoom";
@@ -28,6 +28,9 @@ async function renderWith(payload) {
     vi.advanceTimersByTime(800);
   });
   await act(async () => {});
+  // Holes live in the "Your lineup before and after" detail (owner directive
+  // 2026-10-19: expandable, not on the first screen).
+  fireEvent.click(screen.getByRole("button", { name: "Your lineup before and after" }));
 }
 
 beforeEach(() => {
@@ -65,9 +68,9 @@ describe("TradeWarRoom — holes", () => {
     const h = CONSOLIDATION.analysis.lenses.roster.detail.lineupHoles;
     expect(h.before.emptySlotsPerWeek).toBe(0);
     await renderWith(CONSOLIDATION);
-    expect(screen.getByTestId("war-room-lineup-holes").textContent).toMatch(
-      /0\.0 → 0\.0 empty starting slots per week/,
-    );
+    const row = screen.getByTestId("war-room-lineup-holes");
+    expect(within(row).getByRole("rowheader")).toHaveTextContent(/^Empty starting slots per week/);
+    expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["0.0", "0.0"]);
   });
 
   it("names a slot the roster can no longer fill", async () => {
@@ -81,7 +84,8 @@ describe("TradeWarRoom — holes", () => {
     payload.analysis.lenses.roster.detail.lineupHoles.emptySlotsPerWeekDelta = 1;
     await renderWith(payload);
     const row = screen.getByTestId("war-room-lineup-holes");
-    expect(row.textContent).toMatch(/0\.0 → 1\.0 empty starting slots per week \(after: TE 1\.0\)/);
-    expect(row.textContent).toMatch(/no player can start at TE/);
+    expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["0.0", "1.0"]);
+    expect(row.textContent).toMatch(/After the trade: TE 1\.0\./);
+    expect(row.textContent).toMatch(/No player can start at TE\./);
   });
 });
