@@ -661,6 +661,15 @@
     "prod-e2e-smoke.yml::smoke::Use Node 20": {
       "category": "blocking"
     },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Checkout": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Collect restart evidence": {
+      "category": "blocking"
+    },
+    "prod-restart-diagnostics.yml::restart-diagnostics::Configure production SSH": {
+      "category": "blocking"
+    },
     "public-league-warmup.yml::warm::Emit metrics snapshot": {
       "category": "blocking"
     },

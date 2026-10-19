@@ -286,19 +286,64 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
+# Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
+# already uses; ``smtplib``'s default is NO timeout.
+ALERT_SMTP_TIMEOUT_SEC = 15
+# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
+# which the delivery thread writes.
+_alert_lock = threading.Lock()
+_alert_in_flight = False
 
 
 def send_alert(subject: str, body: str):
-    """Send an email alert. Fails silently if not configured."""
-    global _last_alert_time
+    """Send an email alert in the background. Fails silently if not configured.
+
+    Never blocks the caller on the network.  Two callers run ON the event
+    loop — ``get_health`` (stale backups) and ``uptime_watchdog_loop``
+    (consecutive uptime failures) — and this used to connect to
+    ``smtp.gmail.com:465`` synchronously with no timeout, a port the
+    production VPS firewalls (commit 54af3811cc).  A connect to a dropped
+    port waits out the kernel's SYN retries (~127 s per resolved address),
+    and for that span the process answers nothing, ``/api/health``
+    included, which is what the liveness watchdog restarts on.  A failed
+    send never set the cooldown, so every trigger tried again.  Pinned by
+    ``tests/api/test_send_alert_off_loop.py``.
+
+    Delivery runs on a daemon thread with a bounded timeout.  While one is
+    in flight a second alert is dropped (logged), not queued: the first
+    either succeeds, after which the cooldown would suppress the second
+    anyway, or fails against the same unreachable server.
+    """
+    global _alert_in_flight
 
     if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD:
         return
 
     now = time.time()
-    if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-        log.info(f"Alert suppressed (cooldown): {subject}")
-        return
+    with _alert_lock:
+        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
+            log.info(f"Alert suppressed (cooldown): {subject}")
+            return
+        if _alert_in_flight:
+            log.info(f"Alert suppressed (another alert is being sent): {subject}")
+            return
+        _alert_in_flight = True
+    try:
+        threading.Thread(
+            target=_deliver_alert,
+            args=(subject, body, now),
+            name="alert-smtp",
+            daemon=True,
+        ).start()
+    except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
+        with _alert_lock:
+            _alert_in_flight = False
+        log.error(f"Failed to start alert delivery: {e}")
+
+
+def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
+    """The SMTP half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread."""
+    global _last_alert_time, _alert_in_flight
 
     try:
         msg = MIMEMultipart()
@@ -318,14 +363,18 @@ def send_alert(subject: str, body: str):
         """
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
             server.login(ALERT_FROM, ALERT_PASSWORD)
             server.send_message(msg)
 
-        _last_alert_time = now
+        with _alert_lock:
+            _last_alert_time = attempted_at
         log.info(f"Alert sent: {subject}")
     except Exception as e:
         log.error(f"Failed to send alert email: {e}")
+    finally:
+        with _alert_lock:
+            _alert_in_flight = False
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
