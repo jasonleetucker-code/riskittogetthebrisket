@@ -5081,6 +5081,7 @@ def _source_weighting_resolution(
     """
     if as_of is None:
         return {}, None
+    from src.api import feature_flags as _feature_flags  # noqa: PLC0415
     from src.sources import freshness as _freshness  # noqa: PLC0415
     from src.sources.dataset_state import state_path  # noqa: PLC0415
 
@@ -5105,11 +5106,31 @@ def _source_weighting_resolution(
         cfg_mtime = _freshness.CONFIG_PATH.stat().st_mtime_ns
     except OSError:
         cfg_mtime = -1
-    cache_key = (as_of.isoformat(), str(state_dir), tuple(stamps), cfg_mtime)
+    # The freshness RULE (owner directive 2026-10-19): the step schedule, or
+    # the v1 cadence curve on rollback.  Part of the memo key, as is its file.
+    schedule = (
+        _freshness.SCHEDULE_V2
+        if _feature_flags.is_enabled("source_freshness_schedule_v2")
+        else _freshness.SCHEDULE_V1
+    )
+    try:
+        schedule_mtime = _freshness.SCHEDULE_CONFIG_PATH.stat().st_mtime_ns
+    except OSError:
+        schedule_mtime = -1
+    cache_key = (
+        as_of.isoformat(),
+        str(state_dir),
+        tuple(stamps),
+        cfg_mtime,
+        schedule,
+        schedule_mtime,
+    )
     cached = _SOURCE_WEIGHTING_CACHE.get(cache_key)
     if cached is not None:
         return cached, None
-    weighting = _freshness.load_source_weightings(keys, state_dir=state_dir, as_of=as_of)
+    weighting = _freshness.load_source_weightings(
+        keys, state_dir=state_dir, as_of=as_of, schedule=schedule
+    )
     if len(_SOURCE_WEIGHTING_CACHE) > 16:
         _SOURCE_WEIGHTING_CACHE.clear()
     _SOURCE_WEIGHTING_CACHE[cache_key] = weighting
@@ -10668,10 +10689,24 @@ def _source_weighting_summary(
     ``meanVoteShare`` is the source's average normalized share of the rows
     it voted on — the "normalized vote share" of the diagnostics view.
     """
-    from src.sources.freshness import default_config  # noqa: PLC0415
+    from src.sources.freshness import (  # noqa: PLC0415
+        SCHEDULE_V1,
+        default_config,
+        weighting_descriptor,
+    )
     from src.sources.ktc_market import KTC_MARKET_KEY as _MKT  # noqa: PLC0415
 
     cfg = default_config()
+    # Which freshness rule produced these weightings (v1 strings exactly on
+    # rollback).  A voter's schedule, never the benchmark's (exempt, v1).
+    _schedules = {
+        getattr(sw, "schedule", SCHEDULE_V1)
+        for k, sw in (source_weighting or {}).items()
+        if k != _MKT and sw is not None
+    }
+    descriptor = weighting_descriptor(
+        next(iter(_schedules)) if len(_schedules) == 1 else SCHEDULE_V1, cfg
+    )
     base_by_key = {
         str(s.get("key") or ""): max(0.0, float(s.get("weight") or 1.0)) for s in active_sources
     }
@@ -10719,9 +10754,9 @@ def _source_weighting_summary(
             entry["meanVoteShare"] = round(share_sum.get(key, 0.0) / n, 4) if n else None
         sources[key] = entry
     return {
-        "configVersion": cfg.version,
-        "curve": cfg.curve,
-        "formula": "effective = base x freshness(age / expectedCadence) x health x coverage",
+        "configVersion": descriptor["configVersion"],
+        "curve": descriptor["curve"],
+        "formula": descriptor["formula"],
         "applied": bool(applied),
         "measured": bool(source_weighting),
         # Stamped by ``build_api_data_contract`` (the board's scrape time).
@@ -12061,7 +12096,9 @@ def _compute_unified_rankings(
         if sw is None or not sw.measured:
             # Unmeasured is stated ONCE, in the board-level
             # ``sourceWeighting`` block (``measured: false``), not per row.
-            return 1.0, {}
+            # Under the v2 schedule an unestablished update time is never
+            # fresh (``unmeasured_freshness`` 0); under v1 it is 1.0.
+            return (1.0 if sw is None else float(sw.unmeasured_freshness)), {}
         sub = sw.subset_for(is_pick)
         # Snapshot / explicit-timestamp sources share ONE clock across rows,
         # so the per-row CSV key is only resolved where it can matter.
@@ -15022,6 +15059,16 @@ def build_api_data_contract(
         contract_payload["sourceSeasonalState"]["basis"] = (
             SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE
         )
+    # Per-source voting status (owner directive 2026-10-19 §5 / §8): one
+    # plain-English entry per registered source — last genuine update,
+    # freshness %, base vs effective weight, rows contributed, status and
+    # what restores it.  Read-only over the stamps above and the weighting
+    # the blend applied (src/sources/voting_status.py); decides nothing.
+    from src.sources.voting_status import build_source_voting_status  # noqa: PLC0415
+
+    contract_payload["sourceVotingStatus"] = build_source_voting_status(
+        contract_payload, source_weighting, _RANKING_SOURCES, as_of=freshness_as_of
+    )
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
     for row in players_array:

@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-17, 22 of the 46 entries in
+   **Defaults are per-flag.** As of 2026-10-19, 23 of the 47 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -35,7 +35,11 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `nfl_data_ingest`, `realized_points_api`, `perfect_draft`,
    `waiver_live_opportunity` (shadow-only; response remains canonical-only),
    `source_freshness_weighting` (freshness × health × coverage applied to
-   blend weights; off keeps the diagnostics), `source_family_cap`
+   blend weights; off keeps the diagnostics), `source_freshness_schedule_v2`
+   (owner directive 2026-10-19: the freshness factor is the step schedule on
+   whole days since the last genuine publisher update — 100/75/50/25/0% at
+   0–7/8–14/15–21/22–30/>30 days; off restores the v1 cadence curve),
+   `source_family_cap`
    (every correlation-family member votes under a family cap; off restores
    the family-head selection), `source_universe_freshness` (a board pricing
    offense and IDP ages each row from its own universe's broad-change clock;

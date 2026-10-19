@@ -36,6 +36,31 @@ The currently-open gap is never in the sample and a long closed gap is one
 sample capped by ``maxHours``, so an outage cannot teach the system that
 "slow is normal".  Subsets with no learnable cadence inherit the player
 subset's ``E`` (flagged) before falling back to the configured seed.
+
+Schedule v2 — the owner's step schedule (owner directive 2026-10-19,
+``docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md``; flag
+``source_freshness_schedule_v2``, default ON, rollback restores everything
+above byte for byte).  Every dynasty ranking source's freshness becomes a
+step function of WHOLE DAYS since its last GENUINE publisher update::
+
+    days      = floor((asOf - clock) / 24 h)      (UTC instants)
+    freshness = 1.00 (0-7) | 0.75 (8-14) | 0.50 (15-21) | 0.25 (22-30) | 0 (>30)
+
+Numbers in ``config/sources/freshness_schedule_v2.json``.  The clock rules
+are the v1 rules with two changes, both about what counts as evidence:
+
+* a vendor-stated publication time (``upstream.publishedAt``) is the clock
+  for EVERY source whose fetcher records one — not only those declared
+  ``EXPLICIT_UPSTREAM_TIMESTAMP`` — still never later than the last content
+  change we observed (a cosmetic vendor edit moves the vendor's stamp, not
+  the data);
+* an update time we cannot establish is NEVER fresh.  The first-observation
+  baseline (a fetch time; the content was published at some unknown time at
+  or before it), a missing clock, and a source with no recorded state at all
+  vote at ``unknownUpdateTimeFreshness`` (0), with ``clockBasis: unknown``.
+
+A successful re-download of unchanged content moves no clock
+(``dataset_state.observe``), so it can never reset the schedule.
 """
 
 from __future__ import annotations
@@ -76,6 +101,18 @@ CADENCE_LEARNED_ANY = "learned_any_phase"
 CADENCE_INHERITED = "inherited_from_players"
 CADENCE_SEED = "configured_seed"
 
+#: Which freshness rule a weighting was computed under.
+SCHEDULE_V1 = "v1_cadence_curve"
+SCHEDULE_V2 = "v2_step_schedule"
+SCHEDULE_CONFIG_PATH = REPO_ROOT / "config" / "sources" / "freshness_schedule_v2.json"
+
+#: What a freshness clock rests on (``clockBasis``; schedule v2).
+CLOCK_BASIS_PUBLISHER = "publisher_timestamp"
+CLOCK_BASIS_CONTENT = "content_change_observed"
+CLOCK_BASIS_UNKNOWN = "unknown"
+
+SECONDS_PER_DAY = 86400.0
+
 
 # ── Candidate curves (r = age / E) ───────────────────────────────────────
 def _curve_c1(r: float) -> float:
@@ -111,6 +148,133 @@ def freshness_from_ratio(r: float, curve: str = "C4") -> float:
     if r is None or not math.isfinite(r) or r < 0:
         return 1.0
     return float(CURVES[curve](r))
+
+
+# ── Schedule v2: the owner's step schedule ───────────────────────────────
+def whole_days_elapsed(clock: datetime, as_of: datetime) -> int:
+    """Whole 24-hour periods from ``clock`` to ``as_of`` (UTC instants).
+
+    ``floor(seconds / 86400)``, so 7 d 23 h 59 m is day 7 and exactly 8 x 24 h
+    is day 8.  Time-zone and calendar independent.  A clock later than the
+    board's own time is day 0, never negative.
+    """
+    seconds = (as_of - clock).total_seconds()
+    if seconds <= 0:
+        return 0
+    return int(math.floor(seconds / SECONDS_PER_DAY))
+
+
+@dataclass(frozen=True)
+class StepSchedule:
+    """``(maxDays, freshness)`` steps, inclusive upper bounds, ascending."""
+
+    version: str
+    steps: tuple[tuple[int, float], ...]
+    beyond: float
+    unknown: float
+    exempt_keys: frozenset[str] = frozenset()
+
+    def freshness_for_days(self, days: int) -> float:
+        for max_days, freshness in self.steps:
+            if days <= max_days:
+                return freshness
+        return self.beyond
+
+    @property
+    def max_days(self) -> int:
+        return self.steps[-1][0] if self.steps else -1
+
+    def describe(self) -> str:
+        parts = []
+        lo = 0
+        for max_days, freshness in self.steps:
+            parts.append(f"{lo}-{max_days}d {freshness:g}")
+            lo = max_days + 1
+        parts.append(f">{self.max_days}d {self.beyond:g}")
+        return ", ".join(parts)
+
+
+class StepScheduleError(ValueError):
+    """The v2 schedule file is malformed (fails loudly, never a silent default)."""
+
+
+def load_step_schedule(path: Path | None = None) -> StepSchedule:
+    data = json.loads(Path(path or SCHEDULE_CONFIG_PATH).read_text(encoding="utf-8"))
+    raw_steps = data.get("schedule")
+    if not isinstance(raw_steps, list) or not raw_steps:
+        raise StepScheduleError("freshness schedule v2: 'schedule' must be a non-empty list")
+    steps: list[tuple[int, float]] = []
+    for item in raw_steps:
+        max_days = int(item["maxDays"])
+        freshness = float(item["freshness"])
+        if not 0.0 <= freshness <= 1.0:
+            raise StepScheduleError(f"freshness schedule v2: freshness {freshness} not in [0, 1]")
+        if steps and (max_days <= steps[-1][0] or freshness > steps[-1][1]):
+            raise StepScheduleError(
+                "freshness schedule v2: steps must have ascending maxDays and "
+                "non-increasing freshness"
+            )
+        steps.append((max_days, freshness))
+    beyond = float(data.get("beyondMaxFreshness", 0.0))
+    unknown = float(data.get("unknownUpdateTimeFreshness", 0.0))
+    if beyond > steps[-1][1] or not 0.0 <= beyond <= 1.0 or not 0.0 <= unknown <= 1.0:
+        raise StepScheduleError("freshness schedule v2: beyond/unknown freshness out of range")
+    return StepSchedule(
+        version=str(data.get("version") or "freshness_schedule_v2"),
+        steps=tuple(steps),
+        beyond=beyond,
+        unknown=unknown,
+        exempt_keys=frozenset(str(k) for k in (data.get("exemptKeys") or {})),
+    )
+
+
+_SCHEDULE_CACHE: dict[str, StepSchedule] = {}
+
+
+def default_step_schedule() -> StepSchedule:
+    sched = _SCHEDULE_CACHE.get("default")
+    if sched is None:
+        sched = load_step_schedule()
+        _SCHEDULE_CACHE["default"] = sched
+    return sched
+
+
+def active_schedule() -> str:
+    """The freshness rule in force: the owner step schedule unless the
+    ``source_freshness_schedule_v2`` rollback flag is off.
+
+    The board reads the flag itself (``data_contract._source_weighting_resolution``,
+    where it is part of the memo key); diagnostics that compute weightings
+    outside a board build (the source-weighting report, the inventory, the
+    advisory source-health check) call this so they cannot disagree with the
+    board.  Explicit callers that pin a rule (training-run receipts, the
+    robust-filter shadow harness) keep passing their own."""
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return SCHEDULE_V2 if is_enabled("source_freshness_schedule_v2") else SCHEDULE_V1
+
+
+def weighting_descriptor(schedule: str, cfg: "FreshnessConfig | None" = None) -> dict[str, str]:
+    """``configVersion`` / ``curve`` / ``formula`` for the board-level stamp.
+
+    Under v1 exactly the strings the summary has always carried, so a
+    rollback is byte-identical."""
+    if schedule == SCHEDULE_V2:
+        sched = default_step_schedule()
+        return {
+            "configVersion": sched.version,
+            "curve": "STEP_V2",
+            "formula": (
+                "effective = base x freshness(whole days since last genuine update: "
+                f"{sched.describe()}) x health x coverage"
+            ),
+        }
+    cfg = cfg or default_config()
+    return {
+        "configVersion": cfg.version,
+        "curve": cfg.curve,
+        "formula": "effective = base x freshness(age / expectedCadence) x health x coverage",
+    }
 
 
 # ── Config ───────────────────────────────────────────────────────────────
@@ -335,6 +499,16 @@ class SubsetFreshness:
     # dataset change: the content was published at or before it, so the age
     # measured from it is only a LOWER bound.  See :func:`assess_subset`.
     clock_is_baseline: bool = False
+    # Schedule v2 (owner directive 2026-10-19).  ``schedule`` is SCHEDULE_V1
+    # unless the weighting was computed under the step schedule; every v2
+    # field below is inert under v1.
+    schedule: str = SCHEDULE_V1
+    step: StepSchedule | None = None
+    clock_basis: str | None = None
+    # The first-observation baseline instant (a fetch time), when the subset
+    # still declares one: a row whose clock IS this instant has an unknown
+    # genuine-update time.
+    baseline_at: datetime | None = None
     # universe -> clock, computed once per build for one key->universe map
     # (the map is fixed within a build; ~7,700 row lookups would otherwise each
     # re-parse every row clock).
@@ -394,20 +568,50 @@ class SubsetFreshness:
         ``clock_cap`` (a universe clock) can only make the source clock OLDER:
         the effective clock is ``min(source clock, cap)``, so this correction
         never credits a row with fresher evidence than the whole board had."""
+        if self.schedule == SCHEDULE_V2:
+            return self._row_freshness_v2(row_key, clock_cap=clock_cap)
         if self.clock_at is None:
             return 1.0, None
+        clock = self._row_clock(row_key, clock_cap)
+        age = max(0.0, (self.as_of - clock).total_seconds() / 3600.0)
+        f = freshness_from_ratio(age / self.expected_hours, self.curve)
+        if f < self.quarantine_below:
+            f = 0.0
+        return f, age
+
+    def _row_clock(self, row_key: str | None, clock_cap: datetime | None) -> datetime:
         clock = self.clock_at
+        assert clock is not None
         if clock_cap is not None and clock_cap < clock:
             clock = clock_cap
         if self.style not in (STYLE_SNAPSHOT, STYLE_EXPLICIT) and row_key:
             row_at = parse_iso(self.row_changed_at.get(row_key))
             if row_at is not None and row_at > clock:
                 clock = row_at
+        return clock
+
+    def row_clock_known(self, clock: datetime) -> bool:
+        """Is ``clock`` evidence of a genuine update (schedule v2)?
+
+        A vendor-stated publication time is.  An observed content change is.
+        The first-observation baseline is NOT: it is the time we first
+        fetched the board, and the content was published at some unknown
+        time at or before it."""
+        if self.clock_basis == CLOCK_BASIS_PUBLISHER:
+            return True
+        return self.baseline_at is None or clock != self.baseline_at
+
+    def _row_freshness_v2(
+        self, row_key: str | None, *, clock_cap: datetime | None
+    ) -> tuple[float, float | None]:
+        step = self.step or default_step_schedule()
+        if self.clock_at is None:
+            return step.unknown, None
+        clock = self._row_clock(row_key, clock_cap)
         age = max(0.0, (self.as_of - clock).total_seconds() / 3600.0)
-        f = freshness_from_ratio(age / self.expected_hours, self.curve)
-        if f < self.quarantine_below:
-            f = 0.0
-        return f, age
+        if not self.row_clock_known(clock):
+            return step.unknown, age
+        return step.freshness_for_days(whole_days_elapsed(clock, self.as_of)), age
 
     def to_dict(self) -> dict[str, Any]:
         baseline = self.clock_is_baseline
@@ -442,6 +646,32 @@ class SubsetFreshness:
             else round(self.age_hours / self.expected_hours, 2),
             "freshness": round(self.freshness, 4),
             "state": self.state,
+            **(self._schedule_v2_fields() if self.schedule == SCHEDULE_V2 else {}),
+        }
+
+    def genuine_update_at(self) -> datetime | None:
+        """The board-level genuine-update clock (schedule v2), or ``None``
+        when it cannot be established."""
+        if self.clock_at is None or self.clock_basis == CLOCK_BASIS_UNKNOWN:
+            return None
+        return self.clock_at
+
+    def _schedule_v2_fields(self) -> dict[str, Any]:
+        """Additive v2 fields (absent under v1, so a rollback is byte-identical)."""
+        genuine = self.genuine_update_at()
+        days = None if genuine is None else whole_days_elapsed(genuine, self.as_of)
+        row_level = self.style not in (STYLE_SNAPSHOT, STYLE_EXPLICIT) and bool(self.row_changed_at)
+        return {
+            "freshnessSchedule": SCHEDULE_V2,
+            "clockBasis": self.clock_basis,
+            "lastGenuineUpdateAt": _iso(genuine),
+            "daysSinceGenuineUpdate": days,
+            "freshnessPct": round(self.freshness * 100.0, 1),
+            # BATCH / INCREMENTAL boards age each row from its own last
+            # change when that is newer than the board clock, so a row the
+            # vendor revised after the last broad publication can vote at a
+            # higher step than the board-level figure above.
+            "rowLevelClock": row_level,
         }
 
 
@@ -469,11 +699,23 @@ def assess_subset(
     cfg: FreshnessConfig,
     upstream: Mapping[str, Any] | None = None,
     inherited_expected: float | None = None,
+    schedule: str = SCHEDULE_V1,
+    step: StepSchedule | None = None,
 ) -> SubsetFreshness:
     cadence = cfg.cadence_for(source_key)
     st = subset_state or {}
     history = list(st.get("changeHistory") or [])
     style, evidence = classify_style(history, cfg, override=cadence.style)
+    v2 = schedule == SCHEDULE_V2
+    vendor_published = parse_iso((upstream or {}).get("publishedAt"))
+    if v2 and vendor_published is not None and vendor_published <= as_of:
+        # Schedule v2: a vendor-stated publication time is the clock for
+        # EVERY source whose fetcher records one (owner directive
+        # 2026-10-19 §2), not only those declared EXPLICIT in v1 config.
+        # The whole board then shares that one clock.
+        if style != STYLE_EXPLICIT:
+            evidence = {**evidence, "explicitFromRecordedUpstream": True}
+        style = STYLE_EXPLICIT
     expected, cadence_source, observed = expected_interval_hours(
         history, as_of, cadence, cfg, inherited=inherited_expected
     )
@@ -555,6 +797,10 @@ def assess_subset(
         state_bands=cfg.state_bands,
         clock_is_baseline=clock_is_baseline,
     )
+    if v2:
+        return _finish_subset_v2(
+            base, st, first_observed=first_observed, step=step or default_step_schedule(), cfg=cfg
+        )
     if clock_at is None:
         return base
     f, age = base.row_freshness(None)
@@ -567,6 +813,55 @@ def assess_subset(
         # the claim is withdrawn.
         state = STATE_UNMEASURED
     base.state = state
+    return base
+
+
+def _finish_subset_v2(
+    base: SubsetFreshness,
+    st: Mapping[str, Any],
+    *,
+    first_observed: datetime | None,
+    step: StepSchedule,
+    cfg: FreshnessConfig,
+) -> SubsetFreshness:
+    """Clock basis, factor and state under the owner's step schedule.
+
+    The state keeps the v1 vocabulary so every existing reader works
+    unchanged: the v1 bands map the steps exactly (1.0 ON_SCHEDULE, 0.75
+    OVERDUE, 0.5 STALE, 0.25 SEVERELY_STALE, 0 QUARANTINED).  An update time
+    we cannot establish is ``UNMEASURED`` and votes at ``step.unknown`` (0) —
+    unless even its lower-bound age is past the last step, which proves it
+    stale (QUARANTINED)."""
+    base.schedule = SCHEDULE_V2
+    base.step = step
+    if (
+        st.get("firstObservationIsBaseline") is True
+        and first_observed is not None
+        and first_observed <= base.as_of
+    ):
+        base.baseline_at = first_observed
+    if base.clock_at is None:
+        base.clock_basis = CLOCK_BASIS_UNKNOWN
+    elif base.clock == "upstreamPublishedAt":
+        base.clock_basis = CLOCK_BASIS_PUBLISHER
+    elif base.row_clock_known(base.clock_at):
+        base.clock_basis = CLOCK_BASIS_CONTENT
+    else:
+        base.clock_basis = CLOCK_BASIS_UNKNOWN
+    f, age = base.row_freshness(None)
+    base.age_hours = age
+    base.freshness = f
+    if base.clock_basis == CLOCK_BASIS_UNKNOWN:
+        lower_bound_days = (
+            None if base.clock_at is None else whole_days_elapsed(base.clock_at, base.as_of)
+        )
+        base.state = (
+            STATE_QUARANTINED
+            if lower_bound_days is not None and lower_bound_days > step.max_days
+            else STATE_UNMEASURED
+        )
+    else:
+        base.state = state_for(f, cfg)
     return base
 
 
@@ -584,6 +879,11 @@ class SourceWeighting:
     row_count: int | None
     rolling_median_rows: float | None
     health_errors: list[str] = field(default_factory=list)
+    schedule: str = SCHEDULE_V1
+    #: The freshness an UNMEASURED source (no recorded state at all) votes
+    #: at.  1.0 under v1 (unmeasured is stated once, board level); 0 under
+    #: schedule v2, where an update time we cannot establish is never fresh.
+    unmeasured_freshness: float = 1.0
 
     def subset_for(self, is_pick: bool) -> SubsetFreshness | None:
         return self.subsets.get(SUBSET_PICKS if is_pick else SUBSET_PLAYERS) or self.subsets.get(
@@ -623,6 +923,11 @@ class SourceWeighting:
             "rowCount": self.row_count,
             "rollingMedianRows": self.rolling_median_rows,
             "subsets": {k: v.to_dict() for k, v in self.subsets.items()},
+            **(
+                {"freshnessSchedule": SCHEDULE_V2, "unmeasuredFreshness": self.unmeasured_freshness}
+                if self.schedule == SCHEDULE_V2
+                else {}
+            ),
         }
 
 
@@ -632,8 +937,16 @@ def assess_source(
     *,
     as_of: datetime,
     cfg: FreshnessConfig | None = None,
+    schedule: str = SCHEDULE_V1,
+    step: StepSchedule | None = None,
 ) -> SourceWeighting:
     cfg = cfg or default_config()
+    if schedule == SCHEDULE_V2:
+        step = step or default_step_schedule()
+        if source_key in step.exempt_keys:
+            # Not a dynasty ranking voter (the KTC Market benchmark): v1.
+            schedule = SCHEDULE_V1
+    v2 = schedule == SCHEDULE_V2
     if not state:
         return SourceWeighting(
             source_key=source_key,
@@ -645,6 +958,8 @@ def assess_source(
             coverage_factor=1.0,
             row_count=None,
             rolling_median_rows=None,
+            schedule=schedule,
+            unmeasured_freshness=step.unknown if v2 and step is not None else 1.0,
         )
     subsets_state = state.get("subsets") or {}
     upstream = state.get("upstream") or {}
@@ -656,6 +971,8 @@ def assess_source(
         as_of=as_of,
         cfg=cfg,
         upstream=upstream,
+        schedule=schedule,
+        step=step,
     )
     if subsets_state.get(SUBSET_PLAYERS):
         subsets[SUBSET_PLAYERS] = players
@@ -670,6 +987,8 @@ def assess_source(
             inherited_expected=players.expected_hours
             if players.cadence_source != CADENCE_SEED
             else None,
+            schedule=schedule,
+            step=step,
         )
 
     health = state.get("health") or {}
@@ -700,6 +1019,8 @@ def assess_source(
         row_count=row_count or None,
         rolling_median_rows=median,
         health_errors=list(health.get("errors") or []),
+        schedule=schedule,
+        unmeasured_freshness=step.unknown if v2 and step is not None else 1.0,
     )
 
 
@@ -709,11 +1030,20 @@ def load_source_weightings(
     state_dir: Path,
     as_of: datetime,
     cfg: FreshnessConfig | None = None,
+    schedule: str = SCHEDULE_V1,
 ) -> dict[str, SourceWeighting]:
     from src.sources.dataset_state import load_state, state_path  # noqa: PLC0415
 
     cfg = cfg or default_config()
+    step = default_step_schedule() if schedule == SCHEDULE_V2 else None
     return {
-        key: assess_source(key, load_state(state_path(state_dir, key)), as_of=as_of, cfg=cfg)
+        key: assess_source(
+            key,
+            load_state(state_path(state_dir, key)),
+            as_of=as_of,
+            cfg=cfg,
+            schedule=schedule,
+            step=step,
+        )
         for key in source_keys
     }

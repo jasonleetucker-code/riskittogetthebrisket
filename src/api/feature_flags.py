@@ -9,12 +9,13 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 46 entries in ``_DEFAULTS`` below are ``True`` —
+23 of the 47 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
-``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
+``source_freshness_weighting``, ``source_freshness_schedule_v2``,
+``source_family_cap``, ``source_universe_freshness``,
 ``signals_active_source``, ``dlf_offense_only_vote``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
@@ -99,6 +100,19 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # dynamic factors are still computed and stamped on every row, so
     # observability survives rollback, but only the base weight is applied.
     "source_freshness_weighting": True,
+    # The owner's universal freshness SCHEDULE (owner directive 2026-10-19,
+    # "Universal Source Voting and Freshness Policy" §2;
+    # docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md).  ON: every
+    # dynasty ranking source's freshness factor is a step function of whole
+    # days since its last GENUINE publisher update -- 0-7 days 1.00, 8-14
+    # 0.75, 15-21 0.50, 22-30 0.25, >30 0 (config/sources/
+    # freshness_schedule_v2.json) -- on the vendor-stated publication time
+    # where one is recorded, else the last observed content change; an update
+    # time that cannot be established votes at 0.  Value-moving.  OFF
+    # (RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0 + restart): the v1
+    # cadence-relative curve, byte for byte.  ``source_freshness_weighting``
+    # still decides whether ANY freshness factor is applied.
+    "source_freshness_schedule_v2": True,
     # Family-capped source voting (owner directive 2026-09-24;
     # docs/sources/SOURCE_FRESHNESS_WEIGHTING.md).  ON: every member of a
     # correlation family votes with its own effective weight and the
@@ -819,6 +833,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # a request through ``/api/data`` and every engine that reads the board;
     # off → base weights only, factors still stamped.
     "source_freshness_weighting": LIVE,
+    # source_freshness_schedule_v2 selects the freshness RULE (owner step
+    # schedule vs the v1 cadence curve) in
+    # ``data_contract._source_weighting_resolution``, read on every board
+    # build, which reaches a request through ``/api/data`` and every engine
+    # that reads the board.
+    "source_freshness_schedule_v2": LIVE,
     # source_family_cap gates whether correlated family members all vote
     # under a family cap or the family head alone votes, in
     # ``data_contract._compute_unified_rankings``, which reaches a request

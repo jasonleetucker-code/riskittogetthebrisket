@@ -9,6 +9,17 @@ Evidence for every number below:
 `docs/sources/evidence/FRESHNESS_WEIGHTING_2026-09-23/` (source table, player
 explanations, 14-day backtest). Board as of `2026-09-23T18:41:31Z`.
 
+> **2026-10-19 — the freshness CURVE is superseded for dynasty ranking
+> sources.** Owner directive "Universal Source Voting and Freshness Policy"
+> replaced the cadence-relative curve in §G with the owner's step schedule on
+> whole days since the last genuine publisher update (0–7 days 100%, 8–14
+> 75%, 15–21 50%, 22–30 25%, >30 0%), flag `source_freshness_schedule_v2`
+> (default ON; `RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0` restores this
+> document's curve byte for byte). The clocks, the dataset-state owner, the
+> health and coverage factors and the family cap described here are
+> unchanged. Full record:
+> [`UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md`](UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md).
+
 ## 0. The architecture in one picture
 
 ```text

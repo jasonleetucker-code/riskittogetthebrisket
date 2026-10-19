@@ -715,12 +715,16 @@ def main() -> int:
         from datetime import datetime as _dt, timezone as _tz  # noqa: PLC0415
 
         from scripts.record_source_datasets import recorded_sources  # noqa: PLC0415
-        from src.sources.freshness import load_source_weightings  # noqa: PLC0415
+        from src.sources.freshness import (  # noqa: PLC0415
+            active_schedule,
+            load_source_weightings,
+        )
 
         weightings = load_source_weightings(
             [k for k, _p, _s in recorded_sources(repo_root)],
             state_dir=repo_root / "data" / "scrape_state",
             as_of=_dt.now(_tz.utc),
+            schedule=active_schedule(),
         )
         for key, sw in weightings.items():
             for subset, sub in sw.subsets.items():

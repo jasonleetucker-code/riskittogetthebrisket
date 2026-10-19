@@ -114,7 +114,7 @@ def _coverage(contract: dict[str, Any]) -> dict[str, dict[str, Counter]]:
 
 def build_inventory(contract: dict[str, Any], *, state_dir: Path | None = None) -> dict[str, Any]:
     from src.api import data_contract as dc
-    from src.sources.freshness import load_source_weightings
+    from src.sources.freshness import active_schedule, load_source_weightings
 
     registry = {s["key"]: s for s in dc._RANKING_SOURCES}
     csv_paths = dict(dc._SOURCE_CSV_PATHS)
@@ -134,6 +134,7 @@ def build_inventory(contract: dict[str, Any], *, state_dir: Path | None = None) 
         sorted(set(registry) | {"ktcCrowdTradesSfTep"}),
         state_dir=state_dir or (REPO / "data" / "scrape_state"),
         as_of=datetime.now(timezone.utc),
+        schedule=active_schedule(),
     )
     coverage = _coverage(contract)
 
