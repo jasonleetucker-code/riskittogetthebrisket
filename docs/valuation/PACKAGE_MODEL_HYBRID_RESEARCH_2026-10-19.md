@@ -10,6 +10,8 @@ repeat them.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
+**Phase 2 follows:** `PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (market evidence, large packages, Trade Finder replay). This Phase 1 memo is preserved unchanged below.
+
 ## Owner summary
 
 | Question | Answer |

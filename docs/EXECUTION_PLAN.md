@@ -70,7 +70,7 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 the read-only comparator until the owner explicitly approves a replacement (also D8, 2026-10-18). No verdict,
 fairness band, Trade History, Finder, War Room or Second Opinions behaviour changes. Must not interrupt the
 completion campaign or PR #1826. Result: `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`
-(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending.
+(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending. Phase 2 (same day, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE2_2026-10-19.md`): research only, same production bounds; result `docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (KEEP).
 
 ## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
 
