@@ -150,6 +150,7 @@ export default function TradeNextActions({
   evalState = "empty",
   isFair = false,
   balancerSideLabel = null,
+  balancersPending = false,
   decisionRunId = null,
 }) {
   const parties = useMemo(
@@ -165,6 +166,7 @@ export default function TradeNextActions({
     evalState,
     isFair,
     balancerSideLabel,
+    balancersPending,
     sideCount: (sides || []).length,
   });
   const team = parties.myTeam || myTeam || "";

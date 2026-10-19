@@ -1335,6 +1335,7 @@ export default function TradePage() {
     };
   }, [deferredBalancerInput, settings, valueMode]);
 
+  const balancersPending = !balancersCurrent;
   const balancers = balancersCurrent ? deferredBalancers : NO_BALANCERS;
   const multiBalancers = balancersCurrent ? deferredMultiBalancers : null;
   // "Is the 3+-team trade fair?" is immediate math (the same rule the deferred
@@ -2272,6 +2273,19 @@ export default function TradePage() {
   function balancersForSide(sideIdx) {
     const isUnderpaying =
       sides.length === 2 ? !pwGapIsFair && (sideIdx === 0 ? pwGap < 0 : pwGap > 0) : false;
+    // The deferred search has not answered THIS trade yet: say so on the
+    // side it will answer for, instead of removing the panel as if nothing
+    // narrows the gap (unknown is not false).
+    if (balancersPending && !tradeIsIncomplete) {
+      const nets = sides.length > 2 ? sideFlows.map((f) => f.net) : null;
+      const target =
+        sides.length === 2
+          ? isUnderpaying
+          : !multiGapIsFair && sideIdx === nets.indexOf(Math.max(...nets));
+      if (target) {
+        return { label: "Finding assets that narrow the gap…", list: [], pending: true };
+      }
+    }
     if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
       return {
         label: balancers.teamName
@@ -3009,6 +3023,7 @@ export default function TradePage() {
                   evalState={evalState.state}
                   isFair={sides.length === 2 ? pwGapIsFair : multiGapIsFair}
                   balancerSideLabel={balancerSideLabel}
+                  balancersPending={balancersPending}
                   decisionRunId={
                     sides.length === 2 && decisionSummary.status === "ok"
                       ? decisionSummary.runId || null
