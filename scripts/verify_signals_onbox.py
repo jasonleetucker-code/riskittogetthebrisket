@@ -2234,7 +2234,11 @@ def bridge_coordinates(build: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def coordinate_diagnostics(
-    served: Mapping[str, Any], var: Mapping[str, Any] | None, *, shadow_candidate: str
+    served: Mapping[str, Any],
+    var: Mapping[str, Any] | None,
+    *,
+    shadow_candidate: str,
+    split_coverage: bool = True,
 ) -> dict[str, Any]:
     """Per family: pick rows above each slot, the share of Signals votes past
     combined rank 500, within-family Spearman (Signals vs bridge order on
@@ -2247,7 +2251,11 @@ def coordinate_diagnostics(
                 + [ln v_β       − ln O]        reference placement
 
     by combined-rank band of c(p), on both panels.  ``V`` is the served
-    build's shadow vote (``shadow_candidate`` names its method)."""
+    build's shadow vote (``shadow_candidate`` names its method).
+
+    ``H(c_M)`` is Candidate F's vote, so D1 (``split_coverage=False``, the
+    quarantine) publishes only the sum ``coverageAndOrdering`` and no term
+    that isolates it."""
     coords = bridge_coordinates(served)
     s_rows = _rowmap(served)
     v_rows = _rowmap(var) if var else {}
@@ -2330,8 +2338,11 @@ def coordinate_diagnostics(
             cell = terms.setdefault(band, {})
             if min(h_vote, h_m, h_c) <= 0:
                 continue
-            cell.setdefault("coverage", []).append(math.log(h_vote / h_m))
-            cell.setdefault("ordering", []).append(math.log(h_m / h_c))
+            if split_coverage:
+                cell.setdefault("coverage", []).append(math.log(h_vote / h_m))
+                cell.setdefault("ordering", []).append(math.log(h_m / h_c))
+            else:
+                cell.setdefault("coverageAndOrdering", []).append(math.log(h_vote / h_c))
             cell.setdefault("hillMisfit", []).append(math.log(h_c / v_beta))
             for label, corrected in (("Script", False), ("Corrected", True)):
                 panel = _panel(row, FAMILY_KEYS.values(), corrected)
@@ -2542,7 +2553,10 @@ def _metric_for(
         cell = fam_stats.get(metric) or {}
         return cell.get("median") if (cell.get("n") or 0) >= MIN_CELL else None
     if metric == "top200ShareDeltaPp":
-        return (board.get("top200ShareDeltaPp") or {}).get(fam)
+        # Every family's share counts: an isolated DL build that moves the
+        # LB share by more than the threshold fails G5 too.
+        deltas = [d for d in (board.get("top200ShareDeltaPp") or {}).values() if _num(d)]
+        return max(deltas, key=abs) if deltas else None
     if metric == "idpRelMovementMedian":
         cell = (board.get("idpMovement") or {}).get("relValue") or {}
         return cell.get("median") if (cell.get("n") or 0) >= MIN_CELL else None
@@ -2605,7 +2619,12 @@ def reproduction_verdicts(observed: Mapping[str, Any]) -> dict[str, Any]:
                 if exp and abs(obs - exp) / abs(exp) <= tol["tailRelative"]
                 else "NOT_REPRODUCED"
             )
-        out[fig["id"]] = {"roundOne": exp, "observed": obs, "verdict": verdict, "explained": None}
+        out[fig["id"]] = {
+            "roundOne": exp,
+            "observed": _sig(obs) if isinstance(obs, float) else obs,
+            "verdict": verdict,
+            "explained": None,
+        }
     return out
 
 
@@ -2675,7 +2694,8 @@ def reproduction_observed(
             sh = (r.get("shadow") or {}).get(key) or {}
             if r.get("pos") == fam and _num(sh.get("wouldContribute")) and n in p:
                 pairs.append((float(sh["wouldContribute"]), p[n]))
-        observed[label] = signed_bias(pairs, [key], corrected=False)["median"]
+        cell = signed_bias(pairs, [key], corrected=False)
+        observed[label] = cell["median"] if cell["n"] >= MIN_CELL else None
     trades = trade_check(app_dir, _pseudo_contract(served), _pseudo_contract(a_all))
     observed["scorableIdpTrades"] = trades.get("scored") if trades.get("available") else None
     return observed
@@ -2977,9 +2997,10 @@ def run_matrix(
 
     def build(name: str, csv_root: Path, want: dict[str, str] | None, **kw: Any) -> dict:
         # The D1 quarantine, enforced: no diagnose build may switch on the
-        # Candidate F machinery.
+        # Candidate F machinery, whether by a toggle or inherited from the
+        # served flags (a D1 run after F is switched on in production).
         if mode == "diagnose" and forbidden & {
-            k for k, on in (kw.get("toggles") or {}).items() if on
+            k for k, on in {**dict(flags), **(kw.get("toggles") or {})}.items() if on
         }:
             raise RuntimeError("d1_quarantine_violation")
         extra = name.endswith(_EXTRA_SUFFIXES)
@@ -3116,6 +3137,7 @@ def analyse(
         if _usable(builds.get(f"{cand}_all"), intended.get(f"{cand}_all"))
         else None,
         shadow_candidate="A",
+        split_coverage=mode != "diagnose",
     )
     n0_name = "N0" if mode == "diagnose" else "N0F"
     # Negative controls on the corrected-panel signed bias (§6.1).
@@ -3124,12 +3146,13 @@ def analyse(
     if mode == "diagnose" and _usable(nc1_src, intended.get("A_all")):
         nc1 = rep["families"]["DB"]["variants"].get("A_all", {}).get("signedBiasCorrectedPanel")
     else:
-        key = FAMILY_KEYS["DB"]
+        key, a_id = FAMILY_KEYS["DB"], str(GATES["candidates"]["A"]["id"])
         pairs = [
             (float(((r.get("shadow") or {}).get(key) or {})["wouldContribute"]), r)
             for r in s_rows.values()
             if r.get("pos") == "DB"
             and _num(((r.get("shadow") or {}).get(key) or {}).get("wouldContribute"))
+            and (((r.get("shadow") or {}).get(key) or {}).get("candidate") or a_id) == a_id
         ]
         nc1 = signed_bias(pairs, FAMILY_KEYS.values(), corrected=True)
     nc["NC1"] = {"family": "DB", "signedBiasCorrectedPanel": nc1}
@@ -3174,8 +3197,13 @@ def analyse(
             continue
         board = rep["board"][name]
         n0_stats = rep["families"][fam]["variants"].get(n0_name, {})
-        b_f = (stats.get("signedBiasCorrectedPanel") or {}).get("median")
-        b_n0 = (n0_stats.get("signedBiasCorrectedPanel") or {}).get("median")
+        b_f, b_n0 = (
+            cell.get("median") if (cell.get("n") or 0) >= MIN_CELL else None
+            for cell in (
+                stats.get("signedBiasCorrectedPanel") or {},
+                n0_stats.get("signedBiasCorrectedPanel") or {},
+            )
+        )
         watch = _watch(served, builds[name], fam)
         trades = trade_check(app_dir, _pseudo_contract(served), _pseudo_contract(builds[name]))
         extra = {
@@ -3199,14 +3227,20 @@ def analyse(
         verdicts["promotable"] = cand == "F"
         if "public" in watch:
             verdicts["watchListCounts"] = watch["public"]
+        else:
+            rep.setdefault("privateWatchVerdicts", {})[fam] = verdicts["empirical"]["G3"]
+            verdicts["empirical"]["G3"] = {"suppressed": "watch entries below the public floor"}
         verdicts["trades"] = {"available": trades.get("available"), "scored": trades.get("scored")}
         rep["verdicts"][fam] = verdicts
     if _usable(combined, intended.get(f"{cand}_all")):
         watch_all = _watch(served, combined, None)
         rep["verdicts"]["combined"] = {
             "candidate": f"{cand}_all",
-            "watchWithinRange": watch_all["value"],
-            **({"watchListCounts": watch_all["public"]} if "public" in watch_all else {}),
+            **(
+                {"watchWithinRange": watch_all["value"], "watchListCounts": watch_all["public"]}
+                if "public" in watch_all
+                else {"watchSuppressed": "watch entries below the public floor"}
+            ),
         }
     rep["information"] = information_diagnostic(
         served,

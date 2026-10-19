@@ -380,6 +380,24 @@ def test_judge_and_reproduction_tolerances():
     assert rep["offensePlayerRowsMoved"]["verdict"] == "NOT_REPRODUCED"
 
 
+def test_g5_judges_every_familys_top200_share_in_an_isolated_build():
+    board = {"top200ShareDeltaPp": {"DL": 0.5, "LB": -3.5, "DB": 0.0}}
+    value = MOD._metric_for("top200ShareDeltaPp", {}, board, "DL", {})
+    assert value == -3.5 and MOD.judge("abs_le", value, 3.0) == "FAIL"
+
+
+def test_d1_never_isolates_the_candidate_f_coordinate(diagnose_run):
+    _box, _rc, public, _err = diagnose_run
+    cells = [
+        cell
+        for fam in ("DL", "LB", "DB")
+        for cell in ((public["coordinates"].get(fam) or {}).get("decomposition") or {}).values()
+    ]
+    assert cells, "the decomposition ran"
+    for cell in cells:
+        assert "coverage" not in cell and "ordering" not in cell, "H(c_M) is F's vote"
+
+
 def _compact(name, pos, v, meta, shadow=None, csv=None):
     return {"n": name, "pos": pos, "v": v, "meta": meta, "shadow": shadow or {}, "csv": csv or {}}
 
@@ -518,6 +536,17 @@ def test_the_d1_quarantine_is_enforced_in_code(tmp_path, monkeypatch):
     monkeypatch.setattr(MOD, "ACTIVE_FLAG", MOD.XWALK_FLAG)
     with pytest.raises(RuntimeError, match="d1_quarantine_violation"):
         MOD.run_matrix("diagnose", freeze=tmp_path, code_dir=REPO, payload_path="x", flags={})
+    monkeypatch.undo()
+    # So does one that would inherit it from the served flags.
+    monkeypatch.setattr(MOD, "run_variant", fake_run_variant)
+    with pytest.raises(RuntimeError, match="d1_quarantine_violation"):
+        MOD.run_matrix(
+            "diagnose",
+            freeze=tmp_path,
+            code_dir=REPO,
+            payload_path="x",
+            flags={MOD.XWALK_FLAG: True},
+        )
 
 
 def test_gate_refuses_every_f_build_until_its_flags_are_registered(tmp_path, monkeypatch):
@@ -649,7 +678,12 @@ def test_the_gate_analysis_runs_on_built_candidate_builds(diagnose_run):
         assert {"engineering", "empirical"} <= set(v)
         allowed = set(MOD.GATES["verdictValues"])
         for section in ("engineering", "empirical"):
-            assert all(e["verdict"] in allowed for e in v[section].values())
+            assert all(
+                e.get("verdict") in allowed or set(e) == {"suppressed"} for e in v[section].values()
+            )
+        if "watchListCounts" not in v:
+            assert v["empirical"]["G3"] == {"suppressed": "watch entries below the public floor"}
+            assert rep["privateWatchVerdicts"][fam]["verdict"] in allowed
         nc = rep["negativeControls"][fam]
         assert {"NC2", "NC3", "NC4", "g6bCorrectedPanelVoid"} <= set(nc)
         if nc["g6bCorrectedPanelVoid"]:
