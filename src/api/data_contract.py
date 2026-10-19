@@ -7571,6 +7571,7 @@ def _lost_evidence_seats(
     dropped_now: Sequence[str],
     outlier_test_applies: bool,
     exact_replay: bool = True,
+    replay: Any = None,  # Callable[[list[tuple[str, float]]], Sequence[str]] | None
 ) -> list[str]:
     """The sources a row's confidence must seat because a vote was withheld.
 
@@ -7604,7 +7605,11 @@ def _lost_evidence_seats(
     if not exact_replay:
         return withheld + [k for k in dropped_now if k not in withheld]
     observed = list(voting_pairs) + list(withheld_pairs)
-    if len(observed) >= _HAMPEL_MIN_N:
+    if replay is not None:
+        # The outlier policy in force (``outlier-corroborated-v1``) asked of the
+        # same observed panel.
+        observed_dropped = list(replay(observed))
+    elif len(observed) >= _HAMPEL_MIN_N:
         _kept, observed_dropped = _hampel_filter_per_player(observed, k=_HAMPEL_K)
     else:
         observed_dropped = []
@@ -10228,6 +10233,22 @@ def _hampel_filter_per_player(
     return kept, dropped_keys
 
 
+def _outlier_policy_active() -> bool:
+    """``outlier_disagreement_policy`` (``outlier-corroborated-v1``, default OFF;
+    ``src/api/outlier_policy.py``) is in force: ON, and no filter challenger that
+    takes precedence over it is (each would decide the same rows)."""
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if not _ff.is_enabled("outlier_disagreement_policy"):
+        return False
+    return not (
+        (_ff.is_enabled("source_family_cap") and _ff.is_enabled("joint_outlier_sparse_challenger"))
+        or _ff.is_enabled("rank_space_hampel_challenger")
+        or _ff.is_enabled("rank_space_hampel_per_vote_challenger")
+        or _ff.is_enabled("idp_hampel_n3_challenger")
+    )
+
+
 def _hill_inverse(value: float, c: float, s: float) -> float:
     """Percentile coordinate of a Hill value: p = c · (9999 / v − 1)^(1/s).
 
@@ -10815,6 +10836,7 @@ def _compute_unified_rankings(
     policy_held_sources: Iterable[str] | None = None,
     freshness_as_of: "datetime | None" = None,
     csv_root: "Path | None" = None,
+    outlier_board_exclusions: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -11958,6 +11980,14 @@ def _compute_unified_rankings(
         and not _rank_space_per_vote
         and _feature_flags.is_enabled("idp_hampel_n3_challenger")
     )
+    # Disagreement-preserving outlier policy ``outlier-corroborated-v1``
+    # (default OFF; src/api/outlier_policy.py; docs/valuation/evidence/
+    # outlier-disagreement-2026-10-19/PREREGISTRATION.md): rejects only a gross,
+    # uncorroborated vote or a vote from a board the screen found mis-scaled
+    # (``outlier_board_exclusions``).  Every challenger above takes precedence.
+    _outlier_policy_on = _outlier_policy_active()
+    if _outlier_policy_on:
+        from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415
     # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1``
     # (default OFF, shadow only; docs/valuation/evidence/
     # idp-deep-tail-native-2026-10-18/PREREGISTRATION.md): an IDP row's
@@ -12494,6 +12524,9 @@ def _compute_unified_rankings(
             if _idp_hampel_n3 and players_array[row_idx].get("assetClass") == "idp"
             else _HAMPEL_MIN_N
         )
+        if _outlier_policy_on:
+            # The policy needs a vote plus two other families; it checks them.
+            _hampel_min_n = 1 + _outlier_policy.MIN_OTHER_FAMILIES
         if not row_is_pick and len(all_value_pairs) >= _hampel_min_n:
             if _joint_challenger:
                 # Evidence weights after the family cap, so correlated members
@@ -12535,6 +12568,22 @@ def _compute_unified_rankings(
                     min_n=_HAMPEL_MIN_N,
                     min_threshold=_HAMPEL_MIN_THRESHOLD,
                 )
+            elif _outlier_policy_on:
+                _row_class_key = str(players_array[row_idx].get("assetClass") or "")
+                _ov = _outlier_policy.assess_row(
+                    [(k, v) for k, v, _ in all_value_pairs],
+                    curve=_outlier_policy.scope_curve(_row_class_key),
+                    family_of=lambda _k: family_by_key.get(_k) or correlation_group_for(_k),
+                    weights=cap_family_weights(
+                        {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs},
+                        base=blend_weight_by_source,
+                    )[0],
+                    board_excluded=(outlier_board_exclusions or {}).get(_row_class_key, ()),
+                )
+                kept_pairs = [(k, v) for k, v, _ in all_value_pairs if k in set(_ov.kept)]
+                hampel_dropped_keys = list(_ov.dropped)
+                if _ov.reasons:
+                    players_array[row_idx]["outlierPolicyReasons"] = dict(_ov.reasons)
             else:
                 kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
                     [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K, min_n=_hampel_min_n
@@ -12566,6 +12615,17 @@ def _compute_unified_rankings(
                 dropped_now=hampel_dropped_keys,
                 outlier_test_applies=not row_is_pick,
                 exact_replay=not _joint_challenger,
+                replay=(
+                    _outlier_policy.replay_dropped(
+                        curve=_outlier_policy.scope_curve(players_array[row_idx].get("assetClass")),
+                        family_of=lambda _k: family_by_key.get(_k) or correlation_group_for(_k),
+                        board_excluded=(outlier_board_exclusions or {}).get(
+                            str(players_array[row_idx].get("assetClass") or ""), ()
+                        ),
+                    )
+                    if _outlier_policy_on
+                    else None
+                ),
             )
         # Observations present but not voting because their effective weight
         # is 0 (quarantined staleness or FAILED health) — named separately
@@ -14573,29 +14633,46 @@ def build_api_data_contract(
     shadow_private = frozenset(
         k for k, v in private_availability.items() if v.get("voteState") == VOTE_STATE_SHADOW
     )
-    pick_aliases = _compute_unified_rankings(
-        players_array,
-        players_by_name,
-        csv_index=csv_index,
-        source_overrides=source_overrides,
-        tep_multiplier=tep_multiplier_effective,
-        tep_native_multiplier=tep_native_multiplier_effective,
-        tep_native_correction=tep_native_correction,
-        tep_multiplier_is_override=(tep_multiplier_source == "override"),
-        suppress_market_corridor_clamp=suppress_market_corridor_clamp,
-        # The board's own UTC date claim — the rankChange derivation's
-        # comparison anchor (latest ledger date strictly before it).
-        board_date=str(raw_payload.get("date") or "") or None,
-        synthetic_pick_derivations=synthetic_pick_derivations,
-        source_weighting=source_weighting,
-        retired_pick_years=_retired_pick_years,
-        seasonally_inactive_sources=frozenset(seasonally_inactive),
-        absent_private_sources=absent_private,
-        shadow_private_sources=shadow_private,
-        policy_held_sources=policy_held,
-        freshness_as_of=freshness_as_of,
-        csv_root=csv_root,
-    )
+
+    def _rank(
+        outlier_board_exclusions: Mapping[str, Sequence[str]] | None = None,
+    ) -> dict[str, str]:
+        return _compute_unified_rankings(
+            players_array,
+            players_by_name,
+            csv_index=csv_index,
+            source_overrides=source_overrides,
+            tep_multiplier=tep_multiplier_effective,
+            tep_native_multiplier=tep_native_multiplier_effective,
+            tep_native_correction=tep_native_correction,
+            tep_multiplier_is_override=(tep_multiplier_source == "override"),
+            suppress_market_corridor_clamp=suppress_market_corridor_clamp,
+            # The board's own UTC date claim — the rankChange derivation's
+            # comparison anchor (latest ledger date strictly before it).
+            board_date=str(raw_payload.get("date") or "") or None,
+            synthetic_pick_derivations=synthetic_pick_derivations,
+            source_weighting=source_weighting,
+            retired_pick_years=_retired_pick_years,
+            seasonally_inactive_sources=frozenset(seasonally_inactive),
+            absent_private_sources=absent_private,
+            shadow_private_sources=shadow_private,
+            policy_held_sources=policy_held,
+            freshness_as_of=freshness_as_of,
+            csv_root=csv_root,
+            outlier_board_exclusions=outlier_board_exclusions,
+        )
+
+    # The disagreement-preserving outlier policy (default OFF) screens each
+    # board the first pass priced and ranks again only if one is mis-scaled.
+    outlier_policy_stamp: dict[str, Any] | None = None
+    if _outlier_policy_active():
+        from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415
+
+        pick_aliases, outlier_policy_stamp = _outlier_policy.rank_with_board_screen(
+            _rank, players_array, players_by_name, family_of=correlation_group_for
+        )
+    else:
+        pick_aliases = _rank()
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
     # same number.  ``_player_value_bundle`` seeds these three keys ``None``
@@ -15017,6 +15094,8 @@ def build_api_data_contract(
             **(contract_payload.get("sourceWeighting") or {}),
             "unavailableReason": source_weighting_unavailable,
         }
+    if outlier_policy_stamp is not None:
+        contract_payload["outlierPolicy"] = outlier_policy_stamp
     if seasonal_policy_error:
         contract_payload["sourceSeasonalState"]["policyError"] = seasonal_policy_error
         contract_payload["sourceSeasonalState"]["basis"] = (
