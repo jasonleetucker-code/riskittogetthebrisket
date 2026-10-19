@@ -265,6 +265,39 @@ export function valueSummaryFromSideTotals(sideTotals, mySide) {
   };
 }
 
+/**
+ * The War Room's immediate trade-value summary for the selected team, built
+ * from EXACTLY the totals the calculator headline shows (`sideTotals`: the
+ * canonical package dispatch over the builder's per-asset values, value
+ * overrides included) and the headline's own evaluation gate
+ * (`tradeEvaluationState`).
+ *
+ *   null                     no team side, or nothing to summarise
+ *   { unpriced: [names] }    some asset has no board value and no override:
+ *                            no total is shown (MISSING IS NEVER ZERO)
+ *   { ...totals, overridesApplied }   the market-lens-shaped totals
+ *
+ * Never recomputes over the bare sides: an asset the board does not price but
+ * the user priced counts at the user's value, exactly as in the headline.
+ */
+export function warRoomValueSummaryFor({
+  sideTotals,
+  mySide,
+  evaluation,
+  overrideCount = 0,
+} = {}) {
+  if (mySide !== 0 && mySide !== 1) return null;
+  if (!evaluation || evaluation.state === "empty") return null;
+  if (evaluation.state === "incomplete") {
+    const names = (evaluation.unpriced || []).map((u) => String(u?.name || "An asset"));
+    return { unpriced: names.length ? names : ["An asset"] };
+  }
+  const totals = valueSummaryFromSideTotals(sideTotals, mySide);
+  if (!totals) return null;
+  const n = Number(overrideCount);
+  return { ...totals, overridesApplied: Number.isFinite(n) && n > 0 };
+}
+
 // ── Formatting ───────────────────────────────────────────────────────────
 //
 // ROUNDING RULES (explicit, pinned by `trade-war-room-plain.test.js`):

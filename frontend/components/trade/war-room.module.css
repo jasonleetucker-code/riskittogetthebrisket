@@ -127,11 +127,6 @@
 .whyRole {
   font-weight: var(--font-weight-semibold);
 }
-.uncertain {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
 
 /* ── At a glance: one ruled row per question ── */
 .glance {

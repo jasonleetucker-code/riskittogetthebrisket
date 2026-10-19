@@ -26,7 +26,9 @@ import {
   formatValue,
   roundTenth,
   valueSummaryFromSideTotals,
+  warRoomValueSummaryFor,
 } from "@/lib/trade-war-room";
+import { TRADE_VALUE_MODE, adjustedSideTotals, tradeEvaluationState } from "@/lib/trade-logic";
 import {
   analysisErrorText,
   confidenceLimits,
@@ -36,10 +38,12 @@ import {
   incomingLineupSentences,
   lineupPointsSentence,
   listJoin,
+  plainLimit,
   reasonSentence,
   rosterFit,
   rosterSpotsLine,
   simulationExplanation,
+  strategySentence,
   tradeValueSummary,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
@@ -240,30 +244,107 @@ describe("rosterFit / fitSentence — Does it fit your roster?", () => {
   });
 });
 
-describe("confidenceSummary — the backend's confidence, without internal axis names", () => {
-  it("parses the bottleneck reasons out of the statement exactly", () => {
-    const c = CONSOLIDATION.analysis.decision.confidence;
-    const s = confidenceSummary(c);
-    expect(s.level).toBe("Medium confidence");
-    expect(s.limits).toEqual([
-      "a traded asset has low or no confidence stamp",
-      "roster estimate moderately precise",
-    ]);
-    expect(s.detail).not.toMatch(/assetEvidence|precision:/);
-    // every limit is a verbatim substring of the backend statement
-    for (const l of s.limits) expect(c.statement).toContain(l);
-    expect(s.statement).toBe(c.statement);
+/** Internal identifiers a person should never see: camelCase keys or ALL-CAPS codes. */
+const INTERNAL = /[a-z][A-Z]|\b[A-Z]{3,}\b/;
+
+/**
+ * Confidence statements exactly as `src/trade/trade_decision.py::_confidence`
+ * writes them: "<Level> confidence — limited by <axis>: <why>; <axis>: <why>",
+ * with every reason string the backend can produce for a non-HIGH axis.
+ */
+const BACKEND_WHYS = {
+  coverage: [
+    "asset-only: roster and fit not considered",
+    "no current-season roster effect to measure",
+    "strategy defaulted: posture has no evidence",
+    // the coverage axis may also carry the analysis' first uncertainty line
+    "No league-scored projection for 1 traded player(s) — the roster lens abstains rather than count them as zero",
+  ],
+  margin: [
+    "a near tie",
+    "package gap SLIGHT EDGE",
+    "package gap UNFAIR",
+    "roster effect modest",
+    "roster effect None",
+    "deciding margin",
+  ],
+  agreement: ["value and roster disagree; your strategy decided"],
+  assetEvidence: [
+    "a traded asset has low or no confidence stamp",
+    "sources disagree on a traded asset",
+  ],
+  precision: ["roster estimate moderately precise", "roster estimate imprecise"],
+};
+const statementOf = (level, pairs) =>
+  `${level.charAt(0) + level.slice(1).toLowerCase()} confidence — limited by ` +
+  pairs.map(([axis, why]) => `${axis}: ${why}`).join("; ");
+
+describe("confidenceSummary — plain English, no internal identifiers", () => {
+  it("every backend reason, alone and paired, reads without internal names or all-caps codes", () => {
+    const pairs = Object.entries(BACKEND_WHYS).flatMap(([axis, whys]) =>
+      whys.map((w) => [axis, w]),
+    );
+    for (const level of ["MEDIUM", "LOW"]) {
+      for (const pair of pairs) {
+        const c = { level, bottleneck: [pair[0]], statement: statementOf(level, [pair]) };
+        const s = confidenceSummary(c);
+        expect(s.level).toBe(level === "MEDIUM" ? "Medium confidence" : "Low confidence");
+        expect(s.detail).toMatch(/^Limited because /);
+        expect(s.detail).not.toMatch(INTERNAL);
+        expect(s.detail).not.toMatch(/stamp|posture|lens/i);
+      }
+      // two axes, the second reason containing "; " (the backend's agreement why)
+      const two = [
+        ["assetEvidence", "a traded asset has low or no confidence stamp"],
+        ["agreement", "value and roster disagree; your strategy decided"],
+      ];
+      const s = confidenceSummary({
+        level,
+        bottleneck: two.map((x) => x[0]),
+        statement: statementOf(level, two),
+      });
+      expect(s.limits).toEqual([
+        "a traded player's value rests on thin or missing evidence",
+        "trade value and your lineup point different ways, so your strategy decided",
+      ]);
+    }
   });
-  it("an unexpected statement shape is shown verbatim rather than guessed", () => {
-    expect(confidenceLimits("Medium confidence — something else", ["coverage"])).toEqual([]);
+
+  it("maps each known reason to its own plain clause", () => {
+    expect(plainLimit("margin", "package gap SLIGHT EDGE")).toBe("the trade-value gap is small");
+    expect(plainLimit("margin", "a near tie")).toBe("the trade is close to even");
+    expect(plainLimit("precision", "roster estimate imprecise")).toBe(
+      "the lineup simulation is imprecise",
+    );
+    expect(plainLimit("coverage", "asset-only: roster and fit not considered")).toMatch(
+      /Asset-only analysis leaves out your roster and lineup/,
+    );
+  });
+
+  it("an unknown reason or an unparseable statement falls back to the axis' plain sentence", () => {
+    expect(plainLimit("coverage", "On the board but unpriced — X")).toMatch(
+      /could not be measured \(see Arguments, objections and uncertainty\)/,
+    );
+    expect(plainLimit("newAxis", "WHATEVER")).toMatch(/part of the evidence is weaker/);
     const s = confidenceSummary({
       level: "LOW",
       bottleneck: ["agreement"],
-      statement: "Low confidence — odd",
+      statement: "Low — odd",
     });
-    expect(s.detail).toBe("Odd");
+    expect(s.detail).toBe("Limited because the evidence points different ways.");
   });
-  it("HIGH with every axis high needs no second sentence; a gate keeps its words", () => {
+
+  it("the real fixture: plain level and limits; the verbatim statement stays for the methodology", () => {
+    const c = CONSOLIDATION.analysis.decision.confidence;
+    const s = confidenceSummary(c);
+    expect(s.level).toBe("Medium confidence");
+    expect(s.detail).toBe(
+      "Limited because a traded player's value rests on thin or missing evidence and the lineup simulation is only moderately precise.",
+    );
+    expect(s.statement).toBe(c.statement);
+  });
+
+  it("HIGH says nothing more, except the execution gate; NOT ENOUGH EVIDENCE gives no level", () => {
     expect(
       confidenceSummary({
         level: "HIGH",
@@ -277,15 +358,91 @@ describe("confidenceSummary — the backend's confidence, without internal axis 
         bottleneck: [],
         statement: "High confidence — the trade cannot be executed as built.",
       }).detail,
-    ).toBe("The trade cannot be executed as built.");
+    ).toBe("The trade cannot be made as built: no legal roster cleanup exists.");
+    const nee = confidenceSummary(PARTIAL.analysis.decision.confidence);
+    expect(nee.level).toBeNull();
+    expect(nee.detail).toBe("No confidence level is given: important information is missing.");
   });
-  it("NOT ENOUGH EVIDENCE states no level: the statement, verbatim", () => {
-    const c = PARTIAL.analysis.decision.confidence;
-    expect(confidenceSummary(c)).toEqual({
-      level: null,
-      detail: c.statement,
-      statement: c.statement,
+});
+
+describe("strategySentence — from the structured fields, never the all-caps codes", () => {
+  it("each strategy source", () => {
+    const d = CONSOLIDATION.analysis.decision.strategy;
+    expect(strategySentence(d)).toBe("Win now — your team reads as a contender.");
+    expect(
+      strategySentence({
+        source: "user",
+        label: "Long-term value",
+        inferredClassification: "PUSH",
+      }),
+    ).toBe("Long-term value — your choice; your team reads as a contender.");
+    expect(strategySentence({ source: "posture_no_evidence", label: "Balanced" })).toMatch(
+      /no evidence yet, so balanced is used/,
+    );
+    expect(strategySentence({ source: "posture_unknown" })).toMatch(/could not be read/);
+    expect(strategySentence({ source: "asset_only" })).toBe("Not used in Asset-only analysis.");
+    for (const cls of ["PUSH", "HOLD", "RETOOL", "REBUILD"]) {
+      expect(
+        strategySentence({ source: "posture", label: "Balanced", inferredClassification: cls }),
+      ).not.toMatch(INTERNAL);
+    }
+  });
+});
+
+describe("warRoomValueSummaryFor — exactly the calculator headline's totals (fix 1)", () => {
+  // Real board-shaped rows through the canonical dispatch the headline uses.
+  const priced = (name, v) => ({ name, rankDerivedValue: v, values: { full: v } });
+  const unpricedRow = (name) => ({ name, rankDerivedValue: null, values: { full: 0 } });
+  const headline = (sides) => ({
+    totals: adjustedSideTotals(sides[0].assets, sides[1].assets, TRADE_VALUE_MODE),
+    evaluation: tradeEvaluationState(sides),
+  });
+
+  it("an asset the board does not price but the user priced counts at the user's value, never 0", () => {
+    // Side A (the team's) gives a priced player; Side B gives a board-unpriced
+    // rookie the user typed a value for (the override sits on the row, as
+    // `sidesWithOverrides` builds it).
+    const sides = [
+      { assets: [priced("Mine", 3000)] },
+      { assets: [{ ...unpricedRow("Rookie"), customValue: 2500 }] },
+    ];
+    const { totals, evaluation } = headline(sides);
+    expect(evaluation.state).toBe("complete");
+    const s = warRoomValueSummaryFor({
+      sideTotals: totals,
+      mySide: 0,
+      evaluation,
+      overrideCount: 1,
     });
+    expect(s.receivingValue).toBe(2500);
+    expect(s.receivingValue).toBe(totals[1].raw);
+    expect(s.sendingValue).toBe(totals[0].raw);
+    expect(s.vaAdjustedGap).toBe(totals[1].adjusted - totals[0].adjusted);
+    expect(s.overridesApplied).toBe(true);
+  });
+
+  it("an asset with no board value and no override gives no total — it is named instead", () => {
+    const sides = [{ assets: [priced("Mine", 3000)] }, { assets: [unpricedRow("Ghost Rookie")] }];
+    const { totals, evaluation } = headline(sides);
+    expect(warRoomValueSummaryFor({ sideTotals: totals, mySide: 0, evaluation })).toEqual({
+      unpriced: ["Ghost Rookie"],
+    });
+  });
+
+  it("nothing to summarise without a team side or with an empty trade", () => {
+    const sides = [{ assets: [priced("Mine", 3000)] }, { assets: [priced("Theirs", 2000)] }];
+    const { totals, evaluation } = headline(sides);
+    expect(warRoomValueSummaryFor({ sideTotals: totals, mySide: null, evaluation })).toBeNull();
+    expect(
+      warRoomValueSummaryFor({
+        sideTotals: totals,
+        mySide: 0,
+        evaluation: tradeEvaluationState([{ assets: [] }, { assets: [] }]),
+      }),
+    ).toBeNull();
+    expect(
+      warRoomValueSummaryFor({ sideTotals: totals, mySide: 0, evaluation }).overridesApplied,
+    ).toBe(false);
   });
 });
 
@@ -343,8 +500,21 @@ describe("decisionReasons / reasonSentence — two distinct reasons, the backend
     ).toBe("Trade value is close to even.");
     const strategy = d.reasons.find((r) => r.component === "strategy");
     expect(reasonSentence(strategy, { strategy: d.strategy })).toBe(
-      `Your strategy decided it: ${d.strategy.label}. ${d.strategy.reasoning}`,
+      "Your strategy decided it: win now — your team reads as a contender.",
     );
+    // A known component never falls back to the backend's raw text (it
+    // carries all-caps band labels): an unrecognised band still reads plainly.
+    expect(
+      reasonSentence({
+        component: "objectiveValue",
+        stance: "for",
+        text: "+1,440 package value — LOPSIDED band",
+        evidence: { band: { level: "mystery" } },
+      }),
+    ).toBe("You come out ahead on trade value.");
+    for (const r of d.reasons) {
+      expect(reasonSentence(r, { strategy: d.strategy })).not.toMatch(INTERNAL);
+    }
     // unrecognised -> the backend's words, verbatim
     expect(reasonSentence({ component: "evidence", text: "Missing X" })).toBe("Missing X");
     expect(reasonSentence(null)).toBeNull();
@@ -365,6 +535,27 @@ describe("expandable detail", () => {
         players: [{ role: "incoming", name: "X", lineupEntryPctAfter: null }],
       }),
     ).toEqual([]);
+  });
+
+  it("keeps the availability note beside the lineup share whenever the backend gives one (P0)", () => {
+    const players = [
+      {
+        role: "incoming",
+        name: "Hurt Receiver",
+        lineupEntryPctAfter: 41.6,
+        availability: { weeks: 12, eligibleWeeks: 9, unavailableWeeks: 3, uncertainWeeks: 1 },
+      },
+      {
+        role: "incoming",
+        name: "Season Over",
+        lineupEntryPctAfter: 0,
+        availability: { weeks: 12, eligibleWeeks: 0, unavailableWeeks: 12 },
+      },
+    ];
+    expect(incomingLineupSentences({ players })).toEqual([
+      "Hurt Receiver makes your best lineup in 42% of simulated weeks (availability: out 3 of 12 weeks, uncertain 1).",
+      "Season Over makes your best lineup in 0% of simulated weeks (availability: out all 12 remaining weeks).",
+    ]);
   });
   it("the simulation error is explained as a model estimate, with the payload's numbers", () => {
     const d = roster(AJ_BROWN).detail;

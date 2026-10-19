@@ -110,7 +110,11 @@ test("trade war room: recommendation, three plain answers, Asset-Only round trip
     await expect(room.locator(`[data-lens="${lens}"]`)).toBeVisible();
   }
   await room.getByRole("button", { name: "Sources, simulations and methodology" }).click();
-  await expect(room.getByTestId("decision-bands")).toContainText("Graded leaning: Make the trade");
+  await expect(room.getByTestId("decision-bands")).toContainText(
+    consolidation.analysis.decision.bands.version,
+  );
+  // One official answer: no legacy graded leaning anywhere in the War Room.
+  await expect(room).not.toContainText(/leaning/i);
   await room.getByRole("button", { name: "Arguments, objections and uncertainty" }).click();
   await expect(room.getByText(consolidation.analysis.reasonsFor[0])).toBeVisible();
   // The page asked about THIS trade for THIS team.

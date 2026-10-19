@@ -24,6 +24,7 @@
  */
 
 import {
+  availabilityNote,
   formatPctPoint,
   formatSignedValue,
   formatValue,
@@ -92,32 +93,122 @@ export function confidenceLimits(statement, bottleneck) {
 }
 
 /**
+ * What each limiting axis means, in plain English.  Keyed on the reason
+ * strings `src/trade/trade_decision.py::_confidence` writes (matched by their
+ * stable openings, so wording tweaks that keep the opening still map); an
+ * unrecognised reason falls back to the axis' own plain sentence -- never to
+ * the raw string, which carries internal axis names and all-caps band labels.
+ */
+const LIMIT_WORDS = [
+  [/^asset-only/i, "this Asset-only analysis leaves out your roster and lineup"],
+  [/^no current-season roster effect/i, "there is no current-season lineup effect to measure"],
+  [
+    /^strategy defaulted/i,
+    "your strategy fell back to balanced because your team's direction has no evidence yet",
+  ],
+  [/^a near tie/i, "the trade is close to even"],
+  [/^package gap/i, "the trade-value gap is small"],
+  [/^roster effect/i, "the change to your lineup is modest"],
+  [/^deciding margin/i, "the deciding margin is modest"],
+  [
+    /^value and roster disagree/i,
+    "trade value and your lineup point different ways, so your strategy decided",
+  ],
+  [/low or no confidence stamp/i, "a traded player's value rests on thin or missing evidence"],
+  [/^sources disagree/i, "the ranking sources disagree about a traded player's value"],
+  [/moderately precise/i, "the lineup simulation is only moderately precise"],
+  [/imprecise/i, "the lineup simulation is imprecise"],
+];
+const AXIS_WORDS = {
+  coverage:
+    "part of the analysis could not be measured (see Arguments, objections and uncertainty)",
+  margin: "the deciding margin is narrow",
+  agreement: "the evidence points different ways",
+  assetEvidence: "the evidence behind a traded player's value is thin",
+  precision: "the lineup simulation is not very precise",
+  evidence: "important information is missing",
+};
+const GENERIC_LIMIT = "part of the evidence is weaker (see Sources, simulations and methodology)";
+
+/** One limiting axis as a plain clause.  The coverage axis may carry an
+ *  arbitrary uncertainty line, so only its known reasons map directly. */
+export function plainLimit(axis, why) {
+  const w = typeof why === "string" ? why.trim() : "";
+  for (const [re, words] of LIMIT_WORDS) if (w && re.test(w)) return words;
+  return AXIS_WORDS[axis] || GENERIC_LIMIT;
+}
+
+/**
  * `decision.confidence` as display words.
  *   level     "Medium confidence" (null when the backend states no level,
  *             e.g. NOT ENOUGH EVIDENCE)
- *   detail    what limits it, in the backend's own words, or the statement
- *             verbatim when there is no level or it cannot be parsed
- *   statement the full statement, verbatim (for the methodology view)
+ *   detail    what limits it, in plain English (no internal axis names, no
+ *             all-caps band labels); null when nothing needs saying
+ *   limits    the plain clauses, one per limiting axis, in the backend's order
+ *   statement the backend's full statement, verbatim (methodology view only)
  * Never a probability: the backend says so (`isProbability: false`).
  */
 export function confidenceSummary(confidence) {
   if (!confidence || typeof confidence !== "object") return null;
   const statement = typeof confidence.statement === "string" ? confidence.statement : "";
   const level = CONFIDENCE_LEVEL_WORDS[confidence.level] || null;
-  if (!level) return { level: null, detail: statement || null, statement };
-  const limits = confidenceLimits(statement, confidence.bottleneck);
-  if (limits.length) {
-    return { level, detail: `Limited by: ${limits.join("; ")}.`, limits, statement };
+  if (!level) {
+    return {
+      level: null,
+      detail: "No confidence level is given: important information is missing.",
+      limits: [],
+      statement,
+    };
   }
-  // "High confidence — every axis is high." needs no second sentence; any
-  // other unlimited statement keeps its own words after the dash.
-  const dash = statement.indexOf(" — ");
-  const rest = dash >= 0 ? statement.slice(dash + 3).trim() : "";
-  const detail =
-    !rest || /^every axis is high\.?$/i.test(rest)
-      ? null
-      : `${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+  const bottleneck = Array.isArray(confidence.bottleneck) ? confidence.bottleneck : [];
+  if (level !== CONFIDENCE_LEVEL_WORDS.HIGH && bottleneck.length) {
+    const whys = confidenceLimits(statement, bottleneck);
+    const limits = [
+      ...new Set(bottleneck.map((axis, i) => plainLimit(axis, whys.length ? whys[i] : null))),
+    ];
+    const text = listJoin(limits);
+    return { level, detail: `Limited because ${text}.`, limits, statement };
+  }
+  // HIGH: the only second sentence the backend writes is the execution gate.
+  const detail = /cannot be executed as built/i.test(statement)
+    ? "The trade cannot be made as built: no legal roster cleanup exists."
+    : null;
   return { level, detail, limits: [], statement };
+}
+
+/** How the backend's competitive-posture labels read to a person. */
+const POSTURE_PLAIN = {
+  PUSH: "a contender",
+  HOLD: "too close to call",
+  RETOOL: "retooling",
+  REBUILD: "rebuilding",
+};
+
+/**
+ * `decision.strategy` as one plain sentence, built from its structured fields
+ * (`source`, `label`, `inferredClassification`) rather than its reasoning
+ * string, which carries all-caps posture codes ("contender (PUSH)").
+ */
+export function strategySentence(strategy) {
+  if (!strategy || typeof strategy !== "object") return null;
+  const label = strategy.label || null;
+  const posture = POSTURE_PLAIN[strategy.inferredClassification] || null;
+  switch (strategy.source) {
+    case "user":
+      return `${label || "Your strategy"} — your choice${
+        posture ? `; your team reads as ${posture}` : ""
+      }.`;
+    case "posture":
+      return `${label} — your team reads as ${posture || "measured by its competitive window"}.`;
+    case "posture_no_evidence":
+      return `${label} — your team's direction has no evidence yet, so balanced is used.`;
+    case "posture_unknown":
+      return "No strategy — your team's direction could not be read. Choose one with the Strategy control.";
+    case "asset_only":
+      return "Not used in Asset-only analysis.";
+    default:
+      return label ? `${label}.` : null;
+  }
 }
 
 // ── Reasons ───────────────────────────────────────────────────────────────
@@ -184,31 +275,34 @@ export function reasonSentence(reason, { strategy = null } = {}) {
       const rel = isNum(ev.band?.relativePct)
         ? ` (${ev.band.relativePct.toFixed(1)}% of the larger package)`
         : "";
-      if (reason.stance === "for" && BAND_PHRASE[level])
-        return `You come out ahead on trade value${cut} — ${BAND_PHRASE[level]} in your favor${rel}.`;
-      if (reason.stance === "against" && BAND_PHRASE[level])
-        return `You come out behind on trade value${cut} — ${BAND_PHRASE[level]} against you${rel}.`;
-      if (reason.stance === "neutral" && level === "fair")
-        return `Trade value is close to even${cut}${rel}.`;
-      return verbatim;
+      const band = BAND_PHRASE[level];
+      if (reason.stance === "for")
+        return `You come out ahead on trade value${cut}${band ? ` — ${band} in your favor` : ""}${rel}.`;
+      if (reason.stance === "against")
+        return `You come out behind on trade value${cut}${band ? ` — ${band} against you` : ""}${rel}.`;
+      return `Trade value is close to even${cut}${rel}.`;
     }
     case "rosterBenefit": {
       const much = ev.magnitude === "large" ? "much " : "";
       if (reason.stance === "for") return `Your projected weekly lineup gets ${much}stronger.`;
       if (reason.stance === "against") return `Your projected weekly lineup gets ${much}weaker.`;
-      if (reason.stance === "neutral") return "Your projected weekly lineup barely changes.";
-      return verbatim;
+      return "Your projected weekly lineup barely changes.";
     }
     case "feasibility":
-      return fitSentence(ev.state, ev.forcedDrops || []) || verbatim;
-    case "strategy":
-      if (strategy?.label) {
-        return `Your strategy decided it: ${strategy.label}.${
-          strategy.reasoning ? ` ${strategy.reasoning}` : ""
-        }`;
-      }
-      return verbatim;
+      return (
+        fitSentence(ev.state, ev.forcedDrops || []) ||
+        (reason.stance === "against"
+          ? "Fitting it on your roster counts against it."
+          : "It fits your roster.")
+      );
+    case "strategy": {
+      const s = strategySentence(strategy);
+      return s
+        ? `Your strategy decided it: ${s.charAt(0).toLowerCase()}${s.slice(1)}`
+        : "Your strategy decided it.";
+    }
     default:
+      // Gates and missing evidence: the backend's own plain sentence.
       return verbatim;
   }
 }
@@ -372,10 +466,14 @@ export function rosterFit(lens) {
 export function incomingLineupSentences(rosterDetail) {
   return (rosterDetail?.players || [])
     .filter((p) => p?.role === "incoming" && isNum(p.lineupEntryPctAfter))
-    .map(
-      (p) =>
-        `${p.name} makes your best lineup in ${formatPctPoint(p.lineupEntryPctAfter)} of simulated weeks.`,
-    );
+    .map((p) => {
+      // Owner master package 2026-10-17 (P0): a lineup share is over the
+      // league's REMAINING weeks, and a player who cannot play some of them
+      // says so beside it -- never a bare percentage that reads as health.
+      const note = availabilityNote(p);
+      const avail = note ? ` (availability: ${note.charAt(0).toLowerCase()}${note.slice(1)})` : "";
+      return `${p.name} makes your best lineup in ${formatPctPoint(p.lineupEntryPctAfter)} of simulated weeks${avail}.`;
+    });
 }
 
 export const ROLE_PLAIN_WORDS = {

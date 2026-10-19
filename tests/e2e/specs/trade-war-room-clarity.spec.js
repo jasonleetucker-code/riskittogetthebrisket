@@ -173,7 +173,14 @@ test("war room clarity: value at once while loading, plain answer, detail, axe, 
   await expect(room.getByText("Analyzing this trade…")).toBeVisible();
   await expect(room.getByTestId("war-room-trade-value")).toBeVisible();
   await expect(room.locator('[data-lens="market"]')).toContainText(
-    "while the personalized analysis finishes",
+    "The calculator's totals above. The personalized analysis is still running.",
+  );
+  // ...and they ARE the calculator's totals: the same raw figures the
+  // Immediate result table shows (Side A is the team's, so it is "send").
+  const rawRow = page.getByTestId("trade-immediate-result").getByRole("row", { name: /^Raw/ });
+  const [, sideA, sideB] = await rawRow.locator("th, td").allInnerTexts();
+  await expect(room.getByTestId("war-room-trade-value")).toContainText(
+    `You receive ${sideB.trim()} and send ${sideA.trim()}`,
   );
   await expect(room.getByTestId("decision-headline")).toHaveCount(0);
   await expect(room).not.toContainText(/MAKE THE TRADE|TOO CLOSE|NOT ENOUGH EVIDENCE/);
@@ -194,6 +201,12 @@ test("war room clarity: value at once while loading, plain answer, detail, axe, 
   await expect(room).toHaveAttribute("data-war-room", "ok", { timeout: 30_000 });
   await expect(room.getByTestId("decision-headline")).toHaveText(EXPECT.headline);
   await expect(room.getByTestId("decision-reasons").getByRole("listitem")).toHaveCount(2);
+  // Confidence in plain English: the level, then what limits it — never the
+  // backend's internal axis names or all-caps codes.
+  await expect(room.getByTestId("decision-confidence")).toContainText(/^Medium confidence\./);
+  await expect(room.getByTestId("decision-confidence")).not.toContainText(
+    /assetEvidence|[A-Z]{3,}/,
+  );
   await expect(room.getByTestId("war-room-trade-value")).toHaveText(EXPECT.value);
   await expect(room.getByTestId("war-room-weekly-impact")).toHaveText(EXPECT.impact);
   await expect(room.getByTestId("war-room-roster-fit")).toHaveText(EXPECT.fit);

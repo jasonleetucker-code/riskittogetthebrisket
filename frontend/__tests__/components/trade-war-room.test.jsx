@@ -26,6 +26,7 @@ import {
   decisionReasons,
   incomingLineupSentences,
   reasonSentence,
+  strategySentence,
   tradeValueSummary,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
@@ -81,6 +82,15 @@ async function renderWith(fixture, props = {}) {
   );
   await settle();
   return view;
+}
+
+/** Text as a reader meets it: text nodes joined by spaces (textContent glues
+ *  adjacent elements together, which would fake camelCase matches). */
+function readText(el) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const parts = [];
+  while (walker.nextNode()) parts.push(walker.currentNode.nodeValue);
+  return parts.join(" ");
 }
 
 function row(name) {
@@ -325,7 +335,9 @@ describe("TradeWarRoom — the packet, in plain English", () => {
     openSection("Sources, simulations and methodology");
     expect(screen.getByText("Team direction (context, not a vote)")).toBeInTheDocument();
     expect(screen.getByText(/^Push — prioritise/)).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Posture split" })).toHaveTextContent("PUSH: 91%");
+    expect(screen.getByRole("list", { name: "Posture split" })).toHaveTextContent(
+      "Push (contender): 91%",
+    );
     expect(screen.getByText(/never counted in it/)).toBeInTheDocument();
   });
 
@@ -453,7 +465,9 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     expect(screen.getByTestId("war-room-trade-value")).toHaveTextContent(
       tradeValueSummary(summary).sentence,
     );
-    expect(row("market")).toHaveTextContent(/while the personalized analysis finishes/);
+    expect(row("market")).toHaveTextContent(
+      "The calculator's totals above. The personalized analysis is still running.",
+    );
     expect(within(row("roster")).getByText("Calculating…")).toBeInTheDocument();
     expect(within(row("feasibility")).getByText("Checking…")).toBeInTheDocument();
     expect(screen.queryByTestId("decision-headline")).toBeNull();
@@ -585,6 +599,85 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     ).toBeTruthy();
   });
 
+  it("with value overrides, the summary says they are included and that the analysis may differ", async () => {
+    globalThis.fetch = vi.fn(() => new Promise(() => {}));
+    render(
+      <TradeWarRoom
+        request={req(AJ_BROWN)}
+        leagueKey="main"
+        useTeamContext
+        valueSummary={{ ...summary, overridesApplied: true }}
+      />,
+    );
+    await settle();
+    expect(row("market")).toHaveTextContent(
+      "The calculator's totals above, including your value overrides. The personalized analysis, still running, prices every asset at its board value, so its figure can differ.",
+    );
+  });
+
+  it("an unpriced asset gets no total, named — never a 0", async () => {
+    globalThis.fetch = vi.fn(() => new Promise(() => {}));
+    render(
+      <TradeWarRoom
+        request={req(AJ_BROWN)}
+        leagueKey="main"
+        useTeamContext
+        valueSummary={{ unpriced: ["Ghost Rookie"] }}
+      />,
+    );
+    await settle();
+    expect(row("market")).toHaveTextContent(
+      "No total yet: Ghost Rookie has no value on the board (unknown, not zero).",
+    );
+    expect(screen.queryByTestId("war-room-trade-value")).toBeNull();
+    expect(row("market").textContent).not.toMatch(/calculator's totals/);
+  });
+
+  it("a failed analysis with no summary says only that it did not finish", async () => {
+    globalThis.fetch = vi.fn(async () => ok({ error: "boom" }, 500));
+    render(<TradeWarRoom request={req(AJ_BROWN)} leagueKey="main" useTeamContext />);
+    await settle();
+    expect(
+      within(row("market")).getByText("Unavailable — the analysis did not finish."),
+    ).toBeTruthy();
+    expect(row("market").textContent).not.toMatch(/calculator's totals/);
+  });
+
+  it("the biggest uncertainty is not repeated at a glance; it leads the uncertainty list", async () => {
+    const p = structuredClone(CONSOLIDATION);
+    p.analysis.topUncertainty = "One projection is stale";
+    await renderWith(p);
+    expect(screen.queryByText(/Biggest uncertainty/)).toBeNull();
+    expect(screen.queryByText("One projection is stale")).toBeNull();
+    openSection("Arguments, objections and uncertainty");
+    const items = within(document.querySelector('[data-list="uncertain"]')).getAllByRole(
+      "listitem",
+    );
+    expect(items[0]).toHaveTextContent("One projection is stale");
+  });
+
+  it("nothing visible at a glance carries an internal identifier or an all-caps code", async () => {
+    const INTERNAL =
+      /[a-z][A-Z]|\b(?!YES\b|NO\b|NOT\b|ENOUGH\b|EVIDENCE\b|MAKE\b|THE\b|TRADE\b|TOO\b|CLOSE\b|DO\b)[A-Z]{3,}\b/;
+    for (const fixture of [CONSOLIDATION, FORCED, PARTIAL, ASSET_ONLY, AJ_BROWN]) {
+      const view = await renderWith(fixture);
+      for (const id of ["decision-confidence", "decision-reasons", "decision-missing"]) {
+        const el = screen.queryByTestId(id);
+        if (el) expect(readText(el)).not.toMatch(INTERNAL);
+      }
+      expect(readText(document.querySelector("dl"))).not.toMatch(INTERNAL);
+      view.unmount();
+    }
+  });
+
+  it("the Value Adjustment slot also renders in the 3+-team view", async () => {
+    render(
+      <TradeWarRoom request={null} sideCount={3} vaSlot={<div data-testid="va-slot">VA</div>} />,
+    );
+    await settle();
+    expect(screen.getByTestId("va-slot")).toBeInTheDocument();
+  });
+
   it("a 3+-team trade gets an explanation, never a fabricated YES / NO", async () => {
     globalThis.fetch = vi.fn();
     const onDecision = vi.fn();
@@ -661,7 +754,9 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     for (const g of d.missingEvidence) {
       expect(within(screen.getByTestId("decision-missing")).getByText(g.text)).toBeInTheDocument();
     }
-    expect(screen.getByTestId("decision-confidence")).toHaveTextContent(d.confidence.statement);
+    expect(screen.getByTestId("decision-confidence")).toHaveTextContent(
+      "No confidence level is given: important information is missing.",
+    );
     expect(screen.getByTestId("decision-confidence").textContent).not.toMatch(/High|Medium|Low/);
   });
 
@@ -669,8 +764,8 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     await renderWith(CONSOLIDATION);
     const d = CONSOLIDATION.analysis.decision;
     openSection("Arguments, objections and uncertainty");
-    expect(screen.getByTestId("decision-strategy")).toHaveTextContent(d.strategy.label);
-    expect(screen.getByTestId("decision-strategy")).toHaveTextContent(d.strategy.reasoning);
+    expect(screen.getByTestId("decision-strategy")).toHaveTextContent(strategySentence(d.strategy));
+    expect(screen.getByTestId("decision-strategy").textContent).not.toMatch(/PUSH/);
     fireEvent.click(screen.getByRole("radio", { name: "Long-term" }));
     await settle();
     const bodies = globalThis.fetch.mock.calls.map((c) => JSON.parse(c[1].body));
@@ -690,8 +785,29 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     const record = screen.getByTestId("decision-record");
     for (const r of d.reasons) expect(record).toHaveTextContent(r.text);
     expect(screen.getByTestId("decision-bands")).toHaveTextContent(d.bands.version);
-    expect(screen.getByTestId("decision-bands")).toHaveTextContent(
-      "Graded leaning: Make the trade",
+  });
+
+  it("no second verdict: the legacy graded leaning is not shown anywhere in the War Room", async () => {
+    // A leaning that disagrees with the decision must not be able to read as
+    // a recommendation (owner directive 2026-10-19: one official answer).
+    const p = structuredClone(CONSOLIDATION);
+    p.analysis.decision.leaning = "PASS";
+    const { container } = await renderWith(p);
+    for (const name of [
+      "Lineup impact, player by player",
+      "Your lineup before and after",
+      "Arguments, objections and uncertainty",
+      "Sources, simulations and methodology",
+    ]) {
+      openSection(name);
+    }
+    // Everything except the official headline badge.
+    const badge = screen.getByTestId("decision-headline");
+    const rest = readText(container).replace(badge.textContent, "");
+    expect(rest).not.toMatch(/leaning/i);
+    expect(rest).not.toMatch(/Make the trade|Lean make|Lean pass|Too close \/ depends|\bPass\b/);
+    expect(screen.getByTestId("decision-headline")).toHaveTextContent(
+      p.analysis.decision.headlineText,
     );
   });
 

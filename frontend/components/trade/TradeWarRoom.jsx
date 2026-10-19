@@ -38,7 +38,6 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge, Banner, Button, Panel, SegmentedControl } from "@/components/ds";
 import {
   DECISION_TONES,
-  RECOMMENDATION_LABELS,
   STRATEGY_CHOICES,
   analyzeRequestKey,
   availabilityNote,
@@ -52,7 +51,6 @@ import {
   overrideBasisNotice,
   postureSummary,
   rosterImpactRows,
-  strategySummary,
   unavailableText,
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
@@ -67,6 +65,7 @@ import {
   reasonSentence,
   rosterFit,
   simulationExplanation,
+  strategySentence,
   tradeValueSummary,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
@@ -99,6 +98,14 @@ const DIMENSION_WORDS = {
 const DIMENSION_REASON_WORDS = {
   unaudited_model: "its model has not passed review yet, so it is left out",
   counterfactual_not_wired: "not connected to the analysis yet",
+};
+
+/** The posture classes, named for a person (never the all-caps codes). */
+const POSTURE_LABELS = {
+  PUSH: "Push (contender)",
+  HOLD: "Hold (too close to call)",
+  RETOOL: "Retool",
+  REBUILD: "Rebuild",
 };
 
 function humanizeKey(key) {
@@ -295,10 +302,19 @@ function BeforeAfter({ rosterDetail }) {
 function Arguments({ analysis, showStrategy }) {
   const decision = analysis.decision || {};
   const strategy = decision.strategy;
+  // The biggest uncertainty leads its list here, once -- it is not repeated
+  // beside the confidence line at a glance.
+  const uncertain = [
+    ...new Set(
+      [analysis.topUncertainty, ...(analysis.uncertainty || [])].filter(
+        (x) => typeof x === "string" && x,
+      ),
+    ),
+  ];
   const lists = [
     { key: "for", title: "Points in favor", items: analysis.reasonsFor },
     { key: "against", title: "Points against", items: analysis.reasonsAgainst },
-    { key: "uncertain", title: "What is uncertain", items: analysis.uncertainty },
+    { key: "uncertain", title: "What is uncertain", items: uncertain },
   ].filter((l) => Array.isArray(l.items) && l.items.length);
   return (
     <div className={styles.detailBody}>
@@ -320,8 +336,7 @@ function Arguments({ analysis, showStrategy }) {
         <section className={styles.detailSection} data-testid="decision-strategy">
           <h4 className={styles.detailTitle}>Strategy</h4>
           <p>
-            {strategy?.label ? `${strategy.label}. ` : ""}
-            {strategySummary(strategy)} Your strategy only matters when trade value and your lineup
+            {strategySentence(strategy)} Your strategy only matters when trade value and your lineup
             point different ways; change it with the Strategy control above.
           </p>
         </section>
@@ -355,7 +370,6 @@ function Methodology({ analysis, raw }) {
         <p data-testid="decision-bands">
           Fairness bands {bands.version} ({String(bands.status || "").toLowerCase()}): a gap is fair
           under {bands.absoluteMinimum} points or {bands.slightPct}% of the larger adjusted package.
-          Graded leaning: {RECOMMENDATION_LABELS[decision.leaning] || decision.leaning}.
         </p>
         {Array.isArray(decision.reasons) && decision.reasons.length ? (
           <div data-testid="decision-record">
@@ -445,7 +459,7 @@ function Methodology({ analysis, raw }) {
           <ul className={styles.plainList} aria-label="Posture split">
             {posture.split.map((p) => (
               <li key={p.label}>
-                {p.label}: {p.pct ?? "—"}
+                {POSTURE_LABELS[p.label] || p.label}: {p.pct ?? "—"}
               </li>
             ))}
           </ul>
@@ -723,6 +737,7 @@ export default function TradeWarRoom({
           your side of a two-team trade, so it cannot account for every side here. The result above
           compares each team&apos;s net trade value.
         </p>
+        {vaSlot}
       </section>
     );
   }
@@ -792,19 +807,33 @@ export default function TradeWarRoom({
   const value = analysis
     ? tradeValueSummary(marketLens?.available ? marketLens.detail : null)
     : tradeValueSummary(valueSummary);
-  const valueSource = analysis
-    ? null
-    : value
-      ? failed
-        ? "From the calculator's totals above. The personalized analysis did not finish."
-        : "From the calculator's totals above, while the personalized analysis finishes."
-      : null;
+  // Where the shown trade value comes from, said truthfully in every case:
+  // the summary is EXACTLY the calculator headline's totals (overrides
+  // included); the analysis prices every asset at its board value.
+  const summaryUnpriced = Array.isArray(valueSummary?.unpriced) ? valueSummary.unpriced : null;
+  const valueSource =
+    analysis || !value
+      ? null
+      : [
+          valueSummary?.overridesApplied
+            ? "The calculator's totals above, including your value overrides."
+            : "The calculator's totals above.",
+          failed
+            ? "The personalized analysis did not finish."
+            : valueSummary?.overridesApplied
+              ? "The personalized analysis, still running, prices every asset at its board value, so its figure can differ."
+              : "The personalized analysis is still running.",
+        ].join(" ");
   const notPriced = analysis ? notPricedNames(analysis, answer) : [];
   const valueMissing = analysis
     ? unavailableText(marketLens?.unavailableReason)
-    : failed
-      ? "Unavailable — the analysis did not finish."
-      : "Waiting for the analysis.";
+    : summaryUnpriced
+      ? `No total yet: ${listJoin(summaryUnpriced)} ${
+          summaryUnpriced.length === 1 ? "has" : "have"
+        } no value on the board (unknown, not zero).`
+      : failed
+        ? "Unavailable — the analysis did not finish."
+        : "Waiting for the analysis.";
   const impact = analysis ? weeklyImpact(analysis.lenses?.roster) : null;
   const fit = analysis ? rosterFit(analysis.lenses?.feasibility) : null;
   const pendingWord = failed ? "Unavailable — the analysis did not finish." : null;
@@ -914,11 +943,6 @@ export default function TradeWarRoom({
             ))}
           </ul>
         </div>
-      ) : null}
-      {analysis?.topUncertainty && !missing.length ? (
-        <p className={styles.uncertain} data-testid="war-room-top-uncertainty">
-          <span className={styles.whyRole}>Biggest uncertainty:</span> {analysis.topUncertainty}
-        </p>
       ) : null}
 
       {/* ── Am I gaining or losing value / does it help my lineup / does it fit? ── */}

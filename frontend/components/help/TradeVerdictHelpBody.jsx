@@ -116,10 +116,13 @@ export default function TradeVerdictHelpBody() {
       <h3>What is uncertain or not included</h3>
       <ul>
         <li>
-          Not included yet: competitive posture (contender or rebuilder),
-          current-season playoff odds, real comparable trades and measured
-          value-uncertainty bands. The War Room lists them under &quot;Sources,
-          simulations and methodology&quot;.
+          Your team&apos;s competitive direction (contender, retooling or
+          rebuilding) sets the strategy but is never counted as a vote, and
+          comparable real trades are shown for reference when the trade ledger
+          has some — they never change the recommendation. Not included yet:
+          the change in this season&apos;s playoff and title odds, and measured
+          value-uncertainty ranges. The War Room lists what is left out under
+          &quot;Sources, simulations and methodology&quot;.
         </li>
         <li>
           The Monte Carlo check, where shown, assumes a ±15% range around any

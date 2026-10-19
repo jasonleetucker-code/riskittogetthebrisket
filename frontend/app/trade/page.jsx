@@ -61,7 +61,7 @@ import {
 import {
   resolveTeamSide,
   tradeRequestForTeam,
-  valueSummaryFromSideTotals,
+  warRoomValueSummaryFor,
 } from "@/lib/trade-war-room";
 import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
 import {
@@ -1903,29 +1903,22 @@ export default function TradePage() {
     [sides, selectedTeam, teamRosterNames, explicitMySide],
   );
   // The War Room's immediate trade-value summary (owner directive 2026-10-19,
-  // Part 4): the calculator's OWN canonical totals for the selected team's
-  // side, shown at once while the personalized analysis runs -- never a
-  // YES / NO.  The analysis prices on the canonical board without builder
-  // overrides, so with overrides the summary is the same totals over the bare
-  // sides (one more call into the canonical dispatch, not a second model).
-  // An empty or incomplete trade has no summary: an unpriced side is not 0.
-  const warRoomValueSummary = useMemo(() => {
-    if (!warRoomRequest || sides.length !== 2 || tradeIsEmpty || tradeIsIncomplete) return null;
-    const totals =
-      sidesWithOverrides === sides
-        ? sideTotals
-        : adjustedSideTotals(sides[0].assets, sides[1].assets, valueMode, settings);
-    return valueSummaryFromSideTotals(totals, warRoomRequest.mySide);
-  }, [
-    warRoomRequest,
-    sides,
-    sidesWithOverrides,
-    sideTotals,
-    tradeIsEmpty,
-    tradeIsIncomplete,
-    valueMode,
-    settings,
-  ]);
+  // Part 4): EXACTLY the calculator headline's totals for the selected team's
+  // side (overrides included), shown while the personalized analysis runs --
+  // never a YES / NO.  An asset with no board value and no override gets no
+  // total at all (MISSING IS NEVER ZERO); `warRoomValueSummaryFor` decides.
+  const warRoomValueSummary = useMemo(
+    () =>
+      sides.length === 2 && warRoomRequest
+        ? warRoomValueSummaryFor({
+            sideTotals,
+            mySide: warRoomRequest.mySide,
+            evaluation: evalState,
+            overrideCount: Object.keys(valueOverrides).length,
+          })
+        : null,
+    [sides.length, warRoomRequest, sideTotals, evalState, valueOverrides],
+  );
   // Both sides hold assets but nothing says which one is the team's: ask.
   const sideChoiceNeeded =
     Boolean(selectedTeam) &&
