@@ -615,34 +615,92 @@ def _stale_board(root: Path, *, age: timedelta) -> dict[str, bytes]:
     return {p.name: p.read_bytes() for p in state_dir.iterdir()}
 
 
+@contextlib.contextmanager
+def _freshness_schedule(v2: bool):
+    """The freshness RULE under test, through the real flag (env + reload)."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2", "1" if v2 else "0")
+        feature_flags.reload()
+        try:
+            yield
+        finally:
+            mp.delenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2")
+            feature_flags.reload()
+
+
+def _signals_metas(contract: dict) -> list[dict]:
+    return [
+        r["sourceRankMeta"]["signalsSf"]
+        for r in contract["playersArray"]
+        if (r.get("sourceRankMeta") or {}).get("signalsSf")
+    ]
+
+
 class TestExpiredSession:
     """Auth expiry end to end.  The collector stops making requests (pinned in
     tests/sources/test_signals_values.py), so the board on disk is the last
     good one and the scrape state keeps its old clocks.  The contract still
     builds and Signals' weight follows that TRUE age — building the board
-    refreshes no clock, and a board past its cadence budget stops voting
-    rather than passing as current."""
+    refreshes no clock, and a board past its freshness limit stops voting
+    rather than passing as current.
 
-    def test_a_few_days_stale_still_votes_at_a_decayed_weight(self, tmp_path):
+    Under the owner's step schedule (default; owner directive 2026-10-19 §2)
+    the age is whole days since the vendor's own publication: 0-7 days full
+    weight, 8-14 75%, ..., >30 days no vote.  The v1 cadence-curve rollback
+    keeps its own pins (a few days decays a 24 h-cadence board; weeks stop
+    it)."""
+
+    def test_a_few_days_stale_keeps_full_weight_under_the_owner_schedule(self, tmp_path):
         before = _stale_board(tmp_path, age=timedelta(hours=60))
         contract = _build(tmp_path)
         assert contract["privateSourceAvailability"]["signalsSf"]["votes"] is True
-        metas = [
-            r["sourceRankMeta"]["signalsSf"]
-            for r in contract["playersArray"]
-            if (r.get("sourceRankMeta") or {}).get("signalsSf")
-        ]
+        metas = _signals_metas(contract)
+        assert metas and any(_voted(m) for m in metas)
+        # Day 2 of the schedule: 100% — no freshness reduction is stamped.
+        assert all(m.get("freshness", 1.0) == 1.0 for m in metas)
+        state_dir = tmp_path / "data" / "scrape_state"
+        assert {p.name: p.read_bytes() for p in state_dir.iterdir()} == before
+
+    def test_ten_days_stale_votes_at_the_second_step(self, tmp_path):
+        before = _stale_board(tmp_path, age=timedelta(days=10))
+        contract = _build(tmp_path)
+        metas = _signals_metas(contract)
         assert metas and any(_voted(m) for m in metas)
         # The age is measured against the build's own as-of clock, so it is
         # the stamped age that is asserted, not wall-clock arithmetic.
+        assert all(m["freshness"] == 0.75 for m in metas)
+        assert all(240 <= m["freshnessAgeHours"] < 264 for m in metas)
+        state_dir = tmp_path / "data" / "scrape_state"
+        assert {p.name: p.read_bytes() for p in state_dir.iterdir()} == before
+
+    def test_a_few_days_stale_decays_under_the_v1_rollback(self, tmp_path):
+        before = _stale_board(tmp_path, age=timedelta(hours=60))
+        with _freshness_schedule(v2=False):
+            contract = _build(tmp_path)
+        assert contract["privateSourceAvailability"]["signalsSf"]["votes"] is True
+        metas = _signals_metas(contract)
+        assert metas and any(_voted(m) for m in metas)
         assert all(0.0 < m["freshness"] < 1.0 for m in metas)
         assert all(m["freshnessAgeHours"] > 24 for m in metas)
         state_dir = tmp_path / "data" / "scrape_state"
         assert {p.name: p.read_bytes() for p in state_dir.iterdir()} == before
 
-    def test_weeks_stale_stops_voting_but_keeps_its_evidence(self, tmp_path):
-        before = _stale_board(tmp_path, age=timedelta(days=20))
+    def test_older_than_thirty_days_stops_voting_but_keeps_its_evidence(self, tmp_path):
+        before = _stale_board(tmp_path, age=timedelta(days=35))
         contract = _build(tmp_path)
+        row = _rows(contract)[_off(0)]
+        meta = row["sourceRankMeta"]["signalsSf"]
+        assert not _voted(meta)
+        assert meta["freshness"] == 0.0 and meta["freshnessAgeHours"] > 30 * 24
+        assert meta["excludedReason"] == "freshness_or_health_zero_weight"
+        assert row["sourceNativeValues"]["signalsSf"] == 8550.0  # still visible
+        state_dir = tmp_path / "data" / "scrape_state"
+        assert {p.name: p.read_bytes() for p in state_dir.iterdir()} == before
+
+    def test_weeks_stale_stops_voting_under_the_v1_rollback(self, tmp_path):
+        before = _stale_board(tmp_path, age=timedelta(days=20))
+        with _freshness_schedule(v2=False):
+            contract = _build(tmp_path)
         row = _rows(contract)[_off(0)]
         meta = row["sourceRankMeta"]["signalsSf"]
         assert not _voted(meta)
