@@ -372,8 +372,9 @@ function Methodology({ analysis, raw }) {
         ) : null}
         {confidence?.statement ? (
           <p data-testid="decision-confidence-statement">
-            Confidence: {confidence.statement} Confidence is a label set by the weakest part of the
-            evidence — never a probability.
+            Confidence: {confidence.statement}
+            {/[.!?]$/.test(confidence.statement) ? " " : ". "}
+            Confidence is a label set by the weakest part of the evidence — never a probability.
           </p>
         ) : null}
       </section>
@@ -522,6 +523,10 @@ export default function TradeWarRoom({
   // How many sides the trade has.  The decision engine answers two-team
   // trades only; 3+ gets an explanation, never a fabricated YES / NO.
   sideCount = 2,
+  // Optional element rendered at the Value Adjustment comparison slot, right
+  // under the at-a-glance rows (the dual-VA lane's ValueAdjustmentComparison,
+  // built by the page from per-side values the War Room does not hold).
+  vaSlot = null,
 }) {
   const basisNotice = overrideBasisNotice(overrideCount);
   const multi = sideCount > 2;
@@ -969,6 +974,7 @@ export default function TradeWarRoom({
       </dl>
 
       {/* Value Adjustment comparison slot — dual-VA lane mounts ValueAdjustmentComparison here */}
+      {vaSlot}
 
       {analysis ? (
         <div className={styles.disclosures}>

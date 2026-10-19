@@ -14,6 +14,8 @@
  * production output: every expectation is derived from the payload fields.
  * The other fixtures are REAL analyze output (`fixtures/trade-war-room/`).
  */
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -382,5 +384,20 @@ describe("expandable detail", () => {
     expect(analysisErrorText("TypeError: Failed to fetch")).toBe("the connection failed");
     expect(analysisErrorText("boom")).toBe("an error occurred (boom)");
     expect(listJoin(["a", "b", "c"])).toBe("a, b and c");
+  });
+});
+
+describe("no all-caps labels (owner directive 2026-10-19)", () => {
+  it("the War Room stylesheet uppercases nothing and neutralises the legacy global th rule", () => {
+    const css = fs.readFileSync(
+      path.resolve(__dirname, "../components/trade/war-room.module.css"),
+      "utf8",
+    );
+    expect(css).not.toMatch(/text-transform:\s*uppercase/);
+    // globals.css still styles every bare `th` uppercase + sticky; the War
+    // Room's tables must undo it rather than inherit it.
+    const tableTh = css.slice(css.indexOf(".table th,"));
+    expect(tableTh).toMatch(/text-transform:\s*none/);
+    expect(tableTh).toMatch(/position:\s*static/);
   });
 });

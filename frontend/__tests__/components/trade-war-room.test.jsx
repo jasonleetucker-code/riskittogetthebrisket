@@ -555,6 +555,36 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     expect(screen.queryByRole("button", { name: "Lineup impact, player by player" })).toBeNull();
   });
 
+  it("the Value Adjustment comparison slot sits right under the at-a-glance rows, loading or not", async () => {
+    globalThis.fetch = vi.fn(() => new Promise(() => {}));
+    const slot = <div data-testid="va-slot">VA comparison</div>;
+    const view = render(
+      <TradeWarRoom request={req(CONSOLIDATION)} leagueKey="main" useTeamContext vaSlot={slot} />,
+    );
+    await settle();
+    expect(screen.getByTestId("va-slot")).toBeInTheDocument();
+    globalThis.fetch = vi.fn(async () => ok(ASSET_ONLY));
+    view.rerender(
+      <TradeWarRoom
+        request={req(ASSET_ONLY)}
+        leagueKey="main"
+        useTeamContext={false}
+        vaSlot={slot}
+      />,
+    );
+    await settle();
+    const glance = document.querySelector("dl");
+    const placed = screen.getByTestId("va-slot");
+    // after the at-a-glance list, before the expandable detail
+    expect(glance.compareDocumentPosition(placed) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const firstToggle = screen.getByRole("button", {
+      name: "Arguments, objections and uncertainty",
+    });
+    expect(
+      placed.compareDocumentPosition(firstToggle) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("a 3+-team trade gets an explanation, never a fabricated YES / NO", async () => {
     globalThis.fetch = vi.fn();
     const onDecision = vi.fn();

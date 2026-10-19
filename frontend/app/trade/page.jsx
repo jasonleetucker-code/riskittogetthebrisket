@@ -2823,23 +2823,29 @@ export default function TradePage() {
                   roster, in plain English (owner directive 2026-10-19):
                   the ONE recommendation, then Trade value / Impact on your
                   team / Does it fit your roster?  Every number is the
-                  backend's.  TC-B / TCM-G09: the decision owner analyses ONE
-                  team's side of a two-team trade, so a 3+-team trade gets no
-                  YES / NO and the War Room says so (`sideCount`). */}
-              <TradeWarRoom
-                request={sides.length === 2 ? warRoomRequest : null}
-                leagueKey={selectedLeagueKey || ""}
-                useTeamContext={useTeamContext}
-                onTeamContextChange={setUseTeamContext}
-                overrideCount={Object.keys(valueOverrides).length}
-                teamName={selectedTeam?.name || ""}
-                sideChoiceNeeded={sideChoiceNeeded}
-                chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
-                onChooseSide={setExplicitMySide}
-                onDecision={setDecisionSummary}
-                valueSummary={warRoomValueSummary}
-                sideCount={sides.length}
-              />
+                  backend's; while the analysis runs the War Room shows the
+                  calculator's own trade value (`valueSummary`), never a
+                  YES / NO. */}
+              {sides.length === 2 ? (
+                <TradeWarRoom
+                  request={warRoomRequest}
+                  leagueKey={selectedLeagueKey || ""}
+                  useTeamContext={useTeamContext}
+                  onTeamContextChange={setUseTeamContext}
+                  overrideCount={Object.keys(valueOverrides).length}
+                  teamName={selectedTeam?.name || ""}
+                  sideChoiceNeeded={sideChoiceNeeded}
+                  chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
+                  onChooseSide={setExplicitMySide}
+                  onDecision={setDecisionSummary}
+                  valueSummary={warRoomValueSummary}
+                />
+              ) : (
+                // TC-B / TCM-G09: the decision owner analyses ONE team's side of a
+                // two-team trade.  A 3+-team trade gets no YES / NO; the War Room
+                // itself says so (`sideCount`) instead of silently disappearing.
+                <TradeWarRoom sideCount={sides.length} />
+              )}
             </section>
 
             {/* ── 4. SUPPORTING INTELLIGENCE ───────────────────── */}

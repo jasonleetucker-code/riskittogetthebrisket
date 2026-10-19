@@ -185,7 +185,7 @@
   background: transparent;
 }
 .disclosure :global(.ds-panel__header) {
-  padding: var(--space-2) 0;
+  padding: var(--space-1) 0;
   border-bottom: 0;
 }
 .disclosure :global(.ds-panel__title) {
@@ -244,12 +244,26 @@
   font-size: var(--font-size-sm);
   color: var(--text-primary);
 }
+/* Neutralise the legacy global `th` rule (globals.css: uppercase, tracked,
+   sticky, dark background, pointer cursor) — these headers are plain labels. */
 .table th,
 .table td {
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
   text-align: left;
   background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: normal;
+  position: static;
+  z-index: auto;
+  cursor: auto;
+  user-select: auto;
+}
+/* Labels wrap so the numbers stay on screen at phone width; numbers never wrap. */
+.table th {
+  white-space: normal;
 }
 .table td {
   white-space: nowrap;
@@ -258,7 +272,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
+  vertical-align: bottom;
 }
 .table tbody th {
   font-weight: var(--font-weight-regular);
