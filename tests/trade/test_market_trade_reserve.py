@@ -111,6 +111,21 @@ def test_parts_locked_to_different_sub_reserves_conflict_but_stay_locked(conn, c
     assert res.merge_conflicts == 1
 
 
+def test_a_merge_keeping_an_existing_id_cannot_silently_lose_a_lock(conn, cfg):
+    # Union-find keeps the smallest member's id, so a merged component often
+    # REUSES an assigned id.  Absorbing a differently assigned part must fail
+    # closed (dry run: counted), never leave a locked member under train.
+    snap = {c: R.drawn_assignment(c, cfg) for c in (f"SYN-{i}" for i in range(200))}
+    locked = next(c for c, lbl in snap.items() if lbl != R.TRAIN)
+    train = next(c for c, lbl in snap.items() if lbl == R.TRAIN)
+    R.draw_reserve({locked: [f"m:{locked}"], train: [f"m:{train}"]}, conn=conn, cfg=cfg)
+    merged = {train: [f"m:{train}", f"m:{locked}"]}
+    assert R.draw_reserve(merged, conn=conn, cfg=cfg, dry_run=True).absorbed_conflicts == 1
+    with pytest.raises(R.ReserveIntegrityError):
+        R.draw_reserve(merged, conn=conn, cfg=cfg)
+    assert R.assignment_snapshot(conn) == {locked: snap[locked], train: R.TRAIN}
+
+
 def test_locked_to_train_check_catches_a_lost_lock():
     assert R.locked_to_train_violations({"c1": "R-act", "c2": R.TRAIN}, {"c1": R.TRAIN}) == ["c1"]
     assert R.locked_to_train_violations({"c1": "R-act"}, {}) == ["c1"]

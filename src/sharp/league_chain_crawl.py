@@ -106,16 +106,19 @@ def due_league_ids(
     chain: dict[str, league_filter.ChainHop],
 ) -> list[str]:
     """The candidates whose point-in-time maturity a walk could still improve:
-    never walked first, then chains stopped at an unwalked link.  An EXACT
-    answer, or one that already proves the primary bar, is not due."""
+    never walked first, then chains stopped at an unwalked link or crossing a
+    predecessor last seen in progress (it may have completed since; the walk
+    re-fetches every non-complete hop).  An EXACT answer, or one that already
+    proves the primary bar, is not due."""
     never: list[str] = []
     partial: list[str] = []
     for lid in sorted(set(candidates)):
         m = league_filter.resolve_league_maturity(lid, chain)
         if m.stop_reason == league_filter.STOP_START_NOT_WALKED:
             never.append(lid)
-        elif m.stop_reason == league_filter.STOP_NOT_WALKED and not m.meets(
-            league_filter.MATURITY_PRIMARY_MIN_COMPLETED_SEASONS
+        elif not m.meets(league_filter.MATURITY_PRIMARY_MIN_COMPLETED_SEASONS) and (
+            m.stop_reason == league_filter.STOP_NOT_WALKED
+            or league_filter.FLAG_STATUS_UNVERIFIED in m.flags
         ):
             partial.append(lid)
     return never + partial

@@ -183,6 +183,7 @@ class DrawResult:
     new_assignments: int = 0
     inherited_from_merge: int = 0
     merge_conflicts: int = 0
+    absorbed_conflicts: int = 0
     by_assignment: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -194,12 +195,17 @@ class DrawResult:
             "newAssignments": self.new_assignments,
             "inheritedFromMerge": self.inherited_from_merge,
             "mergeConflicts": self.merge_conflicts,
+            "absorbedConflicts": self.absorbed_conflicts,
             "byAssignment": dict(sorted(self.by_assignment.items())),
         }
 
 
 class ReserveNotApproved(RuntimeError):
     """The owner has not approved the reserve (Q2); nothing may persist."""
+
+
+class ReserveIntegrityError(RuntimeError):
+    """A draw would move assigned members across the train/reserve line."""
 
 
 def draw_reserve(
@@ -240,11 +246,23 @@ def draw_reserve(
     for cid in sorted(components):
         result.components_seen += 1
         keys = sorted({str(k) for k in components[cid] if k})
+        parts = sorted({members[k] for k in keys if k in members and members[k] != cid})
         if cid in assigned:
             result.already_assigned += 1
             label = assigned[cid]
+            # A merge that KEEPS an existing id (union-find's smallest-member
+            # root) absorbing a part assigned differently would silently move
+            # that part's members across the train/reserve line -- and the
+            # component-keyed X13 check cannot see it.  Fail closed.
+            if any(assigned.get(p, label) != label for p in parts):
+                result.absorbed_conflicts += 1
+                if not dry_run:
+                    if conn is not None:
+                        conn.rollback()
+                    raise ReserveIntegrityError(
+                        "an assigned component absorbed a differently assigned part"
+                    )
         else:
-            parts = sorted({members[k] for k in keys if k in members and members[k] != cid})
             part_labels = sorted({assigned[p] for p in parts if p in assigned})
             locked = [lbl for lbl in part_labels if lbl != TRAIN]
             if locked:

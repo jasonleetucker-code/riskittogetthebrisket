@@ -130,6 +130,24 @@ def test_completed_hops_cost_zero_calls_on_the_next_run(db):
     assert res.hops_from_store >= 1
 
 
+def test_a_predecessor_last_seen_in_progress_is_rechecked(db):
+    # T25 was observed while still in progress; it has completed since.  Its
+    # stale status leaves T26 a lower bound below the bar, so T26 stays due
+    # and the walk re-fetches the non-complete hop instead of pinning it.
+    stale = dict(LEAGUES, **{"SYN-T25": lg("SYN-T25", 2025, "SYN-T24", status="in_season")})
+    lcc.crawl_league_chains(
+        league_ids=["SYN-T26"], budget=50, http_get=Fake(stale), ledger_path=db, sleep_s=0
+    )
+    m = lf.resolve_league_maturity("SYN-T26", _chain(db))
+    assert (m.completed_seasons, m.cohort) == (2, lf.COHORT_B_UNRESOLVED)
+    assert lcc.due_league_ids(["SYN-T26"], _chain(db)) == ["SYN-T26"]
+    lcc.crawl_league_chains(
+        league_ids=["SYN-T26"], budget=50, http_get=Fake(), ledger_path=db, sleep_s=0
+    )
+    m = lf.resolve_league_maturity("SYN-T26", _chain(db))
+    assert (m.completed_seasons, m.state, m.cohort) == (3, lf.MATURITY_EXACT, lf.COHORT_A)
+
+
 def test_budget_is_never_exceeded(db):
     fake = Fake()
     res = lcc.crawl_league_chains(budget=2, http_get=fake, ledger_path=db, sleep_s=0)
