@@ -5,8 +5,8 @@
  *   - the decision area carries ONE compact comparison: Chase Upside's
  *     adjustment beside the KTC adjustment method, on the page's own canonical
  *     values; its calculation opens on demand;
- *   - Second Opinions has ONE "Compare adjustments" control: a column on
- *     desktop, a line under each source name on a phone;
+ *   - Second Opinions has ONE "Compare adjustments" control: a KTC-method
+ *     line under each source name, the same on desktop and phone;
  *   - neither changes the official decision or the independent tally;
  *   - axe (WCAG 2.0/2.1 A + AA) is clean on both, populated and expanded;
  *     the page never scrolls sideways.
@@ -77,7 +77,6 @@ async function addToSide(page, sideLabel, name) {
 test("dual VA: compact comparison in the decision area and Compare adjustments in Second Opinions", async ({
   authedPage: page,
 }, testInfo) => {
-  const phone = testInfo.project.name !== "desktop-1366";
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.route(
@@ -148,7 +147,7 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
   const tallyBefore = await tally.textContent();
   const compare = card.getByRole("button", { name: "Compare adjustments" });
   await expect(compare).toHaveAttribute("aria-pressed", "false");
-  await expect(card.getByTestId("second-opinions-compare-col")).toHaveCount(0);
+  await expect(card.getByTestId("second-opinions-compare-line")).toHaveCount(0);
   await compare.click();
   await expect(compare).toHaveAttribute("aria-pressed", "true");
   await expect(card.getByTestId("second-opinions-compare-note")).toContainText(
@@ -157,14 +156,19 @@ test("dual VA: compact comparison in the decision area and Compare adjustments i
   await expect(card.getByTestId("second-opinions-compare-count")).toHaveText(
     /^(Same leader on all \d+|Leader differs on \d+ of \d+|No source has a numeric verdict)/,
   );
-  if (phone) {
-    // Phone: no extra column to pan to; the answer reads under each source name.
-    await expect(card.getByTestId("second-opinions-compare-col")).toBeHidden();
-    await expect(card.getByTestId("second-opinions-compare-inline").first()).toBeVisible();
-  } else {
-    await expect(card.getByTestId("second-opinions-compare-col")).toBeVisible();
-    await expect(card.getByTestId("second-opinions-compare-inline").first()).toBeHidden();
-  }
+  // One line under each source name, the same at every width (the shell caps
+  // /trade at 1320 px and this table already fills its column, so no extra
+  // column is added to pan to).
+  const lines = card.getByTestId("second-opinions-compare-line");
+  await expect(lines.first()).toBeVisible();
+  await expect(lines.first()).toHaveText(/^KTC method: /);
+  await expect(card.locator("table.source-breakdown-table > thead th")).toHaveText([
+    "Source",
+    "Side A",
+    "Side B",
+    "Leader",
+    "Margin",
+  ]);
   // Neither the independent tally nor the official decision moved.
   await expect(tally).toHaveText(tallyBefore);
   await expect(headline).toHaveText(CONSOLIDATION.analysis.decision.headlineText);

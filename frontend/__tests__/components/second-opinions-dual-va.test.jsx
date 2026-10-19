@@ -9,7 +9,7 @@
  * canonical-fallback assets (IDP under an offense-only vendor, a pick nobody
  * but IDPTC prices), an evidence-excluded observation (UNAVAILABLE), an
  * unpriced piece (INCOMPLETE), a 3-team trade, tally invariance, and the
- * "Compare adjustments" control on desktop and phone layouts.
+ * "Compare adjustments" control (one line per source row at every width).
  */
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
@@ -66,14 +66,20 @@ function row(name, canonical, meta = {}, extra = {}) {
     sourceRankMeta: Object.fromEntries(
       Object.entries(meta).map(([k, v]) => [
         k,
-        typeof v === "number" ? { valueContribution: v, contributedToBlend: true, appliedWeight: 1 } : v,
+        typeof v === "number"
+          ? { valueContribution: v, contributedToBlend: true, appliedWeight: 1 }
+          : v,
       ]),
     ),
     ...extra,
   };
 }
 
-const STALE = { valueContribution: 7000, contributedToBlend: false, excludedReason: "freshness_or_health_zero_weight" };
+const STALE = {
+  valueContribution: 7000,
+  contributedToBlend: false,
+  excludedReason: "freshness_or_health_zero_weight",
+};
 // Side A: one stud.  Side B: two mids + an IDP + a pick — a consolidation the
 // two models price differently.
 const STUD = row("QB Stud", 9000, {
@@ -83,11 +89,27 @@ const STUD = row("QB Stud", 9000, {
   idpTradeCalc: 9100,
   staleSf: STALE,
 });
-const WR = row("WR Mid", 5200, { ktcCrowdSfTep: 5250, fantasyNavigatorSf: 5150, dlfSf: 5300, idpTradeCalc: 5100 });
-const RB = row("RB Mid", 3100, { ktcCrowdSfTep: 3000, fantasyNavigatorSf: 3150, dlfSf: 3050, idpTradeCalc: 3200 });
+const WR = row("WR Mid", 5200, {
+  ktcCrowdSfTep: 5250,
+  fantasyNavigatorSf: 5150,
+  dlfSf: 5300,
+  idpTradeCalc: 5100,
+});
+const RB = row("RB Mid", 3100, {
+  ktcCrowdSfTep: 3000,
+  fantasyNavigatorSf: 3150,
+  dlfSf: 3050,
+  idpTradeCalc: 3200,
+});
 const LB = row("LB Starter", 1500, { idpTradeCalc: 1600 }, { assetClass: "idp" });
 const PICK = row("2027 Early 1st", 2400, { idpTradeCalc: 2450 }, { assetClass: "pick" });
-const UNPRICED = { name: "Mystery", assetClass: "offense", values: { full: 0 }, rankDerivedValue: null, sourceRankMeta: {} };
+const UNPRICED = {
+  name: "Mystery",
+  assetClass: "offense",
+  values: { full: 0 },
+  rankDerivedValue: null,
+  sourceRankMeta: {},
+};
 
 const SIDES = [
   { label: "A", assets: [STUD] },
@@ -143,16 +165,27 @@ describe("cross-model rows: same per-asset inputs, two whole-package evaluations
   });
 
   it("no numeric verdict → no comparison (never a zero): UNAVAILABLE and INCOMPLETE", () => {
-    expect(compared.staleSf.comparison).toMatchObject({ available: false, reason: "no_numeric_verdict" });
+    expect(compared.staleSf.comparison).toMatchObject({
+      available: false,
+      reason: "no_numeric_verdict",
+    });
     const incomplete = byKey(
-      buildOpinionRows([{ label: "A", assets: [STUD] }, { label: "B", assets: [WR, UNPRICED] }], COMPARE),
+      buildOpinionRows(
+        [
+          { label: "A", assets: [STUD] },
+          { label: "B", assets: [WR, UNPRICED] },
+        ],
+        COMPARE,
+      ),
     );
     for (const r of Object.values(incomplete)) {
       if (r.opinion.state === OPINION_STATE.INCOMPLETE) {
         expect(r.comparison).toMatchObject({ available: false, reason: "no_numeric_verdict" });
       }
     }
-    expect(Object.values(incomplete).some((r) => r.opinion.state === OPINION_STATE.INCOMPLETE)).toBe(true);
+    expect(
+      Object.values(incomplete).some((r) => r.opinion.state === OPINION_STATE.INCOMPLETE),
+    ).toBe(true);
   });
 
   it("a 3-team trade gets no comparison, and its opinions are unchanged", () => {
@@ -170,7 +203,10 @@ describe("cross-model rows: same per-asset inputs, two whole-package evaluations
     // opposite ways ([9000] vs [8200, 2000] — the pure-lib disagreement).
     const s = [
       { label: "A", assets: [row("S", 9000, { idpTradeCalc: 9000 })] },
-      { label: "B", assets: [row("M1", 8200, { idpTradeCalc: 8200 }), row("M2", 2000, { idpTradeCalc: 2000 })] },
+      {
+        label: "B",
+        assets: [row("M1", 8200, { idpTradeCalc: 8200 }), row("M2", 2000, { idpTradeCalc: 2000 })],
+      },
     ];
     const r = byKey(buildOpinionRows(s, COMPARE)).idpTradeCalc;
     expect(r.opinion.leaderIdx).toBe(1);
@@ -178,7 +214,9 @@ describe("cross-model rows: same per-asset inputs, two whole-package evaluations
     expect(r.comparison.leaderDiffers).toBe(true);
     // Same leader → no marker.
     const same = byKey(buildOpinionRows(SIDES, COMPARE)).idpTradeCalc;
-    expect(same.comparison.leaderDiffers).toBe(same.comparison.leaderIdx !== same.opinion.leaderIdx);
+    expect(same.comparison.leaderDiffers).toBe(
+      same.comparison.leaderIdx !== same.opinion.leaderIdx,
+    );
   });
 });
 
@@ -186,46 +224,74 @@ describe("the active tally is identical whether or not the comparison is enabled
   it("tallyOpinions over rows with and without comparison deep-equal", () => {
     for (const sides of [
       SIDES,
-      [{ label: "A", assets: [STUD] }, { label: "B", assets: [WR, UNPRICED] }],
-      [{ label: "A", assets: [STUD, PICK] }, { label: "B", assets: [WR, RB, LB] }],
+      [
+        { label: "A", assets: [STUD] },
+        { label: "B", assets: [WR, UNPRICED] },
+      ],
+      [
+        { label: "A", assets: [STUD, PICK] },
+        { label: "B", assets: [WR, RB, LB] },
+      ],
       [...SIDES, { label: "C", assets: [RB] }],
     ]) {
       const n = sides.length;
-      expect(tallyOpinions(buildOpinionRows(sides, COMPARE), n)).toEqual(tallyOpinions(buildOpinionRows(sides), n));
+      expect(tallyOpinions(buildOpinionRows(sides, COMPARE), n)).toEqual(
+        tallyOpinions(buildOpinionRows(sides), n),
+      );
     }
   });
 });
 
 describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
-  it("is compact by default and reveals the KTC-method column for every row on demand", () => {
+  it("is compact by default and reveals the KTC-method answer for every row on demand", () => {
     render(<TradeSourceBreakdown sides={SIDES} settings={{}} />);
     const tallyBefore = screen.getByTestId("second-opinions-tally").textContent;
     const btn = screen.getByRole("button", { name: "Compare adjustments" });
     expect(btn).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByTestId("second-opinions-compare-col")).toBeNull();
-    expect(screen.queryAllByTestId("second-opinions-compare-cell")).toHaveLength(0);
+    expect(screen.queryAllByTestId("second-opinions-compare-line")).toHaveLength(0);
 
     fireEvent.click(btn);
     expect(btn).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("second-opinions-compare-col")).toHaveTextContent("KTC method");
     const shownRows = screen.getAllByRole("row").filter((r) => r.getAttribute("data-state"));
-    // One comparison cell per shown source row (desktop column) …
-    expect(screen.getAllByTestId("second-opinions-compare-cell")).toHaveLength(shownRows.length);
-    // … and the same answer as a line under each source name (phone layout).
-    expect(screen.getAllByTestId("second-opinions-compare-inline")).toHaveLength(shownRows.length);
+    // One KTC-method line under each shown source name, the same at every
+    // width (no extra column to pan to), and no new table column.
+    expect(screen.getAllByTestId("second-opinions-compare-line")).toHaveLength(shownRows.length);
+    for (const r of shownRows) {
+      expect(within(r).getByTestId("second-opinions-compare-line").textContent).toMatch(
+        /^KTC method: /,
+      );
+    }
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Source",
+      "Side A",
+      "Side B",
+      "Leader",
+      "Margin",
+    ]);
+    // A row with a verdict reads its leader and its KTC-method adjusted totals.
+    const idptc = shownRows.find((r) => r.textContent.includes("IDPTC"));
+    const ktcRow = byKey(buildOpinionRows(SIDES, COMPARE)).idpTradeCalc.comparison;
+    const [ta, tb] = ktcRow.adjustedTotals.map((t) => Math.round(t).toLocaleString());
+    expect(within(idptc).getByTestId("second-opinions-compare-line")).toHaveTextContent(
+      `(A ${ta} · B ${tb})`,
+    );
     // Never presented as the vendor's own policy or as KTC's values.
     const note = screen.getByTestId("second-opinions-compare-note");
     expect(note).toHaveTextContent("not that source's own calculator");
     expect(note).toHaveTextContent("not KTC's own player values");
     expect(note).toHaveTextContent("the votes above use Chase Upside's adjustment");
     // The unavailable source shows no number for the comparison either.
-    const staleRow = shownRows.find((r) => r.getAttribute("data-state") === OPINION_STATE.UNAVAILABLE);
-    expect(within(staleRow).getByTestId("second-opinions-compare-cell")).toHaveTextContent(/^—/);
+    const staleRow = shownRows.find(
+      (r) => r.getAttribute("data-state") === OPINION_STATE.UNAVAILABLE,
+    );
+    expect(within(staleRow).getByTestId("second-opinions-compare-line")).toHaveTextContent(
+      "KTC method: not computed (no numeric verdict)",
+    );
     // The tally did not move.
     expect(screen.getByTestId("second-opinions-tally").textContent).toBe(tallyBefore);
 
     fireEvent.click(btn);
-    expect(screen.queryByTestId("second-opinions-compare-col")).toBeNull();
+    expect(screen.queryAllByTestId("second-opinions-compare-line")).toHaveLength(0);
     expect(screen.getByTestId("second-opinions-tally").textContent).toBe(tallyBefore);
   });
 
@@ -243,10 +309,11 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
     ];
     render(<TradeSourceBreakdown sides={s} settings={{}} />);
     fireEvent.click(screen.getByRole("button", { name: "Compare adjustments" }));
-    const cells = screen.getAllByTestId("second-opinions-compare-cell");
-    const differs = cells.filter((c) => c.getAttribute("data-differs") === "true");
+    const lines = screen.getAllByTestId("second-opinions-compare-line");
+    const differs = lines.filter((c) => c.getAttribute("data-differs") === "true");
     expect(differs).toHaveLength(1);
-    expect(differs[0]).toHaveTextContent("Leader differs");
+    expect(differs[0]).toHaveTextContent("leader differs");
+    expect(lines.filter((c) => /leader differs/.test(c.textContent))).toHaveLength(1);
     expect(screen.getByTestId("second-opinions-compare-count")).toHaveTextContent(
       /^Leader differs on 1 of \d+ compared sources?\.$/,
     );
@@ -257,23 +324,20 @@ describe("TradeSourceBreakdown — one 'Compare adjustments' control", () => {
     fireEvent.click(screen.getByRole("button", { name: "Compare adjustments" }));
     fireEvent.click(screen.getByRole("button", { name: "Show asset values for IDPTC" }));
     const t = screen.getByRole("table", { name: "Both adjustment methods for IDPTC" });
-    expect(within(t).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "Side",
-      "Raw",
-      "Chase Upside adj.",
-      "Total",
-      "KTC method adj.",
-      "Total",
-    ]);
+    expect(
+      within(t)
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent),
+    ).toEqual(["Side", "Raw", "Chase Upside adj.", "Total", "KTC method adj.", "Total"]);
     expect(within(t).getAllByRole("row")).toHaveLength(3);
   });
 
-  it("3-team trades say the comparison is not computed instead of showing a column", () => {
+  it("3-team trades say the comparison is not computed instead of showing numbers", () => {
     render(<TradeSourceBreakdown sides={[...SIDES, { label: "C", assets: [RB] }]} settings={{}} />);
     fireEvent.click(screen.getByRole("button", { name: "Compare adjustments" }));
     expect(screen.getByTestId("second-opinions-compare-note")).toHaveTextContent(
       "not computed for a 3-team trade",
     );
-    expect(screen.queryByTestId("second-opinions-compare-col")).toBeNull();
+    expect(screen.queryAllByTestId("second-opinions-compare-line")).toHaveLength(0);
   });
 });

@@ -47,11 +47,11 @@ describe("ValueAdjustmentComparison", () => {
     expect(toggle).toHaveAttribute("aria-controls", detail.id);
     expect(detail).toHaveTextContent("Before any adjustment: Side A 9,000 · Side B 10,200");
     const table = within(detail).getByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "Measure",
-      "Chase Upside adjustment (used)",
-      "KTC adjustment method",
-    ]);
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent),
+    ).toEqual(["Measure", "Chase Upside adjustment (used)", "KTC adjustment method"]);
     const cmp = compareValueAdjustments([[9000], [8200, 2000]]);
     const rowText = (label) =>
       within(table)

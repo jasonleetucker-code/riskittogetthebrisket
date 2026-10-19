@@ -1,8 +1,8 @@
 /* Value Adjustment comparison (owner directive 2026-10-19) — PSI Direction A.
    Tokens only (tokens.css; the /trade root carries .psi-editorial). No raw
-   colours, radii, shadows or new breakpoints (768 only). Hierarchy from type,
-   rules and alignment — no cards, pills or badges beyond one text marker for
-   a genuine disagreement. */
+   colours, radii, shadows or new breakpoints.
+   Hierarchy from type, rules and alignment — no cards, pills or badges beyond
+   one text marker for a genuine disagreement. */
 
 /* ── War Room / decision area: the compact entry point ── */
 .vac {
@@ -54,6 +54,9 @@
   border-collapse: collapse;
   font-size: var(--font-size-sm);
 }
+/* Override the legacy global `th` (uppercase, sticky, pointer): this is a
+   two-column comparison, not a sortable board. Row labels wrap on a phone so
+   both method columns stay on screen. */
 .table th,
 .table td {
   padding: var(--space-1) var(--space-2);
@@ -61,17 +64,30 @@
   text-align: left;
   white-space: nowrap;
   background: transparent;
+  position: static;
+  cursor: auto;
+  user-select: auto;
+  text-transform: none;
+  letter-spacing: normal;
 }
 .table thead th {
   font-size: var(--font-size-2xs);
-  letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
   font-weight: var(--font-weight-semibold);
+  white-space: normal;
+  vertical-align: bottom;
+}
+.table tbody th {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-secondary);
+  white-space: normal;
 }
 .table .num {
   text-align: right;
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 .notes {
   margin: 0;
@@ -83,34 +99,19 @@
   gap: var(--space-1);
 }
 
-/* ── Second Opinions: the "Compare adjustments" column ── */
-/* Text marker, never colour alone: the word carries the meaning. */
-.differs {
-  display: block;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--accent);
-}
-.cellSub {
+/* ── Second Opinions: the "Compare adjustments" line ── */
+/* One line under each source name, at every width (see TradeSourceBreakdown):
+   the table already fills its column, so an extra column would sit
+   off-screen. */
+.compareLine {
   display: block;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-regular);
   color: var(--text-secondary);
+  white-space: normal;
 }
-/* Desktop: its own column.  Phone: the same answer as a line under the
-   source name, so it reads without panning the table. */
-.compareInline {
-  display: none;
-}
-@media (max-width: 768px) {
-  .compareCol {
-    display: none;
-  }
-  .compareInline {
-    display: block;
-    font-size: var(--font-size-2xs);
-    font-weight: var(--font-weight-regular);
-    color: var(--text-secondary);
-    white-space: normal;
-  }
+/* Text marker, never colour alone: the words carry the meaning. */
+.differs {
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent);
 }

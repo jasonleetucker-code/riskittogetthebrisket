@@ -196,9 +196,7 @@ describe("agreement, disagreement and the no-adjustment state", () => {
     expect(cmp.comparator.leaderIdx).toBe(0);
     const s = vaComparisonSummary(cmp, ["A", "B"]);
     expect(s.tone).toBe("agree");
-    expect(s.headline).toBe(
-      "Both methods agree: Side A's package is worth more after adjustment.",
-    );
+    expect(s.headline).toBe("Both methods agree: Side A's package is worth more after adjustment.");
   });
 
   it("disagree: the leaders differ, and the recommendation's method is named", () => {
