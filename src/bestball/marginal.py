@@ -448,7 +448,13 @@ def marginal_bestball_utility_for_roster(
     for p in sorted((p for p in roster if p.ppg is None), key=lambda p: p.player_id):
         entries.append(
             marginal_bestball_utility(
-                roster, p.player_id, slots, waiver_pool=waiver_pool, params=params, weeks=weeks
+                roster,
+                p.player_id,
+                slots,
+                waiver_pool=waiver_pool,
+                params=params,
+                weeks=weeks,
+                owner_id=owner_id,
             )
         )
     stats_after = dict(_bbu.before_side_stats)

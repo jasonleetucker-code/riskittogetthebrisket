@@ -219,3 +219,23 @@ def test_league_is_never_resolved_implicitly(monkeypatch, params, points_model):
     monkeypatch.setattr(lineup, "resolve_starter_slots", boom)
     m = run("te1", WEAK_FA, with_overrides(params, draws=30), points_model)
     assert m.state == "available"
+
+
+def test_unprojected_roster_entries_keep_the_owner(params, points_model):
+    roster = ROSTER + [P("ghost", "WR", None)]
+    out = marginal_bestball_utility_for_roster(
+        roster,
+        SLOTS,
+        waiver_pool=WEAK_FA,
+        params=with_overrides(params, draws=30),
+        max_players=1,
+        points_model=points_model,
+        owner_id="owner07",
+    )
+    ghost = next(e for e in out.entries if e.player_id == "ghost")
+    assert (ghost.state, ghost.reason, ghost.delta_ppg) == (
+        "unavailable",
+        "player_unprojected",
+        None,
+    )
+    assert all(e.owner_id == "owner07" for e in out.entries)
