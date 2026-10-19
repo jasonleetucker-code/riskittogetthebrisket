@@ -7,7 +7,7 @@
 
 **Rules in force (owner, 2026-10-19).**
 - Independent features build in parallel, in isolated worktrees and branches, with focused tests during development. Full validation runs at integration: release train, release check, Validate PR, E2E.
-- **No merge to `main` without the owner's explicit approval** (Rule E). `main` deploys automatically, so merging is releasing.
+- **Standing merge authorization (owner, 2026-10-19, superseding Rule E's per-merge approval).** The Integration Authority merges any PR whose required checks are green on the exact head, whose implementation is complete, whose reviews are satisfied and which has no unresolved dependency or conflict, without asking. Merging to `main` runs the existing automated deploy pipeline. Still owner-only: production model or source activation, security, spending, and other consequential changes. Canonical text: PR #1839, landing in `docs/AGENT_OPERATING_SYSTEM.md` §3 and `ASSISTANT_COORDINATION.md`.
 - A partially built feature must not change production behaviour; use flags or isolation.
 - Valuation formulas, voting eligibility and Value Adjustment change only under their documented invariants and acceptance tests.
 - Source ingestion and voting activation are separate milestones.
@@ -16,14 +16,15 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 10:25 UTC (coordinator).
+Last updated: 2026-10-19 10:30 UTC (coordinator).
 
 ## Release vehicles
 
 | Vehicle | Members | State | Next action |
 |---|---|---|---|
 | Train 11 (#1829) | #1822 playoff odds follow the roster; #1823 mobile Trade Tendencies partner | DEPLOYED (`a9f3918808`, 10:04 UTC). Playoff sections still serve a pre-deploy cached forecast (05:27) | Re-probe after the next ROS refresh; check `/trades` on mobile |
-| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: release check 39235950801 on `e25b226724` (120-min budget). **Owner approved the merge (10:20 UTC)** | Merge when the release check, Validate PR and E2E are green; deploy before the week-6 Power publication |
+| Train 12 (#1836) | #1826, #1827, #1830, #1828, #1834, #1837 + integration commit; main merged once (#1832) | VALIDATING: release check 39235950801 on `e25b226724` (120-min budget). Owner approved (10:20 UTC); now covered by the standing authorization | Merge when the release check, Validate PR and E2E are green (standing authorization); deploy before the week-6 Power publication |
+| Train 13 (planned) | #1839 cross-model parallel delivery + auto-merge policy (codex), #1838 tracker, wave-1/W5 PRs that are green | QUEUED until train 12 merges | Build from the new `main`; resolve the `docs/EXECUTION_PLAN.md` top-section conflict with #1830 by keeping both sections; release check; merge |
 | #1832 CI budget 80→120 min | — | MERGED (`2d854f7523`) | Rides the next deploy |
 
 ## Features
