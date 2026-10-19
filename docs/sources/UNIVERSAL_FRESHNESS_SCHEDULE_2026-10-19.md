@@ -479,6 +479,26 @@ Reproduce:
        passes.
    * The live guard's precondition comes back when #1817 lifts the DLF IDP
      hold, or when FantasyPros IDP republishes. The test is not changed.
+   * **Not failing on `main`.** On `main`, FantasyPros IDP still votes at
+     0.57 under the v1 curve, so the guard passes there. This is a
+     consequence of this PR on today's data: the schedule correctly retires
+     a 45-day-old board. It is not a code defect.
+   * **Ordering consequence:** land #1817 (which lifts the DLF IDP hold)
+     before or with this PR, and the guard stays green. Verified: with the
+     hold lifted by flag, the file passes under v2.
+3. `test_signals_active_source::TestExpiredSession::test_a_few_days_stale_still_votes_at_a_decayed_weight`
+   is in the hard gate.
+   * It staged a Signals board 60 hours old and asserted that it votes at a
+     reduced weight. That is the v1 cadence curve (a 24-hour cadence).
+   * Under the owner's schedule, 60 hours is day 2: full weight, so no
+     reduction is stamped. The test encoded the superseded methodology.
+   * **Updated, nothing dropped.** Under the schedule it now pins:
+     * 60 h → full weight;
+     * 10 days → 0.75 with the stamped age;
+     * 35 days → no vote, evidence kept.
+
+     The original v1 assertions run unchanged under the rollback flag:
+     60 h decays, 20 days stops.
 
 ## 7. Rollback and coordination
 
@@ -505,3 +525,7 @@ Reproduce:
    directive names offense, IDP and rookie sources; picks follow from "the
    entire dynasty valuation system". If the owner wants picks excluded, that
    takes a small per-subset exemption (today `exemptKeys` is per source).
+4. **Release ordering with #1817.** Until DLF IDP's hold is lifted, today's
+   board has no non-anchor IDP voter, because FantasyPros IDP is stale. The
+   advisory livedata anchor-chain guard therefore stays red. Landing #1817
+   first, or in the same train, resolves it.
