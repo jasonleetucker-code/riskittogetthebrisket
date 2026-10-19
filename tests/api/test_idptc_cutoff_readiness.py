@@ -622,8 +622,8 @@ def _two_way_alt_lost_idptc_to_the_cutoff(b: dict[str, Any], a: dict[str, Any]) 
 
     Under ``two_way_alt_evidence_rules`` the alt value is a real member's: once
     IDPTC is withheld, the alt value is re-blended from the alt sources still
-    voting (DLF IDP votes since the 2026-10-19 hold rescission), or, with none
-    left, it is MISSING (the boost stamps ``withdrawn``) and the row publishes
+    voting (DLF IDP among them only while its release hold is lifted), or, with
+    none left, it is MISSING (the boost stamps ``withdrawn``) and the row publishes
     its primary blend.  Either way the row's confidence gate is restated over
     the PRIMARY families (``_restate_confidence_after_override``); the lost
     evidence was alt-family evidence, which never fed that gate, so the gate

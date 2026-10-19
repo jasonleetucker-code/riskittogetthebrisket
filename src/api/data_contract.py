@@ -1014,12 +1014,19 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
 #: ``active_sources``) not an ELIGIBLE family whose silence counts as lost
 #: evidence.  It is not a third mechanism: one declaration table, one gate.
 #:
-#: DLF vote offense-only (owner directive 2026-10-16,
-#: ``docs/OWNER_REQUESTED_TODO.md``): the DLF IDP boards stop voting; DLF's
-#: offense boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged.  RESCINDED by
-#: the owner's universal source-voting directive of 2026-10-19: the flag
-#: defaults OFF, so DLF IDP / DLF Rookie IDP vote inside DLF's one family cap;
-#: ``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1`` + restart re-applies the hold.
+#: DLF IDP restore HELD AT RELEASE (temporary).  The owner's 2026-10-16 policy
+#: hold ("DLF vote is offense-only", ``docs/OWNER_REQUESTED_TODO.md``) was
+#: RESCINDED by the universal source-voting directive of 2026-10-19, which
+#: approves DLF IDP / DLF Rookie IDP voting inside DLF's one family cap.  The
+#: restore is implemented (``dlf_offense_only_vote`` OFF), but the hold was
+#: re-applied 2026-10-19 (flag default ON) because under the INCUMBENT outlier
+#: filter the restore drops valid Draft Sharks IDP / FantasyPros IDP / IDP
+#: Trade Calculator votes (30 rows, up to 54%, none from DLF's own vote;
+#: ``docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md``).  It is NOT an
+#: indefinite exclusion: it lifts as soon as the outlier interaction is
+#: corrected (CQ-65) or the owner accepts the moves
+#: (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart).  DLF's offense
+#: boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged.
 #:
 #: DLF Values (``dlfValuesSfTep``, owner closeout 2026-10-18 Decision 4): an
 #: offense-only member of the ``dlf`` family voting rank -> Hill, released
@@ -1029,8 +1036,12 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
 POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
     **{
         key: {
-            "reason": "owner_policy_dlf_vote_offense_only",
-            "decision": "owner directive 2026-10-16: DLF vote is offense-only",
+            "reason": "owner_policy_dlf_idp_restore_held_pending_outlier_fix",
+            "decision": (
+                "owner directive 2026-10-19 approves the DLF IDP restore; held at "
+                "release (temporary) until the outlier-filter interaction is "
+                "corrected (CQ-65) or the owner accepts the moves"
+            ),
             "flag": "dlf_offense_only_vote",
         }
         for key in ("dlfIdp", "dlfRookieIdp")
@@ -1055,9 +1066,9 @@ VOTE_HOLD_KIND_OWNER_POLICY = "owner_policy"
 def _policy_source_vote_holds() -> dict[str, dict[str, str]]:
     """The :data:`POLICY_SOURCE_VOTE_HOLDS` entries IN FORCE (flag read).
 
-    ``{source_key: {"reason", "decision", "flag", ...}}``.  A DLF IDP hold is
-    in force while its flag is ON (the flag names the hold; OFF is the
-    rollback).  A release hold (``holdWhileFlag: "off"``, DLF Values) is in
+    ``{source_key: {"reason", "decision", "flag", ...}}``.  The DLF IDP hold
+    is in force while its flag is ON (the flag names the hold; OFF lifts it --
+    the approved restore, held at release pending the outlier fix).  A release hold (``holdWhileFlag: "off"``, DLF Values) is in
     force while its release flag is OFF.  Read at call time
     (``feature_flags`` caches per process).
     """
@@ -11438,8 +11449,9 @@ def _compute_unified_rankings(
     # a matching failure anywhere downstream.
     _seasonal_off |= {str(k) for k in (absent_private_sources or ())}
     # A PUBLIC source under a declared owner-policy vote hold
-    # (``POLICY_SOURCE_VOTE_HOLDS`` — today the DLF IDP boards, owner
-    # directive 2026-10-16) takes the same posture through the same gate:
+    # (``POLICY_SOURCE_VOTE_HOLDS`` — the DLF IDP boards, whose approved
+    # restore is held at release pending the outlier fix, and DLF Values while
+    # its release flag is off) takes the same posture through the same gate:
     # collected and displayed, no vote, not expected, not an eligible family.
     _policy_held = {str(k) for k in (policy_held_sources or ())}
     _seasonal_off |= _policy_held

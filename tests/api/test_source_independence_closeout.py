@@ -14,9 +14,14 @@ source-voting consensus directive of 2026-10-19.
 * Two-way boost — the alt-family value is what a real member of the family
   with the same votes gets (``two_way_alt_evidence_rules``).
 * Universal source-voting directive (later 2026-10-19) — the DLF IDP / DLF
-  Rookie IDP hold is rescinded (``dlf_offense_only_vote`` defaults OFF; its
-  mechanism is pinned by ``tests/api/test_dlf_offense_only_vote.py``), and the
-  contract stamps per-source eligibility facts (``sourceVotingEligibility``).
+  Rookie IDP restore is APPROVED and implemented behind ``dlf_offense_only_vote``
+  (OFF = DLF IDP votes), but HELD AT RELEASE (default ON, re-applied the same
+  day): under the incumbent outlier filter the restore drops valid Draft Sharks
+  / FantasyPros / IDPTC IDP votes (moves up to 54%), which the directive
+  forbids; it lifts when the outlier interaction is corrected (CQ-65) or the
+  owner accepts the moves.  Mechanism pinned by
+  ``tests/api/test_dlf_offense_only_vote.py``.  The contract stamps per-source
+  eligibility facts (``sourceVotingEligibility``).
 
 Board assertions are all-of / none-of invariants on the newest complete
 archived scrape, never counts, so a CSV refresh cannot flip them.  The
@@ -99,6 +104,9 @@ def raw():
 
 def test_flags_are_registered_live_with_their_decided_defaults():
     assert feature_flags._DEFAULTS["two_way_alt_evidence_rules"] is True
+    # The approved DLF IDP restore is held at release pending the outlier fix
+    # (CQ-65): the hold flag is ON by default; ``=0`` lifts it.
+    assert feature_flags._DEFAULTS["dlf_offense_only_vote"] is True
     assert feature_flags._DEFAULTS["fantasypros_idp_upstream_clock"] is True
     # D4's default is its gate outcome (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
     assert isinstance(feature_flags._DEFAULTS["dlf_values_rank_hill_vote"], bool)
@@ -221,6 +229,9 @@ def boards(raw):
         # Each single-flag board isolates that flag against it.
         "off": _build(raw, D4=False, TW=False, D5=False, DLF_HOLD=True),
         "defaults": _build(raw),
+        # The approved DLF IDP restore with the release hold lifted (every
+        # other flag at its default): the board the outlier fix must clear.
+        "restore": _build(raw, DLF_HOLD=False),
         "d4": _build(raw, D4=True, TW=False, D5=False, DLF_HOLD=True),
         "tw": _build(raw, D4=False, TW=True, D5=False, DLF_HOLD=True),
         "d5": _build(raw, D4=False, TW=False, D5=True, DLF_HOLD=True),
@@ -387,14 +398,39 @@ def test_d5_alone_moves_no_value_today(boards):
 # ── universal directive: DLF IDP restore + eligibility facts ───────────────
 
 
-def test_dlf_idp_votes_by_default_inside_one_dlf_family(boards):
-    """The hold is rescinded, and DLF's boards still share one provider's
-    authority: on no row does the ``dlf`` family's applied weight exceed one
-    provider's (the largest member base weight)."""
+def test_dlf_idp_is_held_at_release_by_default(boards):
+    """Release default: the approved restore is held (temporary), so no DLF
+    IDP board votes on any row, and the eligibility stamp says why."""
+    for name, row in _rows(boards["defaults"]).items():
+        assert not set(_voting(row)) & {"dlfIdp", "dlfRookieIdp"}, name
+    stamp = boards["defaults"]["sourceVotingEligibility"]
+    for key in ("dlfIdp", "dlfRookieIdp"):
+        assert stamp[key]["status"] == "policy_held", stamp[key]
+        assert stamp[key]["reason"] == "owner_policy_dlf_idp_restore_held_pending_outlier_fix"
+
+
+def test_release_defaults_move_no_idp_row_by_30_percent(boards):
+    """Why the hold is in force: with it, the release defaults (D4 + D5 + the
+    two-way fix) move no defensive value by 30% or more against main's
+    behaviour (the ``off`` board).  The restore's 34-54% moves are the
+    incumbent outlier filter dropping other sources' valid IDP votes."""
+    off, dflt = _rows(boards["off"]), _rows(boards["defaults"])
+    for name, row in dflt.items():
+        if _klass(row) != "idp":
+            continue
+        before, after = off[name].get("rankDerivedValue"), row.get("rankDerivedValue")
+        if before and after and before != after:
+            assert abs(after - before) / before < 0.30, (name, before, after)
+
+
+def test_dlf_idp_restore_votes_inside_one_dlf_family(boards):
+    """With the release hold lifted, DLF IDP votes and DLF's boards still
+    share one provider's authority: on no row does the ``dlf`` family's
+    applied weight exceed one provider's (the largest member base weight)."""
     fam = {s["key"]: dc.correlation_group_for(s["key"]) for s in dc._RANKING_SOURCES}
     base = {s["key"]: float(s.get("weight") or 1.0) for s in dc._RANKING_SOURCES}
     seen = 0
-    for name, row in _rows(boards["defaults"]).items():
+    for name, row in _rows(boards["restore"]).items():
         voters = _voting(row)
         seen += any(k in voters for k in ("dlfIdp", "dlfRookieIdp"))
         dlf = {

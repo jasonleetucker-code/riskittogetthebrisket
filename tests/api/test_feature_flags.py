@@ -129,6 +129,19 @@ def test_every_flag_defaults_off_except_safe_additive():
         "dlf_values_rank_hill_vote",
         "two_way_alt_evidence_rules",
         "fantasypros_idp_upstream_clock",
+        # DLF IDP restore HELD AT RELEASE (temporary, re-applied 2026-10-19).
+        # The owner rescinded the 2026-10-16 policy hold ("DLF vote is
+        # offense-only") and approved the restore in the universal
+        # source-voting directive of 2026-10-19; the restore is implemented
+        # (flag OFF) but held because under the incumbent outlier filter it
+        # drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDPTC votes on 30
+        # rows (7 IDP moves of 34-54%, none from DLF's own vote), which the
+        # same directive forbids (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
+        # ON = main's DLF IDP behaviour (decision fields identical to main with
+        # the other PR flags off).  Lifts when the outlier interaction is
+        # corrected (CQ-65) or the owner accepts the moves:
+        # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.
+        "dlf_offense_only_vote",
         # Owner addendum 2026-10-03: Signals' authenticated native values vote
         # (value-ordered rank, FantasyCalc family).  Inert wherever the
         # box-local private store is absent (CI, dev).  Whole-board impact
@@ -230,14 +243,6 @@ def test_every_flag_defaults_off_except_safe_additive():
     }
     off_only = {
         "dynamic_source_weights",  # held OFF until backtest data exists
-        # The DLF offense-only vote hold (owner directive 2026-10-16) was
-        # RESCINDED by the owner's universal source-voting directive of
-        # 2026-10-19: DLF IDP / DLF Rookie IDP vote again inside DLF's family
-        # cap, so the hold flag defaults OFF.  Measured restore impact:
-        # docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md.  Re-applying the
-        # hold (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=1) is the rollback, and an
-        # integration decision against the outlier lane's fix moves this line.
-        "dlf_offense_only_vote",
         # Consensus Edge.  Not held off for caution — held off because
         # its pre-registered ship gate FAILS.  It was ON for part of
         # 2026-08-04 on a top-20 study measuring +3.59% median

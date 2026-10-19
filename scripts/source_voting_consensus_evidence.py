@@ -13,9 +13,11 @@ policy does relative to production ``main``:
   two-way alt-evidence fix (this tree: TW on, D4 off, D5 off);
 * S4 ``revised_idptc_offense`` — S3 with the IDP Trade Calculator's offense
   votes; D3 is deleted, so the build is S3's and identity is CONFIRMED;
-* S5 ``combined`` — this tree's production defaults (TW + D4 + D5);
-* S5h ``combined_hold_kept`` — S5 with the DLF IDP hold re-applied;
-* DLF ``restore_only`` — every PR flag off except the DLF IDP hold rescission;
+* S5 ``combined`` — TW + D4 + D5 + the approved DLF IDP restore (the release
+  hold lifted; ``dlf_offense_only_vote`` forced to 0);
+* S5h ``combined_hold_kept`` — S5 with the DLF IDP hold re-applied: this tree's
+  RELEASE defaults (the restore is held at release pending the outlier fix);
+* DLF ``restore_only`` — every PR flag off except the DLF IDP hold lifted;
 * S0 ``all_off`` — this tree with every flag of the PR off (TW, D4, D5, the
   DLF IDP hold re-applied):
   must equal ``main`` at the decision level.
@@ -79,8 +81,10 @@ F_D5 = "RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK"
 F_D2 = "RISKIT_FEATURE_IDP_SHARED_CORRELATION_CAP"  # old tree only
 F_D3 = "RISKIT_FEATURE_IDPTC_OFFENSE_VOTE_EXCLUDED"  # old tree only
 F_FRESH = "RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING"
-# The DLF IDP / DLF Rookie IDP owner-policy hold.  Rescinded 2026-10-19
-# (universal directive): default OFF = DLF IDP votes; ``=1`` re-applies the hold.
+# The DLF IDP / DLF Rookie IDP vote hold.  The owner rescinded the policy hold
+# and approved the restore 2026-10-19; the restore is held at release (default
+# ON) pending the outlier fix (CQ-65).  ``=0`` lifts it (DLF IDP votes).  Every
+# scenario below sets it explicitly, so no scenario depends on the default.
 F_DLF_HOLD = "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE"
 _DLF_IDP = ("dlfIdp", "dlfRookieIdp")
 
@@ -1149,6 +1153,7 @@ def main(argv: list[str] | None = None) -> int:
         # Every flag of the PR off, the DLF IDP hold re-applied: must be main.
         off = {F_TW: 0, F_D4: 0, F_D5: 0, F_DLF_HOLD: 1}
         hold = {F_DLF_HOLD: 1}
+        restore = {F_DLF_HOLD: 0}
         old_d2d3 = {"env": {F_D2: 1, F_D3: 1, F_D4: 0}, "dropStyle": ["fantasyProsIdp"]}
         boards: dict[str, dict[str, Any]] = {}
         for label, pl in (("current", payload), ("golden", golden)):
@@ -1157,7 +1162,7 @@ def main(argv: list[str] | None = None) -> int:
                 "S0_all_off": b.build(REPO, pl, env=off),
                 "S2_old_d2_d3": b.build(old_tree, pl, **old_d2d3),
                 "S3_revised": b.build(REPO, pl, env={F_TW: 1, F_D4: 0, F_D5: 0, **hold}),
-                "S5_combined": b.build(REPO, pl, env={}),
+                "S5_combined": b.build(REPO, pl, env=restore),
                 "S5_combined_hold_kept": b.build(REPO, pl, env=hold),
                 "DLF_restore_only": b.build(
                     REPO, pl, env={F_TW: 0, F_D4: 0, F_D5: 0, F_DLF_HOLD: 0}
@@ -1190,17 +1195,19 @@ def main(argv: list[str] | None = None) -> int:
                     dropStyle=["fantasyProsIdp"],
                 ),
                 b.build(REPO, payload, env={F_FRESH: 0, **hold}),
-                b.build(REPO, payload, env={F_FRESH: 0}),
+                b.build(REPO, payload, env={F_FRESH: 0, **restore}),
             ),
         }
         # Cross-provider family audit + split impact.
         cur = boards["current"]
         audit = family_audit(cur["S5_combined"])
-        engaged_revised = b.build(REPO, payload, env={F_FRESH: 0})
+        engaged_revised = b.build(REPO, payload, env={F_FRESH: 0, **restore})
         for entry in audit:
             # With freshness weighting rolled back every member votes at its
             # base weight: the impact the grouping has whenever it is live.
-            split_e = b.build(REPO, payload, env={F_FRESH: 0}, splitFamily=[entry["member"]])
+            split_e = b.build(
+                REPO, payload, env={F_FRESH: 0, **restore}, splitFamily=[entry["member"]]
+            )
             entry["boardImpactIfSplitFreshnessOff"] = {
                 k: v
                 for k, v in compare(engaged_revised, split_e).items()
@@ -1216,7 +1223,7 @@ def main(argv: list[str] | None = None) -> int:
             entry["memberVotesFreshnessOff"] = sum(
                 1 for r in engaged_revised["rows"] if entry["member"] in _voters(r)
             )
-            split = b.build(REPO, payload, env={}, splitFamily=[entry["member"]])
+            split = b.build(REPO, payload, env=restore, splitFamily=[entry["member"]])
             entry["boardImpactIfSplit"] = {
                 k: v
                 for k, v in compare(cur["S5_combined"], split).items()
