@@ -60,15 +60,19 @@ import {
   ROLE_PLAIN_WORDS,
   analysisErrorText,
   argumentLine,
+  assumptionLines,
+  comparableReasonText,
   confidenceStatementText,
   confidenceSummary,
   decisionReasonSentences,
   incomingLineupSentences,
   listJoin,
   missingEvidenceText,
+  packageModelLabel,
   projectionBasisText,
   recordReasonText,
   rosterFit,
+  rosterNoteLines,
   simulationExplanation,
   strategySentence,
   tradeValueSummary,
@@ -273,13 +277,13 @@ function BeforeAfter({ rosterDetail }) {
                   {holes.noEligible.length ? (
                     <span className={styles.rowNote}>
                       {" "}
-                      No player can start at {listJoin(holes.noEligible)}.
+                      Slots no player can fill: {listJoin(holes.noEligible)}.
                     </span>
                   ) : null}
                   {holes.onlyUnprojected.length ? (
                     <span className={styles.rowNote}>
                       {" "}
-                      Only unprojected players fit {listJoin(holes.onlyUnprojected)}.
+                      Slots only unprojected players can fill: {listJoin(holes.onlyUnprojected)}.
                     </span>
                   ) : null}
                 </th>
@@ -366,9 +370,17 @@ function Methodology({ analysis, raw }) {
   const market = analysis.lenses?.market?.detail || {};
   const roster = analysis.lenses?.roster?.detail || {};
   const basis = roster.basis || {};
+  const assumptions = assumptionLines(roster.assumptions, basis);
+  const rosterNotes = rosterNoteLines(analysis.lenses?.feasibility?.detail?.notes);
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
   const comps = comparablesSummary(analysis.lenses?.comparables);
+  // Every comparable reason line in plain words (a line that would show a
+  // code is dropped).
+  const compRows = (comps.rows || []).map((r) => ({
+    ...r,
+    reasons: r.reasons.map(comparableReasonText).filter(Boolean),
+  }));
   const notPriced = notPricedNames(analysis, raw);
   return (
     <div className={styles.detailBody}>
@@ -413,9 +425,8 @@ function Methodology({ analysis, raw }) {
       <section className={styles.detailSection}>
         <h4 className={styles.detailTitle}>Trade value</h4>
         <p>
-          Package Value Adjustment:{" "}
-          {market.packageModel?.label || market.valueAdjustment || "the active package model"}.
-          Adjusted totals: you receive {formatValue(market.receivingAdjusted) ?? "—"} and send{" "}
+          Package Value Adjustment: {packageModelLabel(market.packageModel)}. Adjusted totals: you
+          receive {formatValue(market.receivingAdjusted) ?? "—"} and send{" "}
           {formatValue(market.sendingAdjusted) ?? "—"}. Every asset is priced at its board value, so
           value overrides typed in the builder are not applied here, and fit with your roster never
           changes an asset&apos;s value.
@@ -431,18 +442,28 @@ function Methodology({ analysis, raw }) {
           <h4 className={styles.detailTitle}>Lineup simulation</h4>
           <p data-testid="war-room-simulation-explained">{simulationExplanation(roster)}</p>
           <p data-testid="war-room-projection-basis">{projectionBasisText(basis)}</p>
-          {roster.assumptions?.length ? (
-            <ul className={styles.plainList}>
-              {roster.assumptions.map((a) => (
+          {assumptions.length ? (
+            <ul className={styles.plainList} data-testid="war-room-assumptions">
+              {assumptions.map((a) => (
                 <li key={a}>{a}</li>
               ))}
             </ul>
           ) : null}
         </section>
       ) : null}
-      {/* The roster-capacity owner's notes are developer prose ("cut ladder
-          unguarded", "capacity is UNKNOWN"); their facts are already shown in
-          words in the fit row and in What is missing, so they are not listed. */}
+      {/* The roster-capacity owner's notes, in plain words (`rosterNoteLines`):
+          facts about this trade's roster sit in the fit row; how the check was
+          made is listed here.  The backend's own prose is never shown. */}
+      {rosterNotes.detail.length ? (
+        <section className={styles.detailSection}>
+          <h4 className={styles.detailTitle}>How the roster fit was checked</h4>
+          <ul className={styles.plainList} data-testid="war-room-roster-notes">
+            {rosterNotes.detail.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {ts ? (
         <section className={styles.detailSection}>
           <h4 className={styles.detailTitle}>Team Strength (context, not a vote)</h4>
@@ -480,7 +501,7 @@ function Methodology({ analysis, raw }) {
           <h4 className={styles.detailTitle}>Comparable real trades</h4>
           {comps.rows.length ? (
             <ul className={styles.plainList}>
-              {comps.rows.map((r) => (
+              {compRows.map((r) => (
                 <li key={r.key}>
                   <strong>{r.date}</strong>
                   {r.similarity ? ` — ${r.similarity}` : ""}
@@ -813,7 +834,7 @@ export default function TradeWarRoom({
     : null;
   // Each reason and gap as its plain sentence; one with nothing plain to say
   // is skipped, never rendered empty.
-  const reasons = decision ? decisionReasonSentences(decision) : [];
+  const reasons = decision ? decisionReasonSentences(decision, { analysis }) : [];
   const missing = (decision?.missingEvidence || [])
     .map((g, i) => ({ key: `${g?.code || "gap"}-${i}`, sentence: missingEvidenceText(g) }))
     .filter((g) => g.sentence);
@@ -853,6 +874,7 @@ export default function TradeWarRoom({
         : "Waiting for the analysis.";
   const impact = analysis ? weeklyImpact(analysis.lenses?.roster) : null;
   const fit = analysis ? rosterFit(analysis.lenses?.feasibility) : null;
+  const fitNotes = analysis ? rosterNoteLines(analysis.lenses?.feasibility?.detail?.notes).fit : [];
   const pendingWord = failed ? "Unavailable — the analysis did not finish." : null;
 
   const rosterLens = analysis?.lenses?.roster;
@@ -1013,6 +1035,11 @@ export default function TradeWarRoom({
               <p className={styles.muted}>{fit?.unavailable || pendingWord || "Checking…"}</p>
             )}
             {fit?.spots ? <p className={styles.note}>{fit.spots}</p> : null}
+            {fitNotes.map((n) => (
+              <p key={n} className={styles.note} data-testid="war-room-fit-note">
+                {n}
+              </p>
+            ))}
           </dd>
         </div>
       </dl>

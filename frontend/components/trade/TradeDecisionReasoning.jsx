@@ -45,6 +45,7 @@ export const DIMENSION_LABELS = {
 
 export const COVERAGE_STATE_LABELS = {
   evaluated: "Evaluated",
+  not_applicable: "Not applicable",
   partial: "Partly evaluated",
   unavailable: "Not evaluated",
   excluded_by_mode: "Not evaluated (Asset-Only)",
@@ -55,6 +56,12 @@ export const EVIDENCE_KIND_LABELS = {
   correlated: "Correlated",
   contextual: "Contextual",
   explanatory: "Explanatory",
+};
+
+export const FRESHNESS_LABELS = {
+  fresh: "Current",
+  stale: "Stale",
+  unknown: "Not known",
 };
 
 export const ROLE_LABELS = {
@@ -106,7 +113,7 @@ export function coverageRows(coverage) {
     state: label(COVERAGE_STATE_LABELS, c?.state),
     kind: label(EVIDENCE_KIND_LABELS, c?.evidenceKind),
     role: label(ROLE_LABELS, c?.role),
-    freshness: humanize(c?.freshness) || "—",
+    freshness: label(FRESHNESS_LABELS, c?.freshness),
     note: c?.exclusionReason
       ? unavailableText(c.exclusionReason)
       : applicabilityText(c?.applicability?.reason),

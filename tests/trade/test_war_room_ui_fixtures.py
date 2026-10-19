@@ -59,3 +59,20 @@ def test_fixtures_cover_the_states_the_ui_renders():
     err = load["roster-error"]["analysis"]
     assert err["lenses"]["roster"]["unavailableReason"] == "error:KeyError"
     assert err["uncertainty"] == ["Roster impact not available (error:KeyError)"]
+    # A strategy-decided NO whose package value turns negative after the cut.
+    cut_no = load["strategy-cut-no"]["analysis"]["decision"]
+    assert (cut_no["headline"], cut_no["deciding"]) == ("NO", "strategy")
+    value = next(r for r in cut_no["reasons"] if r["component"] == "objectiveValue")
+    assert value["evidence"]["forcedReleaseCost"] > 0 > value["evidence"]["netGap"]
+    # Slot codes and repeats in the owner's own lineupHoles.
+    holes = load["superflex-holes"]["analysis"]["lenses"]["roster"]["detail"]["lineupHoles"]
+    assert "SUPER_FLEX" in holes["after"]["noEligiblePlayer"]
+    # The KTC rollback's own label; the comparables' format codes; capacity notes.
+    ktc = load["ktc-rollback"]["analysis"]["lenses"]["market"]["detail"]["packageModel"]
+    assert ktc["family"] == "ktc"
+    comps = load["comparables-formats"]["analysis"]["lenses"]["comparables"]["detail"]
+    assert any(r.startswith("Format: ") for t in comps["comparableTrades"] for r in t["reasons"])
+    notes = load["outgoing-not-held"]["analysis"]["lenses"]["feasibility"]["detail"]["notes"]
+    assert any("free no spot" in n for n in notes)
+    notes = load["over-limit"]["analysis"]["lenses"]["feasibility"]["detail"]["notes"]
+    assert any(n.startswith("roster is ALREADY") for n in notes)

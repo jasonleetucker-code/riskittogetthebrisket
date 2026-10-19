@@ -19,6 +19,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  availabilityNote,
   formatPctPoint,
   formatPpg,
   formatSignedPpg,
@@ -34,6 +35,8 @@ import { TRADE_VALUE_MODE, adjustedSideTotals, tradeEvaluationState } from "@/li
 import {
   analysisErrorText,
   argumentLine,
+  assumptionLines,
+  comparableReasonText,
   confidenceLimits,
   confidenceStatementText,
   confidenceSummary,
@@ -45,11 +48,13 @@ import {
   lineupPointsSentence,
   listJoin,
   missingEvidenceText,
+  packageModelLabel,
   plainLimit,
   projectionBasisText,
   reasonSentence,
   recordReasonText,
   rosterFit,
+  rosterNoteLines,
   rosterSpotsLine,
   simulationExplanation,
   strategySentence,
@@ -67,6 +72,11 @@ import ASSET_ONLY from "./fixtures/trade-war-room/asset-only.json";
 import PARTIAL_LONG_TERM from "./fixtures/trade-war-room/partial-long-term.json";
 import ROSTER_UNMEASURED from "./fixtures/trade-war-room/roster-unmeasured.json";
 import ROSTER_ERROR from "./fixtures/trade-war-room/roster-error.json";
+import STRATEGY_CUT_NO from "./fixtures/trade-war-room/strategy-cut-no.json";
+import SUPERFLEX from "./fixtures/trade-war-room/superflex-holes.json";
+import KTC_ROLLBACK from "./fixtures/trade-war-room/ktc-rollback.json";
+import OUTGOING_NOT_HELD from "./fixtures/trade-war-room/outgoing-not-held.json";
+import OVER_LIMIT from "./fixtures/trade-war-room/over-limit.json";
 
 const market = (f) => f.analysis.lenses.market.detail;
 const roster = (f) => f.analysis.lenses.roster;
@@ -1052,7 +1062,8 @@ describe("reason-to-words — one whitelist owner", () => {
     }
     expect(unavailableText("KeyError")).toBe("Could not be computed right now");
     expect(unavailableText("error:KeyError")).toBe("Could not be computed right now");
-    expect(unavailableText("some_new_reason")).toBe("Could not be computed right now");
+    // An unlisted code that is not failure-shaped reads neutrally.
+    expect(unavailableText("some_new_reason")).toBe("Not available");
     expect(unavailableText("projection_basis_new_reason")).toBe(
       "League-scored projections are not available",
     );
@@ -1189,6 +1200,240 @@ describe("methodology — the engine's own record, in plain words", () => {
     expect(argumentLine("x (lean gap)", { band })).toBe("x (a slight edge).");
     expect(argumentLine("x (even gap)")).toBe("x (within the fair band).");
     expect(argumentLine("x (stretch gap)")).toBe("x (an unfair or lopsided gap).");
+  });
+});
+
+describe("a strategy-decided answer says what pushed toward it", () => {
+  it("REAL strategy-decided NO: the forced cut that turned the value negative is at a glance", () => {
+    const a = STRATEGY_CUT_NO.analysis;
+    const d = a.decision;
+    expect([d.headline, d.deciding, d.primaryReason.component]).toEqual([
+      "NO",
+      "strategy",
+      "strategy",
+    ]);
+    expect(a.lenses.market.detail.vaAdjustedGap).toBeGreaterThan(0); // the value row reads "+"
+    const items = decisionReasonSentences(d, { analysis: a });
+    expect(items.map((r) => r.role)).toEqual(["main", "supportAgainst", "counter"]);
+    expect(items[1].sentence).toBe(
+      "After the forced cut of RB Bench One (worth about 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
+    );
+    // Every number is the decision's own.
+    const ev = d.reasons.find((r) => r.component === "objectiveValue").evidence;
+    expect([ev.forcedReleaseCost, ev.netGap]).toEqual([3000, -1426]);
+    expect(items[2].sentence).toBe("Your projected weekly lineup gets much stronger.");
+  });
+
+  it("REAL strategy-decided YES: the factor for it is shown too", () => {
+    const d = SUPERFLEX.analysis.decision;
+    expect([d.headline, d.deciding]).toEqual(["YES", "strategy"]);
+    const items = decisionReasonSentences(d, { analysis: SUPERFLEX.analysis });
+    expect(items.map((r) => r.role)).toEqual(["main", "supportFor", "counter"]);
+    expect(items[1].sentence).toMatch(
+      /^You come out ahead on trade value — a lopsided gap in your favor/,
+    );
+  });
+
+  it("a value-decided answer is unchanged: no extra line", () => {
+    const items = decisionReasonSentences(CONSOLIDATION.analysis.decision, {
+      analysis: CONSOLIDATION.analysis,
+    });
+    expect(items.map((r) => r.role)).not.toContain("supportFor");
+    expect(items.map((r) => r.role)).not.toContain("supportAgainst");
+  });
+});
+
+describe("comparable trades, package model, assumptions, roster notes", () => {
+  it("every comparable reason line reads plainly; format dispositions are worded", () => {
+    // `comparable_trades.py::_reasons`: every line it can write.
+    const cases = [
+      ["Format: NATIVE_COMPARABLE", "Format: the same league format as yours"],
+      [
+        "Format: VALIDATED_TRANSFORMABLE",
+        "Format: a different format that can be translated to yours",
+      ],
+      ["Format: BROAD_CONTEXT", "Format: a different or unknown format, shown for context only"],
+      ["Format: TARGET_UNSUPPORTED", "Format: a format that cannot be priced for your league"],
+      ["Format: SOMETHING_NEW", "Format: not stated"],
+      [
+        "Format comparability unknown for this league",
+        "Format comparability unknown for this league",
+      ],
+      ["Same asset: A.J. Brown, $5 FAAB", "Same asset: A.J. Brown, $5 FAAB"],
+      ["Same pick round: 2027 Round 1 +2 more", "Same pick round: 2027 Round 1 +2 more"],
+      ["Moved the other way: Marvin Harrison Jr.", "Moved the other way: Marvin Harrison Jr."],
+      [
+        "Shape not compared until both sides have assets",
+        "Shape not compared until both sides have assets",
+      ],
+      ["3-team trade; yours is 2-for-1", "3-team trade; yours is 2-for-1"],
+      ["Same 2-for-1 shape", "Same 2-for-1 shape"],
+      ["2-for-1 shape vs your 1-for-1", "2-for-1 shape vs your 1-for-1"],
+      ["today", "today"],
+      ["12 days ago", "12 days ago"],
+    ];
+    for (const [line, words] of cases) {
+      expect(comparableReasonText(line), line).toBe(words);
+      // Asset labels after "Same asset:" are names ("$5 FAAB" included).
+      const prose = /^(?:Same asset|Same pick round|Moved the other way): /.test(words)
+        ? words.slice(0, words.indexOf(": "))
+        : words;
+      expect(hasInternalIdentifier(prose)).toBe(false);
+    }
+    expect(comparableReasonText("scoreBreakdown: 0.4")).toBeNull();
+    expect(comparableReasonText("")).toBeNull();
+  });
+
+  it("REAL KTC rollback: the package model by its display name", () => {
+    const pm = KTC_ROLLBACK.analysis.lenses.market.detail.packageModel;
+    expect(pm.label).toMatch(/port of keeptradecut\.com/); // as emitted
+    expect(packageModelLabel(pm)).toBe("KTC adjustment method");
+    expect(packageModelLabel(market(CONSOLIDATION).packageModel)).toBe(
+      "Chase Upside adjustment (geometric)",
+    );
+    expect(packageModelLabel({ family: "new", label: "Some (x = 1)" })).toBe(
+      "the active package adjustment",
+    );
+  });
+
+  it("the simulation's assumptions follow the actual points model", () => {
+    const lines = roster(CONSOLIDATION).detail.assumptions;
+    expect(lines[0]).toMatch(/league's calibrated per-position variance/); // as emitted
+    const basis = roster(CONSOLIDATION).detail.basis;
+    expect(basis.pointsModel.source).toBe("fallback-constants");
+    const plain = assumptionLines(lines, basis);
+    expect(plain[0]).toBe(
+      "Each simulated week is drawn around each player's per-game projection, with default per-position variance, not yet calibrated to this league; players are treated as independent.",
+    );
+    expect(plain.join(" ")).not.toMatch(/league's calibrated/);
+    expect(assumptionLines(lines, { pointsModel: { source: "calibrated" } })[0]).toMatch(
+      /with per-position variance calibrated to past weekly scoring;/,
+    );
+    expect(plain.slice(1)).toEqual([
+      "Injury / availability probabilities are not modelled.",
+      "Bye weeks are not modelled.",
+      "The lineup is re-solved exactly for every simulated week (best ball).",
+    ]);
+  });
+
+  it("every roster-capacity note is a plain line, or already said elsewhere", () => {
+    // Every note `roster_capacity.py` and `displacement.py` can write.
+    const NOTES = [
+      ["league roster size is not configured — capacity is UNKNOWN, not unlimited", null, null],
+      [
+        "league carries 5 taxi slot(s) and this source does not say which roster members occupy them — Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+        "Your league has 5 taxi spots and who fills them is not known, so your roster count is a range.",
+        null,
+      ],
+      [
+        "1 rostered player(s) did not join to the board — they still occupy a roster spot and are still cut candidates, but their value is unknown",
+        null,
+        "One of your rostered players is not on the value board: that player still takes a roster spot and could still be cut, but the value is unknown.",
+      ],
+      [
+        "3 rostered player(s) did not join to the board — they still occupy a roster spot and are still cut candidates, but their value is unknown",
+        null,
+        "3 of your rostered players are not on the value board: they still take roster spots and could still be cut, but their values are unknown.",
+      ],
+      [
+        "no waiver-level values available — cut costs fall back to raw board value",
+        null,
+        "No waiver-wire values are available, so a cut costs the player's full board value.",
+      ],
+      [
+        "starter slots unavailable (KeyError) — cut ladder unguarded",
+        "This league's starting slots could not be read, so a forced cut may be a player your lineup needs.",
+        null,
+      ],
+      [
+        "no starter slots resolved for this league — the cut ladder is not lineup-guarded, so a forced drop may be a player the lineup needs",
+        "This league's starting slots could not be read, so a forced cut may be a player your lineup needs.",
+        null,
+      ],
+      [
+        "no starter slots configured for this league — cut ladder built without a lineup-feasibility guard",
+        "This league's starting slots could not be read, so a forced cut may be a player your lineup needs.",
+        null,
+      ],
+      [
+        "positional scarcity unavailable (KeyError) — multiplier inert",
+        null,
+        "Position scarcity is not available, so cut costs do not account for how scarce each position is.",
+      ],
+      [
+        "1 outgoing player(s) are not on this roster and free no spot: Marvin Harrison Jr.",
+        "Marvin Harrison Jr. is not on your roster, so sending that player frees no roster spot.",
+        null,
+      ],
+      [
+        "2 outgoing player(s) are not on this roster and free no spot: A, B",
+        "A and B are not on your roster, so sending them frees no roster spot.",
+        null,
+      ],
+      [
+        "roster is ALREADY 2 over the 58-man limit before this trade — the drops below include getting back to legal size",
+        "Your roster is already 2 over the 58-player limit before this trade; the cuts shown include getting back under it.",
+        null,
+      ],
+      [
+        "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority — these are ordered by release cost instead",
+        null,
+        null,
+      ],
+      [
+        "cut ladder offers 1 release(s) but 2 are needed — every remaining player is required to fill a starting slot, so no legal path back to roster size was modelled",
+        "Only 1 cut is possible but 2 are needed: every remaining player is needed to fill a starting slot.",
+        null,
+      ],
+      ["roster is empty — no cut ladder", "Your roster is empty, so there is no one to cut.", null],
+      [
+        "roster cannot fill 2 starting slot(s) before any cut — ladder measured against that baseline",
+        "Your roster cannot fill 2 starting slots even before any cut.",
+        null,
+      ],
+      [
+        "cut ladder truncated at 30 rungs — deeper cuts exist but are far past any budget-feasible plan",
+        null,
+        null,
+      ],
+      ["some brand_new note — UNKNOWN", null, null],
+    ];
+    for (const [note, fit, detail] of NOTES) {
+      const out = rosterNoteLines([note]);
+      expect(out.fit, note).toEqual(fit ? [fit] : []);
+      expect(out.detail, note).toEqual(detail ? [detail] : []);
+      for (const line of [...out.fit, ...out.detail])
+        expect(hasInternalIdentifier(line)).toBe(false);
+    }
+    // REAL: an outgoing player this roster does not hold, and a roster
+    // already over its limit.
+    expect(rosterNoteLines(feas(OUTGOING_NOT_HELD).detail.notes).fit).toEqual([
+      "RB Buf Depth is not on your roster, so sending that player frees no roster spot.",
+    ]);
+    expect(rosterNoteLines(feas(OVER_LIMIT).detail.notes).fit).toEqual([
+      "Your roster is already 1 over the 8-player limit before this trade; the cuts shown include getting back under it.",
+    ]);
+  });
+
+  it("one remaining week reads as one week", () => {
+    expect(
+      argumentLine("WR X is unavailable for all 1 remaining weeks (listed OUT this week)"),
+    ).toBe("WR X is unavailable for the 1 remaining week (listed as out this week).");
+    expect(
+      argumentLine("X would reach the lineup in only 40% of the 1 remaining weeks simulated"),
+    ).toBe("X would reach the lineup in only 40% of the 1 remaining week simulated.");
+    expect(argumentLine("X is unavailable for all 3 remaining weeks (bye week)")).toBe(
+      "X is unavailable for all 3 remaining weeks (bye week).",
+    );
+    expect(availabilityNote({ availability: { weeks: 1, eligibleWeeks: 0 } })).toBe(
+      "Out the 1 remaining week",
+    );
+    expect(
+      availabilityNote({ availability: { weeks: 1, eligibleWeeks: 1, unavailableWeeks: 1 } }),
+    ).toBe("out 1 of 1 week");
+    expect(availabilityNote({ availability: { weeks: 4, eligibleWeeks: 0 } })).toBe(
+      "Out all 4 remaining weeks",
+    );
   });
 });
 
@@ -1443,9 +1688,37 @@ describe("expandable detail", () => {
   it("errors are words a person can act on", () => {
     expect(analysisErrorText("timeout")).toBe("it took too long to finish");
     expect(analysisErrorText("invalid_analysis")).toMatch(/did not match this trade/);
-    expect(analysisErrorText("HTTP 503")).toBe("the server had a problem (HTTP 503)");
+    expect(analysisErrorText("HTTP 503")).toBe("the server had a problem");
     expect(analysisErrorText("TypeError: Failed to fetch")).toBe("the connection failed");
-    expect(analysisErrorText("boom")).toBe("an error occurred (boom)");
+    expect(analysisErrorText("boom")).toBe("something went wrong");
+    // Every error the analyze route and the league resolver return
+    // (server.py `_build_trade_simulation`, `_resolve_league_for_request`,
+    // the scoring identity gate), in words, never the code.
+    const ROUTE_ERRORS = {
+      auth_required: "your session has expired — sign in again",
+      "No data available yet.": "the server has no player data yet",
+      invalid_body: "the server could not read the request",
+      data_not_ready: "this league's data is still loading on the server",
+      team_not_found: "your team was not found in this league",
+      unknown_league: "this league is not available",
+      inactive_league: "this league is not available",
+      no_leagues_configured: "no league is set up on the server",
+    };
+    for (const [code, words] of Object.entries(ROUTE_ERRORS)) {
+      expect(analysisErrorText(code), code).toBe(words);
+    }
+    for (const [status, words] of [
+      ["HTTP 502", "the server had a problem"],
+      ["HTTP 500", "the server had a problem"],
+      ["HTTP 404", "the server refused the request"],
+      ["HTTP 401", "your session has expired — sign in again"],
+      ["HTTP 429", "too many requests were made — wait a moment, then retry"],
+    ]) {
+      expect(analysisErrorText(status), status).toBe(words);
+    }
+    for (const odd of ["Unexpected token < in JSON", { error: "x" }, "rate_limited", "KeyError"]) {
+      expect(analysisErrorText(odd)).toBe("something went wrong");
+    }
     expect(listJoin(["a", "b", "c"])).toBe("a, b and c");
   });
 });

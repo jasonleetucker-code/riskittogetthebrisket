@@ -15,7 +15,10 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TradeWarRoom, { ANALYZE_TIMEOUT_MS, SLOW_NOTICE_MS } from "@/components/trade/TradeWarRoom";
-import TradeDecisionReasoning, { changeText } from "@/components/trade/TradeDecisionReasoning";
+import TradeDecisionReasoning, {
+  changeText,
+  coverageRows,
+} from "@/components/trade/TradeDecisionReasoning";
 import {
   formatValue,
   tradeRequestForTeam,
@@ -41,6 +44,12 @@ import PARTIAL from "../fixtures/trade-war-room/partial-coverage.json";
 import PARTIAL_LONG_TERM from "../fixtures/trade-war-room/partial-long-term.json";
 import ROSTER_UNMEASURED from "../fixtures/trade-war-room/roster-unmeasured.json";
 import ROSTER_ERROR from "../fixtures/trade-war-room/roster-error.json";
+import STRATEGY_CUT_NO from "../fixtures/trade-war-room/strategy-cut-no.json";
+import SUPERFLEX from "../fixtures/trade-war-room/superflex-holes.json";
+import KTC_ROLLBACK from "../fixtures/trade-war-room/ktc-rollback.json";
+import COMPARABLES from "../fixtures/trade-war-room/comparables-formats.json";
+import OUTGOING_NOT_HELD from "../fixtures/trade-war-room/outgoing-not-held.json";
+import OVER_LIMIT from "../fixtures/trade-war-room/over-limit.json";
 import AJ_BROWN from "../fixtures/trade-war-room-mock/aj-brown-herbert.json";
 
 const req = (fixture) => ({ ...fixture._fixture.request, mySide: 0 });
@@ -272,9 +281,19 @@ describe("TradeWarRoom — the packet, in plain English", () => {
   it("methodology discloses the package model, the simulation and what is not included", async () => {
     await renderWith(CONSOLIDATION);
     openSection("Sources, simulations and methodology");
+    // The package model by its display name (#1826's labels), never the
+    // backend's developer description.
     expect(
-      screen.getByText(/Package Value Adjustment: Geometric Value Adjustment \(q = 0\.78\)/),
+      screen.getByText(/Package Value Adjustment: Chase Upside adjustment \(geometric\)\./),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/q = 0\.78/)).toBeNull();
+    // The assumptions follow the ACTUAL points model: this one is the default
+    // constants, so nothing calls it calibrated.
+    const assumptions = screen.getByTestId("war-room-assumptions");
+    expect(assumptions).toHaveTextContent(
+      "Each simulated week is drawn around each player's per-game projection, with default per-position variance, not yet calibrated to this league; players are treated as independent.",
+    );
+    expect(assumptions.textContent).not.toMatch(/league's calibrated/);
     // The basis' description carries a file path, so it is named generically;
     // the source id ("SYNTHETIC_FIXTURE_PROJECTIONS") is never shown.
     expect(screen.getByTestId("war-room-projection-basis")).toHaveTextContent(
@@ -684,7 +703,9 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     const ORACLE = [
       ["snake_case", /[A-Za-z0-9]_[A-Za-z0-9]/],
       ["camelCase", /(?:^|[\s(\[{"'‘“])[a-z]+[A-Z][A-Za-z]*/],
-      ["ALL_CAPS", /\b(?!III\b)[A-Z]{3,}\b|\b[A-Z]+_[A-Z_]+\b/],
+      // KTC and FAAB are display words the owner approved ("KTC adjustment
+      // method", "$5 FAAB").
+      ["ALL_CAPS", /\b(?!III\b|KTC\b|FAAB\b)[A-Z]{3,}\b|\b[A-Z]+_[A-Z_]+\b/],
       ["word:Word", /\b[a-z]+:[A-Za-z]/],
     ];
     const clean = (text, where) => {
@@ -700,21 +721,31 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
       PARTIAL_LONG_TERM,
       ROSTER_UNMEASURED,
       ROSTER_ERROR,
+      STRATEGY_CUT_NO,
+      SUPERFLEX,
+      KTC_ROLLBACK,
+      COMPARABLES,
+      OUTGOING_NOT_HELD,
+      OVER_LIMIT,
     ];
     for (const fixture of fixtures) {
       const view = await renderWith(fixture);
       const name = fixture._fixture?.scenario || "aj-brown";
-      for (const id of ["decision-confidence", "decision-reasons", "decision-missing"]) {
-        const el = screen.queryByTestId(id);
-        if (el) clean(readText(el), `${name} ${id}`);
+      // The WHOLE War Room with every disclosure open (the engine's headline
+      // words are the official answer).
+      for (const section of [
+        "Lineup impact, player by player",
+        "Your lineup before and after",
+        "Arguments, objections and uncertainty",
+        "Sources, simulations and methodology",
+      ]) {
+        const button = screen.queryByRole("button", { name: section });
+        if (button) fireEvent.click(button);
       }
-      clean(readText(document.querySelector("dl")), `${name} at a glance`);
-      // The detail lists too.
-      openSection("Arguments, objections and uncertainty");
-      for (const key of ["for", "against", "uncertain"]) {
-        const list = document.querySelector(`[data-list="${key}"]`);
-        if (list) clean(readText(list), `${name} ${key}`);
-      }
+      clean(
+        readText(view.container).replace(fixture.analysis.decision.headlineText, ""),
+        `${name} War Room`,
+      );
       view.unmount();
       // ...and the Reasoning tab: what would change it, and the coverage
       // table's every cell (its Note column carried "error:KeyError").
@@ -733,6 +764,102 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
         `${name} coverage table`,
       );
       tab.unmount();
+    }
+  });
+
+  it("a strategy-decided NO says, at a glance, what pushed against it (real output)", async () => {
+    await renderWith(STRATEGY_CUT_NO);
+    const items = within(screen.getByTestId("decision-reasons")).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "Biggest reason: Your strategy decided it: long-term value — your choice; your team reads as a contender.",
+      "What pushes against it: After the forced cut of RB Bench One (worth about 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
+      "On the other hand: Your projected weekly lineup gets much stronger.",
+    ]);
+  });
+
+  it("comparable trades read in words; the format disposition is explained (real reasons)", async () => {
+    await renderWith(COMPARABLES);
+    openSection("Sources, simulations and methodology");
+    const text = readText(document.body);
+    expect(text).toContain("Format: the same league format as yours");
+    expect(text).toContain("Format: a different or unknown format, shown for context only");
+    expect(text).toContain("Format: a format that cannot be priced for your league");
+    expect(text).toContain("Same asset: WR Buf Star, $5 FAAB");
+    expect(text).not.toMatch(/NATIVE_COMPARABLE|BROAD_CONTEXT|TARGET_UNSUPPORTED/);
+  });
+
+  it("the KTC rollback model reads by its display name (real output)", async () => {
+    await renderWith(KTC_ROLLBACK);
+    openSection("Sources, simulations and methodology");
+    expect(
+      screen.getByText(/Package Value Adjustment: KTC adjustment method\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/keeptradecut\.com|adjustPackage/)).toBeNull();
+  });
+
+  it("roster notes: facts in the fit row, the check's limits in the methodology", async () => {
+    await renderWith(OUTGOING_NOT_HELD);
+    expect(screen.getAllByTestId("war-room-fit-note").map((n) => n.textContent)).toEqual([
+      "RB Buf Depth is not on your roster, so sending that player frees no roster spot.",
+    ]);
+    openSection("Sources, simulations and methodology");
+    expect(
+      within(screen.getByTestId("war-room-roster-notes"))
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual([
+      "One of your rostered players is not on the value board: that player still takes a roster spot and could still be cut, but the value is unknown.",
+      "No waiver-wire values are available, so a cut costs the player's full board value.",
+      "Position scarcity is not available, so cut costs do not account for how scarce each position is.",
+    ]);
+  });
+
+  it("every analyze route error reads as words a person can act on, never a code", async () => {
+    // server.py `_build_trade_simulation` / `_resolve_league_for_request`.
+    const CASES = [
+      [401, { error: "auth_required" }, "your session has expired — sign in again"],
+      [400, { error: "invalid_body" }, "the server could not read the request"],
+      [404, { error: "team_not_found" }, "your team was not found in this league"],
+      [404, { error: "no_leagues_configured" }, "no league is set up on the server"],
+      [503, { error: "No data available yet." }, "the server has no player data yet"],
+      [503, { error: "data_not_ready" }, "this league's data is still loading on the server"],
+      [400, { error: "unknown_league" }, "this league is not available"],
+      [502, {}, "the server had a problem"],
+      [500, { error: "Traceback (most recent call last)" }, "something went wrong"],
+    ];
+    for (const [status, body, words] of CASES) {
+      globalThis.fetch = vi.fn(async () => ok(body, status));
+      const view = render(
+        <TradeWarRoom
+          request={req(CONSOLIDATION)}
+          leagueKey="main"
+          useTeamContext={CONSOLIDATION._fixture.request.useTeamContext}
+        />,
+      );
+      await settle();
+      const banner = screen.getByTestId("war-room-error").textContent;
+      expect(banner, `${status} ${JSON.stringify(body)}`).toContain(`because ${words}.`);
+      expect(banner).not.toMatch(/auth_required|invalid_body|team_not_found|no_leagues|HTTP|\(|_/);
+      view.unmount();
+    }
+  });
+
+  it("the Reasoning tab labels every coverage state and freshness", () => {
+    const rows = coverageRows(PARTIAL_LONG_TERM.analysis.decision.coverage);
+    const immediate = rows.find((r) => r.dimension === "Immediate improvement");
+    const freshness = new Set(
+      [...rows, ...coverageRows(CONSOLIDATION.analysis.decision.coverage)].map((r) => r.freshness),
+    );
+    expect(
+      PARTIAL_LONG_TERM.analysis.decision.coverage.find(
+        (c) => c.dimension === "immediate_improvement",
+      ).state,
+    ).toBe("not_applicable");
+    expect(immediate.state).toBe("Not applicable");
+    expect(freshness).toEqual(new Set(["Not known", "Current"]));
+    // Every displayed cell (the row `id` is a React key, not shown).
+    for (const { id, ...cells } of rows) {
+      expect(hasInternalIdentifier(Object.values(cells).join(" ")), id).toBe(false);
     }
   });
 

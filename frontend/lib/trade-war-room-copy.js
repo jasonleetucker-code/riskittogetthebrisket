@@ -326,6 +326,9 @@ const AXIS_WORDS = {
 const GENERIC_LIMIT = "part of the evidence is weaker (see Sources, simulations and methodology)";
 
 const ROMAN_NUMERAL = /^(?:I{2,3}|IV|VI{0,3}|IX|X{1,3})$/;
+/** Acronyms the War Room itself shows to people ("KTC adjustment method",
+ *  "$5 FAAB"): words, not codes. */
+const DISPLAY_ACRONYMS = new Set(["KTC", "FAAB"]);
 
 /**
  * An internal identifier a person should not read: a snake_case code, a
@@ -347,7 +350,7 @@ export function hasInternalIdentifier(text) {
   // apostrophe), then a capital.
   if (/(?:^|[^A-Za-z'’])[a-z]+[A-Z]/.test(s)) return true;
   for (const m of s.matchAll(/(?:^|[^A-Za-z'’])([A-Z]{3,})(?![A-Za-z'’])/g)) {
-    if (!ROMAN_NUMERAL.test(m[1])) return true;
+    if (!ROMAN_NUMERAL.test(m[1]) && !DISPLAY_ACRONYMS.has(m[1])) return true;
   }
   // A quoted token: the opening quote follows no letter (so the apostrophes
   // inside "To'oTo'o" are not quotes) and the closing one precedes none.
@@ -541,6 +544,7 @@ export function argumentLine(text, { band = null } = {}) {
         /\blisted ([A-Z]{2,}) this week\b/g,
         (_, code) => `${DESIGNATION_WORDS[code] || `listed as ${code.toLowerCase()}`} this week`,
       )
+      .replace(/\b(?:all|the) 1 remaining weeks\b/g, "the 1 remaining week")
       .replace(/\((even|lean|stretch) gap\)/g, (_, mag) => {
         const level =
           LEGACY_MAGNITUDE_LEVEL[mag] ||
@@ -694,7 +698,7 @@ export function fitSentence(state, names = [], { tied = false, openSpotsBefore =
  * a reason with nothing plain to say returns null (the caller skips it, so
  * no reason ever renders empty).
  */
-export function reasonSentence(reason, { strategy = null } = {}) {
+export function reasonSentence(reason, { strategy = null, cutNames = [] } = {}) {
   if (!reason || typeof reason !== "object") return null;
   const ev = reason.evidence || {};
   const text = typeof reason.text === "string" ? reason.text.trim() : "";
@@ -702,20 +706,35 @@ export function reasonSentence(reason, { strategy = null } = {}) {
   switch (reason.component) {
     case "objectiveValue": {
       const level = ev.band?.level;
-      const cut =
-        isNum(ev.forcedReleaseCost) && ev.forcedReleaseCost > 0
-          ? ", counting the player you must cut"
-          : "";
       // The band's own basis, to the backend's one decimal.
       const rel = isNum(ev.band?.relativePct)
         ? ` (${ev.band.relativePct.toFixed(1)}% of the larger package)`
         : "";
       const band = BAND_PHRASE[level];
-      if (reason.stance === "for")
-        return `You come out ahead on trade value${cut}${band ? ` — ${band} in your favor` : ""}${rel}.`;
+      const side =
+        reason.stance === "for"
+          ? "in your favor"
+          : reason.stance === "against"
+            ? "against you"
+            : "";
+      const bandTail = band && side ? ` — ${band} ${side}` : "";
+      // A charged forced release (`trade_decision.py::_objective_value`): the
+      // decision's own numbers -- the release cost and the net gap after it --
+      // because the at-a-glance trade value is the gap BEFORE the cut.
+      if (isNum(ev.forcedReleaseCost) && ev.forcedReleaseCost > 0 && isNum(ev.netGap)) {
+        const who = listJoin(cutNames);
+        const cut = `After the forced cut${who ? ` of ${who}` : ""} (worth about ${formatValue(ev.forcedReleaseCost)})`;
+        const net = Math.round(ev.netGap);
+        if (net < 0)
+          return `${cut}, you come out ${formatValue(-net)} behind on trade value${bandTail}${rel}.`;
+        if (net > 0)
+          return `${cut}, you still come out ${formatValue(net)} ahead on trade value${bandTail}${rel}.`;
+        return `${cut}, trade value comes out even${rel}.`;
+      }
+      if (reason.stance === "for") return `You come out ahead on trade value${bandTail}${rel}.`;
       if (reason.stance === "against")
-        return `You come out behind on trade value${cut}${band ? ` — ${band} against you` : ""}${rel}.`;
-      return `Trade value is close to even${cut}${rel}.`;
+        return `You come out behind on trade value${bandTail}${rel}.`;
+      return `Trade value is close to even${rel}.`;
     }
     case "rosterBenefit": {
       const much = ev.magnitude === "large" ? "much " : "";
@@ -766,20 +785,40 @@ export function reasonSentence(reason, { strategy = null } = {}) {
  */
 export function decisionReasons(decision) {
   if (!decision || decision.headline === "NOT_ENOUGH_EVIDENCE") return [];
-  const all = Array.isArray(decision.reasons) ? decision.reasons : [];
+  const all = (Array.isArray(decision.reasons) ? decision.reasons : []).filter(Boolean);
   const main = decision.primaryReason || all[0] || null;
   if (!main) return [];
   const out = [{ role: "main", reason: main }];
+  const used = new Set([main.component]);
+  // When the STRATEGY decides, "your strategy decided it" says why the rule
+  // broke the tie but not what pushed toward this answer -- and the counter
+  // (by the backend's own choice) points the other way.  So the strongest
+  // reason on the verdict's own side is shown too, from the decision's own
+  // reasons: an independent component first.  Nothing is re-decided.
+  if (decision.deciding === "strategy" || main.component === "strategy") {
+    const yes = decision.headline === "YES";
+    const want = yes ? "for" : "against";
+    const open = (r) => !used.has(r.component) && r.component !== "strategy";
+    const support =
+      all.find((r) => open(r) && r.kind === "independent" && r.stance === want) ||
+      all.find((r) => open(r) && r.stance === want) ||
+      (decision.headline === "NO_TOO_CLOSE"
+        ? all.find((r) => open(r) && r.kind === "independent" && r.stance === "neutral")
+        : null);
+    if (support) {
+      out.push({ role: yes ? "supportFor" : "supportAgainst", reason: support });
+      used.add(support.component);
+    }
+  }
   const counter = decision.mainCounterargument;
-  if (counter && counter.component !== main.component) {
+  if (counter && !used.has(counter.component)) {
     out.push({ role: "counter", reason: counter });
     return out;
   }
+  if (out.length > 1) return out;
   const next =
-    all.find((r) => r && r.component !== main.component && r.kind === "independent") ||
-    all.find(
-      (r) => r && r.component !== main.component && (r.stance === "for" || r.stance === "against"),
-    );
+    all.find((r) => !used.has(r.component) && r.kind === "independent") ||
+    all.find((r) => !used.has(r.component) && (r.stance === "for" || r.stance === "against"));
   if (next) out.push({ role: "also", reason: next });
   return out;
 }
@@ -789,10 +828,15 @@ export function decisionReasons(decision) {
  * plain to say is skipped -- and when that is the MAIN reason the whole list
  * is dropped, because a counterargument shown alone would read as the reason.
  */
-export function decisionReasonSentences(decision) {
+export function decisionReasonSentences(decision, { analysis = null } = {}) {
+  // The cut names come from the feasibility lens (the decision's reason
+  // carries the release cost, not who is released).
+  const cutNames = (analysis?.lenses?.feasibility?.detail?.forcedDrops || [])
+    .map((d) => d?.name)
+    .filter(Boolean);
   const items = decisionReasons(decision).map((r) => ({
     ...r,
-    sentence: reasonSentence(r.reason, { strategy: decision.strategy }),
+    sentence: reasonSentence(r.reason, { strategy: decision.strategy, cutNames }),
   }));
   if (!items.length || !items[0].sentence) return [];
   return items.filter((r) => r.sentence);
@@ -891,9 +935,191 @@ export function versionLabel(id) {
 
 export const REASON_ROLE_WORDS = {
   main: "Biggest reason",
+  supportFor: "What pushes for it",
+  supportAgainst: "What pushes against it",
   counter: "On the other hand",
   also: "Also",
 };
+
+// ── Methodology: comparables, package model, simulation assumptions ───────
+
+/** The comparable-trade format dispositions (`market_trade_format`), worded
+ *  from their definitions in docs/market_trades/TARGET_FORMAT_CENSUS.md. */
+const FORMAT_DISPOSITION_WORDS = {
+  NATIVE_COMPARABLE: "the same league format as yours",
+  VALIDATED_TRANSFORMABLE: "a different format that can be translated to yours",
+  BROAD_CONTEXT: "a different or unknown format, shown for context only",
+  TARGET_UNSUPPORTED: "a format that cannot be priced for your league",
+};
+/** Comparable reasons whose text is fixed prose then asset labels after ": "
+ *  (`comparable_trades.py::_reasons`); only the prose is checked -- labels
+ *  such as "$5 FAAB" or a player's name are names. */
+const COMPARABLE_LABEL_LISTS = /^(?:Same asset|Same pick round|Moved the other way)$/;
+
+/**
+ * One comparable-trade reason (`comparable_trades.py::_reasons`) in plain
+ * words: the format disposition worded; every other line the backend's own
+ * when it is plain; a line that would show a code is dropped (null).
+ */
+export function comparableReasonText(line) {
+  const t = typeof line === "string" ? line.trim() : "";
+  if (!t) return null;
+  const fmt = /^Format: (\S+)$/.exec(t);
+  if (fmt) return `Format: ${FORMAT_DISPOSITION_WORDS[fmt[1]] || "not stated"}`;
+  // Recency is one word ("today") -- a word, not a code.
+  if (/^(?:today|\d+ days? ago)$/.test(t)) return t;
+  const at = t.indexOf(": ");
+  const prose = at > 0 && COMPARABLE_LABEL_LISTS.test(t.slice(0, at)) ? t.slice(0, at) : t;
+  return isRawCode(prose) ? null : t;
+}
+
+/** The package Value Adjustment models, by family -- the same names the VA
+ *  comparison uses (#1826 `va-comparison.js` ACTIVE_ / COMPARATOR_METHOD_LABEL). */
+export const PACKAGE_MODEL_LABELS = {
+  geom: "Chase Upside adjustment (geometric)",
+  ktc: "KTC adjustment method",
+};
+
+/** `packageModel` (the market lens' receipt) as its display name; the
+ *  backend's own label is a developer description and is never shown. */
+export function packageModelLabel(packageModel) {
+  return PACKAGE_MODEL_LABELS[packageModel?.family] || "the active package adjustment";
+}
+
+const DRAW_ASSUMPTION = /^each week is drawn around the player's per-game projection/i;
+
+/**
+ * The lineup simulation's assumptions (`best_ball_utility.py::_assumptions`)
+ * as sentences.  The draw line is written unconditionally by the backend
+ * ("…the league's calibrated per-position variance") whatever the points
+ * model is, so it is worded from the ACTUAL model state
+ * (`basis.pointsModel.source`); a line carrying a code is dropped.
+ */
+export function assumptionLines(assumptions, basis) {
+  const src = basis?.pointsModel?.source;
+  const variance =
+    src === "calibrated"
+      ? "per-position variance calibrated to past weekly scoring"
+      : src === "fallback-constants"
+        ? "default per-position variance, not yet calibrated to this league"
+        : "per-position variance";
+  return (Array.isArray(assumptions) ? assumptions : [])
+    .map((a) => {
+      const t = typeof a === "string" ? a.trim() : "";
+      if (!t) return null;
+      if (DRAW_ASSUMPTION.test(t))
+        return `Each simulated week is drawn around each player's per-game projection, with ${variance}; players are treated as independent.`;
+      if (isRawCode(t)) return null;
+      return sentenceEnd(`${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+    })
+    .filter(Boolean);
+}
+
+// ── Roster-capacity notes ─────────────────────────────────────────────────
+
+function plural(n, one, many) {
+  return n === 1 ? one : many;
+}
+
+/**
+ * Every note `src/trade/roster_capacity.py` and `src/draft/displacement.py`
+ * can put on the feasibility lens, as plain lines -- `fit` for the fit row
+ * (facts about THIS trade's roster), `detail` for the methodology -- or null
+ * when the fact is already said in words elsewhere:
+ *   unknown roster limit       -> the fit row ("This league's roster limit is unknown")
+ *   tied cut candidates        -> the fit row ("a close call between candidates")
+ *                                 and the uncertainty list
+ *   cut ladder truncated       -> a search bound, not a fact about this trade
+ * An unrecognised note is never shown: it is developer prose.
+ */
+const ROSTER_NOTE_WORDS = [
+  [/^league roster size is not configured/i, () => null],
+  [
+    /^league carries (\d+) taxi slot/i,
+    (m) => ({
+      fit: `Your league has ${m[1]} taxi ${plural(Number(m[1]), "spot", "spots")} and who fills them is not known, so your roster count is a range.`,
+    }),
+  ],
+  [
+    /^(\d+) rostered player\(s\) did not join to the board/i,
+    (m) => ({
+      detail:
+        m[1] === "1"
+          ? "One of your rostered players is not on the value board: that player still takes a roster spot and could still be cut, but the value is unknown."
+          : `${m[1]} of your rostered players are not on the value board: they still take roster spots and could still be cut, but their values are unknown.`,
+    }),
+  ],
+  [
+    /^no waiver-level values available/i,
+    () => ({
+      detail: "No waiver-wire values are available, so a cut costs the player's full board value.",
+    }),
+  ],
+  [
+    /^(?:starter slots unavailable|no starter slots resolved|no starter slots configured)/i,
+    () => ({
+      fit: "This league's starting slots could not be read, so a forced cut may be a player your lineup needs.",
+    }),
+  ],
+  [
+    /^positional scarcity/i,
+    () => ({
+      detail:
+        "Position scarcity is not available, so cut costs do not account for how scarce each position is.",
+    }),
+  ],
+  [
+    /^(\d+) outgoing player\(s\) are not on this roster and free no spot: (.+)$/i,
+    (m) => {
+      const more = /\s…$/.test(m[2]);
+      const names = nameList(m[2].replace(/\s…$/, ""));
+      const who = more ? `${names.join(", ")} and others` : listJoin(names);
+      return {
+        fit:
+          names.length > 1 || more
+            ? `${who} are not on your roster, so sending them frees no roster spot.`
+            : `${who} is not on your roster, so sending that player frees no roster spot.`,
+      };
+    },
+  ],
+  [
+    /^roster is ALREADY (\d+) over the (\d+)-man limit/i,
+    (m) => ({
+      fit: `Your roster is already ${m[1]} over the ${m[2]}-player limit before this trade; the cuts shown include getting back under it.`,
+    }),
+  ],
+  [/^every forced drop scored the same effective cut cost/i, () => null],
+  [
+    /^cut ladder offers (\d+) release\(s\) but (\d+) are needed/i,
+    (m) => ({
+      fit: `Only ${m[1]} ${plural(Number(m[1]), "cut is", "cuts are")} possible but ${m[2]} ${plural(Number(m[2]), "is", "are")} needed: every remaining player is needed to fill a starting slot.`,
+    }),
+  ],
+  [/^roster is empty/i, () => ({ fit: "Your roster is empty, so there is no one to cut." })],
+  [
+    /^roster cannot fill (\d+) starting slot/i,
+    (m) => ({
+      fit: `Your roster cannot fill ${m[1]} starting ${plural(Number(m[1]), "slot", "slots")} even before any cut.`,
+    }),
+  ],
+  [/^cut ladder truncated at/i, () => null],
+];
+
+/** The feasibility lens' notes as `{ fit: [...], detail: [...] }` plain lines
+ *  (deduplicated; see ROSTER_NOTE_WORDS). */
+export function rosterNoteLines(notes) {
+  const fit = [];
+  const detail = [];
+  for (const raw of Array.isArray(notes) ? notes : []) {
+    const t = typeof raw === "string" ? raw.trim() : "";
+    const hit = ROSTER_NOTE_WORDS.find(([re]) => re.test(t));
+    if (!hit) continue;
+    const words = hit[1](t.match(hit[0]));
+    if (words?.fit && !fit.includes(words.fit)) fit.push(words.fit);
+    if (words?.detail && !detail.includes(words.detail)) detail.push(words.detail);
+  }
+  return { fit, detail };
+}
 
 // ── At a glance: trade value ──────────────────────────────────────────────
 
@@ -1065,17 +1291,33 @@ export function simulationExplanation(rosterDetail) {
 }
 
 /**
- * Why the War Room could not finish, in plain words.  The machine reason
- * stays available (the caller may show it in parentheses for support).
+ * Why the War Room could not finish, in plain words.  A WHITELIST of every
+ * error the analyze route and the League resolver return (server.py
+ * `_build_trade_simulation`, `_resolve_league_for_request`, the scoring
+ * identity gate) plus the War Room's own; a status-only failure says what
+ * kind of problem it was without the code; anything else is a generic line.
+ * No code is ever shown.
  */
+const ANALYSIS_ERROR_WORDS = {
+  timeout: "it took too long to finish",
+  invalid_analysis: "the server's answer did not match this trade",
+  data_not_ready: "this league's data is still loading on the server",
+  "No data available yet.": "the server has no player data yet",
+  unknown_league: "this league is not available",
+  inactive_league: "this league is not available",
+  no_leagues_configured: "no league is set up on the server",
+  auth_required: "your session has expired — sign in again",
+  invalid_body: "the server could not read the request",
+  team_not_found: "your team was not found in this league",
+};
+
 export function analysisErrorText(error) {
-  const e = String(error || "");
-  if (e === "timeout") return "it took too long to finish";
-  if (e === "invalid_analysis") return "the server's answer did not match this trade";
-  if (e === "data_not_ready") return "this league's data is still loading on the server";
-  if (e === "unknown_league" || e === "inactive_league") return "this league is not available";
-  if (/^HTTP 5\d\d$/.test(e)) return `the server had a problem (${e})`;
-  if (/^HTTP 4\d\d$/.test(e)) return `the server refused the request (${e})`;
+  const e = typeof error === "string" ? error.trim() : "";
+  if (Object.prototype.hasOwnProperty.call(ANALYSIS_ERROR_WORDS, e)) return ANALYSIS_ERROR_WORDS[e];
+  if (/^HTTP 401$/.test(e)) return ANALYSIS_ERROR_WORDS.auth_required;
+  if (/^HTTP 429$/.test(e)) return "too many requests were made — wait a moment, then retry";
+  if (/^HTTP 5\d\d$/.test(e)) return "the server had a problem";
+  if (/^HTTP 4\d\d$/.test(e)) return "the server refused the request";
   if (/failed to fetch|network|load failed/i.test(e)) return "the connection failed";
-  return e ? `an error occurred (${e})` : "an error occurred";
+  return "something went wrong";
 }

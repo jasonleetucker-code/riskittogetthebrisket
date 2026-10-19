@@ -117,6 +117,67 @@ SCENARIOS: dict[str, tuple] = {
         "The consolidation trade with the roster simulation raising (LABELLED failure "
         "injection): the simulator's own error:<Exception> reason reaches the packet.",
     ),
+    "strategy-cut-no": (
+        ["WR Buf Star", "RB Buf Depth"],
+        ["WR Kc"],
+        [],
+        [],
+        True,
+        True,
+        "Long-term strategy on a full 8/8 roster of valuable players (LABELLED synthetic "
+        "values): +value before the forced cut, -value after it, lineup much stronger -- "
+        "the strategy decides NO.",
+    ),
+    "superflex-holes": (
+        ["WR Buf Star"],
+        ["WR Kc", "WR Phi"],
+        [],
+        [],
+        True,
+        True,
+        "The consolidation trade in a LABELLED superflex / IDP lineup the 7-man roster "
+        "cannot fill: real lineupHoles with repeated and flex slot codes.",
+    ),
+    "ktc-rollback": (
+        ["WR Buf Star"],
+        ["WR Kc", "WR Phi"],
+        [],
+        [],
+        True,
+        True,
+        "The consolidation trade with the KTC package model active (the config rollback "
+        "path, LABELLED): its own packageModel label reaches the packet.",
+    ),
+    "outgoing-not-held": (
+        ["WR Buf Star"],
+        ["RB Buf Depth"],
+        [],
+        [],
+        True,
+        True,
+        "Sending a player this roster does not hold: the capacity owner's " "'free no spot' note.",
+    ),
+    "comparables-formats": (
+        ["WR Buf Star"],
+        ["WR Kc", "WR Phi"],
+        [],
+        [],
+        True,
+        True,
+        "The consolidation trade with four LABELLED synthetic comparable trades, one per "
+        "format disposition; each reason line is written by the real "
+        "comparable_trades._reasons.",
+    ),
+    "over-limit": (
+        ["WR Buf Star"],
+        ["WR Kc"],
+        [],
+        [],
+        True,
+        True,
+        "A 9-man roster against the 8-man limit (LABELLED): the capacity owner's "
+        "'already over the limit' note.",
+    ),
 }
 
 #: Per-scenario extras, kept out of the tuple so existing scenarios are unchanged:
@@ -132,6 +193,131 @@ SCENARIO_OPTIONS: dict[str, dict] = {
     "roster-unmeasured": {"raise_in": ("src.trade.roster_capacity.assess_roster_capacity",)},
     # `simulate_trade` -> rosterUtility "error:KeyError".
     "roster-error": {"raise_in": ("src.trade.roster_capacity.evaluate_final_roster_utility",)},
+    "strategy-cut-no": {"team_goal": "LONG_TERM", "contract_edit": "full_valuable_roster"},
+    "superflex-holes": {
+        "starters": {
+            "QB": 1,
+            "RB": 3,
+            "WR": 4,
+            "SUPER_FLEX": 2,
+            "WR_RB_FLEX": 1,
+            "DB": 2,
+            "IDP_FLEX": 1,
+        }
+    },
+    "ktc-rollback": {"package_model": "ktc_2026_04"},
+    "over-limit": {"contract_edit": "over_limit_roster"},
+    "comparables-formats": {"comparables": "one_per_disposition"},
+}
+
+
+def _comparables_one_per_disposition() -> dict:
+    """A comparables payload in `comparable_trades.comparable_trades`' shape
+    (LABELLED synthetic trades) whose reason lines come from the REAL
+    `comparable_trades._reasons`, one trade per format disposition."""
+    from src.trade import comparable_trades as ct
+    from src.trade import market_trade_reference as ref
+
+    star = {"kind": "player", "label": "WR Buf Star"}
+    faab = {"kind": "faab", "faabAmount": 5}
+    kc = {"kind": "player", "label": "WR Kc"}
+    trades = []
+    # The lens shows the first three; VALIDATED_TRANSFORMABLE, which no
+    # translator produces today (TARGET_FORMAT_CENSUS.md), is the one left out.
+    dispositions = (
+        "NATIVE_COMPARABLE",
+        "BROAD_CONTEXT",
+        "TARGET_UNSUPPORTED",
+        "VALIDATED_TRANSFORMABLE",
+    )
+    for i, disposition in enumerate(dispositions):
+        reasons = ct._reasons(
+            align={
+                "sameDirection": [(star, ref.MATCH_EXACT), (faab, ref.MATCH_EXACT)],
+                "oppositeDirection": [(kc, ref.MATCH_EXACT)] if i == 2 else [],
+                "a": 0,
+                "b": 1,
+            },
+            names={},
+            size_a=1,
+            size_b=2,
+            sides=[[star], [kc, faab]],
+            topology=1.0 if i % 2 == 0 else 0.5,
+            fmt_state=ct.FORMAT_KNOWN,
+            disposition=disposition,
+            age=i * 9,
+        )
+        trades.append(
+            {
+                "occurredDate": f"2026-09-0{i + 1}",
+                "comparability": {"score": round(0.9 - i * 0.1, 2), "reasons": reasons},
+                "formatMatch": {"disposition": disposition, "appliesToThisLeague": True},
+                "sourceFamilies": ["synthetic"],
+                "sides": None,
+            }
+        )
+    return {
+        "state": "ok",
+        "trades": trades,
+        "candidates": len(trades),
+        "belowMinScore": 0,
+        "scanCapped": False,
+        "since": "2026-07-01",
+        "methodology": {"status": "PROVISIONAL"},
+    }
+
+
+_COMPARABLES = {"one_per_disposition": _comparables_one_per_disposition}
+
+
+def _full_valuable_roster(contract: dict) -> dict:
+    """LABELLED synthetic values: an 8/8 roster with no cheap bench player, so
+    the forced cut releases real value (3,000) and the package value turns
+    negative after it."""
+    from tests.api.test_trade_nfl_exposure import _row
+
+    values = {"WR Kc": 8000.0, "WR Phi": 3000.0, "TE Free": 3000.0, "RB Buf Depth": 3300.0}
+    for r in contract["playersArray"]:
+        if r["displayName"] in values:
+            r["rankDerivedValue"] = values[r["displayName"]]
+            r["values"] = {"full": values[r["displayName"]]}
+    contract["playersArray"] += [
+        _row("RB Bench One", 3000.0, "RB", "NYJ"),
+        _row("WR Bench Two", 3100.0, "WR", "NYJ"),
+        _row("TE Bench Three", 3200.0, "TE", "NYJ"),
+    ]
+    us = contract["sleeper"]["teams"][0]
+    us["players"] = [
+        "QB Min",
+        "RB Min",
+        "WR Kc",
+        "WR Phi",
+        "TE Free",
+        "RB Bench One",
+        "WR Bench Two",
+        "TE Bench Three",
+    ]
+    us["playerIds"] = [n.lower() for n in us["players"]]
+    return contract
+
+
+def _over_limit_roster(contract: dict) -> dict:
+    """LABELLED: two more priced players on the 7-man roster -> 9 of 8."""
+    from tests.api.test_trade_nfl_exposure import _row
+
+    contract["playersArray"] += [
+        _row("RB Bench One", 1500.0, "RB", "NYJ"),
+        _row("WR Bench Two", 1400.0, "WR", "NYJ"),
+    ]
+    us = contract["sleeper"]["teams"][0]
+    us["players"] = [*us["players"], "RB Bench One", "WR Bench Two"]
+    us["playerIds"] = [n.lower() for n in us["players"]]
+    return contract
+
+
+_CONTRACT_EDITS = {
+    "full_valuable_roster": _full_valuable_roster,
+    "over_limit_roster": _over_limit_roster,
 }
 
 
@@ -184,15 +370,34 @@ def build(name: str) -> dict:
     options = SCENARIO_OPTIONS.get(name, {})
     unprojected = tuple(options.get("unprojected", ()))
     contract = _contract(league_key="main")
+    if options.get("contract_edit"):
+        contract = _CONTRACT_EDITS[options["contract_edit"]](contract)
+    settings = dict(_SETTINGS)
+    if options.get("starters"):
+        settings["starters"] = dict(options["starters"])
     with contextlib.ExitStack() as injected:
         for target in options.get("raise_in", ()):
             injected.enter_context(mock.patch(target, _raise_keyerror))
+        if options.get("package_model"):
+            pinned = {"active": options["package_model"], "shadow": []}
+            injected.enter_context(
+                mock.patch("src.valuation_math.package_model._config", lambda: pinned)
+            )
         result = _simulate(
-            contract, players_in, players_out, picks_in, picks_out, context, with_team, unprojected
+            contract,
+            players_in,
+            players_out,
+            picks_in,
+            picks_out,
+            context,
+            with_team,
+            unprojected,
+            settings,
         )
-    result["leagueKey"] = "main"
-    result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
-    result["analysis"] = analyze_trade(result, team_goal=options.get("team_goal"))
+        result["leagueKey"] = "main"
+        result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
+        comparables = _COMPARABLES[options["comparables"]]() if options.get("comparables") else None
+        result["analysis"] = analyze_trade(result, comparables, team_goal=options.get("team_goal"))
     payload = json.loads(json.dumps(result, default=list))
     payload["_fixture"] = {
         "scenario": name,
@@ -213,7 +418,15 @@ def build(name: str) -> dict:
 
 
 def _simulate(
-    contract, players_in, players_out, picks_in, picks_out, context, with_team, unprojected
+    contract,
+    players_in,
+    players_out,
+    picks_in,
+    picks_out,
+    context,
+    with_team,
+    unprojected,
+    settings=_SETTINGS,
 ):
     with (
         mock.patch.object(
@@ -242,7 +455,7 @@ def _simulate(
             players_out=players_out,
             picks_in=picks_in,
             picks_out=picks_out,
-            roster_settings=_SETTINGS,
+            roster_settings=settings,
             league_key="main",
             include_roster_utility=context,
             competitive_posture=_synthetic_posture() if with_team else None,

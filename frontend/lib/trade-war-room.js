@@ -353,10 +353,11 @@ export function formatSignedValue(value) {
 /**
  * Every unavailable / exclusion reason the analyze packet can carry, in plain
  * words -- the ONE owner of reason-to-words for the War Room and the
- * Reasoning tab.  A WHITELIST: a reason not listed here (an exception class
- * name such as "KeyError", an "error:<Exception>" code, a code added later)
- * never reaches the page; `unavailableText` says "Could not be computed right
- * now" instead.  Sources, each pinned by test:
+ * Reasoning tab.  A WHITELIST: a reason not listed here never reaches the
+ * page.  `unavailableText` says "Could not be computed right now" for a
+ * FAILURE (an exception class name such as "KeyError", an "error:<Exception>"
+ * code) and a neutral "Not available" for any other unlisted code (a code
+ * added later is not necessarily a failure).  Sources, each pinned by test:
  *   src/api/gameplan.py           GameplanUnavailable reasons
  *   src/api/trade_simulator.py    capacity / utility / posture fallbacks
  *   src/trade/roster_capacity.py  capacity, utility, counterparty, cut cost
@@ -408,6 +409,13 @@ export const UNAVAILABLE_WORDS = {
 };
 
 const COMPUTE_FAILED = "Could not be computed right now";
+const NOT_AVAILABLE = "Not available";
+
+/** A failure-shaped reason: "error:<Exception>", or a bare exception class
+ *  name (how `trade_simulator.py` reports a capacity / final-roster failure). */
+function isFailureReason(r) {
+  return r.startsWith("error:") || /^[A-Z][A-Za-z0-9]*$/.test(r);
+}
 
 // ── Competitive Posture (#840 / C7-POST-01) — labels only ────────────────
 
@@ -506,11 +514,11 @@ export function comparablesSummary(lens) {
   };
 }
 
-/** An unavailable reason as words for a row of its own.  Whitelist: a
- *  reason with no words is "Could not be computed right now", never the code. */
+/** An unavailable reason as words for a row of its own.  Whitelist: a reason
+ *  with no words reads "Not available" -- never the code. */
 export function unavailableText(reason) {
   if (!reason) return "Unavailable";
-  return unavailableWords(reason) || COMPUTE_FAILED;
+  return unavailableWords(reason) || NOT_AVAILABLE;
 }
 
 /**
@@ -527,8 +535,7 @@ export function unavailableWords(reason) {
   const r = String(reason);
   if (Object.prototype.hasOwnProperty.call(UNAVAILABLE_WORDS, r))
     return UNAVAILABLE_WORDS[r];
-  if (r.startsWith("error:") || /^[A-Z][A-Za-z0-9]*$/.test(r))
-    return COMPUTE_FAILED;
+  if (isFailureReason(r)) return COMPUTE_FAILED;
   if (r.startsWith("projection_basis_"))
     return UNAVAILABLE_WORDS.projection_basis_unavailable;
   return null;
@@ -541,10 +548,15 @@ export function unavailableWords(reason) {
 export function availabilityNote(player) {
   const a = player?.availability;
   if (!a || !Number.isFinite(a.weeks) || a.weeks <= 0) return null;
-  if (a.eligibleWeeks === 0) return `Out all ${a.weeks} remaining weeks`;
+  if (a.eligibleWeeks === 0)
+    return a.weeks === 1
+      ? "Out the 1 remaining week"
+      : `Out all ${a.weeks} remaining weeks`;
   const parts = [];
   if (a.unavailableWeeks > 0)
-    parts.push(`out ${a.unavailableWeeks} of ${a.weeks} weeks`);
+    parts.push(
+      `out ${a.unavailableWeeks} of ${a.weeks} week${a.weeks === 1 ? "" : "s"}`,
+    );
   // Counts only: an absent count names nothing (never summed as zero).
   const unsure = [a.uncertainWeeks, a.unknownWeeks]
     .filter((n) => Number.isFinite(n))
@@ -577,13 +589,49 @@ export function rosterImpactRows(rosterDetail) {
 }
 
 /**
+ * A lineup slot code as a person reads it.  The words come from the ONE slot
+ * table (`src/ros/lineup.py::_FLEX_SLOT_ELIGIBILITY`, whose positions name
+ * each flex); a base position slot keeps its position name; any other code
+ * is "another starting slot", never the code.
+ */
+const SLOT_WORDS = {
+  SUPER_FLEX: "superflex",
+  FLEX: "flex (RB/WR/TE)",
+  WR_RB_FLEX: "RB/WR flex",
+  REC_FLEX: "WR/TE flex",
+  IDP_FLEX: "defensive flex (DL/LB/DB)",
+  DL_LB: "DL/LB flex",
+  DB_LB: "DB/LB flex",
+  DL_DB: "DL/DB flex",
+  DEF: "team defense",
+};
+const POSITION_SLOTS = new Set(["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"]);
+
+export function slotWords(slot) {
+  const s = String(slot || "").toUpperCase();
+  if (SLOT_WORDS[s]) return SLOT_WORDS[s];
+  return POSITION_SLOTS.has(s) ? s : "another starting slot";
+}
+
+/** A slot list with repeats counted, in first-seen order:
+ *  ["RB","RB","WR","SUPER_FLEX"] -> ["2 RB", "WR", "superflex"]. */
+export function countedSlots(slots) {
+  const counts = new Map();
+  for (const slot of slots || []) {
+    const w = slotWords(slot);
+    counts.set(w, (counts.get(w) || 0) + 1);
+  }
+  return [...counts].map(([w, n]) => (n > 1 ? `${n} ${w}` : w));
+}
+
+/**
  * Holes and bye coverage (TC-B / TCM-H12) from the roster lens's
  * `lineupHoles` block (`src/roster_intel/best_ball_utility.py`), as display
  * text.  Returns null when the block is absent; an unmeasured side reads
- * "—", never 0.
+ * "—", never 0.  Slots are worded (`slotWords`), never shown as codes.
  *   perWeek      "0.4 → 1.1 empty starting slots per week"
- *   bySlotAfter  "FLEX 0.6 · TE 0.5" (after the trade, largest first)
- *   noEligible   slots no rostered player can fill after the trade
+ *   bySlotAfter  "superflex 0.6 · TE 0.5" (after the trade, largest first)
+ *   noEligible   slots no rostered player can fill after, repeats counted
  *   onlyUnprojected  slots only an unprojected player can fill after
  */
 export function lineupHolesSummary(rosterDetail) {
@@ -597,14 +645,18 @@ export function lineupHolesSummary(rosterDetail) {
     ? Object.entries(bySlot)
         .filter(([, v]) => typeof v === "number" && v > 0)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([slot, v]) => `${slot} ${v.toFixed(1)}`)
+        .map(([slot, v]) => `${slotWords(slot)} ${v.toFixed(1)}`)
         .join(" · ")
     : null;
   return {
     perWeek: `${fmt(before.emptySlotsPerWeek)} → ${fmt(after.emptySlotsPerWeek)} empty starting slots per week`,
     delta: typeof h.emptySlotsPerWeekDelta === "number" ? h.emptySlotsPerWeekDelta : null,
     bySlotAfter: bySlotAfter || null,
-    noEligible: Array.isArray(after.noEligiblePlayer) ? after.noEligiblePlayer : [],
-    onlyUnprojected: Array.isArray(after.onlyUnprojected) ? after.onlyUnprojected : [],
+    noEligible: countedSlots(
+      Array.isArray(after.noEligiblePlayer) ? after.noEligiblePlayer : [],
+    ),
+    onlyUnprojected: countedSlots(
+      Array.isArray(after.onlyUnprojected) ? after.onlyUnprojected : [],
+    ),
   };
 }
