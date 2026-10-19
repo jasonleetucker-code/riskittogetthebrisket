@@ -29,6 +29,7 @@ LEDGER_MODULES = (
     "src.trade.market_trade_eval",
     "src.trade.market_trade_report",
     "src.trade.market_trade_reference",
+    "src.trade.market_trade_reserve",
 )
 
 VALUATION_PATH = (
@@ -49,6 +50,8 @@ STORE_PATHS = (
     "data/market_trades/reports/latest.json",
     "data/market_trades/reports/market_trade_ledger_2026-10-01.json",
     "data/market_trades/quarantine/ktc/x.html.gz",
+    "data/market_trades/model/reserve.sqlite",
+    "data/market_trades/reports/census/maturity_census_2026-10-19.json",
 )
 
 

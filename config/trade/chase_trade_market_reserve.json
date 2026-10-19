@@ -1,0 +1,23 @@
+{
+  "_comment": "Chase Upside Trade Market (chaseTradeMarket) persistent holdout reserve -- G15 / plan section 5. The salt is committed BEFORE any residual-computing run so the reserve cannot be chosen after seeing data; it is a precommitment, not a secret (component ids are box-local keys). status stays PROPOSED until the owner answers Q2 (lock about 20% of manager-lineage components permanently, split into sub-reserves); market_trade_reserve.draw_reserve refuses to persist anything until status is APPROVED. Changing salt, fraction or splits after a draw is a NEW version, never an edit.",
+  "version": "ctm-reserve-v1",
+  "status": "PROPOSED_PENDING_OWNER_Q2",
+  "componentKind": "manager_lineage_component",
+  "salt": "dbf4d475da766b67b86836a44ca7f2cab3d04bc1951102bd47dc330a26f01ddc",
+  "saltCommittedOn": "2026-10-19",
+  "reserveFraction": 0.2,
+  "subReserves": {
+    "R-act": 0.4,
+    "R-hill": 0.15,
+    "R-D8": 0.15,
+    "R-AL1": 0.15,
+    "R-AL2b": 0.15
+  },
+  "subReservePurpose": {
+    "R-act": "activation of chaseTradeMarket as a consensus voter",
+    "R-hill": "Hill autopilot gate 7 independent validation (conditional on Q2)",
+    "R-D8": "package-model (D8) evaluation",
+    "R-AL1": "Adaptive Learning AL-1 outcome (2)",
+    "R-AL2b": "AL-2b format translators"
+  }
+}

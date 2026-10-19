@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -1591,3 +1592,338 @@ def census_markdown(census: Mapping[str, Any]) -> str:
             lines += [f"## {top}", ""]
             _md_block(census[top], 3, lines)
     return "\n".join(lines).rstrip() + "\n"
+
+
+# ── League-maturity census (Chase Upside Trade Market, P1 / G2) ─────────────
+#
+# Owner directive 2026-10-19 (V2): the initial trade-derived model uses leagues
+# with at least THREE VERIFIED COMPLETED SEASONS; two-season leagues are a
+# separate research cohort; the data lost to each exclusion is reported.  This
+# section measures exactly that over the persisted underlying-trade ledger and
+# the persisted ``previous_league_id`` chain (``ledger.league_season_chain``),
+# under BOTH maturity readings (point-in-time at the trade, league-level as of
+# today) -- never choosing one silently.  Maturity itself is decided by the one
+# owner, ``league_filter.resolve_league_maturity``; the trade-quality filters
+# are the ledger's own ``market_trade_eval.fit_suitability`` -- nothing here
+# re-derives either.  Report-only: it authorizes, weights and prices nothing.
+
+MATURITY_CENSUS_VERSION = "ctm-league-maturity-census-v1"
+
+#: Sleeper-observed vs KTC-database lanes (V2 §5: kept separate, overlap
+#: measured).  A group seen in both lanes is ``sleeper_and_ktc``.
+LANE_SLEEPER = "sleeper_observed"
+LANE_KTC = "ktc_database"
+LANE_BOTH = "sleeper_and_ktc"
+LANE_OTHER = "other"
+
+#: Exclusion waterfall, in order.  The FIRST failing stage claims a trade, so
+#: the per-stage removals sum to the total excluded; the independent counts
+#: (every stage a trade fails) are published beside it.
+STAGE_NON_SLEEPER_HOST = "non_sleeper_host_chain_unverifiable"
+STAGE_NOT_DYNASTY = "not_dynasty"
+STAGE_DYNASTY_UNVERIFIED = "dynasty_unverified"
+STAGE_FIT = "fit_unsuitable"
+STAGE_CHAIN_NOT_WALKED = "chain_not_walked"
+STAGE_UNKNOWN_BELOW_TWO = "maturity_unknown_below_two"
+STAGE_BELOW_TWO = "below_two_completed_seasons"
+STAGE_TWO_SEASON = "two_season_research_cohort"
+STAGE_TWO_PLUS_UNRESOLVED = "two_plus_seasons_not_proven_three"
+MATURITY_WATERFALL = (
+    STAGE_NON_SLEEPER_HOST,
+    STAGE_NOT_DYNASTY,
+    STAGE_DYNASTY_UNVERIFIED,
+    STAGE_FIT,
+    STAGE_CHAIN_NOT_WALKED,
+    STAGE_UNKNOWN_BELOW_TWO,
+    STAGE_BELOW_TWO,
+    STAGE_TWO_SEASON,
+    STAGE_TWO_PLUS_UNRESOLVED,
+)
+PRIMARY_SURVIVOR = "primary_three_plus_completed"
+
+_COHORT_STAGE = {
+    "chain_not_walked": STAGE_CHAIN_NOT_WALKED,
+    "unknown_below_two_lower_bound": STAGE_UNKNOWN_BELOW_TWO,
+    "below_two_completed": STAGE_BELOW_TWO,
+    "B_two_completed": STAGE_TWO_SEASON,
+    "B_two_plus_unresolved": STAGE_TWO_PLUS_UNRESOLVED,
+}
+
+#: A long numeric run in a published census is treated as a leaked Sleeper /
+#: KTC id and refused (aggregates never need one).
+_LONG_ID = re.compile(r"\d{15,}")
+
+
+def trade_lane(families: Sequence[str]) -> str:
+    fams = set(families or ())
+    sleeper = bool(fams & {norm.SOURCE_SLEEPER_DISCOVERY, norm.SOURCE_OWN_LEAGUE})
+    ktc = norm.SOURCE_KTC in fams
+    if sleeper and ktc:
+        return LANE_BOTH
+    if sleeper:
+        return LANE_SLEEPER
+    if ktc:
+        return LANE_KTC
+    return LANE_OTHER
+
+
+def _sleeper_season_league(g: Mapping[str, Any]) -> str | None:
+    if str(g.get("host") or "") != "sleeper":
+        return None
+    lid = str(g.get("hostLeagueId") or "").strip()
+    return lid or None
+
+
+def _quality_stage(g: Mapping[str, Any]) -> tuple[str | None, list[str]]:
+    """(first failing pre-maturity stage, every pre-maturity reason)."""
+    reasons: list[str] = []
+    if _sleeper_season_league(g) is None:
+        reasons.append(STAGE_NON_SLEEPER_HOST)
+    dyn = ((g.get("marketFormat") or {}).get("general") or {}).get("dynastyState")
+    if dyn is None:
+        reasons.append(STAGE_DYNASTY_UNVERIFIED)
+    elif dyn != mtf.DYNASTY:
+        reasons.append(STAGE_NOT_DYNASTY)
+    fit = ev.fit_suitability(g, ev.classify_topology(g))
+    fit_reasons = [r for r in fit["reasons"] if r != "dynasty_state_unverified"]
+    if fit["fit"] == ev.FIT_UNSUITABLE and fit_reasons:
+        reasons.extend(f"{STAGE_FIT}:{r}" for r in fit_reasons)
+    first = None
+    for stage in MATURITY_WATERFALL[:4]:
+        hit = next((r for r in reasons if r == stage or r.startswith(stage + ":")), None)
+        if hit is not None:
+            first = hit
+            break
+    return first, reasons
+
+
+def _inc(d: dict[str, int], k: str, n: int = 1) -> None:
+    d[k] = d.get(k, 0) + n
+
+
+def maturity_census(
+    groups: Sequence[Mapping[str, Any]],
+    chain: Mapping[str, Any],
+    *,
+    chain_state: str,
+) -> dict[str, Any]:
+    """UNSUPPRESSED maturity census (box-local).  ``groups`` are underlying-trade
+    records (in-memory groups or :func:`read_persisted_groups`); ``chain`` is
+    ``ledger.load_league_chain``.  Counts only -- no id is emitted."""
+    from src.intel import league_filter as lf  # noqa: PLC0415
+
+    successors = lf.successor_index(chain)
+    lineages = lf.lineage_index(chain)
+    readings: dict[str, Any] = {}
+    quality = [_quality_stage(g) for g in groups]
+    lanes_total: dict[str, int] = {}
+    for g in groups:
+        _inc(lanes_total, trade_lane(g.get("sourceFamilies") or ()))
+    for reading in lf.MATURITY_READINGS:
+        cohorts: dict[str, dict[str, Any]] = {}
+        by_lane: dict[str, dict[str, int]] = {}
+        by_pop: dict[str, dict[str, int]] = {}
+        stop: dict[str, int] = {}
+        flags: dict[str, int] = {}
+        lb_walked: dict[str, int] = {}
+        independent: dict[str, int] = {}
+        removed: dict[str, int] = {}
+        leagues_by_stage: dict[str, set[str]] = {}
+        for g, (q_first, q_reasons) in zip(groups, quality):
+            lid = _sleeper_season_league(g)
+            lane = trade_lane(g.get("sourceFamilies") or ())
+            m = (
+                lf.resolve_league_maturity(lid, chain, reading=reading, successors=successors)
+                if lid
+                else None
+            )
+            cohort = m.cohort if m is not None else "no_sleeper_chain"
+            cell = cohorts.setdefault(cohort, {"trades": 0, "_leagues": set(), "_lineages": set()})
+            cell["trades"] += 1
+            if lid:
+                cell["_leagues"].add(lid)
+                cell["_lineages"].add(lineages.get(lid, "unwalked:" + lid))
+            by_lane.setdefault(cohort, {})
+            _inc(by_lane[cohort], lane)
+            by_pop.setdefault(cohort, {})
+            _inc(by_pop[cohort], _population(g.get("sourceFamilies") or ()))
+            if m is not None and cohort != lf.COHORT_NOT_WALKED:
+                _inc(stop, m.stop_reason)
+                for f in m.flags:
+                    _inc(flags, f)
+                if m.state == lf.MATURITY_LOWER_BOUND:
+                    _inc(lb_walked, str(m.seasons_walked))
+            maturity_stage = _COHORT_STAGE.get(cohort) if m is not None else None
+            for r in q_reasons:
+                _inc(independent, r)
+            if maturity_stage:
+                _inc(independent, maturity_stage)
+            first = q_first or maturity_stage or PRIMARY_SURVIVOR
+            _inc(removed, first)
+            stage_key = first.split(":", 1)[0]
+            if lid:
+                leagues_by_stage.setdefault(stage_key, set()).add(lid)
+        total = len(groups)
+        waterfall: list[dict[str, Any]] = []
+        remaining = total
+        for stage in MATURITY_WATERFALL:
+            n = sum(v for k, v in removed.items() if k == stage or k.startswith(stage + ":"))
+            sub = {k.split(":", 1)[1]: v for k, v in removed.items() if k.startswith(stage + ":")}
+            remaining -= n
+            row: dict[str, Any] = {
+                "stage": stage,
+                "tradesRemoved": n,
+                "leaguesTouched": len(leagues_by_stage.get(stage, ())),
+                "tradesRemaining": remaining,
+            }
+            if sub:
+                row["byReason"] = dict(sorted(sub.items()))
+            waterfall.append(row)
+        survivors = removed.get(PRIMARY_SURVIVOR, 0)
+        research = removed.get(STAGE_TWO_SEASON, 0) + removed.get(STAGE_TWO_PLUS_UNRESOLVED, 0)
+        readings[reading] = {
+            "cohorts": {
+                k: {
+                    "trades": v["trades"],
+                    "leagues": len(v["_leagues"]),
+                    "lineages": len(v["_lineages"]),
+                }
+                for k, v in sorted(cohorts.items())
+            },
+            "cohortByLane": {k: dict(sorted(v.items())) for k, v in sorted(by_lane.items())},
+            "cohortByCollectionPopulation": {
+                k: dict(sorted(v.items())) for k, v in sorted(by_pop.items())
+            },
+            "stopReasons": dict(sorted(stop.items())),
+            "walkFlags": dict(sorted(flags.items())),
+            "lowerBoundBySeasonsWalked": dict(sorted(lb_walked.items())),
+            "exclusionWaterfall": waterfall,
+            "exclusionIndependent": dict(sorted(independent.items())),
+            "primaryThreeSeasonTrades": survivors,
+            "primaryThreeSeasonLeagues": len(leagues_by_stage.get(PRIMARY_SURVIVOR, ())),
+            "researchTwoSeasonTrades": research,
+            "dataLostToThreeSeasonRule": {
+                "tradesPassingQualityButBelowThree": sum(
+                    removed.get(s, 0)
+                    for s in (
+                        STAGE_CHAIN_NOT_WALKED,
+                        STAGE_UNKNOWN_BELOW_TWO,
+                        STAGE_BELOW_TWO,
+                        STAGE_TWO_SEASON,
+                        STAGE_TWO_PLUS_UNRESOLVED,
+                    )
+                ),
+                "ofWhichMaturityUnknown": removed.get(STAGE_CHAIN_NOT_WALKED, 0)
+                + removed.get(STAGE_UNKNOWN_BELOW_TWO, 0)
+                + removed.get(STAGE_TWO_PLUS_UNRESOLVED, 0),
+            },
+        }
+    ktc_overlap = {
+        "groupsInBothLanes": lanes_total.get(LANE_BOTH, 0),
+        "sleeperObservedGroups": lanes_total.get(LANE_SLEEPER, 0) + lanes_total.get(LANE_BOTH, 0),
+        "ktcDatabaseGroups": lanes_total.get(LANE_KTC, 0) + lanes_total.get(LANE_BOTH, 0),
+    }
+    return {
+        "version": MATURITY_CENSUS_VERSION,
+        "inputs": {
+            "underlyingTrades": len(groups),
+            "chainStoreState": chain_state,
+            "chainHopsRecorded": len(chain),
+            "lineagesRecorded": len(set(lineages.values())),
+        },
+        "lanes": dict(sorted(lanes_total.items())),
+        "ktcOverlap": ktc_overlap,
+        "readings": readings,
+        "definitions": {
+            "primaryBar": (
+                f">= {lf.MATURITY_PRIMARY_MIN_COMPLETED_SEASONS} VERIFIED completed dynasty "
+                "seasons via the real previous_league_id chain (owner directive 2026-10-19 V2)"
+            ),
+            "researchCohort": (
+                f"exactly {lf.MATURITY_RESEARCH_MIN_COMPLETED_SEASONS} (or >= 2 not proven 3): "
+                "reported separately, never merged into the primary population"
+            ),
+            "completedSeason": (
+                "a predecessor season-league with settings.type == 2 and status 'complete' "
+                "and a strictly older season; a redraft/keeper predecessor ends the chain; the "
+                "trade's own season never counts (point-in-time)"
+            ),
+            "readings": {
+                lf.READING_POINT_IN_TIME: "predecessors of the trade's own season-league",
+                lf.READING_LEAGUE_LEVEL: (
+                    "the lineage's newest known season-league, inclusive once complete"
+                ),
+            },
+            "lowerBound": (
+                "a walk that did not reach Sleeper's '0' terminator (unwalked link, unknown "
+                "type/season, loop, cap) proves only 'at least k'; below the bar it is UNKNOWN, "
+                "never a pass"
+            ),
+            "waterfall": "first failing stage claims a trade; exclusionIndependent counts every "
+            "stage a trade fails",
+            "lanes": "sleeper_observed vs ktc_database kept separate; a dedupe group seen in both "
+            "is sleeper_and_ktc (KTC overlap), counted once",
+        },
+    }
+
+
+def build_maturity_census(
+    groups: Sequence[Mapping[str, Any]],
+    chain: Mapping[str, Any],
+    *,
+    chain_state: str,
+) -> dict[str, Any]:
+    """The PUBLISHABLE maturity census: small cells suppressed, ids refused."""
+    census = maturity_census(groups, chain, chain_state=chain_state)
+    census["readings"] = suppress_small_cells(census["readings"])
+    census["lanes"] = suppress_small_cells(census["lanes"])
+    census["ktcOverlap"] = suppress_small_cells(census["ktcOverlap"])
+    census["privacy"] = {
+        "aggregateOnly": True,
+        "smallCellRule": f"counts in [1, {CENSUS_MIN_CELL}) publish as {SUPPRESSED!r}",
+        "excluded": [
+            "league / lineage / manager / user / transaction ids",
+            "league names",
+            "rosters and per-trade packages",
+        ],
+        "idGuard": "any run of 15+ digits in the serialized census refuses publication",
+    }
+    assert_no_long_ids(json.dumps(census, default=str))
+    return census
+
+
+def assert_no_long_ids(text: str) -> None:
+    """Refuse a publishable artifact carrying anything shaped like a raw id."""
+    if _LONG_ID.search(text):
+        raise ValueError("refusing to publish: a 15+ digit run (possible raw id) is present")
+
+
+def maturity_census_markdown(census: Mapping[str, Any]) -> str:
+    """Render a PUBLISHABLE (already suppressed) maturity census as markdown."""
+    lines = [
+        "# League-maturity census (Chase Upside Trade Market, Experimental — Not Voting)",
+        "",
+        "Report-only aggregate counts over the completed-trade ledger and the persisted "
+        "previous_league_id chain, under both maturity readings. Authorizes nothing. Counts "
+        f"below {CENSUS_MIN_CELL} show as `{SUPPRESSED}`.",
+        "",
+    ]
+    for top in ("inputs", "lanes", "ktcOverlap", "readings", "definitions", "privacy"):
+        if top in census:
+            lines += [f"## {top}", ""]
+            _md_block(census[top], 3, lines)
+    text = "\n".join(lines).rstrip() + "\n"
+    assert_no_long_ids(text)
+    return text
+
+
+def read_persisted_groups(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every underlying-trade record from a persisted ledger (``mode=ro``
+    connection from :func:`open_canonical_ledger`), in trade-id order.  The
+    records are what the daily build wrote (``_jsonable_group``)."""
+    return [
+        json.loads(r[0])
+        for r in conn.execute(
+            "SELECT record_json FROM underlying_trades ORDER BY underlying_trade_id"
+        ).fetchall()
+    ]

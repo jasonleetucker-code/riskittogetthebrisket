@@ -145,6 +145,10 @@ SLEEPER_BASE = "https://api.sleeper.app/v1"
 SOURCE_DISCOVERY = "discovery_user_leagues"
 SOURCE_ROSTER_CRAWL = "roster_crawl_league_endpoint"
 SOURCE_LEAGUE_ENDPOINT = "format_pass_league_endpoint"
+#: A league object fetched while walking a ``previous_league_id`` chain (the
+#: records crawl, the chain pass): a PRIOR season-league's format, recorded at
+#: zero extra calls so a trade backfilled from that season has one (G4f).
+SOURCE_CHAIN_WALK = "chain_walk_league_endpoint"
 
 #: Calls per catch-up pass.  Half the transaction crawl's 600: the pass runs
 #: inside that timer (4x/day), so its total cost there is bounded by this.
@@ -1151,6 +1155,11 @@ def prune_captures(
        league has not been checked inside the horizon.  The capture in force
        NOW for a league still being looked at is kept however old it is — an
        unchanged league inserts nothing, so its single row can be years old.
+       Likewise for a COMPLETED prior season-league the chain store
+       (``ledger.league_season_chain``) has recorded: its final format is the
+       only point-in-time format a trade backfilled from that season can ever
+       have (G4f), it is frozen (never re-checked, so rule 3's "checked inside
+       the horizon" can never hold for it), and it is one row per season.
 
     Commits when it removes anything.
     """
@@ -1205,6 +1214,7 @@ def prune_captures(
                 chunk,
             ).fetchall()
         }
+        chain_frozen = _chain_complete_league_ids(conn, chunk)
         for lid in chunk:
             league_caps = caps.get(lid) or []
             keep: set[int] = set()
@@ -1212,7 +1222,7 @@ def prune_captures(
                 cap, _timing = capture_in_force(league_caps, trade_ms, season=seasons.get(lid))
                 if cap is not None:
                     keep.add(int(cap["captureId"]))
-            if checked.get(lid, -1) >= cutoff:
+            if checked.get(lid, -1) >= cutoff or lid in chain_frozen:
                 latest: dict[Any, dict[str, Any]] = {}
                 for c in league_caps:
                     cur = latest.get(c["season"])
@@ -1244,6 +1254,29 @@ def prune_captures(
             observations_removed,
         )
     return len(doomed)
+
+
+def _chain_complete_league_ids(conn: sqlite3.Connection, league_ids: Sequence[str]) -> set[str]:
+    """The ids among ``league_ids`` the chain store records as a COMPLETED
+    season-league (latest observation).  Empty when the chain table is absent
+    (never creates it)."""
+    if not league_ids:
+        return set()
+    ph = ",".join("?" for _ in league_ids)
+    try:
+        rows = conn.execute(
+            "SELECT league_id, status FROM league_season_chain "
+            f"WHERE league_id IN ({ph}) ORDER BY observed_ms, hop_id",
+            list(league_ids),
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return set()
+        raise
+    latest: dict[str, str | None] = {}
+    for lid, status in rows:
+        latest[str(lid)] = str(status).lower() if status else None
+    return {lid for lid, status in latest.items() if status == "complete"}
 
 
 def prune_observations(conn: sqlite3.Connection, *, cutoff_ms: int) -> int:

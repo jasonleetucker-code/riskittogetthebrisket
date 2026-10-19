@@ -803,6 +803,156 @@ def prune(
     return removed
 
 
+# ── league season chain (previous_league_id links) ───────────────────
+#
+# The ONE persisted chain schema (owner directive 2026-10-19 V2: league
+# maturity is verified over the REAL ``previous_league_id`` chain).  Every
+# walker that fetches a ``/league/{id}`` object records the link it states
+# here, so maturity is answered from stored hops instead of re-walking.
+#
+# Append-only and dated: a row is written only when what the league states
+# (its link, season, type, best-ball flag, status) differs from the latest
+# row for that league -- a re-observation of an unchanged league writes
+# nothing, a status change (``in_season`` -> ``complete``) appends.  Never
+# pruned (rows are tiny and bounded by leagues x seasons; losing them would
+# cost one Sleeper call per hop to rebuild) and deliberately NOT wired to
+# ``SCHEMA_VERSION`` / ``_MIGRATION_CLEARS``: a version bump would run the
+# movement-clearing migration on every deployed ledger to add a table.  Same
+# posture as ``league_format_capture.ensure_schema``.  Prior seasons are
+# never inserted into ``leagues`` (that table is the discovery graph).
+#
+# The own-league format store (``src/trade/own_league_format_capture.py``)
+# keeps its own file (indefinite retention, a different prune policy) and
+# writes the SAME table through these functions -- one schema, two stores.
+
+LEAGUE_CHAIN_TABLE = "league_season_chain"
+
+#: ``link_state`` -- the league states a predecessor, or states none
+#: (Sleeper's ``"0"`` terminator).  Never NULL: "no predecessor" is a fact.
+LINK_LINKED = "linked"
+LINK_TERMINATOR = "terminator"
+
+_LEAGUE_CHAIN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS league_season_chain (
+  hop_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  league_id           TEXT NOT NULL,
+  season              TEXT,
+  previous_league_id  TEXT,
+  link_state          TEXT NOT NULL,
+  league_type         INTEGER,
+  best_ball           INTEGER,
+  status              TEXT,
+  fact_sha256         TEXT NOT NULL,
+  observed_ms         INTEGER NOT NULL,
+  source              TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lsc_league ON league_season_chain(league_id, observed_ms);
+CREATE INDEX IF NOT EXISTS idx_lsc_prev ON league_season_chain(previous_league_id);
+"""
+
+
+def ensure_league_chain_schema(conn: sqlite3.Connection) -> None:
+    """Additive ``CREATE TABLE IF NOT EXISTS`` on ANY connection (the intel
+    ledger or the own-league store).  ``executescript`` commits, so call it
+    once per run before a transaction that must stay open."""
+    conn.executescript(_LEAGUE_CHAIN_SCHEMA)
+
+
+def _hop_facts(hop: Any) -> tuple[Any, ...]:
+    return (
+        hop.league_id,
+        hop.season,
+        hop.previous_league_id,
+        LINK_LINKED if hop.previous_league_id else LINK_TERMINATOR,
+        hop.league_type,
+        None if hop.best_ball is None else int(bool(hop.best_ball)),
+        hop.status,
+    )
+
+
+def record_league_chain_hop(
+    conn: sqlite3.Connection,
+    league: dict[str, Any] | None,
+    *,
+    observed_ms: int,
+    source: str,
+) -> str:
+    """Record the link one fetched Sleeper league object states.  Returns
+    ``"new"`` (a dated row appended), ``"unchanged"`` (identical to the
+    latest row for this league -- nothing written) or ``"no_league_id"``.
+
+    Never commits (the caller owns its transaction cadence); the schema must
+    exist (:func:`ensure_league_chain_schema`)."""
+    import hashlib  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    from src.intel.league_filter import ChainHop  # noqa: PLC0415
+
+    hop = ChainHop.from_league(league, observed_ms=int(observed_ms))
+    if hop is None:
+        return "no_league_id"
+    facts = _hop_facts(hop)
+    sha = hashlib.sha256(json.dumps(facts, separators=(",", ":")).encode("utf-8")).hexdigest()
+    prior = conn.execute(
+        "SELECT fact_sha256 FROM league_season_chain WHERE league_id = ? "
+        "ORDER BY observed_ms DESC, hop_id DESC LIMIT 1",
+        (hop.league_id,),
+    ).fetchone()
+    if prior is not None and str(prior[0]) == sha:
+        return "unchanged"
+    conn.execute(
+        """
+        INSERT INTO league_season_chain
+          (league_id, season, previous_league_id, link_state, league_type,
+           best_ball, status, fact_sha256, observed_ms, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (*facts, sha, int(observed_ms), str(source)),
+    )
+    return "new"
+
+
+def load_league_chain(conn: sqlite3.Connection) -> dict[str, Any]:
+    """``{league_id: ChainHop}`` -- the LATEST observation of every recorded
+    season-league.  ``{}`` when the table does not exist (never creates it,
+    so it is safe on a ``mode=ro`` connection)."""
+    from src.intel.league_filter import ChainHop  # noqa: PLC0415
+
+    try:
+        rows = conn.execute(
+            "SELECT league_id, season, previous_league_id, league_type, best_ball, "
+            "status, observed_ms FROM league_season_chain ORDER BY observed_ms, hop_id"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return {}
+        raise
+    out: dict[str, Any] = {}
+    for lid, season, prev, ltype, bb, status, observed in rows:
+        out[str(lid)] = ChainHop(
+            league_id=str(lid),
+            previous_league_id=str(prev) if prev else None,
+            season=str(season) if season else None,
+            league_type=int(ltype) if ltype is not None else None,
+            status=str(status) if status else None,
+            best_ball=None if bb is None else bool(bb),
+            observed_ms=int(observed) if observed is not None else None,
+        )
+    return out
+
+
+def league_chain_store_state(conn: sqlite3.Connection) -> str:
+    """``available`` / ``empty`` / ``missing`` -- a STATE, so "no chain walked"
+    never reads as "every league is new"."""
+    try:
+        (n,) = conn.execute("SELECT COUNT(*) FROM league_season_chain").fetchone()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return "missing"
+        raise
+    return "available" if n else "empty"
+
+
 # ── queries ──────────────────────────────────────────────────────────
 
 

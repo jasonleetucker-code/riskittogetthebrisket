@@ -77,6 +77,25 @@ class TestLeagueAgeGate:
         assert lf.is_sharp_eligible(lg, min_age_seasons=2) is True
         assert lf.is_sharp_eligible(lg, min_age_seasons=3) is False
 
+    def test_sleeper_zero_terminator_is_not_a_prior_season(self):
+        """G3: Sleeper terminates a chain with the STRING "0".  It is truthy,
+        so the old floor read every first-season league as age 2 and this
+        gate could never fire on a real Sleeper payload."""
+        lg = league(type_=2, previous="0")
+        assert lf.league_age_seasons(lg) == 1
+        assert lf.is_sharp_eligible(lg) is False
+        assert lf.sharp_exclusion_reason(lg) == "too_new"
+
+    def test_a_walked_lineage_proves_more_than_the_floor(self):
+        """The records crawl reaches a league's FIRST season (link "0") from a
+        newer one, so that season belongs to a >= 2 season lineage."""
+        first = league(type_=2, previous="0")
+        assert lf.is_sharp_eligible(first, known_age_seasons=2) is True
+        assert lf.sharp_exclusion_reason(first, known_age_seasons=2) is None
+        assert lf.is_sharp_eligible(first, known_age_seasons=1) is False
+        # known age never LOWERS the floor
+        assert lf.is_sharp_eligible(league(type_=2, previous="old"), known_age_seasons=1)
+
 
 def rec(user_id="u", **kw):
     base = dict(

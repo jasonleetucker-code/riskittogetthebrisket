@@ -21,6 +21,17 @@ canonical ledger nor writes the coverage report.  ``--archive-path``,
 ``--intel-ledger-path``, ``--acquisition-path`` and ``--lanes`` point any mode
 at other stores (synthetic fixtures locally; the box defaults otherwise).
 
+``--census-from-ledger`` is READ-ONLY and makes ZERO network calls: it reads
+the PERSISTED ledger (``mode=ro``; never builds one in memory) and the intel
+ledger's persisted ``previous_league_id`` chain (``mode=ro``), and writes the
+Chase Upside Trade Market league-maturity census -- trades / leagues per
+maturity cohort under BOTH readings (point-in-time at the trade, league-level
+as of today), Sleeper-observed vs KTC lanes, and the data lost to each
+exclusion -- as ``maturity_census_<UTC date>.json`` + ``.md`` (small-cell
+suppressed, 15+-digit runs refused) into ``--out``.  Logging is silenced to
+CRITICAL so nothing id-shaped reaches a captured stream; only the two output
+paths are printed.  Exit 3 when no persisted ledger exists.
+
 Exit codes: 0 built · 1 error · 2 no observations in any lane.
 """
 
@@ -57,6 +68,49 @@ def write_census(result: dict, out_dir: Path, *, now: datetime) -> tuple[Path, P
     return jpath, mpath
 
 
+def write_maturity_census(
+    out_dir: Path,
+    *,
+    now: datetime,
+    ledger_root: Path | None = None,
+    intel_ledger_path: Path | None = None,
+) -> tuple[Path, Path] | None:
+    """Read-only maturity census from the persisted stores; ``None`` when no
+    persisted underlying-trade ledger exists on this host."""
+    import sqlite3  # noqa: PLC0415
+
+    from src.intel import ledger as intel_ledger  # noqa: PLC0415
+    from src.sources.signals import atomic_write_bytes  # noqa: PLC0415
+
+    conn = report.open_canonical_ledger(ledger_root)
+    if conn is None:
+        return None
+    try:
+        groups = report.read_persisted_groups(conn)
+    finally:
+        conn.close()
+    ipath = Path(intel_ledger_path) if intel_ledger_path else intel_ledger.default_path()
+    chain: dict = {}
+    chain_state = "intel_ledger_missing"
+    if ipath.exists():
+        iconn = sqlite3.connect(f"file:{ipath.as_posix()}?mode=ro", uri=True)
+        try:
+            chain_state = intel_ledger.league_chain_store_state(iconn)
+            chain = intel_ledger.load_league_chain(iconn)
+        finally:
+            iconn.close()
+    census = report.build_maturity_census(groups, chain, chain_state=chain_state)
+    census["generatedAt"] = now.isoformat()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"maturity_census_{now.strftime('%Y-%m-%d')}"
+    jpath, mpath = out_dir / f"{stem}.json", out_dir / f"{stem}.md"
+    body = json.dumps(census, indent=1, default=str)
+    report.assert_no_long_ids(body)
+    atomic_write_bytes(jpath, body.encode("utf-8"))
+    atomic_write_bytes(mpath, report.maturity_census_markdown(census).encode("utf-8"))
+    return jpath, mpath
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -78,6 +132,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="write only the AL-2a target-format census (read-only; no ledger rebuild)",
     )
+    parser.add_argument(
+        "--census-from-ledger",
+        action="store_true",
+        help=(
+            "write only the league-maturity census from the PERSISTED stores "
+            "(read-only, zero network, no ledger build)"
+        ),
+    )
+    parser.add_argument("--ledger-root", type=Path, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--out", type=Path, default=None, help="census output directory")
     parser.add_argument("--archive-path", type=Path, default=None)
     parser.add_argument("--intel-ledger-path", type=Path, default=None)
@@ -88,6 +151,29 @@ def main(argv: list[str] | None = None) -> int:
         help="comma-separated source lanes (default: all three)",
     )
     args = parser.parse_args(argv)
+
+    if args.census_from_ledger:
+        import logging  # noqa: PLC0415
+
+        # Privacy (public repo, captured logs): nothing below CRITICAL may
+        # reach a stream; the census itself carries counts only.
+        logging.getLogger().setLevel(logging.CRITICAL)
+        out_dir = args.out or (Path(archive.DEFAULT_DIR) / "reports" / "census")
+        try:
+            paths = write_maturity_census(
+                out_dir,
+                now=datetime.now(timezone.utc),
+                ledger_root=args.ledger_root,
+                intel_ledger_path=args.intel_ledger_path,
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"error: maturity census failed: {type(exc).__name__}", file=sys.stderr)
+            return 1
+        if paths is None:
+            print("error: no persisted underlying-trade ledger on this host", file=sys.stderr)
+            return 3
+        print(json.dumps({"census": str(paths[0]), "markdown": str(paths[1])}, indent=1))
+        return 0
 
     repo = Path(__file__).resolve().parents[1]
     ctx = None

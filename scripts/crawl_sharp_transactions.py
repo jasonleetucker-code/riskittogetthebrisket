@@ -48,6 +48,16 @@ pass routinely spends all of that on its backlog, which would starve the
 current-season re-fetch that confirms own-league trades (the bracket). A 429
 inside the own-league pass stops the remaining own leagues too.
 
+LEAGUE CHAIN PASS (fourth pass, OFF unless --chain-budget > 0)
+Walks the previous_league_id chain of trade-bearing leagues whose league
+maturity (verified completed dynasty seasons) is still unknown, recording each
+hop in the intel ledger's append-only league_season_chain table and each prior
+season's format through the capture owner (src/sharp/league_chain_crawl.py).
+A completed hop already stored costs zero calls. Default budget 0: enabling it
+is an explicit unit change. Skipped when an earlier pass stopped on a 429.
+
+    python scripts/crawl_sharp_transactions.py --chain-budget 200
+
 The pass stops at the first HTTP 429 (``stoppedReason: rate_limited``)
 rather than reading it as a deleted league. Every Sharp crawl shares the
 box's public IP, so run a large one-shot backfill (``--formats-only
@@ -68,7 +78,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.sharp import league_format_capture, transactions  # noqa: E402
+from src.sharp import league_chain_crawl, league_format_capture, transactions  # noqa: E402
 
 log = logging.getLogger("crawl_sharp_transactions")
 
@@ -134,6 +144,27 @@ def _capture_own_league_formats(
     return {"budget": budget, "callsUsed": used, "stoppedReason": stopped, "leagues": out}
 
 
+def _crawl_league_chains(
+    *,
+    budget: int,
+    league_ids: list | None = None,
+    stopped_reasons: tuple = (),
+    crawl=None,
+) -> dict:
+    """The league-chain (maturity) pass.  Never fails the run; skipped at
+    budget 0 (the default) and after any earlier pass's 429 (one shared IP)."""
+    if budget <= 0:
+        return {"skipped": "chain_budget_zero", "budget": budget}
+    if "rate_limited" in stopped_reasons:
+        return {"skipped": "earlier_pass_rate_limited", "budget": budget}
+    crawl = crawl or league_chain_crawl.crawl_league_chains
+    try:
+        return crawl(league_ids=league_ids, budget=budget).to_dict()
+    except Exception as exc:  # noqa: BLE001 — never fails the tx pass
+        log.exception("league chain pass failed")
+        return {"error": f"{type(exc).__name__}"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--budget", type=int, default=None, help="Max Sleeper API calls.")
@@ -161,6 +192,15 @@ def main() -> int:
         help=(
             "Sleeper calls for the own-league per-season format pass (separate from "
             "--format-budget; default own_league_format_capture.DEFAULT_RUN_BUDGET)."
+        ),
+    )
+    parser.add_argument(
+        "--chain-budget",
+        type=int,
+        default=league_chain_crawl.DEFAULT_BUDGET,
+        help=(
+            "Sleeper calls for the league-chain (maturity) pass; default "
+            f"{league_chain_crawl.DEFAULT_BUDGET} = off."
         ),
     )
     parser.add_argument(
@@ -228,6 +268,14 @@ def main() -> int:
                 payload["ownLeagueFormats"] = _capture_own_league_formats(
                     budget=own_budget, sharp_stopped_reason=sharp_stopped
                 )
+        payload["leagueChains"] = _crawl_league_chains(
+            budget=args.chain_budget,
+            league_ids=args.leagues,
+            stopped_reasons=(
+                sharp_stopped,
+                (payload.get("ownLeagueFormats") or {}).get("stoppedReason"),
+            ),
+        )
         print(json.dumps(payload, indent=2))
         # Partial is normal on a large graph — the next run continues
         # from the cursor, uncrawled leagues first.
