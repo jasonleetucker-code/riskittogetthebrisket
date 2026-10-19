@@ -583,6 +583,24 @@ def cmd_adversarial(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evaluate_m2(args: argparse.Namespace) -> int:
+    """M2 (G1 on published values), reported beside the main evaluation."""
+    recs = load_records(include_degraded=False)
+    days = E.daily(recs)
+    out = {
+        "schema": "outlier-policy-m2/v1",
+        "preregistration": PREREG,
+        "identity": _identity(recs),
+        "note": "reported, not decisive: biased toward the incumbent when the challenger rescues votes",
+        "policy": {str(h): E.m2_g1(days, h) for h in (E.PRIMARY_H, *E.SECONDARY_H)},
+        "n3": {str(h): E.m2_g1(days, h, "n3") for h in (E.PRIMARY_H, *E.SECONDARY_H)},
+    }
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(out, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    log(json.dumps(out["policy"]))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -592,10 +610,15 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--out", type=Path, required=True)
     a = sub.add_parser("adversarial")
     a.add_argument("--out", type=Path, required=True)
+    m = sub.add_parser("evaluate-m2")
+    m.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
-    return {"backfill": cmd_backfill, "evaluate": cmd_evaluate, "adversarial": cmd_adversarial}[
-        args.cmd
-    ](args)
+    return {
+        "backfill": cmd_backfill,
+        "evaluate": cmd_evaluate,
+        "adversarial": cmd_adversarial,
+        "evaluate-m2": cmd_evaluate_m2,
+    }[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -701,3 +701,60 @@ def adversarial(rec: Mapping[str, Any], seed: int = SEED) -> dict[str, Any]:
     }
     summary["gatePasses"] = all(v.get("policyPasses") for v in summary.values())
     return summary
+
+
+# ── M2: G1 on published values (reported, not decisive) ─────────────────
+
+
+def m2_g1(days: Mapping[date, Mapping[str, Any]], h: int, challenger: str = "policy") -> dict:
+    """The joint framework's G1 on full-pipeline published values (PREREGISTRATION §4 M2).
+
+    Rows whose ``rankDerivedValue`` differs between the challenger and incumbent
+    builds; T = equal-family median on the target board over the families other
+    than the disputed observations' (≥ 2). Biased toward the incumbent by
+    construction when the challenger mostly rescues votes (stated in advance).
+    """
+    order = sorted(days)
+    units = []
+    for d in order:
+        td = target_day(d, h, set(order))
+        if td is None:
+            continue
+        rec, tgt = days[d], days[td]
+        inc, ch = rec["variants"]["incumbent"], rec["variants"][challenger]
+        for name, row in rec["rows"].items():
+            if row.get("ac") == "pick" or name not in inc or name not in ch:
+                continue
+            vi, vc = inc[name][0], ch[name][0]
+            if not vi or not vc or vi == vc:
+                continue
+            disputed = set(inc[name][2]) ^ set(ch[name][2])
+            fams = {family_of(s) for s in disputed}
+            trow = tgt["rows"].get(name)
+            if not trow:
+                continue
+            by: dict[str, list[float]] = defaultdict(list)
+            for k, v in trow["votes"].items():
+                if family_of(k) not in fams and v > 0:
+                    by[family_of(k)].append(math.log(v))
+            if len(by) < 2:
+                continue
+            T = statistics.median(statistics.median(x) for x in by.values())
+            units.append((d.isoformat(), abs(math.log(vc) - T) - abs(math.log(vi) - T)))
+    if not units:
+        return {"n": 0, "mean": None, "ci95": None}
+    first = min(date.fromisoformat(u[0]) for u in units)
+    boot = block_bootstrap(
+        units,
+        lambda xs: statistics.fmean(x for _d, x in xs) if xs else None,
+        block_of=lambda unit: _blocks(unit[0], first),
+        resamples=RESAMPLES,
+        seed=SEED,
+    )
+    return {
+        "n": len(units),
+        "mean": round(boot["point"], 6),
+        "ci95": [round(boot["lo"], 6), round(boot["hi"], 6)] if boot["lo"] is not None else None,
+        "days": len({d for d, _x in units}),
+        "blocks": boot["blocks"],
+    }
