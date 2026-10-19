@@ -16,7 +16,7 @@
 
 Committed is not merged; merged is not deployed; deployed is not verified.
 
-Last updated: 2026-10-19 10:30 UTC (coordinator).
+Last updated: 2026-10-19 10:40 UTC (coordinator).
 
 ## Release vehicles
 
@@ -43,7 +43,7 @@ Last updated: 2026-10-19 10:30 UTC (coordinator).
 | Source voting transparency UI (CQ-66) | W1 | `claude/source-voting-transparency-ui` | — | #1831 payload (renders an honest "not available" state until then) | IMPLEMENTING | — | PR |
 | Screenshot import remainder (CQ-11) | W2 | `claude/screenshot-import-cq11` | — | — | IMPLEMENTING | Production proof needs a member session (CQ-12) | PR |
 | Production wedge diagnostics (ops) | W3 | `claude/prod-wedge-diagnostics` | — | — | IMPLEMENTING | Needs the box journal | PR; coordinator runs read-only diagnostics once |
-| Default-league workbook pick ownership fail-closed | W4 | `claude/workbook-pick-ownership-fail-closed` | — | — | IMPLEMENTING | `/trade` `team.picks \|\| []` is a separate follow-up | PR |
+| Default-league workbook pick ownership fail-closed | W4 (done) | `claude/workbook-pick-ownership-fail-closed` | #1840 | — | READY FOR REVIEW: the fix already shipped in #1785 (train 6); this PR adds 13 contract tests plus doc fixes, and changes no behaviour | Follow-ups below | Train 13 |
 | Brisket Trade Advisor (public League Hub) | Audit workflow → build workers | — | — | Audit and design | IMPLEMENTING (Phase 1 audit) | — | Launch backend + frontend workers from the final design |
 | Signals Fantasy IDP voting, DL/LB/DB per family | Audit workflow → build workers | — | — | On-box evaluation; #1817 / #1831 / outlier lane overlap | IMPLEMENTING (audit / root cause) | Private data is box-local | Preregister candidates; on-box diagnostics |
 | Chase Upside Trade Market (`chaseTradeMarket`) | Audit workflow → build workers | — | — | On-box data census | IMPLEMENTING (Milestone 1 audit) | Trade data is box-local | On-box census; maturity lineage; shadow model |
@@ -52,6 +52,9 @@ Last updated: 2026-10-19 10:30 UTC (coordinator).
 | Calculator correctness parity tests (CQ-21) | — | — | — | — | QUEUED | — | Next wave |
 | Accessibility defects (CQ-30) | — | — | — | — | QUEUED | Exclude `/trade` until train 12 merges | Next wave |
 | Scheduled workflow health (CQ-29) | — | — | — | — | QUEUED | — | Next wave |
+| Workbook refusal reason precision (`sleeper_unreachable` vs `traded_picks_fetch_failed` when Sleeper fails before `/traded_picks`) | — | — | — | — | QUEUED | Shipped wording; the change is small | Next wave |
+| Workbook keeps hand-entered reassignments Sleeper does not report (an observed `[]` overrides nothing) | — | — | — | — | QUEUED (investigate) | Sleeper should be the system of record | Verify, then fix |
+| Stale WORK_CLAIMS rows: Draft Valuation Batch E/F/G still read "active — PR open" | — | — | — | — | QUEUED | Records only | Fold into the next records pass |
 | Pick horizon = last completed rookie draft + 3 (owner decision 2026-10-19: no 2030 until the 2027 draft completes) | W5 | `claude/pick-horizon-completed-draft-plus-3` | — | Draft-class retirement proof (`pick_lifecycle`) | IMPLEMENTING | The board currently emits 2030 rows after the vendor slot roll | PR with board_diff evidence |
 
 ## Shelved / not to revive
