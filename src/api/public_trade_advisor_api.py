@@ -50,7 +50,7 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from src.api import rate_limit
-from src.api.client_ip import client_key, neighbourhood_key
+from src.api.client_ip import client_key, neighbourhood_key, region_key
 from src.trade import public_advisor
 
 _LOG = logging.getLogger(__name__)
@@ -96,6 +96,8 @@ def advisor_config() -> dict[str, Any]:
             "perKeyBurst": {"capacity": 40, "windowSeconds": 600},
             "perKeyDaily": {"capacity": 400, "windowSeconds": 86400},
             "neighbourhoodBurst": {"capacity": 200, "windowSeconds": 600},
+            "neighbourhoodDaily": {"capacity": 1000, "windowSeconds": 86400},
+            "regionDaily": {"capacity": 2000, "windowSeconds": 86400},
             "globalCeiling": {"capacity": 3000, "windowSeconds": 3600},
         },
         "maxTrackedKeys": 20000,
@@ -149,12 +151,19 @@ def _charges_for(ip: str) -> list[rate_limit.KeyedCharge]:
 
     ck = client_key(ip)
     nk = neighbourhood_key(ip)
+    rk = region_key(ip)
     charges = [_c("global", rl["globalCeiling"], ceiling=True)]
     if ck:
         charges.append(_c(f"burst:{ck}", rl["perKeyBurst"]))
         charges.append(_c(f"daily:{ck}", rl["perKeyDaily"]))
     if nk:
         charges.append(_c(f"hood:{nk}", rl["neighbourhoodBurst"]))
+        charges.append(_c(f"hoodday:{nk}", rl["neighbourhoodDaily"]))
+    if rk:
+        # Daily caps at the /24-/48 and /16-/32 tiers bound how much of the
+        # shared global ceiling any one provider's address space can spend,
+        # so a few tunnels cannot lock every league member out.
+        charges.append(_c(f"region:{rk}", rl["regionDaily"]))
     return charges
 
 
@@ -553,7 +562,8 @@ async def get_trade_advisor_teams(request: Request, leagueKey: str = ""):
 
 def _parse_roster_id(raw: str) -> int | None:
     text = str(raw or "")
-    if not text.isdigit() or len(text) > 2:
+    # ASCII only: str.isdigit() accepts '¹' / '١', which int() rejects or remaps.
+    if not (text.isascii() and text.isdigit()) or len(text) > 2:
         return None
     rid = int(text)
     return rid if 1 <= rid <= 99 else None

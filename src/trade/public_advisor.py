@@ -58,6 +58,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
 from src.identity.picks import (
@@ -325,6 +326,19 @@ def _row_player_id(row: Mapping[str, Any]) -> str:
     return str(row.get("playerId") or row.get("_sleeperId") or "").strip()
 
 
+def _hours_since(stamp: Any) -> float | None:
+    """Hours from an ISO-8601 stamp to now (UTC); ``None`` when unparseable."""
+    if not isinstance(stamp, str) or not stamp:
+        return None
+    try:
+        when = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - when).total_seconds() / 3600.0
+
+
 def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
     """``(state, asOf)`` for the snapshot's rosters (design §2.6 rule).
 
@@ -333,7 +347,9 @@ def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
     good snapshot or are older; ``unknown`` when nothing in the contract
     proves either — unprovable freshness is not freshness.  Reads the
     ``sleeper.rosterSource`` / ``rosterSnapshotAgeHours`` evidence (design
-    B0-f); a contract built before that evidence exists answers ``unknown``.
+    B0-f); a live tag with no stated age is aged from ``rosterFetchedAt`` or
+    the contract's own build stamp, and an unparseable stamp is ``unknown``.
+    A contract built before that evidence exists answers ``unknown``.
     Only the date is exposed.
     """
     sleeper = contract.get("sleeper") if isinstance(contract.get("sleeper"), Mapping) else {}
@@ -342,9 +358,14 @@ def roster_freshness(contract: Mapping[str, Any]) -> tuple[str, str | None]:
     stamp = str(contract.get("scrapeTimestamp") or contract.get("generatedAt") or "")
     as_of = stamp[:10] if len(stamp) >= 10 and stamp[4] == "-" else None
     if source == "live":
-        if isinstance(age, (int, float)) and not isinstance(age, bool):
-            return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), as_of
-        return "current", as_of
+        if not (isinstance(age, (int, float)) and not isinstance(age, bool)):
+            # No stated age: measure it from the roster fetch (B0-f) or the
+            # contract's own build stamp.  Unprovable freshness is "unknown",
+            # never "current" (stale != current).
+            age = _hours_since(sleeper.get("rosterFetchedAt") or stamp)
+            if age is None:
+                return "unknown", None
+        return ("current" if age <= _ROSTER_MAX_AGE_HOURS else "stale"), as_of
     if source == "last_good":
         return "stale", as_of
     return "unknown", None

@@ -9,6 +9,8 @@
     "perKeyBurst": {"capacity": 40, "windowSeconds": 600},
     "perKeyDaily": {"capacity": 400, "windowSeconds": 86400},
     "neighbourhoodBurst": {"capacity": 200, "windowSeconds": 600},
+    "neighbourhoodDaily": {"capacity": 1000, "windowSeconds": 86400},
+    "regionDaily": {"capacity": 2000, "windowSeconds": 86400},
     "globalCeiling": {"capacity": 3000, "windowSeconds": 3600}
   },
   "maxTrackedKeys": 20000

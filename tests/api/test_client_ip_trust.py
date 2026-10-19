@@ -124,6 +124,15 @@ def test_limiter_keys_group_ipv6_by_slash_64_and_neighbourhoods():
     assert neighbourhood_key("2001:db8:1:2::1") == neighbourhood_key("2001:db8:1:ffff::1")
 
 
+def test_region_key_groups_ipv4_slash_16_and_ipv6_slash_32():
+    from src.api.client_ip import region_key
+
+    assert region_key("203.0.113.7") == region_key("203.0.200.1")
+    assert region_key("203.0.113.7") != region_key("203.1.113.7")
+    assert region_key("2001:db8:1::1") == region_key("2001:db8:ffff::1")
+    assert region_key("2001:db8::1") != region_key("2001:db9::1")
+
+
 def test_every_client_ip_reader_routes_through_the_one_owner():
     """No module reads X-Real-IP / X-Forwarded-For except the owner."""
     import pathlib

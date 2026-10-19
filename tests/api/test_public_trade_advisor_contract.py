@@ -200,3 +200,28 @@ def test_index_names_every_case_with_its_status_and_endpoint():
 def test_every_fixture_file_is_a_known_case():
     files = {p.stem for p in S.FIXTURE_DIR.glob("*.json")} - {"index"}
     assert files == set(CASES), "stale or missing fixture files"
+
+
+def test_live_rosters_without_a_stated_age_are_aged_by_their_own_stamp():
+    """A live-tagged contract is "current" only while its own stamp is within
+    the six-hour budget; an old or unprovable stamp is never "current"."""
+    from datetime import datetime, timedelta, timezone
+
+    from src.trade.public_advisor import roster_freshness
+
+    now = datetime.now(timezone.utc)
+
+    def _contract(stamp: str | None) -> dict[str, Any]:
+        return {"scrapeTimestamp": stamp, "sleeper": {"rosterSource": "live"}}
+
+    assert roster_freshness(_contract((now - timedelta(hours=1)).isoformat()))[0] == "current"
+    assert roster_freshness(_contract((now - timedelta(hours=48)).isoformat()))[0] == "stale"
+    assert roster_freshness(_contract(None)) == ("unknown", None)
+    fetched = {
+        "scrapeTimestamp": (now - timedelta(hours=1)).isoformat(),
+        "sleeper": {
+            "rosterSource": "live",
+            "rosterFetchedAt": (now - timedelta(hours=10)).isoformat(),
+        },
+    }
+    assert roster_freshness(fetched)[0] == "stale"

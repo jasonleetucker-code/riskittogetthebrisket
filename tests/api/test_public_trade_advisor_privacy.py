@@ -217,7 +217,8 @@ def test_deeply_nested_json_is_a_400_not_a_crash(sentinel_client):
 
 
 def test_non_integer_roster_id_path_is_our_400_never_fastapi_422(sentinel_client):
-    for bad in ("x", "-1", "0", "100", "1.5", "%20"):
+    # %C2%B9 / %D9%A1 are non-ASCII digits that str.isdigit() accepts.
+    for bad in ("x", "-1", "0", "100", "1.5", "%20", "%C2%B9", "%D9%A1"):
         res = sentinel_client.get(S.assets_url(bad))
         assert res.status_code == 400, (bad, res.text)
         assert res.json() == {
@@ -318,6 +319,30 @@ def _ip_from_test_header(monkeypatch):
 
 def test_neighbourhood_bucket_spans_addresses_in_one_slash_24(advisor_client, monkeypatch):
     _cfg_with(monkeypatch, neighbourhoodBurst={"capacity": 2, "windowSeconds": 600})
+    _ip_from_test_header(monkeypatch)
+    ips = ["203.0.113.1", "203.0.113.2", "203.0.113.3", "198.51.100.9"]
+    codes = [
+        advisor_client.post(S.ANALYZE, json=BODY, headers={"X-Test-IP": ip}).status_code
+        for ip in ips
+    ]
+    assert codes == [200, 200, 429, 200]
+
+
+def test_region_bucket_spans_tunnels_inside_one_ipv6_slash_32(advisor_client, monkeypatch):
+    """Several /48s from one provider share the /32 region cap, so a few
+    tunnels cannot spend the global ceiling for everyone (review finding)."""
+    _cfg_with(monkeypatch, regionDaily={"capacity": 2, "windowSeconds": 86400})
+    _ip_from_test_header(monkeypatch)
+    ips = ["2001:db8:1::1", "2001:db8:2::1", "2001:db8:3::1", "2001:db9:1::1"]
+    codes = [
+        advisor_client.post(S.ANALYZE, json=BODY, headers={"X-Test-IP": ip}).status_code
+        for ip in ips
+    ]
+    assert codes == [200, 200, 429, 200]
+
+
+def test_neighbourhood_daily_cap_spans_addresses_in_one_slash_24(advisor_client, monkeypatch):
+    _cfg_with(monkeypatch, neighbourhoodDaily={"capacity": 2, "windowSeconds": 86400})
     _ip_from_test_header(monkeypatch)
     ips = ["203.0.113.1", "203.0.113.2", "203.0.113.3", "198.51.100.9"]
     codes = [

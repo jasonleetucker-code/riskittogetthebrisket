@@ -131,3 +131,16 @@ def neighbourhood_key(ip: str) -> str:
         return str(ip or "")
     prefix = 48 if addr.version == 6 else 24
     return str(ipaddress.ip_network(f"{addr}/{prefix}", strict=False))
+
+
+def region_key(ip: str) -> str:
+    """Region limiter key: IPv4 ``/16`` or IPv6 ``/32``.
+
+    The coarsest tier, so a handful of ``/48`` tunnels from one provider (or
+    many ``/24``s in one ``/16``) share one bucket and cannot drain a global
+    ceiling on their own."""
+    addr = _parse_ip(ip)
+    if addr is None:
+        return str(ip or "")
+    prefix = 32 if addr.version == 6 else 16
+    return str(ipaddress.ip_network(f"{addr}/{prefix}", strict=False))
