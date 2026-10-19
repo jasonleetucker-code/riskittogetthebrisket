@@ -108,6 +108,8 @@ def test_offseason_c_is_not_applicable_rather_than_missing():
         lineup=unavailable("no_remaining_fantasy_weeks"),
     )
     assert d.verdict == "YES" and d.missing_evidence == ()
+    # Not applicable is not missing: coverage is not the "essential missing" LOW.
+    assert d.confidence_axes["coverage"] == "medium"
 
 
 @pytest.mark.parametrize("strategy", ["WIN_NOW", "BALANCED", "LONG_TERM"])

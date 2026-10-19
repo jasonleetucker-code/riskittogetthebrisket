@@ -119,6 +119,16 @@ def test_source_families_are_b10_ids_resolving_through_source_lineage():
     assert "ktcCrowdTradesSfTep" not in market
 
 
+def test_every_board_family_is_declared_in_canonical_market():
+    """A B10 family joining ``_RANKING_SOURCES`` is a lineage change: it must be
+    added to ``canonical_market`` in the same PR, or this fails."""
+    from src.api import data_contract
+
+    board = {data_contract.correlation_group_for(s["key"]) for s in data_contract._RANKING_SOURCES}
+    market = set(reg.GROUPS["canonical_market"].descends_from_source_families)
+    assert board - market == set()
+
+
 def test_registry_imports_nothing_from_src():
     import ast
 

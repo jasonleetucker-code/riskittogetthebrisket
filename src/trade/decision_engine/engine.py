@@ -250,7 +250,8 @@ def evaluate_team(
         decided_by=outcome.decided_by,
         a=a,
         p=p,
-        p_required="P" in params["essentials"][strategy],
+        # An offseason (not-applicable) roster term is not missing evidence.
+        p_required="P" in params["essentials"][strategy] and not c_not_applicable,
         agreement_cap=lineage.agreement_cap,
         asset=layers.asset or {},
         asset_detail=a_detail,
