@@ -8,13 +8,13 @@ tests are seeded random sweeps (no hypothesis dependency in this repo).
 
 from __future__ import annotations
 
+import ast
 import json
 import random
 from pathlib import Path
 
 import pytest
 
-from src.nfl_data import scoring_coverage as sc
 from src.nfl_data.scoring_coverage import Coverage, classify, uncovered_paid_keys
 from src.ros import keyed_weekly_projections as kw
 from src.ros.sportsdataio_weekly_projections import DERIVATIONS
@@ -41,15 +41,26 @@ def test_the_captured_card_is_dynasty_mains_148_key_card_without_chat_metadata()
     assert not any(k.startswith(("last_", "bracket", "loser_bracket")) for k in LEAGUE)
 
 
-def test_the_derivation_table_is_imported_from_the_keyed_lane_not_copied():
-    table = sc._default_linear_derivations()
-    assert table == tuple(DERIVATIONS)
-    assert all(isinstance(d, kw.LinearDerivation) for d in table)
-    targets = {d.target for d in table}
+def test_the_derivation_table_is_the_providers_own_never_restated():
+    assert all(isinstance(d, kw.LinearDerivation) for d in DERIVATIONS)
+    targets = {d.target for d in DERIVATIONS}
     assert {"pass_inc", "idp_tkl", "fgmiss", "xpmiss"} <= targets
-    # And the module source does not restate any identity.
+    # The module neither restates an identity nor imports a provider module
+    # (which would pull a dormant, flag-gated provider into server.py's
+    # import graph — pinned by tests/api/test_feature_flag_reachability.py).
     src = (ROOT / "src/nfl_data/scoring_coverage.py").read_text("utf-8")
     assert "LinearDerivation(" not in src
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            assert not node.module.startswith("src.ros"), node.module
+
+
+def test_default_derives_nothing_so_a_derivable_key_is_reported():
+    card = {"pass_inc": -0.67}
+    line = {"pass_att": 30.0, "pass_cmp": 20.0}
+    assert uncovered_paid_keys(line, card) == ("pass_inc",)  # safe direction
+    assert uncovered_paid_keys(line, card, derivations=DERIVATIONS) == ()
 
 
 def test_linear_identities_are_derived_and_not_reported():
@@ -64,7 +75,7 @@ def test_linear_identities_are_derived_and_not_reported():
         "xpa": 3.0,
         "xpm": 2.9,
     }
-    assert uncovered_paid_keys(line, card) == ()
+    assert uncovered_paid_keys(line, card, derivations=DERIVATIONS) == ()
     # Drop one source term of each identity -> each becomes uncovered.
     for drop, target in (
         ("pass_cmp", "pass_inc"),
@@ -73,23 +84,24 @@ def test_linear_identities_are_derived_and_not_reported():
         ("xpa", "xpmiss"),
     ):
         partial = {k: v for k, v in line.items() if k != drop}
-        assert target in uncovered_paid_keys(partial, card), drop
+        assert target in uncovered_paid_keys(partial, card, derivations=DERIVATIONS), drop
 
 
 def test_position_gated_identity_needs_the_position():
     card = {"bonus_rec_te": 0.5}
     line = {"rec": 5.0}
-    assert uncovered_paid_keys(line, card) == ("bonus_rec_te",)
-    assert uncovered_paid_keys(line, card, position="WR") == ("bonus_rec_te",)
-    assert uncovered_paid_keys(line, card, position="TE") == ()
-    assert uncovered_paid_keys(line, card, position="te") == ()
+    kw_ = {"derivations": DERIVATIONS}
+    assert uncovered_paid_keys(line, card, **kw_) == ("bonus_rec_te",)
+    assert uncovered_paid_keys(line, card, position="WR", **kw_) == ("bonus_rec_te",)
+    assert uncovered_paid_keys(line, card, position="TE", **kw_) == ()
+    assert uncovered_paid_keys(line, card, position="te", **kw_) == ()
 
 
 @pytest.mark.parametrize("bonus", THRESHOLD_BONUSES)
 def test_threshold_bonuses_are_never_derived_from_a_mean(bonus):
     card = {bonus: 3.0, "pass_yd": 0.04, "rec_yd": 0.1}
     line = {"pass_yd": 450.0, "rec_yd": 180.0}  # mean clears every threshold
-    assert bonus in uncovered_paid_keys(line, card, position="QB")
+    assert bonus in uncovered_paid_keys(line, card, position="QB", derivations=DERIVATIONS)
 
 
 def test_explicit_zero_is_coverage_absent_and_non_numeric_are_not():
@@ -122,7 +134,7 @@ def test_property_zero_rate_never_reported_absent_paid_always_reported(card_name
     for _ in range(60):
         line = _random_line(rng, keys)
         pos = rng.choice([None, "QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"])
-        out = uncovered_paid_keys(line, card, position=pos)
+        out = uncovered_paid_keys(line, card, position=pos, derivations=DERIVATIONS)
         assert list(out) == sorted(set(out))
         for key in out:
             assert float(card[key]) != 0.0, key  # a rate-0 key is never reported
@@ -143,9 +155,11 @@ def test_property_reporting_is_monotone_in_the_line():
     rng = random.Random(7)
     for _ in range(80):
         line = _random_line(rng, keys)
-        before = set(uncovered_paid_keys(line, CARD, position="TE"))
+        before = set(uncovered_paid_keys(line, CARD, position="TE", derivations=DERIVATIONS))
         extra = rng.choice(keys)
-        after = set(uncovered_paid_keys({**line, extra: 1.0}, CARD, position="TE"))
+        after = set(
+            uncovered_paid_keys({**line, extra: 1.0}, CARD, position="TE", derivations=DERIVATIONS)
+        )
         assert after <= before
 
 

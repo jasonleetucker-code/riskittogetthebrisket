@@ -30,7 +30,7 @@ There are two scoring paths, and both end in that same scorer:
 | `ProjectionObservation.scoring_components` | `src/ros/projection_observations.py` | the per-key `(key, raw, rate, points)` behind `league_scored_fpg`, from the **same** scoring call (no second pass). For a stat-line record the components sum, in order, to `league_scored_fpg` exactly. |
 | `ProjectionObservation.uncovered_paid_keys` + `coverage_status` | same | the paid card rules the projection does not cover. Their contribution is **unknown, not zero**. For BDVM records this comes from the canonical coverage owner (`bdvm.source_vocabulary.record_coverage`), fed the engine's own unscored keys from the same call. A rate the card states but that cannot be read is added (the engine would coerce it to 0). `coverage_status = "unverifiable"` for source-scored points, so an empty list never reads as complete. |
 | `ProjectionObservation.synthetic_components` | same | card keys whose projected value is an imputed split, not provider evidence. Today that means the reception bands (§4). This is a label only: the points stay in `league_scored_fpg`. |
-| `scoring_coverage.uncovered_paid_keys(line, card, *, position=None)` | `src/nfl_data/scoring_coverage.py` | the same question for a **Sleeper-keyed** line. It returns nonzero-rate keys absent from the line that are not linear identities of keys it does carry. |
+| `scoring_coverage.uncovered_paid_keys(line, card, *, position=None, derivations=())` | `src/nfl_data/scoring_coverage.py` | the same question for a **Sleeper-keyed** line. It returns nonzero-rate keys absent from the line that are not linear identities, in the provider's own `derivations` table, of keys it does carry. |
 | `synthetic_splits` | `src/nfl_data/synthetic_splits.py` (new) | detects the provider's fixed reception-band split |
 | `league_format.resolve_league_format(league_key, ...)` | `src/league_intel/league_format.py` (new) | which axes of a league's format are proven, combining sf1 + evidence state (`league_registry`) with the market format and `tmf1` (`trade.market_trade_format`) |
 
@@ -53,7 +53,7 @@ Independence families come from `config/projections/source_capability_census.jso
 | Mike Clay / ESPN guide | `espnClay` | PRESEASON_FULL_SEASON | LIVE | Season stat lines for offense plus a second IDP feed. No TFL, no PD, no fumbles column. |
 | The IDP Show | `theIdpShow` | PRESEASON_FULL_SEASON | LIVE | IDP stat lines (authenticated sheet). |
 | Fantasy Nerds weekly | `fantasyNerds` | WEEKLY | flag OFF | **Not independent.** It is a published consensus whose declared constituents include RotoWire and ESPN/Clay (`constituentFamilies`). It must never vote alongside them. |
-| SportsDataIO weekly | `sportsDataIo` | WEEKLY | flag OFF | Its own family. Linear derivations (`pass_inc`, `idp_tkl`, `fgmiss`, `xpmiss`, TE `bonus_rec_te`) are declared in `DERIVATIONS`, which `uncovered_paid_keys` imports rather than copies. |
+| SportsDataIO weekly | `sportsDataIo` | WEEKLY | flag OFF | Its own family. Linear derivations (`pass_inc`, `idp_tkl`, `fgmiss`, `xpmiss`, TE `bonus_rec_te`) are declared in `DERIVATIONS`. A caller passes that table to `uncovered_paid_keys`, as the keyed lane's `build_mapped_observations` already does; it is never copied. |
 
 That leaves three live independent families: RotoWire (weekly), Clay and The
 IDP Show (both preseason, full season).
@@ -106,6 +106,12 @@ reception-shape replacement is a later value-moving unit
 The rule: a paid rule a source does not project is reported, never
 zero-filled.
 
+- The derivation table is per provider and is passed in by the caller. The
+  default `()` derives nothing, so a derivable key is reported, which is the
+  safe direction. `scoring_coverage` is reachable from `server.py`, and
+  importing a provider module there would pull the dormant SportsDataIO
+  provider into the server import graph. The feature-flag reachability test
+  caught exactly that in the first draft.
 - Linear identities of expectations may be derived: `pass_inc = att − cmp`,
   `idp_tkl = solo + ast`, `fgmiss = fga − fgm`, `xpmiss = xpa − xpm`, and
   `bonus_rec_te = rec` for a TE only.

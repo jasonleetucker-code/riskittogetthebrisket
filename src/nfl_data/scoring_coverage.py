@@ -618,20 +618,6 @@ def _is_team_level_key(key: str) -> bool:
     return classify(key) is Coverage.NOT_APPLICABLE
 
 
-def _default_linear_derivations() -> tuple[Any, ...]:
-    """The keyed weekly lane's linear-identity table, by import (never copied).
-
-    ``src.ros.sportsdataio_weekly_projections.DERIVATIONS`` is the superset
-    table of :class:`src.ros.keyed_weekly_projections.LinearDerivation`
-    identities (``pass_inc``, position-gated ``bonus_rec_te``, ``fgmiss``,
-    ``xpmiss``, ``idp_tkl``).  Imported lazily: that module imports the
-    weekly projection lane, which itself reads this module.
-    """
-    from src.ros.sportsdataio_weekly_projections import DERIVATIONS  # noqa: PLC0415
-
-    return tuple(DERIVATIONS)
-
-
 def _numeric(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
         return None
@@ -647,7 +633,7 @@ def uncovered_paid_keys(
     card: Mapping[str, Any],
     *,
     position: str | None = None,
-    derivations: Sequence[Any] | None = None,
+    derivations: Sequence[Any] = (),
 ) -> tuple[str, ...]:
     """League-PAID rules a Sleeper-keyed stat line leaves UNKNOWN, sorted.
 
@@ -659,13 +645,21 @@ def uncovered_paid_keys(
     * the line does not carry it as a number.  An explicit ``0`` IS
       coverage (a projection of zero events); an absent or non-numeric
       value is not;
-    * it is not a LINEAR identity of keys the line does carry
-      (``pass_inc = pass_att - pass_cmp``, ``idp_tkl = solo + ast``,
-      ``fgmiss = fga - fgm``, ``xpmiss = xpa - xpm``; a position-gated
-      identity such as ``bonus_rec_te = rec`` only when ``position``
-      matches — no ``position``, no gated derivation).  The table is
-      imported from the keyed weekly lane (:func:`_default_linear_derivations`),
-      never restated here.  **Threshold bonuses are never derivable**: the
+    * it is not a LINEAR identity, in ``derivations``, of keys the line
+      does carry (``pass_inc = pass_att - pass_cmp``, ``idp_tkl = solo +
+      ast``, ``fgmiss = fga - fgm``, ``xpmiss = xpa - xpm``; a
+      position-gated identity such as ``bonus_rec_te = rec`` only when
+      ``position`` matches — no ``position``, no gated derivation).
+      ``derivations`` is a sequence of
+      :class:`src.ros.keyed_weekly_projections.LinearDerivation` — the
+      PROVIDER's own table (e.g. ``sportsdataio_weekly_projections.DERIVATIONS``),
+      passed in exactly as the keyed lane's ``build_mapped_observations``
+      takes it.  No table is restated or imported here: the identities are
+      declared per provider, and importing a provider module from this
+      production-reachable module would pull a dormant, flag-gated
+      provider into the server's import graph.  The default ``()`` derives
+      nothing, so a derivable key is REPORTED — the safe direction (a gap
+      is never hidden).  **Threshold bonuses are never derivable**: the
       indicator of a mean is not the mean of an indicator, so
       ``bonus_pass_yd_300`` and tackle milestones stay reported;
     * it is not a team-level rule (:func:`classify` ``NOT_APPLICABLE``) —
@@ -679,7 +673,7 @@ def uncovered_paid_keys(
     (``src.ros.sleeper_weekly_projections``) applies its own grammar.
     Pure apart from the cached engine probe in :func:`classify`.
     """
-    table = _default_linear_derivations() if derivations is None else tuple(derivations)
+    table = tuple(derivations)
     present = {str(k) for k, v in stat_line.items() if _numeric(v) is not None}
     pos = str(position).upper() if position else None
 
