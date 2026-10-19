@@ -557,6 +557,19 @@ def test_clean_trade_has_no_hard_exclusion_and_fit_suitability_is_unchanged():
     assert E.fit_suitability(t, topo) == {"fit": "clean_1_for_1", "reasons": []}
 
 
+def test_summary_separates_overlapping_and_sole_exclusion_losses():
+    trades = [
+        _trade(),
+        _trade(rosterExclusivity={"state": "multi_copy"}),
+        _trade(rosterExclusivity={"state": "multi_copy"}, occurredDate=None),
+    ]
+    s = E.summarize_estimator_evidence(trades)
+    assert s["representable"] == 1 and s["anyHardExclusion"] == 2
+    assert s["lostToEachHardExclusion"] == {"multi_copy_league": 2, "undated_trade": 1}
+    # Relaxing the multi-copy rule alone recovers one trade, not two.
+    assert s["lostOnlyToHardExclusion"] == {"multi_copy_league": 1}
+
+
 def test_multi_team_needs_every_sender():
     sides = [[{"kind": "player", "canonicalId": f"player:{i}"}] for i in (1, 2, 3)]
     known = {

@@ -325,6 +325,9 @@ def summarize_estimator_evidence(trades: Sequence[Mapping[str, Any]]) -> dict[st
     counts among the otherwise-usable trades, and maturity cohorts under both
     readings (owner directive V2 §10 "data lost to each exclusion")."""
     hard: dict[str, int] = {}
+    # Trades whose ONLY hard exclusion is this reason: what relaxing that one
+    # rule alone would recover (the overlapping counts above cannot say).
+    sole: dict[str, int] = {}
     population: dict[str, int] = {}
     cohorts: dict[str, dict[str, int]] = {"pointInTime": {}, "asOfBuild": {}}
     usable = 0
@@ -335,6 +338,9 @@ def summarize_estimator_evidence(trades: Sequence[Mapping[str, Any]]) -> dict[st
             hard[r] = hard.get(r, 0) + 1
         if e["hardExclusions"]:
             excluded += 1
+            if len(e["hardExclusions"]) == 1:
+                r = e["hardExclusions"][0]
+                sole[r] = sole.get(r, 0) + 1
             continue
         usable += 1
         for f in e["populationFlags"]:
@@ -346,6 +352,7 @@ def summarize_estimator_evidence(trades: Sequence[Mapping[str, Any]]) -> dict[st
         "anyHardExclusion": excluded,
         "representable": usable,
         "lostToEachHardExclusion": dict(sorted(hard.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "lostOnlyToHardExclusion": dict(sorted(sole.items(), key=lambda kv: (-kv[1], kv[0]))),
         "populationFlagsAmongRepresentable": dict(sorted(population.items())),
         "maturityCohortsAmongRepresentable": {
             k: dict(sorted(v.items())) for k, v in cohorts.items()
