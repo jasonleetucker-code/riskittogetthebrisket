@@ -86,3 +86,29 @@ Per recommended trade, on canonical values:
   ≥ 1.15 × what it gives.
 * Changes are reported as **appear / disappear / reorder / reclassify**, separated by cause: model scoring
   versus candidate generation (identical candidate pools are replayed, then scored per model).
+
+## Amendment 1 (2026-10-19, after the first own-league computation; before any market-ledger or Trade Finder result)
+
+**What was found.** Orienting each trade by "the side holding the single most valuable asset" (§1) makes
+the signed residual of every 1-for-1 trade **non-negative by construction**: the stud side *is* the
+higher-valued side, so the 1v1 "control" measured |gap|, not a market offset (own-league: +0.206, n = 9).
+The same selection on a noisy value biases every other bin upward (a winner's-curse effect). This is a
+mathematical defect of the design, not a reaction to which model looked better.
+
+**Change.** Orientation is by **piece count**, which carries no value noise: side A = the side receiving
+**fewer** pieces (the consolidating side). Signed residual `r = (adjA − adjB) / mean(adjA, adjB)`.
+
+* Too weak a consolidation premium makes `r` negative; too strong makes it positive. The calibration point
+  is `mean r = 0`.
+* Equal-count trades (including 1v1) cannot be oriented without values and carry no count signal. They are
+  reported for coverage only.
+* Bins (by fewer / more pieces):
+  * `1vN_small`: 1v2, 1v3;
+  * `ordinary`: any other unequal shape with more side ≤ 4;
+  * `deep`: more side ≥ 5;
+  * plus the deep side's effective-count share (low = filler-heavy, high = genuine depth) where n allows.
+* The value-curve confound remains: if the canonical curve is flatter than the market's, stars look
+  under-priced and the package model appears too weak. Accepted trades cannot separate the two. This is
+  reported as a limitation, never corrected for inside the package model.
+* The decision rule (§3) applies unchanged to these bins: a demonstrated weakness = the incumbent's
+  `deep` mean has a 95% CI excluding 0 on the held-out later 40%.
