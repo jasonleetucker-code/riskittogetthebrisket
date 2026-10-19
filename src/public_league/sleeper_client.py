@@ -31,6 +31,8 @@ from typing import Any, Callable
 import requests
 from requests.adapters import HTTPAdapter
 
+from src.utils.singleflight import SingleFlight
+
 log = logging.getLogger(__name__)
 
 SLEEPER_BASE = "https://api.sleeper.app/v1"
@@ -467,6 +469,11 @@ def fetch_losers_bracket(league_id: str) -> list[dict[str, Any]]:
 # every subsequent snapshot build.  ~5 MB from Sleeper — we cache it
 # for the life of the process.
 _nfl_players_cache: dict[str, Any] | None = None
+#: One ``players/nfl`` download in flight: a cold process used to start a
+#: second ~5 MB download (and JSON parse) for every caller arriving while the
+#: first was still running — e.g. the Analyze Trade warm and the first
+#: analyze request after a restart.
+_nfl_players_flight = SingleFlight()
 
 
 def fetch_nfl_players() -> dict[str, Any]:
@@ -484,14 +491,21 @@ def fetch_nfl_players() -> dict[str, Any]:
     rostered player at zero.  Callers that need names must treat ``{}``
     as unavailable, never as "the NFL has no players".
     """
-    global _nfl_players_cache
     if _nfl_players_cache is not None:
         return _nfl_players_cache
-    data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
-    if isinstance(data, dict) and data:
-        _nfl_players_cache = data
-        return data
-    return {}
+
+    def _download() -> dict[str, Any]:
+        global _nfl_players_cache
+        if _nfl_players_cache is not None:
+            return _nfl_players_cache
+        data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
+        if isinstance(data, dict) and data:
+            _nfl_players_cache = data
+            return data
+        return {}
+
+    result, _shared = _nfl_players_flight.run("players/nfl", _download)
+    return result
 
 
 def reset_nfl_players_cache() -> None:
