@@ -576,7 +576,8 @@ def list_team_assets(
                     evaluable=bool(hit is not None and hit.get("value")),
                 )
             )
-    picks.sort(key=lambda a: (a.season or 0, a.round or 0, a.label.casefold(), a.id))
+    # Every pick asset above is built with an int season and round.
+    picks.sort(key=lambda a: (a.season, a.round, a.label.casefold(), a.id))
 
     def _label_key(a: PublicAsset) -> tuple[str, str]:
         return (a.label.casefold(), a.id)

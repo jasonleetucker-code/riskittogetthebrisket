@@ -140,8 +140,10 @@ def _charges_for(ip: str) -> list[rate_limit.KeyedCharge]:
     def _c(key: str, spec: dict[str, Any], *, ceiling: bool = False) -> rate_limit.KeyedCharge:
         return rate_limit.KeyedCharge(
             key=key,
-            capacity=int(spec.get("capacity") or 0),
-            window_seconds=float(spec.get("windowSeconds") or 0),
+            # Required config: a missing limit raises (fails closed) rather
+            # than becoming a fabricated 0.
+            capacity=int(spec["capacity"]),
+            window_seconds=float(spec["windowSeconds"]),
             ceiling=ceiling,
         )
 
