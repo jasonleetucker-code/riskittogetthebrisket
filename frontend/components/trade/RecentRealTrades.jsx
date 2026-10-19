@@ -152,6 +152,8 @@ export default function RecentRealTrades({ sides, leagueKey }) {
     ? comparableQueryIsEmpty(compQuery)
     : referenceQueryIsEmpty(recentQuery);
   const [state, setState] = useState({ status: "idle", body: null, qs: null });
+  // "Try again" (TC-E): re-runs the same lookup after the ledger was unreadable.
+  const [attempt, setAttempt] = useState(0);
   // A result belongs to the URL that produced it; a stale one (the package
   // or the mode changed) renders as loading, never under the wrong heading.
   const current = state.qs === url ? state : { status: "loading", body: null, qs: url };
@@ -168,6 +170,8 @@ export default function RecentRealTrades({ sides, leagueKey }) {
           signal: ctl.signal,
         });
         const body = await res.json().catch(() => null);
+        // A superseded lookup never lands, even if its body arrived (TC-E).
+        if (ctl.signal.aborted) return;
         if (res.ok && body?.state === "no_assets") {
           // Every calculator asset was unresolvable: nothing was searched.
           // That is not a ledger failure, so it must not read as one.
@@ -184,7 +188,7 @@ export default function RecentRealTrades({ sides, leagueKey }) {
         }
         setState({ status: "ok", body, qs });
       } catch (err) {
-        if (err?.name === "AbortError") return;
+        if (err?.name === "AbortError" || ctl.signal.aborted) return;
         setState({ status: "unavailable", body: null, qs });
       }
     }, 400);
@@ -192,7 +196,7 @@ export default function RecentRealTrades({ sides, leagueKey }) {
       clearTimeout(timer);
       ctl.abort();
     };
-  }, [qs, empty]);
+  }, [qs, empty, attempt]);
 
   const modeControl = (
     <SegmentedControl
@@ -221,6 +225,7 @@ export default function RecentRealTrades({ sides, leagueKey }) {
         </p>
       ) : null}
       <ModeBody
+        onRetry={() => setAttempt((n) => n + 1)}
         state={current}
         empty={empty}
         comparable={comparable}
@@ -230,7 +235,7 @@ export default function RecentRealTrades({ sides, leagueKey }) {
   );
 }
 
-function ModeBody({ state, empty, comparable, extraSides }) {
+function ModeBody({ state, empty, comparable, extraSides, onRetry }) {
   if (empty) {
     return (
       <EmptyState
@@ -273,7 +278,12 @@ function ModeBody({ state, empty, comparable, extraSides }) {
     return (
       <Banner tone="info" title="Real-trade evidence unavailable">
         The recorded-trade ledger could not be read on the server, so no trades are shown. This is
-        missing evidence, not a sign that these assets have not been traded.
+        missing evidence, not a sign that these assets have not been traded.{" "}
+        {onRetry ? (
+          <Button size="sm" variant="ghost" onClick={onRetry}>
+            Try again
+          </Button>
+        ) : null}
       </Banner>
     );
   }

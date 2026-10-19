@@ -119,7 +119,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
   }
 
   return (
-    <div className="trade-meter">
+    <div className="trade-meter" role="group" aria-label="Package comparison">
       {/* Value comparison */}
       <div className="trade-meter-values">
         <span className="trade-meter-side-val">{Math.round(pwA).toLocaleString()}</span>
@@ -134,8 +134,13 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
         <TradeMeterIncomplete unpriced={evalState.unpriced} sides={sides} />
       ) : (
         <>
-          {/* Horizontal balance bar */}
-          <div className="trade-meter-bar">
+          {/* Horizontal balance bar.  Screen readers get its reading as one
+              image name (TC-E); the fills themselves carry no text. */}
+          <div
+            className="trade-meter-bar"
+            role="img"
+            aria-label={`${labelA} ${Math.round(shareA)}% and ${labelB} ${Math.round(shareB)}% of the combined adjusted value`}
+          >
             <div
               className="trade-meter-fill trade-meter-fill-a"
               style={{ width: `${shareA}%` }}
@@ -146,7 +151,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
             />
             <div className="trade-meter-center" />
           </div>
-          <div className="trade-meter-bar-labels">
+          <div className="trade-meter-bar-labels" aria-hidden="true">
             <span className="muted" style={{ fontSize: "0.66rem" }}>
               {sides[0]?.label ? `Side ${sides[0].label}` : "Side A"}
             </span>
@@ -157,6 +162,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
 
           {/* Verdict badge + percentage */}
           <div className="trade-meter-bottom">
+            <span className="ds-visually-hidden">Quick verdict: </span>
             <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
               {verdict.label}
             </span>
@@ -220,7 +226,7 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
   };
 
   return (
-    <div className="trade-meter">
+    <div className="trade-meter" role="group" aria-label="Net value per side">
       {/* Per-side NET row */}
       <div className="trade-meter-multi-values">
         {sides.map((s, i) => {
@@ -249,7 +255,8 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
            horizontal axis; within its slot the fill grows left-from-
            center (red) or right-from-center (green) proportional to
            |net| / absMax. */}
-      <div style={{ display: "flex", gap: 4, margin: "8px 0 4px" }}>
+      {/* Decorative: the per-side nets above and below carry the numbers. */}
+      <div style={{ display: "flex", gap: 4, margin: "8px 0 4px" }} aria-hidden="true">
         {sides.map((s, i) => {
           const net = nets[i] || 0;
           const pct = absMax > 0 ? Math.min(100, (Math.abs(net) / absMax) * 100) : 0;
@@ -322,6 +329,7 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
 
       {/* Overall verdict */}
       <div className="trade-meter-bottom">
+        <span className="ds-visually-hidden">Quick verdict: </span>
         <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
           {verdict.label}
         </span>

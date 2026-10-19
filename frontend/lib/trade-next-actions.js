@@ -170,7 +170,7 @@ export function offerEvidenceUrl(leagueKey) {
  * suggestions are, or why there are none.  Never a second balancer.
  *   state: "empty" | "incomplete" | "fair" | "suggested" | "none_found" | "multi"
  */
-export function balanceStep({ evalState, isFair, balancerSideLabel, sideCount }) {
+export function balanceStep({ evalState, isFair, balancerSideLabel, sideCount, balancersPending = false }) {
   if (evalState === "empty") return { state: "empty", text: "Add assets to compare first." };
   if (evalState === "incomplete") {
     return {
@@ -179,6 +179,10 @@ export function balanceStep({ evalState, isFair, balancerSideLabel, sideCount })
     };
   }
   if (isFair) return { state: "fair", text: "Already inside the fair band — nothing to balance." };
+  // The balancer search runs after the verdict paints (TC-E).  Until it has
+  // answered THIS trade, "nothing found" would be a negative answer to a
+  // question not yet asked -- unknown is not false.
+  if (balancersPending) return { state: "pending", text: "Looking for assets that narrow the gap…" };
   if (balancerSideLabel) {
     return {
       state: "suggested",

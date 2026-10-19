@@ -759,6 +759,11 @@
 .sectionNavLink:focus-visible {
   color: var(--text-primary);
 }
+/* TC-E: a visible focus indicator, not a colour change alone (the shared ring). */
+.sectionNavLink:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
 
 /* The verdict bar's centre is a link to the decision; full-height target. */
 .trayDecisionLink {

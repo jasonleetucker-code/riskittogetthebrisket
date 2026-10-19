@@ -105,8 +105,9 @@ describe("incomplete trade (an unpriced asset) — no verdict over a 0", () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const src = fs.readFileSync(path.resolve(__dirname, "../../app/trade/page.jsx"), "utf8");
-    expect(src).toMatch(/if \(tradeIsIncomplete\) return \{ list: \[\], teamName: null \};/);
-    expect(src).toMatch(/if \(tradeIsIncomplete\) return null;/);
+    // TC-E: the balancer search reads a deferred snapshot (`b`), same gate.
+    expect(src).toMatch(/if \(b\.tradeIsIncomplete\) return \{ list: \[\], teamName: null \};/);
+    expect(src).toMatch(/if \(b\.tradeIsIncomplete\) return null;/);
     expect(src).toMatch(/Incomplete — \{evalState\.unpriced\.length\} unpriced, no verdict/);
     expect(src).toMatch(/tradeIsIncomplete \? null : \(\s*<TradeFairnessExplanation/);
   });

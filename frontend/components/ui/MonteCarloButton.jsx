@@ -184,6 +184,9 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
   const [result, setResult] = useState(null);
   const [resultKey, setResultKey] = useState("");
   const [err, setErr] = useState("");
+  // An error belongs to the trade it was raised for, like a result (TC-E):
+  // "Can't simulate: X has no value" must not outlive removing X.
+  const [errKey, setErrKey] = useState("");
   // Request sequence: only the latest run may publish (an older response
   // arriving after a newer click is dropped).
   const seqRef = useRef(0);
@@ -201,6 +204,7 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
     try {
       setState("running");
       setErr("");
+      setErrKey(key);
       const { sideA, sideB, unpriced } = _payloadFromSides(sides, valueMode, settings);
       if (unpriced.length > 0) {
         setErr(
@@ -277,8 +281,8 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
             ? "Simulate value sensitivity"
             : "Simulate (Monte Carlo)"}
       </button>
-      {err && (
-        <div className="text-xs" style={{ color: "var(--amber)" }}>
+      {err && errKey === currentKey && (
+        <div className="text-xs" role="status" style={{ color: "var(--amber)" }}>
           {err}
         </div>
       )}

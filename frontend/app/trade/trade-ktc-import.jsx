@@ -50,9 +50,8 @@ export function KtcImportPanel({
         >
           Load trade
         </Button>
-        <Button onClick={onCancel} disabled={busy}>
-          Cancel
-        </Button>
+        {/* Usable while loading: Cancel retires the request in flight (TC-E). */}
+        <Button onClick={onCancel}>Cancel</Button>
       </div>
       <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
         Unknown KTC IDs and players we can&apos;t match by name are reported here.

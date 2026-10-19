@@ -310,6 +310,32 @@ def test_a_file_without_bracket_depth_is_not_served_as_current(engine):
     assert not playoff_sim.cached_forecast_matches_snapshot(forecast, snap)
 
 
+def test_a_file_from_the_other_ros_equation_is_not_served(engine, monkeypatch):
+    """Owner Decision 11: the scheduled refresh writes the file without the
+    box's flag environment, so a forecast built by the other ROS equation must
+    be re-simulated, not served beside a live run of the switched equation."""
+    from src.api import feature_flags
+
+    snap, owners = _league()
+    _with_strength(engine, owners)
+    monkeypatch.setenv("RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE", "0")
+    feature_flags.reload()
+    try:
+        forecast = playoff_sim.simulate_playoff_odds(snap, rng=random.Random(5))
+        assert forecast["rosEvidenceMethod"] == playoff_sim.ROS_EVIDENCE_INCUMBENT
+        assert playoff_sim.cached_forecast_matches_snapshot(forecast, snap)
+        legacy = {k: v for k, v in forecast.items() if k != "rosEvidenceMethod"}
+        assert playoff_sim.cached_forecast_matches_snapshot(legacy, snap)
+
+        monkeypatch.setenv("RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE", "1")
+        feature_flags.reload()
+        assert not playoff_sim.cached_forecast_matches_snapshot(forecast, snap)
+        assert not playoff_sim.cached_forecast_matches_snapshot(legacy, snap)
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_PLAYOFF_ROS_COUNTED_ONCE", raising=False)
+        feature_flags.reload()
+
+
 def test_the_divergence_this_removes_is_real(engine):
     """Non-vacuity.  The retired public engine (git ``origin/main`` before
     C5-PLAY-01) resampled each team's own scores; on this league it and the
