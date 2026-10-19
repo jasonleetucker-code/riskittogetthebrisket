@@ -15,6 +15,16 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-16 — League Tycoon ideas PARKED (owner instruction, NOT authorized)
+
+**Status: IDEAS ONLY / LATER / explicit OWNER TRIGGER required.** The owner does not know when (or whether) the league will move to League Tycoon and wants to **finish the rest of Calculator first**. Do not schedule, build, automatically dispatch, or include League Tycoon transition work in the current completion denominator or any authorized execution batch. Current Sleeper functionality and product priorities remain unchanged.
+
+**One durable detailed owner-facing record:** [`docs/BRISKET_IDEAS.md` §15 — League Tycoon](BRISKET_IDEAS.md#15-league-tycoon). This section retains the full 100-mechanism source index, twenty baseline and twenty-four additional candidate features, the 44-item research-ranked future backlog, preliminary league rules, provider/contract data architecture, Best Ball and rookie eligibility blockers, reusable code owners, migration gates, and the seven-stage future-only roadmap.
+
+**Activation rule:** Only when the owner **explicitly instructs us to begin implementing the League Tycoon transition** may an agent re-audit current code/provider rules, propose the first batch, and obtain the requisite implementation authorization through `docs/EXECUTION_PLAN.md`. Completing the rest of Calculator, a passing dependency or a calendar date never implicitly activates this deferred family. No repository application-code changes, host migration, new provider integration, official auction launch, league transactions or production deployment authorized by this intake.
+
+**Position:** LATER (owner-gated); **parallel class:** DEPENDENCY_BLOCKED / no execution claim; **existing canonical systems to reuse if later approved:** league registry + identity, valuation/lineup/replacement, trade engines, rookie auction/Perfect Draft, source provenance and Model Lab. This is a planning reference, **not** a change to existing C-Series scope or execution priorities.
+
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
 **Critical-path refinement (2026-09-27):** remain on Rankings/Trade until production
