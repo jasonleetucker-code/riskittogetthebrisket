@@ -2490,7 +2490,8 @@ _ANALYSIS_WARM_BOOT_WAIT_SECONDS = 180.0
 
 def _warm_trade_analysis_prerequisites(contract_payload: dict) -> None:
     """Build what Analyze Trade needs ahead of the first request (sync; runs
-    first on the ``sleeper-overlay-warm`` daemon thread).
+    on the ``trade-analysis-warm`` daemon thread ``_warm_overlays_in_background``
+    starts beside the overlay warm, under the same flag).
 
     Measured on a production-shaped run: a process-cold ``/api/trade/analyze``
     spent ~1.6 s building the league's competitive-posture bundle and ~1.2 s
@@ -2578,21 +2579,28 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
     Skipped entirely (no thread) when ``SLEEPER_OVERLAY_WARM_ENABLED`` is
     false; requests then fetch the overlay themselves, as they already do
     when they land before the warm finishes.
+
+    Also starts the ``trade-analysis-warm`` thread
+    (:func:`_warm_trade_analysis_prerequisites`) under the same flag — it can
+    reach Sleeper too (a stale team-strength snapshot, the players DB), so it
+    sits behind the same network boundary.
     """
     if not SLEEPER_OVERLAY_WARM_ENABLED:
         log.info("Sleeper overlay warm disabled (SLEEPER_OVERLAY_WARM_ENABLED=false)")
         return
 
-    def _worker() -> None:
-        # FIRST: Analyze Trade's league bundle / projections / players DB.
-        # The loaded league's bundle needs no overlay (the request path reads
-        # the board's own ``sleeper`` block), and the overlay pass below is
-        # ~10 s of Sleeper round-trips — a request arriving right after a
-        # restart should not wait behind it for work it does not need.  At
-        # boot it starts once the app is serving (never racing the prime);
-        # after a scrape the flag is already set.
+    def _analysis_worker() -> None:
+        # Analyze Trade's league bundle / projections / players DB, on its
+        # own thread: the loaded league's bundle needs no overlay (the
+        # request path reads the board's own ``sleeper`` block), and the
+        # overlay pass below is ~10 s of Sleeper round-trips a request
+        # arriving right after a restart should not wait behind.  At boot it
+        # starts once the app is serving (never racing the prime); after a
+        # scrape the flag is already set.
         _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
         _warm_trade_analysis_prerequisites(contract_payload)
+
+    def _worker() -> None:
         try:
             loaded_sleeper = contract_payload.get("sleeper") or {}
             id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
@@ -2687,6 +2695,14 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
         ).start()
     except Exception as exc:  # noqa: BLE001
         log.warning("post-scrape overlay warm thread failed to start: %s", exc)
+    try:
+        threading.Thread(
+            target=_analysis_worker,
+            name="trade-analysis-warm",
+            daemon=True,
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("trade-analysis warm thread failed to start: %s", exc)
 
 
 # ── Scoring-identity gate (W18-F001) ─────────────────────────────────
@@ -17677,17 +17693,45 @@ async def _build_trade_simulation(
     clock = clock or _trade_analyze_runtime.StageClock()
     with clock.stage("resolve"):
         prepared = await _prepare_trade_simulation(request)
-    if isinstance(prepared, JSONResponse):
-        return None, None, prepared
-    (
-        contract,
-        league_cfg,
-        resolved_team,
-        body,
-        use_team_context,
-        valuation_mode,
-        valuation_note,
-    ) = prepared
+        if isinstance(prepared, JSONResponse):
+            return None, None, prepared
+        contract, league_cfg, body, session = prepared
+
+        # Lens on top of whatever contract the routing above settled on,
+        # keeping any spliced cross-league ``sleeper`` block.
+        contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+            request, body, league_cfg, base=contract
+        )
+
+        team_owner_id = str(body.get("team") or "").strip()
+        team_name = str(body.get("teamName") or "").strip()
+
+        # Session auto-resolve: if the user didn't pass a team, use
+        # the Sleeper user_id attached to their session.
+        if not team_owner_id and not team_name:
+            team_owner_id = str(session.get("sleeper_user_id") or "").strip()
+
+        resolved_team = _terminal.resolve_team(
+            contract,
+            owner_id=team_owner_id,
+            name=team_name,
+        )
+        if resolved_team is None:
+            return (
+                None,
+                None,
+                JSONResponse(
+                    status_code=404,
+                    content={"error": "team_not_found", "leagueKey": league_cfg.key},
+                ),
+            )
+
+    # Use Team Context (#842): default ON, and only an explicit boolean
+    # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
+    # It changes which LENSES Analyze Trade may count, never an asset value.
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
 
     def _str_list(key):
         vs = body.get(key) or []
@@ -17766,10 +17810,9 @@ async def _build_trade_simulation(
 
 
 async def _prepare_trade_simulation(request: Request):
-    """Auth, body, league, cross-league overlay splice, lens and team for one
-    trade request.  Returns a :class:`JSONResponse` on any refusal, else
-    ``(contract, league_cfg, resolved_team, body, use_team_context,
-    valuation_mode, valuation_note)``."""
+    """Auth, body, league and cross-league overlay splice for one trade
+    request.  Returns a :class:`JSONResponse` on any refusal, else
+    ``(contract, league_cfg, body, session)``."""
     session = _get_auth_session(request)
     if not session:
         return JSONResponse(status_code=401, content={"error": "auth_required"})
@@ -17840,46 +17883,7 @@ async def _prepare_trade_simulation(request: Request):
         )
         contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
 
-    # Lens on top of whatever contract the routing above settled on,
-    # keeping any spliced cross-league ``sleeper`` block.
-    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
-        request, body, league_cfg, base=contract
-    )
-
-    team_owner_id = str(body.get("team") or "").strip()
-    team_name = str(body.get("teamName") or "").strip()
-
-    # Session auto-resolve: if the user didn't pass a team, use
-    # the Sleeper user_id attached to their session.
-    if not team_owner_id and not team_name:
-        team_owner_id = str(session.get("sleeper_user_id") or "").strip()
-
-    resolved_team = _terminal.resolve_team(
-        contract,
-        owner_id=team_owner_id,
-        name=team_name,
-    )
-    if resolved_team is None:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "team_not_found", "leagueKey": league_cfg.key},
-        )
-
-    # Use Team Context (#842): default ON, and only an explicit boolean
-    # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
-    # It changes which LENSES Analyze Trade may count, never an asset value.
-    from src.trade.team_context import team_context_requested
-
-    use_team_context = team_context_requested(body)
-    return (
-        contract,
-        league_cfg,
-        resolved_team,
-        body,
-        use_team_context,
-        valuation_mode,
-        valuation_note,
-    )
+    return contract, league_cfg, body, session
 
 
 def _trade_nfl_exposure_block(
@@ -18012,7 +18016,10 @@ async def post_trade_analyze(request: Request):
     if error is not None:
         if progress is not None:
             progress.finish(_trade_analyze_runtime.FAILED)
-        # A fresh response per request, never one object sent twice.
+        if not shared:
+            return error
+        # A request that shared the computation gets its own response object
+        # (same status and body), never one object sent twice.
         return JSONResponse(
             status_code=error.status_code,
             content=json.loads(bytes(error.body).decode("utf-8")),

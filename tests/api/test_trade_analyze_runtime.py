@@ -279,3 +279,10 @@ def test_async_single_flight_shares_failure_and_survives_owner_cancel():
         assert flight.in_flight() == 0
 
     asyncio.run(scenario())
+
+
+def test_concurrent_identical_refusals_each_get_the_refusal(client, monkeypatch):
+    body = {**_BODY, "team": "nobody", "teamName": "Nobody"}
+    results, _calls = _concurrent_posts(client, [(body, "alice"), (body, "alice")], monkeypatch)
+    assert [r.status_code for r in results] == [404, 404]
+    assert all(r.json() == {"error": "team_not_found", "leagueKey": "main"} for r in results)

@@ -84,3 +84,23 @@ def test_the_lifespan_marks_serving_started():
     server._SERVING_STARTED.clear()
     with TestClient(server.app):
         assert server._SERVING_STARTED.is_set()
+
+
+def test_the_warm_thread_runs_only_behind_the_overlay_warm_flag(monkeypatch):
+    import threading
+
+    from src.adapters import sleeper_trending
+
+    ran = threading.Event()
+    monkeypatch.setattr(server, "_warm_trade_analysis_prerequisites", lambda _c: ran.set())
+    monkeypatch.setattr(server._league_registry, "active_leagues", lambda: [])
+    monkeypatch.setattr(sleeper_trending, "warm", lambda: False)
+    server._SERVING_STARTED.set()
+
+    monkeypatch.setattr(server, "SLEEPER_OVERLAY_WARM_ENABLED", False)
+    server._warm_overlays_in_background({})
+    assert not ran.wait(0.3)  # the unit suite's network boundary holds
+
+    monkeypatch.setattr(server, "SLEEPER_OVERLAY_WARM_ENABLED", True)
+    server._warm_overlays_in_background({})
+    assert ran.wait(5)
