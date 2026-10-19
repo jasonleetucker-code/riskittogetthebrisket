@@ -706,7 +706,16 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         # benchmark block and the per-row source-weight state.  Freshness
         # stamps were trimmed to reduced observations only before measuring:
         # 66,459 bytes on this fixture.
-        self.assertLess(delta_bytes, 70_000)
+        #
+        # Bumped 70KB → 75KB 2026-10-19 (owner directives of 2026-10-19,
+        # docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md): DLF Values
+        # votes offense-only (D4) and the DLF IDP / DLF Rookie IDP hold is
+        # rescinded, so two more voters carry their sourceRanks /
+        # sourceRankMeta / effectiveSourceRanks entries on every covered row.
+        # Measured on this fixture: main 67,963; DLF Values registered and
+        # displayed 68,399 (+436); its vote 70,897 (+2,498); the DLF IDP
+        # restore 72,133 (+1,236).  Ratio 0.336, unaffected.
+        self.assertLess(delta_bytes, 75_000)
         self.assertLess(delta_bytes / full_bytes, 0.60)
 
     def test_delta_carries_all_override_sensitive_fields(self) -> None:
