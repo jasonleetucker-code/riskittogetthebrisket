@@ -1,0 +1,23 @@
+# One-shot, owner-directed (2026-10-19): re-enable the two production
+# verification workflows that were disabled manually on 2026-10-08.
+# Runs only on a push to this throwaway branch; the branch is deleted after.
+name: One-shot — enable production verification workflows
+on:
+  push:
+    branches: [claude/enable-prod-verification-workflows]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable prod-e2e-smoke.yml and v1-authenticated-verification.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for wf in prod-e2e-smoke.yml v1-authenticated-verification.yml; do
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}/enable"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}" --jq '.path + " -> " + .state'
+          done
