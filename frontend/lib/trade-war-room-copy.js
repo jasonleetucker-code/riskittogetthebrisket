@@ -141,7 +141,7 @@ export function plainLimit(axis, why) {
 /**
  * `decision.confidence` as display words.
  *   level     "Medium confidence" (null when the backend states no level,
- *             e.g. NOT ENOUGH EVIDENCE)
+ *             e.g. when `decision.headline` is the not-enough-evidence code)
  *   detail    what limits it, in plain English (no internal axis names, no
  *             all-caps band labels); null when nothing needs saying
  *   limits    the plain clauses, one per limiting axis, in the backend's order
@@ -315,7 +315,7 @@ export function reasonSentence(reason, { strategy = null } = {}) {
  *      DIFFERENT component: an independent one first (value / lineup), then a
  *      contextual one only if it actually pushes for or against ("Also").
  * A neutral context line (a clean fit, the strategy echo) is not a reason --
- * it is already its own row.  NOT ENOUGH EVIDENCE has no reasons: the missing
+ * it is already its own row.  A not-enough-evidence decision has no reasons: the missing
  * evidence is listed instead.  Nothing is invented to fill a second slot.
  */
 export function decisionReasons(decision) {
