@@ -12641,8 +12641,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     (default), so trades made on Sleeper between scheduled
     refreshes are reflected immediately in per-team dollar totals.
 
-    If the Sleeper join fails or no trades are reported, the
-    workbook's R45:R116 ownership column is used verbatim.
+    Pick ownership is OBSERVED or the board is refused.  The
+    ``/traded_picks`` body is read through
+    ``picks.traded_picks_observation``: a list (even an empty one —
+    "no trades reported", in which case the workbook's R45:R116
+    ownership column stands) is applied.  A failed or non-list fetch,
+    or Sleeper failing before it can be read, refuses the whole board
+    with ``pick_ownership_unavailable`` — the same ``{error, message}``
+    + ``pickOwnershipState`` / ``pickOwnershipReason`` shape as the
+    Sleeper-derived fallback — instead of serving the workbook's
+    hand-entered ownership as current.  With no Sleeper league
+    configured there is nothing to observe and the workbook stands.
 
     ``league_key`` selects which league's Sleeper IDs to use for the
     team-name join.  None resolves to the registry default.
@@ -12715,7 +12724,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     # (round, slot) → new-owner first name from Sleeper traded_picks.
-    # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
+    # Empty when no trades are reported or apply_sleeper_trades=False
+    # (an unreachable Sleeper refuses the board below instead).
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
     # Parallel to ``sleeper_trade_overrides`` but carrying the stable
     # roster_id of the pick's new owner.  ``isTraded`` keys off this

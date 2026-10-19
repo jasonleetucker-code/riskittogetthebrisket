@@ -547,7 +547,12 @@ Error behavior on endpoints:
     2026-10-17: with `apply_sleeper_trades` on, an unobserved
     `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
     it) refuses the board with the same `pick_ownership_unavailable` shape
-    instead of serving the workbook's hand-entered ownership.
+    instead of serving the workbook's hand-entered ownership.  Same cache
+    too: the refusal is held for the 300 s TTL and is never answered by the
+    stale-while-revalidate last-valid board (that answers dollars-generation
+    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    pre-fail-closed reader.  Pinned by
+    `tests/api/test_draft_capital_workbook_pick_ownership.py`.
   - **Every owned class is listed — `dynasty_main` only** (owner directive
     2026-10-17; scope corrected by the owner 2026-10-18: `dynasty_main` /
     Risk It to Get the Brisket is the only league in scope, and the $1,200
