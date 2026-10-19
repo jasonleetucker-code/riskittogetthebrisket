@@ -579,7 +579,7 @@ def _before_side(
 
     entry = _lookup()
     if entry is None:
-        entry, shared_flight = _before_flights.run(key, _build)
+        entry, shared_flight = _before_flights.run_sharing_success(key, _build)
         if shared_flight:
             _count("reused")
     else:
@@ -887,8 +887,15 @@ def _ensemble_index(
         hit = _ensemble_cache.get(key)
     if hit is not None and now - hit[0] < _ENSEMBLE_TTL_SECONDS:
         return hit[1], hit[2]
-    (index, basis), _shared = _ensemble_flights.run(
-        key, lambda: _build_ensemble_index(key, season, scoring_settings, fingerprint)
+    # Only a non-empty ensemble is shared; a caller whose concurrent leader
+    # failed (raised, or found nothing) builds itself, as it would have alone.
+    (index, basis), _shared = _ensemble_flights.run_sharing_success(
+        key,
+        lambda: _build_ensemble_index(key, season, scoring_settings, fingerprint),
+        failed=lambda result: not result[0],
+        retry=lambda: _build_ensemble_index(
+            key, season, scoring_settings, fingerprint, check_cache=False
+        ),
     )
     return index, basis
 
@@ -898,13 +905,17 @@ def _build_ensemble_index(
     season: int,
     scoring_settings: Mapping[str, Any],
     fingerprint: str,
+    *,
+    check_cache: bool = True,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     from src.ros.game_day_capture import estimate_index_from_ensemble
     from src.ros.projection_ensemble import build_ros_full_season_ensemble
 
     now = time.time()
-    with _ensemble_lock:
-        hit = _ensemble_cache.get(key)
+    hit = None
+    if check_cache:
+        with _ensemble_lock:
+            hit = _ensemble_cache.get(key)
     if hit is not None and now - hit[0] < _ENSEMBLE_TTL_SECONDS:
         return hit[1], hit[2]
     result = build_ros_full_season_ensemble(

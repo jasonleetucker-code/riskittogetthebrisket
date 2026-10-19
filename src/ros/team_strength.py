@@ -530,7 +530,8 @@ _live_compute_cache: dict[str | None, tuple[float, list[dict[str, Any]]]] = {}
 # callers arriving DURING one (a cold page load fans out to Analyze Trade,
 # Gameplan, the playoff sim ...) each used to start their own overlay fetch
 # and full lineup solve.  One compute per (league, persist) in flight; the
-# others wait for and share its rows.
+# others wait for and share its rows — when it succeeds.  A failure is never
+# fanned out: those callers then compute themselves, as before.
 _live_compute_flights = SingleFlight()
 
 # How old the PERSISTED snapshot file may be before the fast path in
@@ -651,9 +652,9 @@ def load_or_compute_team_strength(
     if cached is not None and now - cached[0] < _LIVE_COMPUTE_TTL_SECONDS:
         return cached[1]
 
-    def _compute() -> list[dict[str, Any]]:
+    def _compute(check_cache: bool = True) -> list[dict[str, Any]]:
         started = time.monotonic()
-        hit = _live_compute_cache.get(league_key)
+        hit = _live_compute_cache.get(league_key) if check_cache else None
         if hit is not None and started - hit[0] < _LIVE_COMPUTE_TTL_SECONDS:
             return hit[1]
         rows = compute_team_strength_live(league_key)
@@ -667,7 +668,15 @@ def load_or_compute_team_strength(
             _persist_best_effort(rows, league_key=league_key, persist=persist)
         return rows
 
-    rows, _shared = _live_compute_flights.run((league_key, bool(persist)), _compute)
+    # Only rows WITH evidence are shared: a caller whose concurrent leader
+    # failed computes itself (bypassing the failure the leader just cached),
+    # exactly as it would have alone.
+    rows, _shared = _live_compute_flights.run_sharing_success(
+        (league_key, bool(persist)),
+        _compute,
+        failed=lambda rows: not rows,
+        retry=lambda: _compute(check_cache=False),
+    )
     return rows
 
 

@@ -974,11 +974,19 @@ def precompute_slot_eligibility(
     misalign the moment two calls draw different values.
     """
     is_eligible = _eligibility_predicate(slot_eligibility)
-    out = _PrecomputedEligibility(
-        (p.player_id, tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p)))
-        for p in pool
-    )
-    out.derived_for = _rule_identity(slots, slot_eligibility)
+    out = _PrecomputedEligibility()
+    conflicting = False
+    for p in pool:
+        indices = tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p))
+        prior = out.get(p.player_id)
+        if prior is not None and prior != indices:
+            conflicting = True  # one id, two position shapes: out of contract
+        out[p.player_id] = indices
+    # Tagged only when re-reading the map is exactly the predicate's answer.
+    # A pool that holds one id twice with different eligibility is keyed
+    # last-wins here, so it stays untagged and the labelling pass asks the
+    # predicate per player, as it always did.
+    out.derived_for = None if conflicting else _rule_identity(slots, slot_eligibility)
     return out
 
 

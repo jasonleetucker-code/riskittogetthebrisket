@@ -109,3 +109,71 @@ def test_concurrent_cold_nfl_player_dump_reads_download_once(monkeypatch):
     monkeypatch.setattr(sleeper_client, "_request_json", lambda url, timeout=None: None)
     assert sleeper_client.fetch_nfl_players() == {}
     assert sleeper_client._nfl_players_cache is None
+
+
+def test_a_failed_nfl_player_download_is_not_handed_to_concurrent_callers(monkeypatch):
+    from src.public_league import sleeper_client
+
+    gate = threading.Event()
+    downloads: list[str] = []
+
+    def flaky(url, timeout=None):
+        downloads.append(url)
+        if len(downloads) == 1:
+            gate.wait(5)
+            return None  # the leader's download fails
+        return {"1": {"full_name": "A"}}
+
+    monkeypatch.setattr(sleeper_client, "_nfl_players_cache", None)
+    monkeypatch.setattr(sleeper_client, "_request_json", flaky)
+    out: dict = {}
+    lead = threading.Thread(
+        target=lambda: out.setdefault("lead", sleeper_client.fetch_nfl_players())
+    )
+    lead.start()
+    while not downloads:
+        threading.Event().wait(0.01)
+    follow = threading.Thread(
+        target=lambda: out.setdefault("follow", sleeper_client.fetch_nfl_players())
+    )
+    follow.start()
+    threading.Event().wait(0.2)
+    gate.set()
+    lead.join(5)
+    follow.join(5)
+    assert out["lead"] == {}
+    assert out["follow"] == {"1": {"full_name": "A"}}  # its own attempt succeeded
+    assert len(downloads) == 2
+
+
+def test_a_failed_live_compute_is_not_handed_to_concurrent_callers(monkeypatch):
+    gate = threading.Event()
+    calls: list[str] = []
+
+    def compute(league_key):
+        calls.append(league_key)
+        if len(calls) == 1:
+            gate.wait(5)
+            return [{"ownerId": "o1", "startingLineupScore": 0.0}]  # evidence-less
+        return [dict(r) for r in ROWS]
+
+    _patch(monkeypatch, compute)
+    out: dict = {}
+    lead = threading.Thread(
+        target=lambda: out.setdefault("lead", team_strength.load_or_compute_team_strength("lg"))
+    )
+    lead.start()
+    while not calls:
+        threading.Event().wait(0.01)
+    follow = threading.Thread(
+        target=lambda: out.setdefault("follow", team_strength.load_or_compute_team_strength("lg"))
+    )
+    follow.start()
+    threading.Event().wait(0.2)
+    gate.set()
+    lead.join(5)
+    follow.join(5)
+    assert out["lead"] == []
+    # The follower computed itself — past the failure the leader just cached.
+    assert out["follow"] == ROWS
+    assert calls == ["lg", "lg"]

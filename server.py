@@ -2545,9 +2545,14 @@ def _warm_trade_analysis_prerequisites(
     re-checks before every step (:func:`_analysis_warm_is_current`).  A warm
     that is no longer the newest, or whose board is no longer served, stops
     without starting another step.  A bundle build already under way when a
-    newer board lands is stored under ITS OWN input stamp (the request path
-    re-checks the stamp, so it is never served for the newer board), and the
-    newer warm — serialized behind this one — then builds and replaces it.
+    newer board lands is stored under ITS OWN input stamp.  Analyze Trade with
+    Team Context (``build_if_missing=True``) re-checks the stamp and rebuilds,
+    so it is never served there for the newer board; the warm-only readers
+    (Asset-Only analyze, ``/api/trade/simulate``) read that entry unchecked,
+    labelled ``bundleFreshness: last_computed``, until the newer warm —
+    serialized behind this one — builds and replaces it.  In the rare case a
+    late older build lands after the newer one, the next Team Context request
+    pays one rebuild.
     """
     started = time.perf_counter()
     warmed: list[str] = []
@@ -18050,36 +18055,45 @@ async def post_trade_analyze(request: Request):
       (``analysisTiming.sharedComputation``).  Each request still gets its own
       decision receipt.  Nothing is retained once it finishes.
     """
+    # The clock starts first, so ``resolve`` covers the body parse and the
+    # league resolution below as well as the simulation's own resolve step.
+    clock = _trade_analyze_runtime.StageClock()
     session = _get_auth_session(request)
     owner = _trade_analyze_runtime.session_owner(
         session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
     )
+    # Guests get the total time only: per-stage times can reveal whether the
+    # shared before-roster cache was warm (someone recently simulated a team).
+    detail = not _trade_analyze_runtime.is_guest(session)
     request_id = _trade_analyze_runtime.request_id_from(
         request.headers.get("x-analysis-request-id")
     )
-    try:
-        _body = await request.json()
-    except Exception:  # noqa: BLE001 -- the simulation reports the bad body
-        _body = None
-    # The league is resolved ONCE, here, and handed to the computation: it can
-    # come from the query string, the body or the user's saved active league,
-    # so it must be part of the sharing key, and the computation must answer
-    # for exactly the league in its key.  An unresolvable request takes the
-    # normal path and gets its normal refusal.
-    league_cfg = None
-    if session and isinstance(_body, dict) and latest_contract_data:
+    with clock.stage("resolve"):
         try:
-            league_cfg = _resolve_league_for_request(request, body=_body)
-        except LeagueResolutionError:
-            league_cfg = None
+            _body = await request.json()
+        except Exception:  # noqa: BLE001 -- the simulation reports the bad body
+            _body = None
+        # The league is resolved ONCE, here, and handed to the computation: it
+        # can come from the query string, the body or the user's saved active
+        # league, so it must be part of the sharing key, and the computation
+        # must answer for exactly the league in its key.  An unresolvable
+        # request takes the normal path and gets its normal refusal.
+        league_cfg = None
+        if session and isinstance(_body, dict) and latest_contract_data:
+            try:
+                league_cfg = _resolve_league_for_request(request, body=_body)
+            except LeagueResolutionError:
+                league_cfg = None
     # Progress is recorded only for a request that passed validation (signed
     # in, a JSON object body, a board loaded, a league resolved).
     progress = (
-        _trade_analyze_runtime.PROGRESS.begin(owner, request_id)
+        _trade_analyze_runtime.PROGRESS.begin(owner, request_id, detail=detail)
         if owner and request_id and league_cfg is not None
         else None
     )
-    clock = _trade_analyze_runtime.StageClock(progress)
+    clock.progress = progress
+    if progress is not None:
+        progress.stage_done("resolve", round(dict(clock.stages()).get("resolve", 0.0), 1))
     key = _trade_analyze_runtime.dedup_key(
         owner,
         session,
@@ -18101,12 +18115,19 @@ async def post_trade_analyze(request: Request):
                     if progress is not None
                     else None
                 ),
+                # Share success and deterministic refusals (4xx) only: a 5xx is
+                # possibly transient, so a joiner computes for itself.
+                share_if=lambda out: out[2] is None or out[2].status_code < 500,
             )
-    except Exception:
+    except BaseException as exc:  # CancelledError too: the client went away
         if progress is not None:
-            progress.finish(_trade_analyze_runtime.FAILED)
+            progress.finish(
+                _trade_analyze_runtime.CANCELLED
+                if isinstance(exc, asyncio.CancelledError)
+                else _trade_analyze_runtime.FAILED
+            )
         raise
-    result, league_key, error, owner_clock = outcome
+    result, league_key, error, shared_stages = outcome
     if error is not None:
         if progress is not None:
             progress.finish(_trade_analyze_runtime.FAILED)
@@ -18135,12 +18156,17 @@ async def post_trade_analyze(request: Request):
             if isinstance(result.get("team"), dict)
             else None,
         )
-    result["analysisTiming"] = clock.to_dict(shared_with=owner_clock if shared else None)
+    result["analysisTiming"] = clock.to_dict(
+        shared_stages=shared_stages if shared else None, detail=detail
+    )
     if progress is not None:
         progress.finish("complete")
     return JSONResponse(
         content=result,
-        headers={"Cache-Control": "no-store", "Server-Timing": clock.server_timing()},
+        headers={
+            "Cache-Control": "no-store",
+            "Server-Timing": clock.server_timing(detail=detail),
+        },
     )
 
 
@@ -18150,16 +18176,19 @@ _TRADE_ANALYZE_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
 async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg=None):
     """Simulation + comparables + decision for one analyze request.
 
-    Returns ``(result, league_key, error_response, clock)``.  Everything an
-    identical in-flight request may share; the per-request decision receipt
-    is added by the route.  ``league_cfg`` is the league the route resolved
-    (and keyed the sharing on); ``None`` resolves it here.
+    Returns ``(result, league_key, error_response, stages)`` — ``stages`` a
+    snapshot of this computation's stage times, frozen when it ends, so a
+    request that shared it never sees the creator's later (per-request)
+    stages.  Everything an identical in-flight request may share; the
+    per-request decision receipt is added by the route.  ``league_cfg`` is the
+    league the route resolved (and keyed the sharing on); ``None`` resolves it
+    here.
     """
     result, league_key, error = await _build_trade_simulation(
         request, for_analysis=True, clock=clock, league_cfg=league_cfg
     )
     if error is not None:
-        return None, None, error, clock
+        return None, None, error, clock.stages()
     from src.trade import comparable_trades as _comparable  # noqa: PLC0415
     from src.trade.analyze_trade import analyze_trade
 
@@ -18199,7 +18228,7 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
                 else None,
             },
         )
-    return result, league_key, None, clock
+    return result, league_key, None, clock.stages()
 
 
 @app.get("/api/trade/analyze/status")

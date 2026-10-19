@@ -39,3 +39,44 @@ class SingleFlight:
         finally:
             with self._lock:
                 del self._pending[key]
+
+    def run_sharing_success(
+        self,
+        key: Hashable,
+        build: Callable[[], T],
+        *,
+        failed: Callable[[T], bool] | None = None,
+        retry: Callable[[], T] | None = None,
+    ) -> tuple[T, bool]:
+        """Like :meth:`run`, but only a SUCCESS is shared.
+
+        A follower whose leader raised, or returned a result ``failed`` flags
+        (a failure sentinel such as ``{}``), makes its own attempt with
+        ``retry`` (default ``build``) instead of inheriting the failure — the
+        attempt it would have made had it arrived alone.  Followers' own
+        attempts are not themselves shared.
+        """
+        with self._lock:
+            pending = self._pending.get(key)
+            shared = pending is not None
+            if pending is None:
+                pending = Future()
+                self._pending[key] = pending
+        if shared:
+            try:
+                result = pending.result()
+            except Exception:  # noqa: BLE001 — the leader's failure is not ours
+                return (retry or build)(), False
+            if failed is not None and failed(result):
+                return (retry or build)(), False
+            return result, True
+        try:
+            result = build()
+            pending.set_result(result)
+            return result, False
+        except BaseException as exc:
+            pending.set_exception(exc)
+            raise
+        finally:
+            with self._lock:
+                del self._pending[key]

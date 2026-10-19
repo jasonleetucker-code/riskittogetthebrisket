@@ -231,6 +231,11 @@ def test_identical_concurrent_requests_share_one_computation(client, monkeypatch
     assert _strip(a) == _strip(b)
     # Each request still gets its own decision receipt.
     assert a["analysis"]["decisionRunId"] != b["analysis"]["decisionRunId"]
+    # The joiner's view of the shared stages is frozen when the computation
+    # ended: the creator's own receipt stage is never in it.
+    joiner = a if a["analysisTiming"]["sharedComputation"] else b
+    shared_names = [st["stage"] for st in joiner["analysisTiming"]["sharedStages"]]
+    assert "receipt" not in shared_names and "simulation" in shared_names
     assert sorted(
         [a["analysisTiming"]["sharedComputation"], b["analysisTiming"]["sharedComputation"]]
     ) == [
@@ -270,6 +275,10 @@ def test_dedup_key_scopes_to_user_league_query_body_and_board():
     assert k != key(contract=c2)  # a different board object
     assert k != key(league="side")  # resolved league (query / body / saved)
     assert k != key(query=[("valuationMode", "leagueAdjusted")])
+    # A repeated parameter is read last-wins, so ORDER is identity.
+    assert key(query=[("valuationMode", "market"), ("valuationMode", "leagueAdjusted")]) != key(
+        query=[("valuationMode", "leagueAdjusted"), ("valuationMode", "market")]
+    )
     assert key(owner=None) is None
     assert key(league=None) is None  # unresolvable: never shared
     assert key(body=["not", "a", "dict"]) is None
@@ -416,3 +425,182 @@ def test_guest_sessions_share_only_within_their_own_session(client, monkeypatch)
         monkeypatch,
     )
     assert len(calls) == 2  # two guest-pass holders: two computations
+
+
+# ── round-2 review ───────────────────────────────────────────────────────
+
+
+def test_repeated_query_parameters_in_two_orders_never_share(client, monkeypatch):
+    q1 = [("valuationMode", "market"), ("valuationMode", "leagueAdjusted")]
+    q2 = [("valuationMode", "leagueAdjusted"), ("valuationMode", "market")]
+    _, calls = _concurrent_posts(
+        client,
+        [(_BODY, "alice", {"params": q1}), (_BODY, "alice", {"params": q2})],
+        monkeypatch,
+    )
+    assert len(calls) == 2
+
+
+def test_a_transient_5xx_is_not_handed_to_a_joiner(client, monkeypatch):
+    """Overlay fetch fails once, then succeeds.  Alone: 503 then 200.  Two
+    identical requests in flight together must not both get the 503."""
+    import time as _time
+
+    from src.api import sleeper_overlay
+
+    fetches: list[int] = []
+    loaded = server.latest_contract_data["sleeper"]
+
+    def flaky_overlay(**_kw):
+        fetches.append(1)
+        if len(fetches) == 1:
+            _time.sleep(0.6)  # the second request joins while this one is failing
+            return None
+        return {"teams": loaded["teams"], "leagueConfig": {}}
+
+    monkeypatch.setattr(sleeper_overlay, "fetch_sleeper_overlay", flaky_overlay)
+    monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", flaky_overlay)
+    monkeypatch.setattr(server, "_scoring_identity_error", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        server._sleeper_overlay,
+        "merge_cross_league_sleeper_block",
+        lambda **kw: (dict(kw["loaded_sleeper"]), None),
+    )
+    side = {**_BODY, "leagueKey": "side"}
+    results, _ = _concurrent_posts(client, [(side, "alice"), (side, "alice")], monkeypatch)
+    assert sorted(r.status_code for r in results) == [200, 503]
+    assert len(fetches) == 2  # the joiner made its own attempt
+
+
+def test_cancelled_request_is_finished_not_left_running(two_league_registry, monkeypatch):  # noqa: F811
+    from starlette.requests import Request
+
+    rt.PROGRESS.clear()
+    monkeypatch.setattr(server, "latest_contract_data", _contract(league_key="main"))
+    monkeypatch.setattr(server, "_get_auth_session", _session_for("alice"))
+
+    async def cancelled(*_a, **_k):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(server, "_compute_trade_analysis", cancelled)
+    body = json.dumps(_BODY).encode()
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/api/trade/analyze",
+        "headers": [(b"x-analysis-request-id", b"cancel-req-0001")],
+        "query_string": b"",
+    }
+
+    async def go():
+        with pytest.raises(asyncio.CancelledError):
+            await server.post_trade_analyze(Request(scope, receive))
+
+    asyncio.run(go())
+    snap = rt.PROGRESS.snapshot("alice", "cancel-req-0001")
+    assert snap["state"] == "cancelled" and snap["phase"] == "failed"
+    rt.PROGRESS.clear()
+
+
+def test_one_guest_pass_cannot_evict_other_users_progress():
+    reg = rt.ProgressRegistry(ttl_seconds=60.0, max_entries=512, max_per_owner=4)
+    reg.begin("alice", "alice-0001")
+    for i in range(40):  # one pass, forty minted sessions
+        reg.begin(f"guest_pass:7:session{i:02d}", f"guest-{i:04d}")
+    assert reg.snapshot("alice", "alice-0001") is not None
+    alive = [i for i in range(40) if reg.snapshot(f"guest_pass:7:session{i:02d}", f"guest-{i:04d}")]
+    assert alive == [36, 37, 38, 39]  # the pass's own oldest entries went first
+
+
+def test_guests_get_total_time_only(client, monkeypatch):
+    guest = {"username": "guest", "auth_method": "guest_pass", "guest_pass_id": 7}
+    monkeypatch.setattr(server, "_get_auth_session", lambda _r: guest)
+    cookie = server.JASON_AUTH_COOKIE_NAME
+    rid = "guest-req-0001"
+    res = client.post(
+        "/api/trade/analyze",
+        json=_BODY,
+        headers={"cookie": f"{cookie}=sess-guest", "X-Analysis-Request-Id": rid},
+    )
+    assert res.status_code == 200, res.text
+    timing = res.json()["analysisTiming"]
+    assert "stages" not in timing and "sharedStages" not in timing
+    assert timing["detail"] == "total_only" and timing["totalMs"] >= 0
+    assert res.headers["server-timing"].startswith("total;dur=")
+    assert "," not in res.headers["server-timing"]
+    snap = client.get(
+        "/api/trade/analyze/status",
+        params={"requestId": rid},
+        headers={"cookie": f"{cookie}=sess-guest"},
+    ).json()
+    assert snap["state"] == "complete"
+    assert all(set(st) == {"stage"} for st in snap["completedStages"])
+
+
+def test_resolve_covers_the_league_resolution(client, monkeypatch):
+    import time as _time
+
+    real = server._resolve_league_for_request
+
+    def slow(*a, **k):
+        _time.sleep(0.25)
+        return real(*a, **k)
+
+    monkeypatch.setattr(server, "_resolve_league_for_request", slow)
+    timing = client.post("/api/trade/analyze", json=_BODY).json()["analysisTiming"]
+    stages = {st["stage"]: st["ms"] for st in timing["stages"]}
+    assert list(stages)[0] == "resolve" and stages["resolve"] >= 250
+
+
+def test_async_single_flight_hands_a_failed_leader_to_no_one():
+    async def scenario():
+        flight = rt.AsyncSingleFlight()
+        started = asyncio.Event()
+        release = asyncio.Event()
+        runs = []
+
+        async def leader_fails():
+            runs.append("leader")
+            started.set()
+            await release.wait()
+            raise RuntimeError("transient")
+
+        async def joiner_ok():
+            runs.append("joiner")
+            return "ok"
+
+        lead = asyncio.ensure_future(flight.run("k", leader_fails))
+        await started.wait()
+        join = asyncio.ensure_future(flight.run("k", joiner_ok))
+        await asyncio.sleep(0)
+        release.set()
+        with pytest.raises(RuntimeError):
+            await lead
+        assert await join == ("ok", False)
+        assert runs == ["leader", "joiner"]
+
+        # A result share_if rejects (a 5xx) is not shared either.
+        started.clear()
+        release.clear()
+
+        async def leader_5xx():
+            started.set()
+            await release.wait()
+            return 503
+
+        async def joiner_200():
+            return 200
+
+        lead = asyncio.ensure_future(flight.run("k2", leader_5xx, share_if=lambda r: r < 500))
+        await started.wait()
+        join = asyncio.ensure_future(flight.run("k2", joiner_200, share_if=lambda r: r < 500))
+        await asyncio.sleep(0)
+        release.set()
+        assert await lead == (503, False)
+        assert await join == (200, False)
+
+    asyncio.run(scenario())

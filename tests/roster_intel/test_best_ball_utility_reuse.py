@@ -382,3 +382,48 @@ def test_concurrent_cold_ensemble_reads_build_once(monkeypatch):
         t.join(10)
     assert builds == [2026]
     assert len(out) == 3 and all(o == out[0] for o in out)
+
+
+def test_a_failed_ensemble_build_is_not_handed_to_concurrent_callers(monkeypatch):
+    from types import SimpleNamespace
+
+    import src.ros.game_day_capture as gdc
+    import src.ros.projection_ensemble as pe
+
+    gate = threading.Event()
+    builds: list[int] = []
+
+    def build(*, season, scoring_settings):
+        builds.append(season)
+        if len(builds) == 1:
+            gate.wait(5)
+            raise RuntimeError("snapshot unreadable")
+        return SimpleNamespace(
+            ensemble=(), horizon="PRESEASON_FULL_SEASON", sources_loaded=(), sources_unavailable=()
+        )
+
+    monkeypatch.setattr(pe, "build_ros_full_season_ensemble", build)
+    monkeypatch.setattr(gdc, "estimate_index_from_ensemble", lambda ens: {"x": 1.0})
+    monkeypatch.setattr(bbu, "_ensemble_cache", {})
+    card = {"rec": 1.0, "pass_td": 4.0}
+    out: dict = {}
+
+    def lead():
+        try:
+            bbu._ensemble_index(2026, card)
+        except RuntimeError:
+            out["lead"] = "raised"
+
+    t = threading.Thread(target=lead)
+    t.start()
+    while not builds:
+        threading.Event().wait(0.01)
+    f = threading.Thread(target=lambda: out.setdefault("follow", bbu._ensemble_index(2026, card)))
+    f.start()
+    threading.Event().wait(0.2)
+    gate.set()
+    t.join(10)
+    f.join(10)
+    assert out["lead"] == "raised"
+    assert out["follow"][0] == {"x": 1.0}  # its own build succeeded
+    assert builds == [2026, 2026]

@@ -7,7 +7,8 @@ because they are about the REQUEST, not the trade:
 
 * :class:`StageClock` — wall time per server stage of THIS request, published
   as ``analysisTiming`` and as a standard ``Server-Timing`` header.  Measured,
-  never estimated.
+  never estimated.  Guest-pass sessions get the total only: a per-stage time
+  can reveal whether a shared cache was warm.
 * :data:`PROGRESS` — the phase an in-flight analysis is in, readable by the
   same signed-in user through ``GET /api/trade/analyze/status`` when the
   client tags its request with ``X-Analysis-Request-Id``.  It reports the
@@ -19,7 +20,9 @@ because they are about the REQUEST, not the trade:
   is still running (a retry after a client timeout, an edit undone before the
   answer arrived) share one computation instead of running it twice.  Nothing
   is retained after it finishes, so this is not a response cache, and the key
-  carries the user, so two users never share one.
+  carries the user, so two users never share one.  Only a SUCCESS (or a
+  deterministic 4xx refusal) is shared: a joiner whose leader raised or got a
+  5xx makes its own attempt, as it would have alone.
 """
 
 from __future__ import annotations
@@ -58,6 +61,7 @@ PHASES: tuple[str, ...] = (
 )
 #: Terminal states besides ``complete``.
 FAILED = "failed"
+CANCELLED = "cancelled"
 #: A request that joined an identical in-flight request reports this phase
 #: until that computation finishes.
 JOINED = "joined_identical_request"
@@ -95,6 +99,19 @@ def session_owner(session: Mapping[str, Any] | None, session_id: str | None = No
     return None
 
 
+def owner_group(owner: str) -> str:
+    """The bucket a progress cap is counted in: one guest PASS (every session
+    it minted), else the owner itself — so one pass cannot mint sessions to
+    churn other users' entries out."""
+    if owner.startswith("guest_pass:"):
+        return owner.rsplit(":", 1)[0]
+    return owner
+
+
+def is_guest(session: Mapping[str, Any] | None) -> bool:
+    return isinstance(session, Mapping) and str(session.get("auth_method") or "") == "guest_pass"
+
+
 class ProgressRegistry:
     """Bounded, TTL'd, owner-scoped phase registry (process-local)."""
 
@@ -114,12 +131,18 @@ class ProgressRegistry:
                 break
             self._entries.pop(key, None)
 
-    def begin(self, owner: str, request_id: str) -> "ProgressHandle":
+    def begin(self, owner: str, request_id: str, *, detail: bool = True) -> "ProgressHandle":
         now = time.monotonic()
+        group = owner_group(owner)
         with self._lock:
-            # One user cannot churn everyone else's entries out: past the
-            # per-owner cap, that owner's own oldest entry goes first.
-            mine = [k for k in self._entries if k[0] == owner and k != (owner, request_id)]
+            # One user (or one guest pass, whatever sessions it mints) cannot
+            # churn everyone else's entries out: past the cap, that group's
+            # own oldest entry goes first.
+            mine = [
+                k
+                for k, e in self._entries.items()
+                if e["group"] == group and k != (owner, request_id)
+            ]
             for key in mine[: max(0, len(mine) - self._max_per_owner + 1)]:
                 self._entries.pop(key, None)
             self._entries[(owner, request_id)] = {
@@ -128,6 +151,8 @@ class ProgressRegistry:
                 "startedAt": now,
                 "updatedAt": now,
                 "stages": [],
+                "group": group,
+                "detail": detail,
             }
             self._entries.move_to_end((owner, request_id))
             self._prune(now)
@@ -141,7 +166,13 @@ class ProgressRegistry:
                 return
             stage = fields.pop("completed_stage", None)
             if stage is not None:
-                entry["stages"].append(stage)
+                # A stage timed in two parts (``resolve``) reports its total.
+                for existing in entry["stages"]:
+                    if existing["stage"] == stage["stage"]:
+                        existing["ms"] = stage["ms"]
+                        break
+                else:
+                    entry["stages"].append(stage)
             entry.update(fields)
             entry["updatedAt"] = now
             self._entries.move_to_end((owner, request_id))
@@ -163,7 +194,11 @@ class ProgressRegistry:
                 "phaseIndex": PHASES.index(phase) if phase in PHASES else None,
                 "phases": list(PHASES),
                 "elapsedMs": round((now - entry["startedAt"]) * 1000.0, 1),
-                "completedStages": [dict(s) for s in entry["stages"]],
+                # Guests see which stages finished, not how long each took
+                # (per-stage times can reveal shared-cache hits).
+                "completedStages": [
+                    dict(s) if entry["detail"] else {"stage": s["stage"]} for s in entry["stages"]
+                ],
             }
 
     def clear(self) -> None:
@@ -186,6 +221,7 @@ class ProgressHandle:
         )
 
     def finish(self, state: str) -> None:
+        """``complete``, ``failed`` or ``cancelled`` (client went away)."""
         phase = "complete" if state == "complete" else FAILED
         self._registry._update(self._owner, self._request_id, phase=phase, state=state)
 
@@ -203,39 +239,61 @@ class StageClock:
 
     @contextmanager
     def stage(self, name: str):
+        """Time one stage.  A name timed twice (``resolve``: its route part and
+        its simulation part) accumulates into ONE entry."""
         if self.progress is not None:
             self.progress.phase(name)
         t0 = time.perf_counter()
         try:
             yield
         finally:
-            ms = round((time.perf_counter() - t0) * 1000.0, 1)
-            self._stages.append((name, ms))
+            ms = (time.perf_counter() - t0) * 1000.0
+            for i, (existing, prior) in enumerate(self._stages):
+                if existing == name:
+                    ms += prior
+                    self._stages[i] = (name, ms)
+                    break
+            else:
+                self._stages.append((name, ms))
             if self.progress is not None:
-                self.progress.stage_done(name, ms)
+                self.progress.stage_done(name, round(ms, 1))
 
     def stages(self) -> list[tuple[str, float]]:
+        """A snapshot (a copy), so a reader never sees stages recorded later."""
         return list(self._stages)
 
-    def to_dict(self, *, shared_with: "StageClock | None" = None) -> dict[str, Any]:
+    def _total_ms(self) -> float:
+        return round((time.perf_counter() - self._t0) * 1000.0, 1)
+
+    def to_dict(
+        self,
+        *,
+        shared_stages: list[tuple[str, float]] | None = None,
+        detail: bool = True,
+    ) -> dict[str, Any]:
+        """``detail=False`` (guest sessions) publishes the total only: per-stage
+        times can reveal whether a shared cache was warm."""
         out: dict[str, Any] = {
             "version": TIMING_VERSION,
             "unit": "ms",
-            "totalMs": round((time.perf_counter() - self._t0) * 1000.0, 1),
-            "stages": [{"stage": n, "ms": ms} for n, ms in self._stages],
-            "sharedComputation": shared_with is not None,
+            "totalMs": self._total_ms(),
             "note": (
                 "server wall time for this request, by stage; excludes network "
                 "transfer and browser rendering"
             ),
         }
-        if shared_with is not None:
-            out["sharedStages"] = [{"stage": n, "ms": ms} for n, ms in shared_with.stages()]
+        if not detail:
+            out["detail"] = "total_only"
+            return out
+        out["stages"] = [{"stage": n, "ms": round(ms, 1)} for n, ms in self._stages]
+        out["sharedComputation"] = shared_stages is not None
+        if shared_stages is not None:
+            out["sharedStages"] = [{"stage": n, "ms": round(ms, 1)} for n, ms in shared_stages]
         return out
 
-    def server_timing(self) -> str:
-        parts = [f"{n};dur={ms}" for n, ms in self._stages]
-        parts.append(f"total;dur={round((time.perf_counter() - self._t0) * 1000.0, 1)}")
+    def server_timing(self, *, detail: bool = True) -> str:
+        parts = [f"{n};dur={round(ms, 1)}" for n, ms in self._stages] if detail else []
+        parts.append(f"total;dur={self._total_ms()}")
         return ", ".join(parts)
 
 
@@ -271,7 +329,9 @@ def dedup_key(
         owner,
         str((session or {}).get("sleeper_user_id") or ""),
         str(league_key),
-        tuple(sorted((str(k), str(v)) for k, v in query_items)),
+        # In order, never sorted: a repeated parameter is read last-wins
+        # (``valuationMode=a&valuationMode=b`` != the reverse).
+        tuple((str(k), str(v)) for k, v in query_items),
         canonical,
         id(contract),
         str((meta or {}).get("generatedAt") or "") if isinstance(meta, Mapping) else "",
@@ -298,16 +358,32 @@ class AsyncSingleFlight:
         factory: Callable[[], Awaitable[T]],
         *,
         on_join: Callable[[], None] | None = None,
+        share_if: Callable[[T], bool] | None = None,
     ) -> tuple[T, bool]:
         """``(result, joined)``.  ``on_join`` runs the moment a caller joins an
-        in-flight computation (before waiting on it)."""
+        in-flight computation (before waiting on it).
+
+        Only SUCCESS is shared: a joiner whose leader raised, was cancelled, or
+        returned a result ``share_if`` rejects (a transient 5xx) makes its own
+        attempt — what it would have done had it arrived alone.  A failure
+        never fans out to requests that might have succeeded."""
         loop = asyncio.get_running_loop()
         slot = (id(loop), key)
         task = self._pending.get(slot)
         if task is not None and not task.done():
             if on_join is not None:
                 on_join()
-            return await asyncio.shield(task), True
+            try:
+                result = await asyncio.shield(task)
+            except asyncio.CancelledError:
+                if not task.cancelled():
+                    raise  # this joiner itself was cancelled
+                return await factory(), False
+            except Exception:  # noqa: BLE001 — the leader's failure is not ours
+                return await factory(), False
+            if share_if is not None and not share_if(result):
+                return await factory(), False
+            return result, True
         task = asyncio.ensure_future(factory())
         self._pending[slot] = task
 

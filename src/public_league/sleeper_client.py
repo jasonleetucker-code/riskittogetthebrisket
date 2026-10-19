@@ -504,7 +504,11 @@ def fetch_nfl_players() -> dict[str, Any]:
             return data
         return {}
 
-    result, _shared = _nfl_players_flight.run("players/nfl", _download)
+    # Only a successful download is shared: a caller whose concurrent leader
+    # got ``{}`` (failed) tries itself, exactly as it would have alone.
+    result, _shared = _nfl_players_flight.run_sharing_success(
+        "players/nfl", _download, failed=lambda data: not data
+    )
     return result
 
 

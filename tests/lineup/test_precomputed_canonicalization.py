@@ -113,3 +113,52 @@ def test_a_map_derived_under_another_rule_never_changes_the_labelling(seed):
         assert [(i, p.player_id) for i, p in got.items()] == [
             (i, p.player_id) for i, p in again.items()
         ]
+
+
+def test_a_pool_with_conflicting_duplicate_ids_is_never_tagged():
+    """Out-of-contract input — one id, two position shapes.  The map keys it
+    last-wins, so it must stay untagged and the labelling pass must ask the
+    predicate per player (independent review of #1828: 47 of 6,000 randomized
+    evaluations relabelled otherwise)."""
+    slots = ["RB", "WR", "FLEX"]
+    a = RosterPlayer("dup", "Dup", "RB", 10.0)
+    b = RosterPlayer("dup", "Dup", "WR", 12.0)
+    other = RosterPlayer("x", "X", "WR", 9.0)
+    elig = precompute_slot_eligibility([a, b, other], slots)
+    assert getattr(elig, "derived_for", None) is None
+    same = precompute_slot_eligibility([a, RosterPlayer("dup", "Dup", "RB", 3.0), other], slots)
+    assert same.derived_for is not None  # duplicates that agree stay exact
+
+
+@pytest.mark.parametrize("seed", range(60))
+def test_duplicate_ids_label_exactly_as_the_predicate_path(seed):
+    rng = random.Random(5000 + seed)
+    slots = SLOT_SETS[seed % len(SLOT_SETS)]
+    rule = RULES[seed % len(RULES)]
+    pool = _pool(rng, rng.randint(4, 24))
+    dup = pool[0]
+    pool.append(
+        RosterPlayer(
+            dup.player_id,
+            dup.canonical_name,
+            rng.choice(["QB", "TE", "LB", "DB"]),
+            round(rng.uniform(0, 20), 1),
+        )
+    )
+    elig = precompute_slot_eligibility(pool, slots, slot_eligibility=rule)
+    got = solve_optimal_assignment(
+        pool,
+        slots,
+        slot_eligibility=rule,
+        precomputed_eligibility=elig,
+        objective=OBJECTIVE_REALIZED_POINTS,
+    )
+    again = lineup._canonicalize_slots(
+        dict(got),
+        list(slots),
+        lineup._eligibility_predicate(rule),
+        value=lineup._value_fn(OBJECTIVE_REALIZED_POINTS),
+    )
+    assert [(i, p.player_id) for i, p in got.items()] == [
+        (i, p.player_id) for i, p in again.items()
+    ]
