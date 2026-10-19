@@ -789,6 +789,9 @@ export default function TradeWarRoom({
               : "Pick your team to see what this trade does to your roster."}
           </p>
         )}
+        {/* The Value Adjustment comparison works from the builder's own
+            values, so it stays available before a team or side is known. */}
+        {vaSlot}
       </section>
     );
   }
@@ -864,7 +867,11 @@ export default function TradeWarRoom({
         </p>
       ) : null}
       {chosenSide != null ? sideChooser : null}
-      {basisNotice ? (
+      {/* The basis notice describes the ANALYSIS's numbers (board values, no
+          overrides).  While it runs, or after it fails, the shown trade value
+          is the calculator's own (overrides included), so the notice would
+          contradict it: it appears with the analysis only. */}
+      {basisNotice && analysis ? (
         <p className={styles.modeNote} data-testid="war-room-basis-notice">
           {basisNotice}
         </p>

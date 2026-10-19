@@ -258,7 +258,18 @@ const BACKEND_WHYS = {
     "no current-season roster effect to measure",
     "strategy defaulted: posture has no evidence",
     // the coverage axis may also carry the analysis' first uncertainty line
+    // ...every line `analyze_trade.py::_uncertainty` can emit:
     "No league-scored projection for 1 traded player(s) — the roster lens abstains rather than count them as zero",
+    "Roster impact not available (season_unresolved)",
+    "Several cut candidates cost about the same; the likely cut is not certain",
+    "Taxi occupancy is unknown, so the forced-cut count is a range",
+    "Roster impact is shown before cleanup because the cut set is uncertain",
+    "Low-confidence canonical value for A.J. Brown, Ghost Rookie",
+    "Sources disagree on Justin Herbert",
+    "Not on the board, so not priced: Mystery Man",
+    "On the board but unpriced — unknown, not worth 0, so left out of the package math: RB Unpriced",
+    "Counted as sent, but not taken off this roster because no specific owned pick was chosen: 2027 Round 1",
+    "Not held by this team, so not counted as sent: 2027 1st (held by Rival)",
   ],
   margin: [
     "a near tie",
@@ -321,9 +332,69 @@ describe("confidenceSummary — plain English, no internal identifiers", () => {
     );
   });
 
-  it("an unknown reason or an unparseable statement falls back to the axis' plain sentence", () => {
-    expect(plainLimit("coverage", "On the board but unpriced — X")).toMatch(
-      /could not be measured \(see Arguments, objections and uncertainty\)/,
+  it("maps every uncertainty line the analysis can emit to accurate plain wording", () => {
+    const cases = [
+      [
+        "No league-scored projection for 1 traded player(s) — the roster lens abstains rather than count them as zero",
+        "a traded player has no league-scored projection, so the lineup effect is left out rather than counted as zero",
+      ],
+      [
+        "No league-scored projection for 2 traded player(s) — the roster lens abstains rather than count them as zero",
+        "2 traded players have no league-scored projection, so the lineup effect is left out rather than counted as zero",
+      ],
+      [
+        "Roster impact not available (season_unresolved)",
+        "the impact on your lineup is not available (no current-season projection applies)",
+      ],
+      [
+        "Several cut candidates cost about the same; the likely cut is not certain",
+        "several cut candidates cost about the same, so the likely cut is not certain",
+      ],
+      [
+        "Taxi occupancy is unknown, so the forced-cut count is a range",
+        "who is on your taxi squad is unknown, so the number of forced cuts is a range",
+      ],
+      [
+        "Roster impact is shown before cleanup because the cut set is uncertain",
+        "the lineup impact is shown before any cut because which players would be cut is uncertain",
+      ],
+      [
+        "Low-confidence canonical value for A.J. Brown, Ghost Rookie",
+        "the value of A.J. Brown, Ghost Rookie rests on thin evidence",
+      ],
+      ["Sources disagree on Justin Herbert", "the ranking sources disagree about Justin Herbert"],
+      [
+        "Not on the board, so not priced: Mystery Man",
+        "Mystery Man is not on the board, so it has no value (unknown, not zero)",
+      ],
+      [
+        "On the board but unpriced — unknown, not worth 0, so left out of the package math: RB Unpriced",
+        "RB Unpriced has no value on the board (unknown, not zero), so it is left out of the totals",
+      ],
+      [
+        "Counted as sent, but not taken off this roster because no specific owned pick was chosen: 2027 Round 1",
+        "2027 Round 1 is counted as sent but not taken off your roster, because no specific owned pick was chosen",
+      ],
+      [
+        "Not held by this team, so not counted as sent: 2027 1st (held by Rival)",
+        "2027 1st (held by Rival) is not held by your team, so it is not counted as sent",
+      ],
+    ];
+    for (const [line, plain] of cases) expect(plainLimit("coverage", line)).toBe(plain);
+    // ...and none of them reads "could not be measured": they were measured.
+    for (const [line] of cases)
+      expect(plainLimit("coverage", line)).not.toMatch(/could not be measured/);
+  });
+
+  it("an unknown plain line is the backend's sentence verbatim; one with an identifier is not", () => {
+    expect(plainLimit("coverage", "A brand-new caveat nobody mapped yet")).toBe(
+      "A brand-new caveat nobody mapped yet",
+    );
+    expect(plainLimit("coverage", "Roster status pending (league_bundle_not_warm)")).toBe(
+      "part of the analysis is uncertain (see Arguments, objections and uncertainty)",
+    );
+    expect(plainLimit("coverage", "rosterLens abstained")).toMatch(
+      /part of the analysis is uncertain/,
     );
     expect(plainLimit("newAxis", "WHATEVER")).toMatch(/part of the evidence is weaker/);
     const s = confidenceSummary({
@@ -517,6 +588,24 @@ describe("decisionReasons / reasonSentence — two distinct reasons, the backend
     }
     // unrecognised -> the backend's words, verbatim
     expect(reasonSentence({ component: "evidence", text: "Missing X" })).toBe("Missing X");
+    // The execution gate keeps the backend's own plain sentence
+    // (`trade_decision.py` decide(): component feasibility, kind gate, no state).
+    const gate = {
+      component: "feasibility",
+      stance: "against",
+      kind: "gate",
+      text: "No legal roster cleanup exists for this trade",
+      evidence: { ladderExhausted: true },
+    };
+    expect(reasonSentence(gate)).toBe("No legal roster cleanup exists for this trade");
+    expect(
+      reasonSentence({
+        component: "feasibility",
+        stance: "neutral",
+        text: "Plain backend line",
+        evidence: {},
+      }),
+    ).toBe("Plain backend line");
     expect(reasonSentence(null)).toBeNull();
   });
 });

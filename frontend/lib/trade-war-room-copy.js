@@ -100,28 +100,86 @@ export function confidenceLimits(statement, bottleneck) {
  * the raw string, which carries internal axis names and all-caps band labels.
  */
 const LIMIT_WORDS = [
-  [/^asset-only/i, "this Asset-only analysis leaves out your roster and lineup"],
-  [/^no current-season roster effect/i, "there is no current-season lineup effect to measure"],
+  // ── fixed reasons per axis (`trade_decision.py::_confidence`) ──
+  [/^asset-only/i, () => "this Asset-only analysis leaves out your roster and lineup"],
+  [
+    /^no current-season roster effect/i,
+    () => "there is no current-season lineup effect to measure",
+  ],
   [
     /^strategy defaulted/i,
-    "your strategy fell back to balanced because your team's direction has no evidence yet",
+    () => "your strategy fell back to balanced because your team's direction has no evidence yet",
   ],
-  [/^a near tie/i, "the trade is close to even"],
-  [/^package gap/i, "the trade-value gap is small"],
-  [/^roster effect/i, "the change to your lineup is modest"],
-  [/^deciding margin/i, "the deciding margin is modest"],
+  [/^a near tie/i, () => "the trade is close to even"],
+  [/^package gap/i, () => "the trade-value gap is small"],
+  [/^roster effect/i, () => "the change to your lineup is modest"],
+  [/^deciding margin/i, () => "the deciding margin is modest"],
   [
     /^value and roster disagree/i,
-    "trade value and your lineup point different ways, so your strategy decided",
+    () => "trade value and your lineup point different ways, so your strategy decided",
   ],
-  [/low or no confidence stamp/i, "a traded player's value rests on thin or missing evidence"],
-  [/^sources disagree/i, "the ranking sources disagree about a traded player's value"],
-  [/moderately precise/i, "the lineup simulation is only moderately precise"],
-  [/imprecise/i, "the lineup simulation is imprecise"],
+  [
+    /low or no confidence stamp/i,
+    () => "a traded player's value rests on thin or missing evidence",
+  ],
+  [
+    /^sources disagree on a traded asset/i,
+    () => "the ranking sources disagree about a traded player's value",
+  ],
+  [/moderately precise/i, () => "the lineup simulation is only moderately precise"],
+  [/^roster estimate imprecise/i, () => "the lineup simulation is imprecise"],
+  // ── the coverage axis may carry the analysis' first uncertainty line
+  //    (`analyze_trade.py::_uncertainty`); every line it can emit ──
+  [
+    /^No league-scored projection for (\d+) traded player/i,
+    (m) =>
+      `${m[1] === "1" ? "a traded player has" : `${m[1]} traded players have`} no league-scored projection, so the lineup effect is left out rather than counted as zero`,
+  ],
+  [
+    /^Roster impact not available \(([^)]*)\)/i,
+    (m) => {
+      const why = unavailableText(m[1]);
+      return `the impact on your lineup is not available (${why.charAt(0).toLowerCase()}${why.slice(1)})`;
+    },
+  ],
+  [
+    /^Several cut candidates cost about the same/i,
+    () => "several cut candidates cost about the same, so the likely cut is not certain",
+  ],
+  [
+    /^Taxi occupancy is unknown/i,
+    () => "who is on your taxi squad is unknown, so the number of forced cuts is a range",
+  ],
+  [
+    /^Roster impact is shown before cleanup/i,
+    () =>
+      "the lineup impact is shown before any cut because which players would be cut is uncertain",
+  ],
+  [
+    /^Low-confidence canonical value for (.+)$/i,
+    (m) => `the value of ${m[1]} rests on thin evidence`,
+  ],
+  [/^Sources disagree on (.+)$/i, (m) => `the ranking sources disagree about ${m[1]}`],
+  [
+    /^Not on the board, so not priced: (.+)$/i,
+    (m) => `${m[1]} is not on the board, so it has no value (unknown, not zero)`,
+  ],
+  [
+    /^On the board but unpriced\b.*?: (.+)$/i,
+    (m) => `${m[1]} has no value on the board (unknown, not zero), so it is left out of the totals`,
+  ],
+  [
+    /^Counted as sent, but not taken off this roster\b.*?: (.+)$/i,
+    (m) =>
+      `${m[1]} is counted as sent but not taken off your roster, because no specific owned pick was chosen`,
+  ],
+  [
+    /^Not held by this team, so not counted as sent: (.+)$/i,
+    (m) => `${m[1]} is not held by your team, so it is not counted as sent`,
+  ],
 ];
 const AXIS_WORDS = {
-  coverage:
-    "part of the analysis could not be measured (see Arguments, objections and uncertainty)",
+  coverage: "part of the analysis is uncertain (see Arguments, objections and uncertainty)",
   margin: "the deciding margin is narrow",
   agreement: "the evidence points different ways",
   assetEvidence: "the evidence behind a traded player's value is thin",
@@ -130,11 +188,27 @@ const AXIS_WORDS = {
 };
 const GENERIC_LIMIT = "part of the evidence is weaker (see Sources, simulations and methodology)";
 
-/** One limiting axis as a plain clause.  The coverage axis may carry an
- *  arbitrary uncertainty line, so only its known reasons map directly. */
+/** An internal identifier a person should not read: an ALL-CAPS code, or a
+ *  snake_case / camelCase key. */
+export function hasInternalIdentifier(text) {
+  return /\b[A-Z]{3,}\b|\b[a-z0-9]+_[a-z0-9_]+\b|\b[a-z]+[A-Z][A-Za-z]*\b/.test(String(text || ""));
+}
+
+/**
+ * One limiting axis as a plain clause.  A known reason maps to its own plain
+ * wording; an unrecognised reason that is already plain (no internal
+ * identifier) is the backend's sentence verbatim; only a reason that would
+ * leak an identifier falls back to the axis' own sentence.
+ */
 export function plainLimit(axis, why) {
-  const w = typeof why === "string" ? why.trim() : "";
-  for (const [re, words] of LIMIT_WORDS) if (w && re.test(w)) return words;
+  const w = typeof why === "string" ? why.trim().replace(/\.$/, "") : "";
+  if (w) {
+    for (const [re, words] of LIMIT_WORDS) {
+      const m = w.match(re);
+      if (m) return words(m);
+    }
+    if (!hasInternalIdentifier(w)) return w;
+  }
   return AXIS_WORDS[axis] || GENERIC_LIMIT;
 }
 
@@ -289,12 +363,11 @@ export function reasonSentence(reason, { strategy = null } = {}) {
       return "Your projected weekly lineup barely changes.";
     }
     case "feasibility":
-      return (
-        fitSentence(ev.state, ev.forcedDrops || []) ||
-        (reason.stance === "against"
-          ? "Fitting it on your roster counts against it."
-          : "It fits your roster.")
-      );
+      // A gate (e.g. "No legal roster cleanup exists for this trade") or any
+      // reason without a mappable roster state keeps the backend's own plain
+      // sentence.
+      if (reason.kind === "gate") return verbatim;
+      return fitSentence(ev.state, ev.forcedDrops || []) || verbatim;
     case "strategy": {
       const s = strategySentence(strategy);
       return s

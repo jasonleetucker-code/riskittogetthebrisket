@@ -670,6 +670,65 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     }
   });
 
+  it("the Value Adjustment slot also renders in the idle view: no team, or the side not chosen", () => {
+    const slot = <div data-testid="va-slot">VA</div>;
+    const { unmount } = render(
+      <TradeWarRoom request={null} teamName="" leagueKey="main" useTeamContext vaSlot={slot} />,
+    );
+    expect(screen.getByText(/Pick your team/)).toBeInTheDocument();
+    expect(screen.getByTestId("va-slot")).toBeInTheDocument();
+    unmount();
+    render(
+      <TradeWarRoom
+        request={null}
+        teamName="Us"
+        sideChoiceNeeded
+        leagueKey="main"
+        useTeamContext
+        vaSlot={slot}
+      />,
+    );
+    expect(screen.getByTestId("war-room-side-choice")).toBeInTheDocument();
+    expect(screen.getByTestId("va-slot")).toBeInTheDocument();
+  });
+
+  it("the execution gate's reason is the backend's own sentence", async () => {
+    // `trade_decision.py` decide() step 2: no legal roster cleanup exists.
+    const p = structuredClone(FORCED);
+    const gate = {
+      component: "feasibility",
+      stance: "against",
+      kind: "gate",
+      text: "No legal roster cleanup exists for this trade",
+      evidence: { ladderExhausted: true },
+    };
+    Object.assign(p.analysis.decision, {
+      headline: "NO",
+      headlineText: "NO — DO NOT MAKE THE TRADE",
+      deciding: "executionGate",
+      primaryReason: gate,
+      reasons: [gate],
+      missingEvidence: [],
+      mainCounterargument: null,
+      confidence: {
+        level: "HIGH",
+        bottleneck: [],
+        axes: {},
+        statement: "High confidence — the trade cannot be executed as built.",
+        isProbability: false,
+      },
+    });
+    await renderWith(p);
+    const items = within(screen.getByTestId("decision-reasons")).getAllByRole("listitem");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveTextContent(
+      "Biggest reason: No legal roster cleanup exists for this trade",
+    );
+    expect(screen.getByTestId("decision-confidence")).toHaveTextContent(
+      "High confidence. The trade cannot be made as built: no legal roster cleanup exists.",
+    );
+  });
+
   it("the Value Adjustment slot also renders in the 3+-team view", async () => {
     render(
       <TradeWarRoom request={null} sideCount={3} vaSlot={<div data-testid="va-slot">VA</div>} />,
