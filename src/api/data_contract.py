@@ -12096,9 +12096,7 @@ def _compute_unified_rankings(
         if sw is None or not sw.measured:
             # Unmeasured is stated ONCE, in the board-level
             # ``sourceWeighting`` block (``measured: false``), not per row.
-            # Under the v2 schedule an unestablished update time is never
-            # fresh (``unmeasured_freshness`` 0); under v1 it is 1.0.
-            return (1.0 if sw is None else float(sw.unmeasured_freshness)), {}
+            return 1.0, {}
         sub = sw.subset_for(is_pick)
         # Snapshot / explicit-timestamp sources share ONE clock across rows,
         # so the per-row CSV key is only resolved where it can matter.

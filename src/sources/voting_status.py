@@ -40,6 +40,7 @@ from typing import Any, Iterable, Mapping
 
 from src.sources.freshness import (
     CLOCK_BASIS_CONTENT,
+    CLOCK_BASIS_NOT_TRACKED,
     CLOCK_BASIS_PUBLISHER,
     CLOCK_BASIS_UNKNOWN,
     SCHEDULE_V1,
@@ -192,13 +193,14 @@ def _subset_facts(sub: Any, *, schedule: str, as_of: datetime | None) -> dict[st
         # v1 rollback: the same clock the v1 rule judged on; the baseline
         # (a fetch time) is never published as a genuine update.
         genuine = None if (sub.clock_is_baseline or sub.clock_at is None) else sub.clock_at
-        basis = (
-            CLOCK_BASIS_UNKNOWN
-            if genuine is None
-            else (
-                CLOCK_BASIS_PUBLISHER if sub.clock == "upstreamPublishedAt" else CLOCK_BASIS_CONTENT
-            )
-        )
+        if sub.clock_at is None:
+            basis = CLOCK_BASIS_NOT_TRACKED
+        elif genuine is None:
+            basis = CLOCK_BASIS_UNKNOWN
+        elif sub.clock == "upstreamPublishedAt":
+            basis = CLOCK_BASIS_PUBLISHER
+        else:
+            basis = CLOCK_BASIS_CONTENT
     ref = as_of or sub.as_of
     return {
         "lastGenuineUpdate": _iso(genuine),
@@ -284,8 +286,9 @@ def build_source_voting_status(
         picks_sub = (sw.subsets.get("picks") if measured else None) or None
         facts = _subset_facts(players_sub, schedule=schedule, as_of=as_of)
         if not measured and sw is not None:
-            # No recorded state: 0 under the v2 schedule, 1.0 under v1.
-            facts["freshness"] = float(sw.unmeasured_freshness)
+            # No recorded state: unmeasured, votes at base (both rules).
+            facts["freshness"] = 1.0
+            facts["lastGenuineUpdateBasis"] = CLOCK_BASIS_NOT_TRACKED
         health_factor = float(sw.health_factor) if sw is not None else 1.0
         coverage_factor = float(sw.coverage_factor) if sw is not None else 1.0
         freshness = facts["freshness"]
@@ -313,7 +316,6 @@ def build_source_voting_status(
             vstate=vstate,
             seasonal=seasonal.get(key),
             sw=sw,
-            measured=measured,
             facts=facts,
             freshness=freshness,
             effective=effective,
@@ -333,7 +335,11 @@ def build_source_voting_status(
             "daysSinceUpdate": facts["daysSinceUpdate"],
             # Unknown (no recorded state) is published as unknown, never as a
             # measured 0%; the factor the blend applied is in weightFactors.
-            "freshnessPct": _pct(freshness, schedule) if measured else None,
+            "freshnessPct": (
+                None
+                if not measured or facts["lastGenuineUpdateBasis"] == CLOCK_BASIS_NOT_TRACKED
+                else _pct(freshness, schedule)
+            ),
             "baseWeight": round(base, 4),
             "effectiveWeight": round(effective, 4),
             "weightFactors": {
@@ -409,7 +415,6 @@ def _decide(
     vstate: Mapping[str, Any],
     seasonal: Mapping[str, Any] | None,
     sw: Any,
-    measured: bool,
     facts: Mapping[str, Any],
     freshness: float | None,
     effective: float,
@@ -498,12 +503,20 @@ def _decide(
             f"Collected, but none of its rows could be used on this board ({why}).",
             "Its players are matched and its values normalize onto the board.",
         )
-    if not measured and freshness is not None and freshness > 0.0:
+    if basis == CLOCK_BASIS_NOT_TRACKED:
+        if players_voting > 0:
+            return (
+                STATUS_ACTIVE_100,
+                "Freshness is not measured for this board: our update tracking for this "
+                "source does not reach back to the board's date, so it votes at its base "
+                "weight (the standing rule for unmeasured sources).",
+                None,
+            )
         return (
-            STATUS_ACTIVE_100,
-            "No update history is recorded for this source, so its freshness is not "
-            "measured; under the v1 rule it votes at its full base weight.",
-            None,
+            STATUS_DATA_ISSUE,
+            "No update history is recorded for this source at this board's date, and "
+            "none of its rows were used.",
+            "Its board is recorded (dataset state) and its players are matched.",
         )
     if freshness is None or (basis == CLOCK_BASIS_UNKNOWN and (freshness or 0.0) <= 0.0):
         lower = facts.get("_lowerBoundDays")
@@ -513,14 +526,6 @@ def _decide(
                 f"No genuine rankings update has been seen in the {lower} days we have "
                 f"been tracking it — older than {max_days} days.",
                 "Votes again (at 100%) as soon as the publisher posts new rankings.",
-            )
-        if not measured:
-            return (
-                STATUS_DATA_ISSUE,
-                "We have no update history for this source yet, so we cannot tell when "
-                "it last genuinely updated its rankings.",
-                "Votes once we record a genuine update (changed rankings or a "
-                "publisher-stated update date).",
             )
         return (
             STATUS_DATA_ISSUE,

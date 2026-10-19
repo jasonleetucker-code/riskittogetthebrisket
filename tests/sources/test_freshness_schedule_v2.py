@@ -190,17 +190,38 @@ class TestUnknownIsNeverFresh:
         assert sub.freshness == 0.0
         assert sub.state == fr.STATE_QUARANTINED
 
-    def test_no_recorded_state_votes_at_zero_under_v2_and_one_under_v1(self):
-        assert _v2("dlfSf", None).unmeasured_freshness == 0.0
-        assert fr.assess_source("dlfSf", None, as_of=NOW, cfg=CFG).unmeasured_freshness == 1.0
+    def test_no_recorded_state_is_unmeasured_not_zero(self):
+        # No dataset state at all is a MEASUREMENT GAP, not evidence about the
+        # source: the long-standing unmeasured posture (base weight), under
+        # both rules.
+        sw = _v2("dlfSf", None)
+        assert sw.measured is False
+        assert sw.factor_for_row(is_pick=False, row_key=None) == (1.0, None)
 
-    def test_no_clock_at_the_board_time_votes_at_zero(self):
-        # Replaying a board from before this source was first observed.
+    def test_a_board_older_than_our_tracking_is_unmeasured_not_zero(self):
+        # Replaying a board from before this source was first observed: the
+        # freshness record does not reach the board's time, so there is
+        # nothing to apply (the replay posture), never a fabricated clock.
         later = NOW + timedelta(days=5)
         sub = _v2("dlfSf", _state(later, first_observed=later)).subsets["players"]
         assert sub.clock_at is None
-        assert sub.freshness == 0.0
-        assert sub.clock_basis == fr.CLOCK_BASIS_UNKNOWN
+        assert sub.clock_basis == fr.CLOCK_BASIS_NOT_TRACKED
+        assert sub.freshness == 1.0
+        assert sub.state == fr.STATE_UNMEASURED
+        assert sub.genuine_update_at() is None
+        assert sub.to_dict()["freshnessPct"] is None
+
+    def test_tracked_but_unknown_is_zero_while_untracked_is_unmeasured(self):
+        # The two cases side by side: we watched the board since T0 and never
+        # saw it publish (unknown -> 0) versus the board predates T0
+        # (not tracked -> unmeasured).
+        first = NOW - timedelta(days=3)
+        state = _state(first, first_observed=first)
+        state["subsets"]["players"]["changeHistory"] = []
+        tracked = _v2("dlfSf", state).subsets["players"]
+        untracked = _v2("dlfSf", state, as_of=first - timedelta(days=1)).subsets["players"]
+        assert (tracked.clock_basis, tracked.freshness) == (fr.CLOCK_BASIS_UNKNOWN, 0.0)
+        assert (untracked.clock_basis, untracked.freshness) == (fr.CLOCK_BASIS_NOT_TRACKED, 1.0)
 
 
 class TestRowLevelClocks:

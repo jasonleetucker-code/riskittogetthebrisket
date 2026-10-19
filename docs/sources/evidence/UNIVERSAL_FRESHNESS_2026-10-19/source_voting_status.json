@@ -434,7 +434,7 @@
    "health": null,
    "key": "signalsSf",
    "lastGenuineUpdate": null,
-   "lastGenuineUpdateBasis": "unknown",
+   "lastGenuineUpdateBasis": "not_tracked_at_board_time",
    "meanAppliedWeight": null,
    "notVotingRows": {},
    "picksContributing": 0,
@@ -450,7 +450,7 @@
    "weightFactors": {
     "applied": true,
     "coverage": 1.0,
-    "freshness": 0.0,
+    "freshness": 1.0,
     "health": 1.0
    }
   },
@@ -470,7 +470,7 @@
    "health": null,
    "key": "signalsIdpDl",
    "lastGenuineUpdate": null,
-   "lastGenuineUpdateBasis": "unknown",
+   "lastGenuineUpdateBasis": "not_tracked_at_board_time",
    "meanAppliedWeight": null,
    "notVotingRows": {},
    "picksContributing": 0,
@@ -492,7 +492,7 @@
    "weightFactors": {
     "applied": true,
     "coverage": 1.0,
-    "freshness": 0.0,
+    "freshness": 1.0,
     "health": 1.0
    }
   },
@@ -512,7 +512,7 @@
    "health": null,
    "key": "signalsIdpLb",
    "lastGenuineUpdate": null,
-   "lastGenuineUpdateBasis": "unknown",
+   "lastGenuineUpdateBasis": "not_tracked_at_board_time",
    "meanAppliedWeight": null,
    "notVotingRows": {},
    "picksContributing": 0,
@@ -534,7 +534,7 @@
    "weightFactors": {
     "applied": true,
     "coverage": 1.0,
-    "freshness": 0.0,
+    "freshness": 1.0,
     "health": 1.0
    }
   },
@@ -554,7 +554,7 @@
    "health": null,
    "key": "signalsIdpDb",
    "lastGenuineUpdate": null,
-   "lastGenuineUpdateBasis": "unknown",
+   "lastGenuineUpdateBasis": "not_tracked_at_board_time",
    "meanAppliedWeight": null,
    "notVotingRows": {},
    "picksContributing": 0,
@@ -576,7 +576,7 @@
    "weightFactors": {
     "applied": true,
     "coverage": 1.0,
-    "freshness": 0.0,
+    "freshness": 1.0,
     "health": 1.0
    }
   },

@@ -54,10 +54,19 @@ are the v1 rules with two changes, both about what counts as evidence:
   ``EXPLICIT_UPSTREAM_TIMESTAMP`` — still never later than the last content
   change we observed (a cosmetic vendor edit moves the vendor's stamp, not
   the data);
-* an update time we cannot establish is NEVER fresh.  The first-observation
-  baseline (a fetch time; the content was published at some unknown time at
-  or before it), a missing clock, and a source with no recorded state at all
-  vote at ``unknownUpdateTimeFreshness`` (0), with ``clockBasis: unknown``.
+* an update time we cannot establish for a source we ARE tracking is NEVER
+  fresh: when the only clock is the first-observation baseline (a fetch
+  time; the content was published at some unknown time at or before it) the
+  vote is ``unknownUpdateTimeFreshness`` (0), with ``clockBasis: unknown``.
+
+A board that predates every observation we hold for a source (a historical
+replay from before its tracking began), or a source with no recorded state
+at all, has NO freshness measurement: it keeps the long-standing unmeasured
+posture (base weight, ``UNMEASURED``, ``clockBasis:
+not_tracked_at_board_time``) exactly as under v1 and as a board with no
+dataset-state directory does.  Zeroing it would retroactively strip every
+source from every replay older than its tracking — a measurement gap read as
+evidence about the source.
 
 A successful re-download of unchanged content moves no clock
 (``dataset_state.observe``), so it can never reset the schedule.
@@ -110,6 +119,11 @@ SCHEDULE_CONFIG_PATH = REPO_ROOT / "config" / "sources" / "freshness_schedule_v2
 CLOCK_BASIS_PUBLISHER = "publisher_timestamp"
 CLOCK_BASIS_CONTENT = "content_change_observed"
 CLOCK_BASIS_UNKNOWN = "unknown"
+#: The board predates every observation the dataset state holds for this
+#: source (or no state exists): the freshness record does not reach the
+#: board's time, so there is no measurement to apply — the long-standing
+#: replay posture (base weight, ``UNMEASURED``), stated, never a clock.
+CLOCK_BASIS_NOT_TRACKED = "not_tracked_at_board_time"
 
 SECONDS_PER_DAY = 86400.0
 
@@ -606,7 +620,8 @@ class SubsetFreshness:
     ) -> tuple[float, float | None]:
         step = self.step or default_step_schedule()
         if self.clock_at is None:
-            return step.unknown, None
+            # Not tracked at the board's time: no measurement to apply.
+            return 1.0, None
         clock = self._row_clock(row_key, clock_cap)
         age = max(0.0, (self.as_of - clock).total_seconds() / 3600.0)
         if not self.row_clock_known(clock):
@@ -652,7 +667,10 @@ class SubsetFreshness:
     def genuine_update_at(self) -> datetime | None:
         """The board-level genuine-update clock (schedule v2), or ``None``
         when it cannot be established."""
-        if self.clock_at is None or self.clock_basis == CLOCK_BASIS_UNKNOWN:
+        if self.clock_at is None or self.clock_basis in (
+            CLOCK_BASIS_UNKNOWN,
+            CLOCK_BASIS_NOT_TRACKED,
+        ):
             return None
         return self.clock_at
 
@@ -666,7 +684,9 @@ class SubsetFreshness:
             "clockBasis": self.clock_basis,
             "lastGenuineUpdateAt": _iso(genuine),
             "daysSinceGenuineUpdate": days,
-            "freshnessPct": round(self.freshness * 100.0, 1),
+            "freshnessPct": None
+            if self.clock_basis == CLOCK_BASIS_NOT_TRACKED
+            else round(self.freshness * 100.0, 1),
             # BATCH / INCREMENTAL boards age each row from its own last
             # change when that is newer than the board clock, so a row the
             # vendor revised after the last broad publication can vote at a
@@ -829,9 +849,11 @@ def _finish_subset_v2(
     The state keeps the v1 vocabulary so every existing reader works
     unchanged: the v1 bands map the steps exactly (1.0 ON_SCHEDULE, 0.75
     OVERDUE, 0.5 STALE, 0.25 SEVERELY_STALE, 0 QUARANTINED).  An update time
-    we cannot establish is ``UNMEASURED`` and votes at ``step.unknown`` (0) —
-    unless even its lower-bound age is past the last step, which proves it
-    stale (QUARANTINED)."""
+    we cannot establish (baseline-only clock) is ``UNMEASURED`` and votes at
+    ``step.unknown`` (0) — unless even its lower-bound age is past the last
+    step, which proves it stale (QUARANTINED).  No clock at the board's time
+    (the board predates our tracking) is not a measurement at all:
+    ``UNMEASURED`` at 1.0, ``clockBasis: not_tracked_at_board_time``."""
     base.schedule = SCHEDULE_V2
     base.step = step
     if (
@@ -841,7 +863,7 @@ def _finish_subset_v2(
     ):
         base.baseline_at = first_observed
     if base.clock_at is None:
-        base.clock_basis = CLOCK_BASIS_UNKNOWN
+        base.clock_basis = CLOCK_BASIS_NOT_TRACKED
     elif base.clock == "upstreamPublishedAt":
         base.clock_basis = CLOCK_BASIS_PUBLISHER
     elif base.row_clock_known(base.clock_at):
@@ -851,7 +873,9 @@ def _finish_subset_v2(
     f, age = base.row_freshness(None)
     base.age_hours = age
     base.freshness = f
-    if base.clock_basis == CLOCK_BASIS_UNKNOWN:
+    if base.clock_basis == CLOCK_BASIS_NOT_TRACKED:
+        base.state = STATE_UNMEASURED
+    elif base.clock_basis == CLOCK_BASIS_UNKNOWN:
         lower_bound_days = (
             None if base.clock_at is None else whole_days_elapsed(base.clock_at, base.as_of)
         )
@@ -880,10 +904,6 @@ class SourceWeighting:
     rolling_median_rows: float | None
     health_errors: list[str] = field(default_factory=list)
     schedule: str = SCHEDULE_V1
-    #: The freshness an UNMEASURED source (no recorded state at all) votes
-    #: at.  1.0 under v1 (unmeasured is stated once, board level); 0 under
-    #: schedule v2, where an update time we cannot establish is never fresh.
-    unmeasured_freshness: float = 1.0
 
     def subset_for(self, is_pick: bool) -> SubsetFreshness | None:
         return self.subsets.get(SUBSET_PICKS if is_pick else SUBSET_PLAYERS) or self.subsets.get(
@@ -923,11 +943,7 @@ class SourceWeighting:
             "rowCount": self.row_count,
             "rollingMedianRows": self.rolling_median_rows,
             "subsets": {k: v.to_dict() for k, v in self.subsets.items()},
-            **(
-                {"freshnessSchedule": SCHEDULE_V2, "unmeasuredFreshness": self.unmeasured_freshness}
-                if self.schedule == SCHEDULE_V2
-                else {}
-            ),
+            **({"freshnessSchedule": SCHEDULE_V2} if self.schedule == SCHEDULE_V2 else {}),
         }
 
 
@@ -946,7 +962,6 @@ def assess_source(
         if source_key in step.exempt_keys:
             # Not a dynasty ranking voter (the KTC Market benchmark): v1.
             schedule = SCHEDULE_V1
-    v2 = schedule == SCHEDULE_V2
     if not state:
         return SourceWeighting(
             source_key=source_key,
@@ -959,7 +974,6 @@ def assess_source(
             row_count=None,
             rolling_median_rows=None,
             schedule=schedule,
-            unmeasured_freshness=step.unknown if v2 and step is not None else 1.0,
         )
     subsets_state = state.get("subsets") or {}
     upstream = state.get("upstream") or {}
@@ -1020,7 +1034,6 @@ def assess_source(
         rolling_median_rows=median,
         health_errors=list(health.get("errors") or []),
         schedule=schedule,
-        unmeasured_freshness=step.unknown if v2 and step is not None else 1.0,
     )
 
 

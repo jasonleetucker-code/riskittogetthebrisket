@@ -83,31 +83,46 @@ directive.
    `test_unchanged_redownload_never_resets_the_clock` (twenty daily
    unchanged re-downloads leave a 20-day-old board at 50%). We never
    fabricate a date: the clock is a vendor statement or an observed change.
-4. **An update time we cannot establish is never fresh.** It votes at **0**
-   (`unknownUpdateTimeFreshness`) with `clockBasis: "unknown"`. Its status is
-   *Data Issue — Not Voting*, or *Stale* when even the lower bound is past
-   30 days. Three cases:
-   * **First-observation baseline.** When we first see a board, the dataset
-     state stamps the fetch time. The content was published at some unknown
-     time at or before it.
-   * **No clock at the board's time.** For example, a replay of a board that
-     predates our tracking of the source.
-   * **No recorded state at all** on a board that otherwise has dataset
-     state.
+4. **An update time we cannot establish for a source we are tracking is
+   never fresh.** If the only clock is the first-observation baseline, the
+   source votes at **0** (`unknownUpdateTimeFreshness`) with
+   `clockBasis: "unknown"`.
+   * The baseline is the fetch time the dataset state stamps when we first
+     see a board. The content was published at some unknown time at or
+     before it.
+   * Its status is *Data Issue — Not Voting*, or *Stale* when even the
+     lower-bound age is past 30 days.
 
-   *Justification:* the directive forbids treating unknown as fresh.
-   Using the fetch time would let a download reset the clock, and so would a
+   *Justification:* the directive forbids treating unknown as fresh. Using
+   the fetch time would let a download reset the clock, and so would a
    lower-bound age, because a fresh fetch makes the lower bound 0 days.
-   * The cost is small and self-correcting. A newly added source does not
+   * The cost is small and self-correcting. A newly tracked source does not
      vote until its first observed publication. For a daily source that is
      about one refresh; for a weekly source, about a week.
    * On today's board **no registered source is in this state**. Every
      dataset state has a real content change after its baseline, or a
      vendor time.
-   * Not changed: a board built with no dataset-state directory at all, such
-     as a historical replay tree. It keeps the documented posture: base
-     weights, stamped `sourceWeighting.unavailableReason`, validator
-     `degraded`.
+
+   **A measurement gap is a different thing, and it is not zeroed.** Two
+   cases have no freshness measurement at all:
+   * the board predates every observation we hold for the source (a
+     historical replay from before its tracking began);
+   * the source has no recorded dataset state.
+
+   Both keep the long-standing unmeasured posture, exactly as under v1: base
+   weight, state `UNMEASURED`, `clockBasis: "not_tracked_at_board_time"`.
+   That matches a board built with no dataset-state directory, which keeps
+   base weights, stamped `sourceWeighting.unavailableReason`, validator
+   `degraded`.
+   * Zeroing these would read a gap in our own records as evidence about the
+     source. It would also retroactively strip every source from every
+     replay older than its tracking: KTC Crowd and Trades before 2026-09-09,
+     for example.
+   * CI found exactly that on the first push. The synthetic golden-dataset
+     board (dated 2026-07-29) lost its KTC-only "Lonely Rookie" vote.
+   * On a live board neither case applies to any tracked source. The status
+     payload names the case ("freshness is not measured for this board")
+     wherever it does.
 5. **Scope.**
    * The schedule applies to every registered dynasty ranking source,
      offense, IDP and rookie. Each subset is on its own clock: player
@@ -143,7 +158,8 @@ unchanged. The v1 bands map the steps exactly:
 | 0.5 | STALE |
 | 0.25 | SEVERELY_STALE |
 | 0 | QUARANTINED |
-| unknown | UNMEASURED |
+| unknown (tracked, baseline only; votes at 0) | UNMEASURED |
+| not tracked at the board's time (unmeasured; base weight) | UNMEASURED |
 
 Each subset also carries additive fields: `freshnessSchedule`, `clockBasis`,
 `lastGenuineUpdateAt`, `daysSinceGenuineUpdate`, `freshnessPct` and
@@ -182,8 +198,9 @@ Fields per entry:
 * identity: `key`, `displayName`, `provider`, `family`, `coverage`
   (offense / idp / rookie / combined);
 * freshness: `lastGenuineUpdate` (ISO or null), `lastGenuineUpdateBasis`
-  (`publisher_timestamp` / `content_change_observed` / `unknown`),
-  `daysSinceUpdate`, `freshnessPct` (100/75/50/25/0, or null when unknown);
+  (`publisher_timestamp` / `content_change_observed` / `unknown` /
+  `not_tracked_at_board_time`), `daysSinceUpdate`, `freshnessPct`
+  (100/75/50/25/0, or null when not measured);
 * weight: `baseWeight`, `effectiveWeight` (base x freshness x health x
   coverage, before any provider-family cap), `weightFactors`,
   `meanAppliedWeight` (the actual per-row weight after family caps and row
@@ -202,11 +219,14 @@ Status rules (first match wins):
 3. Private source not provisioned on this host, or data file missing: *Data
    Issue*.
 4. FAILED board: *Data Issue*.
-5. Unknown update time: *Data Issue*, or *Stale* when the lower bound is past
-   30 days.
-6. Older than 30 days: *Stale*.
-7. Fresh but no row used: *Data Issue*.
-8. Otherwise *Active — 100 / 75 / 50 / 25%*.
+5. Freshness not measured for this board (`not_tracked_at_board_time`):
+   *Active — 100%* with that reason when it votes, *Data Issue* when it does
+   not.
+6. Unknown update time on a tracked source: *Data Issue*, or *Stale* when
+   the lower bound is past 30 days.
+7. Older than 30 days: *Stale*.
+8. Fresh but no row used: *Data Issue*.
+9. Otherwise *Active — 100 / 75 / 50 / 25%*.
 
 ## 4. The 26-source audit (§5)
 
@@ -426,6 +446,39 @@ Reproduce:
 * Every fresh vote from a healthy, full-coverage source carries exactly
   `base x familyAdjustment`. That is its full approved base weight, subject
   only to the provider-family cap.
+
+**CI findings on the first push, root-caused.**
+
+1. `test_golden_dataset_invariants::test_single_source_player_takes_the_haircut`
+   is in the hard gate.
+   * The synthetic board is dated 2026-07-29 and is built against this
+     checkout's dataset state. KTC Crowd's tracking began 2026-09-09.
+   * The first push treated "no clock at the board's time" as unknown and
+     set it to 0. The KTC-only "Lonely Rookie" therefore had no vote and the
+     haircut never ran.
+   * **This was a defect in the rule, not in the fixture.** A board that
+     predates our tracking is a measurement gap.
+   * **Fixed:** the not-tracked posture of §2 item 4. The test passes
+     unchanged.
+2. `test_single_curve_live::test_anchor_plus_shrunk_subgroup_matches_rank_derived_value`
+   is livedata and advisory. On today's board 0 IDP rows have a subgroup
+   (non-anchor) voter, against 249 on `main`.
+   * The only non-anchor IDP voter on `main` was FantasyPros IDP. Its own
+     vendor clock is 45 days old, so it correctly stops voting.
+   * DLF IDP, the other non-anchor member, is held by the 2026-10-16 owner
+     policy.
+   * The IDP anchors are intact on 394 of 394 priced IDP rows. The IDP Trade
+     Calculator votes at 75%, not 0.
+   * The invariant itself still holds under v2 whenever a fresh subgroup
+     voter exists:
+     * with `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` (DLF IDP voting, which
+       is what directive §1 / #1817 restores), all 29 tests in the file pass
+       under v2;
+     * the deterministic counterpart
+       `test_valuation_pipeline_stages::test_idp_row_combines_anchor_and_subgroup_at_alpha`
+       passes.
+   * The live guard's precondition comes back when #1817 lifts the DLF IDP
+     hold, or when FantasyPros IDP republishes. The test is not changed.
 
 ## 7. Rollback and coordination
 

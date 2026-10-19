@@ -144,12 +144,16 @@ class TestStatuses:
         assert e["lastGenuineUpdateBasis"] == fr.CLOCK_BASIS_UNKNOWN
         assert e["effectiveWeight"] == 0.0
 
-    def test_no_recorded_state_is_a_data_issue(self):
+    def test_no_recorded_state_is_unmeasured_and_says_so(self):
         reg = [_src("nostate")]
-        e = _by_key(_build(reg, {"nostate": _w("nostate", None)}, []))["nostate"]
-        assert e["status"] == "data_issue"
+        weighting = {"nostate": _w("nostate", None)}
+        e = _by_key(_build(reg, weighting, [_row("QB", {"nostate": _voted()})]))["nostate"]
+        assert e["status"] == "active_100"
+        assert e["lastGenuineUpdateBasis"] == fr.CLOCK_BASIS_NOT_TRACKED
         assert e["freshnessPct"] is None
-        assert e["weightFactors"]["freshness"] == 0.0
+        assert "not measured" in e["reason"]
+        idle = _by_key(_build(reg, weighting, []))["nostate"]
+        assert idle["status"] == "data_issue"
 
     def test_seasonal_rookie_board_is_seasonal_not_stale(self):
         reg = [_src("rk", needs_rookie_translation=True)]

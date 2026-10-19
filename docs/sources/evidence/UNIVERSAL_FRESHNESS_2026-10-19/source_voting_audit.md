@@ -12,10 +12,10 @@ Board as of `2026-10-19T05:23:48Z`; freshness rule `v2_step_schedule`; freshness
 | The IDP Show — Combined (Adamidp) | idpShowCombined | The IDP Show | combined | 2026-08-19 | publisher_timestamp | 60 | 0 | 1 | 0 | 0 | 0 | no | Stale — Not Voting |
 | Dynasty Nerds SF-TEP | dynastyNerdsSfTep | Dynasty Nerds | offense | 2026-10-17 | content_change_observed | 1 | 100 | 1 | 1 | 282 | 0 | yes | Active — 100% |
 | FantasyCalc Dynasty SF | fantasyCalc | FantasyCalc | offense | 2026-10-18 | content_change_observed | 0 | 100 | 1 | 1 | 389 | 0 | yes | Active — 100% |
-| Signals Fantasy Dynasty SF | signalsSf | Signals Fantasy | offense | unknown | unknown | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
-| Signals Fantasy Dynasty IDP — DL | signalsIdpDl | Signals Fantasy | idp | unknown | unknown | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
-| Signals Fantasy Dynasty IDP — LB | signalsIdpLb | Signals Fantasy | idp | unknown | unknown | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
-| Signals Fantasy Dynasty IDP — DB | signalsIdpDb | Signals Fantasy | idp | unknown | unknown | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
+| Signals Fantasy Dynasty SF | signalsSf | Signals Fantasy | offense | unknown | not_tracked_at_board_time | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
+| Signals Fantasy Dynasty IDP — DL | signalsIdpDl | Signals Fantasy | idp | unknown | not_tracked_at_board_time | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
+| Signals Fantasy Dynasty IDP — LB | signalsIdpLb | Signals Fantasy | idp | unknown | not_tracked_at_board_time | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
+| Signals Fantasy Dynasty IDP — DB | signalsIdpDb | Signals Fantasy | idp | unknown | not_tracked_at_board_time | — | — | 1 | 0 | 0 | 0 | no | Data Issue — Not Voting |
 | OTC Fantasy Football SF | otcffbSf | OTC Fantasy Football | offense | 2026-10-18 | content_change_observed | 0 | 100 | 1 | 1 | 444 | 0 | yes | Active — 100% |
 | Fantasy Navigator SF | fantasyNavigatorSf | Fantasy Navigator | offense | 2026-10-10 | content_change_observed | 8 | 75 | 1 | 0.75 | 445 | 0 | yes | Active — 75% |
 | Play for Keeps Dynasty | pfkDynasty | Play for Keeps | offense | 2026-10-18 | content_change_observed | 0 | 100 | 1 | 1 | 449 | 0 | yes | Active — 100% |
