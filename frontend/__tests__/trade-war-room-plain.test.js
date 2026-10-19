@@ -33,6 +33,7 @@ import {
 } from "@/lib/trade-war-room";
 import { TRADE_VALUE_MODE, adjustedSideTotals, tradeEvaluationState } from "@/lib/trade-logic";
 import {
+  analysisErrorCode,
   analysisErrorText,
   argumentLine,
   assumptionLines,
@@ -259,6 +260,11 @@ describe("rosterFit / fitSentence — Does it fit your roster?", () => {
       "The trade fits. No player cut needed.",
     );
     expect(fitSentence("cut_required", [])).toMatch(/A player would need to be cut/);
+    // The count, when no named cut exists (an exhausted cut ladder).
+    expect(fitSentence("cut_required", [], { cutsNeeded: 2 })).toBe(
+      "The trade does not fit as built. 2 players would need to be cut.",
+    );
+    expect(fitSentence("cut_required", [], { cutsNeeded: 1 })).toMatch(/A player would need/);
     expect(fitSentence("cut_required", ["A", "B"], { tied: true })).toMatch(
       /cut A and B \(a close call between candidates\)/,
     );
@@ -1216,7 +1222,7 @@ describe("a strategy-decided answer says what pushed toward it", () => {
     const items = decisionReasonSentences(d, { analysis: a });
     expect(items.map((r) => r.role)).toEqual(["main", "supportAgainst", "counter"]);
     expect(items[1].sentence).toBe(
-      "After the forced cut of RB Bench One (worth about 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
+      "After the forced cut of RB Bench One (worth 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
     );
     // Every number is the decision's own.
     const ev = d.reasons.find((r) => r.component === "objectiveValue").evidence;
@@ -1253,7 +1259,11 @@ describe("comparable trades, package model, assumptions, roster notes", () => {
         "Format: a different format that can be translated to yours",
       ],
       ["Format: BROAD_CONTEXT", "Format: a different or unknown format, shown for context only"],
-      ["Format: TARGET_UNSUPPORTED", "Format: a format that cannot be priced for your league"],
+      [
+        "Format: TARGET_UNSUPPORTED",
+        "this trade couldn't be matched cleanly, so it is not priced for your league",
+      ],
+      ["1 days ago", "1 day ago"],
       ["Format: SOMETHING_NEW", "Format: not stated"],
       [
         "Format comparability unknown for this league",
@@ -1372,7 +1382,7 @@ describe("comparable trades, package model, assumptions, roster notes", () => {
       ],
       [
         "roster is ALREADY 2 over the 58-man limit before this trade — the drops below include getting back to legal size",
-        "Your roster is already 2 over the 58-player limit before this trade; the cuts shown include getting back under it.",
+        "Your roster is already 2 over the 58-player limit before this trade.",
         null,
       ],
       [
@@ -1383,6 +1393,11 @@ describe("comparable trades, package model, assumptions, roster notes", () => {
       [
         "cut ladder offers 1 release(s) but 2 are needed — every remaining player is required to fill a starting slot, so no legal path back to roster size was modelled",
         "Only 1 cut is possible but 2 are needed: every remaining player is needed to fill a starting slot.",
+        null,
+      ],
+      [
+        "cut ladder offers 0 release(s) but 2 are needed — every remaining player is required to fill a starting slot, so no legal path back to roster size was modelled",
+        "No cut is possible, but 2 are needed: every remaining player is needed to fill a starting slot.",
         null,
       ],
       ["roster is empty — no cut ladder", "Your roster is empty, so there is no one to cut.", null],
@@ -1410,8 +1425,28 @@ describe("comparable trades, package model, assumptions, roster notes", () => {
     expect(rosterNoteLines(feas(OUTGOING_NOT_HELD).detail.notes).fit).toEqual([
       "RB Buf Depth is not on your roster, so sending that player frees no roster spot.",
     ]);
-    expect(rosterNoteLines(feas(OVER_LIMIT).detail.notes).fit).toEqual([
+    // REAL over-limit packet: a cut is shown, so it includes getting back to size.
+    expect(feas(OVER_LIMIT).detail.forcedDrops.length).toBeGreaterThan(0);
+    expect(rosterNoteLines(feas(OVER_LIMIT).detail.notes, feas(OVER_LIMIT).detail).fit).toEqual([
       "Your roster is already 1 over the 8-player limit before this trade; the cuts shown include getting back under it.",
+    ]);
+    // No cut, and the trade brings it back under: never "the cuts shown".
+    const over =
+      "roster is ALREADY 2 over the 58-man limit before this trade — the drops below include getting back to legal size";
+    expect(
+      rosterNoteLines([over], { state: "resolves_overage", forcedDrops: [], requiresDrops: false })
+        .fit,
+    ).toEqual([
+      "Your roster is already 2 over the 58-player limit; this trade brings it back under.",
+    ]);
+    // The taxi range only beside an answer it actually leaves uncertain.
+    const taxi = (n) =>
+      `league carries ${n} taxi slot(s) and this source does not say which roster members occupy them — Sleeper lists taxi players inside \`players\`, so active occupancy is a RANGE and the capacity conclusion is partial`;
+    expect(rosterNoteLines([taxi(5)], { certainty: "exact", requiresDrops: false }).fit).toEqual(
+      [],
+    );
+    expect(rosterNoteLines([taxi(1)], { certainty: "partial", requiresDrops: null }).fit).toEqual([
+      "Your league has 1 taxi spot and who fills it is not known, so your roster count is a range.",
     ]);
   });
 
@@ -1689,6 +1724,25 @@ describe("expandable detail", () => {
     expect(analysisErrorText("timeout")).toBe("it took too long to finish");
     expect(analysisErrorText("invalid_analysis")).toMatch(/did not match this trade/);
     expect(analysisErrorText("HTTP 503")).toBe("the server had a problem");
+    // data_not_ready: loading (Retry helps) vs the scoring-identity gate (it cannot).
+    expect(analysisErrorCode(503, { error: "data_not_ready" })).toBe("data_not_ready");
+    expect(
+      analysisErrorCode(503, {
+        error: "data_not_ready",
+        message: "Rankings are not compatible: league 'x' scores players differently.",
+        scoringFingerprint: "sf1:a",
+        loadedScoringFingerprint: "sf1:b",
+      }),
+    ).toBe("scoring_incompatible");
+    expect(analysisErrorText("scoring_incompatible")).toBe(
+      "this league's scoring isn't compatible with the loaded rankings, so a personalized analysis isn't available",
+    );
+    expect(analysisErrorCode(413, { error: "Request body too large." })).toBe(
+      "Request body too large.",
+    );
+    expect(analysisErrorText("Request body too large.")).toBe("this trade is too large to analyze");
+    expect(analysisErrorText("HTTP 413")).toBe("this trade is too large to analyze");
+    expect(analysisErrorCode(502, null)).toBe("HTTP 502");
     expect(analysisErrorText("TypeError: Failed to fetch")).toBe("the connection failed");
     expect(analysisErrorText("boom")).toBe("something went wrong");
     // Every error the analyze route and the league resolver return
@@ -1698,7 +1752,7 @@ describe("expandable detail", () => {
       auth_required: "your session has expired — sign in again",
       "No data available yet.": "the server has no player data yet",
       invalid_body: "the server could not read the request",
-      data_not_ready: "this league's data is still loading on the server",
+      data_not_ready: "this league's data is still loading on the server — try again shortly",
       team_not_found: "your team was not found in this league",
       unknown_league: "this league is not available",
       inactive_league: "this league is not available",

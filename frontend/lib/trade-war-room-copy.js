@@ -219,8 +219,13 @@ const LIMIT_WORDS = [
   { re: /^roster effect/i, words: () => "the change to your lineup is modest" },
   { re: /^deciding margin/i, words: () => "the deciding margin is modest" },
   {
+    // The backend writes this for EVERY strategy-decided answer, including
+    // one where trade value is neutral (a close value, not an opposing one).
     re: /^value and roster disagree/i,
-    words: () => "trade value and your lineup point different ways, so your strategy decided",
+    words: (m, ctx) =>
+      ctx.valueStance === "neutral"
+        ? "your strategy decided between a close trade value and the lineup effect"
+        : "trade value and your lineup point different ways, so your strategy decided",
   },
   {
     re: /low or no confidence stamp/i,
@@ -448,10 +453,14 @@ function dedupeClauses(clauses, { unrated = 0 } = {}) {
  *   statement the backend's full statement, verbatim (methodology view only)
  * `rosterLens` is the analysis' `lenses.roster`, read for what an unevaluated
  * roster effect means; `evidenceLens` (`lenses.evidence`) for which traded
- * assets have no evidence stamp.  Never a probability: the backend says so
+ * assets have no evidence stamp; `decision` for whether trade value was
+ * neutral when the strategy decided.  Never a probability: the backend says so
  * (`isProbability: false`).
  */
-export function confidenceSummary(confidence, { rosterLens = null, evidenceLens = null } = {}) {
+export function confidenceSummary(
+  confidence,
+  { rosterLens = null, evidenceLens = null, decision = null } = {},
+) {
   if (!confidence || typeof confidence !== "object") return null;
   const statement = typeof confidence.statement === "string" ? confidence.statement : "";
   const level = CONFIDENCE_LEVEL_WORDS[confidence.level] || null;
@@ -466,8 +475,13 @@ export function confidenceSummary(confidence, { rosterLens = null, evidenceLens 
   const bottleneck = Array.isArray(confidence.bottleneck) ? confidence.bottleneck : [];
   if (level !== CONFIDENCE_LEVEL_WORDS.HIGH && bottleneck.length) {
     const whys = confidenceLimits(statement, bottleneck);
+    const valueStance = (decision?.reasons || []).find(
+      (r) => r?.component === "objectiveValue",
+    )?.stance;
     const limits = dedupeClauses(
-      bottleneck.map((axis, i) => limitClause(axis, whys.length ? whys[i] : null, { rosterLens })),
+      bottleneck.map((axis, i) =>
+        limitClause(axis, whys.length ? whys[i] : null, { rosterLens, valueStance }),
+      ),
       { unrated: unratedOthers(evidenceLens) },
     );
     return {
@@ -657,7 +671,11 @@ const BAND_PHRASE = {
  * The fit sentence for one roster-capacity state (`lenses.feasibility`).
  * Cut names are the backend's forced drops, in its order.
  */
-export function fitSentence(state, names = [], { tied = false, openSpotsBefore = null } = {}) {
+export function fitSentence(
+  state,
+  names = [],
+  { tied = false, openSpotsBefore = null, cutsNeeded = null } = {},
+) {
   const who = listJoin(names);
   // sentenceEnd, not a literal ".": a name can end the sentence with its own
   // period ("…cut Marvin Harrison Jr.").
@@ -675,7 +693,12 @@ export function fitSentence(state, names = [], { tied = false, openSpotsBefore =
     case "resolves_overage":
       return "The trade brings your roster back under the limit. No player cut needed.";
     case "cut_required":
-      return `The trade does not fit as built.${cut || " A player would need to be cut."}`;
+      return `The trade does not fit as built.${
+        cut ||
+        (isNum(cutsNeeded) && cutsNeeded > 1
+          ? ` ${cutsNeeded} players would need to be cut.`
+          : " A player would need to be cut.")
+      }`;
     case "worsens_overage":
       return `Your roster is already over the limit, and this trade adds to it.${cut}`;
     case "reduces_overage":
@@ -723,7 +746,8 @@ export function reasonSentence(reason, { strategy = null, cutNames = [] } = {}) 
       // because the at-a-glance trade value is the gap BEFORE the cut.
       if (isNum(ev.forcedReleaseCost) && ev.forcedReleaseCost > 0 && isNum(ev.netGap)) {
         const who = listJoin(cutNames);
-        const cut = `After the forced cut${who ? ` of ${who}` : ""} (worth about ${formatValue(ev.forcedReleaseCost)})`;
+        const many = cutNames.length > 1;
+        const cut = `After the forced ${many ? "cuts" : "cut"}${who ? ` of ${who}` : ""} (worth ${formatValue(ev.forcedReleaseCost)})`;
         const net = Math.round(ev.netGap);
         if (net < 0)
           return `${cut}, you come out ${formatValue(-net)} behind on trade value${bandTail}${rel}.`;
@@ -796,19 +820,28 @@ export function decisionReasons(decision) {
   // reason on the verdict's own side is shown too, from the decision's own
   // reasons: an independent component first.  Nothing is re-decided.
   if (decision.deciding === "strategy" || main.component === "strategy") {
-    const yes = decision.headline === "YES";
-    const want = yes ? "for" : "against";
     const open = (r) => !used.has(r.component) && r.component !== "strategy";
-    const support =
-      all.find((r) => open(r) && r.kind === "independent" && r.stance === want) ||
-      all.find((r) => open(r) && r.stance === want) ||
-      (decision.headline === "NO_TOO_CLOSE"
-        ? all.find((r) => open(r) && r.kind === "independent" && r.stance === "neutral")
-        : null);
-    if (support) {
-      out.push({ role: yes ? "supportFor" : "supportAgainst", reason: support });
-      used.add(support.component);
+    const take = (role, r) => {
+      if (!r) return;
+      out.push({ role, reason: r });
+      used.add(r.component);
+    };
+    const strongest = (stance) =>
+      all.find((r) => open(r) && r.kind === "independent" && r.stance === stance) ||
+      all.find((r) => open(r) && r.stance === stance);
+    if (decision.headline === "NO_TOO_CLOSE") {
+      // "Too close" has two sides and the backend names no counter for it:
+      // the neutral factor that keeps it close, and the strongest one that
+      // pushes for it -- each labelled by its own stance.
+      take(
+        "keepsClose",
+        all.find((r) => open(r) && r.kind === "independent" && r.stance === "neutral"),
+      );
+      take("supportFor", strongest("for"));
+      return out;
     }
+    const yes = decision.headline === "YES";
+    take(yes ? "supportFor" : "supportAgainst", strongest(yes ? "for" : "against"));
   }
   const counter = decision.mainCounterargument;
   if (counter && !used.has(counter.component)) {
@@ -870,9 +903,12 @@ export function confidenceStatementText(confidence, ctx = {}) {
   const bottleneck = Array.isArray(confidence.bottleneck) ? confidence.bottleneck : [];
   const whys = confidenceLimits(s.statement, bottleneck);
   if (!whys.length) return sentenceEnd(`${s.level}. ${s.detail || ""}`);
+  const valueStance = (ctx.decision?.reasons || []).find(
+    (r) => r?.component === "objectiveValue",
+  )?.stance;
   const parts = bottleneck.map(
     (axis, i) =>
-      `${AXIS_NAMES[axis] || "another part of the evidence"} (${limitClause(axis, whys[i], ctx).text})`,
+      `${AXIS_NAMES[axis] || "another part of the evidence"} (${limitClause(axis, whys[i], { ...ctx, valueStance }).text})`,
   );
   return sentenceEnd(`${s.level} — limited by ${clauseJoin(parts)}`);
 }
@@ -937,6 +973,7 @@ export const REASON_ROLE_WORDS = {
   main: "Biggest reason",
   supportFor: "What pushes for it",
   supportAgainst: "What pushes against it",
+  keepsClose: "What keeps it too close",
   counter: "On the other hand",
   also: "Also",
 };
@@ -949,8 +986,12 @@ const FORMAT_DISPOSITION_WORDS = {
   NATIVE_COMPARABLE: "the same league format as yours",
   VALIDATED_TRANSFORMABLE: "a different format that can be translated to yours",
   BROAD_CONTEXT: "a different or unknown format, shown for context only",
-  TARGET_UNSUPPORTED: "a format that cannot be priced for your league",
 };
+/** TARGET_UNSUPPORTED is not about the format: its reachable causes are an
+ *  unusable trade identity, unresolved assets or an invalid topology
+ *  (TARGET_FORMAT_CENSUS.md), so it is worded on its own. */
+const TARGET_UNSUPPORTED_WORDS =
+  "this trade couldn't be matched cleanly, so it is not priced for your league";
 /** Comparable reasons whose text is fixed prose then asset labels after ": "
  *  (`comparable_trades.py::_reasons`); only the prose is checked -- labels
  *  such as "$5 FAAB" or a player's name are names. */
@@ -965,8 +1006,12 @@ export function comparableReasonText(line) {
   const t = typeof line === "string" ? line.trim() : "";
   if (!t) return null;
   const fmt = /^Format: (\S+)$/.exec(t);
-  if (fmt) return `Format: ${FORMAT_DISPOSITION_WORDS[fmt[1]] || "not stated"}`;
-  // Recency is one word ("today") -- a word, not a code.
+  if (fmt) {
+    if (fmt[1] === "TARGET_UNSUPPORTED") return TARGET_UNSUPPORTED_WORDS;
+    return `Format: ${FORMAT_DISPOSITION_WORDS[fmt[1]] || "not stated"}`;
+  }
+  // Recency: "today", "1 day ago", "9 days ago" -- words, not codes.
+  if (t === "1 days ago") return "1 day ago";
   if (/^(?:today|\d+ days? ago)$/.test(t)) return t;
   const at = t.indexOf(": ");
   const prose = at > 0 && COMPARABLE_LABEL_LISTS.test(t.slice(0, at)) ? t.slice(0, at) : t;
@@ -1036,9 +1081,16 @@ const ROSTER_NOTE_WORDS = [
   [/^league roster size is not configured/i, () => null],
   [
     /^league carries (\d+) taxi slot/i,
-    (m) => ({
-      fit: `Your league has ${m[1]} taxi ${plural(Number(m[1]), "spot", "spots")} and who fills them is not known, so your roster count is a range.`,
-    }),
+    // Only beside an answer the taxi question actually leaves uncertain.
+    (m, ctx) =>
+      ctx.uncertain
+        ? {
+            fit:
+              m[1] === "1"
+                ? "Your league has 1 taxi spot and who fills it is not known, so your roster count is a range."
+                : `Your league has ${m[1]} taxi spots and who fills them is not known, so your roster count is a range.`,
+          }
+        : null,
   ],
   [
     /^(\d+) rostered player\(s\) did not join to the board/i,
@@ -1062,7 +1114,9 @@ const ROSTER_NOTE_WORDS = [
     }),
   ],
   [
-    /^positional scarcity/i,
+    // "positional scarcity unavailable (…)" / "no league key — positional
+    // scarcity inert" (src/draft/context.py::_league_scarcity).
+    /positional scarcity/i,
     () => ({
       detail:
         "Position scarcity is not available, so cut costs do not account for how scarce each position is.",
@@ -1084,16 +1138,30 @@ const ROSTER_NOTE_WORDS = [
   ],
   [
     /^roster is ALREADY (\d+) over the (\d+)-man limit/i,
-    (m) => ({
-      fit: `Your roster is already ${m[1]} over the ${m[2]}-player limit before this trade; the cuts shown include getting back under it.`,
-    }),
+    // What it means depends on THIS trade: cuts that include getting back to
+    // size, a trade that brings it back under, or neither.
+    (m, ctx) => {
+      const over = `Your roster is already ${m[1]} over the ${m[2]}-player limit`;
+      if (ctx.cuts > 0)
+        return { fit: `${over} before this trade; the cuts shown include getting back under it.` };
+      if (ctx.state === "resolves_overage")
+        return { fit: `${over}; this trade brings it back under.` };
+      return { fit: `${over} before this trade.` };
+    },
   ],
   [/^every forced drop scored the same effective cut cost/i, () => null],
   [
     /^cut ladder offers (\d+) release\(s\) but (\d+) are needed/i,
-    (m) => ({
-      fit: `Only ${m[1]} ${plural(Number(m[1]), "cut is", "cuts are")} possible but ${m[2]} ${plural(Number(m[2]), "is", "are")} needed: every remaining player is needed to fill a starting slot.`,
-    }),
+    (m) => {
+      const need = `${m[2]} ${plural(Number(m[2]), "is", "are")} needed`;
+      const can =
+        m[1] === "0"
+          ? `No cut is possible, but ${need}`
+          : `Only ${m[1]} ${plural(Number(m[1]), "cut is", "cuts are")} possible but ${need}`;
+      return {
+        fit: `${can}: every remaining player is needed to fill a starting slot.`,
+      };
+    },
   ],
   [/^roster is empty/i, () => ({ fit: "Your roster is empty, so there is no one to cut." })],
   [
@@ -1106,19 +1174,26 @@ const ROSTER_NOTE_WORDS = [
 ];
 
 /** The feasibility lens' notes as `{ fit: [...], detail: [...] }` plain lines
- *  (deduplicated; see ROSTER_NOTE_WORDS). */
-export function rosterNoteLines(notes) {
+ *  (deduplicated; see ROSTER_NOTE_WORDS).  `detail` is the lens' detail: its
+ *  state, cuts and certainty decide what an overage or taxi note means here. */
+export function rosterNoteLines(notes, detail = {}) {
+  const d = detail || {};
+  const ctx = {
+    state: d.state,
+    cuts: Array.isArray(d.forcedDrops) ? d.forcedDrops.length : 0,
+    uncertain: d.certainty === "partial" || d.requiresDrops == null,
+  };
   const fit = [];
-  const detail = [];
+  const lines = [];
   for (const raw of Array.isArray(notes) ? notes : []) {
     const t = typeof raw === "string" ? raw.trim() : "";
     const hit = ROSTER_NOTE_WORDS.find(([re]) => re.test(t));
     if (!hit) continue;
-    const words = hit[1](t.match(hit[0]));
+    const words = hit[1](t.match(hit[0]), ctx);
     if (words?.fit && !fit.includes(words.fit)) fit.push(words.fit);
-    if (words?.detail && !detail.includes(words.detail)) detail.push(words.detail);
+    if (words?.detail && !lines.includes(words.detail)) lines.push(words.detail);
   }
-  return { fit, detail };
+  return { fit, detail: lines };
 }
 
 // ── At a glance: trade value ──────────────────────────────────────────────
@@ -1225,7 +1300,11 @@ export function rosterFit(lens) {
     ? fitSentence(
         d.state,
         (d.forcedDrops || []).map((x) => x?.name),
-        { tied: d.candidatesTied === true, openSpotsBefore: d.openSpotsBefore },
+        {
+          tied: d.candidatesTied === true,
+          openSpotsBefore: d.openSpotsBefore,
+          cutsNeeded: d.overLimitAfter,
+        },
       )
     : null;
   if (!sentence)
@@ -1301,7 +1380,10 @@ export function simulationExplanation(rosterDetail) {
 const ANALYSIS_ERROR_WORDS = {
   timeout: "it took too long to finish",
   invalid_analysis: "the server's answer did not match this trade",
-  data_not_ready: "this league's data is still loading on the server",
+  data_not_ready: "this league's data is still loading on the server — try again shortly",
+  scoring_incompatible:
+    "this league's scoring isn't compatible with the loaded rankings, so a personalized analysis isn't available",
+  "Request body too large.": "this trade is too large to analyze",
   "No data available yet.": "the server has no player data yet",
   unknown_league: "this league is not available",
   inactive_league: "this league is not available",
@@ -1311,10 +1393,34 @@ const ANALYSIS_ERROR_WORDS = {
   team_not_found: "your team was not found in this league",
 };
 
+/**
+ * The error code for a failed analyze response.  `data_not_ready` covers two
+ * different facts: data still loading (Retry helps) and the scoring-identity
+ * gate (`server.py::_scoring_identity_error` -- the league scores players
+ * differently from the loaded rankings; Retry cannot help).  The gate stamps
+ * the scoring fingerprints and a "not compatible" message, so it is told
+ * apart here as "scoring_incompatible".  The message itself is never shown.
+ */
+export function analysisErrorCode(status, data) {
+  const err = typeof data?.error === "string" ? data.error : null;
+  if (
+    err === "data_not_ready" &&
+    (data.scoringFingerprint !== undefined ||
+      data.loadedScoringFingerprint !== undefined ||
+      /not compatible/i.test(String(data.message || "")))
+  )
+    return "scoring_incompatible";
+  return err || `HTTP ${status}`;
+}
+
+/** Errors Retry cannot fix (a lasting incompatibility). */
+export const ANALYSIS_ERRORS_NO_RETRY = new Set(["scoring_incompatible"]);
+
 export function analysisErrorText(error) {
   const e = typeof error === "string" ? error.trim() : "";
   if (Object.prototype.hasOwnProperty.call(ANALYSIS_ERROR_WORDS, e)) return ANALYSIS_ERROR_WORDS[e];
   if (/^HTTP 401$/.test(e)) return ANALYSIS_ERROR_WORDS.auth_required;
+  if (/^HTTP 413$/.test(e)) return ANALYSIS_ERROR_WORDS["Request body too large."];
   if (/^HTTP 429$/.test(e)) return "too many requests were made — wait a moment, then retry";
   if (/^HTTP 5\d\d$/.test(e)) return "the server had a problem";
   if (/^HTTP 4\d\d$/.test(e)) return "the server refused the request";

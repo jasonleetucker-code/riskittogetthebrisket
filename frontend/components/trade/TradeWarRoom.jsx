@@ -55,9 +55,11 @@ import {
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
 import {
+  ANALYSIS_ERRORS_NO_RETRY,
   POSTURE_LABELS,
   REASON_ROLE_WORDS,
   ROLE_PLAIN_WORDS,
+  analysisErrorCode,
   analysisErrorText,
   argumentLine,
   assumptionLines,
@@ -361,6 +363,7 @@ function Methodology({ analysis, raw }) {
   const confidenceStatement = confidenceStatementText(decision.confidence, {
     rosterLens: analysis.lenses?.roster,
     evidenceLens: analysis.lenses?.evidence,
+    decision,
   });
   const bandsVersion = versionLabel(bands.version);
   const engineVersion = versionLabel(decision.version);
@@ -371,7 +374,8 @@ function Methodology({ analysis, raw }) {
   const roster = analysis.lenses?.roster?.detail || {};
   const basis = roster.basis || {};
   const assumptions = assumptionLines(roster.assumptions, basis);
-  const rosterNotes = rosterNoteLines(analysis.lenses?.feasibility?.detail?.notes);
+  const feasDetail = analysis.lenses?.feasibility?.detail || {};
+  const rosterNotes = rosterNoteLines(feasDetail.notes, feasDetail);
   const ts = roster.teamStrength;
   const posture = postureSummary(analysis.lenses?.posture);
   const comps = comparablesSummary(analysis.lenses?.comparables);
@@ -678,7 +682,7 @@ export default function TradeWarRoom({
         if (!current()) return;
         if (timedOut) return fail("timeout");
         if (controller.signal.aborted) return;
-        if (!res.ok) return fail(data?.error || `HTTP ${res.status}`);
+        if (!res.ok) return fail(analysisErrorCode(res.status, data));
         if (!validAnalyzePayload(data, { leagueKey, useTeamContext }))
           return fail("invalid_analysis");
         setState({ status: "ok", payload: data, error: null, key });
@@ -830,6 +834,7 @@ export default function TradeWarRoom({
     ? confidenceSummary(decision.confidence, {
         rosterLens: analysis.lenses?.roster,
         evidenceLens: analysis.lenses?.evidence,
+        decision,
       })
     : null;
   // Each reason and gap as its plain sentence; one with nothing plain to say
@@ -874,7 +879,12 @@ export default function TradeWarRoom({
         : "Waiting for the analysis.";
   const impact = analysis ? weeklyImpact(analysis.lenses?.roster) : null;
   const fit = analysis ? rosterFit(analysis.lenses?.feasibility) : null;
-  const fitNotes = analysis ? rosterNoteLines(analysis.lenses?.feasibility?.detail?.notes).fit : [];
+  const fitNotes = analysis
+    ? rosterNoteLines(
+        analysis.lenses?.feasibility?.detail?.notes,
+        analysis.lenses?.feasibility?.detail,
+      ).fit
+    : [];
   const pendingWord = failed ? "Unavailable — the analysis did not finish." : null;
 
   const rosterLens = analysis?.lenses?.roster;
@@ -956,9 +966,12 @@ export default function TradeWarRoom({
               No recommendation yet: the personalized analysis did not finish because{" "}
               {analysisErrorText(state.error)}. The trade value below is unaffected.
             </span>{" "}
-            <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
-              Retry
-            </Button>
+            {/* A lasting incompatibility is not fixed by trying again. */}
+            {ANALYSIS_ERRORS_NO_RETRY.has(state.error) ? null : (
+              <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
+                Retry
+              </Button>
+            )}
           </Banner>
         ) : null}
       </div>

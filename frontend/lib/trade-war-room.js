@@ -605,24 +605,44 @@ const SLOT_WORDS = {
   DL_DB: "DL/DB flex",
   DEF: "team defense",
 };
-const POSITION_SLOTS = new Set(["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"]);
+/** Single-position slots: named by their position.  Two-letter positions
+ *  stay as they are; longer ones are words (never an all-caps code). */
+const POSITION_SLOTS = new Set([
+  "QB", "RB", "WR", "TE", "K", "DL", "LB", "DB", "DE", "DT", "NT", "CB", "S", "FS", "SS",
+]);
+const POSITION_SLOT_WORDS = {
+  EDGE: "edge rusher",
+  OLB: "outside linebacker",
+  ILB: "inside linebacker",
+  MLB: "middle linebacker",
+};
+const OTHER_SLOT = "another starting slot";
 
 export function slotWords(slot) {
   const s = String(slot || "").toUpperCase();
   if (SLOT_WORDS[s]) return SLOT_WORDS[s];
-  return POSITION_SLOTS.has(s) ? s : "another starting slot";
+  if (POSITION_SLOT_WORDS[s]) return POSITION_SLOT_WORDS[s];
+  return POSITION_SLOTS.has(s) ? s : OTHER_SLOT;
 }
 
 /** A slot list with repeats counted, in first-seen order:
- *  ["RB","RB","WR","SUPER_FLEX"] -> ["2 RB", "WR", "superflex"]. */
+ *  ["RB","RB","WR","SUPER_FLEX"] -> ["2 RB", "WR", "superflex"].  Slots
+ *  without words are grouped by their own code, never merged with a
+ *  different unknown slot ("2 other starting slots", not "4 another …"). */
 export function countedSlots(slots) {
   const groups = new Map();
   for (const slot of slots || []) {
     const w = slotWords(slot);
-    if (!groups.has(w)) groups.set(w, []);
-    groups.get(w).push(slot);
+    const key = w === OTHER_SLOT ? `code:${String(slot || "").toUpperCase()}` : w;
+    if (!groups.has(key)) groups.set(key, { words: w, members: [] });
+    groups.get(key).members.push(slot);
   }
-  return [...groups].map(([w, members]) => (members.length > 1 ? `${members.length} ${w}` : w));
+  return [...groups.values()].map(({ words, members }) => {
+    if (members.length === 1) return words;
+    return words === OTHER_SLOT
+      ? `${members.length} other starting slots`
+      : `${members.length} ${words}`;
+  });
 }
 
 /**
@@ -646,7 +666,9 @@ export function lineupHolesSummary(rosterDetail) {
     ? Object.entries(bySlot)
         .filter(([, v]) => typeof v === "number" && v > 0)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([slot, v]) => `${slotWords(slot)} ${v.toFixed(1)}`)
+        // Under 0.05 would round to "0.0" beside a slot that IS sometimes
+        // empty: say "<0.1" instead.
+        .map(([slot, v]) => `${slotWords(slot)} ${v < 0.05 ? "<0.1" : v.toFixed(1)}`)
         .join(" · ")
     : null;
   return {

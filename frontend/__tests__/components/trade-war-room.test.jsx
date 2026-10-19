@@ -50,6 +50,7 @@ import KTC_ROLLBACK from "../fixtures/trade-war-room/ktc-rollback.json";
 import COMPARABLES from "../fixtures/trade-war-room/comparables-formats.json";
 import OUTGOING_NOT_HELD from "../fixtures/trade-war-room/outgoing-not-held.json";
 import OVER_LIMIT from "../fixtures/trade-war-room/over-limit.json";
+import TOO_CLOSE from "../fixtures/trade-war-room/too-close-strategy.json";
 import AJ_BROWN from "../fixtures/trade-war-room-mock/aj-brown-herbert.json";
 
 const req = (fixture) => ({ ...fixture._fixture.request, mySide: 0 });
@@ -727,6 +728,7 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
       COMPARABLES,
       OUTGOING_NOT_HELD,
       OVER_LIMIT,
+      TOO_CLOSE,
     ];
     for (const fixture of fixtures) {
       const view = await renderWith(fixture);
@@ -765,16 +767,46 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
       );
       tab.unmount();
     }
-  });
+  }, 60_000);
 
   it("a strategy-decided NO says, at a glance, what pushed against it (real output)", async () => {
     await renderWith(STRATEGY_CUT_NO);
     const items = within(screen.getByTestId("decision-reasons")).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
       "Biggest reason: Your strategy decided it: long-term value — your choice; your team reads as a contender.",
-      "What pushes against it: After the forced cut of RB Bench One (worth about 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
+      "What pushes against it: After the forced cut of RB Bench One (worth 3,000), you come out 1,426 behind on trade value — an unfair gap against you (13.8% of the larger package).",
       "On the other hand: Your projected weekly lineup gets much stronger.",
     ]);
+  });
+
+  it("a strategy-decided NO — TOO CLOSE shows what keeps it close and what pushes for it", async () => {
+    // REAL output: value neutral, lineup modestly better, long-term strategy;
+    // the backend names no counter for a too-close answer.
+    const d = TOO_CLOSE.analysis.decision;
+    expect([d.headline, d.deciding, d.mainCounterargument]).toEqual([
+      "NO_TOO_CLOSE",
+      "strategy",
+      null,
+    ]);
+    await renderWith(TOO_CLOSE);
+    const items = within(screen.getByTestId("decision-reasons")).getAllByRole("listitem");
+    expect(
+      items.map((li) => [li.getAttribute("data-role"), li.getAttribute("data-stance")]),
+    ).toEqual([
+      ["main", "context"],
+      ["keepsClose", "neutral"],
+      ["supportFor", "for"],
+    ]);
+    expect(items[1].textContent).toMatch(/^What keeps it too close: Trade value is close to even/);
+    expect(items[2].textContent).toBe(
+      "What pushes for it: Your projected weekly lineup gets stronger.",
+    );
+    // "point different ways" is false when value is neutral.
+    const conf = readText(screen.getByTestId("decision-confidence"));
+    expect(conf).toContain(
+      "your strategy decided between a close trade value and the lineup effect",
+    );
+    expect(conf).not.toMatch(/point different ways/);
   });
 
   it("comparable trades read in words; the format disposition is explained (real reasons)", async () => {
@@ -783,7 +815,9 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     const text = readText(document.body);
     expect(text).toContain("Format: the same league format as yours");
     expect(text).toContain("Format: a different or unknown format, shown for context only");
-    expect(text).toContain("Format: a format that cannot be priced for your league");
+    expect(text).toContain(
+      "this trade couldn't be matched cleanly, so it is not priced for your league",
+    );
     expect(text).toContain("Same asset: WR Buf Star, $5 FAAB");
     expect(text).not.toMatch(/NATIVE_COMPARABLE|BROAD_CONTEXT|TARGET_UNSUPPORTED/);
   });
@@ -822,7 +856,24 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
       [404, { error: "team_not_found" }, "your team was not found in this league"],
       [404, { error: "no_leagues_configured" }, "no league is set up on the server"],
       [503, { error: "No data available yet." }, "the server has no player data yet"],
-      [503, { error: "data_not_ready" }, "this league's data is still loading on the server"],
+      [
+        503,
+        { error: "data_not_ready" },
+        "this league's data is still loading on the server — try again shortly",
+      ],
+      // The scoring-identity gate (`_scoring_identity_error`): a lasting
+      // incompatibility, never "still loading".
+      [
+        503,
+        {
+          error: "data_not_ready",
+          message: "Rankings are not compatible: league 'x' scores players differently.",
+          scoringFingerprint: "sf1:a",
+          loadedScoringFingerprint: "sf1:b",
+        },
+        "this league's scoring isn't compatible with the loaded rankings, so a personalized analysis isn't available",
+      ],
+      [413, { error: "Request body too large." }, "this trade is too large to analyze"],
       [400, { error: "unknown_league" }, "this league is not available"],
       [502, {}, "the server had a problem"],
       [500, { error: "Traceback (most recent call last)" }, "something went wrong"],
@@ -840,6 +891,10 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
       const banner = screen.getByTestId("war-room-error").textContent;
       expect(banner, `${status} ${JSON.stringify(body)}`).toContain(`because ${words}.`);
       expect(banner).not.toMatch(/auth_required|invalid_body|team_not_found|no_leagues|HTTP|\(|_/);
+      // Retry is offered unless trying again cannot help.
+      expect(screen.queryByRole("button", { name: "Retry" }) === null).toBe(
+        body.scoringFingerprint !== undefined,
+      );
       view.unmount();
     }
   });

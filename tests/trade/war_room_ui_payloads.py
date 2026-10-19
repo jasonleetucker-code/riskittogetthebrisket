@@ -46,6 +46,8 @@ PPG = {
     "te free": 6.0,
     "wr buf star": 19.0,
     "rb buf depth": 4.0,
+    # Only on the roster `add_wr_mid` builds (the too-close-strategy scenario).
+    "wr mid": 10.5,
 }
 
 #: name -> (players_in, players_out, picks_in, picks_out, team_context, with_team, description)
@@ -168,6 +170,16 @@ SCENARIOS: dict[str, tuple] = {
         "format disposition; each reason line is written by the real "
         "comparable_trades._reasons.",
     ),
+    "too-close-strategy": (
+        ["WR Mid"],
+        ["WR Phi"],
+        [],
+        [],
+        True,
+        True,
+        "Long-term strategy, a near-even 1-for-1 that improves the lineup modestly "
+        "(LABELLED synthetic WR Mid): the strategy decides NO — TOO CLOSE.",
+    ),
     "over-limit": (
         ["WR Buf Star"],
         ["WR Kc"],
@@ -207,6 +219,7 @@ SCENARIO_OPTIONS: dict[str, dict] = {
     },
     "ktc-rollback": {"package_model": "ktc_2026_04"},
     "over-limit": {"contract_edit": "over_limit_roster"},
+    "too-close-strategy": {"team_goal": "LONG_TERM", "contract_edit": "add_wr_mid"},
     "comparables-formats": {"comparables": "one_per_disposition"},
 }
 
@@ -315,9 +328,21 @@ def _over_limit_roster(contract: dict) -> dict:
     return contract
 
 
+def _add_wr_mid(contract: dict) -> dict:
+    """LABELLED: a WR on the other roster valued 50 above WR Phi."""
+    from tests.api.test_trade_nfl_exposure import _row
+
+    contract["playersArray"].append(_row("WR Mid", 2050.0, "WR", "SEA"))
+    them = contract["sleeper"]["teams"][1]
+    them["players"] = [*them["players"], "WR Mid"]
+    them["playerIds"] = [n.lower() for n in them["players"]]
+    return contract
+
+
 _CONTRACT_EDITS = {
     "full_valuable_roster": _full_valuable_roster,
     "over_limit_roster": _over_limit_roster,
+    "add_wr_mid": _add_wr_mid,
 }
 
 

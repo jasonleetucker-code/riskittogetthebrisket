@@ -76,3 +76,7 @@ def test_fixtures_cover_the_states_the_ui_renders():
     assert any("free no spot" in n for n in notes)
     notes = load["over-limit"]["analysis"]["lenses"]["feasibility"]["detail"]["notes"]
     assert any(n.startswith("roster is ALREADY") for n in notes)
+    # A strategy-decided NO_TOO_CLOSE: neutral value, lineup gain, no counter.
+    close = load["too-close-strategy"]["analysis"]["decision"]
+    assert (close["headline"], close["deciding"]) == ("NO_TOO_CLOSE", "strategy")
+    assert close["mainCounterargument"] is None
