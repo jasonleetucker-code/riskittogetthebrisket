@@ -31,6 +31,7 @@ import {
   stateText,
 } from "@/lib/manager-scout";
 import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
+import { rememberHistoryOrigin } from "@/lib/trade-history-origin";
 import { useTradeAsofGrades } from "@/components/useTradeAsofGrades";
 import {
   AGING,
@@ -429,7 +430,7 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
   // Build a /trade?share=... href so clicking pre-loads the calculator.
   // Each calculator side mirrors what that team RECEIVED — the natural
   // "show me this as a 2-team deal" visualization.
-  const shareHref = useMemo(() => {
+  const shareEncoded = useMemo(() => {
     try {
       const sides = (a.sides || []).map((side) => ({
         name: String(side?.team || "").slice(0, 40),
@@ -440,11 +441,12 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
       if (sides.length < 2 || sides.every((s) => s.players.length === 0)) {
         return null;
       }
-      return `/trade?${SHARE_PARAM}=${encodeTrade({ sides })}`;
+      return encodeTrade({ sides });
     } catch {
       return null;
     }
   }, [a.sides]);
+  const shareHref = shareEncoded ? `/trade?${SHARE_PARAM}=${shareEncoded}` : null;
 
   const body = (
     <>
@@ -543,6 +545,10 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
       <Panel
         as={Link}
         href={shareHref}
+        // TC-B2 / TCM-N03: the calculator opens this completed trade in LIVE
+        // mode and must say so.  A same-tab hand-off, never a URL change
+        // (the share-link format is frozen, owner closeout 2026-10-18).
+        onClick={() => rememberHistoryOrigin(shareEncoded, a.combined ? null : a.date)}
         className={`${entryClass} ${styles.entryLink}`}
         aria-label={`Open the ${a.sides.map((s) => s.team).join(" / ")} trade in the calculator`}
       >

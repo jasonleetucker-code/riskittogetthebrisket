@@ -171,6 +171,16 @@ Binding within their subject; implementation authority remains `docs/EXECUTION_P
 - `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` — Signals integration (owner directive 2026-09-30, ACTIVE addendum
   2026-10-03; IDP held behind its preregistered gate).
 
+### Owner decision records (2026-10-18 closeout)
+Records of owner decisions and their live status; they authorize nothing (`docs/EXECUTION_PLAN.md` §0 does) and do
+not replace the intake ledger (`docs/OWNER_REQUESTED_TODO.md`).
+- `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md` — the owner's binding D1–D20 directive, verbatim.
+- `docs/owner/OWNER_DECISION_REGISTER.md` — consolidated register of every previously open or stale owner
+  decision, one row each, with live status (DECIDED / DEPLOYED / EVIDENCE_PENDING / HUMAN_ACTION_REQUIRED /
+  OWNER_PAUSED …).
+- `docs/owner/RESIDUAL_BLOCKERS_2026-10-18.md` — what stays genuinely blocked (draft; refreshed at campaign close).
+- `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md` — administrator-only procedures (D18 / D19 / D20).
+
 ### Design, performance, policy
 - `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` — Direction A, the permanent visual direction *(#809)*
 - `docs/GLOBAL_PERFORMANCE_STANDARD.md` — 1 s warm / 3 s cold / 2 s p95 / **5 s failure ceiling** *(#809)*

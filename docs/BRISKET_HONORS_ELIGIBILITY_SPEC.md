@@ -20,6 +20,16 @@
 > "Manager of the Year is NOT superseded". Recorded in `docs/OWNER_REQUESTED_TODO.md` ("Owner correction — award
 > record eligibility is .500 OR BETTER", 2026-09-29), where the owner restated it. The unified method itself is a validation track (PR #1513), not a
 > promoted award; `main`'s current Manager of the Year composite has no eligibility gate.
+>
+> **Owner decision 2026-10-18 (D12, `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`):** unified Manager of the
+> Year stays a clearly labelled **validation-only candidate** for 2024, 2025 and 2026; the official method and
+> display are unchanged. Interim rules: approved weights unchanged; an unavailable trade component is `UNAVAILABLE`
+> and its weight is never redistributed; no definitive 100-point score from incomplete evidence (component evidence
+> and outcome ranges instead); partial waiver/draft evidence is marked partial or unavailable; no penalty for
+> rebuilding or legitimate no-trade seasons; only decision-time-knowable values; prior-period or out-of-sample draft
+> expectations; FAAB unpriced without a defensible point-in-time conversion; unknown dropped-player production stays
+> unknown. **Earliest potentially eligible official season: 2027**, through complete evidence and normal promotion
+> gates.
 
 > **OWNER DECISION — 2026-09-26 (binding; supersedes the 2026-08-14 amendment below).** League MVP
 > **requires meaningful team success**: this document's §3 (live) and §4 (finalized) gate is the canonical rule

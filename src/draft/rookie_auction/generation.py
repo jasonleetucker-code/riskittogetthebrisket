@@ -427,8 +427,9 @@ def rookie_ladder(
     formula's own precision) as floats — the quantity ``/draft``'s pre-draft
     ladder always published.  Refused (``dollars: None`` + reason) for an
     unconfigured league, a list that is not exactly the formula's 72 picks, a
-    non-positive value, or a class whose spine is not on file — never a
-    flat-spine curve, never a curve stretched over fewer picks, never $0.
+    non-positive value, a list that is not ranked (a value rises), or a class
+    whose spine is not on file — never a flat-spine curve, never a curve
+    stretched over fewer picks, never a misattributed price, never $0.
     """
     key = str(league_key) if league_key else ""
     year = int(draft_year)
@@ -469,6 +470,14 @@ def rookie_ladder(
         OSError,
     ) as exc:
         return refused(f"curve_unavailable:{type(exc).__name__}:{exc}")
+    # The ladder maps the i-th listed rookie to pick i's dollars, so the list
+    # must be RANKED (best first).  A value that rises would hand a weaker
+    # rookie a stronger pick's price: refused, never misattributed (Batch G
+    # adversarial case; the live pool is sorted by value, so it never fires there).
+    ranked = [row.rookie_value for row in result.rows]
+    for i in range(1, len(ranked)):
+        if ranked[i] > ranked[i - 1]:
+            return refused(f"inputs_not_ranked:value_rises_at_{i + 1}")
     dollars = tuple(float(d) for d in result.reference_dollars)
     return RookieLadder(
         dollars,

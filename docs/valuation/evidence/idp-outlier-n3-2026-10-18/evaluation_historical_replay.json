@@ -1,0 +1,1703 @@
+{
+ "dataset": {
+  "codeSha": {
+   "58161d8e02a7585277cc177e3ccfe01baf65711f": 105
+  },
+  "completeExpected": 105,
+  "completeRecorded": 105,
+  "payloadSha256": [
+   "001a08b8ebdaa5db85613d4917cc2b034fd5f084d74d48761b5b73d7d6e32c3d",
+   "01e141f7cbe69ac9e1027e8c218ca8c995d589b66cf74ec19e4d15decd920380",
+   "03efa6ac49a198cd6e3d6c9a916f08243f05efd9c6a5275f64178ac64ad333e7",
+   "05a13243ddbab937cc84d305d224d9ce806ddae569e214bbf037839a2340dba6",
+   "0734ed6ed48eb041d26b8c18a5d3dc3f46d2d31098d69c314212bfb7800ccb4f",
+   "09450ebb357f569840e4beb6712da39420b7e25cc9f7e7e291cd22b72bf8ab94",
+   "0dd09ed655764171d7ab892f8874979cc00774490a6a195a28c8d88b2c4d3b4b",
+   "10a4958d401089701315f8a199c8ba0911a5efeac57fb33cbd489f47307d29f6",
+   "11ab5a08e41ae101c0f266db840c611cee94a540da547b4ab5afc2674e7b6280",
+   "1ad92cf9f3f4d6508b9f8644b0cc7a8ab98dc900e53812dc2201068e2ca6173d",
+   "1b614ce0e19263a37aa2a46ac1e6d207bf279980f3adfbb51f14e6033d84a1ba",
+   "1c738b865f0bf074c3dddff1f7eb446707ebf95f21bb1bc2b019c9f28e8dd32c",
+   "1ccda26602b951d96c448ad73894656865e5505f5037522e1888e9b77a5aaf84",
+   "1f08e8dc2c95e56a16587fe7a8408e9aa076a848d3d4c7965e2d8d0ebb11fcec",
+   "211406b1ff654a66fddcd4d30a2d415ac0b11199a5210898fa1ff8b1f49996ef",
+   "2292262d8677876a3530db504c66348af3b8529339bb9b9a99b397a3ba19fbae",
+   "24237846c06bb9cdb6052dc43146bc031ec6ee5cce09dfb5f3b92394f7925960",
+   "258da4803f571cc1daeab4069edb6afdd50261828c908769ad71aca615795425",
+   "2ba0af9bbdbceaa17cbd5ea70fd5d2aa0904987f9daa5a320b4643b3458b89f2",
+   "2bc9aad08119d2753753359917c7d3afced42ba1016559724ed678c95f76cf98",
+   "2e818bde6469c6011044ce90e29d90221f32870e06cfe6b18a8aeddc8a646fa6",
+   "2fd1d10edcab6e94ea2ef6661dc0fc49ec42233f2613bfc0f1e34fa14b42c3bc",
+   "3389cb1a38e905425a1f54355a555beabc8786461ca97d966c23b9e653fb5ba8",
+   "342722c19c8e5a16e97289489f763b25eaf2db52242e49179c907f7f62479189",
+   "3b37c1fbb960d5fac7558876a1177a19fd7c2d7402a4a85ef2fb71b92a171731",
+   "3cb41ec32851419f7292a07f5082841ccabadf7d361f9ab9c6cd44fe05202692",
+   "3dbacc83d46397a7daac7e79ade09673e0dd6559113842296bdae8fe7f17a555",
+   "4011f101a3e66a564f3eede8ce8d91ff97c7274ab2307639acd986dab1170d49",
+   "447051a1204e2468253440c48e98042110ab9478d2424087ef375fb8851a268f",
+   "4490bd25819df4705a233135c92ab4ca23d093142621e4dc2082299a3089ce9a",
+   "4527b447e6c5f9a7df8801ade5245c94adb842da7bcf800d57943105a61bf9a0",
+   "4547fdea4e13709f154ac870801b357d52ca3d27cb86abfa140b9d3277b81fc6",
+   "469491be95f6688ee97e2a509cf93a9d6e8b3db694e901b9dad01e66b22790c0",
+   "48755cd4871efdf9d6f6a624579cbb088024daaf185bfa90edfe0eb84baa76c4",
+   "4b21e04bc4eb1320539aae25637cab79fbe75f70a5836b85d9cf4429c57bc92d",
+   "4bedacb3ffe77902322bd92ba8b3d5ed8627c2d1023d0cb7b5872a494e467d90",
+   "4e74e94ccefe56cb745e9228587e6d6a1e9dfc603a0df707c1405074956e771d",
+   "534c986bbf6c0836fcf7d9926d7876916ae32f04f673573a1838be855f0546fe",
+   "54efec9331611aa0ee8ab141f340490a8a51692fb4c05d723cfe248884565142",
+   "587c67f7d264849e1d19954bfa7b45a49d6b51229f644cc2cf01cfa63a39b77f",
+   "58f071180f55487500379d47844c6921c58f7a6a4db5f11c40322102912c2b59",
+   "5b03d4b220b57e4115be45170460b1c854edc25d3ac4adfb48fc834dbd06f48f",
+   "5d0b57c297484e1f5fb1cdf0dca046121ccc2e94b8f7714d44850a00c6dd435a",
+   "5e9cab19f266045b4babb22a92eacbb13f9972d665aed3743ae07c6dce6ef90f",
+   "603119f5375d64d1caa7735e67f5e9f318a0306bf961115ca6bcc6cd0971e489",
+   "651c78cffbc2f038b29c9144b9e2bb552821752cb96209e296905c509de298ec",
+   "670ad9143816f1740645640807865f71c5163bda74766cda8723aad9c814088c",
+   "6a172bb2ac728c4d3d182beef0b458b196c971ae4dfaf8bc3f0408778731a617",
+   "6cee0f99ced4e13e74a2b4696ac60bd1594b4c5f9711a986a1b80dc067c17a99",
+   "6e9547db628954c245956dda45df7df54915403f294580525fb4072c8c5dcc94",
+   "6ef77581bd5bac784589a6568aac74b70f3e67d782a0454bb6eb84e631979028",
+   "70eb7761324f3de9e9931a8e2b4195752bd76ccb72f1a1ac0a32a6be5194176f",
+   "70f621f5bd22977ca20b00d571a36805a2e9fa715ff315a69fe62e55f2b4a04e",
+   "71518753c3817cb7ef9807ba857950ca05d3071d7d0d225e679ad4da072217cf",
+   "754ca122bbe91931a6d42229477da9f971b5ee4e48befaf904c9ad55d29e9341",
+   "75c253c8e80fbc386355c73116d0f8e5efdccb6e25f08b34a7d68cf6ed271ddf",
+   "78e6e2d165f40b01f8b2db18763686eae702a71fe5079aa7611784119ff109c0",
+   "7903d55c127eeb75cd0b12b7a6d13254209f215dbf202e636cdb39bbe91e73b4",
+   "7ad71fbe353eb08e2d70e18f8b8fa01cdb6a163b01bb56fff6b3d467c273de2f",
+   "8322f111cf9a8f38053807783f4cf03af155f598073a6f80aa35e955c222bb54",
+   "85184786bb8c44092f4e4aa6942046a9f75b060fd749fa6d086597e3052150b4",
+   "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f",
+   "8f609d137e8ee511277089cb22ed9ae9900e50ad40a68a38c04ab7c55735193b",
+   "9582324eea23a009db22b10ace303405917ccfbc155d94031d6bb030193a35d5",
+   "963fa8901f1577aee2d6000569296ee9c3270bbfeda63694713e916023ef01c9",
+   "97f20ca60c77d580f454c76ff55b6b828e21923a8cc241314a615eaae3081ba0",
+   "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e",
+   "989dcf54e0ec583123795a60aa795dbb76710b8aa7332ba5b2f85ea6c6373675",
+   "996f1a50ff60d0bbae3d582963538b6bdc44f01bf1018409e337e539d957f687",
+   "9f5c8a1a066efe4dda62677249071051410e2e5af75c17b292f62b526220c431",
+   "9f7579ccc5f8da9de0b71d034e06bced965d7342c1abbee873c272263fc8e576",
+   "a4e05e2ff730990023d817ea0a303d738e56ff52eae8251293124f2d8d690f7d",
+   "a582833692dc312fe91866cefd90ba688c09b37e341540658f6d3ce4a3babe0e",
+   "a58323d6616838f3e2c056091e2457c06e99e837abd8ddf4d195a8c56e61fdef",
+   "a748e0e46571056618a2bb1b89d2906f900c981a1fcc8a1114d7058b061194c2",
+   "a7ae69c131875e393235f200a060d6a676797189db8bc3f42b785f2aa3f99dd8",
+   "a9c5c619b9a88410b30972e96221853f288a38c607b9e4a0d796463ee764b1eb",
+   "a9f48c23ca7040b38aa3965ec95c5ec4d33072c5b959ba2800677cf3e31be0c2",
+   "aeba4262f675b130117919d7e0823575f085de4a87d44cb473cee9fbbf045741",
+   "bd780c51e815ecedd79a1aed72b843c6bacc6f6a945b39b693b57f26b2f11665",
+   "c7e620b967442b15b7d18cd925f1a9bd02ab61e9553613e85fb983b4ae31e0d5",
+   "ccdc6194cb923a987ccef77aef7c6f5a8b26826f7214af2f79080a23e37b8fc8",
+   "cd3088b73b6c8fb13af32ba5f2f04cdc16b182f909501fcf0aaf241410b00014",
+   "d0025d49b3ec35c4b3057f556d08c9e9606cdf1f8b45267cfa9ce4b895c70fa3",
+   "d03fcaefd8bd6ae8b1c2bb1feb372d07fb666011f8f0c2db7c93bcecabbb878b",
+   "d6c94e21117a4d7f660938bec7012ab0a715f143d1d2bf1f74d7ba466abc5e4d",
+   "d7ac909f73779a6f584b0bcff6387945bfc70389324b31d32b988edcd4e79c76",
+   "d864d24ffccc0f6c9b72be24a5b360ec6c44cb2088f3e3cfa710607430753f9f",
+   "e17a5c6851f60b5f0e51308b0a99e9354aa59b84cccae725cbc936cab0bc0f0e",
+   "e32707365a3ced741fb1e7a84e3afce418fcefb17f5d993e8b33f9e4d6f24608",
+   "e419728a3d23f50dbf3aa1fdd44186d1cfa80e043189ce97fe9c39958b75ac2c",
+   "e4cfa70d9b8511a751003cf5c6c679666d38868d6d9ab5b6de0713333f308314",
+   "e86c63a91efa7c35605263b8516ae79d78b509bd8ddb474033bdcfa541642be4",
+   "e9b851e7a72e1ddbb9ad11598606b21e5d381aac8cba1d18532ef82d4fe14cf4",
+   "e9d0018852fcd2e70cd74cc8799ffe57f5a1ff00985b1b7cd739df313734e447",
+   "eb1a1551e981d0c13dfd15ea2e63eca5ca65ffd12208d7cb98e864ba6e9a7cc8",
+   "ecb2a9c51a3ce331675242202b73068f4877d95b9494de899071cc6ff736886d",
+   "f4f79bd22660a43da7aa19c410f985af913fb9b306bc6677b5489f49e68eada4",
+   "f67de0cd51ea8f8882aa658856117259cd695d4107d65e7473805230ac458a86",
+   "f8db7292de8682e7eee7014fefc2fb8b06f50d394e28e953315bfaacc54feb2d",
+   "f923ab8cfc28463bfdc8e63f27307f413ef3f9bc6a34611a7c79df2f605ac3f5",
+   "faceb098971d44c1b6355e65ac80d55c80216a3b3881a8d79d1a90bd2835b7a8",
+   "fb2ee412bd686725f8279ac375db68fb8874d0748b53b0bb73234b375ff0dff1",
+   "fd0441739ff7e78fc121841b30640266d425bfe7f52dc56a8ee290666f121153",
+   "ff84ac0d518949d6111fb1f601b553bd26f1901489a76db0c26ac63e8cdafb91"
+  ],
+  "records": 105,
+  "workingTreeDirty": {
+   "False": 105
+  }
+ },
+ "decision": {
+  "minimumSample": {
+   "blocks": [
+    3,
+    4
+   ],
+   "evaluable": [
+    117,
+    30
+   ],
+   "met": false,
+   "originDays": [
+    17,
+    10
+   ]
+  },
+  "secondaryNegative": 0,
+  "verdict": "INSUFFICIENT"
+ },
+ "diagnostics": {
+  "D1_dropCensus": {
+   "byConsensusRankBand": {
+    "1-200": 535,
+    "201-400": 459,
+    "401-800": 53,
+    "unranked": 14
+   },
+   "byFamily": {
+    "DB": 126,
+    "DL": 580,
+    "LB": 355
+   },
+   "bySource": {
+    "draftSharksIdp": 450,
+    "fantasyProsIdp": 298,
+    "idpTradeCalc": 313
+   }
+  },
+  "D4_largestMovesNewestBoard": {
+   "board": "dynasty_export_20261018_114711.zip",
+   "moves": [
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 49,
+       "v": 2657.0
+      },
+      "dlfRookieIdp": {
+       "excluded": null,
+       "rawRank": 10,
+       "v": 2054.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": -0.4038,
+     "pos": "LB",
+     "row": "CJ Allen",
+     "vCh": 2125.0,
+     "vInc": 3564.0,
+     "votes": {
+      "draftSharksIdp": 5741.0,
+      "fantasyProsIdp": 2095.0,
+      "idpTradeCalc": 2129.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 6,
+       "v": 4811.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.3702,
+     "pos": "DL",
+     "row": "Abdul Carter",
+     "vCh": 2494.0,
+     "vInc": 3960.0,
+     "votes": {
+      "draftSharksIdp": 2486.0,
+      "fantasyProsIdp": 2568.0,
+      "idpTradeCalc": 5409.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 11,
+       "v": 3721.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.3537,
+     "pos": "DL",
+     "row": "Myles Garrett",
+     "vCh": 5331.0,
+     "vInc": 3938.0,
+     "votes": {
+      "draftSharksIdp": 1902.0,
+      "fantasyProsIdp": 4726.0,
+      "idpTradeCalc": 5399.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 27,
+       "v": 3171.0
+      },
+      "dlfRookieIdp": {
+       "excluded": null,
+       "rawRank": 5,
+       "v": 3283.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.337,
+     "pos": "LB",
+     "row": "Josiah Trotter",
+     "vCh": 1696.0,
+     "vInc": 2558.0,
+     "votes": {
+      "draftSharksIdp": 1677.0,
+      "fantasyProsIdp": 1868.0,
+      "idpTradeCalc": 3396.0
+     }
+    },
+    {
+     "dlf": {},
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": -0.3312,
+     "pos": "DB",
+     "row": "Kool-Aid McKinstry",
+     "vCh": 1254.0,
+     "vInc": 1875.0,
+     "votes": {
+      "draftSharksIdp": 2783.0,
+      "fantasyProsIdp": 1524.0,
+      "idpTradeCalc": 1225.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 13,
+       "v": 3677.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.319,
+     "pos": "DL",
+     "row": "Dallas Turner",
+     "vCh": 2754.0,
+     "vInc": 4044.0,
+     "votes": {
+      "draftSharksIdp": 2848.0,
+      "fantasyProsIdp": 1916.0,
+      "idpTradeCalc": 5419.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 25,
+       "v": 3283.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.3059,
+     "pos": "DL",
+     "row": "T.J. Watt",
+     "vCh": 3415.0,
+     "vInc": 2615.0,
+     "votes": {
+      "draftSharksIdp": 1451.0,
+      "fantasyProsIdp": 3033.0,
+      "idpTradeCalc": 3458.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 73,
+       "v": 2007.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.3016,
+     "pos": "DL",
+     "row": "Nick Herbig",
+     "vCh": 1621.0,
+     "vInc": 2321.0,
+     "votes": {
+      "draftSharksIdp": 1604.0,
+      "fantasyProsIdp": 1780.0,
+      "idpTradeCalc": 2999.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 40,
+       "v": 2804.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.2661,
+     "pos": "DL",
+     "row": "Josh Hines-Allen",
+     "vCh": 2077.0,
+     "vInc": 2830.0,
+     "votes": {
+      "draftSharksIdp": 2095.0,
+      "fantasyProsIdp": 1916.0,
+      "idpTradeCalc": 3596.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 1,
+       "v": 6227.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.2625,
+     "pos": "DL",
+     "row": "Will Anderson",
+     "vCh": 5926.0,
+     "vInc": 4694.0,
+     "votes": {
+      "draftSharksIdp": 2870.0,
+      "fantasyProsIdp": 5603.0,
+      "idpTradeCalc": 5963.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 60,
+       "v": 2540.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.2578,
+     "pos": "DL",
+     "row": "Jaelan Phillips",
+     "vCh": 1845.0,
+     "vInc": 2486.0,
+     "votes": {
+      "draftSharksIdp": 1850.0,
+      "fantasyProsIdp": 1808.0,
+      "idpTradeCalc": 3127.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 1,
+       "v": 6227.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.2538,
+     "pos": "DL",
+     "row": "Aidan Hutchinson",
+     "vCh": 6422.0,
+     "vInc": 5122.0,
+     "votes": {
+      "draftSharksIdp": 3181.0,
+      "fantasyProsIdp": 6227.0,
+      "idpTradeCalc": 6444.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 78,
+       "v": 1979.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": -0.2438,
+     "pos": "LB",
+     "row": "Barrett Carter",
+     "vCh": 2038.0,
+     "vInc": 2695.0,
+     "votes": {
+      "draftSharksIdp": 3706.0,
+      "fantasyProsIdp": 1876.0,
+      "idpTradeCalc": 2056.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 90,
+       "v": 1913.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.2378,
+     "pos": "DL",
+     "row": "Andrew Van Ginkel",
+     "vCh": 2988.0,
+     "vInc": 2414.0,
+     "votes": {
+      "draftSharksIdp": 1580.0,
+      "fantasyProsIdp": 2702.0,
+      "idpTradeCalc": 3020.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 28,
+       "v": 3132.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.234,
+     "pos": "DL",
+     "row": "Laiatu Latu",
+     "vCh": 2183.0,
+     "vInc": 2850.0,
+     "votes": {
+      "draftSharksIdp": 2197.0,
+      "fantasyProsIdp": 2064.0,
+      "idpTradeCalc": 3527.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 46,
+       "v": 2702.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.2285,
+     "pos": "DL",
+     "row": "Danielle Hunter",
+     "vCh": 3059.0,
+     "vInc": 2490.0,
+     "votes": {
+      "draftSharksIdp": 1641.0,
+      "fantasyProsIdp": 2982.0,
+      "idpTradeCalc": 3068.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 71,
+       "v": 2016.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.2237,
+     "pos": "DB",
+     "row": "Derwin James",
+     "vCh": 2965.0,
+     "vInc": 2423.0,
+     "votes": {
+      "draftSharksIdp": 1631.0,
+      "fantasyProsIdp": 2749.0,
+      "idpTradeCalc": 2989.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 9,
+       "v": 4698.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": 0.2228,
+     "pos": "DL",
+     "row": "Nick Bosa",
+     "vCh": 3479.0,
+     "vInc": 2845.0,
+     "votes": {
+      "draftSharksIdp": 1900.0,
+      "fantasyProsIdp": 3371.0,
+      "idpTradeCalc": 3492.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 76,
+       "v": 1988.0
+      }
+     },
+     "dropped": [
+      "idpTradeCalc"
+     ],
+     "move": -0.21,
+     "pos": "DL",
+     "row": "Jonathan Greenard",
+     "vCh": 1911.0,
+     "vInc": 2419.0,
+     "votes": {
+      "draftSharksIdp": 1927.0,
+      "fantasyProsIdp": 1771.0,
+      "idpTradeCalc": 2940.0
+     }
+    },
+    {
+     "dlf": {
+      "dlfIdp": {
+       "excluded": null,
+       "rawRank": 72,
+       "v": 2010.0
+      }
+     },
+     "dropped": [
+      "draftSharksIdp"
+     ],
+     "move": -0.2046,
+     "pos": "LB",
+     "row": "Patrick Queen",
+     "vCh": 1967.0,
+     "vInc": 2473.0,
+     "votes": {
+      "draftSharksIdp": 3241.0,
+      "fantasyProsIdp": 1922.0,
+      "idpTradeCalc": 1973.0
+     }
+    }
+   ]
+  },
+  "perBoard": [
+   {
+    "archive": "dynasty_export_20260818_230211.zip",
+    "challengerOnlyDrops": 36,
+    "idpRows": 396,
+    "n3Rows": 172,
+    "nGe4Rows": 0,
+    "rowsMoved": 36
+   },
+   {
+    "archive": "dynasty_export_20260819_230341.zip",
+    "challengerOnlyDrops": 36,
+    "idpRows": 396,
+    "n3Rows": 172,
+    "nGe4Rows": 0,
+    "rowsMoved": 36
+   },
+   {
+    "archive": "dynasty_export_20260820_230504.zip",
+    "challengerOnlyDrops": 34,
+    "idpRows": 398,
+    "n3Rows": 171,
+    "nGe4Rows": 0,
+    "rowsMoved": 34
+   },
+   {
+    "archive": "dynasty_export_20260821_230238.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260822_230108.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260823_230044.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260824_230400.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260825_230528.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260826_211658.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260827_153424.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 398,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260828_234428.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 401,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260829_211720.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 401,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260830_213746.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 401,
+    "n3Rows": 105,
+    "nGe4Rows": 169,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260831_230447.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 402,
+    "n3Rows": 106,
+    "nGe4Rows": 168,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260901_212308.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 401,
+    "n3Rows": 114,
+    "nGe4Rows": 156,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260902_212027.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 114,
+    "nGe4Rows": 156,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260903_225148.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 114,
+    "nGe4Rows": 156,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260904_223450.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 72,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260905_204615.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 72,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260906_205400.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 72,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260907_230241.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 72,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260908_212819.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 405,
+    "n3Rows": 72,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260909_211525.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 404,
+    "n3Rows": 72,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260910_224947.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 404,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260911_212200.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 404,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260912_223716.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 404,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260913_223956.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 407,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260914_233241.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 407,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260915_214858.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 407,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260916_214700.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 411,
+    "n3Rows": 71,
+    "nGe4Rows": 213,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260917_214927.zip",
+    "challengerOnlyDrops": 0,
+    "idpRows": 415,
+    "n3Rows": 67,
+    "nGe4Rows": 218,
+    "rowsMoved": 0
+   },
+   {
+    "archive": "dynasty_export_20260918_211845.zip",
+    "challengerOnlyDrops": 0,
+    "idpRows": 418,
+    "n3Rows": 67,
+    "nGe4Rows": 218,
+    "rowsMoved": 0
+   },
+   {
+    "archive": "dynasty_export_20260919_223220.zip",
+    "challengerOnlyDrops": 0,
+    "idpRows": 418,
+    "n3Rows": 67,
+    "nGe4Rows": 218,
+    "rowsMoved": 0
+   },
+   {
+    "archive": "dynasty_export_20260920_224450.zip",
+    "challengerOnlyDrops": 0,
+    "idpRows": 417,
+    "n3Rows": 67,
+    "nGe4Rows": 218,
+    "rowsMoved": 0
+   },
+   {
+    "archive": "dynasty_export_20260921_234150.zip",
+    "challengerOnlyDrops": 0,
+    "idpRows": 417,
+    "n3Rows": 67,
+    "nGe4Rows": 218,
+    "rowsMoved": 0
+   },
+   {
+    "archive": "dynasty_export_20260922_214329.zip",
+    "challengerOnlyDrops": 0,
+    "idpRows": 417,
+    "n3Rows": 67,
+    "nGe4Rows": 218,
+    "rowsMoved": 0
+   },
+   {
+    "archive": "dynasty_export_20260923_215107.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 416,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260924_232149.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 417,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260925_233646.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 417,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260926_164906.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 418,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260927_214140.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 419,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260928_233322.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 419,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260929_194208.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 419,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20260930_130404.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261002_193506.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261003_214933.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 423,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261004_085141.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261004_153351.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261004_195148.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261004_233916.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261005_061740.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261005_152048.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261005_225803.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261006_065546.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261006_153039.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261006_211735.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261007_015227.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 421,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261007_092552.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 312,
+    "n3Rows": 38,
+    "nGe4Rows": 193,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261007_173609.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 423,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261007_232213.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 423,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261008_064316.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 423,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261008_141213.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 313,
+    "n3Rows": 38,
+    "nGe4Rows": 191,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261008_201231.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 425,
+    "n3Rows": 71,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261009_004358.zip",
+    "challengerOnlyDrops": 2,
+    "idpRows": 425,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 2
+   },
+   {
+    "archive": "dynasty_export_20261009_065001.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 424,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261009_153734.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261009_212133.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261010_015826.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261010_090501.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261010_160048.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261010_202220.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261010_235341.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261011_063103.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261011_133520.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 422,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261011_191416.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 425,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261012_000240.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 425,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261012_063618.zip",
+    "challengerOnlyDrops": 1,
+    "idpRows": 425,
+    "n3Rows": 70,
+    "nGe4Rows": 212,
+    "rowsMoved": 1
+   },
+   {
+    "archive": "dynasty_export_20261012_161108.zip",
+    "challengerOnlyDrops": 31,
+    "idpRows": 425,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 31
+   },
+   {
+    "archive": "dynasty_export_20261012_231649.zip",
+    "challengerOnlyDrops": 31,
+    "idpRows": 425,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 31
+   },
+   {
+    "archive": "dynasty_export_20261013_071003.zip",
+    "challengerOnlyDrops": 31,
+    "idpRows": 425,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 31
+   },
+   {
+    "archive": "dynasty_export_20261013_163029.zip",
+    "challengerOnlyDrops": 31,
+    "idpRows": 424,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 31
+   },
+   {
+    "archive": "dynasty_export_20261013_213606.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 424,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261014_012731.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 424,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261014_080442.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261014_140605.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261014_185726.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261014_233024.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261015_051650.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261015_121138.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261015_172516.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261015_215027.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261016_004906.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 224,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261016_073446.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261016_134010.zip",
+    "challengerOnlyDrops": 26,
+    "idpRows": 314,
+    "n3Rows": 197,
+    "nGe4Rows": 0,
+    "rowsMoved": 26
+   },
+   {
+    "archive": "dynasty_export_20261016_182508.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261016_214642.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261017_004948.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 426,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261017_071509.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261017_122823.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261017_160007.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261017_185402.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261017_224340.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261018_002736.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261018_051224.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   },
+   {
+    "archive": "dynasty_export_20261018_114711.zip",
+    "challengerOnlyDrops": 32,
+    "idpRows": 427,
+    "n3Rows": 225,
+    "nGe4Rows": 0,
+    "rowsMoved": 32
+   }
+  ]
+ },
+ "experiment": "idp-hampel-n3-v1",
+ "label": "archived inputs rebuilt through one replay code revision -- NOT what production served",
+ "preregistration": "docs/valuation/evidence/idp-outlier-n3-2026-10-18/PREREGISTRATION.md",
+ "primary": {
+  "P1": {
+   "blocks": 3,
+   "hi": 0.12743,
+   "lo": 0.10088,
+   "point": 0.11244,
+   "used": 4000
+  },
+  "blocks": 3,
+  "census": {
+   "disputed": 151,
+   "evaluable": 117,
+   "noTargetBoard": 7,
+   "notEvaluable": 34
+  },
+  "horizon": 7,
+  "n": 117,
+  "originDays": 17
+ },
+ "secondary": [
+  {
+   "P1": {
+    "blocks": 5,
+    "hi": 0.11438,
+    "lo": 0.02515,
+    "point": 0.06931,
+    "used": 4000
+   },
+   "blocks": 5,
+   "census": {
+    "disputed": 278,
+    "evaluable": 240,
+    "noTargetBoard": 3,
+    "notEvaluable": 38
+   },
+   "horizon": 3,
+   "n": 240,
+   "originDays": 21
+  },
+  {
+   "P1": {
+    "blocks": 3,
+    "hi": 0.12743,
+    "lo": 0.10088,
+    "point": 0.11121,
+    "used": 4000
+   },
+   "blocks": 3,
+   "census": {
+    "disputed": 144,
+    "evaluable": 117,
+    "noTargetBoard": 14,
+    "notEvaluable": 27
+   },
+   "horizon": 14,
+   "n": 117,
+   "originDays": 17
+  },
+  {
+   "P1": {
+    "blocks": 3,
+    "hi": 0.12743,
+    "lo": 0.10088,
+    "point": 0.10407,
+    "used": 4000
+   },
+   "blocks": 3,
+   "census": {
+    "disputed": 138,
+    "evaluable": 117,
+    "noTargetBoard": 20,
+    "notEvaluable": 21
+   },
+   "horizon": 21,
+   "n": 117,
+   "originDays": 17
+  }
+ ],
+ "seed": 2029,
+ "sensitivities": {
+  "S1_all140": {
+   "P1": {
+    "blocks": 7,
+    "hi": 0.12856,
+    "lo": 0.11699,
+    "point": 0.12408,
+    "used": 4000
+   },
+   "blocks": 7,
+   "census": {
+    "disputed": 743,
+    "evaluable": 709,
+    "noTargetBoard": 7,
+    "notEvaluable": 34
+   },
+   "horizon": 7,
+   "n": 709,
+   "originDays": 34
+  },
+  "S2_episodeDedup": {
+   "P1": {
+    "blocks": 1,
+    "hi": 0.09868,
+    "lo": 0.09868,
+    "point": 0.09868,
+    "used": 4000
+   },
+   "n": 46
+  },
+  "S3": {
+   "DB": {
+    "P1": {
+     "blocks": 1,
+     "hi": 0.08758,
+     "lo": 0.08758,
+     "point": 0.08758,
+     "used": 4000
+    },
+    "blocks": 1,
+    "census": {
+     "disputed": 151,
+     "evaluable": 12,
+     "filteredOut": 136,
+     "noTargetBoard": 7,
+     "notEvaluable": 3
+    },
+    "horizon": 7,
+    "n": 12,
+    "originDays": 3
+   },
+   "DL": {
+    "P1": {
+     "blocks": 3,
+     "hi": 0.17729,
+     "lo": 0.10088,
+     "point": 0.16751,
+     "used": 4000
+    },
+    "blocks": 3,
+    "census": {
+     "disputed": 151,
+     "evaluable": 70,
+     "filteredOut": 53,
+     "noTargetBoard": 7,
+     "notEvaluable": 28
+    },
+    "horizon": 7,
+    "n": 70,
+    "originDays": 17
+   },
+   "LB": {
+    "P1": {
+     "blocks": 1,
+     "hi": 0.01083,
+     "lo": 0.01083,
+     "point": 0.01083,
+     "used": 4000
+    },
+    "blocks": 1,
+    "census": {
+     "disputed": 151,
+     "evaluable": 35,
+     "filteredOut": 113,
+     "noTargetBoard": 7,
+     "notEvaluable": 3
+    },
+    "horizon": 7,
+    "n": 35,
+    "originDays": 3
+   }
+  },
+  "S5_persistence": {
+   "P1": {
+    "blocks": 5,
+    "hi": 0.11391,
+    "lo": 0.02303,
+    "point": 0.05528,
+    "used": 4000
+   },
+   "blocks": 5,
+   "census": {
+    "disputed": 374,
+    "evaluable": 333,
+    "notEvaluable": 41
+   },
+   "horizon": 7,
+   "n": 333,
+   "originDays": 24
+  },
+  "S6_T2_circular": {
+   "P1": {
+    "blocks": 8,
+    "hi": -0.00338,
+    "lo": -0.12134,
+    "point": -0.1045,
+    "used": 4000
+   },
+   "n": 141
+  },
+  "S7_noRookies": {
+   "P1": {
+    "blocks": 1,
+    "hi": 0.12414,
+    "lo": 0.12414,
+    "point": 0.12414,
+    "used": 4000
+   },
+   "blocks": 1,
+   "census": {
+    "disputed": 151,
+    "evaluable": 94,
+    "filteredOut": 23,
+    "noTargetBoard": 7,
+    "notEvaluable": 34
+   },
+   "horizon": 7,
+   "n": 94,
+   "originDays": 3
+  },
+  "S8": {
+   "after": null,
+   "before": {
+    "P1": {
+     "blocks": 3,
+     "hi": 0.12743,
+     "lo": 0.10088,
+     "point": 0.11244,
+     "used": 4000
+    },
+    "blocks": 3,
+    "census": {
+     "disputed": 144,
+     "evaluable": 117,
+     "noTargetBoard": 7,
+     "notEvaluable": 27
+    },
+    "horizon": 7,
+    "n": 117,
+    "originDays": 17
+   },
+   "firstZeroWeightBoardDay": "2026-10-12"
+  }
+ },
+ "structuralGuard": {
+  "boardsWithViolations": 0,
+  "ordinalOnlyRows": 29239,
+  "tetherPickRows": 1601,
+  "twoWayRows": 27,
+  "violations": 0
+ }
+}

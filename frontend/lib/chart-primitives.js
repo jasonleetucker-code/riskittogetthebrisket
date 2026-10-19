@@ -33,10 +33,23 @@ export const CHART_COLORS = {
   success: "#22c55e",     // green-500 — high confidence
   positive: "#10b981",    // emerald-500
   negative: "#ef4444",    // red-500
-  // Categorical palette for multi-series charts (power rank, trade flow,
-  // franchise trajectory, etc.).  10 perceptually-distinct hues cycling
-  // through by index — sufficient for typical 10-12 team leagues.
+  // Categorical palette — the design system's --chart-1..6 slots, in their
+  // validated fixed order (Owner Decision 14 / #1428).  These are CSS
+  // custom-property REFERENCES, not hex literals, so each chart resolves
+  // the steps of the theme scope it renders in: the dark terminal slots on
+  // dark routes, the light-surface steps inside .psi-editorial / light.
+  // The values live once, in app/tokens.css.  Used for charts with AT MOST
+  // six categories (see categoricalColor).
   categorical: [
+    "var(--chart-1)", "var(--chart-2)", "var(--chart-3)",
+    "var(--chart-4)", "var(--chart-5)", "var(--chart-6)",
+  ],
+  // The PREVIOUS 12-hue palette, kept verbatim for charts with MORE than six
+  // categories (13-team trade flow, 8-group Hill scatter).  Owner Decision 14
+  // approved a six-slot palette only; a >6-category chart keeps its existing
+  // colours until a fold design is approved (named follow-up in
+  // docs/ui/UI_PARALLEL_LEDGER.md).  Do not extend or reuse for new charts.
+  legacyCategorical: [
     "#38bdf8", "#f472b6", "#a3e635", "#fb923c", "#c084fc",
     "#14b8a6", "#fbbf24", "#f87171", "#60a5fa", "#4ade80",
     "#e879f9", "#fb7185",
@@ -100,10 +113,34 @@ export function formatNumber(value, precision = 0) {
   return frac ? `${withSep}.${frac}` : withSep;
 }
 
-/** Pick a categorical color by index, wrapping around the palette. */
-export function categoricalColor(index) {
-  const n = CHART_COLORS.categorical.length;
-  return CHART_COLORS.categorical[((index % n) + n) % n];
+/**
+ * Neutral ink for a folded "Other" series.  Opt-in only (``fold: true``):
+ * no fold design for >6 categories is approved yet, so no shipped chart
+ * passes it.  A semantic text token, so it clears 4.5:1 on every surface.
+ */
+export const CATEGORICAL_OTHER = "var(--text-tertiary)";
+
+/**
+ * Pick a categorical color by slot index (0-based, fixed order).
+ *
+ *   categoricalColor(i, { count })
+ *
+ * ``count`` is how many categories the chart draws.  At most six → the
+ * --chart-1..6 tokens.  More than six, or unknown (omitted) → the previous
+ * 12-hue palette, cycled exactly as before, so a >6-category chart does not
+ * change appearance until a fold design exists.  ``fold: true`` opts a
+ * caller into folding indices past the sixth slot to CATEGORICAL_OTHER.
+ */
+export function categoricalColor(index, { count, fold = false } = {}) {
+  const slots = CHART_COLORS.categorical;
+  const valid = Number.isInteger(index) && index >= 0;
+  if (fold) return valid && index < slots.length ? slots[index] : CATEGORICAL_OTHER;
+  if (Number.isInteger(count) && count > 0 && count <= slots.length && valid && index < slots.length) {
+    return slots[index];
+  }
+  const legacy = CHART_COLORS.legacyCategorical;
+  const n = legacy.length;
+  return legacy[((index % n) + n) % n];
 }
 
 /**

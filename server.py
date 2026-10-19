@@ -16696,7 +16696,8 @@ async def get_trade_desk(request: Request):
 @app.post("/api/user/trade-desk")
 async def post_trade_desk(request: Request):
     """Save one package to the desk.  Body: ``{leagueKey, myTeam, opponent,
-    send: [asset], receive: [asset], source?, sourceRunId?, status?, note?}``."""
+    send: [asset], receive: [asset], source?, sourceRunId?, status?, note?,
+    decisionRunId?}``."""
     from src.trade import trade_desk as _desk
 
     username, err = _trade_desk_session(request, write=True)
@@ -16723,10 +16724,16 @@ async def post_trade_desk(request: Request):
             },
         )
     try:
+        from src.trade import trade_decision_log as _decision_log  # noqa: PLC0415
+
         item = _desk.new_item(
             body,
             team_names=teams,
             owner_ids={n: str(t.get("ownerId") or "") for n, t in teams.items()},
+            league_key=league_cfg.key,
+            # TC-B2 / TCM-G18: a calculator save may name the War Room decision
+            # it was made beside; it is read from the server's own log.
+            decision_lookup=_decision_log.find_decision_run,
         )
         entry = await run_in_threadpool(
             _user_kv.mutate_league_scoped_entry,

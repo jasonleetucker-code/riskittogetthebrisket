@@ -695,7 +695,25 @@ async function baselineUsefulState(page, path, timeout) {
   if (path === "/trade") {
     await waitVisible(page.locator(SEL.tradeControls));
     // Fixed, non-private query; any eligible match proves the pool is usable.
-    const search = page.locator('.mobile-quick-add-input:visible, .trade-side-search-input:visible').first();
+    // Desktop/tablet: the inline per-side search.  Phones (TC-D2): no inline
+    // search exists; the side's "Add to Side A" button opens a bottom-sheet
+    // search first.  Poll for whichever entry point this layout renders —
+    // inline first, so the desktop path probes nothing extra.
+    const search = page.locator('.trade-side-search-input:visible').first();
+    const addA = page.locator('button[aria-haspopup="dialog"]:has-text("Add to Side A"):visible').first();
+    for (;;) {
+      const inline = await search.isVisible();
+      checkDeadline();
+      if (inline) break;
+      const sheet = await addA.isVisible();
+      checkDeadline();
+      if (sheet) {
+        await addA.click({ timeout: remaining() });
+        checkDeadline();
+        break;
+      }
+      await page.waitForTimeout(Math.min(BASELINE_READINESS_PROTOCOL.pollMs, remaining()));
+    }
     await search.fill("a", { timeout: remaining() });
     checkDeadline();
     await waitVisible(page.locator('.trade-side-search-result:visible').first());

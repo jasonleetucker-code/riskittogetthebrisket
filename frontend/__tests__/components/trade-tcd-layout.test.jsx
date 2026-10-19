@@ -171,11 +171,17 @@ describe("TradeWarRoom reports its decision through onDecision", () => {
         onDecision={onDecision}
       />,
     );
-    expect(onDecision).toHaveBeenLastCalledWith({ status: "loading", decision: null });
+    expect(onDecision).toHaveBeenLastCalledWith({
+      status: "loading",
+      decision: null,
+      runId: null,
+    });
     await settle();
     expect(onDecision).toHaveBeenLastCalledWith({
       status: "ok",
       decision: fixture.analysis.decision,
+      // The served decision's receipt id (TC-B2 / TCM-G18), verbatim.
+      runId: fixture.analysis.decisionRunId || null,
     });
     expect(screen.getByTestId("decision-headline")).toHaveTextContent(
       fixture.analysis.decision.headlineText,
@@ -267,9 +273,14 @@ describe("/trade lays the page out in five layers", () => {
     expect(inLayer("trade-result").getByText(/No verdict until there is a trade/)).toBeTruthy();
     // Decision: the War Room itself.
     expect(inLayer("trade-decision").getByRole("heading", { name: "Trade War Room" })).toBeTruthy();
-    // Supporting intelligence: Second opinions + Recent real trades.
+    // Supporting intelligence (TC-D2): the drilldown tabs, Value open with
+    // Second opinions folded inside it; the other questions one tab away.
+    expect(
+      inLayer("trade-intelligence")
+        .getAllByRole("tab")
+        .map((t) => t.textContent),
+    ).toEqual(["Value", "Roster", "Season", "Market", "Reasoning"]);
     expect(inLayer("trade-intelligence").getByText("Second opinions")).toBeTruthy();
-    expect(inLayer("trade-intelligence").getByText("Recent real trades")).toBeTruthy();
     // Ideas & tools: the suggestions desk.
     expect(inLayer("trade-tools").getByRole("heading", { name: "Trade suggestions" })).toBeTruthy();
     // The desktop decision echo states why there is no decision yet.

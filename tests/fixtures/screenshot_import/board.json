@@ -206,6 +206,38 @@
       "position": "PICK",
       "team": null,
       "assetClass": "pick"
+    },
+    {
+      "displayName": "Jaxson Dart",
+      "canonicalName": "Jaxson Dart",
+      "playerId": "12508",
+      "position": "QB",
+      "team": "NYG",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "De'Von Achane",
+      "canonicalName": "De'Von Achane",
+      "playerId": "9226",
+      "position": "RB",
+      "team": "MIA",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Bryce Young",
+      "canonicalName": "Bryce Young",
+      "playerId": "9228",
+      "position": "QB",
+      "team": "CAR",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Omarion Hampton",
+      "canonicalName": "Omarion Hampton",
+      "playerId": "12507",
+      "position": "RB",
+      "team": "LAC",
+      "assetClass": "offense"
     }
   ]
 }

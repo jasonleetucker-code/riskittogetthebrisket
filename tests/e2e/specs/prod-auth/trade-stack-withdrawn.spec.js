@@ -25,6 +25,7 @@
  * Everything observed is annotated, so the run is its own evidence.
  */
 const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
+const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builder");
 
 const PICK_TOKEN = /\d{4}/;
 const PICKS = ["2029 Mid 5th", "2029 Mid 6th"];
@@ -114,8 +115,7 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
       ["B", p.receive],
     ]) {
       for (const name of names) {
-        const input = page.getByLabel(`Search to add a player to Side ${side}`);
-        await input.click();
+        const input = await openTradeSearch(page, side);
         await input.fill(name);
         const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const hit = page
@@ -124,6 +124,7 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
           .first();
         await expect(hit, `search offers ${name}`).toBeVisible({ timeout: 15_000 });
         await hit.click();
+        await closeTradeSheet(page);
       }
     }
 
@@ -183,8 +184,7 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
     //     still move nothing that decides.
     await setTeam(page, 0, p.teamA.name);
     const addToB = async (label, { owned }) => {
-      const input = page.getByLabel("Search to add a player to Side B");
-      await input.click();
+      const input = await openTradeSearch(page, "B");
       await input.fill(label);
       const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       let hit = page
@@ -195,6 +195,7 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
       hit = owned ? hit.filter({ hasText: "Owned pick" }) : hit.filter({ hasNotText: "Owned pick" });
       await expect(hit.first(), `search offers ${label}`).toBeVisible({ timeout: 15_000 });
       await hit.first().click();
+      await closeTradeSheet(page);
     };
     await addToB(FIRST, { owned: false });
     await page.waitForTimeout(1_500);

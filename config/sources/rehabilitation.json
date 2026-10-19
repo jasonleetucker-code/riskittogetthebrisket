@@ -26,7 +26,7 @@
       "state": "evaluation_pending",
       "reason": "IDP-only cut of the vendor's board; unregistered since 2026-08-20 to avoid double-counting idpShowCombined. The authenticated 2026-10-17 capture of the vendor's 2026-10-08 republication is ORDER-IDENTICAL to IDP Trade Calculator's IDP board: 0.00% discordant pairs on 346 players for every IDP Trade Calculator version since 2026-10-10T02:01Z (7.5% before the vendor republished). It carries no information beyond a voter that already counts",
       "evidence": "docs/sources/IDP_SHOW_RECOVERY_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §3",
-      "recoveryAction": "do NOT switch the provider family's voting board to this cut while idpTradeCalc votes as a separate family (it would count one ordering twice). Revisit only if the owner adopts an IDP-scoped shared cap for the two lineages, or if the two orders diverge",
+      "recoveryAction": "do NOT make this IDP-only cut an additional voter (D2, 2026-10-18: it never becomes a second vote); the provider keeps one family vote, and its IDP evidence shares the IDP-scoped cap with idpTradeCalc once implemented (owner decision closeout 2026-10-18, docs/owner/OWNER_DECISION_REGISTER.md)",
       "owner": "claude (evaluation) / owner (approval)",
       "nextTrigger": "a measured divergence of the two IDP orders (owner closeout Decision 2: the IDP-only board must not become an additional voter)",
       "promotionGate": "coverage / identity / position check, lineage check against IDP Trade Calculator (config/sources/source_lineage.json), one family vote for the provider, owner approval to switch the family's voting board",
@@ -36,9 +36,9 @@
       "state": "shadow",
       "reason": "Candidate A shared-market crosswalk failed round 1 (criteria 6 and 6b) on production 2026-10-17",
       "evidence": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10.8.1; PR #1773",
-      "recoveryAction": "counts-only movement decomposition in the on-box verifier; owner decision whether to preregister a coverage-corrected rank candidate",
+      "recoveryAction": "hold maintained (D7, 2026-10-18): obtain the box-local evidence and diagnose the round-1 failures (counts-only movement decomposition in the on-box verifier); any genuinely different candidate is preregistered by engineering before testing, never by relaxing thresholds, timestamps or denominators (owner decision closeout 2026-10-18, docs/owner/OWNER_DECISION_REGISTER.md)",
       "owner": "claude (diagnostic) / owner (new candidate)",
-      "nextTrigger": "next Signals IDP release (contentSha256 != 6ec7bff6bd11) or an owner-approved preregistration",
+      "nextTrigger": "next Signals IDP release (contentSha256 != 6ec7bff6bd11) or a committed preregistration of a genuinely different candidate",
       "promotionGate": "§10.6 gate, all of 1-8, unchanged thresholds",
       "reviewBy": "2026-10-31"
     },
@@ -66,10 +66,10 @@
       "state": "policy_held",
       "reason": "owner directive 2026-10-16: DLF votes on offense only",
       "evidence": "docs/OWNER_REQUESTED_TODO.md; PR #1758; docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §2",
-      "recoveryAction": "re-evaluate incremental IDP evidence (unique signal vs existing voters, freshness, identity/position accuracy, family-capped dependence on other DLF data) and present it; never reversed silently",
+      "recoveryAction": "hold kept (D1, 2026-10-18, Option B): implement and run the preregistered idp-hampel-n3-v1 on its 105 frozen archives without changing the preregistration; restore only if it meets its criteria AND an independent full-board validation (incl. other-source votes) passes; outlier standards never lowered to activate the source; DLF IDP + rookie-IDP stay under one family cap (owner decision closeout 2026-10-18, docs/owner/OWNER_DECISION_REGISTER.md)",
       "owner": "claude (evaluation) / owner (reversal)",
-      "nextTrigger": "owner decision on the presented evidence (re-evaluation delivered 2026-10-17, refreshed 2026-10-18)",
-      "promotionGate": "explicit owner approval of a reversal on presented evidence",
+      "nextTrigger": "idp-hampel-n3-v1 result (preregistered, docs/valuation/evidence/idp-outlier-n3-2026-10-18/)",
+      "promotionGate": "challenger passes its preregistered criteria + independent full-board validation + reviewed reversible release with production verification (D1)",
       "reviewBy": "2026-10-31"
     },
     "dlfRookieIdp": {
@@ -78,8 +78,8 @@
       "evidence": "docs/OWNER_REQUESTED_TODO.md; PR #1758; docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md; docs/sources/IDP_REHABILITATION_EVALUATION_2026-10-18.md §2",
       "recoveryAction": "as dlfIdp",
       "owner": "claude / owner",
-      "nextTrigger": "owner decision on the presented evidence (re-evaluation delivered 2026-10-17, refreshed 2026-10-18)",
-      "promotionGate": "explicit owner approval",
+      "nextTrigger": "as dlfIdp (D1)",
+      "promotionGate": "as dlfIdp (D1)",
       "reviewBy": "2026-10-31"
     },
     "dlfValuesSfTep": {

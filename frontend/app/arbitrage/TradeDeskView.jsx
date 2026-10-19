@@ -28,6 +28,7 @@ import {
   lastMarked,
   loadDesk,
   removeDeskItem,
+  deskDecisionText,
   rosterCheckText,
   statusLabel,
   updateDeskItem,
@@ -102,6 +103,11 @@ function DeskItem({ item, onChange, busy }) {
       <p className={check?.state === "changed" ? styles.caution : styles.muted}>
         {rosterCheckText(check)}
       </p>
+      {deskDecisionText(item, fmtDate) ? (
+        <p className={styles.muted} data-testid="desk-item-decision">
+          {deskDecisionText(item, fmtDate)}
+        </p>
+      ) : null}
       <div className={styles.controls}>
         <Field label="Status">
           <Select

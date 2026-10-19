@@ -13,6 +13,7 @@
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
+const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 
 const PICK_TOKEN = /\d{4}/;
 
@@ -41,8 +42,7 @@ async function pickTrade(page) {
 }
 
 async function addToSide(page, sideLabel, name) {
-  const input = page.getByLabel(`Search to add a player to Side ${sideLabel}`);
-  await input.click();
+  const input = await openTradeSearch(page, sideLabel);
   await input.fill(name);
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const result = page
@@ -51,6 +51,7 @@ async function addToSide(page, sideLabel, name) {
     .first();
   await expect(result).toBeVisible({ timeout: 15_000 });
   await result.click();
+  await closeTradeSheet(page);
   await expect(page.getByRole("button", { name: `Remove ${name} from Side ${sideLabel}` })).toBeVisible();
 }
 

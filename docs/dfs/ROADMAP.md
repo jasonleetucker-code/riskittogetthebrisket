@@ -1,5 +1,7 @@
 # DFS — dependency-aware roadmap
 
+> **OWNER DIRECTIVE 2026-10-18 — DFS IMPLEMENTATION SHELVED.** All further DFS-specific implementation, product expansion, new source research/onboarding and release work are paused until the owner explicitly resumes it. Preserve existing deployed DFS capabilities and tests; do not disable or delete the product. All DFS-related decisions, provider subscriptions, spend, platform verification and evidence requests are deferred, not resolved or rejected. Critical cross-site security/production break-fix may proceed if independently necessary, without adding features. This directive supersedes prior "build now" and roadmap NOW/NEXT language below. Keep the historical roadmap and requirement IDs for future resumption.
+
 Linked from Calculator Ideas. **Reordered 2026-09-30 by the owner's Platform / Slate / Contest
 integration addendum**: the platform/slate foundation now sits underneath everything, and the
 contest profile is its own phase before contest-aware optimization. The earlier P0–P8 labels are

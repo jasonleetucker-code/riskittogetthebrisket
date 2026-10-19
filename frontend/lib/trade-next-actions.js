@@ -112,7 +112,7 @@ export const DESK_MAX_ASSETS_PER_SIDE = 8;
  * (`source: "calculator"`), or `{ body: null, reason }`.  One desk asset per
  * calculator COPY: the desk records exactly what is on the calculator.
  */
-export function deskBodyFromCalculator({ sides, parties, leagueKey }) {
+export function deskBodyFromCalculator({ sides, parties, leagueKey, decisionRunId = null }) {
   if (!parties?.ok) return { body: null, reason: parties?.reason || "not_two_team" };
   if (!leagueKey) return { body: null, reason: "no_league" };
   const send = (sides[parties.mySideIdx]?.assets || []).map(packageAsset);
@@ -129,6 +129,10 @@ export function deskBodyFromCalculator({ sides, parties, leagueKey }) {
       source: "calculator",
       send,
       receive,
+      // TC-B2 / TCM-G18: the War Room decision served for THIS trade, by its
+      // run id; the server attaches its own logged record, never a verdict
+      // typed here.  Omitted when there is no current answer.
+      ...(decisionRunId ? { decisionRunId: String(decisionRunId) } : {}),
     },
     reason: null,
   };

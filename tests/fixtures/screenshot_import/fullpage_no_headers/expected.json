@@ -1,0 +1,26 @@
+{
+  "layoutKind": "unknown",
+  "mustBeIgnored": [
+    "Hot Summer Deals",
+    "Exclusive Member Pricing"
+  ],
+  "requiredWarnings": [
+    "trade_region_not_detected",
+    "low_layout_confidence"
+  ],
+  "sides": [],
+  "unassigned": [
+    {
+      "boardName": "Patrick Mahomes",
+      "text": "Patrick Mahomes"
+    },
+    {
+      "boardName": "Bijan Robinson",
+      "text": "Bijan Robinson"
+    },
+    {
+      "boardName": "Quay Walker",
+      "text": "Quay Walker"
+    }
+  ]
+}

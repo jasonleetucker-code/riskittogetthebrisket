@@ -61,7 +61,7 @@ canonical.
 | What | Where |
 |---|---|
 | The rule (lexicographic: wins ascending, then Points For ascending) | `src/public_league/draft_order.py::draft_order` |
-| Which leagues use it | `config/leagues/draft_order_rules.json` (`dynasty_main`: owner-approved; any league absent there is **unknown** and gets no draft-slot forecast) |
+| Which leagues use it | `config/leagues/draft_order_rules.json` (`dynasty_main`: owner-approved; any league absent there is **unknown** and gets no draft-slot forecast). `dynasty_new` is **out of current scope** (owner directive 2026-10-18, D13): no lottery or playoff-finish rule may be presumed, its fail-closed behaviour is preserved, and the request for its rule is withdrawn until the owner raises it |
 | Real final standings → order | `draft_order_from_standings` (a missing record or Points For is refused, never 0) |
 
 The one case the rule does not decide is identical record **and** identical

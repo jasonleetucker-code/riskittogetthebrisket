@@ -9,8 +9,17 @@ guesses a side.
 Evidence, strongest first:
 
 1. **Side-label anchors** — "You give / You get", "Send / Receive",
-   "Team A / Team B", ... .  Two anchors side by side -> ``two_column``;
-   one above the other -> ``stacked``.
+   "Team A / Team B", "Team 1 gets... / Team 2 gets...", ... .  Two anchors
+   side by side -> ``two_column``; one above the other -> ``stacked``.
+   A pair of anchors also defines the TRADE REGION: one container per side,
+   derived from geometry alone (see :func:`_side_containers`).  Only lines
+   inside a container can be assets; everything else on the page — browser
+   chrome, site navigation, recommendation / insight widgets, ads — goes to
+   ``ignored`` as ``outside_trade_region`` and is never offered as
+   "needs a side".  This is what makes an ordinary uncropped screenshot
+   work without manual cropping.  ONE anchor (the other was not read) is
+   weaker: only lines left-aligned under it take its side, and the rest stay
+   unassigned — no second side is inferred from position.
 2. **Column geometry** — with no anchors, a clean two-cluster split of line
    left edges whose rows overlap vertically -> ``two_column`` with
    ``label_source="position"`` and a confidence just above the floor.
@@ -34,6 +43,13 @@ from src.trade.screenshot_import.ocr import Word
 
 CONFIDENCE_FLOOR = 0.6
 SEGMENT_GAP_FACTOR = 1.8  # x median word height: a wider gap starts a new segment
+
+# Trade-region geometry, all in multiples of the page's median line height so
+# nothing depends on one screenshot's resolution.
+REGION_EDGE_TOLERANCE = 2.5  # a container reaches this far past its column
+REGION_GAP_FACTOR = 8.0  # a vertical gap this large ends a side's container
+
+REASON_OUTSIDE_REGION = "outside_trade_region"
 
 KIND_TWO_COLUMN = "two_column"
 KIND_STACKED = "stacked"
@@ -172,6 +188,8 @@ _ANCHOR_FAMILIES: tuple[tuple[str, str], ...] = (
     ("team 1", "team 2"),
     ("trade away", "trade for"),
     ("side a", "side b"),
+    ("giving", "getting"),
+    ("you trade", "you receive"),
 )
 _ANCHOR_TAIL_OK = frozenset(
     {"gives", "gets", "give", "get", "receives", "receive", "sends", "send", "trades", "total"}
@@ -275,6 +293,49 @@ _NAV_WORDS = frozenset(
         "next",
     }
 )
+# Lines that END a side's container: the totals row, the verdict, and the
+# action buttons every calculator puts under the lists.  Matched on the
+# normalised text's leading words (or, for totals, a "total" word with only
+# counts / units around it), never on a single short word inside a name.
+_BOUNDARY_PREFIXES = (
+    "fair trade",
+    "this trade",
+    "trade is",
+    "even trade",
+    "favors",
+    "slightly favors",
+    "you win",
+    "you lose",
+    "win win",
+    "lopsided",
+    "great trade",
+    "good trade",
+    "bad trade",
+    "copy trade",
+    "copy link",
+    "share trade",
+    "clear calculator",
+    "clear trade",
+    "clear all",
+    "reset trade",
+    "swap sides",
+    "propose trade",
+    "send trade",
+    "submit trade",
+    "save trade",
+    "accept",
+    "decline",
+)
+_TOTAL_UNITS = frozenset(
+    {"total", "totals", "pieces", "piece", "assets", "players", "picks", "value", "items"}
+)
+_SEARCH_PREFIXES = (
+    "search for",
+    "search player",
+    "search players",
+    "search a player",
+    "add a player",
+)
 _VALUE_LINE_RE = re.compile(r"^[+\-−±~≈]?\s?\$?[\d][\d,\.\s]*[kK]?$")
 _PERCENT_RE = re.compile(r"^[+\-−±]?\s?\d+(?:[\.,]\d+)?\s?%$")
 _GRADE_RE = re.compile(r"^[A-F][+\-−]?$")
@@ -306,6 +367,23 @@ def match_anchor(text: str) -> tuple[int, int] | None:
     return (best[1], best[2]) if best else None
 
 
+def is_total_line(text: str) -> bool:
+    """``"1 Total Pieces"``, ``"Total: 7,200"``, ``"Totals"`` — a totals row."""
+    toks = _norm(text).replace("+", " ").split()
+    if not any(t in ("total", "totals") for t in toks):
+        return False
+    return all(t in _TOTAL_UNITS or t.replace(",", "").isdigit() for t in toks)
+
+
+def is_region_boundary(text: str) -> bool:
+    """True for a line that closes a side's container (totals, verdict,
+    action buttons)."""
+    if is_total_line(text):
+        return True
+    n = _norm(text)
+    return any(n == p or n.startswith(p + " ") for p in _BOUNDARY_PREFIXES)
+
+
 def is_equalizer_header(text: str) -> bool:
     n = _norm(text)
     return any(n.startswith(p) for p in _EQUALIZER_PREFIXES)
@@ -335,6 +413,10 @@ def classify_noise(text: str) -> str | None:
     n = _norm(raw)
     if n in _NAV_WORDS:
         return "navigation"
+    if any(n == p or n.startswith(p + " ") for p in _SEARCH_PREFIXES):
+        return "search_placeholder"
+    if is_total_line(raw):
+        return "label"
     if n in _LABEL_WORDS:
         return "label"
     for p in _LABEL_PREFIXES:
@@ -393,6 +475,149 @@ def _vertical_overlap(a: Sequence[Line], b: Sequence[Line], tol: float) -> float
     overlap = min(a_bot, b_bot) - max(a_top, b_top) + tol
     shortest = min(a_bot - a_top, b_bot - b_top) + tol
     return max(0.0, overlap) / shortest if shortest > 0 else 0.0
+
+
+# ── Trade region ────────────────────────────────────────────────────────
+
+OUTSIDE = -1  # assign() key: inside a detected trade region's page, outside every container
+
+
+@dataclass(frozen=True)
+class Container:
+    """One side's container: lines whose LEFT edge is in ``[x0, x1)`` and
+    whose top is in ``[top, bottom)``."""
+
+    x0: float
+    x1: float
+    top: float
+    bottom: float
+
+    def contains(self, ln: Line) -> bool:
+        return self.x0 <= ln.left < self.x1 and self.top <= ln.top < self.bottom
+
+
+def _overlaps_x(ln: Line, x0: float, x1: float) -> bool:
+    return min(ln.right, x1) - max(ln.left, x0) > 0
+
+
+def _container_bottom(
+    lines: Sequence[Line],
+    x0: float,
+    x1: float,
+    start: float,
+    limit: float,
+    med_h: float,
+) -> tuple[float, bool]:
+    """Where a side's container ends below ``start`` (the header's bottom):
+    the first region boundary (totals / verdict / buttons) overlapping the
+    column, or the first vertical gap wider than ``REGION_GAP_FACTOR`` line
+    heights between lines of the column, else ``limit``.  Returns
+    ``(bottom, ended_on_boundary)``."""
+    below = sorted((ln for ln in lines if ln.top > start and ln.top < limit), key=lambda ln: ln.top)
+    bottom = limit
+    by_boundary = False
+    for ln in below:
+        if _overlaps_x(ln, x0, x1) and is_region_boundary(ln.text):
+            bottom, by_boundary = ln.top, True
+            break
+    prev = start
+    for ln in below:
+        if ln.top >= bottom:
+            break
+        if not (x0 <= ln.left < x1):
+            continue
+        if ln.top - prev > REGION_GAP_FACTOR * med_h:
+            return ln.top, False
+        prev = max(prev, ln.bottom)
+    return bottom, by_boundary
+
+
+def _side_containers(
+    a: Line,
+    b: Line,
+    side_by_side: bool,
+    lines: Sequence[Line],
+    width: float,
+    med_h: float,
+    is_asset: Callable[[str], bool],
+) -> tuple[Container, Container]:
+    """The two sides' containers, from the two side labels' geometry only.
+
+    Side by side: the columns are centred on the labels, split half-way
+    between the label centres, each as wide as the label pitch (plus a
+    tolerance) — so a left-aligned list under a left-aligned label and a
+    list under a centred label both fall inside, and a widget beside the
+    second column (insights, ads) falls outside.  Stacked: one full-width
+    column, the first side ending where the second label starts.  Both end
+    at the first boundary line / large gap below their label (a side with
+    no boundary of its own shares the other side's, which is how a
+    calculator draws one totals row under both lists).
+
+    When the list under a label is LEFT-ALIGNED with it (an asset line
+    starts within the tolerance of the label's left edge), that column's
+    left edge tightens to the label's, so a navigation sidebar beside the
+    first column stays out.
+    """
+    tol = REGION_EDGE_TOLERANCE * med_h
+    inf = float("inf")
+    if side_by_side:
+        pitch = max(b.cx - a.cx, 1.0)
+        split = (a.cx + b.cx) / 2.0
+        spans = ((a.cx - pitch / 2.0 - tol, split), (split, b.cx + pitch / 2.0 + tol))
+        top = min(a.top, b.top) - 0.5 * med_h
+        start = max(a.bottom, b.bottom)
+        ends = [_container_bottom(lines, x0, x1, start, inf, med_h) for x0, x1 in spans]
+        shared = [bot for bot, by_boundary in ends if by_boundary]
+        bottoms = []
+        for bot, by_boundary in ends:
+            if not by_boundary and shared:
+                bot = min(bot, min(shared))
+            bottoms.append(bot)
+        out = []
+        for (x0, x1), bot, hdr in zip(spans, bottoms, (a, b)):
+            aligned = any(
+                abs(ln.left - hdr.left) <= tol
+                and x0 <= ln.left < x1
+                and hdr.bottom < ln.top < bot
+                and is_asset(ln.text)
+                for ln in lines
+            )
+            out.append(Container(max(x0, hdr.left - tol) if aligned else x0, x1, top, bot))
+        return out[0], out[1]
+    x0 = min(a.left, b.left) - tol
+    x1 = width + 1.0
+    a_top, b_top = a.top - 0.5 * med_h, b.top - 0.5 * med_h
+    a_bot, _ = _container_bottom(lines, x0, x1, a.bottom, b_top, med_h)
+    b_bot, _ = _container_bottom(lines, x0, x1, b.bottom, inf, med_h)
+    return Container(x0, x1, a_top, a_bot), Container(x0, x1, b_top, b_bot)
+
+
+def _single_container(anc: Line, lines: Sequence[Line], width: float, med_h: float) -> Container:
+    """The container under ONE side label (the other was not read)."""
+    tol = REGION_EDGE_TOLERANCE * med_h
+    x0 = anc.left - tol
+    bottom, _ = _container_bottom(lines, x0, width + 1.0, anc.bottom, float("inf"), med_h)
+    return Container(x0, width + 1.0, anc.top - 0.5 * med_h, bottom)
+
+
+def _container_assigner(
+    containers: Sequence[Container], split_x: float | None
+) -> Callable[[Line], list[int | None]]:
+    def assign(ln: Line) -> list[int | None]:
+        hits = [i for i, c in enumerate(containers) if c.contains(ln)]
+        if hits:
+            return hits[:1]
+        if (
+            split_x is not None
+            and len(containers) == 2
+            and ln.left < split_x < ln.right
+            and (ln.right - split_x) > 0.25 * (ln.right - ln.left)
+            and containers[0].top <= ln.top < max(c.bottom for c in containers)
+        ):
+            return [0, 1]  # straddles both columns (only meaningful for headers)
+        return [OUTSIDE]
+
+    return assign
 
 
 def _default_asset_like(text: str) -> bool:
@@ -482,72 +707,46 @@ def detect_layout(
 
     if pair is not None:
         a, b = pair[0][0], pair[1][0]
-        if abs(a.cy - b.cy) <= 1.5 * med_h:
-            # Side by side.
+        side_by_side = abs(a.cy - b.cy) <= 1.5 * med_h
+        if side_by_side:
             if b.left < a.left:
                 a, b = b, a
             kind = KIND_TWO_COLUMN
             confidence = 0.95 if same_family else 0.75
-            split_x = (a.right + b.left) / 2.0 if a.right < b.left else (a.left + b.left) / 2.0
-            top_bound = min(a.top, b.top) - 0.5 * med_h
-            side_specs = [
-                (_clean_label(a.text), LABEL_ANCHOR),
-                (_clean_label(b.text), LABEL_ANCHOR),
-            ]
-
-            def assign(ln: Line, _s=split_x, _t=top_bound) -> list[int | None]:
-                if ln.bottom < _t:
-                    return [None]
-                if ln.left < _s < ln.right and (ln.right - _s) > 0.25 * (ln.right - ln.left):
-                    return [0, 1]  # straddles (only meaningful for headers)
-                return [0] if ln.left < _s else [1]
-
         else:
             if b.cy < a.cy:
                 a, b = b, a
             kind = KIND_STACKED
             confidence = 0.9 if same_family else 0.75
-            side_specs = [
-                (_clean_label(a.text), LABEL_ANCHOR),
-                (_clean_label(b.text), LABEL_ANCHOR),
-            ]
-            a_top, b_top = a.top - 0.5 * med_h, b.top - 0.5 * med_h
-
-            def assign(ln: Line, _a=a_top, _b=b_top) -> list[int | None]:
-                if ln.cy < _a:
-                    return [None]
-                return [0] if ln.cy < _b else [1]
+        side_specs = [
+            (_clean_label(a.text), LABEL_ANCHOR),
+            (_clean_label(b.text), LABEL_ANCHOR),
+        ]
+        others = [ln for ln in expanded if id(ln) not in used]
+        containers = _side_containers(a, b, side_by_side, others, width, med_h, is_asset)
+        if side_by_side:
+            split_x = containers[0].x1
+        assign = _container_assigner(containers, split_x)
 
     elif lone_anchor is not None:
+        # One label is weaker evidence than a pair: the other side's label may
+        # simply not have been read, and its assets may sit anywhere on the
+        # page.  So only lines LEFT-ALIGNED under this label, inside its
+        # container, take its side; everything else stays unassigned for the
+        # person to place.  No second side is inferred from position here — a
+        # full page always has some other column (a sidebar, an insights
+        # widget) that would pass for one.
         anc = lone_anchor
-        below = [ln for ln in candidates if ln.cy >= anc.top and is_asset(ln.text)]
-        clusters = _clusters_by_left(below, width)
-        if clusters and _vertical_overlap(clusters[0], clusters[1], med_h) >= 0.3:
-            left_c, right_c = clusters
-            split_x = (max(ln.left for ln in left_c) + min(ln.left for ln in right_c)) / 2.0
-            anchor_side = 0 if anc.left < split_x else 1
-            kind = KIND_TWO_COLUMN
-            confidence = 0.62
-            anchored = (_clean_label(anc.text), LABEL_ANCHOR)
-            other = ("Side B" if anchor_side == 0 else "Side A", LABEL_POSITION)
-            side_specs = [anchored, other] if anchor_side == 0 else [other, anchored]
-            top_bound = anc.top - 0.5 * med_h
+        kind = KIND_SINGLE
+        confidence = 0.7
+        side_specs = [(_clean_label(anc.text), LABEL_ANCHOR)]
+        tol = REGION_EDGE_TOLERANCE * med_h
+        col = _single_container(anc, [ln for ln in expanded if ln is not anc], width, med_h)
 
-            def assign(ln: Line, _s=split_x, _t=top_bound) -> list[int | None]:
-                if ln.bottom < _t:
-                    return [None]
-                if ln.left < _s < ln.right and (ln.right - _s) > 0.25 * (ln.right - ln.left):
-                    return [0, 1]
-                return [0] if ln.left < _s else [1]
-
-        else:
-            kind = KIND_SINGLE
-            confidence = 0.7
-            side_specs = [(_clean_label(anc.text), LABEL_ANCHOR)]
-            top_bound = anc.top - 0.5 * med_h
-
-            def assign(ln: Line, _t=top_bound) -> list[int | None]:
-                return [None] if ln.cy < _t else [0]
+        def assign(ln: Line, _c=col, _x=anc.left, _tol=tol) -> list[int | None]:
+            if _c.contains(ln) and abs(ln.left - _x) <= _tol:
+                return [0]
+            return [None]
 
     else:
         assets = [ln for ln in candidates if is_asset(ln.text)]
@@ -590,11 +789,16 @@ def detect_layout(
     regions[None] = []
     for ln in candidates:
         for key in assign(ln)[:1]:
+            if key == OUTSIDE:
+                ignored.append((ln, REASON_OUTSIDE_REGION))
+                continue
             regions[key if key is None or key < n_sides else None].append(ln)
     header_regions: dict[int | None, list[Line]] = {k: [] for k in regions}
     for hd in headers:
         ignored.append((hd, "equalizer_header"))
         for key in assign(hd):
+            if key == OUTSIDE:
+                continue
             header_regions[key if key is None or key < n_sides else None].append(hd)
 
     # Equalizer regions: everything after a header within the same side.

@@ -6,7 +6,7 @@
  * Before: Simulate impact and Monte Carlo kept their results across every
  * trade edit and Clear Trade, with no request sequencing.  Measured on
  * /trade: after adding Breece Hall to Side B the meter read "LOPSIDED, Side B
- * 46% more" while MC still said "Side A's package is probably worth more"
+ * 46% more" while MC still said "Side A's package is probably worth more" (copy since relabelled)
  * and the simulation still said "CHANGE −353".
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -102,7 +102,7 @@ describe("Monte Carlo result is keyed to its trade", () => {
     const before = sides([row("Pickens", 6052)], [row("Kyren", 5699)]);
     const { rerender } = render(<MonteCarloButton sides={before} sidesSend />);
     fireEvent.click(screen.getByRole("button", { name: /Simulate/ }));
-    await screen.findByText(/package is probably worth more/);
+    await screen.findByText(/package came out bigger/);
 
     rerender(
       <MonteCarloButton
@@ -110,12 +110,12 @@ describe("Monte Carlo result is keyed to its trade", () => {
         sidesSend
       />,
     );
-    expect(screen.queryByText(/package is probably worth more/)).toBeNull();
+    expect(screen.queryByText(/package came out bigger/)).toBeNull();
     expect(screen.getByTestId("mc-stale").textContent).toMatch(/run it again/);
 
     // Back to the exact trade it answered: the result is valid again.
     rerender(<MonteCarloButton sides={before} sidesSend />);
-    expect(screen.getByText(/package is probably worth more/)).toBeTruthy();
+    expect(screen.getByText(/package came out bigger/)).toBeTruthy();
   });
 });
 
