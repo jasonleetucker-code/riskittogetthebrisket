@@ -19,12 +19,8 @@ name: Production Restart Diagnostics (read-only)
 # The script is piped from the runner's checkout, so it runs before it
 # ships and writes nothing on the host.
 #
-# TRIGGERS.  workflow_dispatch is the canonical path, usable once this file
-# is on the default branch.  The push trigger exists only so the
-# coordinator can run it ONCE from the unmerged branch: it fires only on a
-# push to claude/prod-wedge-diagnostics that touches the sentinel file, so
-# pushing the branch itself (script, workflow, tests) does not run it.
-# Remove the push trigger before merge.
+# TRIGGER: workflow_dispatch only.  (A one-time branch push trigger was
+# used once, 2026-10-19 run 39241251979, and removed before merge.)
 
 on:
   workflow_dispatch:
@@ -39,11 +35,6 @@ on:
         required: false
         default: "2026-10-19 08:50"
         type: string
-  push:
-    branches:
-      - claude/prod-wedge-diagnostics
-    paths:
-      - deploy/diagnostics/triggers/prod_restart_diagnostics.trigger
 
 permissions:
   contents: read
