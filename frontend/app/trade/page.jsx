@@ -47,6 +47,7 @@ import {
   computeStackAdjustments,
   multiTeamNetSummary,
   tradeSignature,
+  displayValue,
 } from "@/lib/trade-logic";
 import { valuationBasisLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -247,6 +248,10 @@ const TradeNextActions = dyn(
 // before it has anything to show.
 const loadWarRoom = () => import("@/components/trade/TradeWarRoom");
 const TradeWarRoom = dyn(loadWarRoom, "Trade War Room");
+const ValueAdjustmentComparison = dyn(
+  () => import("@/components/trade/ValueAdjustmentComparison"),
+  "Value Adjustment comparison",
+);
 
 // On-demand page sections — the same React.lazy + per-section Suspense
 // pattern, for code that cannot be on screen at first render:
@@ -2843,6 +2848,12 @@ export default function TradePage() {
                   </span>
                 </Banner>
               )}
+              {/* Value Adjustment comparison — dual-VA lane */}
+              <ValueAdjustmentComparison
+                sideValues={sides.map((s) => s.assets.map((r) => displayValue(r)))}
+                sideLabels={sides.map((s) => s.label)}
+                hasOverrides={Object.keys(valueOverrides).length > 0}
+              />
             </section>
 
             {/* ── 4. SUPPORTING INTELLIGENCE ───────────────────── */}

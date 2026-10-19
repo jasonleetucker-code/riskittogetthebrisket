@@ -62,6 +62,16 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Trade Calculator clarity, dual Value Adjustment and speed — owner directive, 2026-10-19
+
+**AUTHORIZED NOW** (non-DFS, already-active Calculator feature, under the 2026-10-07 completion campaign and the
+2026-10-17 Trade Calculator authorization). Verbatim: `docs/owner/TRADE_CALC_CLARITY_DUAL_VA_SPEED_2026-10-19.md`;
+intake `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-19 — Trade Calculator clarity…"). Three lanes, separate PRs:
+War Room clarity (UI), dual Value Adjustment + Second Opinions comparison, `/api/trade/analyze` speed. **Unchanged:**
+`geom_q078_v1`, q = 0.78, is the only authoritative package model — the KTC adjustment method is a read-only
+comparator, never blended, added, averaged or voted; the backend decision stays the only recommendation; no
+simulation, scoring or evidence reduction for speed. Merges and deploys keep their gates.
+
 ## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
 
 **AUTHORIZED NOW, within the gates the directive names.** Verbatim: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`;
