@@ -718,9 +718,6 @@
   letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
-.summaryStale {
-  opacity: 0.6;
-}
 .summaryLink,
 .inlineLink {
   font-size: var(--font-size-xs);

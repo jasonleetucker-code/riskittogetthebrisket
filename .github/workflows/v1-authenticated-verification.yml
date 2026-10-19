@@ -101,7 +101,8 @@ jobs:
       group: production-deploy
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 45 + the bounded warm wait (5 min) added 2026-10-19.
+    timeout-minutes: 50
     environment: production
     steps:
       - name: Checkout
@@ -333,6 +334,81 @@ jobs:
             --origin "$ORIGIN" --cookie-file "$RUNNER_TEMP/session_cookie" \
             --out "$RUNNER_TEMP/security_probe_login.json"
 
+      # Bounded wait for a WARM backend before any suite runs.  This job is
+      # dispatched the moment Deploy Production finishes, i.e. seconds after a
+      # restart: the backend's startup scrape then runs for ~4 minutes and
+      # keeps the event loop busy (a cold /api/status measured 28-35 s), so
+      # the first specs were timing the scrape, not the product.  Public
+      # endpoints only — status code, latency and a boolean are printed,
+      # nothing else.  Never fails the job: a backend that does not warm
+      # inside the budget is reported (::warning::) and the suites run
+      # anyway, so their verdict still stands on production as it is.  Also
+      # records the backend's public ``build.process_started_at`` so the
+      # restart check below can tell whether the process restarted mid-run.
+      - name: Wait for a warm backend (bounded, public endpoints)
+        id: warm
+        if: ${{ inputs.suite != 'baseline' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$ORIGIN" <<'PYEOF'
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+
+          origin = sys.argv[1]
+          BUDGET_SECONDS = 300
+          FAST_SECONDS = 10.0
+          deadline = time.monotonic() + BUDGET_SECONDS
+
+
+          def get(path, timeout):
+              t0 = time.monotonic()
+              try:
+                  with urllib.request.urlopen(origin + path, timeout=timeout) as resp:
+                      code, raw = resp.status, resp.read()
+              except urllib.error.HTTPError as exc:  # /api/health answers 503 while degraded
+                  code, raw = exc.code, exc.read()
+              except Exception:  # noqa: BLE001 -- unreachable/timeout: not warm
+                  return None, None, time.monotonic() - t0
+              try:
+                  body = json.loads(raw)
+              except ValueError:
+                  body = None
+              return code, (body if isinstance(body, dict) else None), time.monotonic() - t0
+
+
+          warm = False
+          while True:
+              code, body, took = get("/api/health", 20)
+              scraping = body.get("scrape_running") if body else None
+              print(f"health HTTP={code or '000'} {took:.1f}s scrape_running={scraping}")
+              if code is not None and took < FAST_SECONDS and scraping is False:
+                  warm = True
+                  break
+              if time.monotonic() >= deadline:
+                  break
+              time.sleep(15)
+
+          _code, status, _took = get("/api/status", 60)
+          started = ((status or {}).get("build") or {}).get("process_started_at")
+          started = started if isinstance(started, str) else ""
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"backend_warm={'true' if warm else 'false'}\n")
+              out.write(f"backend_started_at={started}\n")
+          print(f"backend warm={warm} process_started_at={started or 'unknown'}")
+          if not warm:
+              print(
+                  "::warning title=Backend not warm::production did not answer /api/health "
+                  f"quickly with no scrape running within {BUDGET_SECONDS}s; the suites run "
+                  "anyway — read slow or timed-out specs with that in mind"
+              )
+          PYEOF
+
       - name: API verification suite
         # The temporary post-deploy Week 1 bridge needs the prod-auth browser
         # artifact for W1-30; API/Lane-4 rows are already independently
@@ -437,6 +513,50 @@ jobs:
             --json production-route-baselines.json || rc=$?
           echo "baseline_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Baseline collection exit: $rc (bounded observations, not campaign acceptance)"
+
+      # Did the backend restart while the suites ran?  A restart is not a
+      # verification failure by itself, but every spec in flight across it
+      # fails (502s, a wedged process before it), and before the 2026-10-19
+      # session_store fix it also deleted this run's guest session on
+      # rehydrate — run 39221318435 lost its session, half its browser specs
+      # and its revoke proof to a restart at 08:42:49 that nothing in the log
+      # named.  Public /api/status only; never fails the job.
+      - name: Detect a backend restart during the run (public /api/status)
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          STARTED_BEFORE: ${{ steps.warm.outputs.backend_started_at }}
+        run: |
+          set -Eeuo pipefail
+          python3 - "$ORIGIN" <<'PYEOF'
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          origin = sys.argv[1]
+          before = os.environ.get("STARTED_BEFORE") or ""
+          after = ""
+          try:
+              with urllib.request.urlopen(origin + "/api/status", timeout=60) as resp:
+                  body = json.loads(resp.read())
+              value = ((body or {}).get("build") or {}).get("process_started_at")
+              after = value if isinstance(value, str) else ""
+          except Exception:  # noqa: BLE001 -- unknown, never "no restart"
+              after = ""
+          if not before or not after:
+              print(f"backend restart during run: unknown (before={before or 'unknown'}, now={after or 'unknown'})")
+          elif before != after:
+              print(
+                  "::warning title=Backend restarted mid-run::process_started_at moved from "
+                  f"{before} to {after}; specs in flight across the restart are not product verdicts"
+              )
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write(f"\n**Backend restarted during the run:** `{before}` → `{after}`\n")
+          else:
+              print(f"backend restart during run: none (process_started_at {after})")
+          PYEOF
 
       # The control the security verdict depends on: the SAME session,
       # probed in the step directly before the revoke.  The post-login probe

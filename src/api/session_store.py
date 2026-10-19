@@ -27,6 +27,16 @@ Design
   allowlist is treated as "no restriction" and never invalidates
   (prevents a mis-deployed empty env var from logging everyone
   out).  ``allowlist_version`` is still recorded for audit.
+* Guest-pass sessions are NOT allowlist sessions.  Their username is
+  the literal ``"guest"`` precisely so the admin gates (which check
+  allowlist membership) refuse them, and their authority is the pass
+  that minted them — re-asked on every request by
+  ``server._get_auth_session`` and ended by ``guest_passes.revoke``.
+  So a bounded guest row (own expiry + pass id, not yet expired)
+  rehydrates without an allowlist check.  Applying the allowlist to
+  it deleted every live guest session on every restart: the
+  production verification run 39221318435 lost its session to a
+  backend restart mid-suite that way, and with it the revoke proof.
 * Corruption fallback: every call is wrapped in broad try/except;
   any SQLite error → in-memory dict continues working (existing
   behavior, no regression).
@@ -252,10 +262,18 @@ def hydrate(
     """Load every non-expired, still-allowed session into an
     in-memory dict — call once at startup.
 
-    A session is dropped (and removed from disk) when either:
+    A session is dropped (and removed from disk) when any of:
+      * it is past its own ``expires_at_epoch`` (time-bounded sessions);
+      * it is a guest-pass session without a positive expiry AND pass id
+        (it could be neither bounded nor revoked — fail closed);
       * it has been idle longer than the TTL (``last_seen_at``
-        older than the cutoff — a sliding window), or
-      * its ``username`` is no longer in the current allowlist.
+        older than the cutoff — a sliding window);
+      * it is NOT a guest-pass session and its ``username`` is no longer
+        in the current allowlist.
+
+    A bounded guest-pass row is exempt from the allowlist only: its
+    authority is its pass, which ``server._get_auth_session`` re-asks on
+    every request (revoked / expired / unknown pass → the session ends).
 
     An empty / unset allowlist imposes no membership restriction,
     so a mis-deployed blank env var can't sign everyone out.
@@ -272,6 +290,15 @@ def hydrate(
     cutoff = time.time() - _SESSION_TTL_SECONDS
     out: dict[str, dict[str, Any]] = {}
     expired_ids: list[str] = []
+    # Count-only census of what this hydrate dropped and why — logged once,
+    # never a session id or username.  A session that vanishes across a
+    # restart is otherwise indistinguishable from one that was never there.
+    dropped: dict[str, int] = {}
+
+    def _drop(sid: str, reason: str) -> None:
+        expired_ids.append(sid)
+        dropped[reason] = dropped.get(reason, 0) + 1
+
     try:
         with _db_lock:
             conn = _connect(path)
@@ -286,26 +313,34 @@ def hydrate(
                 conn.close()
         now = time.time()
         for sid, user, sluid, dn, av, am, ver, created, last, expires, pass_id in rows:
+            is_guest = str(am or "") == "guest_pass"
             # A time-bounded session never outlives its own expiry.
             if expires is not None and float(expires) <= now:
-                expired_ids.append(sid)
+                _drop(sid, "expired")
                 continue
             # A guest-pass session is only as good as the pass that minted
             # it: without its expiry AND pass id it cannot be bounded or
             # revoked, so it is dropped (fail closed).  Rows persisted
             # before these columns existed are exactly this case — they
             # used to hydrate as unbounded 30-day sessions.
-            if str(am or "") == "guest_pass" and (expires is None or pass_id is None):
-                expired_ids.append(sid)
+            if is_guest and (_positive_float(expires) is None or _positive_int(pass_id) is None):
+                _drop(sid, "guest_unbounded")
                 continue
             # Sliding TTL — expire on idle time, not age.  Fall back
             # to created_at for legacy rows written before touch().
             last_active = last if last and last > 0 else created
             if last_active < cutoff:
-                expired_ids.append(sid)
+                _drop(sid, "idle")
                 continue
-            if allowed is not None and str(user or "").strip().lower() not in allowed:
-                expired_ids.append(sid)
+            # The allowlist decides ALLOWLIST sessions.  A bounded guest row
+            # is decided by its pass, which ``server._get_auth_session``
+            # re-asks on the session's next request (see module docstring).
+            if (
+                not is_guest
+                and allowed is not None
+                and str(user or "").strip().lower() not in allowed
+            ):
+                _drop(sid, "not_allowlisted")
                 continue
             out[sid] = {
                 "username": user,
@@ -337,6 +372,12 @@ def hydrate(
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("session_store hydrate failed: %s", exc)
         return {}
+    _LOGGER.info(
+        "session_store hydrate: kept %d (guest %d), dropped %s",
+        len(out),
+        sum(1 for v in out.values() if v.get("auth_method") == "guest_pass"),
+        dict(sorted(dropped.items())) or "{}",
+    )
     return out
 
 

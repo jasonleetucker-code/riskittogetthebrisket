@@ -1,5 +1,36 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Site completion and universal source voting — owner directives, 2026-10-19
+
+**Authorized now:** every item in `docs/COMPLETION_QUEUE.md` whose blocker is `NONE`, executed in the queue's batches and priority order (P0 → P4). Release trains go through exact-head CI, E2E and the Release Candidate gate, then merge, deploy and production verification. Sources:
+- the master directive "Finish Chase Upside" (`docs/owner/MASTER_DIRECTIVE_FINISH_CHASE_UPSIDE_2026-10-19.md`);
+- the Trade Calculator clarity / dual VA / speed directive;
+- the Source Voting Consensus directive (`docs/owner/SOURCE_VOTING_CONSENSUS_2026-10-19.md`);
+- the Universal Source Voting and Freshness Policy (`docs/owner/UNIVERSAL_SOURCE_VOTING_FRESHNESS_2026-10-19.md`).
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19".
+
+**Source voting (supersedes the conflicting parts of D1, D2, D3 and the cadence-relative freshness method):**
+- similarity is not lineage;
+- IDP Trade Calculator and The IDP Show both vote;
+- IDP Trade Calculator's offense values vote;
+- DLF IDP and DLF Rookie IDP return to voting under the DLF family cap;
+- the universal freshness schedule is 0–7 days → 100%, 8–14 → 75%, 15–21 → 50%, 22–30 → 25%, more than 30 → 0%, on the publisher's genuine-update clock;
+- the IDP outlier-filter interaction is corrected through reproducible, adversarial, independently validated comparison;
+- per-source voting status is transparent on Settings and Source Health.
+
+Each mathematical change ships behind its own flag. A change that fails validation is held without blocking the others. The existing single-source haircut stays; any revision runs as a challenger.
+
+**Unchanged and binding:**
+- geometric VA `geom_q078_v1` (q = 0.78), with KTC kept as comparison / rollback;
+- the strict FantasyPros upstream clock (D5);
+- the DLF family cap;
+- no missing value treated as zero;
+- no extra weight for agreement;
+- DFS and League Tycoon shelved;
+- no paid data, no paid inference and no Sleeper writes;
+- the official 2027 rookie auction stays gated.
+
 ## Permanent parallel Premium UI — owner directive, 2026-09-24 (#1421)
 
 UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
@@ -61,6 +92,16 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 ---
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
+
+## Trade Calculator clarity, dual Value Adjustment and speed — owner directive, 2026-10-19
+
+**AUTHORIZED NOW** (non-DFS, already-active Calculator feature, under the 2026-10-07 completion campaign and the
+2026-10-17 Trade Calculator authorization). Verbatim: `docs/owner/TRADE_CALC_CLARITY_DUAL_VA_SPEED_2026-10-19.md`;
+intake `docs/OWNER_REQUESTED_TODO.md` ("Added 2026-10-19 — Trade Calculator clarity…"). Three lanes, separate PRs:
+War Room clarity (UI), dual Value Adjustment + Second Opinions comparison, `/api/trade/analyze` speed. **Unchanged:**
+`geom_q078_v1`, q = 0.78, is the only authoritative package model — the KTC adjustment method is a read-only
+comparator, never blended, added, averaged or voted; the backend decision stays the only recommendation; no
+simulation, scoring or evidence reduction for speed. Merges and deploys keep their gates.
 
 ## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
 
