@@ -85,12 +85,48 @@ SCENARIOS: dict[str, tuple] = {
         True,
         "A traded player with no projection: the roster lens abstains.",
     ),
+    "partial-long-term": (
+        ["WR Buf Star"],
+        ["WR Kc"],
+        [],
+        [],
+        True,
+        True,
+        "Long-term value strategy, incoming player unprojected: the roster lens abstains "
+        "and the decision stands on trade value (the abstention is not an evidence gap).",
+    ),
+    "roster-unmeasured": (
+        ["WR Buf Star"],
+        ["WR Kc", "WR Phi"],
+        [],
+        [],
+        True,
+        True,
+        "The consolidation trade with the roster simulation and the roster-capacity check "
+        "both unavailable (LABELLED degraded simulation): the decision's evidence gates.",
+    ),
+}
+
+#: Per-scenario extras, kept out of the tuple so existing scenarios are unchanged:
+#: ``team_goal`` -- the user's strategy override (``teamGoal``);
+#: ``unprojected`` -- PPG keys withheld from the projection seam;
+#: ``degrade`` -- simulation blocks replaced by their unavailable states before
+#: the analysis runs (a LABELLED degraded simulation: the reasons are ones the
+#: simulator emits, the decision is the real owner's answer to them).
+SCENARIO_OPTIONS: dict[str, dict] = {
+    "partial-long-term": {"team_goal": "LONG_TERM", "unprojected": ("wr buf star",)},
+    "roster-unmeasured": {
+        "degrade": {
+            "rosterUtility": None,
+            "rosterCapacity": {"unavailable": "roster_capacity_unavailable"},
+        }
+    },
 }
 
 
-def _ppg(ids, season, scoring_settings):
+def _ppg(ids, season, scoring_settings, *, unprojected=()):
     return (
-        {i: PPG[i.lower()] for i in ids if i.lower() in PPG},
+        {i: PPG[i.lower()] for i in ids if i.lower() in PPG and i.lower() not in unprojected},
         {
             "state": "available",
             "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
@@ -130,9 +166,17 @@ def _synthetic_posture() -> dict:
 
 def build(name: str) -> dict:
     players_in, players_out, picks_in, picks_out, context, with_team, description = SCENARIOS[name]
+    options = SCENARIO_OPTIONS.get(name, {})
+    unprojected = tuple(options.get("unprojected", ()))
     contract = _contract(league_key="main")
     with (
-        mock.patch.object(bbu, "league_scored_ppg_by_id", _ppg),
+        mock.patch.object(
+            bbu,
+            "league_scored_ppg_by_id",
+            lambda ids, season, scoring_settings: _ppg(
+                ids, season, scoring_settings, unprojected=unprojected
+            ),
+        ),
         mock.patch.object(bbu, "load_points_model", lambda: DEFAULT_POINTS_MODEL),
         mock.patch("src.bdvm.actuals.current_nfl_season", lambda today=None: 2026),
         # Positional scarcity comes from the gameplan bundle, which depends on
@@ -157,9 +201,14 @@ def build(name: str) -> dict:
             include_roster_utility=context,
             competitive_posture=_synthetic_posture() if with_team else None,
         )
+    for key, block in options.get("degrade", {}).items():
+        if block is None:
+            result.pop(key, None)
+        else:
+            result[key] = block
     result["leagueKey"] = "main"
     result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
-    result["analysis"] = analyze_trade(result)
+    result["analysis"] = analyze_trade(result, team_goal=options.get("team_goal"))
     payload = json.loads(json.dumps(result, default=list))
     payload["_fixture"] = {
         "scenario": name,
@@ -174,6 +223,8 @@ def build(name: str) -> dict:
             "useTeamContext": context,
         },
     }
+    if options.get("team_goal"):
+        payload["_fixture"]["teamGoal"] = options["team_goal"]
     return payload
 
 

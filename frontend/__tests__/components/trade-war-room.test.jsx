@@ -24,7 +24,9 @@ import {
 import {
   confidenceSummary,
   decisionReasons,
+  hasInternalIdentifier,
   incomingLineupSentences,
+  missingEvidenceText,
   reasonSentence,
   strategySentence,
   tradeValueSummary,
@@ -35,6 +37,8 @@ import CONSOLIDATION from "../fixtures/trade-war-room/consolidation.json";
 import FORCED from "../fixtures/trade-war-room/forced-cut.json";
 import ASSET_ONLY from "../fixtures/trade-war-room/asset-only.json";
 import PARTIAL from "../fixtures/trade-war-room/partial-coverage.json";
+import PARTIAL_LONG_TERM from "../fixtures/trade-war-room/partial-long-term.json";
+import ROSTER_UNMEASURED from "../fixtures/trade-war-room/roster-unmeasured.json";
 import AJ_BROWN from "../fixtures/trade-war-room-mock/aj-brown-herbert.json";
 
 const req = (fixture) => ({ ...fixture._fixture.request, mySide: 0 });
@@ -657,17 +661,61 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
   });
 
   it("nothing visible at a glance carries an internal identifier or an all-caps code", async () => {
-    const INTERNAL =
-      /[a-z][A-Z]|\b(?!YES\b|NO\b|NOT\b|ENOUGH\b|EVIDENCE\b|MAKE\b|THE\b|TRADE\b|TOO\b|CLOSE\b|DO\b)[A-Z]{3,}\b/;
-    for (const fixture of [CONSOLIDATION, FORCED, PARTIAL, ASSET_ONLY, AJ_BROWN]) {
+    // `hasInternalIdentifier` catches snake_case reason codes ("not_computed"),
+    // camelCase keys and all-caps labels; ROSTER_UNMEASURED's backend gap text
+    // carries two reason codes, so this fails if a gap is ever shown raw.
+    const fixtures = [
+      CONSOLIDATION,
+      FORCED,
+      PARTIAL,
+      ASSET_ONLY,
+      AJ_BROWN,
+      PARTIAL_LONG_TERM,
+      ROSTER_UNMEASURED,
+    ];
+    for (const fixture of fixtures) {
       const view = await renderWith(fixture);
       for (const id of ["decision-confidence", "decision-reasons", "decision-missing"]) {
         const el = screen.queryByTestId(id);
-        if (el) expect(readText(el)).not.toMatch(INTERNAL);
+        if (el) expect(hasInternalIdentifier(readText(el))).toBe(false);
       }
-      expect(readText(document.querySelector("dl"))).not.toMatch(INTERNAL);
+      expect(hasInternalIdentifier(readText(document.querySelector("dl")))).toBe(false);
+      // The uncertainty list in the expandable detail too.
+      openSection("Arguments, objections and uncertainty");
+      const uncertain = document.querySelector('[data-list="uncertain"]');
+      if (uncertain) expect(hasInternalIdentifier(readText(uncertain))).toBe(false);
       view.unmount();
     }
+  });
+
+  it("a long-term trade with an unprojected player: confidence and Impact row agree", async () => {
+    // REAL output: the roster lens abstains (partial_projection_coverage) and
+    // `_confidence` writes "no current-season roster effect to measure".
+    await renderWith(PARTIAL_LONG_TERM);
+    const a = PARTIAL_LONG_TERM.analysis;
+    expect(screen.getByTestId("decision-headline")).toHaveTextContent(a.decision.headlineText);
+    const conf = readText(screen.getByTestId("decision-confidence"));
+    expect(conf).toMatch(
+      /a traded player has no league-scored projection, so the lineup effect is left out rather than counted as zero/,
+    );
+    expect(conf).not.toMatch(/no current-season lineup effect|could not be measured/);
+    // The Impact row shows the labelled partial estimate it refers to.
+    expect(screen.getByTestId("war-room-weekly-impact")).toHaveTextContent(
+      weeklyImpact(a.lenses.roster).sentence,
+    );
+    expect(row("roster")).toHaveTextContent(/Only players with a projection are counted/);
+  });
+
+  it("the roster gaps read in words, never as reason codes", async () => {
+    await renderWith(ROSTER_UNMEASURED);
+    const d = ROSTER_UNMEASURED.analysis.decision;
+    expect(d.headline).toBe("NOT_ENOUGH_EVIDENCE");
+    const items = within(screen.getByTestId("decision-missing")).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "The effect on your lineup could not be measured (not computed).",
+      "Whether the trade fits your roster is unknown (your roster limit could not be checked).",
+    ]);
+    expect(items.map((li) => li.textContent)).toEqual(d.missingEvidence.map(missingEvidenceText));
   });
 
   it("the Value Adjustment slot also renders in the idle view: no team, or the side not chosen", () => {
@@ -721,8 +769,9 @@ describe("TradeWarRoom — loading, failure and limits (Part 4)", () => {
     await renderWith(p);
     const items = within(screen.getByTestId("decision-reasons")).getAllByRole("listitem");
     expect(items).toHaveLength(1);
-    expect(items[0]).toHaveTextContent(
-      "Biggest reason: No legal roster cleanup exists for this trade",
+    // The backend's own sentence, with the final period it lacks.
+    expect(items[0].textContent).toBe(
+      "Biggest reason: No legal roster cleanup exists for this trade.",
     );
     expect(screen.getByTestId("decision-confidence")).toHaveTextContent(
       "High confidence. The trade cannot be made as built: no legal roster cleanup exists.",
@@ -811,7 +860,9 @@ describe("TradeWarRoom — the ONE decision (TC-C)", () => {
     expect(d.headline).toBe("NOT_ENOUGH_EVIDENCE");
     expect(screen.getByTestId("decision-headline")).toHaveTextContent(d.headlineText);
     for (const g of d.missingEvidence) {
-      expect(within(screen.getByTestId("decision-missing")).getByText(g.text)).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("decision-missing")).getByText(missingEvidenceText(g)),
+      ).toBeInTheDocument();
     }
     expect(screen.getByTestId("decision-confidence")).toHaveTextContent(
       "No confidence level is given: important information is missing.",

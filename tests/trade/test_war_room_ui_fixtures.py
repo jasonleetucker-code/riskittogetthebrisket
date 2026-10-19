@@ -40,3 +40,13 @@ def test_fixtures_cover_the_states_the_ui_renders():
     assert load["partial-coverage"]["analysis"]["lenses"]["roster"]["unavailableReason"] == (
         "partial_projection_coverage"
     )
+    # Long-term strategy with an unprojected incoming player: the roster lens
+    # abstains, the decision still stands on trade value (not an evidence gap).
+    long_term = load["partial-long-term"]["analysis"]
+    assert long_term["lenses"]["roster"]["unavailableReason"] == "partial_projection_coverage"
+    assert long_term["decision"]["strategy"]["used"] == "LONG_TERM"
+    assert long_term["decision"]["headline"] != "NOT_ENOUGH_EVIDENCE"
+    assert "no current-season roster effect" in long_term["decision"]["confidence"]["statement"]
+    # Roster simulation and capacity check unavailable: both reason-code gaps.
+    gaps = load["roster-unmeasured"]["analysis"]["decision"]["missingEvidence"]
+    assert [g["code"] for g in gaps] == ["roster_unknown", "roster_limit_unknown"]

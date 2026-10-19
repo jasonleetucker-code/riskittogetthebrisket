@@ -35,9 +35,11 @@ import {
   confidenceSummary,
   decisionReasons,
   fitSentence,
+  hasInternalIdentifier,
   incomingLineupSentences,
   lineupPointsSentence,
   listJoin,
+  missingEvidenceText,
   plainLimit,
   reasonSentence,
   rosterFit,
@@ -45,6 +47,7 @@ import {
   simulationExplanation,
   strategySentence,
   tradeValueSummary,
+  uncertaintyLine,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 
@@ -53,6 +56,8 @@ import CONSOLIDATION from "./fixtures/trade-war-room/consolidation.json";
 import FORCED from "./fixtures/trade-war-room/forced-cut.json";
 import PARTIAL from "./fixtures/trade-war-room/partial-coverage.json";
 import ASSET_ONLY from "./fixtures/trade-war-room/asset-only.json";
+import PARTIAL_LONG_TERM from "./fixtures/trade-war-room/partial-long-term.json";
+import ROSTER_UNMEASURED from "./fixtures/trade-war-room/roster-unmeasured.json";
 
 const market = (f) => f.analysis.lenses.market.detail;
 const roster = (f) => f.analysis.lenses.roster;
@@ -245,7 +250,9 @@ describe("rosterFit / fitSentence — Does it fit your roster?", () => {
 });
 
 /** Internal identifiers a person should never see: camelCase keys or ALL-CAPS codes. */
-const INTERNAL = /[a-z][A-Z]|\b[A-Z]{3,}\b/;
+// Stricter than `hasInternalIdentifier` on purpose (no name exemptions): the
+// fixtures carry no such names, so any match here is a real leak.
+const INTERNAL = /[a-z][A-Z]|\b[A-Z]{3,}\b|[A-Za-z0-9]_[A-Za-z0-9]/;
 
 /**
  * Confidence statements exactly as `src/trade/trade_decision.py::_confidence`
@@ -360,30 +367,67 @@ describe("confidenceSummary — plain English, no internal identifiers", () => {
       ],
       [
         "Low-confidence canonical value for A.J. Brown, Ghost Rookie",
-        "the value of A.J. Brown, Ghost Rookie rests on thin evidence",
+        "the values of A.J. Brown and Ghost Rookie rest on thin evidence",
+      ],
+      [
+        // A name suffix keeps its period.
+        "Low-confidence canonical value for Marvin Harrison Jr.",
+        "the value of Marvin Harrison Jr. rests on thin evidence",
       ],
       ["Sources disagree on Justin Herbert", "the ranking sources disagree about Justin Herbert"],
       [
+        "Sources disagree on Justin Herbert, DJ Moore, C.J. Stroud",
+        "the ranking sources disagree about Justin Herbert, DJ Moore and C.J. Stroud",
+      ],
+      [
         "Not on the board, so not priced: Mystery Man",
         "Mystery Man is not on the board, so it has no value (unknown, not zero)",
+      ],
+      [
+        "Not on the board, so not priced: Mystery Man, Ghost Rookie",
+        "Mystery Man and Ghost Rookie are not on the board, so they have no value (unknown, not zero)",
       ],
       [
         "On the board but unpriced — unknown, not worth 0, so left out of the package math: RB Unpriced",
         "RB Unpriced has no value on the board (unknown, not zero), so it is left out of the totals",
       ],
       [
+        "On the board but unpriced — unknown, not worth 0, so left out of the package math: RB Unpriced, 2029 Round 4",
+        "RB Unpriced and 2029 Round 4 have no value on the board (unknown, not zero), so they are left out of the totals",
+      ],
+      [
         "Counted as sent, but not taken off this roster because no specific owned pick was chosen: 2027 Round 1",
         "2027 Round 1 is counted as sent but not taken off your roster, because no specific owned pick was chosen",
+      ],
+      [
+        "Counted as sent, but not taken off this roster because no specific owned pick was chosen: 2027 Round 1, 2028 Round 2",
+        "2027 Round 1 and 2028 Round 2 are counted as sent but not taken off your roster, because no specific owned picks were chosen",
       ],
       [
         "Not held by this team, so not counted as sent: 2027 1st (held by Rival)",
         "2027 1st (held by Rival) is not held by your team, so it is not counted as sent",
       ],
+      [
+        "Not held by this team, so not counted as sent: 2027 1st (held by Rival), 2028 2nd",
+        "2027 1st (held by Rival) and 2028 2nd are not held by your team, so they are not counted as sent",
+      ],
+      [
+        // An unknown reason code is left out, never shown or doubled.
+        "Roster impact not available (some_new_reason)",
+        "the impact on your lineup is not available",
+      ],
+      [
+        "Roster impact not available (impact_missing)",
+        "the impact on your lineup is not available (the lineup estimate came back without a number)",
+      ],
     ];
     for (const [line, plain] of cases) expect(plainLimit("coverage", line)).toBe(plain);
     // ...and none of them reads "could not be measured": they were measured.
-    for (const [line] of cases)
+    for (const [line] of cases) {
       expect(plainLimit("coverage", line)).not.toMatch(/could not be measured/);
+      expect(plainLimit("coverage", line)).not.toMatch(/unavailable \(/i);
+      expect(hasInternalIdentifier(plainLimit("coverage", line))).toBe(false);
+    }
   });
 
   it("an unknown plain line is the backend's sentence verbatim; one with an identifier is not", () => {
@@ -433,6 +477,243 @@ describe("confidenceSummary — plain English, no internal identifiers", () => {
     const nee = confidenceSummary(PARTIAL.analysis.decision.confidence);
     expect(nee.level).toBeNull();
     expect(nee.detail).toBe("No confidence level is given: important information is missing.");
+  });
+});
+
+describe("hasInternalIdentifier — codes, never real names", () => {
+  it("real player names are not identifiers", () => {
+    for (const name of [
+      "Henry To'oTo'o",
+      "Kenneth Walker III",
+      "Ray-Ray McCloud III",
+      "D'Andre Swift",
+      "JuJu Smith-Schuster",
+      "DK Metcalf",
+      "C.J. Stroud",
+      "Amon-Ra St. Brown",
+      "Marvin Harrison Jr.",
+      "Odell Beckham Jr.",
+      "Michael Pittman Jr.",
+      "Ja'Marr Chase",
+      "Wan'Dale Robinson",
+      "DeVonta Smith",
+      "Tee Higgins, A.J. Brown and T.J. Hockenson",
+    ]) {
+      expect(hasInternalIdentifier(name)).toBe(false);
+      expect(hasInternalIdentifier(`the ranking sources disagree about ${name}`)).toBe(false);
+    }
+  });
+
+  it("codes are identifiers: snake_case, camelCase keys, all-caps labels", () => {
+    for (const code of [
+      "not_computed",
+      "(roster_capacity_unavailable)",
+      "assetEvidence: thin",
+      "rosterLens abstained",
+      "package gap LOPSIDED",
+      "contender (PUSH)",
+      "MEDIUM",
+    ]) {
+      expect(hasInternalIdentifier(code)).toBe(true);
+    }
+  });
+});
+
+describe("confidence clauses — one clause per fact", () => {
+  // `trade_decision.py::_confidence`: assetEvidence says "sources disagree on a
+  // traded asset" (sourceDisagreementAssets) while the coverage axis, otherwise
+  // HIGH, carries the analysis' first uncertainty line naming the same asset.
+  it("source disagreement said twice collapses to the named clause", () => {
+    const pairs = [
+      ["coverage", "Sources disagree on Justin Herbert"],
+      ["assetEvidence", "sources disagree on a traded asset"],
+    ];
+    const s = confidenceSummary({
+      level: "MEDIUM",
+      bottleneck: pairs.map((x) => x[0]),
+      statement: statementOf("MEDIUM", pairs),
+    });
+    expect(s.limits).toEqual(["the ranking sources disagree about Justin Herbert"]);
+    expect(s.detail).toBe("Limited because the ranking sources disagree about Justin Herbert.");
+  });
+
+  it("thin evidence said twice collapses to the named clause, wherever it appears", () => {
+    const pairs = [
+      ["coverage", "Low-confidence canonical value for DJ Moore"],
+      ["assetEvidence", "a traded asset has low or no confidence stamp"],
+      ["precision", "roster estimate imprecise"],
+    ];
+    const s = confidenceSummary({
+      level: "MEDIUM",
+      bottleneck: pairs.map((x) => x[0]),
+      statement: statementOf("MEDIUM", pairs),
+    });
+    expect(s.limits).toEqual([
+      "the value of DJ Moore rests on thin evidence",
+      "the lineup simulation is imprecise",
+    ]);
+    // Order-independent: a generic clause first is replaced in place by the named one.
+    expect(
+      confidenceSummary({
+        level: "LOW",
+        bottleneck: ["assetEvidence", "coverage"],
+        statement: statementOf("LOW", [
+          ["assetEvidence", "sources disagree on a traded asset"],
+          ["coverage", "Sources disagree on Justin Herbert"],
+        ]),
+      }).limits,
+    ).toEqual(["the ranking sources disagree about Justin Herbert"]);
+  });
+
+  it("different facts stay separate", () => {
+    const pairs = [
+      ["coverage", "Sources disagree on Justin Herbert"],
+      ["assetEvidence", "a traded asset has low or no confidence stamp"],
+    ];
+    expect(
+      confidenceSummary({
+        level: "MEDIUM",
+        bottleneck: pairs.map((x) => x[0]),
+        statement: statementOf("MEDIUM", pairs),
+      }).limits,
+    ).toHaveLength(2);
+  });
+});
+
+describe("partial projection coverage — the confidence line reads the roster lens", () => {
+  // REAL analyze output (`partial-long-term`): long-term strategy, incoming
+  // player unprojected.  The roster lens abstains (partial_projection_coverage),
+  // `_roster_benefit` says not_applicable, and `_confidence` writes "no
+  // current-season roster effect to measure" -- while the Impact row shows
+  // the partial estimate.  The two must not contradict each other.
+  const a = PARTIAL_LONG_TERM.analysis;
+  const lens = a.lenses.roster;
+
+  it("is real output in exactly that state", () => {
+    expect(lens.unavailableReason).toBe("partial_projection_coverage");
+    expect(a.decision.headline).not.toBe("NOT_ENOUGH_EVIDENCE");
+    expect(a.decision.confidence.statement).toMatch(/no current-season roster effect to measure/);
+  });
+
+  it("says the lineup effect is left out because a traded player has no projection", () => {
+    const n = lens.detail.coverage.tradedUnprojectedPlayerIds.length;
+    expect(n).toBe(1);
+    const s = confidenceSummary(a.decision.confidence, { rosterLens: lens });
+    expect(s.limits[0]).toBe(
+      "a traded player has no league-scored projection, so the lineup effect is left out rather than counted as zero",
+    );
+    expect(s.detail).toBe(
+      "Limited because a traded player has no league-scored projection, so the lineup effect is left out rather than counted as zero, and a traded player's value rests on thin or missing evidence.",
+    );
+    expect(s.detail).not.toMatch(/no current-season lineup effect|could not be measured/);
+    // ...and the Impact row it sits beside shows the labelled partial estimate.
+    const impact = weeklyImpact(lens);
+    expect(impact.partial).toBe(true);
+    expect(impact.sentence).toBe(lineupPointsSentence(lens.detail.ppg));
+  });
+
+  it("counts the players; the offseason reasons keep 'nothing to measure'", () => {
+    const why = "no current-season roster effect to measure";
+    const two = {
+      unavailableReason: "partial_projection_coverage",
+      detail: { coverage: { state: "partial", tradedUnprojectedPlayerIds: ["a", "b"] } },
+    };
+    expect(plainLimit("coverage", why, { rosterLens: two })).toMatch(
+      /^2 traded players have no league-scored projection/,
+    );
+    expect(
+      plainLimit("coverage", why, {
+        rosterLens: { unavailableReason: "partial_projection_coverage" },
+      }),
+    ).toMatch(/^some traded players have no league-scored projection/);
+    expect(
+      plainLimit("coverage", why, {
+        rosterLens: { unavailableReason: "no_remaining_fantasy_weeks" },
+      }),
+    ).toBe("no fantasy weeks remain this season, so there is no lineup effect to measure");
+    expect(plainLimit("coverage", why)).toBe("there is no current-season lineup effect to measure");
+  });
+});
+
+describe("missingEvidenceText — what is missing, without reason codes", () => {
+  // REAL analyze output (`roster-unmeasured`): both reason-code gaps
+  // `trade_decision.py::_evidence_gaps` writes ("…(not_computed).",
+  // "…(roster_capacity_unavailable).").
+  const d = ROSTER_UNMEASURED.analysis.decision;
+
+  it("words the real roster gaps from their evidence reason", () => {
+    expect(d.missingEvidence.map((g) => g.text).join(" ")).toMatch(/_/); // the leak, as emitted
+    expect(d.missingEvidence.map(missingEvidenceText)).toEqual([
+      "The effect on your lineup could not be measured (not computed).",
+      "Whether the trade fits your roster is unknown (your roster limit could not be checked).",
+    ]);
+    // The evidence gate's reason carries the first gap's text and evidence, no code.
+    expect(d.primaryReason.code).toBeUndefined();
+    expect(reasonSentence(d.primaryReason)).toBe(
+      "The effect on your lineup could not be measured (not computed).",
+    );
+  });
+
+  it("every feasibility reason the backend can put in a gap reads plainly", () => {
+    for (const [reason, words] of [
+      ["unknown_limit", "this league's roster limit is unknown"],
+      ["roster_settings_missing", "this league's roster settings are missing"],
+      ["roster_capacity_unavailable", "your roster limit could not be checked"],
+    ]) {
+      const gap = {
+        code: "roster_limit_unknown",
+        text: `Whether the trade fits your roster is unknown (${reason}).`,
+        evidence: { reason },
+      };
+      expect(missingEvidenceText(gap)).toBe(
+        `Whether the trade fits your roster is unknown (${words}).`,
+      );
+    }
+    // A reason with no words is left out -- never shown raw.
+    expect(
+      missingEvidenceText({
+        code: "roster_unknown",
+        text: "The roster effect could not be measured (brand_new_reason).",
+        evidence: { reason: "brand_new_reason" },
+      }),
+    ).toBe("The effect on your lineup could not be measured.");
+  });
+
+  it("plain gaps stay verbatim; names are names; an identifier falls back", () => {
+    expect(
+      missingEvidenceText({
+        code: "forced_drop_unpriced",
+        text: "1 forced cut(s) have no value, so the cost of the cut is unknown.",
+        evidence: { count: 1 },
+      }),
+    ).toBe("1 forced cut(s) have no value, so the cost of the cut is unknown.");
+    // A team display name is a name, even one a code detector would flag.
+    expect(
+      missingEvidenceText({
+        code: "unheld_assets",
+        text: "Your team does not hold: 2027 Round 1 (held by team_rocket)",
+        evidence: {},
+      }),
+    ).toBe("Your team does not hold: 2027 Round 1 (held by team_rocket).");
+    expect(missingEvidenceText({ code: "new_gap", text: "Something about rosterLens" })).toBe(
+      "Some information the recommendation needs is missing.",
+    );
+    expect(missingEvidenceText({ code: "new_gap", text: "" })).toBe(
+      "Some information the recommendation needs is missing.",
+    );
+    expect(missingEvidenceText(null)).toBeNull();
+  });
+
+  it("the uncertainty list words a coded line and keeps plain ones verbatim", () => {
+    const [line] = ROSTER_UNMEASURED.analysis.uncertainty;
+    expect(line).toBe("Roster impact not available (not_computed)");
+    expect(uncertaintyLine(line)).toBe(
+      "The impact on your lineup is not available (not computed).",
+    );
+    expect(uncertaintyLine("Sources disagree on Justin Herbert")).toBe(
+      "Sources disagree on Justin Herbert",
+    );
+    expect(uncertaintyLine("")).toBeNull();
   });
 });
 
@@ -586,8 +867,9 @@ describe("decisionReasons / reasonSentence — two distinct reasons, the backend
     for (const r of d.reasons) {
       expect(reasonSentence(r, { strategy: d.strategy })).not.toMatch(INTERNAL);
     }
-    // unrecognised -> the backend's words, verbatim
-    expect(reasonSentence({ component: "evidence", text: "Missing X" })).toBe("Missing X");
+    // unrecognised but plain -> the backend's words, ending in one period
+    expect(reasonSentence({ component: "evidence", text: "Missing X" })).toBe("Missing X.");
+    expect(reasonSentence({ component: "evidence", text: "Missing X." })).toBe("Missing X.");
     // The execution gate keeps the backend's own plain sentence
     // (`trade_decision.py` decide(): component feasibility, kind gate, no state).
     const gate = {
@@ -597,7 +879,12 @@ describe("decisionReasons / reasonSentence — two distinct reasons, the backend
       text: "No legal roster cleanup exists for this trade",
       evidence: { ladderExhausted: true },
     };
-    expect(reasonSentence(gate)).toBe("No legal roster cleanup exists for this trade");
+    // ...with the final period the backend's text lacks.
+    expect(reasonSentence(gate)).toBe("No legal roster cleanup exists for this trade.");
+    // A gate without usable text: the fixed sentence, never empty.
+    expect(reasonSentence({ ...gate, text: "" })).toBe(
+      "No legal roster cleanup exists for this trade.",
+    );
     expect(
       reasonSentence({
         component: "feasibility",
@@ -605,7 +892,28 @@ describe("decisionReasons / reasonSentence — two distinct reasons, the backend
         text: "Plain backend line",
         evidence: {},
       }),
-    ).toBe("Plain backend line");
+    ).toBe("Plain backend line.");
+    // An unknown roster state: the backend's text is the raw state code
+    // (`trade_decision.py` `.get(state, state)`), never shown; the fixed
+    // sentence by stance instead.
+    for (const [stance, words] of [
+      ["against", "Fitting it on your roster counts against it."],
+      ["for", "Fitting it on your roster counts in its favor."],
+      ["neutral", "Fitting it on your roster does not push either way."],
+    ]) {
+      expect(
+        reasonSentence({
+          component: "feasibility",
+          stance,
+          kind: "contextual",
+          text: "brand_new_state",
+          evidence: { state: "brand_new_state", forcedDrops: [] },
+        }),
+      ).toBe(words);
+    }
+    // Nothing plain to say -> null (the War Room skips it; never "Biggest reason:" alone).
+    expect(reasonSentence({ component: "mystery", text: "rosterLens_gate" })).toBeNull();
+    expect(reasonSentence({ component: "mystery", text: "" })).toBeNull();
     expect(reasonSentence(null)).toBeNull();
   });
 });

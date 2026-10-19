@@ -356,6 +356,9 @@ const UNAVAILABLE_WORDS = {
   no_team_selected_or_uncomputable: "Pick your team to see roster impact",
   partial_projection_coverage: "Not counted — a traded player has no projection",
   season_unresolved: "No current-season projection applies",
+  no_remaining_fantasy_weeks: "No fantasy weeks remain this season",
+  impact_missing: "The lineup estimate came back without a number",
+  roster_settings_missing: "This league's roster settings are missing",
   starter_slots_unresolved: "This league's starting slots did not resolve",
   projection_basis_no_projection_snapshot:
     "No league-scored projection snapshot yet",
@@ -479,10 +482,23 @@ export function comparablesSummary(lens) {
 
 export function unavailableText(reason) {
   if (!reason) return "Unavailable";
+  return (
+    unavailableWords(reason) ||
+    `Unavailable (${String(reason).replace(/_/g, " ")})`
+  );
+}
+
+/**
+ * The plain words for an unavailable reason, or null when the reason has
+ * none -- for a caller writing its own sentence, which then omits the reason
+ * rather than show a code ("not available (unavailable (impact missing))").
+ */
+export function unavailableWords(reason) {
+  if (!reason) return null;
   if (UNAVAILABLE_WORDS[reason]) return UNAVAILABLE_WORDS[reason];
   if (String(reason).startsWith("error:"))
     return "Could not be computed right now";
-  return `Unavailable (${String(reason).replace(/_/g, " ")})`;
+  return null;
 }
 
 /** The player rows worth a line, in a stable reading order. */

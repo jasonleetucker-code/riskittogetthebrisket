@@ -62,11 +62,13 @@ import {
   decisionReasons,
   incomingLineupSentences,
   listJoin,
+  missingEvidenceText,
   reasonSentence,
   rosterFit,
   simulationExplanation,
   strategySentence,
   tradeValueSummary,
+  uncertaintyLine,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
@@ -303,12 +305,14 @@ function Arguments({ analysis, showStrategy }) {
   const decision = analysis.decision || {};
   const strategy = decision.strategy;
   // The biggest uncertainty leads its list here, once -- it is not repeated
-  // beside the confidence line at a glance.
+  // beside the confidence line at a glance.  A line carrying an internal code
+  // reads as its plain clause instead.
+  const rosterLens = analysis.lenses?.roster;
   const uncertain = [
     ...new Set(
-      [analysis.topUncertainty, ...(analysis.uncertainty || [])].filter(
-        (x) => typeof x === "string" && x,
-      ),
+      [analysis.topUncertainty, ...(analysis.uncertainty || [])]
+        .map((x) => uncertaintyLine(x, { rosterLens }))
+        .filter(Boolean),
     ),
   ];
   const lists = [
@@ -348,7 +352,9 @@ function Arguments({ analysis, showStrategy }) {
 function Methodology({ analysis, raw }) {
   const decision = analysis.decision || {};
   const bands = decision.bands || {};
-  const confidence = confidenceSummary(decision.confidence);
+  const confidence = confidenceSummary(decision.confidence, {
+    rosterLens: analysis.lenses?.roster,
+  });
   const market = analysis.lenses?.market?.detail || {};
   const roster = analysis.lenses?.roster?.detail || {};
   const feas = analysis.lenses?.feasibility?.detail || {};
@@ -800,9 +806,19 @@ export default function TradeWarRoom({
   const analysis = answer?.analysis || null;
   const decision = analysis?.decision || null;
   const teamLabel = answer?.team?.name || request.teamName;
-  const confidence = decision ? confidenceSummary(decision.confidence) : null;
-  const reasons = decision ? decisionReasons(decision) : [];
-  const missing = decision?.missingEvidence || [];
+  const confidence = decision
+    ? confidenceSummary(decision.confidence, { rosterLens: analysis.lenses?.roster })
+    : null;
+  // Each reason and gap as its plain sentence; one with nothing plain to say
+  // is skipped, never rendered empty.
+  const reasons = decision
+    ? decisionReasons(decision)
+        .map((r) => ({ ...r, sentence: reasonSentence(r.reason, { strategy: decision.strategy }) }))
+        .filter((r) => r.sentence)
+    : [];
+  const missing = (decision?.missingEvidence || [])
+    .map((g, i) => ({ key: `${g?.code || "gap"}-${i}`, sentence: missingEvidenceText(g) }))
+    .filter((g) => g.sentence);
   const showStrategy = useTeamContext !== false;
 
   // ── At a glance ─────────────────────────────────────────────────────────
@@ -932,10 +948,9 @@ export default function TradeWarRoom({
         <div className={styles.why}>
           <h3 className={styles.sectionTitle}>Why</h3>
           <ul className={styles.whyList} data-testid="decision-reasons">
-            {reasons.map(({ role, reason }) => (
+            {reasons.map(({ role, reason, sentence }) => (
               <li key={role} data-role={role} data-stance={reason.stance}>
-                <span className={styles.whyRole}>{REASON_ROLE_WORDS[role]}:</span>{" "}
-                {reasonSentence(reason, { strategy: decision.strategy })}
+                <span className={styles.whyRole}>{REASON_ROLE_WORDS[role]}:</span> {sentence}
               </li>
             ))}
           </ul>
@@ -946,7 +961,7 @@ export default function TradeWarRoom({
           <h3 className={styles.sectionTitle}>What is missing</h3>
           <ul className={styles.whyList} data-testid="decision-missing">
             {missing.map((g) => (
-              <li key={g.code}>{g.text}</li>
+              <li key={g.key}>{g.sentence}</li>
             ))}
           </ul>
         </div>
