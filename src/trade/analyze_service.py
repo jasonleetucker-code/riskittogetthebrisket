@@ -20,7 +20,7 @@ and the public advisor — goes through these two functions:
   publish mid-request cannot pair one board's verdict with another's stamp).
 
 What stays in the routes: auth, body parsing, league resolution, the
-cross-league overlay splice, team resolution, ``nflExposure``, comparables and
+cross-league overlay splice, team resolution, the NFL-team exposure block, comparables and
 the decision receipt (``record_decision``).
 
 Pure orchestration: computes no value, writes nothing.  Pinned by
