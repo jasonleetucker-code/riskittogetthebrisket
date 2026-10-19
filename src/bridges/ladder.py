@@ -48,7 +48,19 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from src.bridges.descriptor import BridgeAssessment
 
-__all__ = ["BridgeLadder", "build_bridge_ladder"]
+__all__ = ["BridgeLadder", "bridge_order_name_key", "build_bridge_ladder"]
+
+
+def bridge_order_name_key(display_name: Any) -> str:
+    """The ONE name key that breaks value ties in a bridge's ordering.
+
+    Every consumer that must agree with the ladder about which player holds
+    which family slot (the coverage-aligned family crosswalk orders its own
+    tie groups by it) reads this function instead of re-deriving a key.  It
+    is the key ``_ladders_for`` always sorted on: the lowercased
+    ``displayName``.
+    """
+    return str(display_name or "").lower()
 
 
 @dataclass(frozen=True)
@@ -66,10 +78,41 @@ class BridgeLadder:
     #: Same coordinate system as ``ladder``; a family no bridge prices is
     #: absent (never an empty tuple standing in for "rank 1").
     position_ladders: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    #: ``{id(row): (family, slot index)}`` from the SAME pass that built the
+    #: family ladders — which board row holds the family's (i+1)-th slot.
+    #: Populated only for a SINGLE contributor: with several bridges the
+    #: combined slot is a blend of different players' positions and no row
+    #: "holds" it.  Keyed by object identity because it describes the row
+    #: objects of one build; never published (``to_dict`` omits it).
+    family_slots: dict[int, tuple[str, int]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+    #: Per family: how many PICK rows sit above each family slot on the
+    #: contributor's combined pool.  Diagnostic metadata only (the bridge's
+    #: combined rank counts draft picks while the Hill masters are fitted on
+    #: players); single contributor only, never published by ``to_dict``.
+    family_pick_rows_above: dict[str, tuple[int, ...]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
 
     def family_ladder(self, family: str) -> tuple[int, ...]:
         """The shared-market ladder for one IDP family, or ``()`` if none."""
         return self.position_ladders.get(str(family or "").strip().upper(), ())
+
+    @property
+    def family_positions_defined(self) -> bool:
+        """Does a board row HOLD each family slot?  Only with one contributor."""
+        return len(self.contributors) == 1
+
+    def family_position(self, row: Mapping[str, Any]) -> tuple[str, int] | None:
+        """``(family, slot index)`` of ``row`` in its family ladder, or ``None``.
+
+        ``None`` when the row is not priced by the contributing bridge, or when
+        family positions are undefined (zero or several contributors).
+        """
+        if not self.family_positions_defined:
+            return None
+        return self.family_slots.get(id(row))
 
     @property
     def available(self) -> bool:
@@ -113,15 +156,30 @@ def _ladders_for(
     offense_positions: frozenset[str],
     idp_positions: frozenset[str],
 ) -> tuple[list[int], dict[str, list[int]]]:
+    """This bridge's own ladder plus its family slices (see :func:`_family_pass`)."""
+    overall, families, _slots, _picks = _family_pass(
+        assessment, rows, offense_positions=offense_positions, idp_positions=idp_positions
+    )
+    return overall, families
+
+
+def _family_pass(
+    assessment: BridgeAssessment,
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    offense_positions: frozenset[str],
+    idp_positions: frozenset[str],
+) -> tuple[list[int], dict[str, list[int]], dict[int, tuple[str, int]], dict[str, list[int]]]:
     """This bridge's own ladder, over its own combined pool, plus its slices
-    by IDP family (the combined rank of each family's i-th player).
+    by IDP family (the combined rank of each family's i-th player), which row
+    holds each family slot, and how many PICK rows sit above each slot.
 
     Ordering matches ``idp_backbone.build_backbone_from_rows`` exactly —
     descending value, ties broken by lowercased name — so a bridge measured as
     capable and a bridge used to translate agree about where its IDPs sit.
     """
     keys = assessment.descriptor.keys
-    combined: list[tuple[float, str, str]] = []
+    combined: list[tuple[float, str, str, int, bool]] = []
     for row in rows:
         values = row.get("canonicalSiteValues")
         if not isinstance(values, Mapping):
@@ -138,16 +196,26 @@ def _ladders_for(
         is_idp = pos in idp_positions
         if not is_idp and pos not in offense_positions:
             continue
-        combined.append((val, str(row.get("displayName") or ""), pos if is_idp else ""))
+        combined.append(
+            (val, str(row.get("displayName") or ""), pos if is_idp else "", id(row), pos == "PICK")
+        )
 
-    combined.sort(key=lambda t: (-t[0], t[1].lower()))
+    combined.sort(key=lambda t: (-t[0], bridge_order_name_key(t[1])))
     overall: list[int] = []
     families: dict[str, list[int]] = {}
-    for rank, (_v, _n, family) in enumerate(combined, start=1):
+    slots: dict[int, tuple[str, int]] = {}
+    picks_above: dict[str, list[int]] = {}
+    picks_seen = 0
+    for rank, (_v, _n, family, row_id, is_pick) in enumerate(combined, start=1):
         if family:
             overall.append(rank)
-            families.setdefault(family, []).append(rank)
-    return overall, families
+            fam = families.setdefault(family, [])
+            slots[row_id] = (family, len(fam))
+            fam.append(rank)
+            picks_above.setdefault(family, []).append(picks_seen)
+        elif is_pick:
+            picks_seen += 1
+    return overall, families, slots, picks_above
 
 
 def _rescale_and_blend(
@@ -201,8 +269,9 @@ def build_bridge_ladder(
 
     built: list[tuple[str, list[int], int]] = []
     built_families: list[dict[str, list[int]]] = []
+    built_slots: list[tuple[dict[int, tuple[str, int]], dict[str, list[int]]]] = []
     for assessment in usable:
-        own, families = _ladders_for(
+        own, families, slots, picks_above = _family_pass(
             assessment,
             rows,
             offense_positions=offense_positions,
@@ -212,6 +281,7 @@ def build_bridge_ladder(
             continue
         built.append((assessment.descriptor.bridge_key, own, assessment.capability.combined_depth))
         built_families.append(families)
+        built_slots.append((slots, picks_above))
 
     if not built:
         return BridgeLadder(ladder=(), contributors=(), reference_depth=0)
@@ -245,10 +315,18 @@ def build_bridge_ladder(
         if blended:
             position_ladders[family] = tuple(blended)
 
+    # Which row holds which family slot is defined only for ONE contributor:
+    # its slots ARE the published family ladder (factor 1.0, one ladder per
+    # knot), so slot i of family F is exactly that row's combined rank.
+    single = len(built) == 1
     return BridgeLadder(
         ladder=tuple(combined),
         contributors=tuple(k for k, _l, _d in built),
         reference_depth=reference_depth,
         per_bridge=per_bridge,
         position_ladders=position_ladders,
+        family_slots=dict(built_slots[0][0]) if single else {},
+        family_pick_rows_above=(
+            {f: tuple(v) for f, v in built_slots[0][1].items()} if single else {}
+        ),
     )

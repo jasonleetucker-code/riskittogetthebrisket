@@ -243,8 +243,19 @@ def build_three(app_dir: Path) -> tuple[dict, dict, dict, str]:
         RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1", RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="0"
     ):
         shipped = _build()
+    # "Promoted" = every Signals IDP family released.  Since the owner
+    # directive of 2026-10-19 the master ALONE releases nothing (it would
+    # rebuild the shipped board and report zero movement), and Candidate A can
+    # never vote: a release needs the master, every family switch AND the
+    # qualified translation (Candidate F, signals_idp_xwalk_v2).  The per-mode
+    # build matrix (D1 / E1, Candidate A computed in-script) is PR-D's.
     with _flags(
-        RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1", RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="1"
+        RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="1",
+        RISKIT_FEATURE_SIGNALS_IDP_DL_VOTE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_LB_VOTE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_DB_VOTE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_XWALK_V2="1",
     ):
         promoted = _build()
     return champion, shipped, promoted, path.name if path else "?"

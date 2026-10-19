@@ -1654,8 +1654,29 @@ SIGNALS_PREREG_REL = "docs/sources/SIGNALS_FANTASY_INTEGRATION.md"
 SIGNALS_REPORTS_REL = "data/sources/signals/reports"
 
 
+#: Per-family release switches and the qualified-translation switch (owner
+#: directive 2026-10-19): a family votes only with the master, its own switch
+#: and ``signals_idp_xwalk_v2`` all ON (``data_contract._private_vote_decision``).
+SIGNALS_FAMILY_FLAGS = {
+    "signalsIdpDl": "signals_idp_dl_vote",
+    "signalsIdpLb": "signals_idp_lb_vote",
+    "signalsIdpDb": "signals_idp_db_vote",
+}
+SIGNALS_XWALK_FLAG = "signals_idp_xwalk_v2"
+
+
 def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, Any]:
     flag = _flag_state("signals_idp_shared_market")
+    release_flags = {
+        name: _flag_enabled(_flag_state(name))
+        for name in (*SIGNALS_FAMILY_FLAGS.values(), SIGNALS_XWALK_FLAG)
+    }
+    xwalk_on = release_flags.get(SIGNALS_XWALK_FLAG) is True
+    candidate_name = (
+        "Candidate F (coverage-aligned family crosswalk)"
+        if xwalk_on
+        else "Candidate A (shared-market family ladder; shadow only, can never vote)"
+    )
     reports_dir = root / SIGNALS_REPORTS_REL
     reports = sorted(reports_dir.glob("onbox_*.json")) if reports_dir.is_dir() else []
     latest_doc, latest_err = (None, None)
@@ -1683,26 +1704,41 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
         "the on-box report carries measurements, not an adjudicated verdict"
     )
     # What is SERVED is the vote-state owner's answer (data_contract), never the gate
-    # restated: Candidate A votes only where the Signals IDP CSV is present, the
-    # source is not rolled back (signals_active_source) AND the hold is lifted
-    # (signals_idp_shared_market).  On a host that never provisioned Signals the
-    # flag can be ON while nothing votes.
+    # restated, PER FAMILY: a Signals IDP family votes only where its CSV is
+    # present, the source is not rolled back (signals_active_source) AND every
+    # release flag is ON (master signals_idp_shared_market + its family switch +
+    # signals_idp_xwalk_v2).  On a host that never provisioned Signals the
+    # flags can be ON while nothing votes.
     vote_states: dict[str, Any] = {}
     availability: dict[str, Any] = {}
+    per_family: dict[str, Any] = {}
     vote_err: str | None = None
     try:
         from src.api import data_contract as dc
 
         holds = dict(dc.PRIVATE_SOURCE_VOTE_HOLDS)
-        hold_status: Any = {
-            "heldSources": sorted(holds),
-            "holdReasons": sorted(set(holds.values())),
-        }
         states = dc._private_source_vote_state(csv_root=root)
         for key in sorted(dc.PRIVATE_SOURCE_SHADOW_KEYS):
             if key in states:
                 vote_states[key] = states[key].get("voteState")
                 availability[key] = states[key].get("state")
+                per_family[key] = {
+                    "voteState": states[key].get("voteState"),
+                    "votes": states[key].get("votes"),
+                    "heldFromVote": states[key].get("heldFromVote"),
+                    "rollbackFlag": states[key].get("rollbackFlag"),
+                    "familyFlag": SIGNALS_FAMILY_FLAGS.get(key),
+                }
+        # The EFFECTIVE holds (a released family is no longer held), with the
+        # declarations kept beside them.
+        hold_status: Any = {
+            "heldSources": sorted(k for k, v in per_family.items() if not v.get("votes")),
+            "declaredHolds": sorted(holds),
+            "holdReasons": sorted(
+                {str(v.get("heldFromVote")) for v in per_family.values() if v.get("heldFromVote")}
+            ),
+            "perFamily": per_family,
+        }
         if not vote_states:
             vote_err = "no Signals IDP source is registered with the vote-state owner"
         active_state, shadow_state = dc.VOTE_STATE_ACTIVE, dc.VOTE_STATE_SHADOW
@@ -1721,7 +1757,7 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
     elif active_state in observed_states:
         voting = sorted(k for k, v in vote_states.items() if v == active_state)
         served = True
-        served_note = f"Candidate A votes for {', '.join(voting)} (voteState {active_state})"
+        served_note = f"{candidate_name} votes for {', '.join(voting)} (voteState {active_state})"
     else:
         served = False
         served_note = (
@@ -1731,27 +1767,25 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
         )
     if served is True:
         candidate_state = LAB_CHAMPION
-    elif served is False and shadow_state in observed_states:
+    elif served is False and observed_states & {shadow_state, "held"}:
         candidate_state = LAB_SHADOW
     else:
         # Not running here (CSV unavailable / rolled back), or unknown.
         candidate_state = LAB_INSUFFICIENT
 
     champion: Any = {
-        "version": "Candidate A (shared-market family crosswalk)"
-        if served
-        else "no Signals IDP vote (hold)",
+        "version": candidate_name if served else "no Signals IDP vote (hold)",
         "createdAt": not_applicable(
-            "Candidate A is a preregistered rule, not a fit"
+            "the crosswalk is a preregistered rule, not a fit"
             if served
             else "a source-vote hold, not a fit"
         ),
-        "trainedAt": not_applicable("Candidate A fits no parameter (section 10.7)"),
+        "trainedAt": not_applicable("the crosswalk fits no parameter"),
         "dataThrough": unobserved(no_report) if latest_doc is None else latest_doc.get("utc"),
         "featureDictionary": not_applicable(
             "this family declares no feature manifest in the feature dictionary"
         ),
-        "trainingWindow": not_applicable("Candidate A fits no parameter"),
+        "trainingWindow": not_applicable("the crosswalk fits no parameter"),
         "validationWindows": unobserved(no_results),
         "target": "preregistered promotion gate, criteria 1-9 "
         f"({SIGNALS_PREREG_REL} section 10.6)",
@@ -1774,7 +1808,13 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
             else f"not served: {served_note}; restored by rollback",
         ),
         _challenger(
-            version="Candidate A: family rank to shared-market family ladder to GLOBAL curve",
+            version=(
+                "Candidate F: within-family order, coverage-aligned onto the bridge's "
+                "family coordinates, GLOBAL curve"
+                if xwalk_on
+                else "Candidate A: family rank to shared-market family ladder to GLOBAL "
+                "curve (shadow only)"
+            ),
             state=candidate_state,
             native_status={k: v for k, v in vote_states.items()}
             if vote_states
@@ -1811,20 +1851,34 @@ def build_signals_family(root: Path, receipts: Mapping[str, Any]) -> dict[str, A
             "criteria": "section 10.6 criteria 1-9 (7: independent fresh-context review)",
         },
         promotionAuthority={
-            "mechanism": "all of section 10.6 criteria 1-8 hold on the production board, "
-            "independent review approves, then the owner flips signals_idp_shared_market",
+            "mechanism": "per family: the preregistered gates hold on the production "
+            "board, independent review approves, the applicable owner decisions are "
+            "recorded, then a reviewed default flip of that family's switch (with the "
+            "master signals_idp_shared_market and signals_idp_xwalk_v2)",
             "automatic": False,
         },
         productionState={
             **flag,
             "servedNote": served_note,
             "voteStates": vote_states if vote_states else unobserved(vote_err or "no vote state"),
+            "releaseFlags": release_flags,
+            "perFamily": per_family if per_family else unobserved(vote_err or "no vote state"),
             "availability": availability if availability else unobserved(vote_err or "none"),
         },
         rollback={
             "served": served_note,
-            "command": "RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart"
-            if served is not False
+            "command": (
+                "per family: "
+                + ", ".join(
+                    f"RISKIT_FEATURE_{SIGNALS_FAMILY_FLAGS[k].upper()}=0"
+                    for k, v in sorted(vote_states.items())
+                    if v == active_state and k in SIGNALS_FAMILY_FLAGS
+                )
+                + " + restart (all IDP: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0)"
+            )
+            if served is True
+            else "RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart"
+            if served is None
             else "nothing to roll back: no Signals IDP vote is served",
         },
         decisionReason=unobserved(served_note)

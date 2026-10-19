@@ -795,8 +795,16 @@ Steps:
    B10 family (no independence bonus).  Its IDP value is normalised per
    family, so IDP is one ``position_idp`` board per family
    (``signalsIdp{Dl,Lb,Db}``), collected and displayed but HELD from voting
-   (``PRIVATE_SOURCE_VOTE_HOLDS``: the positional path prices in IDP-local
-   coordinates — never derive a cross-family order).  It is the first
+   (``PRIVATE_SOURCE_VOTE_HOLDS``), translated in SHADOW only
+   (``sourceShadowMeta``) onto the bridge's shared-market family ladder —
+   never a cross-family order Signals asserted.  A family votes only when
+   ``signals_idp_shared_market`` (the IDP master, which ALONE activates
+   nothing), its own ``signals_idp_{dl,lb,db}_vote`` AND
+   ``signals_idp_xwalk_v2`` (Candidate F, ``src/bridges/family_crosswalk.py``:
+   Signals' within-family ORDER priced at IDPTC's level, stamped
+   ``levelSource``) are all ON; master + family without the crosswalk is
+   ``held: no_qualified_translation``, so Candidate A can never vote.  All
+   default OFF (owner directive 2026-10-19).  It is the first
    **private, box-local** voter: its CSVs live in the gitignored
    ``data/sources/signals/board/`` store written by the box timer
    ``dynasty-signals-values``, never in ``CSVs/site_raw``.  Where that
