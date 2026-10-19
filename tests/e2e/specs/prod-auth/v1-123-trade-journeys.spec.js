@@ -88,6 +88,13 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
     await awaitStreamSettled(page);
 
     await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({ timeout: 30_000 });
+    // Owner directive 2026-10-18 (d99ac2c13f, "tools first"): Golden Upgrades
+    // is the default tool and the Package Scan is its own tab, and no research
+    // table renders ahead of the tools — the same contract the local journey
+    // (tests/e2e/specs/journey-trade.spec.js) holds the page to.
+    const tabs = page.getByRole("tab");
+    await expect(tabs.first()).toHaveText("Golden Upgrades", { timeout: 30_000 });
+    await page.getByRole("tab", { name: "Package Scan" }).click();
     await expect(page.getByText(/Package scan ready/i)).toBeVisible({ timeout: 30_000 });
 
     const teamSelect = page.getByLabel("Your team");
@@ -139,11 +146,23 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
 
     await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({ timeout: 30_000 });
 
-    const visibleTile = page.getByText("Visible", { exact: false }).first();
+    // Since the 2026-10-18 "tools first" directive the player-level table
+    // lives in the collapsed "Player-level market research" panel, which
+    // does not mount its body until opened.  Open it, then scope every
+    // lookup to it — the default tool above may render its own content.
+    const disclosure = page.getByRole("button", { name: "Player-level market research" });
+    await expect(disclosure).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    await disclosure.click();
+    await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    // `.last()`: the innermost panel holding the disclosure (an enclosing
+    // panel, if a future layout adds one, would also match the filter).
+    const research = page.locator(".ds-panel").filter({ has: disclosure }).last();
+
+    const visibleTile = research.getByText("Visible", { exact: true });
     await expect(visibleTile).toBeVisible({ timeout: 30_000 });
 
-    const table = page.getByRole("table");
-    const emptyState = page.getByText(/No player-level edges at this threshold/i);
+    const table = research.getByRole("table");
+    const emptyState = research.getByText(/No player-level edges under these filters/i);
     const settled = table.or(emptyState);
     await expect(settled.first()).toBeVisible({ timeout: 30_000 });
 
@@ -157,15 +176,16 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
       annotate(testInfo, "arbitrage-player-level", "explicit empty state at default threshold");
     }
 
-    // Player-type filter narrows the population -- exercise it and
-    // require the page to still resolve to a table or the same empty
-    // state, never an error.
-    const playerType = page.getByLabel("Player type");
-    if (await playerType.isVisible().catch(() => false)) {
-      await playerType.selectOption("idp");
-      await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
-      await playerType.selectOption("all");
-    }
+    // The Players filter narrows the population (it replaced "Player
+    // type") -- exercise it and require the panel to still resolve to a
+    // table or the same empty state, never an error.  Asserted, not probed:
+    // a filter that silently vanished used to skip this check.
+    const players = research.getByLabel("Players", { exact: true });
+    await expect(players).toBeVisible({ timeout: 15_000 });
+    await players.selectOption("defense");
+    await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
+    await players.selectOption("both");
+    await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("POST /api/trade/finder returns arbitrage trades for a real roster on production", async ({
