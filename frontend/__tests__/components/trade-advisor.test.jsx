@@ -134,7 +134,7 @@ describe("team step", () => {
   it("shows the stale-roster note when rosters are not current", () => {
     render(<TradeAdvisorShell bootstrap={classifyTeamsResult({ status: 200, data: fixture("teams.rosters-stale") })} />);
     expect(screen.getByTestId("advisor-roster-freshness")).toHaveTextContent(
-      "Rosters as of 2026-10-19. Recent trades or roster moves may not appear yet.",
+      "Rosters as of 2026-10-18. Recent trades or roster moves may not appear yet.",
     );
   });
 
@@ -325,6 +325,28 @@ describe("review, analyze and result", () => {
     nav.search = "team=1&step=result"; // and Forward
     view.rerender(<TradeAdvisorShell bootstrap={READY} onUnavailable={vi.fn()} onOpenOverview={vi.fn()} />);
     expect(await screen.findByTestId("advisor-result")).toBeInTheDocument();
+  });
+
+  it("a reload re-shows a saved result only for the same board generation", async () => {
+    const user = userEvent.setup();
+    const view = await setupTwoTeams(user);
+    await addFrom(user, 0, ["Alpha Quarterback"]);
+    await addFrom(user, 1, ["Bravo Star"]);
+    await user.click(screen.getByRole("button", { name: "Analyze trade" }));
+    await screen.findByTestId("advisor-result");
+    view.unmount();
+    // Same generation: the reload lands back on the result.
+    nav.search = "team=1&step=result";
+    const same = render(<TradeAdvisorShell bootstrap={READY} onUnavailable={vi.fn()} onOpenOverview={vi.fn()} />);
+    expect(await screen.findByTestId("advisor-result")).toBeInTheDocument();
+    same.unmount();
+    // The board moved on: the saved result is not presented as current.
+    nav.search = "team=1&step=result";
+    const moved = classifyTeamsResult({ status: 200, data: { ...fixture("teams.success"), generation: "0000000000000000" } });
+    render(<TradeAdvisorShell bootstrap={moved} onUnavailable={vi.fn()} onOpenOverview={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "Analyze trade" })).toBeInTheDocument();
+    expect(screen.queryByTestId("advisor-result")).toBeNull();
+    expect(within(screen.getByTestId("advisor-panel-0")).getByText("Alpha Quarterback")).toBeInTheDocument();
   });
 
   it("a non-allowlisted numeric field never reaches the DOM", async () => {

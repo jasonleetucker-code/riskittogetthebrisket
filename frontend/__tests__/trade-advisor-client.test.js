@@ -61,7 +61,7 @@ describe("allowlist", () => {
     expect(Object.keys(clean).sort()).toEqual(["generation", "limits", "multiTeam", "rosters", "teams"]);
     expect(Object.keys(clean.teams[0]).sort()).toEqual(["displayName", "rosterId", "teamName"]);
     expect(clean.teams.map((t) => t.rosterId)).toEqual([1, 2, 3]);
-    expect(sanitizeTeamsPayload(fixture("teams.rosters-stale")).rosters).toEqual({ state: "stale", asOf: "2026-10-19" });
+    expect(sanitizeTeamsPayload(fixture("teams.rosters-stale")).rosters).toEqual({ state: "stale", asOf: "2026-10-18" });
   });
 
   it("assets: keeps player and pick keys exactly, in the server's order", () => {

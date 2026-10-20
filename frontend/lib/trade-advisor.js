@@ -235,9 +235,11 @@ export function tradeIssues(state, teams = []) {
   if (issues.length) return issues;
   const sends = new Map(state.slots.map((rid) => [rid, 0]));
   const receives = new Map(state.slots.map((rid) => [rid, 0]));
+  // Both maps start at a real count of 0 for every team in the trade; a
+  // leg naming a team outside it changes no team's count.
   for (const leg of state.legs) {
-    sends.set(leg.from, (sends.get(leg.from) || 0) + 1);
-    if (leg.to != null) receives.set(leg.to, (receives.get(leg.to) || 0) + 1);
+    if (sends.has(leg.from)) sends.set(leg.from, sends.get(leg.from) + 1);
+    if (leg.to != null && receives.has(leg.to)) receives.set(leg.to, receives.get(leg.to) + 1);
   }
   if (state.teamCount === 2) {
     state.slots.forEach((rid, i) => {

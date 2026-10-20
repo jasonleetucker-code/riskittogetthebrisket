@@ -97,6 +97,10 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
   const [epoch, setEpoch] = useState(0);
   const [state, dispatch] = useReducer(advisorReducer, undefined, initialAdvisorState);
   const restoredRef = useRef(false);
+  // True from the render that carries the RESTORED state.  The URL effects
+  // below wait for it: run in the restore commit they would see the
+  // pre-restore state and strip `?team=` / `?step=result` from the URL.
+  const [restored, setRestored] = useState(false);
   const lastResultRef = useRef(null);
   const teams = boot.status === "ready" ? boot.data.teams : [];
 
@@ -130,14 +134,18 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
     restoredRef.current = true;
     const restored = restoreAdvisorState(readSession(), { urlTeam, teams: boot.data.teams });
     lastResultRef.current = restored.result;
+    // A saved result is shown again only for THIS trade on THIS board
+    // generation (design §8.3: keyed by generation + trade hash).
     const showResult = Boolean(restored.result) && urlStep === "result" &&
-      restored.result.key === tradeKey(toAnalyzeRequest(restored));
+      restored.result.key === tradeKey(toAnalyzeRequest(restored)) &&
+      restored.result.generation === boot.data.generation;
     if (!showResult) {
       restored.result = null;
       restored.phase = "build";
       if (urlStep === "result") navigate({ step: null });
     }
     dispatch({ type: "RESTORE", state: restored });
+    setRestored(true);
   }, [boot, urlTeam, urlStep]);
 
   useEffect(() => {
@@ -156,21 +164,22 @@ export default function TradeAdvisorShell({ bootstrap, onUnavailable, onOpenOver
   // `?team=` mirrors "your team" (replace: no history entry per choice).
   const perspective = state.slots[0];
   useEffect(() => {
-    if (!restoredRef.current) return;
+    if (!restored) return;
     const want = perspective == null ? "" : String(perspective);
     if ((urlTeam || "") !== want) navigate({ team: want || null, step: state.phase === "result" ? "result" : null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perspective]);
+  }, [perspective, restored]);
 
   // Back from a result returns to the builder with the legs intact;
   // Forward re-shows the result only when it was computed for THIS trade.
   useEffect(() => {
-    if (!restoredRef.current) return;
+    if (!restored) return;
     if (urlStep !== "result" && state.phase === "result") {
       dispatch({ type: "EDIT" });
     } else if (urlStep === "result" && state.phase === "build") {
       const cached = lastResultRef.current;
-      if (cached && cached.key === tradeKey(toAnalyzeRequest(state))) {
+      if (cached && cached.key === tradeKey(toAnalyzeRequest(state)) &&
+          (boot.status !== "ready" || cached.generation === boot.data.generation)) {
         dispatch({ type: "RESULT", result: cached });
       } else {
         navigate({ step: null });
