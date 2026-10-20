@@ -17,6 +17,8 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 from scripts import source_weighting_report as report
 from src.sources.ktc_market import KTC_CROWD_KEY, KTC_MARKET_KEY
 
@@ -65,14 +67,28 @@ def _rows(tmp_path: Path) -> dict[tuple[str, str], dict]:
     return {(r["source"], r["subset"]): r for r in rows}
 
 
+@pytest.fixture
+def schedule_v2(monkeypatch):
+    """Force the owner step schedule ON in-process.  It defaults OFF (owner
+    decision 2026-10-20 on PR #1831, Option B: activation held), so the v2
+    pins below enable it explicitly rather than relying on the default."""
+    from src.api import feature_flags
+
+    monkeypatch.setenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2", "1")
+    feature_flags.reload()
+    yield
+    monkeypatch.delenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2", raising=False)
+    feature_flags.reload()
+
+
 def test_fresh_source_keeps_full_weight(tmp_path):
     row = _rows(tmp_path)[(KTC_CROWD_KEY, "players")]
     assert row["role"] == "model_input"
     assert row["effectiveWeight"] == 1.0
 
 
-def test_stale_source_is_reduced_and_a_refetch_does_not_freshen_it(tmp_path):
-    # Owner step schedule (directive 2026-10-19 §2, the default rule): ten
+def test_stale_source_is_reduced_and_a_refetch_does_not_freshen_it(tmp_path, schedule_v2):
+    # Owner step schedule (directive 2026-10-19 §2; forced ON here): ten
     # days since the last genuine update is the second step, 75% — reduced,
     # and the fetch a minute ago does not move it back to 100%.
     row = _rows(tmp_path)[("fantasyCalc", "players")]
@@ -81,7 +97,7 @@ def test_stale_source_is_reduced_and_a_refetch_does_not_freshen_it(tmp_path):
     assert row["sourceDataAsOf"].startswith("2026-09-13")
 
 
-def test_a_source_dark_past_thirty_days_carries_no_weight(tmp_path):
+def test_a_source_dark_past_thirty_days_carries_no_weight(tmp_path, schedule_v2):
     _write(tmp_path, "fantasyCalc", _state(31))
     (tmp_path / "fantasyCalc_last_success").write_text(str((NOW).timestamp()))
     rows = {(r["source"], r["subset"]): r for r in report.state_only_rows(tmp_path, NOW)}
@@ -89,7 +105,7 @@ def test_a_source_dark_past_thirty_days_carries_no_weight(tmp_path):
 
 
 def test_stale_source_under_the_v1_rollback_is_cut_to_the_cadence_curve(tmp_path, monkeypatch):
-    # The v1 cadence curve (rollback): a KTC-like 24 h cadence 10 days dark
+    # The v1 cadence curve (the rule in force by default): a KTC-like 24 h cadence 10 days dark
     # is quarantined.  The report follows the rule the board applies.
     from src.api import feature_flags
 

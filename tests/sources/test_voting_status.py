@@ -286,3 +286,72 @@ class TestPayload:
         assert e["status"] == "active_100"
         assert e["effectiveWeight"] == 1.0
         assert "switched off" in e["reason"]
+
+
+class TestV1RuleInForceWithV2Shadow:
+    """Owner decision 2026-10-20 on PR #1831 (Option B): the step schedule
+    ships disabled.  The status then describes the v1 rule truthfully, and
+    what v2 WOULD assign is a labelled, non-voting shadow."""
+
+    @staticmethod
+    def _v1(key, state):
+        return fr.assess_source(key, state, as_of=NOW, cfg=CFG, schedule=fr.SCHEDULE_V1)
+
+    def _out(self, state, *, shadow=True):
+        reg = [_src("a")]
+        contract = {
+            "playersArray": [_row("QB", {"a": _voted()})],
+            "sourceWeighting": {"applied": True, "sources": {"a": {}}},
+            "privateSourceAvailability": {},
+            "sourceSeasonalState": {"inactive": {}},
+        }
+        return vs.build_source_voting_status(
+            contract,
+            {"a": self._v1("a", state)},
+            reg,
+            as_of=NOW,
+            shadow_weighting={"a": _w("a", state)} if shadow else None,
+        )
+
+    def test_status_reports_the_v1_rule(self):
+        out = self._out(_state(10))
+        assert out["freshnessSchedule"] == fr.SCHEDULE_V1
+        e = _by_key(out)["a"]
+        v1 = self._v1("a", _state(10)).subset_for(False).freshness
+        assert e["weightFactors"]["freshness"] == round(v1, 4)
+
+    def test_shadow_is_labelled_non_voting_and_shows_the_step(self):
+        out = self._out(_state(10))
+        assert out["shadow"]["votes"] is False
+        assert out["shadow"]["freshnessSchedule"] == fr.SCHEDULE_V2
+        shadow = _by_key(out)["a"]["shadowScheduleV2"]
+        assert shadow["votes"] is False
+        assert shadow["daysSinceUpdate"] == 10
+        assert shadow["freshnessPct"] == 75.0
+        assert shadow["effectiveWeightIfActivated"] == 0.75
+
+    def test_shadow_changes_nothing_else(self):
+        with_shadow = self._out(_state(10))
+        without = self._out(_state(10), shadow=False)
+        for e in with_shadow["sources"]:
+            e.pop("shadowScheduleV2")
+        with_shadow.pop("shadow")
+        assert with_shadow == without
+
+    def test_no_shadow_when_v2_is_the_rule_in_force(self):
+        reg = [_src("a")]
+        contract = {
+            "playersArray": [_row("QB", {"a": _voted()})],
+            "sourceWeighting": {"applied": True, "sources": {"a": {}}},
+            "privateSourceAvailability": {},
+            "sourceSeasonalState": {"inactive": {}},
+        }
+        out = vs.build_source_voting_status(
+            contract,
+            {"a": _w("a", _state(10))},
+            reg,
+            as_of=NOW,
+            shadow_weighting={"a": _w("a", _state(10))},
+        )
+        assert "shadow" not in out
+        assert "shadowScheduleV2" not in _by_key(out)["a"]

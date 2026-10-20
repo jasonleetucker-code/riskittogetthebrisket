@@ -140,8 +140,11 @@ export default async function FranchisePage({ params }) {
             {fr.topRival && (
               <div>
                 Top rival:{" "}
+                {/* In-prose link: underlined (ds-link) so it is not told
+                    apart from the sentence by colour alone (WCAG 1.4.1). */}
                 <Link
                   href={`/league/franchise/${encodeURIComponent(fr.topRival.ownerId)}`}
+                  className="ds-link"
                   style={{ color: "var(--cyan)" }}
                 >
                   {fr.topRival.displayName}
@@ -209,7 +212,7 @@ export default async function FranchisePage({ params }) {
           )}
           <PickChipsLegend>
             {" "}·{" "}
-            <Link href="/league?tab=draft" style={{ color: "var(--cyan)" }}>
+            <Link href="/league?tab=draft" className="ds-link" style={{ color: "var(--cyan)" }}>
               Full draft center →
             </Link>
           </PickChipsLegend>

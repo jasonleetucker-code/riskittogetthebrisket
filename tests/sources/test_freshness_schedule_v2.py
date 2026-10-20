@@ -327,7 +327,83 @@ class TestTheFlag:
             monkeypatch.delenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2", raising=False)
             feature_flags.reload()
 
-    def test_default_is_on(self):
+    def test_default_is_off_activation_held_for_the_owner(self):
+        """Owner decision 2026-10-20 on PR #1831 (Option B): implementation
+        and percentages approved, activation held.  The lock with its full
+        rationale is tests/api/test_freshness_v2_hold_locked.py; every v2
+        test in this module forces the rule explicitly."""
         from src.api.feature_flags import _DEFAULTS
 
-        assert _DEFAULTS["source_freshness_schedule_v2"] is True
+        assert _DEFAULTS["source_freshness_schedule_v2"] is False
+
+
+class TestOnePublisherClockOwner:
+    """#1817 D5 (``fantasyProsIdp`` EXPLICIT via ``styleFlag``) and the v2
+    generalisation (every source with a recorded vendor time) are ONE rule:
+    ``freshness.publisher_clock_style``."""
+
+    NOW = datetime(2026, 10, 19, 6, 0, tzinfo=timezone.utc)
+
+    def _state(self, published_days_ago: float, content_days_ago: float) -> dict:
+        content = self.NOW - timedelta(days=content_days_ago)
+        published = self.NOW - timedelta(days=published_days_ago)
+        iso = content.isoformat()
+        return {
+            "subsets": {
+                "players": {
+                    "changeHistory": [
+                        {"at": iso, "broad": True, "rowsChanged": 90, "rowsTotal": 100}
+                    ],
+                    "firstObservedAt": (content - timedelta(days=200)).isoformat(),
+                    "lastAnyMeaningfulChangeAt": iso,
+                    "lastBroadDatasetChangeAt": iso,
+                    "rowCount": 100,
+                    "rowCountHistory": [100],
+                }
+            },
+            "health": {"state": "HEALTHY", "errors": []},
+            "upstream": {"publishedAt": published.isoformat()},
+        }
+
+    def _clock(self, key, schedule, *, d5_on=True):
+        from src.api import feature_flags
+
+        mp = pytest.MonkeyPatch()
+        mp.setenv("RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK", "1" if d5_on else "0")
+        feature_flags.reload()
+        try:
+            cfg = fr.load_config()
+            sw = fr.assess_source(
+                key, self._state(20, 3), as_of=self.NOW, cfg=cfg, schedule=schedule
+            )
+        finally:
+            mp.undo()
+            feature_flags.reload()
+        return sw.subset_for(False)
+
+    def test_v1_publisher_clock_only_for_declared_sources(self):
+        assert self._clock("fantasyProsIdp", fr.SCHEDULE_V1).clock == "upstreamPublishedAt"
+        assert self._clock("fantasyCalc", fr.SCHEDULE_V1).clock == "lastBroadDatasetChangeAt"
+
+    def test_v2_generalises_to_every_recorded_vendor_time(self):
+        assert self._clock("fantasyProsIdp", fr.SCHEDULE_V2).clock == "upstreamPublishedAt"
+        sub = self._clock("fantasyCalc", fr.SCHEDULE_V2)
+        assert sub.clock == "upstreamPublishedAt"
+        assert sub.style_evidence.get("explicitFromRecordedUpstream") is True
+
+    def test_d5_rollback_is_honoured_under_both_rules(self):
+        for schedule in (fr.SCHEDULE_V1, fr.SCHEDULE_V2):
+            sub = self._clock("fantasyProsIdp", schedule, d5_on=False)
+            assert sub.clock == "lastBroadDatasetChangeAt", schedule
+        sub = self._clock("fantasyProsIdp", fr.SCHEDULE_V2, d5_on=False)
+        assert sub.style_evidence.get("publisherClockWithheldBy") == (
+            "fantasypros_idp_upstream_clock"
+        )
+
+    def test_one_clock_block_in_assess_subset(self):
+        import inspect
+
+        src = inspect.getsource(fr.assess_subset)
+        assert src.count('"upstreamPublishedAt"') == 1
+        assert "publisher_clock_style(" in src
+        assert "publishedAt" not in src.replace('get("publishedAt")', "", 1)

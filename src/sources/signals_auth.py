@@ -90,6 +90,7 @@ __all__ = [
     "deliver_reconnect_notice",
     "get_access_token",
     "import_session",
+    "peek_fresh_access_token",
     "renew",
     "resolve_store_dir",
     "status",
@@ -895,6 +896,41 @@ def get_access_token(
     if not value:
         raise SignalsAuthError(RECONNECT_REQUIRED, f"session_missing_{token}")
     return value
+
+
+def peek_fresh_access_token(
+    store: SignalsStore,
+    *,
+    min_remaining_seconds: float,
+    token: str = "accessToken",
+    now_fn: Callable[[], float] = time.time,
+) -> tuple[str | None, str]:
+    """READ-ONLY: the stored token only if it is already fresh for the window.
+
+    Returns ``(token, reason)``; ``token`` is ``None`` with a reason when the
+    session is absent, in a stopping class, or expires within
+    ``min_remaining_seconds``.  It NEVER renews, never records a failure and
+    never takes the lock — the research probe
+    (``scripts/probe_signals_native.py``) must not be able to halt the voting
+    collector by writing an ``access_denied`` / ``refresh_refused`` state
+    (plan §3.2).  The collector keeps using :func:`get_access_token`."""
+    try:
+        session = store.read_session()
+    except SignalsAuthError as exc:
+        return None, f"session_unreadable:{exc.failure_class}"
+    if session is None:
+        return None, "not_connected"
+    if store.read_status().get("state") in STOPPING_CLASSES:
+        return None, "stopping_class"
+    exp = _token_exp(session, token)
+    if exp is None:
+        return None, "no_expiry"
+    if exp - float(min_remaining_seconds) <= now_fn():
+        return None, "not_fresh_for_window"
+    value = (session.get("tokens") or {}).get(token)
+    if not value:
+        return None, "token_missing"
+    return value, "fresh"
 
 
 def import_session(

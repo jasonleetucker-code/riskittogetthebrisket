@@ -255,12 +255,21 @@ def build_source_voting_status(
     registry: Iterable[Mapping[str, Any]],
     *,
     as_of: datetime | None = None,
+    shadow_weighting: Mapping[str, Any] | None = None,
+    shadow_error: str | None = None,
 ) -> dict[str, Any]:
     """The ``sourceVotingStatus`` block for one built board.
 
     ``weighting`` is the ``{key: SourceWeighting}`` map the blend applied
     (``data_contract._source_weighting_resolution``) — every registered key
-    is in it, including those held out of the active set.
+    is in it, including those held out of the active set.  Every status,
+    freshness % and effective weight describes THAT rule.
+
+    ``shadow_weighting`` (optional) is the same map computed under the owner
+    step schedule while it is held OFF (owner decision 2026-10-20 on PR
+    #1831, Option B).  It is reported per source as ``shadowScheduleV2`` —
+    labelled non-voting, never feeding a weight, a status or a count — so the
+    owner-requested shadow analysis can read what v2 WOULD assign.
     """
     summary = contract.get("sourceWeighting") or {}
     active = summary.get("sources") or {}
@@ -373,6 +382,14 @@ def build_source_voting_status(
                 "decision": vstate.get("holdDecision"),
                 "rollbackFlag": vstate.get("rollbackFlag"),
             }
+        if shadow_weighting is not None and schedule == SCHEDULE_V1:
+            entry["shadowScheduleV2"] = _shadow_v2_entry(
+                shadow_weighting.get(key),
+                base=base,
+                in_active=in_active,
+                applied=applied,
+                as_of=as_of,
+            )
         if picks_sub is not None:
             pf = _subset_facts(picks_sub, schedule=schedule, as_of=as_of)
             pfresh = pf["freshness"]
@@ -403,6 +420,59 @@ def build_source_voting_status(
         "votingCount": sum(1 for e in entries if e["voting"]),
         "registeredCount": len(entries),
         "sources": entries,
+        **(
+            {
+                "shadow": {
+                    "freshnessSchedule": SCHEDULE_V2,
+                    "votes": False,
+                    "available": shadow_weighting is not None,
+                    "error": shadow_error,
+                    "note": (
+                        "SHADOW ONLY — what the owner step schedule would assign while its "
+                        "activation is held (owner decision 2026-10-20, PR #1831 Option B). "
+                        "Never applied to any vote; every other field describes the rule in force."
+                    ),
+                }
+            }
+            if schedule == SCHEDULE_V1 and (shadow_weighting is not None or shadow_error)
+            else {}
+        ),
+    }
+
+
+def _shadow_v2_entry(
+    sw: Any,
+    *,
+    base: float,
+    in_active: bool,
+    applied: bool,
+    as_of: datetime | None,
+) -> dict[str, Any]:
+    """What the held step schedule WOULD assign one source (non-voting)."""
+    measured = bool(sw is not None and getattr(sw, "measured", False))
+    sub = sw.subset_for(False) if measured else None
+    facts = _subset_facts(sub, schedule=SCHEDULE_V2, as_of=as_of)
+    if not measured:
+        facts["freshness"] = 1.0 if sw is not None else None
+        facts["lastGenuineUpdateBasis"] = CLOCK_BASIS_NOT_TRACKED
+    freshness = facts["freshness"]
+    health = float(sw.health_factor) if sw is not None else 1.0
+    coverage = float(sw.coverage_factor) if sw is not None else 1.0
+    if in_active and applied and freshness is not None:
+        weight: float | None = base * freshness * health * coverage
+    else:
+        weight = None
+    return {
+        "votes": False,
+        "lastGenuineUpdate": facts["lastGenuineUpdate"],
+        "lastGenuineUpdateBasis": facts["lastGenuineUpdateBasis"],
+        "daysSinceUpdate": facts["daysSinceUpdate"],
+        "freshnessPct": (
+            None
+            if not measured or facts["lastGenuineUpdateBasis"] == CLOCK_BASIS_NOT_TRACKED
+            else _pct(freshness, SCHEDULE_V2)
+        ),
+        "effectiveWeightIfActivated": None if weight is None else round(weight, 4),
     }
 
 

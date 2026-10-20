@@ -39,8 +39,9 @@ subset's ``E`` (flagged) before falling back to the configured seed.
 
 Schedule v2 — the owner's step schedule (owner directive 2026-10-19,
 ``docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md``; flag
-``source_freshness_schedule_v2``, default ON, rollback restores everything
-above byte for byte).  Every dynasty ranking source's freshness becomes a
+``source_freshness_schedule_v2``, DEFAULT OFF — implementation and
+percentages owner-approved, activation HELD for the owner (owner decision
+2026-10-20 on PR #1831, Option B); off is everything above byte for byte).  Every dynasty ranking source's freshness becomes a
 step function of WHOLE DAYS since its last GENUINE publisher update::
 
     days      = floor((asOf - clock) / 24 h)      (UTC instants)
@@ -254,8 +255,9 @@ def default_step_schedule() -> StepSchedule:
 
 
 def active_schedule() -> str:
-    """The freshness rule in force: the owner step schedule unless the
-    ``source_freshness_schedule_v2`` rollback flag is off.
+    """The freshness rule in force: the v1 cadence curve unless the
+    ``source_freshness_schedule_v2`` flag is on (default OFF; activation is
+    held for the owner — owner decision 2026-10-20, PR #1831 Option B).
 
     The board reads the flag itself (``data_contract._source_weighting_resolution``,
     where it is part of the memo key); diagnostics that compute weightings
@@ -298,6 +300,12 @@ class SourceCadence:
     min_hours: float
     max_hours: float
     style: str | None = None
+    # The ``styleFlag`` that WITHDREW this source's configured publication
+    # style (the flag is off), else ``None``.  A withdrawn
+    # ``EXPLICIT_UPSTREAM_TIMESTAMP`` is a per-source rollback of the
+    # publisher clock, which :func:`publisher_clock_style` honours under every
+    # freshness schedule.
+    style_withheld_by: str | None = None
 
 
 @dataclass(frozen=True)
@@ -326,13 +334,44 @@ class FreshnessConfig:
         return self.sources.get(key, self.default_cadence)
 
 
-def _cadence(d: Mapping[str, Any], default: SourceCadence | None = None) -> SourceCadence:
+def style_flag_states() -> tuple[tuple[str, bool], ...]:
+    """Every flag a configured ``styleFlag`` may name, with its state.
+
+    A source's declared publication ``style`` can sit behind its own rollback
+    flag (``"styleFlag"`` beside ``"style"`` in ``freshness_v1.json``):
+    ``fantasyProsIdp``'s ``EXPLICIT_UPSTREAM_TIMESTAMP`` (owner closeout
+    2026-10-18 Decision 5) is in force only while
+    ``fantasypros_idp_upstream_clock`` is on.  Each flag is read by LITERAL
+    name so the flag-reachability scan sees the gate.  Part of every cache
+    key that holds a parsed config, so a flag flip is never served stale.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return (("fantasypros_idp_upstream_clock", is_enabled("fantasypros_idp_upstream_clock")),)
+
+
+def _cadence(
+    d: Mapping[str, Any],
+    default: SourceCadence | None = None,
+    flags: Mapping[str, bool] | None = None,
+) -> SourceCadence:
     base = default or SourceCadence(72.0, 24.0, 336.0)
+    style = d.get("style")
+    flag = d.get("styleFlag")
+    withheld_by: str | None = None
+    if style and flag:
+        states = dict(flags if flags is not None else style_flag_states())
+        if str(flag) not in states:
+            raise ValueError(f"freshness config names an unknown styleFlag: {flag!r}")
+        if not states[str(flag)]:
+            style = None
+            withheld_by = str(flag)
     return SourceCadence(
         seed_hours=float(d.get("seedHours", base.seed_hours)),
         min_hours=float(d.get("minHours", base.min_hours)),
         max_hours=float(d.get("maxHours", base.max_hours)),
-        style=d.get("style"),
+        style=style,
+        style_withheld_by=withheld_by,
     )
 
 
@@ -340,9 +379,10 @@ def load_config(path: Path | None = None, *, curve: str | None = None) -> Freshn
     data = json.loads(Path(path or CONFIG_PATH).read_text(encoding="utf-8"))
     style = data.get("styleClassification") or {}
     cad = data.get("cadence") or {}
-    default = _cadence(data.get("defaultCadence") or {})
+    flags = dict(style_flag_states())
+    default = _cadence(data.get("defaultCadence") or {}, flags=flags)
     sources = {
-        str(k): _cadence(v, default)
+        str(k): _cadence(v, default, flags)
         for k, v in (data.get("sources") or {}).items()
         if isinstance(v, Mapping)
     }
@@ -377,10 +417,16 @@ _CONFIG_CACHE: dict[str, FreshnessConfig] = {}
 
 
 def default_config() -> FreshnessConfig:
-    cfg = _CONFIG_CACHE.get("default")
+    # Keyed by the style-flag states too: a flag flip must not be served from
+    # a config parsed under the other state.  ``"default"`` is kept as the
+    # plain key while every style flag is in its default state, so callers
+    # that substitute a variant config under it keep working.
+    states = style_flag_states()
+    key = "default" if all(on for _f, on in states) else f"default:{states!r}"
+    cfg = _CONFIG_CACHE.get(key)
     if cfg is None:
         cfg = load_config()
-        _CONFIG_CACHE["default"] = cfg
+        _CONFIG_CACHE[key] = cfg
     return cfg
 
 
@@ -710,6 +756,43 @@ def state_for(freshness: float, cfg: FreshnessConfig) -> str:
     return STATE_SEVERELY_STALE
 
 
+def publisher_clock_style(
+    style: str,
+    evidence: dict[str, Any],
+    cadence: SourceCadence,
+    upstream: Mapping[str, Any] | None,
+    *,
+    as_of: datetime,
+    schedule: str,
+) -> tuple[str, dict[str, Any]]:
+    """THE one owner of "does this source age from its publisher's clock".
+
+    Returns the (style, evidence) :func:`assess_subset` uses; the clock rule
+    itself (the vendor's ``upstream.publishedAt``, never later than the last
+    observed content change) is applied there, once, for every schedule.
+
+    * **v1 cadence curve** — only a source whose config DECLARES
+      ``EXPLICIT_UPSTREAM_TIMESTAMP`` (``classify_style``'s override; e.g.
+      ``fantasyProsIdp`` under ``fantasypros_idp_upstream_clock``, owner
+      closeout 2026-10-18 Decision 5).
+    * **v2 step schedule** (owner directive 2026-10-19 §2) — additionally
+      EVERY source whose fetcher records a vendor publication time at or
+      before the board, generalising the per-source declaration rather than
+      duplicating it.  A source whose declared publisher clock was withdrawn
+      by its own ``styleFlag`` (``cadence.style_withheld_by``) is NOT
+      re-promoted: a per-source rollback lever is never bypassed by another
+      flag.
+    """
+    if schedule != SCHEDULE_V2 or style == STYLE_EXPLICIT:
+        return style, evidence
+    if cadence.style_withheld_by is not None:
+        return style, {**evidence, "publisherClockWithheldBy": cadence.style_withheld_by}
+    vendor_published = parse_iso((upstream or {}).get("publishedAt"))
+    if vendor_published is None or vendor_published > as_of:
+        return style, evidence
+    return STYLE_EXPLICIT, {**evidence, "explicitFromRecordedUpstream": True}
+
+
 def assess_subset(
     source_key: str,
     subset: str,
@@ -727,15 +810,9 @@ def assess_subset(
     history = list(st.get("changeHistory") or [])
     style, evidence = classify_style(history, cfg, override=cadence.style)
     v2 = schedule == SCHEDULE_V2
-    vendor_published = parse_iso((upstream or {}).get("publishedAt"))
-    if v2 and vendor_published is not None and vendor_published <= as_of:
-        # Schedule v2: a vendor-stated publication time is the clock for
-        # EVERY source whose fetcher records one (owner directive
-        # 2026-10-19 §2), not only those declared EXPLICIT in v1 config.
-        # The whole board then shares that one clock.
-        if style != STYLE_EXPLICIT:
-            evidence = {**evidence, "explicitFromRecordedUpstream": True}
-        style = STYLE_EXPLICIT
+    style, evidence = publisher_clock_style(
+        style, evidence, cadence, upstream, as_of=as_of, schedule=schedule
+    )
     expected, cadence_source, observed = expected_interval_hours(
         history, as_of, cadence, cfg, inherited=inherited_expected
     )

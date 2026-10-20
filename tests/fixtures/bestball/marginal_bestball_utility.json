@@ -1,0 +1,34 @@
+{
+  "basis": {
+    "materialityBandPpg": 1.0,
+    "openedSlotFamilies": [
+      "TE",
+      "FLEX",
+      "SUPER_FLEX"
+    ]
+  },
+  "deltaPpg": 6.94,
+  "draws": 400,
+  "mcStandardError": 0.374,
+  "ownerId": "owner01",
+  "paramSetId": "48a3a5cdd4fa884b",
+  "playerId": "te001",
+  "precisionOk": true,
+  "predictiveBasis": "unavailable",
+  "predictiveSd": null,
+  "reason": null,
+  "replacement": {
+    "assumption": "the vacated roster spot is filled by a free waiver claim",
+    "contested": false,
+    "costAssumption": "free_waiver_claim_unmodelled_faab",
+    "kind": "waiver_free_agent",
+    "playerId": "te074",
+    "ppg": 4.2
+  },
+  "seed": 1173,
+  "state": "available",
+  "unit": "expected best-ball points per week (exact league scoring)",
+  "weeks": [],
+  "withPpg": 180.12,
+  "withoutPpg": 173.18
+}

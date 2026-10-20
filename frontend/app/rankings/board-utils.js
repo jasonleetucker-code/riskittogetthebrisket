@@ -223,7 +223,7 @@ export function formatSourceCell(row, src, rawData) {
       };
     }
     // A source the backend HOLDS from the vote by declaration (e.g. the DLF
-    // IDP boards under the owner's "DLF vote is offense-only" policy,
+    // IDP boards, whose owner-approved restore is held at release,
     // ``privateSourceAvailability[*].holdKind === "owner_policy"``) still
     // listed this player when its CSV value is present — it simply did not
     // vote.  Say that, never "did not list" (missing is never zero, and held

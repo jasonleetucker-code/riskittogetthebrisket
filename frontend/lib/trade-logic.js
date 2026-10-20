@@ -641,9 +641,23 @@ function positiveDesc(values) {
     .sort((a, b) => b - a);
 }
 
-/** sum q^i * v_i over positive values sorted descending. */
+/**
+ * sum q^i * v_i over positive values sorted descending.
+ *
+ * Weights are built iteratively (w *= q) and summed left to right — never
+ * `**` / Math.pow, whose results differ between V8 and CPython from i = 4 —
+ * so this and src/valuation_math/package_model.py::geom_utility are the same
+ * IEEE-754 operations in the same order (bit-identical; pinned by
+ * tests/fixtures/package_model_float_cases.json).
+ */
 export function geomPackageUtility(values, q = PACKAGE_MODELS.geom_q078_v1.q) {
-  return positiveDesc(values).reduce((acc, v, i) => acc + v * q ** i, 0);
+  let total = 0;
+  let w = 1;
+  for (const v of positiveDesc(values)) {
+    total += v * w;
+    w *= q;
+  }
+  return total;
 }
 
 /**
@@ -661,7 +675,8 @@ export function packageAdjustPair(team1Vals, team2Vals, opts = {}) {
     return { value: 0, side: 0, displayed: false };
   }
   if (spec.family === "ktc") return ktcAdjustPackage(t1, t2);
-  const sum = (a) => a.reduce((q, v) => q + v, 0);
+  // Left-to-right addition, the same order as package_model._left_sum.
+  const sum = (a) => a.reduce((acc, v) => acc + v, 0);
   const depth1 = sum(t1) - geomPackageUtility(t1, spec.q);
   const depth2 = sum(t2) - geomPackageUtility(t2, spec.q);
   // Math.round is half-up for positive numbers, matching ktc_va_core.js_round.

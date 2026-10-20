@@ -18,6 +18,7 @@
  */
 const fs = require("node:fs");
 const base = require("@playwright/test");
+const { DISCLOSURE_SELECTOR, readCellText } = require("./table-cells");
 
 const ORIGIN = String(process.env.PROD_ORIGIN || "").replace(/\/+$/, "");
 const COOKIE_FILE = String(process.env.PROD_SESSION_COOKIE_FILE || "");
@@ -219,4 +220,6 @@ module.exports = {
   strengthText,
   desktopOnly,
   mobileOnly,
+  DISCLOSURE_SELECTOR,
+  readCellText,
 };

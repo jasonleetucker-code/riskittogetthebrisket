@@ -100,6 +100,12 @@ anything that touches these.
   on that consensus are correlated descendants, not independent votes. Declare
   population, overlap, correlation group, sample size, freshness, coverage,
   missing behavior and provenance before adding a signal. (§3.3)
+  **Agreement between different providers is consensus, not duplication**
+  (owner directive 2026-10-19). A shared family or cap needs credible
+  shared-DATA-lineage evidence: one feed republishing another, a vendor-stated
+  derivation, or identical raw values. Rank or value similarity alone never
+  merges, caps, excludes or haircuts a vote. Record:
+  `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 - **Champion ≠ challenger.** Evaluation is not activation. Nothing self-promotes.
   (§3.4)
 - **Model evaluation does not authorize production promotion.** The sequence is
@@ -790,9 +796,14 @@ Steps:
    ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
    diagnostics keep reporting).  Full record:
    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
-   **Since 2026-10-19 the freshness factor is the owner's STEP SCHEDULE**
-   (flag ``source_freshness_schedule_v2``, default ON; owner directive
-   "Universal Source Voting and Freshness Policy"): whole days since the
+   **The owner's STEP SCHEDULE is implemented and approved but HELD OFF**
+   (flag ``source_freshness_schedule_v2``, **default OFF** — owner decision
+   2026-10-20 on PR #1831, Option B: activation reserved for the owner
+   because the incumbent outlier filter can drop legitimate votes when the
+   voting population changes, which outlier-integrity-v2 is fixing; locked by
+   ``tests/api/test_freshness_v2_hold_locked.py`` and the deploy gate
+   ``scripts/verify_owner_held_flags.py``.  Owner directive "Universal
+   Source Voting and Freshness Policy"; when ON): whole days since the
    last GENUINE publisher update — 0–7 → 1.00, 8–14 → 0.75, 15–21 → 0.50,
    22–30 → 0.25, >30 → 0 (``config/sources/freshness_schedule_v2.json``).
    Clock = a recorded vendor publication time (never later than the last
@@ -801,9 +812,9 @@ Steps:
    votes at 0 (never fresh).  The KTC Market benchmark stays on v1.
    Per-source voting status (status, reason, restore requirement):
    ``src/sources/voting_status.py`` → contract ``sourceVotingStatus`` →
-   ``/api/sources/weighting`` ``votingStatus``.  Rollback
-   ``RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0`` + restart restores the
-   cadence curve byte for byte.  Record:
+   ``/api/sources/weighting`` ``votingStatus`` (reports the rule actually
+   in force — v1 while the flag is off).  Flag OFF is the cadence curve byte
+   for byte.  Record:
    ``docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md``.
 4c. Family-capped voting (flag ``source_family_cap``, default ON, owner
    directive 2026-09-24) — after Hampel, EVERY member of a B10
@@ -826,8 +837,16 @@ Steps:
    B10 family (no independence bonus).  Its IDP value is normalised per
    family, so IDP is one ``position_idp`` board per family
    (``signalsIdp{Dl,Lb,Db}``), collected and displayed but HELD from voting
-   (``PRIVATE_SOURCE_VOTE_HOLDS``: the positional path prices in IDP-local
-   coordinates — never derive a cross-family order).  It is the first
+   (``PRIVATE_SOURCE_VOTE_HOLDS``), translated in SHADOW only
+   (``sourceShadowMeta``) onto the bridge's shared-market family ladder —
+   never a cross-family order Signals asserted.  A family votes only when
+   ``signals_idp_shared_market`` (the IDP master, which ALONE activates
+   nothing), its own ``signals_idp_{dl,lb,db}_vote`` AND
+   ``signals_idp_xwalk_v2`` (Candidate F, ``src/bridges/family_crosswalk.py``:
+   Signals' within-family ORDER priced at IDPTC's level, stamped
+   ``levelSource``) are all ON; master + family without the crosswalk is
+   ``held: no_qualified_translation``, so Candidate A can never vote.  All
+   default OFF (owner directive 2026-10-19).  It is the first
    **private, box-local** voter: its CSVs live in the gitignored
    ``data/sources/signals/board/`` store written by the box timer
    ``dynasty-signals-values``, never in ``CSVs/site_raw``.  Where that

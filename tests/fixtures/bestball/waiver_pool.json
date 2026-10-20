@@ -1,0 +1,24 @@
+{
+  "basis": {
+    "priced": 1,
+    "universe": "contract.playersArray",
+    "unpriced": 1
+  },
+  "candidates": [
+    {
+      "fantasyPositions": [],
+      "name": "Synthetic TE 74",
+      "playerId": "te074",
+      "position": "TE",
+      "ppg": 4.2
+    }
+  ],
+  "excludedAuctionLotIds": [
+    "rookie03"
+  ],
+  "reason": null,
+  "state": "available",
+  "unpricedIds": [
+    "noproj02"
+  ]
+}

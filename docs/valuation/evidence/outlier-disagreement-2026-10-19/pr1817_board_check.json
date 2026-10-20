@@ -1,0 +1,238 @@
+{
+ "boardScreenFlagged": {},
+ "branchHead": "7f4153c08946c5c458206a8af54202c13fbd8093",
+ "incumbentDrops": {
+  "idp": 32,
+  "offense": 107
+ },
+ "newlyDroppedByDlfRestore": {
+  "byPosition": {
+   "DB": 2,
+   "DL": 9,
+   "LB": 20
+  },
+  "bySource": {
+   "draftSharksIdp": 18,
+   "fantasyProsIdp": 10,
+   "idpTradeCalc": 3
+  },
+  "detail": [
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Aidan Hutchinson",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Alex Singleton",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Anthony Hill",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Barrett Carter",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "CJ Allen",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Carson Schwesinger",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Chase Young",
+    "source": "idpTradeCalc"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Danielle Hunter",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "David Bailey",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "DeMarvion Overshown",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DB",
+    "row": "Dillon Thieneman",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Edgerrin Cooper",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Jacob Rodriguez",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Jihaad Campbell",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Jordyn Brooks",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Josiah Trotter",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Josiah Trotter",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Myles Garrett",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Nick Bolton",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DB",
+    "row": "Nick Emmanwori",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Nick Herbig",
+    "source": "idpTradeCalc"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Patrick Queen",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Quay Walker",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Quincy Williams",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Robert Spillane",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Roquan Smith",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Sonny Styles",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "T.J. Watt",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "LB",
+    "row": "Trevin Wallace",
+    "source": "draftSharksIdp"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Trey Hendrickson",
+    "source": "idpTradeCalc"
+   },
+   {
+    "policyDrops": false,
+    "position": "DL",
+    "row": "Will Anderson",
+    "source": "draftSharksIdp"
+   }
+  ],
+  "policyStillDrops": 0,
+  "rows": 30,
+  "votes": 31
+ },
+ "payload": "exports/latest/dynasty_data_2026-10-19.json",
+ "payloadSha256": "b639608f68176b9a395527e6e9ea992e324baa75d997b8ea289e587e61eae11c",
+ "policy": {
+  "boardMinRows": 20,
+  "boardShiftFactor": 1.5,
+  "boardSpreadFactor": 2.0,
+  "corroborationFactor": 2.0,
+  "dominantShare": 0.5,
+  "grossRankFactor": 4.0,
+  "minOtherFamilies": 2,
+  "rankOffset": 10.0,
+  "referenceN": 500.0,
+  "valueFloor": 1000.0,
+  "version": "outlier-corroborated-v1"
+ },
+ "policyDrops": [
+  [
+   "Brock Bowers",
+   "offense",
+   "draftSharks",
+   "gross_uncorroborated_error"
+  ]
+ ],
+ "policyKeepsOfIncumbentDrops": {
+  "idp": 32,
+  "offense": 106
+ }
+}
