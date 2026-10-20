@@ -110,3 +110,44 @@ def test_frozen_anchors_match_the_shadow_replay_evidence():
     for pos, line in B.STARTER_LINES.items():
         if pos != "*":
             assert ev["byPosition"][pos]["lowestStarterAcross12OptimalLineups"] == line
+
+
+def test_production_box_run_reading_is_pinned():
+    """The decision-rule reading of the owner-run box report (memo §7-§8).
+
+    Pins the facts the recommendation rests on, so a re-run or an edit of the
+    evidence cannot silently change the conclusion.
+    """
+    ev = json.loads(
+        (
+            REPO
+            / "docs/valuation/evidence/low_value_assets_2026-10-20/production_box_run_2026-10-20.json"
+        ).read_text()
+    )
+    B.P2.assert_aggregate_only(ev)
+    guard = ev["readOnlyGuard"]
+    assert guard["installed"] and guard["refusedWriteOrProcessAttempts"] == 0
+    assert guard["refusedNetworkCallers"] == ["api/data_contract.py:9543"]
+    an = ev["analysis"]
+    assert an["population"]["records"] == ev["audit"]["graded"] == 18690
+    assert an["anchors"] == B.ANCHORS and an["starterLines"] == B.STARTER_LINES
+
+    # M1: every treatment agrees with held-out market trades better than GEOM_78
+    # (necessary for R-B, never sufficient).
+    J = an["M1_marketAgreement"]["confirmation"]["J"]
+    assert all(J[t] < J["GEOM_78"] for t in J if t != "GEOM_78")
+
+    # M2: the market does NOT credit usable depth above filler (R-B condition fails).
+    m2 = an["M2_extraPieceCredit"]
+    assert m2["class:usable"]["median"] < m2["class:filler"]["median"]
+    assert m2["group:offense|class:usable"]["median"] is None  # n < 20: insufficient
+
+    # M3: served history shows no low-band decay (R-A condition fails).
+    cells = an["M3_servedValueDynamics"]["cells"]
+    low = [cells[f"offense|{b}|60d"]["medianRetention"] for b in ("1000-1499", "1500-1999")]
+    mid = [cells[f"offense|{b}|60d"]["medianRetention"] for b in ("3000-4499", "4500-5999")]
+    assert min(low) > max(mid)
+
+    # M4: extras do not lose value faster than the consolidated piece.
+    m4 = an["M4_extraPieceRetention"]
+    assert m4["extra"]["medianRetention"] >= m4["consolidated"]["medianRetention"]
