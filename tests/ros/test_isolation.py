@@ -31,7 +31,26 @@ class TestRosIsolation(unittest.TestCase):
 
     def test_data_contract_constants_unchanged(self):
         # Force a fresh import of the dynasty contract module to
-        # capture its baseline state.
+        # capture its baseline state.  Whatever this leaves in sys.modules
+        # is put back afterwards: a missing or second ``data_contract`` would
+        # let a later module's ``import src.api.data_contract`` build a copy
+        # that ``server`` never calls (R-TEST-ISOLATION — see
+        # tests/process_state_isolation.py).
+        import src.api as api_package
+
+        saved = {
+            m: sys.modules[m] for m in list(sys.modules) if m.startswith("src.api.data_contract")
+        }
+        saved_attr = getattr(api_package, "data_contract", None)
+
+        def _restore() -> None:
+            for name in [m for m in sys.modules if m.startswith("src.api.data_contract")]:
+                del sys.modules[name]
+            sys.modules.update(saved)
+            if saved_attr is not None:
+                api_package.data_contract = saved_attr
+
+        self.addCleanup(_restore)
         for mod in list(sys.modules):
             if mod.startswith("src.api.data_contract"):
                 del sys.modules[mod]
