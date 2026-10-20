@@ -82,8 +82,8 @@ from src.nfl_data.realized_points import compute_weekly_points  # noqa: E402
 from src.ros.lineup import (  # noqa: E402
     OBJECTIVE_REALIZED_POINTS,
     RosterPlayer,
+    resolve_league_slot_demand,
     resolve_starter_slots,
-    slot_demand,
     slot_eligible_positions,
     solve_optimal_assignment,
 )
@@ -738,14 +738,12 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915 — one linear research pass
     # Q3 — the league's IDP scoring card vs a tackle-heavy reference
     # ════════════════════════════════════════════════════════════════════
     idp_card = {k: v for k, v in sorted(card.items()) if k.startswith("idp_") and v}
-    sd = slot_demand(
-        slots,
-        eligibility_overrides={
-            "FLEX": roster_settings.get("flexEligible") or (),
-            "SUPER_FLEX": roster_settings.get("sflexEligible") or (),
-            "IDP_FLEX": roster_settings.get("idpFlexEligible") or (),
-        },
+    # The league's demand comes from the one resolver (C2-U1 single-owner gate).
+    league_demand = resolve_league_slot_demand(
+        roster_positions=league.get("roster_positions"), roster_settings=roster_settings
     )
+    assert tuple(league_demand.slots) == tuple(slots), "demand resolved different slots"
+    sd = league_demand.demand
     even = {p: float(v) for p, v in (sd.even_split or {}).items()}
     n_start = {p: max(1, round(teams_n * even.get(p, 0))) for p in POSITIONS}
 
