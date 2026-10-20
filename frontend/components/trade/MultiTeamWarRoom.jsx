@@ -202,9 +202,13 @@ function fairnessDetail(f) {
   const level = FAIRNESS_LEVEL_WORDS[f.level] || null;
   const parts = [];
   if (level) parts.push(`Package gap is ${level}`);
-  if (typeof f.gap === "number" && typeof f.largerAdjustedSide === "number") {
+  // fairness_bands_v2 (OD-F2): the band -- and its relativePct -- is relative
+  // to the larger PACKAGE UTILITY (the larger package after the depth
+  // discount), so that is the number printed beside the percentage, never the
+  // larger adjusted side (v1's base, which would not reproduce the %).
+  if (typeof f.gap === "number" && typeof f.largerPackageUtility === "number") {
     parts.push(
-      `${formatSignedValue(f.gap)} on the larger ${formatValue(f.largerAdjustedSide)} package` +
+      `${formatSignedValue(f.gap)} against ${formatValue(f.largerPackageUtility)}, the larger package after the depth discount` +
         (typeof f.relativePct === "number" ? ` (${f.relativePct}%)` : ""),
     );
   }

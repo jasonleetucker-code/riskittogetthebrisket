@@ -352,6 +352,7 @@ test("multi-team War Room: a quarantined asset is withheld on the preliminary me
     reasonCode: "evaluation_unavailable",
     gap: null,
     largerAdjustedSide: null,
+    largerPackageUtility: null,
     relativePct: null,
   });
   // The engine's own answer for a team whose part of the trade carries a

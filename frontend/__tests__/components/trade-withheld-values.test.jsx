@@ -103,7 +103,9 @@ describe("multiTeamNetSummary withholds, never prices", () => {
     expect(s.perTeam[1]).toBeNull();
     expect(s.perTeam[2]).toBeNull();
     expect(s.worst).toBeNull();
-    expect(s.verdict).toEqual({ label: "Withheld", level: null, relativePct: null });
+    // meterVerdict's shape since #1886 (fairness_bands_v2) carries the printed
+    // percentage too; an unknown headline prints none.
+    expect(s.verdict).toEqual({ label: "Withheld", level: null, relativePct: null, percentText: null });
     // The untouched team keeps its own reading.
     expect(s.nets[0]).toBe(flows[0].net);
     expect(s.perTeam[0]).not.toBeNull();

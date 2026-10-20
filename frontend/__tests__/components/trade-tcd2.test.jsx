@@ -203,13 +203,14 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
     { id: 1, label: "B", assets: [row("b", 4000)] },
     { id: 2, label: "C", assets: [row("c", 3000)] },
   ];
-  // Each side sends one piece, so its package utility is that piece's value
-  // (computeSideFlows stamps it; a flow without one is refused, never read
-  // as base 0 -- which used to grade this 2,000 worst gap FAIR).
+  // Each side sends and receives one piece, so its package utilities are
+  // those pieces' values (computeSideFlows stamps them; a flow without one is
+  // refused, never read as base 0 -- which used to grade this 2,000 worst gap
+  // FAIR).  Per-team rule: each team's base is the larger of the two.
   const flows = [
-    { given: 5000, received: 3000, net: -2000, utility: 5000 },
-    { given: 4000, received: 5000, net: 1000, utility: 4000 },
-    { given: 3000, received: 4000, net: 1000, utility: 3000 },
+    { given: 5000, received: 3000, net: -2000, utility: 5000, receivedUtility: 3000 },
+    { given: 4000, received: 5000, net: 1000, utility: 4000, receivedUtility: 5000 },
+    { given: 3000, received: 4000, net: 1000, utility: 3000, receivedUtility: 4000 },
   ];
 
   it("shows each team's own gap and the band of the widest one the meter shows (preliminary)", () => {

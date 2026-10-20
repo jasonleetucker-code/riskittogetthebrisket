@@ -175,7 +175,16 @@ describe("refusal: non-finite input is never classified (MISSING IS NEVER ZERO)"
     expect(sideTotalsFairnessBase([])).toBe(0);
   });
   it("placeholder flows that state utility 0 classify their zero nets", () => {
-    const flows = [0, 0, 0].map(() => ({ given: 0, received: 0, net: 0, utility: 0 }));
+    // Per-team rule (Lane B, spec §5.1): a team's base is the larger of the
+    // package utility it sends and the one it receives, so a placeholder
+    // states both.
+    const flows = [0, 0, 0].map(() => ({
+      given: 0,
+      received: 0,
+      net: 0,
+      utility: 0,
+      receivedUtility: 0,
+    }));
     expect(multiTeamNetSummary(flows).verdict.level).toBe("fair");
   });
 });
@@ -187,7 +196,7 @@ describe("package utilities (the base's producer)", () => {
     const adjusted = [7200 + (r.side === 1 ? r.value : 0), 6500 + (r.side === 2 ? r.value : 0)];
     expect(packageUtilities(vals, adjusted, { modelId: PACKAGE_MODEL_IDS.KTC_2026_04 })).toEqual(adjusted);
   });
-  it("multi-team: the base is the largest utility any side sends", () => {
+  it("multi-team: each team's base is the larger utility of what it sends and receives", () => {
     const sides = [
       { assets: side(6000), destinations: {} },
       { assets: side(5000), destinations: {} },
@@ -196,8 +205,18 @@ describe("package utilities (the base's producer)", () => {
     const flows = computeSideFlows(sides, "full");
     const utils = flows.map((f) => f.utility);
     expect(utils[2]).toBeCloseTo(3000 + 2000 * 0.78 + 1000 * 0.78 * 0.78, 6);
-    expect(multiTeamNetSummary(flows).largerUtility).toBe(Math.max(...utils));
-    expect(tradeImbalance(sides, "full").largerUtility).toBe(Math.max(...utils));
+    // Per-team rule (Lane B, spec §5.1 R10c; release train 17): each team is
+    // graded on its OWN gap against the larger PACKAGE UTILITY of its own
+    // (gives, receives) -- the owner's fairnessBase -- and the headline is the
+    // worst team, so the summary's base is that team's.
+    const bases = flows.map((f) => fairnessBase([f.utility, f.receivedUtility]));
+    flows.forEach((f, i) => expect(f.largerUtility).toBe(bases[i]));
+    const summary = multiTeamNetSummary(flows);
+    expect(summary.largerUtility).toBe(bases[summary.worstIndex]);
+    flows.forEach((f, i) =>
+      expect(summary.perTeam[i].relativePct).toBe(classifyGap(f.net, bases[i]).relativePct),
+    );
+    expect(tradeImbalance(sides, "full").largerUtility).toBe(bases[summary.worstIndex]);
   });
 });
 
