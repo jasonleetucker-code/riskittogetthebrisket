@@ -50,15 +50,14 @@ FOCUS = (
 #: A1/A2/A3, B0, B1 or B2 proof). Everything else counts as a false exclusion
 #: until the independent reviewer confirms it from the archive.
 DETERMINISTIC_PREFIXES = (
-    "identity_contradicted:sleeper_id",
-    "identity_contradicted:vendor_id",
-    "identity_contradicted:join_inconsistent",
-    "identity_contradicted:position_group",
-    "format_",
-    "normalization_untranslated",
-    "normalization_dependency_unavailable",
-    "provenance_",
-    "feed_",
+    "identity_contradicted:sleeper_id",  # A1
+    "identity_contradicted:vendor_id",  # A1
+    "identity_contradicted:join_inconsistent",  # A2
+    "identity_contradicted:position_group",  # A3
+    "source_format_error:",  # B0
+    "normalization_untranslated",  # B1
+    "normalization_dependency_unavailable",  # B1
+    "broken_feed:payload_provenance_conflict",  # B2
 )
 
 
@@ -303,6 +302,28 @@ def h3_status(rec: Mapping[str, Any], cfg: str) -> dict[str, Any] | None:
     out = {"idpTradeCalcState": st, "value": e.get("v")}
     if "obs" in e:
         out["idpTradeCalcVote"] = (e["obs"].get("idpTradeCalc") or [None])[0]
+    inc = (rec["builds"].get("inc") or {}).get("rows", {}).get(H3_ROW) or {}
+    inc_vote = ((inc.get("obs") or {}).get("idpTradeCalc") or [None])[0]
+    if inc_vote is not None:
+        out["incumbentBuildVote"] = inc_vote
+    # Caught = the wrong-player PAYLOAD observation does not vote: excluded or
+    # held by a layer, or replaced by the vendor's same-run CSV value (B2 row
+    # proof; the vote then differs from the payload copy by more than ln 2).
+    v2_vote = out.get("idpTradeCalcVote")
+    replaced = (
+        v2_vote is not None
+        and inc_vote is not None
+        and inc_vote > 0
+        and abs(math.log(v2_vote / inc_vote)) > math.log(2.0)
+    )
+    if "obs" not in e:
+        # A history-only (light) record carries no vote values, so a B2 row
+        # replacement is invisible here; see replay/checks/ for the direct check.
+        out["caught"] = None if st == "voting" else True
+        out["note"] = "light record: vote values not kept; see replay/checks/h3_h4_e_baseline_check"
+        return out
+    out["payloadObservationReplacedByCsv"] = bool(replaced)
+    out["caught"] = bool(replaced) or st not in ("voting",)
     return out
 
 
@@ -333,6 +354,25 @@ def movers_attributed(adapted: Mapping[str, Any], a: str, b: str, threshold: flo
             for k in sorted(set(nx) | set(ny))
             if nx.get(k, "voting") != ny.get(k, "voting")
         }
+        # A vote whose VALUE changed with its state unchanged (a B2 payload
+        # observation replaced by the vendor's same-run CSV value).
+        ox, oy = x.get("obs") or {}, (y or {}).get("obs") or {}
+        for k in sorted(set(ox) ^ set(oy)):
+            # An observation one build carries and the other does not (e.g. a
+            # B2-proven payload value with no same-run CSV copy is withheld).
+            changed.setdefault(
+                k,
+                {
+                    "a": ox[k][2] if k in ox else "observation_absent",
+                    "b": oy[k][2] if k in oy else "observation_absent",
+                },
+            )
+        for k in sorted(set(ox) & set(oy)):
+            va_, vb_ = ox[k][0], oy[k][0]
+            if va_ and vb_ and va_ > 0 and vb_ > 0 and abs(math.log(vb_ / va_)) > 0.01:
+                changed.setdefault(k, {"a": nx.get(k, "voting"), "b": ny.get(k, "voting")})
+                changed[k]["valueA"] = va_
+                changed[k]["valueB"] = vb_
         inc_row = rec["builds"]["inc"]["rows"].get(name) or {}
         out.append(
             {
@@ -344,6 +384,7 @@ def movers_attributed(adapted: Mapping[str, Any], a: str, b: str, threshold: flo
                 "relative": round(rel, 4),
                 "voteStateChanges": changed,
                 "attributed": bool(changed),
+                "derivedPick": inc_row.get("ac") == "pick" and not changed,
                 "incumbentVotes": {k: int(v) for k, v in sorted(inc_panel(inc_row).items())},
             }
         )

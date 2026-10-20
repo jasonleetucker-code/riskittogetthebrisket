@@ -723,6 +723,26 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             }
         per_board.append(entry)
     clean = [e for e in per_board if not set(e["labelledCases"]) & {"H2", "H3"}]
+    # Criterion 9: every row moving >= 10% (V2 vs incumbent) attributed.
+    c9: dict[str, Any] = {
+        "movers": 0,
+        "attributed": 0,
+        "derivedPicks": 0,
+        "unattributed": [],
+        "causes": Counter(),
+    }
+    for a in adapted:
+        for m in V.movers_attributed(a, "incumbent", "policy"):
+            c9["movers"] += 1
+            if m["attributed"]:
+                c9["attributed"] += 1
+                for k, ch in m["voteStateChanges"].items():
+                    c9["causes"][f"{k}: {ch['a']} -> {ch['b']}"] += 1
+            elif m["derivedPick"]:
+                c9["derivedPicks"] += 1
+            else:
+                c9["unattributed"].append({"archive": a["board"]["archive"], **m})
+    c9["causes"] = dict(c9["causes"].most_common(40))
     fe_upper = [e["falseExclusions"]["rateUpperBound"] for e in clean]
     fe_nondet = [e["falseExclusions"]["rateNonDeterministicOnly"] for e in clean]
     m1 = {}
@@ -875,6 +895,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         },
         "M1": m1,
         "M1MinimumSampleMet": m1_sufficient,
+        "criterion9MoversAttribution": c9,
         "M3": m3,
         "M4": stab,
         "labelledCases": h_cases,
