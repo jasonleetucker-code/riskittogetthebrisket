@@ -6465,6 +6465,7 @@ def _pick_count_floor_for_board(
     *,
     current_year: int | None = None,
     retired_years: Iterable[int] | None = None,
+    horizon_end_year: int | None = None,
 ) -> int:
     """The pick-count floor for THIS board's phase (C1-U6-D2).
 
@@ -6490,7 +6491,11 @@ def _pick_count_floor_for_board(
     # Only ACTIVE classes can be on the board (#1414): a retired class inside
     # the horizon window is absent by design, so the complete board it is
     # 80% of shrinks by that class — same rule, applied to the classes the
-    # board publishes.  Unknown current year ⇒ nothing is discounted.
+    # board publishes.  Unknown current year ⇒ nothing is discounted.  The
+    # window ends at the board's stamped horizon when there is one (owner
+    # decision 2026-10-19).
+    if current_year is not None and horizon_end_year is not None:
+        horizon = max(0, int(horizon_end_year) - int(current_year))
     window_years = horizon + 1
     if current_year is not None and retired_years:
         window = range(int(current_year), int(current_year) + horizon + 1)
@@ -6566,7 +6571,7 @@ def _drop_unpublished_slot_pick_rows(
 
 
 def _evaluate_pick_class_lifecycle(
-    players_by_name: dict[str, Any], sleeper_block: Any
+    players_by_name: dict[str, Any], sleeper_block: Any, anchor_year: int | None = None
 ) -> dict[str, Any]:
     """The board verdict on every rookie-draft class this board carries.
 
@@ -6586,6 +6591,14 @@ def _evaluate_pick_class_lifecycle(
 
     Fails safe: any error evaluating the lifecycle retires nothing.
     Returns the ``pickClassLifecycle`` contract stamp.
+
+    With ``anchor_year`` (the board's active draft year) it also stamps
+    ``horizon`` — where the future-pick horizon ends, from the same board
+    verdicts (``pick_lifecycle.board_pick_horizon``, owner decision
+    2026-10-19) — and evaluates the class before the anchor even when its
+    rows have rolled off the board, since that is the horizon's latest
+    completed class.  No verdict (an error, no picks) places the horizon on
+    the owner's unproven floor: it never advances.
     """
     years: dict[int, int] = {}
     for name in players_by_name:
@@ -6601,23 +6614,32 @@ def _evaluate_pick_class_lifecycle(
         "retiredRowCount": 0,
         "leaguesConsulted": [],
     }
-    if not years:
+
+    def _with_horizon(board: Any) -> dict[str, Any]:
+        if anchor_year is not None:
+            from src.identity.pick_lifecycle import board_pick_horizon
+
+            stamp["horizon"] = board_pick_horizon(int(anchor_year), board).to_dict()
         return stamp
+
+    if not years:
+        return _with_horizon(None)
+    seasons = set(years) | ({int(anchor_year) - 1} if anchor_year is not None else set())
     try:
         from src.api.draft_class_evidence import board_pick_class_lifecycle
         from src.identity.pick_lifecycle import retired_seasons
 
-        board, per_league = board_pick_class_lifecycle(sleeper_block, years)
+        board, per_league = board_pick_class_lifecycle(sleeper_block, seasons)
     except Exception as exc:  # noqa: BLE001 — unknown never retires
         _LOGGER.warning("pick class lifecycle: evaluation failed, retiring nothing: %s", exc)
         stamp["error"] = "lifecycle_evaluation_failed"
-        return stamp
+        return _with_horizon(None)
     retired = sorted(retired_seasons(board))
     stamp["classes"] = {str(s): lc.to_dict() for s, lc in sorted(board.items())}
     stamp["retiredYears"] = retired
-    stamp["retiredRowCount"] = sum(years[y] for y in retired)
+    stamp["retiredRowCount"] = sum(years.get(y, 0) for y in retired)
     stamp["leaguesConsulted"] = sorted(per_league)
-    return stamp
+    return _with_horizon(board)
 
 
 def _drop_retired_pick_class_rows(
@@ -6731,11 +6753,16 @@ def _year_step_for(tier: str | None, round_num: int | None, cfg: dict[str, Any])
 def _inject_far_future_pick_sources(
     players_by_name: dict[str, Any],
     current_year: int,
+    *,
+    horizon_end_year: int | None = None,
 ) -> int:
     """Seed raw source entries for far-future pick years the vendors
-    don't publish yet, out to the product horizon
-    (``current_year + horizonYears``, e.g. 2029 when the active draft is
-    2026 — TC-19 / manifest C1-PICK-01; the horizon self-rolls).
+    don't publish yet, out to the product horizon ``horizon_end_year``
+    (manifest C1-PICK-01): three seasons after the latest completed rookie
+    draft, from ``pick_lifecycle.board_pick_horizon`` (owner decision
+    2026-10-19 — a vendor slot roll alone no longer advances it).  The build
+    always passes it; ``None`` keeps the configured
+    ``current_year + horizonYears`` span (TC-19) for direct callers.
 
     KTC/IDPTC only price two future years.  The user trades picks
     further out than that, so for any missing year we derive the nearest
@@ -6782,7 +6809,7 @@ def _inject_far_future_pick_sources(
         horizon = max(0, int(cfg.get("horizonYears") or 3))
     except (TypeError, ValueError):
         horizon = 3
-    target_year = current_year + horizon
+    target_year = current_year + horizon if horizon_end_year is None else int(horizon_end_year)
     if target_year <= current_year:
         return derivations
 
@@ -9715,10 +9742,16 @@ def _complete_future_pick_values(
     current_year: int,
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
     retired_years: Iterable[int] | None = None,
+    horizon_end_year: int | None = None,
 ) -> dict[str, int]:
     """Guarantee a finite canonical value for every valid future pick
     through the horizon, and stamp provenance on EVERY pick row (C1-U6,
     manifest C1-PICK-01).
+
+    ``horizon_end_year`` is the board horizon
+    (``pick_lifecycle.board_pick_horizon``, owner decision 2026-10-19); the
+    build always passes it.  ``None`` keeps the configured
+    ``current_year + horizonYears`` span for direct callers.
 
     Runs after the rookie tether and before the draft-day projections,
     so it sees final values for everything the blend and the tether
@@ -9794,7 +9827,8 @@ def _complete_future_pick_values(
     # A retired draft class (#1414) is not a pick through the horizon: its
     # rows left the board and completion must not mint them back.
     _retired = {int(y) for y in (retired_years or ())}
-    future_years = [y for y in range(first_year, current_year + horizon + 1) if y not in _retired]
+    end_year = current_year + horizon if horizon_end_year is None else int(horizon_end_year)
+    future_years = [y for y in range(first_year, end_year + 1) if y not in _retired]
     derived: dict[str, int] = {}
 
     # ── 0. Year-step completion for unpriced future tier rows ──
@@ -10809,6 +10843,7 @@ def _compute_unified_rankings(
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
     source_weighting: Mapping[str, Any] | None = None,
     retired_pick_years: Iterable[int] | None = None,
+    pick_horizon_end_year: int | None = None,
     seasonally_inactive_sources: Iterable[str] | None = None,
     absent_private_sources: Iterable[str] | None = None,
     shadow_private_sources: Iterable[str] | None = None,
@@ -11294,6 +11329,22 @@ def _compute_unified_rankings(
     # offense rookies through the IDP ladder instead of raising.
     # Removal verified inert: the default board is byte-identical.
     _shadow_loop_keys = {str(s.get("key") or "") for s in shadow_sources}
+    # Derived rows are not this vendor's evidence — the backbone rule above,
+    # applied to every per-source ordinal list.  A synthetic far-future pick
+    # keeps its vote (value-direct reads the value, not the position), but it
+    # occupies no position in the vendor's published order: the rookie ladder
+    # reads those positions (``ktcCrowdSfTep`` / ``idpTradeCalc``), and a
+    # derived 2030 row there moved 36 rookies' values (2026-10-19).
+    _derived_row_idx = (
+        {
+            i
+            for i, r in enumerate(players_array)
+            if _canonical_match_key(str(r.get("canonicalName") or ""))
+            in synthetic_pick_derivation_map
+        }
+        if synthetic_pick_derivation_map
+        else set()
+    )
     for src in [*active_sources, *shadow_sources]:
         source_key: str = src["key"]
         is_shadow = source_key in _shadow_loop_keys
@@ -11407,13 +11458,20 @@ def _compute_unified_rankings(
         # whose iteration order can drift between runs.
         eligible.sort(key=lambda t: (-t[0], t[3]))
         if not is_shadow:
-            source_pool_sizes[source_key] = len(eligible)
+            source_pool_sizes[source_key] = sum(1 for t in eligible if t[1] not in _derived_row_idx)
 
+        observed_above = observed_at_value = 0
         for rank_idx, (val, row_idx, row_scope, _name) in enumerate(eligible):
             # Dense ranking: tied values share the same rank.
             # e.g. values [10200, 10200, 10200, 10200, 9500] → ranks [1, 1, 1, 1, 5]
+            # Only vendor-published rows count towards a rank; a derived row
+            # takes the rank of the published rows at its value.
             if rank_idx == 0 or val != eligible[rank_idx - 1][0]:
-                current_dense_rank = rank_idx + 1
+                observed_above += observed_at_value
+                observed_at_value = 0
+                current_dense_rank = observed_above + 1
+            if row_idx not in _derived_row_idx:
+                observed_at_value += 1
             raw_rank = current_dense_rank
 
             # ── Self-correcting rookie exclusion ──
@@ -13627,6 +13685,7 @@ def _compute_unified_rankings(
         _anchor_year,
         synthetic_pick_derivation_map,
         retired_years=retired_pick_years,
+        horizon_end_year=pick_horizon_end_year,
     )
 
     # 2c) Stamp draft-day value projections on every pick row.
@@ -14407,13 +14466,6 @@ def build_api_data_contract(
     # before the draft year is derived from them.
     _drop_unpublished_slot_pick_rows(players_by_name, src_payload.get("pickAnchorsProvenance"))
 
-    # A draft class whose rookie draft is complete and whose rookies are on
-    # rosters is no longer a present-tense asset (#1414) — also before the
-    # draft year is derived.
-    pick_class_lifecycle = _evaluate_pick_class_lifecycle(
-        players_by_name, src_payload.get("sleeper")
-    )
-
     # Derive the active rookie draft year from the scrape's own
     # slot-pick names so the discount, rookie-anchor, and synthetic
     # tether passes all key off one self-rolling value (see
@@ -14421,11 +14473,19 @@ def build_api_data_contract(
     #
     # Deliberately computed over the board INCLUDING a retired class's rows
     # (they leave only after the blend): retirement decides which classes are
-    # present-tense, NOT the future-pick horizon, which stays anchored on
-    # this year exactly as before.  Advancing the horizon is a separate owner
-    # decision (#1442), so a retired class never rolls it.
-    _retired_pick_years = frozenset(pick_class_lifecycle["retiredYears"])
+    # present-tense, NOT this anchor (#1442), so a retired class never rolls it.
     set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
+
+    # A draft class whose rookie draft is complete and whose rookies are on
+    # rosters is no longer a present-tense asset (#1414).  The same proof
+    # places where the future-pick horizon ENDS — three seasons after the
+    # latest completed draft (owner decision 2026-10-19), never a vendor slot
+    # roll: ``pickClassLifecycle.horizon``, read by every horizon consumer.
+    pick_class_lifecycle = _evaluate_pick_class_lifecycle(
+        players_by_name, src_payload.get("sleeper"), anchor_year=current_rookie_draft_year()
+    )
+    _retired_pick_years = frozenset(pick_class_lifecycle["retiredYears"])
+    _pick_horizon_end_year = int(pick_class_lifecycle["horizon"]["endYear"])
     # The upcoming draft for draft-capital consumers (pick stacks): the
     # horizon anchor, stepped past retired classes.  Derived by the owner,
     # published on the stamp, never re-derived in JS.
@@ -14442,7 +14502,7 @@ def build_api_data_contract(
     # dropped when this build ends.  Nothing is stored on the module, so
     # concurrent override builds cannot cross-contaminate (follow-up 8).
     synthetic_pick_derivations = _inject_far_future_pick_sources(
-        players_by_name, current_rookie_draft_year()
+        players_by_name, current_rookie_draft_year(), horizon_end_year=_pick_horizon_end_year
     )
 
     # Strip legacy LAM/scarcity fields before building the contract.
@@ -14589,6 +14649,7 @@ def build_api_data_contract(
         synthetic_pick_derivations=synthetic_pick_derivations,
         source_weighting=source_weighting,
         retired_pick_years=_retired_pick_years,
+        pick_horizon_end_year=_pick_horizon_end_year,
         seasonally_inactive_sources=frozenset(seasonally_inactive),
         absent_private_sources=absent_private,
         shadow_private_sources=shadow_private,
@@ -16081,10 +16142,17 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         )
         _lifecycle = payload.get("pickClassLifecycle")
         census_retired: set[int] = set()
+        census_horizon_end: int | None = None
         if isinstance(_lifecycle, dict):
             for _y in _lifecycle.get("retiredYears") or ():
                 if isinstance(_y, int) and not isinstance(_y, bool):
                     census_retired.add(_y)
+            # The board's own horizon (owner decision 2026-10-19); a contract
+            # built before the stamp keeps the configured span.
+            _horizon = _lifecycle.get("horizon")
+            _end = _horizon.get("endYear") if isinstance(_horizon, dict) else None
+            if isinstance(_end, int) and not isinstance(_end, bool):
+                census_horizon_end = _end
         _stamped = payload.get("currentDraftYear")
         pick_floor = _pick_count_floor_for_board(
             players_array,
@@ -16094,6 +16162,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 else None
             ),
             retired_years=census_retired,
+            horizon_end_year=census_horizon_end,
         )
         if pick_count < pick_floor:
             errors.append(f"pick_count_below_floor:{pick_count}:{pick_floor}")
@@ -16189,7 +16258,12 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 (_parse_pick_slot(nm) or (None,))[0] == census_current for nm in pick_rows_by_name
             )
             census_first = census_current + 1 if census_current_slotted else census_current
-            for census_year in range(census_first, census_current + census_horizon + 1):
+            census_end = (
+                census_current + census_horizon
+                if census_horizon_end is None
+                else census_horizon_end
+            )
+            for census_year in range(census_first, census_end + 1):
                 if census_year in census_retired:
                     # Retired class (#1414): ABSENT by design, stamped in
                     # ``pickClassLifecycle`` — not a hole in the horizon.

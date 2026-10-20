@@ -288,19 +288,64 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
+# Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
+# already uses; ``smtplib``'s default is NO timeout.
+ALERT_SMTP_TIMEOUT_SEC = 15
+# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
+# which the delivery thread writes.
+_alert_lock = threading.Lock()
+_alert_in_flight = False
 
 
 def send_alert(subject: str, body: str):
-    """Send an email alert. Fails silently if not configured."""
-    global _last_alert_time
+    """Send an email alert in the background. Fails silently if not configured.
+
+    Never blocks the caller on the network.  Two callers run ON the event
+    loop — ``get_health`` (stale backups) and ``uptime_watchdog_loop``
+    (consecutive uptime failures) — and this used to connect to
+    ``smtp.gmail.com:465`` synchronously with no timeout, a port the
+    production VPS firewalls (commit 54af3811cc).  A connect to a dropped
+    port waits out the kernel's SYN retries (~127 s per resolved address),
+    and for that span the process answers nothing, ``/api/health``
+    included, which is what the liveness watchdog restarts on.  A failed
+    send never set the cooldown, so every trigger tried again.  Pinned by
+    ``tests/api/test_send_alert_off_loop.py``.
+
+    Delivery runs on a daemon thread with a bounded timeout.  While one is
+    in flight a second alert is dropped (logged), not queued: the first
+    either succeeds, after which the cooldown would suppress the second
+    anyway, or fails against the same unreachable server.
+    """
+    global _alert_in_flight
 
     if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD:
         return
 
     now = time.time()
-    if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-        log.info(f"Alert suppressed (cooldown): {subject}")
-        return
+    with _alert_lock:
+        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
+            log.info(f"Alert suppressed (cooldown): {subject}")
+            return
+        if _alert_in_flight:
+            log.info(f"Alert suppressed (another alert is being sent): {subject}")
+            return
+        _alert_in_flight = True
+    try:
+        threading.Thread(
+            target=_deliver_alert,
+            args=(subject, body, now),
+            name="alert-smtp",
+            daemon=True,
+        ).start()
+    except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
+        with _alert_lock:
+            _alert_in_flight = False
+        log.error(f"Failed to start alert delivery: {e}")
+
+
+def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
+    """The SMTP half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread."""
+    global _last_alert_time, _alert_in_flight
 
     try:
         msg = MIMEMultipart()
@@ -320,14 +365,18 @@ def send_alert(subject: str, body: str):
         """
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
             server.login(ALERT_FROM, ALERT_PASSWORD)
             server.send_message(msg)
 
-        _last_alert_time = now
+        with _alert_lock:
+            _last_alert_time = attempted_at
         log.info(f"Alert sent: {subject}")
     except Exception as e:
         log.error(f"Failed to send alert email: {e}")
+    finally:
+        with _alert_lock:
+            _alert_in_flight = False
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -12641,8 +12690,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     (default), so trades made on Sleeper between scheduled
     refreshes are reflected immediately in per-team dollar totals.
 
-    If the Sleeper join fails or no trades are reported, the
-    workbook's R45:R116 ownership column is used verbatim.
+    Pick ownership is OBSERVED or the board is refused.  The
+    ``/traded_picks`` body is read through
+    ``picks.traded_picks_observation``: a list (even an empty one —
+    "no trades reported", in which case the workbook's R45:R116
+    ownership column stands) is applied.  A failed or non-list fetch,
+    or Sleeper failing before it can be read, refuses the whole board
+    with ``pick_ownership_unavailable`` — the same ``{error, message}``
+    + ``pickOwnershipState`` / ``pickOwnershipReason`` shape as the
+    Sleeper-derived fallback — instead of serving the workbook's
+    hand-entered ownership as current.  With no Sleeper league
+    configured there is nothing to observe and the workbook stands.
 
     ``league_key`` selects which league's Sleeper IDs to use for the
     team-name join.  None resolves to the registry default.
@@ -12715,7 +12773,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     # (round, slot) → new-owner first name from Sleeper traded_picks.
-    # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
+    # Empty when no trades are reported or apply_sleeper_trades=False
+    # (an unreachable Sleeper refuses the board below instead).
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
     # Parallel to ``sleeper_trade_overrides`` but carrying the stable
     # roster_id of the pick's new owner.  ``isTraded`` keys off this
@@ -14921,27 +14980,39 @@ def _public_league_metrics_snapshot() -> dict:
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
 # page while the first Sleeper rebuild is running in the background.
-try:
-    _persisted = public_snapshot_store.load_snapshot()
-    _persisted_error = (
-        _public_snapshot_integrity_error(_persisted) if _persisted is not None else None
-    )
-    if _persisted_error is not None:
-        # A partial snapshot persisted by an older build must not be served
-        # at cold start; the first request rebuilds from Sleeper instead.
-        logging.warning("Ignoring persisted public_league snapshot: %s", _persisted_error)
-        _persisted = None
-    if _persisted is not None and _persisted.seasons:
-        _public_league_cache["snapshot"] = _persisted
-        _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
-        _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
-        logging.info(
-            "Loaded persisted public_league snapshot for league %s (%d seasons)",
-            _persisted.root_league_id,
-            len(_persisted.seasons),
+#
+# A FUNCTION, not module-level statements: the snapshot used to be bound
+# to a module global (``_persisted``) that nothing read after boot, so the
+# boot generation stayed reachable for the life of the process after the
+# first rebuild replaced ``_public_league_cache["snapshot"]`` — a second
+# resident copy of the whole multi-season snapshot (measured 46.9 MB on
+# one league; prod memory-pressure incident 2026-10-19).  The cache entry
+# is now the snapshot's only owner.
+def _load_persisted_public_snapshot_at_boot() -> None:
+    try:
+        persisted = public_snapshot_store.load_snapshot()
+        persisted_error = (
+            _public_snapshot_integrity_error(persisted) if persisted is not None else None
         )
-except Exception as _exc:  # noqa: BLE001
-    logging.warning("Public league snapshot load at startup failed: %s", _exc)
+        if persisted_error is not None:
+            # A partial snapshot persisted by an older build must not be served
+            # at cold start; the first request rebuilds from Sleeper instead.
+            logging.warning("Ignoring persisted public_league snapshot: %s", persisted_error)
+            persisted = None
+        if persisted is not None and persisted.seasons:
+            _public_league_cache["snapshot"] = persisted
+            _public_league_cache["snapshot_league_id"] = persisted.root_league_id
+            _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
+            logging.info(
+                "Loaded persisted public_league snapshot for league %s (%d seasons)",
+                persisted.root_league_id,
+                len(persisted.seasons),
+            )
+    except Exception as _exc:  # noqa: BLE001
+        logging.warning("Public league snapshot load at startup failed: %s", _exc)
+
+
+_load_persisted_public_snapshot_at_boot()
 
 
 def _is_truthy_flag(value: Any) -> bool:

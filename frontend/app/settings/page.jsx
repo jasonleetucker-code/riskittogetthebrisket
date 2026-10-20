@@ -18,6 +18,7 @@ import {
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { sourceVoteFields } from "@/lib/source-vote-state";
 import { ROS_SOURCES } from "@/lib/ros-sources";
+import { votingStatusBlock } from "@/lib/source-voting-status";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
 import { useLeague } from "@/components/useLeague";
@@ -25,6 +26,11 @@ import { useLeague } from "@/components/useLeague";
 // Code-split (React.lazy, not next/dynamic — see CLAUDE.md "Perfect Draft"):
 // the editor sits in a collapsed section and loads only when opened.
 const TradeProtectionsEditor = lazy(() => import("@/components/TradeProtectionsEditor"));
+// The Source Voting table (owner directive 2026-10-19 §8) is split the same
+// way: a static import put DataTable + the ds status primitives on this
+// page's critical path (page + shared chunks 180.1 -> 208.3 KB, measured);
+// lazy keeps that at 186.5 KB and loads the table just after first paint.
+const SourceVotingStatus = lazy(() => import("@/components/SourceVotingStatus"));
 
 // The settings page enumerates the canonical ranking registry directly
 // so a newly registered source automatically shows up here without any
@@ -726,6 +732,44 @@ export default function SettingsPage() {
           onChange={(v) => update("showSiteCols", v)}
           hint="Per-site value columns in rankings"
         />
+      </Section>
+
+      {/* Owner directive 2026-10-19 §8: every source's actual voting
+          status on the canonical board — Last Updated, Freshness, Voting
+          Weight, Status and why.  Read from the contract's
+          `sourceVotingStatus` (already loaded; no second fetch).  Same
+          component as /tools/source-health. */}
+      <Section title="Source Voting" defaultOpen>
+        <div
+          style={{ fontSize: "0.72rem", marginBottom: 10 }}
+          className="muted"
+        >
+          How each ranking source votes on the site&apos;s consensus values
+          right now: when it last genuinely updated, how much voting power its
+          freshness keeps, the weight it votes with, and why. Your own source
+          weights below are applied on top of this. Full diagnostics are on{" "}
+          <Link href="/tools/source-health">Source Health</Link>.
+        </div>
+        {!rawData && failure ? (
+          <p className="muted" style={{ fontSize: "0.72rem" }}>
+            Source voting status needs the board data, which did not load (see
+            the message above).
+          </p>
+        ) : (
+          <Suspense
+            fallback={
+              <p className="muted" role="status" style={{ fontSize: "0.72rem" }}>
+                Loading source voting status…
+              </p>
+            }
+          >
+            <SourceVotingStatus
+              block={votingStatusBlock(rawData)}
+              loading={loading && !rawData}
+              context="source voting status"
+            />
+          </Suspense>
+        )}
       </Section>
 
       <Section title="Ranking Sources" defaultOpen>
