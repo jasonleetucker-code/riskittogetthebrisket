@@ -13,6 +13,10 @@ re-derived here:
   unavailable as one on yours.
 * **in the live rookie auction** — :func:`src.draft.rookie_pool.auction_rookie_keys`.
   A player you have to bid for is not the free alternative to bidding.
+* **unobserved league rosters** — if the contract carries no
+  ``sleeper.teams`` (or ``meta.sleeperDataReady`` is ``False``, or a team has
+  no roster list), rival ownership is UNKNOWN and the pool is
+  ``unavailable`` / ``league_rosters_unobserved`` — never "nobody rostered".
 * **picks** — never a waiver replacement (same rule as
   ``src.draft.displacement._available_players``).
 * **unavailable** — when the caller supplies per-player availability from
@@ -40,7 +44,7 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Any
 
 from src.bestball.contracts import WaiverPool
-from src.draft.context import league_rostered_keys
+from src.draft.context import contract_teams, league_rostered_keys
 from src.draft.rookie_pool import auction_rookie_keys
 from src.roster_intel.best_ball_utility import UtilityPlayer, league_scored_ppg_by_id
 
@@ -73,6 +77,26 @@ def _unavailable_every_week(states: Mapping[int, str] | None, weeks: Sequence[in
     if states is None or not weeks:
         return False
     return all(states.get(w) == _UNAVAILABLE for w in weeks)
+
+
+def _league_rosters_observed(contract: Mapping[str, Any]) -> bool:
+    """True only when every team's roster in the league is OBSERVED.
+
+    ``league_rostered_keys`` folds the teams it can see, so a contract with no
+    ``sleeper.teams`` (the cross-league ``sleeper: null`` /
+    ``sleeperDataReady: false`` serve) or a team carrying no roster list would
+    read as "nobody is rostered there" and hand rival-owned players back as free
+    agents.  Unknown ownership is not "unowned": fail closed instead.
+    """
+    meta = contract.get("meta")
+    if isinstance(meta, Mapping) and meta.get("sleeperDataReady") is False:
+        return False
+    teams = contract_teams(contract)
+    if not teams:
+        return False
+    return all(
+        isinstance(t.get("playerIds"), list) or isinstance(t.get("players"), list) for t in teams
+    )
 
 
 def waiver_candidates(
@@ -115,6 +139,18 @@ def waiver_candidates(
             basis=base_basis,
             state="unavailable",
             reason="contract_players_missing",
+        )
+
+    if not _league_rosters_observed(contract):
+        # Rival ownership unknown: every rival-rostered row would otherwise
+        # land in the pool as a confident free claim.
+        return WaiverPool(
+            candidates=(),
+            unpriced_ids=(),
+            excluded_auction_lot_ids=(),
+            basis={**base_basis, "leagueRostersObserved": False},
+            state="unavailable",
+            reason="league_rosters_unobserved",
         )
 
     taken = {_norm(x) for x in rostered_ids if _norm(x)} | league_rostered_keys(contract)

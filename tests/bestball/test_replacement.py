@@ -127,7 +127,10 @@ def test_no_free_agent_projected_is_unknown(league, params):
 
 
 def test_observed_empty_pool_is_available_with_reason(params):
-    contract = {"playersArray": [], "sleeper": {"teams": []}}
+    # The league's rosters ARE observed (one team, empty roster); the pool is
+    # truthfully empty.  An absent/empty teams list is a different statement
+    # (rosters unobserved) — see the fail-closed tests below.
+    contract = {"playersArray": [], "sleeper": {"teams": [{"playerIds": [], "players": []}]}}
     pool = waiver_candidates(contract, [], season=2026, scoring_settings={}, params=params)
     assert (pool.state, pool.reason, pool.candidates) == ("available", "no_free_agents", ())
 
@@ -135,3 +138,60 @@ def test_observed_empty_pool_is_available_with_reason(params):
 def test_missing_players_array_is_unavailable(params):
     pool = waiver_candidates({}, [], season=2026, scoring_settings={}, params=params)
     assert (pool.state, pool.reason) == ("unavailable", "contract_players_missing")
+
+
+def _own_roster_only(league):
+    return list(league["contract"]["sleeper"]["teams"][0]["playerIds"])
+
+
+@pytest.mark.parametrize(
+    "sleeper",
+    [None, {}, {"teams": None}, {"teams": []}],
+    ids=["sleeper_null", "no_teams_key", "teams_null", "teams_empty"],
+)
+def test_unobserved_league_rosters_fail_closed(league, params, sleeper):
+    # Cross-league serve shape (sleeper: null, sleeperDataReady: false): rival
+    # ownership is UNKNOWN, never "nobody rostered".  With only the caller's own
+    # roster supplied, rival-rostered players must not become free agents.
+    contract = {**league["contract"], "sleeper": sleeper}
+    pool = waiver_candidates(
+        contract,
+        _own_roster_only(league),
+        season=2026,
+        scoring_settings={"rec": 1.0},
+        params=params,
+        ppg_lookup=ppg_lookup_for(league["ppg"]),
+    )
+    assert (pool.state, pool.reason) == ("unavailable", "league_rosters_unobserved")
+    assert pool.candidates == ()
+
+
+def test_sleeper_data_not_ready_fails_closed(league, params):
+    contract = {**league["contract"], "meta": {"sleeperDataReady": False}}
+    pool = _pool(league, params, rostered=_own_roster_only(league))
+    assert pool.state == "available"  # fixture without the flag stays observed
+    pool = waiver_candidates(
+        contract,
+        _own_roster_only(league),
+        season=2026,
+        scoring_settings={"rec": 1.0},
+        params=params,
+        ppg_lookup=ppg_lookup_for(league["ppg"]),
+    )
+    assert (pool.state, pool.reason) == ("unavailable", "league_rosters_unobserved")
+    assert pool.candidates == ()
+
+
+def test_a_team_with_no_roster_list_is_unobserved(league, params):
+    teams = [dict(t) for t in league["contract"]["sleeper"]["teams"]]
+    teams[3] = {"rosterId": teams[3]["rosterId"], "ownerId": teams[3]["ownerId"]}
+    contract = {**league["contract"], "sleeper": {"teams": teams}}
+    pool = waiver_candidates(
+        contract,
+        _own_roster_only(league),
+        season=2026,
+        scoring_settings={"rec": 1.0},
+        params=params,
+        ppg_lookup=ppg_lookup_for(league["ppg"]),
+    )
+    assert (pool.state, pool.reason) == ("unavailable", "league_rosters_unobserved")
