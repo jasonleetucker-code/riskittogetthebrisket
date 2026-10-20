@@ -1,0 +1,6977 @@
+{
+ "B": {
+  "Aidan Hutchinson": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 6422,
+   "row": "Aidan Hutchinson",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 6227.0,
+    "draftSharksIdp": 3200.0,
+    "fantasyProsIdp": 6227.0,
+    "idpTradeCalc": 6444.0
+   }
+  },
+  "Alex Singleton": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 1817,
+   "row": "Alex Singleton",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1964.0,
+    "draftSharksIdp": 1708.0,
+    "fantasyProsIdp": 3283.0,
+    "idpTradeCalc": 1923.0
+   }
+  },
+  "Anthony Hill": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2774,
+   "row": "Anthony Hill",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3050.0,
+    "dlfRookieIdp": 3050.0,
+    "draftSharksIdp": 2265.0,
+    "fantasyProsIdp": 1794.0,
+    "idpTradeCalc": 3367.0
+   }
+  },
+  "Ashton Jeanty": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "RB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 8080,
+   "row": "Ashton Jeanty",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 7751.0,
+    "draftSharks": 6628.0,
+    "dynastyDaddySf": 8318.0,
+    "dynastyNerdsSfTep": 8438.0,
+    "fantasyCalc": 7859.0,
+    "fantasyProsFitzmaurice": 7146.0,
+    "fantasyProsSf": 8084.0,
+    "flockFantasySf": 8944.0,
+    "idpTradeCalc": 7632.0,
+    "ktcCrowdSfTep": 6971.0,
+    "ktcTradesSfTep": 7203.0,
+    "otcffbSf": 8814.0,
+    "pfkDynasty": 8199.0,
+    "yahooBoone": 8199.0
+   }
+  },
+  "Barrett Carter": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2047,
+   "row": "Barrett Carter",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1982.0,
+    "draftSharksIdp": 3721.0,
+    "fantasyProsIdp": 1876.0,
+    "idpTradeCalc": 2056.0
+   }
+  },
+  "Brock Purdy": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 7466,
+   "row": "Brock Purdy",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 7540.0,
+    "draftSharks": 8036.0,
+    "dynastyDaddySf": 7053.0,
+    "dynastyNerdsSfTep": 7242.0,
+    "fantasyCalc": 7751.0,
+    "fantasyProsFitzmaurice": 8438.0,
+    "fantasyProsSf": 7859.0,
+    "flockFantasySf": 7439.0,
+    "idpTradeCalc": 6439.0,
+    "ktcCrowdSfTep": 7015.0,
+    "ktcTradesSfTep": 6923.0,
+    "otcffbSf": 7339.0,
+    "pfkDynasty": 7751.0,
+    "yahooBoone": 8561.0
+   }
+  },
+  "CJ Allen": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2172,
+   "row": "CJ Allen",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 2645.0,
+    "dlfRookieIdp": 2568.0,
+    "draftSharksIdp": 5790.0,
+    "fantasyProsIdp": 2095.0,
+    "idpTradeCalc": 2129.0
+   }
+  },
+  "Carson Schwesinger": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 5584,
+   "row": "Carson Schwesinger",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 5165.0,
+    "draftSharksIdp": 6945.0,
+    "fantasyProsIdp": 4811.0,
+    "idpTradeCalc": 5637.0
+   }
+  },
+  "CeeDee Lamb": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 8402,
+   "row": "CeeDee Lamb",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 8944.0,
+    "draftSharks": 6417.0,
+    "dynastyDaddySf": 8438.0,
+    "dynastyNerdsSfTep": 8318.0,
+    "fantasyCalc": 8687.0,
+    "fantasyProsFitzmaurice": 7751.0,
+    "fantasyProsSf": 8438.0,
+    "flockFantasySf": 8814.0,
+    "idpTradeCalc": 7343.0,
+    "ktcCrowdSfTep": 7127.0,
+    "ktcTradesSfTep": 7485.0,
+    "otcffbSf": 8438.0,
+    "pfkDynasty": 8814.0,
+    "yahooBoone": 8084.0
+   }
+  },
+  "Chase Young": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "idpTradeCalc"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2118,
+   "row": "Chase Young",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1916.0,
+    "draftSharksIdp": 2141.0,
+    "fantasyProsIdp": 1933.0,
+    "idpTradeCalc": 3200.0
+   }
+  },
+  "Courtland Sutton": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2412,
+   "row": "Courtland Sutton",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2809.0,
+    "draftSharks": 3453.0,
+    "dynastyDaddySf": 1923.0,
+    "dynastyNerdsSfTep": 2481.0,
+    "fantasyCalc": 1994.0,
+    "fantasyProsFitzmaurice": 2241.0,
+    "fantasyProsSf": 2809.0,
+    "flockFantasySf": 2827.0,
+    "idpTradeCalc": 2739.0,
+    "ktcCrowdSfTep": 2388.0,
+    "ktcTradesSfTep": 2519.0,
+    "otcffbSf": 2153.0,
+    "pfkDynasty": 1958.0,
+    "yahooBoone": 2003.0
+   }
+  },
+  "Dak Prescott": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 5845,
+   "row": "Dak Prescott",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 6699.0,
+    "draftSharks": 7531.0,
+    "dynastyDaddySf": 5673.0,
+    "dynastyNerdsSfTep": 4799.0,
+    "fantasyCalc": 6298.0,
+    "fantasyProsFitzmaurice": 5737.0,
+    "fantasyProsSf": 6375.0,
+    "flockFantasySf": 6298.0,
+    "idpTradeCalc": 5278.0,
+    "ktcCrowdSfTep": 5197.0,
+    "ktcTradesSfTep": 5556.0,
+    "otcffbSf": 5802.0,
+    "pfkDynasty": 5869.0,
+    "yahooBoone": 7146.0
+   }
+  },
+  "Danielle Hunter": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3035,
+   "row": "Danielle Hunter",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 2702.0,
+    "draftSharksIdp": 1641.0,
+    "fantasyProsIdp": 2982.0,
+    "idpTradeCalc": 3068.0
+   }
+  },
+  "David Bailey": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3631,
+   "row": "David Bailey",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3360.0,
+    "dlfRookieIdp": 3721.0,
+    "draftSharksIdp": 3677.0,
+    "fantasyProsIdp": 2051.0,
+    "idpTradeCalc": 3595.0
+   }
+  },
+  "DeMarvion Overshown": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2040,
+   "row": "DeMarvion Overshown",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1884.0,
+    "draftSharksIdp": 3383.0,
+    "fantasyProsIdp": 2529.0,
+    "idpTradeCalc": 2048.0
+   }
+  },
+  "Dillon Thieneman": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3205,
+   "row": "Dillon Thieneman",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 2574.0,
+    "dlfRookieIdp": 2982.0,
+    "draftSharksIdp": 4353.0,
+    "fantasyProsIdp": 1991.0,
+    "idpTradeCalc": 3264.0
+   }
+  },
+  "Edgerrin Cooper": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3293,
+   "row": "Edgerrin Cooper",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3337.0,
+    "draftSharksIdp": 4645.0,
+    "fantasyProsIdp": 3383.0,
+    "idpTradeCalc": 3288.0
+   }
+  },
+  "Evan Engram": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2165,
+   "row": "Evan Engram",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2767.0,
+    "draftSharks": 3109.0,
+    "dynastyDaddySf": 1957.0,
+    "dynastyNerdsSfTep": 1711.0,
+    "fantasyCalc": 2038.0,
+    "fantasyProsFitzmaurice": 1620.0,
+    "fantasyProsSf": 2209.0,
+    "flockFantasySf": 2042.0,
+    "idpTradeCalc": 2674.0,
+    "ktcCrowdSfTep": 2436.0,
+    "ktcTradesSfTep": 2684.0,
+    "otcffbSf": 1988.0,
+    "pfkDynasty": 2264.0,
+    "yahooBoone": 1661.0
+   }
+  },
+  "Harold Fannin": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 5368,
+   "row": "Harold Fannin",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 5490.0,
+    "draftSharks": 5532.0,
+    "dynastyDaddySf": 4882.0,
+    "dynastyNerdsSfTep": 5607.0,
+    "fantasyCalc": 4955.0,
+    "fantasyProsFitzmaurice": 5493.0,
+    "fantasyProsSf": 5229.0,
+    "flockFantasySf": 5313.0,
+    "idpTradeCalc": 5348.0,
+    "ktcCrowdSfTep": 5506.0,
+    "ktcTradesSfTep": 5612.0,
+    "otcffbSf": 4811.0,
+    "pfkDynasty": 5584.0,
+    "yahooBoone": 4441.0
+   }
+  },
+  "Isaiah Likely": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 4774,
+   "row": "Isaiah Likely",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 4256.0,
+    "draftSharks": 4319.0,
+    "dynastyDaddySf": 4811.0,
+    "dynastyNerdsSfTep": 4894.0,
+    "fantasyCalc": 5357.0,
+    "fantasyProsFitzmaurice": 4124.0,
+    "fantasyProsSf": 4610.0,
+    "flockFantasySf": 4339.0,
+    "idpTradeCalc": 5090.0,
+    "ktcCrowdSfTep": 5773.0,
+    "ktcTradesSfTep": 5494.0,
+    "otcffbSf": 4310.0,
+    "pfkDynasty": 5030.0,
+    "yahooBoone": 4027.0
+   }
+  },
+  "Jacob Rodriguez": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4961,
+   "row": "Jacob Rodriguez",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 4726.0,
+    "dlfRookieIdp": 5165.0,
+    "draftSharksIdp": 4421.0,
+    "fantasyProsIdp": 1578.0,
+    "idpTradeCalc": 5667.0
+   }
+  },
+  "Jalen Coker": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 3788,
+   "row": "Jalen Coker",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 3118.0,
+    "draftSharks": 3812.0,
+    "dynastyDaddySf": 3604.0,
+    "dynastyNerdsSfTep": 3345.0,
+    "fantasyCalc": 3749.0,
+    "fantasyProsFitzmaurice": 4003.0,
+    "fantasyProsSf": 3577.0,
+    "flockFantasySf": 3690.0,
+    "idpTradeCalc": 4501.0,
+    "ktcCrowdSfTep": 4761.0,
+    "ktcTradesSfTep": 4311.0,
+    "otcffbSf": 3779.0,
+    "pfkDynasty": 3779.0,
+    "yahooBoone": 3719.0
+   }
+  },
+  "Jared Verse": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "dlfIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2666,
+   "row": "Jared Verse",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 4671.0,
+    "draftSharksIdp": 2419.0,
+    "fantasyProsIdp": 2762.0,
+    "idpTradeCalc": 2963.0
+   }
+  },
+  "Jihaad Campbell": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3547,
+   "row": "Jihaad Campbell",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3095.0,
+    "draftSharksIdp": 4996.0,
+    "fantasyProsIdp": 2657.0,
+    "idpTradeCalc": 3605.0
+   }
+  },
+  "Joe Burrow": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 8015,
+   "row": "Joe Burrow",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 8438.0,
+    "draftSharks": 9486.0,
+    "dynastyDaddySf": 8084.0,
+    "dynastyNerdsSfTep": 7751.0,
+    "fantasyCalc": 8199.0,
+    "fantasyProsFitzmaurice": 8687.0,
+    "fantasyProsSf": 9345.0,
+    "flockFantasySf": 7970.0,
+    "idpTradeCalc": 7080.0,
+    "ktcCrowdSfTep": 6833.0,
+    "ktcTradesSfTep": 7221.0,
+    "otcffbSf": 7859.0,
+    "pfkDynasty": 7859.0,
+    "yahooBoone": 8944.0
+   }
+  },
+  "Jordyn Brooks": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3726,
+   "row": "Jordyn Brooks",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3304.0,
+    "draftSharksIdp": 3909.0,
+    "fantasyProsIdp": 5096.0,
+    "idpTradeCalc": 3598.0
+   }
+  },
+  "Josh Cameron": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfRookieSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsSf": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfRookieSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsSf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 1608,
+   "row": "Josh Cameron",
+   "translation": {
+    "dlfRookieSf": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_ktcCrowdSfTep",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfRookieSf": 1357.0,
+    "draftSharks": 2633.0,
+    "dynastyDaddySf": 1764.0,
+    "fantasyCalc": 1771.0,
+    "fantasyProsSf": 1153.0,
+    "idpTradeCalc": 1226.0,
+    "ktcCrowdSfTep": 1959.0,
+    "ktcTradesSfTep": 1276.0,
+    "otcffbSf": 1700.0,
+    "pfkDynasty": 1640.0,
+    "yahooBoone": 1389.0
+   }
+  },
+  "Josiah Trotter": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp",
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3379,
+   "row": "Josiah Trotter",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3171.0,
+    "dlfRookieIdp": 3283.0,
+    "draftSharksIdp": 1675.0,
+    "fantasyProsIdp": 1868.0,
+    "idpTradeCalc": 3396.0
+   }
+  },
+  "Myles Garrett": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 5245,
+   "row": "Myles Garrett",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3721.0,
+    "draftSharksIdp": 1905.0,
+    "fantasyProsIdp": 4726.0,
+    "idpTradeCalc": 5399.0
+   }
+  },
+  "Nick Bolton": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3588,
+   "row": "Nick Bolton",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3394.0,
+    "draftSharksIdp": 4698.0,
+    "fantasyProsIdp": 3360.0,
+    "idpTradeCalc": 3611.0
+   }
+  },
+  "Nick Emmanwori": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3544,
+   "row": "Nick Emmanwori",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3007.0,
+    "draftSharksIdp": 4517.0,
+    "fantasyProsIdp": 3132.0,
+    "idpTradeCalc": 3602.0
+   }
+  },
+  "Nick Herbig": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "idpTradeCalc"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 1553,
+   "row": "Nick Herbig",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 2007.0,
+    "draftSharksIdp": 1507.0,
+    "fantasyProsIdp": 1780.0,
+    "idpTradeCalc": 2999.0
+   }
+  },
+  "Oscar Delp": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfRookieSf": "dlf",
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfRookieSf": 1.0,
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2289,
+   "row": "Oscar Delp",
+   "translation": {
+    "dlfRookieSf": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_ktcCrowdSfTep",
+     "sharedMarketTranslated": false
+    },
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfRookieSf": 2182.0,
+    "dlfSf": 2066.0,
+    "draftSharks": 3218.0,
+    "dynastyDaddySf": 2101.0,
+    "dynastyNerdsSfTep": 2078.0,
+    "fantasyCalc": 2020.0,
+    "fantasyProsFitzmaurice": 1965.0,
+    "fantasyProsSf": 2458.0,
+    "flockFantasySf": 2271.0,
+    "idpTradeCalc": 2609.0,
+    "ktcCrowdSfTep": 2529.0,
+    "ktcTradesSfTep": 2593.0,
+    "otcffbSf": 2060.0,
+    "pfkDynasty": 2250.0,
+    "yahooBoone": 2640.0
+   }
+  },
+  "Patrick Mahomes": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 7558,
+   "row": "Patrick Mahomes",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 7859.0,
+    "draftSharks": 8519.0,
+    "dynastyDaddySf": 7439.0,
+    "dynastyNerdsSfTep": 7540.0,
+    "fantasyCalc": 7644.0,
+    "fantasyProsFitzmaurice": 8687.0,
+    "fantasyProsSf": 8318.0,
+    "flockFantasySf": 7859.0,
+    "idpTradeCalc": 6402.0,
+    "ktcCrowdSfTep": 6329.0,
+    "ktcTradesSfTep": 6817.0,
+    "otcffbSf": 7146.0,
+    "pfkDynasty": 7439.0,
+    "yahooBoone": 8561.0
+   }
+  },
+  "Patrick Queen": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 1975,
+   "row": "Patrick Queen",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 2010.0,
+    "draftSharksIdp": 3262.0,
+    "fantasyProsIdp": 1922.0,
+    "idpTradeCalc": 1973.0
+   }
+  },
+  "Puka Nacua": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "fantasyProsFitzmaurice"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 9081,
+   "row": "Puka Nacua",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 9345.0,
+    "draftSharks": 6485.0,
+    "dynastyDaddySf": 9345.0,
+    "dynastyNerdsSfTep": 9210.0,
+    "fantasyCalc": 9345.0,
+    "fantasyProsFitzmaurice": 7859.0,
+    "fantasyProsSf": 8814.0,
+    "flockFantasySf": 9345.0,
+    "idpTradeCalc": 8033.0,
+    "ktcCrowdSfTep": 8176.0,
+    "ktcTradesSfTep": 8285.0,
+    "otcffbSf": 9345.0,
+    "pfkDynasty": 9210.0,
+    "yahooBoone": 8318.0
+   }
+  },
+  "Quay Walker": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3099,
+   "row": "Quay Walker",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 2933.0,
+    "draftSharksIdp": 4618.0,
+    "fantasyProsIdp": 3394.0,
+    "idpTradeCalc": 3111.0
+   }
+  },
+  "Quincy Williams": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2065,
+   "row": "Quincy Williams",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1982.0,
+    "draftSharksIdp": 2189.0,
+    "fantasyProsIdp": 3171.0,
+    "idpTradeCalc": 1927.0
+   }
+  },
+  "Robert Spillane": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2054,
+   "row": "Robert Spillane",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1962.0,
+    "draftSharksIdp": 2178.0,
+    "fantasyProsIdp": 3294.0,
+    "idpTradeCalc": 1917.0
+   }
+  },
+  "Roquan Smith": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3143,
+   "row": "Roquan Smith",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3371.0,
+    "draftSharksIdp": 2742.0,
+    "fantasyProsIdp": 5165.0,
+    "idpTradeCalc": 3608.0
+   }
+  },
+  "Sonny Styles": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "fantasyProsIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "dlfRookieIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 5236,
+   "row": "Sonny Styles",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "dlfRookieIdp": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_idpTradeCalc",
+     "sharedMarketTranslated": false
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 4811.0,
+    "dlfRookieIdp": 5130.0,
+    "draftSharksIdp": 6108.0,
+    "fantasyProsIdp": 2901.0,
+    "idpTradeCalc": 4173.0
+   }
+  },
+  "T.J. Watt": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3436,
+   "row": "T.J. Watt",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 3283.0,
+    "draftSharksIdp": 1450.0,
+    "fantasyProsIdp": 3033.0,
+    "idpTradeCalc": 3458.0
+   }
+  },
+  "Theo Johnson": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2186,
+   "row": "Theo Johnson",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2271.0,
+    "draftSharks": 3001.0,
+    "dynastyDaddySf": 1983.0,
+    "dynastyNerdsSfTep": 1730.0,
+    "fantasyCalc": 1820.0,
+    "fantasyProsSf": 2250.0,
+    "flockFantasySf": 2286.0,
+    "idpTradeCalc": 2458.0,
+    "ktcCrowdSfTep": 2411.0,
+    "ktcTradesSfTep": 2727.0,
+    "otcffbSf": 1967.0,
+    "pfkDynasty": 1741.0,
+    "yahooBoone": 1661.0
+   }
+  },
+  "Travis Hunter": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "idpTradeCalc"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "draftSharks": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 3493,
+   "row": "Travis Hunter",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2613.0,
+    "draftSharks": 2893.0,
+    "dynastyNerdsSfTep": 2207.0,
+    "fantasyCalc": 2375.0,
+    "fantasyProsFitzmaurice": 1735.0,
+    "fantasyProsSf": 2121.0,
+    "flockFantasySf": 2881.0,
+    "idpTradeCalc": 3599.0,
+    "ktcCrowdSfTep": 2275.0,
+    "ktcTradesSfTep": 2620.0,
+    "otcffbSf": 2264.0,
+    "pfkDynasty": 2121.0,
+    "yahooBoone": 1872.0
+   }
+  },
+  "Trevin Wallace": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 884,
+   "row": "Trevin Wallace",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1517.0,
+    "draftSharksIdp": 2878.0,
+    "fantasyProsIdp": 1558.0,
+    "idpTradeCalc": 814.0
+   }
+  },
+  "Trey Hendrickson": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "idpTradeCalc"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 1513,
+   "row": "Trey Hendrickson",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 1878.0,
+    "draftSharksIdp": 1472.0,
+    "fantasyProsIdp": 1916.0,
+    "idpTradeCalc": 2927.0
+   }
+  },
+  "Will Anderson": {
+   "assetClass": "idp",
+   "droppedSources": [
+    "draftSharksIdp"
+   ],
+   "families": {
+    "dlfIdp": "dlf",
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "dlfIdp": 1.0,
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 5980,
+   "row": "Will Anderson",
+   "translation": {
+    "dlfIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfIdp": 6227.0,
+    "draftSharksIdp": 2870.0,
+    "fantasyProsIdp": 5603.0,
+    "idpTradeCalc": 5963.0
+   }
+  }
+ },
+ "B'": {
+  "Aidan Hutchinson": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4772,
+   "row": "Aidan Hutchinson",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 3200.0,
+    "fantasyProsIdp": 6227.0,
+    "idpTradeCalc": 6444.0
+   }
+  },
+  "Alex Singleton": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 1949,
+   "row": "Alex Singleton",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1708.0,
+    "fantasyProsIdp": 3283.0,
+    "idpTradeCalc": 1923.0
+   }
+  },
+  "Anthony Hill": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2649,
+   "row": "Anthony Hill",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2265.0,
+    "fantasyProsIdp": 1794.0,
+    "idpTradeCalc": 3367.0
+   }
+  },
+  "Ashton Jeanty": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "RB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 8163,
+   "row": "Ashton Jeanty",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 7751.0,
+    "dlfValuesSfTep": 8199.0,
+    "draftSharks": 6628.0,
+    "dynastyDaddySf": 8318.0,
+    "dynastyNerdsSfTep": 8438.0,
+    "fantasyCalc": 7859.0,
+    "fantasyProsFitzmaurice": 7146.0,
+    "fantasyProsSf": 8084.0,
+    "flockFantasySf": 8944.0,
+    "idpTradeCalc": 7632.0,
+    "ktcCrowdSfTep": 6971.0,
+    "ktcTradesSfTep": 7203.0,
+    "otcffbSf": 8814.0,
+    "pfkDynasty": 8199.0,
+    "yahooBoone": 8199.0
+   }
+  },
+  "Barrett Carter": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2884,
+   "row": "Barrett Carter",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 3721.0,
+    "fantasyProsIdp": 1876.0,
+    "idpTradeCalc": 2056.0
+   }
+  },
+  "Brock Purdy": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "idpTradeCalc",
+    "yahooBoone"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 7455,
+   "row": "Brock Purdy",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 7540.0,
+    "dlfValuesSfTep": 7859.0,
+    "draftSharks": 8036.0,
+    "dynastyDaddySf": 7053.0,
+    "dynastyNerdsSfTep": 7242.0,
+    "fantasyCalc": 7751.0,
+    "fantasyProsFitzmaurice": 8438.0,
+    "fantasyProsSf": 7859.0,
+    "flockFantasySf": 7439.0,
+    "idpTradeCalc": 6439.0,
+    "ktcCrowdSfTep": 7015.0,
+    "ktcTradesSfTep": 6923.0,
+    "otcffbSf": 7339.0,
+    "pfkDynasty": 7751.0,
+    "yahooBoone": 8561.0
+   }
+  },
+  "CJ Allen": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3987,
+   "row": "CJ Allen",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 5790.0,
+    "fantasyProsIdp": 2095.0,
+    "idpTradeCalc": 2129.0
+   }
+  },
+  "Carson Schwesinger": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 6219,
+   "row": "Carson Schwesinger",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 6945.0,
+    "fantasyProsIdp": 4811.0,
+    "idpTradeCalc": 5637.0
+   }
+  },
+  "CeeDee Lamb": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "idpTradeCalc",
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 8435,
+   "row": "CeeDee Lamb",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 8944.0,
+    "dlfValuesSfTep": 8561.0,
+    "draftSharks": 6417.0,
+    "dynastyDaddySf": 8438.0,
+    "dynastyNerdsSfTep": 8318.0,
+    "fantasyCalc": 8687.0,
+    "fantasyProsFitzmaurice": 7751.0,
+    "fantasyProsSf": 8438.0,
+    "flockFantasySf": 8814.0,
+    "idpTradeCalc": 7343.0,
+    "ktcCrowdSfTep": 7127.0,
+    "ktcTradesSfTep": 7485.0,
+    "otcffbSf": 8438.0,
+    "pfkDynasty": 8814.0,
+    "yahooBoone": 8084.0
+   }
+  },
+  "Chase Young": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2534,
+   "row": "Chase Young",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2141.0,
+    "fantasyProsIdp": 1933.0,
+    "idpTradeCalc": 3200.0
+   }
+  },
+  "Courtland Sutton": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2357,
+   "row": "Courtland Sutton",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2809.0,
+    "dlfValuesSfTep": 2387.0,
+    "draftSharks": 3453.0,
+    "dynastyDaddySf": 1923.0,
+    "dynastyNerdsSfTep": 2481.0,
+    "fantasyCalc": 1994.0,
+    "fantasyProsFitzmaurice": 2241.0,
+    "fantasyProsSf": 2809.0,
+    "flockFantasySf": 2827.0,
+    "idpTradeCalc": 2739.0,
+    "ktcCrowdSfTep": 2388.0,
+    "ktcTradesSfTep": 2519.0,
+    "otcffbSf": 2153.0,
+    "pfkDynasty": 1958.0,
+    "yahooBoone": 2003.0
+   }
+  },
+  "Dak Prescott": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "yahooBoone"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 5775,
+   "row": "Dak Prescott",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 6699.0,
+    "dlfValuesSfTep": 6223.0,
+    "draftSharks": 7531.0,
+    "dynastyDaddySf": 5673.0,
+    "dynastyNerdsSfTep": 4799.0,
+    "fantasyCalc": 6298.0,
+    "fantasyProsFitzmaurice": 5737.0,
+    "fantasyProsSf": 6375.0,
+    "flockFantasySf": 6298.0,
+    "idpTradeCalc": 5278.0,
+    "ktcCrowdSfTep": 5197.0,
+    "ktcTradesSfTep": 5556.0,
+    "otcffbSf": 5802.0,
+    "pfkDynasty": 5869.0,
+    "yahooBoone": 7146.0
+   }
+  },
+  "Danielle Hunter": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2333,
+   "row": "Danielle Hunter",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1641.0,
+    "fantasyProsIdp": 2982.0,
+    "idpTradeCalc": 3068.0
+   }
+  },
+  "David Bailey": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3482,
+   "row": "David Bailey",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 3677.0,
+    "fantasyProsIdp": 2051.0,
+    "idpTradeCalc": 3595.0
+   }
+  },
+  "DeMarvion Overshown": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2774,
+   "row": "DeMarvion Overshown",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 3383.0,
+    "fantasyProsIdp": 2529.0,
+    "idpTradeCalc": 2048.0
+   }
+  },
+  "Dillon Thieneman": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3690,
+   "row": "Dillon Thieneman",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4353.0,
+    "fantasyProsIdp": 1991.0,
+    "idpTradeCalc": 3264.0
+   }
+  },
+  "Edgerrin Cooper": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3987,
+   "row": "Edgerrin Cooper",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4645.0,
+    "fantasyProsIdp": 3383.0,
+    "idpTradeCalc": 3288.0
+   }
+  },
+  "Evan Engram": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2082,
+   "row": "Evan Engram",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2767.0,
+    "dlfValuesSfTep": 1916.0,
+    "draftSharks": 3109.0,
+    "dynastyDaddySf": 1957.0,
+    "dynastyNerdsSfTep": 1711.0,
+    "fantasyCalc": 2038.0,
+    "fantasyProsFitzmaurice": 1620.0,
+    "fantasyProsSf": 2209.0,
+    "flockFantasySf": 2042.0,
+    "idpTradeCalc": 2674.0,
+    "ktcCrowdSfTep": 2436.0,
+    "ktcTradesSfTep": 2684.0,
+    "otcffbSf": 1988.0,
+    "pfkDynasty": 2264.0,
+    "yahooBoone": 1661.0
+   }
+  },
+  "Harold Fannin": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "yahooBoone"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 5426,
+   "row": "Harold Fannin",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 5490.0,
+    "dlfValuesSfTep": 5845.0,
+    "draftSharks": 5532.0,
+    "dynastyDaddySf": 4882.0,
+    "dynastyNerdsSfTep": 5607.0,
+    "fantasyCalc": 4955.0,
+    "fantasyProsFitzmaurice": 5493.0,
+    "fantasyProsSf": 5229.0,
+    "flockFantasySf": 5313.0,
+    "idpTradeCalc": 5348.0,
+    "ktcCrowdSfTep": 5506.0,
+    "ktcTradesSfTep": 5612.0,
+    "otcffbSf": 4811.0,
+    "pfkDynasty": 5584.0,
+    "yahooBoone": 4441.0
+   }
+  },
+  "Isaiah Likely": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 4674,
+   "row": "Isaiah Likely",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 4256.0,
+    "dlfValuesSfTep": 4027.0,
+    "draftSharks": 4319.0,
+    "dynastyDaddySf": 4811.0,
+    "dynastyNerdsSfTep": 4894.0,
+    "fantasyCalc": 5357.0,
+    "fantasyProsFitzmaurice": 4124.0,
+    "fantasyProsSf": 4610.0,
+    "flockFantasySf": 4339.0,
+    "idpTradeCalc": 5090.0,
+    "ktcCrowdSfTep": 5773.0,
+    "ktcTradesSfTep": 5494.0,
+    "otcffbSf": 4310.0,
+    "pfkDynasty": 5030.0,
+    "yahooBoone": 4027.0
+   }
+  },
+  "Jacob Rodriguez": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4624,
+   "row": "Jacob Rodriguez",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4421.0,
+    "fantasyProsIdp": 1578.0,
+    "idpTradeCalc": 5667.0
+   }
+  },
+  "Jalen Coker": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 3750,
+   "row": "Jalen Coker",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 3118.0,
+    "dlfValuesSfTep": 3369.0,
+    "draftSharks": 3812.0,
+    "dynastyDaddySf": 3604.0,
+    "dynastyNerdsSfTep": 3345.0,
+    "fantasyCalc": 3749.0,
+    "fantasyProsFitzmaurice": 4003.0,
+    "fantasyProsSf": 3577.0,
+    "flockFantasySf": 3690.0,
+    "idpTradeCalc": 4501.0,
+    "ktcCrowdSfTep": 4761.0,
+    "ktcTradesSfTep": 4311.0,
+    "otcffbSf": 3779.0,
+    "pfkDynasty": 3779.0,
+    "yahooBoone": 3719.0
+   }
+  },
+  "Jared Verse": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2666,
+   "row": "Jared Verse",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2419.0,
+    "fantasyProsIdp": 2762.0,
+    "idpTradeCalc": 2963.0
+   }
+  },
+  "Jihaad Campbell": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4217,
+   "row": "Jihaad Campbell",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4996.0,
+    "fantasyProsIdp": 2657.0,
+    "idpTradeCalc": 3605.0
+   }
+  },
+  "Joe Burrow": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "fantasyProsSf",
+    "idpTradeCalc",
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 8066,
+   "row": "Joe Burrow",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 8438.0,
+    "dlfValuesSfTep": 8438.0,
+    "draftSharks": 9486.0,
+    "dynastyDaddySf": 8084.0,
+    "dynastyNerdsSfTep": 7751.0,
+    "fantasyCalc": 8199.0,
+    "fantasyProsFitzmaurice": 8687.0,
+    "fantasyProsSf": 9345.0,
+    "flockFantasySf": 7970.0,
+    "idpTradeCalc": 7080.0,
+    "ktcCrowdSfTep": 6833.0,
+    "ktcTradesSfTep": 7221.0,
+    "otcffbSf": 7859.0,
+    "pfkDynasty": 7859.0,
+    "yahooBoone": 8944.0
+   }
+  },
+  "Jordyn Brooks": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3905,
+   "row": "Jordyn Brooks",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 3909.0,
+    "fantasyProsIdp": 5096.0,
+    "idpTradeCalc": 3598.0
+   }
+  },
+  "Josh Cameron": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfRookieSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsSf": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfRookieSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsSf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 1531,
+   "row": "Josh Cameron",
+   "translation": {
+    "dlfRookieSf": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_ktcCrowdSfTep",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfRookieSf": 1357.0,
+    "dlfValuesSfTep": 1389.0,
+    "draftSharks": 2633.0,
+    "dynastyDaddySf": 1764.0,
+    "fantasyCalc": 1771.0,
+    "fantasyProsSf": 1153.0,
+    "idpTradeCalc": 1226.0,
+    "ktcCrowdSfTep": 1959.0,
+    "ktcTradesSfTep": 1276.0,
+    "otcffbSf": 1700.0,
+    "pfkDynasty": 1640.0,
+    "yahooBoone": 1389.0
+   }
+  },
+  "Josiah Trotter": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2368,
+   "row": "Josiah Trotter",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1675.0,
+    "fantasyProsIdp": 1868.0,
+    "idpTradeCalc": 3396.0
+   }
+  },
+  "Myles Garrett": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3555,
+   "row": "Myles Garrett",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1905.0,
+    "fantasyProsIdp": 4726.0,
+    "idpTradeCalc": 5399.0
+   }
+  },
+  "Nick Bolton": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4138,
+   "row": "Nick Bolton",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4698.0,
+    "fantasyProsIdp": 3360.0,
+    "idpTradeCalc": 3611.0
+   }
+  },
+  "Nick Emmanwori": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4020,
+   "row": "Nick Emmanwori",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4517.0,
+    "fantasyProsIdp": 3132.0,
+    "idpTradeCalc": 3602.0
+   }
+  },
+  "Nick Herbig": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2118,
+   "row": "Nick Herbig",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1507.0,
+    "fantasyProsIdp": 1780.0,
+    "idpTradeCalc": 2999.0
+   }
+  },
+  "Oscar Delp": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfRookieSf": "dlf",
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfRookieSf": 1.0,
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2264,
+   "row": "Oscar Delp",
+   "translation": {
+    "dlfRookieSf": {
+     "levelSource": null,
+     "method": "rookie_ladder_translation_via_ktcCrowdSfTep",
+     "sharedMarketTranslated": false
+    },
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfRookieSf": 2182.0,
+    "dlfSf": 2066.0,
+    "dlfValuesSfTep": 1581.0,
+    "draftSharks": 3218.0,
+    "dynastyDaddySf": 2101.0,
+    "dynastyNerdsSfTep": 2078.0,
+    "fantasyCalc": 2020.0,
+    "fantasyProsFitzmaurice": 1965.0,
+    "fantasyProsSf": 2458.0,
+    "flockFantasySf": 2271.0,
+    "idpTradeCalc": 2609.0,
+    "ktcCrowdSfTep": 2529.0,
+    "ktcTradesSfTep": 2593.0,
+    "otcffbSf": 2060.0,
+    "pfkDynasty": 2250.0,
+    "yahooBoone": 2640.0
+   }
+  },
+  "Patrick Mahomes": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "fantasyProsFitzmaurice",
+    "idpTradeCalc",
+    "ktcCrowdSfTep"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "QB",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 7662,
+   "row": "Patrick Mahomes",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 7859.0,
+    "dlfValuesSfTep": 7540.0,
+    "draftSharks": 8519.0,
+    "dynastyDaddySf": 7439.0,
+    "dynastyNerdsSfTep": 7540.0,
+    "fantasyCalc": 7644.0,
+    "fantasyProsFitzmaurice": 8687.0,
+    "fantasyProsSf": 8318.0,
+    "flockFantasySf": 7859.0,
+    "idpTradeCalc": 6402.0,
+    "ktcCrowdSfTep": 6329.0,
+    "ktcTradesSfTep": 6817.0,
+    "otcffbSf": 7146.0,
+    "pfkDynasty": 7439.0,
+    "yahooBoone": 8561.0
+   }
+  },
+  "Patrick Queen": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2623,
+   "row": "Patrick Queen",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 3262.0,
+    "fantasyProsIdp": 1922.0,
+    "idpTradeCalc": 1973.0
+   }
+  },
+  "Puka Nacua": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "draftSharks",
+    "fantasyProsFitzmaurice",
+    "idpTradeCalc"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 9107,
+   "row": "Puka Nacua",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 9345.0,
+    "dlfValuesSfTep": 9076.0,
+    "draftSharks": 6485.0,
+    "dynastyDaddySf": 9345.0,
+    "dynastyNerdsSfTep": 9210.0,
+    "fantasyCalc": 9345.0,
+    "fantasyProsFitzmaurice": 7859.0,
+    "fantasyProsSf": 8814.0,
+    "flockFantasySf": 9345.0,
+    "idpTradeCalc": 8033.0,
+    "ktcCrowdSfTep": 8176.0,
+    "ktcTradesSfTep": 8285.0,
+    "otcffbSf": 9345.0,
+    "pfkDynasty": 9210.0,
+    "yahooBoone": 8318.0
+   }
+  },
+  "Quay Walker": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3905,
+   "row": "Quay Walker",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 4618.0,
+    "fantasyProsIdp": 3394.0,
+    "idpTradeCalc": 3111.0
+   }
+  },
+  "Quincy Williams": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2184,
+   "row": "Quincy Williams",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2189.0,
+    "fantasyProsIdp": 3171.0,
+    "idpTradeCalc": 1927.0
+   }
+  },
+  "Robert Spillane": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2187,
+   "row": "Robert Spillane",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2178.0,
+    "fantasyProsIdp": 3294.0,
+    "idpTradeCalc": 1917.0
+   }
+  },
+  "Roquan Smith": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 3323,
+   "row": "Roquan Smith",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2742.0,
+    "fantasyProsIdp": 5165.0,
+    "idpTradeCalc": 3608.0
+   }
+  },
+  "Sonny Styles": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 5029,
+   "row": "Sonny Styles",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 6108.0,
+    "fantasyProsIdp": 2901.0,
+    "idpTradeCalc": 4173.0
+   }
+  },
+  "T.J. Watt": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2394,
+   "row": "T.J. Watt",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1450.0,
+    "fantasyProsIdp": 3033.0,
+    "idpTradeCalc": 3458.0
+   }
+  },
+  "Theo Johnson": {
+   "assetClass": "offense",
+   "droppedSources": [],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 2105,
+   "row": "Theo Johnson",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2271.0,
+    "dlfValuesSfTep": 1603.0,
+    "draftSharks": 3001.0,
+    "dynastyDaddySf": 1983.0,
+    "dynastyNerdsSfTep": 1730.0,
+    "fantasyCalc": 1820.0,
+    "fantasyProsSf": 2250.0,
+    "flockFantasySf": 2286.0,
+    "idpTradeCalc": 2458.0,
+    "ktcCrowdSfTep": 2411.0,
+    "ktcTradesSfTep": 2727.0,
+    "otcffbSf": 1967.0,
+    "pfkDynasty": 1741.0,
+    "yahooBoone": 1661.0
+   }
+  },
+  "Travis Hunter": {
+   "assetClass": "offense",
+   "droppedSources": [
+    "idpTradeCalc"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsFitzmaurice": "fantasyPros",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "WR",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.8238,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 0.9981,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "rankDerivedValue": 3599,
+   "row": "Travis Hunter",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsFitzmaurice": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "dlfSf": 2613.0,
+    "dlfValuesSfTep": 2080.0,
+    "draftSharks": 2893.0,
+    "dynastyNerdsSfTep": 2207.0,
+    "fantasyCalc": 2375.0,
+    "fantasyProsFitzmaurice": 1735.0,
+    "fantasyProsSf": 2121.0,
+    "flockFantasySf": 2881.0,
+    "idpTradeCalc": 3599.0,
+    "ktcCrowdSfTep": 2275.0,
+    "ktcTradesSfTep": 2620.0,
+    "otcffbSf": 2264.0,
+    "pfkDynasty": 2121.0,
+    "yahooBoone": 1872.0
+   }
+  },
+  "Trevin Wallace": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "LB",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 1937,
+   "row": "Trevin Wallace",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2878.0,
+    "fantasyProsIdp": 1558.0,
+    "idpTradeCalc": 814.0
+   }
+  },
+  "Trey Hendrickson": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 2086,
+   "row": "Trey Hendrickson",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 1472.0,
+    "fantasyProsIdp": 1916.0,
+    "idpTradeCalc": 2927.0
+   }
+  },
+  "Will Anderson": {
+   "assetClass": "idp",
+   "droppedSources": [],
+   "families": {
+    "draftSharksIdp": "draftSharks",
+    "fantasyProsIdp": "fantasyPros",
+    "idpTradeCalc": "idpTradeCalc"
+   },
+   "position": "DL",
+   "preCapWeights": {
+    "draftSharksIdp": 1.0,
+    "fantasyProsIdp": 0.1686,
+    "idpTradeCalc": 0.7701
+   },
+   "rankDerivedValue": 4354,
+   "row": "Will Anderson",
+   "translation": {
+    "draftSharksIdp": {
+     "levelSource": null,
+     "method": "ds_combined_cross_market",
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsIdp": {
+     "levelSource": null,
+     "method": "exact",
+     "sharedMarketTranslated": true
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": "direct",
+     "sharedMarketTranslated": false
+    }
+   },
+   "votes": {
+    "draftSharksIdp": 2870.0,
+    "fantasyProsIdp": 5603.0,
+    "idpTradeCalc": 5963.0
+   }
+  }
+ },
+ "note": "Pre-filter vote panels (votes that reached the per-row filter, their pre-cap weights and B10 families) read from board B (IDP restore) and B' (D4) of this pin. Frozen inputs for tests/api/test_oiv2_regression_set.py; never used to fit or select a threshold.",
+ "payloadSha256": "3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199",
+ "pin": "pin2015",
+ "schema": "oiv2-frozen-panels/v1"
+}

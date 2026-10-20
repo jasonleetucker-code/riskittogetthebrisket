@@ -93,3 +93,17 @@ dispatcher), and D-1 (`integrity_holds_as_withheld`) is unchanged and separately
   ~1.6–1.8x the incumbent build with V2 on (Layer C itself ~0.05 s of ~1.6 s; the rest is
   Layers A/B: identity grading, the evidence re-parse and the segment screen's snapshot
   copy). Criterion 11 (≤ 1.25x) currently fails and is open.
+
+## Test-matrix unit (recorded before any R or gate result was read)
+
+**No acceptance criterion, gate, bar, population, seed or metric has changed, and no
+threshold was selected or moved.** `config/sources/outlier_integrity_v2.json` is untouched
+(still `provisional_stage1`). Logged here, as §16 requires, before the results that depend
+on them were read.
+
+| id | registered text | what this unit does | reason / why it loosens nothing |
+|---|---|---|---|
+| T1 | §5.3: Stage 3 (R constraints, §6 boards, regression membership) follows the Stage 2 threshold freeze | The R constraint checks (the 31 IDP votes, the D4 set, the focus rows, boards A–D / A′–C″, determinism) are executed on pin2015 and pin0527 **before** Stage 2, at the coordinator's request. | Ordering only. To keep R from informing selection: (a) the frozen-panel regression tests assert retention at **every** registered `tau_C` grid point (ln 4, ln 5, ln 6), so no Stage 2 choice can be steered by them; (b) the §3.5 selection rules read E only and are not touched; (c) every R result is a must-pass constraint, never evidence (§5.1). The full-pipeline R builds run at the provisional thresholds and under NO-HISTORY (B4 and B3a abstain; persistence never confirms), and are reported as such — they must be re-run at Stage 3 proper on the frozen thresholds. |
+| T2 | §5.3 Stage 3: "D4 regression membership committed" into the regression set | Membership is computed by the registered rule (`REGRESSION_SET.json` → `d4.definition`) on pin2015 and committed as a separate file under `outlier_integrity_v2/r_constraints/`, never into `manifests/` (whose bytes are frozen and `--check`ed). | The frozen manifest stays byte-identical; the rule, not a hand list, decides membership. |
+| T3 | §7: gates are built on the registered V gate board (Stage 4) and the newest I board (Stage 5) | The full-pipeline gate harness (`src/robust_filter_shadow/oiv2_gates.py`, `scripts/oiv2_gates.py`) is run only on the E_DEV board `dynasty_export_20260930_130404` (already the Stage 1 development board) as a **development run, not the gate of record**. The script refuses V / I / R boards unless `--stage4-gate-of-record`, which itself needs frozen thresholds and a clean tree. | Held-out data stays unread. Development seed: the registered gate seed 2033 is used on the E board (the selection seed 20261020 is reserved for Stage 2). |
+| T4 | §7: "the complete layered system (A + B + C + history)" | The harness injects each corrupted observation through a replay-only seam (`data_contract._ADVERSARIAL_VOTE_TRANSFORM`, `None` in serving) after the vote is priced and before every integrity layer, filter, cap and blend. Layer A, B0 and B2 therefore have no signature to read by construction (a correctly formatted, correctly attributed number on which payload and CSV agree): the worst case for V2. AD3's transform is applied to priced votes (as V1's `_reprice`), because an input-level uniform rank rescaling is a no-op under dense re-ranking (V1 §4 E1). | Stated per gate in the harness docstring. It can only make a gate harder to pass, never easier. ARRIVING / PERSISTENT history variants are not run in this unit (NO-HISTORY is the gate of record, §7.1). |

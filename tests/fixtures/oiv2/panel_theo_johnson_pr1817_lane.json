@@ -1,0 +1,138 @@
+{
+ "B'": {
+  "Theo Johnson": {
+   "assetClass": "offense",
+   "droppedSourcesBprime": [
+    "draftSharks"
+   ],
+   "families": {
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf",
+    "draftSharks": "draftSharks",
+    "dynastyDaddySf": "dynastyDaddySf",
+    "dynastyNerdsSfTep": "dynastyNerdsSfTep",
+    "fantasyCalc": "fantasyCalc",
+    "fantasyProsSf": "fantasyPros",
+    "flockFantasySf": "flockFantasy",
+    "idpTradeCalc": "idpTradeCalc",
+    "ktcCrowdSfTep": "ktcCrowd",
+    "ktcTradesSfTep": "ktcTrades",
+    "otcffbSf": "otcffbSf",
+    "pfkDynasty": "pfkDynasty",
+    "yahooBoone": "yahooBoone"
+   },
+   "position": "TE",
+   "preCapWeights": {
+    "dlfSf": 1.0,
+    "dlfValuesSfTep": 1.0,
+    "draftSharks": 1.0,
+    "dynastyDaddySf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyCalc": 1.0,
+    "fantasyProsSf": 1.0,
+    "flockFantasySf": 1.0,
+    "idpTradeCalc": 0.7972,
+    "ktcCrowdSfTep": 1.0,
+    "ktcTradesSfTep": 1.0,
+    "otcffbSf": 1.0,
+    "pfkDynasty": 1.0,
+    "yahooBoone": 1.0
+   },
+   "row": "Theo Johnson",
+   "translation": {
+    "dlfSf": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "dlfValuesSfTep": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "draftSharks": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "dynastyDaddySf": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "dynastyNerdsSfTep": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "fantasyCalc": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "fantasyProsSf": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "flockFantasySf": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "idpTradeCalc": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "ktcCrowdSfTep": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "ktcTradesSfTep": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "otcffbSf": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "pfkDynasty": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    },
+    "yahooBoone": {
+     "levelSource": null,
+     "method": null,
+     "sharedMarketTranslated": false
+    }
+   },
+   "valueBoardA": 2184,
+   "valueBoardBprime": 2023,
+   "votes": {
+    "dlfSf": 2271.0,
+    "dlfValuesSfTep": 1603.0,
+    "draftSharks": 3182.0,
+    "dynastyDaddySf": 1993.0,
+    "dynastyNerdsSfTep": 1730.0,
+    "fantasyCalc": 1860.0,
+    "fantasyProsSf": 2250.0,
+    "flockFantasySf": 2286.0,
+    "idpTradeCalc": 2458.0,
+    "ktcCrowdSfTep": 2416.0,
+    "ktcTradesSfTep": 2728.0,
+    "otcffbSf": 1967.0,
+    "pfkDynasty": 1677.0,
+    "yahooBoone": 1661.0
+   }
+  }
+ },
+ "note": "Pre-filter panel of Theo Johnson with D4 on. Votes freshness-withheld in the dump (appliedWeight 0: fantasyNavigatorSf, idpShowCombined) are excluded. preCapWeights: DLF family members at their pre-cap weight 1.0 (familyAdjustment 0.5 in the dump), every other source at its dumped appliedWeight.",
+ "pin": "pr1817_lane_board_20261020_052241",
+ "schema": "oiv2-frozen-panels/v1",
+ "source": "scratchpad v1817/out1020/theo_merged.txt (PR #1817 lane, board B' = D4 on + incumbent, payload sha256 5970a816afcc0ccaf8a8b2a732c7f6f56eb5f9593f25361cb91d6db65a971bb6, archive dynasty_export_20261020_052241). Transcribed verbatim from that lane's own dump, which was produced and disclosed BEFORE the V2 preregistration (prereg section 0 item 5). Not rebuilt here: that archive is in I_INDEPENDENT, and this unit reads no held-out board with V2."
+}

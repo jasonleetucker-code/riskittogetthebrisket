@@ -11206,6 +11206,19 @@ def _hampel_filter_per_player(
     return kept, dropped_keys
 
 
+#: Replay-only adversarial seam for outlier-integrity-v2's FULL-PIPELINE
+#: gates (``src/robust_filter_shadow/oiv2_gates.py``, preregistration §7).
+#: ``None`` in serving -- no production module assigns it (pinned by
+#: ``tests/api/test_oiv2_full_pipeline_gates.py``).  When a replay harness
+#: patches it for ONE build, ``_compute_unified_rankings`` passes every
+#: assembled non-pick vote through ``transform(row, source_key, value)`` right
+#: after the vote is priced (rank->Hill or value-direct, TE basis applied) and
+#: before every integrity layer, filter, family cap and blend sees it, so a
+#: corrupted observation is judged by the complete downstream pipeline.  With
+#: the seam at ``None`` the build is byte-identical to a build without it.
+_ADVERSARIAL_VOTE_TRANSFORM: "Callable[[Mapping[str, Any], str, float], float] | None" = None
+
+
 def _outlier_policy_active() -> bool:
     """``outlier_disagreement_policy`` (``outlier-corroborated-v1``, default OFF;
     ``src/api/outlier_policy.py``) is in force: ON, and no filter challenger that
@@ -13729,6 +13742,8 @@ def _compute_unified_rankings(
     _trimmed_mean_median = count_aware_mean_median_blend
     _weighted_trimmed_mean_median = weighted_count_aware_mean_median_blend
 
+    # Replay-only adversarial seam (``None`` in serving; see its definition).
+    _vote_transform = _ADVERSARIAL_VOTE_TRANSFORM
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
@@ -13936,6 +13951,8 @@ def _compute_unified_rankings(
                     value = _te_lift_under_ceiling(value * effective_native_multiplier)
                     te_transform = (PER_VOTE_TE_FLAT, effective_native_multiplier)
                     tep_native_corrected = True
+            if _vote_transform is not None and not row_is_pick:
+                value = float(_vote_transform(players_array[row_idx], source_key, value))
             if _integrity is not None and (row_idx, source_key) in _integrity_votes:
                 _codes = _integrity_votes[(row_idx, source_key)]
                 _ix = row_source_meta[row_idx].setdefault(source_key, {})
