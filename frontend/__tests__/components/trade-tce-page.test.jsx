@@ -371,15 +371,16 @@ describe("immediate math vs expensive analysis (TC-E)", () => {
     expect(src).toMatch(/const deferredBalancerInput = useDeferredValue\(balancerInput\);/);
     expect(src).toMatch(/const balancersCurrent = deferredBalancerInput === balancerInput;/);
     expect(src).toMatch(/const balancers = balancersCurrent \? deferredBalancers : NO_BALANCERS;/);
-    expect(src).toMatch(/const multiBalancers = balancersCurrent \? deferredMultiBalancers : null;/);
+    // 3+ teams have no balancer search at all (spec §5.1 R10d / SD-13).
+    expect(src).not.toMatch(/deferredMultiBalancers|multiBalancers/);
     // While the snapshot lags, the side card and Next steps say the search is
     // running instead of reading as "nothing narrows the gap" (unknown != false).
     expect(src).toMatch(/const balancersPending = !balancersCurrent;/);
     expect(src).toMatch(/balancersPending=\{balancersPending\}/);
     expect(src).toMatch(/if \(balancersPending && !tradeIsIncomplete\)/);
-    // Both findBalancers calls read the snapshot, never the live trade.
+    // The one findBalancers call (two teams) reads the snapshot, never the live trade.
     const calls = src.match(/findBalancers\(([^,]+),/g) || [];
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(1);
     for (const c of calls) expect(c).toMatch(/findBalancers\(b\.sidesWithOverrides,/);
   });
 });

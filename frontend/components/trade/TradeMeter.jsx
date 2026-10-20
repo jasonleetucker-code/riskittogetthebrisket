@@ -25,6 +25,8 @@ import {
   multiTeamNetSummary,
   sideTotalsFairnessBase,
   tradeEvaluationState,
+  withheldAssetsBySide,
+  withheldReasonText,
 } from "@/lib/trade-logic";
 import { FairnessInputError } from "@/lib/fairness-bands";
 import { MonteCarloButton } from "@/components/ui";
@@ -87,7 +89,13 @@ function readFairness(fn) {
   }
 }
 
-export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false }) {
+export default function TradeMeter({
+  sides,
+  sideTotals,
+  flows,
+  sidesSend = false,
+  finalBySide = null,
+}) {
   const sideCount = sides.length;
   if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
     return <TradeMeterEmpty />;
@@ -96,7 +104,12 @@ export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false
     return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} sidesSend={sidesSend} />;
   }
   return (
-    <TradeMeterMultiTeam sides={sides} sideTotals={sideTotals} flows={flows} />
+    <TradeMeterMultiTeam
+      sides={sides}
+      sideTotals={sideTotals}
+      flows={flows}
+      finalBySide={finalBySide}
+    />
   );
 }
 
@@ -216,7 +229,15 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
   );
 }
 
-export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
+// The War Room's final market-fairness words (FAIR / NOT_FAIR / UNABLE), shown
+// in place of the preliminary tags once it has answered this trade.
+const FINAL_FAIRNESS_WORDS = {
+  FAIR: "Fair",
+  NOT_FAIR: "Not fair",
+  UNABLE: "Unable to determine",
+};
+
+export function TradeMeterMultiTeam({ sides, sideTotals, flows, finalBySide = null }) {
   const evalState = tradeEvaluationState(sides);
   if (evalState.state === TRADE_EVAL_STATE.EMPTY) return <TradeMeterEmpty />;
   if (evalState.state === TRADE_EVAL_STATE.INCOMPLETE) {
@@ -226,23 +247,28 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
       </div>
     );
   }
-  // In 3+-team trades the fairness story is per-side NET (received −
-  // given), not the sum-of-totals share used by ``multiTeamAnalysis``.
-  // A side that gives away a 9000-value QB and receives a 9000-value
-  // WR is even on flow, even though the grand total counted both.
-  // The bar below shows each side's NET on a zero-centered axis so
-  // getters (positive) and over-payers (negative) read at a glance.
-  // Placeholder rows send nothing, so their package utility is 0 (stated, so
-  // the owner never has to guess a missing one).
-  const flowList = Array.isArray(flows) && flows.length === sides.length
-    ? flows
-    : sides.map(() => ({ given: 0, received: 0, net: 0, utility: 0 }));
-  // The band base is the largest package utility any side sends (the same
-  // base ``tradeImbalance`` uses), so a 3-team trade is graded on the same
-  // relative scale as a 2-team one (ONE fairness-band owner, TC-C).  The
-  // overall verdict is the worst-offender absolute net through that band —
-  // one helper, shared with the page's persistent 3+-team summary (TC-D2).
-  const { value: summary, refusal } = readFairness(() => multiTeamNetSummary(flowList));
+  // In 3+-team trades each team is read in its OWN perspective (spec
+  // docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1): ``net`` is that team's
+  // adjusted gap (what it receives minus what it sends, each package valued
+  // with the active Value Adjustment) and its band is relative to its OWN
+  // larger PACKAGE UTILITY (fairness_bands_v2, OD-F2: ``teamFairnessBase``,
+  // the owner's ``fairnessBase`` over what it sends vs receives).  One helper,
+  // shared with the page's persistent 3+-team summary (TC-D2).  PRELIMINARY:
+  // the final per-team result is the War Room's (POST /api/trade/analyze-multi).
+  // Placeholder rows send and receive nothing, so their package utilities are
+  // 0 (stated, so the owner never has to guess a missing one).
+  const flowList =
+    Array.isArray(flows) && flows.length === sides.length
+      ? flows
+      : sides.map(() => ({ given: 0, received: 0, net: 0, utility: 0, receivedUtility: 0 }));
+  // A team whose part of the trade carries a WITHHELD value (quarantined /
+  // stale — the same stamps the engine's evidence gates read) shows no gap
+  // and no band: WITHHELD with the reason, never the sum that withheld
+  // number sits in and never 0.  The headline is then not determinable.
+  const withheldBySide = withheldAssetsBySide(sides);
+  const { value: summary, refusal } = readFairness(() =>
+    multiTeamNetSummary(flowList, withheldBySide),
+  );
   if (refusal) {
     return (
       <div className="trade-meter">
@@ -250,46 +276,79 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
       </div>
     );
   }
-  const { nets, largerUtility, worst, verdict } = summary;
-  const isEvenNet = (n) => meterVerdict(n, largerUtility).level === "fair";
+  const { nets, perTeam, worst, worstIndex, verdict, withheld } = summary;
+  const withheldSides = sides
+    .map((s, i) => (withheld[i] ? `Side ${s.label}` : null))
+    .filter(Boolean);
+  const isEvenNet = (i) => perTeam[i]?.level === "fair";
   // Display scale only (the bar's full width), never a verdict.
-  const absMax = Math.max(1, ...nets.map((n) => Math.abs(n)));
+  const absMax = Math.max(1, ...nets.map((n) => Math.abs(n || 0)));
 
   const fmtSigned = (n) => {
     const sign = n > 0 ? "+" : n < 0 ? "−" : "";
     return `${sign}${Math.round(Math.abs(n)).toLocaleString()}`;
   };
-  const netColor = (n) => {
-    if (isEvenNet(n)) return "var(--muted)";
+  const netColor = (n, i) => {
+    if (n == null) return "var(--muted)";
+    if (isEvenNet(i)) return "var(--muted)";
     return n > 0 ? "var(--green)" : "var(--red)";
   };
-  const netTag = (n) => {
-    if (isEvenNet(n)) return "Even";
+  const netTag = (n, i) => {
+    if (withheld[i]) return "Withheld";
+    if (n == null) return "Unknown";
+    if (isEvenNet(i)) return "Even";
     if (n > 0) return "Getting value";
     return "Losing value";
   };
 
   return (
-    <div className="trade-meter" role="group" aria-label="Net value per side">
-      {/* Per-side NET row */}
+    <div className="trade-meter" role="group" aria-label="Preliminary value per team">
+      <p
+        className="muted"
+        style={{ fontSize: "0.68rem", margin: "0 0 6px" }}
+        data-testid="trade-meter-preliminary"
+      >
+        {finalBySide
+          ? "Preliminary package gaps from the calculator's values. Each team's final result, from the Trade War Room, is shown under its gap."
+          : "Preliminary — each team's own package gap. The final result comes from Analyze in the Trade War Room."}
+      </p>
+      {/* Per-team gap row */}
       <div className="trade-meter-multi-values">
         {sides.map((s, i) => {
           const flow = flowList[i] || { given: 0, received: 0, net: 0 };
           return (
-            <div key={s.id} className="trade-meter-multi-val">
+            <div
+              key={s.id}
+              className="trade-meter-multi-val"
+              data-team-state={withheld[i] ? "withheld" : nets[i] == null ? "unknown" : "priced"}
+            >
               <span className="label">Side {s.label}</span>
-              <span
-                className="trade-meter-side-val"
-                style={{ color: netColor(flow.net) }}
-              >
-                {fmtSigned(flow.net)}
+              <span className="trade-meter-side-val" style={{ color: netColor(nets[i], i) }}>
+                {withheld[i] ? "Withheld" : nets[i] == null ? "—" : fmtSigned(nets[i])}
               </span>
-              <span className="muted" style={{ fontSize: "0.64rem" }}>
-                {netTag(flow.net)}
-              </span>
-              <span className="muted" style={{ fontSize: "0.6rem" }}>
-                Give {Math.round(flow.given).toLocaleString()} · Get {Math.round(flow.received).toLocaleString()}
-              </span>
+              {finalBySide?.[i] ? (
+                <span style={{ fontSize: "0.64rem" }} data-testid="trade-meter-final">
+                  Final: {FINAL_FAIRNESS_WORDS[finalBySide[i].fairness] || "Unable to determine"}
+                  {finalBySide[i].decision ? ` · ${finalBySide[i].decision}` : ""}
+                </span>
+              ) : (
+                <span className="muted" style={{ fontSize: "0.64rem" }}>
+                  {netTag(nets[i], i)}
+                </span>
+              )}
+              {withheld[i] ? (
+                <span
+                  className="muted"
+                  style={{ fontSize: "0.6rem" }}
+                  data-testid="trade-meter-withheld"
+                >
+                  Not determinable — value withheld: {withheldReasonText(withheldBySide[i])}
+                </span>
+              ) : (
+                <span className="muted" style={{ fontSize: "0.6rem" }}>
+                  Give {Math.round(flow.given).toLocaleString()} · Get {Math.round(flow.received).toLocaleString()}
+                </span>
+              )}
             </div>
           );
         })}
@@ -305,12 +364,8 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
           const net = nets[i] || 0;
           const pct = absMax > 0 ? Math.min(100, (Math.abs(net) / absMax) * 100) : 0;
           const isPos = net > 0;
-          const isEven = isEvenNet(net);
-          const fillColor = isEven
-            ? "var(--muted)"
-            : isPos
-              ? "var(--green)"
-              : "var(--red)";
+          const isEven = isEvenNet(i);
+          const fillColor = isEven ? "var(--muted)" : isPos ? "var(--green)" : "var(--red)";
           return (
             <div
               key={s.id}
@@ -322,7 +377,9 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
                 borderRadius: 6,
                 overflow: "hidden",
               }}
-              title={`Side ${s.label}: ${fmtSigned(net)}`}
+              title={`Side ${s.label}: ${
+                withheld[i] ? "withheld" : nets[i] == null ? "unknown" : fmtSigned(net)
+              }`}
             >
               {/* Center marker */}
               <div
@@ -363,24 +420,39 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
               fontSize: "0.62rem",
               flex: 1,
               textAlign: "center",
-              color: netColor(nets[i] || 0),
+              color: netColor(nets[i], i),
             }}
           >
-            {s.label}: {fmtSigned(nets[i] || 0)}
+            {s.label}: {withheld[i] ? "withheld" : nets[i] == null ? "—" : fmtSigned(nets[i])}
           </span>
         ))}
       </div>
 
-      {/* Overall verdict */}
-      <div className="trade-meter-bottom">
-        <span className="ds-visually-hidden">Quick verdict: </span>
-        <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
-          {verdict.label}
-        </span>
-        <span className="trade-meter-pct" style={{ marginLeft: 8 }}>
-          Worst gap: {fmtSigned(worst)}
-        </span>
-      </div>
+      {/* Overall verdict — the preliminary reading only until the War Room's
+          final answer for this trade exists; then it defers to it. */}
+      {finalBySide ? (
+        <div className="trade-meter-bottom">
+          <span className="trade-meter-pct">
+            Final per-team results are in the Trade War Room below.
+          </span>
+        </div>
+      ) : (
+        <div className="trade-meter-bottom">
+          <span className="ds-visually-hidden">Quick verdict: </span>
+          <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
+            {verdict.label}
+          </span>
+          <span className="trade-meter-pct" style={{ marginLeft: 8 }}>
+            {withheldSides.length
+              ? `No overall reading: ${withheldSides.join(", ")} withheld (a quarantined or stale value is not priced)`
+              : worstIndex == null || worst == null
+              ? "Widest gap: unknown"
+              : `Widest gap: Side ${sides[worstIndex]?.label ?? worstIndex + 1} ${fmtSigned(
+                  nets[worstIndex],
+                )}`}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

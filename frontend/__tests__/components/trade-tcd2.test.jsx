@@ -212,7 +212,7 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
     { given: 3000, received: 4000, net: 1000, utility: 3000 },
   ];
 
-  it("shows each net and the band of the worst gap the meter shows", () => {
+  it("shows each team's own gap and the band of the widest one the meter shows (preliminary)", () => {
     const summary = multiTeamNetSummary(flows);
     render(
       <MultiTeamSummaryBar sides={sides} summary={summary} evalState={{ state: "complete" }} />,
@@ -220,8 +220,10 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
     const bar = screen.getByTestId("trade-multi-summary");
     expect(bar.textContent).toMatch(/A −2,000/);
     expect(bar.textContent).toMatch(/B \+1,000/);
-    expect(bar.textContent).toContain(`${summary.verdict.label} · worst gap 2,000`);
-    expect(bar.textContent).toMatch(/reliable YES \/ NO unavailable for 3 teams/);
+    // Per-team rule: A's own gap (-2,000 of a 5,000 package) is the widest.
+    expect(summary.worstIndex).toBe(0);
+    expect(bar.textContent).toContain(`Preliminary · ${summary.verdict.label} · widest gap Side A −2,000`);
+    expect(bar.textContent).toMatch(/final result in the War Room/);
     expect(within(bar).getByRole("link").getAttribute("href")).toBe("#trade-result");
     // The meter renders the same label from the same helper.
     const { container } = render(

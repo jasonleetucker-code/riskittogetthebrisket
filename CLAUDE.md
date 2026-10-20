@@ -1409,16 +1409,28 @@ The retired rule picks the 1,000 piece, because 1,000 matches 1,000:
 The moment B holds two pieces the consolidation premium fires and credits
 2,032 to side A.
 
-**One representation, every side count.**  Until 2026-08-18 the 2-team meter
-read VA-adjusted side totals while the 3+-team meter read a raw net flow with
-no VA in it at all, so the same trade shape graded differently at 2 teams and
-at 3.  ``computeSideFlows`` is now VA-inclusive: each side's premium is spread
-proportionally across the assets it SENDS, so ``given_i = raw_i + adjustment_i``
-by construction and the premium lands on whichever side receives those pieces.
-``tradeImbalance`` is the single definition of "how far apart is this trade",
-and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
-(pinned by test).  Caveat that travels with the number: the multi-side VA is a
-**structural extension** of a 2-side calibration, not a separately fit model.
+**One rule, every side count: each team in its OWN perspective** (2026-10-20,
+spec ``docs/trade/NTEAM_TRADE_ENGINE_SPEC.md`` §5.1).  For a routed trade of any
+N, team i's package reading is ``packageAdjustedPairTotals(G_i, R_i)`` — what it
+sends against everything routed to it, the JS twin of Python
+``package_model.adjusted_pair_totals`` (pinned by
+``tests/fixtures/multi_team_trade_parity_cases.json``).  Its gap is
+``recvAdj − sendAdj`` and its band base is ``max(sendAdj, recvAdj)`` — its OWN
+larger package, never the largest package anyone sends.  ``computeSideFlows``
+publishes that reading (``given`` / ``received`` / ``net`` = ``sendAdj`` /
+``recvAdj`` / gap, perspective values never summed across teams) beside the RAW
+routed flows ``rawGiven`` / ``rawReceived``, the only conserved quantities.
+For N = 2 the two readings are mirror images, every number is unchanged, and
+``nets[1] === tradeGapAdjusted(A, B)`` holds exactly (pinned by test).  For
+N ≥ 3 ``tradeImbalance`` returns ``{perTeam, worst}`` (no ``max(net) −
+min(net)``), and ``findBalancers`` returns nothing (no approved 3+-team
+balancing objective, SD-13).  RETIRED: ``computeMultiSideAdjustments``, which
+priced each side against the flattened union of every OTHER side — the "two
+imaginary sides" collapse directive §6 forbids (on the spec's I14 trade it put
+team A at +4,634 and the trade at "lopsided"; A's own packages differ by +610,
+"slight").  The browser's 3+-team reading is a
+labelled PRELIMINARY indicator; each team's final answer is
+``POST /api/trade/analyze-multi``'s.
 
 **The draft-capital stack effect is INFORMATIONAL ONLY** (owner directive
 2026-09-29, #1527).  ``computeStackAdjustments`` still computes it for a

@@ -107,7 +107,9 @@ describe("incomplete trade (an unpriced asset) — no verdict over a 0", () => {
     const src = fs.readFileSync(path.resolve(__dirname, "../../app/trade/page.jsx"), "utf8");
     // TC-E: the balancer search reads a deferred snapshot (`b`), same gate.
     expect(src).toMatch(/if \(b\.tradeIsIncomplete\) return \{ list: \[\], teamName: null \};/);
-    expect(src).toMatch(/if \(b\.tradeIsIncomplete\) return null;/);
+    // 3+ teams have no balancer search (spec §5.1 R10d / SD-13), and the
+    // "no balancing" note is itself gated on a complete trade.
+    expect(src).toMatch(/sides\.length > 2 && !tradeIsEmpty && !tradeIsIncomplete && !multiGapIsFair/);
     expect(src).toMatch(/Incomplete — \{evalState\.unpriced\.length\} unpriced, no verdict/);
     expect(src).toMatch(/tradeIsIncomplete \? null : \(\s*<TradeFairnessExplanation/);
   });

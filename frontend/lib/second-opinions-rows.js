@@ -17,7 +17,7 @@ import {
   resolveOpinionAsset,
   tallyOpinions,
 } from "./second-opinions.js";
-import { valueAdjustmentFromSideArrays } from "./trade-logic.js";
+import { tradeRoutes, valueAdjustmentFromSideArrays } from "./trade-logic.js";
 
 /**
  * One row per vendor: `{key, family, label, displayName, signal, opinion}`.
@@ -36,6 +36,13 @@ export function buildOpinionRows(sides, opts = {}) {
     : null;
   const assetsBySide = (sides || []).map((s) => s?.assets || []);
   if (!assetsBySide.some((a) => a.length > 0)) return [];
+  // 3+ teams: the package adjustment is per team, in that team's own
+  // perspective, so it needs each line's destination (spec
+  // docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1).  Two sides route implicitly.
+  const routes = assetsBySide.length > 2 ? tradeRoutes(sides) : null;
+  const activeAdjust = routes
+    ? (sideValues) => valueAdjustmentFromSideArrays(sideValues, { routes })
+    : valueAdjustmentFromSideArrays;
   const vendorOrder = [];
   const vendorSubs = new Map();
   for (const src of RANKING_SOURCES) {
@@ -56,7 +63,7 @@ export function buildOpinionRows(sides, opts = {}) {
         ...resolveOpinionAsset({ row, mainSubs, rookieSubs }),
       })),
     );
-    const opinion = evaluateOpinion(resolutionsBySide, valueAdjustmentFromSideArrays);
+    const opinion = evaluateOpinion(resolutionsBySide, activeAdjust);
     const primary = subs[0];
     const comparison = compareAdjust
       ? {

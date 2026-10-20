@@ -21,7 +21,9 @@ import fixture from "../../tests/fixtures/multi_team_trade_parity_cases.json";
 import {
   ACTIVE_PACKAGE_MODEL_ID,
   packageAdjustPair,
+  packageAdjustedPairTotals,
   packageUtilities,
+  teamFairnessBase,
 } from "@/lib/trade-logic";
 import { classifyGap, fairnessBase } from "@/lib/fairness-bands";
 
@@ -58,6 +60,12 @@ describe("multi-team package math parity (I12)", () => {
         it(`team ${team}: adjusted totals, VA, gap and band`, () => {
           const exp = t.expected;
           const got = teamTotals(t.gives, t.receives);
+          // Lane B's JS twin of adjusted_pair_totals is the same composition.
+          const twin = packageAdjustedPairTotals(t.gives, t.receives);
+          expect(twin.sendVA).toBe(got.sendVA);
+          expect(twin.recvVA).toBe(got.recvVA);
+          expect(twin.sendAdj).toBe(got.sendAdj);
+          expect(twin.recvAdj).toBe(got.recvAdj);
           expect(got.sendVA).toBe(exp.sendVA);
           expect(got.recvVA).toBe(exp.recvVA);
           expect(got.sendAdj).toBeCloseTo(exp.sendAdj, 6);
@@ -74,6 +82,16 @@ describe("multi-team package math parity (I12)", () => {
           const band = classifyGap(gap, largerUtility);
           expect(band.level).toBe(exp.level);
           expect(band.relativePct).toBe(exp.relativePct);
+          // The per-team meter's base (teamFairnessBase over the utilities of
+          // what the team sends / receives) is the same owner answer.
+          const [utility, receivedUtility] = packageUtilities(
+            [t.gives, t.receives],
+            [got.sendAdj, got.recvAdj],
+          );
+          expect(teamFairnessBase({ utility, receivedUtility })).toBeCloseTo(
+            exp.largerUtility,
+            6,
+          );
         });
       }
     });

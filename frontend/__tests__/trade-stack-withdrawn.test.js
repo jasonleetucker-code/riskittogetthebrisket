@@ -71,14 +71,44 @@ describe("decision helpers take no stack input", () => {
   }
 
   it("the adjusted total is exactly raw + Value Adjustment, with no third term", () => {
-    for (const t of [
-      ...TL.adjustedSideTotals([A, C], [PICK, LATE], "full"),
-      ...TL.multiAdjustedSideTotals(sides3.map((s) => s.assets), "full"),
-    ]) {
-      // `utility` is the fairness band's base (fairness_bands_v2), not a term
-      // of the total: adjusted is still exactly raw + VA.
-      expect(Object.keys(t).sort()).toEqual(["adjusted", "adjustment", "raw", "utility"]);
+    // An explicit ALLOWLIST, not a name blocklist: any new key on a decision
+    // helper's side total fails here until someone decides it belongs (this
+    // file is that methodology decision).
+    // 2 teams: exactly {raw, adjustment, adjusted} plus `utility` -- the
+    // fairness band's base (fairness_bands_v2), not a term of the total:
+    // adjusted is still exactly raw + VA.
+    const TWO_TEAM_KEYS = ["adjusted", "adjustment", "raw", "utility"];
+    // 3+ teams: the same three, plus the team's OWN package reading from
+    // perTeamPackageTotals (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §5.1)
+    // — raw routed flows, its own package totals / VA, its gap, the package
+    // utilities of what it sends / receives and the band base they give
+    // (fairness_bands_v2), the display-only larger adjusted side and the band.
+    // None of them is a stack term.
+    const MULTI_TEAM_KEYS = [
+      ...TWO_TEAM_KEYS,
+      "band",
+      "gap",
+      "larger",
+      "largerUtility",
+      "receivedUtility",
+      "rawGiven",
+      "rawReceived",
+      "recvAdj",
+      "recvVA",
+      "sendAdj",
+      "sendVA",
+    ].sort();
+    for (const t of TL.adjustedSideTotals([A, C], [PICK, LATE], "full")) {
+      expect(Object.keys(t).sort()).toEqual(TWO_TEAM_KEYS);
       expect(t.adjusted).toBe(t.raw + t.adjustment);
+    }
+    const multi = TL.multiAdjustedSideTotals(sides3, "full");
+    expect(multi).toHaveLength(3);
+    for (const t of multi) {
+      expect(Object.keys(t).sort()).toEqual(MULTI_TEAM_KEYS);
+      expect(t.adjusted).toBe(t.raw + t.adjustment);
+      // The adjustment IS the team's own send-side VA, nothing added to it.
+      expect(t.adjustment).toBe(t.sendVA);
     }
   });
 
@@ -91,7 +121,9 @@ describe("decision helpers take no stack input", () => {
       TL.tradeImbalance,
       TL.findBalancers,
       TL.computeValueAdjustment,
-      TL.computeMultiSideAdjustments,
+      TL.packageAdjustedPairTotals,
+      TL.perTeamPackageTotals,
+      TL.multiTeamNetSummary,
     ]) {
       expect(fn.toString()).not.toMatch(/computeStackAdjustments|stackContext|stackAdjustment/);
     }
