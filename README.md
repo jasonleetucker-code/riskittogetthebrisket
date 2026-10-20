@@ -17,7 +17,7 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   Sleeper-login allowlist; public routes hit `/api/public/league/*`.
 - **Feature flags** (`src/api/feature_flags.py`): every new
   capability from the 2026-04 upgrade ships flag-gated. Defaults are
-  **per-flag**: 22 of the 47 in `_DEFAULTS` ship enabled (`ledger_rank_change`, `bdvm_engine`,
+  **per-flag**: 22 of the 51 in `_DEFAULTS` ship enabled (`ledger_rank_change`, `bdvm_engine`,
   `te_basis_conversion`, `monte_carlo_trade`, `idp_scoring_fit`,
   `reception_scoring_fit`, `nfl_data_ingest`, `realized_points_api`,
   `perfect_draft`, `waiver_live_opportunity`, `source_freshness_weighting`,
@@ -27,6 +27,9 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   `dfs_auto_slates`, `trade_screenshot_import`, `manager_intelligence`),
   several deliberately. For those the env var is a rollback lever, not an
   opt-in. Read `_DEFAULTS` before assuming a capability is dormant.
+  Signals IDP votes per family with AND semantics: the master
+  `signals_idp_shared_market` alone activates nothing; a family needs the
+  master, its `signals_idp_{dl,lb,db}_vote` flag and `signals_idp_xwalk_v2`.
 
 **Standing engineering delivery process (2026-10-19):** read
 `docs/AGENT_OPERATING_SYSTEM.md` §3 and

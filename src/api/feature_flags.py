@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 47 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 51 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -128,14 +128,39 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # expected — while their native values stay visible; the contract stamps
     # ``privateSourceAvailability[*].rolledBack``.
     "signals_active_source": True,
-    # Signals IDP promotion switch (2026-10-04).  OFF: the three Signals IDP
+    # Signals IDP MASTER switch (2026-10-04; meaning narrowed 2026-10-19, owner
+    # directive SIGNALS_IDP_VOTING_2026-10-19).  OFF: the three Signals IDP
     # boards (signalsIdpDl/Lb/Db) run in SHADOW — their within-family rank is
     # translated onto the shared market (the bridge owner's family ladder)
-    # and published per row as ``sourceShadowMeta``, with no vote.  ON: they
-    # vote through that translation.  Switched on only when the promotion
-    # gate in docs/sources/SIGNALS_FANTASY_INTEGRATION.md §10 passes.
-    # Rollback: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart.
+    # and published per row as ``sourceShadowMeta``, with no vote.
+    # ALONE IT NO LONGER ACTIVATES ANYTHING: a family votes only when this,
+    # its own family flag (``signals_idp_{dl,lb,db}_vote``) AND
+    # ``signals_idp_xwalk_v2`` are all ON (AND semantics,
+    # ``data_contract.PRIVATE_SOURCE_HOLD_RELEASE_FLAGS``).  With this ON and
+    # every other release flag OFF the board is byte-identical to the default.
+    # Rollback of ALL Signals IDP: RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0
+    # + restart.
     "signals_idp_shared_market": False,
+    # Per-family Signals IDP release switches (owner directive 2026-10-19).
+    # Each lifts ONE family's hold, and only together with the master
+    # (``signals_idp_shared_market``) and ``signals_idp_xwalk_v2``.  Default
+    # OFF; flipped per family only after that family's preregistered gates,
+    # independent review and the applicable owner decisions.  Rollback of one
+    # family: RISKIT_FEATURE_SIGNALS_IDP_<FAM>_VOTE=0 + restart.
+    "signals_idp_dl_vote": False,
+    "signals_idp_lb_vote": False,
+    "signals_idp_db_vote": False,
+    # Candidate F, the coverage-aligned within-family crosswalk
+    # (``src/bridges/family_crosswalk.py``; docs/sources/
+    # SIGNALS_FANTASY_INTEGRATION.md).  ON: the Signals IDP shadow stamps (and
+    # any released family's vote) use F — votes are a permutation of the
+    # matched players' bridge coordinates; Signals-only and rookie rows are
+    # withheld with a reason — plus the Signals-scoped Sleeper-id
+    # contradiction guard.  OFF: the shadow keeps Candidate A, which can never
+    # vote: master + family ON with this OFF is ``held:
+    # no_qualified_translation``.  Rollback of the method:
+    # RISKIT_FEATURE_SIGNALS_IDP_XWALK_V2=0 + restart (held, never A).
+    "signals_idp_xwalk_v2": False,
     # DLF vote offense-only (owner directive 2026-10-16; docs/
     # OWNER_REQUESTED_TODO.md).  ON: the DLF IDP boards (``dlfIdp``,
     # ``dlfRookieIdp``) stay ingested and displayed but are held from the
@@ -848,7 +873,18 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._private_source_vote_state``, reached through
     # ``build_api_data_contract`` on every /api/data build.
     "signals_active_source": LIVE,
+    # signals_idp_shared_market (the Signals IDP master) and the three
+    # per-family release flags gate the Signals IDP vote hold in
+    # ``data_contract._private_source_vote_state`` (AND semantics), reached
+    # through ``build_api_data_contract`` on every /api/data build.
     "signals_idp_shared_market": LIVE,
+    "signals_idp_dl_vote": LIVE,
+    "signals_idp_lb_vote": LIVE,
+    "signals_idp_db_vote": LIVE,
+    # signals_idp_xwalk_v2 selects the Signals IDP crosswalk (Candidate F) in
+    # ``data_contract._compute_unified_rankings`` and the Signals-scoped
+    # identity guard in ``_enrich_from_source_csvs``, both on every board build.
+    "signals_idp_xwalk_v2": LIVE,
     # joint_outlier_sparse_challenger swaps the per-player outlier filter and
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).
