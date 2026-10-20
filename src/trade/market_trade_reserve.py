@@ -24,7 +24,8 @@ a model has looked at residuals, is not held out.  So the reserve is:
   part was locked to one sub-reserve (never re-drawn, so a lock is never
   lost).  Parts locked to DIFFERENT sub-reserves are locked to
   ``R-merged-conflict`` and reported.  A merge mixing ``train`` with a lock
-  FAILS CLOSED (``ReserveIntegrityError``; dry run: ``trainLockConflicts``):
+  FAILS CLOSED (``ReserveIntegrityError``; dry run: counted in
+  ``trainLockConflicts`` and reported as no assignment, as a real run makes none):
   inheriting the lock would put evidence a fitted model may already have seen
   inside a holdout, and keeping ``train`` would lose the lock -- the same
   refusal a merge that reuses an assigned id gets, so the outcome never
@@ -281,7 +282,9 @@ def draw_reserve(
                     if conn is not None:
                         conn.rollback()
                     raise ReserveIntegrityError("a merged component mixes train and locked parts")
-                label, basis = MERGED_CONFLICT, "merge_train_lock_conflict"
+                # Dry run: a persisting run raises here and assigns nothing,
+                # so report no assignment and record no members for it.
+                continue
             elif locked:
                 label = locked[0] if len(set(locked)) == 1 else MERGED_CONFLICT
                 basis = "merge_inherited_lock"

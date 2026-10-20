@@ -105,9 +105,41 @@ def test_a_new_id_merging_train_and_a_lock_fails_closed(conn, cfg):
     dry = R.draw_reserve(merged, conn=conn, cfg=cfg, dry_run=True)
     assert dry.train_lock_conflicts == 1 and dry.inherited_from_merge == 0
     assert dry.to_dict()["trainLockConflicts"] == 1
+    # The dry run reports what a persisting run would do: it raises, so no
+    # assignment (conflict label or otherwise) may be counted.
+    assert dry.new_assignments == 0 and dry.merge_conflicts == 0
+    assert dry.by_assignment == {}
     with pytest.raises(R.ReserveIntegrityError):
         R.draw_reserve(merged, conn=conn, cfg=cfg)
     assert R.assignment_snapshot(conn) == snap
+
+
+def test_a_new_id_inherits_a_single_sub_reserve_lock(conn, cfg):
+    # The ``elif locked`` branch: a NEW component id whose assigned parts are
+    # all locked to ONE sub-reserve -- one part plus brand-new keys, or two
+    # parts sharing that sub-reserve -- keeps the lock (never re-drawn, never
+    # train).  X13 is keyed by component id and cannot see a lost lock here.
+    ids = list(comps(400))
+    R.draw_reserve(comps(400), conn=conn, cfg=cfg)
+    snap = R.assignment_snapshot(conn)
+    by: dict[str, list[str]] = {}
+    for i in ids:
+        if snap[i] != R.TRAIN:
+            by.setdefault(snap[i], []).append(i)
+    sub, pair = next((k, v[:2]) for k, v in sorted(by.items()) if len(v) >= 2)
+    lone = {
+        "SYN-MERGED-L1": [f"m:{pair[0]}", "m:SYN-BRAND-NEW-1", "m:SYN-BRAND-NEW-2"],
+    }
+    res = R.draw_reserve(lone, conn=conn, cfg=cfg)
+    assert R.assignment_snapshot(conn)["SYN-MERGED-L1"] == sub
+    assert res.inherited_from_merge == 1 and res.merge_conflicts == 0
+    assert res.by_assignment == {sub: 1}
+    shared = {"SYN-MERGED-L2": [f"m:{pair[0]}", f"m:{pair[1]}"]}
+    res = R.draw_reserve(shared, conn=conn, cfg=cfg)
+    assert R.assignment_snapshot(conn)["SYN-MERGED-L2"] == sub
+    assert res.inherited_from_merge == 1 and res.merge_conflicts == 0
+    after = R.assignment_snapshot(conn)
+    assert R.locked_to_train_violations(snap, after) == []
 
 
 def test_parts_locked_to_different_sub_reserves_conflict_but_stay_locked(conn, cfg):
