@@ -35,8 +35,13 @@ Both selection MODES of the flag are measured through production
 ``package_consistent`` (V5, the default) and ``roster_rational`` (V5-R, the
 review's alternative).  Each flag-ON section reports V5 under its historical
 keys and V5-R under a ``rosterRational`` sibling, plus the "currency anomaly"
-census (an acquired piece released while a cheaper existing player that could
-legally have been released instead is kept).
+census in both directions: forward (an acquired piece released while a cheaper
+existing player that could legally have been released instead is kept) and
+reverse (an existing player released while a cheaper acquired piece that could
+legally have been released instead is kept).  V5-R is 0 in both by construction
+(its cut set minimises ``sum c``).  Locally scarcity is inert (1.0), so a
+package credit never exceeds ``c`` and V5's reverse count is 0 here too; the box
+replay with real scarcity must report both directions.
 
 Output: ``docs/trade/evidence/forced_drop_fix_2026-10-20/replay.json`` —
 aggregates and NFL player names only (no league / user / roster / team ids, no
@@ -237,38 +242,86 @@ def _match_pool(pool, drops) -> list[int] | None:
 
 
 def currency_anomaly(pool, legal, drops) -> dict | None:
-    """``None`` unless the served cut set releases a just-acquired piece.
-    Otherwise ``{"anomaly": bool, ...}``: an anomaly is an acquired cut ``a``
-    and a KEPT existing player ``e`` with ``c(e) < c(a)`` such that releasing
-    ``e`` instead of ``a`` is lineup-legal — the roster keeps a less valuable
-    player and lets a more valuable one go (``c = base x scarcity``)."""
+    """``None`` when nothing is released.  Otherwise both directions of the
+    "currency anomaly" (``c = base x scarcity``), each by a single lineup-legal
+    swap:
+
+    * **forward** (``anomaly``): an acquired cut ``a`` and a KEPT existing
+      player ``e`` with ``c(e) < c(a)`` such that releasing ``e`` instead of
+      ``a`` is legal — the roster keeps a less valuable player and lets a more
+      valuable incoming one go.  ``None`` when no acquired piece is released.
+    * **reverse** (``reverse``): an existing cut ``e`` and a KEPT acquired
+      piece ``a`` with ``c(a) < c(e)`` such that releasing ``a`` instead of
+      ``e`` is legal — a dearer existing player released while a cheaper
+      incoming one is kept.  Possible under V5 when a piece's package credit
+      exceeds its ``c`` (scarcity < 1 shrinks ``c`` but not the credit).
+      ``None`` when no existing player is released or no acquired one kept.
+
+    V5-R's cut set is the minimum-``sum c`` legal set, so a single legal swap
+    can never lower ``sum c``: both counts are 0 for it BY CONSTRUCTION."""
+    if not drops:
+        return None
     idx = _match_pool(pool, drops)
     if idx is None:
-        return {"anomaly": None, "reason": "drops_not_matched"}
+        return {"anomaly": None, "reverse": None, "reason": "drops_not_matched"}
     S = set(idx)
-    acq = [i for i in idx if pool[i]["acquired"]]
-    if not acq:
-        return None
-    for a in sorted(acq, key=lambda i: -pool[i]["release"]):
-        for e in sorted(range(len(pool)), key=lambda i: pool[i]["release"]):
-            if e in S or pool[e]["acquired"] or pool[e]["release"] >= pool[a]["release"]:
-                continue
-            if legal.ok(frozenset((S - {a}) | {e})):
-                return {
-                    "anomaly": True,
-                    "released": f"{pool[a]['name']} ({pool[a]['pos']}, {pool[a]['release']:.0f})",
-                    "kept": f"{pool[e]['name']} ({pool[e]['pos']}, {pool[e]['release']:.0f})",
-                }
-    return {"anomaly": False}
+    out: dict = {"anomaly": None, "reverse": None}
+    acq_cut = [i for i in idx if pool[i]["acquired"]]
+    if acq_cut:
+        out["anomaly"] = False
+        for a in sorted(acq_cut, key=lambda i: -pool[i]["release"]):
+            for e in sorted(range(len(pool)), key=lambda i: pool[i]["release"]):
+                if e in S or pool[e]["acquired"] or pool[e]["release"] >= pool[a]["release"]:
+                    continue
+                if legal.ok(frozenset((S - {a}) | {e})):
+                    out.update(
+                        anomaly=True,
+                        released=f"{pool[a]['name']} ({pool[a]['pos']}, {pool[a]['release']:.0f})",
+                        kept=f"{pool[e]['name']} ({pool[e]['pos']}, {pool[e]['release']:.0f})",
+                    )
+                    break
+            if out["anomaly"]:
+                break
+    ex_cut = [i for i in idx if not pool[i]["acquired"]]
+    acq_kept = [i for i in range(len(pool)) if pool[i]["acquired"] and i not in S]
+    if ex_cut and acq_kept:
+        out["reverse"] = False
+        for e in sorted(ex_cut, key=lambda i: -pool[i]["release"]):
+            for a in sorted(acq_kept, key=lambda i: pool[i]["release"]):
+                if pool[a]["release"] >= pool[e]["release"]:
+                    continue
+                if legal.ok(frozenset((S - {e}) | {a})):
+                    out.update(
+                        reverse=True,
+                        reverseReleased=(
+                            f"{pool[e]['name']} ({pool[e]['pos']}, {pool[e]['release']:.0f})"
+                        ),
+                        reverseKept=(
+                            f"{pool[a]['name']} ({pool[a]['pos']}, {pool[a]['release']:.0f}, "
+                            "just acquired)"
+                        ),
+                    )
+                    break
+            if out["reverse"]:
+                break
+    return out
 
 
 def _anomaly_summary(rows: list[dict]) -> dict:
-    hits = [r for r in rows if r.get("anomaly")]
+    fwd = [r for r in rows if r.get("anomaly") is not None]
+    rev = [r for r in rows if r.get("reverse") is not None]
+    hits = [r for r in fwd if r["anomaly"]]
+    rhits = [r for r in rev if r["reverse"]]
     return {
-        "selectionsReleasingAnAcquiredPiece": len(rows),
+        "selectionsReleasingAnAcquiredPiece": len(fwd),
         "currencyAnomalies": len(hits),
-        "unmatched": sum(1 for r in rows if r.get("anomaly") is None),
+        "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": len(rev),
+        "reverseCurrencyAnomalies": len(rhits),
+        "unmatched": sum(1 for r in rows if r.get("reason") == "drops_not_matched"),
         "examples": [{"released": h["released"], "kept": h["kept"]} for h in hits[:6]],
+        "reverseExamples": [
+            {"released": h["reverseReleased"], "kept": h["reverseKept"]} for h in rhits[:6]
+        ],
     }
 
 
@@ -637,7 +690,7 @@ def census(ctx, per_shape: int, seed: int) -> dict:
                         von = verdict(packet_of(ctx, son), son)
                     anomaly = None
                     d_on = drops_of(son)
-                    if any(d[4] for d in d_on):
+                    if d_on:
                         if cc is None:
                             cc = RC.build_capacity_context(
                                 ctx["contract"], LEAGUE, me, roster_settings=ctx["roster_settings"]

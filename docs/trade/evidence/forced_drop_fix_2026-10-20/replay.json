@@ -10,7 +10,7 @@
   "member": "dynasty_data_2026-10-20.json",
   "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a"
  },
- "codeSha": "7e034b56df024b0bde7dada06915e0db496f336e",
+ "codeSha": "d5236546ff4df9294b6cf99c6b93e8db57e6ff36",
  "warRoom": {
   "design": "identical to the research diagnostic (archive, seed SEED+2, 5 opponents per roster at the 58 cap; X 2,500-6,500 out, Y at 86-97% of X in, then 1-3 expendable fillers)",
   "reproduction": {
@@ -162,6 +162,8 @@
    "currencyAnomaly": {
     "selectionsReleasingAnAcquiredPiece": 65,
     "currencyAnomalies": 49,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 134,
+    "reverseCurrencyAnomalies": 0,
     "unmatched": 0,
     "examples": [
      {
@@ -188,7 +190,8 @@
       "released": "Caleb Banks (DL, 1259)",
       "kept": "Jonathan Allen (DL, 1197)"
      }
-    ]
+    ],
+    "reverseExamples": []
    }
   },
   "analyzeVerdictsRosterRational": {
@@ -215,8 +218,11 @@
    "currencyAnomaly": {
     "selectionsReleasingAnAcquiredPiece": 20,
     "currencyAnomalies": 0,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 134,
+    "reverseCurrencyAnomalies": 0,
     "unmatched": 0,
-    "examples": []
+    "examples": [],
+    "reverseExamples": []
    }
   },
   "v5VsRosterRational": {
@@ -226,7 +232,7 @@
    "v5rChargeLower": 0,
    "categoryDiffers": 22
   },
-  "elapsedSec": 72.0
+  "elapsedSec": 74.7
  },
  "census": {
   "design": "every dynasty_main team x 8 seeded trades per shape (1-for-2, 2-for-1, 1-for-3) against random rivals: the main incoming piece at 80-105% of a 1,500-7,000 outgoing player, extra pieces from the rival's 10 cheapest players (and for 2-for-1 the sender's own 12 cheapest); Team Context ON",
@@ -422,6 +428,8 @@
   "currencyAnomaly": {
    "selectionsReleasingAnAcquiredPiece": 70,
    "currencyAnomalies": 36,
+   "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 167,
+   "reverseCurrencyAnomalies": 0,
    "unmatched": 0,
    "examples": [
     {
@@ -448,7 +456,8 @@
      "released": "DJ Turner (DB, 445)",
      "kept": "Deonte Banks (DB, 422)"
     }
-   ]
+   ],
+   "reverseExamples": []
   },
   "examples": [
    {
@@ -1088,8 +1097,11 @@
    "currencyAnomaly": {
     "selectionsReleasingAnAcquiredPiece": 34,
     "currencyAnomalies": 0,
+    "selectionsReleasingExistingWhileKeepingAnAcquiredPiece": 175,
+    "reverseCurrencyAnomalies": 0,
     "unmatched": 0,
-    "examples": []
+    "examples": [],
+    "reverseExamples": []
    },
    "examples": [
     {
@@ -1794,7 +1806,7 @@
     }
    ]
   },
-  "elapsedSec": 96.5
+  "elapsedSec": 94.9
  },
  "perfectDraft": {
   "surface": "src.draft.context.build_roster_context (/api/draft/roster-context)",
@@ -2084,5 +2096,5 @@
   "Component B (roster utility / lineup lens) needs the box-local projection snapshot and abstains locally; only Component A (VA gap net of the forced-release charge) and the decision built on it are measured.",
   "Positional scarcity resolves inert locally (multiplier 1.0); on the box it can scale every release charge by 0.85-1.15."
  ],
- "elapsedSec": 211.6
+ "elapsedSec": 213.2
 }

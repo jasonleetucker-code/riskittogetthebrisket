@@ -16,6 +16,7 @@ board.
 from __future__ import annotations
 
 import copy
+import dataclasses
 import itertools
 import random
 
@@ -379,6 +380,114 @@ def test_relief_of_an_over_limit_roster_is_published_signed_never_credited(flag_
     cost2, basis2 = RC.forced_drop_cost(cap2)
     assert cost2 == 0.0 and basis2["marginalClamp"] == "conservative_clamp"
     assert basis2["signedMarginal"] == -350.0  # 300 owed after vs 300 + 350 before
+
+
+# ── Re-review: incomplete / undeterminable cleanups are never exact ─────
+
+
+def _over_limit_caps():
+    """``(adds, spared)``: one-over roster + a 1-for-2 that ADDS a release
+    (marginal 350, exact), and a two-over roster + a 2-for-1 whose netted
+    marginal is <= 0 while drops are still required."""
+    _c, _us, ctx = _ctx(extra_us=(("WR Extra", 500.0, "WR"),))
+    adds = RC.assess_roster_capacity(ctx, incoming_players=["Star WR", "Filler RB"],
+                                     outgoing_players=["WR Two"])  # fmt: skip
+    _c, _us, ctx2 = _ctx(extra_us=(("WR Extra", 500.0, "WR"), ("WR Extra Two", 520.0, "WR")))
+    spared = RC.assess_roster_capacity(ctx2, incoming_players=["Star WR"],
+                                       outgoing_players=["WR Two", "WR Three"])  # fmt: skip
+    assert RC.forced_drop_marginal(adds) == 350.0
+    assert RC.forced_drop_marginal(spared) == -350.0
+    assert spared.requires_drops is True
+    return adds, spared
+
+
+@pytest.mark.parametrize("field", ["ladder_exhausted", "pre_trade_cleanup_exhausted"])
+def test_an_exhausted_cleanup_publishes_no_signed_marginal(flag_on, field):
+    """Finding 1a: a cleanup that stops short of legal size is not an exact
+    signed marginal — on either side of the difference."""
+    for cap in _over_limit_caps():
+        ex = dataclasses.replace(cap, **{field: True})
+        assert RC.forced_drop_marginal(ex) is None
+        assert ex.to_dict()["forcedDropMarginal"] is None
+        _cost, basis = RC.forced_drop_cost(ex)
+        assert "signedMarginal" not in basis and "marginalClamp" not in basis
+
+
+def test_an_exhausted_ladder_never_reads_as_an_exact_zero(flag_on):
+    """Finding 1b: the netted marginal is <= 0 but the post-trade cleanup ran
+    out of legal releases — a lower bound, never ``state: none``."""
+    _adds, spared = _over_limit_caps()
+    assert RC.forced_drop_cost(spared)[1]["state"] == "none"
+    cost, basis = RC.forced_drop_cost(dataclasses.replace(spared, ladder_exhausted=True))
+    assert cost == 0.0
+    assert basis["state"] == "lower_bound" and basis["bound"] == "lower"
+    assert "cut_ladder_exhausted" in basis["lowerBoundReasons"]
+
+
+def test_an_exhausted_pre_trade_cleanup_is_an_upper_bound(flag_on):
+    """Finding 1c: the netted pre-trade cost understates what the roster owed,
+    so the marginal is an UPPER bound, named ``pre_trade_cleanup_exhausted``."""
+    adds, spared = _over_limit_caps()
+    for cap, expected in ((adds, 350.0), (spared, 0.0)):
+        cost, basis = RC.forced_drop_cost(
+            dataclasses.replace(cap, pre_trade_cleanup_exhausted=True)
+        )
+        assert cost == expected
+        assert basis["state"] == "assumed" and basis["bound"] == "upper"
+        assert basis["upperBoundReasons"] == ["pre_trade_cleanup_exhausted"]
+        assert basis["preTradeCleanupExhausted"] is True
+    # Combined with a lower-bound reason: mixed.
+    cost, basis = RC.forced_drop_cost(
+        dataclasses.replace(adds, pre_trade_cleanup_exhausted=True, ladder_exhausted=True)
+    )
+    assert basis["state"] == "mixed_bound" and basis["bound"] == "mixed"
+    assert basis["lowerBoundReasons"] == ["cut_ladder_exhausted"]
+    assert basis["upperBoundReasons"] == ["pre_trade_cleanup_exhausted"]
+
+
+def test_no_waiver_table_makes_an_unpriced_release_undeterminable_not_free(flag_on):
+    """Finding 3: with no waiver-level values ``displacement._waiver_value_for``
+    gives an unpriced player base 0.  Under the flag that charge is refused
+    (``None`` + reason), never 0.  The flag-OFF path is untouched (the
+    pre-existing behaviour is a named follow-up in the record)."""
+    c = _all_unpriced_bench_contract()
+    us = terminal.resolve_team(c, owner_id="o1", name=None)
+    ctx = dataclasses.replace(
+        RC.build_capacity_context(c, None, us, roster_settings=R.SETTINGS), waiver_values={}
+    )
+    cap = RC.assess_roster_capacity(ctx, incoming_players=["Their QB"], outgoing_players=[])
+    (drop,) = cap.forced_drops
+    assert drop.value_basis == "assumedWaiver" and drop.release_cost == 0.0
+    cost, basis = RC.forced_drop_cost(cap)
+    assert cost is None
+    assert basis["state"] == "unknown" and basis["reason"] == "waiver_values_unavailable"
+    d = cap.to_dict()
+    assert d["forcedDropCharge"] is None and d["forcedDropMarginal"] is None
+    # A pre-trade cleanup resting on such a release is undeterminable too.
+    pre_only = dataclasses.replace(
+        cap,
+        forced_drops=[dataclasses.replace(drop, value_basis="board")],
+        over_limit_before=1,
+        pre_trade_cleanup_cost=0.0,
+        pre_trade_cleanup_drops=(("x", "assumedWaiver"),),
+    )
+    assert RC.forced_drop_cost(pre_only)[0] is None
+    assert RC.forced_drop_marginal(pre_only) is None
+    # With a waiver table, the same roster is charged (never 0).
+    priced_ctx = RC.build_capacity_context(c, None, us, roster_settings=R.SETTINGS)
+    cap2 = RC.assess_roster_capacity(priced_ctx, incoming_players=["Their QB"])
+    assert RC.forced_drop_cost(cap2)[0] == 1400.0
+
+
+def test_no_waiver_table_flag_off_is_unchanged(flag_off):
+    c = _all_unpriced_bench_contract()
+    us = terminal.resolve_team(c, owner_id="o1", name=None)
+    ctx = dataclasses.replace(
+        RC.build_capacity_context(c, None, us, roster_settings=R.SETTINGS), waiver_values={}
+    )
+    cap = RC.assess_roster_capacity(ctx, incoming_players=["Their QB"], outgoing_players=[])
+    assert cap.selection_rule is None and cap.waiver_values_available is True
+    assert "forcedDropCharge" not in cap.to_dict()
 
 
 def test_relief_is_unpublished_with_the_flag_off(flag_off):

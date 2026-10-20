@@ -349,6 +349,12 @@ class RosterCapacity:
     #: ``(player_id, value_basis)`` of that pre-trade cleanup — decides whether
     #: the MARGINAL charge rests on an ``assumedWaiver`` value (not published).
     pre_trade_cleanup_drops: tuple[tuple[str, str], ...] = ()
+    #: Flag ``forced_drop_cheapest_legal`` only: whether the league produced
+    #: any waiver-level values.  With none, an unpriced (``assumedWaiver``)
+    #: release has a base of 0 (``displacement._waiver_value_for``), so a
+    #: charge resting on one is UNDETERMINABLE, never 0 (not published; the
+    #: flag-OFF path never reads it).
+    waiver_values_available: bool = True
 
     @property
     def requires_drops(self) -> bool | None:
@@ -767,7 +773,10 @@ def forced_drop_marginal(capacity: RosterCapacity) -> float | None:
     already owed — a roster one over that sends two and receives one is spared
     a cut.  :func:`forced_drop_cost` clamps it at 0 (``conservative_clamp``:
     relief is reported, never credited to the trade).  ``None`` unless the
-    count is exact and the flag selected the drops.
+    count is exact and the flag selected the drops, and ``None`` when either
+    cleanup is exhausted (stops short of legal size) or rests on an unpriced
+    release with no waiver table — an incomplete or undeterminable cleanup is
+    never reported as an exact signed marginal.
     """
     if capacity.selection_rule is None or capacity.certainty != "exact":
         return None
@@ -775,8 +784,30 @@ def forced_drop_marginal(capacity: RosterCapacity) -> float | None:
         return None
     if (capacity.over_limit_before or 0) > 0 and capacity.pre_trade_cleanup_cost is None:
         return None  # what the roster already owed is not known
+    # An incomplete cleanup on either side is not a signed EXACT marginal:
+    # the modelled drops stop short of legal size, so the difference is of
+    # two different quantities (re-review finding 1a).
+    if capacity.ladder_exhausted or capacity.pre_trade_cleanup_exhausted:
+        return None
+    if _rests_on_missing_waiver(capacity):
+        return None
     total = float(sum(d.release_cost for d in capacity.forced_drops))
     return total - float(capacity.pre_trade_cleanup_cost or 0.0)
+
+
+def _rests_on_missing_waiver(capacity: RosterCapacity) -> bool:
+    """Flag-ON only: the league has no waiver-level values AND some release on
+    either side of the marginal is priced at ``assumedWaiver`` — whose base is
+    then 0 (``displacement._waiver_value_for``), i.e. an unpriced cut that
+    would be charged nothing.  Such a charge is undeterminable, never 0."""
+    if capacity.waiver_values_available:
+        return False
+    if any(
+        d.value_basis == "assumedWaiver" and d.charge_basis != fds.CHARGE_PACKAGE
+        for d in capacity.forced_drops
+    ):
+        return True
+    return any(vb == "assumedWaiver" for _pid, vb in capacity.pre_trade_cleanup_drops)
 
 
 def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, Any]]:
@@ -795,7 +826,16 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
     * marginal = ``max(0, cost(post-trade cleanup) - cost(pre-trade cleanup))``,
       so an over-limit roster is charged only what the trade adds; the signed
       value is :func:`forced_drop_marginal` and the clamp is labelled
-      ``conservative_clamp`` whenever it binds.
+      ``conservative_clamp`` whenever it binds;
+    * an exhausted post-trade cleanup (``cut_ladder_exhausted``) is a lower
+      bound even when the netted marginal is 0 — exhaustion is checked before
+      the "adds no release cost" return; an exhausted PRE-trade cleanup
+      understates what the roster owed, so the marginal is an upper bound
+      (``upperBoundReasons: ["pre_trade_cleanup_exhausted"]``, state
+      ``assumed`` or ``mixed_bound``);
+    * no waiver-level values at all, with an ``assumedWaiver`` release on
+      either side: ``(None, unknown / waiver_values_unavailable)`` — that
+      release's base would be 0, and missing is never zero.
     """
     requires = capacity.requires_drops
     common: dict[str, Any] = {"rule": capacity.selection_rule}
@@ -807,6 +847,10 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         return None, {"state": "unknown", "reason": "drop_requirement_undetermined", **common}
     if requires is False:
         return 0.0, {"state": "none", **common}
+    if _rests_on_missing_waiver(capacity):
+        # No waiver table: an unpriced release would be charged 0 (re-review
+        # finding 3).  MISSING IS NEVER ZERO — refuse the number.
+        return None, {"state": "unknown", "reason": "waiver_values_unavailable", **common}
 
     def _assumed(d: ForcedDrop) -> bool:
         # A just-acquired piece charged its package credit is not charged its
@@ -818,6 +862,7 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         d.release_cost for d in capacity.forced_drops if d.charge_basis == fds.CHARGE_PACKAGE
     )
     lower: list[str] = []
+    upper_reasons: list[str] = []
     upper = False
     if capacity.certainty != "exact":
         over = capacity.over_limit_after_min
@@ -837,17 +882,28 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         total = float(sum(d.release_cost for d in capacity.forced_drops))
         pre = float(capacity.pre_trade_cleanup_cost or 0.0)
         cost = max(0.0, total - pre)
-        if cost <= 0.0:
+        # Exhaustion is checked BEFORE the zero early return: a cleanup that
+        # stops short of legal size must not read as an exact zero
+        # (re-review finding 1b).
+        if (
+            cost <= 0.0
+            and not capacity.ladder_exhausted
+            and not capacity.pre_trade_cleanup_exhausted
+        ):
             return 0.0, {"state": "none", "reason": "trade_adds_no_release_cost", **common}
         if capacity.pre_trade_cleanup_exhausted:
             common["preTradeCleanupExhausted"] = True
+            # The pre-trade cleanup stops short of what the roster owed, so
+            # the netted ``pre`` understates it and the marginal is an UPPER
+            # bound (re-review finding 1c).
+            upper_reasons.append("pre_trade_cleanup_exhausted")
         # Does the MARGINAL rest on an assumed value?  A drop owed both
         # before and after the trade cancels out of it.
         post_a = Counter(d.player_id for d in capacity.forced_drops if _assumed(d))
         pre_a = Counter(
             pid for pid, vb in capacity.pre_trade_cleanup_drops if vb == "assumedWaiver"
         )
-        upper = bool(post_a - pre_a)
+        upper = bool(post_a - pre_a) or bool(upper_reasons)
         if pre_a - post_a:
             lower.append("pre_trade_cleanup_assumed_waiver")
     if capacity.ladder_exhausted:
@@ -876,6 +932,8 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         basis["bound"] = bound
     if lower:
         basis["lowerBoundReasons"] = lower
+    if upper_reasons:
+        basis["upperBoundReasons"] = upper_reasons
     return cost, basis
 
 
@@ -1411,6 +1469,7 @@ def assess_roster_capacity(
             notes=notes,
             selection_rule=rule,
             **_pre_trade_fields(pre_sel),
+            **({"waiver_values_available": bool(context.waiver_values)} if selecting else {}),
         )
 
     # ── The post-trade roster, which is what the ladder must be built on ──
@@ -1661,6 +1720,7 @@ def _assess_selected(
         notes=notes,
         selection_rule=fds.rule_id(sel.mode),
         package_applied=sel.package_applied,
+        waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
     )
 

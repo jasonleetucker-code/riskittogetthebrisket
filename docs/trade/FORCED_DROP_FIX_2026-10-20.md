@@ -134,6 +134,16 @@ before and after the trade cancels out of the marginal and does not taint it. Th
 state (`objectiveValue.forcedReleaseChargeState`) as the Finder's `rankingFactors.forcedDropCostBasis.state`, because
 both read `roster_capacity.forced_drop_cost`.
 
+*Incomplete or undeterminable cleanups (re-review findings 1, 3; flag-ON code only).* A cleanup that stops short of
+legal size is never reported as exact: `forcedDropMarginal` is `null` when either the post-trade ladder
+(`ladderExhausted`) or the pre-trade cleanup is exhausted; exhaustion is checked *before* the "trade adds no release
+cost" return, so an exhausted post-trade ladder with a netted marginal ≤ 0 reads `lower_bound`
+(`cut_ladder_exhausted`), never `none`; an exhausted pre-trade cleanup understates what the roster owed, so the
+marginal is an upper bound — `upperBoundReasons: ["pre_trade_cleanup_exhausted"]`, state `assumed` (or `mixed_bound`
+with any lower-bound reason). With no waiver-level values at all, an `assumedWaiver` release on either side of the
+marginal would have base 0, so the charge is `null` with `{state: "unknown", reason: "waiver_values_unavailable"}`
+(never 0). The flag-OFF path is untouched (§11 names its pre-existing behaviour as a follow-up).
+
 **Determinism.** Ties break on player id (then position, then roster position), never on name; renaming every
 player and shuffling the roster leaves the cut set and charge unchanged (pinned).
 
@@ -160,8 +170,11 @@ charge an acquired cut its package credit forgone (no double count) and an exist
 rather than an environment read, because switching it changes served verdicts. Published rule ids
 `cheapest_legal_package_consistent_v1` / `cheapest_legal_roster_rational_v1`.
 
-**Currency anomaly** = an acquired piece released while a cheaper existing player, who could legally have been
-released instead (single swap, exact lineup solver), is kept. Measured on the flag-ON production path:
+**Currency anomaly**, measured in both directions by a single lineup-legal swap (exact lineup solver), with
+`c = base x scarcity`: **forward** — an acquired piece released while a cheaper existing player, who could legally
+have been released instead, is kept; **reverse** — an existing player released while a cheaper *acquired* piece, who
+could legally have been released instead, is kept (re-review finding 2: reachable under V5 whenever a piece's package
+credit exceeds its `c`, e.g. scarcity < 1 shrinks `c` but not the credit). Measured on the flag-ON production path:
 
 | measure (same board, same designs) | V5 (default) | V5-R |
 |---|---:|---:|
@@ -169,15 +182,26 @@ released instead (single swap, exact lineup solver), is kept. Measured on the fl
 | War Room steps with charge > filler credit | 0 (by construction) | 6 |
 | median charge / filler credit | 0.48 | 0.52 |
 | War Room 180 steps: private-decision category changes vs OFF | 112 | 108 |
-| War Room: currency anomalies / selections releasing an acquired piece | **49 / 65** | **0 / 20** |
+| War Room: forward anomalies / selections releasing an acquired piece | **49 / 65** | **0 / 20 ‡** |
+| War Room: reverse anomalies / selections releasing an existing player while keeping an acquired one | 0 / 134 § | 0 / 134 ‡ |
 | Census 278 trades: private-decision category changes vs OFF | 140 | 139 |
-| Census: currency anomalies / selections releasing an acquired piece | **36 / 70** | **0 / 34** |
+| Census: forward anomalies / selections releasing an acquired piece | **36 / 70** | **0 / 34 ‡** |
+| Census: reverse anomalies / selections releasing an existing player while keeping an acquired one | 0 / 167 § | 0 / 175 ‡ |
 | Census charge change vs OFF: n, median (min … max) | 174, −1,691 (−3,490 … +1,271) | 174, −1,664 (−3,490 … +1,354) |
 | V5 vs V5-R: steps with a different cut set (War Room / census) | — | 49 / 36 |
 | … of which V5-R charges more / less | — | 49 / 0 ; 36 / 0 |
 | … of which the private-decision category differs | — | 22 / 9 |
 | Trade Finder (12 teams, top 20): mean overlap vs OFF; teams identical | 0.854; 4 | 0.854; 4 |
 | Trade Finder: V5-R vs V5 | — | identical on 12 / 12 |
+
+‡ **Zero by construction, not evidence** (same status as V5's † in §2). V5-R's cut set is the minimum-`Σc` legal set
+(exact; pinned against brute force), so no single legal swap can lower `Σc` — in either direction. The V5-R anomaly
+cells confirm the implementation is the rule; they are not a measured advantage.
+
+§ **Zero locally because scarcity is inert here (1.0), not by construction.** At scarcity 1.0 a piece's package credit
+under the geometric model never exceeds its own value, so it never exceeds `c` and V5 has no reason to keep a cheaper
+acquired piece. On the box (scarcity 0.85–1.15) it can; **the box replay with real scarcity must report both
+directions** (`currencyAnomaly.currencyAnomalies` and `.reverseCurrencyAnomalies`, §10 item 3).
 
 (The review counted 14 of 86 package-step selections under a different definition; this record uses the single-swap
 definition above, which is mechanical and reproducible from `replay.json` → `currencyAnomaly`.)
@@ -329,7 +353,8 @@ market convention differs from the roster answer.
    (recommended).
 2. **Owner approval of the §8 production impact** for the chosen mode.
 3. **Box replay with real scarcity and Component B** (`scripts/forced_drop_fix_replay.py` on the box, both modes):
-   every number here is at scarcity 1.0 with Component B in its not-applicable state.
+   every number here is at scarcity 1.0 with Component B in its not-applicable state. It must report the currency
+   anomaly in BOTH directions (forward and reverse, §3a) — the reverse direction is structurally 0 at scarcity 1.0.
 4. **UI copy (UI lane, not this PR).** `frontend/lib/trade-war-room-copy.js:793` renders
    "After the forced cut of X (worth N)" from `objectiveValue.forcedReleaseCost`. For a just-acquired release N is the
    package credit forgone, not the player's value, so "worth N" is false. The backend now publishes
@@ -346,3 +371,10 @@ market convention differs from the roster answer.
 * The activation checklist (§10) — every item open; nothing is switched on.
 * Perfect Draft exposure (§6): same selection mechanism, separate authorization.
 * Optional follow-up: pass a package from Angle / Suggestions if their capacity blocks should net acquired releases.
+* **Named follow-up (pre-existing, flag-OFF, needs its own authorization):** `src/draft/displacement.py::_waiver_value_for`
+  returns 0 when the league has no waiver-level values, so an unpriced (`assumedWaiver`) cut is costed 0 on the
+  incumbent trade path and on Perfect Draft / `/api/draft/roster-context` alike. Not changed here (flag-OFF byte
+  identity). Under the flag the forced-drop charge refuses such a number instead (`forcedDropChargeBasis`
+  `{state: "unknown", reason: "waiver_values_unavailable"}`, `forcedDropMarginal: null`); note the War Room objective
+  treats any `null` charge as uncharged (pre-existing posture for `unknown`), and only the post-trade case also raises
+  the `forced_drop_unpriced` evidence gap.
