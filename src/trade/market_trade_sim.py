@@ -330,7 +330,10 @@ def _make_assets(cfg: SimConfig, rng: np.random.Generator) -> AssetTable:
         m = dom_arr == d
         if m.sum() < 2:
             continue
-        z = (theta_end[m] - theta_end[m].mean()) / (theta_end[m].std() or 1.0)
+        centred = theta_end[m] - theta_end[m].mean()
+        sd = float(theta_end[m].std())
+        # A domain whose truths are all equal carries no ordering signal: z is 0.
+        z = centred / sd if sd > 0 else np.zeros_like(centred)
         x[m] = rho * z + np.sqrt(1.0 - rho**2) * rng.normal(size=int(m.sum()))
     return AssetTable(
         ids=ids,
