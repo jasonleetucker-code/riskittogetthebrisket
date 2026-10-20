@@ -88,12 +88,17 @@ Request budget for Tier 1c, and for re-querying it in Tier 2, is reserved
 before Tier 1b runs.
 
 **Decision evidence.** Condition 1 is `FAIL` only when the bundle crawl was
-complete (`tier0.crawlComplete`: not truncated, no failed chunk GET); a partial
-crawl that saw no league-value query leaves it `UNKNOWN`. Condition 4 is
+complete (`tier0.crawlComplete`): at least one script read, and every
+discovered script read — not truncated, no failed chunk GET, and no off-origin
+script skipped (`tier0.skippedOffOrigin`; off-origin scripts are never fetched,
+so they are unread evidence). A partial crawl, or one that read no script, that
+saw no league-value query leaves it `UNKNOWN`. Condition 4 is
 decided only by the candidate: Tier 2 re-sends the Tier 1c operations first, and
 `tier2.candidateEqual` is `true` only when every one of them answered usably on
 both passes with identical content. Re-queries of other operations, or errored
-answers, never decide it.
+answers, never decide it. Only a `COMPLETE` run can be admitted: a `STOPPED`,
+`BLOCKED` or status-less report caps the verdict at `INSUFFICIENT`
+(`decision.runComplete`), even when every condition passed before the stop.
 
 **Review-only conditions.** Decision conditions 6–8 (dynasty value rather than
 projection, lineage, licence) can only be supplied in

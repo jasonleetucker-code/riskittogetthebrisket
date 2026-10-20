@@ -69,6 +69,7 @@ def test_the_decision_rule_is_pinned():
 
 def test_all_conditions_pass_only_with_reviewer_evidence():
     findings = {
+        "status": "COMPLETE",
         "tier0": {"ran": True, "serverLeagueValueQuery": True, "leagueValueModulePresent": True},
         "tier1c": {
             "ran": True,
@@ -757,3 +758,150 @@ def test_a_non_query_ops_file_stops_before_any_appsync_request(tmp_path):
     assert rep["status"] == "STOPPED"
     assert rep["stop"] == {"tier": "tier1c", "reason": "refused_non_query_document"}
     assert rep["appsyncRequests"] == 0
+
+
+# ── review round 2: completeness means every discovered script was read ──
+
+
+def _bundle(index: bytes, files: dict[str, bytes] | None = None):
+    seen: list[str] = []
+
+    def get(url, headers, timeout):
+        seen.append(url)
+        if url == ORIGIN + "/":
+            return (200, {}, index)
+        if files and url in files:
+            return (200, {}, files[url])
+        raise AssertionError(f"unexpected GET {url}")
+
+    return get, seen
+
+
+@pytest.mark.parametrize(
+    "index",
+    [
+        b'<html><script src="https://cdn.example.net/assets/index-abc.js"></script></html>',
+        b"<html><body>no scripts at all</body></html>",
+    ],
+    ids=["cross_origin_only", "no_script"],
+)
+def test_a_crawl_that_read_no_script_is_incomplete_and_never_rejects(index):
+    get, seen = _bundle(index)
+    t0 = P.run_bundle_mode(get)["tier0"]
+    assert seen == [ORIGIN + "/"]  # off-origin scripts are still never fetched
+    assert t0["serverLeagueValueQuery"] is False
+    assert t0["crawlComplete"] is False
+    d = P.evaluate_decision({"tier0": t0})
+    assert d["conditions"]["c1_server_observation"] == P.UNKNOWN
+    assert d["verdict"] == "INSUFFICIENT"
+
+
+def test_a_skipped_cross_origin_chunk_is_counted_and_makes_the_crawl_incomplete():
+    get, seen = _bundle(
+        b'<html><script src="/assets/main.js"></script>'
+        b'<script src="https://cdn.example.net/assets/vendor.js"></script></html>',
+        {ORIGIN + "/assets/main.js": b"const nothing=1;"},
+    )
+    t0 = P.run_bundle_mode(get)["tier0"]
+    assert ORIGIN + "/assets/main.js" in seen
+    assert all(u.startswith(ORIGIN) for u in seen)
+    assert t0["skippedOffOrigin"] == 1
+    assert t0["scriptsRead"] == 1
+    assert t0["crawlComplete"] is False
+    d = P.evaluate_decision({"tier0": t0})
+    assert d["conditions"]["c1_server_observation"] == P.UNKNOWN
+
+
+def test_every_discovered_script_is_accounted_for_on_a_complete_crawl():
+    t0 = P.run_bundle_mode(_get_factory()[0])["tier0"]
+    assert t0["crawlComplete"] is True
+    assert t0["scriptsDiscovered"] == t0["scriptsRead"] > 0
+    assert t0["skippedOffOrigin"] == 0 and t0["failedChunks"] == 0
+
+
+def test_a_cross_origin_only_bundle_skips_tier1c_as_incomplete(tmp_path):
+    get, _ = _bundle(
+        b'<html><script src="https://cdn.example.net/assets/index-abc.js"></script></html>'
+    )
+    post, calls = _post_factory()
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=get,
+        http_post=post,
+        sleep=lambda s: None,
+        monotonic=lambda: float(next(clock)),
+        league_ops=LEAGUE_OPS,
+        allow_league_footprint=True,
+    )
+    assert rep["tier1c"] == {"ran": False, "skipped": "bundle_crawl_incomplete"}
+    assert rep["decision"]["verdict"] != "REJECT"
+
+
+# ── review round 2: a STOPPED (or otherwise unfinished) run never admits ─
+
+
+def _all_pass_findings() -> dict:
+    return {
+        "tier0": {"ran": True, "serverLeagueValueQuery": True, "leagueValueModulePresent": True},
+        "tier1c": {
+            "ran": True,
+            "ok": True,
+            "scoringInputs": True,
+            "rosterInputs": False,
+            "settingsInputs": True,
+            "idpCoverage": {"DT": 200, "DE": 200, "LB": 200, "CB": 200, "S": 200},
+            "s1": {"familyTopsWithin5pct": False, "curvesWithin5pct": False},
+        },
+        "tier2": {
+            "ran": True,
+            "equal": True,
+            "publicationBetween": False,
+            "candidateEqual": True,
+        },
+    }
+
+
+@pytest.mark.parametrize("status", ["STOPPED", "BLOCKED", None, "SOMETHING_NEW"])
+def test_only_a_complete_run_can_be_admitted(status):
+    findings = _all_pass_findings()
+    if status is not None:
+        findings["status"] = status
+    review = dict.fromkeys(P.REVIEW_ONLY, P.PASS)
+    d = P.evaluate_decision(findings, review)
+    assert all(v == P.PASS for v in d["conditions"].values())
+    assert d["verdict"] == "INSUFFICIENT"
+    assert d["runComplete"] is False
+    findings["status"] = "COMPLETE"
+    done = P.evaluate_decision(findings, review)
+    assert done["verdict"] == "ADMIT" and done["runComplete"] is True
+
+
+def test_a_tier2_stop_after_the_candidate_matched_is_not_admitted(tmp_path):
+    ok_post, _ = _post_factory()
+    phase: list[float] = []
+
+    def post(url, headers, body, timeout):
+        if phase and "league" not in json.loads(body)["query"].lower():
+            return 429, {}, b""
+        return ok_post(url, headers, body, timeout)
+
+    clock = iter(range(0, 10**6, 5))
+    rep = P.run_native_probe(
+        now_fn=lambda: NOW,
+        show=_show(),
+        auth_store=_store(tmp_path),
+        http_get=_get_factory()[0],
+        http_post=post,
+        sleep=lambda s: phase.append(s),
+        monotonic=lambda: float(next(clock)),
+        league_ops=LEAGUE_OPS,
+        allow_league_footprint=True,
+        review=dict.fromkeys(P.REVIEW_ONLY, P.PASS),
+    )
+    assert rep["status"] == "STOPPED" and rep["stop"]["tier"] == "tier2"
+    assert rep["tier2"]["candidateEqual"] is True
+    assert rep["decision"]["runComplete"] is False
+    assert rep["decision"]["verdict"] != "ADMIT"

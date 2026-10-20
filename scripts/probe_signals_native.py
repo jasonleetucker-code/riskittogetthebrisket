@@ -213,10 +213,16 @@ def evaluate_decision(
         verdict = "INSUFFICIENT"
     else:
         verdict = "ADMIT"
+    # A run that did not finish (STOPPED by a refusal, BLOCKED, or with no
+    # recorded status) is incomplete evidence: it can never admit.
+    run_complete = findings.get("status") == "COMPLETE"
+    if verdict == "ADMIT" and not run_complete:
+        verdict = "INSUFFICIENT"
     return {
         "ruleSha256": decision_rule_sha256()[:12],
         "conditions": cond,
         "verdict": verdict,
+        "runComplete": run_complete,
         "q5ScarcityOrReplacementMarkers": bool(t0.get("scarcityMarkers")),
         "q6ValueComputedWhere": (
             "server_query_present"
@@ -375,7 +381,12 @@ def fetch_bundle(
     http_get: S.HttpGet = S.urllib_get, *, origin: str = WEBAPP_ORIGIN
 ) -> dict[str, Any]:
     """BFS over the shipped app's own script chunks, bounded by
-    ``MAX_BUNDLE_GETS`` and ``MAX_BUNDLE_BYTES``.  Same-origin only."""
+    ``MAX_BUNDLE_GETS`` and ``MAX_BUNDLE_BYTES``.  Same-origin only.
+
+    Every distinct script discovered is accounted for exactly once: read,
+    failed, or skipped (off-origin, never fetched).  A crawl is only
+    complete when every discovered script was READ — an off-origin script
+    we declined to fetch is unread evidence, not absent evidence."""
     headers = {"User-Agent": S.USER_AGENT, "Accept-Encoding": "gzip"}
     gets = total = 0
     texts: dict[str, str] = {}
@@ -388,14 +399,19 @@ def fetch_bundle(
     parser.feed(body.decode("utf-8", "replace"))
     queue = [urllib.parse.urljoin(origin + "/", s) for s in parser.srcs]
     seen: set[str] = set()
+    off_origin: set[str] = set()
     truncated = False
     failed = 0
     while queue:
         url = queue.pop(0)
-        if url in seen or not _same_origin(url, origin):
+        if url in seen or url in off_origin:
+            continue
+        if not _same_origin(url, origin):
+            off_origin.add(url)
             continue
         if gets >= MAX_BUNDLE_GETS or total >= MAX_BUNDLE_BYTES:
             truncated = True
+            queue.insert(0, url)  # discovered but unread: still counted
             break
         seen.add(url)
         try:
@@ -421,8 +437,24 @@ def fetch_bundle(
         "bytes": total,
         "truncated": truncated,
         "failedChunks": failed,
+        "skippedOffOrigin": len(off_origin),
+        "scriptsDiscovered": len(seen) + len(off_origin) + len(set(queue) - seen - off_origin),
         "texts": texts,
     }
+
+
+def crawl_is_complete(b: Mapping[str, Any]) -> bool:
+    """True only when at least one script was read and every discovered
+    script was read: nothing truncated, failed or skipped off-origin.
+    Unrecorded counts are unknown, so they are never complete."""
+    read = len(b.get("texts") or {})
+    return (
+        b.get("truncated") is False
+        and b.get("failedChunks") == 0
+        and b.get("skippedOffOrigin") == 0
+        and read > 0
+        and b.get("scriptsDiscovered") == read
+    )
 
 
 def _extract_document(text: str, start: int) -> str:
@@ -722,7 +754,10 @@ def run_bundle_mode(http_get: S.HttpGet = S.urllib_get) -> dict[str, Any]:
         megabytes=round(b["bytes"] / 1e6, 1),
         truncated=b["truncated"],
         failedChunks=b["failedChunks"],
-        crawlComplete=not b["truncated"] and b["failedChunks"] == 0,
+        skippedOffOrigin=b["skippedOffOrigin"],
+        scriptsDiscovered=b["scriptsDiscovered"],
+        scriptsRead=len(b["texts"]),
+        crawlComplete=crawl_is_complete(b),
     )
     return {"mode": "bundle", "tier0": t0}
 
@@ -951,6 +986,9 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "tier0.truncated",
     "tier0.failedChunks",
     "tier0.crawlComplete",
+    "tier0.skippedOffOrigin",
+    "tier0.scriptsDiscovered",
+    "tier0.scriptsRead",
     "tier0.operationCounts.*",
     "tier0.leagueValueModulePresent",
     "tier0.idpBranchPresent",
@@ -986,6 +1024,7 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "decision.ruleSha256",
     "decision.conditions.*",
     "decision.verdict",
+    "decision.runComplete",
     "decision.q5ScarcityOrReplacementMarkers",
     "decision.q6ValueComputedWhere",
 )
