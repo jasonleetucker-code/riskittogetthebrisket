@@ -121,6 +121,7 @@ __all__ = [
     "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
+    "outgoing_roster_names",
 ]
 
 
@@ -427,6 +428,13 @@ class CapacityContext:
     #: ANOTHER team in the same league (the counterparty) resolves the same cap
     #: and slots instead of falling back to a different source.
     roster_settings: Mapping[str, Any] | None = None
+    #: The player id of each ``roster_player_names`` entry, position for
+    #: position (``build_roster_assets`` emits exactly one asset per name, in
+    #: order): the board row's ``playerId`` when the entry joined, else the
+    #: roster's own id.  Lets an outgoing leg that carries a Sleeper id find
+    #: ITS roster entry whatever display name the caller used
+    #: (:func:`outgoing_roster_names`).  Empty for a context built without it.
+    roster_player_ids: tuple[str, ...] = ()
 
 
 def _asset_key(asset: RosterAsset) -> str:
@@ -550,7 +558,48 @@ def build_capacity_context(
         by_id=by_id,
         notes=tuple(notes),
         roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
+        roster_player_ids=(
+            tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
+        ),
     )
+
+
+def outgoing_roster_names(
+    context: CapacityContext,
+    names: Sequence[str],
+    ids: Sequence[str | None] | None = None,
+) -> list[str]:
+    """The roster's OWN name for each outgoing player (B0-b parity).
+
+    ``ids`` runs parallel to ``names`` (``None`` for an entry without one).
+    An entry whose Sleeper id matches a roster entry's id is translated to that
+    entry's roster name — matched by MULTIPLICITY, each roster entry consumed
+    once — so a caller that names the player differently from the Sleeper
+    roster (a board display name, a suffix) still frees the spot he occupies.
+    An entry with no id, or whose id is on no roster entry, keeps its name:
+    name matching is the fallback only, exactly as before.  Pure.
+    """
+    ids = list(ids or [])
+    roster_ids = list(context.roster_player_ids)
+    if len(roster_ids) != len(context.roster_player_names):
+        roster_ids = []
+    used: set[int] = set()
+    out: list[str] = []
+    for i, name in enumerate(names):
+        pid = ids[i] if i < len(ids) else None
+        key = _norm(pid) if pid else ""
+        hit = None
+        if key:
+            hit = next(
+                (k for k, rid in enumerate(roster_ids) if k not in used and _norm(rid) == key),
+                None,
+            )
+        if hit is None:
+            out.append(str(name))
+            continue
+        used.add(hit)
+        out.append(context.roster_player_names[hit])
+    return out
 
 
 def capacity_context_for_team(

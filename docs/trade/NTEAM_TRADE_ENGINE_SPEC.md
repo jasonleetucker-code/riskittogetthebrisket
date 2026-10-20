@@ -101,8 +101,8 @@ What the gap equals:
 | `src/trade/analyze_service.py` | **EXTEND** | `analyze_trade_n(...)`, the one N-team composer. Two additions:<br>1. `simulate_for_team` gains `include_roster_capacity: bool = True` and `unverifiable_asset_ids: Sequence[str] = ()`, both passed through to `simulate_trade`.<br>2. `analyze_for_team` gains `comparables: Any = _UNSET`, the exact object the 2-team route passes today.<br>The defaults are byte-identical to today. The module docstring changes from "2-team" to "every team-attributed analysis, any N". |
 | `src/trade/team_verdicts.py` | **NEW** | Pure projections over existing outputs: `team_category(decision)`, `team_fairness(...)`, `fairness_overall(...)`, `all_team_summary(...)`, `conservation(...)`. It computes no value and applies no gate. |
 | `src/trade/trade_decision.py` | **SMALL REFACTOR** (non-PUBLIC section only, Lane A) | Three changes:<br>1. Split the asset half of `_evidence_gaps` into a public pure function `asset_evidence_gaps(simulation, market) -> list[gap]` plus the constant `ASSET_EVIDENCE_GATE_CODES = ("no_priced_assets", "off_board_assets", "unpriced_assets", "unheld_assets", "pick_ownership_unknown", "ownership_unverifiable", "quarantined_values", "stale_values")`. `_evidence_gaps` calls it.<br>2. **NEW gate `ownership_unverifiable`** in that asset half (R1), read from `simulation["ownershipEvidence"]["unverifiableAssetIds"]`. It is absent on every existing route, so their behaviour is unchanged.<br>3. A1 moves the body of `public_category_from_decision` into `team_verdicts.team_category` and leaves a one-line alias. Lane C later deletes that alias and the whole PUBLIC section (§7). |
-| `src/api/trade_simulator.py` | **EXTEND** | Two new keywords:<br>- `include_roster_capacity: bool = True`. When False, it skips `rosterCapacity`, `finalRosterSimulation`, roster utility and the per-team before-roster (`trade_utility`) cache.<br>- `unverifiable_asset_ids: Sequence[str] = ()`. When non-empty, the result carries `ownershipEvidence: {"unverifiableAssetIds": [...sorted, only ids in this team's legs]}`. When empty, the key is ABSENT, so the default output is byte-identical.<br>Valuation, ownership and asset resolution stay on the same code path. |
-| `src/trade/roster_capacity.py` | **EXTEND** | Match outgoing players by player id when ids are supplied. Name matching is the fallback only (B0-b parity). |
+| `src/api/trade_simulator.py` | **EXTEND** | Two new keywords:<br>- `include_roster_capacity: bool = True`. When False, it skips `rosterCapacity`, `finalRosterSimulation`, roster utility and the per-team before-roster (`trade_utility`) cache.<br>- `unverifiable_asset_ids: Sequence[str] = ()`. When non-empty, the result carries `ownershipEvidence: {"unverifiableAssetIds": [...sorted, only ids in this team's legs]}`. When empty, the key is ABSENT, so the default output is byte-identical.<br>Valuation, ownership and asset resolution stay on the same code path.<br>A1 also: `competitive_posture_for` is split into its two halves, `league_posture_bundle` + `posture_block_for` (the posture memo reads the bundle once; a block stays byte-identical), and `team_impact.compute` refusing two starters with one identity (only conflicting ownership records produce it) degrades to `teamImpact: {unavailable}` instead of a 500. |
+| `src/trade/roster_capacity.py` | **EXTEND** | Match outgoing players by player id when ids are supplied. Name matching is the fallback only (B0-b parity). Implemented as `outgoing_roster_names(context, names, ids)` over a new `CapacityContext.roster_player_ids` (the id of each roster entry, position for position); `simulate_trade` translates its outgoing players through it before capacity, the final legal roster and the utility. |
 
 ### 2.2 Data types and the one snapshot (`trade_ledger.py`)
 
@@ -154,7 +154,8 @@ class LedgerError(Exception):
     roster_ids: tuple[int, ...] # sorted, request-supplied only
 
 def build_trade_snapshot(contract, *, league_key) -> TradeSnapshot
-def snapshot_for(contract, *, league_key) -> TradeSnapshot   # memo keyed by (id(contract), generation), LRU 2
+def snapshot_for(contract, *, league_key, roster_settings=None, now=None) -> TradeSnapshot
+    # memo keyed by (id(contract), generation, league, roster-freshness state now, settings), LRU 2
 def validate_ledger(snap, *, teams, legs, policy) -> ValidatedLedger   # raises LedgerError
 def team_flows(ledger, roster_id) -> TeamFlows   # player ids in/out, pick ids in/out, sorted
 ```
@@ -195,7 +196,9 @@ request-supplied id, sorted and capped at `max_legs`.
 
 Precedence:
 
-- Check 2 runs before check 3, so `[3,3,3,3,3]` reports `duplicate_team`.
+- Check 2 runs before check 3, so `[1,1,2,3,4,5]` reports `duplicate_team`, never
+  `too_many_teams`. `[3,3,3,3,3]` has one distinct id, so check 1 reports `too_few_teams`
+  (corrected in A1; the draft's example contradicted check 1).
 - Check 1 counts distinct ids.
 
 Check 14 when `rosters_state == "current"`:
@@ -267,7 +270,7 @@ def analyze_trade_n(
     counterfactuals: bool,
     team_goals: Mapping[int, str] | None = None,     # private only; normalize_goal
     posture_resolver: Callable[..., Mapping | None] | None = None,
-    comparables_provider: Callable[[TeamFlows], Any] | None = None,   # R8a
+    comparables_provider: Callable[[TeamFlows, dict], Any] | None = None,   # R8a: (flows, simulation)
     stage: StageHook | None = None,
 ) -> MultiTeamAnalysis   # {"teams": {rosterId: TeamAnalysis}, "summary": ..., "ledger": ...}
 ```
@@ -343,7 +346,7 @@ That value is identical in every team's view (I13).
   "rosterId": 7,
   "team": {"rosterId": 7, "name": "…"},
   "gives":    [{"assetId": "p:4046", "kind": "player", "label": "…", "toRosterId": 3,
-                "value": 5123 /* or null */, "valueState": "priced|unpriced|off_board"}],
+                "value": 5123 /* or null */, "valueState": "priced|unpriced|off_board|not_held"}],
   "receives": [{"assetId": "…", "kind": "pick", "label": "…", "fromRosterId": 11,
                 "value": 4747, "valueState": "priced"}],
   "simulation": { /* simulate_for_team output, unchanged: before/after roster, lineup,
@@ -522,7 +525,7 @@ new test dependency is added (`hypothesis` is not in `requirements-dev.txt`).
 | I1 | **Team-order independence:** permuting the request's `teams` leaves the whole private response byte-identical, apart from the echoed `perspectiveRosterId` and the timing / receipt ids. Teams are canonicalised to ascending `rosterId`. |
 | I2 | **Asset-order independence:** permuting legs leaves per-team results byte-identical (legs are canonicalised by `asset_id`). |
 | I3 | **Determinism:** the same snapshot, ledger and mode give byte-identical per-team results, excluding `analysisTiming` and receipt ids. |
-| I4 | **2-team equivalence (R8b).** For N = 2, team X's `simulation` + `analysis` from `analyze_trade_n` are byte-equal to the **existing `/api/trade/analyze` route**, driven by the War Room's real request shape: `labels`, `playerIdsIn/Out`, `pickAssetIdsIn/Out`, request order. Comparables are injected through `comparables_provider` with the route's own call (`comparable_trades(side_a=receiving, side_b=sending)`), so `marketCorroboration` and decision coverage are covered. It is pinned on the War Room fixtures and on real archived trades. `/api/trade/analyze` itself stays byte-identical. Any allowed difference (canonical leg order; id-only identity resolution) must be listed in the test with a justification as a correctness fix. Comparing against the ledger's own `simulate_for_team` call does not satisfy I4. |
+| I4 | **2-team equivalence (R8b).** *Implemented: `tests/api/test_trade_analyze_multi_route.py`; the one listed difference is an orphan team (no `ownerId`): the route says `team_not_in_league_bundle`, the engine `owner_identity_ambiguous` (R15); both raise `posture_unknown`.* For N = 2, team X's `simulation` + `analysis` from `analyze_trade_n` are byte-equal to the **existing `/api/trade/analyze` route**, driven by the War Room's real request shape: `labels`, `playerIdsIn/Out`, `pickAssetIdsIn/Out`, request order. Comparables are injected through `comparables_provider` with the route's own call (`comparable_trades(side_a=receiving, side_b=sending)`), so `marketCorroboration` and decision coverage are covered. It is pinned on the War Room fixtures and on real archived trades. `/api/trade/analyze` itself stays byte-identical. Any allowed difference (canonical leg order; id-only identity resolution) must be listed in the test with a justification as a correctness fix. Comparing against the ledger's own `simulate_for_team` call does not satisfy I4. |
 | I5 | **Perspective reversal at N = 2:** `gap_B == −gap_A`, the same `largerAdjustedSide`, the same fairness level and the same state. |
 | I6 | **Conservation:** every leg appears exactly once in its sender's `gives` and once in its receiver's `receives`. Each team's net asset set reconciles with the ledger. A violation fails closed: 500 on the private route, 503 `advisor_unavailable` / `upstream_unavailable` on the public route (§4.5). It is never published. |
 | I7 | **No phantom or duplicate assets:** no asset id appears in a result unless it is in the ledger; duplicates are refused (check 8). |
@@ -1285,6 +1288,43 @@ and the API contract. Every item is **accepted**. None is rejected.
 | P3 flag / telemetry | `analyze_trade_n` not flag-gated; parity in CI with the flag forced on; hashed IP and bounded retention | §2.5, §6.1, §6.3 |
 
 ---
+
+
+## 12. Implementation notes (A1 + A2, branch `claude/trade-nteam-engine`)
+
+Recorded where the implementation made a choice the text above left open.
+None changes a contract a consumer reads, except where marked **contract**.
+
+- **Generation.** `TradeSnapshot.generation` is `contract_generation(contract)`, or the
+  literal `"unknown"` when the board carries no stamp.
+- **`analyze_trade_n` return.** `{"multiTeamVersion", "mode", "teams": {rosterId:
+  TeamAnalysis} (ascending insertion), "summary", "ledger"}`. The private body is assembled by
+  `analyze_service.multi_team_payload(...)` — one assembly shared by the route and Lane B's
+  fixtures; the route adds only the receipts, `tradeRunId`, timing and the valuation stamp.
+- **`TeamAnalysis` (contract, additive).** `categoryReason` (`roster_limit` or `null`, from
+  `team_verdicts.team_category_reason`); at N ≥ 3 in private modes `comparables:
+  {"state": "not_computed_multi_team"}` (SD-12) — the lens itself then reads
+  `not_computed`; `valueState` gains `not_held` for a sent asset the simulation reports in
+  `ownedPickChecks.notOwnedBySender` (only reachable when rosters are not current).
+- **Comparables provider.** `(flows, simulation)`: the 2-team route's call needs the
+  simulation's resolved `receiving` / `sending`, so the provider takes it (I4 holds exactly).
+- **Conservation (I6/I13).** `analyze_service._assert_conserved` checks every leg once in its
+  sender's `gives` and once in its receiver's `receives`, nothing else, and one value per asset
+  in every view that prices it; a violation raises `ConservationViolation` (route 500). The
+  summary's raw sums run over assets priced in BOTH views.
+- **Private route body errors.** `400 invalid_request` carries `field` (the first malformed
+  field). Server-Timing metric names replace `:` with `_` (a token cannot contain `:`); the JSON
+  `analysisTiming` keeps `team:<rid>:<stage>`.
+- **Fixtures.** `tests/fixtures/multi_team/ledger_cases.json` (validation table),
+  `tests/fixtures/multi_team_trade_parity_cases.json` (I12; JS half
+  `frontend/__tests__/multi-team-package-parity.test.js`, composed from the existing
+  `packageAdjustPair` + `classifyGap` exports until Lane B lands `packageAdjustedPairTotals`),
+  `frontend/__tests__/fixtures/trade-multi/*.json` (real-engine private bodies; checked by
+  contract SHAPE because the real board moves with every valuation change).
+- **Real archived data.** The archive's recorded 3-team own-league trades have all moved on
+  since, so they are replayed by STRUCTURE (routing kept, assets the giver holds today,
+  `multi_team_support.structure_replays`); 2-team trades replay in reverse exactly
+  (`reverse_replays`).
 
 ## Completion result (this spec unit)
 
