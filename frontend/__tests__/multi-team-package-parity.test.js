@@ -5,9 +5,11 @@
  * tests/fixtures/multi_team_trade_parity_cases.json carries, per team of a
  * routed multi-team trade, the value arrays it gives and receives and the
  * Python owners' answer (package_model.adjusted_pair_totals over
- * (gives, receives), gap = recvAdj - sendAdj, fairness_bands.classify).  The
- * browser's existing primitives — packageAdjustPair (the package-model
- * dispatch) and classifyGap (the fairness-band mirror) — must reproduce every
+ * (gives, receives), gap = recvAdj - sendAdj, fairness_bands.classify over the
+ * larger PACKAGE UTILITY -- fairness_bands_v2, OD-F2).  The browser's existing
+ * primitives — packageAdjustPair (the package-model dispatch),
+ * packageUtilities + fairnessBase (the v2 base) and classifyGap (the
+ * fairness-band mirror) — must reproduce every
  * team's numbers from the same arrays.  Only the PURE math is in scope; value
  * resolution is a separate seam (spec §5.1 item 9).
  *
@@ -16,8 +18,12 @@
  */
 import { describe, expect, it } from "vitest";
 import fixture from "../../tests/fixtures/multi_team_trade_parity_cases.json";
-import { ACTIVE_PACKAGE_MODEL_ID, packageAdjustPair } from "@/lib/trade-logic";
-import { classifyGap } from "@/lib/fairness-bands";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  packageAdjustPair,
+  packageUtilities,
+} from "@/lib/trade-logic";
+import { classifyGap, fairnessBase } from "@/lib/fairness-bands";
 
 const positive = (xs) => xs.filter((v) => Number.isFinite(v) && v > 0);
 const leftSum = (xs) => xs.reduce((acc, v) => acc + v, 0);
@@ -58,10 +64,16 @@ describe("multi-team package math parity (I12)", () => {
           expect(got.recvAdj).toBeCloseTo(exp.recvAdj, 6);
           const gap = got.recvAdj - got.sendAdj;
           expect(gap).toBeCloseTo(exp.gap, 6);
-          const larger = Math.max(got.sendAdj, got.recvAdj);
-          expect(larger).toBeCloseTo(exp.larger, 6);
-          const band = classifyGap(gap, larger);
+          // The larger ADJUSTED side is a display number only (v1's base).
+          expect(Math.max(got.sendAdj, got.recvAdj)).toBeCloseTo(exp.larger, 6);
+          // fairness_bands_v2: the base is the larger PACKAGE UTILITY.
+          const largerUtility = fairnessBase(
+            packageUtilities([t.gives, t.receives], [got.sendAdj, got.recvAdj]),
+          );
+          expect(largerUtility).toBeCloseTo(exp.largerUtility, 6);
+          const band = classifyGap(gap, largerUtility);
           expect(band.level).toBe(exp.level);
+          expect(band.relativePct).toBe(exp.relativePct);
         });
       }
     });

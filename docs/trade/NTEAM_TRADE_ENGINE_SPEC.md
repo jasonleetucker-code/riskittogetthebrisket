@@ -32,8 +32,11 @@
    - The N-team engine refuses to run unless the active model is geom and
      `package_model.config_state() == "ok"`. The KTC rollback model has no defined N-team meaning.
 3. **No new weights, thresholds or formulas.**
-   - `fairness_bands_v1` (`src/valuation_math/fairness_bands.py` +
-     `config/trade/fairness_bands.json`) is used unchanged.
+   - The ONE fairness-band owner (`src/valuation_math/fairness_bands.py` +
+     `config/trade/fairness_bands.json`) is used unchanged. Since release train 17 that owner is
+     `fairness_bands_v2` (owner decisions OD-F1/F2/F3/F5, 2026-10-20, PR #1886): the band is
+     relative to the larger PACKAGE UTILITY, and FAIR TRADE is `counts_as_fair_trade(level)`.
+     Every `fairness_bands_v1` number below is historical; §8 records the adoption.
    - No lane edits band numbers, basis, version or status (§8).
 4. **Missing is never zero.**
    - An unpriced, off-board or unverifiable asset makes the affected team UNABLE TO DETERMINE /
@@ -70,7 +73,7 @@
 | **generation** | `src/api/trade_analyze_runtime.contract_generation(contract)`: the ONE existing reader. No lane defines another. |
 | **G_i / R_i** | Team i's gives (every leg with `from = i`, to any destination) and receives (every leg with `to = i`, from any sender). |
 | **per-team adjusted totals** | `(send_adj_i, recv_adj_i, send_va_i, recv_va_i) = package_model.adjusted_pair_totals(values(G_i), values(R_i))`. The first argument is the gives. This is exactly what `analyze_trade.equity_verdict(G_i, R_i)` computes; the market lens reads it from there. See the rules below the table. |
-| **per-team gap** | `gap_i = recv_adj_i − send_adj_i`, defined ONLY this way. `largerAdjustedSide_i = max(send_adj_i, recv_adj_i)`. The band is `fairness_bands.classify(gap_i, largerAdjustedSide_i)`. |
+| **per-team gap** | `gap_i = recv_adj_i − send_adj_i`, defined ONLY this way. `largerAdjustedSide_i = max(send_adj_i, recv_adj_i)` is a DISPLAY number. The band is `fairness_bands.classify(gap_i, larger_package_utility(G_i, R_i))` — the owner decides the base (fairness_bands_v2, OD-F2); no consumer builds it from max / adjusted / given. |
 
 Rules for the per-team adjusted totals:
 
@@ -361,8 +364,9 @@ That value is identical in every team's view (I13).
     "state": "FAIR | NOT_FAIR | UNABLE",
     "level": "fair | slight | unfair | lopsided | null",
     "reasonCode": "within_fairness_threshold | outside_fairness_threshold | asset_not_evaluable | ownership_unverifiable | evaluation_unavailable",
-    "gap": 610, "largerAdjustedSide": 9610, "relativePct": 6.35,     // private only
-    "bands": "fairness_bands_v1"
+    "gap": 610, "largerAdjustedSide": 9610, "largerPackageUtility": 8950,
+    "relativePct": 6.82,                                              // private only
+    "bands": "fairness_bands_v2"
   },
   "unverifiableAssetIds": []
 }
@@ -377,8 +381,9 @@ The `fairness` numbers in the example are team A of I14, computed with main's `p
 | `send_adj` | 9000 |
 | `recv_adj` | 9610 (R discarded less depth and receives the 110 VA) |
 | gap | +610 |
-| larger side | 9610 |
-| relative gap | 6.35% |
+| larger adjusted side (display) | 9610 |
+| larger package utility (the v2 base: `U_R` = 7000 + 0.78 × 2500) | 8950 |
+| relative gap | 6.82% (v1: 6.35% of 9610) |
 | level | `slight` |
 
 Fixtures must never use a raw-sum denominator.
@@ -441,8 +446,9 @@ if gaps: code = gaps[0].code
 if analysis.lenses.market.available is not True                -> UNABLE, asset_not_evaluable
 band = analysis["lenses"]["market"]["detail"]["band"]
        # the equity lens (analyze_trade._market_lens -> equity_verdict) for (G_i, R_i)
-       # = fairness_bands.classify(gap_i, max(send_adj_i, recv_adj_i)); read, never recomputed
-FAIR      iff band.level == "fair"         (OD-F1 default (a), §8)
+       # = fairness_bands.classify(gap_i, larger_package_utility(G_i, R_i)); read, never recomputed
+       # (its base is published as largerPackageUtility; a missing / non-finite base -> UNABLE)
+FAIR      iff fairness_bands.counts_as_fair_trade(band.level)   (OD-F1: `fair` only)
 NOT_FAIR  otherwise
 ```
 
@@ -535,7 +541,7 @@ new test dependency is added (`hypothesis` is not in `requirements-dev.txt`).
 | I11 | **Public = reduction of private.** For the same `TradeSnapshot` object and ledger, the public per-team `result` equals the private `fairness.state`, and the public overall equals the private `fairnessOverall`. The public payload is invariant to every Team Context input: posture, projections, capacity, forced drops (privacy M1). It is compared against `fairness.state`, never against the headline. |
 | I12 | **Python/JS parity of the pure math (R11):** for every case in `tests/fixtures/multi_team_trade_parity_cases.json` (value arrays per team), the JS `packageAdjustedPairTotals`, per-team gap and level equal the Python ones. Value resolution is a separate seam and is out of I12's scope (§5.1). |
 | I13 | **One canonical value per asset:** an asset's value is the same in every team's view and equals its board value. It never changes because another team is involved. A future pick with an unknown slot resolves to the same generic-grade value for its sender and its receiver, through `pick_value_resolution`, and is not an evidence gap. A pick whose provenance is `unavailable` is unpriced, giving UNABLE (R14d). |
-| I14 | **Directional correctness.** One-to-many case: A sends 6000→B and 3000→C; B sends 7000→A; C sends 2500→A. Results: A +610 `slight` (6.35% of 9610); B −1000 `unfair` (14.29%); C +500 `unfair` (16.67%). Verified against main's `package_model`. This pins the defect in the current JS meter. |
+| I14 | **Directional correctness.** One-to-many case: A sends 6000→B and 3000→C; B sends 7000→A; C sends 2500→A. Results: A +610 `slight` (6.82% of the larger package utility 8950 under fairness_bands_v2; 6.35% of 9610 under v1); B −1000 `unfair` (14.29%); C +500 `unfair` (16.67%). Verified against main's `package_model`. This pins the defect in the current JS meter. |
 | I15 | **Raw conservation (R14a):** Σ_i (raw_recv_i − raw_send_i) = 0 over priced assets. When every team sends and receives exactly one asset, Σ_i gap_i = 0 exactly (no VA on a 1-for-1). |
 | I16 | **Forced drops (R14b):** team i's forced drops come from `post_i`, are disjoint from `G_i`, are never legs, and are excluded from conservation and from `gives` / `receives`. |
 | I17 | **Ownership gate (R1):** with an unverifiable asset in team i's legs (multi-holder player, `unknown` pick, or stale/unknown rosters), team i's headline is NOT_ENOUGH_EVIDENCE, or NO from the pre-existing execution gate. It is never YES, and fairness is UNABLE `ownership_unverifiable`. |
@@ -739,7 +745,7 @@ Unchanged from #1861, except:
   "status": "success",
   "leagueKey": "dynasty_main",
   "generation": "…",
-  "fairnessVersion": "fairness_bands_v1",
+  "fairnessVersion": "fairness_bands_v2",
   "snapshotChanged": false,
   "rosters": {"state": "current", "asOf": "2026-10-20"},
   "teamCount": 3,
@@ -1134,6 +1140,22 @@ the exact section a lane may touch.
 
 ## 8. Threshold
 
+- **Release train 17 adoption (2026-10-20).** The owner approved `fairness_bands_v2`
+  (`docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md`; OD-F1/F2/F3/F5; PR #1886) as an
+  owner-approved PRIOR. Every lane consumes it through the one owner:
+  - the band is relative to the larger PACKAGE UTILITY (`larger_package_utility` /
+    `fairness_base` / `classify_packages` in Python; `sideTotalsFairnessBase` /
+    `tradeImbalance(...).largerUtility` / `fairnessBase(packageUtilities(...))` in JS). The
+    larger adjusted side is a display number only;
+  - FAIR TRADE is `counts_as_fair_trade(level)` / `countsAsFairTrade(level)` — `fair` only
+    (OD-F1); a multi-team trade is FAIR only when every team is FAIR;
+  - non-finite input is refused (`FairnessInputError`), and every hand-built flow / side carries
+    a finite `utility`;
+  - `config/trade/public_advisor.json::approvedFairnessVersion` names `fairness_bands_v2`. The
+    public launch gate stays CLOSED: the source-permission record (OD-3), the response floor
+    (RF-1) and final launch approval (LA-1) are still owner-open.
+  - The text below is the v1-era analysis, kept for traceability.
+
 - **Used unchanged:** `fairness_bands_v1` (`status: "PROVISIONAL"`, basis
   `adjusted_package_totals`). Its bands are:
 
@@ -1257,7 +1279,7 @@ and the API contract. Every item is **accepted**. None is rejected.
 | R1 | `ownership_unverifiable` gate in `trade_decision.asset_evidence_gaps`; `ownershipEvidence` simulation field; I17 | §2.1, §2.5, §2.7, §2.10 |
 | R2 | Kleene AND for overall fairness; SD-2 rewritten | §2.9, §10 |
 | R3 | gap defined only as `recv_adj − send_adj`; empty-side rule; U-identity only when both sides are non-empty | §1 |
-| R4 | I14 team A example corrected (9610 / 6.35%) | §2.6, §2.10 |
+| R4 | I14 team A example corrected (9610 / 6.35%); re-based on fairness_bands_v2 in release train 17 (8950 / 6.82%) | §2.6, §2.10, §8 |
 | R5 | false FAIR ≡ NO_TOO_CLOSE removed; consistency table C1–C4; I20 | §2.8, §8, §10 |
 | R6 | explicit no-op posture resolver; `include_roster_capacity` on `simulate_for_team` | §2.1, §2.5 |
 | R7 | one `snapshot_for` for both routes; one generation reader (`src/api/trade_analyze_runtime.contract_generation`) | §1, §2.2 |

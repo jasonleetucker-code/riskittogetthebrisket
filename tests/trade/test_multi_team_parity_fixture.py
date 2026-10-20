@@ -38,10 +38,14 @@ def test_i14_numbers_match_the_spec():
     data = json.loads(gen.OUT.read_text(encoding="utf-8"))
     case = next(c for c in data["cases"] if c["id"] == "i14_one_to_many")
     a, b, c = (case["teams"][k]["expected"] for k in "ABC")
-    assert (round(a["gap"]), a["larger"], a["relativePct"], a["level"]) == (
+    # fairness_bands_v2 (OD-F2): relative to the larger PACKAGE UTILITY
+    # (U_R = 7000 + 0.78 x 2500 = 8950), not the larger adjusted side (9610,
+    # v1's 6.35 %).  The gap and the level are unchanged.
+    assert (round(a["gap"]), a["larger"], a["largerUtility"], a["relativePct"], a["level"]) == (
         610,
         9610,
-        6.35,
+        8950,
+        6.82,
         "slight",
     )
     assert (round(b["gap"]), b["level"]) == (-1000, "unfair")

@@ -37,12 +37,16 @@
  },
  "fairnessBands": {
   "absoluteMinimum": 250.0,
-  "basis": "adjusted_package_totals",
+  "basis": "larger_package_utility",
+  "fairTradeLevels": [
+   "fair"
+  ],
   "lopsidedPct": 18.0,
+  "postLaunchValidation": "OD-F4",
   "slightPct": 3.5,
-  "status": "PROVISIONAL",
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
   "unfairPct": 9.0,
-  "version": "fairness_bands_v1"
+  "version": "fairness_bands_v2"
  },
  "generation": "2026-10-20T11:00:00+00:00",
  "leagueKey": "synth",
@@ -134,12 +138,16 @@
     "decision": {
      "bands": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "components": {},
      "confidence": {
@@ -167,11 +175,11 @@
        "evidence": {
         "band": {
          "absoluteGap": 2500.0,
-         "bands": "fairness_bands_v1",
+         "bands": "fairness_bands_v2",
          "label": "LOPSIDED",
          "level": "lopsided",
          "relativePct": 100.0,
-         "status": "PROVISIONAL"
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
         },
         "rawGap": 2500,
         "receivingAdjusted": 2500.0,
@@ -465,7 +473,7 @@
        "largeMultiple": 3.0,
        "materialityPpg": 1.0
       },
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "boardStamp": "2026-10-20T11:00:00+00:00",
       "decisionVersion": "trade_decision_v2",
       "packageModel": {
@@ -539,23 +547,28 @@
       "detail": {
        "band": {
         "absoluteGap": 2500.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 100.0,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "bandsReceipt": {
         "absoluteMinimum": 250.0,
-        "basis": "adjusted_package_totals",
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
         "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
         "slightPct": 3.5,
-        "status": "PROVISIONAL",
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
         "unfairPct": 9.0,
-        "version": "fairness_bands_v1"
+        "version": "fairness_bands_v2"
        },
        "hypotheticalPicksOut": [],
        "incomplete": true,
+       "largerPackageUtility": 2500.0,
        "magnitude": "stretch",
        "notOwnedBySender": [],
        "packageModel": {
@@ -683,23 +696,28 @@
       "detail": {
        "band": {
         "absoluteGap": 2500.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 100.0,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "bandsReceipt": {
         "absoluteMinimum": 250.0,
-        "basis": "adjusted_package_totals",
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
         "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
         "slightPct": 3.5,
-        "status": "PROVISIONAL",
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
         "unfairPct": 9.0,
-        "version": "fairness_bands_v1"
+        "version": "fairness_bands_v2"
        },
        "hypotheticalPicksOut": [],
        "incomplete": true,
+       "largerPackageUtility": 2500.0,
        "magnitude": "stretch",
        "notOwnedBySender": [],
        "packageModel": {
@@ -785,9 +803,10 @@
     "state": "not_computed_multi_team"
    },
    "fairness": {
-    "bands": "fairness_bands_v1",
+    "bands": "fairness_bands_v2",
     "gap": null,
     "largerAdjustedSide": null,
+    "largerPackageUtility": null,
     "level": null,
     "reasonCode": "asset_not_evaluable",
     "relativePct": null,
@@ -1489,12 +1508,16 @@
     "decision": {
      "bands": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "components": {},
      "confidence": {
@@ -1522,11 +1545,11 @@
        "evidence": {
         "band": {
          "absoluteGap": 7000.0,
-         "bands": "fairness_bands_v1",
+         "bands": "fairness_bands_v2",
          "label": "LOPSIDED",
          "level": "lopsided",
          "relativePct": 100.0,
-         "status": "PROVISIONAL"
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
         },
         "rawGap": -7000,
         "receivingAdjusted": 0,
@@ -1820,7 +1843,7 @@
        "largeMultiple": 3.0,
        "materialityPpg": 1.0
       },
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "boardStamp": "2026-10-20T11:00:00+00:00",
       "decisionVersion": "trade_decision_v2",
       "packageModel": {
@@ -1894,23 +1917,28 @@
       "detail": {
        "band": {
         "absoluteGap": 7000.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 100.0,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "bandsReceipt": {
         "absoluteMinimum": 250.0,
-        "basis": "adjusted_package_totals",
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
         "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
         "slightPct": 3.5,
-        "status": "PROVISIONAL",
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
         "unfairPct": 9.0,
-        "version": "fairness_bands_v1"
+        "version": "fairness_bands_v2"
        },
        "hypotheticalPicksOut": [],
        "incomplete": true,
+       "largerPackageUtility": 7000.0,
        "magnitude": "stretch",
        "notOwnedBySender": [],
        "packageModel": {
@@ -2038,23 +2066,28 @@
       "detail": {
        "band": {
         "absoluteGap": 7000.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 100.0,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "bandsReceipt": {
         "absoluteMinimum": 250.0,
-        "basis": "adjusted_package_totals",
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
         "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
         "slightPct": 3.5,
-        "status": "PROVISIONAL",
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
         "unfairPct": 9.0,
-        "version": "fairness_bands_v1"
+        "version": "fairness_bands_v2"
        },
        "hypotheticalPicksOut": [],
        "incomplete": true,
+       "largerPackageUtility": 7000.0,
        "magnitude": "stretch",
        "notOwnedBySender": [],
        "packageModel": {
@@ -2140,9 +2173,10 @@
     "state": "not_computed_multi_team"
    },
    "fairness": {
-    "bands": "fairness_bands_v1",
+    "bands": "fairness_bands_v2",
     "gap": null,
     "largerAdjustedSide": null,
+    "largerPackageUtility": null,
     "level": null,
     "reasonCode": "asset_not_evaluable",
     "relativePct": null,
@@ -2829,28 +2863,33 @@
     "decision": {
      "bands": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "components": {
       "objectiveValue": {
        "band": {
         "absoluteGap": 4500.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 64.29,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "direction": "favors",
        "evaluated": true,
        "forcedReleaseCost": null,
        "kind": "independent",
        "largerAdjustedSide": 7000,
+       "largerPackageUtility": 7000,
        "magnitude": "large",
        "netGap": 4500,
        "unit": "canonical value points (adjusted package)",
@@ -2894,11 +2933,11 @@
        "evidence": {
         "band": {
          "absoluteGap": 4500.0,
-         "bands": "fairness_bands_v1",
+         "bands": "fairness_bands_v2",
          "label": "LOPSIDED",
          "level": "lopsided",
          "relativePct": 64.29,
-         "status": "PROVISIONAL"
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
         },
         "rawGap": 4500,
         "receivingAdjusted": 7000.0,
@@ -3169,11 +3208,11 @@
       "evidence": {
        "band": {
         "absoluteGap": 4500.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 64.29,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "forcedReleaseCost": null,
        "largerAdjustedSide": 7000,
@@ -3190,11 +3229,11 @@
        "evidence": {
         "band": {
          "absoluteGap": 4500.0,
-         "bands": "fairness_bands_v1",
+         "bands": "fairness_bands_v2",
          "label": "LOPSIDED",
          "level": "lopsided",
          "relativePct": 64.29,
-         "status": "PROVISIONAL"
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
         },
         "forcedReleaseCost": null,
         "largerAdjustedSide": 7000,
@@ -3212,7 +3251,7 @@
        "largeMultiple": 3.0,
        "materialityPpg": 1.0
       },
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "boardStamp": "2026-10-20T11:00:00+00:00",
       "decisionVersion": "trade_decision_v2",
       "packageModel": {
@@ -3271,13 +3310,13 @@
      "whatWouldChange": [
       {
        "evidence": {
-        "assetValue": 4800,
+        "assetValue": 4825,
         "searchStep": 25,
         "side": "send"
        },
        "flipsTo": "NO_TOO_CLOSE",
        "kind": "price",
-       "text": "If you also had to send an asset worth about 4,800, the answer would be NO \u2014 TOO CLOSE"
+       "text": "If you also had to send an asset worth about 4,825, the answer would be NO \u2014 TOO CLOSE"
       }
      ]
     },
@@ -3288,23 +3327,28 @@
       "detail": {
        "band": {
         "absoluteGap": 4500.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 64.29,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "bandsReceipt": {
         "absoluteMinimum": 250.0,
-        "basis": "adjusted_package_totals",
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
         "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
         "slightPct": 3.5,
-        "status": "PROVISIONAL",
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
         "unfairPct": 9.0,
-        "version": "fairness_bands_v1"
+        "version": "fairness_bands_v2"
        },
        "hypotheticalPicksOut": [],
        "incomplete": false,
+       "largerPackageUtility": 7000.0,
        "magnitude": "stretch",
        "notOwnedBySender": [],
        "packageModel": {
@@ -3430,23 +3474,28 @@
       "detail": {
        "band": {
         "absoluteGap": 4500.0,
-        "bands": "fairness_bands_v1",
+        "bands": "fairness_bands_v2",
         "label": "LOPSIDED",
         "level": "lopsided",
         "relativePct": 64.29,
-        "status": "PROVISIONAL"
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
        },
        "bandsReceipt": {
         "absoluteMinimum": 250.0,
-        "basis": "adjusted_package_totals",
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
         "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
         "slightPct": 3.5,
-        "status": "PROVISIONAL",
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
         "unfairPct": 9.0,
-        "version": "fairness_bands_v1"
+        "version": "fairness_bands_v2"
        },
        "hypotheticalPicksOut": [],
        "incomplete": false,
+       "largerPackageUtility": 7000.0,
        "magnitude": "stretch",
        "notOwnedBySender": [],
        "packageModel": {
@@ -3528,9 +3577,10 @@
     "state": "not_computed_multi_team"
    },
    "fairness": {
-    "bands": "fairness_bands_v1",
+    "bands": "fairness_bands_v2",
     "gap": 4500,
     "largerAdjustedSide": 7000.0,
+    "largerPackageUtility": 7000.0,
     "level": "lopsided",
     "reasonCode": "outside_fairness_threshold",
     "relativePct": 64.29,

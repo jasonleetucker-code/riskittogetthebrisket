@@ -12,7 +12,9 @@ gate:
 * :func:`team_fairness` — the team's MARKET fairness: the asset evidence
   gates (``trade_decision.asset_evidence_gaps``) and then the band the equity
   lens already classified (``fairness_bands.classify`` over that team's own
-  adjusted package totals).  Gross, not net of any forced-release cost, so it
+  package gap, relative to the larger PACKAGE UTILITY of its (gives,
+  receives) -- fairness_bands_v2, OD-F2) and the owner's binary FAIR TRADE
+  rule (``fairness_bands.counts_as_fair_trade``, OD-F1).  Gross, not net of any forced-release cost, so it
   is identical in every mode.
 * :func:`fairness_overall` — three-valued (Kleene) AND over the teams.
 * :func:`all_team_summary` / :func:`conservation` — the all-team summary, a
@@ -161,6 +163,7 @@ def _unable(reason: str) -> dict[str, Any]:
         "reasonCode": reason,
         "gap": None,
         "largerAdjustedSide": None,
+        "largerPackageUtility": None,
         "relativePct": None,
         "bands": fairness_bands.receipt()["version"],
     }
@@ -171,8 +174,11 @@ def team_fairness(simulation: Any, analysis: Any) -> dict[str, Any]:
 
     The asset evidence gates decide UNABLE first (the same gaps the decision
     sees — there is no second check here); otherwise the band the equity lens
-    classified for THIS team's (gives, receives) decides: ``fair`` -> FAIR,
-    anything else -> NOT_FAIR.  The band is read, never recomputed.
+    classified for THIS team's (gives, receives) decides through the owner's
+    FAIR TRADE rule (``counts_as_fair_trade``, OD-F1: ``fair`` only in v2) ->
+    FAIR, anything else -> NOT_FAIR.  The band and its base (the larger
+    PACKAGE UTILITY, ``largerPackageUtility``) are read from the lens, never
+    recomputed; ``largerAdjustedSide`` is a display number only (v1's base).
     """
     from src.valuation_math import fairness_bands  # noqa: PLC0415
 
@@ -197,13 +203,21 @@ def team_fairness(simulation: Any, analysis: Any) -> dict[str, Any]:
         if isinstance(send_adj, (int, float)) and isinstance(recv_adj, (int, float))
         else None
     )
-    fair = level == "fair"
+    try:
+        # The owner validates the base the band was classified on (finite,
+        # non-negative); a band without it is not evidence (MISSING IS NEVER
+        # ZERO), so it is UNABLE rather than read as a verdict.
+        larger_utility = fairness_bands.fairness_base([view.detail.get("largerPackageUtility")])
+    except fairness_bands.FairnessInputError:
+        return _unable("evaluation_unavailable")
+    fair = fairness_bands.counts_as_fair_trade(level)
     return {
         "state": FAIR if fair else NOT_FAIR,
         "level": level,
         "reasonCode": "within_fairness_threshold" if fair else "outside_fairness_threshold",
         "gap": view.detail.get("vaAdjustedGap"),
         "largerAdjustedSide": larger,
+        "largerPackageUtility": larger_utility,
         "relativePct": band.get("relativePct"),
         "bands": str(band.get("bands") or fairness_bands.receipt()["version"]),
     }

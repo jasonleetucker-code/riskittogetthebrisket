@@ -77,12 +77,17 @@ def test_i14_one_to_many_directional_numbers(mode):
     snap = mts.synthetic_snapshot()
     out = _run(snap, _ledger(snap, [1, 2, 3], I14_LEGS), mode)
     f = {rid: t["fairness"] for rid, t in out["teams"].items()}
-    assert (f[1]["gap"], f[1]["largerAdjustedSide"], f[1]["relativePct"], f[1]["level"]) == (
-        610,
-        9610.0,
-        6.35,
-        "slight",
-    )
+    # fairness_bands_v2 (OD-F2): relative to the larger PACKAGE UTILITY
+    # (U_R = 7000 + 0.78 x 2500 = 8950 for team 1), not the larger adjusted
+    # side (9610, v1's 6.35 %); the adjusted side stays as a display number.
+    assert (
+        f[1]["gap"],
+        f[1]["largerAdjustedSide"],
+        f[1]["largerPackageUtility"],
+        f[1]["relativePct"],
+        f[1]["level"],
+    ) == (610, 9610.0, 8950.0, 6.82, "slight")
+    assert (f[2]["largerPackageUtility"], f[3]["largerPackageUtility"]) == (7000.0, 3000.0)
     assert (f[2]["gap"], f[2]["largerAdjustedSide"], f[2]["relativePct"], f[2]["level"]) == (
         -1000,
         7000.0,

@@ -55,6 +55,7 @@ FAIRNESS_KEYS = {
     "reasonCode",
     "gap",
     "largerAdjustedSide",
+    "largerPackageUtility",
     "relativePct",
     "bands",
 }

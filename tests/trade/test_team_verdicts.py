@@ -158,8 +158,10 @@ def test_real_decide_results_never_hit_a_malformed_pairing():
 
 def _analysis(level="fair", *, available=True, gap=100, send=5000.0, recv=5100.0, extra=None):
     detail = {
-        "band": {"level": level, "relativePct": 1.96, "bands": "fairness_bands_v1"},
+        "band": {"level": level, "relativePct": 1.96, "bands": "fairness_bands_v2"},
         "vaAdjustedGap": gap,
+        # fairness_bands_v2 (OD-F2): the base the band was classified on.
+        "largerPackageUtility": recv,
         "sendingAdjusted": send,
         "receivingAdjusted": recv,
         "unresolvedIn": [],
@@ -180,10 +182,30 @@ def test_fairness_reads_the_band_and_never_recomputes_it():
     f = tv.team_fairness(_sim(), _analysis("fair"))
     assert f["state"] == "FAIR" and f["reasonCode"] == "within_fairness_threshold"
     assert f["gap"] == 100 and f["largerAdjustedSide"] == 5100.0 and f["relativePct"] == 1.96
+    assert f["largerPackageUtility"] == 5100.0
     for level in ("slight", "unfair", "lopsided"):
         g = tv.team_fairness(_sim(), _analysis(level))
         assert g["state"] == "NOT_FAIR" and g["level"] == level
         assert g["reasonCode"] == "outside_fairness_threshold"
+
+
+def test_fairness_reads_fair_trade_through_the_owner(monkeypatch):
+    """OD-F1: the binary FAIR TRADE answer is the owner's
+    ``counts_as_fair_trade``, never a local ``== "fair"``."""
+    from src.valuation_math import fairness_bands
+
+    monkeypatch.setattr(fairness_bands, "FAIR_TRADE_LEVELS", ("fair", "slight"))
+    assert tv.team_fairness(_sim(), _analysis("slight"))["state"] == "FAIR"
+    assert tv.team_fairness(_sim(), _analysis("unfair"))["state"] == "NOT_FAIR"
+
+
+@pytest.mark.parametrize("base", [None, float("nan"), float("inf"), -1.0, "5100"])
+def test_a_band_without_its_package_utility_base_is_unable(base):
+    """fairness_bands_v2: a band whose base (the larger PACKAGE UTILITY) is
+    missing or non-finite is not evidence -- MISSING IS NEVER ZERO."""
+    f = tv.team_fairness(_sim(), _analysis(extra={"largerPackageUtility": base}))
+    assert f["state"] == "UNABLE" and f["reasonCode"] == "evaluation_unavailable"
+    assert f["largerPackageUtility"] is None
 
 
 @pytest.mark.parametrize(

@@ -3,7 +3,10 @@
 ``tests/fixtures/multi_team_trade_parity_cases.json`` holds per-team value
 arrays for routed multi-team trades and, per team, the Python owners' answer:
 ``package_model.adjusted_pair_totals(gives, receives)`` (the active model),
-``gap = recvAdj - sendAdj`` and ``fairness_bands.classify(gap, max(...))``.
+``gap = recvAdj - sendAdj`` and ``fairness_bands.classify(gap, larger_package_utility)``
+-- the fairness_bands_v2 base (OD-F2): the larger PACKAGE UTILITY of the
+team's (gives, receives), decided by the owner, never ``max`` of the adjusted
+totals (v1).  ``larger`` (the larger adjusted side) stays as a display number.
 The JavaScript half (``frontend/__tests__/multi-team-package-parity.test.js``)
 must reproduce every number from the same file.  Value RESOLUTION is out of
 scope (spec §5.1 item 9): only the pure math over the same arrays.
@@ -83,7 +86,9 @@ TRADES: list[tuple[str, str, dict[str, list[tuple[float, str]]]]] = [
 def _team_totals(gives: list[float], receives: list[float]) -> dict:
     send_adj, recv_adj, send_va, recv_va = package_model.adjusted_pair_totals(gives, receives)
     gap = recv_adj - send_adj
-    band = fairness_bands.classify(gap, max(send_adj, recv_adj))
+    # fairness_bands_v2: the owner decides the base (larger package utility).
+    larger_utility = fairness_bands.larger_package_utility(gives, receives)
+    band = fairness_bands.classify(gap, larger_utility)
     return {
         "sendAdj": send_adj,
         "recvAdj": recv_adj,
@@ -91,6 +96,7 @@ def _team_totals(gives: list[float], receives: list[float]) -> dict:
         "recvVA": recv_va,
         "gap": gap,
         "larger": max(send_adj, recv_adj),
+        "largerUtility": larger_utility,
         "level": band["level"],
         "relativePct": band["relativePct"],
     }
