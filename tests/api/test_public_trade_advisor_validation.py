@@ -325,3 +325,26 @@ def test_snapshot_memo_is_keyed_by_contract_identity(advisor_client, monkeypatch
     monkeypatch.setattr(server, "latest_contract_data", S.contract())
     advisor_client.get(S.TEAMS_URL)
     assert len(api._SNAPSHOT_MEMO) == 2  # LRU 2
+
+
+# Captured at import, before the advisor_client fixture swaps in its
+# launched-box seam.
+_REAL_LAUNCH_GATE = api._launch_gate_reason
+
+
+def test_flag_on_without_a_response_floor_stays_closed(advisor_client, monkeypatch):
+    """Design §2.11: switching the flag on is not a launch until a measured
+    responseFloorMs is configured; every route refuses until then."""
+    monkeypatch.setattr(api, "_launch_gate_reason", _REAL_LAUNCH_GATE)
+    cfg = copy.deepcopy(api.advisor_config())
+    cfg["responseFloorMs"] = None
+    monkeypatch.setattr(api, "advisor_config", lambda: cfg)
+    for method, url in (("GET", S.TEAMS_URL), ("GET", S.assets_url(1)), ("POST", S.ANALYZE)):
+        body = S.two_team_body(("p:101", 1, 2)) if method == "POST" else None
+        res = advisor_client.request(method, url, json=body)
+        assert res.status_code == 503, (url, res.text)
+        assert res.json()["reason"] == "disabled"  # publicly the same as flag off
+    assert api._launch_gate_reason() == "response_floor_unset"
+    cfg["responseFloorMs"] = 250
+    assert api._launch_gate_reason() is None
+    assert advisor_client.get(S.TEAMS_URL).status_code == 200

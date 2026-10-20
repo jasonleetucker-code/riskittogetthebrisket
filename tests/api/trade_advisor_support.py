@@ -349,6 +349,9 @@ def advisor_client_fixture(_advisor_app, monkeypatch):
     api.reset_for_tests()
     rate_limit.reset_for_tests()
     monkeypatch.setattr(server, "latest_contract_data", contract())
+    # A launched box has a measured response floor; the launch gate itself is
+    # pinned in test_public_trade_advisor_validation.
+    monkeypatch.setattr(api, "_launch_gate_reason", lambda: None)
     yield client
     feature_flags.reload()
     api.reset_for_tests()

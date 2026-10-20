@@ -498,11 +498,25 @@ def reset_for_tests() -> None:
         _LIMITER.reset()
 
 
+def _launch_gate_reason() -> str | None:
+    """Design §2.11: the advisor may not serve while no measured response
+    floor is configured — without it, analyze latency encodes which engine
+    path ran.  Turning the flag on is therefore not enough to launch; the
+    floor must be set too.  Fails closed."""
+    if not advisor_config().get("responseFloorMs"):
+        return "response_floor_unset"
+    return None
+
+
 def _gate(league_key: str) -> tuple[Any, str | None, JSONResponse | None]:
     """Flag → league → ONE captured contract.  ``(contract, key, error)``."""
     from src.api.feature_flags import is_enabled
 
     if not is_enabled("brisket_trade_advisor"):
+        return None, None, _error(503, "advisor_unavailable", "disabled")
+    if _launch_gate_reason() is not None:
+        # Publicly indistinguishable from the flag being off: naming the
+        # timing defence would describe it to an anonymous caller.
         return None, None, _error(503, "advisor_unavailable", "disabled")
     league_err = _league_error(league_key)
     if league_err is not None:
