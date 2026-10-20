@@ -14,9 +14,19 @@
  * computes (`trade-logic.js::packageUtilities`, stamped as `utility` on side
  * totals and side flows) — never the larger ADJUSTED side, which was v1.
  *
- * Non-finite input (NaN, ±Infinity, null, undefined, a non-number, a negative
- * base) is REFUSED with a thrown FairnessInputError (code
- * `fairness_input_not_finite`) — identical to Python.  It is never "fair".
+ * Missing input is REFUSED with a thrown FairnessInputError — identical to
+ * Python (shared fixture tests/fixtures/fairness_band_refusal_cases.json).  It
+ * is never "fair":
+ *   - a non-finite gap or base (NaN, ±Infinity, null, undefined, a
+ *     non-number), a negative base, a utilities container that is not an
+ *     array (code `fairness_input_not_finite`);
+ *   - a zero base beside a gap at or above ABSOLUTE_MINIMUM (code
+ *     `fairness_input_inconsistent`): |gap| <= the larger utility under every
+ *     package model and an N-team set with base 0 has every net 0, so the pair
+ *     can only come from missing utilities.  Below the floor every base reads
+ *     fair, so a zero base there is answered.
+ * Piece values are checked by the package-utility producer
+ * (`trade-logic.js::packageUtilities`; Python `package_utilities`).
  *
  * Every number is an owner-approved PRIOR, validated after launch (OD-F4).
  * The constants below are pinned to the JSON owner by
@@ -36,6 +46,7 @@ export const LOPSIDED_PCT = 18.0;
 /** OD-F1: the band level(s) that count as a FAIR TRADE. */
 export const FAIR_TRADE_LEVELS = Object.freeze(["fair"]);
 export const FAIRNESS_INPUT_ERROR_CODE = "fairness_input_not_finite";
+export const FAIRNESS_INPUT_INCONSISTENT_CODE = "fairness_input_inconsistent";
 
 export const FAIRNESS_LABELS = Object.freeze({
   fair: "FAIR",
@@ -44,17 +55,23 @@ export const FAIRNESS_LABELS = Object.freeze({
   lopsided: "LOPSIDED",
 });
 
-/** A gap or base that is not a finite number (or a negative base). */
+/** Input the owner refuses to classify (see the header). */
 export class FairnessInputError extends Error {
-  constructor(message) {
+  constructor(message, code = FAIRNESS_INPUT_ERROR_CODE) {
     super(message);
     this.name = "FairnessInputError";
-    this.code = FAIRNESS_INPUT_ERROR_CODE;
+    this.code = code;
   }
 }
 
-function isFiniteNumber(x) {
+/** True for a finite JS number (a piece value, gap or base the owner accepts). */
+export function isFiniteNumber(x) {
   return typeof x === "number" && Number.isFinite(x);
+}
+
+/** Math.round(x * factor) / factor -- fairness_bands._js_round does the same ops. */
+function roundTo(x, factor) {
+  return Math.round(x * factor) / factor;
 }
 
 function requireGap(gap) {
@@ -76,8 +93,11 @@ function requireBase(base) {
  * fairness_bands.fairness_base.
  */
 export function fairnessBase(utilities) {
+  if (!Array.isArray(utilities)) {
+    throw new FairnessInputError(`${FAIRNESS_INPUT_ERROR_CODE}: utilities=${String(utilities)}`);
+  }
   let base = 0;
-  for (const u of utilities || []) base = Math.max(base, requireBase(u));
+  for (const u of utilities) base = Math.max(base, requireBase(u));
   return base;
 }
 
@@ -92,12 +112,19 @@ export function relativeGapPct(gap, largerUtility) {
 /**
  * Classify one package gap.  `gap` is signed (only its size is classified);
  * `largerUtility` is the larger PACKAGE UTILITY (from `fairnessBase`).
- * Throws FairnessInputError on non-finite input.
+ * Throws FairnessInputError on non-finite input, and on a zero base beside a
+ * gap at or above ABSOLUTE_MINIMUM.
  * @returns {{level: 'fair'|'slight'|'unfair'|'lopsided', label: string, relativePct: number|null, absoluteGap: number}}
  */
 export function classifyGap(gap, largerUtility) {
   const absolute = Math.abs(requireGap(gap));
   const rel = relativeGapPct(gap, largerUtility);
+  if (rel == null && absolute >= ABSOLUTE_MINIMUM) {
+    throw new FairnessInputError(
+      `${FAIRNESS_INPUT_INCONSISTENT_CODE}: gap=${String(gap)} base=0`,
+      FAIRNESS_INPUT_INCONSISTENT_CODE,
+    );
+  }
   let level;
   if (absolute < ABSOLUTE_MINIMUM || rel == null || rel < SLIGHT_PCT) level = "fair";
   else if (rel < UNFAIR_PCT) level = "slight";
@@ -106,8 +133,8 @@ export function classifyGap(gap, largerUtility) {
   return {
     level,
     label: FAIRNESS_LABELS[level],
-    relativePct: rel == null ? null : Math.round(rel * 100) / 100,
-    absoluteGap: absolute,
+    relativePct: rel == null ? null : roundTo(rel, 100),
+    absoluteGap: roundTo(absolute, 10),
   };
 }
 

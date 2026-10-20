@@ -9,9 +9,11 @@
 import { describe, expect, it } from "vitest";
 import fixture from "../../tests/fixtures/fairness_band_cases.json";
 import refusals from "../../tests/fixtures/fairness_band_refusal_cases.json";
+import rounding from "../../tests/fixtures/fairness_band_rounding_cases.json";
 import {
   FAIRNESS_BANDS_VERSION,
   FAIRNESS_INPUT_ERROR_CODE,
+  FAIRNESS_INPUT_INCONSISTENT_CODE,
   FairnessInputError,
   classifyGap,
   countsAsFairTrade,
@@ -41,6 +43,7 @@ function decode(token) {
   if (token === "undefined") return undefined;
   if (token.startsWith("str:")) return token.slice(4);
   if (token === "bool:true") return true;
+  if (token === "object:{}") return {};
   throw new Error(`unknown token ${token}`);
 }
 
@@ -104,6 +107,13 @@ describe("refusal: non-finite input is never classified (MISSING IS NEVER ZERO)"
         expect(() => classifyGap(gap, base)).toThrow(FairnessInputError);
         expect(() => isFairGap(gap, base)).toThrow(FairnessInputError);
         expect(() => meterVerdict(gap, base)).toThrow(FairnessInputError);
+        let code = null;
+        try {
+          classifyGap(gap, base);
+        } catch (err) {
+          code = err.code;
+        }
+        expect(code).toBe(c.expectCode ?? refusals.code);
       } else {
         expect(classifyGap(gap, base).level).toBe(c.expect);
       }
@@ -116,6 +126,43 @@ describe("refusal: non-finite input is never classified (MISSING IS NEVER ZERO)"
       else expect(fairnessBase(utilities)).toBe(c.expect);
     });
   }
+  it("shares the Python inconsistent-input code", () => {
+    expect(refusals.inconsistentCode).toBe(FAIRNESS_INPUT_INCONSISTENT_CODE);
+  });
+  for (const c of refusals.baseContainers) {
+    it(`fairnessBase(<${c.container}>) -> refuse`, () => {
+      expect(() => fairnessBase(decode(c.container))).toThrow(FairnessInputError);
+      expect(() => sideTotalsFairnessBase(decode(c.container))).toThrow(FairnessInputError);
+    });
+  }
+  for (const c of refusals.packagePieces) {
+    it(`packageUtilities(${JSON.stringify(c.a)}, ${JSON.stringify(c.b)}) -> ${c.expect}`, () => {
+      const dec = (x) => (typeof x === "string" ? decode(x) : x.map(decode));
+      const values = [dec(c.a), dec(c.b)];
+      if (c.expect === "refuse") {
+        for (const modelId of [undefined, PACKAGE_MODEL_IDS.KTC_2026_04]) {
+          expect(() => fairnessBase(packageUtilities(values, [1, 1], { modelId }))).toThrow(
+            FairnessInputError,
+          );
+        }
+      } else {
+        expect(fairnessBase(packageUtilities(values, []))).toBeCloseTo(c.expect, 9);
+      }
+    });
+  }
+  it("a zero base beside a gap above the floor is refused, never FAIR (review of #1886)", () => {
+    // The reviewer's multi-team cases: flows with no / NaN / one zero utility.
+    for (const flows of [
+      [{ net: 5000 }, { net: -3000 }, { net: -2000 }],
+      [{ net: 5000, utility: NaN }, { net: -5000, utility: NaN }],
+      [{ net: 5000, utility: 0 }],
+    ]) {
+      expect(() => multiTeamNetSummary(flows)).toThrow(FairnessInputError);
+    }
+    expect(() => classifyGap(5000, 0)).toThrow(FairnessInputError);
+    expect(() => classifyGap(5000, fairnessBase(undefined))).toThrow(FairnessInputError);
+    expect(() => sideTotalsFairnessBase(undefined)).toThrow(FairnessInputError);
+  });
   it("NaN never reads fair through any helper", () => {
     expect(() => relativeGapPct(NaN, 5000)).toThrow(FairnessInputError);
     expect(() => classifyGap(NaN, 5000)).toThrow(FairnessInputError);
@@ -124,7 +171,12 @@ describe("refusal: non-finite input is never classified (MISSING IS NEVER ZERO)"
     expect(() => sideTotalsFairnessBase([{ adjusted: 5000 }, { adjusted: 4000, utility: 4000 }])).toThrow(
       FairnessInputError,
     );
+    expect(() => sideTotalsFairnessBase([null, { utility: 4000 }])).toThrow(FairnessInputError);
     expect(sideTotalsFairnessBase([])).toBe(0);
+  });
+  it("placeholder flows that state utility 0 classify their zero nets", () => {
+    const flows = [0, 0, 0].map(() => ({ given: 0, received: 0, net: 0, utility: 0 }));
+    expect(multiTeamNetSummary(flows).verdict.level).toBe("fair");
   });
 });
 
@@ -154,6 +206,16 @@ describe("OD-F1: FAIR TRADE is the fair band only", () => {
     expect(countsAsFairTrade("fair")).toBe(true);
     for (const level of ["slight", "unfair", "lopsided", null, undefined, "FAIR"]) {
       expect(countsAsFairTrade(level)).toBe(false);
+    }
+  });
+});
+
+describe("published rounding equals the Python owner's (shared fixture)", () => {
+  it("relativePct and absoluteGap on every case, half-ties included", () => {
+    expect(rounding.cases.length).toBeGreaterThan(300);
+    for (const c of rounding.cases) {
+      const r = classifyGap(c.gap, c.base);
+      expect([r.level, r.relativePct, r.absoluteGap]).toEqual([c.level, c.relativePct, c.absoluteGap]);
     }
   });
 });

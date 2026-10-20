@@ -1,11 +1,18 @@
 {
  "_comment": [
-  "fairness_bands_v2 non-finite inputs (MISSING IS NEVER ZERO).  Both languages must REFUSE these",
+  "fairness_bands_v2 refused inputs (MISSING IS NEVER ZERO).  Both languages must REFUSE these",
   "identically -- Python raises fairness_bands.FairnessInputError, JS throws FairnessInputError, both",
-  "with code fairness_input_not_finite -- and never classify them (v1: JS answered 'fair' on NaN,",
-  "Python 'lopsided').  Tokens, decoded the same way by both tests (JSON cannot carry NaN):",
+  "carrying the case's code (default `code`; `expectCode` overrides) -- and never classify them",
+  "(v1: JS answered 'fair' on NaN, Python 'lopsided').  Tokens, decoded the same way by both tests",
+  "(JSON cannot carry NaN):",
   "  \"NaN\" / \"Infinity\" / \"-Infinity\" -> the IEEE value; \"null\" -> None / null;",
-  "  \"undefined\" -> JS undefined (Python: skipped); \"str:<x>\" -> the string <x>; \"bool:true\" -> True / true.",
+  "  \"undefined\" -> JS undefined (Python: skipped); \"str:<x>\" -> the string <x>; \"bool:true\" -> True / true;",
+  "  \"object:{}\" -> an empty dict / plain object.",
+  "Sections: classify(gap, base); base = fairness_base(utilities); baseContainers = fairness_base(<container>);",
+  "packagePieces = the package-utility producer (Python package_utilities / larger_package_utility,",
+  "JS trade-logic.js::packageUtilities + fairnessBase) on raw piece values, so a NaN piece is refused",
+  "instead of being priced as an absent (0) piece.  A zero base beside |gap| >= absoluteMinimum is",
+  "refused with code fairness_input_inconsistent (impossible under every package model: missing data).",
   "Accepted cases sit beside them so a refusal cannot be satisfied by refusing everything.",
   "Asserted by tests/valuation_math/test_fairness_bands.py and frontend/__tests__/fairness-bands.test.js."
  ],
@@ -29,7 +36,12 @@
   {"gap": 0, "base": 0, "expect": "fair"},
   {"gap": 100, "base": 0, "expect": "fair"},
   {"gap": -300, "base": 5000, "expect": "slight"},
-  {"gap": 1e-9, "base": 5000, "expect": "fair"}
+  {"gap": 1e-09, "base": 5000, "expect": "fair"},
+  {"gap": 250, "base": 0, "expect": "refuse", "expectCode": "fairness_input_inconsistent"},
+  {"gap": 5000, "base": 0, "expect": "refuse", "expectCode": "fairness_input_inconsistent"},
+  {"gap": -5000, "base": 0, "expect": "refuse", "expectCode": "fairness_input_inconsistent"},
+  {"gap": 249.9, "base": 0, "expect": "fair"},
+  {"gap": -249.9, "base": 0, "expect": "fair"}
  ],
  "base": [
   {"utilities": [], "expect": 0},
@@ -40,5 +52,26 @@
   {"utilities": [4000, "null"], "expect": "refuse"},
   {"utilities": [4000, -5], "expect": "refuse"},
   {"utilities": ["str:4000"], "expect": "refuse"}
+ ],
+ "inconsistentCode": "fairness_input_inconsistent",
+ "baseContainers": [
+  {"container": "null", "expect": "refuse"},
+  {"container": "undefined", "expect": "refuse"},
+  {"container": "object:{}", "expect": "refuse"},
+  {"container": "str:4000", "expect": "refuse"}
+ ],
+ "packagePieces": [
+  {"a": [5000, "NaN"], "b": [5000], "expect": "refuse"},
+  {"a": ["NaN"], "b": [], "expect": "refuse"},
+  {"a": [5000], "b": ["NaN", 100], "expect": "refuse"},
+  {"a": [5000, "Infinity"], "b": [5000], "expect": "refuse"},
+  {"a": [5000, "-Infinity"], "b": [5000], "expect": "refuse"},
+  {"a": [5000, "null"], "b": [5000], "expect": "refuse"},
+  {"a": ["str:5000"], "b": [5000], "expect": "refuse"},
+  {"a": ["bool:true"], "b": [5000], "expect": "refuse"},
+  {"a": "null", "b": [5000], "expect": "refuse"},
+  {"a": [5000, 2000], "b": [3000], "expect": 6560},
+  {"a": [5000, 0], "b": [5000], "expect": 5000},
+  {"a": [], "b": [], "expect": 0}
  ]
 }

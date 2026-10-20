@@ -22,7 +22,7 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 | floor | 250 | 250, recorded as an owner-approved prior (OD-F3) |
 | cut points | 3.5 / 9 / 18 % | unchanged |
 | FAIR TRADE (binary answer) | not defined in the owner | `fairTradeLevels: ["fair"]` (OD-F1) |
-| non-finite input | JS → `fair`, Python → `lopsided` on `NaN` | refused in both languages (`FairnessInputError`, code `fairness_input_not_finite`) |
+| missing input | JS → `fair`, Python → `lopsided` on `NaN`; a NaN package piece priced as absent (0) in both | refused in both languages (`FairnessInputError`): non-finite gap / base / package piece and a missing utilities container (code `fairness_input_not_finite`); a zero base beside a gap ≥ the floor (code `fairness_input_inconsistent`) |
 | validation | none | OD-F4 post-launch, recorded as `postLaunchValidation` (`PENDING`) |
 
 Under `geom_q078_v1` the adjusted gap already equals `U_R − U_G`. v1 divided
@@ -202,18 +202,73 @@ it.
   validation needs the box-local market-trade ledger and the temporal ledger,
   and neither is available here.
 - **OD-F6.** 6 history-grade disagreements remain.
-- **Refusal behaviour in the UI.** A non-finite value reaching a band
-  classifier now throws instead of reading `fair`. No live producer is known
-  to emit one:
-  - the /trade page and meter read side totals through `|| 0`;
-  - package utilities are always finite (non-positive and `NaN` pieces are
-    dropped);
-  - asset values arrive from the contract as numbers, and user overrides are
-    parsed as finite;
-  - Python filters unpriced assets before the package math.
-  A non-numeric value string in a contract row is the one remaining way to
-  reach the throw in the balancer path, and the throw surfaces it instead of
-  calling it fair.
+- **Refusal behaviour in the UI.** A refused input never reads `fair`. The
+  /trade and /waivers meters (two-team and 3+-team) render an explicit
+  **NO VERDICT** state on `FairnessInputError` instead of throwing into the
+  page, and the fairness explanation stays silent. The page-level tray and
+  balancers still call the owner directly; they are fed only by
+  `adjustedSideTotals` / `multiAdjustedSideTotals` / `computeSideFlows`, which
+  always stamp `utility`.
+  - An unpriced board row (including a `NaN` value) keeps its 0 arithmetic
+    neutral inside `effectiveValue`, and the verdict gate
+    (`tradeEvaluationState`) reports the trade INCOMPLETE before any band is
+    read. This is pinned by a render test.
+  - Python filters unpriced assets before the package math. The owner's
+    package-values entry point (`package_utilities`) now refuses a
+    non-finite piece rather than letting `package_model` drop it.
+
+## 9. Review follow-up (2026-10-20)
+
+Findings from the independent review of #1886 at `19ec3f7394` and what was
+done about each:
+
+- **/waivers regression (fixed).** `ManualAddDrop` built a flat-sum total with
+  no `utility` when only one side was picked, so the meter's base was refused
+  during render and the fairness bar was replaced by its "unavailable" banner.
+  - The component now always uses `adjustedSideTotals`. With one side empty
+    the VA is 0 and `utility` is stamped.
+  - The /trade page's 0- and 1-side fallback now uses
+    `multiAdjustedSideTotals` for the same reason.
+  - Render tests cover Add-only, Drop-only then Add, and the old utility-less
+    shape, which now renders NO VERDICT.
+- **Badge vs. percentage (fixed).**
+  - The meter winner text, the sticky tray and the fairness explanation now
+    print `meterVerdict(...).percentText`. That is the band's own relative
+    gap, floored to one decimal from the unrounded value, so it always sits
+    on the badge's side of every cut. Before, they printed `percentageGap`,
+    which is on the adjusted-side basis.
+  - Seeded probe of 50,000 one-vs-k trades (48,084 non-FAIR):
+    - old basis: 1,498 badges beside a percentage below their own cut, plus
+      120 at or above the next cut;
+    - new: 0 and 0.
+  - A structural test forbids `percentageGap(` in production frontend code.
+- **NaN package piece read as absent (fixed in the owner).**
+  - Python `package_utilities` / `larger_package_utility` /
+    `classify_packages` and JS `packageUtilities` validate every piece before
+    delegating. `package_model` is untouched.
+- **Zero base with a large gap read FAIR (fixed in the owner).**
+  - `classify` / `classifyGap` refuse a zero base when `|gap| ≥` the floor,
+    with code `fairness_input_inconsistent`. Below the floor every base reads
+    fair, so that case is still answered.
+  - `multiTeamNetSummary` no longer filters out flows that lack a utility.
+- **Missing utilities container (fixed).** Both languages refuse `None` /
+  `null` / `undefined`, a mapping or object, and a string, with the same code.
+- **Pre-existing parity gaps:**
+  - (a) and (b) are fixed. `relativePct` and `absoluteGap` use JS
+    `Math.round` semantics in both languages, pinned by the generated
+    `tests/fixtures/fairness_band_rounding_cases.json` (395 cases; 31 differed
+    under the old Python `round`).
+  - (d) is fixed. Python accepts any `numbers.Real` other than `bool`, so
+    `numpy.int64` and `numpy.float64` are treated alike.
+  - (c) is not changed. It is the compensated `sum()` in
+    `package_model.adjusted_pair_totals`, and this unit may not touch
+    `package_model`. It affects only fractional piece values at the last ULP,
+    and integer board values are unaffected. It is a named follow-up for a
+    package-model unit.
+- **Measurement.** Re-running
+  `measure_fairness_band_change.py --compare v1-v2 --pin-rev 1511ca1d08`
+  reproduces `results.json` byte for byte, so no level changed. League Hub
+  history grades are still 6 of 153 disagreeing with v2 `fair`.
 - **Public advisor (#1861).** It must read `fairTradeLevels` /
   `counts_as_fair_trade` from the owner. It is on an unmerged branch and was
   not touched here.

@@ -12,7 +12,15 @@
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
-import { classifyGap, fairnessBase, FAIRNESS_LABELS } from "./fairness-bands.js";
+import {
+  classifyGap,
+  fairnessBase,
+  FairnessInputError,
+  FAIRNESS_INPUT_ERROR_CODE,
+  FAIRNESS_LABELS,
+  isFiniteNumber,
+  relativeGapPct,
+} from "./fairness-bands.js";
 import {
   canAddEntry,
   deserializeEntry,
@@ -697,6 +705,11 @@ export function packageAdjustPair(team1Vals, team2Vals, opts = {}) {
  * so each side's ADJUSTED total stands in -- exactly the v1 basis, so a
  * package-model rollback restores v1 denominators.
  *
+ * Every piece must be a finite number, else FairnessInputError (code
+ * `fairness_input_not_finite`): `geomPackageUtility` prices a NaN piece as an
+ * absent one, so without this check a missing value would be priced as 0
+ * (MISSING IS NEVER ZERO).  Same refusal as the Python twin.
+ *
  * @param {number[][]} valueArrays  one array of piece values per side
  * @param {number[]} adjustedTotals each side's adjusted total (raw + VA),
  *   read only under the ktc family
@@ -707,9 +720,16 @@ export function packageUtilities(valueArrays, adjustedTotals, opts = {}) {
   const modelId = opts.modelId ?? ACTIVE_PACKAGE_MODEL_ID;
   const spec = PACKAGE_MODELS[modelId];
   if (!spec) throw new Error(`unknown package model ${modelId}`);
-  const arrays = valueArrays || [];
-  if (spec.family === "ktc") return arrays.map((_, i) => Number(adjustedTotals?.[i]));
-  return arrays.map((values) => geomPackageUtility(values, spec.q));
+  const refuse = (what, v) => {
+    throw new FairnessInputError(`${FAIRNESS_INPUT_ERROR_CODE}: ${what}=${String(v)}`);
+  };
+  if (!Array.isArray(valueArrays)) refuse("valueArrays", valueArrays);
+  for (const values of valueArrays) {
+    if (!Array.isArray(values)) refuse("side values", values);
+    for (const v of values) if (!isFiniteNumber(v)) refuse("piece", v);
+  }
+  if (spec.family === "ktc") return valueArrays.map((_, i) => Number(adjustedTotals?.[i]));
+  return valueArrays.map((values) => geomPackageUtility(values, spec.q));
 }
 
 /**
@@ -979,13 +999,15 @@ export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
 
 /**
  * The fairness band's base for a set of side totals (fairness_bands_v2,
- * OD-F2): the largest package `utility` they carry (`fairnessBase`).  An
- * absent side is an empty package (utility 0); a present side without a
- * finite `utility` is refused by the owner, never read as 0.
+ * OD-F2): the largest package `utility` they carry (`fairnessBase`).  A
+ * missing container, a missing side total, or a side total without a finite
+ * `utility` is refused by the owner (FairnessInputError), never read as 0.
+ * Every producer (`adjustedSideTotals`, `multiAdjustedSideTotals`) stamps it,
+ * including on an empty side (utility 0).
  * @param {{utility: number}[]} sideTotals
  */
 export function sideTotalsFairnessBase(sideTotals) {
-  return fairnessBase((sideTotals || []).map((t) => (t == null ? 0 : t.utility)));
+  return fairnessBase(Array.isArray(sideTotals) ? sideTotals.map((t) => t?.utility) : sideTotals);
 }
 
 /** Gap = Side A adjusted total − Side B adjusted total (active package model). */
@@ -2098,13 +2120,35 @@ export function tradeImbalance(sides, valueMode, settings = null) {
  * replaced v1's larger adjusted side, which replaced the absolute 350 / 900 /
  * 1800).  It labels the package gap; the trade DECISION is the backend's
  * (POST /api/trade/analyze).
+ *
+ * `percentText` is THE percentage to print beside the badge: the band's own
+ * relative gap (|gap| / larger package utility), floored to one decimal and
+ * printed without a trailing ".0".  Flooring the UNROUNDED value keeps it on
+ * the same side of every cut as the badge (cuts 3.5 / 9 / 18 are exact at one
+ * decimal and IEEE multiplication is monotone), so SLIGHT EDGE never sits
+ * beside "3%" and FAIR (on the relative test) never beside "3.5%".  A gap
+ * under ABSOLUTE_MINIMUM is FAIR whatever its percentage.  `null` when the
+ * base is 0.  Never print `percentageGap` (the adjusted-side basis) beside a
+ * badge.
  * @param {number} gap - package gap (sign ignored)
  * @param {number} largerUtility - larger package utility (`fairnessBase`)
- * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null }}
+ * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null, percentText: string|null }}
  */
 export function meterVerdict(gap, largerUtility) {
   const band = classifyGap(gap, largerUtility);
-  return { label: FAIRNESS_LABELS[band.level], level: band.level, relativePct: band.relativePct };
+  const rel = relativeGapPct(gap, largerUtility);
+  return {
+    label: FAIRNESS_LABELS[band.level],
+    level: band.level,
+    relativePct: band.relativePct,
+    percentText: rel == null ? null : formatBandPct(rel),
+  };
+}
+
+/** One decimal, floored (see meterVerdict); "20" not "20.0". */
+function formatBandPct(rel) {
+  const tenths = Math.floor(rel * 10);
+  return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
 }
 
 /**
@@ -2155,8 +2199,9 @@ export function multiTeamAnalysis(totals) {
  * NET flow (received − given, from ``computeSideFlows``), the band base (the
  * largest package UTILITY any side sends — ``tradeImbalance``'s base), the
  * worst |net|, and the band of that worst gap from the ONE fairness-band
- * owner.  Package-only; never a decision.
- * @param {{given:number, received:number, net:number}[]} flows
+ * owner.  Package-only; never a decision.  Throws FairnessInputError when a
+ * flow carries no finite `utility` (the meter renders that as unavailable).
+ * @param {{given:number, received:number, net:number, utility:number}[]} flows
  */
 export function multiTeamNetSummary(flows) {
   const list = Array.isArray(flows) ? flows : [];
@@ -2165,11 +2210,10 @@ export function multiTeamNetSummary(flows) {
     const n = Number(f?.net);
     return Number.isFinite(n) ? n : null;
   });
-  // A flow without a computed utility (a placeholder row) contributes no base;
-  // a real flow always carries one from computeSideFlows.
-  const largerUtility = fairnessBase(
-    list.map((f) => f?.utility).filter((v) => typeof v === "number" && Number.isFinite(v)),
-  );
+  // Every flow must carry its package `utility` (computeSideFlows stamps it,
+  // 0 for a side that sends nothing): a flow without one is refused by the
+  // owner (FairnessInputError), never dropped from the base.
+  const largerUtility = fairnessBase(list.map((f) => f?.utility));
   const known = nets.filter((n) => n != null).map((n) => Math.abs(n));
   const worst = known.length ? Math.max(...known) : 0;
   return { nets, largerUtility, worst, verdict: meterVerdict(worst, largerUtility) };

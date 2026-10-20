@@ -7,7 +7,12 @@ Pins:
 * a 1-for-1 is byte-identical to v1 over a grid (utility == adjusted total);
 * the depth bias is gone: a fixed utility shortfall reads the same at every
   piece count;
-* non-finite input is REFUSED identically to the JS mirror (shared fixture);
+* missing input is REFUSED identically to the JS mirror (shared fixture): a
+  non-finite gap / base, a missing utilities container, a non-finite package
+  PIECE at the owner's package-values entry point, and a zero base beside a
+  gap at or above the floor;
+* the published relativePct / absoluteGap rounding equals the JS mirror's
+  (shared generated fixture, including half-ties);
 * the JS mirror's constants equal the JSON owner;
 * no consumer computes its own base from adjusted totals (structural scan);
 * the version / status / owner decisions / OD-F4 validation are recorded, the
@@ -33,6 +38,9 @@ FIXTURE = json.loads((ROOT / "tests/fixtures/fairness_band_cases.json").read_tex
 REFUSALS = json.loads(
     (ROOT / "tests/fixtures/fairness_band_refusal_cases.json").read_text(encoding="utf-8")
 )
+ROUNDING = json.loads(
+    (ROOT / "tests/fixtures/fairness_band_rounding_cases.json").read_text(encoding="utf-8")
+)
 JS = (ROOT / "frontend/lib/fairness-bands.js").read_text(encoding="utf-8")
 CONFIG_RAW = json.loads((ROOT / "config/trade/fairness_bands.json").read_text(encoding="utf-8"))
 
@@ -57,6 +65,8 @@ def _decode(token):
         return token[4:]
     if token == "bool:true":
         return True
+    if token == "object:{}":
+        return {}
     raise AssertionError(f"unknown token {token!r}")
 
 
@@ -142,18 +152,54 @@ class Refusal(unittest.TestCase):
         self.assertTrue(issubclass(fb.FairnessInputError, ValueError))
 
     def test_classify_cases(self) -> None:
+        self.assertEqual(REFUSALS["inconsistentCode"], fb.INPUT_INCONSISTENT_CODE)
         for case in REFUSALS["classify"]:
             gap, base = _decode(case["gap"]), _decode(case["base"])
             if gap is _SKIP or base is _SKIP:
                 continue
             with self.subTest(case=case):
                 if case["expect"] == "refuse":
-                    with self.assertRaises(fb.FairnessInputError):
+                    code = case.get("expectCode", REFUSALS["code"])
+                    with self.assertRaises(fb.FairnessInputError) as ctx:
                         fb.classify(gap, base)
+                    self.assertEqual(ctx.exception.code, code)
                     with self.assertRaises(fb.FairnessInputError):
                         fb.is_even(gap, base)
                 else:
                     self.assertEqual(fb.classify(gap, base)["level"], case["expect"])
+
+    def test_base_containers(self) -> None:
+        for case in REFUSALS["baseContainers"]:
+            container = _decode(case["container"])
+            if container is _SKIP:
+                continue
+            with self.subTest(case=case):
+                with self.assertRaises(fb.FairnessInputError) as ctx:
+                    fb.fairness_base(container)
+                self.assertEqual(ctx.exception.code, REFUSALS["code"])
+
+    def test_package_pieces(self) -> None:
+        """The owner's package-values entry point refuses a non-finite piece
+        (the package model would price a NaN piece as absent, i.e. 0)."""
+        for case in REFUSALS["packagePieces"]:
+            a, b = case["a"], case["b"]
+            a = _decode(a) if isinstance(a, str) else [_decode(v) for v in a]
+            b = _decode(b) if isinstance(b, str) else [_decode(v) for v in b]
+            with self.subTest(case=case):
+                if case["expect"] == "refuse":
+                    for call in (
+                        lambda: fb.package_utilities(a, b),
+                        lambda: fb.larger_package_utility(a, b),
+                        lambda: fb.classify_packages(0, a, b),
+                        lambda: fb.package_utilities(a, b, model_id=package_model.KTC_2026_04),
+                    ):
+                        with self.assertRaises(fb.FairnessInputError) as ctx:
+                            call()
+                        self.assertEqual(ctx.exception.code, REFUSALS["code"])
+                else:
+                    self.assertAlmostEqual(
+                        fb.larger_package_utility(a, b), case["expect"], places=9
+                    )
 
     def test_base_cases(self) -> None:
         for case in REFUSALS["base"]:
@@ -171,9 +217,48 @@ class Refusal(unittest.TestCase):
             lambda: fb.is_even(math.nan, 5000),
             lambda: fb.relative_pct(math.nan, 5000),
             lambda: fb.fair_threshold(math.nan),
+            # Review of #1886: the package-values entry point priced a NaN
+            # piece as absent and answered 'fair'.
+            lambda: fb.classify_packages(0.0, [5000, math.nan], [5000]),
+            lambda: fb.classify_packages(0, [math.nan], []),
+            lambda: fb.fairness_base(None),
+            # A zero base beside a gap above the floor is missing data.
+            lambda: fb.classify(5000, 0),
         ):
             with self.assertRaises(fb.FairnessInputError):
                 call()
+
+    def test_numpy_scalars_are_treated_alike(self) -> None:
+        import numpy as np  # noqa: PLC0415
+
+        for gap in (np.int64(300), np.float64(300.0)):
+            self.assertEqual(fb.classify(gap, np.int64(5000))["level"], "slight")
+        with self.assertRaises(fb.FairnessInputError):
+            fb.classify(np.float64("nan"), 5000)
+
+
+class PublishedRoundingParity(unittest.TestCase):
+    """relativePct / absoluteGap are rounded with JS Math.round semantics (the
+    fixture is generated from the JS mirror), so both languages publish the
+    same number on half-ties -- Python's round() did not."""
+
+    def test_rounding_fixture(self) -> None:
+        self.assertGreater(len(ROUNDING["cases"]), 300)
+        for case in ROUNDING["cases"]:
+            got = fb.classify(case["gap"], case["base"])
+            with self.subTest(case=case):
+                self.assertEqual(got["level"], case["level"])
+                self.assertEqual(got["relativePct"], case["relativePct"])
+                self.assertEqual(got["absoluteGap"], case["absoluteGap"])
+
+    def test_fixture_exercises_half_ties(self) -> None:
+        legacy = sum(
+            1
+            for c in ROUNDING["cases"]
+            if round(abs(c["gap"]) / c["base"] * 100, 2) != c["relativePct"]
+            or round(abs(c["gap"]), 1) != c["absoluteGap"]
+        )
+        self.assertGreater(legacy, 0)
 
 
 class JsMirror(unittest.TestCase):
@@ -194,6 +279,9 @@ class JsMirror(unittest.TestCase):
         self.assertEqual(float(self._js_const("LOPSIDED_PCT")), fb.LOPSIDED_PCT)
         self.assertEqual(self._js_const("FAIR_TRADE_LEVELS"), list(fb.FAIR_TRADE_LEVELS))
         self.assertEqual(self._js_const("FAIRNESS_INPUT_ERROR_CODE"), fb.INPUT_ERROR_CODE)
+        self.assertEqual(
+            self._js_const("FAIRNESS_INPUT_INCONSISTENT_CODE"), fb.INPUT_INCONSISTENT_CODE
+        )
 
     def test_labels_equal_the_owner(self) -> None:
         for level, label in fb.LABELS.items():
@@ -279,6 +367,22 @@ class OneDenominatorOwner(unittest.TestCase):
                 if "node_modules" in path.parts or path.name == "fairness-bands.js":
                     continue
                 offenders += _js_offenders(path.read_text(encoding="utf-8"), str(path))
+        self.assertEqual(offenders, [])
+
+    def test_no_adjusted_basis_percentage_is_printed(self) -> None:
+        """Review of #1886: the meter / tray / explanation printed
+        ``percentageGap`` (gap / larger ADJUSTED side) beside a badge graded on
+        the larger PACKAGE UTILITY, so SLIGHT EDGE could sit beside "3%".  The
+        printed percentage is ``meterVerdict(...).percentText``; no production
+        frontend file may call ``percentageGap`` (its export stays for tests)."""
+        offenders = []
+        for sub in ("app", "components", "lib"):
+            for path in sorted((ROOT / "frontend" / sub).rglob("*.js*")):
+                text = path.read_text(encoding="utf-8")
+                for m in re.finditer(r"(?<!function )\bpercentageGap\(", text):
+                    offenders.append(
+                        f"{path.relative_to(ROOT)}:{text[: m.start()].count(chr(10)) + 1}"
+                    )
         self.assertEqual(offenders, [])
 
 

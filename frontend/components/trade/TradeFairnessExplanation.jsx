@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
-import { percentageGap, sideTotalsFairnessBase } from "@/lib/trade-logic";
-import { isFairGap } from "@/lib/fairness-bands";
+import { meterVerdict, sideTotalsFairnessBase } from "@/lib/trade-logic";
+import { FairnessInputError } from "@/lib/fairness-bands";
 
 /**
  * WHAT THE NUMBERS ARE (corrected 2026-09-29).  The headline percentage is
@@ -121,7 +121,18 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     const labelB = sideB?.label ? `Side ${sideB.label}` : "Side B";
 
     const overallGap = totalA - totalB;
-    const pctGap = percentageGap(totalA, totalB);
+    // ONE band reading, the meter badge's own (fairness_bands_v2, relative to
+    // the larger package utility): its level decides "even" and its
+    // `percentText` is the percentage quoted below, so the sentence and the
+    // badge can never disagree.  A refused input gets no sentence.
+    let band;
+    try {
+      band = meterVerdict(overallGap, sideTotalsFairnessBase(sideTotals.slice(0, 2)));
+    } catch (err) {
+      if (err instanceof FairnessInputError) return null;
+      throw err;
+    }
+    const pctGap = band.percentText;
     const overallSign = overallGap === 0 ? 0 : overallGap > 0 ? 1 : -1;
 
     const { gaps: perSource, partial } = buildPerSourceGaps(sideA, sideB);
@@ -143,7 +154,7 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     // "Even" is the ONE fairness-band owner's fair band (fairness_bands_v2,
     // relative to the larger package utility), the same band the meter badge
     // shows -- not a private 3%.
-    if (isFairGap(overallGap, sideTotalsFairnessBase(sideTotals.slice(0, 2)))) {
+    if (band.level === "fair") {
       // Even — call out the biggest single source-level disagreement
       // so the user knows *which* board would tip it if they trusted
       // a single source over the blend.

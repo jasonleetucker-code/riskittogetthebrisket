@@ -61,8 +61,10 @@ export default function TradeVerdictHelpBody() {
         </li>
         <li>
           Because the bands are relative, a 300-point gap is FAIR between two
-          stars and LOPSIDED between two bench players; the badge and the
-          percentage always agree.
+          stars and LOPSIDED between two bench players. The percentage shown
+          beside the badge is the same share the badge grades, so it always
+          sits inside that badge&apos;s range (a gap under 250 points is FAIR
+          whatever its percentage).
         </li>
         <li>
           This verdict compares package value only. It does not know your

@@ -19,9 +19,22 @@ scale.  The denominator is decided HERE: callers obtain it from
 :func:`larger_package_utility` / :func:`fairness_base`, or call
 :func:`classify_packages` and never compute a base of their own.
 
-Non-finite input is REFUSED (:class:`FairnessInputError`), never classified:
-MISSING IS NEVER ZERO, and a NaN gap is not "fair".  The JS mirror refuses the
-same inputs.
+Missing input is REFUSED (:class:`FairnessInputError`), never classified:
+MISSING IS NEVER ZERO, and a NaN gap is not "fair".  Refused identically by the
+JS mirror (shared fixture ``tests/fixtures/fairness_band_refusal_cases.json``):
+
+* a non-finite gap or base, a negative base, a non-number (code
+  ``fairness_input_not_finite``);
+* a missing utilities container (``None``, a mapping, a string) and a
+  non-finite package PIECE value at :func:`package_utilities` -- the package
+  model prices a NaN piece as absent, so the owner checks every piece before
+  delegating (same code);
+* a zero base beside a gap at or above the absolute minimum (code
+  ``fairness_input_inconsistent``): ``|gap| <= max utility`` under every
+  package model, and an N-team set with base 0 has every net 0, so that pair
+  can only come from missing utilities -- and above the floor the verdict
+  depends on the base.  Below the floor every base reads ``fair``, so a zero
+  base there is answered.
 
 The package model and q = 0.78 are not touched here.  Stdlib only (plus the
 stdlib-only package-model dispatch), so ``src.public_league`` may import it.
@@ -31,6 +44,8 @@ from __future__ import annotations
 
 import json
 import math
+import numbers
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -46,18 +61,26 @@ LABELS = {"fair": "FAIR", "slight": "SLIGHT EDGE", "unfair": "UNFAIR", "lopsided
 #: hard error: the denominator rule lives in code, the config only records it.
 BASIS = "larger_package_utility"
 
-#: Machine-readable refusal code, identical in the JS mirror.
+#: Machine-readable refusal codes, identical in the JS mirror.
 INPUT_ERROR_CODE = "fairness_input_not_finite"
+INPUT_INCONSISTENT_CODE = "fairness_input_inconsistent"
 
 
 class FairnessInputError(ValueError):
-    """A gap or base that is not a finite number (or a negative base).
+    """Input the owner refuses to classify (see the module docstring).
 
     Refused rather than classified: the old behaviour (JS ``fair``, Python
     ``lopsided`` on ``NaN``) let an unknown quantity read as a verdict.
+    ``code`` is :data:`INPUT_ERROR_CODE` for missing / non-finite input and
+    :data:`INPUT_INCONSISTENT_CODE` for a zero base beside a gap at or above
+    the absolute minimum.
     """
 
     code = INPUT_ERROR_CODE
+
+    def __init__(self, message: str, code: str = INPUT_ERROR_CODE) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def _load() -> dict[str, Any]:
@@ -111,7 +134,39 @@ def receipt() -> dict[str, Any]:
 
 
 def _is_finite_number(x: Any) -> bool:
-    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+    # numbers.Real, so numpy.int64 and numpy.float64 are treated alike; bool is
+    # excluded (True is not a value).
+    return isinstance(x, numbers.Real) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def _require_container(values: Any, what: str) -> list[Any]:
+    """A list of the entries of an iterable; ``None``, a mapping, a string or a
+    non-iterable is a missing container, refused (JS: anything but an array)."""
+    if values is None or isinstance(values, (Mapping, str, bytes)):
+        raise FairnessInputError(f"{INPUT_ERROR_CODE}: {what}={values!r}")
+    try:
+        return list(values)
+    except TypeError:
+        raise FairnessInputError(f"{INPUT_ERROR_CODE}: {what}={values!r}") from None
+
+
+def _require_pieces(values: Any, what: str) -> list[float]:
+    """Every package piece must be a finite number (a NaN piece is missing,
+    never an absent piece worth 0).  Non-positive pieces stay as given: the
+    package model already treats them as contributing nothing."""
+    pieces = _require_container(values, what)
+    for v in pieces:
+        if not _is_finite_number(v):
+            raise FairnessInputError(f"{INPUT_ERROR_CODE}: {what} piece={v!r}")
+    return [float(v) for v in pieces]
+
+
+def _js_round(x: float) -> int:
+    """JavaScript ``Math.round`` for the published numbers (half toward +inf,
+    exact: ``x - floor(x)`` is exact for finite doubles), so the rounded
+    ``relativePct`` / ``absoluteGap`` match the JS mirror bit for bit."""
+    r = math.floor(x)
+    return r + 1 if x - r >= 0.5 else r
 
 
 def _require_gap(gap: Any) -> float:
@@ -142,9 +197,13 @@ def package_utilities(
     ``ktc`` family (the rollback model) has no per-package utility, so the
     pair's adjusted totals stand in -- exactly the v1 basis, so a package-model
     rollback restores v1 denominators.  ``model_id=None`` = the ACTIVE model.
+
+    Every piece must be a finite number (:class:`FairnessInputError`
+    otherwise): the package model drops a NaN piece as if it were absent, so
+    without this check a missing value would be priced as 0.
     """
-    a = list(side_a_values)
-    b = list(side_b_values)
+    a = _require_pieces(side_a_values, "side_a_values")
+    b = _require_pieces(side_b_values, "side_b_values")
     mid = package_model.resolve_model_id(model_id)
     spec = package_model.PACKAGE_MODELS[mid]
     if spec["family"] == "geom":
@@ -157,12 +216,12 @@ def package_utilities(
 def fairness_base(utilities: Iterable[Any]) -> float:
     """The band's relative base: the LARGEST package utility among the sides.
 
-    Every entry must be a finite, non-negative number (else
-    :class:`FairnessInputError`); no sides is an empty pairing with base 0.
-    The JS twin is ``fairness-bands.js::fairnessBase``.
+    Every entry must be a finite, non-negative number and the container must
+    be present (else :class:`FairnessInputError`); no sides is an empty pairing
+    with base 0.  The JS twin is ``fairness-bands.js::fairnessBase``.
     """
     base = 0.0
-    for u in utilities:
+    for u in _require_container(utilities, "utilities"):
         base = max(base, _require_base(u))
     return base
 
@@ -198,13 +257,19 @@ def classify(gap: float, larger_utility: float) -> dict[str, Any]:
     ``gap`` is signed (either convention: only its size is classified);
     ``larger_utility`` is the larger PACKAGE UTILITY -- obtain it from
     :func:`larger_package_utility` or :func:`fairness_base`.  An empty pairing
-    (base 0) is ``fair`` with ``relativePct`` ``None`` -- there is nothing to
-    be unfair about -- and callers that must refuse an empty trade do so
-    before asking.  Non-finite input raises :class:`FairnessInputError`.
+    (base 0, gap under the absolute minimum) is ``fair`` with ``relativePct``
+    ``None`` -- there is nothing to be unfair about -- and callers that must
+    refuse an empty trade do so before asking.  Non-finite input, and a zero
+    base beside a gap at or above the absolute minimum, raise
+    :class:`FairnessInputError`.
     """
     g = _require_gap(gap)
     absolute = abs(g)
     rel = relative_pct(g, larger_utility)
+    if rel is None and absolute >= ABSOLUTE_MINIMUM:
+        raise FairnessInputError(
+            f"{INPUT_INCONSISTENT_CODE}: gap={g!r} base=0", code=INPUT_INCONSISTENT_CODE
+        )
     if absolute < ABSOLUTE_MINIMUM or rel is None or rel < SLIGHT_PCT:
         level = "fair"
     elif rel < UNFAIR_PCT:
@@ -216,8 +281,8 @@ def classify(gap: float, larger_utility: float) -> dict[str, Any]:
     return {
         "level": level,
         "label": LABELS[level],
-        "absoluteGap": round(absolute, 1),
-        "relativePct": None if rel is None else round(rel, 2),
+        "absoluteGap": _js_round(absolute * 10.0) / 10.0,
+        "relativePct": None if rel is None else _js_round(rel * 100.0) / 100.0,
         "bands": CONFIG["version"],
         "status": CONFIG["status"],
     }

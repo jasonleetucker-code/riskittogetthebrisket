@@ -12,8 +12,9 @@
  * surfaces can import without duplicating the math.
  *
  * Dependencies (kept identical):
- *   - meterVerdict (the ONE fairness-band owner, lib/fairness-bands.js),
- *     percentageGap from lib/trade-logic
+ *   - meterVerdict (the ONE fairness-band owner, lib/fairness-bands.js)
+ *     from lib/trade-logic -- its `percentText` is the only percentage
+ *     printed beside the badge
  *   - MonteCarloButton from components/ui
  *   - ResilientSection from components/ResilientSection
  */
@@ -22,10 +23,10 @@ import {
   TRADE_EVAL_STATE,
   meterVerdict,
   multiTeamNetSummary,
-  percentageGap,
   sideTotalsFairnessBase,
   tradeEvaluationState,
 } from "@/lib/trade-logic";
+import { FairnessInputError } from "@/lib/fairness-bands";
 import { MonteCarloButton } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
 
@@ -60,6 +61,32 @@ export function TradeMeterIncomplete({ unpriced, sides }) {
   );
 }
 
+/**
+ * The fairness owner REFUSED the inputs (FairnessInputError: a side total or
+ * flow without its package utility, a non-finite gap).  Rendered explicitly,
+ * never thrown into the page and never read as a band (MISSING IS NEVER ZERO).
+ */
+export function TradeMeterUnavailable({ code }) {
+  return (
+    <div className="trade-meter-bottom" data-trade-state="unavailable" data-fairness-refusal={code}>
+      <span className="trade-meter-verdict">NO VERDICT</span>
+      <span className="trade-meter-pct">
+        Fairness band unavailable: a package value needed for the comparison is missing.
+      </span>
+    </div>
+  );
+}
+
+/** Run a fairness read; a refusal comes back as `{refusal}` instead of throwing. */
+function readFairness(fn) {
+  try {
+    return { value: fn(), refusal: null };
+  } catch (err) {
+    if (err instanceof FairnessInputError) return { value: null, refusal: err };
+    throw err;
+  }
+}
+
 export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false }) {
   const sideCount = sides.length;
   if (tradeEvaluationState(sides).state === TRADE_EVAL_STATE.EMPTY) {
@@ -91,11 +118,14 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
   const pwB = sideTotals[1]?.adjusted || 0;
   const gap = pwA - pwB;
   const absGap = Math.abs(gap);
-  const pctGap = percentageGap(pwA, pwB);
   // ONE fairness-band owner (fairness_bands_v2): relative to the larger
   // PACKAGE UTILITY, with an absolute minimum.  The badge and the winner text
-  // read the SAME band, so "FAIR" can no longer sit beside "worth 7% more".
-  const verdict = meterVerdict(gap, sideTotalsFairnessBase(sideTotals.slice(0, 2)));
+  // read the SAME band AND the same percentage (`percentText`, the band's own
+  // relative gap) -- never percentageGap's adjusted-side basis, which could
+  // sit below the badge's cut.  A refused input renders as unavailable.
+  const { value: verdict, refusal } = readFairness(() =>
+    meterVerdict(gap, sideTotalsFairnessBase(sideTotals.slice(0, 2))),
+  );
   const total = pwA + pwB;
 
   // Fill percentages for the bar
@@ -112,11 +142,12 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
     ? `Side ${sides[1].label}`
     : "Side B";
   let winnerText = "Even";
-  if (verdict.level !== "fair") {
+  if (verdict && verdict.level !== "fair") {
     const [big, small] = gap > 0 ? [labelA, labelB] : [labelB, labelA];
+    const pct = verdict.percentText;
     winnerText = sidesSend
-      ? `${big}'s package is worth ${pctGap}% more — ${small} receives more value`
-      : `${big} wins by ${pctGap}%`;
+      ? `${big}'s package is worth ${pct}% more — ${small} receives more value`
+      : `${big} wins by ${pct}%`;
   }
 
   return (
@@ -127,12 +158,14 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
         <span className="trade-meter-vs">vs</span>
         <span className="trade-meter-side-val">{Math.round(pwB).toLocaleString()}</span>
         <span className="trade-meter-gap">
-          {incomplete ? "Gap: not computed" : `Gap: ${Math.round(absGap).toLocaleString()}`}
+          {incomplete || refusal ? "Gap: not computed" : `Gap: ${Math.round(absGap).toLocaleString()}`}
         </span>
       </div>
 
       {incomplete ? (
         <TradeMeterIncomplete unpriced={evalState.unpriced} sides={sides} />
+      ) : refusal ? (
+        <TradeMeterUnavailable code={refusal.code} />
       ) : (
         <>
           {/* Horizontal balance bar.  Screen readers get its reading as one
@@ -199,15 +232,25 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
   // WR is even on flow, even though the grand total counted both.
   // The bar below shows each side's NET on a zero-centered axis so
   // getters (positive) and over-payers (negative) read at a glance.
+  // Placeholder rows send nothing, so their package utility is 0 (stated, so
+  // the owner never has to guess a missing one).
   const flowList = Array.isArray(flows) && flows.length === sides.length
     ? flows
-    : sides.map(() => ({ given: 0, received: 0, net: 0 }));
+    : sides.map(() => ({ given: 0, received: 0, net: 0, utility: 0 }));
   // The band base is the largest package utility any side sends (the same
   // base ``tradeImbalance`` uses), so a 3-team trade is graded on the same
   // relative scale as a 2-team one (ONE fairness-band owner, TC-C).  The
   // overall verdict is the worst-offender absolute net through that band —
   // one helper, shared with the page's persistent 3+-team summary (TC-D2).
-  const { nets, largerUtility, worst, verdict } = multiTeamNetSummary(flowList);
+  const { value: summary, refusal } = readFairness(() => multiTeamNetSummary(flowList));
+  if (refusal) {
+    return (
+      <div className="trade-meter">
+        <TradeMeterUnavailable code={refusal.code} />
+      </div>
+    );
+  }
+  const { nets, largerUtility, worst, verdict } = summary;
   const isEvenNet = (n) => meterVerdict(n, largerUtility).level === "fair";
   // Display scale only (the bar's full width), never a verdict.
   const absMax = Math.max(1, ...nets.map((n) => Math.abs(n)));
