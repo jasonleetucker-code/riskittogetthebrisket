@@ -385,21 +385,33 @@ export function votingStatusRows(block) {
 /**
  * Count of sources per status, in display order, for the summary line.
  * The voting / registered totals are the backend's when it states them.
+ *
+ * Groups are keyed by status AND the label the row actually shows (the
+ * server's `statusLabel`).  Under the owner step schedule those coincide.
+ * Under the v1 cadence curve (in force while the step schedule is held) an
+ * Active code is only a band and each row's label names its ACTUAL
+ * percentage, so grouping by code alone would print a step label such as
+ * "Active — 25%" for a source voting at 16.2%.
  */
 export function votingStatusSummary(block, rows = votingStatusRows(block)) {
   const counts = new Map();
   for (const r of rows) {
-    const k = r.status || "unknown";
-    const seen = counts.get(k);
-    counts.set(k, seen === undefined ? 1 : seen + 1);
+    const status = r.status || "unknown";
+    const label = text(r.statusLabel) || statusLabelFor({ status: r.status || null });
+    const key = `${status}\u0000${label}`;
+    const seen = counts.get(key);
+    if (seen) seen.count += 1;
+    else counts.set(key, { status, label, count: 1 });
   }
   const groups = [...counts.entries()]
-    .map(([status, n]) => ({
-      status,
-      count: n,
-      label: statusLabelFor({ status: status === "unknown" ? null : status }),
-      tone: statusTone(status),
-      rank: VOTING_STATUS_ORDER.indexOf(status) === -1 ? 99 : VOTING_STATUS_ORDER.indexOf(status),
+    .map(([key, g]) => ({
+      key,
+      status: g.status,
+      count: g.count,
+      label: g.label,
+      tone: statusTone(g.status),
+      rank:
+        VOTING_STATUS_ORDER.indexOf(g.status) === -1 ? 99 : VOTING_STATUS_ORDER.indexOf(g.status),
     }))
     .sort((a, b) => a.rank - b.rank);
   const votingCount = finite(block?.votingCount)

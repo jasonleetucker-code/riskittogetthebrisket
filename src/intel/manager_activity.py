@@ -96,7 +96,34 @@ MAX_LEG = 18
 WEEK_TTL_CURRENT_SECONDS = 5 * 60
 WEEK_TTL_COMPLETED_SECONDS = 6 * 60 * 60
 PAYLOAD_TTL_SECONDS = 10 * 60
-_MEMO_MAX_ENTRIES = 8192
+# Memory bound (prod memory-pressure follow-up, 2026-10-20).  A memo entry is
+# one raw Sleeper response (rosters / users / drafts / a transaction week),
+# measured ~46 KB on average, so the old 8192 cap allowed ~380 MB of raw
+# payloads -- and expiry was LAZY (an entry left only when the SAME key was
+# re-read past its TTL, or at the cap), so every week of every league any
+# looked-up manager plays in stayed resident until the cap filled.  The sweep
+# below fixes the lazy expiry; the cap bounds the LIVE set.
+#
+# The cap is sized in units of one full-budget request (CALL_BUDGET puts at
+# most), not as a free constant: a memo hit is free while a miss spends
+# budget, so a cap below the live working set of the requests in flight can
+# turn a request that a warmer memo would have completed into a
+# ``budgetExhausted`` / partial-coverage answer (never a wrong value -- the
+# payload labels it).  Four full-budget requests fit without evicting each
+# other (3600 entries, worst case ~165 MB); a fifth concurrent heavy request,
+# or more than 3600 live keys, is where the cap starts costing completeness.
+_MEMO_HEAVY_REQUEST_HEADROOM = 4
+_MEMO_MAX_ENTRIES = CALL_BUDGET * _MEMO_HEAVY_REQUEST_HEADROOM
+#: Expired entries are swept on a put at most this often (seconds of the
+#: caller's clock), or whenever the memo is at its cap.
+_MEMO_SWEEP_INTERVAL_SECONDS = 60.0
+#: A sweep drops an entry only once it is expired by MORE than this.  The
+#: ``now`` a request passes is its START time, so a long request still
+#: running (and reading the memo with its older clock) may legitimately see
+#: an entry that a newer request already considers expired; the grace keeps
+#: a sweep from ever turning such a read into a miss.  Readers keep the exact
+#: TTL rule in ``_memo_get``.
+_MEMO_SWEEP_GRACE_SECONDS = 30 * 60.0
 _PAYLOAD_MAX_ENTRIES = 128
 
 #: Coverage states, one per league x data kind.
@@ -183,6 +210,7 @@ class _Budget:
 
 _memo: dict[tuple[str, ...], tuple[float, float, Any]] = {}
 _memo_lock = threading.Lock()
+_memo_last_sweep: list[float] = [float("-inf")]
 
 
 def _memo_get(key: tuple[str, ...], now: float) -> Any | None:
@@ -197,9 +225,25 @@ def _memo_get(key: tuple[str, ...], now: float) -> Any | None:
         return payload
 
 
+def _sweep_memo_locked(now: float) -> None:
+    """Drop entries expired by more than the grace.  Lock held.
+
+    Such an entry can never be served to any running request (see
+    ``_MEMO_SWEEP_GRACE_SECONDS``), so dropping it changes no answer."""
+    grace = _MEMO_SWEEP_GRACE_SECONDS
+    for k in [k for k, (stamp, ttl, _) in _memo.items() if now - stamp >= ttl + grace]:
+        _memo.pop(k, None)
+    _memo_last_sweep[0] = now
+
+
 def _memo_put(key: tuple[str, ...], payload: Any, ttl: float, now: float) -> None:
     with _memo_lock:
-        if len(_memo) >= _MEMO_MAX_ENTRIES:
+        if (
+            len(_memo) >= _MEMO_MAX_ENTRIES
+            or now - _memo_last_sweep[0] >= _MEMO_SWEEP_INTERVAL_SECONDS
+        ):
+            _sweep_memo_locked(now)
+        if key not in _memo and len(_memo) >= _MEMO_MAX_ENTRIES:
             oldest = min(_memo, key=lambda k: _memo[k][0])
             _memo.pop(oldest, None)
         _memo[key] = (now, ttl, payload)
@@ -1728,6 +1772,7 @@ def cached_manager_activity(
     )
     if payload.get("status") == mp.STATUS_OK:
         with _payload_lock:
+            mp.drop_expired_payloads_locked(_payload_cache, t, PAYLOAD_TTL_SECONDS)
             if len(_payload_cache) >= _PAYLOAD_MAX_ENTRIES:
                 oldest = min(_payload_cache, key=lambda k: _payload_cache[k][0])
                 _payload_cache.pop(oldest, None)
@@ -1738,6 +1783,7 @@ def cached_manager_activity(
 def reset_caches() -> None:
     with _memo_lock:
         _memo.clear()
+        _memo_last_sweep[0] = float("-inf")
     with _payload_lock:
         _payload_cache.clear()
 

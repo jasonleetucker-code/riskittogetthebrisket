@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 61 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 62 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -101,6 +101,31 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # dynamic factors are still computed and stamped on every row, so
     # observability survives rollback, but only the base weight is applied.
     "source_freshness_weighting": True,
+    # The owner's universal freshness SCHEDULE -- HELD, DEFAULT OFF (owner
+    # decision 2026-10-20 on PR #1831, Option B;
+    # docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md).  The implementation
+    # and the freshness percentages are APPROVED (owner directive 2026-10-19,
+    # "Universal Source Voting and Freshness Policy" §2;
+    # docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md): every dynasty
+    # ranking source's freshness factor is a step function of whole days since
+    # its last GENUINE publisher update -- 0-7 days 1.00, 8-14 0.75, 15-21
+    # 0.50, 22-30 0.25, >30 0 (config/sources/freshness_schedule_v2.json) --
+    # on the vendor-stated publication time where one is recorded, else the
+    # last observed content change; an update time that cannot be established
+    # votes at 0.  ACTIVATION IS HELD for the owner: turned on it moved 918
+    # values (LaJohntay Wester +42.9%), and the INCUMBENT outlier filter can
+    # remove legitimate source votes when the voting population changes --
+    # the defect outlier-integrity-v2 exists to fix.  Setting this default
+    # True (or RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2 true-y in any
+    # deploy/config/env surface) IS the owner's freshness activation decision
+    # and may only be made with the owner's explicit approval --
+    # ``tests/api/test_freshness_v2_hold_locked.py`` fails otherwise, and
+    # deploy/verify-deploy.sh fails a production deploy whose effective flag
+    # is ON.  OFF: the v1 cadence-relative curve, byte for byte (the board is
+    # identical to main); the per-source voting status reports the v1 rule.
+    # ``source_freshness_weighting`` still decides whether ANY freshness
+    # factor is applied.  Activation, once approved: flip this default.
+    "source_freshness_schedule_v2": False,
     # Family-capped source voting (owner directive 2026-09-24;
     # docs/sources/SOURCE_FRESHNESS_WEIGHTING.md).  ON: every member of a
     # correlation family votes with its own effective weight and the
@@ -968,6 +993,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # a request through ``/api/data`` and every engine that reads the board;
     # off → base weights only, factors still stamped.
     "source_freshness_weighting": LIVE,
+    # source_freshness_schedule_v2 selects the freshness RULE (owner step
+    # schedule vs the v1 cadence curve) in
+    # ``data_contract._source_weighting_resolution``, read on every board
+    # build, which reaches a request through ``/api/data`` and every engine
+    # that reads the board.
+    "source_freshness_schedule_v2": LIVE,
     # source_family_cap gates whether correlated family members all vote
     # under a family cap or the family head alone votes, in
     # ``data_contract._compute_unified_rankings``, which reaches a request

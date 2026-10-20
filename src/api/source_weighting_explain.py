@@ -107,6 +107,12 @@ def source_table(
         "rowStates": summary.get("rowStates") or {},
         "ktcMarket": contract.get("ktcMarket"),
         "sources": rows,
+        # Per-source voting status (owner directive 2026-10-19 §8): one
+        # plain-English entry per registered source — status, last genuine
+        # update, freshness %, base vs effective weight, rows contributed,
+        # reason and restore requirement (src/sources/voting_status.py).
+        # Additive; ``None`` on a contract built before it existed.
+        "votingStatus": contract.get("sourceVotingStatus"),
     }
 
 

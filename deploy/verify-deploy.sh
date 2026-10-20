@@ -351,10 +351,11 @@ main() {
   fi
 
   # ── Owner-held vote flags ────────────────────────────────────────
-  # The repository locks two source-vote holds by owner decision
+  # The repository locks three owner-held vote flags by owner decision
   # (2026-10-20): the DLF IDP hold (dlf_offense_only_vote) must be
-  # effectively ON and DLF Values offense voting (dlf_values_rank_hill_vote)
-  # effectively OFF.  Tests pin the registry defaults and every TRACKED
+  # effectively ON, DLF Values offense voting (dlf_values_rank_hill_vote)
+  # effectively OFF, and the universal freshness step schedule
+  # (source_freshness_schedule_v2; PR #1831 Option B) effectively OFF.  Tests pin the registry defaults and every TRACKED
   # surface; this reads the LIVE process's effective flags from
   # /api/status so the untracked ${APP_DIR}/.env cannot silently activate a
   # held source.  Fails closed.  A failure fails the deploy, which trips
@@ -362,7 +363,8 @@ main() {
   # the offending RISKIT_FEATURE_* override before redeploying.  There is
   # deliberately no escape hatch: changing a required state IS the owner's
   # activation decision (tests/api/test_dlf_idp_hold_locked.py,
-  # tests/api/test_dlf_values_hold_locked.py).
+  # tests/api/test_dlf_values_hold_locked.py,
+  # tests/api/test_freshness_v2_hold_locked.py).
   local held_python="python3"
   local held_venv_dir="${VENV_DIR:-${APP_DIR:-.}/.venv}"
   if [[ -x "${held_venv_dir}/bin/python" ]]; then
@@ -375,8 +377,9 @@ main() {
     log "Owner-held vote flags are in force."
   else
     error "An owner-held source-vote flag is in the WRONG effective state on the"
-    error "live process (or could not be read).  DLF IDP must stay held and DLF"
-    error "Values must not vote until the owner explicitly approves.  Failing the"
+    error "live process (or could not be read).  DLF IDP must stay held, DLF"
+    error "Values must not vote and the freshness schedule v2 must stay off until"
+    error "the owner explicitly approves.  Failing the"
     error "deploy so auto-rollback runs; remove the RISKIT_FEATURE_* override from"
     error "${APP_DIR}/.env (or the service environment) before redeploying."
     exit 1
