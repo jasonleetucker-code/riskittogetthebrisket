@@ -122,14 +122,21 @@ export const INTEGRITY_CATEGORY_LABELS = Object.freeze({
 });
 
 // Reason code (or the prefix before ":" / "@") → category, the label-side
-// mirror of `REASON_CATEGORY` in src/api/source_integrity.py (parity pinned
+// mirror of `OBSERVATION_REASON_CATEGORY` in src/sources/voting_status.py
+// (re-exported as `REASON_CATEGORY` by src/api/source_integrity.py) (parity pinned
 // by tests/api/test_outlier_integrity_v2_layer_c.py).  Used only to LABEL a
 // reason that arrives without its category (e.g. a `notVotingRows` key).
 export const INTEGRITY_REASON_CATEGORY = Object.freeze({
   voting: "voting_normally",
   voting_name_only_identity: "voting_normally",
+  // V2.1 (default OFF): votes that still count, with an advisory.
+  voting_team_unconfirmed: "voting_normally",
+  format_minor_discordance: "voting_normally",
+  segment_too_small: "voting_normally",
+  released_by_cap: "voting_normally",
   kept_dissent: "valid_but_disagreeing",
   segment_break_unproven: "valid_but_disagreeing",
+  persistent_gross_dissent: "valid_but_disagreeing",
   identity_contradicted: "invalid_player_identity",
   source_format_error: "source_format_error",
   normalization_untranslated: "normalization_scale_error",

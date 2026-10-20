@@ -5620,6 +5620,9 @@ def _parse_source_csv_cached(
         "rows": 0,
         "nonNumericValueRows": 0,
         "rankValuePairs": [],
+        # Aligned 1:1 with ``rankValuePairs``: the canonical key of each pair,
+        # so V2.1's B0 tolerance (R1) can name the rows it stamps advisory.
+        "rankValueKeys": [],
     }
 
     def _entry_evidence(csvrow: dict[str, Any], name: str, sid: str, value: Any, rank: Any) -> Any:
@@ -5812,6 +5815,7 @@ def _parse_source_csv_cached(
                         )
                         if native_val is not None:
                             format_census["rankValuePairs"].append((rank_val, native_val))
+                            format_census["rankValueKeys"].append(key)
                 else:
                     val = _pick(csvrow, _VALUE_ALIASES)
                     if not val:
@@ -5855,6 +5859,7 @@ def _parse_source_csv_cached(
                         )
                         if orig_rank is not None and number > 0:
                             format_census["rankValuePairs"].append((orig_rank, number))
+                            format_census["rankValueKeys"].append(key)
     except Exception as exc:  # noqa: BLE001
         schema_err = {
             "source": source_key,
@@ -5996,6 +6001,7 @@ def _apply_payload_provenance_guard(
         pairs,
         epsilon=integrity.thresholds.epsilon_b2,
         supporting={"payloadRows": len(payload_rows), "overlappingRows": len(pairs)},
+        nonzero_sign_share=integrity.repairs.on("R14"),
     )
     stamp = result.to_stamp()
     proven: set[int] = set(by_idx) if result.board_proof else set(result.row_proofs)
@@ -6058,6 +6064,145 @@ def _apply_payload_provenance_guard(
         )
 
 
+def _finalize_integrity_v21(
+    players_array: list[dict[str, Any]],
+    players_by_name: Mapping[str, Any],
+    integrity: Any,
+    eligibility: Mapping[str, Mapping[str, Any]] | None,
+) -> dict[str, int]:
+    """Outlier-integrity V2.1's post-ranking pass (R6 + R7; default OFF).
+
+    Runs once, after the LAST ranking pass, and changes no value:
+
+    * **R6** — a Layer A refusal kept its ordinal slot through ranking (its
+      value sat on the row so the source's other entries ranked as if it were
+      present, and it was excluded at the vote).  Its value now leaves
+      ``canonicalSiteValues`` (and the legacy dict, ``sourceOriginalRanks``,
+      ``sourceNativeValues``) and is kept on the refusal stamp as
+      ``refusedObservation``, so no consumer reads it as this player's value.
+      ``sourcePresence`` reads ``False`` — absent, never zero.
+    * **R7** — every A refusal and every B withhold that never reached the
+      vote loop (a B2 withhold without a CSV copy; a refusal of a source the
+      board never ranks) gains a ``sourceRankMeta`` entry with its one primary
+      reason, so the per-player explainer shows it.  An observation of a
+      source that does not vote at all on this board (a policy hold, a stale
+      source, D4 off) is labelled with THAT state, never with an identity,
+      format, normalization or broken-feed verdict (boards F3); the verdict
+      stays on the stamp as ``integrityVerdict``.
+    """
+    from src.api import source_integrity as _si  # noqa: PLC0415
+    from src.sources import voting_status as _vs  # noqa: PLC0415
+
+    counts = {"slotsReleased": 0, "explainerAdded": 0, "relabelledNonVoting": 0}
+    non_voting = {
+        k: v
+        for k, v in (eligibility or {}).items()
+        if isinstance(v, Mapping)
+        and v.get("status")
+        in ("policy_held", "withheld", "seasonal_inactive", "private_not_voting")
+    }
+
+    def _non_voting_reason(source: str) -> str | None:
+        info = non_voting.get(source)
+        if info is None:
+            return None
+        reason = str(info.get("reason") or "")
+        if reason and _si.reason_category(reason) in (
+            _si.CATEGORY_HELD,
+            _si.CATEGORY_STALE,
+        ):
+            return reason
+        if info.get("status") == "withheld":
+            return "freshness_or_health_zero_weight"
+        return "policy_vote_hold"
+
+    def _relabel(block: dict[str, Any], source: str) -> bool:
+        """F3: a non-voting source's observation reads as its source state."""
+        reason = _non_voting_reason(source)
+        primary = str(block.get("primaryReason") or "")
+        if reason is None or _si.reason_category(primary) not in (
+            _vs.INVALID_OBSERVATION_CATEGORIES
+        ):
+            return False
+        block["integrityVerdict"] = primary
+        block["primaryReason"] = reason
+        block["category"] = _si.reason_category(reason)
+        return True
+
+    for row in players_array:
+        if not isinstance(row, dict) or row.get("assetClass") == "pick":
+            continue
+        stamps = row.get("sourceIntegrity")
+        if not isinstance(stamps, dict):
+            continue
+        name = str(row.get("canonicalName") or row.get("displayName") or "")
+        legacy = players_by_name.get(name) if isinstance(players_by_name, Mapping) else None
+        meta_all = row.setdefault("sourceRankMeta", {})
+        for source, stamp in sorted(stamps.items()):
+            if not isinstance(stamp, dict):
+                continue
+            status = stamp.get("status")
+            if status not in (_si.STATUS_REFUSED, _si.STATUS_WITHHELD):
+                continue
+            if integrity.repairs.on("R6") and stamp.pop("ordinalSlotKept", False):
+                prior = stamp.pop("slotPrior", None)
+                csv_vals = row.get("canonicalSiteValues")
+                if isinstance(csv_vals, dict) and source in csv_vals:
+                    observed: dict[str, Any] = {"value": csv_vals.get(source)}
+                    for field_name, out_key in (
+                        ("sourceOriginalRanks", "originalRank"),
+                        ("sourceNativeValues", "nativeValue"),
+                    ):
+                        bucket = row.get(field_name)
+                        if isinstance(bucket, dict) and source in bucket:
+                            observed[out_key] = bucket.pop(source)
+                    stamp["refusedObservation"] = observed
+                    if prior is None:
+                        csv_vals.pop(source, None)
+                    else:
+                        csv_vals[source] = prior
+                    if isinstance(row.get("sourcePresence"), dict):
+                        row["sourcePresence"][source] = False
+                    if isinstance(legacy, dict):
+                        legacy_csv = legacy.get("_canonicalSiteValues")
+                        if isinstance(legacy_csv, dict):
+                            if prior is None:
+                                legacy_csv.pop(source, None)
+                            else:
+                                legacy_csv[source] = prior
+                        if prior is None:
+                            legacy.pop(source, None)
+                        else:
+                            legacy[source] = prior
+                    counts["slotsReleased"] += 1
+            if not integrity.repairs.on("R7"):
+                continue
+            if _relabel(stamp, source):
+                counts["relabelledNonVoting"] += 1
+            meta = meta_all.get(source)
+            if isinstance(meta, dict):
+                integ = meta.get("integrity")
+                if isinstance(integ, dict) and _relabel(integ, source):
+                    meta["excludedReason"] = integ["primaryReason"]
+            else:
+                block = {
+                    k: v
+                    for k, v in stamp.items()
+                    if k in ("status", "primaryReason", "category", "otherReasons", "scope")
+                    or k == "integrityVerdict"
+                }
+                meta_all[source] = {
+                    "excludedReason": stamp.get("primaryReason"),
+                    "contributedToBlend": False,
+                    "appliedWeight": 0.0,
+                    "integrity": block,
+                }
+                if isinstance(legacy, dict) and isinstance(legacy.get("sourceRankMeta"), dict):
+                    legacy["sourceRankMeta"][source] = meta_all[source]
+                counts["explainerAdded"] += 1
+    return counts
+
+
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
@@ -6115,6 +6260,11 @@ def _enrich_from_source_csvs(
     _v2 = integrity is not None
     _layer_a = _v2 and bool(getattr(integrity, "identity_on", False))
     _b2_on = _v2 and bool(getattr(integrity, "provenance_on", False))
+
+    def _v21_on(repair_id: str) -> bool:
+        """A V2.1 repair is in force on this build (``outlier_integrity_v21``)."""
+        return _v2 and integrity.repairs.on(repair_id)
+
     if _v2:
         from src.api import source_integrity as _si  # noqa: PLC0415
         from src.identity import resolution as _idres  # noqa: PLC0415
@@ -6132,6 +6282,34 @@ def _enrich_from_source_csvs(
             for r in players_array
             if str(r.get("playerId") or "").strip()
         }
+        # V2.1 R11: resolve against the identity owner's FULL Sleeper
+        # directory snapshot for the run (an id belonging to a player off the
+        # board is contradicted, not ignored); board rows still answer for
+        # every id they carry.  No directory on this host → board rows only,
+        # stamped, never guessed.  The same snapshot supplies R4's
+        # ``fantasy_positions`` and R5's ``birth_date``.
+        _v21_facts: dict[str, tuple[str | None, tuple[str, ...]]] = {}
+        if _v21_on("R11") or _v21_on("R4") or _v21_on("R5"):
+            from src.identity.directory_cache import get_default_sleeper_index  # noqa: PLC0415
+
+            _v21_dir = get_default_sleeper_index()
+            if _v21_dir is not None:
+                _v21_facts = dict(_v21_dir.facts_by_sleeper_id)
+                if _v21_on("R11"):
+                    _board_owned = dict(_v2_sid_owner)
+                    _v2_sid_owner = {
+                        sid: cand.display_name for sid, cand in _v21_dir.by_sleeper_id.items()
+                    }
+                    _v2_sid_owner.update(_board_owned)
+                    integrity.directory_state = "sleeper_directory"
+            elif _v21_on("R11"):
+                integrity.directory_state = "board_rows_only"
+        _v21_age_as_of = None
+        if _v21_on("R5") and integrity.as_of:
+            try:
+                _v21_age_as_of = datetime.fromisoformat(str(integrity.as_of)).date()
+            except ValueError:
+                _v21_age_as_of = None
         for _v2_row in players_array:
             _v2_nm = str(_v2_row.get("canonicalName") or _v2_row.get("displayName") or "")
             _v2_ck = _canonical_match_key(_v2_nm) if _v2_nm else ""
@@ -6145,8 +6323,16 @@ def _enrich_from_source_csvs(
             if got is None:
                 nm = str(row.get("canonicalName") or row.get("displayName") or "")
                 alt = _TWO_WAY_PLAYERS.get(nm)
+                _pid = str(row.get("playerId") or "").strip() or None
+                _bd, _fps = _v21_facts.get(_pid or "", (None, ()))
+                if not _fps:
+                    _fps = tuple(
+                        str(x).strip().upper()
+                        for x in (integrity.fantasy_positions.get(nm) or ())
+                        if str(x or "").strip()
+                    )
                 got = _idres.RowIdentityEvidence(
-                    player_id=str(row.get("playerId") or "").strip() or None,
+                    player_id=_pid,
                     name=nm,
                     position=row.get("position"),
                     team=row.get("team"),
@@ -6154,6 +6340,9 @@ def _enrich_from_source_csvs(
                     years_exp=row.get("yearsExp") if isinstance(row.get("yearsExp"), int) else None,
                     rookie=bool(row.get("rookie")),
                     alt_groups=frozenset({_v2_group(alt)}) if alt else frozenset(),
+                    fantasy_positions=_fps if _v21_on("R4") else (),
+                    birth_date=_bd if _v21_on("R5") else None,
+                    alt_positions=(str(alt),) if alt and _v21_on("R4") else (),
                 )
                 _v2_row_identity[id(row)] = got
             return got
@@ -6297,11 +6486,18 @@ def _enrich_from_source_csvs(
                 _v2_inputs = _source_csv_integrity_inputs(csv_path)
             if _v2_inputs is not None:
                 _v2_evidence = _v2_inputs[0]
-                for _finding in _si.format_findings(source_key, _v2_inputs[1]):
+                for _finding in _si.format_findings(
+                    source_key, _v2_inputs[1], tolerant=_v21_on("R1")
+                ):
                     integrity.findings.append(_finding)
                     if _finding.hard:
                         integrity.source_quarantines[source_key] = _finding.reason
                         integrity.proof_sources.add(source_key)
+                    elif _finding.reason == _si.REASON_FORMAT_MINOR:
+                        # V2.1 R1: advisory only — these rows still vote.
+                        integrity.format_advisories[source_key] = set(
+                            _finding.evidence.get("discordantKeys") or ()
+                        )
 
         # ── Rookie source → synthetic pick-slot stamps ──
         # dlfRookieSf ranks rookies; user-visible rookie picks
@@ -6516,13 +6712,24 @@ def _enrich_from_source_csvs(
                     if other is not row
                 ]
                 _continuity: bool | None = None
+                _prior_team: str | None = None
+                _prev_row_teams: tuple[str, ...] = ()
                 _hist = integrity.history
                 if _hist is not None and not _hist.empty:
                     _pk = _v2_player_key(row)
                     _seen = _hist.teams.get(f"{source_key}|{_pk}") if _pk else None
-                    _now_team = _idres.team_evidence(_cands[_chosen].team) if _cands else None
-                    if _seen and _now_team:
-                        _continuity = _seen == _now_team
+                    if _v21_on("R10") or _v21_on("R8"):
+                        # V2.1 R10: continuity is judged on the A4-CHOSEN entry
+                        # inside the identity owner, so only the history facts
+                        # travel; R8 adds the row's own team history.
+                        _prior_team = _seen
+                        _prev_row_teams = _hist.previous_row_teams(
+                            _pk, _idres.team_evidence(row.get("team"))
+                        )
+                    else:
+                        _now_team = _idres.team_evidence(_cands[_chosen].team) if _cands else None
+                        if _seen and _now_team:
+                            _continuity = _seen == _now_team
                 _verdict = _idres.assess_identity_evidence(
                     row=_row_id,
                     candidates=_cands,
@@ -6535,6 +6742,12 @@ def _enrich_from_source_csvs(
                     homonyms=_homonyms,
                     team_continuity=_continuity,
                     sleeper_id_owner=_v2_sid_owner.get,
+                    r4=_v21_on("R4"),
+                    r5=_v21_on("R5"),
+                    r8=_v21_on("R8"),
+                    prior_source_team=_prior_team,
+                    row_previous_teams=_prev_row_teams,
+                    age_as_of=_v21_age_as_of,
                 )
                 integrity.count_identity(source_key, _verdict.verdict)
                 _voting_ev = _cands[_verdict.selected if _verdict.selected is not None else _chosen]
@@ -6546,9 +6759,27 @@ def _enrich_from_source_csvs(
                     row.setdefault("sourceIntegrity", {})[source_key] = _si.integrity_stamp(
                         _si.STATUS_REFUSED, [str(_verdict.reason)], identity=_stamp
                     )
-                    continue
-                row.setdefault("sourceIntegrity", {})[source_key] = {"identity": _stamp}
-                if _verdict.selected is not None and _tuples:
+                    if not _v21_on("R6"):
+                        continue
+                    row["sourceIntegrity"][source_key]["ordinalSlotKept"] = True
+                    row["sourceIntegrity"][source_key]["slotPrior"] = existing
+                    # V2.1 R6: the refused entry KEEPS its ordinal slot — its
+                    # value stays on the row through ranking (so the source's
+                    # other entries keep the effective ranks and vote values
+                    # they would have with it present), it is excluded AT THE
+                    # VOTE (``_source_integrity_vote_exclusions``), and it is
+                    # moved off ``canonicalSiteValues`` after the last ranking
+                    # pass (``_finalize_integrity_v21``).  It never votes.
+                else:
+                    row.setdefault("sourceIntegrity", {})[source_key] = {"identity": _stamp}
+                if (
+                    _v21_on("R1")
+                    and source_key in integrity.format_advisories
+                    and str(decision.entry_key or "").split("::", 1)[0]
+                    in integrity.format_advisories[source_key]
+                ):
+                    row["sourceIntegrity"][source_key]["advisory"] = _si.REASON_FORMAT_MINOR
+                if _verdict.selected is not None and _tuples and not _verdict.refused:
                     _t = _tuples[_verdict.selected]
                     entry = {
                         **entry,
@@ -11317,9 +11548,21 @@ def _source_integrity_vote_exclusions(
         asset_class = str(row.get("assetClass") or "")
         pos = str(row.get("position") or "").strip().upper()
         metas = row_source_meta.get(row_idx, {})
+        row_integrity = row.get("sourceIntegrity") or {}
         for source_key in ranks:
             codes: list[str] = []
             meta = metas.get(source_key) or {}
+            # V2.1 R6: a Layer A refusal that kept its ordinal slot is excluded
+            # HERE, at the vote (the entry is on the row only so the source's
+            # other entries rank as if it were present).
+            _ri = row_integrity.get(source_key)
+            if (
+                integrity.repairs.on("R6")
+                and isinstance(_ri, Mapping)
+                and _ri.get("status") == _si.STATUS_REFUSED
+                and _ri.get("primaryReason")
+            ):
+                codes.append(str(_ri["primaryReason"]))
             if (
                 integrity.rookie_fail_closed_on
                 and source_key in rookie_keys
@@ -14049,9 +14292,11 @@ def _compute_unified_rankings(
                 continue
             row_weight[source_key] = src_blend_weight
             if _integrity is not None:
-                row_source_meta[row_idx].setdefault(source_key, {})["integrity"] = _si.voting_stamp(
-                    players_array[row_idx], source_key
+                _vstamp = _si.voting_stamp(
+                    players_array[row_idx], source_key, compact=_integrity.repairs.on("R13")
                 )
+                if _vstamp is not None:
+                    row_source_meta[row_idx].setdefault(source_key, {})["integrity"] = _vstamp
             all_values.append(value)
             all_weights.append(src_blend_weight)
             # Pick rows use the widened anchor set (KTC joins IDPTC as
@@ -14140,6 +14385,7 @@ def _compute_unified_rankings(
             and not row_is_pick
             and all_value_pairs
         ):
+            _released: dict[str, dict[str, Any]] = {}
             _held = _si.row_continuity_holds(
                 players_array[row_idx],
                 [(k, v) for k, v, _a in all_value_pairs],
@@ -14147,7 +14393,19 @@ def _compute_unified_rankings(
                 integrity=_integrity,
                 source_hashes=_integrity_hashes,
                 provider_of=_v2_provider_of,
+                released_out=_released,
             )
+            for _rk, _rdetail in _released.items():
+                # V2.1 P-3: votes, stamped ``released_by_cap``; not accepted.
+                _rm = row_source_meta[row_idx].setdefault(_rk, {})
+                _rm["integrity"] = {
+                    **(
+                        _rm.get("integrity")
+                        or _si.integrity_stamp(_si.STATUS_VOTING, [_si.REASON_VOTING])
+                    ),
+                    "advisory": _si.REASON_RELEASED_BY_CAP,
+                    "continuity": dict(_rdetail),
+                }
             if _held:
                 for _hk, _hstamp in _held.items():
                     _hm = row_source_meta[row_idx].setdefault(_hk, {})
@@ -14239,9 +14497,23 @@ def _compute_unified_rankings(
                 _integrity.count_layer_c(_cv)
                 for _ck in [*_cv.dropped, *_cv.dissent]:
                     _cm = row_source_meta[row_idx].setdefault(_ck, {})
-                    _cstamp = _si.layer_c_stamp(_cm.get("integrity"), _ck, _cv)
+                    _cstamp = _si.layer_c_stamp(
+                        _cm.get("integrity"), _ck, _cv, v21=_integrity.repairs.on("P")
+                    )
                     if _cstamp is not None:
                         _cm["integrity"] = _cstamp
+                        if _cstamp.get("primaryReason") == _si.REASON_PERSISTENT_GROSS_DISSENT:
+                            # V2.1 P-4: a persistence-confirmed gross dissent
+                            # votes, and is surfaced for human review.
+                            _integrity.alerts.append(
+                                {
+                                    "alert": _si.ALERT_PERSISTENT_GROSS_DISSENT,
+                                    "source": _ck,
+                                    "player": _integrity_keys.get(row_idx)
+                                    or players_array[row_idx].get("displayName"),
+                                    **dict((_cv.details.get(_ck) or {})),
+                                }
+                            )
                 if _cv.reasons or _cv.dissent:
                     players_array[row_idx]["outlierIntegrityReasons"] = {
                         **{k: r for k, r in _cv.dissent.items()},
@@ -16387,6 +16659,13 @@ def build_api_data_contract(
         if _source_integrity.v2_active()
         else None
     )
+    if integrity_build is not None and integrity_build.repairs.on("R4"):
+        # V2.1 R4: the payload's Sleeper ``fantasyPositions`` (name -> list),
+        # the fallback where the identity owner's directory carries none.
+        _sl = raw_payload.get("sleeper") if isinstance(raw_payload, Mapping) else None
+        _fp = _sl.get("fantasyPositions") if isinstance(_sl, Mapping) else None
+        if isinstance(_fp, Mapping):
+            integrity_build.fantasy_positions = dict(_fp)
 
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
@@ -16976,7 +17255,17 @@ def build_api_data_contract(
     if outlier_policy_stamp is not None:
         contract_payload["outlierPolicy"] = outlier_policy_stamp
     if integrity_build is not None:
+        _v21_finalize: dict[str, int] | None = None
+        if integrity_build.repairs.on("R6") or integrity_build.repairs.on("R7"):
+            _v21_finalize = _finalize_integrity_v21(
+                players_array,
+                players_by_name,
+                integrity_build,
+                contract_payload.get("sourceVotingEligibility"),
+            )
         contract_payload["sourceIntegrity"] = integrity_build.summary()
+        if _v21_finalize is not None:
+            contract_payload["sourceIntegrity"]["finalize"] = _v21_finalize
         # Directive §10 transparency: every observation's category, read from
         # the stamps the layers wrote, plus the source-level state from the
         # existing ``sourceVotingEligibility`` owner (policy holds, stale,

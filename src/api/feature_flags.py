@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 62 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 63 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -360,6 +360,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # B4 becomes a B11 lost-evidence seat, so a hold can never raise confidence.
     # Effective only with ``outlier_integrity_v2``.  Owner-reserved activation.
     "integrity_holds_as_withheld": False,
+    # Outlier integrity V2.1 (successor preregistration
+    # docs/sources/OUTLIER_INTEGRITY_V21_PREREGISTRATION.md, committed before
+    # any V2.1 code; owner O-1 decision 2026-10-20).  Applies the registered
+    # repairs R1-R14 and persistence rules P-1..P-4 to the V2 layers (B0
+    # tolerance, B3a / B3b minimums, A3 position families, age intervals,
+    # ordinal-slot preservation, explainer coverage, cold-start team rule,
+    # content-distinct persistence, cap release is not confirmation).
+    # Effective only with ``outlier_integrity_v2``; OFF = V2 exactly, and with
+    # the master OFF the board is byte for byte the incumbent.  Evaluated in
+    # replay only; activation is owner-reserved.  Rollback if ever switched
+    # on: RISKIT_FEATURE_OUTLIER_INTEGRITY_V21=0 + restart.
+    "outlier_integrity_v21": False,
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
@@ -1082,6 +1094,7 @@ _GATE_STATUS: Final[dict[str, str]] = {
     "payload_provenance_guard": LIVE,
     "rookie_ladder_fail_closed": LIVE,
     "integrity_holds_as_withheld": LIVE,
+    "outlier_integrity_v21": LIVE,
     # source_rank_history_record gates the record-only history lane write at
     # server.py's fresh-scrape recording site; ships OFF.
     "source_rank_history_record": LIVE,

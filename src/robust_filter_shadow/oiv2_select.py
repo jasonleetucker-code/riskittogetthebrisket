@@ -137,10 +137,64 @@ def _hard_findings(
     tau_gross: float,
     tau_board: Mapping[str, float],
     proof: set[str],
+    v21: bool = False,
 ) -> dict[str, str]:
     """``{segment key: reason}`` for every hard B3 finding of one board under
-    one setting, mirroring ``source_integrity.segment_screen``."""
+    one setting.
+
+    ``v21=False`` keeps V2's transcription of the screen exactly (its Stage 2
+    record stands).  ``v21=True`` (V2.1 R3) evaluates the SERVED rule through
+    the same code path the pipeline runs — ``source_integrity.segment_rule``
+    and ``class_rule`` — so the selection's feasibility check measures the rule
+    that is served, ``n_min`` scope and R2 minimum included."""
     out: dict[str, str] = {}
+    if v21:
+        thresholds = si.IntegrityThresholds(n_min=n_min, rho_min=rho_min, tau_gross=tau_gross)
+        for key, st in stats.items():
+            source, ac, pos = (key.split("|") + ["", "", ""])[:3]
+            hist = window.get(key)
+            base = statistics.median(hist) if hist else None
+            rows = int(st.get("rows") or 0)
+            if pos == "*":
+                m = st.get("medianResidual")
+                if m is None:
+                    continue
+                hard, _adv, _ab = si.class_rule(
+                    source=source,
+                    asset_class=ac,
+                    rows=rows,
+                    median=float(m),
+                    baseline=base,
+                    tau_board=tau_board.get(f"{source}|{ac}"),
+                    v21=True,
+                )
+                if hard:
+                    out[key] = "B3a_scale"
+                continue
+            m = st.get("medianSignedDeviation")
+            if m is None:
+                continue
+            rho = st.get("spearman")
+            hard, _adv, _ab = si.segment_rule(
+                source=source,
+                asset_class=ac,
+                pos=pos,
+                rows=rows,
+                rho=None if rho is None else float(rho),
+                median=float(m),
+                baseline=base,
+                thresholds=thresholds,
+                proof=proof,
+                v21=True,
+            )
+            if hard:
+                if hard.startswith("normalization_direction_error"):
+                    out[key] = "B3b_direction"
+                elif base is not None and abs(float(m) - base) >= tau_gross:
+                    out[key] = "B3b_scale"
+                else:
+                    out[key] = "B3b_shift_with_proof"
+        return out
     for key, st in stats.items():
         source, ac, pos = (key.split("|") + ["", "", ""])[:3]
         hist = window.get(key)
@@ -169,8 +223,19 @@ def _hard_findings(
     return out
 
 
-def _proof_sources(rec: Mapping[str, Any]) -> set[str]:
+def _proof_sources(rec: Mapping[str, Any], *, v21: bool = False) -> set[str]:
+    """Sources with same-build B0 / B1 / B2 proof on one recorded board.
+
+    V2.1 (R3): the build's own served set (``sourceIntegrity.proofSources``,
+    stamped only under V2.1: B0 whole-source quarantines, B1 untranslated
+    votes, B2 row AND board proofs) — never a narrower reconstruction.  A V2.1
+    record without the stamp is an error, not a silent fallback."""
     integ = rec["builds"]["v2"].get("sourceIntegrity") or {}
+    if v21:
+        served = integ.get("proofSources")
+        if not isinstance(served, list):
+            raise ValueError("V2.1 selection needs the build's stamped proofSources")
+        return {str(x) for x in served}
     out = {s for s, blk in (integ.get("provenance") or {}).items() if blk.get("boardProof")}
     for f in integ.get("findings") or []:
         if f.get("hard") and str(f.get("scope")) == "source":
