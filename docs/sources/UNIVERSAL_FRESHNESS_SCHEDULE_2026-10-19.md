@@ -1,5 +1,22 @@
 # Universal source freshness schedule and per-source voting status
 
+> **OWNER DECISION 2026-10-20 — OPTION B: merged DISABLED, activation HELD.**
+> The owner approved this implementation and the step percentages below, and
+> did NOT approve activation (`docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`;
+> intake FS-B1..FS-B10 in `docs/OWNER_REQUESTED_TODO.md`). Flag
+> `source_freshness_schedule_v2` defaults **OFF**: the board uses the v1
+> cadence curve exactly as `main` did, proven by `board_diff
+> --expect-no-value-change` against `origin/main` after reconciling with #1817
+> (§9). Reason, owner's words: the value changes and LaJohntay Wester's
+> movement "warrant caution because the existing outlier filter can remove
+> legitimate source votes when the voting population changes" — the defect
+> outlier-integrity-v2 is fixing. Locked by `tests/api/test_freshness_v2_hold_locked.py`
+> and the deploy-time live-process check `scripts/verify_owner_held_flags.py`.
+> Activation is OWNER-RESERVED. Wherever this record says "default ON",
+> "the default rule" or "rollback", read it as describing the schedule WHEN
+> ACTIVATED; while held, v1 is the rule in force and the schedule is the
+> non-voting shadow on `sourceVotingStatus`.
+
 **Owner directive 2026-10-19, "Universal Source Voting and Freshness Policy"**,
 sections 2 (freshness schedule), 5 (26-source audit), 7 (no hidden weighting),
 8 (source status) and 9 (board validation, freshness part). This record
@@ -35,9 +52,9 @@ built from `origin/main` `b08f7230d1` data.
 * The numbers are in `config/sources/freshness_schedule_v2.json`. The loader
   refuses a malformed schedule: empty, non-ascending days, or rising
   freshness.
-* **Flag:** `source_freshness_schedule_v2`, default **ON**. Rollback:
-  `RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0` and restart. That restores
-  the v1 cadence curve byte for byte (§7 below). The existing
+* **Flag:** `source_freshness_schedule_v2`, default **OFF** (owner decision
+  2026-10-20, Option B — activation held; see the banner above). Off is the
+  v1 cadence curve byte for byte (§7, §9). The existing
   `source_freshness_weighting` flag still decides whether any freshness
   factor is applied at all.
 
@@ -63,9 +80,15 @@ directive.
    the future is ignored. The whole board then shares that one clock.
    * This is the same rule PR #1817's D5 uses for FantasyPros IDP
      (`min(vendor time, last broad change)`), so the two are compatible.
-   * On `main` today, `fantasyProsIdp` is not declared EXPLICIT. The
-     schedule still uses its recorded vendor time (2026-09-04). Once #1817
-     merges, its config line only matters for the v1 rollback path.
+   * #1817 has merged: `fantasyProsIdp` is declared EXPLICIT under its own
+     flag `fantasypros_idp_upstream_clock` (D5). Both rules now go through
+     ONE owner, `freshness.publisher_clock_style`: v1 uses the vendor clock
+     only for declared sources, the schedule additionally for every source
+     with a recorded vendor time, and a source whose declared publisher clock
+     is withdrawn by its own `styleFlag` is NOT re-promoted by the schedule
+     (a per-source rollback lever is never bypassed by another flag). The
+     clock block itself is shared and unchanged
+     (`tests/sources/test_freshness_schedule_v2.py::TestOnePublisherClockOwner`).
 2. **Otherwise, a recorded observation of an actual content change.**
    `dataset_state.observe` hashes every row's identity and value/rank. Rows
    are compared for content only: no markup, timestamps or ADP. The clock is
@@ -502,8 +525,9 @@ Reproduce:
 
 ## 7. Rollback and coordination
 
-* **Rollback:** `RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0` and restart.
-  It is proven byte-identical on decision fields and on every row, as in §6.
+* **Default OFF (owner Option B, 2026-10-20).** Off is proven byte-identical
+  to current `origin/main` on decision fields and on every row (§9). Turning
+  it on is the owner's activation decision, not an operator rollback.
 * **PR #1817** (vote holds, families, D2–D5):
   * D5's clock rule is the schedule's clock rule for any source with a
     recorded vendor time. If #1817 lands first, nothing changes here.
@@ -516,8 +540,14 @@ Reproduce:
 
 ## 8. UNRESOLVED
 
+0. **Activation is held for the owner** (Option B, 2026-10-20). It returns to
+   the owner as an activation package after outlier-integrity-v2 is
+   validated and the combined shadow analysis (FS-B6) is done.
 1. **Owner/methodology decisions, recommended and not made:** DEGRADED health
-   → 0, and retiring the coverage factor (§5). Board impact today is 0.
+   → 0, and retiring the coverage factor (§5). Board impact today is 0. The
+   owner's Option B decision forbids introducing either (and any
+   pick-specific freshness exemption) without separate evidence and
+   approval; none is implemented.
 2. **Production observation is pending:** the Signals rows (provisioned only
    on the box), and the deployed board's `sourceVotingStatus`. Pending a
    deploy.
@@ -529,3 +559,47 @@ Reproduce:
    board has no non-anchor IDP voter, because FantasyPros IDP is stale. The
    advisory livedata anchor-chain guard therefore stays red. Landing #1817
    first, or in the same train, resolves it.
+
+## 9. Option B reconciliation evidence (2026-10-20)
+
+Inputs, identical on both trees: export `exports/latest/dynasty_data_2026-10-20.json`
+(sha256 `67f6d56e…`), the tracked `CSVs/site_raw` and `data/scrape_state` of
+`origin/main` `ab9ebd02ce` (the merged branch changes neither). Evidence:
+`docs/sources/evidence/UNIVERSAL_FRESHNESS_2026-10-19/option_b_2026-10-20/`.
+
+**Flag OFF vs current `origin/main` (includes #1817):**
+
+* `scripts/golden_board.py` on both trees + `scripts/board_diff.py
+  --expect-no-value-change`: 1,107 rows, 0 values moved, 0 newly priced /
+  unpriced, 0 ranks changed, 0 label (tier / confidence) changes
+  (`board_diff_flag_off.txt`).
+* Whole contract: every one of the 1,107 rows identical; the only top-level
+  differences are `generatedAt` and the additive `sourceVotingStatus`
+  (`flag_off_contract_identity.txt`). `sourceWeighting` is identical.
+
+**Flag ON (recorded only, NOT activated)** on the same input
+(`impact.md`, `impact.json`, full row list `affected_rows_flag_on.json.gz`):
+
+* 895 rows change value (890 priced rows move + 3 newly unpriced + 2 newly
+  priced): offense 390, IDP 324, picks 113, rookies 68; median 0.71%, p90
+  3.45%, max 40.43%. (The owner's figures — 918 changes, Wester +42.9% —
+  were measured on the 2026-10-19 board, §6.)
+* **LaJohntay Wester** 648 → 910 (+40.4%): Fantasy Navigator starts voting
+  (v1 quarantined it at 9 days; the schedule gives it 75%), and with a
+  4th/5th voter the incumbent outlier filter no longer drops Flock Fantasy's
+  vote. Voting sources 3 → 5.
+* **Newly unpriced (all IDP DBs):** Dee Alford (430), James Pierre (440),
+  Kyle Dugger (476) — FantasyPros IDP (46 days on its own vendor clock, 0%
+  under the schedule vs 16% under v1) was their only voter. Priced IDP rows
+  397 → 394. **Newly priced:** Chris Moore, Jawhar Jordan (Fantasy Navigator).
+* **Source participation:** Fantasy Navigator 0 → 444 rows voted;
+  FantasyPros IDP 249 → 0; FantasyPros Fitzmaurice effective 1.0 → 0.5;
+  IDP Trade Calculator 0.777 → 0.75.
+* **Outlier verdicts change on 26 rows** (e.g. Draft Sharks newly dropped on
+  3, no longer dropped on 8; Fantasy Navigator newly dropped on 3). These are
+  the incumbent filter re-deciding over a changed voting population — the
+  mechanism outlier-integrity-v2 examines — not evidence that any source's
+  data is corrupt.
+* Regression data for V2: `tests/fixtures/outlier_integrity_v2/freshness_v2_affected_rows_2026-10-20.json`
+  (Wester, every pricing change, every changed outlier verdict, with summary
+  counts over all rows). Wiring it into V2's tests happens on the V2 branch.
