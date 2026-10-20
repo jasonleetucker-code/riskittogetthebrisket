@@ -5314,6 +5314,32 @@ def _source_weighting_resolution(
 ) -> tuple[dict[str, Any], str | None]:
     """``(weighting, unavailable_reason)``; see :func:`_load_source_weighting`.
 
+    The freshness rule is the one in force (``source_freshness_schedule_v2``).
+    """
+    return _resolve_source_weighting(as_of, csv_root, schedule=None)
+
+
+def _source_weighting_shadow_v2(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> dict[str, Any]:
+    """The same weighting computed under the owner step schedule, for the
+    NON-VOTING shadow on ``sourceVotingStatus`` while the schedule is held OFF
+    (owner decision 2026-10-20 on PR #1831, Option B).  Never handed to the
+    blend.  Shares the memo with :func:`_source_weighting_resolution`."""
+    from src.sources import freshness as _freshness  # noqa: PLC0415
+
+    return _resolve_source_weighting(as_of, csv_root, schedule=_freshness.SCHEDULE_V2)[0]
+
+
+def _resolve_source_weighting(
+    as_of: "datetime | None",
+    csv_root: "Path | None",
+    *,
+    schedule: str | None,
+) -> tuple[dict[str, Any], str | None]:
+    """Shared body.  ``schedule`` ``None`` resolves the rule in force;
+    a pinned rule is only ever used for the non-voting shadow.
+
     ``unavailable_reason`` is ``None`` on the healthy path and when the board
     carries no time (``as_of`` None — documented: no "state in force at T").
     The weighting itself is unchanged in every case: this only makes the
@@ -5321,6 +5347,7 @@ def _source_weighting_resolution(
     """
     if as_of is None:
         return {}, None
+    from src.api import feature_flags as _feature_flags  # noqa: PLC0415
     from src.sources import freshness as _freshness  # noqa: PLC0415
     from src.sources.dataset_state import state_path  # noqa: PLC0415
 
@@ -5345,17 +5372,33 @@ def _source_weighting_resolution(
         cfg_mtime = _freshness.CONFIG_PATH.stat().st_mtime_ns
     except OSError:
         cfg_mtime = -1
+    # The freshness RULE (owner directive 2026-10-19): the step schedule, or
+    # the v1 cadence curve on rollback.  Part of the memo key, as is its file.
+    if schedule is None:
+        schedule = (
+            _freshness.SCHEDULE_V2
+            if _feature_flags.is_enabled("source_freshness_schedule_v2")
+            else _freshness.SCHEDULE_V1
+        )
+    try:
+        schedule_mtime = _freshness.SCHEDULE_CONFIG_PATH.stat().st_mtime_ns
+    except OSError:
+        schedule_mtime = -1
     cache_key = (
         as_of.isoformat(),
         str(state_dir),
         tuple(stamps),
         cfg_mtime,
+        schedule,
+        schedule_mtime,
         _freshness.style_flag_states(),
     )
     cached = _SOURCE_WEIGHTING_CACHE.get(cache_key)
     if cached is not None:
         return cached, None
-    weighting = _freshness.load_source_weightings(keys, state_dir=state_dir, as_of=as_of)
+    weighting = _freshness.load_source_weightings(
+        keys, state_dir=state_dir, as_of=as_of, schedule=schedule
+    )
     if len(_SOURCE_WEIGHTING_CACHE) > 16:
         _SOURCE_WEIGHTING_CACHE.clear()
     _SOURCE_WEIGHTING_CACHE[cache_key] = weighting
@@ -11287,10 +11330,24 @@ def _source_weighting_summary(
     ``meanVoteShare`` is the source's average normalized share of the rows
     it voted on — the "normalized vote share" of the diagnostics view.
     """
-    from src.sources.freshness import default_config  # noqa: PLC0415
+    from src.sources.freshness import (  # noqa: PLC0415
+        SCHEDULE_V1,
+        default_config,
+        weighting_descriptor,
+    )
     from src.sources.ktc_market import KTC_MARKET_KEY as _MKT  # noqa: PLC0415
 
     cfg = default_config()
+    # Which freshness rule produced these weightings (v1 strings exactly on
+    # rollback).  A voter's schedule, never the benchmark's (exempt, v1).
+    _schedules = {
+        getattr(sw, "schedule", SCHEDULE_V1)
+        for k, sw in (source_weighting or {}).items()
+        if k != _MKT and sw is not None
+    }
+    descriptor = weighting_descriptor(
+        next(iter(_schedules)) if len(_schedules) == 1 else SCHEDULE_V1, cfg
+    )
     base_by_key = {
         str(s.get("key") or ""): max(0.0, float(s.get("weight") or 1.0)) for s in active_sources
     }
@@ -11338,9 +11395,9 @@ def _source_weighting_summary(
             entry["meanVoteShare"] = round(share_sum.get(key, 0.0) / n, 4) if n else None
         sources[key] = entry
     return {
-        "configVersion": cfg.version,
-        "curve": cfg.curve,
-        "formula": "effective = base x freshness(age / expectedCadence) x health x coverage",
+        "configVersion": descriptor["configVersion"],
+        "curve": descriptor["curve"],
+        "formula": descriptor["formula"],
         "applied": bool(applied),
         "measured": bool(source_weighting),
         # Stamped by ``build_api_data_contract`` (the board's scrape time).
@@ -16229,6 +16286,39 @@ def build_api_data_contract(
         contract_payload["sourceSeasonalState"]["basis"] = (
             SEASONAL_BASIS_RECORDED_STATE_POLICY_UNREADABLE
         )
+    # Per-source voting status (owner directive 2026-10-19 §5 / §8): one
+    # plain-English entry per registered source — last genuine update,
+    # freshness %, base vs effective weight, rows contributed, status and
+    # what restores it.  Read-only over the stamps above and the weighting
+    # the blend applied (src/sources/voting_status.py); decides nothing.
+    from src.sources.voting_status import build_source_voting_status  # noqa: PLC0415
+
+    # SHADOW (owner decision 2026-10-20 on PR #1831, Option B): while the
+    # step schedule is held off, what it WOULD assign each source is computed
+    # beside the rule in force, for the owner-requested shadow analysis.  It
+    # is NOT the weighting the blend applied, is never passed to the blend,
+    # and decides nothing; a failure to compute it is stamped, never raised.
+    shadow_weighting: dict[str, Any] | None = None
+    shadow_error: str | None = None
+    if source_weighting:
+        from src.sources import freshness as _freshness_rules  # noqa: PLC0415
+
+        if all(
+            getattr(sw, "schedule", _freshness_rules.SCHEDULE_V1) == _freshness_rules.SCHEDULE_V1
+            for sw in source_weighting.values()
+        ):
+            try:
+                shadow_weighting = _source_weighting_shadow_v2(freshness_as_of, csv_root)
+            except Exception as exc:  # noqa: BLE001 — a non-voting diagnostic never fails a build
+                shadow_error = f"{type(exc).__name__}: {exc}"
+    contract_payload["sourceVotingStatus"] = build_source_voting_status(
+        contract_payload,
+        source_weighting,
+        _RANKING_SOURCES,
+        as_of=freshness_as_of,
+        shadow_weighting=shadow_weighting,
+        shadow_error=shadow_error,
+    )
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
     for row in players_array:

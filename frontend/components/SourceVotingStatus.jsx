@@ -303,7 +303,7 @@ export default function SourceVotingStatus({
         <strong className={styles.num}>{summary.votingCount}</strong> of{" "}
         <strong className={styles.num}>{summary.registeredCount}</strong> sources voting
         {summary.groups.map((g) => (
-          <span key={g.status}>
+          <span key={g.key}>
             {" · "}
             <span className={styles.num}>{g.count}</span> {g.label}
           </span>

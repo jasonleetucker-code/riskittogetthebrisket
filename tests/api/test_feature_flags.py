@@ -265,6 +265,16 @@ def test_every_flag_defaults_off_except_safe_additive():
         # is the lock.  (Measured when ON, 2026-10-19 board: 299 offense values
         # move, p90 1.7%, max 5.1%, + 36 tethered picks.)
         "dlf_values_rank_hill_vote",
+        # The owner's universal freshness step schedule.  Implementation and
+        # percentages APPROVED; ACTIVATION HELD by the owner's decision of
+        # 2026-10-20 on PR #1831 (Option B): under the incumbent outlier
+        # filter a changed voting population can remove legitimate votes,
+        # which outlier-integrity-v2 exists to fix.
+        # tests/api/test_freshness_v2_hold_locked.py is the lock.  (Measured
+        # when ON on the 2026-10-19 export, scripts/freshness_schedule_impact.py:
+        # 918 of 1,029 priced values move, median |d| 0.91%, p90 3.60%, max
+        # 42.86% -- LaJohntay Wester -- and 3 deep IDP rows newly unpriced.)
+        "source_freshness_schedule_v2",
     }
     assert not (safe_on & value_moving_on), "a flag cannot be both no-change and value-moving"
     for name, value in flags.items():
