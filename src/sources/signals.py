@@ -1507,8 +1507,30 @@ VALUE_DATASETS: dict[str, ValueDatasetSpec] = {
 }
 
 
+def _declared_votes_by_key(keys: Sequence[str]) -> dict[str, bool]:
+    """Whether each board key VOTES under this process's flags (CSV present).
+
+    Derived from the vote-state owner (``data_contract.private_source_vote_policy``),
+    never hardcoded: the Signals IDP families are held unless their release
+    flags are on.  An unreadable owner answers ``False`` for every key (an
+    unproven vote is not a vote).
+    """
+    try:
+        from src.api.data_contract import private_source_vote_policy  # noqa: PLC0415
+
+        policy = private_source_vote_policy()
+    except Exception:  # noqa: BLE001 — metadata must never break a collection
+        return {str(k): False for k in keys}
+    return {str(k): bool((policy.get(str(k)) or {}).get("votesWhenPresent")) for k in keys}
+
+
 def value_dataset_metadata(spec: ValueDatasetSpec) -> dict[str, Any]:
-    """Declared contract of one authenticated value dataset (it VOTES)."""
+    """Declared contract of one authenticated value dataset.
+
+    ``votes`` / ``votesByKey`` come from the vote-state owner: offense votes;
+    each Signals IDP family is HELD (shadow) unless its release flags are on.
+    """
+    votes_by_key = _declared_votes_by_key(list(spec.output_keys()))
     return {
         "provider": PROVIDER,
         "family": PROVIDER,
@@ -1524,12 +1546,16 @@ def value_dataset_metadata(spec: ValueDatasetSpec) -> dict[str, Any]:
         "unit": "native_value",
         "basis": BASIS_NATIVE_VALUE,
         "voteBasis": (
-            "value-ordered rank WITHIN family (derived) -> backbone family ladder -> IDP Hill"
+            "value-ordered rank WITHIN family (derived) -> bridge family ladder in "
+            "shared-market coordinates (Candidate F coverage-aligned under "
+            "signals_idp_xwalk_v2, else Candidate A shadow only) -> GLOBAL Hill; the "
+            "cross-family level is the bridge's, never Signals'"
             if spec.family_boards
             else "value-ordered rank (derived) -> percentile -> Hill"
         ),
         "intendedConsumer": "canonical_rank_signal",
-        "votes": True,
+        "votes": bool(votes_by_key) and all(votes_by_key.values()),
+        "votesByKey": votes_by_key,
         "visibility": "authenticated_only",
         "lineage": (
             "one Signals provider family, declared inside FantasyCalc's B10 group: Signals' "

@@ -366,6 +366,9 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "sourceNativeValues",
         "sourceOriginalRanks",
         "sourceShadowMeta",
+        # A released Signals IDP family's per-row withhold stamp (carries its
+        # within-family rank).
+        "sourceWithheldMeta",
         # Aggregates only, and unreachable publicly today; blocked anyway as
         # defence in depth (it names which private sources are configured).
         "privateSourceAvailability",

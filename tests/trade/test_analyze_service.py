@@ -157,6 +157,19 @@ def test_provenance_comes_from_the_passed_contract(monkeypatch):
     }
 
 
+def test_provenance_reads_the_top_level_stamp_the_served_board_carries():
+    """#1871 (train 14) through the B0-c owner: the served board stamps
+    ``generatedAt`` at the top level, so a ``meta``-only read is always null."""
+    contract = {
+        "generatedAt": "2026-10-20T01:10:59Z",
+        "meta": {"scoringFingerprint": "sf2:abc"},
+    }
+    assert analyze_service.contract_provenance(contract) == {
+        "boardStamp": "2026-10-20T01:10:59Z",
+        "scoringFingerprint": "sf2:abc",
+    }
+
+
 # ── through the real route ───────────────────────────────────────────────
 
 

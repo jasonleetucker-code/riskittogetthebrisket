@@ -460,6 +460,32 @@ def diagnose_run(tmp_path_factory):
     return box, rc, public, err
 
 
+@pytest.fixture(scope="module")
+def gate_run(tmp_path_factory):
+    """The E1 gate matrix on the synthetic box.  The per-family release flags
+    and Candidate F (``signals_idp_xwalk_v2``) are registered since release
+    train 14 (#1868), so every F build is produced, not refused."""
+    box = _make_box(tmp_path_factory.mktemp("gatebox"))
+    mp = pytest.MonkeyPatch()
+    try:
+        rc, public, err = _run_mode(box, "gate", mp)
+    finally:
+        mp.undo()
+    return box, rc, public, err
+
+
+def _work_builds(box: Path, public: dict) -> dict[str, dict]:
+    """Every compact build a v2 run left in its private freeze, by name."""
+    report = json.loads((box / public["privateReport"]).read_text(encoding="utf-8"))
+    work = Path(report["private"]["freeze"]) / "work"
+    out = {}
+    for path in work.glob("*.rows.json"):
+        build = json.loads(path.read_text(encoding="utf-8"))
+        build["status"] = "built"
+        out[path.name.split(".")[0]] = build
+    return out
+
+
 def test_d1_builds_its_matrix_and_never_candidate_f(diagnose_run):
     box, rc, public, _err = diagnose_run
     assert rc == 0, public
@@ -469,7 +495,21 @@ def test_d1_builds_its_matrix_and_never_candidate_f(diagnose_run):
     variants = public["variants"]
     for name in ("served", "noSignals", "A_all", "A_DL", "A_LB", "A_DB", "N0"):
         assert variants[name]["status"] == "built", name
-    assert variants["A_all"]["voteStateAsIntended"] is True
+    # Since release train 14 (#1868) Candidate A can never vote: the IDP master
+    # alone releases nothing and master + family without the qualified
+    # translation is ``held: no_qualified_translation``.  D1 builds A through
+    # the master only (its quarantine forbids the family / F flags), so on this
+    # code every A build stays out of the vote and D1 fails CLOSED: its
+    # per-family verdicts are VOID and no reproduction is judged.
+    for name in ("A_all", "A_DL", "A_LB", "A_DB", "N0"):
+        assert variants[name]["voteStateAsIntended"] is False, name
+        assert all(
+            variants[name]["voteStates"].get(key) != "active" for key in MOD.FAMILY_KEYS.values()
+        ), name
+    private_report = json.loads((box / public["privateReport"]).read_text(encoding="utf-8"))
+    for fam in ("DL", "LB", "DB"):
+        assert private_report["verdicts"][fam]["state"] == "VOID", fam
+    assert "reproduction" not in public
     assert not any(name.startswith(("F_", "H", "G_")) for name in variants)
     private = json.loads((box / public["privateReport"]).read_text(encoding="utf-8"))
     assert stat.S_IMODE(os.stat(box / public["privateReport"]).st_mode) == 0o600
@@ -479,8 +519,49 @@ def test_d1_builds_its_matrix_and_never_candidate_f(diagnose_run):
     assert any(k.endswith("signalsIdpDl.csv") for k in private["private"]["manifest"])
 
 
-def test_d1_reports_reproduction_premises_and_decomposition(diagnose_run):
-    _box, _rc, public, _err = diagnose_run
+def test_d1_reports_reproduction_premises_and_decomposition(diagnose_run, gate_run):
+    """D1's analysis (reproduction, premises, decomposition, verdict plumbing).
+
+    On post-#1868 code no Candidate A build can vote (see the test above), so
+    the D1 analysis is driven here with the gate's built Candidate F builds
+    standing in for the A builds (same shapes) and D1's own served-side
+    builds.  The plumbing is what is under test, not any number -- the same
+    stand-in pattern the gate test used while F could not be built."""
+    box, _rc, d1_public, _err = diagnose_run
+    gbox, _grc, g_public, _gerr = gate_run
+    d1 = _work_builds(box, d1_public)
+    gate = _work_builds(gbox, g_public)
+    stand_in = {
+        "A_all": "F_all",
+        "A_DL": "F_DL",
+        "A_LB": "F_LB",
+        "A_DB": "F_DB",
+        "N0": "N0F",
+        "A_all_noRef": "F_all_noRef",
+        "N0_noRef": "N0F_noRef",
+    }
+    builds = {name: build for name, build in d1.items() if name not in stand_in}
+    builds.update({a: gate[f] for a, f in stand_in.items()})
+    active = {k: "active" for k in MOD.FAMILY_KEYS.values()}
+    intended = {name: None for name in builds}
+    intended.update(
+        {
+            "noSignals": {k: "rolled_back" for k in MOD.FAMILY_KEYS.values()},
+            "A_all": active,
+            "N0": active,
+            "A_all_noRef": active,
+            "N0_noRef": active,
+            "A_all_noRetention": active,
+            "A_all_hampelOff": active,
+            **{f"A_{fam}": {MOD.FAMILY_KEYS[fam]: "active"} for fam in ("DL", "LB", "DB")},
+        }
+    )
+    public = MOD.sanitize_public(
+        MOD.project_allowlist(
+            MOD.analyse("diagnose", box, builds, intended), MOD.GATES["privacy"]["publicAllow"]
+        )
+    )
+    MOD.assert_public_safe_v2(public, _fixture_names())
     allowed = set(MOD.GATES["reproduction"]["verdicts"]) | {"INSUFFICIENT"}
     assert set(public["reproduction"]) == {f["id"] for f in MOD.GATES["reproduction"]["figures"]}
     assert all(cell["verdict"] in allowed for cell in public["reproduction"].values())
@@ -636,32 +717,33 @@ def test_builds_stop_starting_when_the_time_budget_is_spent(tmp_path, monkeypatc
     assert out == {"status": "refused", "reason": "time_budget_exhausted"}
 
 
-def test_the_gate_analysis_runs_on_built_candidate_builds(diagnose_run):
-    """The F builds cannot be produced until the implementation unit lands,
-    so the gate ANALYSIS is driven here with D1's synthetic compact builds
-    standing in for them (same shapes).  Verdict plumbing, controls, the
+def test_the_gate_analysis_runs_on_built_candidate_builds(gate_run):
+    """The gate ANALYSIS over the real Candidate F builds: since release train
+    14 (#1868) registered the per-family flags and the crosswalk, the gate
+    produces them on the synthetic box.  Verdict plumbing, controls, the
     information diagnostic and the privacy layer are what is under test,
     not any number."""
-    box, _rc, public, _err = diagnose_run
-    work = box / public["privateReport"]
-    freeze = json.loads(work.read_text(encoding="utf-8"))["private"]["freeze"]
-    rows = {p.name.split(".")[0]: p for p in (Path(freeze) / "work").glob("*.rows.json")}
-
-    def load(name):
-        b = json.loads(rows[name].read_text(encoding="utf-8"))
-        b["status"] = "built"
-        return b
-
+    box, rc, public, err = gate_run
+    assert rc == 0, public
+    for name in ("F_DL", "F_LB", "F_DB", "F_all", "N0F"):
+        assert public["variants"][name]["status"] == "built", name
+        assert public["variants"][name]["voteStateAsIntended"] is True, name
+    _assert_public_clean(json.dumps(public))
+    assert err == ""
+    work = _work_builds(box, public)
     builds = {
-        "served": load("served"),
-        "F_DL": load("A_DL"),
-        "F_LB": load("A_LB"),
-        "F_DB": load("A_DB"),
-        "F_all": load("A_all"),
-        "N0F": load("N0"),
-        "served_noRef": load("served_noRef"),
-        "F_all_noRef": load("A_all_noRef"),
-        "N0F_noRef": load("N0_noRef"),
+        name: work[name]
+        for name in (
+            "served",
+            "F_DL",
+            "F_LB",
+            "F_DB",
+            "F_all",
+            "N0F",
+            "served_noRef",
+            "F_all_noRef",
+            "N0F_noRef",
+        )
     }
     active = {k: "active" for k in MOD.FAMILY_KEYS.values()}
     intended = {

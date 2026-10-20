@@ -328,6 +328,24 @@ class StageClock:
         return ", ".join(parts)
 
 
+def contract_generation(contract: Mapping[str, Any] | None) -> str | None:
+    """The generation stamp of a served board, or ``None`` when it carries none.
+
+    The served contract stamps ``generatedAt`` at the TOP level (beside
+    ``dataFreshness``); its ``meta`` block carries no ``generatedAt``.  A
+    ``meta.generatedAt`` is still read as a fallback for an older shape.  This
+    is the ONE reader the in-flight key and the decision receipt share, so the
+    two cannot disagree about which board a request ran on.
+    """
+    if not isinstance(contract, Mapping):
+        return None
+    stamp = contract.get("generatedAt")
+    if not stamp:
+        meta = contract.get("meta")
+        stamp = meta.get("generatedAt") if isinstance(meta, Mapping) else None
+    return str(stamp) if stamp else None
+
+
 def dedup_key(
     owner: str | None,
     session: Mapping[str, Any] | None,
@@ -345,7 +363,7 @@ def dedup_key(
     so it is resolved before this key is taken, and the computation is handed
     that same league), the whole query string (``leagueKey``,
     ``valuationMode`` …) and body in canonical form, and the identity of the
-    loaded board.  An unauthenticated, malformed or unresolvable request is
+    loaded board (its object identity plus :func:`contract_generation`).  An unauthenticated, malformed or unresolvable request is
     never shared; it takes the normal path and gets its normal error.
     """
     if owner is None or not league_key or not isinstance(body, dict):
@@ -354,7 +372,6 @@ def dedup_key(
         canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
     except (TypeError, ValueError):
         return None
-    meta = (contract or {}).get("meta") if isinstance(contract, Mapping) else None
     return (
         "trade_analyze",
         owner,
@@ -365,7 +382,7 @@ def dedup_key(
         tuple((str(k), str(v)) for k, v in query_items),
         canonical,
         id(contract),
-        str((meta or {}).get("generatedAt") or "") if isinstance(meta, Mapping) else "",
+        contract_generation(contract) or "",
     )
 
 

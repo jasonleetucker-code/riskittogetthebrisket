@@ -105,11 +105,21 @@ def simulate_for_team(
 
 
 def contract_provenance(contract: Any) -> dict[str, Any]:
-    """The board stamp + scoring fingerprint of the contract analysed."""
+    """The board stamp + scoring fingerprint of the contract analysed.
+
+    The served board stamps ``generatedAt`` at the TOP level, not under
+    ``meta`` (five-point review 2026-10-20, #1871: reading ``meta.generatedAt``
+    made every receipt's ``boardStamp`` null).  The stamp therefore comes from
+    ``trade_analyze_runtime.contract_generation`` -- the ONE reader the in-flight
+    key and the decision receipt share (top level, ``meta`` fallback, ``None``
+    when absent).
+    """
+    from src.api.trade_analyze_runtime import contract_generation  # noqa: PLC0415
+
     meta = contract.get("meta") if isinstance(contract, dict) else None
     meta = meta if isinstance(meta, dict) else {}
     return {
-        "boardStamp": meta.get("generatedAt"),
+        "boardStamp": contract_generation(contract) if isinstance(contract, dict) else None,
         "scoringFingerprint": meta.get("scoringFingerprint"),
     }
 

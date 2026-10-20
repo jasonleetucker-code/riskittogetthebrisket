@@ -241,7 +241,7 @@ def collector_state(app_dir: Path) -> dict[str, Any]:
 # ── 4-5: contract builds ─────────────────────────────────────────────────
 
 
-def build_three(app_dir: Path) -> tuple[dict, dict, dict, str]:
+def build_three(app_dir: Path, *, promote: bool = True) -> tuple[dict, dict, dict | None, str]:
     from src.api.data_contract import build_api_data_contract
     from src.sources.signals import newest_raw_payload
 
@@ -261,8 +261,21 @@ def build_three(app_dir: Path) -> tuple[dict, dict, dict, str]:
         RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1", RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="0"
     ):
         shipped = _build()
+    # "Promoted" = every Signals IDP family released.  Since the owner
+    # directive of 2026-10-19 the master ALONE releases nothing (it would
+    # rebuild the shipped board and report zero movement), and Candidate A can
+    # never vote: a release needs the master, every family switch AND the
+    # qualified translation (Candidate F, signals_idp_xwalk_v2).  The per-mode
+    # build matrix (D1 / E1, Candidate A computed in-script) is PR-D's.
+    if not promote:
+        return champion, shipped, None, path.name if path else "?"
     with _flags(
-        RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1", RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="1"
+        RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET="1",
+        RISKIT_FEATURE_SIGNALS_IDP_DL_VOTE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_LB_VOTE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_DB_VOTE="1",
+        RISKIT_FEATURE_SIGNALS_IDP_XWALK_V2="1",
     ):
         promoted = _build()
     return champion, shipped, promoted, path.name if path else "?"
@@ -754,6 +767,8 @@ def public_projection(report: Mapping[str, Any]) -> dict[str, Any]:
             "payload",
         )
     }
+    if "idpPromotedBuild" in report:
+        out["idpPromotedBuild"] = report["idpPromotedBuild"]
     sess = report.get("session") or {}
     out["session"] = {k: sess.get(k) for k in ("state", "acquisitionState", "error") if k in sess}
     if "collection" in report:
@@ -3405,15 +3420,18 @@ def legacy_main(args: argparse.Namespace, app_dir: Path, utc: str) -> int:
         report["collection"] = run_collection()
     report["collector"] = collector_state(app_dir)
     if not args.skip_builds:
-        champion, shipped, promoted, payload = build_three(app_dir)
-        ladders = _family_ladders()  # from the PROMOTED build (last built)
+        champion, shipped, promoted, payload = build_three(app_dir, promote=args.candidate_f)
         report["payload"] = payload
         report["privateSourceAvailability"] = shipped.get("privateSourceAvailability")
         report["offense"] = offense_report(champion, shipped, report["collector"])
-        report["idp"] = idp_report(shipped, promoted, ladders)
-        report["idp"]["familyLadderDepths"] = {k: len(v) for k, v in ladders.items()}
-        report["watchList"] = watch_list(shipped, promoted)
-        report["trades"] = trade_check(app_dir, shipped, promoted)
+        if promoted is None:
+            report["idpPromotedBuild"] = "quarantined_until_R1:candidate_f_not_requested"
+        else:
+            ladders = _family_ladders()  # from the PROMOTED build (last built)
+            report["idp"] = idp_report(shipped, promoted, ladders)
+            report["idp"]["familyLadderDepths"] = {k: len(v) for k, v in ladders.items()}
+            report["watchList"] = watch_list(shipped, promoted)
+            report["trades"] = trade_check(app_dir, shipped, promoted)
         names = [r.get("displayName") for r in shipped.get("playersArray") or []]
     else:
         names = []
@@ -3457,6 +3475,11 @@ def main() -> int:
     ap.add_argument("--mode", choices=MODES, default="legacy")
     ap.add_argument("--collect", action="store_true", help="start one real collection first")
     ap.add_argument("--skip-builds", action="store_true")
+    # Candidate F statistics are preregistered for the first qualifying release
+    # (R1; plan 4.3 D1 quarantine): never computed unless explicitly asked for.
+    # Legacy mode only -- the v2 modes own their F builds (gate) or refuse them
+    # outright (diagnose's D1 quarantine).
+    ap.add_argument("--candidate-f", action="store_true", help="build the F-promoted board")
     ap.add_argument(
         "--payload-ref",
         default=None,
@@ -3472,6 +3495,8 @@ def main() -> int:
     refusal = None
     if args.collect and args.mode != "legacy":
         refusal = "collect_is_legacy_only"
+    elif args.candidate_f and args.mode != "legacy":
+        refusal = "candidate_f_is_legacy_only"
     elif args.payload_ref and (args.mode != "diagnose" or not _HEX.match(args.payload_ref)):
         refusal = "invalid_payload_ref"
     elif args.r1_release and not re.fullmatch(r"[0-9a-f]{12}", args.r1_release):
