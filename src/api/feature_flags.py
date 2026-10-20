@@ -9,13 +9,15 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 58 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 61 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
 ``signals_active_source``, ``dlf_offense_only_vote``,
+``two_way_alt_evidence_rules``,
+``fantasypros_idp_upstream_clock``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
 ``trade_screenshot_import`` and ``manager_intelligence`` — several with comments
@@ -174,17 +176,76 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # no_qualified_translation``.  Rollback of the method:
     # RISKIT_FEATURE_SIGNALS_IDP_XWALK_V2=0 + restart (held, never A).
     "signals_idp_xwalk_v2": False,
-    # DLF vote offense-only (owner directive 2026-10-16; docs/
-    # OWNER_REQUESTED_TODO.md).  ON: the DLF IDP boards (``dlfIdp``,
-    # ``dlfRookieIdp``) stay ingested and displayed but are held from the
-    # vote through the existing vote-hold gate
-    # (``data_contract.POLICY_SOURCE_VOTE_HOLDS`` -> the same active-source
-    # gate seasonal inactivity and private holds use); ``dlfSf`` /
-    # ``dlfRookieSf`` vote unchanged.  Value-moving: IDP rows (and the
-    # current-year picks tethered to the IDP rookie pool) re-blend without
-    # the DLF family.  OFF (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart):
-    # the DLF IDP boards vote again, byte for byte the prior board.
+    # DLF IDP HOLD -- TEMPORARY, AND LOCKED BY THE OWNER (Option 3,
+    # 2026-10-20).  This flag is NOT an exclusion of DLF's IDP opinion: the
+    # universal source-voting directive of 2026-10-19 approves restoring
+    # ``dlfIdp`` / ``dlfRookieIdp`` inside DLF's one provider-family cap, and
+    # the restore is implemented (this flag OFF).  It stays ON because
+    # restoring DLF IDP under the INCUMBENT outlier filter
+    # (``_hampel_filter_per_player``) drops valid Draft Sharks IDP /
+    # FantasyPros IDP / IDP Trade Calculator votes -- 34-54% moves on rows
+    # such as Trevin Wallace, none from DLF's own vote.  On 2026-10-20 the
+    # owner chose Option 3: do NOT accept those moves, do NOT activate the
+    # candidate replacement filter (it failed 3 of its 6 mandatory
+    # adversarial tests), and keep DLF IDP voting disabled until a
+    # PREREGISTERED outlier-filter Version 2 passes EVERY mandatory gate.
+    # Lifting this hold (default False, or RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE
+    # set false-y in any deploy/config/env surface) IS the owner's DLF IDP
+    # activation decision and may only be made with the owner's explicit
+    # approval -- ``tests/api/test_dlf_idp_hold_locked.py`` fails otherwise.
+    # ON: the DLF IDP boards stay ingested and displayed but are held from
+    # the vote through ``data_contract.POLICY_SOURCE_VOTE_HOLDS`` (the same
+    # active-source gate seasonal inactivity and private holds use);
+    # ``dlfSf`` / ``dlfRookieSf`` / ``dlfValuesSfTep`` vote unchanged.
     "dlf_offense_only_vote": True,
+    # DLF VALUES RANK -> HILL VOTE -- HELD, DEFAULT OFF (owner decision
+    # 2026-10-20, "Hold D4 for V2").  HELD pending outlier-integrity-v2 +
+    # explicit owner approval.  The implementation (owner closeout 2026-10-18
+    # Decision 4, kept by the source-voting directive of 2026-10-19) is
+    # intact: ``dlfValuesSfTep`` is registered as an offense-only member of
+    # the existing ``dlf`` family (its native value ORDER -> percentile ->
+    # Hill; raw/max rejected) and SPLITS DLF's one provider cap with DLF
+    # Rank.  It is held because under the INCUMBENT outlier filter
+    # (``_hampel_filter_per_player``) turning it on newly drops OTHER
+    # sources' valid votes on 12-13 offense rows (6 Draft Sharks, plus IDPTC,
+    # Yahoo/Boone, KTC Crowd, FantasyPros; e.g. Theo Johnson -7.4%) -- the
+    # same mechanism class the owner rejected for DLF IDP.  The owner's
+    # outlier-integrity-v2 directive
+    # (docs/owner/OUTLIER_INTEGRITY_V2_DIRECTIVE_2026-10-20.md, addendum)
+    # makes D4 a second restoration target.  Setting this default True (or
+    # RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE true-y in any deploy/config/
+    # env surface) IS the owner's D4 activation decision and may only be made
+    # with the owner's explicit approval after V2 passes --
+    # ``tests/api/test_dlf_values_hold_locked.py`` fails otherwise, and
+    # deploy/verify-deploy.sh fails a production deploy whose effective flag
+    # is ON.  OFF: collected and displayed, held from the vote by the
+    # owner-policy vote-hold gate (``data_contract.POLICY_SOURCE_VOTE_HOLDS``);
+    # decision fields identical to main.  Activation, once approved:
+    # flip this default (the only step).
+    "dlf_values_rank_hill_vote": False,
+    # Two-way boost alt-family evidence (PR #1817 review + owner source-voting
+    # directive 2026-10-19).  ON: ``data_contract._apply_two_way_player_boost``
+    # prices a two-way player's alt-family value as a REAL member of that
+    # family with the same observations would be priced: only sources that
+    # VOTE there on this build (the blend loop's own per-(row, source) weight
+    # owner, after holds, freshness and user overrides), the incumbent blend,
+    # and the single-source retention applied once when the alt evidence rests
+    # on one B10 family.  A correctness fix: a quarantined, held or disabled
+    # source no longer prices a player through the side door.  OFF
+    # (RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES=0 + restart): the prior boost,
+    # byte for byte.
+    "two_way_alt_evidence_rules": True,
+    # FantasyPros IDP on its actual upstream clock (owner closeout 2026-10-18
+    # Decision 5, kept by the 2026-10-19 directive).  ON: the ``style:
+    # EXPLICIT_UPSTREAM_TIMESTAMP`` that ``config/sources/freshness_v1.json``
+    # declares for ``fantasyProsIdp`` (``styleFlag``) is in force, so the
+    # voting clock is the vendor's stated expert-update time and re-scraping an
+    # old ranking can never refresh its age.  Today it moves confidence
+    # labels/axes only; once a second non-anchor IDP voter exists the lower
+    # weight reaches values.  OFF
+    # (RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK=0 + restart): the style is
+    # dropped and the prior broad-change clock applies.
+    "fantasypros_idp_upstream_clock": True,
     # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
     # owner decision B 2026-10-01) -- two separately promotable halves, both
     # OFF until the owner approves that specific candidate (valuation
@@ -912,11 +973,28 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
-    # dlf_offense_only_vote gates the owner-policy vote hold on the DLF IDP
-    # boards in ``data_contract._policy_source_vote_holds``, read by
+    # dlf_offense_only_vote gates the vote hold on the DLF IDP boards in
+    # ``data_contract._policy_source_vote_holds`` -- a TEMPORARY hold
+    # re-applied 2026-10-19 (default ON): the owner rescinded the 2026-10-16
+    # policy hold, but restoring DLF IDP under the incumbent outlier filter
+    # drops valid Draft Sharks / FantasyPros / IDPTC IDP votes (30 rows, up to
+    # 54%), so the restore is held.  LOCKED by the owner's Option 3 decision
+    # of 2026-10-20: it lifts only with explicit owner approval after a
+    # preregistered outlier-filter Version 2 passes every mandatory gate
+    # (tests/api/test_dlf_idp_hold_locked.py).  Mechanism of a lift:
+    # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.  Read by
     # ``build_api_data_contract`` on every board build, which reaches a
     # request through ``/api/data`` and every engine that reads the board.
     "dlf_offense_only_vote": LIVE,
+    # dlf_values_rank_hill_vote releases the DLF Values hold inside
+    # ``data_contract._policy_source_vote_holds``; two_way_alt_evidence_rules
+    # gates ``data_contract._apply_two_way_player_boost``'s evidence rules;
+    # fantasypros_idp_upstream_clock gates the configured freshness style in
+    # ``src/sources/freshness.load_config``.  All read on every board build,
+    # which reaches a request through ``/api/data``.
+    "dlf_values_rank_hill_vote": LIVE,
+    "two_way_alt_evidence_rules": LIVE,
+    "fantasypros_idp_upstream_clock": LIVE,
     # source_universe_freshness caps each row's freshness clock at its own asset
     # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
     "source_universe_freshness": LIVE,

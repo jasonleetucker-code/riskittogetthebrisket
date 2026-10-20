@@ -352,7 +352,6 @@ def test_dlf_join_probe_stamps_dlf_values_without_moving_the_board(raw, base):
     before = dict(dc._SOURCE_CSV_PATHS)
     probe = vr.build(raw, audit.dlf_join_probe_spec())
     assert dict(dc._SOURCE_CSV_PATHS) == before
-    assert audit.DLF_VALUES not in {s.get("key") for s in dc._RANKING_SOURCES}
     stamped = [
         r
         for r in probe["playersArray"]

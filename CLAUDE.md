@@ -100,6 +100,12 @@ anything that touches these.
   on that consensus are correlated descendants, not independent votes. Declare
   population, overlap, correlation group, sample size, freshness, coverage,
   missing behavior and provenance before adding a signal. (§3.3)
+  **Agreement between different providers is consensus, not duplication**
+  (owner directive 2026-10-19). A shared family or cap needs credible
+  shared-DATA-lineage evidence: one feed republishing another, a vendor-stated
+  derivation, or identical raw values. Rank or value similarity alone never
+  merges, caps, excludes or haircuts a vote. Record:
+  `docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`.
 - **Champion ≠ challenger.** Evaluation is not activation. Nothing self-promotes.
   (§3.4)
 - **Model evaluation does not authorize production promotion.** The sequence is
