@@ -71,6 +71,7 @@ import {
   listJoin,
   missingEvidenceText,
   packageModelLabel,
+  partialCoverageNote,
   projectionBasisText,
   recordReasonText,
   rosterFit,
@@ -145,17 +146,12 @@ function Disclosure({ id, title, open, onToggle, children }) {
   );
 }
 
-function PlayerImpact({ rosterDetail, partial }) {
+function PlayerImpact({ rosterDetail, partialNote }) {
   const rows = rosterImpactRows(rosterDetail);
   const sentences = incomingLineupSentences(rosterDetail);
   return (
     <div className={styles.detailBody}>
-      {partial ? (
-        <p className={styles.note}>
-          A traded player has no projection, so these numbers cover the projected players only and
-          do not count toward the recommendation.
-        </p>
-      ) : null}
+      {partialNote ? <p className={styles.note}>{partialNote}</p> : null}
       {sentences.length ? (
         <ul className={styles.plainList} data-testid="war-room-lineup-sentences">
           {sentences.map((s) => (
@@ -1070,7 +1066,10 @@ export default function TradeWarRoom({
                 open={Boolean(open.players)}
                 onToggle={toggleOpen}
               >
-                <PlayerImpact rosterDetail={rosterDetail} partial={partial} />
+                <PlayerImpact
+                  rosterDetail={rosterDetail}
+                  partialNote={partialCoverageNote(rosterLens)}
+                />
               </Disclosure>
               <Disclosure
                 id="lineup"
