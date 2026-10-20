@@ -554,59 +554,52 @@ def validate(
 # ── Evaluation + reduction ────────────────────────────────────────────────
 
 
-#: Engine row ``valueState`` values that mean "this value is not a trustworthy
-#: price" beyond the gate the engine already maps to ``asset_not_evaluable``.
-#: ``priced`` is the ONLY state a FAIR / NOT_FAIR verdict may rest on (R1-L2 /
-#: F2 public side); any other state — including one a newer engine adds, such
-#: as a quarantined / stale marker — fails the team closed.
+#: The ONE engine row ``valueState`` a FAIR / NOT_FAIR verdict may rest on.
+#: The state is owned by the engine (``analyze_service._value_entry`` /
+#: ``analyze_service.VALUE_STATES``: ``priced``, ``unpriced``, ``off_board``,
+#: ``not_held``, ``quarantined``, ``stale``); this module reads it and never
+#: re-derives it.  Any other state — including one a newer engine adds, a
+#: missing state, or a malformed row — fails the team closed (R1-L2 / F2).
 _PRICED_STATE = "priced"
 
 
 def _withheld_value_evidence(entry: Mapping[str, Any]) -> bool:
-    """Does this team's evaluation rest on a value that must not count as
+    """Does this team's side carry an asset the engine does not present as
     priced?  (R1-L2 / F2, public side.)
 
-    Two independent reads, either suffices:
+    Reads ONLY the engine's own row ``valueState`` on the team's ``gives`` /
+    ``receives`` rows — one owner.  The public side used to re-read the
+    simulation through ``trade_decision.asset_evidence_codes`` as a stand-in
+    while the engine rows still said ``priced`` for a quarantined / stale
+    value; Lane A (#1882) now carries ``quarantined`` / ``stale`` itself, so
+    that second read is deleted rather than kept as a parallel check.
 
-    * a ``gives`` / ``receives`` row whose ``valueState`` is not ``priced``;
-    * a traded asset in the team's simulation raising ``quarantined_values``
-      or ``stale_values`` through the decision owner's own
-      ``trade_decision.asset_evidence_codes`` (read, never recomputed) — the
-      engine rows still say ``priced`` for these today (#1882 F2).
-
-    The engine's evidence gate already answers UNABLE for both; this keeps the
-    public answer fail-closed even if the gate order or the private row
-    contract changes, so a withheld value can never back a FAIR / NOT FAIR."""
-    from src.trade.trade_decision import asset_evidence_codes  # noqa: PLC0415
-
+    A row that is not a mapping, or carries no ``valueState``, is NOT priced:
+    unknown is never treated as a trustworthy price."""
     rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
-    if any(isinstance(r, Mapping) and r.get("valueState") != _PRICED_STATE for r in rows):
-        return True
-    sim = entry.get("simulation")
-    if not isinstance(sim, Mapping):
-        return False
-    traded = [*(sim.get("receiving") or []), *(sim.get("sending") or [])]
-    return any(
-        code in ("quarantined_values", "stale_values")
-        for a in traded
-        for code in asset_evidence_codes(a)
-    )
+    return any(not isinstance(r, Mapping) or r.get("valueState") != _PRICED_STATE for r in rows)
 
 
 def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
     """Pull the four public inputs out of one engine team entry.  Unavailable
     ids name only this team's own ledger assets.
 
-    Fail closed (R1-L2 / F2): a FAIR / NOT_FAIR state resting on a withheld
-    value (:func:`_withheld_value_evidence`) becomes UNABLE
-    ``evaluation_unavailable`` — the reason the engine's own gate gives a
-    quarantined / stale value (spec §2.8).  No asset is named, so the public
-    answer discloses no more than the engine gate already does (whether to
-    name such assets is the owner exposure decision F-1)."""
+    Fail closed (R1-L2 / F2): if any asset on the team's side has an engine
+    ``valueState`` other than ``priced`` (:func:`_withheld_value_evidence`), a
+    FAIR / NOT_FAIR state becomes UNABLE ``evaluation_unavailable`` — the
+    reason the engine's own gate gives a quarantined / stale value (spec §2.8).
+    An engine UNABLE keeps the engine's own reason.  The withheld asset is NOT
+    named: whether the public answer may name it is the owner exposure
+    decision F-1, and until it is made the answer discloses no more than the
+    engine gate already does."""
     raw = entry.get("fairness")
     fairness: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
     reason = fairness.get("reasonCode")
-    rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
+    rows = [
+        r
+        for r in (*(entry.get("gives") or []), *(entry.get("receives") or []))
+        if isinstance(r, Mapping)
+    ]
     state = str(fairness.get("state"))
     if state in (team_verdicts.FAIR, team_verdicts.NOT_FAIR) and _withheld_value_evidence(entry):
         return TeamFairnessInput(
