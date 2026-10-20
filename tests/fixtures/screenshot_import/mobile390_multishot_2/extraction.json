@@ -1,0 +1,100 @@
+{
+  "engine": {
+    "name": "tesseract",
+    "version": "5.3.4"
+  },
+  "ignored": [
+    {
+      "raw": "9:41",
+      "reason": "not_an_asset"
+    },
+    {
+      "raw": "example.com/trade-calculator",
+      "reason": "not_an_asset"
+    },
+    {
+      "raw": "Search for a player",
+      "reason": "search_placeholder"
+    },
+    {
+      "raw": "5507",
+      "reason": "value_number"
+    },
+    {
+      "raw": "RB- MIA: 25 y.o.",
+      "reason": "not_an_asset"
+    },
+    {
+      "raw": "1 Total Pieces",
+      "reason": "label"
+    },
+    {
+      "raw": "Fair Trade",
+      "reason": "label"
+    },
+    {
+      "raw": "Copy Trade URL",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Clear Calculator",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "BIGGEST 30 DAY RISERS",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Bryce Young",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Omarion Hampton",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "LIMITED TIME OFFER",
+      "reason": "outside_trade_region"
+    },
+    {
+      "raw": "Shop the sale",
+      "reason": "outside_trade_region"
+    }
+  ],
+  "imageIndex": 1,
+  "layout": {
+    "confidence": 0.7,
+    "kind": "single"
+  },
+  "ok": true,
+  "sides": [
+    {
+      "anchorFamily": "team 1/team 2",
+      "anchorSlot": 1,
+      "items": [
+        {
+          "boardName": "De'Von Achane",
+          "candidates": [],
+          "conf": 0.913,
+          "hints": {
+            "position": null,
+            "team": null
+          },
+          "kind": "player",
+          "lineIndex": 4,
+          "raw": "De'Von Achane",
+          "reason": null,
+          "sleeperId": "9226",
+          "status": "resolved",
+          "suggestions": []
+        }
+      ],
+      "label": "Team 2 gets",
+      "labelSource": "anchor"
+    }
+  ],
+  "unassigned": [],
+  "warnings": [
+    "missing_side"
+  ]
+}

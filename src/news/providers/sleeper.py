@@ -51,6 +51,32 @@ _TRENDING_PATH_DROP = "/players/nfl/trending/drop"
 _PLAYERS_PATH = "/players/nfl"
 
 
+# The ONLY fields this provider reads from a player entry (``_display_name``
+# and ``_row_to_item``).  The cache used to hold Sleeper's whole dump — every
+# field of ~12k players, measured 38.4 MB of Python objects — as a second
+# resident copy beside ``sleeper_client``'s, for the life of the process (prod
+# memory-pressure incident 2026-10-19).  Keeping exactly the read fields makes
+# every rendered item byte-identical at a fraction of the memory.
+_PLAYER_MAP_FIELDS = ("full_name", "first_name", "last_name", "position", "team")
+
+
+def _slim_player_map(raw: dict[Any, Any]) -> dict[str, dict[str, Any]]:
+    """Project each dict entry onto ``_PLAYER_MAP_FIELDS``.
+
+    Every key survives and a non-dict entry is kept verbatim, and a field
+    absent upstream stays absent, so every ``player_map.get`` /
+    ``entry.get(...)`` read answers exactly as it did on the full dump.
+    """
+    return {
+        pid: (
+            {f: entry[f] for f in _PLAYER_MAP_FIELDS if f in entry}
+            if isinstance(entry, dict)
+            else entry
+        )
+        for pid, entry in raw.items()
+    }
+
+
 class _PlayerMapCache:
     """Thread-safe, TTL'd cache for the Sleeper player-id → name map."""
 
@@ -96,8 +122,9 @@ class _PlayerMapCache:
                 raise
             return self._map
         if isinstance(fresh, dict) and fresh:
+            slim = _slim_player_map(fresh)
             with self._lock:
-                self._map = fresh
+                self._map = slim
                 self._expires_at = now + ttl_s
         return self._map
 

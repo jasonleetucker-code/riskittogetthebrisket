@@ -20,18 +20,14 @@ const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
 const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builder");
 
 const PICK_TOKEN = /\d{4}/;
-const LABELS = {
-  MAKE: "Make the trade",
-  LEAN_MAKE: "Lean make",
-  TOO_CLOSE: "Too close / depends",
-  LEAN_PASS: "Lean pass",
-  PASS: "Pass",
-};
-
-function signedPpg(v) {
-  const r = Math.round(v * 10) / 10;
-  if (r === 0) return "±0.0";
-  return `${r > 0 ? "+" : "−"}${Math.abs(r).toFixed(1)}`;
+// The War Room's plain-English weekly-impact sentence (frontend/lib/
+// trade-war-room-copy.js::lineupPointsSentence): one decimal, magnitude
+// rounded half away from zero, sign as "more" / "fewer".
+function ppgSentence(v) {
+  const mag = (Math.round(Math.abs(v) * 10 + 1e-9) / 10).toFixed(1);
+  if (mag === "0.0")
+    return "Your projected lineup scores about the same each week (less than 0.1 points either way).";
+  return `Your projected lineup scores about ${mag} ${v > 0 ? "more" : "fewer"} points per week.`;
 }
 
 async function noPageOverflow(page) {
@@ -138,12 +134,13 @@ async function checkShape(page, testInfo, p, label, give, receive) {
   expect(body.teamContext).toEqual({ applied: true, mode: "team" });
 
   const a = body.analysis;
-  await expect(room.getByText(LABELS[a.recommendation], { exact: true })).toBeVisible();
+  // The ONE recommendation, verbatim from the backend's decision.
+  await expect(room.getByTestId("decision-headline")).toHaveText(a.decision.headlineText);
   const cap = body.rosterCapacity || {};
   const feas = a.lenses.feasibility;
   const roster = a.lenses.roster;
   if (roster.detail && roster.detail.ppg != null && (roster.available || roster.unavailableReason === "partial_projection_coverage")) {
-    await expect(room.locator('[data-lens="roster"]').getByText(signedPpg(roster.detail.ppg), { exact: true })).toBeVisible();
+    await expect(room.locator('[data-lens="roster"]').getByText(ppgSentence(roster.detail.ppg), { exact: true })).toBeVisible();
   }
   // Public artifact (security S3): the capacity outcome and feasibility state
   // only — never the recommendation, gaps, PPG, roster sizes or player names.
@@ -190,7 +187,7 @@ test.describe("Trade War Room (production)", () => {
     const three = await checkShape(page, testInfo, p, "1for2", [p.mine[0]], [p.theirs[0], p.theirs[1]]);
     expect(three.cap.sizeAfter).toBe(three.cap.sizeBefore + 1);
     if (three.cap.requiresDrops === true) {
-      await expect(three.room.locator('[data-lens="feasibility"]').getByText(/likely cut:/)).toBeVisible();
+      await expect(three.room.locator('[data-lens="feasibility"]').getByText(/You would need to cut/)).toBeVisible();
     }
 
     // No screenshot: production pages are never captured into files (security S3).

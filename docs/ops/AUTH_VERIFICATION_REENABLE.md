@@ -250,3 +250,27 @@ If any check above finds something, go to §5 immediately.
 - The census needs the deployed code. A run against an older production
   build reports the census as unknown and fails. That is correct, not a
   flake.
+- **First automatic run, 2026-10-19 (run 39221318435, deployed `b08f7230d1`):
+  `SEC-POST-REVOKE` was inconclusive because the session died mid-suite.**
+  - Production's public `/api/status` showed `build.process_started_at`
+    `2026-10-19T08:42:49Z` on the same commit. So the backend restarted
+    about 28 minutes into the suite; it was not a deploy.
+  - Before the restart, several specs hit 45 s timeouts on `/api/auth/status`.
+  - On restart, `session_store.hydrate` also applied
+    `PRIVATE_APP_ALLOWED_USERNAMES` to guest rows. The guest username `guest`
+    is never on that list, so every live guest session was deleted (census
+    `guestSessions=0`).
+  - Fixed on `claude/v1-verification-session-survival`:
+    - a bounded guest row now survives the restart, and its pass decides
+      whether it is still valid;
+    - an unreadable pass store refuses the request but no longer ends the
+      session;
+    - the workflow waits (bounded) for a warm backend and reports a mid-run
+      restart;
+    - the safe reporter's `errorClass` strips ANSI colour before it
+      classifies. Playwright colours value-matcher failures (`toBe` /
+      `toEqual` / `toContain`), so the reporter had been publishing them as
+      `error` rather than `assertion`.
+  - Public evidence does not say why the backend restarted. The box's
+    `journalctl -u dynasty -u dynasty-healthcheck` and its OOM log for
+    08:36–08:43 UTC would.

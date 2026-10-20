@@ -253,7 +253,7 @@ Checked against the workbook and `main` at `123a0be024`:
 | 5.01 L = $2, 6.01 L = $1 | agree |
 | `CSVs/Draft Data.xlsx` is a "local cached copy, no live Google sync" | **disagree** — `scheduled-refresh.yml` downloads the sheet every 2 hours and re-exports the CSV |
 | the fallback renormalises picks of two seasons into one $1,200 pool | agree for `main` (`draft_capital_fallback.py` loops `(current_season, current_season + 1)`, one pool); open PR #1785 changes this |
-| the workbook path keeps worksheet owners when `/traded_picks` fails | agree for `main` (`server.py` sets `traded = []`); open PR #1785 refuses the board instead |
+| the workbook path keeps worksheet owners when `/traded_picks` fails | agree for `main` (`server.py` sets `traded = []`); open PR #1785 refuses the board instead — *resolved since: #1785 merged via release train 6 #1794 (2026-10-18), so `main` now refuses the board (`pick_ownership_unavailable`)* |
 | `_read_sheet_spine_and_floor` falls back to a flat spine | agree; measured in section 6 (D) |
 | `_rookie_dollars_from_values` accepts fewer than 72 values | agree; measured in section 6 (E) |
 | RANK ties may diverge from a stable-sort Python port | agree, and measured (section 5): the sheet itself publishes $1,206 |

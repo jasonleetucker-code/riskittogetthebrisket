@@ -114,6 +114,12 @@ const COMPUTE_ONLY_POSTS = new Set([
   "POST /api/waiver/best-available-idp",
   "POST /api/waiver/faab-recommend",
   "POST /api/rankings/overrides",
+  // Perfect Waivers (C7-WAIV-01, d6130dd35b, 2026-10-08 — after this guard
+  // was written): `server.py::post_waiver_perfect` is "advice only: nothing
+  // here submits a claim" — it reads the board, rosters and protections,
+  // computes a plan and caches it in process memory.  /waivers fetches it on
+  // load, so the guard aborted it and failed the Droppable test.
+  "POST /api/waiver/perfect",
 ]);
 /** Non-GETs answered locally and never forwarded (a league switch is
  *  persisted through it by useLeague). */
