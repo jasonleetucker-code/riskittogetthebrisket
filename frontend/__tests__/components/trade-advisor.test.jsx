@@ -549,6 +549,55 @@ describe("errors", () => {
     expect(screen.queryByTestId("advisor-result")).toBeNull();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
+
+  // Admission control on the analyze route (Lane C, R2-5): 503
+  // advisor_unavailable with reason busy | timeout.  The bodies are the
+  // route's shape; the server's message is deliberately NOT the one shown
+  // (the client renders its own fixed copy, identical in wording).
+  for (const [reason, title, copy] of [
+    ["busy", "The trade advisor is busy", "The trade advisor is busy right now. Please try again in a moment."],
+    ["timeout", "The trade advisor took too long", "The trade advisor took too long to answer. Please try again."],
+  ]) {
+    it(`503 ${reason}: fixed copy, the trade is kept, focus on Try again, and Try again resubmits it`, async () => {
+      routes.analyze = () =>
+        json(503, { error: "advisor_unavailable", reason, message: "server text 987654 must not render" });
+      const user = userEvent.setup();
+      await buildTwoTeamTrade(user);
+      await user.click(screen.getByRole("button", { name: "Analyze trade" }));
+      // A warning Banner is role="alert": announced, not only shown.
+      const banner = (await screen.findByText(title)).closest('[role="alert"]');
+      expect(banner).not.toBeNull();
+      expect(banner).toHaveTextContent(copy);
+      expect(banner).not.toHaveTextContent(/987654|server text/);
+      expect(screen.queryByTestId("advisor-result")).toBeNull();
+      // The trade the reader built is untouched.
+      expect(within(screen.getByTestId("advisor-panel-0")).getByText("Alpha Quarterback")).toBeInTheDocument();
+      expect(within(screen.getByTestId("advisor-panel-1")).getByText("Bravo Star")).toBeInTheDocument();
+      // Keyboard: focus is on the banner's one action, never left on <body>.
+      const retry = within(banner).getByRole("button", { name: "Try again" });
+      await waitFor(() => expect(retry).toHaveFocus());
+      // Keyboard activation resubmits the SAME trade and reaches the answer.
+      routes.analyze = () => json(200, fixture("analyze.not-fair-two-team"));
+      await user.keyboard("{Enter}");
+      await waitFor(() => expect(screen.getByTestId("advisor-overall-label")).toHaveTextContent("NOT FAIR"));
+      const posts = calls.filter((c) => c.init.method === "POST").map((c) => c.init.body);
+      expect(posts).toHaveLength(2);
+      expect(posts[0]).toBe(posts[1]);
+      expect(screen.queryByText(title)).toBeNull();
+    });
+  }
+
+  it("a repeated busy refusal re-focuses the new banner's Try again", async () => {
+    routes.analyze = () => json(503, { error: "advisor_unavailable", reason: "busy" });
+    const user = userEvent.setup();
+    await buildTwoTeamTrade(user);
+    await user.click(screen.getByRole("button", { name: "Analyze trade" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toHaveFocus());
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(calls.filter((c) => c.init.method === "POST")).toHaveLength(2));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toHaveFocus());
+    expect(screen.getByText("The trade advisor is busy")).toBeInTheDocument();
+  });
 });
 
 describe("multi-team trades (3 and 4 teams, one response, every team's own result)", () => {

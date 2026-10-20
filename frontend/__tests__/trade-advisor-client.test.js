@@ -13,6 +13,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ADMISSION_COPY,
   ADVISOR_API,
   classifyTeamsResult,
   errorFromResponse,
@@ -207,6 +208,23 @@ describe("errors use fixed client copy", () => {
     const sneaky = { error: "advisor_unavailable", message: "Traceback: secret=hunter2 value 987654" };
     expect(JSON.stringify(errorFromResponse(503, sneaky))).not.toMatch(/hunter2|987654|Traceback/);
     expect(errorFromResponse(0, null).kind).toBe("offline");
+  });
+
+  it("admission control: busy and timeout are retryable kinds with the server's fixed wording", () => {
+    // Wording is src/trade/public_advisor.py ERROR_MESSAGES verbatim (Lane C).
+    expect(ADMISSION_COPY).toEqual({
+      busy: "The trade advisor is busy right now. Please try again in a moment.",
+      timeout: "The trade advisor took too long to answer. Please try again.",
+    });
+    for (const reason of ["busy", "timeout"]) {
+      const body = { error: "advisor_unavailable", reason, message: "Traceback value 987654" };
+      const e = errorFromResponse(503, body);
+      expect(e).toEqual({ kind: reason, retryable: true, message: ADMISSION_COPY[reason] });
+      expect(JSON.stringify(e)).not.toMatch(/987654|Traceback/);
+    }
+    // Only the analyze route's 503 shape maps there; other statuses do not.
+    expect(errorFromResponse(500, { error: "advisor_unavailable", reason: "busy" }).kind).toBe("unavailable");
+    expect(errorFromResponse(503, { error: "advisor_unavailable", reason: "not_ready" }).kind).toBe("unavailable");
   });
 });
 

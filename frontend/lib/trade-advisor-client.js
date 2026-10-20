@@ -203,6 +203,15 @@ const INVALID_TRADE_COPY = {
   one_sided_trade: "Every team in the trade must both send and receive at least one asset.",
 };
 
+// The server's fixed copy for the two admission-control refusals
+// (src/trade/public_advisor.py ERROR_MESSAGES, ("advisor_unavailable",
+// "busy" | "timeout")), held here verbatim for the same reason as
+// INVALID_TRADE_COPY: no server string is ever rendered.
+export const ADMISSION_COPY = Object.freeze({
+  busy: "The trade advisor is busy right now. Please try again in a moment.",
+  timeout: "The trade advisor took too long to answer. Please try again.",
+});
+
 export function errorFromResponse(status, body) {
   const b = body && typeof body === "object" ? body : {};
   const assetIds = Array.isArray(b.assetIds) ? b.assetIds.filter((x) => typeof x === "string") : [];
@@ -224,6 +233,12 @@ export function errorFromResponse(status, body) {
   }
   if (status === 503 && b.error === "advisor_unavailable" && b.reason === "disabled") {
     return { kind: "disabled", message: "The trade advisor is switched off right now." };
+  }
+  // Admission control on the analyze route (Lane C, R2-5): every engine slot
+  // was busy, or the answer did not arrive within the route's wait budget.
+  // Both are retryable; the trade the reader built is kept intact.
+  if (status === 503 && b.error === "advisor_unavailable" && (b.reason === "busy" || b.reason === "timeout")) {
+    return { kind: b.reason, retryable: true, message: ADMISSION_COPY[b.reason] };
   }
   if (status === 400 && b.error === "invalid_trade") {
     return {

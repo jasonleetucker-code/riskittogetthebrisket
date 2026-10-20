@@ -337,10 +337,31 @@ function AdvisorError({ error, cooldown, onRetry, onOpenOverview }) {
       </Banner>
     );
   }
+  return <AdvisorRetryError error={error} onRetry={onRetry} onOpenOverview={onOpenOverview} />;
+}
+
+// Admission control (busy / timeout) is a load condition, not a fault: a
+// warning, with the server's fixed wording.  Anything else retryable is "no
+// answer".  Either way the trade stays as built and Try again resubmits it.
+const RETRY_TITLES = {
+  busy: "The trade advisor is busy",
+  timeout: "The trade advisor took too long",
+};
+
+function AdvisorRetryError({ error, onRetry, onOpenOverview }) {
+  // Keyboard focus (launch gate 8 / WCAG 2.4.3): Analyze is disabled while
+  // the request is in flight, so the browser drops focus to <body> before
+  // the refusal arrives.  Focus moves to Try again, the one action the
+  // banner offers; the banner itself is still announced (role="alert").
+  const retryRef = useRef(null);
+  useEffect(() => {
+    retryRef.current?.focus();
+  }, []);
+  const admission = RETRY_TITLES[error.kind];
   return (
-    <Banner tone="negative" title="No answer from the trade advisor">
+    <Banner tone={admission ? "warning" : "negative"} title={admission || "No answer from the trade advisor"}>
       {error.message}{" "}
-      <Button variant="secondary" size="sm" onClick={onRetry}>
+      <Button ref={retryRef} variant="secondary" size="sm" onClick={onRetry}>
         Try again
       </Button>
       {onOpenOverview ? (
