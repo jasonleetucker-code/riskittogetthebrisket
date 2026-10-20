@@ -1326,6 +1326,52 @@ None changes a contract a consumer reads, except where marked **contract**.
   `multi_team_support.structure_replays`); 2-team trades replay in reverse exactly
   (`reverse_replays`).
 
+## 13. Implementation notes (Lane B, branch `claude/trade-nteam-private`)
+
+Recorded where the private `/trade` implementation made a choice the text above left
+open.  No contract a producer owns changes.
+
+- **Frontend flag path (§6.1, the open item).**  There is no frontend flag reader for
+  private features; the page asks the route itself.  The first time a 3rd side appears,
+  `lib/trade-team-binding.js::probeMultiTeamAnalysis` POSTs `{}`: a signed-in session gets
+  `503 multi_team_analysis_disabled` (flag off — the route checks its flag before reading
+  the body) or `400 invalid_request` (flag on).  Only that 400 means on; a 401, a network
+  failure or anything else keeps today's behaviour.  No analysis runs for the probe.
+- **Side → team binding (§3.2).**  Each side card shows a "League team" select (multi path
+  only).  An explicit choice wins; otherwise the side is bound to the ONE team whose
+  `playerIds` / `pickDetails[].assetId` hold every asset on it — by id, never by display
+  name.  An empty, mixed or unidentified side stays unbound and Analyze names the reason.
+  The binding also drives the side's owned-pick search and the draft-capital stack note's
+  team (its own selector panel is hidden on the multi path, so two selectors never
+  disagree).
+- **Ledger refusals (client side, before any request).**
+  `lib/trade-multi-team.js::buildMultiTeamLedger` refuses, by name: an unbound side, a team
+  on two sides, a generic market pick (no league pick id), a row with no player id, a copy
+  (§2.3 check 8; copies stay legal in the preliminary calculator), a missing / self /
+  out-of-range destination (never silently re-routed, §5.1 item 7), an asset the bound team
+  does not hold in the loaded contract, an idle side, an empty trade.  The server re-checks
+  all of it against the snapshot.
+- **One request per analysis, never per perspective.**  The perspective switch is
+  client-side over the one response; an edit invalidates the shown answer at once and,
+  after the first Analyze, re-asks automatically (450 ms debounce).  A response is shown
+  only when its team set and canonical ledger equal what was asked
+  (`validMultiPayload`).  `expectedGeneration` carries the last answer's generation, so a
+  board refresh between analyses is said (`snapshotChanged`).
+- **Preliminary indicator vs final answer (§5.1 item 10).**  Once the War Room holds the
+  final answer for the trade on screen, the meter and the sticky tray show each team's
+  FINAL market-fairness word and decision headline in place of their own preliminary tags;
+  the browser's numbers stay visible, labelled preliminary.  Per-asset value substitution
+  into the meter was not built: the final per-team numbers are shown in the War Room
+  itself, verbatim.
+- **Second Opinions at N ≥ 3.**  `valueAdjustmentFromSideArrays` needs the routing for 3+
+  sides (`opts.routes`) and returns `null` without it; `buildOpinionRows` binds
+  `tradeRoutes(sides)`.  Each side's adjustment is its own perspective `sendVA`.
+- **Dev bridge.**  `frontend/app/api/trade/analyze-multi/route.js` forwards the cookie and
+  passes status and body through (production nginx routes `/api/` straight to the
+  backend).
+- **Bundle.**  `/trade/page` 87.9 → 91.6 KB of 93 KB, no budget raise; the War Room itself is
+  its own lazy chunk.
+
 ## Completion result (this spec unit)
 
 - **STATUS:** DONE

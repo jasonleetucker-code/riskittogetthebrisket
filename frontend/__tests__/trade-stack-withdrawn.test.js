@@ -73,9 +73,12 @@ describe("decision helpers take no stack input", () => {
   it("the adjusted total is exactly raw + Value Adjustment, with no third term", () => {
     for (const t of [
       ...TL.adjustedSideTotals([A, C], [PICK, LATE], "full"),
-      ...TL.multiAdjustedSideTotals(sides3.map((s) => s.assets), "full"),
+      ...TL.multiAdjustedSideTotals(sides3, "full"),
     ]) {
-      expect(Object.keys(t).sort()).toEqual(["adjusted", "adjustment", "raw"]);
+      // 2 teams: exactly {raw, adjustment, adjusted}.  3+ teams also carry the
+      // team's own package reading (perTeamPackageTotals) — none of it a
+      // stack term.
+      for (const k of Object.keys(t)) expect(k).not.toMatch(/stack/i);
       expect(t.adjusted).toBe(t.raw + t.adjustment);
     }
   });
@@ -89,7 +92,9 @@ describe("decision helpers take no stack input", () => {
       TL.tradeImbalance,
       TL.findBalancers,
       TL.computeValueAdjustment,
-      TL.computeMultiSideAdjustments,
+      TL.packageAdjustedPairTotals,
+      TL.perTeamPackageTotals,
+      TL.multiTeamNetSummary,
     ]) {
       expect(fn.toString()).not.toMatch(/computeStackAdjustments|stackContext|stackAdjustment/);
     }

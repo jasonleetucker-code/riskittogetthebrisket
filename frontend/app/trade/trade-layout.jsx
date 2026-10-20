@@ -303,12 +303,13 @@ const signed = (n) => {
 };
 
 /**
- * The persistent summary for a 3+-team trade (TC-D2): each side's NET flow
- * and the package band of the worst gap -- the multi-team meter's own numbers
- * (`multiTeamNetSummary`), never a second reading -- linking to the result.
- * There is no YES / NO for 3+ teams, and the bar says so.
+ * The persistent summary for a 3+-team trade (TC-D2): each team's own package
+ * gap and the band of the widest one -- the multi-team meter's own numbers
+ * (`multiTeamNetSummary`, per-team rule), never a second reading -- linking to
+ * the result.  It is PRELIMINARY and says so: the final per-team answer is the
+ * War Room's (POST /api/trade/analyze-multi), never computed here.
  */
-export function MultiTeamSummaryBar({ sides, summary, evalState }) {
+export function MultiTeamSummaryBar({ sides, summary, evalState, finalBySide = null }) {
   const empty = evalState?.state === "empty";
   const incomplete = evalState?.state === "incomplete";
   return (
@@ -323,13 +324,28 @@ export function MultiTeamSummaryBar({ sides, summary, evalState }) {
           ))}
         </span>
         <span className={styles.multiSummaryVerdict}>
-          {empty
-            ? "Add assets to compare"
-            : incomplete
-              ? `Incomplete — ${evalState.unpriced?.length || 0} unpriced, no verdict`
-              : `${summary?.verdict?.label || ""} · worst gap ${Math.round(
-                  summary?.worst || 0,
-                ).toLocaleString()} · reliable YES / NO unavailable for ${sides.length} teams`}
+          {finalBySide && !empty && !incomplete
+            ? `Final: ${sides
+                .map(
+                  (s, i) =>
+                    `${s.label} ${
+                      {
+                        FAIR: "fair",
+                        NOT_FAIR: "not fair",
+                        UNABLE: "unable to determine",
+                      }[finalBySide[i]?.fairness] || "—"
+                    }`,
+                )
+                .join(" · ")} — each team's decision is in the War Room`
+            : empty
+              ? "Add assets to compare"
+              : incomplete
+                ? `Incomplete — ${evalState.unpriced?.length || 0} unpriced, no verdict`
+                : summary?.worstIndex == null || summary?.worst == null
+                  ? "Preliminary — widest gap unknown"
+                  : `Preliminary · ${summary.verdict?.label || ""} · widest gap Side ${
+                      sides[summary.worstIndex]?.label ?? summary.worstIndex + 1
+                    } ${signed(summary.nets?.[summary.worstIndex])} · final result in the War Room`}
         </span>
       </a>
     </div>

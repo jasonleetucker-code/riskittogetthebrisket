@@ -395,7 +395,11 @@ function leaderOf(totals) {
  *
  * `adjust(sidesValues)` is the active model's per-side adjustment function
  * (`valueAdjustmentFromSideArrays`); injected so this module stays free of
- * the trade-logic import graph and the dispatch has one owner.
+ * the trade-logic import graph and the dispatch has one owner.  For a 3+-team
+ * trade the caller binds the routing into it, so each side's adjustment is
+ * that team's OWN package reading (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md
+ * §5.1); an adjust that cannot answer (``null``) leaves the row with no
+ * numeric verdict.
  */
 export function evaluateOpinion(resolutionsBySide, adjust) {
   const counts = opinionCounts(resolutionsBySide);

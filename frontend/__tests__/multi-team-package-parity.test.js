@@ -16,7 +16,11 @@
  */
 import { describe, expect, it } from "vitest";
 import fixture from "../../tests/fixtures/multi_team_trade_parity_cases.json";
-import { ACTIVE_PACKAGE_MODEL_ID, packageAdjustPair } from "@/lib/trade-logic";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  packageAdjustPair,
+  packageAdjustedPairTotals,
+} from "@/lib/trade-logic";
 import { classifyGap } from "@/lib/fairness-bands";
 
 const positive = (xs) => xs.filter((v) => Number.isFinite(v) && v > 0);
@@ -52,6 +56,12 @@ describe("multi-team package math parity (I12)", () => {
         it(`team ${team}: adjusted totals, VA, gap and band`, () => {
           const exp = t.expected;
           const got = teamTotals(t.gives, t.receives);
+          // Lane B's JS twin of adjusted_pair_totals is the same composition.
+          const twin = packageAdjustedPairTotals(t.gives, t.receives);
+          expect(twin.sendVA).toBe(got.sendVA);
+          expect(twin.recvVA).toBe(got.recvVA);
+          expect(twin.sendAdj).toBe(got.sendAdj);
+          expect(twin.recvAdj).toBe(got.recvAdj);
           expect(got.sendVA).toBe(exp.sendVA);
           expect(got.recvVA).toBe(exp.recvVA);
           expect(got.sendAdj).toBeCloseTo(exp.sendAdj, 6);
