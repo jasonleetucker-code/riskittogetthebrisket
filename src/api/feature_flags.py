@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-22 of the 46 entries in ``_DEFAULTS`` below are ``True`` —
+22 of the 47 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -186,6 +186,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # extrapolation.  No Hill constant, reference N, tail saturation rank or
     # coordinate changes.  Shadow evaluation only; promotion is an owner decision.
     "idp_deep_tail_native_challenger": False,
+    # Disagreement-preserving outlier policy ``outlier-corroborated-v1`` (owner
+    # directive 2026-10-19 "Universal source voting and freshness", §6;
+    # src/api/outlier_policy.py; preregistered in docs/valuation/evidence/
+    # outlier-disagreement-2026-10-19/PREREGISTRATION.md before it was run).
+    # ON: the per-player filter rejects only a gross, uncorroborated vote (more
+    # than 4x off the other families in implied rank AND 1,000 points off, with
+    # no other family within 2x) or the votes of a board the scale screen finds
+    # mis-scaled; valid disagreement keeps its vote.  OFF: the incumbent Hampel
+    # filter, byte for byte.  Every other filter challenger takes precedence.
+    # Stays OFF until independent validation and an owner decision.  Rollback if
+    # ever switched on: RISKIT_FEATURE_OUTLIER_DISAGREEMENT_POLICY=0 + restart.
+    "outlier_disagreement_policy": False,
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
@@ -857,6 +869,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # in the same function's blend loop (reaches a request through /api/data);
     # ships OFF (challenger).
     "idp_deep_tail_native_challenger": LIVE,
+    # outlier_disagreement_policy replaces the per-player outlier filter's
+    # decision in the same function and screens each board between two ranking
+    # passes in build_api_data_contract (reaches a request through /api/data);
+    # ships OFF (challenger).
+    "outlier_disagreement_policy": LIVE,
     # joint_sparse_limited_evidence replaces the single-source haircut with a
     # limitedEvidence stamp in the same function; ships OFF (challenger).
     "joint_sparse_limited_evidence": LIVE,
