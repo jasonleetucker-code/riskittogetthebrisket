@@ -72,9 +72,35 @@ def test_fresh_source_keeps_full_weight(tmp_path):
 
 
 def test_stale_source_is_reduced_and_a_refetch_does_not_freshen_it(tmp_path):
+    # Owner step schedule (directive 2026-10-19 §2, the default rule): ten
+    # days since the last genuine update is the second step, 75% — reduced,
+    # and the fetch a minute ago does not move it back to 100%.
     row = _rows(tmp_path)[("fantasyCalc", "players")]
-    assert row["effectiveWeight"] is not None and row["effectiveWeight"] < 0.05
+    assert row["effectiveWeight"] == 0.75
     assert row["lastFetchedAt"] == "2026-09-23T18:00:00Z"
+    assert row["sourceDataAsOf"].startswith("2026-09-13")
+
+
+def test_a_source_dark_past_thirty_days_carries_no_weight(tmp_path):
+    _write(tmp_path, "fantasyCalc", _state(31))
+    (tmp_path / "fantasyCalc_last_success").write_text(str((NOW).timestamp()))
+    rows = {(r["source"], r["subset"]): r for r in report.state_only_rows(tmp_path, NOW)}
+    assert rows[("fantasyCalc", "players")]["effectiveWeight"] == 0.0
+
+
+def test_stale_source_under_the_v1_rollback_is_cut_to_the_cadence_curve(tmp_path, monkeypatch):
+    # The v1 cadence curve (rollback): a KTC-like 24 h cadence 10 days dark
+    # is quarantined.  The report follows the rule the board applies.
+    from src.api import feature_flags
+
+    monkeypatch.setenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2", "0")
+    feature_flags.reload()
+    try:
+        row = _rows(tmp_path)[("fantasyCalc", "players")]
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2")
+        feature_flags.reload()
+    assert row["effectiveWeight"] is not None and row["effectiveWeight"] < 0.05
     assert row["sourceDataAsOf"].startswith("2026-09-13")
 
 
