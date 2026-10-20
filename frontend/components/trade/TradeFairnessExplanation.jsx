@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
-import { percentageGap } from "@/lib/trade-logic";
+import { percentageGap, sideTotalsFairnessBase } from "@/lib/trade-logic";
 import { isFairGap } from "@/lib/fairness-bands";
 
 /**
@@ -140,9 +140,10 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
       (a, b) => Math.abs(b.gap) - Math.abs(a.gap),
     );
 
-    // "Even" is the ONE fairness-band owner's fair band (TC-C), the same
-    // band the meter badge shows -- not a private 3%.
-    if (isFairGap(overallGap, Math.max(totalA, totalB))) {
+    // "Even" is the ONE fairness-band owner's fair band (fairness_bands_v2,
+    // relative to the larger package utility), the same band the meter badge
+    // shows -- not a private 3%.
+    if (isFairGap(overallGap, sideTotalsFairnessBase(sideTotals.slice(0, 2)))) {
       // Even — call out the biggest single source-level disagreement
       // so the user knows *which* board would tip it if they trusted
       // a single source over the blend.

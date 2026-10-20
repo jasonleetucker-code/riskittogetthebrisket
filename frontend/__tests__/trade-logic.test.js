@@ -1659,8 +1659,8 @@ describe("computeSideFlows", () => {
     // 1-for-1: KTC suppresses Value Adjustment, so the VA-inclusive
     // flow is identical to the raw one here.
     expect(flows).toEqual([
-      { given: 9000, received: 8500, net: -500, adjustment: 0 },
-      { given: 8500, received: 9000, net: 500, adjustment: 0 },
+      { given: 9000, received: 8500, net: -500, adjustment: 0, utility: 9000 },
+      { given: 8500, received: 9000, net: 500, adjustment: 0, utility: 8500 },
     ]);
   });
 
@@ -1741,7 +1741,7 @@ describe("computeSideFlows", () => {
   it("returns zero-shaped arrays for empty / single-side inputs", () => {
     expect(computeSideFlows([], "full")).toEqual([]);
     expect(computeSideFlows([{ assets: [ALLEN] }], "full")).toEqual([
-      { given: 0, received: 0, net: 0, adjustment: 0 },
+      { given: 0, received: 0, net: 0, adjustment: 0, utility: 0 },
     ]);
   });
 
@@ -1754,9 +1754,10 @@ describe("computeSideFlows", () => {
     const flows = computeSideFlows(sides, "full");
     // Only one side has anything on the table, so there is no package
     // to price a consolidation premium against.
-    expect(flows[0]).toEqual({ given: 9000, received: 0, net: -9000, adjustment: 0 });
-    expect(flows[1]).toEqual({ given: 0, received: 9000, net: 9000, adjustment: 0 });
-    expect(flows[2]).toEqual({ given: 0, received: 0, net: 0, adjustment: 0 });
+    // `utility` is the package each side SENDS (fairness_bands_v2's base).
+    expect(flows[0]).toEqual({ given: 9000, received: 0, net: -9000, adjustment: 0, utility: 9000 });
+    expect(flows[1]).toEqual({ given: 0, received: 9000, net: 9000, adjustment: 0, utility: 0 });
+    expect(flows[2]).toEqual({ given: 0, received: 0, net: 0, adjustment: 0, utility: 0 });
   });
 
   it("NET flow always sums to zero across all sides (conservation)", () => {

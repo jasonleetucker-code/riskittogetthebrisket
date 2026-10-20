@@ -50,11 +50,14 @@ export default function TradeVerdictHelpBody() {
       <ul>
         <li>
           The badge grades the adjusted gap (raw + VA) as a share of the
-          bigger adjusted package:{" "}
+          bigger package&apos;s depth-discounted value (each piece after the
+          first counted at 78% of the one before it, the same discount the
+          Value Adjustment uses):{" "}
           <strong>FAIR</strong> under 3.5% (or under 250 points),{" "}
           <strong>SLIGHT EDGE</strong> under 9%, <strong>UNFAIR</strong> under
           18%, <strong>LOPSIDED</strong> beyond that. The same bands are used
-          everywhere on the site and are provisional until validated.
+          everywhere on the site. They are an owner-approved starting point
+          (version 2), to be checked against real market trades after launch.
         </li>
         <li>
           Because the bands are relative, a 300-point gap is FAIR between two

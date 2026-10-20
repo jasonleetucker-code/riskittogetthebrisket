@@ -66,12 +66,16 @@
   "decision": {
    "bands": {
     "absoluteMinimum": 250.0,
-    "basis": "adjusted_package_totals",
+    "basis": "larger_package_utility",
+    "fairTradeLevels": [
+     "fair"
+    ],
     "lopsidedPct": 18.0,
+    "postLaunchValidation": "OD-F4",
     "slightPct": 3.5,
-    "status": "PROVISIONAL",
+    "status": "PRIOR_OWNER_APPROVED_2026-10-20",
     "unfairPct": 9.0,
-    "version": "fairness_bands_v1"
+    "version": "fairness_bands_v2"
    },
    "components": {},
    "confidence": {
@@ -99,11 +103,11 @@
      "evidence": {
       "band": {
        "absoluteGap": 1440.0,
-       "bands": "fairness_bands_v1",
+       "bands": "fairness_bands_v2",
        "label": "LOPSIDED",
        "level": "lopsided",
-       "relativePct": 19.35,
-       "status": "PROVISIONAL"
+       "relativePct": 20.57,
+       "status": "PRIOR_OWNER_APPROVED_2026-10-20"
       },
       "rawGap": 1000,
       "receivingAdjusted": 7440.0,
@@ -414,7 +418,7 @@
      "largeMultiple": 3.0,
      "materialityPpg": 1.0
     },
-    "bands": "fairness_bands_v1",
+    "bands": "fairness_bands_v2",
     "boardStamp": null,
     "decisionVersion": "trade_decision_v2",
     "packageModel": {
@@ -495,23 +499,28 @@
     "detail": {
      "band": {
       "absoluteGap": 1440.0,
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "label": "LOPSIDED",
       "level": "lopsided",
-      "relativePct": 19.35,
-      "status": "PROVISIONAL"
+      "relativePct": 20.57,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
      },
      "bandsReceipt": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "hypotheticalPicksOut": [],
      "incomplete": false,
+     "largerPackageUtility": 7000.0,
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {
@@ -674,23 +683,28 @@
     "detail": {
      "band": {
       "absoluteGap": 1440.0,
-      "bands": "fairness_bands_v1",
+      "bands": "fairness_bands_v2",
       "label": "LOPSIDED",
       "level": "lopsided",
-      "relativePct": 19.35,
-      "status": "PROVISIONAL"
+      "relativePct": 20.57,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20"
      },
      "bandsReceipt": {
       "absoluteMinimum": 250.0,
-      "basis": "adjusted_package_totals",
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
       "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
       "slightPct": 3.5,
-      "status": "PROVISIONAL",
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
       "unfairPct": 9.0,
-      "version": "fairness_bands_v1"
+      "version": "fairness_bands_v2"
      },
      "hypotheticalPicksOut": [],
      "incomplete": false,
+     "largerPackageUtility": 7000.0,
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "packageModel": {

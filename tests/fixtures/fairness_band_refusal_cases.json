@@ -1,0 +1,44 @@
+{
+ "_comment": [
+  "fairness_bands_v2 non-finite inputs (MISSING IS NEVER ZERO).  Both languages must REFUSE these",
+  "identically -- Python raises fairness_bands.FairnessInputError, JS throws FairnessInputError, both",
+  "with code fairness_input_not_finite -- and never classify them (v1: JS answered 'fair' on NaN,",
+  "Python 'lopsided').  Tokens, decoded the same way by both tests (JSON cannot carry NaN):",
+  "  \"NaN\" / \"Infinity\" / \"-Infinity\" -> the IEEE value; \"null\" -> None / null;",
+  "  \"undefined\" -> JS undefined (Python: skipped); \"str:<x>\" -> the string <x>; \"bool:true\" -> True / true.",
+  "Accepted cases sit beside them so a refusal cannot be satisfied by refusing everything.",
+  "Asserted by tests/valuation_math/test_fairness_bands.py and frontend/__tests__/fairness-bands.test.js."
+ ],
+ "code": "fairness_input_not_finite",
+ "classify": [
+  {"gap": "NaN", "base": 5000, "expect": "refuse"},
+  {"gap": "Infinity", "base": 5000, "expect": "refuse"},
+  {"gap": "-Infinity", "base": 5000, "expect": "refuse"},
+  {"gap": "null", "base": 5000, "expect": "refuse"},
+  {"gap": "undefined", "base": 5000, "expect": "refuse"},
+  {"gap": "str:300", "base": 5000, "expect": "refuse"},
+  {"gap": "bool:true", "base": 5000, "expect": "refuse"},
+  {"gap": 300, "base": "NaN", "expect": "refuse"},
+  {"gap": 300, "base": "Infinity", "expect": "refuse"},
+  {"gap": 300, "base": "null", "expect": "refuse"},
+  {"gap": 300, "base": "undefined", "expect": "refuse"},
+  {"gap": 300, "base": "str:5000", "expect": "refuse"},
+  {"gap": 300, "base": -1, "expect": "refuse"},
+  {"gap": 0, "base": "NaN", "expect": "refuse"},
+  {"gap": "NaN", "base": 0, "expect": "refuse"},
+  {"gap": 0, "base": 0, "expect": "fair"},
+  {"gap": 100, "base": 0, "expect": "fair"},
+  {"gap": -300, "base": 5000, "expect": "slight"},
+  {"gap": 1e-9, "base": 5000, "expect": "fair"}
+ ],
+ "base": [
+  {"utilities": [], "expect": 0},
+  {"utilities": [0, 0], "expect": 0},
+  {"utilities": [4000, 6000.5], "expect": 6000.5},
+  {"utilities": [4000, "NaN"], "expect": "refuse"},
+  {"utilities": ["Infinity", 1], "expect": "refuse"},
+  {"utilities": [4000, "null"], "expect": "refuse"},
+  {"utilities": [4000, -5], "expect": "refuse"},
+  {"utilities": ["str:4000"], "expect": "refuse"}
+ ]
+}

@@ -111,8 +111,8 @@ test("trade war room: recommendation, three plain answers, Asset-Only round trip
   }
   await room.getByRole("button", { name: "Sources, simulations and methodology" }).click();
   // The bands are named by their version number, never by their id.
-  expect(consolidation.analysis.decision.bands.version).toBe("fairness_bands_v1");
-  await expect(room.getByTestId("decision-bands")).toContainText("Fairness bands, version 1");
+  expect(consolidation.analysis.decision.bands.version).toBe("fairness_bands_v2");
+  await expect(room.getByTestId("decision-bands")).toContainText("Fairness bands, version 2");
   // One official answer: no legacy graded leaning anywhere in the War Room.
   await expect(room).not.toContainText(/leaning/i);
   await room.getByRole("button", { name: "Arguments, objections and uncertainty" }).click();

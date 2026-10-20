@@ -291,7 +291,8 @@ def test_team_impact_cannot_influence_the_decision():
 def test_the_decision_never_executes_and_carries_its_receipts():
     d = _decision(_sim([6000], [5000], ppg=1.5))
     assert d["recommendationOnly"] is True and d["executes"] is False
-    assert d["bands"]["status"] == "PROVISIONAL"
+    assert d["bands"]["status"] == "PRIOR_OWNER_APPROVED_2026-10-20"
+    assert d["bands"]["basis"] == "larger_package_utility"
     assert d["confidence"]["isProbability"] is False
     assert isinstance(d["confidence"]["statement"], str) and d["confidence"]["statement"]
     for r in d["reasons"]:
@@ -374,7 +375,7 @@ def test_receipt_is_reproducible_and_sensitive():
     assert rec == r2["decision"]["receipt"]
     assert rec["boardStamp"] == "2026-10-17T00:00:00Z"
     assert rec["analyzeConfig"]["materialityPpg"] == 1.0
-    assert rec["bands"] == "fairness_bands_v1"
+    assert rec["bands"] == "fairness_bands_v2"
     assert rec["packageModel"]["id"] == "geom_q078_v1"
     other = analyze_trade(_sim([6100], [5000], ppg=1.5))["decision"]["receipt"]
     goal = analyze_trade(copy.deepcopy(sim), team_goal="LONG_TERM")["decision"]["receipt"]

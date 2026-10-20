@@ -75,7 +75,9 @@ describe("decision helpers take no stack input", () => {
       ...TL.adjustedSideTotals([A, C], [PICK, LATE], "full"),
       ...TL.multiAdjustedSideTotals(sides3.map((s) => s.assets), "full"),
     ]) {
-      expect(Object.keys(t).sort()).toEqual(["adjusted", "adjustment", "raw"]);
+      // `utility` is the fairness band's base (fairness_bands_v2), not a term
+      // of the total: adjusted is still exactly raw + VA.
+      expect(Object.keys(t).sort()).toEqual(["adjusted", "adjustment", "raw", "utility"]);
       expect(t.adjusted).toBe(t.raw + t.adjustment);
     }
   });

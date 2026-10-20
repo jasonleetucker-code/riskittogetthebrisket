@@ -440,6 +440,10 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     md = market.detail or {}
     gap = float(md["vaAdjustedGap"])
     larger = max(float(md["sendingAdjusted"]), float(md["receivingAdjusted"]))
+    # The band's base is the larger PACKAGE UTILITY the market lens took from
+    # the fairness-band owner (fairness_bands_v2, OD-F2) -- never recomputed
+    # here, never the larger adjusted side.
+    larger_utility = float(md["largerPackageUtility"])
     fd = feasibility.detail or {}
     release = fd.get("forcedDropReleaseCost")
     charged = None
@@ -453,7 +457,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     ):
         charged = float(release)
     net = gap - charged if charged is not None else gap
-    band = fairness_bands.classify(net, larger)
+    band = fairness_bands.classify(net, larger_utility)
     if band["level"] == "fair":
         direction, magnitude = "neutral", None
     else:
@@ -468,6 +472,7 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
         "forcedReleaseCost": None if charged is None else int(round(charged)),
         "netGap": int(round(net)),
         "largerAdjustedSide": int(round(larger)),
+        "largerPackageUtility": int(round(larger_utility)),
         "band": band,
         "kind": "independent",
     }
@@ -776,7 +781,7 @@ def _a_from_values(send: list[float], recv: list[float], release: float | None) 
     # ``None`` = no cut is charged (not an unknown cost: an unpriced cut is an
     # evidence gate upstream and never reaches this search).
     net = gap - release if release is not None else gap
-    band = fairness_bands.classify(net, max(send_adj, recv_adj))
+    band = fairness_bands.classify(net, fairness_bands.larger_package_utility(send, recv))
     if band["level"] == "fair":
         return {"evaluated": True, "direction": "neutral", "magnitude": None, "band": band}
     return {

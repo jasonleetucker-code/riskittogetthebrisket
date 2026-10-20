@@ -1,5 +1,16 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## fairness_bands_v2 — owner decisions, 2026-10-20 (~19:45 UTC): OD-F1 / OD-F2 / OD-F3 / OD-F5
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~19:45 UTC)". Verbatim text: `docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md`. Evidence: `docs/trade/FAIRNESS_BANDS_V2_2026-10-20.md`.
+
+**Authorized now:**
+- **`fairness_bands_v2` in the ONE fairness-band owner** (`src/valuation_math/fairness_bands.py` + `config/trade/fairness_bands.json`, pinned JS mirror `frontend/lib/fairness-bands.js`): the gap divided by the larger package utility (OD-F2), the 250 floor kept as an owner-approved prior (OD-F3), FAIR TRADE = `fair` only recorded in the owner (OD-F1), status `PRIOR_OWNER_APPROVED_2026-10-20` (OD-F5), non-finite input refused identically in both languages. Every consumer (private Asset-Only YES / NO, /trade meter, balancers, Best Offers, Package Builder, suggestions badge) moves with the owner; impact measured with `scripts/measure_fairness_band_change.py --compare v1-v2`. Branch `claude/fairness-bands-v2`, through the normal release train / HEAD-FREEZE gates.
+
+**Owner-reserved (NOT authorized):** changing the League Hub trade-history grade (OD-F6 open); public advisor launch (OD-3, admission sizes, F-1, response floor, launch approval open); calling v2 validated before OD-F4 runs; any change to `package_model`, q, `geom_q078_v1`, curves or values; enabling any flag.
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
 ## PR #1831 universal freshness schedule — owner decision, 2026-10-20 (~12:25 UTC): OPTION B (merge disabled, activation held)
 
 Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20 (~12:25 UTC)" (FS-B1..FS-B10). Verbatim text: `docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`. Amends the 2026-10-19 universal-source-voting V5 authorization: the schedule is implemented and approved but NOT activated.

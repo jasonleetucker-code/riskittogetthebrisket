@@ -23,6 +23,7 @@ import {
   meterVerdict,
   multiTeamNetSummary,
   percentageGap,
+  sideTotalsFairnessBase,
   tradeEvaluationState,
 } from "@/lib/trade-logic";
 import { MonteCarloButton } from "@/components/ui";
@@ -91,10 +92,10 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
   const gap = pwA - pwB;
   const absGap = Math.abs(gap);
   const pctGap = percentageGap(pwA, pwB);
-  // ONE fairness-band owner (TC-C): relative to the larger adjusted side,
-  // with an absolute minimum.  The badge and the winner text read the SAME
-  // band, so "FAIR" can no longer sit beside "worth 7% more".
-  const verdict = meterVerdict(gap, Math.max(pwA, pwB));
+  // ONE fairness-band owner (fairness_bands_v2): relative to the larger
+  // PACKAGE UTILITY, with an absolute minimum.  The badge and the winner text
+  // read the SAME band, so "FAIR" can no longer sit beside "worth 7% more".
+  const verdict = meterVerdict(gap, sideTotalsFairnessBase(sideTotals.slice(0, 2)));
   const total = pwA + pwB;
 
   // Fill percentages for the bar
@@ -201,13 +202,13 @@ export function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
   const flowList = Array.isArray(flows) && flows.length === sides.length
     ? flows
     : sides.map(() => ({ given: 0, received: 0, net: 0 }));
-  // The band base is the largest adjusted package any side sends (the same
+  // The band base is the largest package utility any side sends (the same
   // base ``tradeImbalance`` uses), so a 3-team trade is graded on the same
   // relative scale as a 2-team one (ONE fairness-band owner, TC-C).  The
   // overall verdict is the worst-offender absolute net through that band —
   // one helper, shared with the page's persistent 3+-team summary (TC-D2).
-  const { nets, largerSide, worst, verdict } = multiTeamNetSummary(flowList);
-  const isEvenNet = (n) => meterVerdict(n, largerSide).level === "fair";
+  const { nets, largerUtility, worst, verdict } = multiTeamNetSummary(flowList);
+  const isEvenNet = (n) => meterVerdict(n, largerUtility).level === "fair";
   // Display scale only (the bar's full width), never a verdict.
   const absMax = Math.max(1, ...nets.map((n) => Math.abs(n)));
 

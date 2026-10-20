@@ -407,8 +407,8 @@ describe("TradeMeter — screen-reader semantics (TC-E)", () => {
           { label: "B", assets: [priced("Y", 4000)] },
         ]}
         sideTotals={[
-          { raw: 6000, adjustment: 0, adjusted: 6000 },
-          { raw: 4000, adjustment: 0, adjusted: 4000 },
+          { raw: 6000, adjustment: 0, adjusted: 6000, utility: 6000 },
+          { raw: 4000, adjustment: 0, adjusted: 4000, utility: 4000 },
         ]}
         sidesSend
       />,
