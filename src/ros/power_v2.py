@@ -1073,8 +1073,22 @@ def build_section(
     # the prior-season guard after this loop.
     state_season_label: str | None = None
 
+    # Power ranks TEAMS, so the current season's games follow the roster to its
+    # CURRENT owner (``by_franchise``), the key the record, ROS strength and
+    # the remaining schedule already use.  The per-week owner split
+    # (``ownership.owner_at``) is right for manager history and wrong here: a
+    # mid-season hand-off gave the outgoing (retired, never ranked) manager
+    # every pre-hand-off week and scored the roster's current franchise on
+    # nothing -- dynasty_main roster 11, 2026: ``gamesUsed 0``, ranked 11th
+    # (CQ-09).  Completed seasons keep the per-week split; they are history.
+    franchise_league_id = (
+        str(snapshot.current_season.league_id) if snapshot.current_season is not None else None
+    )
     for season in seasons_sorted:
-        week_scores = luck._season_weekly_scores(season, registry)
+        by_franchise = franchise_league_id is not None and (
+            str(season.league_id) == franchise_league_id
+        )
+        week_scores = luck._season_weekly_scores(season, registry, by_franchise=by_franchise)
         if not week_scores:
             continue
 
@@ -1094,7 +1108,7 @@ def build_section(
 
         for wk in sorted(week_scores.keys()):
             scores = week_scores[wk]
-            actuals, _ = luck._actual_week_results(season, wk, registry)
+            actuals, _ = luck._actual_week_results(season, wk, registry, by_franchise=by_franchise)
             all_play = luck._all_play_week(scores)
             scored_week_by_season[str(season.season)] = int(wk)
 
@@ -1320,6 +1334,7 @@ def build_section(
         if current_season is not None
         else (seasons_sorted[-1].league_id if seasons_sorted else None)
     )
+    roster_id_by_owner: dict[str, int] = {}
     for row in rankings:
         rid = (
             luck._roster_id_for_owner(registry, current_league_id, row["ownerId"])
@@ -1329,6 +1344,8 @@ def build_section(
         row["teamName"] = (
             _metrics.team_name(snapshot, current_league_id, rid) if current_league_id else None
         )
+        if rid is not None:
+            roster_id_by_owner[row["ownerId"]] = rid
         if row["ownerId"] in official_record_strings:
             row["record"] = official_record_strings[row["ownerId"]]
             row["recordSource"] = "sleeper"
@@ -1407,6 +1424,24 @@ def build_section(
                         if baseline is not None
                         else {"status": "no_prior_publication", "week": as_of_week - 1}
                     )
+                # Week N-1's publication is keyed to whoever held each roster
+                # THEN, and a recorded mid-season hand-off means that is not
+                # today's owner (CQ-09: the week-5 card names Joel for the
+                # roster John holds now).  Movement is a FRANCHISE question,
+                # so each row names the owner its roster had in week N-1 and
+                # the comparison looks that row up -- through the recorded
+                # hand-off only (``ownership.owner_at``), never by guessing.
+                # ``movement_against_previous`` stamps whose rank it was.
+                if as_of_week >= 1 and current_season is not None:
+                    for row in rankings:
+                        rid = roster_id_by_owner.get(row["ownerId"])
+                        if rid is None:
+                            continue
+                        baseline_owner = _metrics.resolve_owner(
+                            registry, current_season.league_id, rid, as_of_week - 1
+                        )
+                        if baseline_owner:
+                            row["franchiseBaselineOwnerId"] = baseline_owner
                 if as_of_week >= 0:
                     movement = power_snapshots.movement_against_previous(
                         league_key=league_key,

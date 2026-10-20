@@ -490,6 +490,52 @@ describe("ScreenshotImportDialog", () => {
     ]);
   });
 
+  it("a follow-up screenshot showing only 'Team 2 gets' fills Team 2's side", async () => {
+    const anchored = (label, slot, items) => ({
+      label,
+      labelSource: "anchor",
+      anchorFamily: "team 1/team 2",
+      anchorSlot: slot,
+      items,
+    });
+    extractionBody = (call) =>
+      call === 1
+        ? extraction({
+            imageIndex: 0,
+            layout: { kind: "stacked", confidence: 0.9 },
+            sides: [
+              anchored("Team 1 gets", 0, [resolved("Ja'Marr Chase")]),
+              anchored("Team 2 gets", 1, []),
+            ],
+            warnings: ["missing_side"],
+          })
+        : extraction({
+            imageIndex: 1,
+            layout: { kind: "single", confidence: 0.7 },
+            sides: [anchored("Team 2 gets", 1, [resolved("Puka Nacua")])],
+            warnings: ["missing_side"],
+          });
+    const { container, onImport } = renderDialog({ status: statusBody });
+    await upload(container, [png("top.png"), png("scrolled.png")]);
+    await screen.findByRole("region", { name: "Side A" });
+    expect(
+      await screen.findByText(
+        'Screenshot 2 shows only "Team 2 gets", so its assets were added to that side.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(sideSection("Side B")).getByText("Puka Nacua"),
+    ).toBeInTheDocument();
+    // both sides are filled: no stale "only one side was found" banner
+    expect(screen.queryByText(/only one side of the trade/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Import trade" }));
+    const [sides] = onImport.mock.calls[0];
+    expect(sides.map((side) => side.map((r) => r.name))).toEqual([
+      ["Ja'Marr Chase"],
+      ["Puka Nacua"],
+    ]);
+  });
+
   it("renders a Drawer on a narrow viewport", async () => {
     window.matchMedia = vi.fn(() => ({
       matches: true,

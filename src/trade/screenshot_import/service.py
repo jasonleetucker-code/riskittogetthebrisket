@@ -8,7 +8,8 @@ rather than shipped::
     {"ok": true, "imageIndex": int,
      "engine": {"name": "tesseract", "version": str|null},
      "layout": {"kind": "two_column"|"stacked"|"single"|"unknown", "confidence": float},
-     "sides": [{"label": str, "labelSource": "anchor"|"position"|"none", "items": [ITEM]}],
+     "sides": [{"label": str, "labelSource": "anchor"|"position"|"none",
+                "anchorFamily": str|null, "anchorSlot": 0|1|null, "items": [ITEM]}],
      "unassigned": [ITEM],
      "ignored": [{"raw": str, "reason": str}],
      "warnings": [str]}
@@ -21,6 +22,14 @@ rather than shipped::
             "reason": str|null, "lineIndex": int, "conf": float}
     CANDIDATE = {"sleeperId": str|null, "boardName": str,
                  "position": str|null, "team": str|null}
+
+``anchorFamily`` / ``anchorSlot`` say WHICH side label a side carries when
+``labelSource`` is ``"anchor"`` — the label vocabulary (``"team 1/team 2"``,
+``"you give/you get"``, ...) and the slot within it (0 = first side, 1 =
+second).  Both are null for any other ``labelSource``.  The client uses them
+to keep each side of a trade on the same side across several screenshots (a
+follow-up shot showing only "Team 2 gets..." belongs on Team 2's side, not on
+whichever side happens to be first); it never derives them from label text.
 
 Text read from the image is DATA: it is only ever compared against the board
 as a candidate asset string — never executed, evaluated or followed.
@@ -54,6 +63,7 @@ from src.trade.screenshot_import.resolve import REASON_NO_MATCH, ResolvedItem, r
 
 LAYOUT_KINDS = ("two_column", "stacked", "single", "unknown")
 LABEL_SOURCES = ("anchor", "position", "none")
+ANCHOR_SLOTS = (0, 1)
 ITEM_KINDS = ("player", "pick")
 ITEM_STATUSES = ("resolved", "needs_confirmation", "unresolved")
 
@@ -250,7 +260,13 @@ def build_extraction(
         "engine": {"name": ENGINE_NAME, "version": engine_version},
         "layout": {"kind": layout.kind, "confidence": float(layout.confidence)},
         "sides": [
-            {"label": side.label, "labelSource": side.label_source, "items": side_items[i]}
+            {
+                "label": side.label,
+                "labelSource": side.label_source,
+                "anchorFamily": side.anchor_family,
+                "anchorSlot": side.anchor_slot,
+                "items": side_items[i],
+            }
             for i, side in enumerate(layout.sides)
         ],
         "unassigned": unassigned_items,
@@ -398,10 +414,27 @@ def validate_extraction(payload: Any) -> None:
     if not isinstance(sides, list) or len(sides) > 2:
         _fail("$.sides", "must be a list of at most 2 sides")
     for i, side in enumerate(sides):
-        _exact_keys(side, {"label", "labelSource", "items"}, f"$.sides[{i}]")
+        _exact_keys(
+            side,
+            {"label", "labelSource", "anchorFamily", "anchorSlot", "items"},
+            f"$.sides[{i}]",
+        )
         _str(side["label"], f"$.sides[{i}].label")
         if side["labelSource"] not in LABEL_SOURCES:
             _fail(f"$.sides[{i}].labelSource", f"not in {LABEL_SOURCES}")
+        _str(side["anchorFamily"], f"$.sides[{i}].anchorFamily", nullable=True)
+        slot = side["anchorSlot"]
+        if slot is not None and (
+            isinstance(slot, bool) or not isinstance(slot, int) or slot not in ANCHOR_SLOTS
+        ):
+            _fail(f"$.sides[{i}].anchorSlot", f"must be one of {ANCHOR_SLOTS} or null")
+        # Which label a side carries is stated only for an anchored side, and
+        # then completely — never half an answer.
+        anchored = side["labelSource"] == "anchor"
+        if anchored and (not side["anchorFamily"] or slot is None):
+            _fail(f"$.sides[{i}]", "an anchored side must name its anchorFamily and anchorSlot")
+        if not anchored and (side["anchorFamily"] is not None or slot is not None):
+            _fail(f"$.sides[{i}]", "only an anchored side may carry anchorFamily / anchorSlot")
         if not isinstance(side["items"], list):
             _fail(f"$.sides[{i}].items", "must be a list")
         for j, it in enumerate(side["items"]):

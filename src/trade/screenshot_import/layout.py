@@ -19,7 +19,12 @@ Evidence, strongest first:
    "needs a side".  This is what makes an ordinary uncropped screenshot
    work without manual cropping.  ONE anchor (the other was not read) is
    weaker: only lines left-aligned under it take its side, and the rest stay
-   unassigned — no second side is inferred from position.
+   unassigned — no second side is inferred from position — except text
+   below the trade's END (its verdict / action buttons, never a totals
+   row), which is page furniture under the trade and goes to ``ignored``
+   as ``outside_trade_region``.  Every anchored side also says WHICH label
+   it carries (``anchor_family`` / ``anchor_slot``), so a follow-up
+   screenshot showing only "Team 2 gets..." can be kept on Team 2's side.
 2. **Column geometry** — with no anchors, a clean two-cluster split of line
    left edges whose rows overlap vertically -> ``two_column`` with
    ``label_source="position"`` and a confidence just above the floor.
@@ -106,9 +111,17 @@ class Line:
 
 @dataclass(frozen=True)
 class SideBlock:
+    """One side's lines.  ``anchor_family`` / ``anchor_slot`` name WHICH side
+    label this is when ``label_source`` is ``"anchor"`` (e.g. family
+    ``"team 1/team 2"``, slot 1 for "Team 2 gets...") — so a follow-up
+    screenshot that shows only one label can be put on the matching side of
+    the trade instead of by position.  Both are ``None`` otherwise."""
+
     label: str
     label_source: str
     lines: tuple[Line, ...]
+    anchor_family: str | None = None
+    anchor_slot: int | None = None
 
 
 @dataclass(frozen=True)
@@ -348,6 +361,13 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+def anchor_family_name(family: int) -> str:
+    """The published name of an anchor family: its two phrases joined by
+    ``/`` (``"team 1/team 2"``).  Stable across releases as long as the
+    phrases are — it is a label vocabulary, not an index."""
+    return "/".join(_ANCHOR_FAMILIES[family])
+
+
 def match_anchor(text: str) -> tuple[int, int] | None:
     """``(family_index, slot)`` when ``text`` is a side label, else None.
     ``slot`` 0 is the family's first side ("give"), 1 its second ("get")."""
@@ -382,6 +402,14 @@ def is_region_boundary(text: str) -> bool:
         return True
     n = _norm(text)
     return any(n == p or n.startswith(p + " ") for p in _BOUNDARY_PREFIXES)
+
+
+def is_trade_end(text: str) -> bool:
+    """True for a line that ends the WHOLE trade, not just one side's list:
+    the verdict and the action buttons every calculator puts under both
+    lists ("Fair Trade", "Copy Trade URL", "Accept", ...).  A totals row is
+    NOT one — it closes one side, and the other side may continue below it."""
+    return is_region_boundary(text) and not is_total_line(text)
 
 
 def is_equalizer_header(text: str) -> bool:
@@ -627,7 +655,11 @@ def _default_asset_like(text: str) -> bool:
 
 
 def _clean_label(text: str) -> str:
+    """The side label as shown: trailing totals ("You give 7,200") and stray
+    OCR punctuation at either end (". Team 2 gets", the bar edge read as a
+    dot) removed.  The anchor match itself never depends on this."""
     s = re.sub(r"[\s:]*[+\-−]?\$?[\d,\.]+\s*$", "", text).strip(" :|-")
+    s = re.sub(r"^[^\w(]+", "", s).strip()
     return s or text.strip()
 
 
@@ -696,7 +728,8 @@ def detect_layout(
 
     kind = KIND_UNKNOWN
     confidence = 0.3
-    side_specs: list[tuple[str, str]] = []  # (label, label_source)
+    # (label, label_source, anchor_family, anchor_slot)
+    side_specs: list[tuple[str, str, str | None, int | None]] = []
     assign: Callable[[Line], list[int | None]]
 
     def _unassigned(_ln: Line) -> list[int | None]:
@@ -706,21 +739,22 @@ def detect_layout(
     split_x: float | None = None
 
     if pair is not None:
-        a, b = pair[0][0], pair[1][0]
+        pa, pb = pair
+        a, b = pa[0], pb[0]
         side_by_side = abs(a.cy - b.cy) <= 1.5 * med_h
         if side_by_side:
             if b.left < a.left:
-                a, b = b, a
+                (a, pa), (b, pb) = (b, pb), (a, pa)
             kind = KIND_TWO_COLUMN
             confidence = 0.95 if same_family else 0.75
         else:
             if b.cy < a.cy:
-                a, b = b, a
+                (a, pa), (b, pb) = (b, pb), (a, pa)
             kind = KIND_STACKED
             confidence = 0.9 if same_family else 0.75
         side_specs = [
-            (_clean_label(a.text), LABEL_ANCHOR),
-            (_clean_label(b.text), LABEL_ANCHOR),
+            (_clean_label(a.text), LABEL_ANCHOR, anchor_family_name(pa[1]), pa[2]),
+            (_clean_label(b.text), LABEL_ANCHOR, anchor_family_name(pb[1]), pb[2]),
         ]
         others = [ln for ln in expanded if id(ln) not in used]
         containers = _side_containers(a, b, side_by_side, others, width, med_h, is_asset)
@@ -739,13 +773,31 @@ def detect_layout(
         anc = lone_anchor
         kind = KIND_SINGLE
         confidence = 0.7
-        side_specs = [(_clean_label(anc.text), LABEL_ANCHOR)]
+        _lone, lone_family, lone_slot = anchors[0]
+        side_specs = [
+            (_clean_label(anc.text), LABEL_ANCHOR, anchor_family_name(lone_family), lone_slot)
+        ]
         tol = REGION_EDGE_TOLERANCE * med_h
         col = _single_container(anc, [ln for ln in expanded if ln is not anc], width, med_h)
+        # Below the trade's END (its verdict / action buttons) nothing can be
+        # the other side's list either: that is the page under the trade — a
+        # "trending" widget, an ad — and it is outside the trade region even
+        # with one label.  Totals rows do not count (one side may continue
+        # below the other's totals).
+        trade_end = min(
+            (
+                ln.bottom
+                for ln in expanded
+                if ln is not anc and ln.top > anc.bottom and is_trade_end(ln.text)
+            ),
+            default=None,
+        )
 
-        def assign(ln: Line, _c=col, _x=anc.left, _tol=tol) -> list[int | None]:
+        def assign(ln: Line, _c=col, _x=anc.left, _tol=tol, _end=trade_end) -> list[int | None]:
             if _c.contains(ln) and abs(ln.left - _x) <= _tol:
                 return [0]
+            if _end is not None and ln.top >= _end:
+                return [OUTSIDE]
             return [None]
 
     else:
@@ -756,7 +808,10 @@ def detect_layout(
             split_x = (max(ln.left for ln in left_c) + min(ln.left for ln in right_c)) / 2.0
             kind = KIND_TWO_COLUMN
             confidence = 0.62
-            side_specs = [("Side A", LABEL_POSITION), ("Side B", LABEL_POSITION)]
+            side_specs = [
+                ("Side A", LABEL_POSITION, None, None),
+                ("Side B", LABEL_POSITION, None, None),
+            ]
 
             def assign(ln: Line, _s=split_x) -> list[int | None]:
                 if ln.left < _s < ln.right and (ln.right - _s) > 0.25 * (ln.right - ln.left):
@@ -828,8 +883,14 @@ def detect_layout(
         return tuple(sorted(ls, key=lambda ln: (ln.row, ln.left)))
 
     sides = tuple(
-        SideBlock(label=label, label_source=src, lines=_ordered(regions[i]))
-        for i, (label, src) in enumerate(side_specs)
+        SideBlock(
+            label=label,
+            label_source=src,
+            lines=_ordered(regions[i]),
+            anchor_family=family,
+            anchor_slot=slot,
+        )
+        for i, (label, src, family, slot) in enumerate(side_specs)
     )
     used_anchor_lines = (
         tuple(p[0] for p in pair) if pair else ((lone_anchor,) if lone_anchor else ())

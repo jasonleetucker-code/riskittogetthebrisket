@@ -1,0 +1,34 @@
+{
+  "anchorSlots": [
+    0,
+    1
+  ],
+  "forbiddenWarnings": [
+    "trade_region_not_detected",
+    "low_layout_confidence"
+  ],
+  "layoutKind": "stacked",
+  "multishot": {
+    "group": "owner_dart_achane",
+    "order": 0
+  },
+  "mustBeIgnored": [],
+  "requiredWarnings": [
+    "missing_side"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Jaxson Dart",
+          "text": "Jaxson Dart"
+        }
+      ],
+      "label": "Team 1 gets"
+    },
+    {
+      "assets": [],
+      "label": "Team 2 gets"
+    }
+  ]
+}

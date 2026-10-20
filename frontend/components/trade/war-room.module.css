@@ -1,7 +1,8 @@
 /* Trade War Room — PSI editorial structure (Direction A, Lane 6).
    Tokens only (tokens.css, .psi-editorial scope on the /trade root). No raw
    colours, no new radii or shadows, canonical breakpoints (480/768) only.
-   Hierarchy comes from type, rules and alignment — not cards or gauges. */
+   Hierarchy comes from type, rules and alignment — not cards, gauges or
+   all-caps labels (owner directive 2026-10-19). */
 
 .room {
   background: var(--surface-1);
@@ -28,6 +29,23 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.controlLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
 .mode {
   flex: 0 0 auto;
 }
@@ -37,23 +55,13 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
-.status {
+.lead {
   margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  min-height: 1em;
-}
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-.stale {
-  opacity: 0.6;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
 }
 
-/* ── Verdict ── */
+/* ── Would I make this trade? ── */
 .verdict {
   display: flex;
   flex-direction: column;
@@ -61,15 +69,11 @@
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border-default);
 }
-.verdictEyebrow,
-.answerLabel {
-  font-family: var(--font-data);
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  color: var(--accent);
-  font-weight: var(--font-weight-semibold);
+.eyebrow {
   margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent);
 }
 .verdictLine {
   margin: 0;
@@ -80,116 +84,29 @@
 }
 .verdictBadge {
   font-size: var(--font-size-md);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
 }
+.verdictNote,
 .confidence {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-.topUncertainty {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
-
-/* ── Market / Roster / Feasibility: three columns, ruled, not cards ── */
-.answers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+.confidence strong {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
 }
-.answer {
+.pending {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  min-height: 1.5em;
+}
+
+/* ── Why ── */
+.why {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3);
-  min-width: 0;
-  border-left: 1px solid var(--border-subtle);
-}
-.answer:first-child {
-  border-left: 0;
-  padding-left: 0;
-}
-.answerQuestion {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-.answerHeadline {
-  margin: 0;
-  overflow-wrap: normal;
-  word-break: normal;
-}
-.bigNum {
-  font-family: var(--font-data);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-.unit {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-.feasHeadline {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-.answerNote {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-.lensMuted {
-  font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
-}
-.lensBadge {
-  align-self: flex-start;
-}
-
-/* ── Reasons ── */
-.reasonGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-.reasons {
-  min-width: 0;
-}
-.reasonsTitle {
-  margin: 0 0 var(--space-1);
-  font-family: var(--font-data);
-  font-size: var(--font-size-2xs);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-.reasons[data-tone="positive"] .reasonsTitle {
-  color: var(--positive-text, var(--text-secondary));
-}
-.reasons[data-tone="negative"] .reasonsTitle {
-  color: var(--negative-text, var(--text-secondary));
-}
-.reasonsList {
-  margin: 0;
-  padding-left: var(--space-4);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-/* ── Roster construction impact ── */
-.impact {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
 }
 .sectionTitle {
@@ -198,28 +115,115 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
-.facts {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2) var(--space-4);
+.whyList {
   margin: 0;
-}
-.facts div {
-  min-width: 0;
-}
-.facts dt {
-  font-size: var(--font-size-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
-}
-.facts dd {
-  margin: 0;
-  font-family: var(--font-data);
-  font-variant-numeric: tabular-nums;
+  padding-left: var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
+.whyRole {
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── At a glance: one ruled row per question ── */
+.glance {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-subtle);
+}
+.glanceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.glanceLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.glanceValue {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.glanceAnswer {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+/* ── Expandable detail: the shared Panel disclosure, drawn as rules ── */
+.disclosures {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.disclosure {
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+.disclosure :global(.ds-panel__header) {
+  padding: var(--space-1) 0;
+  border-bottom: 0;
+}
+.disclosure :global(.ds-panel__title) {
+  font-size: var(--font-size-sm);
+}
+.disclosure :global(.ds-panel__disclosure) {
+  min-height: 2rem;
+  text-align: left;
+}
+.disclosure :global(.ds-panel__body) {
+  padding: 0 0 var(--space-3);
+}
+.detailBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.detailBody p {
+  margin: 0;
+}
+.detailSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.detailTitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.plainList {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 /* A dense table may scroll inside its own region; the page never does. */
 .tableWrap {
   overflow-x: auto;
@@ -233,21 +237,43 @@
   width: 100%;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
+  color: var(--text-primary);
 }
+/* Neutralise the legacy global `th` rule (globals.css: uppercase, tracked,
+   sticky, dark background, pointer cursor) — these headers are plain labels. */
 .table th,
 .table td {
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
   text-align: left;
-  white-space: nowrap;
   background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: normal;
+  position: static;
+  z-index: auto;
+  cursor: auto;
+  user-select: auto;
+}
+/* Labels wrap so the numbers stay on screen at phone width; numbers never wrap. */
+.table th {
+  white-space: normal;
+}
+.table td {
+  white-space: nowrap;
+}
+.table td.wrap {
+  white-space: normal;
 }
 .table thead th {
-  font-size: var(--font-size-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
   font-weight: var(--font-weight-semibold);
+  vertical-align: bottom;
+}
+.table tbody th {
+  font-weight: var(--font-weight-regular);
 }
 .table .num {
   text-align: right;
@@ -260,6 +286,9 @@
   overflow-wrap: normal;
   word-break: normal;
 }
+.table tbody .playerCell {
+  font-weight: var(--font-weight-semibold);
+}
 .playerName {
   margin-right: var(--space-1);
 }
@@ -267,6 +296,12 @@
   font-family: var(--font-data);
   font-size: var(--font-size-2xs);
   color: var(--text-tertiary);
+  margin-right: var(--space-1);
+}
+.rowNote {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
 }
 .srOnly {
   position: absolute;
@@ -277,53 +312,17 @@
   white-space: nowrap;
 }
 
-/* ── Details ── */
-.details {
-  min-width: 0;
-}
-.detailsBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-.detailsBody p {
-  margin: 0;
-}
-.detailsTitle {
-  margin: 0 0 var(--space-1);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-.detailsList {
-  margin: 0;
-  padding-left: var(--space-4);
-}
-
 @media (max-width: 768px) {
   .room {
     padding: var(--space-3);
   }
-  .answers {
+  .glanceRow {
     grid-template-columns: minmax(0, 1fr);
   }
-  .answer,
-  .answer:first-child {
-    border-left: 0;
-    padding-left: 0;
-    border-top: 1px solid var(--border-subtle);
-  }
-  .answer:first-child {
-    border-top: 0;
-  }
-  .reasonGrid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-2);
-  }
-  .facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Comfortable touch targets for the section toggles on phones. */
+  .disclosure :global(.ds-panel__disclosure) {
+    min-height: 44px;
+    width: 100%;
   }
 }
 
@@ -332,7 +331,14 @@
     flex-direction: column;
     align-items: stretch;
   }
-  .bigNum {
-    font-size: var(--font-size-lg);
+  .controls,
+  .control {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .table th,
+  .table td {
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
   }
 }

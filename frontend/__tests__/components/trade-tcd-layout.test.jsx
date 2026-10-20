@@ -106,14 +106,19 @@ describe("ImmediateResultTable — sideTotals verbatim", () => {
 describe("DecisionSummary — the War Room's answer, echoed", () => {
   const decision = CONSOLIDATION.analysis.decision;
 
-  it("echoes the headline, confidence and primary reason verbatim", () => {
+  it("echoes the headline verbatim and the confidence level — nothing more", () => {
     render(<DecisionSummary summary={{ status: "ok", decision }} />);
     expect(screen.getByTestId("decision-summary-headline")).toHaveTextContent(
       decision.headlineText,
     );
-    expect(screen.getByText(decision.confidence.statement)).toBeInTheDocument();
-    expect(screen.getByText(decision.primaryReason.text)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Full analysis/ })).toHaveAttribute(
+    expect(screen.getByTestId("decision-summary-confidence")).toHaveTextContent(
+      "Medium confidence",
+    );
+    // Owner directive 2026-10-19: no conclusion repeated across panels — the
+    // reasons and the confidence detail live in the War Room only.
+    expect(screen.queryByText(decision.primaryReason.text)).toBeNull();
+    expect(screen.queryByText(decision.confidence.statement)).toBeNull();
+    expect(screen.getByRole("link", { name: /War Room/ })).toHaveAttribute(
       "href",
       "#trade-decision",
     );
@@ -121,10 +126,10 @@ describe("DecisionSummary — the War Room's answer, echoed", () => {
     expect(screen.queryByTestId("decision-headline")).toBeNull();
   });
 
-  it("keeps the previous answer dimmed and marked while it updates", () => {
+  it("never echoes a previous answer while a new one computes", () => {
     render(<DecisionSummary summary={{ status: "updating", decision }} />);
-    expect(screen.getByTestId("decision-summary-headline")).toBeInTheDocument();
-    expect(screen.getByTestId("decision-summary-updating")).toHaveTextContent(/Updating/);
+    expect(screen.queryByTestId("decision-summary-headline")).toBeNull();
+    expect(screen.getByTestId("decision-summary")).toHaveTextContent(/Analyzing this trade/);
     // TC-E design choice: progress is visible but never a live region; only
     // the final decision change is announced (TradeVerdictAnnouncer).
     expect(screen.queryByRole("status")).toBeNull();
@@ -135,7 +140,7 @@ describe("DecisionSummary — the War Room's answer, echoed", () => {
     ["idle", /Add assets to both sides/],
     ["side-choice", /which side is yours/],
     ["loading", /Analyzing this trade/],
-    ["error", /Analysis unavailable/],
+    ["error", /did not finish/],
     ["multi", /more than two teams/],
   ])("states why there is no decision (%s)", (status, words) => {
     render(<DecisionSummary summary={{ status, decision: null }} />);

@@ -31,6 +31,12 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   `signals_idp_shared_market` alone activates nothing; a family needs the
   master, its `signals_idp_{dl,lb,db}_vote` flag and `signals_idp_xwalk_v2`.
 
+**Standing engineering delivery process (2026-10-19):** read
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md` for cross-model parallel isolated feature
+development, tiered CI and qualified Integration-led automatic routine
+merges. Existing owner-only, required review and release gates remain.
+
 **AI/agent entrypoint:**
 - [`AI_INSTRUCTIONS.md`](AI_INSTRUCTIONS.md) — universal instructions for Claude, Codex, Gemini, ChatGPT, Copilot, and future agents
 

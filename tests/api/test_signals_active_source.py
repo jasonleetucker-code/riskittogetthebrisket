@@ -878,8 +878,8 @@ def test_a_retired_pick_class_does_not_misplace_shadow_meta(tmp_path, monkeypatc
 
     real = dc._evaluate_pick_class_lifecycle
 
-    def lifecycle_with_2025_retired(players_by_name, sleeper_block):
-        out = real(players_by_name, sleeper_block)
+    def lifecycle_with_2025_retired(players_by_name, sleeper_block, **kwargs):
+        out = real(players_by_name, sleeper_block, **kwargs)
         out["retiredYears"] = sorted({*out.get("retiredYears", []), 2025})
         return out
 
