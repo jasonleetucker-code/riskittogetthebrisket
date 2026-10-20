@@ -203,7 +203,17 @@ const BUDGETS_KB = {
   // after the #1723 review follow-ups (state blocks keep their siblings) (list view:
   // DataTable + the evidence renderer), pinned with ~15% headroom. The family
   // detail view is a React.lazy chunk (6.2 KB) and is not counted here.
-  "/admin/model-lab/page": 30,
+  // 30 -> 35 (2026-10-20, ds hydration gate): RELOCATION, no model-lab
+  // change.  The new shared `components/ds/useHydrated.js` (read by Tabs,
+  // SegmentedControl, CollapsiblePanel) re-split webpack's shared ds chunk,
+  // so Badge / Panel / Skeleton / Banner / Button / CollapsiblePanel land in
+  // this page's own chunk: 26.6 -> 33.0 KB page chunk, while the page chunk
+  // + every static chunk its startup list requires went 286.5 -> 286.7 KB
+  // (+0.0..0.4 KB on every budgeted route; measured on --webpack builds of
+  // main vs the branch).  Inlining the hook into the three primitives
+  // instead re-split it the same way once their docblocks grew, so the
+  // split is size-threshold chaos, not a cost of sharing.  35 = 33.0 + ~6%.
+  "/admin/model-lab/page": 35,
   // Added 2026-10-18 with the Trade Finder meaningful-discovery batch: the
   // page had no budget.  Measured 58.3 KB on main before, 70.2 KB with the
   // tools-first layout, shared discovery controls and research section;

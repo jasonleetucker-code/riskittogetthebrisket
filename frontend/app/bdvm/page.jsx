@@ -582,6 +582,8 @@ function RostersTab({ active }) {
         onRowClick={(r) =>
           setExpandedKey((k) => (k === r.key ? "" : r.key))
         }
+        isRowExpanded={(r) => r.key === expandedKey}
+        rowExpandLabel={(r) => `Top assets for ${r.name || r.key}`}
         renderAfterRow={(r) =>
           r.key === expandedKey ? (
             <tr>

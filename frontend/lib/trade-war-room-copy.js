@@ -416,31 +416,47 @@ function unratedOthers(evidenceLens) {
   return (d.unstampedAssets || []).filter((n) => n && !low.has(n)).length;
 }
 
-/** Clauses deduplicated by MEANING: same text, or same topic -- the named
- *  clause wins its topic, in the position the topic first appeared.  The
- *  generic thin-evidence reason also covers assets with NO stamp, so when a
- *  named low-confidence clause replaces it and such assets remain, they keep
- *  a clause of their own. */
-function dedupeClauses(clauses, { unrated = 0 } = {}) {
+/** Clauses grouped by MEANING: same text, or same topic -- the named clause
+ *  wins its topic, in the position the topic first appeared, and the group
+ *  keeps every axis that said it (`axes`).  The generic thin-evidence reason
+ *  also covers assets with NO stamp, so when a named low-confidence clause
+ *  replaces it and such assets remain, they keep a clause of their own
+ *  (`texts[1]` of the thin-evidence group). */
+function groupClauses(clauses, { unrated = 0 } = {}) {
   const out = [];
   const genericThin = (c) => c.topic === "thinEvidence" && !c.named;
   let thinGenericReplaced = false;
   for (const c of clauses) {
     const i = out.findIndex((o) => o.text === c.text || (c.topic && o.topic === c.topic));
     if (i < 0) {
-      out.push(c);
-    } else if (c.named && !out[i].named) {
+      out.push({ ...c, axes: c.axis ? [c.axis] : [] });
+      continue;
+    }
+    if (c.axis && !out[i].axes.includes(c.axis)) out[i].axes.push(c.axis);
+    if (c.named && !out[i].named) {
       thinGenericReplaced = thinGenericReplaced || genericThin(out[i]);
-      out[i] = c;
+      out[i] = { ...c, axes: out[i].axes };
     } else if (genericThin(c) && out[i].named) {
       thinGenericReplaced = true;
     }
   }
-  if (thinGenericReplaced && unrated > 0) {
-    const at = out.findIndex((o) => o.topic === "thinEvidence");
-    out.splice(at + 1, 0, { text: unratedClause(unrated), topic: null, named: true });
-  }
-  return out.map((c) => c.text);
+  const thin = thinGenericReplaced && unrated > 0;
+  return out.map((g) => ({
+    axes: g.axes,
+    texts: thin && g.topic === "thinEvidence" ? [g.text, unratedClause(unrated)] : [g.text],
+  }));
+}
+
+/** One limiting axis per (axis, why) pair, each tagged with its axis. */
+function axisClauses(bottleneck, whys, ctx) {
+  return bottleneck.map((axis, i) => ({
+    ...limitClause(axis, whys.length ? whys[i] : null, ctx),
+    axis,
+  }));
+}
+
+function objectiveValueStance(decision) {
+  return (decision?.reasons || []).find((r) => r?.component === "objectiveValue")?.stance;
 }
 
 /**
@@ -476,15 +492,10 @@ export function confidenceSummary(
   const bottleneck = Array.isArray(confidence.bottleneck) ? confidence.bottleneck : [];
   if (level !== CONFIDENCE_LEVEL_WORDS.HIGH && bottleneck.length) {
     const whys = confidenceLimits(statement, bottleneck);
-    const valueStance = (decision?.reasons || []).find(
-      (r) => r?.component === "objectiveValue",
-    )?.stance;
-    const limits = dedupeClauses(
-      bottleneck.map((axis, i) =>
-        limitClause(axis, whys.length ? whys[i] : null, { rosterLens, valueStance }),
-      ),
-      { unrated: unratedOthers(evidenceLens) },
-    );
+    const ctx = { rosterLens, valueStance: objectiveValueStance(decision) };
+    const limits = groupClauses(axisClauses(bottleneck, whys, ctx), {
+      unrated: unratedOthers(evidenceLens),
+    }).flatMap((g) => g.texts);
     return {
       level,
       detail: sentenceEnd(`Limited because ${clauseJoin(limits)}`),
@@ -590,8 +601,17 @@ const GAP_OPENINGS = [
   [/^Your team does not hold: /, "unheld_assets"],
   [/^Value withheld as untrustworthy\b/, "quarantined_values"],
   [/^Value rests mostly on stale sources: /, "stale_values"],
+  [/^\d+ forced cut\(s\) have no value\b/, "forced_drop_unpriced"],
+  [/^No league-scored projection for \d+ traded player\(s\), and an? /, "unprojected_players"],
 ];
 const GENERIC_GAP = "Some information the recommendation needs is missing.";
+
+/** A gap's count: its evidence field, else the number its text opens with. */
+function gapCount(stated, text) {
+  if (isNum(stated) && stated >= 0) return stated;
+  const m = /\b(\d+)\b/.exec(String(text || ""));
+  return m ? Number(m[1]) : null;
+}
 
 /**
  * One missing-evidence gap (`decision.missingEvidence[i]`, or the evidence
@@ -610,6 +630,28 @@ export function missingEvidenceText(gap) {
   if (code === "roster_unknown") return `The effect on your lineup could not be measured${why}.`;
   if (code === "roster_limit_unknown")
     return `Whether the trade fits your roster is unknown${why}.`;
+  // Counted gaps the backend writes with "(s)": worded from their count.
+  if (code === "forced_drop_unpriced") {
+    const n = gapCount(gap.evidence?.count, text);
+    if (n === 1)
+      return "A forced cut has no value on the board, so the cost of that cut is unknown.";
+    if (n > 1)
+      return `${n} forced cuts have no value on the board, so the cost of those cuts is unknown.`;
+    return "A forced cut has no value on the board, so the cost of the cut is unknown.";
+  }
+  if (code === "unprojected_players") {
+    const ids = gap.evidence?.playerIds;
+    const n = gapCount(Array.isArray(ids) ? ids.length : null, text);
+    const goal = /\band an? (.+?) decision needs\b/.exec(text)?.[1];
+    const decision = goal ? `a ${goal.trim().replace(/\s+/g, "-")} decision` : "this decision";
+    const who =
+      n === 1
+        ? "A traded player has"
+        : n > 1
+          ? `${n} traded players have`
+          : "Some traded players have";
+    return `${who} no league-scored projection, and ${decision} needs the lineup effect.`;
+  }
   if (!text) return GENERIC_GAP;
   const at = text.indexOf(": ");
   const prose = NAME_LIST_GAPS.has(code) && at > 0 ? text.slice(0, at) : text;
@@ -891,9 +933,10 @@ const AXIS_NAMES = {
  * The backend's confidence statement ("Medium confidence — limited by
  * assetEvidence: …; precision: …") for the methodology view: the same level
  * and the same limiting axes in the same order, each axis named in words and
- * its reason in the plain clause the confidence line uses.  Unlike the
- * at-a-glance line it keeps one entry per AXIS (two axes naming one fact both
- * stay), because this view is the engine's record.
+ * its reason in the plain clause the confidence line uses.  Every axis stays
+ * named, because this view is the engine's record -- but two axes naming one
+ * fact share ONE clause, the named one ("coverage and asset evidence (the
+ * value of X rests on thin evidence)"), so a limitation is never said twice.
  */
 export function confidenceStatementText(confidence, ctx = {}) {
   const s = confidenceSummary(confidence, ctx);
@@ -904,13 +947,16 @@ export function confidenceStatementText(confidence, ctx = {}) {
   const bottleneck = Array.isArray(confidence.bottleneck) ? confidence.bottleneck : [];
   const whys = confidenceLimits(s.statement, bottleneck);
   if (!whys.length) return sentenceEnd(`${s.level}. ${s.detail || ""}`);
-  const valueStance = (ctx.decision?.reasons || []).find(
-    (r) => r?.component === "objectiveValue",
-  )?.stance;
-  const parts = bottleneck.map(
-    (axis, i) =>
-      `${AXIS_NAMES[axis] || "another part of the evidence"} (${limitClause(axis, whys[i], { ...ctx, valueStance }).text})`,
+  const groups = groupClauses(
+    axisClauses(bottleneck, whys, { ...ctx, valueStance: objectiveValueStance(ctx.decision) }),
+    { unrated: unratedOthers(ctx.evidenceLens) },
   );
+  const parts = groups.map((g) => {
+    const names = [
+      ...new Set(g.axes.map((a) => AXIS_NAMES[a] || "another part of the evidence")),
+    ];
+    return `${listJoin(names)} (${g.texts.join("; ")})`;
+  });
   return sentenceEnd(`${s.level} — limited by ${clauseJoin(parts)}`);
 }
 
@@ -1283,6 +1329,14 @@ export function weeklyImpact(lens) {
     );
   }
   return { sentence: lineupPointsSentence(d.ppg), note: notes.join(" ") || null, partial };
+}
+
+/** The player-by-player detail's note under partial projection coverage,
+ *  counted from the roster lens; null when coverage is not partial. */
+export function partialCoverageNote(lens) {
+  if (lens?.unavailableReason !== "partial_projection_coverage") return null;
+  const who = unprojectedWho(unprojectedCount(lens)).replace(/^./, (c) => c.toUpperCase());
+  return `${who} no projection, so these numbers cover the projected players only and do not count toward the recommendation.`;
 }
 
 // ── At a glance: does it fit your roster? ─────────────────────────────────

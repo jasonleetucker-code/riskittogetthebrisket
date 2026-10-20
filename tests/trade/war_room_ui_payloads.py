@@ -2,8 +2,9 @@
 
 The War Room component renders the analyze packet verbatim, so its tests must
 read what the backend actually emits.  This module runs the production path —
-``src.api.trade_simulator.simulate_trade(include_roster_utility=True)`` then
-``src.trade.analyze_trade.analyze_trade`` — over the synthetic league of
+``src.trade.analyze_service.simulate_for_team`` (``simulate_trade`` with the
+roster utility) then ``analyze_service.analyze_for_team`` (``analyze_trade``),
+the same owner ``/api/trade/analyze`` calls — over the synthetic league of
 ``tests/api/test_trade_nfl_exposure`` (8-man cap, 7 rostered), with two seams
 pinned so the output is deterministic everywhere:
 
@@ -27,10 +28,9 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-from src.api import trade_simulator
 from src.league_intel.sim_calibration import DEFAULT_POINTS_MODEL
 from src.roster_intel import best_ball_utility as bbu
-from src.trade.analyze_trade import analyze_trade
+from src.trade import analyze_service
 from tests.api.test_trade_nfl_exposure import _SETTINGS, _contract, _us
 
 OUT_DIR = (
@@ -420,9 +420,13 @@ def build(name: str) -> dict:
             settings,
         )
         result["leagueKey"] = "main"
-        result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
         comparables = _COMPARABLES[options["comparables"]]() if options.get("comparables") else None
-        result["analysis"] = analyze_trade(result, comparables, team_goal=options.get("team_goal"))
+        result["analysis"] = analyze_service.analyze_for_team(
+            result,
+            contract=contract,
+            comparables=comparables,
+            team_goal=options.get("team_goal"),
+        )
     payload = json.loads(json.dumps(result, default=list))
     payload["_fixture"] = {
         "scenario": name,
@@ -473,17 +477,18 @@ def _simulate(
             ),
         ),
     ):
-        result = trade_simulator.simulate_trade(
+        result = analyze_service.simulate_for_team(
             contract,
+            league_key="main",
+            roster_settings=settings,
             resolved_team=_us(contract) if with_team else None,
             players_in=players_in,
             players_out=players_out,
             picks_in=picks_in,
             picks_out=picks_out,
-            roster_settings=settings,
-            league_key="main",
-            include_roster_utility=context,
-            competitive_posture=_synthetic_posture() if with_team else None,
+            team_context=context,
+            for_analysis=True,
+            posture_resolver=lambda *_a, **_k: _synthetic_posture() if with_team else None,
         )
     return result
 

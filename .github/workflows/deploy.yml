@@ -265,7 +265,14 @@ jobs:
           # coverage gate in verify-deploy.sh is the real deploy-time
           # guard against genuine source degradation, so a routine
           # scrape-churn dip must not false-block a deploy.
-          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+          # Runner speed varies ~1.8x between GitHub-hosted runners: over 38
+          # jobs (CQ-29, 2026-10-19) this step's time tracked the same job's
+          # live-data step at r=0.98 (40-77 min), so the variance is the
+          # machine, not the suite.  Record the CPU and the slowest tests so a
+          # slow run is diagnosable from its own log.  Output only — the
+          # command, markers and -x are unchanged.
+          grep -m1 'model name' /proc/cpuinfo || true
+          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
 
       - name: Run live-data tests (advisory — non-blocking)
         if: ${{ always() }}

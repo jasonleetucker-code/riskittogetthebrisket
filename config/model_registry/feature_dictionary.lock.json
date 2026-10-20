@@ -56,6 +56,31 @@
       "name": "provider_family",
       "version": 2,
       "definitionHash": "efaf2397de9c17d112c1b9ee6366db284dd528ad6d9b2142c5740992c494d869"
+    },
+    {
+      "name": "trade_observation_lane",
+      "version": 1,
+      "definitionHash": "64fa383e9965e90b12399ef3bbd4ef99051547719f0d7d70120a6cf0b164d26e"
+    },
+    {
+      "name": "trade_dedupe_state",
+      "version": 1,
+      "definitionHash": "ad29d3be986ad6352a236162759cf86b4702d5e52b607abf1262a27501757a28"
+    },
+    {
+      "name": "trade_format_disposition",
+      "version": 1,
+      "definitionHash": "f24a9fa69d071c4f7d748f7386c24f3db8cffa59fb8fae6bcecf5b4f647fc2f1"
+    },
+    {
+      "name": "trade_topology",
+      "version": 1,
+      "definitionHash": "e0d194057741c3dd80f753fb95c6d5071d636549222f4a86e33d415219ce0e77"
+    },
+    {
+      "name": "trade_fit_suitability",
+      "version": 1,
+      "definitionHash": "44414b14dc1310f0bcef23dabfc5268b476909392025f793c035da58b4afcc36"
     }
   ]
 }

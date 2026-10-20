@@ -44,6 +44,8 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from src.bdvm.projections import ProjectionRecord, latest_snapshot_path, load_snapshot
+from src.bdvm.source_vocabulary import record_coverage
+from src.nfl_data.synthetic_splits import RECEPTION_BAND_KEYS, synthetic_band_keys
 from src.ros import projection_source_census as census
 
 
@@ -88,6 +90,32 @@ class ProjectionObservation:
     proj_high: float | None
     proj_low: float | None
     is_proxy: bool
+
+    # ── Additive scoring detail (optional; defaults keep every existing
+    # construction site and serializer byte-identical). ──────────────
+    #: ``(scoring_key, raw_stat, rate, awarded_points)`` per game, from the
+    #: ONE scoring call that produced ``league_scored_fpg`` — the canonical
+    #: scorer's own components, never a second scoring pass.  For a
+    #: stat-line record they sum, in order, to ``league_scored_fpg``
+    #: exactly.  Empty when the source supplied points rather than a stat
+    #: line (nothing was scored here) and for constructions that predate it.
+    scoring_components: tuple[tuple[str, float, float, float], ...] = ()
+    #: Nonzero card rules this observation's points do NOT include because
+    #: the source did not project them — their contribution is UNKNOWN,
+    #: never zero.  For BDVM-snapshot records this is the canonical
+    #: per-record coverage (``src.bdvm.source_vocabulary.record_coverage``),
+    #: fed the engine's own unscored keys from the same scoring call.
+    uncovered_paid_keys: tuple[str, ...] = ()
+    #: Card keys whose projected value is an IMPUTED split rather than
+    #: provider evidence (today: the provider's fixed reception-band split,
+    #: :mod:`src.nfl_data.synthetic_splits`).  A label only — the points
+    #: are still in ``league_scored_fpg``; nothing here changes a number.
+    synthetic_components: tuple[str, ...] = ()
+    #: ``"complete"`` / ``"partial"`` / ``"unverifiable"`` from the same
+    #: coverage owner, so an empty ``uncovered_paid_keys`` on a record whose
+    #: coverage could not be checked (source-scored points) never reads as
+    #: complete.  ``None`` when not computed.
+    coverage_status: str | None = None
 
 
 class ProjectionObservationError(ValueError):
@@ -152,7 +180,15 @@ def rescore_projection_record(
             "multi-horizon source needs this path."
         )
 
-    league_scored_fpg, league_native = record.resolve_fpg(scoring_settings)
+    # ONE scoring call: the total, the engine's unscored keys and the
+    # per-key components all come from this resolution.
+    resolved = record.resolve_fpg_breakdown(scoring_settings)
+    league_scored_fpg, league_native = resolved.fpg, resolved.scoring_native
+    coverage = record_coverage(record, scoring_settings, engine_unscored=resolved.unscored)
+    uncovered, coverage_status = _with_unreadable_rates(
+        tuple(coverage.unscored_keys), coverage.status, scoring_settings
+    )
+    synthetic = _synthetic_components(record, resolved.components)
 
     native_fpg: float | None
     if record.fpg is not None:
@@ -182,7 +218,59 @@ def rescore_projection_record(
         proj_high=record.proj_high,
         proj_low=record.proj_low,
         is_proxy=record.is_proxy,
+        scoring_components=resolved.components,
+        uncovered_paid_keys=uncovered,
+        synthetic_components=synthetic,
+        coverage_status=coverage_status,
     )
+
+
+def _with_unreadable_rates(
+    uncovered: tuple[str, ...], status: str, scoring_settings: Mapping[str, Any]
+) -> tuple[tuple[str, ...], str]:
+    """Add card keys whose RATE is unreadable to the uncovered list.
+
+    The realized engine coerces a non-numeric rate to 0 and the coverage
+    owner skips it, so an unreadable rate would otherwise vanish.  An
+    unknown rate is not a zero rate: it is named here, and a ``complete``
+    coverage verdict drops to ``partial``.  Additive — a card whose rates
+    all parse is untouched.
+    """
+    unreadable: list[str] = []
+    for key, raw in (scoring_settings or {}).items():
+        if isinstance(raw, bool):
+            unreadable.append(str(key))
+            continue
+        try:
+            rate = float(raw)
+        except (TypeError, ValueError):
+            unreadable.append(str(key))
+            continue
+        if rate != rate:  # NaN
+            unreadable.append(str(key))
+    if not unreadable:
+        return uncovered, status
+    merged = tuple(sorted(set(uncovered) | set(unreadable)))
+    return merged, ("partial" if status == "complete" else status)
+
+
+def _synthetic_components(
+    record: ProjectionRecord, components: tuple[tuple[str, float, float, float], ...]
+) -> tuple[str, ...]:
+    """Band keys that are the provider's fixed split, on either key view.
+
+    Checked on the record's own stat line (a Sleeper-keyed source) and on
+    the scored per-game components (the Sleeper-keyed view the scorer saw).
+    The two are checked separately rather than merged — they may be on
+    different bases (season vs per game); a share test is basis-free
+    within one view.
+    """
+    found: set[str] = set()
+    if record.stat_line:
+        found.update(synthetic_band_keys(record.stat_line))
+    if components:
+        found.update(synthetic_band_keys({key: raw for key, raw, _rate, _pts in components}))
+    return tuple(k for k in RECEPTION_BAND_KEYS if k in found)
 
 
 @dataclass(frozen=True)

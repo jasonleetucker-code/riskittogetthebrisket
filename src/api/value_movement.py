@@ -5,10 +5,13 @@ for one row of the loaded canonical contract.  It adds only what the history
 layer must not know:
 
 * **Source roles**, read from their canonical owners: KTC Market is the
-  benchmark and never a vote (``src/sources/ktc_market.py``); the Signals IDP
-  boards are held from voting (``data_contract.PRIVATE_SOURCE_VOTE_HOLDS``).
-  The role is TODAY's; whether a source voted at a past generation is not
-  recorded and is listed as unobserved.
+  benchmark and never a vote (``src/sources/ktc_market.py``); a private
+  source is held or voting per the served board's OWN vote-state stamp
+  (``privateSourceAvailability`` — the Signals IDP families release one by
+  one), falling back to the declared holds
+  (``data_contract.PRIVATE_SOURCE_VOTE_HOLDS``) only when no stamp is
+  available.  The role is TODAY's; whether a source voted at a past
+  generation is not recorded and is listed as unobserved.
 * **The live board** the reader is looking at — today's value, rank and
   ``rankChange`` — so a ledger that lags the served board (a restart that
   primed without a fresh scrape, say) is visible rather than silently
@@ -49,9 +52,24 @@ def _vote_holds() -> Mapping[str, str]:
     return PRIVATE_SOURCE_VOTE_HOLDS
 
 
-def source_role(source_key: str) -> str:
+def source_role(source_key: str, vote_state: Mapping[str, Any] | None = None) -> str:
+    """Today's role of one source.
+
+    ``vote_state`` is the served board's ``privateSourceAvailability`` stamp.
+    When it states a hold (``shadow`` / ``held``) or an ``active`` vote for
+    the source, that EFFECTIVE state decides — a declaration alone cannot
+    tell a released family from a held one.  Any other state (absent here,
+    rolled back) and a missing stamp fall back to the declared hold.
+    """
     if source_key == KTC_MARKET_KEY:
         return ROLE_BENCHMARK
+    entry = vote_state.get(source_key) if isinstance(vote_state, Mapping) else None
+    if isinstance(entry, Mapping):
+        state = entry.get("voteState")
+        if state in ("shadow", "held"):
+            return ROLE_HELD
+        if state == "active" and entry.get("votes") is True:
+            return ROLE_MODEL_INPUT
     if source_key in _vote_holds():
         return ROLE_HELD
     return ROLE_MODEL_INPUT
@@ -63,12 +81,14 @@ def _num(value: Any) -> float | None:
     return float(value)
 
 
-def _today_role(source_key: str, row: Mapping[str, Any]) -> str:
+def _today_role(
+    source_key: str, row: Mapping[str, Any], vote_state: Mapping[str, Any] | None = None
+) -> str:
     """What a source is doing on TODAY's row: benchmark / held from the
     owners; otherwise voted or not from the row's own stamp
     (``sourceRankMeta[k].contributedToBlend``), and unpublished when the row
     carries no stamp — never guessed as a vote."""
-    role = source_role(source_key)
+    role = source_role(source_key, vote_state)
     if role != ROLE_MODEL_INPUT:
         return role
     meta = row.get("sourceRankMeta")
@@ -78,7 +98,9 @@ def _today_role(source_key: str, row: Mapping[str, Any]) -> str:
     return TODAY_NOT_VOTING if entry.get("contributedToBlend") is False else TODAY_VOTED
 
 
-def _current_unrecorded_sources(row: Mapping[str, Any]) -> list[dict[str, str]]:
+def _current_unrecorded_sources(
+    row: Mapping[str, Any], vote_state: Mapping[str, Any] | None = None
+) -> list[dict[str, str]]:
     """Sources carrying a value on TODAY's row that the ledger never records
     per generation (rank-signal sources), each with its role today.  Current
     state only."""
@@ -87,7 +109,7 @@ def _current_unrecorded_sources(row: Mapping[str, Any]) -> list[dict[str, str]]:
         return []
     recorded = set(record.LEDGER_SOURCE_KEYS)
     return [
-        {"source": k, "role": _today_role(k, row)}
+        {"source": k, "role": _today_role(k, row, vote_state)}
         for k, v in sorted(site.items())
         if k not in recorded and (n := _num(v)) is not None and n > 0
     ]
@@ -100,6 +122,7 @@ def player_value_movement(
     path: Path | None = None,
 ) -> dict[str, Any]:
     board_date = record.contract_board_date(dict(contract))
+    vote_state = contract.get("privateSourceAvailability")
     keyed = keys.asset_key_for_contract_row(dict(row))
     live = {
         "boardDate": board_date,
@@ -112,7 +135,7 @@ def player_value_movement(
         "scope": "current_board_only",
         "anomalyFlags": list(row.get("anomalyFlags") or []),
         "quarantined": bool(row.get("quarantined")),
-        "sourcesNotRecordedInLedger": _current_unrecorded_sources(row),
+        "sourcesNotRecordedInLedger": _current_unrecorded_sources(row, vote_state),
     }
     if keyed is None:
         return {
@@ -138,7 +161,7 @@ def player_value_movement(
         path=path,
     )
     for s in out.get("sources") or []:
-        s["role"] = source_role(s["source"])
+        s["role"] = source_role(s["source"], vote_state)
     out["player"] = row.get("displayName") or row.get("canonicalName")
     out["playerId"] = row.get("playerId")
     out["liveBoard"] = live

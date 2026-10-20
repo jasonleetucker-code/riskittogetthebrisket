@@ -722,4 +722,16 @@ def test_comparable_trades_never_reads_disposition_as_price_authority():
         for p in (REPO / "config").rglob("*.json")
         if "BROAD_CONTEXT" in p.read_text(encoding="utf-8")
     }
-    assert referencing <= {"config/trade/comparable_trades.json"}
+    # Reviewed 2026-10-19 (CTM P5): the feature dictionary DEFINES the
+    # disposition feature (its value vocabulary, owned by market_trade_format)
+    # and reads nothing; consumers reach it only through that owner.
+    assert referencing <= {
+        "config/trade/comparable_trades.json",
+        "config/model_registry/feature_dictionary.json",
+    }
+    feats = json.loads(
+        (REPO / "config/model_registry/feature_dictionary.json").read_text(encoding="utf-8")
+    )
+    for feat in feats.get("features", []):
+        if "BROAD_CONTEXT" in json.dumps(feat):
+            assert feat["definitionOwner"].startswith("src.trade.market_trade_format"), feat

@@ -825,14 +825,53 @@ def test_signals_flag_on_without_provisioned_csvs_serves_no_vote(tmp_path, flag_
     assert block["champion"]["version"] == "no Signals IDP vote (hold)"
 
 
-def test_signals_flag_on_with_provisioned_csvs_votes(tmp_path, flag_env):
+_SIGNALS_RELEASE = (
+    "signals_idp_shared_market",
+    "signals_idp_dl_vote",
+    "signals_idp_lb_vote",
+    "signals_idp_db_vote",
+    "signals_idp_xwalk_v2",
+)
+
+
+def test_signals_every_release_flag_on_with_provisioned_csvs_votes(tmp_path, flag_env):
     _provision_signals(tmp_path)
-    flag_env("signals_idp_shared_market", True)
+    for name in _SIGNALS_RELEASE:
+        flag_env(name, True)
     block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
     hold, candidate = block["challengers"]
     assert candidate["state"] == ml.LAB_CHAMPION
     assert hold["state"] == ml.LAB_RETIRED
     assert set(block["productionState"]["voteStates"].values()) == {"active"}
+    assert block["champion"]["version"].startswith("Candidate F")
+    assert "SIGNALS_IDP_DL_VOTE=0" in block["rollback"]["command"]
+    assert hold["nativeStatus"]["heldSources"] == []
+
+
+def test_signals_master_alone_activates_nothing(tmp_path, flag_env):
+    """Owner directive 2026-10-19: the master ALONE no longer releases a family."""
+    _provision_signals(tmp_path)
+    flag_env("signals_idp_shared_market", True)
+    block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
+    hold, candidate = block["challengers"]
+    assert hold["state"] == ml.LAB_CHAMPION
+    assert candidate["state"] == ml.LAB_SHADOW
+    assert set(block["productionState"]["voteStates"].values()) == {"shadow"}
+
+
+def test_signals_one_family_released_is_reported_per_family(tmp_path, flag_env):
+    _provision_signals(tmp_path)
+    # DL and LB released by master + family switch, but no qualified
+    # translation (signals_idp_xwalk_v2 OFF): held, never Candidate A.
+    for name in ("signals_idp_shared_market", "signals_idp_dl_vote", "signals_idp_lb_vote"):
+        flag_env(name, True)
+    block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
+    per = block["productionState"]["perFamily"]
+    assert per["signalsIdpDl"]["voteState"] == "held"
+    assert per["signalsIdpDl"]["heldFromVote"] == "no_qualified_translation"
+    assert per["signalsIdpLb"]["voteState"] == "held"
+    assert per["signalsIdpDb"]["voteState"] == "shadow"
+    assert block["challengers"][1]["state"] == ml.LAB_SHADOW
 
 
 def test_signals_flag_off_with_provisioned_csvs_is_shadow(tmp_path, flag_env):
@@ -846,7 +885,8 @@ def test_signals_flag_off_with_provisioned_csvs_is_shadow(tmp_path, flag_env):
 
 def test_signals_rolled_back_source_is_not_shadow(tmp_path, flag_env):
     _provision_signals(tmp_path)
-    flag_env("signals_idp_shared_market", True)
+    for name in _SIGNALS_RELEASE:
+        flag_env(name, True)
     flag_env("signals_active_source", False)
     block = ml.build_signals_family(tmp_path, NO_RECEIPTS)
     hold, candidate = block["challengers"]
