@@ -411,8 +411,11 @@ def _build_none(raw, root, transform=None):
 
 def _inj_seg_raw(raw: dict, seed: int) -> tuple[dict, dict]:
     """INJ-SEG (prereg §7.2): IDP Trade Calculator payload values (a value-
-    direct source with a same-run CSV copy) shifted per position group by a
-    random-sign |0.1-0.3| log on 70% of rows; the CSV keeps the true values."""
+    direct source with a same-run CSV copy) shifted per position group (the
+    pipeline's position vocabulary, ``POSITION_ALIASES``) by a random-sign
+    |0.1-0.3| log on 70% of rows; the CSV keeps the true values."""
+    from src.utils.name_clean import POSITION_ALIASES  # noqa: PLC0415
+
     rng = random.Random(seed)
     out = json.loads(json.dumps(raw))
     players = out.get("players") or {}
@@ -429,7 +432,8 @@ def _inj_seg_raw(raw: dict, seed: int) -> tuple[dict, dict]:
             val = p.get("idpTradeCalc")
         if not isinstance(val, (int, float)) or val <= 0:
             continue
-        pos = str(positions.get(name) or "OTHER").upper()
+        raw_pos = str(positions.get(name) or "").upper()
+        pos = POSITION_ALIASES.get(raw_pos) or raw_pos or "OTHER"
         if pos not in groups:
             groups[pos] = rng.choice((-1.0, 1.0)) * rng.uniform(0.1, 0.3)
         if rng.random() < 0.7:
