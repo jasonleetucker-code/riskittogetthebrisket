@@ -1,5 +1,7 @@
 # OWNER DIRECTIVE (verbatim) — 2026-10-19 — IMPLEMENTATION REQUEST: BRISKET TRADE ADVISOR
 
+> *Not part of the verbatim directive:* the implementation design record is [`BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md`](BRISKET_TRADE_ADVISOR_DESIGN_2026-10-19.md).
+
 IMPLEMENTATION REQUEST: BRISKET TRADE ADVISOR
 
 Public League Hub Trade Calculator — Full Implementation
