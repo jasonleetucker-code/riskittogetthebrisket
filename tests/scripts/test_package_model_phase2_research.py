@@ -170,3 +170,35 @@ def test_market_rows_carry_no_trade_contents():
     cal = P2.calibration(rows, models=["GEOM_78"])
     blob = repr(cal)
     assert "5000" not in blob and "league" not in blob
+
+
+# ── box mode (--market-ledger-only) ───────────────────────────────────────
+
+
+def test_box_output_refuses_identifier_like_content():
+    P2.assert_aggregate_only(
+        {"graded": 12, "byDate": {"2026-10-01": 3}, "by_source": {"sleeper": 1}}
+    )
+    for bad in (
+        {"league": "1312006700437352448"},
+        {"asset": "player:5844"},
+        {"utrade:sleeper:1:2": 1},
+        {"hostLeagueId": None},
+    ):
+        with pytest.raises(ValueError):
+            P2.assert_aggregate_only(bad)
+
+
+def test_box_mode_without_a_ledger_reports_unavailable(monkeypatch, capsys):
+    from src.trade import market_trade_report as report
+
+    monkeypatch.setattr(report, "open_canonical_ledger", lambda *a, **k: None)
+    assert P2.market_ledger_only(7.0) == 2
+    assert '"no_market_trade_ledger_on_this_host"' in capsys.readouterr().out
+
+
+def test_scripts_resolve_the_app_dir_from_the_environment():
+    # The box copies the two scripts into a temp dir and points them at the
+    # deployed checkout; the sibling Phase 1 module must load from the script dir.
+    assert P2.SCRIPT_DIR == Path(P2.__file__).resolve().parent
+    assert (P2.SCRIPT_DIR / "package_model_hybrid_research.py").exists()

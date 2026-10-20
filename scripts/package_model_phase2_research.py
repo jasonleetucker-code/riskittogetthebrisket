@@ -36,16 +36,34 @@ import argparse
 import importlib.util
 import json
 import math
+import os
 import random
+import re
 import statistics
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+# ``RISKIT_APP_DIR``: run from a temp dir against the deployed checkout (box).
+REPO = Path(os.environ.get("RISKIT_APP_DIR") or Path(__file__).resolve().parents[1]).resolve()
+SCRIPT_DIR = Path(__file__).resolve().parent  # sibling research scripts travel together
+
+if "--market-ledger-only" in sys.argv:
+    # Box mode: enforce read-only BEFORE any application module is imported
+    # (scripts/research_readonly_guard.py — an audit hook that cannot be removed).
+    _gspec = importlib.util.spec_from_file_location(
+        "research_readonly_guard", SCRIPT_DIR / "research_readonly_guard.py"
+    )
+    GUARD = importlib.util.module_from_spec(_gspec)
+    sys.modules["research_readonly_guard"] = GUARD
+    _gspec.loader.exec_module(GUARD)
+    GUARD.install()
+else:
+    GUARD = None
+
 sys.path.insert(0, str(REPO))
 
 _spec = importlib.util.spec_from_file_location(
-    "package_model_hybrid_research", REPO / "scripts" / "package_model_hybrid_research.py"
+    "package_model_hybrid_research", SCRIPT_DIR / "package_model_hybrid_research.py"
 )
 P1 = importlib.util.module_from_spec(_spec)
 sys.modules["package_model_hybrid_research"] = P1
@@ -463,7 +481,16 @@ def main() -> int:
         "--local-intel-ledger", type=Path, default=None, help="intel ledger crawled locally"
     )
     ap.add_argument("--player-directory", type=Path, default=None, help="Sleeper /players/nfl dump")
+    ap.add_argument(
+        "--market-ledger-only",
+        action="store_true",
+        help="box: grade ONLY the canonical market-trade ledger and print aggregates to stdout "
+        "(writes nothing; the repository is public, so output is checked to be aggregate-only)",
+    )
     args = ap.parse_args()
+
+    if args.market_ledger_only:
+        return market_ledger_only(args.max_lag_days)
 
     board, prov = P1.latest_board()
     rows, census = P1.trade_rows(args.max_lag_days)
@@ -512,7 +539,7 @@ def main() -> int:
             **market_evidence(groups, args.max_lag_days),
         }
     if args.finder:
-        sys.path.insert(0, str(REPO / "scripts"))
+        sys.path.insert(0, str(SCRIPT_DIR))
         import package_model_finder_replay as fr  # noqa: PLC0415
 
         replay = fr.run(board_raw_path=Path(prov["rawPayload"]), models=MODELS, level=level)
@@ -549,12 +576,28 @@ def _archived_boards() -> list:
 def market_rows_from_groups(
     groups, *, max_lag_days: float = 7.0, value_key: str = "canonical"
 ) -> tuple[list[dict], dict]:
+    """Single-value-key form of :func:`price_market_groups`."""
+    return price_market_groups(groups, max_lag_days=max_lag_days, value_keys=(value_key,))[
+        value_key
+    ]
+
+
+def price_market_groups(
+    groups, *, max_lag_days: float = 7.0, value_keys=("canonical",)
+) -> dict[str, tuple[list[dict], dict]]:
     """Price ledger groups on the canonical board archived STRICTLY before each
     trade (<= ``max_lag_days``), through the eligibility owner
     (``market_trade_eval.residual_eligible``: proven-unique, dynasty, superflex,
     two teams, no unresolved / FAAB / startup pick, no look-ahead).  Coverage is
-    all-or-nothing: an asset the board cannot price excludes the trade.  Returns
-    aggregate-safe rows (values, date, format tags, source, league) and an audit."""
+    all-or-nothing: an asset the board cannot price excludes the trade.
+
+    Memory-bounded for the production host: trades are first assigned to their
+    board, then each board is built ONCE, used for every value key, and released
+    before the next is built — never more than one board in memory.
+
+    Returns ``{value_key: (rows, audit)}``; rows are aggregate-safe (values, date,
+    format tags, source, league) and never leave the process except as aggregates."""
+    import gc  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
     from collections import Counter  # noqa: PLC0415
     from datetime import datetime, timezone  # noqa: PLC0415
@@ -563,112 +606,134 @@ def market_rows_from_groups(
     from src.trade import market_trade_eval as ev  # noqa: PLC0415
 
     boards = _archived_boards()
-    built: dict = {}
-    audit = {
-        "groups": len(groups),
-        "dedupeState": Counter(),
-        "teamCount": Counter(),
-        "topology": Counter(),
-        "excluded": Counter(),
-        "superflex": Counter(),
-        "sourceFamilies": Counter(),
-        "assetKinds": Counter(),
-    }
-    rows = []
+
+    def new_audit():
+        return {
+            "groups": len(groups),
+            "dedupeState": Counter(),
+            "teamCount": Counter(),
+            "topology": Counter(),
+            "excluded": Counter(),
+            "superflex": Counter(),
+            "sourceFamilies": Counter(),
+            "assetKinds": Counter(),
+        }
+
+    audits = {k: new_audit() for k in value_keys}
+    pending: dict = {}  # board path -> [(trade, date, board_date, name)]
     for t in groups:
-        audit["dedupeState"][t.get("dedupeState")] += 1
-        audit["teamCount"][len(t.get("sides") or [])] += 1
         topo = ev.classify_topology(t)
-        audit["topology"][topo["topology"]] += 1
-        audit["superflex"][
-            str(((t.get("marketFormat") or {}).get("offense") or {}).get("superflex"))
-        ] += 1
-        audit["sourceFamilies"]["+".join(sorted(t.get("sourceFamilies") or []))] += 1
-        for side in t.get("sides") or []:
-            for asset in side:
-                audit["assetKinds"][asset.get("kind")] += 1
+        for audit in audits.values():
+            audit["dedupeState"][t.get("dedupeState")] += 1
+            audit["teamCount"][len(t.get("sides") or [])] += 1
+            audit["topology"][topo["topology"]] += 1
+            audit["superflex"][
+                str(((t.get("marketFormat") or {}).get("offense") or {}).get("superflex"))
+            ] += 1
+            audit["sourceFamilies"]["+".join(sorted(t.get("sourceFamilies") or []))] += 1
+            for side in t.get("sides") or []:
+                for asset in side:
+                    audit["assetKinds"][asset.get("kind")] += 1
         try:
             td = datetime.fromisoformat(str(t.get("occurredDate"))[:10]).date()
         except ValueError:
-            audit["excluded"]["undated"] += 1
+            for audit in audits.values():
+                audit["excluded"]["undated"] += 1
             continue
         prior = [b for b in boards if b[0] < td and (td - b[0]).days <= max_lag_days]
         if not prior:
-            audit["excluded"]["no_board_strictly_before_within_lag"] += 1
+            for audit in audits.values():
+                audit["excluded"]["no_board_strictly_before_within_lag"] += 1
             continue
         d, path, name = prior[-1]
         ok, why = ev.residual_eligible(t, topo, board_date=d, max_board_lag_days=int(max_lag_days))
         if not ok:
-            audit["excluded"][why] += 1
+            for audit in audits.values():
+                audit["excluded"][why] += 1
             continue
-        if path not in built:
-            with zipfile.ZipFile(path) as zf:
-                built[path] = ev.BoardIndex(build_api_data_contract(json.loads(zf.read(name))))
-        board = built[path]
-        sides = [[board.values(x).get(value_key) for x in side] for side in t["sides"]]
-        if any(v is None for side in sides for v in side) or not all(sides):
-            audit["excluded"]["asset_unpriced_on_point_in_time_board"] += 1
-            continue
-        fmt = t.get("marketFormat") or {}
-        vendor = fmt.get("vendor") or {}
-        te = fmt.get("te") or {}
-        rows.append({
-            "ts": int(datetime.combine(td, datetime.min.time(), timezone.utc).timestamp() * 1000),
-            "date": td.isoformat(),
-            "A": sides[0],
-            "B": sides[1],
-            "source": "+".join(sorted(t.get("sourceFamilies") or [])),
-            "league": t.get("hostLeagueId"),
-            "tep": vendor.get("tepLevel") if vendor.get("tepLevel") is not None else te.get("scoringEdge"),
-            "idp": bool((fmt.get("idp") or {}).get("enabled")),
-            "vft": (t.get("vendorFlags") or {}).get("isUsedInVft"),
-            "hasPick": any(a.get("kind") == "pick" for side in t["sides"] for a in side),
-            "rosterSize": (fmt.get("general") or {}).get("rosterSize"),
-            "teams": (fmt.get("general") or {}).get("teams"),
-            "boardLagDays": (td - d).days,
-        })  # fmt: skip
-    leagues = Counter(r["league"] for r in rows if r["league"])
-    audit["graded"] = len(rows)
-    audit["boardsUsed"] = len(built)
-    audit["dateRange"] = [
-        min((r["date"] for r in rows), default=None),
-        max((r["date"] for r in rows), default=None),
-    ]
-    audit["byDate"] = dict(sorted(Counter(r["date"] for r in rows).items()))
-    audit["distinctLeagues"] = len(leagues)
-    audit["largestLeagueShare"] = (
-        round(max(leagues.values()) / len(rows), 3) if rows and leagues else None
-    )
-    audit["top5LeagueShare"] = (
-        round(sum(c for _, c in leagues.most_common(5)) / len(rows), 3)
-        if rows and leagues
-        else None
-    )
-    audit["vftConsumed"] = Counter(str(r["vft"]) for r in rows)
-    for k in (
-        "dedupeState",
-        "teamCount",
-        "topology",
-        "excluded",
-        "superflex",
-        "sourceFamilies",
-        "assetKinds",
-    ):
-        audit[k] = dict(audit[k])
-    return rows, audit
+        pending.setdefault(path, []).append((t, td, d, name))
+
+    rows_by_key: dict = {k: [] for k in value_keys}
+    boards_used = 0
+    for path in sorted(pending, key=str):
+        items = pending[path]
+        with zipfile.ZipFile(path) as zf:
+            board = ev.BoardIndex(build_api_data_contract(json.loads(zf.read(items[0][3]))))
+        boards_used += 1
+        for t, td, _d, _name in items:
+            fmt = t.get("marketFormat") or {}
+            vendor = fmt.get("vendor") or {}
+            te = fmt.get("te") or {}
+            for key in value_keys:
+                sides = [[board.values(x).get(key) for x in side] for side in t["sides"]]
+                if any(v is None for side in sides for v in side) or not all(sides):
+                    audits[key]["excluded"]["asset_unpriced_on_point_in_time_board"] += 1
+                    continue
+                rows_by_key[key].append({
+                    "ts": int(datetime.combine(td, datetime.min.time(), timezone.utc).timestamp() * 1000),
+                    "date": td.isoformat(),
+                    "A": sides[0],
+                    "B": sides[1],
+                    "source": "+".join(sorted(t.get("sourceFamilies") or [])),
+                    "league": t.get("hostLeagueId"),
+                    "tep": vendor.get("tepLevel") if vendor.get("tepLevel") is not None else te.get("scoringEdge"),
+                    "idp": bool((fmt.get("idp") or {}).get("enabled")),
+                    "vft": (t.get("vendorFlags") or {}).get("isUsedInVft"),
+                    "hasPick": any(a.get("kind") == "pick" for side in t["sides"] for a in side),
+                    "rosterSize": (fmt.get("general") or {}).get("rosterSize"),
+                    "teams": (fmt.get("general") or {}).get("teams"),
+                    "boardLagDays": (td - _d).days,
+                })  # fmt: skip
+        del board
+        gc.collect()
+
+    out = {}
+    for key in value_keys:
+        rows, audit = rows_by_key[key], audits[key]
+        leagues = Counter(r["league"] for r in rows if r["league"])
+        audit["graded"] = len(rows)
+        audit["boardsUsed"] = boards_used
+        audit["dateRange"] = [
+            min((r["date"] for r in rows), default=None),
+            max((r["date"] for r in rows), default=None),
+        ]
+        audit["byDate"] = dict(sorted(Counter(r["date"] for r in rows).items()))
+        audit["distinctLeagues"] = len(leagues)
+        audit["largestLeagueShare"] = (
+            round(max(leagues.values()) / len(rows), 3) if rows and leagues else None
+        )
+        audit["top5LeagueShare"] = (
+            round(sum(c for _, c in leagues.most_common(5)) / len(rows), 3)
+            if rows and leagues
+            else None
+        )
+        audit["vftConsumed"] = Counter(str(r["vft"]) for r in rows)
+        for k in (
+            "dedupeState",
+            "teamCount",
+            "topology",
+            "excluded",
+            "superflex",
+            "sourceFamilies",
+            "assetKinds",
+        ):
+            audit[k] = dict(audit[k])
+        out[key] = (rows, audit)
+    return out
 
 
 def market_evidence(groups, max_lag_days: float) -> dict:
-    rows, audit = market_rows_from_groups(groups, max_lag_days=max_lag_days)
+    priced = price_market_groups(
+        groups, max_lag_days=max_lag_days, value_keys=("canonical", "ktcMarket")
+    )
+    rows, audit = priced["canonical"]
     out = {"available": True, "valueBasis": "canonical rankDerivedValue", "audit": audit,
            "calibration": calibration(rows)}  # fmt: skip
     # Value-curve control: the SAME trades priced on KTC Market (KTC's published
     # crowd + trades value, offense + picks only).  If the consolidation deficit
     # shrinks on the market's own scale, it belongs to the canonical value curve,
     # not to the package model — and must not be "fixed" inside the package model.
-    krows, kaudit = market_rows_from_groups(
-        groups, max_lag_days=max_lag_days, value_key="ktcMarket"
-    )
+    krows, kaudit = priced["ktcMarket"]
     out["ktcMarketBasisControl"] = {"graded": kaudit["graded"], "excluded": kaudit["excluded"],
                                     "calibration": calibration(krows, models=CORE + ["RAW", "GEOM_85", "LP_150"])}  # fmt: skip
     for key in ("source", "tep", "idp", "hasPick", "vft"):
@@ -718,6 +783,118 @@ def box_market_groups() -> list | None:
         return [g for g, _fmt in report.read_ledger_window(conn, since_date="2026-07-01")]
     finally:
         conn.close()
+
+
+_ID_LIKE = re.compile(
+    r"\d{9,}|utrade:|player:|mpick:|hostLeagueId|leagueId|ownerId|userId|rosterId"
+)
+_SHA_KEYS = {"deployedCodeSha"}
+_SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|UNKNOWN)$")
+
+
+def assert_aggregate_only(obj, path: str = "$") -> None:
+    """Refuse to emit anything that looks like an identifier (league / user /
+    roster / transaction ids, canonical asset ids).  The report is meant to be
+    committed to a PUBLIC repository, so it must be counts and statistics only.
+    The one exception is the deployed commit SHA, which is public anyway and is
+    validated as exactly 40 hex characters."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if _ID_LIKE.search(str(k)):
+                raise ValueError(f"identifier-like key at {path}")
+            if k in _SHA_KEYS:
+                if not (isinstance(v, str) and _SHA_RE.match(v)):
+                    raise ValueError(f"unexpected value at {path}.{k}")
+                continue
+            assert_aggregate_only(v, f"{path}.{k}")
+    elif isinstance(obj, (list, tuple)):
+        for i, v in enumerate(obj):
+            assert_aggregate_only(v, f"{path}[{i}]")
+    elif isinstance(obj, str) and _ID_LIKE.search(obj):
+        raise ValueError(f"identifier-like value at {path}")
+
+
+def _peak_rss_mb() -> float | None:
+    """Peak resident memory of this process (Linux reports KiB)."""
+    try:
+        import resource  # noqa: PLC0415
+
+        return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0, 1)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _deployed_sha(app_dir: Path) -> str:
+    """The deployed commit, read from ``.git`` files (no subprocess, read-only)."""
+    try:
+        git = app_dir / ".git"
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if head.startswith("ref: "):
+            ref = head[5:].strip()
+            loose = git / ref
+            if loose.exists():
+                head = loose.read_text(encoding="utf-8").strip()
+            else:
+                packed = (git / "packed-refs").read_text(encoding="utf-8")
+                head = next(
+                    (ln.split()[0] for ln in packed.splitlines() if ln.endswith(" " + ref)), ""
+                )
+        return head if re.fullmatch(r"[0-9a-f]{40}", head or "") else "UNKNOWN"
+    except (OSError, StopIteration):
+        return "UNKNOWN"
+
+
+def market_ledger_only(max_lag_days: float) -> int:
+    """Box mode: read the persisted canonical ledger read-only, grade every
+    candidate on point-in-time canonical boards, print aggregates only.
+
+    Runs under ``research_readonly_guard`` (installed at import when
+    ``--market-ledger-only`` is on the command line): no file write outside a
+    private temp dir, read-only SQLite only, no network, no subprocess.  Exit
+    3 if the guard refused anything, even if application code swallowed it."""
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    from src.trade import market_trade_report as report  # noqa: PLC0415
+
+    conn = report.open_canonical_ledger()
+    if conn is None:
+        out = {"available": False, "reason": "no_market_trade_ledger_on_this_host"}
+        print(json.dumps(out))
+        return 2
+    try:
+        meta = report.read_ledger_meta(conn)
+        groups = [g for g, _fmt in report.read_ledger_window(conn, since_date="2026-07-01")]
+    finally:
+        conn.close()
+    evidence = market_evidence(groups, max_lag_days)
+    denied = GUARD.denied() if GUARD is not None else []
+    network = [d for d in denied if d["event"].startswith("socket.")]
+    fatal = [d for d in denied if not d["event"].startswith("socket.")]
+    out = {
+        "purpose": "RESEARCH ONLY (Phase 2). geom_q078_v1 stays active; nothing is promoted.",
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "deployedCodeSha": _deployed_sha(REPO),
+        "researchScript": "scripts/package_model_phase2_research.py --market-ledger-only",
+        "readOnlyGuard": {
+            "installed": bool(GUARD is not None and GUARD.installed()),
+            # Writes / read-write SQLite / subprocess: any one fails the run (exit 3).
+            "refusedWriteOrProcessAttempts": len(fatal),
+            "refusedWriteOrProcessEvents": sorted({d["event"] for d in fatal}),
+            # Network: the board build's own league-context GET
+            # (data_contract._resolve_league_context) falls back to defaults;
+            # verified to leave canonical values identical (Phase 2 memo §A.1).
+            "refusedNetworkAttempts": len(network),
+            "refusedNetworkCallers": sorted({d["caller"] for d in network}),
+        },
+        "peakRssMb": _peak_rss_mb(),
+        "ledgerBuiltAt": meta.get("builtAt") or meta.get("built_at"),
+        "ledgerDatedGroupsSince20260701": len(groups),
+        "marketLedgerCalibration": {"origin": "box canonical ledger (read-only)", **evidence},
+    }
+    out = json.loads(json.dumps(out, default=str))
+    assert_aggregate_only(out)
+    print(json.dumps(out, indent=1))
+    return 3 if fatal else 0
 
 
 if __name__ == "__main__":

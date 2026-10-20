@@ -43,6 +43,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import random
 import re
 import statistics
@@ -53,7 +54,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-REPO = Path(__file__).resolve().parents[1]
+# ``RISKIT_APP_DIR`` lets the box run this file from a temp dir against the
+# DEPLOYED checkout (scripts/package_model_market_ledger_onbox.sh).
+REPO = Path(os.environ.get("RISKIT_APP_DIR") or Path(__file__).resolve().parents[1]).resolve()
 sys.path.insert(0, str(REPO))
 
 from src.api.data_contract import build_api_data_contract  # noqa: E402
