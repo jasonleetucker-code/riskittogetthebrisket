@@ -165,7 +165,28 @@ opposite directions. Five confounds stay in play, and none of them is a package-
     1/(1 − 0.78) = 4.55×. For **ten equal pieces LP_150 gives 4.64× against GEOM_78's 3.98×**. LP_150 is *more*
     generous than the incumbent to very deep *even* packages, and harsher to small and uneven ones.
 
-**[LOCAL ANALYSIS — §8 adds the replay.]**
+**Consolidation premium, measured** (`local.json → B_consolidationPremium`). Raw multiple an even n-piece
+package needs to equal one 9,000 star, and the weight a model credits a second piece by its size relative to the
+first:
+
+| model | n=2 | n=3 | n=4 | n=6 | n=10 | 2nd-piece weight at relative size 0.1 / 0.3 / 0.5 / 0.8 / 1.0 |
+|---|---|---|---|---|---|---|
+| **GEOM_78** | 1.12 | 1.26 | 1.40 | 1.70 | 2.40 | 0.78 at every size (rank only) |
+| LP_150 | 1.26 | 1.44 | 1.59 | 1.82 | 2.15 | .21 / .36 / .45 / .54 / .59 |
+| LP_175 | 1.35 | 1.60 | 1.81 | 2.16 | 2.68 | .10 / .23 / .32 / .43 / .49 |
+| LP_200 | 1.41 | 1.73 | 2.00 | 2.45 | 3.16 | — |
+| GP_078_150 | 1.36 | 1.68 | 1.98 | 2.59 | 3.86 | — |
+| KTC | 1.38 | 1.52 | 1.95 | 2.22 | 2.50 | not monotone |
+| VG_078_2000 (diagnostic) | 1.32 | 1.64 | 1.98 | 2.66 | 4.09 | 0 / .20 / .43 / .56 / .61 |
+
+LP_150 differs from GEOM_78 in two ways, and only one of them is an improvement.
+
+- **The improvement: it discounts by piece *size*.** GEOM_78 credits the k-th piece q^(k−1) of its value whether
+  it is a starter or filler. LP_150 credits a piece 10% the star's size at 21% of its value, against GEOM's 78%.
+  That is the clearest qualitative gain in this study (§8). The diagnostic VG model shares it.
+- **The cost: it also charges much more for genuine starters.** Two equal pieces must total 1.26× a 9,000 star
+  under LP_150, against 1.12× under GEOM_78 and 1.35× under LP_175. LP_175 and stronger add more of this cost and
+  nothing new (§8).
 
 ### 4.2 The family: how strong a consolidation premium do the trades "want"?
 
@@ -308,14 +329,125 @@ composition, and on KTC's value scale.
 | EFD_78 / 115 / 130 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | yes (Phase 2) |
 | KTC; KTC/GEOM blends | ✗ (Phase 1) | — | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ (B 676–2,031 worse) | **no**, whatever its fit |
 | HYBRID_50, FGEOM_70_20 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | yes |
-| VG_q_c / VOR_c (diagnostic) | ✓ (weak) | ✓ | ✓ | ✓ | **✗** | ✓ | ✓ | ✓ | **no**: a level effect, not a package formula |
+| VG_q_c / VOR_c (diagnostic) | ✓ (weak) | ✓ | ✓ | ✓ | **✗** | **✗** | ✓ | ✓ | **no**: a level effect, not a package formula |
 
 The family rows are pinned by `tests/scripts/test_package_model_phase3_research.py`: 56 family members × 250
-random trades, plus the mandatory case. **[LOCAL ANALYSIS — §8 adds the per-candidate audit counts.]**
+random trades, plus the mandatory case.
+
+The local audit (`local.json → A_properties`) ran 4,000 seeded trades over nine properties plus the mandatory
+case:
+- **Homogeneous candidates** (LP_125 to LP_250, GP_078_150, GP_090_175): **0 failures**.
+- **GEOM_78 (production dispatch):** 0 failures. Its only quirk is the dispatch's whole-point rounding: adding
+  0.01 can move the gap by up to 0.99.
+- **KTC: 2,425 failures.**
+  - By property: add-asset 316, raise-value 122, homogeneity 1,636, one-point 178, continuity 142, unbundling 31.
+  - Adding 0.01 can move its gap by up to 3,588.
+  - The mandatory case gives 3,908.
+- **VG_078_1500 / VG_078_2000:** fail homogeneity and the 1-for-1 identity, as expected for a level diagnostic.
 
 ## 8. Decision replay
 
-**[LOCAL ANALYSIS PENDING — being completed.]**
+This replay is local and context-free (`scripts/package_model_phase3_local.py` → `local.json`).
+- **Board and engines:** the 2026-10-19 canonical board, run through the production engines.
+- **Isolation:** each candidate was installed in-process only, and production was restored after every model.
+- **No team context:** roster capacity is box-local.
+- **Same candidate trades for every model:** every difference below comes from scoring.
+
+### 8.1 Real players (canonical values, 2026-10-19)
+
+Gaps are from the star side's point of view: positive favours the star, negative favours the package.
+
+| trade | GEOM_78 | LP_150 | LP_175 | KTC |
+|---|---|---|---|---|
+| Jalen Hurts (5,956) vs Emeka Egbuka (5,198); raw +758 | unfair | unfair | unfair | — |
+| … + Isaiah Hodgins (895) added to the Egbuka side | **+60, fair** (78% of the filler credited) | +513, slight | +623, unfair | +1,784, lopsided |
+| … + four fillers instead (3,608 raw) | **−1,263, unfair the *other* way** (2,021 credited) | −201, fair (959 credited) | — | — |
+| Jahmyr Gibbs (9,870) vs DeVonta Smith + Tee Higgins | +1,090, Gibbs | +2,043, Gibbs | — | — |
+| … + four ~1,000 fillers added to the package | **−657, package edges it** | +1,115, Gibbs | — | — |
+| Gibbs vs Bryce Young + Tucker Kraft (5,409 each; raw 10,818) | +242, **fair** | +1,284, **unfair** | +1,832, unfair | +4,263, lopsided |
+| Gibbs vs six ~2,950 starters (raw 1.8×) | −557, fair | +119, even | +1,648, slight | — |
+| Garrett Wilson (6,516) vs Jake Ferguson + Travis Kelce (7,031) | +254, fair | +935, unfair | — | — |
+| **IDP:** Carson Schwesinger (6,223) vs Zack Baun + Micah Parsons (6,810) | +155, fair | +818, unfair | — | +2,298, lopsided |
+| **Picks:** Jeremiyah Love (7,313) vs 2027 Pick 1.10 + 2028 Late 1st | −115, fair | +695, slight | +1,118, unfair | — |
+
+Flag counts across the full example set:
+
+| flag | GEOM_78 | LP_125 | LP_150 | LP_175 | LP_200 / LP_250 / GP / KTC |
+|---|---|---|---|---|---|
+| a superstar beats legitimate starters by a large margin (of 9 cases) | 0 | 0 | 6 | 6 | 9 each |
+| a decisive verdict on a raw near-even trade (within 10%) | 1 | — | 6 | 6 | — |
+| filler alone tips the verdict | 1 | 1 | 0 | 0 | 0 |
+
+**What this shows: GEOM_78 has one genuine weakness — filler can tip a near-even verdict.**
+- Phase 2's statement that "a pile of filler never comes close" is true for a star against filler only. The
+  Finder still makes no star-for-pile recommendations.
+- But a rank-only discount credits a 900-point sweetener at 78% of its value, and four of them can flip a correct
+  "unfair" into "unfair the other way".
+- That conflicts with your rule that a filler player should not manufacture fairness.
+- It is also where the market evidence (§6, a small second piece earns about 0.07–0.16 of its value) is most
+  clearly against GEOM_78.
+
+**LP_150 fixes the filler case, but it calls 2-for-1s of genuine starters unfair to the package side.**
+- Examples: Gibbs vs Young + Kraft, Wilson vs Ferguson + Kelce, and the IDP and pick cases.
+- It does this in 6 of 9 near-even cases.
+- That breaks your other rule: several legitimate starters should still have significant value.
+
+### 8.2 Fairness levels on 2,000 fixed trades (raw gap ≤ 25%; 943 equal-count)
+
+| model | level changed vs GEOM_78 | favoured side flipped |
+|---|---:|---:|
+| LP_125 | 511 | 71 |
+| LP_150 | 520 | 57 |
+| LP_175 | 680 | 125 |
+| LP_200 | 821 | 174 |
+| LP_250 | 907 | 228 |
+| GP_078_150 / GP_090_175 | 795 / 796 | 171 / 170 |
+| KTC | 1,227 | 155 |
+
+- On unequal-count trades, LP_150 moves the verdict toward the fewer-pieces side 688 times and away 369 times.
+  LP_175: 856 vs 199.
+- A switch to LP_150 would change about a quarter of all displayed fairness levels.
+
+### 8.3 Trade Finder (12 teams)
+
+Overlap is top-10 overlap with GEOM_78, and dropped trades are GEOM_78's depth trades the model no longer
+recommends. Both are given per surface in the order package scan / all shapes / best offers / star builder.
+
+| model | overlap with GEOM_78 | GEOM_78 depth trades dropped |
+|---|---|---|
+| LP_125 | .78 / .50 / .68 / .49 | — |
+| LP_150 | .55 / .12 / .22 / .27 | 75 / 12 / 73 / 116 |
+| LP_175 | .30 / .05 / .13 / .18 | 146 / 22 / 82 / 134 |
+| LP_200 | .22 / .02 / .09 / .09 | — |
+| KTC | .13 / .03 / .15 / .15 | — |
+
+User's board edge from the recommendations each model adds:
+
+| model | best offers | star builder |
+|---|---|---|
+| GEOM_78 recommendations replaced by LP_150 | +2,631 | +1,408 |
+| LP_150's replacements | +1,104 | +611 |
+| LP_175's replacements | +489 | +57 |
+| LP_200's replacements | negative | negative |
+
+- **No model produced a star-for-pile recommendation** on any surface.
+- **A typical LP_150 swap:** it drops Higgins + Nick Herbig → Ashton Jeanty / CeeDee Lamb, and adds Josh Allen →
+  Brock Bowers + Sonny Styles. The new recommendations give the user less of our board's edge than the ones they
+  replace.
+- **Deep packages never reach Finder recommendations.** The Finder allows a difference of at most one player, and
+  Package Builder at most three assets. The deep-package question is therefore a Trade Calculator and Trade
+  History question, not a Finder one.
+
+**Read: on these inputs LP_150 makes more aggressive decisions, not better ones.**
+- It fixes GEOM_78's filler case.
+- It over-charges genuine-starter packages.
+- It rewrites most Finder recommendations.
+- It lowers the board edge it hands the user.
+
+LP_175 and stronger only add cost. The useful part, discounting small pieces by their size, needs a shape that
+leaves genuine starters near the incumbent. A homogeneous LP_p cannot do both: raising p to silence filler also
+taxes every starter. Whether the market evidence (§6) supports something in between is for the box run to
+decide.
 
 ## 9. Challenger status and the preregistered protocol
 
