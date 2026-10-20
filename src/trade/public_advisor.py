@@ -172,6 +172,13 @@ ERROR_MESSAGES: dict[tuple[str, str | None], str] = {
     ("advisor_unavailable", "upstream_unavailable"): (
         "The trade advisor is temporarily unavailable. Try again shortly."
     ),
+    # R2-5 admission control (src/api/compute_admission.py): both retryable.
+    ("advisor_unavailable", "busy"): (
+        "The trade advisor is busy right now. Please try again in a moment."
+    ),
+    ("advisor_unavailable", "timeout"): (
+        "The trade advisor took too long to answer. Please try again."
+    ),
 }
 
 
@@ -547,13 +554,67 @@ def validate(
 # ── Evaluation + reduction ────────────────────────────────────────────────
 
 
+#: Engine row ``valueState`` values that mean "this value is not a trustworthy
+#: price" beyond the gate the engine already maps to ``asset_not_evaluable``.
+#: ``priced`` is the ONLY state a FAIR / NOT_FAIR verdict may rest on (R1-L2 /
+#: F2 public side); any other state — including one a newer engine adds, such
+#: as a quarantined / stale marker — fails the team closed.
+_PRICED_STATE = "priced"
+
+
+def _withheld_value_evidence(entry: Mapping[str, Any]) -> bool:
+    """Does this team's evaluation rest on a value that must not count as
+    priced?  (R1-L2 / F2, public side.)
+
+    Two independent reads, either suffices:
+
+    * a ``gives`` / ``receives`` row whose ``valueState`` is not ``priced``;
+    * a traded asset in the team's simulation raising ``quarantined_values``
+      or ``stale_values`` through the decision owner's own
+      ``trade_decision.asset_evidence_codes`` (read, never recomputed) — the
+      engine rows still say ``priced`` for these today (#1882 F2).
+
+    The engine's evidence gate already answers UNABLE for both; this keeps the
+    public answer fail-closed even if the gate order or the private row
+    contract changes, so a withheld value can never back a FAIR / NOT FAIR."""
+    from src.trade.trade_decision import asset_evidence_codes  # noqa: PLC0415
+
+    rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
+    if any(isinstance(r, Mapping) and r.get("valueState") != _PRICED_STATE for r in rows):
+        return True
+    sim = entry.get("simulation")
+    if not isinstance(sim, Mapping):
+        return False
+    traded = [*(sim.get("receiving") or []), *(sim.get("sending") or [])]
+    return any(
+        code in ("quarantined_values", "stale_values")
+        for a in traded
+        for code in asset_evidence_codes(a)
+    )
+
+
 def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
-    """Pull the four public inputs out of one engine team entry — nothing else
-    is read.  Unavailable ids name only this team's own ledger assets."""
+    """Pull the four public inputs out of one engine team entry.  Unavailable
+    ids name only this team's own ledger assets.
+
+    Fail closed (R1-L2 / F2): a FAIR / NOT_FAIR state resting on a withheld
+    value (:func:`_withheld_value_evidence`) becomes UNABLE
+    ``evaluation_unavailable`` — the reason the engine's own gate gives a
+    quarantined / stale value (spec §2.8).  No asset is named, so the public
+    answer discloses no more than the engine gate already does (whether to
+    name such assets is the owner exposure decision F-1)."""
     raw = entry.get("fairness")
     fairness: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
     reason = fairness.get("reasonCode")
     rows = [*(entry.get("gives") or []), *(entry.get("receives") or [])]
+    state = str(fairness.get("state"))
+    if state in (team_verdicts.FAIR, team_verdicts.NOT_FAIR) and _withheld_value_evidence(entry):
+        return TeamFairnessInput(
+            roster_id=int(entry["rosterId"]),
+            state=team_verdicts.UNABLE,
+            reason_code="evaluation_unavailable",
+            unavailable_asset_ids=(),
+        )
     ids: set[str] = set()
     if reason == "ownership_unverifiable":
         ids |= {str(a) for a in entry.get("unverifiableAssetIds") or []}
@@ -565,7 +626,7 @@ def team_fairness_input(entry: Mapping[str, Any]) -> TeamFairnessInput:
     own = {str(r.get("assetId")) for r in rows}
     return TeamFairnessInput(
         roster_id=int(entry["rosterId"]),
-        state=str(fairness.get("state")),
+        state=state,
         reason_code=str(reason) if reason is not None else None,
         unavailable_asset_ids=tuple(sorted(ids & own)),
     )

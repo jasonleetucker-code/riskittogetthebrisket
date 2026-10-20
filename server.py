@@ -18686,9 +18686,17 @@ async def post_trade_analyze_multi(request: Request):
             stage=clock.stage,
         )
 
+    from src.api import compute_admission as _admission_mod  # noqa: PLC0415
+
+    admission = _admission_mod.admission_for(_admission_mod.ROUTE_ANALYZE_MULTI)
+
     async def _run():
+        # R2-5: each COMPUTATION takes an admission slot (joined waiters do
+        # not); a full route refuses at once instead of queueing on the GIL.
         try:
-            return await run_in_threadpool(_compute), None
+            return await admission.admit(lambda: run_in_threadpool(_compute)), None
+        except _admission_mod.AdmissionRejected as exc:
+            return None, f"admission_{exc.reason}"
         except _svc.PackageModelUnavailable:
             return None, "package_model_unavailable"
         except _svc.ConservationViolation as exc:
@@ -18705,10 +18713,41 @@ async def post_trade_analyze_multi(request: Request):
         json.dumps({str(k): v for k, v in goals.items()}, sort_keys=True),
         parsed["counterfactuals"],
     )
-    if owner:
-        (result, failure), shared = await _TRADE_ANALYZE_MULTI_FLIGHTS.run(key, _run)
-    else:
-        (result, failure), shared = await _run(), False
+
+    async def _await_result():
+        if owner:
+            return await _TRADE_ANALYZE_MULTI_FLIGHTS.run(
+                key,
+                _run,
+                # A refusal is about load at that instant, never a result
+                # another caller should inherit: a joiner retries once.
+                share_if=lambda out: not str(out[1] or "").startswith("admission_"),
+            )
+        return await _run(), False
+
+    try:
+        # R2-5: the caller waits at most the route's admission deadline; the
+        # computation itself keeps running (and keeps its slot) until done, so
+        # an identical retry joins it instead of starting another.
+        (result, failure), shared = await admission.within_deadline(_await_result)
+    except _admission_mod.AdmissionRejected as exc:
+        failure, result, shared = f"admission_{exc.reason}", None, False
+    if failure in ("admission_busy", "admission_timeout"):
+        retry = str(_admission_mod.RETRY_AFTER_SECONDS)
+        busy = failure == "admission_busy"
+        resp = _multi_error(
+            503,
+            "analysis_busy" if busy else "analysis_timeout",
+            (
+                "Multi-team analysis is busy right now. Try again in a moment."
+                if busy
+                else "Multi-team analysis took too long to answer. Try again."
+            ),
+            retryable=True,
+            retryAfterSeconds=_admission_mod.RETRY_AFTER_SECONDS,
+        )
+        resp.headers["Retry-After"] = retry
+        return resp
     if failure == "package_model_unavailable":
         return _multi_error(
             503, "package_model_unavailable", "Multi-team analysis needs the active package model."
