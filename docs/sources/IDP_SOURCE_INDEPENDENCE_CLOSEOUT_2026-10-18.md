@@ -24,9 +24,10 @@
 > IDP restore under the one DLF family cap. The restore is implemented behind
 > `dlf_offense_only_vote` but **held at release** (default ON, re-applied the same
 > day, temporary): under the incumbent outlier filter it drops valid Draft Sharks /
-> FantasyPros / IDPTC IDP votes (moves up to 54%), which the directive forbids. It
-> lifts when the outlier interaction is corrected (CQ-65) or the owner accepts the
-> moves. The measured restore, split into DLF's own vote and the outlier-filter side
+> FantasyPros / IDPTC IDP votes (moves up to 54%), which the directive forbids. Owner
+> decision 2026-10-20 (Option 3): the moves are not accepted; it lifts only with
+> explicit owner approval after a preregistered outlier-filter Version 2 passes every
+> mandatory gate. The measured restore, split into DLF's own vote and the outlier-filter side
 > effect, is in the consensus record.
 
 Owner directive "Master owner decision closeout & evidence-unblock", 2026-10-18,

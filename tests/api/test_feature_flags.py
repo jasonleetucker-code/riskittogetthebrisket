@@ -138,9 +138,10 @@ def test_every_flag_defaults_off_except_safe_additive():
         # rows (7 IDP moves of 34-54%, none from DLF's own vote), which the
         # same directive forbids (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md).
         # ON = main's DLF IDP behaviour (decision fields identical to main with
-        # the other PR flags off).  Lifts when the outlier interaction is
-        # corrected (CQ-65) or the owner accepts the moves:
-        # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.
+        # the other PR flags off).  LOCKED by the owner's Option 3 decision
+        # (2026-10-20): lifts only with explicit owner approval after outlier-
+        # filter Version 2 passes every mandatory gate
+        # (tests/api/test_dlf_idp_hold_locked.py).
         "dlf_offense_only_vote",
         # Owner addendum 2026-10-03: Signals' authenticated native values vote
         # (value-ordered rank, FantasyCalc family).  Inert wherever the

@@ -929,8 +929,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # re-applied 2026-10-19 (default ON): the owner rescinded the 2026-10-16
     # policy hold, but restoring DLF IDP under the incumbent outlier filter
     # drops valid Draft Sharks / FantasyPros / IDPTC IDP votes (30 rows, up to
-    # 54%), so the restore is held until the outlier interaction is corrected
-    # (CQ-65) or the owner accepts the moves.  Lift:
+    # 54%), so the restore is held.  LOCKED by the owner's Option 3 decision
+    # of 2026-10-20: it lifts only with explicit owner approval after a
+    # preregistered outlier-filter Version 2 passes every mandatory gate
+    # (tests/api/test_dlf_idp_hold_locked.py).  Mechanism of a lift:
     # RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart.  Read by
     # ``build_api_data_contract`` on every board build, which reaches a
     # request through ``/api/data`` and every engine that reads the board.

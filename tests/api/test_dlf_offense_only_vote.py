@@ -6,10 +6,12 @@ restoring DLF IDP and DLF Rookie IDP voting.  The restore is implemented (flag
 OFF), but the hold was re-applied the same day as a TEMPORARY release hold:
 under the incumbent outlier filter the restore drops valid Draft Sharks IDP /
 FantasyPros IDP / IDP Trade Calculator votes (30 rows, moves up to 54%, none
-from DLF's own vote), which the directive forbids.  It lifts when the outlier
-interaction is corrected (CQ-65) or the owner accepts the moves
-(``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart).  The board tests force
-the flag both ways, so they pin the hold AND the restore path either way.
+from DLF's own vote), which the directive forbids.  On 2026-10-20 the owner
+chose Option 3: those moves are not accepted, and the hold lifts only with the
+owner's explicit approval after a preregistered outlier-filter Version 2
+passes every mandatory gate -- locked by ``tests/api/test_dlf_idp_hold_locked.py``.
+The board tests here force the flag both ways IN-PROCESS, so they pin the hold
+AND the (evidence-only) restore path either way.
 
 The owner settled the interpretation docs/sources/SOURCE_VALUATION_AUDIT_2026-10-13.md
 left open: the DLF IDP boards (``dlfIdp``, ``dlfRookieIdp``) stay ingested and

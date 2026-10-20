@@ -37,7 +37,7 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 | D4: DLF Values rank → Hill, offense-only `dlf` member splitting DLF's cap | **released**: every Decision 4 gate re-passed on the current board (below) | `dlf_values_rank_hill_vote` (**ON**) | `RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE=0`. Decision fields return to the prior board. The source stays registered and displayed, so the payload is not byte for byte |
 | D5: FantasyPros IDP on its upstream clock | **kept**, and now under its own flag (independent control) | `fantasypros_idp_upstream_clock` (**ON**) | `RISKIT_FEATURE_FANTASYPROS_IDP_UPSTREAM_CLOCK=0` (the configured `styleFlag` drops the style) |
 | Two-way boost: alt-family evidence | **correctness fix**: a two-way player's alt value is what a real member of that family with the same votes gets | `two_way_alt_evidence_rules` (**ON**) | `RISKIT_FEATURE_TWO_WAY_ALT_EVIDENCE_RULES=0` (the prior boost, byte for byte) |
-| D1: DLF IDP / DLF Rookie IDP owner-policy hold | **policy hold rescinded; restore approved by the owner and implemented, HELD AT RELEASE** (re-applied 2026-10-19, temporary): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDPTC votes on 30 rows (IDP moves up to 54%, none from DLF's own vote), which the directive forbids. Lifts when the outlier interaction is corrected (CQ-65) or the owner accepts the moves (see "DLF IDP restore: implemented, held at release") | `dlf_offense_only_vote` (**ON** = hold in force; OFF = DLF IDP votes) | `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart lifts the hold (the approved restore) |
+| D1: DLF IDP / DLF Rookie IDP owner-policy hold | **policy hold rescinded; restore approved by the owner and implemented, HELD AT RELEASE** (re-applied 2026-10-19, temporary): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDPTC votes on 30 rows (IDP moves up to 54%, none from DLF's own vote), which the directive forbids. Owner decision 2026-10-20 (Option 3): LOCKED until a preregistered outlier-filter Version 2 passes every mandatory gate AND the owner explicitly approves (see "DLF IDP restore: implemented, held at release") | `dlf_offense_only_vote` (**ON** = hold in force; OFF = DLF IDP votes) | `RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart lifts the hold (the approved restore) |
 | Cross-provider families resting on similarity only | **none exist**, so no correction flag was added. The two cross-provider groupings rest on documented data lineage (audit below) | none | n/a |
 | Per-source eligibility facts | **new stamp** `sourceVotingEligibility` on the contract, for the freshness lane's 26-source audit generator (below) | none (diagnostic, decides nothing) | n/a |
 
@@ -371,8 +371,17 @@ re-applied as a **temporary release hold**: default ON, published as
 `heldFromVote: owner_policy_dlf_idp_restore_held_pending_outlier_fix` with a
 decision string naming the approval and the lift condition. It is not an
 indefinite exclusion. It lifts (`RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0` + restart,
-or a reviewed default flip) when the outlier interaction is corrected (CQ-65) or
-the owner accepts the moves. D4, D5 and the two-way fix ship ON.
+or a reviewed default flip) only as described next. D4, D5 and the two-way fix ship ON.
+
+**Owner decision 2026-10-20 (Option 3)** (`docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md`):
+the incumbent filter's 34–54% moves are **not accepted**, and the challenger above
+(3 of its 6 mandatory adversarial tests failed) is **not activated**. The hold is
+LOCKED ON (`tests/api/test_dlf_idp_hold_locked.py`: registry default, every tracked
+deploy / workflow / config / script / env / systemd surface, and a default-flag
+board build with zero DLF IDP votes, user source overrides included). It lifts only
+with the owner's explicit approval after a **preregistered outlier-filter Version 2**
+(isolated research branch, shadow only) passes every mandatory gate. The safe
+portions — D2/D3 withdrawal, D4, D5, TW — are approved for release.
 
 **Evidence** (re-measured after merging main `dc900f2493`; code `dd0d536992`;
 current board `exports/latest/dynasty_data_2026-10-19.json` sha256 `3ef54acd…`,

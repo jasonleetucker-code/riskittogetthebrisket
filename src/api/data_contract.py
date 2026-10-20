@@ -1132,10 +1132,15 @@ def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict
 #: filter the restore drops valid Draft Sharks IDP / FantasyPros IDP / IDP
 #: Trade Calculator votes (30 rows, up to 54%, none from DLF's own vote;
 #: ``docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md``).  It is NOT an
-#: indefinite exclusion: it lifts as soon as the outlier interaction is
-#: corrected (CQ-65) or the owner accepts the moves
-#: (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart).  DLF's offense
-#: boards (``dlfSf`` / ``dlfRookieSf``) vote unchanged.
+#: indefinite exclusion, but it is LOCKED: on 2026-10-20 the owner chose
+#: Option 3 (``docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md``) -- the
+#: incumbent filter's 34-54% moves are not accepted and the failed #1847
+#: candidate is not activated, so the hold lifts
+#: (``RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0`` + restart, or the registry
+#: default) ONLY with the owner's explicit approval after a preregistered
+#: outlier-filter Version 2 passes every mandatory gate.  Pinned by
+#: ``tests/api/test_dlf_idp_hold_locked.py``.  DLF's offense boards
+#: (``dlfSf`` / ``dlfRookieSf``) vote unchanged.
 #:
 #: DLF Values (``dlfValuesSfTep``, owner closeout 2026-10-18 Decision 4): an
 #: offense-only member of the ``dlf`` family voting rank -> Hill, released
@@ -1149,7 +1154,10 @@ POLICY_SOURCE_VOTE_HOLDS: dict[str, dict[str, str]] = {
             "decision": (
                 "owner directive 2026-10-19 approves the DLF IDP restore; held at "
                 "release (temporary) until the outlier-filter interaction is "
-                "corrected (CQ-65) or the owner accepts the moves"
+                "corrected (CQ-65). Owner decision 2026-10-20 (Option 3): the "
+                "incumbent filter's moves are not accepted; the hold lifts only "
+                "with explicit owner approval after outlier-filter Version 2 "
+                "passes every mandatory gate"
             ),
             "flag": "dlf_offense_only_vote",
         }

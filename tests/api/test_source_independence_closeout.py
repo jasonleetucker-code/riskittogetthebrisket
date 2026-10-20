@@ -18,8 +18,9 @@ source-voting consensus directive of 2026-10-19.
   (OFF = DLF IDP votes), but HELD AT RELEASE (default ON, re-applied the same
   day): under the incumbent outlier filter the restore drops valid Draft Sharks
   / FantasyPros / IDPTC IDP votes (moves up to 54%), which the directive
-  forbids; it lifts when the outlier interaction is corrected (CQ-65) or the
-  owner accepts the moves.  Mechanism pinned by
+  forbids; owner decision 2026-10-20 (Option 3) locks it until outlier-filter
+  Version 2 passes every mandatory gate and the owner explicitly approves
+  (``tests/api/test_dlf_idp_hold_locked.py``).  Mechanism pinned by
   ``tests/api/test_dlf_offense_only_vote.py``.  The contract stamps per-source
   eligibility facts (``sourceVotingEligibility``).
 

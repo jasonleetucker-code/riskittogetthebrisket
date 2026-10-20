@@ -64,17 +64,17 @@
     },
     "dlfIdp": {
       "state": "policy_held",
-      "reason": "restore APPROVED by the owner's universal source-voting directive of 2026-10-19 (it rescinds the 2026-10-16 hold and supersedes D1) and implemented in PR #1817 behind dlf_offense_only_vote, but HELD AT RELEASE (flag default ON, re-applied 2026-10-19): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDP Trade Calculator votes on 30 rows (8 IDP moves of 30-54% on the 2026-10-19 board, none from DLF's own vote, whose own effect is at most 5.75%), which the same directive forbids. TEMPORARY, not an indefinite exclusion",
+      "reason": "restore APPROVED by the owner's universal source-voting directive of 2026-10-19 (it rescinds the 2026-10-16 hold and supersedes D1) and implemented in PR #1817 behind dlf_offense_only_vote, but HELD AT RELEASE (flag default ON, re-applied 2026-10-19): under the incumbent outlier filter the restore drops 31 valid Draft Sharks IDP / FantasyPros IDP / IDP Trade Calculator votes on 30 rows (8 IDP moves of 30-54% on the 2026-10-19 board, none from DLF's own vote, whose own effect is at most 5.75%), which the same directive forbids. TEMPORARY, not an indefinite exclusion. OWNER DECISION 2026-10-20 (Option 3, docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md): the incumbent filter's 34-54% moves are NOT accepted and the #1847 candidate (3 of 6 mandatory adversarial tests failed) is NOT activated; the hold is LOCKED ON (tests/api/test_dlf_idp_hold_locked.py)",
       "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md (DLF IDP restore: implemented, held at release); outlier lane branch claude/outlier-filter-disagreement (preregistration b579a5fdd5); docs/sources/DLF_IDP_REEVALUATION_2026-10-17.md",
-      "recoveryAction": "lift the hold (RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0 + restart, or flip the default in a reviewed PR) as soon as the IDP outlier-filter interaction is corrected (CQ-65: the disagreement-preserving challenger keeps 31/31 of the dropped votes but fails its preregistered adversarial gates, so it stays OFF) and the combined board re-validates, OR the owner explicitly accepts the measured moves",
-      "owner": "owner (accept the moves, or await CQ-65) / outlier lane (CQ-65) / integration (combined validation)",
-      "nextTrigger": "a CQ-65 outlier fix that passes its preregistered and adversarial gates plus independent validation, or an owner decision accepting the restore's moves",
+      "recoveryAction": "a PREREGISTERED outlier-filter Version 2 (isolated research branch, shadow only) passes EVERY mandatory gate (all six existing adversarial tests unweakened; regression coverage for Trevin Wallace, Myles Garrett and every defensive player whose valid votes the incumbent discarded; legitimate disagreement preserved; determinism, family caps, small samples; exact before/after report; shadow run on the current production board with large moves explained); THEN an activation package goes to the owner, and the hold lifts (flip the default in a reviewed PR) ONLY with the owner's explicit approval",
+      "owner": "owner (explicit DLF IDP activation approval) / outlier-filter V2 research lane / integration (combined validation)",
+      "nextTrigger": "outlier-filter Version 2 passes every mandatory gate (owner Option 3, 2026-10-20), followed by the owner's explicit approval",
       "promotionGate": "no unexplained 40-50% moves: on the restored board every move of 30% or more is DLF's own vote, or the validated outlier fix keeps the other sources' valid IDP votes (reproducible comparison, adversarial testing, independent validation); DLF IDP + DLF Rookie IDP stay inside the one DLF family cap",
       "reviewBy": "2026-10-31"
     },
     "dlfRookieIdp": {
       "state": "policy_held",
-      "reason": "as dlfIdp: restore approved 2026-10-19, held at release pending the outlier-filter fix (CQ-65); seasonal inactivity between draft classes still applies",
+      "reason": "as dlfIdp: restore approved 2026-10-19, held and LOCKED by the owner (Option 3, 2026-10-20) until outlier-filter Version 2 passes every mandatory gate and the owner approves; seasonal inactivity between draft classes still applies",
       "evidence": "docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md",
       "recoveryAction": "as dlfIdp",
       "owner": "as dlfIdp",

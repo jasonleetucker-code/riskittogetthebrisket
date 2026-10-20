@@ -1,5 +1,17 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## PR #1817 safe-portion release + outlier-filter Version 2 research — owner decision, 2026-10-20 (Option 3)
+
+Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-20" (O3-1..O3-10). Verbatim text: `docs/owner/OUTLIER_FILTER_V2_OPTION3_2026-10-20.md`. Refines the 2026-10-19 source-voting bullet "DLF IDP and DLF Rookie IDP return to voting": the return is HELD until the gates below pass and the owner approves it.
+
+**Authorized now:**
+- **(a) PR #1817 safe-portion release** at its release defaults, through the normal train / HEAD-FREEZE / deploy / production-verification gates: D2 and D3 withdrawn (deleted); D4 DLF Values rank → Hill inside DLF's family cap (`dlf_values_rank_hill_vote` ON); D5 FantasyPros IDP upstream clock (`fantasypros_idp_upstream_clock` ON); TW Travis Hunter two-way alt-evidence correction (`two_way_alt_evidence_rules` ON). The DLF IDP hold `dlf_offense_only_vote` stays ON — TEMPORARY and locked by `tests/api/test_dlf_idp_hold_locked.py`.
+- **(b) Outlier-filter Version 2 research** in an isolated research branch / worktree, **shadow only**. The algorithm, expected behaviour and acceptance criteria are preregistered (separate commit) BEFORE any evaluation. Mandatory gates: all six existing adversarial tests pass unweakened; regression coverage for Trevin Wallace, Myles Garrett and every defensive player whose valid votes the incumbent discarded; legitimate disagreement (Draft Sharks, FantasyPros, IDP Trade Calculator, DLF) is not removed merely for disagreeing; mathematical consistency, determinism, family caps and small-sample handling verified; an exact before / after valuation report with source contributions; a shadow run against the current production board with every unexpected large move explained and reviewed. No served value moves.
+
+**Owner-reserved (NOT authorized):** activating outlier-filter V2 in production, and lifting the DLF IDP hold (`dlf_offense_only_vote` → OFF in the registry or in any deploy / config / env surface). When V2 passes every mandatory gate, the activation package goes to the owner for explicit approval. Rejected outright: the incumbent filter's 34–54% DLF-IDP-restore moves, and the #1847 candidate (failed 3 of 6 mandatory adversarial tests).
+
+**Unaffected and not blocked:** Train 12, Train 13, V1 verification and every other §0 authorization continue in parallel. The production stability investigation (W8, `claude/prod-memory-pressure`) stays a separate high-priority lane: verify the actual restart mechanism (the 2.6 GB peak over the 2.5 GB soft limit is plausible, not proven), fix cache growth safely, and validate any memory-limit proposal against the 8 GB host before it is applied.
+
 ## League intelligence, trade decision engine and three source / advisor directives — owner, 2026-10-19 (later)
 
 Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-19 (later)". Verbatim texts in `docs/owner/`.
