@@ -1851,7 +1851,8 @@ def maturity_census(
             "readings": {
                 lf.READING_POINT_IN_TIME: "predecessors of the trade's own season-league",
                 lf.READING_LEAGUE_LEVEL: (
-                    "the lineage's newest known season-league, inclusive once complete"
+                    "the lineage's newest known season-league, inclusive once complete; "
+                    "always a lower bound (no forward link proves there is no newer season)"
                 ),
             },
             "lowerBound": (

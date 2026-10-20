@@ -2,7 +2,8 @@
 box after owner decision Q2.  Synthetic component ids only.  Pins: the
 committed config is valid and NOT yet approved, the draw refuses to persist
 until it is, assignments are deterministic and append-only, a lock is never
-lost (merge inheritance, X13), a merge never newly locks trained evidence, and
+lost (merge inheritance, X13), a merge never newly locks trained evidence (a
+train + lock merge fails closed), and
 every read of a sub-reserve is ledgered first."""
 
 from __future__ import annotations
@@ -80,21 +81,33 @@ def test_assignment_is_append_only(conn, cfg):
     assert R.locked_to_train_violations(before, R.assignment_snapshot(conn)) == []
 
 
-def test_merge_inherits_a_lock_and_never_newly_locks_train(conn, cfg):
+def test_merge_of_train_parts_stays_train(conn, cfg):
+    ids = list(comps(400))
+    R.draw_reserve(comps(400), conn=conn, cfg=cfg)
+    snap = R.assignment_snapshot(conn)
+    trained = [i for i in ids if snap[i] == R.TRAIN][:2]
+    merged = {"SYN-MERGED-T": [f"m:{trained[0]}", f"m:{trained[1]}"]}
+    res = R.draw_reserve(merged, conn=conn, cfg=cfg)
+    assert R.assignment_snapshot(conn)["SYN-MERGED-T"] == R.TRAIN
+    assert res.inherited_from_merge == 1
+
+
+def test_a_new_id_merging_train_and_a_lock_fails_closed(conn, cfg):
+    # A train part may already have been fitted on; inheriting the lock would
+    # put that trained evidence inside a holdout.  Same refusal as the
+    # id-reusing branch, whichever id union-find happens to keep.
     ids = list(comps(400))
     R.draw_reserve(comps(400), conn=conn, cfg=cfg)
     snap = R.assignment_snapshot(conn)
     locked = next(i for i in ids if snap[i] != R.TRAIN)
-    trained = [i for i in ids if snap[i] == R.TRAIN][:2]
-    merged = {
-        "SYN-MERGED-L": [f"m:{locked}", f"m:{trained[0]}"],
-        "SYN-MERGED-T": [f"m:{trained[0]}", f"m:{trained[1]}"],
-    }
-    res = R.draw_reserve(merged, conn=conn, cfg=cfg)
-    after = R.assignment_snapshot(conn)
-    assert after["SYN-MERGED-L"] == snap[locked]
-    assert after["SYN-MERGED-T"] == R.TRAIN
-    assert res.inherited_from_merge == 2
+    trained = next(i for i in ids if snap[i] == R.TRAIN)
+    merged = {"SYN-MERGED-L": [f"m:{locked}", f"m:{trained}"]}
+    dry = R.draw_reserve(merged, conn=conn, cfg=cfg, dry_run=True)
+    assert dry.train_lock_conflicts == 1 and dry.inherited_from_merge == 0
+    assert dry.to_dict()["trainLockConflicts"] == 1
+    with pytest.raises(R.ReserveIntegrityError):
+        R.draw_reserve(merged, conn=conn, cfg=cfg)
+    assert R.assignment_snapshot(conn) == snap
 
 
 def test_parts_locked_to_different_sub_reserves_conflict_but_stay_locked(conn, cfg):

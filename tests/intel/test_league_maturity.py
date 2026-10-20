@@ -182,8 +182,32 @@ class TestLeagueLevel:
         # completed seasons today (2023-2025; 2026 still in progress).
         assert pit("SYN-24", FOUR).completed_seasons == 1
         m = lvl("SYN-24", FOUR)
-        assert m.completed_seasons == 3 and m.state == lf.MATURITY_EXACT
-        assert m.cohort == lf.COHORT_A
+        assert m.completed_seasons == 3 and m.cohort == lf.COHORT_A
+        # "As of today" is at least 3: no store can prove the lineage has no
+        # newer season-league (Sleeper links backward only).
+        assert m.state == lf.MATURITY_LOWER_BOUND
+        assert lf.FLAG_SUCCESSOR_UNPROVABLE in m.flags
+
+    def test_league_level_is_never_exact_below_the_bar(self):
+        # L23 complete at the terminator; L24 last seen in season and never
+        # re-fetched; an unobserved L25 may exist.  The true count today is
+        # possibly >= 2, so the reading must not claim "proven 1".
+        chain = index(
+            hop("SYN-24", 2024, "SYN-23", status="in_season"),
+            hop("SYN-23", 2023, None),
+        )
+        m = lvl("SYN-23", chain)
+        assert m.completed_seasons == 1
+        assert m.state == lf.MATURITY_LOWER_BOUND
+        assert m.meets(lf.MATURITY_RESEARCH_MIN_COMPLETED_SEASONS) is None
+        assert m.cohort == lf.COHORT_UNKNOWN_BELOW_TWO
+        # Even a newest hop observed complete cannot rule out a successor.
+        chain["SYN-24"] = hop("SYN-24", 2024, "SYN-23")
+        m2 = lvl("SYN-23", chain)
+        assert m2.completed_seasons == 2 and m2.state == lf.MATURITY_LOWER_BOUND
+        assert m2.cohort == lf.COHORT_B_UNRESOLVED
+        # The point-in-time reading is unchanged: its walk ends at the terminator.
+        assert pit("SYN-24", chain).state == lf.MATURITY_EXACT
 
     def test_newest_counts_itself_once_complete(self):
         chain = dict(FOUR)

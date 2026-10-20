@@ -274,7 +274,11 @@ def partition(leagues: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict
 #   * point-in-time at the trade -- predecessors of the trade's own
 #     season-league; the trade's own season never counts;
 #   * league-level as of today -- the newest season-league of the lineage
-#     the chain store knows, inclusive of itself once it is complete.
+#     the chain store knows, inclusive of itself once it is complete.  It is
+#     ALWAYS a lower bound (``newest_season_successor_unprovable``): Sleeper
+#     links backward only, so no store can prove the lineage has no newer
+#     season-league, nor that a newest hop last seen in progress has not
+#     completed since.  It can prove "at least k", never "proven not k".
 
 #: The V2 directive's primary bar and the research cohort's bar.
 MATURITY_PRIMARY_MIN_COMPLETED_SEASONS = 3
@@ -320,6 +324,7 @@ FLAG_RECREATED_SAME_SEASON = "recreated_same_season"
 FLAG_STATUS_UNVERIFIED = "predecessor_status_unverified"
 FLAG_BEST_BALL_SEASON = "best_ball_season_counted"
 FLAG_FORKED_SUCCESSORS = "forked_successors"
+FLAG_SUCCESSOR_UNPROVABLE = "newest_season_successor_unprovable"
 
 #: Safety cap on hops -- a guard against a malformed chain, far past any real
 #: league's age (same posture as the public walker's 25-season cap).
@@ -492,7 +497,12 @@ def resolve_league_maturity(
             flags.append(FLAG_FORKED_SUCCESSORS)
 
     counted: set[int] = set()
-    lower_bound = False
+    # League-level: the newest KNOWN season-league is not provably the newest
+    # one (no forward link exists), and its stored status may be stale.  So
+    # the as-of-today count is "at least k" -- never exact, never "proven not".
+    lower_bound = reading == READING_LEAGUE_LEVEL
+    if lower_bound:
+        flags.append(FLAG_SUCCESSOR_UNPROVABLE)
     seen: set[str] = set()
     walked = 0
 
@@ -519,8 +529,7 @@ def resolve_league_maturity(
     cur_season = _season_int(cur_hop.season)
     if reading == READING_LEAGUE_LEVEL and cur_hop.is_dynasty and cur_season is not None:
         # The newest season-league counts for the league-level reading only
-        # once it is itself complete; an in-progress current season is not
-        # unverified history, it is simply not finished -- no lower bound.
+        # once it is itself complete (the reading is already a lower bound).
         if cur_hop.is_complete:
             _count(cur_hop, cur_season)
     if cur_season is None:

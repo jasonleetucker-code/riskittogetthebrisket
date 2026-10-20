@@ -20,10 +20,15 @@ a model has looked at residuals, is not held out.  So the reserve is:
   (:func:`locked_to_train_violations` is the X13 check);
 * **merge-safe** -- when a newly observed component absorbs members already
   assigned under other components (two lineages discovered to be one), it
-  INHERITS a lock if any part was locked (never re-drawn, so a lock is never
-  lost), and stays ``train`` if every part was ``train`` (so a merge never
-  newly locks evidence a fitted model already saw).  Parts locked to
-  DIFFERENT sub-reserves are locked to ``R-merged-conflict`` and reported;
+  stays ``train`` if every part was ``train``, and INHERITS the lock if every
+  part was locked to one sub-reserve (never re-drawn, so a lock is never
+  lost).  Parts locked to DIFFERENT sub-reserves are locked to
+  ``R-merged-conflict`` and reported.  A merge mixing ``train`` with a lock
+  FAILS CLOSED (``ReserveIntegrityError``; dry run: ``trainLockConflicts``):
+  inheriting the lock would put evidence a fitted model may already have seen
+  inside a holdout, and keeping ``train`` would lose the lock -- the same
+  refusal a merge that reuses an assigned id gets, so the outcome never
+  depends on which id union-find keeps;
 * **access-ledgered** -- reading a sub-reserve's members requires a recorded
   hypothesis (:func:`read_sub_reserve`), so every look is countable against a
   looks budget.
@@ -184,6 +189,7 @@ class DrawResult:
     inherited_from_merge: int = 0
     merge_conflicts: int = 0
     absorbed_conflicts: int = 0
+    train_lock_conflicts: int = 0
     by_assignment: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -196,6 +202,7 @@ class DrawResult:
             "inheritedFromMerge": self.inherited_from_merge,
             "mergeConflicts": self.merge_conflicts,
             "absorbedConflicts": self.absorbed_conflicts,
+            "trainLockConflicts": self.train_lock_conflicts,
             "byAssignment": dict(sorted(self.by_assignment.items())),
         }
 
@@ -265,7 +272,17 @@ def draw_reserve(
         else:
             part_labels = sorted({assigned[p] for p in parts if p in assigned})
             locked = [lbl for lbl in part_labels if lbl != TRAIN]
-            if locked:
+            if locked and TRAIN in part_labels:
+                # Train + lock: neither inheriting the lock (contaminates the
+                # holdout with possibly-fitted evidence) nor train (loses the
+                # lock) is sound.  Fail closed, as the id-reusing branch does.
+                result.train_lock_conflicts += 1
+                if not dry_run:
+                    if conn is not None:
+                        conn.rollback()
+                    raise ReserveIntegrityError("a merged component mixes train and locked parts")
+                label, basis = MERGED_CONFLICT, "merge_train_lock_conflict"
+            elif locked:
                 label = locked[0] if len(set(locked)) == 1 else MERGED_CONFLICT
                 basis = "merge_inherited_lock"
                 result.inherited_from_merge += 1
