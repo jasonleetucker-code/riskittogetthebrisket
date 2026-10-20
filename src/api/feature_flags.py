@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-24 of the 56 entries in ``_DEFAULTS`` below are ``True`` —
+24 of the 58 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -624,6 +624,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # public API terms apply.  Off → 503 feature_disabled and the nav item
     # disappears.  Rollback: RISKIT_FEATURE_MANAGER_INTELLIGENCE=0 + restart.
     "manager_intelligence": True,
+    # Brisket Trade Advisor (owner directive 2026-10-19; FAIRNESS-ONLY
+    # amendment 2026-10-20): the public League Hub trade advisor,
+    # ``/api/public/league/trade-advisor/*`` (src/api/public_trade_advisor_api.py).
+    # Returns team / asset identities and, per team of a 2-4-team trade, FAIR /
+    # NOT FAIR / UNABLE TO DETERMINE from the shared N-team engine — never a
+    # value and never a take/pass recommendation.  Default OFF until the owner
+    # approves launch; even ON, every route stays 503 until the launch gate in
+    # config/trade/public_advisor.json passes (measured floor, approved
+    # non-provisional fairness version, source-permission record).  Off → 503
+    # advisor_unavailable/disabled, private calculator unaffected.
+    # Enable: RISKIT_FEATURE_BRISKET_TRADE_ADVISOR=1 + restart.
+    "brisket_trade_advisor": False,
     # N-team trade analysis (owner directive 2026-10-20; spec
     # docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §6.1): gates the private
     # ``POST /api/trade/analyze-multi`` route (and, through the frontend flag
@@ -948,6 +960,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # manager_intelligence gates the /api/manager-intel router mounted in
     # server.py: off → 503 feature_disabled, on → the profile.
     "manager_intelligence": LIVE,
+    # brisket_trade_advisor gates the /api/public/league/trade-advisor/*
+    # router mounted in server.py: off → 503 advisor_unavailable, on → the
+    # public advisor payloads.
+    "brisket_trade_advisor": LIVE,
     # trade_multi_team_analysis gates /api/trade/analyze-multi inline in
     # server.py: off → 503 multi_team_analysis_disabled, on → the per-team
     # analysis.  Default False (see its _DEFAULTS entry).

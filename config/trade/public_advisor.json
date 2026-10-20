@@ -1,0 +1,18 @@
+{
+  "_comment": "Brisket Trade Advisor (public League Hub trade advisor) — FAIRNESS-ONLY (owner amendment 2026-10-20; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §6.3). Every number here is a DECLARED PRIOR, not a fitted constant. pickProjectionLabels is owner decision OD-2 (default OFF). maxTeams is the public ceiling (also capped at the league's team count); maxLegs is a payload-safety bound, not a per-team quantity cap (OD-8). LAUNCH GATE: every route answers 503 advisor_unavailable/not_ready until ALL of: responseFloorMs is a measured positive int (or a measured per-teamCount table {\"2\": ms, \"3\": ms, \"4\": ms}) from the market_fairness worst-case p99, measured locally never against production; approvedFairnessVersion equals fairness_bands.receipt().version AND the bands are no longer PROVISIONAL (owner decisions OD-F1..OD-F6); approvedSourcePermissionRecord names the owner's OD-3 source-permission record: a .json file under docs/owner/ that src/trade/public_advisor_permission.py validates (exact recordType/schemaVersion/scope, named approver, approvedAt <= today <= reviewBy, every voting source approved by its own or its provider's entry) — merely existing is not enough (R2-10); analyze admission control (concurrency + caller deadline) lives in config/trade/analyze_admission.json, sizes PENDING OWNER CONFIRMATION; the package model is geom_q078_v1 with config ok. The feature flag brisket_trade_advisor stays OFF until the owner approves launch.",
+  "version": "public_advisor_v2",
+  "pickProjectionLabels": false,
+  "limits": {"maxTeams": 4, "maxLegs": 128, "maxBodyBytes": 16384},
+  "responseFloorMs": null,
+  "approvedFairnessVersion": null,
+  "approvedSourcePermissionRecord": null,
+  "rateLimits": {
+    "perKeyBurst": {"capacity": 40, "windowSeconds": 600},
+    "perKeyDaily": {"capacity": 400, "windowSeconds": 86400},
+    "neighbourhoodBurst": {"capacity": 200, "windowSeconds": 600},
+    "neighbourhoodDaily": {"capacity": 1000, "windowSeconds": 86400},
+    "regionDaily": {"capacity": 2000, "windowSeconds": 86400},
+    "globalCeiling": {"capacity": 3000, "windowSeconds": 3600}
+  },
+  "maxTrackedKeys": 20000
+}

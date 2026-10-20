@@ -4665,33 +4665,16 @@ async def _request_context_middleware(request: Request, call_next):
 
 def _client_ip_from_request(request: Request) -> str:
     """The client identity the RATE LIMITER keys on — attacker-fixed, not
-    attacker-chosen (W22-F002 / V1-103).
+    attacker-chosen (W22-F002 / V1-103; B0-h 2026-10-19).
 
-    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
-    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
-    anything the client sent — through the proxy it is always the TCP
-    peer nginx actually saw.
-
-    ``X-Forwarded-For`` is different: nginx uses
-    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
-    whatever the client supplied.  Taking the FIRST entry — what this
-    function did until 2026-08-25 — therefore keyed the limiter on an
-    attacker-chosen string: rotate one header value per request and every
-    public endpoint's limit dissolves.  The one entry our own trusted
-    proxy wrote is the LAST, so the fallback takes that.
-
-    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    Delegates to the one owner, ``src/api/client_ip.py``: proxy headers
+    (``X-Real-IP``, then the LAST ``X-Forwarded-For`` entry) are honoured only
+    from a trusted peer (loopback nginx or ``RATE_LIMIT_TRUSTED_PROXIES``) and
+    only when they parse as an address; otherwise the TCP peer.
     """
-    real_ip = request.headers.get("x-real-ip", "").strip()
-    if real_ip:
-        return real_ip
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        last = xff.split(",")[-1].strip()
-        if last:
-            return last
-    client = request.client
-    return client.host if client else ""
+    from src.api.client_ip import client_ip_from_request
+
+    return client_ip_from_request(request)
 
 
 def _overlay_content_identity(overlay: dict) -> str | None:
@@ -18703,9 +18686,17 @@ async def post_trade_analyze_multi(request: Request):
             stage=clock.stage,
         )
 
+    from src.api import compute_admission as _admission_mod  # noqa: PLC0415
+
+    admission = _admission_mod.admission_for(_admission_mod.ROUTE_ANALYZE_MULTI)
+
     async def _run():
+        # R2-5: each COMPUTATION takes an admission slot (joined waiters do
+        # not); a full route refuses at once instead of queueing on the GIL.
         try:
-            return await run_in_threadpool(_compute), None
+            return await admission.admit(lambda: run_in_threadpool(_compute)), None
+        except _admission_mod.AdmissionRejected as exc:
+            return None, f"admission_{exc.reason}"
         except _svc.PackageModelUnavailable:
             return None, "package_model_unavailable"
         except _svc.ConservationViolation as exc:
@@ -18722,10 +18713,41 @@ async def post_trade_analyze_multi(request: Request):
         json.dumps({str(k): v for k, v in goals.items()}, sort_keys=True),
         parsed["counterfactuals"],
     )
-    if owner:
-        (result, failure), shared = await _TRADE_ANALYZE_MULTI_FLIGHTS.run(key, _run)
-    else:
-        (result, failure), shared = await _run(), False
+
+    async def _await_result():
+        if owner:
+            return await _TRADE_ANALYZE_MULTI_FLIGHTS.run(
+                key,
+                _run,
+                # A refusal is about load at that instant, never a result
+                # another caller should inherit: a joiner retries once.
+                share_if=lambda out: not str(out[1] or "").startswith("admission_"),
+            )
+        return await _run(), False
+
+    try:
+        # R2-5: the caller waits at most the route's admission deadline; the
+        # computation itself keeps running (and keeps its slot) until done, so
+        # an identical retry joins it instead of starting another.
+        (result, failure), shared = await admission.within_deadline(_await_result)
+    except _admission_mod.AdmissionRejected as exc:
+        failure, result, shared = f"admission_{exc.reason}", None, False
+    if failure in ("admission_busy", "admission_timeout"):
+        retry = str(_admission_mod.RETRY_AFTER_SECONDS)
+        busy = failure == "admission_busy"
+        resp = _multi_error(
+            503,
+            "analysis_busy" if busy else "analysis_timeout",
+            (
+                "Multi-team analysis is busy right now. Try again in a moment."
+                if busy
+                else "Multi-team analysis took too long to answer. Try again."
+            ),
+            retryable=True,
+            retryAfterSeconds=_admission_mod.RETRY_AFTER_SECONDS,
+        )
+        resp.headers["Retry-After"] = retry
+        return resp
     if failure == "package_model_unavailable":
         return _multi_error(
             503, "package_model_unavailable", "Multi-team analysis needs the active package model."
@@ -19885,6 +19907,20 @@ from src.public_league import articles_api as _articles_api  # noqa: E402
 
 _articles_api.configure_host(lambda: sys.modules[__name__])
 app.include_router(_articles_api.router)
+
+# ── BRISKET TRADE ADVISOR (public League Hub trade advisor) ───────────
+# Owner directive 2026-10-19.  The three routes live in
+# src/api/public_trade_advisor_api.py under /api/public/league/trade-advisor/
+# (public by the existing prefix rule; no change to _PUBLIC_API_EXACT).  Same
+# late-binding host arrangement as the articles router: the handlers read
+# latest_contract_data / _public_league_key_error / _client_ip_from_request
+# on this module at request time.  Gated by the ``brisket_trade_advisor``
+# flag (default OFF until the frontend lands): off -> 503
+# advisor_unavailable/disabled.
+from src.api import public_trade_advisor_api as _public_trade_advisor_api  # noqa: E402
+
+_public_trade_advisor_api.configure_host(lambda: sys.modules[__name__])
+app.include_router(_public_trade_advisor_api.router)
 
 
 # Static file mount for backend-generated assets (CSS, images if any).

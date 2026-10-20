@@ -55,8 +55,9 @@ def _decision(headline, *, deciding="objectiveValue", direction=None, magnitude=
 def test_category_table(decision, category, text):
     assert tv.team_category(decision) == category
     assert tv.team_category_text(decision) == text
-    # The PUBLIC-section alias is the same function (A1 moved the body).
-    assert td.public_category_from_decision(decision) == category
+    # The PUBLIC-section alias is gone with the whole public section (Lane C,
+    # fairness-only amendment): the category is private and has one owner.
+    assert not hasattr(td, "public_category_from_decision")
 
 
 def test_category_reason_only_for_the_execution_gate():
@@ -116,8 +117,10 @@ def test_exhaustive_category_mapping(headline, lean, direction, magnitude, decid
             assert reason is None
             strong = direction == "opposes" and magnitude == "large" and lean == "PASS"
             assert (cat == "STRONGLY_UNFAVORABLE") == strong
-    # The PUBLIC-section alias is the same function.
-    assert td.public_category_from_decision(d) == cat
+    # Lane A asserted a PUBLIC-section alias here; on this branch the public
+    # section is deleted (fairness-only amendment), so there is no alias to
+    # agree with — pinned absent rather than silently dropped.
+    assert not hasattr(td, "public_category_from_decision")
 
 
 def test_malformed_gate_pairings_are_unavailable_never_confident():
