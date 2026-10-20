@@ -126,6 +126,8 @@ def test_s1_per_family_normalisation_is_detected():
         "subscription S { onValue { v } }",
         "fragment F on X { a } mutation M { b }",
         "  { a } subscription S { b }",
+        "query Q{a},mutation M{b}",
+        "{a},subscription S{b}",
     ],
 )
 def test_mutation_and_subscription_documents_are_refused_before_sending(doc):

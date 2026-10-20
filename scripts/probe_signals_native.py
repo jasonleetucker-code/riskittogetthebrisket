@@ -217,7 +217,10 @@ class ProbeStop(Exception):
 
 _STRING_LIT = re.compile(r'"""(?:.|\n)*?"""|"(?:\\.|[^"\\])*"')
 _COMMENT = re.compile(r"#[^\n]*")
-_FORBIDDEN_OP = re.compile(r"(?:^|[\s}])(mutation|subscription)\b")
+#: GraphQL ignored tokens between top-level definitions: whitespace, line
+#: terminators, commas and a BOM (comments are blanked first).  A comma is
+#: legal there, so ``query{a},mutation{b}`` must be refused too.
+_FORBIDDEN_OP = re.compile(r"(?:^|[\s},\ufeff])(mutation|subscription)\b")
 
 
 def assert_read_only(document: str) -> None:
