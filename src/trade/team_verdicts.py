@@ -70,6 +70,11 @@ NON_CONSERVED_NOTE = (
 # ── Category (one team's own decision) ─────────────────────────────────────
 
 
+#: The only headline each gate ``deciding`` value is emitted with by
+#: ``trade_decision.decide``; any other pairing is malformed.
+_GATE_HEADLINES = {"executionGate": "NO", "evidenceGate": "NOT_ENOUGH_EVIDENCE"}
+
+
 def _is_execution_gate(decision: Mapping[str, Any]) -> bool:
     return decision.get("headline") == "NO" and decision.get("deciding") == "executionGate"
 
@@ -88,11 +93,18 @@ def team_category(decision: Any) -> str:
     | NO | otherwise | UNFAVORABLE |
 
     ``A`` is ``components.objectiveValue``.  Anything malformed or unknown is
-    UNAVAILABLE — a confident category is never invented.
+    UNAVAILABLE — a confident category is never invented.  That includes a
+    gate ``deciding`` paired with a headline the gate cannot produce
+    (``decide`` emits ``executionGate`` only with NO and ``evidenceGate`` only
+    with NOT_ENOUGH_EVIDENCE): e.g. YES + ``executionGate`` is UNAVAILABLE,
+    never FAVORABLE (LC-1).
     """
     if not isinstance(decision, dict):
         return "UNAVAILABLE"
     headline = decision.get("headline")
+    gate_headline = _GATE_HEADLINES.get(decision.get("deciding"))
+    if gate_headline is not None and headline != gate_headline:
+        return "UNAVAILABLE"
     if headline == "NOT_ENOUGH_EVIDENCE":
         return "UNAVAILABLE"
     if headline == "NO_TOO_CLOSE":

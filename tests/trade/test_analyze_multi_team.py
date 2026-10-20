@@ -31,6 +31,14 @@ from tests.trade import multi_team_support as mts
 POLICY = tl.LedgerPolicy()
 
 
+@pytest.fixture(autouse=True)
+def _pinned_scarcity(monkeypatch):
+    """R1-2: no live / TTL-cached team-strength read may decide a comparison
+    (``multi_team_support.pin_league_scarcity``).  The once-per-request tests
+    below re-patch the same seam with their own source."""
+    return mts.pin_league_scarcity(monkeypatch)
+
+
 def _canon(obj) -> str:
     return json.dumps(obj, sort_keys=True, default=str)
 
@@ -428,6 +436,87 @@ def test_team_context_reads_one_posture_bundle_per_request(monkeypatch):
         snap, _ledger(snap, [1, 2, 3], I14_LEGS), mode="asset_only", counterfactuals=False
     )
     assert calls == [False]
+
+
+_SCARCITY_DOWN = "positional scarcity unavailable (GameplanUnavailable) — multiplier inert"
+CYCLE_4 = [("p:101", 1, 2), ("p:201", 2, 3), ("p:301", 3, 4), ("p:401", 4, 1)]
+
+
+def _flapping_scarcity(reads):
+    """A scarcity source that answers the FIRST read and fails every later one
+    — what the gameplan bundle does when its 120 s live-compute fallback
+    expires part-way through a request.  Records every read."""
+    from src.league_intel.replacement import ScarcityComponents
+
+    ok = {
+        pos: ScarcityComponents(pos, 0.5, 0.5, w, None, None, None)
+        for pos, w in (("QB", 0.9), ("RB", 0.4), ("WR", 0.3), ("TE", 0.7))
+    }
+
+    def fake(league_key, contract):
+        reads.append(league_key)
+        return (ok, None) if len(reads) == 1 else (None, _SCARCITY_DOWN)
+
+    return fake
+
+
+def _scarcity_down(team) -> bool:
+    return _SCARCITY_DOWN in (team["simulation"]["rosterCapacity"].get("notes") or [])
+
+
+@pytest.mark.parametrize("mode", ["team_context", "asset_only"])
+def test_scarcity_is_read_once_per_request_and_shared_by_every_team(monkeypatch, mode):
+    """R1-1: the league scarcity bundle is read ONCE per N-team request and the
+    same reading reaches every team's capacity context — never once per team,
+    which let teams of one trade be scored against different scarcity."""
+    from src.trade import roster_capacity
+
+    reads: list = []
+    monkeypatch.setattr(roster_capacity, "_league_scarcity", _flapping_scarcity(reads))
+    snap = mts.synthetic_snapshot()
+    out = _run(snap, _ledger(snap, [1, 2, 3, 4], CYCLE_4), mode)
+    assert reads == [snap.league_key]
+    assert [_scarcity_down(t) for t in out["teams"].values()] == [False] * 4
+    # A second request reads again — no cross-request memo, so a request sees
+    # the scarcity current when it runs — and again every team agrees.
+    out2 = _run(snap, _ledger(snap, [1, 2, 3, 4], CYCLE_4), mode)
+    assert reads == [snap.league_key] * 2
+    assert [_scarcity_down(t) for t in out2["teams"].values()] == [True] * 4
+
+
+def test_market_fairness_reads_no_scarcity(monkeypatch):
+    from src.trade import roster_capacity
+
+    reads: list = []
+    monkeypatch.setattr(roster_capacity, "_league_scarcity", _flapping_scarcity(reads))
+    snap = mts.synthetic_snapshot()
+    _run(snap, _ledger(snap, [1, 2, 3, 4], CYCLE_4), "market_fairness")
+    assert reads == []
+
+
+def test_per_team_helper_still_reads_scarcity_itself_by_default(monkeypatch):
+    """The 2-team routes' path is unchanged: with no reading handed in,
+    ``simulate_for_team`` reads scarcity itself, once."""
+    from src.trade import roster_capacity
+
+    reads: list = []
+    monkeypatch.setattr(roster_capacity, "_league_scarcity", _flapping_scarcity(reads))
+    snap = mts.synthetic_snapshot()
+    sim = svc.simulate_for_team(
+        dict(snap.contract),
+        league_key=snap.league_key,
+        roster_settings=dict(snap.roster_settings or {}),
+        resolved_team=snap.teams_by_roster_id[1],
+        players_in=["B Seven"],
+        players_out=["A Six"],
+        player_ids_in=["201"],
+        player_ids_out=["101"],
+        team_context=False,
+        for_analysis=True,
+        posture_resolver=_no_posture,
+    )
+    assert reads == [snap.league_key]
+    assert _SCARCITY_DOWN not in (sim["rosterCapacity"].get("notes") or [])
 
 
 def test_orphan_or_shared_owner_ids_never_borrow_another_teams_posture(monkeypatch):

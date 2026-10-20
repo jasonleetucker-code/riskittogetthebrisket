@@ -48,6 +48,12 @@ ROUTE_ONLY_TOP = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _pinned_scarcity(monkeypatch):
+    """R1-2: see ``multi_team_support.pin_league_scarcity``."""
+    return mts.pin_league_scarcity(monkeypatch)
+
+
 def _snap(contract):
     return tl.snapshot_for(
         contract, league_key=LEAGUE, roster_settings=mts._dynasty_main_settings()
@@ -304,8 +310,51 @@ def test_quarantined_value_withholds_only_the_touching_teams(mode):
         assert t["analysis"]["decision"]["headline"] == "NOT_ENOUGH_EVIDENCE"
     assert _canon(_strip_team(out["teams"][1])) == _canon(_strip_team(base["teams"][1])), mode
     assert out["summary"]["fairnessOverall"]["state"] in ("UNABLE", "NOT_FAIR")
+    # R1-L2 / F2: the quarantined asset is never presented as "priced" — the
+    # sender's and the receiver's rows both carry the explicit state and no
+    # number (withheld, never 0), and it stays out of the raw totals.
+    rows = [
+        *[g for g in out["teams"][2]["gives"] if g["assetId"] == "p:202"],
+        *[r for r in out["teams"][3]["receives"] if r["assetId"] == "p:202"],
+    ]
+    assert [(r["valueState"], r["value"]) for r in rows] == [("quarantined", None)] * 2, mode
+    clean_rows = [g for g in base["teams"][2]["gives"] if g["assetId"] == "p:202"]
+    assert [(r["valueState"], r["value"]) for r in clean_rows] == [("priced", 2000)], mode
     # One value per asset: the withheld value is not rewritten in the ledger rows.
     assert out["summary"]["conservation"]["balanced"] is True
+
+
+@pytest.mark.parametrize("mode", ["team_context", "asset_only", "market_fairness"])
+def test_stale_value_is_an_explicit_state_not_priced(mode):
+    """LABELLED synthetic league: team 3's ``C Four`` carries a ``low``
+    freshness axis.  Its rows read ``stale`` with no number, its teams are
+    UNABLE naming ``stale_values``, and a quarantined-and-stale asset reads
+    ``quarantined`` (the evidence gates' own order)."""
+    legs = [
+        {"id": "p:302", "from": 3, "to": 1},
+        {"id": "p:101", "from": 1, "to": 3},
+    ]
+    dirty = mts.synthetic_league()
+    for row in dirty["playersArray"]:
+        if row.get("playerId") == "302":
+            row["confidenceAxes"] = {**(row.get("confidenceAxes") or {}), "freshness": "low"}
+    out = _run(mts.synthetic_snapshot(dirty), [1, 3], legs, mode)
+    for rid, side in ((3, "gives"), (1, "receives")):
+        t = out["teams"][rid]
+        (row,) = [x for x in t[side] if x["assetId"] == "p:302"]
+        assert (row["valueState"], row["value"]) == ("stale", None), (mode, rid)
+        assert t["fairness"]["state"] == "UNABLE", (mode, rid)
+        codes = [g["code"] for g in t["analysis"]["decision"]["missingEvidence"]]
+        assert "stale_values" in codes, (mode, rid)
+    for row in dirty["playersArray"]:
+        if row.get("playerId") == "302":
+            row["quarantined"] = True
+    out = _run(mts.synthetic_snapshot(dirty), [1, 3], legs, mode)
+    (row,) = [x for x in out["teams"][3]["gives"] if x["assetId"] == "p:302"]
+    assert (row["valueState"], row["value"]) == ("quarantined", None), mode
+    assert set(svc.VALUE_STATES) >= {
+        r["valueState"] for t in out["teams"].values() for r in (*t["gives"], *t["receives"])
+    }
 
 
 def test_real_board_quarantine_invariant():
@@ -327,6 +376,16 @@ def test_real_board_quarantine_invariant():
             assert ("quarantined_values" in codes) == q, (teams, rid)
             if q:
                 assert t["fairness"]["state"] == "UNABLE", (teams, rid)
+            # R1-L2 / F2: a quarantined asset's ledger row is never "priced".
+            by_pid = {
+                f"p:{a.get('playerId')}": a
+                for a in [*(sim.get("sending") or []), *(sim.get("receiving") or [])]
+                if a.get("playerId")
+            }
+            for r in (*t["gives"], *t["receives"]):
+                a = by_pid.get(r["assetId"])
+                if a is not None and a.get("quarantined") is True:
+                    assert r["valueState"] != "priced" and r["value"] is None, (teams, rid)
     # Injected on a real row, so the property is exercised whatever the
     # newest archive happens to quarantine.
     teams, legs = mts.random_ledger(snap, rng, n_teams=3, max_per_team=1, picks=False)
