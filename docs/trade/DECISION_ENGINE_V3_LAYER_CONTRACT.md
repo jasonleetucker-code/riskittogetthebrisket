@@ -42,7 +42,7 @@ every term; nothing missing contributes 0.
 | term | lineage member | group | votes? | classification |
 |---|---|---|---|---|
 | A — market asset | `rank_derived_value` (VA = `package_va`, a transform) | `canonical_market` | yes | adjusted package gap READ from the packet (`vaGap`), net of the marginal forced-release charge (`roster_capacity.forced_drop_cost`), classified by `valuation_math.fairness_bands` (fair → neutral, slight → modest, unfair/lopsided → large) |
-| C — current-season roster | `bestball_lineup_delta` | `league_scored_projection` | yes (default P term) | magnitude band `max(materialityPpg, zPrior × predictive_sd)`; `materialityPpg` alone while `predictive_basis` is `unavailable`. Precision gate `mc_standard_error ≤ band/2`, else *imprecise* → neutral |
+| C — current-season roster | `bestball_lineup_delta` | `league_scored_projection` | yes (default P term) | magnitude band `max(materialityPpg, zPrior × predictive_sd)`; `materialityPpg` alone while `predictive_basis` is `unavailable`. Precision gate `mc_standard_error ≤ band/2`; an *imprecise* or precision-unknown (`mc_standard_error` missing) estimate is `partial` and does **not** vote (delta kept report-only) — missing evidence, never a neutral within-band vote |
 | D1 — title delta | `playoff_presim` | `league_scored_projection` | only when promoted | `materialityDelta` PRIOR |
 | D2 — multi-season lineup | `bestball_horizon` | `league_scored_projection` | only when promoted | `materialityPpg` PRIOR on the mean per-season delta |
 | posture | `posture` | `team_strategy_context` | **never** | selects the strategy row; not a confidence axis |

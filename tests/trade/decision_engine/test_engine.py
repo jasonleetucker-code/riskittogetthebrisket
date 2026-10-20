@@ -80,7 +80,47 @@ def test_imprecise_large_c_does_not_decide():
     d = _eval(
         strategy="WIN_NOW", asset=asset_layer([5000.0], [5000.0]), lineup=lineup_layer(3.5, se=0.9)
     )
-    assert (d.verdict, d.neutral_tag, d.confidence) == ("NO", True, "low")
+    # An imprecise estimate is not a measured zero: it does not vote, so a
+    # strategy that needs P is INSUFFICIENT_EVIDENCE, never a neutral tie.
+    assert d.verdict == "INSUFFICIENT_EVIDENCE" and d.confidence == "low"
+    assert d.missing_evidence == (
+        {"code": "roster_term_partial", "layer": "C", "reason": "imprecise"},
+    )
+
+
+@pytest.mark.parametrize("se,why", [(None, "precision_unknown"), (5.0, "imprecise")])
+@pytest.mark.parametrize("strategy", ["WIN_NOW", "BALANCED"])
+def test_unknown_or_imprecise_large_loss_never_becomes_a_neutral_vote(strategy, se, why):
+    # Review finding (PR #1862): A = F+ with an 8 ppg lineup loss.  Precise,
+    # this is NO; with se=None / oversized se it used to read C as a neutral
+    # vote and return YES via the "|0" column.  Unknown precision is missing
+    # evidence, not a within-band roster change.
+    precise = _eval(
+        strategy=strategy, asset=asset_layer([5000.0], [5600.0]), lineup=lineup_layer(-8.0, se=0.1)
+    )
+    assert precise.verdict == "NO"
+    d = _eval(
+        strategy=strategy, asset=asset_layer([5000.0], [5600.0]), lineup=lineup_layer(-8.0, se=se)
+    )
+    assert d.verdict == "INSUFFICIENT_EVIDENCE"
+    assert d.missing_evidence == ({"code": "roster_term_partial", "layer": "C", "reason": why},)
+    c = next(t for t in d.terms if t.term == "C")
+    assert not c.counted_as_vote and c.direction is None and c.magnitude_class is None
+    assert c.state == "partial" and c.reason == why
+    # The measured delta stays visible as a report-only number, never dropped.
+    assert c.value == pytest.approx(-8.0) and c.precision_ok is (None if se is None else False)
+    assert d.confidence == "low" and d.confidence_axes["coverage"] == "low"
+
+
+@pytest.mark.parametrize("se", [None, 5.0])
+def test_unknown_precision_c_under_long_term_falls_to_the_no_vote_column(se):
+    d = _eval(
+        strategy="LONG_TERM",
+        asset=asset_layer([5000.0], [5600.0]),
+        lineup=lineup_layer(-8.0, se=se),
+    )
+    assert d.policy_row.endswith("|-")
+    assert not any(t.counted_as_vote for t in d.terms if t.term == "C")
 
 
 @pytest.mark.parametrize("strategy", ["WIN_NOW", "BALANCED"])

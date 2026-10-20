@@ -11,6 +11,9 @@
   separate precision gate ``mc_standard_error <= band * precisionGateFraction``.
   The band never shrinks with Monte-Carlo draws, so more draws can tighten
   precision but can never turn a below-band delta into a distinguishable one.
+  An estimate that fails the gate, or carries no standard error, is ``partial``
+  and does not vote -- unknown precision is missing evidence, never a neutral
+  (zero-effect) roster change.
 * **D1** / **D2** (title / multi-season outcome layers): classified when
   available, but they vote only when their family is promoted.
 
@@ -223,9 +226,27 @@ def classify_lineup(lineup: Mapping[str, Any], params: Mapping[str, Any]) -> Ter
     band = c_band(params, psd, basis)
     precision_ok = None if se is None else se <= band * float(c["precisionGateFraction"])
     if precision_ok is not True:
-        direction, magnitude = "neutral", None
-        why = "imprecise" if precision_ok is False else "precision_unknown"
-    elif abs(delta) < band:
+        # Unknown or insufficient precision is MISSING evidence, never a
+        # measured within-band (zero-effect) roster change: C does not vote,
+        # so a strategy that needs P is INSUFFICIENT_EVIDENCE and LONG_TERM
+        # falls to its '-' column.  The measured delta stays report-only.
+        return TermResult(
+            term="C",
+            lineage_member=TERM_LINEAGE_MEMBER["C"],
+            state="partial",
+            direction=None,
+            magnitude_class=None,
+            value=round(delta, 3),
+            unit=C_UNIT,
+            band=round(band, 3),
+            mc_standard_error=se,
+            predictive_sd=psd,
+            predictive_basis=basis,
+            precision_ok=precision_ok,
+            counted_as_vote=False,
+            reason="imprecise" if precision_ok is False else "precision_unknown",
+        )
+    if abs(delta) < band:
         direction, magnitude, why = "neutral", None, "within_band"
     else:
         direction = "favours" if delta > 0 else "opposes"

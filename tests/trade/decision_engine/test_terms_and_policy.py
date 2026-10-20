@@ -83,18 +83,32 @@ def test_c_materiality_is_read_from_the_analyze_trade_owner():
 @pytest.mark.parametrize("draws_se", [0.6, 0.3, 0.1, 0.01, 0.0001])
 def test_more_draws_never_flip_a_below_band_delta(draws_se):
     c = terms.classify_lineup(lineup_layer(0.8, se=draws_se), P)
-    assert c.direction == "neutral" and c.band == pytest.approx(1.0)
+    assert c.band == pytest.approx(1.0)
+    # Precise: a within-band neutral vote.  Imprecise (se above the gate):
+    # no vote at all.  Neither can ever read as a distinguishable result.
+    if c.precision_ok:
+        assert c.direction == "neutral" and c.counted_as_vote
+    else:
+        assert c.direction is None and not c.counted_as_vote
+    assert c.magnitude_class is None
 
 
 def test_precision_gate_and_magnitudes():
     imprecise = terms.classify_lineup(lineup_layer(5.0, se=0.6), P)
     assert (imprecise.direction, imprecise.precision_ok, imprecise.reason) == (
-        "neutral",
+        None,
         False,
         "imprecise",
     )
+    assert imprecise.state == "partial" and not imprecise.counted_as_vote
+    assert imprecise.value == pytest.approx(5.0) and imprecise.mc_standard_error == 0.6
     unknown = terms.classify_lineup(lineup_layer(5.0, se=None), P)
-    assert unknown.direction == "neutral" and unknown.precision_ok is None
+    assert unknown.direction is None and unknown.precision_ok is None
+    assert (unknown.state, unknown.reason, unknown.counted_as_vote) == (
+        "partial",
+        "precision_unknown",
+        False,
+    )
     modest = terms.classify_lineup(lineup_layer(-2.0, se=0.2), P)
     assert (modest.direction, modest.magnitude_class) == ("opposes", "modest")
     large = terms.classify_lineup(lineup_layer(3.0, se=0.2), P)
