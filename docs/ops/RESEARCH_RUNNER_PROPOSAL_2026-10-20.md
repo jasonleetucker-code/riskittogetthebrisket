@@ -64,6 +64,15 @@ deploy-policy change.
 
 ## 4. The 2026-10-19 draft workflow (preserved, inert)
 
+> **Superseded for delivery (2026-10-20, branch `claude/package-model-ledger-onbox`).** The real, reviewable job is
+> `.github/workflows/package-model-market-ledger.yml` + `deploy/diagnostics/package_model_ledger_onbox.sh`, pinned by
+> `deploy/diagnostics/package_model_ledger_onbox.sha256` and test-pinned read-only by
+> `tests/deploy/test_package_model_ledger_onbox_readonly.py`. Differences from the draft below: one SSH session (no
+> separate upload step that could leave files behind), sha256 pins checked on the runner and the host, a main-only ref
+> guard, bounded lag input, a 4 GiB address-space cap and 30-minute timeout, raw stderr kept on the host, and the artifact
+> uploaded only after a second aggregate-only gate (the draft uploaded `if: always()`). It is still delivered by option A
+> or B and still uses the deploy key; option C remains the recommended permanent design.
+
 This is the draft written for this research (option A or B delivery, deploy key, script-level guard), updated on
 2026-10-20 to upload the guard and run from the temp dir. It is kept for reference. Under option C it would switch to the research key and the forced command.
 
