@@ -140,3 +140,19 @@ def test_public_resolver_matches_the_simulator():
     assert ts.resolve_trade_asset("Byron Murphy", contract=c)["value"] == 2400
     idx = ts.asset_row_index(c)
     assert ts.resolve_trade_asset("Josh Allen", contract=c, row_index=idx)["value"] == 9000
+
+
+def test_an_id_leg_is_removed_from_a_name_built_roster_on_backfilled_ids():
+    # Rows carrying only the backfilled ``_sleeperId`` and a team with no
+    # ``playerIds`` (name-built before-roster): the id-sent player must still
+    # leave the after-state, or ``delta`` and ``equity`` disagree.
+    c = _contract()
+    for r in c["playersArray"]:
+        r["_sleeperId"] = r.pop("playerId")
+    us = _us(c)
+    us.pop("playerIds")
+    us["players"] = ["Josh Allen", "Alim McNeill"]
+    sim = ts.simulate_trade(c, resolved_team=us, players_out=["Alim"], player_ids_out=["7000"])
+    assert [a["name"] for a in sim["sending"]] == ["Alim McNeill"]
+    assert sim["after"]["totalValue"] == 9000
+    assert sim["delta"]["totalValue"] == -1800

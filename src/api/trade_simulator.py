@@ -418,9 +418,10 @@ def _resolve_asset(
         # Canonical stamps, READ never computed: identity for the UI's player
         # link, and the confidence owner's evidence-quality verdict for the
         # Analyze Trade evidence lens (``src/api/confidence.py``).
-        "playerId": pid
-        if pid is not None
-        else (str(row.get("playerId")) if row.get("playerId") else None),
+        # ``row_player_id`` (``playerId``, else the backfilled ``_sleeperId``)
+        # is the SAME id ``rows_by_player_id`` indexes, so an id-sent leg can
+        # always find this asset in the before-roster to remove it.
+        "playerId": pid if pid is not None else (row_player_id(row) or None),
         "confidenceBucket": row.get("confidenceBucket"),
         "hasSourceDisagreement": row.get("hasSourceDisagreement"),
         # Read, never computed (TC-C evidence gates): the pipeline's own
