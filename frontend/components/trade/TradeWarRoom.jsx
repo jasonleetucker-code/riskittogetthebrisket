@@ -81,6 +81,8 @@ import {
   tradeValueSummary,
   uncertaintyLine,
   versionLabel,
+  bandStatusWords,
+  bandBasisWords,
   weeklyImpact,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
@@ -393,9 +395,9 @@ function Methodology({ analysis, raw }) {
           evidence” instead of a guess.
         </p>
         <p data-testid="decision-bands">
-          Fairness bands{bandsVersion ? `, ${bandsVersion}` : ""} (
-          {String(bands.status || "").toLowerCase()}): a gap is fair under {bands.absoluteMinimum}{" "}
-          points or {bands.slightPct}% of the larger adjusted package.
+          Fairness bands{bandsVersion ? `, ${bandsVersion}` : ""}
+          {bandStatusWords(bands.status) ? ` (${bandStatusWords(bands.status)})` : ""}: a gap is fair
+          under {bands.absoluteMinimum} points or {bands.slightPct}% of {bandBasisWords(bands.basis)}.
         </p>
         {Array.isArray(decision.reasons) && decision.reasons.length ? (
           <div data-testid="decision-record">

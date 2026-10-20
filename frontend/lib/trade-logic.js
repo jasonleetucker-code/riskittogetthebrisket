@@ -12,7 +12,15 @@
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
-import { classifyGap, FAIRNESS_LABELS } from "./fairness-bands.js";
+import {
+  classifyGap,
+  fairnessBase,
+  FairnessInputError,
+  FAIRNESS_INPUT_ERROR_CODE,
+  FAIRNESS_LABELS,
+  isFiniteNumber,
+  relativeGapPct,
+} from "./fairness-bands.js";
 import {
   canAddEntry,
   deserializeEntry,
@@ -47,8 +55,10 @@ export const SETTINGS_KEY = "next_settings_v2";
 // The KTC-era absolute bands (350 / 900 / 1800) are RETIRED (TC-C, owner
 // decision 3).  Every package-gap label on /trade comes from the ONE
 // fairness-band owner (./fairness-bands.js, pinned to
-// config/trade/fairness_bands.json): relative to the larger ADJUSTED side,
-// with an absolute minimum.  PROVISIONAL until validated.
+// config/trade/fairness_bands.json): fairness_bands_v2, relative to the larger
+// PACKAGE UTILITY (`packageUtilities` below, stamped as `utility` on side
+// totals and side flows), with an absolute minimum.  Owner-approved prior,
+// validated after launch.
 
 // ── Legacy Power-Weighted Alpha (trade history only) ─────────────────────
 // The Trade Calculator no longer uses this; it has moved to the package
@@ -686,6 +696,43 @@ export function packageAdjustPair(team1Vals, team2Vals, opts = {}) {
 }
 
 /**
+ * Each package's UTILITY under a model -- the fairness band's base
+ * (fairness_bands_v2, OD-F2; Python twin:
+ * src/valuation_math/fairness_bands.py::package_utilities).
+ *
+ * geom family: the depth-discounted utility `geomPackageUtility` of each
+ * side's values.  ktc family (the rollback model) has no per-package utility,
+ * so each side's ADJUSTED total stands in -- exactly the v1 basis, so a
+ * package-model rollback restores v1 denominators.
+ *
+ * Every piece must be a finite number, else FairnessInputError (code
+ * `fairness_input_not_finite`): `geomPackageUtility` prices a NaN piece as an
+ * absent one, so without this check a missing value would be priced as 0
+ * (MISSING IS NEVER ZERO).  Same refusal as the Python twin.
+ *
+ * @param {number[][]} valueArrays  one array of piece values per side
+ * @param {number[]} adjustedTotals each side's adjusted total (raw + VA),
+ *   read only under the ktc family
+ * @param {{modelId?: string}} [opts]
+ * @returns {number[]}
+ */
+export function packageUtilities(valueArrays, adjustedTotals, opts = {}) {
+  const modelId = opts.modelId ?? ACTIVE_PACKAGE_MODEL_ID;
+  const spec = PACKAGE_MODELS[modelId];
+  if (!spec) throw new Error(`unknown package model ${modelId}`);
+  const refuse = (what, v) => {
+    throw new FairnessInputError(`${FAIRNESS_INPUT_ERROR_CODE}: ${what}=${String(v)}`);
+  };
+  if (!Array.isArray(valueArrays)) refuse("valueArrays", valueArrays);
+  for (const values of valueArrays) {
+    if (!Array.isArray(values)) refuse("side values", values);
+    for (const v of values) if (!isFiniteNumber(v)) refuse("piece", v);
+  }
+  if (spec.family === "ktc") return valueArrays.map((_, i) => Number(adjustedTotals?.[i]));
+  return valueArrays.map((values) => geomPackageUtility(values, spec.q));
+}
+
+/**
  * Compute the package Value Adjustment between two sides under the ACTIVE
  * package model (packageAdjustPair — the owner-approved geometric model,
  * geom_q078_v1, since 2026-10-17; KTC's adjustPackage port is the
@@ -912,9 +959,16 @@ export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
   const { adjustment, recipientIdx } = computeValueAdjustment(sideA, sideB, valueMode, settings);
   const adjA = recipientIdx === 0 ? adjustment : 0;
   const adjB = recipientIdx === 1 ? adjustment : 0;
+  // `utility` is each package's depth-discounted value: the fairness band's
+  // base (fairness_bands_v2) -- read it through `fairnessBase`, never the
+  // larger `adjusted`.
+  const [utilA, utilB] = packageUtilities(
+    [sortedSideValues(sideA, valueMode, settings), sortedSideValues(sideB, valueMode, settings)],
+    [rawA + adjA, rawB + adjB],
+  );
   return [
-    { raw: rawA, adjustment: adjA, adjusted: rawA + adjA },
-    { raw: rawB, adjustment: adjB, adjusted: rawB + adjB },
+    { raw: rawA, adjustment: adjA, adjusted: rawA + adjA, utility: utilA },
+    { raw: rawB, adjustment: adjB, adjusted: rawB + adjB, utility: utilB },
   ];
 }
 
@@ -931,11 +985,29 @@ export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
  */
 export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
   const adjustments = computeMultiSideAdjustments(sides, valueMode, settings);
-  return sides.map((side, i) => {
+  const totals = sides.map((side, i) => {
     const raw = sideTotal(side, valueMode, settings);
     const adjustment = adjustments[i] || 0;
     return { raw, adjustment, adjusted: raw + adjustment };
   });
+  const utilities = packageUtilities(
+    sides.map((side) => sortedSideValues(side, valueMode, settings)),
+    totals.map((t) => t.adjusted),
+  );
+  return totals.map((t, i) => ({ ...t, utility: utilities[i] }));
+}
+
+/**
+ * The fairness band's base for a set of side totals (fairness_bands_v2,
+ * OD-F2): the largest package `utility` they carry (`fairnessBase`).  A
+ * missing container, a missing side total, or a side total without a finite
+ * `utility` is refused by the owner (FairnessInputError), never read as 0.
+ * Every producer (`adjustedSideTotals`, `multiAdjustedSideTotals`) stamps it,
+ * including on an empty side (utility 0).
+ * @param {{utility: number}[]} sideTotals
+ */
+export function sideTotalsFairnessBase(sideTotals) {
+  return fairnessBase(Array.isArray(sideTotals) ? sideTotals.map((t) => t?.utility) : sideTotals);
 }
 
 /** Gap = Side A adjusted total − Side B adjusted total (active package model). */
@@ -945,8 +1017,8 @@ export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
 }
 
 // ── Verdict ──────────────────────────────────────────────────────────────
-// `largerSide` is the larger ADJUSTED package total: the band is relative
-// to it (TC-C, owner decision 3).
+// `largerUtility` is the larger PACKAGE UTILITY (`fairnessBase` over the
+// sides' `utility`): the band is relative to it (fairness_bands_v2, OD-F2).
 const VERDICT_WORDS = {
   fair: "Near even",
   slight: "Lean",
@@ -954,12 +1026,12 @@ const VERDICT_WORDS = {
   lopsided: "Major gap",
 };
 
-export function verdictFromGap(gap, largerSide) {
-  return VERDICT_WORDS[classifyGap(gap, largerSide).level];
+export function verdictFromGap(gap, largerUtility) {
+  return VERDICT_WORDS[classifyGap(gap, largerUtility).level];
 }
 
-export function colorFromGap(gap, largerSide) {
-  if (classifyGap(gap, largerSide).level === "fair") return "";
+export function colorFromGap(gap, largerUtility) {
+  if (classifyGap(gap, largerUtility).level === "fair") return "";
   return gap > 0 ? "green" : "red";
 }
 
@@ -1651,7 +1723,7 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
 
   const before = tradeImbalance(sides, valueMode, settings);
   // Inside the fair band (the ONE fairness-band owner): nothing to balance.
-  if (classifyGap(before.imbalance, before.largerSide).level === "fair") return [];
+  if (classifyGap(before.imbalance, before.largerUtility).level === "fair") return [];
 
   // In an N >= 3 trade an added asset needs somewhere to go.  Default to
   // the side currently netting the least — the team this side is
@@ -1706,7 +1778,7 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
       gapAfter: after.gap,
       imbalanceBefore: before.imbalance,
       imbalanceAfter: after.imbalance,
-      largerSideAfter: after.largerSide,
+      largerUtilityAfter: after.largerUtility,
     });
   }
 
@@ -1718,7 +1790,7 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
   const singles = scored.slice(0, maxResults);
   if (!combos || !scored.length) return singles;
   const best = scored[0];
-  if (classifyGap(best.imbalanceAfter, best.largerSideAfter).level === "fair") return singles;
+  if (classifyGap(best.imbalanceAfter, best.largerUtilityAfter).level === "fair") return singles;
 
   // No single asset closes the gap: try pairs of the best singles.  Each pair
   // is re-simulated as a whole -- two pieces change the package count, so
@@ -1743,7 +1815,7 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
         gapAfter: after.gap,
         imbalanceBefore: before.imbalance,
         imbalanceAfter: after.imbalance,
-        largerSideAfter: after.largerSide,
+        largerUtilityAfter: after.largerUtility,
       });
     }
   }
@@ -1920,7 +1992,9 @@ export function computeSideFlowAssets(sides) {
 export function computeSideFlows(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
   const result = [];
-  for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0, adjustment: 0 });
+  for (let i = 0; i < n; i++) {
+    result.push({ given: 0, received: 0, net: 0, adjustment: 0, utility: 0 });
+  }
   if (n < 2) return result;
 
   const sideAssets = sides.map((side) =>
@@ -1977,8 +2051,16 @@ export function computeSideFlows(sides, valueMode, settings = null) {
       result[dest].received += value;
     }
   }
+  // `utility` = the depth-discounted value of the package side i SENDS: the
+  // fairness band's base (fairness_bands_v2, OD-F2) is the largest of these
+  // (`fairnessBase`), never the largest `given`.
+  const utilities = packageUtilities(
+    sideAssets.map((assets) => sortedSideValues(assets, valueMode, settings)),
+    result.map((f) => f.given),
+  );
   for (let i = 0; i < n; i++) {
     result[i].net = result[i].received - result[i].given;
+    result[i].utility = utilities[i];
   }
   return result;
 }
@@ -2006,13 +2088,14 @@ export function computeSideFlows(sides, valueMode, settings = null) {
  */
 export function tradeImbalance(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
-  if (n < 2) return { imbalance: 0, nets: [], gap: null, largerSide: null };
+  // No sides is an empty pairing: base 0 (the owner's `fairnessBase([])`).
+  if (n < 2) return { imbalance: 0, nets: [], gap: null, largerUtility: 0 };
   const flows = computeSideFlows(sides, valueMode, settings);
   const nets = flows.map((f) => f.net);
-  // The base the fairness band is relative to: the largest ADJUSTED package
-  // any side sends (given = raw + its adjustment).  For N = 2 this is the
-  // larger adjusted side total.
-  const largerSide = Math.max(...flows.map((f) => f.given));
+  // The base the fairness band is relative to (fairness_bands_v2, OD-F2): the
+  // largest PACKAGE UTILITY any side sends.  For N = 2 this is
+  // max(U_A, U_B) -- byte-identical to the larger adjusted side on a 1-for-1.
+  const largerUtility = fairnessBase(flows.map((f) => f.utility));
   if (n === 2) {
     const gap = tradeGapAdjusted(
       Array.isArray(sides[0]?.assets) ? sides[0].assets : [],
@@ -2020,29 +2103,52 @@ export function tradeImbalance(sides, valueMode, settings = null) {
       valueMode,
       settings,
     );
-    return { imbalance: Math.abs(gap), nets, gap, largerSide };
+    return { imbalance: Math.abs(gap), nets, gap, largerUtility };
   }
   return {
     imbalance: Math.max(...nets) - Math.min(...nets),
     nets,
     gap: null,
-    largerSide,
+    largerUtility,
   };
 }
 
 /**
  * The meter badge for a package gap -- the Immediate Result, package only.
  * Bands from the ONE fairness-band owner (./fairness-bands.js): relative to
- * the larger ADJUSTED side, with an absolute minimum (TC-C, owner decision 3;
- * it replaced the absolute 350 / 900 / 1800).  It labels the package gap; the
- * trade DECISION is the backend's (POST /api/trade/analyze).
+ * the larger PACKAGE UTILITY, with an absolute minimum (fairness_bands_v2; it
+ * replaced v1's larger adjusted side, which replaced the absolute 350 / 900 /
+ * 1800).  It labels the package gap; the trade DECISION is the backend's
+ * (POST /api/trade/analyze).
+ *
+ * `percentText` is THE percentage to print beside the badge: the band's own
+ * relative gap (|gap| / larger package utility), floored to one decimal and
+ * printed without a trailing ".0".  Flooring the UNROUNDED value keeps it on
+ * the same side of every cut as the badge (cuts 3.5 / 9 / 18 are exact at one
+ * decimal and IEEE multiplication is monotone), so SLIGHT EDGE never sits
+ * beside "3%" and FAIR (on the relative test) never beside "3.5%".  A gap
+ * under ABSOLUTE_MINIMUM is FAIR whatever its percentage.  `null` when the
+ * base is 0.  Never print `percentageGap` (the adjusted-side basis) beside a
+ * badge.
  * @param {number} gap - package gap (sign ignored)
- * @param {number} largerSide - larger adjusted side total
- * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null }}
+ * @param {number} largerUtility - larger package utility (`fairnessBase`)
+ * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided', relativePct: number|null, percentText: string|null }}
  */
-export function meterVerdict(gap, largerSide) {
-  const band = classifyGap(gap, largerSide);
-  return { label: FAIRNESS_LABELS[band.level], level: band.level, relativePct: band.relativePct };
+export function meterVerdict(gap, largerUtility) {
+  const band = classifyGap(gap, largerUtility);
+  const rel = relativeGapPct(gap, largerUtility);
+  return {
+    label: FAIRNESS_LABELS[band.level],
+    level: band.level,
+    relativePct: band.relativePct,
+    percentText: rel == null ? null : formatBandPct(rel),
+  };
+}
+
+/** One decimal, floored (see meterVerdict); "20" not "20.0". */
+function formatBandPct(rel) {
+  const tenths = Math.floor(rel * 10);
+  return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
 }
 
 /**
@@ -2091,10 +2197,11 @@ export function multiTeamAnalysis(totals) {
  * The 3+-team package reading the multi-team meter renders, as ONE helper so
  * the meter and the persistent summary bar cannot drift (TC-D2): each side's
  * NET flow (received − given, from ``computeSideFlows``), the band base (the
- * largest adjusted package any side sends — ``tradeImbalance``'s base), the
+ * largest package UTILITY any side sends — ``tradeImbalance``'s base), the
  * worst |net|, and the band of that worst gap from the ONE fairness-band
- * owner.  Package-only; never a decision.
- * @param {{given:number, received:number, net:number}[]} flows
+ * owner.  Package-only; never a decision.  Throws FairnessInputError when a
+ * flow carries no finite `utility` (the meter renders that as unavailable).
+ * @param {{given:number, received:number, net:number, utility:number}[]} flows
  */
 export function multiTeamNetSummary(flows) {
   const list = Array.isArray(flows) ? flows : [];
@@ -2103,13 +2210,13 @@ export function multiTeamNetSummary(flows) {
     const n = Number(f?.net);
     return Number.isFinite(n) ? n : null;
   });
-  const largerSide = Math.max(
-    0,
-    ...list.map((f) => Number(f?.given)).filter((v) => Number.isFinite(v)),
-  );
+  // Every flow must carry its package `utility` (computeSideFlows stamps it,
+  // 0 for a side that sends nothing): a flow without one is refused by the
+  // owner (FairnessInputError), never dropped from the base.
+  const largerUtility = fairnessBase(list.map((f) => f?.utility));
   const known = nets.filter((n) => n != null).map((n) => Math.abs(n));
   const worst = known.length ? Math.max(...known) : 0;
-  return { nets, largerSide, worst, verdict: meterVerdict(worst, largerSide) };
+  return { nets, largerUtility, worst, verdict: meterVerdict(worst, largerUtility) };
 }
 
 // ── Workspace Serialization ──────────────────────────────────────────────

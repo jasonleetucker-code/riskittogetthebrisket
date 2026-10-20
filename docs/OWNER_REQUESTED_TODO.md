@@ -15,6 +15,24 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-10-20 (~19:45 UTC) — Public Trade Advisor fairness threshold: owner approves fairness_bands_v2 (OD-F1/F2/F3/F5)
+
+Owner decisions, 2026-10-20 (~19:45 UTC, answered via AskUserQuestion), recorded verbatim at `docs/owner/FAIRNESS_V2_DECISIONS_2026-10-20.md`. They answer the fairness-threshold research memo's §8 questions. Overall FAIR still requires every team to be FAIR. Capture is not implementation authorization; `docs/EXECUTION_PLAN.md` §0 (2026-10-20 ~19:45 UTC entry) records what is authorized. Measured impact: `docs/trade/FAIRNESS_BANDS_V2_2026-10-20.md`.
+
+| # | Owner instruction | Status |
+|---|---|---|
+| OD-F1 | FAIR TRADE = the `fair` band only — matches the private "NO — TOO CLOSE" definition; a multi-team trade is FAIR only when every team is `fair` | DECIDED — owner, 2026-10-20. Recorded in the owner as `fairTradeLevels: ["fair"]` (`config/trade/fairness_bands.json`), read through `fairness_bands.counts_as_fair_trade` / `fairness-bands.js::countsAsFairTrade` so a public adapter never hard-codes it. Branch `claude/fairness-bands-v2` |
+| OD-F2 | Gap denominator = the larger PACKAGE UTILITY, not the larger adjusted side; 1-for-1 unchanged; one shared rule, so the private meter, Best Offers and the Package Builder move with it | DECIDED — owner, 2026-10-20. Implemented at the owner (`fairness_bands.larger_package_utility` / `fairness_base`, JS `fairnessBase` over `trade-logic.js::packageUtilities`); every consumer reads its base from there; 1-for-1 byte-identical (grid test, both languages). Branch `claude/fairness-bands-v2` |
+| OD-F3 | Keep the 250-point absolute minimum explicitly, as an owner-approved prior | DECIDED — owner, 2026-10-20. `absoluteMinimum: 250` + `absoluteMinimumStatus` in the config; a test forbids it as a code literal. Branch `claude/fairness-bands-v2` |
+| OD-F5 | Publish `fairness_bands_v2` as an owner-approved prior; validate after launch | DECIDED — owner, 2026-10-20. `version: fairness_bands_v2`, `status: PRIOR_OWNER_APPROVED_2026-10-20`; v1 recorded as retired (not loadable). Branch `claude/fairness-bands-v2` |
+| OD-F4 | Named post-launch validation of v2 against at-the-time market trades | OPEN — post-launch; recorded as `postLaunchValidation` (state `PENDING`) in the config. Needs the box-local market-trade ledger + the temporal ledger |
+| OD-F6 | Align or relabel the League Hub trade-history "Fair trade" grade (3.0%, no floor) | OPEN — not asked. v2 does not change it; the count of history grades that disagree with v2 `fair` is in the evidence doc |
+| OD-3 | Source-permission record | OPEN — not asked |
+| AD-1 | Admission sizes (public 2 / 5 s, private 2 / 30 s defaults) | OPEN — not asked |
+| F-1 | Naming quarantined / stale assets publicly | OPEN — not asked |
+| RF-1 | Response floor confirmation | OPEN — not asked |
+| LA-1 | Final public launch approval | OPEN — not asked |
+
 ## Added 2026-10-20 (~12:25 UTC) — PR #1831 universal freshness schedule: owner chooses OPTION B (merge disabled, activation held)
 
 Owner decision, 2026-10-20, recorded verbatim at `docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md`. It answers the #1831 release question: merge the universal freshness schedule with `source_freshness_schedule_v2` OFF by default. The implementation and the previously established percentages (V5 of the 2026-10-19 entry) are APPROVED; activation is NOT. Reason, owner's words: the 918 value changes and LaJohntay Wester's +42.9% movement "warrant caution because the existing outlier filter can remove legitimate source votes when the voting population changes. This overlaps with the defect outlier-integrity-v2 is intended to fix." Capture is not implementation authorization; `docs/EXECUTION_PLAN.md` §0 (2026-10-20 ~12:25 UTC entry) records what is authorized.

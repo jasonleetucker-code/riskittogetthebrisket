@@ -962,10 +962,9 @@ def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
 
 def _fairness_label(gap: int, give_vals: list[int], recv_vals: list[int]) -> str:
     """The suggestion badge (even / lean / stretch) from the ONE fairness-band
-    owner (TC-C, owner decision 3): relative to the larger ADJUSTED side, with
-    an absolute minimum.  It replaced a private 256 / 769 absolute band."""
-    give_adj, recv_adj, _, _ = adjusted_pair_totals(give_vals, recv_vals)
-    level = fairness_bands.classify(gap, max(give_adj, recv_adj))["level"]
+    owner (fairness_bands_v2): relative to the larger PACKAGE UTILITY, with an
+    absolute minimum.  It replaced a private 256 / 769 absolute band."""
+    level = fairness_bands.classify_packages(gap, give_vals, recv_vals)["level"]
     return fairness_bands.legacy_magnitude(level)
 
 
@@ -1595,11 +1594,11 @@ def _find_balancers(
     gap = int(suggestion.gap)
     # Inside the fair band (the ONE fairness-band owner, TC-C): nothing to
     # balance.  Replaced a private absolute 256.
-    give_adj, recv_adj, _, _ = adjusted_pair_totals(
+    larger_utility = fairness_bands.larger_package_utility(
         [int(p.display_value) for p in suggestion.give],
         [int(p.display_value) for p in suggestion.receive],
     )
-    if fairness_bands.is_even(gap, max(give_adj, recv_adj)):
+    if fairness_bands.is_even(gap, larger_utility):
         return ([], "", [])
     side = "you_add" if gap < 0 else "they_add"
 

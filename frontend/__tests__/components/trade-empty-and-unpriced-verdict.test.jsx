@@ -18,7 +18,7 @@ afterEach(cleanup);
 
 const empty = (n = 2) =>
   Array.from({ length: n }, (_, i) => ({ id: i, label: "ABCDE"[i], assets: [] }));
-const zeroTotals = (n = 2) => Array.from({ length: n }, () => ({ raw: 0, adjustment: 0, adjusted: 0 }));
+const zeroTotals = (n = 2) => Array.from({ length: n }, () => ({ raw: 0, adjustment: 0, adjusted: 0, utility: 0 }));
 
 describe("empty trade", () => {
   it("is classified empty", () => {
@@ -78,7 +78,7 @@ describe("incomplete trade (an unpriced asset) — no verdict over a 0", () => {
     render(
       <TradeMeter
         sides={sides([priced("Star", 6000)], [ghost("Ghost Rookie")])}
-        sideTotals={[{ adjusted: 6000 }, { adjusted: 0 }]}
+        sideTotals={[{ adjusted: 6000, utility: 6000 }, { adjusted: 0, utility: 0 }]}
         sidesSend
       />,
     );

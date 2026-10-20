@@ -203,10 +203,13 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
     { id: 1, label: "B", assets: [row("b", 4000)] },
     { id: 2, label: "C", assets: [row("c", 3000)] },
   ];
+  // Each side sends one piece, so its package utility is that piece's value
+  // (computeSideFlows stamps it; a flow without one is refused, never read
+  // as base 0 -- which used to grade this 2,000 worst gap FAIR).
   const flows = [
-    { given: 5000, received: 3000, net: -2000 },
-    { given: 4000, received: 5000, net: 1000 },
-    { given: 3000, received: 4000, net: 1000 },
+    { given: 5000, received: 3000, net: -2000, utility: 5000 },
+    { given: 4000, received: 5000, net: 1000, utility: 4000 },
+    { given: 3000, received: 4000, net: 1000, utility: 3000 },
   ];
 
   it("shows each net and the band of the worst gap the meter shows", () => {
@@ -225,6 +228,8 @@ describe("MultiTeamSummaryBar — the multi-team meter's own reading", () => {
       <TradeMeterMultiTeam sides={sides} sideTotals={[]} flows={flows} />,
     );
     expect(container.querySelector(".trade-meter-verdict").textContent).toBe(summary.verdict.label);
+    // 2,000 / 5,000 = 40%: LOPSIDED, not the FAIR a missing base used to give.
+    expect(summary.verdict.level).toBe("lopsided");
   });
 
   it("an empty or incomplete trade states that, never a band", () => {

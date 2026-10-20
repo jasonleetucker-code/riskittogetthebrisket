@@ -34,7 +34,7 @@ describe("findBalancers pairs", () => {
   it("leads with pairs when no single lands inside the fair band", () => {
     const singles = findBalancers(SIDES, 1, POOL, "full");
     const best = singles[0];
-    expect(classifyGap(best.imbalanceAfter, best.largerSideAfter).level).not.toBe("fair");
+    expect(classifyGap(best.imbalanceAfter, best.largerUtilityAfter).level).not.toBe("fair");
 
     const out = findBalancers(SIDES, 1, POOL, "full", { combos: true });
     const pairs = out.filter((b) => b.isCombo);
@@ -63,7 +63,7 @@ describe("findBalancers pairs", () => {
     const sides = sidesOf([5000], [4000]);
     const pool = [rowOf("Close", 1282, "QB"), rowOf("Small", 300)];
     const out = findBalancers(sides, 1, pool, "full", { combos: true });
-    expect(classifyGap(out[0].imbalanceAfter, out[0].largerSideAfter).level).toBe("fair");
+    expect(classifyGap(out[0].imbalanceAfter, out[0].largerUtilityAfter).level).toBe("fair");
     expect(out.some((b) => b.isCombo)).toBe(false);
   });
 

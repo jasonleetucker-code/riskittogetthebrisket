@@ -22,7 +22,6 @@ import {
   verdictBarPosition,
   adjustedSideTotals,
   multiAdjustedSideTotals,
-  sideTotal,
   simulationSignature,
   tradeEvaluationState,
   TRADE_EVAL_STATE,
@@ -46,6 +45,7 @@ import {
   MIN_SIDES,
   computeStackAdjustments,
   multiTeamNetSummary,
+  sideTotalsFairnessBase,
   tradeSignature,
   displayValue,
 } from "@/lib/trade-logic";
@@ -1113,17 +1113,14 @@ export default function TradePage() {
       );
       return [a, b];
     }
-    if (sidesWithOverrides.length > 2) {
-      return multiAdjustedSideTotals(
-        sidesWithOverrides.map((s) => s.assets),
-        valueMode,
-        settings,
-      );
-    }
-    return sidesWithOverrides.map((s) => {
-      const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, adjusted: raw };
-    });
+    // Any other side count (3+, or a transient 0 / 1): the package model's
+    // own totals, so every total carries its package `utility` (the fairness
+    // band's base) -- never a hand-built flat sum without one.
+    return multiAdjustedSideTotals(
+      sidesWithOverrides.map((s) => s.assets),
+      valueMode,
+      settings,
+    );
   }, [sidesWithOverrides, valueMode, settings]);
 
   // Per-side flow totals: given / received / net.  In 2-team trades
@@ -1198,20 +1195,19 @@ export default function TradePage() {
   const linTotalA = sideTotals[0]?.raw || 0;
   const linTotalB = sideTotals[1]?.raw || 0;
   const pwGap = pwTotalA - pwTotalB;
-  const pctGap =
-    Math.max(pwTotalA, pwTotalB) > 0
-      ? Math.round((Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB)) * 100)
-      : 0;
-  // The base the ONE fairness-band owner is relative to (TC-C, owner
-  // decision 3): the larger adjusted side.  Every 2-team band on this page
-  // (tray, balancers, the "add to balance" side) reads it.
-  const pwLarger = Math.max(pwTotalA, pwTotalB);
+  // The base the ONE fairness-band owner is relative to (fairness_bands_v2,
+  // OD-F2): the larger PACKAGE UTILITY, never the larger adjusted side.  Every
+  // 2-team band on this page (tray, balancers, the "add to balance" side)
+  // reads it.
+  const pwLarger = sideTotalsFairnessBase(sideTotals.slice(0, 2));
   const pwGapIsFair = isFairGap(pwGap, pwLarger);
+  // The sticky tray's badge + percentage: one band reading (meterVerdict).
+  const trayVerdict = meterVerdict(pwGap, pwLarger);
   // 3+-team: the multi-team meter's own reading (one helper, shared with the
-  // persistent summary bar) -- its base is the largest adjusted package any
+  // persistent summary bar) -- its base is the largest package utility any
   // side sends (tradeImbalance's base).
   const multiSummary = useMemo(() => multiTeamNetSummary(sideFlows), [sideFlows]);
-  const multiLarger = multiSummary.largerSide;
+  const multiLarger = multiSummary.largerUtility;
 
   // Balancing suggestions (2-team mode only).
   //
@@ -3184,8 +3180,13 @@ export default function TradePage() {
                         className={`verdict ${colorFromGap(pwGap, pwLarger)}`}
                         data-trade-gap={pwGap}
                       >
-                        {meterVerdict(pwGap, pwLarger).label}
-                        {pctGap > 0 ? ` (${pctGap}%)` : ""}
+                        {trayVerdict.label}
+                        {/* The band's own percentage (relative to the larger
+                            package utility), so it can never sit below the
+                            badge's cut -- not the adjusted-side %. */}
+                        {trayVerdict.percentText && trayVerdict.percentText !== "0"
+                          ? ` (${trayVerdict.percentText}%)`
+                          : ""}
                       </div>
                       <div className={styles.controlsNote}>
                         Gap {Math.round(pwGap).toLocaleString()}
