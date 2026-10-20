@@ -227,3 +227,25 @@ def test_default_board_uses_the_v1_rule(boards):
 
 def test_default_board_is_the_explicit_flag_off_board(boards):
     assert _value_fingerprint(boards["default"]) == _value_fingerprint(boards["off"]), _ACTIVATION
+
+
+def test_a_failing_shadow_is_stamped_and_moves_nothing(boards, monkeypatch):
+    """The non-voting v2 shadow can never break or reprice a build."""
+    raw, _name = newest_complete_raw_payload()
+    monkeypatch.delenv(_ENV, raising=False)
+    feature_flags.reload()
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("shadow unavailable")
+
+    monkeypatch.setattr(dc, "_source_weighting_shadow_v2", _boom)
+    try:
+        contract = dc.build_api_data_contract(copy.deepcopy(raw))
+    finally:
+        feature_flags.reload()
+    assert _value_fingerprint(contract) == _value_fingerprint(boards["default"])
+    status = contract["sourceVotingStatus"]
+    if (contract.get("sourceWeighting") or {}).get("measured"):
+        assert status["shadow"]["available"] is False
+        assert "shadow unavailable" in status["shadow"]["error"]
+        assert all("shadowScheduleV2" not in e for e in status["sources"])

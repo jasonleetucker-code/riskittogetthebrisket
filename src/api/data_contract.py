@@ -5310,16 +5310,35 @@ SOURCE_WEIGHTING_UNAVAILABLE_STATE_DIR_MISSING = "state_dir_missing"
 
 
 def _source_weighting_resolution(
-    as_of: "datetime | None",
-    csv_root: "Path | None" = None,
-    *,
-    schedule: str | None = None,
+    as_of: "datetime | None", csv_root: "Path | None" = None
 ) -> tuple[dict[str, Any], str | None]:
     """``(weighting, unavailable_reason)``; see :func:`_load_source_weighting`.
 
-    ``schedule`` pins a freshness rule for a NON-VOTING shadow computation
-    (the v2 shadow on ``sourceVotingStatus``); ``None`` — every voting
-    caller — resolves the rule in force from ``source_freshness_schedule_v2``.
+    The freshness rule is the one in force (``source_freshness_schedule_v2``).
+    """
+    return _resolve_source_weighting(as_of, csv_root, schedule=None)
+
+
+def _source_weighting_shadow_v2(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> dict[str, Any]:
+    """The same weighting computed under the owner step schedule, for the
+    NON-VOTING shadow on ``sourceVotingStatus`` while the schedule is held OFF
+    (owner decision 2026-10-20 on PR #1831, Option B).  Never handed to the
+    blend.  Shares the memo with :func:`_source_weighting_resolution`."""
+    from src.sources import freshness as _freshness  # noqa: PLC0415
+
+    return _resolve_source_weighting(as_of, csv_root, schedule=_freshness.SCHEDULE_V2)[0]
+
+
+def _resolve_source_weighting(
+    as_of: "datetime | None",
+    csv_root: "Path | None",
+    *,
+    schedule: str | None,
+) -> tuple[dict[str, Any], str | None]:
+    """Shared body.  ``schedule`` ``None`` resolves the rule in force;
+    a pinned rule is only ever used for the non-voting shadow.
 
     ``unavailable_reason`` is ``None`` on the healthy path and when the board
     carries no time (``as_of`` None — documented: no "state in force at T").
@@ -16289,10 +16308,8 @@ def build_api_data_contract(
             for sw in source_weighting.values()
         ):
             try:
-                shadow_weighting = _source_weighting_resolution(
-                    freshness_as_of, csv_root, schedule=_freshness_rules.SCHEDULE_V2
-                )[0]
-            except (OSError, ValueError) as exc:
+                shadow_weighting = _source_weighting_shadow_v2(freshness_as_of, csv_root)
+            except Exception as exc:  # noqa: BLE001 — a non-voting diagnostic never fails a build
                 shadow_error = f"{type(exc).__name__}: {exc}"
     contract_payload["sourceVotingStatus"] = build_source_voting_status(
         contract_payload,
