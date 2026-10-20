@@ -156,7 +156,8 @@ def evaluate_decision(
 
     cov = t1c.get("idpCoverage") if t1c.get("ok") else None
     if isinstance(cov, Mapping):
-        fam = {"DL": 0, "LB": 0, "DB": 0}
+        # Row counts per IDP family, keyed by the families the board defines.
+        fam = dict.fromkeys(S.IDP_FAMILY_BOARDS, 0)
         for raw, n in cov.items():
             if raw in RAW_TO_FAMILY:
                 fam[RAW_TO_FAMILY[raw]] += int(n or 0)
