@@ -583,7 +583,7 @@ def market_rows_from_groups(
 
 
 def price_market_groups(
-    groups, *, max_lag_days: float = 7.0, value_keys=("canonical",)
+    groups, *, max_lag_days: float = 7.0, value_keys=("canonical",), row_extras=None
 ) -> dict[str, tuple[list[dict], dict]]:
     """Price ledger groups on the canonical board archived STRICTLY before each
     trade (<= ``max_lag_days``), through the eligibility owner
@@ -596,7 +596,9 @@ def price_market_groups(
     before the next is built — never more than one board in memory.
 
     Returns ``{value_key: (rows, audit)}``; rows are aggregate-safe (values, date,
-    format tags, source, league) and never leave the process except as aggregates."""
+    format tags, source, league) and never leave the process except as aggregates.
+    ``row_extras(trade, board)``, when given, adds fields to every row (Phase 3
+    asset metadata); without it the rows are exactly the Phase 2 rows."""
     import gc  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
     from collections import Counter  # noqa: PLC0415
@@ -683,6 +685,7 @@ def price_market_groups(
                     "rosterSize": (fmt.get("general") or {}).get("rosterSize"),
                     "teams": (fmt.get("general") or {}).get("teams"),
                     "boardLagDays": (td - _d).days,
+                    **(row_extras(t, board) if row_extras else {}),
                 })  # fmt: skip
         del board
         gc.collect()

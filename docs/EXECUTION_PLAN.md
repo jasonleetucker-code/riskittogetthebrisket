@@ -146,7 +146,7 @@ simulation, scoring or evidence reduction for speed. Merges and deploys keep the
 the read-only comparator until the owner explicitly approves a replacement (also D8, 2026-10-18). No verdict,
 fairness band, Trade History, Finder, War Room or Second Opinions behaviour changes. Must not interrupt the
 completion campaign or PR #1826. Result: `docs/valuation/PACKAGE_MODEL_HYBRID_RESEARCH_2026-10-19.md`
-(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending. Phase 2 (same day, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE2_2026-10-19.md`): research only, same production bounds; result `docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (KEEP).
+(recommendation: keep `geom_q078_v1`; no KTC blend at any weight; no challenger registered). Owner decision pending. Phase 2 (same day, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE2_2026-10-19.md`): research only, same production bounds; result `docs/valuation/PACKAGE_MODEL_PHASE2_RESEARCH_2026-10-19.md` (KEEP). Phase 3 (2026-10-20, verbatim `docs/owner/HYBRID_VALUE_ADJUSTMENT_RESEARCH_PHASE3_2026-10-20.md`): **AUTHORIZED NOW** — analysis of the production-ledger report, challenger research with preregistered held-out validation, isolated disabled-by-default shadow candidates only if justified; production `geom_q078_v1` and every served path unchanged; activation is not authorized.
 
 ## Owner decision closeout + evidence unblock — owner directive, 2026-10-18 (D1–D20)
 
