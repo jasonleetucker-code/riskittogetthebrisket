@@ -1,5 +1,6 @@
 /**
- * DLF vote offense-only (owner directive 2026-10-16).
+ * DLF IDP vote hold (owner directive 2026-10-16; since 2026-10-19 the
+ * owner-approved restore, held at release pending the outlier-filter fix).
  *
  * The backend holds the DLF IDP boards from the vote by owner policy and
  * stamps them in ``privateSourceAvailability`` with ``holdKind:
@@ -21,7 +22,7 @@ const HELD = {
   csvPresent: true,
   private: false,
   holdKind: "owner_policy",
-  heldFromVote: "owner_policy_dlf_vote_offense_only",
+  heldFromVote: "owner_policy_dlf_idp_restore_held_pending_outlier_fix",
   votes: false,
   voteState: "held",
 };

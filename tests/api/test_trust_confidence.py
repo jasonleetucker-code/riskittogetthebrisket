@@ -450,7 +450,8 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # ``fantasyNavigatorSf`` + ``pfkDynasty`` added 2026-07-25
         # (Phase 2 of the competitor-parity roadmap).
         # ``signalsSf`` + ``signalsIdp{Dl,Lb,Db}`` added 2026-10-03 (Signals).
-        self.assertEqual(len(meth["sources"]), 26)
+        # ``dlfValuesSfTep`` added 2026-10-18 (owner closeout D4, DLF family).
+        self.assertEqual(len(meth["sources"]), 27)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -479,6 +480,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "yahooBoone",
                 "fantasyProsFitzmaurice",
                 "dlfRookieSf",
+                "dlfValuesSfTep",
                 "flockFantasySfRookies",
                 "dlfRookieIdp",
                 "draftSharks",

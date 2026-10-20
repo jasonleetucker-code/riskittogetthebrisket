@@ -604,6 +604,7 @@ def simulate_trade(
     player_ids_out: list[Any] | None = None,
     include_roster_capacity: bool = True,
     unverifiable_asset_ids: Sequence[str] = (),
+    scarcity_reading: tuple[Any, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -680,6 +681,11 @@ def simulate_trade(
       THIS team's legs are published as ``ownershipEvidence`` (read by the
       ``ownership_unverifiable`` decision gate).  Empty: the key is ABSENT,
       so the default output is byte-identical.
+    * ``scarcity_reading`` — a ``roster_capacity.league_scarcity`` result the
+      caller already read for this league and board.  The N-team engine reads
+      it ONCE per request and passes it to every team, so no two teams of one
+      trade are scored against different scarcity.  ``None`` (the default)
+      reads it inside the capacity context exactly as before.
     """
     players_in, player_ids_in = _paired_players(players_in, player_ids_in)
     players_out, player_ids_out = _paired_players(players_out, player_ids_out)
@@ -1036,6 +1042,7 @@ def simulate_trade(
                 league_key,
                 resolved_team,
                 roster_settings=roster_settings,
+                scarcity_reading=scarcity_reading,
             )
             capacity_out = outgoing_roster_names(capacity_context, players_out, player_ids_out)
             capacity = assess_roster_capacity(

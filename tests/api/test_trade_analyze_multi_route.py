@@ -99,6 +99,8 @@ def app(monkeypatch, tmp_path, real_registry):
             {"bundleFreshness": "fresh"},
         ),
     )
+    # R1-2: no live/TTL-cached team-strength read may decide a comparison.
+    mts.pin_league_scarcity(monkeypatch)
     monkeypatch.setattr(server, "latest_contract_data", contract)
     monkeypatch.setattr(
         server, "_get_auth_session", lambda _r: {"username": "tester", "sleeper_user_id": "u1"}
