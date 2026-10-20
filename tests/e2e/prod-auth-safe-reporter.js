@@ -66,11 +66,19 @@ function makeScrub(secret) {
   return { scrub, containsSecret };
 }
 
+// ANSI SGR escapes (colour / dim).  Playwright colours its VALUE-matcher
+// hints — "\u001b[2mexpect(\u001b[22m…).\u001b[22mtoBe" — so the `\b` anchors
+// below never matched them and every failed toBe / toEqual / toContain was
+// published as "error", indistinguishable from a thrown TypeError (V1 run
+// 39221318435: pick-lifecycle-horizon, the train2 Droppable test and W1-28).
+const ANSI_ESCAPE = /\u001b\[[0-9;]*m/g;
+
 /** A fixed class for a failure — never its text. */
 function errorClass(result) {
   if (result.status === "timedOut") return "timeout";
   const err = result.errors?.[0] || result.error;
-  const message = String(err?.message || "");
+  // Classified only: the stripped text is read here and never published.
+  const message = String(err?.message || "").replace(ANSI_ESCAPE, "");
   if (/\bexpect\(|\bto(Be|Equal|Have|Contain|Match|BeVisible)/.test(message)) return "assertion";
   if (/timeout|timed out/i.test(message)) return "timeout";
   return "error";

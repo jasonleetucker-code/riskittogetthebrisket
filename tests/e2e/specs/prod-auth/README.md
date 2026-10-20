@@ -16,6 +16,16 @@ recipe docs) explicitly cannot produce.
 | `v1-56-waivers-faab-strip.spec.js` | V1-56 | The `/waivers` league-FAAB context strip renders the mean/median from the page's **own** `faabAnalytics` fetch (formatting-aware equality, including a measured `$0` median rendered honestly), and a missing/empty analytics payload renders an explicit `—` unavailable state or no strip — never invented zeros. The state the live payload produced is annotated. |
 | `v1-27-lineup-render.spec.js` | V1-27 / C2-U1 §10 item 2 | On the `/` war room, the Portfolio panel's starters list equals the authenticated contract's `sleeper.teams[].optimalLineup` stamp for the displayed team — slot sequence and player set, in the stamp's own order — the split-legend starter count equals the stamp's, unpriced players are excluded from both lists (upper-bound arithmetic when the live stamp has none, annotated rather than faked), and the truth-ladder note is absent iff the stamp came from live `rosterPositions`. On `/rosters`, the "Starters only" scope renders totals with no `starter-slots-unavailable` note exactly when every team is stamped. This is the one item `scripts/verify_lineup_production.py` marks "needs a browser". |
 
+### Screenshot import status (CQ-11)
+
+`screenshot-import-status.spec.js` probes `GET /api/trade/import-screenshot/status`
+with the member session: `available: true` with `reason: null` and a named engine
+version, or `available: false` with a NAMED reason code
+(`tesseract_not_installed`, `tesseract_not_runnable`, ...). The payload must be
+exactly the documented keys with no numbers, and `no-store`. It never uploads an
+image; the upload path's production proof is CQ-12 (owner-only, a member's own
+screenshots). Annotations: HTTP status, booleans and the reason code only.
+
 ### Release train 2 private surfaces
 
 `train2-private-surfaces.spec.js` covers the private routes release train 2

@@ -151,7 +151,17 @@ const BUDGETS_KB = {
   // Today / When traded / aging card copy and the Winners & Losers metric
   // switch.  lib/trade-retro-value.js + the rank-history fetch it needed
   // left the route.  26 = 23.6 + ~10%.
-  "/trades/page": 26,
+  // 26 -> 32 (2026-10-19, CQ-66 source voting transparency): RELOCATION, no
+  // /trades change.  /settings starting to render the shared Source Voting
+  // table (DataTable + ds status primitives) re-split webpack's shared ds
+  // chunk, so Badge / Panel / Skeleton / Banner / Button land in /trades' own
+  // chunk again: 25.0 -> 30.8 KB page chunk, while /trades' page + shared
+  // chunks — everything its page module loads — went 138.2 -> 138.1 KB
+  // (measured from the RSC client manifests of a --webpack build of main vs
+  // this branch).  The table is React.lazy on /settings, which did not
+  // change the split (30.8 KB statically imported or lazy).  32 = 30.8 +
+  // ~4%, the same headroom /trades carried before.
+  "/trades/page": 32,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
   // rebuild's measured size + headroom so the claim desk can't drift
   // unnoticed like it had been.

@@ -31,10 +31,12 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 
 # Measured: deploy.yml "Run unit tests (hard gate — pure logic)", run
 # 37621154868 (2026-10-07) = 3,353 s, and the job around it 41-67 min over the
-# eleven most recent successful deploys.  pr-validation.yml, release-candidate
-# and deploy.yml all budget 80.  60 is the floor below which the full suite is
-# known not to fit; it is not a target.
-FULL_SUITE_MIN_BUDGET_MINUTES = 60
+# eleven most recent successful deploys.  2026-10-19: PR Validation run
+# 39212246131 spent 77:22 in unit tests and was cancelled at an 80-minute wall,
+# so pr-validation.yml, release-candidate and deploy.yml now all budget 120.
+# 80 is the floor below which the full suite is known not to fit; it is not a
+# target.
+FULL_SUITE_MIN_BUDGET_MINUTES = 80
 
 HARD_GATE_COMMAND = 'python -m pytest tests/ -x -q --tb=short -m "not livedata"'
 
@@ -86,7 +88,7 @@ def test_no_job_runs_the_full_suite_under_a_budget_it_cannot_finish_in():
             if budget < FULL_SUITE_MIN_BUDGET_MINUTES:
                 offenders.append(f"{path.name} :: {job_name} (timeout-minutes: {budget})")
     assert not offenders, (
-        "these jobs run the full unit suite (measured ~56 min) under a budget it "
+        "these jobs run the full unit suite (measured ~77 min) under a budget it "
         "cannot finish in, so every run is CANCELLED rather than failed and the "
         "check silently measures nothing:\n  " + "\n  ".join(offenders)
     )

@@ -114,10 +114,13 @@ describe("/trade TC-B multi-team War Room limitation (TCM-G09)", () => {
       { label: "C", assets: ["2027 Round 1"], destinations: {} },
     ]);
     render(<TradePage />);
-    const note = await screen.findByTestId("war-room-multi-team-limit");
-    expect(note.textContent).toMatch(/no YES \/ NO is given for this 3-team trade/);
+    const note = await screen.findByTestId("war-room-multi-team-limit", {}, COLD_LAZY_REVEAL);
+    expect(note.textContent).toMatch(/No YES \/ NO is given for this 3-team trade/);
     expect(note.textContent).not.toMatch(/\b(YES|NO) —/);
-    expect(screen.queryByRole("heading", { name: "Trade War Room" })).toBeNull();
+    // The War Room owns the explanation (owner directive 2026-10-19); it asks
+    // the decision engine nothing and shows no decision.
+    expect(screen.getByRole("heading", { name: "Trade War Room" })).toBeInTheDocument();
+    expect(screen.queryByTestId("decision-headline")).toBeNull();
   });
 
   it("a two-team trade keeps the War Room and shows no limitation", async () => {

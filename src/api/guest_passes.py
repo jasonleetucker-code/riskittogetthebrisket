@@ -28,6 +28,11 @@ Lifecycle:
                     another process (the verification workflow revokes
                     over SSH, not through the server) takes effect on the
                     very next request, whatever the in-memory cache holds
+    session_authority_state(id) → the same question with the unreadable
+                    case kept apart: ``active`` / ``inactive`` /
+                    ``unknown``.  Both ``inactive`` and ``unknown`` refuse
+                    the request; only ``inactive`` (revoked, expired,
+                    unknown/purged id) ends the session for good
     list_passes() → all rows, owner-visible (notes + status, never
                     plaintext tokens)
     purge_expired() → opportunistic GC; called on validate.
@@ -109,8 +114,23 @@ class GuestPass:
 # ── DB helpers ──────────────────────────────────────────────────────
 
 
+#: Seconds a connection waits on another connection's lock before raising
+#: ``database is locked``.  Explicit (it equals ``sqlite3.connect``'s own
+#: default) because ``server._get_auth_session`` reads the pass row on every
+#: guest request, and the CLI / verification workflow mint and revoke from a
+#: different process: the wait is part of the contract, not an accident of a
+#: library default.  A read that still fails is ``unknown`` authority, which
+#: refuses the request without ending the session (``session_authority_state``).
+_BUSY_TIMEOUT_SECONDS = 5.0
+
+
 def _connect(path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path), isolation_level=None, check_same_thread=False)
+    conn = sqlite3.connect(
+        str(path),
+        timeout=_BUSY_TIMEOUT_SECONDS,
+        isolation_level=None,
+        check_same_thread=False,
+    )
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     return conn
@@ -346,22 +366,60 @@ def get(pass_id: int, *, db_path: Path | None = None) -> GuestPass | None:
     return _row_to_pass(row) if row else None
 
 
+#: ``session_authority_state`` answers.  Only ``active`` authenticates.
+AUTHORITY_ACTIVE = "active"
+#: The pass definitively cannot authorize a session: revoked, expired, an id
+#: the store does not hold (never minted, or purged), or an id that is not a
+#: positive integer.  Permanent — the caller ends the session.
+AUTHORITY_INACTIVE = "inactive"
+#: The pass store could not be read (locked past the busy timeout, missing
+#: schema, I/O error).  Says nothing about the pass, so it refuses THIS
+#: request (fail closed) but must not be treated as a revoke: a transient
+#: read error ending the session for good turns a blip into a logout.
+AUTHORITY_UNKNOWN = "unknown"
+
+
+def session_authority_state(pass_id: Any, *, db_path: Path | None = None) -> str:
+    """Whether a session minted from pass ``pass_id`` may authenticate.
+
+    ``active`` only for a pass that EXISTS, is not revoked and has not
+    expired.  ``inactive`` for a pass that definitively cannot: revoked,
+    expired, unknown or purged, or a non-integer / non-positive id.
+    ``unknown`` when the store cannot be read at all — missing authority is
+    not authority, so ``unknown`` refuses exactly like ``inactive``; the two
+    differ only in whether the session may be asked again later.
+    """
+    if isinstance(pass_id, bool) or not isinstance(pass_id, int) or pass_id <= 0:
+        return AUTHORITY_INACTIVE
+    path = db_path or _DEFAULT_DB_PATH
+    # ``get`` folds an unreachable schema into "no such pass"; that is the
+    # wrong answer here, so the setup outcome is asked separately.
+    if not _ensure_setup(path):
+        _LOGGER.warning(
+            "guest_passes session_authority: pass store unavailable (pass id %d)", pass_id
+        )
+        return AUTHORITY_UNKNOWN
+    try:
+        row = get(pass_id, db_path=path)
+    except Exception as exc:  # noqa: BLE001 — unreadable is unknown, never active
+        _LOGGER.warning("guest_passes session_authority read failed (pass id %d): %s", pass_id, exc)
+        return AUTHORITY_UNKNOWN
+    if row is None or not row.is_active:
+        return AUTHORITY_INACTIVE
+    return AUTHORITY_ACTIVE
+
+
 def session_authority(pass_id: Any, *, db_path: Path | None = None) -> bool:
     """May a session minted from pass ``pass_id`` still authenticate?
 
     True only for a pass that EXISTS, is not revoked and has not expired.
     Fails closed on everything else: an unknown or purged pass, a
     non-integer id, an unreadable store.  Missing authority is not
-    authority.
+    authority.  (``session_authority_state`` tells the unreadable case
+    apart; this boolean form is what the verification workflow's revoke
+    step asks over SSH.)
     """
-    if isinstance(pass_id, bool) or not isinstance(pass_id, int) or pass_id <= 0:
-        return False
-    try:
-        row = get(pass_id, db_path=db_path)
-    except Exception as exc:  # noqa: BLE001 — fail closed
-        _LOGGER.warning("guest_passes session_authority read failed: %s", exc)
-        return False
-    return row is not None and row.is_active
+    return session_authority_state(pass_id, db_path=db_path) == AUTHORITY_ACTIVE
 
 
 def read_only_pass_states(

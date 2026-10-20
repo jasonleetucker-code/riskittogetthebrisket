@@ -15,6 +15,7 @@
  */
 export const TRADE_LAZY_MODULES = {
   warRoom: () => import("@/components/trade/TradeWarRoom"),
+  vaComparison: () => import("@/components/trade/ValueAdjustmentComparison"),
   sourceBreakdown: () => import("@/components/trade/TradeSourceBreakdown"),
   rosFit: () => import("@/components/RosTradeFitPanel"),
   bdvm: () => import("@/components/BdvmTradePanel"),

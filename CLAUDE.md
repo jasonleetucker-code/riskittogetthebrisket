@@ -19,6 +19,17 @@
 > rules again when they are already recorded in the repo.
 
 
+## Permanent engineering throughput / routine auto-merge — owner 2026-10-19
+
+The shared policy imported above by `@docs/AGENT_OPERATING_SYSTEM.md`
+(§3) and its Integration mechanics in `ASSISTANT_COORDINATION.md`
+apply to Claude and every other model. Implement independent approved
+features in isolated branches/worktrees with L0/L1, preserve all required
+L2/L3 checks, and let the designated Integration Authority merge qualifying
+green reviewed routine PRs without another owner "merge it" instruction.
+Consequential owner-only and production promotion gates remain binding.
+This is a navigation pointer, not a separate Claude-specific rule.
+
 ## Calculator Premium UI — permanent parallel rule
 
 PSI / Direction A is the permanent design north star. Do not invent styling. Read
@@ -536,7 +547,12 @@ Error behavior on endpoints:
     2026-10-17: with `apply_sleeper_trades` on, an unobserved
     `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
     it) refuses the board with the same `pick_ownership_unavailable` shape
-    instead of serving the workbook's hand-entered ownership.
+    instead of serving the workbook's hand-entered ownership.  Same cache
+    too: the refusal is held for the 300 s TTL and is never answered by the
+    stale-while-revalidate last-valid board (that answers dollars-generation
+    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    pre-fail-closed reader.  Pinned by
+    `tests/api/test_draft_capital_workbook_pick_ownership.py`.
   - **Every owned class is listed — `dynasty_main` only** (owner directive
     2026-10-17; scope corrected by the owner 2026-10-18: `dynasty_main` /
     Risk It to Get the Brisket is the only league in scope, and the $1,200
@@ -946,8 +962,16 @@ The pick stages are NOT in the order this list used to give.  Actual
 live order (corrected 2026-07-29 audit):
 
 12. Synthetic far-future pick derivation (C1-U6, 2026-08-16) — years no
-    vendor publishes (2029 while the active draft is 2026; horizon =
-    current + 3, self-rolling) are derived AT INJECTION
+    vendor publishes, through the horizon, are derived AT INJECTION.  The
+    horizon ENDS three seasons after the latest PROVEN-completed rookie
+    draft (owner decision 2026-10-19; one owner,
+    ``src/identity/pick_lifecycle.py::board_pick_horizon``, stamped as
+    ``pickClassLifecycle.horizon``): 2026 complete → 2027–2029, and 2030
+    arrives only when the 2027 draft is proven complete.  Unproven
+    completion fails closed onto the floor, the class before the active draft
+    year + 3 (``anchor + 2``); only proof that the anchor's own draft
+    completed reaches ``anchor + 3``, so a vendor slot roll cannot add a
+    season on its own.  The derivation itself is unchanged
     (``_inject_far_future_pick_sources``): the nearest published future
     year's tier entries are cloned with every per-source value stepped
     by the **measured vendor year-step** for its (tier, round) cell
