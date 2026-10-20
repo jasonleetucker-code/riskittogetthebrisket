@@ -3432,7 +3432,7 @@ def load_from_disk() -> dict | None:
             str(runtime_path),
             produced_at=runtime_data.get("scrapeTimestamp"),
         )
-        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
+        log.info(f"Loaded cached data from {runtime_path.name} ({runtime_count} players)")
         return runtime_data
 
     if checkout_data is not None:
@@ -10115,6 +10115,7 @@ def _generated_trade_team_context(
     def capacity_for(opp, give, receive):
         if capacity_context is None:
             return None, None
+        from src.trade.forced_drop_selection import board_package
         from src.trade.roster_capacity import (
             assess_roster_capacity,
             forced_drop_cost,
@@ -10126,6 +10127,8 @@ def _generated_trade_team_context(
                 capacity_context,
                 incoming_players=player_names_only(receive),
                 outgoing_players=player_names_only(give),
+                # Flag forced_drop_cheapest_legal only (None when OFF).
+                package=board_package(give, receive),
             )
         except Exception:  # noqa: BLE001 — an annotation never drops an offer
             return None, None

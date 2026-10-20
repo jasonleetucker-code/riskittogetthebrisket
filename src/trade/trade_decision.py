@@ -443,7 +443,22 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     fd = feasibility.detail or {}
     release = fd.get("forcedDropReleaseCost")
     charged = None
-    if (
+    if "forcedDropCharge" in fd:
+        # Flag ``forced_drop_cheapest_legal``: the ONE charge the roster-capacity
+        # owner publishes (``roster_capacity.forced_drop_cost``) — the same
+        # number the Trade Finder ranks on.  Marginal to the trade, unpriced
+        # drops charged, an acquired release already netted out of the package.
+        # Absent when the flag is OFF, so the incumbent branch below is
+        # unchanged.
+        c = fd.get("forcedDropCharge")
+        if (
+            feasibility.available
+            and isinstance(c, (int, float))
+            and not isinstance(c, bool)
+            and c > 0
+        ):
+            charged = float(c)
+    elif (
         feasibility.available
         and fd.get("state") == "cut_required"
         and fd.get("overLimitBefore") == 0

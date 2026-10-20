@@ -108,6 +108,7 @@ from src.draft.displacement import (
 )
 from src.roster_intel import pool_cut_ladder, simulate_roster_change
 from src.ros.lineup import RosterPlayer
+from src.trade import forced_drop_selection as fds
 
 __all__ = [
     "CapacityContext",
@@ -248,9 +249,15 @@ class ForcedDrop:
     #: real signal, and suppressing it would make the cheapest legal path
     #: invisible.
     acquired_in_trade: bool = False
+    #: Flag ``forced_drop_cheapest_legal`` only (``None`` and unpublished when
+    #: OFF): how ``release_cost`` was charged — ``release_cost`` (``base x
+    #: scarcity``), ``package_credit_forgone`` (a just-acquired piece removed
+    #: from the package, charged the credit the package gave it) or
+    #: ``release_cost_no_package`` (acquired, but the caller held no package).
+    charge_basis: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "playerId": self.player_id,
             "name": self.name,
             "position": self.position,
@@ -264,6 +271,9 @@ class ForcedDrop:
             "acquiredInTrade": self.acquired_in_trade,
             "valueScale": "rankDerivedValue",
         }
+        if self.charge_basis is not None:
+            out["chargeBasis"] = self.charge_basis
+        return out
 
 
 @dataclass(frozen=True)
@@ -321,6 +331,16 @@ class RosterCapacity:
     #: mean opposite things.
     ladder_exhausted: bool = False
     notes: list[str] = field(default_factory=list)
+    #: Flag ``forced_drop_cheapest_legal`` only — ``None`` (and nothing below
+    #: published) when OFF.  The selection rule that chose ``forced_drops``.
+    selection_rule: str | None = None
+    #: Whether the just-acquired releases were removed from the trade's
+    #: package (the caller supplied it) rather than charged their raw value.
+    package_applied: bool | None = None
+    #: Cost of the cheapest legal cleanup the PRE-trade roster already owes
+    #: (an over-limit roster); the trade is charged only what it adds.
+    pre_trade_cleanup_cost: float | None = None
+    pre_trade_cleanup_exhausted: bool = False
 
     @property
     def requires_drops(self) -> bool | None:
@@ -387,6 +407,29 @@ class RosterCapacity:
             "ladderExhausted": self.ladder_exhausted,
             "notes": list(self.notes),
             "valueScale": "rankDerivedValue",
+        } | self._selection_dict()
+
+    def _selection_dict(self) -> dict[str, Any]:
+        """The flag-ON fields; empty (so the payload is unchanged) when OFF."""
+        if self.selection_rule is None:
+            return {}
+        cost, basis = forced_drop_cost(self)
+        return {
+            # THE charge every consumer reads (War Room objective, Trade
+            # Finder re-rank, decision engine): one function, one number.
+            "forcedDropCharge": None if cost is None else round(cost, 1),
+            "forcedDropChargeBasis": basis,
+            "forcedDropSelection": {
+                "rule": self.selection_rule,
+                "flag": fds.FLAG,
+                "packageApplied": self.package_applied,
+                "preTradeCleanupCost": (
+                    None
+                    if self.pre_trade_cleanup_cost is None
+                    else round(self.pre_trade_cleanup_cost, 1)
+                ),
+                "chargeUnit": "rankDerivedValue x scarcity (package credit for an acquired piece)",
+            },
         }
 
 
@@ -652,6 +695,8 @@ def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, 
       Unpriced drops and an exhausted ladder likewise make it a lower bound;
       ``basis`` says so.
     """
+    if capacity.selection_rule is not None:
+        return _selected_forced_drop_cost(capacity)
     requires = capacity.requires_drops
     if requires is None:
         return None, {"state": "unknown", "reason": "drop_requirement_undetermined"}
@@ -697,6 +742,73 @@ def forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, 
     }
     if lower_bound_reasons:
         basis["lowerBoundReasons"] = lower_bound_reasons
+    return cost, basis
+
+
+def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, dict[str, Any]]:
+    """:func:`forced_drop_cost` under flag ``forced_drop_cheapest_legal``.
+
+    Same vocabulary (``unknown`` / ``none`` / ``exact`` / ``lower_bound``) so
+    every consumer reads it unchanged; two rules change:
+
+    * an unpriced drop is CHARGED at its ``assumedWaiver`` release cost and
+      counted (``assumedWaiverDrops``) — never excluded as zero;
+    * marginal = ``cost(post-trade cleanup) - cost(pre-trade cleanup)``, so an
+      over-limit roster is charged only what the trade adds (the incumbent's
+      "most expensive ``added`` rungs" approximates this on a fixed ladder).
+    """
+    requires = capacity.requires_drops
+    common: dict[str, Any] = {"rule": capacity.selection_rule}
+    if requires is None:
+        return None, {"state": "unknown", "reason": "drop_requirement_undetermined", **common}
+    if requires is False:
+        return 0.0, {"state": "none", **common}
+    assumed = sum(
+        1
+        for d in capacity.forced_drops
+        if d.value_basis == "assumedWaiver" and d.charge_basis != fds.CHARGE_PACKAGE
+    )
+    credit = sum(
+        d.release_cost for d in capacity.forced_drops if d.charge_basis == fds.CHARGE_PACKAGE
+    )
+    lower: list[str] = []
+    if capacity.certainty != "exact":
+        over = capacity.over_limit_after_min
+        if over is None:
+            return None, {"state": "unknown", "reason": "overage_undetermined", **common}
+        growth = max(0, capacity.size_after - capacity.size_before)
+        added = min(over, growth)
+        if added == 0:
+            return 0.0, {"state": "none", "reason": "trade_adds_no_release", **common}
+        charged = sorted(capacity.forced_drops, key=lambda d: (d.release_cost, d.player_id))[:added]
+        lower.append("taxi_occupancy_unknown_guaranteed_drops_only")
+        if len(charged) < added:
+            lower.append("fewer_drops_modelled_than_added")
+        cost = float(sum(d.release_cost for d in charged))
+    else:
+        total = float(sum(d.release_cost for d in capacity.forced_drops))
+        pre = float(capacity.pre_trade_cleanup_cost or 0.0)
+        cost = max(0.0, total - pre)
+        if cost <= 0.0:
+            return 0.0, {"state": "none", "reason": "trade_adds_no_release_cost", **common}
+        if capacity.pre_trade_cleanup_exhausted:
+            common["preTradeCleanupExhausted"] = True
+    if capacity.ladder_exhausted:
+        lower.append("cut_ladder_exhausted")
+    basis: dict[str, Any] = {
+        "state": "lower_bound" if lower else "exact",
+        "addedReleases": max(
+            0, (capacity.over_limit_after_max or 0) - (capacity.over_limit_before or 0)
+        ),
+        "valueScale": (
+            "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+        ),
+        "assumedWaiverDrops": assumed,
+        "packageCreditForgone": round(credit, 1),
+        **common,
+    }
+    if lower:
+        basis["lowerBoundReasons"] = lower
     return cost, basis
 
 
@@ -1120,6 +1232,7 @@ def assess_roster_capacity(
     *,
     incoming_players: Sequence[str] = (),
     outgoing_players: Sequence[str] = (),
+    package: fds.PackageSides | None = None,
 ) -> RosterCapacity:
     """What this trade does to this roster's legality.
 
@@ -1128,7 +1241,12 @@ def assess_roster_capacity(
 
     Counts come from the names, not from what resolved: an unjoinable player
     still takes a spot.
+
+    ``package`` (the trade's package from this team's side) is read only under
+    flag ``forced_drop_cheapest_legal``; OFF ignores it entirely.
     """
+    selecting = fds.enabled()
+    rule = fds.RULE_ID if selecting else None
     incoming = [str(n) for n in incoming_players if str(n or "").strip()]
     outgoing = [str(n) for n in outgoing_players if str(n or "").strip()]
     notes = list(context.notes)
@@ -1159,6 +1277,7 @@ def assess_roster_capacity(
             certainty="partial",
             outgoing_not_on_roster=unheld_out,
             notes=notes,
+            selection_rule=rule,
         )
 
     # ── Taxi bracket ─────────────────────────────────────────────────
@@ -1215,6 +1334,7 @@ def assess_roster_capacity(
             forced_drop_value=0.0,
             forced_drop_cut_cost=0.0,
             notes=notes,
+            selection_rule=rule,
         )
 
     # ── The post-trade roster, which is what the ladder must be built on ──
@@ -1235,6 +1355,19 @@ def assess_roster_capacity(
         asset = _resolve_incoming(name, context.by_name)
         acquired_keys.add(_asset_key(asset))
         surviving.append(asset)
+
+    if selecting:
+        return _assess_selected(
+            context,
+            surviving=surviving,
+            incoming=incoming,
+            package=package,
+            notes=notes,
+            counts=(size_before, size_after, len(outgoing), unheld_out, limit, open_before),
+            certainty=certainty,
+            taxi=(taxi_lo, taxi_hi),
+            over=(over_before, over_after, over_after_min, over_after_max),
+        )
 
     # Only as deep as this trade actually needs.  ``build_cut_ladder``
     # defaults to 30 rungs and re-solves the lineup for each one, so asking
@@ -1346,6 +1479,117 @@ def assess_roster_capacity(
         unpriced_forced_drops=sum(1 for d in drops if d.value is None),
         ladder_exhausted=exhausted,
         notes=notes,
+    )
+
+
+def _assess_selected(
+    context: CapacityContext,
+    *,
+    surviving: list[RosterAsset],
+    incoming: list[str],
+    package: fds.PackageSides | None,
+    notes: list[str],
+    counts: tuple[int, int, int, int, int, int],
+    certainty: str,
+    taxi: tuple[int, int],
+    over: tuple[int, int | None, int, int],
+) -> RosterCapacity:
+    """The over-limit branch of :func:`assess_roster_capacity` under flag
+    ``forced_drop_cheapest_legal``.  Counts, the taxi bracket and the notes are
+    the incumbent's; only WHO is released and WHAT that is charged come from
+    ``forced_drop_selection``."""
+    size_before, size_after, n_outgoing, unheld_out, limit, open_before = counts
+    over_before, over_after, over_after_min, over_after_max = over
+    n_existing = len(surviving) - len(incoming)
+    existing, arrivals = surviving[:n_existing], surviving[n_existing:]
+    common: dict[str, Any] = dict(
+        starter_slots=list(context.starter_slots),
+        waiver_values=context.waiver_values,
+        scarcity=context.scarcity,
+        slot_eligibility=context.slot_eligibility,
+    )
+    if not context.starter_slots:
+        notes.append(
+            "no starter slots configured for this league — cut ladder built "
+            "without a lineup-feasibility guard"
+        )
+    sel = fds.select_forced_drops(
+        existing,
+        arrivals,
+        incoming,
+        drops_needed=over_after_max,
+        package=package,
+        **common,
+    )
+    notes.extend(sel.notes)
+    drops = [
+        ForcedDrop(
+            player_id=s.asset.player_id,
+            name=s.asset.name,
+            position=s.asset.position,
+            value=s.asset.board_value,
+            effective_cut_cost=s.ecc,
+            release_cost=s.charge,
+            waiver_value=float(s.waiver),
+            scarcity_multiplier=float(s.mult),
+            value_basis=s.value_basis,
+            rung=i + 1,
+            acquired_in_trade=s.acquired,
+            charge_basis=s.charge_basis,
+        )
+        for i, s in enumerate(sel.drops)
+    ]
+    if sel.exhausted:
+        notes.append(
+            f"cut ladder offers {len(drops)} release(s) but {over_after_max} are needed — "
+            "every remaining player is required to fill a starting slot, so no legal "
+            "path back to roster size was modelled"
+        )
+
+    # What the roster owed BEFORE the trade (an over-limit roster): the trade is
+    # charged only the difference (``_selected_forced_drop_cost``).
+    pre_cost: float | None = None
+    pre_exhausted = False
+    if over_before > 0 and certainty == "exact":
+        roster_before = [
+            context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
+            for n in context.roster_player_names
+        ]
+        pre_cost, pre_exhausted = fds.cleanup_cost(roster_before, over_before, **common)
+
+    priced = [d.value for d in drops if d.value is not None]
+    taxi_lo, taxi_hi = taxi
+    return RosterCapacity(
+        roster_limit=limit,
+        taxi_size=context.taxi_size,
+        size_before=size_before,
+        size_after=size_after,
+        incoming=len(incoming),
+        outgoing=n_outgoing,
+        open_spots_before=open_before,
+        open_spots_after=0 if certainty == "exact" else None,
+        over_limit_before=over_before,
+        over_limit_after=over_after,
+        certainty=certainty,
+        outgoing_not_on_roster=unheld_out,
+        over_limit_after_min=over_after_min,
+        over_limit_after_max=over_after_max,
+        taxi_occupied_min=taxi_lo,
+        taxi_occupied_max=taxi_hi,
+        forced_drops=drops,
+        forced_drop_value=float(sum(priced)) if priced else 0.0,
+        forced_drop_cut_cost=float(sum(d.effective_cut_cost for d in drops)),
+        forced_drop_release_cost=float(sum(d.release_cost for d in drops)),
+        # Drops are in charge order by construction; the incumbent's "rung
+        # order carried no priority" condition cannot arise.
+        rung_order_was_tied=False,
+        unpriced_forced_drops=sum(1 for d in drops if d.value is None),
+        ladder_exhausted=sel.exhausted,
+        notes=notes,
+        selection_rule=fds.RULE_ID,
+        package_applied=sel.package_applied,
+        pre_trade_cleanup_cost=pre_cost,
+        pre_trade_cleanup_exhausted=pre_exhausted,
     )
 
 
